@@ -14,10 +14,11 @@ import { Note as TonalNote } from "@tonaljs/tonal";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { createPlayStyleEngine, PLAY_STYLE_OPTIONS, PLAY_MODE_OPTIONS, PLAY_STYLE_SCHEDULING_LEAD_MS, playModeValue, type PlayStyle, type PlayStyleRate } from "@/services/playStyles";
 import { audioTimeToOutputTime, LIVE_AUDIO_SCHEDULING_LEAD_MS } from "@/services/liveAudioTiming";
-import { createLiveAudioClock, type LiveClockBoundary } from "@/services/liveAudioClock";
-import { getLivePlayback, subscribeLivePlayback } from "@/services/livePlayback";
+import { createLiveAudioClock } from "@/services/liveAudioClock";
+import { getLivePlayback } from "@/services/livePlayback";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
-import type { LiveVoiceEvent, LiveWorklet } from "@/audio/live/types";
+import type { LiveVoiceEvent } from "@/audio/liveRenderer";
+import { createLivePerformance } from "@/services/livePerformance";
 import { getLiveArticulation } from "@/services/liveArticulation";
 import {
   createScheduledLiveVoice,
@@ -123,7 +124,7 @@ export const useMusicStore = defineStore(
     let generatedCounter = 0;
     const heldAliases = new Map<string, string>();
     const heldOwners = new Set<string>();
-    const liveAudioClock = createLiveAudioClock(superdoughAudio.getAudioContext, { onSuspend: boundary => { clearLiveInputs(); closeWorkletLifecycle(boundary); } });
+    const liveAudioClock = createLiveAudioClock(superdoughAudio.getAudioContext, { onSuspend: boundary => { clearLiveInputs(); livePerformance.close(boundary); } });
     const now = liveAudioClock.now;
     // Presentation only: recording and MIDI keep their existing event clock.
     function audibleTime(timestamp = Date.now()) {
@@ -131,18 +132,7 @@ export const useMusicStore = defineStore(
       return audioTimeToOutputTime(context, context.currentTime + (timestamp - Date.now()) / 1000);
     }
 
-    const workletOwners = new Map<string, { held: HeldPitch; engine: LiveWorklet }>();
-    const workletActive = new Map<string, LiveVoiceEvent>();
-    const workletPlans = new Map<string, LiveVoiceEvent>();
-    // A lookahead plan has already submitted MIDI; its eventual audio event
-    // only confirms recording/presentation lifecycle, even after a UI stall.
-    const workletMirrored = new Map<string, LiveVoiceEvent>();
-    const workletEventKey = (event: LiveVoiceEvent) => `${event.noteId}:${event.phase}`;
-    const sameWorkletEvent = (a: LiveVoiceEvent | undefined, b: LiveVoiceEvent) => a?.at === b.at && a.pitch === b.pitch
-      && a.instrumentId === b.instrumentId && a.ownerId === b.ownerId && a.style === b.style;
-    function workletDetail(event: LiveVoiceEvent) {
-      const held = workletOwners.get(event.ownerId)?.held;
-      if (!held) return null;
+    function liveDetail(event: LiveVoiceEvent, held: HeldPitch) {
       return {
         ...held.snapshot, noteId: event.noteId, note: held.snapshot.solfege,
         isBorrowed: held.snapshot.solfegeIndex === -1,
@@ -152,98 +142,33 @@ export const useMusicStore = defineStore(
         audibleAt: audioTimeToOutputTime(superdoughAudio.getAudioContext(), event.at),
       };
     }
-    function mirrorWorklet(event: LiveVoiceEvent, phase: "attack" | "release" | "cancel" = event.phase) {
-      const detail = workletDetail(event);
-      if (detail) window.dispatchEvent(new CustomEvent(SCHEDULED_LIVE_MIDI_EVENT, {
-        detail: { ...detail, phase },
-      }));
-    }
-    function submitWorkletMidi(event: LiveVoiceEvent) {
-      if (sameWorkletEvent(workletMirrored.get(workletEventKey(event)), event)) return;
-      mirrorWorklet(event);
-      workletMirrored.set(workletEventKey(event), event);
-    }
-    function cancelWorkletMidi(event: LiveVoiceEvent, at = superdoughAudio.getAudioContext().currentTime) {
-      mirrorWorklet({ ...event, at }, "cancel");
-      workletMirrored.delete(`${event.noteId}:attack`);
-      workletMirrored.delete(`${event.noteId}:release`);
-    }
-    const unsubscribeWorklet = subscribeLivePlayback({
-      onEvent(event) {
-        const detail = workletDetail(event);
-        if (!detail) return;
-        submitWorkletMidi(event);
-        workletPlans.delete(`${event.noteId}:${event.phase}`);
+    const livePerformance = createLivePerformance<HeldPitch>({
+      now: () => superdoughAudio.getAudioContext().currentTime,
+      onMirror(event, held, phase) {
+        window.dispatchEvent(new CustomEvent(SCHEDULED_LIVE_MIDI_EVENT, {
+          detail: { ...liveDetail(event, held), phase },
+        }));
+      },
+      onEvent(event, held, boundary) {
+        const detail = liveDetail(event, held);
         if (event.phase === "attack") {
-          workletActive.set(event.noteId, event);
-          activeNotes.value.set(event.noteId, { ...workletOwners.get(event.ownerId)!.held.snapshot,
+          activeNotes.value.set(event.noteId, { ...held.snapshot,
             noteId: event.noteId, audibleAt: detail.audibleAt });
-        } else {
-          workletActive.delete(event.noteId);
-          workletMirrored.delete(`${event.noteId}:attack`);
-          workletMirrored.delete(`${event.noteId}:release`);
-          activeNotes.value.delete(event.noteId);
-        }
+        } else activeNotes.value.delete(event.noteId);
         currentNote.value = activeNotes.value.values().next().value?.solfege.name ?? null;
         isPlaying.value = activeNotes.value.size > 0;
         window.dispatchEvent(new CustomEvent(event.phase === "attack" ? "note-played" : "note-released", {
-          detail: { ...detail, note: event.phase === "attack" ? detail.note : detail.note.name, mirrorMidi: false },
-        }));
-      },
-      onPlan(events) {
-        const next = new Map(events.filter(event => workletOwners.has(event.ownerId))
-          .map(event => [`${event.noteId}:${event.phase}`, event]));
-        for (const [id, old] of workletPlans) {
-          // One FIFO port delivers elapsed lifecycle before its new snapshot;
-          // a missing attack that is still inactive therefore was cancelled.
-          if (old.phase === "attack" && !workletActive.has(old.noteId) && (!next.has(id) || !sameWorkletEvent(old, next.get(id)!))) {
-            cancelWorkletMidi(old);
-          }
-        }
-        for (const event of next.values()) submitWorkletMidi(event);
-        workletPlans.clear();
-        next.forEach((event, id) => workletPlans.set(id, event));
-      },
-      onOwnerEnded(ownerId) {
-        workletOwners.delete(ownerId);
-        for (const [id, event] of workletMirrored) if (event.ownerId === ownerId) workletMirrored.delete(id);
-      },
-      onError(error) {
-        closeWorkletLifecycle();
-        console.error("[Live Audio] Processor failed", error);
-      },
-    });
-
-    function closeWorkletLifecycle(boundary?: LiveClockBoundary) {
-      const at = boundary?.audioTime ?? superdoughAudio.getAudioContext().currentTime;
-      const cancelled = new Set<string>();
-      for (const event of [...workletPlans.values(), ...workletActive.values()]) {
-        if (!cancelled.has(event.noteId)) cancelWorkletMidi(event, at);
-        cancelled.add(event.noteId);
-      }
-      for (const [noteId, event] of workletActive) {
-        const ended = { ...event, phase: "release" as const, at };
-        const detail = workletDetail(ended);
-        if (detail) window.dispatchEvent(new CustomEvent("note-released", {
-          detail: { ...detail, note: detail.note.name, mirrorMidi: false,
+          detail: { ...detail, note: event.phase === "attack" ? detail.note : detail.note.name, mirrorMidi: false,
             ...(boundary ? { timestamp: boundary.epochTime, midiTimestamp: boundary.performanceTime } : {}),
           },
         }));
-        activeNotes.value.delete(noteId);
-      }
-      workletActive.clear();
-      workletPlans.clear();
-      workletMirrored.clear();
-      for (const owner of workletOwners.keys()) {
+      },
+      onOwnerClosed(owner) {
         heldOwners.delete(owner);
-        for (const [alias, aliasedOwner] of heldAliases) {
-          if (aliasedOwner === owner) heldAliases.delete(alias);
-        }
-      }
-      workletOwners.clear();
-      currentNote.value = activeNotes.value.values().next().value?.solfege.name ?? null;
-      isPlaying.value = activeNotes.value.size > 0;
-    }
+        for (const [alias, aliasedOwner] of heldAliases) if (aliasedOwner === owner) heldAliases.delete(alias);
+      },
+      onError(error) { console.error("[Live Audio] Renderer failed", error); },
+    });
 
     const playEngine = createPlayStyleEngine<HeldPitch>({
       now,
@@ -339,9 +264,7 @@ export const useMusicStore = defineStore(
 
     function clearLiveInputs() {
       playEngine.clear();
-      for (const [owner, entry] of workletOwners) {
-        if (heldOwners.has(owner)) entry.engine.release(owner);
-      }
+      livePerformance.releaseAll();
       heldAliases.clear();
       heldOwners.clear();
     }
@@ -368,7 +291,7 @@ export const useMusicStore = defineStore(
 
     function configureEngines(config: { style: PlayStyle; rate: PlayStyleRate; bpm: number }) {
       playEngine.configure(config);
-      new Set([...workletOwners.values()].map(entry => entry.engine)).forEach(engine => engine.configure(config));
+      livePerformance.configure(config);
     }
 
     watch([playStyle, playRate, () => visualConfigStore.config.codeStrip.bpm], ([style, rate, bpm]) => {
@@ -384,8 +307,7 @@ export const useMusicStore = defineStore(
     document.addEventListener("visibilitychange", onHidden);
     onScopeDispose(() => {
       clearLiveInputs();
-      closeWorkletLifecycle();
-      unsubscribeWorklet();
+      livePerformance.dispose();
       liveAudioClock.dispose();
       window.removeEventListener("blur", clearLiveInputs);
       document.removeEventListener("visibilitychange", onHidden);
@@ -422,16 +344,15 @@ export const useMusicStore = defineStore(
       };
       held.firstAttack = (cancelled) => attackPreparedPitch(held.snapshot, held.instrument, exactInput, cancelled);
       heldOwners.add(owner);
-      const worklet = getLivePlayback(held.instrument);
-      if (worklet) {
+      const renderer = getLivePlayback(held.instrument);
+      if (renderer) {
         // No await, state notification, or sample preparation before the audio command.
         const context = superdoughAudio.getAudioContext();
         if (context.state === "suspended") void context.resume().catch(error => console.error("[Live Audio] Resume failed", error));
         liveAudioClock.now();
-        workletOwners.set(owner, { held, engine: worklet });
         heldAliases.set(owner, owner);
-        worklet.configure({ style: playStyle.value, rate: playRate.value, bpm: visualConfigStore.config.codeStrip.bpm });
-        worklet.press(owner, [{ pitch: tonal.midi, instrumentId: resolveLiveSoundName(held.instrument) }]);
+        livePerformance.press(owner, [{ pitch: tonal.midi, instrumentId: resolveLiveSoundName(held.instrument) }], held, renderer,
+          { style: playStyle.value, rate: playRate.value, bpm: visualConfigStore.config.codeStrip.bpm });
         return owner;
       }
       playEngine.press(owner, [{ pitch: tonal.midi, value: held }]);
@@ -843,9 +764,7 @@ export const useMusicStore = defineStore(
       if (owner) {
         heldAliases.delete(noteId);
         heldOwners.delete(owner);
-        const worklet = workletOwners.get(owner);
-        if (worklet) worklet.engine.release(owner);
-        else playEngine.release(owner);
+        if (!livePerformance.release(owner)) playEngine.release(owner);
         return;
       }
       return releaseSoundingNote(noteId);
@@ -853,7 +772,7 @@ export const useMusicStore = defineStore(
 
     async function releaseSoundingNote(noteId?: string) {
       // Late releases from cancelled owners must never release other inputs.
-      if (noteId && workletActive.has(noteId)) return;
+      if (noteId && livePerformance.isActive(noteId)) return;
       if (noteId && !activeNotes.value.has(noteId)) return;
       if (noteId && activeNotes.value.has(noteId)) {
         // Release specific note
@@ -895,7 +814,7 @@ export const useMusicStore = defineStore(
         }
       } else {
         // Release all notes (legacy behavior)
-        const allActiveNotes = Array.from(activeNotes.value.values()).filter(note => !workletActive.has(note.noteId));
+        const allActiveNotes = Array.from(activeNotes.value.values()).filter(note => !livePerformance.isActive(note.noteId));
         superdoughAudio.releaseAll();
 
         // Dispatch events for all released notes

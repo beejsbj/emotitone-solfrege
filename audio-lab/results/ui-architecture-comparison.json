@@ -1,0 +1,319 @@
+{
+  "sourcesMatch": true,
+  "dependencyMatches": true,
+  "scope": "Three software trials per matched condition; render-quantized AudioContext timestamps, no physical-device latency claim. Long-stall native discontinuity is retained explicitly.",
+  "inputs": [
+    {
+      "condition": "together/touch/idle",
+      "native": {
+        "count": 3,
+        "median": 5.578231292517444,
+        "min": 5.578231292517444,
+        "max": 5.578231292517444
+      },
+      "worklet": {
+        "count": 3,
+        "median": 14.285714285714235,
+        "min": 5.578231292517444,
+        "max": 17.188208616779832
+      }
+    },
+    {
+      "condition": "together/touch/haptic-25ms",
+      "native": {
+        "count": 3,
+        "median": 5.578231292517444,
+        "min": 5.578231292513891,
+        "max": 14.285714285716011
+      },
+      "worklet": {
+        "count": 3,
+        "median": 14.285714285712459,
+        "min": 5.578231292517444,
+        "max": 17.188208616779832
+      }
+    },
+    {
+      "condition": "together/keyboard/idle",
+      "native": {
+        "count": 3,
+        "median": 5.578231292517444,
+        "min": 5.578231292517444,
+        "max": 5.578231292517444
+      },
+      "worklet": {
+        "count": 3,
+        "median": 5.578231292517444,
+        "min": 5.578231292517444,
+        "max": 14.285714285712459
+      }
+    },
+    {
+      "condition": "repeat:16/touch/idle",
+      "native": {
+        "count": 3,
+        "median": 5.578231292517444,
+        "min": 5.578231292517444,
+        "max": 5.578231292517444
+      },
+      "worklet": {
+        "count": 3,
+        "median": 5.578231292517444,
+        "min": 5.578231292517444,
+        "max": 5.578231292517444
+      }
+    },
+    {
+      "condition": "repeat:16/touch/haptic-25ms",
+      "native": {
+        "count": 3,
+        "median": 5.578231292517444,
+        "min": 5.578231292517444,
+        "max": 5.578231292517444
+      },
+      "worklet": {
+        "count": 3,
+        "median": 5.578231292517444,
+        "min": 5.578231292517444,
+        "max": 17.188208616779832
+      }
+    },
+    {
+      "condition": "repeat:16/keyboard/idle",
+      "native": {
+        "count": 3,
+        "median": 5.578231292517444,
+        "min": 5.578231292517444,
+        "max": 5.578231292517444
+      },
+      "worklet": {
+        "count": 3,
+        "median": 5.578231292517444,
+        "min": 5.578231292510338,
+        "max": 5.578231292517444
+      }
+    }
+  ],
+  "native": {
+    "revision": "275f6a1a965ef871989e48b79e1ebb6447ccd41e",
+    "backend": {
+      "backend": "native-web-audio",
+      "requestedBackend": "native",
+      "reason": null,
+      "installedBanks": 1,
+      "installedPcmBytes": 144462704,
+      "additionalPcmBytes": 0,
+      "lookaheadMs": 400,
+      "preparationLeadMs": 0
+    },
+    "originalPcmBytes": 144462704,
+    "contexts": 1,
+    "checks": [
+      {
+        "name": "Application source remained unchanged during capture",
+        "passed": true
+      },
+      {
+        "name": "Normal application creates exactly one AudioContext",
+        "passed": true
+      },
+      {
+        "name": "Requested prepared backend and expected PCM ownership",
+        "passed": true
+      },
+      {
+        "name": "Actual CodeStrip text edit, Play, live Ctrl+Enter edit, common master mute/restore, Stop",
+        "passed": true
+      },
+      {
+        "name": "One mounted application pattern transport",
+        "passed": true
+      },
+      {
+        "name": "Actual trusted KeyA, real UI repeat sixteenths at 60 BPM, 300ms main-thread stall",
+        "passed": false
+      },
+      {
+        "name": "Actual trusted KeyA, real UI repeat sixteenths at 60 BPM, 650ms main-thread stall",
+        "passed": true
+      },
+      {
+        "name": "Actual KeyA release before next queued sixteenth cancels future sound",
+        "passed": true
+      },
+      {
+        "name": "Direct production live manager, same prepared piano: 500 attacks in 20 batches with 20ms timer gaps, release all; this case bypasses UI",
+        "passed": true
+      },
+      {
+        "name": "All inputs are trusted real browser events",
+        "passed": true
+      },
+      {
+        "name": "Every trial produces captured audio",
+        "passed": true
+      },
+      {
+        "name": "Actual piano retains two distinct audible stereo channels",
+        "passed": true
+      },
+      {
+        "name": "Previous voice tails do not contaminate trial starts",
+        "passed": true
+      }
+    ],
+    "stress": [
+      {
+        "scenario": "Actual trusted KeyA, real UI repeat sixteenths at 60 BPM, 300ms main-thread stall",
+        "stallDurationMs": 300,
+        "detectedFirst3s": 11,
+        "expectedFirst3s": 12,
+        "maxIntervalDeviationMs": 250,
+        "requiredContinuity": true,
+        "onsets": 11,
+        "finitePcm": true,
+        "final100msPeak": 0
+      },
+      {
+        "scenario": "Actual trusted KeyA, real UI repeat sixteenths at 60 BPM, 650ms main-thread stall",
+        "stallDurationMs": 650,
+        "detectedFirst3s": 8,
+        "expectedFirst3s": 12,
+        "maxIntervalDeviationMs": 750,
+        "requiredContinuity": false,
+        "onsets": 9,
+        "finitePcm": true,
+        "final100msPeak": 0
+      },
+      {
+        "scenario": "Actual KeyA release before next queued sixteenth cancels future sound",
+        "expectedOnsets": 1,
+        "onsets": 1,
+        "finitePcm": true,
+        "final100msPeak": 0
+      },
+      {
+        "scenario": "Direct production live manager, same prepared piano: 500 attacks in 20 batches with 20ms timer gaps, release all; this case bypasses UI",
+        "onsets": 1,
+        "finitePcm": true,
+        "final100msPeak": 0,
+        "capacitySummary": {
+          "max": 0.2141334145598538,
+          "mean": 0.11886572049199183,
+          "maxThreeSampleMean": 0.18783786802545221
+        }
+      }
+    ]
+  },
+  "worklet": {
+    "revision": "275f6a1a965ef871989e48b79e1ebb6447ccd41e",
+    "backend": {
+      "backend": "audio-worklet",
+      "requestedBackend": "worklet",
+      "reason": null,
+      "installedBanks": 1,
+      "installedPcmBytes": 145147392,
+      "additionalPcmBytes": 145147392,
+      "lookaheadMs": null,
+      "preparationLeadMs": 0
+    },
+    "originalPcmBytes": 144462704,
+    "contexts": 1,
+    "checks": [
+      {
+        "name": "Application source remained unchanged during capture",
+        "passed": true
+      },
+      {
+        "name": "Normal application creates exactly one AudioContext",
+        "passed": true
+      },
+      {
+        "name": "Requested prepared backend and expected PCM ownership",
+        "passed": true
+      },
+      {
+        "name": "Actual CodeStrip text edit, Play, live Ctrl+Enter edit, common master mute/restore, Stop",
+        "passed": true
+      },
+      {
+        "name": "One mounted application pattern transport",
+        "passed": true
+      },
+      {
+        "name": "Actual trusted KeyA, real UI repeat sixteenths at 60 BPM, 300ms main-thread stall",
+        "passed": true
+      },
+      {
+        "name": "Actual trusted KeyA, real UI repeat sixteenths at 60 BPM, 650ms main-thread stall",
+        "passed": true
+      },
+      {
+        "name": "Actual KeyA release before next queued sixteenth cancels future sound",
+        "passed": true
+      },
+      {
+        "name": "Direct production live manager, same prepared piano: 500 attacks in 20 batches with 20ms timer gaps, release all; this case bypasses UI",
+        "passed": true
+      },
+      {
+        "name": "All inputs are trusted real browser events",
+        "passed": true
+      },
+      {
+        "name": "Every trial produces captured audio",
+        "passed": true
+      },
+      {
+        "name": "Actual piano retains two distinct audible stereo channels",
+        "passed": true
+      },
+      {
+        "name": "Previous voice tails do not contaminate trial starts",
+        "passed": true
+      }
+    ],
+    "stress": [
+      {
+        "scenario": "Actual trusted KeyA, real UI repeat sixteenths at 60 BPM, 300ms main-thread stall",
+        "stallDurationMs": 300,
+        "detectedFirst3s": 12,
+        "expectedFirst3s": 12,
+        "maxIntervalDeviationMs": 0,
+        "requiredContinuity": true,
+        "onsets": 13,
+        "finitePcm": true,
+        "final100msPeak": 0
+      },
+      {
+        "scenario": "Actual trusted KeyA, real UI repeat sixteenths at 60 BPM, 650ms main-thread stall",
+        "stallDurationMs": 650,
+        "detectedFirst3s": 12,
+        "expectedFirst3s": 12,
+        "maxIntervalDeviationMs": 0,
+        "requiredContinuity": true,
+        "onsets": 14,
+        "finitePcm": true,
+        "final100msPeak": 0
+      },
+      {
+        "scenario": "Actual KeyA release before next queued sixteenth cancels future sound",
+        "expectedOnsets": 1,
+        "onsets": 1,
+        "finitePcm": true,
+        "final100msPeak": 0
+      },
+      {
+        "scenario": "Direct production live manager, same prepared piano: 500 attacks in 20 batches with 20ms timer gaps, release all; this case bypasses UI",
+        "onsets": 1,
+        "finitePcm": true,
+        "final100msPeak": 0,
+        "capacitySummary": {
+          "max": 0.3589328251548356,
+          "mean": 0.1726987728834233,
+          "maxThreeSampleMean": 0.28189402060203766
+        }
+      }
+    ]
+  }
+}

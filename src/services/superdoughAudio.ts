@@ -1,13 +1,13 @@
 /**
  * superdoughAudio.ts
- * Live note playback via superdough — replaces Tone.js PolySynth/Sampler
- * for keyboard key presses only.  Sequencer files are untouched.
+ * Instrument catalog/preparation and the Superdough playback adapter.
+ * audioRuntime owns the shared graph; patternPlayback owns the sole pattern
+ * transport; livePlayback selects the prepared live renderer.
  */
 
 // superdough has no bundled TypeScript declarations
 // @ts-ignore
-import { superdough, initAudio, registerSynthSounds, samples, getAudioContext as _getAudioContext, getSuperdoughAudioController, loadBuffer, getSound, soundMap, hasVoice, stopVoice, cancelVoice, releaseVoice, releaseAllVoices } from "superdough";
-import { initStrudel, evaluate as evaluateStrudel, hush as hushStrudel } from "@strudel/web";
+import { superdough, registerSynthSounds, samples, loadBuffer, getSound, soundMap, hasVoice, stopVoice, cancelVoice, releaseVoice, releaseAllVoices } from "superdough";
 import { webaudioOutput } from "@strudel/webaudio";
 // @ts-ignore
 import { prewarmSoundfont, registerSoundfonts } from "@strudel/soundfonts";
@@ -23,17 +23,10 @@ import { prepareLivePlayback } from "@/services/livePlayback";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import { getLiveArticulation } from "@/services/liveArticulation";
 import { audioTimeToOutputTime, LIVE_AUDIO_SCHEDULING_LEAD_MS } from "@/services/liveAudioTiming";
+import { getAudioContext, getMasterGain, initializeAudio } from "@/services/audioRuntime";
 
-/** Re-export so other modules can get the superdough AudioContext without importing Tone. */
-export function getAudioContext(): AudioContext {
-  // @ts-ignore
-  return _getAudioContext() as AudioContext;
-}
-
-// ---------------------------------------------------------------------------
-// Legacy Tone.js alias → superdough sound name
-// Only non-identity mappings needed; all other instrument keys pass through.
-// ---------------------------------------------------------------------------
+/** Compatibility facade: the playback graph is owned by audioRuntime. */
+export { getAudioContext };
 
 /** Oscillator-based sounds that have no sample bank — skip pre-warm for these. */
 const SYNTH_SOUNDS = new Set([
@@ -47,8 +40,6 @@ const SYNTH_SOUNDS = new Set([
 let _initialized = false;
 let _initPromise: Promise<void> | null = null;
 const _prewarmedSounds = new Set<string>();
-let _strudelInitialized = false;
-let _strudelInitPromise: Promise<void> | null = null;
 const STRUDEL_PLAYBACK_SOURCE = "strudel-playback";
 const LIVE_NOTE_PLACEHOLDER_DURATION_SECONDS = 0.25;
 const _activeStrudelVisuals = new Map<
@@ -218,23 +209,6 @@ async function _prewarmPianoSamples(): Promise<void> {
   return _prewarmSoundCore("piano", true);
 }
 
-async function initSharedStrudelRuntime(): Promise<void> {
-  if (_strudelInitialized) return;
-  if (_strudelInitPromise) return _strudelInitPromise;
-
-  _strudelInitPromise = (async () => {
-    await initStrudel({
-      defaultOutput: emotitoneStrudelOutput,
-    });
-    _strudelInitialized = true;
-  })().catch((error) => {
-    _strudelInitPromise = null;
-    throw error;
-  });
-
-  return _strudelInitPromise;
-}
-
 /**
  * One-time setup: registers synth sounds, loads all sample packs, starts the
  * audio context.  Safe to call multiple times — subsequent calls are no-ops.
@@ -275,14 +249,10 @@ export async function initSuperdoughAudio(
         Promise.resolve(registerSoundfonts()).then(() => reportPack("Soundfonts")),
       ]);
 
-      // Create the Strudel playback runtime up front so Play and live notes
-      // share one scheduler/output stack instead of booting separately.
-      progressCallback?.(78, "Preparing Strudel runtime…");
-      await initSharedStrudelRuntime();
-
-      // Resume / set up the AudioContext and load worklets for live note triggering
+      // The editor creates the single pattern transport through patternPlayback.
+      // Instrument startup only initializes the shared audio graph.
       progressCallback?.(79, "Starting audio context…");
-      await initAudio();
+      await initializeAudio();
 
       // Only the default instrument is decoded eagerly. Other registered
       // instruments warm on selection so startup stays bounded on mobile.
@@ -670,12 +640,7 @@ export function releaseAll(): void {
  * while superdough continues routing to the speakers normally.
  */
 export function getSuperdoughMasterGain(): GainNode | null {
-  try {
-    // @ts-ignore — getSuperdoughAudioController has no TS declarations
-    return (getSuperdoughAudioController() as any)?.output?.destinationGain ?? null;
-  } catch {
-    return null;
-  }
+  return getMasterGain();
 }
 
 /**
@@ -691,23 +656,4 @@ export function getRegisteredSounds(): string[] {
   } catch {
     return [];
   }
-}
-
-export async function playStrudelCode(code: string): Promise<void> {
-  await initSuperdoughAudio();
-  await initSharedStrudelRuntime();
-  stopStrudelVisuals();
-
-  const ac = getAudioContext();
-  if (ac.state !== "running") {
-    await ac.resume();
-  }
-
-  await evaluateStrudel(code);
-}
-
-export function stopStrudelPlayback(): void {
-  stopStrudelVisuals();
-  if (!_strudelInitialized) return;
-  hushStrudel();
 }

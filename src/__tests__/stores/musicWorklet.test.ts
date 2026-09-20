@@ -88,6 +88,18 @@ describe("music store production worklet integration", () => {
     expect(audio.releaseNote).not.toHaveBeenCalled();
   });
 
+  it("captures metadata before a native renderer emits its synchronous attack", async () => {
+    const music = useMusicStore();
+    worklet.engine.press.mockImplementationOnce((ownerId: string) => {
+      worklet.listener!.onEvent(event(ownerId, "native_sync", "attack", 12));
+    });
+    const owner = await music.attackExactPitch("C4");
+    expect(music.activeNotes.get("native_sync")).toMatchObject({ noteName: "C4" });
+    expect(events("note-played")[0]).toMatchObject({ noteName: "C4", timestamp: EPOCH });
+    await music.releaseNote(owner!);
+    expect(worklet.engine.release).toHaveBeenCalledWith(owner);
+  });
+
   it("records captured borrowed pitches at audio-clock times despite delayed event delivery", async () => {
     const music = useMusicStore(); const patterns = recorder();
     music.setPlayMode("repeat:16");

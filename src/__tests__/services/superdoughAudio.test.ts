@@ -102,6 +102,15 @@ describe("superdoughAudio live note handling", () => {
     hoisted.mockPrewarmSoundfont.mockResolvedValue(undefined);
   });
 
+  it("initializes the canonical audio graph once without bootstrapping a hidden Strudel REPL", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    await Promise.all([audio.initSuperdoughAudio(), audio.initSuperdoughAudio()]);
+    await audio.initSuperdoughAudio();
+
+    expect(hoisted.mockInitAudio).toHaveBeenCalledOnce();
+    expect(hoisted.mockInitStrudel).not.toHaveBeenCalled();
+  });
+
   it("schedules rhythmic attacks and releases on the audio clock and cancels queued voices", async () => {
     const audio = await import("@/services/superdoughAudio");
     await audio.attackNote("pulse-1", "C4", "synth", { atTime: 12.05, release: 0.03 });

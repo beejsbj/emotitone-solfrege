@@ -1,4 +1,5 @@
-import type { PlayStyle, PlayStyleRate } from '../../services/playStyles'
+import type { LiveConfig, LiveInputNote, LiveRenderer, LiveVoiceEvent } from '../liveRenderer'
+export type { LiveConfig, LiveInputNote, LiveVoiceEvent } from '../liveRenderer'
 
 export interface LiveEnvelope {
   gain: number
@@ -26,17 +27,6 @@ export type PreparedLiveInstrument = LiveEnvelope & { instrumentId: string } & (
   | { kind: 'oscillator'; waveform: 'sine' | 'triangle' | 'sawtooth' | 'square' }
 )
 
-export interface LiveInputNote { pitch: number; instrumentId: string }
-export interface LiveConfig { style: PlayStyle; bpm: number; rate: PlayStyleRate }
-export interface LiveVoiceEvent extends LiveInputNote {
-  phase: 'attack' | 'release'
-  noteId: string
-  ownerId: string
-  style: PlayStyle
-  /** Absolute AudioContext time, in seconds. */
-  at: number
-}
-
 export type LiveCommand =
   | { type: 'prepare'; requestId: number; instrument: PreparedLiveInstrument }
   | { type: 'forget'; requestId: number; instrumentId: string; instant: boolean }
@@ -52,12 +42,6 @@ export type LiveResponse =
   | { type: 'event'; event: LiveVoiceEvent }
   | { type: 'plan'; events: LiveVoiceEvent[] }
 
-export interface LiveWorklet {
+export interface LiveWorklet extends LiveRenderer {
   prepare(instrument: PreparedLiveInstrument): Promise<void>
-  forget(instrumentId: string): Promise<void>
-  press(ownerId: string, notes: LiveInputNote[]): void
-  release(ownerId: string): void
-  configure(config: Partial<LiveConfig>): void
-  clear(): void
-  dispose(): void
 }

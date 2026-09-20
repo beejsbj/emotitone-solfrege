@@ -3,6 +3,7 @@
 (() => {
   const NativeWorklet = window.AudioWorkletNode;
   let latestPcm = null;
+  const preparedEnvelopes = new Map();
   const nodes = new Set();
   let peakNodes = 0, created = 0, tracking = false;
   const input = [], lifecycle = [], operations = [], longTasks = [], endedOwners = [];
@@ -12,6 +13,17 @@
       if (name === 'ui-audio-capture') {
         this.port.addEventListener('message', ({ data }) => { if (data.type === 'pcm') latestPcm = data; });
         this.port.start();
+      }
+      if (name === 'emotitone-live') {
+        const post = this.port.postMessage.bind(this.port);
+        this.port.postMessage = (...args) => {
+          const command = args[0];
+          if (command?.type === 'prepare') {
+            const { instrumentId, attack, decay, sustain, release } = command.instrument;
+            preparedEnvelopes.set(instrumentId, { instrumentId, attack, decay, sustain, release });
+          }
+          return post(...args);
+        };
       }
     }
   };
@@ -50,7 +62,7 @@
     },
     reset() { latestPcm = null; input.length = lifecycle.length = operations.length = longTasks.length = endedOwners.length = 0;
       nodes.clear(); peakNodes = created = 0; tracking = true; },
-    finish({ stepSeconds, anchor, duration = 2.95, tailAfter, tailAfterFinalInputReleaseMs } = {}) {
+    finish({ stepSeconds, anchor, duration = 2.95, tailAfter, tailAfterFinalInputReleaseMs, inspectTogetherArticulation = false } = {}) {
       tracking = false;
       if (!latestPcm) throw new Error('PCM capture was not observed');
       const { pcm, right, startFrame } = latestPcm;
@@ -74,9 +86,38 @@
         if (!releases.length) throw new Error('Tail measurement requires a delivered trusted release');
         tailAfter = Math.max(...releases.map(event => event.audioTime)) + tailAfterFinalInputReleaseMs / 1000;
       }
+      let articulation = null;
+      if (inspectTogetherArticulation) {
+        const prepared = preparedEnvelopes.get('piano');
+        if (!prepared || !(prepared.release > 0)) throw new Error('Missing actual prepared piano release envelope');
+        const finalInputAudioTime = Math.max(...input.filter(event => event.type === 'keyup').map(event => event.audioTime));
+        const finalReleaseAudioTime = Math.max(...lifecycle.filter(event => event.phase === 'release').map(event => event.at));
+        const renderQuantumFrames = 128;
+        tailAfter = finalReleaseAudioTime + prepared.release + renderQuantumFrames / sampleRate;
+        const captureEnd = (startFrame + pcm.length) / sampleRate;
+        let lastNonzeroFrame = pcm.length - 1;
+        while (lastNonzeroFrame >= 0 && pcm[lastNonzeroFrame] === 0 && right[lastNonzeroFrame] === 0) lastNonzeroFrame--;
+        const firstRetained = Math.max(0, Math.floor((finalInputAudioTime - .025) * sampleRate - startFrame));
+        const endRetained = Math.min(pcm.length, Math.ceil((tailAfter + .1) * sampleRate - startFrame));
+        const encode = channel => {
+          const samples = channel.slice(firstRetained, endRetained);
+          const bytes = new Uint8Array(samples.buffer);
+          let binary = '';
+          for (let i = 0; i < bytes.length; i += 16384) binary += String.fromCharCode(...bytes.subarray(i, i + 16384));
+          return btoa(binary);
+        };
+        articulation = { prepared, renderQuantumFrames, finalInputAudioTime, finalReleaseAudioTime,
+          expectedEnvelopeEndAudioTime: finalReleaseAudioTime + prepared.release,
+          lastNonzeroAudioTime: (startFrame + lastNonzeroFrame) / sampleRate,
+          informationalTailFromKeyup100ms: windowStats(finalInputAudioTime + .1, captureEnd),
+          decayWindows: [0, .05, .1, .15, .2, .25].map(offset => ({ offsetSeconds: offset,
+            ...windowStats(finalReleaseAudioTime + offset, finalReleaseAudioTime + offset + .025) })),
+          retainedPcm: { encoding: 'base64-float32', startFrame: startFrame + firstRetained, sampleRate,
+            frames: endRetained - firstRetained, left: encode(pcm), right: encode(right) } };
+      }
       return { input, lifecycle, operations, longTasks, endedOwners, createdNodes: created, peakRetainedNodes: peakNodes,
         retainedNodes: nodes.size, grid, tailStartAudioTime: tailAfter ?? null, tail: tailAfter === undefined ? null : windowStats(tailAfter, startFrame / sampleRate + pcm.length / sampleRate),
-        sampleRate, pcmFrames: pcm.length, captureEndAudioTime: (startFrame + pcm.length) / sampleRate };
+        articulation, sampleRate, pcmFrames: pcm.length, captureEndAudioTime: (startFrame + pcm.length) / sampleRate };
     },
   };
 })();

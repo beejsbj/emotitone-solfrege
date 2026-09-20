@@ -96,6 +96,20 @@ export async function exerciseNativeComparison({ call, evaluate, delay }) {
   };
   try {
     await evaluate('window.__nativeComparison.install()', true);
+    if (process.env.LAB_NATIVE_FAST_CHORD === '1') {
+      const expectedArticulation = await evaluate("import('/src/services/liveArticulation.ts').then(module=>module.getLiveArticulation('piano'))", true);
+      await begin(220, 'together');
+      for (let i = 0; i < 8; i++) { await press('ADF'); await delay(65); await release('ADF'); await delay(45); }
+      await delay(1500);
+      const row = await finish('ARTICULATION CONTRACT: eight fast three-key Together chords', { inspectTogetherArticulation: true });
+      const observed = row.measured.articulation;
+      checks.push({ name: 'Prepared piano articulation matches the unchanged200ms source contract', passed: observed.prepared.release === expectedArticulation.release && expectedArticulation.release === .2 });
+      checks.push({ name: 'Fast chord articulation retains exactly24 notes and owners with no resumed attack after final release', passed: row.deliveryAcceptance.completedNotes === 24 && row.deliveryAcceptance.endedOwners.length === 24 && !row.measured.lifecycle.some(event => event.phase === 'attack' && event.at > observed.finalReleaseAudioTime) });
+      checks.push({ name: 'External runner avoids severe host contention', passed: worstExternalSlip <= comparisonLimits.maxExternalEventLoopSlipMs });
+      return { limits: comparisonLimits, targetedDeliveryLimits, fastChordOnly: true, expectedArticulation,
+        cases, checks, worstExternalEventLoopSlipMs: worstExternalSlip,
+        scope: 'One fixture-correction follow-up. Together silence is measured after actual audio release edge plus the observed prepared instrument release and one128-frame quantum. The old keyup+100ms subwindow is informational; prior failed receipts remain unchanged.' };
+    }
     if (process.env.LAB_NATIVE_TARGETED === '1') {
       await begin(220, 'repeat:16', { after: 800, duration: 650 });
       await press('ADF');

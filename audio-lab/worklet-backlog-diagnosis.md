@@ -156,3 +156,13 @@ application work; this result establishes the declared final-settlement bound,
 not a general sub-second notification-latency guarantee. The original four-way
 receipts and the failed first inbox target remain unchanged. A final worklet-only
 full run is still pending.
+
+Before that full follow-up, its seven cases now retain an observation window of
+at least 1,200 ms after final release (the existing cancellation/rapid-chord cases
+already wait longer). The **acceptance bound remains 1,000 ms**: the extra 200 ms
+allows a late notification to be observed and rejected. Each case checks complete
+and unique attack/release pairs, exact lifecycle arrival-to-callback FIFO order,
+one closure per pressed owner, final settlement, and complete recorded note
+timelines with no active musical notes. All seven also inspect actual PCM from
+the final trusted keyup plus 100 ms. Targeted and profiled modes retain their prior
+fixtures; the original receipts are unchanged.

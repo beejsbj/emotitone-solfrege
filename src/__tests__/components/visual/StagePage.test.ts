@@ -53,9 +53,10 @@ describe("Stage real specimen page", () => {
     expect(wrapper.text()).toContain("without exciting a C-major String");
     expect(wrapper.text()).toContain("Synthetic signal ready");
 
-    const off = wrapper.findAll("button").find((button) => button.text() === "Off");
-    await off?.trigger("click");
-    expect(stage.props("relationship")).toBe("off");
+    const merge = wrapper.findAll("button").find((button) => button.text() === "Merge");
+    await merge?.trigger("click");
+    expect(stage.props("relationship")).toBe("merge");
+    expect(wrapper.findAll("button").some((button) => button.text() === "Off")).toBe(false);
   });
 
   it("keeps the specimen still and offers a retry when audio activation fails", async () => {

@@ -109,7 +109,6 @@ export function useHarmonicGeometryRenderer() {
     canvasHeight: number
   ): HarmonicGeometryScene | null => {
     if (
-      config.connectionMode === "off" ||
       !snapshot.isVisible ||
       snapshot.displayedNotes.length < 2
     ) {

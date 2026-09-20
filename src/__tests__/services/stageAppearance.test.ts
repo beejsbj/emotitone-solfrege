@@ -5,7 +5,7 @@ import {
   STAGE_CONTROL_GROUPS,
   STAGE_CONTROL_DEFINITIONS,
   applyStageLook,
-  createSeededStageLook,
+  createSeededStageVariation,
   patchStageControl,
   readStageControls,
   resolveStageConfig,
@@ -37,19 +37,21 @@ function changedPaths(before: unknown, after: unknown, prefix = ""): string[] {
 }
 
 describe("Stage appearance domain", () => {
-  it("publishes exactly the accepted 22 controls", () => {
+  it("publishes exactly the accepted 23 controls", () => {
     const controls = STAGE_CONTROL_DEFINITIONS;
-    expect(controls).toHaveLength(22);
-    expect(new Set(controls.map((control) => control.id)).size).toBe(22);
+    expect(controls).toHaveLength(23);
+    expect(new Set(controls.map((control) => control.id)).size).toBe(23);
     expect(STAGE_CONTROL_GROUPS.map((group) => group.label)).toEqual([
       "Scope",
       "Note Bodies",
-      "Connections",
       "Atmosphere",
       "Pitch Strings",
       "Note Flecks",
       "Explanations",
     ]);
+    expect(
+      controls.find((control) => control.id === "connectionMode")?.options,
+    ).toEqual(["merge", "web"]);
   });
 
   it("keeps Hilbert present whenever Stage is enabled without rewriting legacy data", () => {
@@ -81,7 +83,7 @@ describe("Stage appearance domain", () => {
       isEnabled: true,
       baseOpacity: 0,
     });
-    expect(effective.strings.activeOpacity).toBeCloseTo(2 / 9);
+    expect(effective.strings.activeOpacity).toBe(0.5);
     expect(backing.strings.isEnabled).toBe(false);
     expect(backing.strings.activeOpacity).toBe(0);
   });
@@ -155,26 +157,99 @@ describe("Stage appearance domain", () => {
     expect(edited.strings).toMatchObject({
       activeOpacity: 0.75,
       maxAmplitude: 38.75,
-      interpolationSpeed: 0.2,
+      interpolationSpeed: 0.2375,
     });
     expect(edited.strings.dampingFactor).toBeCloseTo(0.065);
     expect(edited.strings.opacityInterpolationSpeed).toBeCloseTo(0.1625);
     expect(readStageControls(edited).stringResponse).toBe(0.75);
   });
 
-  it("keeps Body Size in the responsive 5–15% support-body range", () => {
+  it("round-trips the canonical String Response default", () => {
+    const backing = config();
+    const response = readStageControls(backing).stringResponse;
+
+    expect(response).toBe(0.5);
+    const edited = patchStageControl(backing, "stringResponse", response);
+    expect(edited.strings).toMatchObject({
+      activeOpacity: backing.strings.activeOpacity,
+      maxAmplitude: backing.strings.maxAmplitude,
+      interpolationSpeed: backing.strings.interpolationSpeed,
+      opacityInterpolationSpeed: backing.strings.opacityInterpolationSpeed,
+    });
+    expect(edited.strings.dampingFactor).toBeCloseTo(backing.strings.dampingFactor);
+  });
+
+  it("publishes the accepted Stage defaults", () => {
+    expect(readStageControls(config())).toMatchObject({
+      stageEnabled: true,
+      scopeSize: 0.65,
+      scopeStrength: 0.75,
+      scopeLineWeight: 1.5,
+      scopeGlow: 0.25,
+      scopeTrail: 0.2,
+      bodiesVisible: true,
+      bodySize: 0.2,
+      bodyStrength: 0.75,
+      bodyMotion: expect.closeTo(0.4),
+      connectionMode: "merge",
+      connectionStrength: 0.2,
+      connectionSoftness: 0.25,
+      atmosphereStrength: 0.3,
+      atmosphereColorDepth: 0.6,
+      stringPresence: 0.05,
+      stringResponse: 0.5,
+      fleckAmount: 3,
+      fleckEnergy: expect.closeTo(0.35),
+      showChords: true,
+      showIntervals: true,
+      showEmotion: false,
+    });
+  });
+
+  it("keeps Body Size in the responsive 5–50% support-body range", () => {
     const definition = STAGE_CONTROL_DEFINITIONS.find(
       (control) => control.id === "bodySize",
     );
-    expect(definition).toMatchObject({ min: 0.05, max: 0.15, step: 0.01 });
+    expect(definition).toMatchObject({ min: 0.05, max: 0.5, step: 0.01 });
 
     const backing = config();
     backing.blobs.minSize = 321;
     backing.blobs.maxSize = 654;
     const edited = patchStageControl(backing, "bodySize", 0.3);
-    expect(edited.blobs.baseSizeRatio).toBe(0.15);
+    expect(edited.blobs.baseSizeRatio).toBe(0.3);
     expect(edited.blobs.minSize).toBe(321);
     expect(edited.blobs.maxSize).toBe(654);
+  });
+
+  it("consolidates connection edge softness independently from strength", () => {
+    const backing = config();
+    const strengthened = patchStageControl(backing, "connectionStrength", 0.7);
+
+    expect(changedPaths(backing, strengthened)).toEqual([
+      "blobs.fusionStrength",
+      "blobs.webOpacity",
+    ]);
+    expect(strengthened.blobs.fieldSoftness).toBe(backing.blobs.fieldSoftness);
+    expect(strengthened.blobs.blurRadius).toBe(backing.blobs.blurRadius);
+
+    const softened = patchStageControl(backing, "connectionSoftness", 0.6);
+    expect(changedPaths(backing, softened)).toEqual([
+      "blobs.blurRadius",
+      "blobs.fieldSoftness",
+    ]);
+    expect(softened.blobs).toMatchObject({
+      blurRadius: 24,
+      fieldSoftness: 30,
+    });
+    expect(readStageControls(softened).connectionSoftness).toBe(0.6);
+  });
+
+  it("makes the zero Connection Strength endpoint exact", () => {
+    const disconnected = patchStageControl(config(), "connectionStrength", 0);
+
+    expect(disconnected.blobs.fusionStrength).toBe(0);
+    expect(disconnected.blobs.webOpacity).toBe(0);
+    expect(readStageControls(disconnected).connectionStrength).toBe(0);
   });
 
   it("enforces the Stage-only allowlist for Looks", () => {
@@ -199,9 +274,10 @@ describe("Stage appearance domain", () => {
     expect(applied.codeStrip).toEqual(backing.codeStrip);
   });
 
-  it("defines three complete built-ins while preserving learner preferences", () => {
+  it("defines four complete built-ins while preserving learner preferences", () => {
     expect(BUILT_IN_STAGE_LOOKS.map((look) => look.name)).toEqual([
       "Clear",
+      "Still",
       "Soft",
       "Luminous",
     ]);
@@ -215,34 +291,95 @@ describe("Stage appearance domain", () => {
         "hilbertScope",
       ]);
       expect(look.patch.blobs).toHaveProperty("isEnabled");
-      expect(look.patch.blobs).toHaveProperty("blurRadius");
       expect(look.patch.blobs).not.toHaveProperty("connectionMode");
       expect(look.patch.blobs).not.toHaveProperty("fusionStrength");
-      expect(look.patch.blobs).not.toHaveProperty("fieldSoftness");
       expect(look.patch.blobs).not.toHaveProperty("webOpacity");
       expect(look.patch.blobs).not.toHaveProperty("showChordLabel");
       expect(look.patch.blobs).not.toHaveProperty("showIntervalLabels");
       expect(look.patch.blobs).not.toHaveProperty("showEmotionLabel");
       expect(look.patch.blobs).not.toHaveProperty("labelOpacity");
     }
+
+    const softnessByLook = Object.fromEntries(BUILT_IN_STAGE_LOOKS.map((look) => [
+      look.id,
+      readStageControls(applyStageLook(config(), look.patch)).connectionSoftness,
+    ]));
+    expect(softnessByLook).toEqual({
+      clear: 0.125,
+      still: 0,
+      soft: 0.6,
+      luminous: 0.3,
+    });
+
+    const still = BUILT_IN_STAGE_LOOKS.find((look) => look.id === "still");
+    const stillConfig = applyStageLook(config(), still?.patch);
+    expect(readStageControls(stillConfig)).toMatchObject({
+      bodiesVisible: true,
+      bodyStrength: 1,
+      bodyMotion: 0,
+      connectionSoftness: 0,
+    });
+    expect(stillConfig.blobs).toMatchObject({
+      blurRadius: 0,
+      fieldSoftness: 0,
+    });
   });
 
-  it("creates deterministic seeded variations", () => {
-    const first = createSeededStageLook("same-seed", BUILT_IN_STAGE_LOOKS);
-    const second = createSeededStageLook("same-seed", BUILT_IN_STAGE_LOOKS);
-    const different = createSeededStageLook("different-seed", BUILT_IN_STAGE_LOOKS);
+  it("creates deterministic small variations around one explicit root", () => {
+    const root = config();
+    root.blobs.connectionMode = "web";
+    root.blobs.showChordLabel = false;
+    root.blobs.showIntervalLabels = true;
+    const first = createSeededStageVariation("same-seed", root, "Root Look");
+    const second = createSeededStageVariation("same-seed", root, "Root Look");
+    const different = createSeededStageVariation("different-seed", root, "Root Look");
 
     expect(first).toEqual(second);
     expect(different).not.toEqual(first);
+    expect(first.name).toBe("Root Look · Variation SAME");
+    expect(first.variationRoot).toEqual({
+      name: "Root Look",
+      patch: expect.any(Object),
+    });
     expect(first.patch).not.toHaveProperty("dynamicColors");
     expect(first.patch.hilbertScope).not.toHaveProperty("isEnabled");
-    expect(first.patch.blobs).not.toHaveProperty("connectionMode");
-    expect(first.patch.blobs).not.toHaveProperty("fusionStrength");
-    expect(first.patch.blobs).not.toHaveProperty("fieldSoftness");
-    expect(first.patch.blobs).not.toHaveProperty("webOpacity");
-    expect(first.patch.blobs).not.toHaveProperty("showChordLabel");
-    expect(first.patch.blobs).not.toHaveProperty("showIntervalLabels");
-    expect(first.patch.blobs).not.toHaveProperty("showEmotionLabel");
-    expect(first.patch.blobs).not.toHaveProperty("labelOpacity");
+    expect(first.patch.blobs).toMatchObject({
+      connectionMode: "web",
+      blurRadius: root.blobs.blurRadius,
+      fusionStrength: root.blobs.fusionStrength,
+      fieldSoftness: root.blobs.fieldSoftness,
+      webOpacity: root.blobs.webOpacity,
+      showChordLabel: false,
+      showIntervalLabels: true,
+      showEmotionLabel: root.blobs.showEmotionLabel,
+      labelOpacity: root.blobs.labelOpacity,
+    });
+
+    const variedConfig = applyStageLook(root, first.patch);
+    const rootControls = readStageControls(root);
+    const variedControls = readStageControls(variedConfig);
+    const boundedControls = [
+      ["scopeSize", .08],
+      ["scopeStrength", .08],
+      ["scopeLineWeight", .12],
+      ["scopeGlow", .1],
+      ["scopeTrail", .1],
+      ["bodySize", .08],
+      ["bodyStrength", .08],
+      ["bodyMotion", .08],
+      ["atmosphereStrength", .08],
+      ["atmosphereColorDepth", .08],
+      ["stringPresence", .1],
+      ["stringResponse", .08],
+      ["fleckEnergy", .1],
+    ] as const;
+    for (const [control, spread] of boundedControls) {
+      expect(Math.abs(variedControls[control] - rootControls[control]))
+        .toBeLessThanOrEqual(rootControls[control] * spread + Number.EPSILON * 10);
+    }
+    expect(variedConfig.blobs.isEnabled).toBe(root.blobs.isEnabled);
+    expect(variedConfig.ambient.isEnabled).toBe(root.ambient.isEnabled);
+    expect(variedConfig.particles.isEnabled).toBe(root.particles.isEnabled);
+    expect(variedConfig.strings.isEnabled).toBe(root.strings.isEnabled);
   });
 });

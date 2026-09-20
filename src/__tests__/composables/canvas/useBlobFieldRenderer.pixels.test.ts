@@ -62,6 +62,21 @@ describe("Merge field pixels", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
+  it.each(["merge", "web"] as const)("takes %s opacity from the prepared note strength, independently of color alpha", (mode) => {
+    const opaque = framesAt();
+    const translucent = framesAt();
+    translucent.forEach((frame, index) => {
+      frame.primaryColor = opaque[index].primaryColor.replace("rgb(", "rgba(").replace(")", ", 0.1)");
+    });
+    const reference = render(opaque, mode).getImageData(0, 0, 1000, 650).data;
+    const actual = render(translucent, mode).getImageData(0, 0, 1000, 650).data;
+    let mismatches = 0;
+    for (let index = 0; index < actual.length; index++) {
+      if (actual[index] !== reference[index]) mismatches++;
+    }
+    expect(mismatches).toBe(0);
+  });
+
   it("publishes mode-specific join paths, clearing them when connections turn off", () => {
     const frames = chordFrames(20).slice(0, 2);
     frames[1].primaryColor = "rgb(0, 255, 0)";
@@ -244,6 +259,48 @@ describe("Filled Merge and fine Web pixels", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
+  it.each([
+    { color: "rgb(0, 255, 255)", opacity: 1 },
+    { color: "rgba(0, 255, 255, 1)", opacity: 1 },
+    { color: "hsla(180, 100%, 50%, 1)", opacity: 1 },
+    { color: "rgba(0, 255, 255, 1)", opacity: 0.35 },
+  ])("preserves identical note colors across Merge at opacity $opacity ($color)", ({ color, opacity }) => {
+    const frames = framesAt();
+    frames.forEach((frame) => {
+      frame.primaryColor = color;
+      frame.opacity = opacity;
+    });
+    const context = render(frames, "merge", { fieldSoftness: 0 });
+
+    // Sample between bodies, where only the radial color contributions exist.
+    // Fading to transparent black darkens this interior even at full strength.
+    for (const [x, y] of [[507, 273], [440, 220], [560, 350]]) {
+      const [red, green, blue, alpha] = context.getImageData(x, y, 1, 1).data;
+      expect(red).toBeLessThanOrEqual(2);
+      expect(green).toBeGreaterThanOrEqual(252);
+      expect(blue).toBeGreaterThanOrEqual(252);
+      expect(Math.abs(alpha - Math.round(opacity * 255))).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it("keeps mixed Merge color independent of release opacity", () => {
+    const held = framesAt();
+    const releasing = framesAt();
+    releasing[2].blob.isFadingOut = true;
+    releasing[2].opacity = 0.2;
+
+    const heldContext = render(held, "merge", { fieldSoftness: 0 });
+    const releaseContext = render(releasing, "merge", { fieldSoftness: 0 });
+    for (const [x, y] of [[507, 273], [520, 320], [560, 350]]) {
+      const heldPixel = heldContext.getImageData(x, y, 1, 1).data;
+      const releasePixel = releaseContext.getImageData(x, y, 1, 1).data;
+      for (let channel = 0; channel < 3; channel++) {
+        expect(Math.abs(heldPixel[channel] - releasePixel[channel])).toBeLessThanOrEqual(2);
+      }
+    }
+    expect(alphaAt(releaseContext, 507, 273)).toBeLessThan(alphaAt(heldContext, 507, 273));
+  });
+
   it.each([10, 40])("fills the whole triangular interior at radius %s, blending all three colors", (radius) => {
     const context = render(framesAt(triangle, radius), "merge");
     // Interior samples cover the face, not just the centroid or edge graph.
@@ -322,6 +379,21 @@ describe("Filled Merge and fine Web pixels", () => {
     }
   });
 
+  it("preserves color in a faint dense Merge without quantizing its influence away", () => {
+    const positions = Array.from({ length: 12 }, (_, i) => [
+      500 + Math.cos(i / 12 * Math.PI * 2) * 300,
+      325 + Math.sin(i / 12 * Math.PI * 2) * 220,
+    ]);
+    const frames = framesAt(positions);
+    frames.forEach((frame) => {
+      frame.primaryColor = "rgb(0, 255, 255)";
+      frame.opacity = 0.02;
+      frame.blob.isFadingOut = true;
+    });
+    const center = render(frames, "merge").getImageData(500, 325, 1, 1).data;
+    expect([...center]).toEqual([0, 255, 255, 5]);
+  });
+
   it.each([
     { radius: 5, fieldSoftness: 12 },
     { radius: 10, fieldSoftness: 30 },
@@ -363,9 +435,9 @@ describe("Filled Merge and fine Web pixels", () => {
   });
 
   it.each([
-    { radius: 10, fieldSoftness: 6 },
-    { radius: 10, fieldSoftness: 12 },
-    { radius: 20, fieldSoftness: 6 },
+    { radius: 10, fieldSoftness: 6, fusionStrength: 0.4 },
+    { radius: 10, fieldSoftness: 12, fusionStrength: 0.4 },
+    { radius: 20, fieldSoftness: 6, fusionStrength: 0.4 },
   ])("keeps a near-edge interior note inside the organic Merge body at $radius px", (settings) => {
     const frames = framesAt([[140, 100], [820, 100], [820, 600], [140, 600], [480, 125]], settings.radius);
     const context = render(frames, "merge", settings);
@@ -395,4 +467,16 @@ describe("Filled Merge and fine Web pixels", () => {
     const context = render(framesAt(), "web", { webOpacity: 0 });
     expect(visibleRegions(context.getImageData(0, 0, 1000, 650).data, 1000, 650)).toBe(3);
   });
+
+  it.each(["merge", "web"] as const)(
+    "renders separate bodies at the public zero-strength endpoint in %s mode",
+    (mode) => {
+      const context = render(framesAt(), mode, {
+        fusionStrength: 0,
+        webOpacity: 0,
+      });
+      expect(visibleRegions(context.getImageData(0, 0, 1000, 650).data, 1000, 650))
+        .toBe(3);
+    },
+  );
 });

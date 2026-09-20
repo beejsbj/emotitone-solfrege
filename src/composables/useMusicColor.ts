@@ -11,6 +11,7 @@ import {
   resolveMusicColorSampleByPitchClass,
   resolveMusicColorSampleByScaleIndex,
   resolveMusicColorsByNoteName,
+  withMusicColorAlpha,
 } from "@/services/musicColor";
 import type {
   ChromaticNote,
@@ -181,21 +182,7 @@ export function useMusicColor(options: { animated?: boolean } = {}) {
     true,
   ).accent;
 
-  const withAlpha = (color: string, alpha: number): string => {
-    if (color.startsWith("rgba(")) {
-      return color.replace(/,\s*[\d.]+\)$/, `, ${alpha})`);
-    }
-    if (color.startsWith("rgb(")) {
-      return color.replace("rgb(", "rgba(").replace(")", `, ${alpha})`);
-    }
-    if (color.startsWith("hsla(")) {
-      return color.replace(/,\s*[\d.]+\)$/, `, ${alpha})`);
-    }
-    if (color.startsWith("hsl(")) {
-      return color.replace("hsl(", "hsla(").replace(")", `, ${alpha})`);
-    }
-    return color;
-  };
+  const withAlpha = withMusicColorAlpha;
 
   const createGlassmorphBackground = (color: string, opacity = 0.4) => {
     const strong = withAlpha(color, opacity * 1.425);

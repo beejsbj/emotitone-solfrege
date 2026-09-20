@@ -18,6 +18,7 @@ import UnifiedVisualEffects from "@/components/UnifiedVisualEffects.vue";
 import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import type { ActiveNote, ChromaticNote, SolfegeData } from "@/types/music";
+import type { HarmonicGeometryMode } from "@/types/visual";
 import {
   createStageSpecimenAudio,
   type StageSpecimenSignal,
@@ -25,7 +26,7 @@ import {
 
 const props = defineProps<{
   signal: StageSpecimenSignal;
-  relationship: "off" | "merge" | "web";
+  relationship: HarmonicGeometryMode;
   stageEnabled: boolean;
   showLabels?: boolean;
 }>();

@@ -5,6 +5,7 @@ import type {
 import type {
   BlobConfig,
 } from "@/types/visual";
+import { withMusicColorAlpha } from "@/services/musicColor";
 
 export const BLOB_FIELD_PIXEL_BUDGET = 30_000;
 const MAX_FIELD_SCALE = 0.5;
@@ -197,6 +198,13 @@ export function blurFieldChannel(
   }
 
   return channel;
+}
+
+export function getBlobFieldSoftnessRadius(
+  fieldSoftness: number,
+  scale: number,
+) {
+  return Math.max(0, Math.round(fieldSoftness * scale));
 }
 
 function traceFrame(
@@ -663,12 +671,6 @@ function traceEnvelope(context: CanvasRenderingContext2D, points: readonly Field
   context.closePath();
 }
 
-export const BLOB_FIELD_COLOR_BATCH_SIZE = 8;
-
-export function getBlobFieldColorBatchSize(layerCount: number) {
-  return Math.min(BLOB_FIELD_COLOR_BATCH_SIZE, layerCount);
-}
-
 export function getBlobFieldResolution(bounds: FieldBounds) {
   const area = bounds.width * bounds.height;
   const scale = Math.min(
@@ -883,7 +885,7 @@ export function useBlobFieldRenderer() {
       target.filter = pass.filter;
       orderedFrames.forEach((frame) => {
         target.globalAlpha = pass.opacity * Math.max(0, Math.min(1, frame.opacity));
-        target.fillStyle = frame.primaryColor;
+        target.fillStyle = withMusicColorAlpha(frame.primaryColor, 1);
         traceFrame(target, frame);
         target.fill();
       });
@@ -939,10 +941,10 @@ export function useBlobFieldRenderer() {
         // emerge with the same soft material instead of an exposed flat fin.
         const fromRoot = Math.min(0.25, connection.from.scaledRadius * 1.2 / Math.max(1, connection.distance));
         const toRoot = Math.min(0.25, connection.to.scaledRadius * 1.2 / Math.max(1, connection.distance));
-        gradient.addColorStop(0, "transparent");
-        gradient.addColorStop(fromRoot, connection.from.primaryColor);
-        gradient.addColorStop(1 - toRoot, connection.to.primaryColor);
-        gradient.addColorStop(1, "transparent");
+        gradient.addColorStop(0, withMusicColorAlpha(connection.from.primaryColor, 0));
+        gradient.addColorStop(fromRoot, withMusicColorAlpha(connection.from.primaryColor, 1));
+        gradient.addColorStop(1 - toRoot, withMusicColorAlpha(connection.to.primaryColor, 1));
+        gradient.addColorStop(1, withMusicColorAlpha(connection.to.primaryColor, 0));
         context.fillStyle = gradient;
         traceConnection(context, roots ? root : strand);
         context.fill();
@@ -988,7 +990,7 @@ export function useBlobFieldRenderer() {
     const needsMergeCenter = mode === "merge" && scene?.primaryLabel?.roles?.includes("chord");
     // A scene may be reused by a static specimen; never retain a prior path.
     if (scene) { scene.renderedConnections = []; scene.mergeCenter = undefined; }
-    if (frames.length === 0 || mode === "off") {
+    if (frames.length === 0 || (mode as string) === "off") {
       mergeJoinPlanner.clear();
       return false;
     }
@@ -1002,14 +1004,23 @@ export function useBlobFieldRenderer() {
       return true;
     }
 
+    // The public Connection Strength control owns both backing fields. Its
+    // zero endpoint means separate bodies in either Merge or Web—not the
+    // historical minimum-visible Web opacity or a residual merge threshold.
+    if (config.fusionStrength <= 0 && config.webOpacity <= 0.15) {
+      renderBodies(target, frames, config);
+      return true;
+    }
+
     if (mode === "web") {
       renderWeb(target, frames, config, scene);
       return true;
     }
 
-    const blur = Math.max(
-      6, config.fieldSoftness * (0.82 + config.fusionStrength * 0.72)
-    );
+    // Softness is its own public percentage. Strength changes how much of the
+    // field joins, but must not silently make the edge softer or prevent a
+    // genuinely crisp 0% setting.
+    const blur = Math.max(0, config.fieldSoftness);
     const bounds = getBlobFieldBounds(
       frames,
       target.canvas.width,
@@ -1057,35 +1068,6 @@ export function useBlobFieldRenderer() {
       -bounds.x * scale,
       -bounds.y * scale
     );
-
-    const colorLayers = [
-      ...frames.map((frame) => ({
-        opacity: Math.max(0, Math.min(1, frame.opacity)),
-        paint: () => {
-          traceFrame(sourceContext, frame);
-          sourceContext.fillStyle = frame.primaryColor;
-          sourceContext.fill();
-        },
-      })),
-      ...(envelope.length ? visibleFrames.map((frame) => ({
-        opacity: Math.max(0, Math.min(1, frame.opacity)),
-        paint: () => {
-          // Each note contributes across the filled interior. Normalizing these
-          // radial weights in the existing color field gives a continuous blend.
-          const reach = Math.max(...envelope.map((point) =>
-            Math.hypot(point.x - frame.blob.x, point.y - frame.blob.y)
-          )) * 1.05;
-          const gradient = sourceContext.createRadialGradient(
-            frame.blob.x, frame.blob.y, 0, frame.blob.x, frame.blob.y, reach
-          );
-          gradient.addColorStop(0, frame.primaryColor);
-          gradient.addColorStop(1, "transparent");
-          sourceContext.fillStyle = gradient;
-          traceEnvelope(sourceContext, envelope);
-          sourceContext.fill();
-        },
-      })) : []),
-    ];
 
     // A sustained body must win over a releasing body at an overlap. Painting
     // low opacity first and high opacity last gives the union its maximum local
@@ -1138,21 +1120,16 @@ export function useBlobFieldRenderer() {
     blue.fill(0);
     weight.fill(0);
 
-    // Accumulate color in small, non-saturating 8-bit canvas batches, then add
-    // decoded contributions into float buffers. Dense Merge envelopes retain
-    // the same color weighting without quantizing away faint releasing notes.
-    for (
-      let batchStart = 0;
-      batchStart < colorLayers.length;
-      batchStart += BLOB_FIELD_COLOR_BATCH_SIZE
-    ) {
-      const batch = colorLayers.slice(
-        batchStart,
-        batchStart + BLOB_FIELD_COLOR_BATCH_SIZE
-      );
-      const batchDivisor = getBlobFieldColorBatchSize(batch.length);
-
+    // Color is an opaque RGB value plus a numeric spatial weight. Canvas alpha
+    // is used only to sample contour coverage, never as a color-blending weight.
+    // Visibility is resolved independently below from prepared note opacity.
+    for (const frame of visibleFrames) {
       sourceContext.setTransform(1, 0, 0, 1, 0, 0);
+      sourceContext.globalAlpha = 1;
+      sourceContext.globalCompositeOperation = "source-over";
+      sourceContext.fillStyle = withMusicColorAlpha(frame.primaryColor, 1);
+      sourceContext.fillRect(0, 0, 1, 1);
+      const color = sourceContext.getImageData(0, 0, 1, 1).data;
       sourceContext.clearRect(0, 0, width, height);
       sourceContext.setTransform(
         scale,
@@ -1162,29 +1139,37 @@ export function useBlobFieldRenderer() {
         -bounds.x * scale,
         -bounds.y * scale
       );
-      sourceContext.globalCompositeOperation = "lighter";
-      batch.forEach((layer) => {
-        sourceContext.globalAlpha = layer.opacity / batchDivisor;
-        layer.paint();
-      });
-
-      const sourceImage = sourceContext.getImageData(0, 0, width, height);
-      for (let pixel = 0; pixel < pixelCount; pixel += 1) {
-        const offset = pixel * 4;
-        const accumulatedColorWeight =
-          (sourceImage.data[offset + 3] / 255) * batchDivisor;
-        weight[pixel] += accumulatedColorWeight;
-        red[pixel] +=
-          (sourceImage.data[offset] / 255) * accumulatedColorWeight;
-        green[pixel] +=
-          (sourceImage.data[offset + 1] / 255) * accumulatedColorWeight;
-        blue[pixel] +=
-          (sourceImage.data[offset + 2] / 255) * accumulatedColorWeight;
+      sourceContext.fillStyle = "white";
+      traceFrame(sourceContext, frame);
+      sourceContext.fill();
+      const contourMask = sourceContext.getImageData(0, 0, width, height).data;
+      const reach = envelope.length ? Math.max(...envelope.map((point) =>
+        Math.hypot(point.x - frame.blob.x, point.y - frame.blob.y)
+      )) * 1.05 : 0;
+      const inverseReach = reach > 0 ? 1 / reach : 0;
+      const pixelStep = 1 / scale;
+      const startDx = bounds.x + pixelStep * 0.5 - frame.blob.x;
+      const startDy = bounds.y + pixelStep * 0.5 - frame.blob.y;
+      const r = color[0] / 255;
+      const g = color[1] / 255;
+      const b = color[2] / 255;
+      let pixel = 0;
+      for (let y = 0; y < height; y++) {
+        const dy = startDy + y * pixelStep;
+        const dySquared = dy * dy;
+        let dx = startDx;
+        for (let x = 0; x < width; x++, pixel++, dx += pixelStep) {
+          const radialWeight = reach > 0
+            ? Math.max(0, 1 - Math.sqrt(dx * dx + dySquared) * inverseReach)
+            : 0;
+          const colorWeight = contourMask[pixel * 4 + 3] / 255 + radialWeight;
+          weight[pixel] += colorWeight;
+          red[pixel] += r * colorWeight;
+          green[pixel] += g * colorWeight;
+          blue[pixel] += b * colorWeight;
+        }
       }
     }
-
-    sourceContext.globalAlpha = 1;
-    sourceContext.globalCompositeOperation = "source-over";
 
     for (let pixel = 0; pixel < pixelCount; pixel += 1) {
       const offset = pixel * 4;
@@ -1195,7 +1180,7 @@ export function useBlobFieldRenderer() {
         visibilityCoverage;
     }
 
-    const blurRadius = Math.max(1, Math.round(blur * scale));
+    const blurRadius = getBlobFieldSoftnessRadius(blur, scale);
     [alpha, red, green, blue, weight, opacity].forEach((channel) =>
       blurFieldChannel(
         channel,
@@ -1222,13 +1207,12 @@ export function useBlobFieldRenderer() {
         0,
         Math.min(1, opacity[pixel] / Math.max(0.0001, fieldAlpha))
       );
-      const hasColor = weight[pixel] > 0.0001;
-      const colorWeight = Math.max(0.0001, weight[pixel]);
+      const colorWeight = weight[pixel] || 1;
       const normalizedRed = red[pixel] / colorWeight;
       const normalizedGreen = green[pixel] / colorWeight;
       const normalizedBlue = blue[pixel] / colorWeight;
 
-      const finalAlpha = hasColor ? coverage * localOpacity : 0;
+      const finalAlpha = coverage * localOpacity;
       if (needsMergeCenter) {
         mass += finalAlpha;
         massX += (pixel % width + 0.5) * finalAlpha;

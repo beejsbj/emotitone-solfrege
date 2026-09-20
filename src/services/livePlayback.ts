@@ -84,7 +84,8 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
     if (run !== generation) return;
     if (prepared.kind === "unsupported") {
       reasons.set(instrumentId, prepared.reason);
-      unsupported.add(instrumentId);
+      if (prepared.retryable) unsupported.delete(instrumentId);
+      else unsupported.add(instrumentId);
       return;
     }
     const bytes = byteSize(prepared);
@@ -136,6 +137,7 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
       await ready.prepare(prepared);
       if (run === generation) {
         installed.set(instrumentId, bytes);
+        unsupported.delete(instrumentId);
         reasons.delete(instrumentId);
       }
     };

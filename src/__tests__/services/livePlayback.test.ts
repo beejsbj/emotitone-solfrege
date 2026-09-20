@@ -105,6 +105,20 @@ describe('live playback instrument manager', () => {
     expect(manager.needsLivePlaybackPreparation('piano')).toBe(false)
   })
 
+  it('retries temporary preparation failure without invalidating an already playing bank', async () => {
+    const { manager, context, engine } = await setup()
+    await manager.prepareLivePlayback(context, destination, 'sine')
+    mocks.prepare.mockResolvedValueOnce({ kind: 'unsupported', retryable: true, instrumentId: 'piano', reason: 'offline' })
+    await manager.prepareLivePlayback(context, destination, 'piano')
+    expect(manager.getLivePlayback('piano')).toBeUndefined()
+    expect(manager.needsLivePlaybackPreparation('piano')).toBe(true)
+    expect(manager.getLivePlaybackDiagnostics('piano').reason).toBe('offline')
+    expect(engine.dispose).not.toHaveBeenCalled()
+    expect(manager.getLivePlayback('sine')).toBeDefined()
+    await manager.prepareLivePlayback(context, destination, 'piano')
+    expect(manager.getLivePlayback('piano')).toBeDefined()
+  })
+
   it('invalidates failed processors and forwards lifecycle acknowledgements', async () => {
     const { manager, context, engine } = await setup()
     const listener = { onEvent: vi.fn(), onPlan: vi.fn(), onError: vi.fn(), onOwnerEnded: vi.fn() }

@@ -105,7 +105,7 @@ describe("prepared live instrument catalog", () => {
     register("old.wav");
     mocks.load.mockRejectedValueOnce(new Error("offline")).mockResolvedValue(buffer());
     const ctx = context();
-    expect(await prepareLiveInstrument(ctx, "piano")).toMatchObject({ kind: "unsupported", reason: "offline" });
+    expect(await prepareLiveInstrument(ctx, "piano")).toMatchObject({ kind: "unsupported", retryable: true, reason: "offline" });
     const first = await prepareLiveInstrument(ctx, "piano");
     expect(first.kind).toBe("sample-bank");
     expect(await prepareLiveInstrument(ctx, "piano")).toBe(first);

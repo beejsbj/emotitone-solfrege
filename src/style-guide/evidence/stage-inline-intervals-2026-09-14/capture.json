@@ -1,0 +1,14 @@
+{
+  "date": "2026-09-14",
+  "baseCommit": "f39eac8",
+  "source": "working-tree inline-interval trial",
+  "browser": "local headless Google Chrome via Playwright",
+  "deviceScaleFactor": 2,
+  "viewports": [{"width":390,"height":844},{"width":1366,"height":900}],
+  "productionRoute": "/",
+  "productionInputs": "Synthetic held E4 then C4; add G4 for triad. Ephemeral default config with Web, all explanations enabled, label strength 0.9.",
+  "guideRoute": "/style-guide/stage",
+  "guideInputs": "Start synthetic signal; default C major phrase and Web; Focus Stage.",
+  "detail": "Browser screenshot clip of the first 390x395 CSS pixels of the phone production view, not an edited mockup.",
+  "limitations": ["No physical input", "No hosted deployment verification", "No Forced Colors capture", "Existing CSS-pixel canvas backing resolution"]
+}

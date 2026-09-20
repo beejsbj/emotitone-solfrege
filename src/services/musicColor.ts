@@ -217,6 +217,20 @@ export function srgbToCss(color: SrgbColor): string {
   return `rgba(${roundChannel(color.r)}, ${roundChannel(color.g)}, ${roundChannel(color.b)}, ${Math.round(color.alpha * 1000) / 1000})`;
 }
 
+/** Change opacity while retaining the channels emitted by Music Color. */
+export function withMusicColorAlpha(color: string, alpha: number): string {
+  if (color.startsWith("rgba(") || color.startsWith("hsla(")) {
+    return color.replace(/,\s*[\d.]+\)$/, `, ${alpha})`);
+  }
+  if (color.startsWith("rgb(")) {
+    return color.replace("rgb(", "rgba(").replace(")", `, ${alpha})`);
+  }
+  if (color.startsWith("hsl(")) {
+    return color.replace("hsl(", "hsla(").replace(")", `, ${alpha})`);
+  }
+  return color;
+}
+
 export function musicColorValueToCss(value: MusicColorValue): string {
   return srgbToCss(value.srgb);
 }

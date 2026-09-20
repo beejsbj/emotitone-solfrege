@@ -206,17 +206,18 @@ describe('live play styles', () => {
       engine.press('c', notes(60))
       engine.press('e', notes(64))
       engine.press('g', notes(67))
-      vi.advanceTimersByTime(135)
-      const committed = calls.find(call => call.pitch === 64 && call.at === 145)!
+      vi.advanceTimersByTime(60)
+      const committed = calls.find(call => call.pitch === 64)!
+      vi.advanceTimersByTime(committed.at - 70)
       engine.release('e')
-      expect(committed.release.mock.calls).toEqual([[245]])
+      expect(committed.release.mock.calls).toEqual([[committed.at + 100]])
       // An unrelated release after onset must not cut the committed gate short.
       vi.advanceTimersByTime(20)
       engine.release('c')
-      expect(committed.release.mock.calls).toEqual([[245]])
+      expect(committed.release.mock.calls).toEqual([[committed.at + 100]])
       // Releasing the final held input still stops every remaining voice.
       engine.release('g')
-      expect(committed.release).toHaveBeenLastCalledWith(155)
+      expect(committed.release).toHaveBeenLastCalledWith(committed.at + 10)
       expect(vi.getTimerCount()).toBe(0)
     },
   )
@@ -226,12 +227,13 @@ describe('live play styles', () => {
     engine.configure({ rate: 16 })
     engine.press('c', notes(60))
     engine.press('e', notes(64))
-    vi.advanceTimersByTime(135)
-    const committed = calls.find(call => call.pitch === 64 && call.at === 145)!
+    vi.advanceTimersByTime(60)
+    const committed = calls.find(call => call.pitch === 64)!
+    vi.advanceTimersByTime(committed.at - 70)
     engine.release('e')
-    expect(committed.release.mock.calls).toEqual([[245]])
+    expect(committed.release.mock.calls).toEqual([[committed.at + 100]])
     engine.release('c')
-    expect(committed.release).toHaveBeenLastCalledWith(135)
+    expect(committed.release).toHaveBeenLastCalledWith(committed.at - 10)
     expect(vi.getTimerCount()).toBe(0)
   })
 

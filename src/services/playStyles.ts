@@ -273,7 +273,7 @@ export function createPlayStyleEngine<T>(deps: {
     const committed = new Set<PlayingVoice>()
     if (held.size && config.style.startsWith('arp-')) {
       for (const pulse of pendingPulses) {
-        const lead = pulse.step === 0 ? initialLeadMs : schedulingLeadMs
+        const lead = schedulingLeadMs
         if (pulse.at > now && pulse.at < now + lead) {
           pulse.voices.forEach(item => committed.add(item))
         }

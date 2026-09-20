@@ -134,6 +134,12 @@ export const useMusicStore = defineStore(
     const workletOwners = new Map<string, { held: HeldPitch; engine: LiveWorklet }>();
     const workletActive = new Map<string, LiveVoiceEvent>();
     const workletPlans = new Map<string, LiveVoiceEvent>();
+    // A lookahead plan has already submitted MIDI; its eventual audio event
+    // only confirms recording/presentation lifecycle, even after a UI stall.
+    const workletMirrored = new Map<string, LiveVoiceEvent>();
+    const workletEventKey = (event: LiveVoiceEvent) => `${event.noteId}:${event.phase}`;
+    const sameWorkletEvent = (a: LiveVoiceEvent | undefined, b: LiveVoiceEvent) => a?.at === b.at && a.pitch === b.pitch
+      && a.instrumentId === b.instrumentId && a.ownerId === b.ownerId && a.style === b.style;
     function workletDetail(event: LiveVoiceEvent) {
       const held = workletOwners.get(event.ownerId)?.held;
       if (!held) return null;
@@ -152,11 +158,21 @@ export const useMusicStore = defineStore(
         detail: { ...detail, phase },
       }));
     }
+    function submitWorkletMidi(event: LiveVoiceEvent) {
+      if (sameWorkletEvent(workletMirrored.get(workletEventKey(event)), event)) return;
+      mirrorWorklet(event);
+      workletMirrored.set(workletEventKey(event), event);
+    }
+    function cancelWorkletMidi(event: LiveVoiceEvent, at = superdoughAudio.getAudioContext().currentTime) {
+      mirrorWorklet({ ...event, at }, "cancel");
+      workletMirrored.delete(`${event.noteId}:attack`);
+      workletMirrored.delete(`${event.noteId}:release`);
+    }
     const unsubscribeWorklet = subscribeLivePlayback({
       onEvent(event) {
         const detail = workletDetail(event);
         if (!detail) return;
-        mirrorWorklet(event);
+        submitWorkletMidi(event);
         workletPlans.delete(`${event.noteId}:${event.phase}`);
         if (event.phase === "attack") {
           workletActive.set(event.noteId, event);
@@ -164,6 +180,8 @@ export const useMusicStore = defineStore(
             noteId: event.noteId, audibleAt: detail.audibleAt });
         } else {
           workletActive.delete(event.noteId);
+          workletMirrored.delete(`${event.noteId}:attack`);
+          workletMirrored.delete(`${event.noteId}:release`);
           activeNotes.value.delete(event.noteId);
         }
         currentNote.value = activeNotes.value.values().next().value?.solfege.name ?? null;
@@ -176,18 +194,19 @@ export const useMusicStore = defineStore(
         const next = new Map(events.filter(event => workletOwners.has(event.ownerId))
           .map(event => [`${event.noteId}:${event.phase}`, event]));
         for (const [id, old] of workletPlans) {
-          if (!next.has(id) && old.phase === "attack" && !activeNotes.value.has(old.noteId)) {
-            mirrorWorklet({ ...old, at: superdoughAudio.getAudioContext().currentTime }, "cancel");
+          // One FIFO port delivers elapsed lifecycle before its new snapshot;
+          // a missing attack that is still inactive therefore was cancelled.
+          if (old.phase === "attack" && !workletActive.has(old.noteId) && (!next.has(id) || !sameWorkletEvent(old, next.get(id)!))) {
+            cancelWorkletMidi(old);
           }
         }
-        for (const [id, event] of next) {
-          if (workletPlans.get(id)?.at !== event.at) mirrorWorklet(event);
-        }
+        for (const event of next.values()) submitWorkletMidi(event);
         workletPlans.clear();
         next.forEach((event, id) => workletPlans.set(id, event));
       },
       onOwnerEnded(ownerId) {
         workletOwners.delete(ownerId);
+        for (const [id, event] of workletMirrored) if (event.ownerId === ownerId) workletMirrored.delete(id);
       },
       onError(error) {
         closeWorkletLifecycle();
@@ -197,10 +216,13 @@ export const useMusicStore = defineStore(
 
     function closeWorkletLifecycle(boundary?: LiveClockBoundary) {
       const at = boundary?.audioTime ?? superdoughAudio.getAudioContext().currentTime;
-      for (const event of workletPlans.values()) mirrorWorklet({ ...event, at }, "cancel");
+      const cancelled = new Set<string>();
+      for (const event of [...workletPlans.values(), ...workletActive.values()]) {
+        if (!cancelled.has(event.noteId)) cancelWorkletMidi(event, at);
+        cancelled.add(event.noteId);
+      }
       for (const [noteId, event] of workletActive) {
         const ended = { ...event, phase: "release" as const, at };
-        mirrorWorklet(ended, "cancel");
         const detail = workletDetail(ended);
         if (detail) window.dispatchEvent(new CustomEvent("note-released", {
           detail: { ...detail, note: detail.note.name, mirrorMidi: false,
@@ -211,6 +233,7 @@ export const useMusicStore = defineStore(
       }
       workletActive.clear();
       workletPlans.clear();
+      workletMirrored.clear();
       for (const owner of workletOwners.keys()) {
         heldOwners.delete(owner);
         for (const [alias, aliasedOwner] of heldAliases) {

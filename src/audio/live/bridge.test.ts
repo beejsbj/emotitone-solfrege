@@ -180,6 +180,23 @@ describe('production live worklet bridge', () => {
     expect(channels[0].port2.close).toHaveBeenCalledOnce()
   })
 
+  it('does not time out an acknowledgement already received while its ordered drain is pending', async () => {
+    vi.useFakeTimers()
+    const { context, callbacks, node, drain } = setup()
+    const bridge = await createLiveWorklet(context, {} as AudioNode, callbacks)
+    const ready = vi.fn()
+    const failed = vi.fn()
+    const pending = bridge.prepare(instrument).then(ready, failed)
+    node.port.onmessage({ data: { type: 'prepared', requestId: 1 } })
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(ready).not.toHaveBeenCalled()
+    expect(failed).not.toHaveBeenCalled()
+    drain()
+    await pending
+    expect(ready).toHaveBeenCalledOnce()
+    bridge.dispose()
+  })
+
   it('invalidates on a listener error and does not deliver the remaining batch or acknowledgements', async () => {
     const { context, callbacks, node, channels, drain } = setup()
     const bridge = await createLiveWorklet(context, {} as AudioNode, callbacks)

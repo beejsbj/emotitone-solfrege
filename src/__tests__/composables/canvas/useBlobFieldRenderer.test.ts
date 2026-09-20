@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   BLOB_FIELD_PIXEL_BUDGET,
   blurFieldChannel,
+  createBlobFieldConnectionPlanner,
   createBlobWebConnectionPlanner,
   getBlobFieldConnectionGeometry,
   getBlobFieldBounds,
@@ -99,6 +100,23 @@ function createWebScene(
     auxiliaryLabels: [],
   } as unknown as HarmonicGeometryScene;
 }
+
+describe("latent Merge joins", () => {
+  it("keeps sparse parents through drift and reconnects held members around releases", () => {
+    const frames = [createFrameAt("a", 0, 0), createFrameAt("b", 100, 0), createFrameAt("c", 180, 0)];
+    const planner = createBlobFieldConnectionPlanner();
+    const pairs = () => planner.getConnections(frames).map(connection => [connection.from.key, connection.to.key]);
+    expect(pairs()).toEqual([["a", "b"], ["b", "c"]]);
+    frames[2].blob.x = 10;
+    expect(pairs()).toEqual([["a", "b"], ["b", "c"]]);
+    frames[1].blob.isFadingOut = true;
+    expect(pairs()[0]).toEqual(["a", "c"]);
+    expect(pairs()).toHaveLength(2);
+    planner.clear();
+    frames[1].blob.isFadingOut = false;
+    expect(pairs()).toEqual([["a", "b"], ["a", "c"]]);
+  });
+});
 
 describe("useBlobFieldRenderer", () => {
   it("bounds the field from the actual prepared contours", () => {

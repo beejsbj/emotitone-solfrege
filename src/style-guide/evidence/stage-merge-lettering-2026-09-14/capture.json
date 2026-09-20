@@ -1,0 +1,13 @@
+{
+  "date": "2026-09-14",
+  "baseCommit": "a658a95",
+  "source": "working-tree Merge lettering implementation",
+  "browser": "local headless Google Chrome via Playwright",
+  "deviceScaleFactor": 2,
+  "viewports": [{"width":390,"height":844},{"width":1366,"height":900}],
+  "productionRoute": "/",
+  "productionInputs": "Synthetic held E4 then C4, then G4; ephemeral defaults with Merge and all explanations enabled, label strength 0.9.",
+  "guideRoutes": ["/style-guide/stage", "/style-guide/#unique-harmonic-geometry"],
+  "guideInputs": "Live Stage: Start synthetic signal, Merge, Focus Stage. Static material specimen: Show analysis labels, then Fuse Merge body. Detail is a browser element screenshot of the Merge figure.",
+  "limitations": ["No physical input", "No hosted deployment verification", "No Forced Colors capture", "Existing CSS-pixel Stage backing resolution", "Overlapping text may be omitted; valid labels remain on their actual joins"]
+}

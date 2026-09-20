@@ -458,7 +458,8 @@ export function useUnifiedCanvas(
     harmonicGeometryRenderer.renderLabels(
       ctx,
       harmonicScene,
-      cachedConfigs.blob
+      cachedConfigs.blob,
+      { now: timestamp, reducedMotion, bounds: composition.usable }
     );
   };
 

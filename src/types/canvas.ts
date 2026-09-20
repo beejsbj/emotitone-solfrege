@@ -89,9 +89,28 @@ export interface HarmonicGeometryLabel {
   y: number;
   lines: string[];
   size: "sm" | "md" | "lg";
+  roles?: Array<"chord" | "emotion" | "interval">;
+  angle?: number;
+  notePair?: [string, string];
+}
+
+/** Exact prepared material join, published by the field renderer for lettering. */
+export interface HarmonicConnectionPath {
+  material?: "web" | "merge";
+  notePair: [string, string];
+  points: Array<{ x: number; y: number }>;
+  colors: [string, string];
+  opacity: number;
 }
 
 export interface HarmonicGeometryScene {
+  /** Analysis identity, retained even when the chord headline is hidden. */
+  chordSymbol?: string;
+  /** Centre of visible Merge material, projected inside the body if necessary. */
+  mergeCenter?: { x: number; y: number };
+  connectionMode?: "off" | "web" | "merge";
+  renderedConnections?: HarmonicConnectionPath[];
+  viewport?: { width: number; height: number };
   points: HarmonicGeometryPoint[];
   orderedPoints: HarmonicGeometryPoint[];
   centroid: { x: number; y: number };

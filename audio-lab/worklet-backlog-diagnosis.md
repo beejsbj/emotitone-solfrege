@@ -1,5 +1,9 @@
 # Worklet lifecycle backlog diagnosis
 
+This document preserves the diagnostic sequence and its earlier pending/failed
+states. The [final repaired-worklet report](worklet-repaired-results.md) records
+the completed full follow-up and Together-articulation fixture correction.
+
 The matched receipts show a queue-delivery problem amplified by separate
 application updates, rather than duplicated lifecycle events or slow synchronous
 lifecycle callbacks. A single CPU diagnostic supports batching incoming responses

@@ -1,5 +1,9 @@
 # Native lookahead comparison — 2026-09-20
 
+This document preserves the original four-way comparison. The subsequent
+[repaired worklet follow-ups](worklet-repaired-results.md) resolve its notification
+backlog and document the separate Together-articulation fixture correction.
+
 **The worklet and a two-second native queue both preserve the measured rhythm.
 Neither currently earns a complete performance pass.** Native2000 exceeds the
 predeclared synchronous-operation limit; worklet lifecycle delivery falls behind

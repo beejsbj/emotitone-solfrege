@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises';
 import { spawn, execFileSync } from 'node:child_process';
-import { writeGuideReceipt } from './guide-receipt.mjs';
+import { collectGuideBrowserErrors, writeGuideReceipt } from './guide-receipt.mjs';
 const out=dirname(fileURLToPath(import.meta.url));
 const root=resolve(out,'../..');
 const tmp=await mkdtemp('/tmp/emotitone-codestrip-guide-');
@@ -18,7 +18,7 @@ try {
  const target=await (await fetch(`http://127.0.0.1:${port}/json/new?about:blank`,{method:'PUT'})).json();
  socket=new WebSocket(target.webSocketDebuggerUrl);await new Promise((resolve,reject)=>{socket.onopen=resolve;socket.onerror=reject});
  const pending=new Map();let serial=0;const errors=[];
- socket.onmessage=({data})=>{const message=JSON.parse(data);if(pending.has(message.id)){const {resolve,reject}=pending.get(message.id);pending.delete(message.id);if(message.error)reject(Error(JSON.stringify(message.error)));else resolve(message.result)}if(message.method==='Runtime.exceptionThrown')errors.push(message.params.exceptionDetails.exception?.description)};
+ socket.onmessage=({data})=>{const message=JSON.parse(data);if(pending.has(message.id)){const {resolve,reject}=pending.get(message.id);pending.delete(message.id);if(message.error)reject(Error(JSON.stringify(message.error)));else resolve(message.result)}collectGuideBrowserErrors(errors,message)};
  const call=(method,params={})=>new Promise((resolve,reject)=>{pending.set(++serial,{resolve,reject});socket.send(JSON.stringify({id:serial,method,params}))});
  const evaluate=async(expression,awaitPromise=false)=>{const r=await call('Runtime.evaluate',{expression,awaitPromise,returnByValue:true});if(r.exceptionDetails)throw Error(r.exceptionDetails.exception?.description);return r.result.value};
  await call('Runtime.enable');await call('Page.enable');

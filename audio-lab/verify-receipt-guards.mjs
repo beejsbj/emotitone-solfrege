@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { writeGuideReceipt } from '../evidence/codestrip-viewport-20260920/guide-receipt.mjs';
+import { collectGuideBrowserErrors, writeGuideReceipt } from '../evidence/codestrip-viewport-20260920/guide-receipt.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const checker = process.env.PATTERN_CHECKER_PATH || resolve(root, 'audio-lab/check-pattern-growth.mjs');
@@ -46,6 +46,21 @@ try {
   assert.deepEqual(JSON.parse(await readFile(path, 'utf8')), successful, 'a failed run cannot overwrite a success receipt');
   await assert.rejects(writeGuideReceipt(join(directory, 'never-created.json'), lateFailure), /Guide captured/);
   await assert.rejects(readFile(join(directory, 'never-created.json')), { code: 'ENOENT' });
+  for (const type of ['error', 'warning']) {
+    const report = structuredClone(successful);
+    collectGuideBrowserErrors(report.errors, { method: 'Runtime.consoleAPICalled', params: { type,
+      args: [{ value: 'Vue caught an exception' }, { description: 'Error: broken guide' }] } });
+    assert.equal(report.errors.length, 1);
+    assert.match(report.errors[0], /Vue caught an exception Error: broken guide/);
+    await assert.rejects(writeGuideReceipt(path, report), /Guide captured 1 browser error/);
+    assert.deepEqual(JSON.parse(await readFile(path, 'utf8')), successful);
+  }
+  const collected = [];
+  collectGuideBrowserErrors(collected, { method: 'Runtime.exceptionThrown', params: { exceptionDetails: { text: 'Uncaught' } } });
+  assert.deepEqual(collected, ['Uncaught']);
+  collectGuideBrowserErrors(collected, { method: 'Runtime.consoleAPICalled', params: { type: 'log', args: [{ value: 'normal log' }] } });
+  collectGuideBrowserErrors(collected, { id: 1, result: {} });
+  assert.deepEqual(collected, ['Uncaught'], 'ordinary logs and CDP replies are not failures');
   console.log('PASS: exact focused/full condition matrices and asynchronous guide-error publication guards');
 } finally {
   await rm(directory, { recursive: true, force: true });

@@ -38,6 +38,7 @@ import {
 } from "@/components/primatives/noteColorContext";
 import { useMusicColorClock } from "@/composables/useMusicColorClock";
 import { CodeStripViewport } from "./viewport";
+import { createNativeCodeStripReveal } from "./nativeReveal";
 import {
   generatedStrudelBarPosition,
   uiBeatClock,
@@ -161,6 +162,9 @@ const visibleCode = ref("");
 // visible EditorView document immediately before evaluation below.
 const mirror = shallowRef<StrudelMirrorInstance | null>(null);
 let controlledView: EditorView | null = null;
+const nativeReveal = createNativeCodeStripReveal(activeView);
+const recordingFollowMeasureKey = {};
+let recordingFollowGeneration = 0;
 let attachedController: Parameters<typeof detachEditor>[0] | undefined;
 let followLoopFrame: number | null = null;
 let followTargetScrollLeft = 0;
@@ -485,15 +489,22 @@ function queueTempoEvaluation() {
 }
 
 function revealLatestRecordedEvent() {
+  nativeReveal.cancel();
+  const generation = ++recordingFollowGeneration;
   const view = getMirrorView(mirror.value);
-  if (!view) return;
+  if (!view || presentationSyncCancelled) return;
+  const doc = view.state.doc;
+  const isCurrent = () => !presentationSyncCancelled && activeView() === view &&
+    view.state.doc === doc && generation === recordingFollowGeneration;
   const events = parseCodeStripEvents(view.state.doc);
   const latest = events[events.length - 1];
   if (!latest) return;
 
   const targetPosition = Math.max(latest.from, latest.to - 1);
   view.requestMeasure({
+    key: recordingFollowMeasureKey,
     read(measuredView): { revealPosition: number } | { scroller: HTMLElement; target: number } | null {
+      if (!isCurrent()) return null;
       if (measuredView.visibleRanges && !measuredView.visibleRanges.some(
         range => range.from <= targetPosition && range.to >= targetPosition,
       )) return { revealPosition: targetPosition };
@@ -508,12 +519,12 @@ function revealLatestRecordedEvent() {
       };
     },
     write(measurement) {
-      if (!measurement) return;
+      if (!measurement || !isCurrent()) return;
       if ("revealPosition" in measurement) {
         // Long-line gaps do not have glyph coordinates. Let CodeMirror render
         // the remote event; ordinary rendered appends retain smooth follow.
         stopFollowScroll();
-        view.dispatch({ effects: EditorView.scrollIntoView(measurement.revealPosition, { x: "center", y: "nearest" }) });
+        nativeReveal.schedule(view, measurement.revealPosition);
         return;
       }
       startFollowScroll(measurement.scroller, measurement.target);
@@ -578,6 +589,8 @@ function syncPresentation() {
 }
 
 function stopFollow() {
+  nativeReveal.cancel();
+  recordingFollowGeneration++;
   followPlaybackActive = false;
   stopFollowScroll();
 }

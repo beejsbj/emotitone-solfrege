@@ -53,3 +53,46 @@ The regression tests exercise real CodeMirror source/presentation publication, r
 These are CDP dispatch round-trips and browser event-queue delays, not acoustic or physical-speaker latency. The headless Linux/Vite development host is noisy; six samples per condition are diagnostic observations, not confidence intervals or guarantees for mobile/production devices. Rich replay is a transport/presentation smoke test, not a new audio timing study.
 
 The fix preserves unchanged rendered widgets, but still regenerates notation/tokens and scans text when recordings change. Persistence remains synchronous. Very long histories, initial loads, and large overlapping-note groups can still require substantial work. This change does not bound total history storage or make arbitrary edits constant-time. Audio engines and scheduling are unchanged.
+
+
+## Visibility-scoped follow-up, 2026-09-20
+
+Burooj replaced blanket-static history with visible-only motion. The same CodeStrip source still serves production and the controlled guide. Long-line follow now asks CodeMirror to materialize an omitted final event before using its coordinates; already rendered incremental appends keep the smooth follow. That loop finishes if device-pixel rounding or a changed scroll extent prevents movement, leaving subsequent manual scrolling usable. Materializing an append preserves active playback following. These repairs are covered by direct regressions.
+
+The final [focused unprofiled capture](results/pattern-growth-viewport-20260920.json), with current main integrated, verifies natural 512-note follow, both six-note 512→518 append sequences, visible hue following its setting, 117 clipped mounted notes remaining static while 13 visible notes animate, horizontal scroll-away/return, Reduced Motion, and rich Play/Stop. Media emulation explicitly selects screen media and waits for two rendering frames; the capture records both actual media-query matching and the shared color clock's reduced-motion flag. The prior [complete failed capture](results/pattern-growth-viewport-pre-media-failed-20260920.json) used an unsettled media probe and remains diagnostic evidence.
+
+**The strict 500ms append LongTask gate remains unmet.** No threshold changed, and no additional retries were made to obtain a pass:
+
+| Final focused measurement | Result |
+| --- | ---: |
+| 16-note hue-on stopped keydown median | 111.8ms |
+| 512-note hue-on stopped keydown median | 100.6ms (0.90×) |
+| 512→518 maximum LongTask, hue off | 395ms |
+| 512→518 maximum LongTask, hue on | 502ms |
+
+The preceding failed run measured 627/625ms. A separate [single-sequence CPU profile](results/pattern-growth-viewport-append-profile-20260920.json), with [compressed Chrome profile](results/pattern-growth-viewport-append-profile-20260920.cpuprofile.gz), measured a 347ms maximum task. Its `append-profile` mode cannot satisfy the timing checker. Across that 8.45-second diagnostic window, CodeStrip dispatch consumed 186ms, selection reads 2.1ms, notation generation 20.5ms, and recording tokens 21.3ms. Persistence consumed 359ms (340ms serialization), Vue deep traversal 341ms, and Stage drawing 2107ms (1257ms Blob bodies, 322ms Hilbert, 227ms Ambient). Another 4718ms was attributed only to the browser's native/program bucket. These inclusive categories overlap; the profile does not identify the exact owner of the earlier 625ms task. It supports the selection patch's intended effect, not closure of the whole-application latency gate. Persistence remains synchronous. The [offline parser](summarize-pattern-profile.mjs) reproduces these categories from the compressed profile.
+
+**That capture also left production functional acceptance open:** it records 15 CodeMirror update-during-update errors from native reveal dispatch inside `requestMeasure.write` (the profile records eight). The visible/hidden color and follow assertions passed despite those errors; they did not establish an error-free recording flow. The checker now rejects this error. The dispatch repair and subsequent functional-only capture are recorded below. The real-guide capture contains zero runtime exceptions.
+
+The exact-version CodeMirror selection patch is unchanged. Sixty-nine focused tests, including adjacent mainline CodeStrip display-mode tests, plus typecheck passed after integration; a later focused regression verifies that native materialization preserves subsequent playback-follow callbacks. The source-level visibility owner has five direct regressions, including clipped color-clock reads, latest-only hidden playback redraws, observed-element cleanup, hidden-page stillness, and current visible playback state under Reduced Motion.
+
+Local real-guide DOM checks and inspected [desktop](../../evidence/codestrip-viewport-20260920/guide-desktop.png) / [phone](../../evidence/codestrip-viewport-20260920/guide-phone.png) captures verify the shared source at 1280×900 and 390×844: all three CodeStrip notes visible, isolated static colors, no document horizontal overflow, and 0s progress transitions under Reduced Motion. The [DOM receipt](../../evidence/codestrip-viewport-20260920/guide-check.json) and [reproduction script](../../evidence/codestrip-viewport-20260920/verify-guide.mjs) record that evidence. Production viewport behavior comes from the real-application harness; no new production screenshot, hosted preview, physical-device pacing, or acoustic measurement is claimed.
+
+Diagnostic command (one Chrome job at a time):
+
+```sh
+LAB_PATTERN_PROFILE_APPEND=1 LAB_PATTERN_RESULT=/tmp/pattern-append-profile.json node audio-lab/pattern-growth.mjs
+node audio-lab/summarize-pattern-profile.mjs audio-lab/results/pattern-growth-viewport-append-profile-20260920.cpuprofile.gz
+```
+
+Three earlier incomplete viewport captures are retained alongside the final receipt. They exposed the virtualized-follow problem and are not performance acceptance evidence.
+
+### Deferred native reveal repair
+
+Commit `ccdad1f` moves native reveal dispatch into a coalesced microtask after CodeMirror's measurement lock is released. The owner discards stale document/view/generation requests and cancels pending work before teardown or replacement by a newer follow; transport-follow state remains active. The component regression first reproduced the exact nested-update error (Vitest exit 1), then passed with the fix. Thirty-five component/real-EditorView queue tests and typecheck passed; direct queue tests cover latest-target coalescing, document/view replacement, teardown cancellation, and a new request after cancellation.
+
+The [functional-only follow-up](results/pattern-growth-viewport-deferred-smoke-20260920.json), captured at `ccdad1f`, records **zero warnings/errors** with six real 512→518 appends, visible hue/clipped stillness, natural long-line follow, manual scroll-away/return, actual Reduced Motion media and shared-clock state, and rich Play/Stop with an active glyph. This resolves the recorded nested-update functional failure. Its abbreviated `viewport-smoke` mode cannot pass the complete performance checker; the last complete timing capture's 502ms failure remains open pending a separately verified source change and complete capture.
+
+```sh
+LAB_PATTERN_VIEWPORT_SMOKE=1 LAB_PATTERN_RESULT=/tmp/pattern-viewport-smoke.json node audio-lab/pattern-growth.mjs
+```

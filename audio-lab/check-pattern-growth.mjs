@@ -26,14 +26,30 @@ for (const row of receipt.rows) {
   console.log(`${row.n} notes; hue ${row.hue}; recording ${row.logging}: keydown ${downMedian([row]).toFixed(1)}ms, queue ${queue.toFixed(1)}ms, longest task ${longest}ms, rendered notes ${row.codeNotes}`);
   if (row.samples.length !== 6 || row.working !== row.n + (row.logging ? 6 : 0)) throw new Error('Invalid sequential fixture');
   if (row.logging && longest > 500) failed = true;
-  if (row.colors.historyChanged || row.colors.liveChanged !== row.hue) {
-    console.log('FAIL: expected static history and live-key hue following its setting.');
+  if (!row.colors.visibleCount || row.colors.hiddenChanged ||
+      row.colors.visibleChanged !== row.hue || row.colors.liveChanged !== row.hue) {
+    console.log('FAIL: visible history/live-key hue must follow its setting; clipped history must stay still.');
     failed = true;
   }
+}
+const viewport=receipt.viewport;
+if (!viewport) throw new Error('Missing horizontal scrolling and Reduced Motion verification');
+if (!viewport.clipped || viewport.clippedChanged ||
+    viewport.reducedMotion.media?.current !== true || viewport.reducedMotion.media?.clock !== true ||
+    !viewport.before.visibleChanged || !viewport.afterScroll.visibleChanged || !viewport.resumed.visibleChanged ||
+    [viewport.before,viewport.afterScroll,viewport.resumed,viewport.motionResumed].some(sample=>sample.hiddenChanged) ||
+    viewport.reducedMotion.visibleChanged || viewport.reducedMotion.hiddenChanged || viewport.reducedMotion.liveChanged ||
+    !viewport.motionResumed.visibleChanged || !viewport.motionResumed.liveChanged) {
+  console.log('FAIL: scrolling must suspend clipped notes and resume visible hue; Reduced Motion must stay still.');
+  failed = true;
 }
 if (!receipt.rows.some(row => row.logging && row.hue) || !receipt.rows.some(row => row.logging && !row.hue)) {
   throw new Error('Need consecutive appends with hue enabled and disabled');
 }
-console.log(`${failed ? 'FAIL' : 'PASS'}: overall input-growth, <=500ms append LongTask, and animation-behavior criteria.`);
+if (receipt.warnings?.some(warning => warning.includes('Calls to EditorView.update are not allowed'))) {
+  console.log('FAIL: CodeMirror attempted a nested update during viewport follow.');
+  failed = true;
+}
+console.log(`${failed ? 'FAIL' : 'PASS'}: overall input-growth, <=500ms append LongTask, animation behavior, and CodeMirror update-lock criteria.`);
 console.log('Trusted CDP input; fixed 90ms fixture duration / 125ms cadence; no CPU profiler. Host noise affects absolute times.');
 process.exitCode = Number(failed);

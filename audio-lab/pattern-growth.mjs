@@ -12,7 +12,9 @@ import { fileURLToPath } from 'node:url';
 
 const labRoot = dirname(fileURLToPath(import.meta.url));
 const outputPath = resolve(process.env.LAB_PATTERN_RESULT || '/tmp/pattern-growth.json');
-const mode = process.env.LAB_PATTERN_FOCUSED === '1' ? 'focused' : 'full';
+const mode = process.env.LAB_PATTERN_VIEWPORT_SMOKE === '1' ? 'viewport-smoke'
+  : process.env.LAB_PATTERN_PROFILE_APPEND === '1' ? 'append-profile'
+  : process.env.LAB_PATTERN_FOCUSED === '1' ? 'focused' : 'full';
 const repoRoot = resolve(labRoot, '..');
 const directory = await mkdtemp(join(tmpdir(), 'emotitone-ui-audio-'));
 const revision = process.env.LAB_UI_REF || execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim();
@@ -162,26 +164,46 @@ try {
 
   await evaluate(`window.refreshTimes=()=>{const notes=ps.loggedNotes.__v_raw;if(!notes.length)return;const shift=Date.now()-50-notes.at(-1).releaseTime;for(const n of notes){n.pressTime+=shift;n.releaseTime+=shift}};
     window.domStats=()=>({notes:document.querySelectorAll('.note').length,codeNotes:document.querySelectorAll('.code-strip-bar .note').length,widgets:document.querySelectorAll('.cm-code-strip-event').length,tapes:document.querySelectorAll('.bar-tape__segment').length,elements:document.querySelectorAll('*').length});`);
+  await evaluate(`window.visibleCodeNote=note=>{
+    const r=note.getBoundingClientRect(), s=note.closest('.cm-scroller').getBoundingClientRect();
+    return Math.min(r.right,s.right,innerWidth)>Math.max(r.left,s.left,0) &&
+      Math.min(r.bottom,s.bottom,innerHeight)>Math.max(r.top,s.top,0);
+  };
+  window.probeCodeColors=async()=>{
+    const notes=[...document.querySelectorAll('.code-strip-bar .note')];
+    const visible=notes.filter(visibleCodeNote),hidden=notes.filter(note=>!visibleCodeNote(note));
+    const live=document.querySelector('.keyboard__row--main .note');
+    if(!visible.length || !live) throw new Error('Missing visible note color probes');
+    const before=new Map([...notes,live].map(note=>[note,note.getAttribute('style')]));
+    await new Promise(r=>setTimeout(r,250));
+    const changed=note=>before.get(note)!==note.getAttribute('style');
+    return {visibleCount:visible.length,hiddenCount:hidden.length,
+      visibleChanged:visible.some(changed),hiddenChanged:hidden.some(changed),liveChanged:changed(live)};
+  }`);
 
   const hueRows=[];
-  const conditions = mode === 'focused'
+  const conditions = mode === 'viewport-smoke' ? [{n:512,hue:true,logging:true}]
+    : mode === 'append-profile' ? [{n:512,hue:false,logging:true}] : mode === 'focused'
     ? [{n:16,hue:true,logging:false},{n:512,hue:true,logging:false},{n:512,hue:false,logging:true},{n:512,hue:true,logging:true}]
     : [{n:16,hue:true,logging:false},{n:128,hue:true,logging:false},{n:512,hue:true,logging:false},{n:2048,hue:true,logging:false},{n:16,hue:true,logging:false},{n:512,hue:false,logging:false},{n:512,hue:false,logging:true},{n:512,hue:true,logging:false},{n:512,hue:true,logging:true}];
   for(const spec of conditions){
     await delay(1400);await evaluate(`__uiVisual.config.dynamicColors.hueMotionEnabled=${spec.hue};seed(${spec.n},${spec.logging})`,true);
     await delay(1200);
-    const colors = await evaluate(`(async()=>{
-      const history=document.querySelector('.code-strip-bar .note');
-      const live=document.querySelector('.keyboard__row--main .note');
-      if(!history || !live) throw new Error('Missing note color probes');
-      const before=[history.getAttribute('style'),live.getAttribute('style')];
-      await new Promise(r=>setTimeout(r,250));
-      return {historyChanged:before[0]!==history.getAttribute('style'),liveChanged:before[1]!==live.getAttribute('style')};
-    })()`,true);
+    const colors = await evaluate('probeCodeColors()',true);
     await evaluate('longTasks=[];frames=[];inputLog=[]');
+    if(mode==='append-profile') {
+      await call('Profiler.enable');
+      await call('Profiler.setSamplingInterval',{interval:1000});
+      await call('Profiler.start');
+    }
     const samples=[];for(let i=0;i<6;i++){if(spec.logging)await evaluate('refreshTimes()');const downMs=await key('keyDown');await delay(90);const upMs=await key('keyUp');await delay(180);samples.push({downMs,upMs})}
     // Drain delayed release publication and include its trailing LongTasks.
     await delay(1500);
+    if(mode==='append-profile') {
+      const {profile}=await call('Profiler.stop');
+      await writeFile(outputPath+'.cpuprofile',JSON.stringify(profile));
+      await call('Profiler.disable');
+    }
     const data=await evaluate('({logged:ps.loggedNotes.length,pending:ps.pendingNotes?.size,working:ps.currentWorkingNotes.length,hue:__uiVisual.config.dynamicColors.hueMotionEnabled,longTasks,frames:frames.filter(f=>f.duration>25),inputLog,...domStats()})');
     const row={...spec,samples,colors,...data};hueRows.push(row);console.log('FINAL',JSON.stringify(row));
     await writeFile(outputPath,JSON.stringify({revision,mode,dependencyHashes,rows:hueRows,warnings},null,2));
@@ -189,6 +211,40 @@ try {
       throw new Error(`Fixture crossed a take boundary: expected ${spec.n + (spec.logging ? 6 : 0)}, got ${data.working}`);
     }
   }
+  await evaluate('__uiVisual.config.dynamicColors.hueMotionEnabled=true;seed(512,false)',true);
+  await delay(1200);
+  const viewport = await evaluate(`(async()=>{
+    const scroller=document.querySelector('.code-strip-bar .cm-scroller');
+    if(scroller.scrollWidth<=scroller.clientWidth*2) throw new Error('Fixture must scroll horizontally');
+    scroller.scrollLeft=0;await new Promise(r=>setTimeout(r,500));
+    const before=await probeCodeColors();
+    const note=[...scroller.querySelectorAll('.note')].find(visibleCodeNote);
+    scroller.scrollLeft=scroller.clientWidth*2;await new Promise(r=>setTimeout(r,500));
+    const clipped=!note.isConnected || !visibleCodeNote(note);
+    const style=note.getAttribute('style');
+    await new Promise(r=>setTimeout(r,250));
+    const clippedChanged=note.getAttribute('style')!==style;
+    const afterScroll=await probeCodeColors();
+    scroller.scrollLeft=0;await new Promise(r=>setTimeout(r,500));
+    const resumed=await probeCodeColors();
+    return {before,clipped,clippedChanged,afterScroll,resumed};
+  })()`,true);
+  await evaluate(`window.__patternMotionQuery=matchMedia('(prefers-reduced-motion: reduce)');
+    window.__patternMotionEvents=[];__patternMotionQuery.addEventListener('change',event=>__patternMotionEvents.push(event.matches));`);
+  await evaluate(`import('/src/composables/useMusicColorClock.ts').then(module=>{
+    window.__patternClockProbe=module.useMusicColorClock(()=>false,()=>1);
+  })`,true);
+  await call('Emulation.setEmulatedMedia',{media:'screen',features:[{name:'prefers-reduced-motion',value:'reduce'}]});
+  await evaluate('new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done)))',true);
+  await delay(400);
+  viewport.reducedMotion=await evaluate('probeCodeColors()',true);
+  viewport.reducedMotion.media=await evaluate(`({current:matchMedia('(prefers-reduced-motion: reduce)').matches,
+    original:__patternMotionQuery.matches,events:__patternMotionEvents.slice(),clock:__patternClockProbe.reducedMotion.value})`);
+  await call('Emulation.setEmulatedMedia',{media:'screen',features:[{name:'prefers-reduced-motion',value:'no-preference'}]});
+  await evaluate('new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done)))',true);
+  await delay(400);
+  viewport.motionResumed=await evaluate('probeCodeColors()',true);
+  console.log('VIEWPORT',JSON.stringify(viewport));
   await evaluate('seed(16,false)',true);
   await delay(1000);
   const clickTransport = async label => {
@@ -204,7 +260,7 @@ try {
   replay.stopped=await evaluate(`!!document.querySelector('.code-strip-bar [aria-label="Play"]')`);
   if(!replay.stopped) throw new Error('Transport did not stop');
   console.log('REPLAY',JSON.stringify(replay));
-  await writeFile(outputPath,JSON.stringify({revision,mode,dependencyHashes,rows:hueRows,replay,warnings},null,2));
+  await writeFile(outputPath,JSON.stringify({revision,mode,dependencyHashes,rows:hueRows,viewport,replay,warnings},null,2));
 } finally {
   if (JSON.stringify(sourceHashesBefore) !== JSON.stringify(await hashSources())) {
     console.error('Application source changed during benchmark; discard this receipt.');

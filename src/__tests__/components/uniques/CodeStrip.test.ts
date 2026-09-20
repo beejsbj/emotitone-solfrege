@@ -151,10 +151,18 @@ vi.mock("@strudel/codemirror", () => ({
         scrollDOM: scroller,
         state: { doc: makeDoc(options.initialCode) },
         coordsAtPos: () => ({ left: 420, right: 420, top: 0, bottom: 20 }),
+        measuring: false,
         requestMeasure(request: any) {
-          request.write(request.read(this), this);
+          this.measuring = true;
+          try {
+            request.write(request.read(this), this);
+          } finally {
+            this.measuring = false;
+          }
         },
         dispatch(this: any, transaction: any) {
+          // CodeMirror keeps its update lock through requestMeasure.write.
+          if (this.measuring) throw new Error("Calls to EditorView.update are not allowed while an update is in progress");
           if (transaction.changes) {
             const nextCode = transaction.changes.insert;
             this.state.doc = makeDoc(nextCode);

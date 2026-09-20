@@ -5,7 +5,7 @@
   let latestPcm = null;
   const nodes = new Set();
   let peakNodes = 0, created = 0, tracking = false;
-  const input = [], lifecycle = [], operations = [], longTasks = [];
+  const input = [], lifecycle = [], operations = [], longTasks = [], endedOwners = [];
   window.AudioWorkletNode = class extends NativeWorklet {
     constructor(context, name, options) {
       super(context, name, options);
@@ -43,11 +43,14 @@
           finally { if (tracking) operations.push({ method, args, audioTime, time: at, duration: performance.now() - at }); }
         };
       }
-      module.subscribeLivePlayback({ onEvent(event) { if (tracking) lifecycle.push({ ...event, deliveredAt: performance.now() }); } });
+      module.subscribeLivePlayback({
+        onEvent(event) { if (tracking) lifecycle.push({ ...event, deliveredAt: performance.now() }); },
+        onOwnerEnded(ownerId) { if (tracking) endedOwners.push({ ownerId, deliveredAt: performance.now() }); },
+      });
     },
-    reset() { latestPcm = null; input.length = lifecycle.length = operations.length = longTasks.length = 0;
+    reset() { latestPcm = null; input.length = lifecycle.length = operations.length = longTasks.length = endedOwners.length = 0;
       nodes.clear(); peakNodes = created = 0; tracking = true; },
-    finish({ stepSeconds, anchor, duration = 2.95, tailAfter } = {}) {
+    finish({ stepSeconds, anchor, duration = 2.95, tailAfter, tailAfterFinalInputReleaseMs } = {}) {
       tracking = false;
       if (!latestPcm) throw new Error('PCM capture was not observed');
       const { pcm, right, startFrame } = latestPcm;
@@ -66,8 +69,13 @@
         // tail for a new beat. This tests rendered samples, not event counts.
         grid.push({ index, at, ...windowStats(at + .025, at + .045) });
       }
-      return { input, lifecycle, operations, longTasks, createdNodes: created, peakRetainedNodes: peakNodes,
-        retainedNodes: nodes.size, grid, tail: tailAfter === undefined ? null : windowStats(tailAfter, startFrame / sampleRate + pcm.length / sampleRate),
+      if (tailAfterFinalInputReleaseMs !== undefined) {
+        const releases = input.filter(event => event.type === 'keyup');
+        if (!releases.length) throw new Error('Tail measurement requires a delivered trusted release');
+        tailAfter = Math.max(...releases.map(event => event.audioTime)) + tailAfterFinalInputReleaseMs / 1000;
+      }
+      return { input, lifecycle, operations, longTasks, endedOwners, createdNodes: created, peakRetainedNodes: peakNodes,
+        retainedNodes: nodes.size, grid, tailStartAudioTime: tailAfter ?? null, tail: tailAfter === undefined ? null : windowStats(tailAfter, startFrame / sampleRate + pcm.length / sampleRate),
         sampleRate, pcmFrames: pcm.length, captureEndAudioTime: (startFrame + pcm.length) / sampleRate };
     },
   };

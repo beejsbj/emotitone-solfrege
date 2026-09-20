@@ -77,3 +77,20 @@ The committed profile is from unrepaired production runtime `d52d29e` (native
 worker revision `52f5910` includes the matched receipts but unchanged source).
 Diagnostic instrumentation is laboratory-only. No additional renderer comparison
 or production change was made for this diagnosis.
+
+Before exercising the inbox repair, the follow-up protocol adds an explicit
+settlement bound: final lifecycle and owner notifications must complete within
+1,000 ms after the last **delivered trusted keyup**. The injected stall occurs
+earlier in the held gesture. Every owner must close exactly once, all lifecycle
+pairs must remain unique and ordered, every fully held beat must contain all
+three expected pitches, and recorded note count must match completed pairs with
+no active musical notes left.
+
+The repaired tail fixture uses that recorded keyup's audio timestamp plus 100 ms.
+It no longer asks CDP for a later clock reading. This correction also applies to
+future full runs; the original four receipts and their failed zero-sample tail
+probes are preserved unchanged. The targeted run does not enable the CPU profiler:
+
+```sh
+LAB_UI_BACKEND=worklet LAB_NATIVE_COMPARE=1 LAB_NATIVE_TARGETED=1 LAB_UI_STARTUP_SECONDS=60 LAB_UI_TRIALS=0 LAB_UI_FILTER='^$' node audio-lab/ui-run.mjs audio-lab/results/native-comparison/worklet-inbox-targeted.json
+```

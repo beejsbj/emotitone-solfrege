@@ -535,45 +535,45 @@ export function useBlobRenderer() {
     const points: Array<{ x: number; y: number }> = [];
     const segments = blobConfig.edgeSegments;
 
+    // Dominant radial pulse driven by note pitch frequency (Option 3)
+    const radialPulse =
+      Math.sin(
+        state.blobElapsed * state.visualFrequency * 2 * Math.PI +
+          blob.vibrationPhase
+      ) *
+      state.vibrationAmplitude *
+      0.75 +
+      Math.sin(
+        state.blobElapsed * state.visualFrequency * 4 * Math.PI +
+          blob.vibrationPhase * 1.2
+      ) *
+      state.vibrationAmplitude *
+      0.15;
+
+    // Subtle non-rotating standing shimmer on the perimeter
+    const shimmerFactor =
+      Math.sin(
+        state.blobElapsed * state.visualFrequency * 2 * Math.PI +
+          blob.vibrationPhase
+      ) *
+      state.vibrationAmplitude *
+      0.15;
+
+    const shimmerHarmonic =
+      Math.sin(
+        state.blobElapsed * state.visualFrequency * 4 * Math.PI +
+          blob.vibrationPhase * 1.6
+      ) *
+      state.vibrationAmplitude *
+      0.08;
+
     for (let i = 0; i <= segments; i++) {
       const angle = (i / segments) * Math.PI * 2;
-      // Mode 3 wave travelling forward at the fundamental pitch frequency
-      const waveForward =
-        Math.sin(
-          state.blobElapsed * state.visualFrequency * 2 * Math.PI -
-            angle * 3 +
-            blob.vibrationPhase
-        ) *
-        state.vibrationAmplitude *
-        0.45;
+      const surfaceShimmer =
+        shimmerFactor * Math.cos(angle * 4 + blob.vibrationPhase) +
+        shimmerHarmonic * Math.cos(angle * 6 + blob.vibrationPhase * 1.4);
 
-      // Mode 5 wave travelling in counter-direction at 2nd harmonic (2x pitch frequency)
-      const waveCounter =
-        Math.sin(
-          state.blobElapsed * state.visualFrequency * 4 * Math.PI +
-            angle * 5 +
-            blob.vibrationPhase * 1.3
-        ) *
-        state.vibrationAmplitude *
-        0.22;
-
-      // Fine capillary ripple at 3rd harmonic (3x pitch frequency, 7 lobes)
-      const waveHarmonic =
-        Math.sin(
-          state.blobElapsed * state.visualFrequency * 6 * Math.PI -
-            angle * 7 +
-            blob.vibrationPhase * 1.7
-        ) *
-        state.vibrationAmplitude *
-        0.1;
-
-      // Soft asymmetric fluid envelope (breaks polygon corners so it stays organic and round)
-      const fluidEnvelope =
-        0.75 + 0.25 * Math.cos(angle * 2 + blob.vibrationPhase * 0.8);
-
-      const vibratingRadius =
-        state.scaledRadius +
-        (waveForward + waveCounter + waveHarmonic) * fluidEnvelope;
+      const vibratingRadius = state.scaledRadius + radialPulse + surfaceShimmer;
 
       points.push({
         x: blob.x + Math.cos(angle) * vibratingRadius,

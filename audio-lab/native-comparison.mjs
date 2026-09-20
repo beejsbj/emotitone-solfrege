@@ -5,7 +5,7 @@ export function nativeComparisonPlugin(value) {
   const horizon = Number(value);
   if (![400, 1200, 2000].includes(horizon)) throw new Error('LAB_NATIVE_LOOKAHEAD_MS must be 400, 1200 or 2000');
   return { name: 'lab-native-lookahead', enforce: 'pre', transform(code, id) {
-    if (!id.endsWith('/src/audio/native/renderer.ts')) return;
+    if (!id.endsWith('/src/audio/native/renderer.ts') && !id.endsWith('/audio-lab/reference/native/renderer.ts')) return;
     const old = 'export const NATIVE_LOOKAHEAD_MS = 400';
     if (!code.includes(old)) throw new Error('Native renderer constant changed; audit the comparison transform');
     return { code: code.replace(old, `export const NATIVE_LOOKAHEAD_MS = ${horizon}`), map: null };

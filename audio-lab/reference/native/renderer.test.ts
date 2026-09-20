@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPreparedNativeRenderer } from './renderer'
-import type { PreparedNativeInstrument } from '../../services/preparedNativeInstrument'
-import type { LiveVoiceEvent } from '../live/types'
-import type { LiveRendererCallbacks } from '../liveRenderer'
-import { createLivePerformance } from '../../services/livePerformance'
+import type { PreparedNativeInstrument } from '@/services/preparedNativeInstrument'
+import type { LiveVoiceEvent } from '@/audio/live/types'
+import type { LiveRendererCallbacks } from '@/audio/liveRenderer'
+import { createLivePerformance } from '@/services/livePerformance'
 
 const subscription = vi.hoisted(() => ({ listener: undefined as LiveRendererCallbacks | undefined }))
-vi.mock('../../services/livePlayback', () => ({
+vi.mock('@/services/livePlayback', () => ({
   subscribeLivePlayback: (listener: LiveRendererCallbacks) => {
     subscription.listener = listener
     return () => { subscription.listener = undefined }

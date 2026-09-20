@@ -1,5 +1,6 @@
 /** Real application input-to-render benchmark. LAB_UI_REF=cdaccef freezes baseline. */
 import { createServer } from 'vite';
+import { nativeBackendPlugin } from './native-backend.mjs';
 import { mkdtemp, readFile, rm, writeFile, mkdir, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve, join, dirname } from 'node:path';
@@ -23,7 +24,7 @@ if (process.env.LAB_UI_REF) {
 const requestedBackend = process.env.LAB_UI_BACKEND;
 if (requestedBackend && !['native', 'worklet'].includes(requestedBackend)) throw new Error('LAB_UI_BACKEND must be native or worklet');
 // Include new, uncommitted architecture modules as well as tracked source.
-const sourcePaths = [...new Set(execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', 'src'],
+const sourcePaths = [...new Set(execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', 'src', 'audio-lab/reference'],
   { cwd: repoRoot, encoding: 'utf8' }).trim().split('\n'))].sort();
 async function hashSources() {
   return Object.fromEntries(await Promise.all(sourcePaths.map(async (path) => [path,
@@ -32,11 +33,11 @@ async function hashSources() {
     })])));
 }
 const sourceHashesBefore = await hashSources();
-const comparisonFiles = ['ui-run.mjs', 'ui-instrumentation.js', 'native-comparison.mjs', 'native-comparison-instrumentation.js'];
+const comparisonFiles = ['ui-run.mjs', 'ui-instrumentation.js', 'native-comparison.mjs', 'native-comparison-instrumentation.js', 'native-backend.mjs'];
 const hashComparison = () => Promise.all(comparisonFiles.map(async path => [path, createHash('sha256').update(await readFile(join(labRoot, path))).digest('hex')])).then(Object.fromEntries);
 const comparisonHashesBefore = process.env.LAB_NATIVE_COMPARE === '1' ? await hashComparison() : null;
 const vite = await createServer({ root: appRoot, configFile: join(appRoot, 'vite.config.ts'),
-  plugins: [nativeComparisonPlugin(process.env.LAB_NATIVE_LOOKAHEAD_MS)],
+  plugins: [nativeBackendPlugin(requestedBackend, appRoot), nativeComparisonPlugin(process.env.LAB_NATIVE_LOOKAHEAD_MS)],
   ...(requestedBackend ? { define: { 'import.meta.env.VITE_LIVE_AUDIO_BACKEND': JSON.stringify(requestedBackend) } } : {}),
   cacheDir: join(directory, 'vite-cache'), optimizeDeps: { entries: [join(appRoot, 'index.html')] },
   server: { host: '127.0.0.1', port: 0, hmr: false, watch: { ignored: () => true }, fs: { allow: [repoRoot, directory] } },

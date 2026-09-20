@@ -98,7 +98,7 @@ const props = withDefaults(
     tokens: undefined,
     source: undefined,
     density: "dense",
-    durationMode: "stacked",
+    durationMode: "bar",
     timeSignature: "4/4",
     ariaLabel: "Editable Strudel pattern",
   },

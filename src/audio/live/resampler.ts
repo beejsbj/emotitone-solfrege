@@ -38,9 +38,23 @@ for (let rate = 0; rate < RATE_STEPS; rate++) {
 }
 
 function read(data: Float32Array, index: number, loopStart: number, loopEnd: number, inLoop: boolean): number {
-  if (inLoop && (index < loopStart || index >= loopEnd)) {
+  if (inLoop) {
     const length = loopEnd - loopStart
-    index = loopStart + ((index - loopStart) % length + length) % length
+    if (index < loopStart || index >= loopEnd) index = loopStart + ((index - loopStart) % length + length) % length
+    if (index < 0 || index >= data.length) return 0
+    // A fractional wrap can straddle either boundary. Interpolate between the
+    // last and first *in-loop* sample centers across the periodic seam, never
+    // the attack/tail samples just outside it. Keep the original loop duration.
+    const first = Math.ceil(loopStart)
+    const last = Math.min(data.length - 1, Math.ceil(loopEnd) - 1)
+    if (first > last) return 0
+    const floor = Math.floor(index)
+    const left = floor < first ? last : floor
+    const right = floor < first || floor >= last ? first : floor + 1
+    const leftAt = floor < first ? last - length : floor
+    const rightAt = floor >= last ? first + length : right
+    const fraction = (index - leftAt) / (rightAt - leftAt)
+    return data[left] + (data[right] - data[left]) * fraction
   }
   if (index < 0 || index >= data.length) return 0
   const left = Math.floor(index)

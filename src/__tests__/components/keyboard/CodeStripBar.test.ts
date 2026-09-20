@@ -17,7 +17,7 @@ const designSystemSource = readFileSync(
 vi.mock("@/components/uniques/CodeStrip/index.vue", () => ({
   default: {
     name: "CodeStrip",
-    props: ["density", "framed"],
+    props: ["density", "durationMode", "framed"],
     template: '<div data-testid="code-strip" />',
   },
 }));
@@ -57,6 +57,7 @@ describe("CodeStripBar.vue", () => {
     const strip = wrapper.getComponent({ name: "CodeStrip" });
 
     expect(strip.props("density")).toBe("dense");
+    expect(strip.props("durationMode")).toBe("bar");
     expect(strip.props("framed")).toBe(false);
     expect(codeStripSource).toMatch(
       /\.code-strip--dense[\s\S]*?\.cm-content\)[\s\S]*?padding:\s*0;/,

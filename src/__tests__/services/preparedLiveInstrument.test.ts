@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ sounds: new Map<string, object>(), loaded: new Map<string, AudioBuffer>(), load: vi.fn(), font: vi.fn() }));
+const mocks = vi.hoisted(() => ({ sounds: new Map<string, object>(), loaded: new Map<string, AudioBuffer>(), load: vi.fn(), font: vi.fn(), mipmaps: vi.fn() }));
 vi.mock("superdough", async importOriginal => ({
   ...await importOriginal<typeof import("superdough")>(),
   getSound: (name: string) => mocks.sounds.get(name),
@@ -8,7 +8,12 @@ vi.mock("superdough", async importOriginal => ({
   loadBuffer: mocks.load,
 }));
 vi.mock("@strudel/soundfonts", () => ({ getPreparedSoundfont: mocks.font }));
-import { prepareLiveInstrument } from "../../services/preparedLiveInstrument";
+vi.mock("@/audio/live/resampler", async importOriginal => {
+  const actual = await importOriginal<typeof import("@/audio/live/resampler")>();
+  return { ...actual, prepareSampleMipmapsAsync: (...args: Parameters<typeof actual.prepareSampleMipmapsAsync>) =>
+    mocks.mipmaps.getMockImplementation() ? mocks.mipmaps(...args) : actual.prepareSampleMipmapsAsync(...args) };
+});
+import { prepareLiveInstrument, releasePreparedLiveInstrument, getPreparedLiveInstrumentDiagnostics } from "../../services/preparedLiveInstrument";
 import { prepareNativeInstrument } from "../../services/preparedNativeInstrument";
 
 function buffer(sampleRate = 48000, stereo = false) {
@@ -18,7 +23,7 @@ function buffer(sampleRate = 48000, stereo = false) {
 }
 const context = () => ({}) as AudioContext;
 
-beforeEach(() => { mocks.sounds.clear(); mocks.loaded.clear(); mocks.load.mockReset(); mocks.font.mockReset(); });
+beforeEach(() => { mocks.sounds.clear(); mocks.loaded.clear(); mocks.load.mockReset(); mocks.font.mockReset(); mocks.mipmaps.mockReset(); });
 
 describe("prepared live instrument catalog", () => {
   it("prepares native banks using only original AudioBuffer references and shares catalog resolution with the worklet", async () => {
@@ -125,7 +130,7 @@ describe("prepared live instrument catalog", () => {
     register("old.wav");
     mocks.load.mockRejectedValueOnce(new Error("offline")).mockResolvedValue(buffer());
     const ctx = context();
-    expect(await prepareLiveInstrument(ctx, "piano")).toMatchObject({ kind: "unsupported", reason: "offline" });
+    expect(await prepareLiveInstrument(ctx, "piano")).toMatchObject({ kind: "retryable", reason: "offline" });
     const first = await prepareLiveInstrument(ctx, "piano");
     expect(first.kind).toBe("sample-bank");
     expect(await prepareLiveInstrument(ctx, "piano")).toBe(first);
@@ -144,5 +149,45 @@ describe("prepared live instrument catalog", () => {
     }
     await prepareLiveInstrument(ctx, "bank0");
     expect(mocks.load).toHaveBeenCalledTimes(10);
+  });
+
+  it("charges new pyramids, releases them after installation, and leaves borrowed source PCM attached", async () => {
+    const pcm = buffer();
+    mocks.sounds.set("piano", { data: { type: "sample", samples: ["one.wav"] } });
+    mocks.loaded.set("one.wav", pcm);
+    const ctx = context();
+    const prepared = await prepareLiveInstrument(ctx, "piano");
+    if (prepared.kind !== "sample-bank") throw new Error("Expected sample bank");
+    const bytes = prepared.zones[0].mipmaps!.flat().reduce((sum, channel) => sum + channel.byteLength, 0);
+    expect(bytes).toBeGreaterThan(0);
+    expect(getPreparedLiveInstrumentDiagnostics(ctx)).toMatchObject({ cachedPreparationPcmBytes: bytes, preparingPcmBytes: 0 });
+    releasePreparedLiveInstrument(ctx, "piano", prepared);
+    expect(getPreparedLiveInstrumentDiagnostics(ctx).cachedPreparationPcmBytes).toBe(0);
+    expect(pcm.getChannelData(0).byteLength).toBe(480 * 4);
+    expect((await prepareNativeInstrument(ctx, "piano"))).toMatchObject({ zones: [{ buffer: pcm }] });
+  });
+
+  it("evicts retained pyramids by bytes before allocating another large bank", async () => {
+    // Metadata-only sample buffers exercise the preflight reservation without
+    // allocating hundreds of MiB or filtering them in the unit-test process.
+    const channel = { length: 2 ** 24, buffer: { byteLength: 2 ** 26 } } as Float32Array;
+    const pcm = { length: channel.length, numberOfChannels: 1, sampleRate: 48000, getChannelData: () => channel } as AudioBuffer;
+    const ctx = context();
+    mocks.mipmaps.mockImplementation(async () => {
+      if (typeof getPreparedLiveInstrumentDiagnostics === "function") {
+        const diagnostics = getPreparedLiveInstrumentDiagnostics(ctx);
+        expect(diagnostics.cachedPreparationPcmBytes + diagnostics.preparingPcmBytes).toBeLessThanOrEqual(diagnostics.preparationPcmBudgetBytes);
+      }
+      return [];
+    });
+    for (let i = 0; i < 4; i++) {
+      mocks.sounds.set(`large${i}`, { data: { type: "sample", samples: [`${i}.wav`] } });
+      mocks.loaded.set(`${i}.wav`, pcm);
+      await prepareLiveInstrument(ctx, `large${i}`);
+    }
+    expect(mocks.mipmaps).toHaveBeenCalledTimes(4);
+    await prepareLiveInstrument(ctx, "large0");
+    expect(mocks.mipmaps).toHaveBeenCalledTimes(5);
+    expect(getPreparedLiveInstrumentDiagnostics(ctx).cachedPreparationPcmBytes).toBeLessThanOrEqual(192 * 1024 * 1024);
   });
 });

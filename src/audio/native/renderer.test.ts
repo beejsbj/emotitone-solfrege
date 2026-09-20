@@ -26,7 +26,10 @@ function fixture(options: { onError?(error: Error): void } = {}) {
     return node
   }
   const gains: Array<{ gain: ReturnType<typeof parameter>; connect: ReturnType<typeof vi.fn>; disconnect: ReturnType<typeof vi.fn> }> = []
-  const context = { get currentTime() { return Date.now() / 1000 }, state: 'running',
+  const stateEvents = new EventTarget()
+  let frozenAt: number | undefined
+  const context = { get currentTime() { return frozenAt ?? Date.now() / 1000 }, state: 'running',
+    addEventListener: stateEvents.addEventListener.bind(stateEvents), removeEventListener: stateEvents.removeEventListener.bind(stateEvents),
     createBufferSource: vi.fn(source), createOscillator: vi.fn(source), createGain: vi.fn(() => {
       const gain = { gain: parameter(), connect: vi.fn(), disconnect: vi.fn() }; gains.push(gain); return gain
     }) } as unknown as AudioContext
@@ -39,7 +42,12 @@ function fixture(options: { onError?(error: Error): void } = {}) {
     onOwnerEnded: owner => { ended(owner); subscription.listener?.onOwnerEnded?.(owner) },
     onError: options.onError ?? (error => { throw error }),
   })
-  return { renderer, sources, gains, context, events, plans, ended }
+  function setState(state: AudioContextState) {
+    frozenAt = state === 'running' ? undefined : context.currentTime
+    Object.defineProperty(context, 'state', { value: state, configurable: true })
+    stateEvents.dispatchEvent(new Event('statechange'))
+  }
+  return { renderer, sources, gains, context, events, plans, ended, setState }
 }
 const synth: PreparedNativeInstrument = { kind: 'oscillator', waveform: 'sine', instrumentId: 'sine', gain: .24,
   attack: .003, decay: .001, sustain: 1, release: .12 }
@@ -221,6 +229,30 @@ describe('prepared native audio renderer', () => {
     renderer.press('ignored', [note()])
     await expect(renderer.prepare(synth)).rejects.toThrow('disposed')
     expect(sources).toHaveLength(4)
+  })
+
+  it('stops active and queued voices immediately on a frozen suspended clock without polling or resume tails', async () => {
+    const { renderer, sources, gains, events, plans, ended, setState } = setup()
+    await renderer.prepare(synth)
+    renderer.configure({ style: 'repeat', bpm: 120, rate: 16 })
+    renderer.press('hand', [note()])
+    vi.setSystemTime(50)
+    setState('suspended')
+    expect(sources.every(source => source.stop.mock.calls.at(-1)?.[0] === .05)).toBe(true)
+    expect(sources.every(source => source.disconnect.mock.calls.length > 0)).toBe(true)
+    expect(gains.every(gain => gain.disconnect.mock.calls.length > 0)).toBe(true)
+    expect(events).toMatchObject([{ phase: 'attack' }, { phase: 'release', at: .05 }])
+    expect(plans.at(-1)).toEqual([])
+    expect(ended).toHaveBeenCalledWith('hand')
+    expect(vi.getTimerCount()).toBe(0)
+    vi.advanceTimersByTime(1000)
+    expect(vi.getTimerCount()).toBe(0)
+    setState('running')
+    vi.advanceTimersByTime(500)
+    expect(sources).toHaveLength(4)
+    expect(events).toHaveLength(2)
+    renderer.press('fresh', [note(64)])
+    expect(events.at(-1)).toMatchObject({ phase: 'attack', ownerId: 'fresh', pitch: 64 })
   })
 
   it('cleans up a failed source start before reentrant disposal and ignores the remaining chord notes', async () => {

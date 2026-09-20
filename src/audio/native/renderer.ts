@@ -120,7 +120,7 @@ export function createPreparedNativeRenderer(context: AudioContext, destination:
     // metadata. A replacement press can release and recreate the same owner
     // within one operation, so only retire after that operation is complete.
     if (mutationDepth === 0) endOwners()
-    if (!disposed && timer === undefined && voices.size) timer = setTimeout(() => {
+    if (!disposed && context.state === 'running' && timer === undefined && voices.size) timer = setTimeout(() => {
       timer = undefined
       update()
     }, 10)
@@ -240,7 +240,17 @@ export function createPreparedNativeRenderer(context: AudioContext, destination:
     safely(() => { held.clear(); engine.clear() })
   }
   const onStateChange = () => {
-    if (!disposed && context.state === 'closed') callbacks.onError?.(new Error('Native live audio context closed'))
+    if (disposed || context.state === 'running') return
+    // A suspended audio clock cannot finish a release ramp or advance a queued
+    // onset. Cancel recurrence, mirror releases/cancellations, then detach all
+    // nodes now so resuming the context cannot replay the old held gesture.
+    clear()
+    for (const voice of voices) {
+      voice.source.stop(context.currentTime)
+      disconnect(voice)
+    }
+    if (timer !== undefined) { clearTimeout(timer); timer = undefined }
+    if (context.state === 'closed') callbacks.onError?.(new Error('Native live audio context closed'))
   }
   context.addEventListener?.('statechange', onStateChange)
   return {

@@ -1,0 +1,427 @@
+{
+  "identity": "PR75 local fix/merge-body-web-strands baseline",
+  "baseline": {
+    "time": 5763.5,
+    "active": [],
+    "pixels": 0,
+    "alpha": 0,
+    "max": 0,
+    "events": []
+  },
+  "config": {
+    "stage": {
+      "isEnabled": true
+    },
+    "blobs": {
+      "isEnabled": true,
+      "baseSizeRatio": 0.05,
+      "minSize": 75,
+      "maxSize": 400,
+      "opacity": 0.5,
+      "blurRadius": 10,
+      "glowEnabled": true,
+      "glowIntensity": 5,
+      "oscillationAmplitude": 1,
+      "fadeOutDuration": 1.5,
+      "scaleInDuration": 0.3,
+      "scaleOutDuration": 0.4,
+      "driftSpeed": 10,
+      "vibrationFrequencyDivisor": 10,
+      "edgeSegments": 48,
+      "vibrationAmplitude": 10,
+      "circleTopMargin": 30,
+      "connectionMode": "merge",
+      "fieldSoftness": 12,
+      "fusionStrength": 0.4,
+      "webOpacity": 0.5,
+      "analysisHoldTime": 2500,
+      "analysisNoteLimit": 7,
+      "showChordLabel": false,
+      "showIntervalLabels": false,
+      "showEmotionLabel": false,
+      "labelOpacity": 0.5
+    },
+    "ambient": {
+      "isEnabled": false,
+      "opacityMajor": 0.6,
+      "opacityMinor": 0.4,
+      "brightnessMajor": 0.5,
+      "brightnessMinor": 0.3,
+      "saturationMajor": 0.8,
+      "saturationMinor": 0.6
+    },
+    "particles": {
+      "isEnabled": false,
+      "count": 10,
+      "sizeMin": 2,
+      "sizeMax": 6,
+      "lifetimeMin": 2000,
+      "lifetimeMax": 3000,
+      "speed": 4,
+      "gravity": 0,
+      "airResistance": 0.99
+    },
+    "strings": {
+      "isEnabled": false,
+      "count": 7,
+      "baseOpacity": 0.05,
+      "activeOpacity": 0.9,
+      "maxAmplitude": 15,
+      "dampingFactor": 0.08,
+      "interpolationSpeed": 0.15,
+      "opacityInterpolationSpeed": 0.1,
+      "octaveOffset": 0
+    },
+    "animation": {
+      "visualFrequencyDivisor": 100,
+      "frameRate": 60,
+      "smoothingFactor": 0.1
+    },
+    "frequencyMapping": {
+      "minFreq": 200,
+      "maxFreq": 600,
+      "minValue": 400,
+      "maxValue": 700
+    },
+    "dynamicColors": {
+      "recipeVersion": 1,
+      "musicColorMode": "movable-ordinal",
+      "hueMotionEnabled": true,
+      "animationSpeed": 1,
+      "chroma": 0.18,
+      "lightnessCenter": 0.575,
+      "lightnessSpan": 0.6
+    },
+    "hilbertScope": {
+      "isEnabled": false,
+      "sizeRatio": 0.6,
+      "opacity": 0.7,
+      "scaleInDuration": 0.5,
+      "scaleOutDuration": 0.5,
+      "driftSpeed": 5,
+      "glowEnabled": true,
+      "glowIntensity": 10,
+      "smear": 0,
+      "history": 0.2,
+      "thickness": 1.5
+    },
+    "uiBeat": {
+      "isEnabled": true
+    },
+    "patterns": {
+      "isEnabled": true,
+      "silenceThreshold": 30000,
+      "minPatternLength": 3,
+      "maxPatternLength": 50,
+      "maxHistorySize": 10000,
+      "autoPurgeAge": 24,
+      "detectOnContextChange": true,
+      "autoSaveInterestingPatterns": false,
+      "autoSaveComplexityThreshold": 0.6
+    },
+    "keyboard": {
+      "isEnabled": true,
+      "primaryLabel": "syllable",
+      "keyGaps": "small",
+      "surfaceStyle": "colored",
+      "rowCount": 3,
+      "mainOctave": 4,
+      "hapticFeedback": true,
+      "showLabels": true,
+      "keyBrightness": 1,
+      "keySaturation": 1,
+      "gradientDirection": 225,
+      "keyboardPadding": false
+    },
+    "codeStrip": {
+      "enabled": true,
+      "opacity": 1,
+      "bpm": 120,
+      "notation": "solfege",
+      "showRests": true
+    }
+  },
+  "results": [
+    {
+      "mode": "merge",
+      "sample": {
+        "time": 6260.700000047684,
+        "active": [
+          {
+            "id": "F4_3_4_1789326283287_qhgvmh",
+            "note": "F4"
+          }
+        ],
+        "pixels": 757,
+        "alpha": 65276,
+        "max": 59.23137254901961,
+        "events": [
+          {
+            "type": "note-played",
+            "time": 5807.300000071526,
+            "id": "F4_3_4_1789326283287_qhgvmh",
+            "note": "F4"
+          }
+        ]
+      }
+    },
+    {
+      "mode": "merge",
+      "sample": {
+        "time": 6900.200000047684,
+        "active": [
+          {
+            "id": "F4_3_4_1789326283287_qhgvmh",
+            "note": "F4"
+          }
+        ],
+        "pixels": 58,
+        "alpha": 5874,
+        "max": 46.02745098039216,
+        "events": [
+          {
+            "type": "note-played",
+            "time": 5807.300000071526,
+            "id": "F4_3_4_1789326283287_qhgvmh",
+            "note": "F4"
+          }
+        ]
+      }
+    },
+    {
+      "mode": "merge",
+      "sample": {
+        "time": 8968.400000095367,
+        "active": [
+          {
+            "id": "F4_3_4_1789326283287_qhgvmh",
+            "note": "F4"
+          }
+        ],
+        "pixels": 3,
+        "alpha": 1113,
+        "max": 47.70980392156863,
+        "events": [
+          {
+            "type": "note-played",
+            "time": 5807.300000071526,
+            "id": "F4_3_4_1789326283287_qhgvmh",
+            "note": "F4"
+          }
+        ]
+      }
+    },
+    {
+      "mode": "merge",
+      "sample": {
+        "time": 11024,
+        "active": [
+          {
+            "id": "F4_3_4_1789326283287_qhgvmh",
+            "note": "F4"
+          }
+        ],
+        "pixels": 0,
+        "alpha": 332,
+        "max": 0,
+        "events": [
+          {
+            "type": "note-played",
+            "time": 5807.300000071526,
+            "id": "F4_3_4_1789326283287_qhgvmh",
+            "note": "F4"
+          }
+        ]
+      }
+    },
+    {
+      "mode": "web-held",
+      "sample": {
+        "time": 12071.200000047684,
+        "active": [
+          {
+            "id": "F4_3_4_1789326283287_qhgvmh",
+            "note": "F4"
+          }
+        ],
+        "pixels": 869,
+        "alpha": 52881,
+        "max": 25.03529411764706,
+        "events": [
+          {
+            "type": "note-played",
+            "time": 5807.300000071526,
+            "id": "F4_3_4_1789326283287_qhgvmh",
+            "note": "F4"
+          }
+        ]
+      }
+    },
+    {
+      "mode": "web-released",
+      "sample": {
+        "time": 14325.900000095367,
+        "active": [],
+        "pixels": 0,
+        "alpha": 0,
+        "max": 0,
+        "events": [
+          {
+            "type": "note-played",
+            "time": 5807.300000071526,
+            "id": "F4_3_4_1789326283287_qhgvmh",
+            "note": "F4"
+          },
+          {
+            "type": "note-released",
+            "time": 12460.5,
+            "id": "F4_3_4_1789326283287_qhgvmh",
+            "note": "F4"
+          }
+        ]
+      }
+    },
+    {
+      "mode": "merge-tap",
+      "sample": {
+        "time": 14847.700000047684,
+        "active": [
+          {
+            "id": "F4_3_4_1789326291879_u5q4ot",
+            "note": "F4"
+          }
+        ],
+        "pixels": 902,
+        "alpha": 76223,
+        "max": 59.13725490196079,
+        "events": [
+          {
+            "type": "note-played",
+            "time": 5807.300000071526,
+            "id": "F4_3_4_1789326283287_qhgvmh",
+            "note": "F4"
+          },
+          {
+            "type": "note-released",
+            "time": 12460.5,
+            "id": "F4_3_4_1789326283287_qhgvmh",
+            "note": "F4"
+          },
+          {
+            "type": "note-played",
+            "time": 14398.600000023842,
+            "id": "F4_3_4_1789326291879_u5q4ot",
+            "note": "F4"
+          }
+        ]
+      }
+    },
+    {
+      "mode": "merge-tap",
+      "sample": {
+        "time": 17237.700000047684,
+        "active": [
+          {
+            "id": "F4_3_4_1789326294273_lo1hrc",
+            "note": "F4"
+          }
+        ],
+        "pixels": 880,
+        "alpha": 74276,
+        "max": 61.023529411764706,
+        "events": [
+          {
+            "type": "note-played",
+            "time": 5807.300000071526,
+            "id": "F4_3_4_1789326283287_qhgvmh",
+            "note": "F4"
+          },
+          {
+            "type": "note-released",
+            "time": 12460.5,
+            "id": "F4_3_4_1789326283287_qhgvmh",
+            "note": "F4"
+          },
+          {
+            "type": "note-played",
+            "time": 14398.600000023842,
+            "id": "F4_3_4_1789326291879_u5q4ot",
+            "note": "F4"
+          },
+          {
+            "type": "note-released",
+            "time": 14915.800000071526,
+            "id": "F4_3_4_1789326291879_u5q4ot",
+            "note": "F4"
+          },
+          {
+            "type": "note-played",
+            "time": 16794,
+            "id": "F4_3_4_1789326294273_lo1hrc",
+            "note": "F4"
+          }
+        ]
+      }
+    },
+    {
+      "mode": "merge-tap",
+      "sample": {
+        "time": 19616.700000047684,
+        "active": [
+          {
+            "id": "F4_3_4_1789326296624_gp8g3g",
+            "note": "F4"
+          }
+        ],
+        "pixels": 980,
+        "alpha": 75903,
+        "max": 64.10980392156863,
+        "events": [
+          {
+            "type": "note-played",
+            "time": 5807.300000071526,
+            "id": "F4_3_4_1789326283287_qhgvmh",
+            "note": "F4"
+          },
+          {
+            "type": "note-released",
+            "time": 12460.5,
+            "id": "F4_3_4_1789326283287_qhgvmh",
+            "note": "F4"
+          },
+          {
+            "type": "note-played",
+            "time": 14398.600000023842,
+            "id": "F4_3_4_1789326291879_u5q4ot",
+            "note": "F4"
+          },
+          {
+            "type": "note-released",
+            "time": 14915.800000071526,
+            "id": "F4_3_4_1789326291879_u5q4ot",
+            "note": "F4"
+          },
+          {
+            "type": "note-played",
+            "time": 16794,
+            "id": "F4_3_4_1789326294273_lo1hrc",
+            "note": "F4"
+          },
+          {
+            "type": "note-released",
+            "time": 17276.900000095367,
+            "id": "F4_3_4_1789326294273_lo1hrc",
+            "note": "F4"
+          },
+          {
+            "type": "note-played",
+            "time": 19141.900000095367,
+            "id": "F4_3_4_1789326296624_gp8g3g",
+            "note": "F4"
+          }
+        ]
+      }
+    }
+  ],
+  "errors": []
+}

@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mocks = vi.hoisted(() => ({ create: vi.fn(), prepare: vi.fn(), nativeCreate: vi.fn(), nativePrepare: vi.fn() }))
+const mocks = vi.hoisted(() => ({ create: vi.fn(), prepare: vi.fn(), nativeCreate: vi.fn(), nativePrepare: vi.fn(), releasePrepared: vi.fn(), preparationDiagnostics: vi.fn() }))
 vi.mock('@/audio/live/bridge', () => ({ createLiveWorklet: mocks.create }))
-vi.mock('@/services/preparedLiveInstrument', () => ({ prepareLiveInstrument: mocks.prepare }))
+vi.mock('@/services/preparedLiveInstrument', () => ({ prepareLiveInstrument: mocks.prepare,
+  releasePreparedLiveInstrument: mocks.releasePrepared, getPreparedLiveInstrumentDiagnostics: mocks.preparationDiagnostics }))
 vi.mock('@/audio/native/renderer', () => ({ createPreparedNativeRenderer: mocks.nativeCreate }))
 vi.mock('@/services/preparedNativeInstrument', () => ({ prepareNativeInstrument: mocks.nativePrepare }))
 vi.mock('@/services/liveInstrumentNames', () => ({ resolveLiveSoundName: (name: string) => name }))
@@ -16,6 +17,7 @@ async function setup() {
     release: vi.fn(), clear: vi.fn(), configure: vi.fn(), dispose: vi.fn() }
   mocks.create.mockResolvedValue(engine)
   mocks.prepare.mockImplementation(async (_context, name) => bank(name))
+  mocks.preparationDiagnostics.mockReturnValue({ cachedPreparationPcmBytes: 0, preparingPcmBytes: 0, preparationPcmBudgetBytes: 192 * 1024 * 1024 })
   return { engine, manager: await import('@/services/livePlayback'), context: context() }
 }
 beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); vi.stubGlobal('AudioWorkletNode', vi.fn()) })
@@ -51,6 +53,43 @@ describe('live playback instrument manager', () => {
     manager.getLivePlayback('c')
     await manager.prepareLivePlayback(context, destination, 'g')
     expect(engine.forget).toHaveBeenLastCalledWith('d')
+  })
+
+  it('serializes preparation through acknowledgement and then drops only its owned cache reference', async () => {
+    const { manager, engine, context } = await setup()
+    let acknowledge!: () => void
+    const instrument = { ...bank('piano'), kind: 'sample-bank', zoneSelection: 'nearest-root', zones: [{
+      id: 'sample', rootMidi: 60, sampleRate: 48000, channels: [new Float32Array(16)], mipmaps: [[new Float32Array(8)]],
+    }] }
+    mocks.prepare.mockResolvedValueOnce(instrument)
+    mocks.preparationDiagnostics.mockReturnValue({ cachedPreparationPcmBytes: 32, preparingPcmBytes: 0, preparationPcmBudgetBytes: 192 * 1024 * 1024 })
+    engine.prepare.mockImplementationOnce(() => new Promise<void>(resolve => { acknowledge = resolve }))
+    const first = manager.prepareLivePlayback(context, destination, 'piano')
+    const next = manager.prepareLivePlayback(context, destination, 'sine')
+    await vi.waitFor(() => expect(engine.prepare).toHaveBeenCalledOnce())
+    expect(mocks.prepare).toHaveBeenCalledOnce()
+    expect(mocks.releasePrepared).not.toHaveBeenCalled()
+    expect(manager.getLivePlaybackDiagnostics('piano')).toMatchObject({
+      installedPcmBytes: 0, installingPcmBytes: 96, cachedPreparationPcmBytes: 32, preparingPcmBytes: 0, additionalPcmBytes: 128,
+    })
+    acknowledge()
+    await Promise.all([first, next])
+    expect(mocks.releasePrepared).toHaveBeenCalledWith(context, 'piano', instrument)
+    expect(mocks.releasePrepared).toHaveBeenCalledTimes(2)
+    expect(instrument.zones[0].channels[0].byteLength).toBe(64)
+    expect(manager.getLivePlaybackDiagnostics('piano').installingPcmBytes).toBe(0)
+  })
+
+  it('releases prepared pyramids when held banks prevent installation', async () => {
+    const { manager, context } = await setup()
+    for (const name of ['a', 'b', 'c', 'd']) {
+      await manager.prepareLivePlayback(context, destination, name)
+      manager.getLivePlayback(name)!.press(name, [{ instrumentId: name, pitch: 60 }])
+    }
+    mocks.releasePrepared.mockClear()
+    await manager.prepareLivePlayback(context, destination, 'e')
+    expect(manager.getLivePlayback('e')).toBeUndefined()
+    expect(mocks.releasePrepared).toHaveBeenCalledWith(context, 'e', expect.objectContaining({ instrumentId: 'e' }))
   })
 
   it('pins held banks until release and temporarily falls back when all four are held', async () => {
@@ -107,6 +146,21 @@ describe('live playback instrument manager', () => {
     expect(manager.needsLivePlaybackPreparation('piano')).toBe(false)
   })
 
+  it('retries temporary catalog failure without invalidating an already playing bank', async () => {
+    const { manager, context, engine } = await setup()
+    await manager.prepareLivePlayback(context, destination, 'sine')
+    mocks.prepare.mockResolvedValueOnce({ kind: 'retryable', instrumentId: 'piano', reason: 'offline' })
+    await manager.prepareLivePlayback(context, destination, 'piano')
+    expect(manager.getLivePlayback('piano')).toBeUndefined()
+    expect(manager.needsLivePlaybackPreparation('piano')).toBe(true)
+    expect(manager.getLivePlaybackDiagnostics('piano').reason).toBe('offline')
+    expect(engine.dispose).not.toHaveBeenCalled()
+    expect(manager.getLivePlayback('sine')).toBeDefined()
+    await manager.prepareLivePlayback(context, destination, 'piano')
+    expect(manager.getLivePlayback('piano')).toBeDefined()
+    expect(manager.getLivePlaybackDiagnostics('piano').reason).toBeNull()
+  })
+
   it('invalidates failed processors and forwards lifecycle acknowledgements', async () => {
     const { manager, context, engine } = await setup()
     const listener = { onEvent: vi.fn(), onPlan: vi.fn(), onError: vi.fn(), onOwnerEnded: vi.fn() }
@@ -127,6 +181,7 @@ describe('live playback instrument manager', () => {
     let resolveOld!: (value: any) => void
     mocks.prepare.mockImplementationOnce(() => new Promise(resolve => { resolveOld = resolve }))
     const old = manager.prepareLivePlayback(oldContext, destination, 'old')
+    await vi.waitFor(() => expect(resolveOld).toBeTypeOf('function'))
     await manager.prepareLivePlayback(context(), destination, 'new')
     resolveOld(bank('old')); await old
     expect(manager.getLivePlayback('old')).toBeUndefined()

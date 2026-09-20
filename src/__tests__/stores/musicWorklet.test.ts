@@ -175,6 +175,37 @@ describe("music store production worklet integration", () => {
     expect(events(SCHEDULED_LIVE_MIDI_EVENT).at(-1)).toMatchObject({ noteId: "live_new", phase: "cancel" });
   });
 
+  it("does not replay completed planned MIDI when delayed lifecycle arrives after a UI stall", async () => {
+    const music = useMusicStore(); const patterns = recorder();
+    const owner = await music.attackExactPitch("C4");
+    const attack = event(owner!, "delayed_plan", "attack", 12.125);
+    const release = event(owner!, "delayed_plan", "release", 12.225);
+    worklet.listener!.onPlan([attack, release]);
+    await vi.advanceTimersByTimeAsync(600);
+    worklet.listener!.onEvent(attack);
+    worklet.listener!.onPlan([release]);
+    worklet.listener!.onEvent(release);
+    worklet.listener!.onPlan([]);
+    expect(events(SCHEDULED_LIVE_MIDI_EVENT).map(detail => [detail.phase, detail.midiTimestamp]))
+      .toEqual([["attack", 1125], ["release", 1225]]);
+    expect(patterns.loggedNotes.map(note => [note.pressTime - EPOCH, note.duration])).toEqual([[125, 100]]);
+  });
+
+  it("replaces changed planned edges and republishes cancelled plans without replaying lifecycle", async () => {
+    const music = useMusicStore();
+    const owner = await music.attackExactPitch("C4");
+    worklet.listener!.onPlan([event(owner!, "revised", "attack", 12.125), event(owner!, "revised", "release", 12.225)]);
+    const attack = event(owner!, "revised", "attack", 12.15);
+    const release = event(owner!, "revised", "release", 12.25);
+    worklet.listener!.onPlan([attack, release]);
+    worklet.listener!.onPlan([]);
+    worklet.listener!.onPlan([attack, release]);
+    worklet.listener!.onEvent(attack);
+    worklet.listener!.onEvent(release);
+    expect(events(SCHEDULED_LIVE_MIDI_EVENT).map(detail => detail.phase))
+      .toEqual(["attack", "release", "cancel", "attack", "release", "cancel", "attack", "release"]);
+  });
+
   it("keeps clear-all worklet releases on their actual audio lifecycle without duplicate legacy events", async () => {
     const music = useMusicStore(); const patterns = recorder();
     const owner = await music.attackExactPitch("C4");

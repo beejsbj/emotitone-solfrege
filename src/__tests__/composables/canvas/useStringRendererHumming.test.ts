@@ -122,6 +122,45 @@ describe("useStringRenderer humming lifecycle", () => {
       .toBe(false);
   });
 
+  it("reveals a zero-Presence String at its configured Response strength", () => {
+    const renderer = useStringRenderer();
+    const stringConfig = {
+      isEnabled: true,
+      octaveOffset: 0,
+      baseOpacity: 0,
+      activeOpacity: 0.6,
+      maxAmplitude: 20,
+      interpolationSpeed: 1,
+      opacityInterpolationSpeed: 1,
+      dampingFactor: 1,
+    } as any;
+    const animationConfig = { visualFrequencyDivisor: 100 } as any;
+    renderer.initializeStrings(stringConfig, 800, 600, mocks.musicStore.solfegeData);
+
+    const playedString = renderer.strings.value.find((string) => string.octave === 4);
+    expect(playedString?.opacity).toBe(0);
+
+    renderer.handleNotePlayed(new CustomEvent("note-played", {
+      detail: {
+        noteId: "visible-c4",
+        solfegeIndex: 0,
+        pitchClassIndex: 0,
+        frequency: 261.63,
+        octave: 4,
+        keyboardOctave: 4,
+      },
+    }));
+    renderer.updateStringProperties(stringConfig, animationConfig, mocks.musicStore);
+    expect(playedString).toMatchObject({ isActive: true, opacity: 0.3 });
+
+    renderer.handleNoteReleased(new CustomEvent("note-released", {
+      detail: { noteId: "visible-c4" },
+    }));
+    renderer.updateStringProperties(stringConfig, animationConfig, mocks.musicStore);
+    expect(playedString?.isActive).toBe(false);
+    expect(playedString?.opacity).toBeLessThan(0.3);
+  });
+
   it("uses keyboard octave for wrapped note event activation", () => {
     const renderer = useStringRenderer();
     const stringConfig = {

@@ -10,6 +10,7 @@ import {
  * A built-in is a complete Stage-appearance recipe, not a partial mutation of
  * whatever Look happened to come before it. Relationship and explanation
  * choices are the exception: those belong to the learner and survive a Look.
+ * Softness is appearance, so it remains owned by each complete Look.
  */
 function defineBuiltInStageLook(look: StageLook): StageLook {
   const patch = stageLookFromConfig(applyStageLook(DEFAULT_CONFIG, look.patch));
@@ -22,7 +23,7 @@ function defineBuiltInStageLook(look: StageLook): StageLook {
 }
 
 /**
- * Curated Stage-only Looks. The public library is deliberately small: three
+ * Curated Stage-only Looks. The public library is deliberately small: four
  * distinct built-ins plus the separate collection of user-saved Looks.
  */
 export const BUILT_IN_STAGE_LOOKS: StageLook[] = [
@@ -36,6 +37,7 @@ export const BUILT_IN_STAGE_LOOKS: StageLook[] = [
         baseSizeRatio: 0.09,
         opacity: 0.3,
         blurRadius: 5,
+        fieldSoftness: 6.25,
         glowEnabled: false,
         glowIntensity: 0,
         oscillationAmplitude: 0.15,
@@ -66,6 +68,22 @@ export const BUILT_IN_STAGE_LOOKS: StageLook[] = [
     },
   }),
   defineBuiltInStageLook({
+    id: "still",
+    name: "Still",
+    description: "Crisp, fully present bodies held completely still.",
+    patch: {
+      blobs: {
+        isEnabled: true,
+        opacity: 1,
+        blurRadius: 0,
+        fieldSoftness: 0,
+        oscillationAmplitude: 0,
+        driftSpeed: 0,
+        vibrationAmplitude: 0,
+      },
+    },
+  }),
+  defineBuiltInStageLook({
     id: "soft",
     name: "Soft",
     description: "Warm, quiet bodies with a broad atmospheric breath.",
@@ -75,6 +93,7 @@ export const BUILT_IN_STAGE_LOOKS: StageLook[] = [
         baseSizeRatio: 0.09,
         opacity: 0.34,
         blurRadius: 24,
+        fieldSoftness: 30,
         glowEnabled: true,
         glowIntensity: 10,
         oscillationAmplitude: 0.35,
@@ -118,6 +137,7 @@ export const BUILT_IN_STAGE_LOOKS: StageLook[] = [
         baseSizeRatio: 0.09,
         opacity: 0.42,
         blurRadius: 12,
+        fieldSoftness: 15,
         glowEnabled: true,
         glowIntensity: 24,
         oscillationAmplitude: 0.55,

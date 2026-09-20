@@ -7,6 +7,13 @@ error: the newly extended 100 ms tail assertion for Together contradicts its
 existing 200 ms piano release articulation. The failed receipt remains unchanged;
 it is not an all-green run.
 
+The subsequent [narrow articulation capture](results/native-comparison/worklet-together-articulation.json)
+passes all 18 checks on unchanged production source. Its last nonzero PCM sample
+is 199.977 ms after release, followed by exact silence, matching the existing
+200 ms piano envelope. Taken together, these follow-ups support retaining the
+worklet as the production renderer with the measured memory cost below. They do
+not rewrite the original comparison or the failed full-run fixture.
+
 The [raw receipt](results/native-comparison/worklet-repaired-final.json) and
 [derived summary](results/native-comparison/worklet-repaired-final-summary.json)
 come from `fb5e227`, matching root `bf26759` source and harness. Source/harness
@@ -53,9 +60,9 @@ contains a 0.09815 peak and 0.005817 RMS. The final 100 ms of the capture is exa
 silent, but the receipt retained statistics rather than the PCM waveform, so its
 precise decay endpoint cannot be recovered. This establishes a contradictory
 fixture; it does not establish silence exactly at the legitimate release bound.
-A single narrow fast-chord follow-up will measure that existing contract and
-retain the 100 ms subwindow as an informational observation. No production change
-or full-run retry is justified by this fixture correction.
+A single narrow fast-chord follow-up measures that existing contract and retains
+the 100 ms subwindow as an informational observation. No production change or
+full-run retry was made for this fixture correction.
 
 The narrow fixture observes the envelope actually posted in the prepared piano
 instrument and checks that it matches `getLiveArticulation('piano').release`,
@@ -69,3 +76,21 @@ or application code changes. Run only this case, with no warm or other cases:
 ```sh
 LAB_UI_BACKEND=worklet LAB_NATIVE_COMPARE=1 LAB_NATIVE_FAST_CHORD=1 LAB_UI_STARTUP_SECONDS=60 LAB_UI_TRIALS=0 LAB_UI_FILTER='^$' node audio-lab/ui-run.mjs audio-lab/results/native-comparison/worklet-together-articulation.json
 ```
+
+The [narrow result summary](results/native-comparison/worklet-together-articulation-summary.json)
+records revision `ac1e158`, with the same source-map digest as the full follow-up
+(`46f921ed76328e9260c829325aaa18c666445c8f1032249c9404b4aa0fd57dc7`). Source
+and harness remained unchanged within the run; warnings were empty and external
+event-loop slip was 2.95 ms. The actual prepared envelope has a 200 ms release.
+Trusted final keyup and the final audio release edge both occur at 8.632018 seconds.
+The last nonzero sample occurs at 8.831995 seconds, one sample before the intended
+envelope endpoint. Silence after the endpoint plus one quantum covers 61,964
+samples with zero peak/RMS. The 25 ms window starting at the 200 ms endpoint is
+already exactly silent. The informational 100 ms probe remains nonzero, as the
+preserved envelope requires.
+
+All 24 notes and owners complete once, in exact FIFO order, with valid recorded
+timelines and no resumed attack after final release. Final notification settlement
+is 706.9 ms, below the unchanged 1,000 ms limit. The receipt retains 14,461 stereo
+float32 frames around final release. Independently decoding that retained PCM
+reproduces the reported final nonzero sample. No further browser run was made.

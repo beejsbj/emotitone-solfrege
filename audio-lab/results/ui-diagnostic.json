@@ -1,0 +1,82 @@
+{
+  "recordedAt": "2026-09-14T12:07:13.696Z",
+  "revision": "db4d16b7011792902b49658f047368a16bd43659",
+  "appRootMode": "current checkout",
+  "sourceHashesBefore": {
+    "src/services/superdoughAudio.ts": "76c0cac0a5ed5164379915bdf7f60f5df0468ef4503149c9fdcdfbdb5997c505",
+    "src/stores/music.ts": "d36fecc9cfd9a5082b73d1abfb9d02f94da147121d353a01ab6ac9ece8804a96",
+    "src/components/compounds/Keyboard.vue": "efb2242abbdcd77a59e81d7881f86908ff31d7316be298846c214a6e94874aeb",
+    "src/services/livePlayback.ts": "e27f8ccda9339e8726b831b73f4605865241c34e133c9399353c1f0a974beeab",
+    "src/services/preparedLiveInstrument.ts": "778bd533530e92f13421e055cc168fde80554478d9f879ba577a97a209d7f3f4",
+    "src/audio/live/core.ts": "521d057bc17657d74e4b82b56dd8e7a12d2627e647dd73848f2e02e5101e384b",
+    "src/audio/live/processor.ts": "e91982f99af445caf86a78d462fb7237c998b81621ab4d2c31bab385cd730b29",
+    "src/audio/live/resampler.ts": "0d5885657a8a25676cba8a937359b6b15473e52d0a7b60bbf6f8883b59014086"
+  },
+  "sourceHashes": {
+    "src/services/superdoughAudio.ts": "76c0cac0a5ed5164379915bdf7f60f5df0468ef4503149c9fdcdfbdb5997c505",
+    "src/stores/music.ts": "d36fecc9cfd9a5082b73d1abfb9d02f94da147121d353a01ab6ac9ece8804a96",
+    "src/components/compounds/Keyboard.vue": "efb2242abbdcd77a59e81d7881f86908ff31d7316be298846c214a6e94874aeb",
+    "src/services/livePlayback.ts": "e27f8ccda9339e8726b831b73f4605865241c34e133c9399353c1f0a974beeab",
+    "src/services/preparedLiveInstrument.ts": "778bd533530e92f13421e055cc168fde80554478d9f879ba577a97a209d7f3f4",
+    "src/audio/live/core.ts": "4d1450ed8051c9fedd1935789346d79c98135f09c8073de4db7acbd71d5cc675",
+    "src/audio/live/processor.ts": "e91982f99af445caf86a78d462fb7237c998b81621ab4d2c31bab385cd730b29",
+    "src/audio/live/resampler.ts": "bbb3fca0e3936d76769489e187ede99b50a856a9bcb49404e2662009fff384be"
+  },
+  "backend": {
+    "backend": "superdough",
+    "reason": "Prepared bank exceeds the 64 MiB worklet budget",
+    "installedBanks": 0,
+    "installedPcmBytes": 0,
+    "preparationLeadMs": 5
+  },
+  "superdoughSha256": "72724b006e1e06157730729dcfd883553170dbfce306f57c6936ba123283c09f",
+  "environment": {
+    "instrument": "piano",
+    "ready": true,
+    "key": "0_4",
+    "label": "Do, scale degree one, C four, main octave",
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.0.0 Safari/537.36",
+    "contexts": [
+      {
+        "sampleRate": 44100,
+        "baseLatency": 0.01,
+        "outputLatency": 0.032,
+        "state": "running",
+        "selected": false,
+        "creationStack": "Error\n    at register (<anonymous>:39:83)\n    at new window.AudioContext (<anonymous>:58:44)\n    at C2 (http://127.0.0.1:39997/@fs/tmp/emotitone-ui-audio-75X4xU/vite-cache/deps/@strudel_web.js?v=0a415190:7574:22)\n    at ve (http://127.0.0.1:39997/@fs/tmp/emotitone-ui-audio-75X4xU/vite-cache/deps/@strudel_web.js?v=0a415190:7576:22)\n    at PM (http://127.0.0.1:39997/@fs/tmp/emotitone-ui-audio-75X4xU/vite-cache/deps/@strudel_web.js?v=0a415190:10269:31)\n    at lV (http://127.0.0.1:39997/@fs/tmp/emotitone-ui-audio-75X4xU/vite-cache/deps/@strudel_web.js?v=0a415190:21255:15)\n    at http://127.0.0.1:39997/src/services/superdoughAudio.ts:141:11\n    at initSharedStrudelRuntime (http://127.0.0.1:39997/src/services/superdoughAudio.ts:145:5)\n    at http://127.0.0.1:39997/src/services/superdoughAudio.ts:175:13\n    at async Proxy.initializeInstruments (http://127.0.0.1:39997/src/stores/instrument.ts:65:7)"
+      },
+      {
+        "sampleRate": 44100,
+        "baseLatency": 0.01,
+        "outputLatency": 0.032,
+        "state": "running",
+        "selected": true,
+        "creationStack": "Error\n    at register (<anonymous>:39:83)\n    at new window.AudioContext (<anonymous>:58:44)\n    at Cn (http://127.0.0.1:39997/@fs/tmp/emotitone-ui-audio-75X4xU/vite-cache/deps/chunk-ACA22UT6.js?v=5b8b8887:23:22)\n    at W (http://127.0.0.1:39997/@fs/tmp/emotitone-ui-audio-75X4xU/vite-cache/deps/chunk-ACA22UT6.js?v=5b8b8887:25:21)\n    at _o (http://127.0.0.1:39997/@fs/tmp/emotitone-ui-audio-75X4xU/vite-cache/deps/chunk-ACA22UT6.js?v=5b8b8887:1586:13)\n    at http://127.0.0.1:39997/src/services/superdoughAudio.ts:177:13\n    at async Proxy.initializeInstruments (http://127.0.0.1:39997/src/stores/instrument.ts:65:7)\n    at async initializeInstruments (http://127.0.0.1:39997/src/composables/useAppLoading.ts:101:7)\n    at async http://127.0.0.1:39997/src/components/LoadingSplash.vue:111:11"
+      }
+    ]
+  },
+  "scope": "Normal application UI and sample initialization, CDP trusted touch/keyboard input, native graph PCM capture. Haptic/UI stress is injected platform/main-thread delay; no physical input/output latency claim.",
+  "trials": [],
+  "stress": [],
+  "warnings": [
+    "@strudel/core was loaded more than once...\nThis might happen when you have multiple versions of strudel installed. \nPlease check with \"npm ls @strudel/core\"."
+  ],
+  "checks": [
+    {
+      "name": "Application source remained unchanged during capture",
+      "passed": false
+    },
+    {
+      "name": "All inputs are trusted real browser events",
+      "passed": true
+    },
+    {
+      "name": "Every trial produces captured audio",
+      "passed": true
+    },
+    {
+      "name": "Previous voice tails do not contaminate trial starts",
+      "passed": true
+    }
+  ]
+}

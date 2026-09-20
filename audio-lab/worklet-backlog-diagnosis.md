@@ -120,3 +120,17 @@ and drain at 2.467 seconds. After the final arrival, 235 ms and 81 ms tasks prec
 the last drain. Other post-command tasks reached 454/561 ms. A second posted-task
 hop has no demonstrated reason to fix that remaining application task starvation.
 No second target or full follow-up was run after this failed acceptance attempt.
+
+The next bounded candidate batches responses at their **source**: each processor
+command/render boundary sends one nonempty response array, and the existing bridge
+inbox flattens it in order. Unlike another inbox task hop, this removes original
+port-message tasks: one quantum can produce three lifecycle edges and a plan.
+It may reduce scheduling/render opportunities between incoming tasks, but the
+prior target's long application/browser tasks mean success is not guaranteed.
+The settlement limit and every ownership/PCM acceptance check remain unchanged.
+
+The lab observer now records one `worklet-response` per original incoming message
+with its response count/types, then expands every contained lifecycle edge into
+its own `worklet-event` trace. Batch ID and element index retain their relationship.
+This preserves honest pre-inbox arrival diagnostics for either single-response or
+array transport. No new browser result is claimed by this instrumentation change.

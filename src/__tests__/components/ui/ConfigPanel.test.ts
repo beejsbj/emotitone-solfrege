@@ -286,7 +286,7 @@ describe("ConfigPanel.vue", () => {
       field: "connectionMode",
       values: ["web"],
     });
-    expect(STAGE_CONTROL_DEFINITIONS).toHaveLength(23);
+    expect(STAGE_CONTROL_DEFINITIONS).toHaveLength(22);
     expect(GLOBAL_CONTROL_GROUPS.flatMap((group) => group.controls)).toHaveLength(4);
     expect(DECK_CONTROL_GROUPS.flatMap((group) => group.controls)).toHaveLength(8);
   });
@@ -303,7 +303,7 @@ describe("ConfigPanel.vue", () => {
 
     const allocation = [
       ["scope", 5],
-      ["bodies", 7],
+      ["bodies", 6],
       ["relations", 4],
       ["layers", 6],
     ] as const;
@@ -323,8 +323,8 @@ describe("ConfigPanel.vue", () => {
       ));
     }
 
-    expect(allocatedControlIds).toHaveLength(22);
-    expect(new Set(allocatedControlIds).size).toBe(22);
+    expect(allocatedControlIds).toHaveLength(21);
+    expect(new Set(allocatedControlIds).size).toBe(21);
     expect(allocatedControlIds.toSorted()).toEqual(
       STAGE_CONTROL_DEFINITIONS
         .filter((control) => control.id !== "stageEnabled")
@@ -439,7 +439,6 @@ describe("ConfigPanel.vue", () => {
     for (const control of [
       "bodySize",
       "bodyStrength",
-      "bodyMotion",
       "connectionMode",
       "connectionStrength",
       "connectionSoftness",

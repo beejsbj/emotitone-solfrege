@@ -140,7 +140,7 @@ export const UNIFIED_CONFIG = {
       group: "Motion",
     },
     vibrationFrequencyDivisor: {
-      value: 10,
+      value: 100,
       min: 10,
       max: 500,
       step: 5,

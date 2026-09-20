@@ -305,4 +305,64 @@ describe("useBlobRenderer lifecycle", () => {
     expect(blob.renderOpacity).toBeCloseTo(0.65, 6);
     expect(blob.fadeOutStartTime).toBe(fadeOutStartTime);
   });
+
+  it("vibrates with pitch-scaled harmonic motion matching strings", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_000);
+    const renderer = useBlobRenderer();
+    // Low note: C2 (65.41 Hz)
+    renderer.createBlob(
+      MAJOR_SOLFEGE[0],
+      65.41,
+      0,
+      0,
+      800,
+      600,
+      DEFAULT_CONFIG.blobs,
+      "low-c2",
+      "C",
+      "major",
+      2
+    );
+    // High note: C5 (523.25 Hz)
+    renderer.createBlob(
+      MAJOR_SOLFEGE[0],
+      523.25,
+      0,
+      0,
+      800,
+      600,
+      DEFAULT_CONFIG.blobs,
+      "high-c5",
+      "C",
+      "major",
+      5
+    );
+
+    vi.mocked(Date.now).mockReturnValue(1_500);
+    renderer.prepareBlobs(context, DEFAULT_CONFIG.blobs, { elapsed: 1.5 });
+
+    const frames = renderer.getPreparedBlobFrames();
+    const lowFrame = frames.find((f) => f.key === "low-c2")!;
+    const highFrame = frames.find((f) => f.key === "high-c5")!;
+
+    expect(lowFrame).toBeDefined();
+    expect(highFrame).toBeDefined();
+
+    // Both contours should be closed (first and last points match)
+    const lowContour = lowFrame.contour;
+    expect(lowContour[0].x).toBeCloseTo(lowContour[lowContour.length - 1].x, 6);
+    expect(lowContour[0].y).toBeCloseTo(lowContour[lowContour.length - 1].y, 6);
+
+    // Reduced motion keeps contour at exact scaledRadius
+    renderer.prepareBlobs(context, DEFAULT_CONFIG.blobs, {
+      reducedMotion: true,
+      elapsed: 1.5,
+    });
+    const stillLowFrame = renderer.getPreparedBlobFrames().find((f) => f.key === "low-c2")!;
+    const stillRadius = stillLowFrame.scaledRadius;
+    for (const pt of stillLowFrame.contour) {
+      const dist = Math.hypot(pt.x - stillLowFrame.blob.x, pt.y - stillLowFrame.blob.y);
+      expect(dist).toBeCloseTo(stillRadius, 4);
+    }
+  });
 });

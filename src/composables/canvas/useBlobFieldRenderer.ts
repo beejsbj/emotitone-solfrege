@@ -1146,7 +1146,6 @@ export function useBlobFieldRenderer() {
       const reach = envelope.length ? Math.max(...envelope.map((point) =>
         Math.hypot(point.x - frame.blob.x, point.y - frame.blob.y)
       )) * 1.05 : 0;
-      const contribution = Math.max(0, Math.min(1, frame.opacity));
       const inverseReach = reach > 0 ? 1 / reach : 0;
       const pixelStep = 1 / scale;
       const startDx = bounds.x + pixelStep * 0.5 - frame.blob.x;
@@ -1163,7 +1162,7 @@ export function useBlobFieldRenderer() {
           const radialWeight = reach > 0
             ? Math.max(0, 1 - Math.sqrt(dx * dx + dySquared) * inverseReach)
             : 0;
-          const colorWeight = contribution * (contourMask[pixel * 4 + 3] / 255 + radialWeight);
+          const colorWeight = contourMask[pixel * 4 + 3] / 255 + radialWeight;
           weight[pixel] += colorWeight;
           red[pixel] += r * colorWeight;
           green[pixel] += g * colorWeight;

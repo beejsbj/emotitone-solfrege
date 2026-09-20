@@ -232,6 +232,26 @@ describe('Visual Config Store', () => {
       expect(newStore.config).not.toHaveProperty('floatingPopup')
     })
 
+    it('preserves an explicitly disabled legacy harmonic section', () => {
+      localStorage.setItem('emotitone-visual-config', JSON.stringify({
+        config: {
+          floatingPopup: {
+            isEnabled: false,
+            glassmorphOpacity: 0.8,
+            opacity: 0.65,
+          },
+        },
+      }))
+
+      const store = createFreshStore()
+
+      expect(store.config.blobs).toMatchObject({
+        connectionMode: 'merge',
+        fusionStrength: 0,
+        webOpacity: 0,
+      })
+    })
+
     it('maps retired harmonic geometry modes onto the two supported modes', () => {
       localStorage.setItem('emotitone-visual-config', JSON.stringify({
         config: {
@@ -1040,8 +1060,8 @@ describe('Visual Config Store', () => {
       visualConfigStore.updateStageControl('labelStrength', 0.31)
       const expectedPreferences = {
         connectionMode: 'web',
-        blurRadius: 10,
-        fieldSoftness: 12.5,
+        blurRadius: 24,
+        fieldSoftness: 30,
         fusionStrength: 0.37,
         webOpacity: 0.15 + 0.37 * 0.75,
         showChordLabel: false,

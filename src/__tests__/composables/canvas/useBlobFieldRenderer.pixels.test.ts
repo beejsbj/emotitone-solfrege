@@ -283,6 +283,24 @@ describe("Filled Merge and fine Web pixels", () => {
     }
   });
 
+  it("keeps mixed Merge color independent of release opacity", () => {
+    const held = framesAt();
+    const releasing = framesAt();
+    releasing[2].blob.isFadingOut = true;
+    releasing[2].opacity = 0.2;
+
+    const heldContext = render(held, "merge", { fieldSoftness: 0 });
+    const releaseContext = render(releasing, "merge", { fieldSoftness: 0 });
+    for (const [x, y] of [[507, 273], [520, 320], [560, 350]]) {
+      const heldPixel = heldContext.getImageData(x, y, 1, 1).data;
+      const releasePixel = releaseContext.getImageData(x, y, 1, 1).data;
+      for (let channel = 0; channel < 3; channel++) {
+        expect(Math.abs(heldPixel[channel] - releasePixel[channel])).toBeLessThanOrEqual(2);
+      }
+    }
+    expect(alphaAt(releaseContext, 507, 273)).toBeLessThan(alphaAt(heldContext, 507, 273));
+  });
+
   it.each([10, 40])("fills the whole triangular interior at radius %s, blending all three colors", (radius) => {
     const context = render(framesAt(triangle, radius), "merge");
     // Interior samples cover the face, not just the centroid or edge graph.

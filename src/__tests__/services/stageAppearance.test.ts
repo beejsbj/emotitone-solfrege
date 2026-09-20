@@ -300,6 +300,17 @@ describe("Stage appearance domain", () => {
       expect(look.patch.blobs).not.toHaveProperty("labelOpacity");
     }
 
+    const softnessByLook = Object.fromEntries(BUILT_IN_STAGE_LOOKS.map((look) => [
+      look.id,
+      readStageControls(applyStageLook(config(), look.patch)).connectionSoftness,
+    ]));
+    expect(softnessByLook).toEqual({
+      clear: 0.125,
+      still: 0,
+      soft: 0.6,
+      luminous: 0.3,
+    });
+
     const still = BUILT_IN_STAGE_LOOKS.find((look) => look.id === "still");
     const stillConfig = applyStageLook(config(), still?.patch);
     expect(readStageControls(stillConfig)).toMatchObject({

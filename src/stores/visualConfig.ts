@@ -193,14 +193,18 @@ function migrateLegacyBlobRelationships(
   incomingBlobs: Record<string, unknown>,
   mergedBlobs: Record<string, unknown>
 ) {
-  const retiredOff = incomingBlobs.connectionMode === "off";
+  const legacyHarmonic = rawConfig.floatingPopup;
+  const retiredOff = incomingBlobs.connectionMode === "off" || (
+    !("connectionMode" in incomingBlobs) &&
+    isRecord(legacyHarmonic) &&
+    legacyHarmonic.isEnabled === false
+  );
   const preserveDisconnectedState = () => {
     if (!retiredOff) return;
     mergedBlobs.connectionMode = DEFAULT_CONFIG.blobs.connectionMode;
     mergedBlobs.fusionStrength = 0;
     mergedBlobs.webOpacity = 0;
   };
-  const legacyHarmonic = rawConfig.floatingPopup;
   if (!isRecord(legacyHarmonic)) {
     if (!isBlobConnectionMode(mergedBlobs.connectionMode)) {
       mergedBlobs.connectionMode = DEFAULT_CONFIG.blobs.connectionMode;

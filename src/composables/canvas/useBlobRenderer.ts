@@ -535,37 +535,33 @@ export function useBlobRenderer() {
     const points: Array<{ x: number; y: number }> = [];
     const segments = blobConfig.edgeSegments;
 
+    const primaryPulse =
+      Math.sin(
+        state.blobElapsed * state.visualFrequency * 2 * Math.PI +
+          blob.vibrationPhase
+      ) * state.vibrationAmplitude;
+    const secondaryPulse =
+      Math.sin(
+        state.blobElapsed * state.visualFrequency * 4 * Math.PI +
+          blob.vibrationPhase * 1.2
+      ) *
+      state.vibrationAmplitude *
+      0.15;
+    const tertiaryPulse =
+      Math.sin(
+        state.blobElapsed * state.visualFrequency * 6 * Math.PI +
+          blob.vibrationPhase * 1.8
+      ) *
+      state.vibrationAmplitude *
+      0.05;
+    const vibratingRadius =
+      state.scaledRadius +
+      primaryPulse +
+      secondaryPulse +
+      tertiaryPulse;
+
     for (let i = 0; i <= segments; i++) {
       const angle = (i / segments) * Math.PI * 2;
-      const primaryVibration =
-        Math.sin(
-          state.blobElapsed * state.visualFrequency * 2 * Math.PI +
-            angle * 2 +
-            blob.vibrationPhase
-        ) *
-        state.vibrationAmplitude;
-      const secondaryVibration =
-        Math.sin(
-          state.blobElapsed * state.visualFrequency * 4 * Math.PI +
-            angle * 3 +
-            blob.vibrationPhase * 1.6
-        ) *
-        state.vibrationAmplitude *
-        0.15;
-      const tertiaryVibration =
-        Math.sin(
-          state.blobElapsed * state.visualFrequency * 6 * Math.PI +
-            angle * 4 +
-            blob.vibrationPhase * 1.8
-        ) *
-        state.vibrationAmplitude *
-        0.05;
-      const vibratingRadius =
-        state.scaledRadius +
-        primaryVibration +
-        secondaryVibration +
-        tertiaryVibration;
-
       points.push({
         x: blob.x + Math.cos(angle) * vibratingRadius,
         y: blob.y + Math.sin(angle) * vibratingRadius,

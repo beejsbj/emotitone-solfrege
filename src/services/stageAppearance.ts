@@ -16,6 +16,7 @@ export type StageControlId =
   | "bodyMotion"
   | "connectionMode"
   | "connectionStrength"
+  | "connectionSoftness"
   | "atmosphereStrength"
   | "atmosphereColorDepth"
   | "stringPresence"
@@ -40,6 +41,7 @@ export interface StageControls {
   bodyMotion: number;
   connectionMode: BlobConnectionMode;
   connectionStrength: number;
+  connectionSoftness: number;
   atmosphereStrength: number;
   atmosphereColorDepth: number;
   stringPresence: number;
@@ -84,6 +86,10 @@ export interface TransientStageLook {
   seed: string;
   name: string;
   patch: StageLookPatch;
+  variationRoot?: {
+    name: string;
+    patch: StageLookPatch;
+  };
 }
 
 type StageLookSection =
@@ -95,13 +101,18 @@ type StageLookSection =
 
 export const STAGE_LOOK_PREFERENCE_FIELDS = [
   "connectionMode",
-  "fieldSoftness",
   "fusionStrength",
   "webOpacity",
   "showChordLabel",
   "showIntervalLabels",
   "showEmotionLabel",
   "labelOpacity",
+] as const;
+
+export const STAGE_VARIATION_PREFERENCE_FIELDS = [
+  ...STAGE_LOOK_PREFERENCE_FIELDS,
+  "blurRadius",
+  "fieldSoftness",
 ] as const;
 
 const STAGE_LOOK_FIELDS: Record<StageLookSection, readonly string[]> = {
@@ -155,15 +166,17 @@ const STAGE_LOOK_FIELDS: Record<StageLookSection, readonly string[]> = {
 };
 
 const percent = (value: number) => `${Math.round(value * 100)}%`;
+const CONNECTION_SOFTNESS_FIELD_MAX = 50;
+const CONNECTION_SOFTNESS_BLUR_MAX = 40;
 
 /**
- * The accepted 10% body proportion is the visual baseline. The public range
- * deliberately stays close to it so bodies remain secondary to the Scope;
- * Stage fitting turns this ratio into a visible 0.5–1.5× presentation scale.
+ * The original 10% body proportion remains the renderer calibration baseline.
+ * The public control can now enlarge bodies up to 5× that baseline while
+ * Stage fitting keeps them inside the usable canvas.
  */
 export const STAGE_BODY_SIZE_BASE_RATIO = 0.1;
 export const STAGE_BODY_SIZE_MIN_RATIO = 0.05;
-export const STAGE_BODY_SIZE_MAX_RATIO = 0.15;
+export const STAGE_BODY_SIZE_MAX_RATIO = 0.5;
 
 export const STAGE_MASTER_CONTROL: StageControlDefinition = {
   id: "stageEnabled",
@@ -185,20 +198,15 @@ export const STAGE_CONTROL_GROUPS: StageControlGroup[] = [
   },
   {
     label: "Note Bodies",
-    description: "Circle-of-Fifths support bodies around the Scope.",
+    description: "Circle-of-Fifths bodies and how simultaneous notes join around the Scope.",
     controls: [
       { id: "bodiesVisible", label: "Show Bodies", type: "boolean" },
       { id: "bodySize", label: "Size", type: "range", min: STAGE_BODY_SIZE_MIN_RATIO, max: STAGE_BODY_SIZE_MAX_RATIO, step: 0.01, format: percent },
       { id: "bodyStrength", label: "Strength", type: "range", min: 0, max: 1, step: 0.05, format: percent },
       { id: "bodyMotion", label: "Motion", type: "range", min: 0, max: 1, step: 0.05, format: percent },
-    ],
-  },
-  {
-    label: "Connections",
-    description: "How simultaneous note bodies relate.",
-    controls: [
-      { id: "connectionMode", label: "Mode", type: "options", options: ["off", "merge", "web"] },
-      { id: "connectionStrength", label: "Strength", type: "range", min: 0, max: 1, step: 0.05, format: percent },
+      { id: "connectionMode", label: "Connections", type: "options", options: ["merge", "web"] },
+      { id: "connectionStrength", label: "Connection Strength", type: "range", min: 0, max: 1, step: 0.05, format: percent },
+      { id: "connectionSoftness", label: "Softness", type: "range", min: 0, max: 1, step: 0.05, format: percent },
     ],
   },
   {
@@ -221,7 +229,7 @@ export const STAGE_CONTROL_GROUPS: StageControlGroup[] = [
     label: "Note Flecks",
     description: "Brief Mark fragments released by note events.",
     controls: [
-      { id: "fleckAmount", label: "Amount", type: "range", min: 0, max: 40, step: 2, format: (value) => `${Math.round(value)}` },
+      { id: "fleckAmount", label: "Amount", type: "range", min: 0, max: 40, step: 1, format: (value) => `${Math.round(value)}` },
       { id: "fleckEnergy", label: "Energy", type: "range", min: 0, max: 1, step: 0.05, format: percent },
     ],
   },
@@ -244,6 +252,10 @@ export const STAGE_CONTROL_DEFINITIONS: StageControlDefinition[] = [
 
 function clamp(value: number, min = 0, max = 1) {
   return Math.max(min, Math.min(max, value));
+}
+
+function readStringResponse(config: VisualEffectsConfig["strings"]) {
+  return clamp((config.maxAmplitude - 5) / 45);
 }
 
 function cloneConfig(config: VisualEffectsConfig): VisualEffectsConfig {
@@ -271,8 +283,21 @@ export function sanitizeStageLookPatch(patch: unknown): StageLookPatch {
     if (!isRecord(incoming)) continue;
 
     const accepted: Record<string, unknown> = {};
+    const retiredOff = section === "blobs" && incoming.connectionMode === "off";
     for (const field of STAGE_LOOK_FIELDS[section]) {
-      if (field in incoming) accepted[field] = incoming[field];
+      if (!(field in incoming)) continue;
+      const value = incoming[field];
+      accepted[field] = section === "blobs"
+        && field === "connectionMode"
+        && value !== "merge"
+        && value !== "web"
+        ? "merge"
+        : value;
+    }
+    if (retiredOff) {
+      accepted.connectionMode = "merge";
+      accepted.fusionStrength = 0;
+      accepted.webOpacity = 0;
     }
     if (Object.keys(accepted).length > 0) {
       (sanitized as Record<string, unknown>)[section] = accepted;
@@ -286,13 +311,36 @@ export function preserveStageLookPreferences(
   patch: StageLookPatch,
   currentConfig: VisualEffectsConfig,
 ): StageLookPatch {
+  return preserveBlobPreferences(
+    patch,
+    currentConfig,
+    STAGE_LOOK_PREFERENCE_FIELDS,
+  );
+}
+
+export function preserveStageVariationPreferences(
+  patch: StageLookPatch,
+  currentConfig: VisualEffectsConfig,
+): StageLookPatch {
+  return preserveBlobPreferences(
+    patch,
+    currentConfig,
+    STAGE_VARIATION_PREFERENCE_FIELDS,
+  );
+}
+
+function preserveBlobPreferences(
+  patch: StageLookPatch,
+  currentConfig: VisualEffectsConfig,
+  fields: readonly string[],
+): StageLookPatch {
   const next = sanitizeStageLookPatch(patch);
   const nextBlobs = {
     ...next.blobs,
   } as Record<string, unknown>;
   const currentBlobs = currentConfig.blobs as unknown as Record<string, unknown>;
 
-  for (const field of STAGE_LOOK_PREFERENCE_FIELDS) {
+  for (const field of fields) {
     nextBlobs[field] = currentBlobs[field];
   }
   next.blobs = nextBlobs;
@@ -322,6 +370,11 @@ export function resolveStageConfig(
   // Hilbert is the Stage's primary body. Its legacy switch remains in saved
   // data for compatibility, but it is not a second public master.
   effective.hilbertScope.isEnabled = stageEnabled;
+  // The retired Strings master is also compatibility data. Presence owns the
+  // idle field, including a blank zero state; Stage owns whether played notes
+  // may reveal their exact-pitch Strings.
+  effective.strings.isEnabled = stageEnabled;
+  effective.strings.activeOpacity = readStringResponse(effective.strings);
   if (!stageEnabled) {
     effective.blobs.isEnabled = false;
     effective.ambient.isEnabled = false;
@@ -340,9 +393,12 @@ export function readStageControls(config: VisualEffectsConfig): StageControls {
   ) / 3;
   const connectionStrength = (
     clamp(config.blobs.fusionStrength) +
-    clamp((config.blobs.fieldSoftness - 4) / 28) +
     clamp((config.blobs.webOpacity - 0.15) / 0.75)
-  ) / 3;
+  ) / 2;
+  const connectionSoftness = (
+    clamp(config.blobs.fieldSoftness / CONNECTION_SOFTNESS_FIELD_MAX) +
+    clamp(config.blobs.blurRadius / CONNECTION_SOFTNESS_BLUR_MAX)
+  ) / 2;
 
   return {
     stageEnabled: config.stage.isEnabled,
@@ -366,6 +422,7 @@ export function readStageControls(config: VisualEffectsConfig): StageControls {
     bodyMotion,
     connectionMode: config.blobs.connectionMode,
     connectionStrength,
+    connectionSoftness,
     atmosphereStrength: config.ambient.isEnabled
       ? clamp((config.ambient.opacityMajor + config.ambient.opacityMinor) / 1.72)
       : 0,
@@ -373,9 +430,9 @@ export function readStageControls(config: VisualEffectsConfig): StageControls {
       (config.ambient.saturationMajor + config.ambient.saturationMinor) / 1.75,
     ),
     stringPresence: config.strings.isEnabled
-      ? clamp(config.strings.activeOpacity)
+      ? clamp(config.strings.baseOpacity / 0.12)
       : 0,
-    stringResponse: clamp((config.strings.maxAmplitude - 5) / 45),
+    stringResponse: readStringResponse(config.strings),
     fleckAmount: config.particles.isEnabled
       ? clamp(config.particles.count, 0, 40)
       : 0,
@@ -443,15 +500,22 @@ export function patchStageControl(
       break;
     }
     case "connectionMode":
-      if (rawValue === "off" || rawValue === "merge" || rawValue === "web") {
+      if (rawValue === "merge" || rawValue === "web") {
         next.blobs.connectionMode = rawValue;
       }
       break;
     case "connectionStrength": {
       const amount = clamp(value);
       next.blobs.fusionStrength = amount;
-      next.blobs.fieldSoftness = 4 + amount * 28;
-      next.blobs.webOpacity = 0.15 + amount * 0.75;
+      // Web keeps its calibrated visible range above zero, while the exact
+      // zero endpoint is a truthful absence of connections in either mode.
+      next.blobs.webOpacity = amount === 0 ? 0 : 0.15 + amount * 0.75;
+      break;
+    }
+    case "connectionSoftness": {
+      const amount = clamp(value);
+      next.blobs.fieldSoftness = amount * CONNECTION_SOFTNESS_FIELD_MAX;
+      next.blobs.blurRadius = amount * CONNECTION_SOFTNESS_BLUR_MAX;
       break;
     }
     case "atmosphereStrength": {
@@ -471,16 +535,18 @@ export function patchStageControl(
     }
     case "stringPresence": {
       const amount = clamp(value);
-      next.strings.isEnabled = amount > 0.01;
+      // Presence describes only the idle field. Effective Stage resolution
+      // keeps exact-pitch activation available without rewriting the retired
+      // Strings master in persisted compatibility data.
       next.strings.baseOpacity = amount * 0.12;
-      next.strings.activeOpacity = amount;
       break;
     }
     case "stringResponse": {
       const amount = clamp(value);
+      next.strings.activeOpacity = amount;
       next.strings.maxAmplitude = 5 + amount * 45;
       next.strings.dampingFactor = 0.14 - amount * 0.1;
-      next.strings.interpolationSpeed = 0.05 + amount * 0.2;
+      next.strings.interpolationSpeed = 0.05 + amount * 0.25;
       next.strings.opacityInterpolationSpeed = 0.05 + amount * 0.15;
       break;
     }
@@ -561,70 +627,62 @@ function seededRandom(seed: string) {
   };
 }
 
-export function createSeededStageLook(
+export function createSeededStageVariation(
   seed: string,
-  looks: readonly StageLook[],
+  rootConfig: VisualEffectsConfig,
+  rootName = "Current",
 ): TransientStageLook {
-  if (looks.length === 0) {
-    return { seed, name: "New Look", patch: {} };
-  }
-
   const random = seededRandom(seed);
-  const source = looks[Math.floor(random() * looks.length)] ?? looks[0];
-  const patch = sanitizeStageLookPatch(source.patch);
-  const varied = applyNumericVariation(patch, random);
-  if (varied.blobs) {
-    // Launch variation changes appearance, not the learner's relationship or
-    // explanation choices.
-    delete varied.blobs.connectionMode;
-    delete varied.blobs.fusionStrength;
-    delete varied.blobs.fieldSoftness;
-    delete varied.blobs.webOpacity;
-    delete varied.blobs.showChordLabel;
-    delete varied.blobs.showIntervalLabels;
-    delete varied.blobs.showEmotionLabel;
-    delete varied.blobs.labelOpacity;
-  }
+  const rootPatch = stageLookFromConfig(rootConfig);
+  const varied = applyNumericVariation(rootConfig, random);
 
   return {
     seed,
-    name: `${source.name} · ${seed.slice(0, 4).toUpperCase()}`,
-    patch: varied,
+    name: `${rootName} · Variation ${seed.slice(0, 4).toUpperCase()}`,
+    patch: stageLookFromConfig(varied),
+    variationRoot: {
+      name: rootName,
+      patch: rootPatch,
+    },
   };
 }
 
 function applyNumericVariation(
-  patch: StageLookPatch,
+  rootConfig: VisualEffectsConfig,
   random: () => number,
-): StageLookPatch {
-  const varied = sanitizeStageLookPatch(patch);
+): VisualEffectsConfig {
+  let varied = cloneConfig(rootConfig);
+  const controls = readStageControls(rootConfig);
   const scale = (value: number, spread: number, min: number, max: number) =>
     clamp(value * (1 + (random() * 2 - 1) * spread), min, max);
 
-  if (varied.hilbertScope) {
-    if (typeof varied.hilbertScope.sizeRatio === "number") varied.hilbertScope.sizeRatio = scale(varied.hilbertScope.sizeRatio, 0.1, 0.15, 1.5);
-    if (typeof varied.hilbertScope.opacity === "number") varied.hilbertScope.opacity = scale(varied.hilbertScope.opacity, 0.12, 0, 1);
-    if (typeof varied.hilbertScope.thickness === "number") varied.hilbertScope.thickness = scale(varied.hilbertScope.thickness, 0.16, 0.01, 10);
-    if (typeof varied.hilbertScope.glowIntensity === "number") varied.hilbertScope.glowIntensity = scale(varied.hilbertScope.glowIntensity, 0.15, 0, 50);
-    if (typeof varied.hilbertScope.history === "number") varied.hilbertScope.history = scale(varied.hilbertScope.history, 0.16, 0, 0.95);
-  }
-  if (varied.blobs) {
-    if (typeof varied.blobs.baseSizeRatio === "number") varied.blobs.baseSizeRatio = scale(varied.blobs.baseSizeRatio, 0.12, STAGE_BODY_SIZE_MIN_RATIO, STAGE_BODY_SIZE_MAX_RATIO);
-    if (typeof varied.blobs.opacity === "number") varied.blobs.opacity = scale(varied.blobs.opacity, 0.12, 0, 1);
-    if (typeof varied.blobs.blurRadius === "number") varied.blobs.blurRadius = scale(varied.blobs.blurRadius, 0.16, 0, 100);
-  }
-  if (varied.ambient) {
-    if (typeof varied.ambient.opacityMajor === "number") varied.ambient.opacityMajor = scale(varied.ambient.opacityMajor, 0.12, 0, 1);
-    if (typeof varied.ambient.opacityMinor === "number") varied.ambient.opacityMinor = scale(varied.ambient.opacityMinor, 0.12, 0, 1);
-  }
-  if (varied.strings) {
-    if (typeof varied.strings.activeOpacity === "number") varied.strings.activeOpacity = scale(varied.strings.activeOpacity, 0.14, 0, 1);
-    if (typeof varied.strings.maxAmplitude === "number") varied.strings.maxAmplitude = scale(varied.strings.maxAmplitude, 0.14, 1, 100);
-  }
-  if (varied.particles) {
-    if (typeof varied.particles.count === "number") varied.particles.count = Math.round(scale(varied.particles.count, 0.18, 0, 40));
-    if (typeof varied.particles.speed === "number") varied.particles.speed = scale(varied.particles.speed, 0.15, 0, 20);
-  }
+  const vary = (
+    control: StageControlId,
+    value: number,
+    spread: number,
+    min = 0,
+    max = 1,
+  ) => {
+    varied = patchStageControl(varied, control, scale(value, spread, min, max));
+  };
+
+  // Vary the public correlated controls so a variation never tears apart the
+  // raw fields that one Knob intentionally owns. Relationship mode/strength,
+  // explanations, and enabled states stay anchored to the root Look.
+  vary("scopeSize", controls.scopeSize, 0.08, 0.15, 1.5);
+  vary("scopeStrength", controls.scopeStrength, 0.08);
+  vary("scopeLineWeight", controls.scopeLineWeight, 0.12, 0.01, 10);
+  vary("scopeGlow", controls.scopeGlow, 0.1);
+  vary("scopeTrail", controls.scopeTrail, 0.1);
+  vary("bodySize", controls.bodySize, 0.08, STAGE_BODY_SIZE_MIN_RATIO, STAGE_BODY_SIZE_MAX_RATIO);
+  vary("bodyStrength", controls.bodyStrength, 0.08);
+  vary("bodyMotion", controls.bodyMotion, 0.08);
+  vary("atmosphereStrength", controls.atmosphereStrength, 0.08);
+  vary("atmosphereColorDepth", controls.atmosphereColorDepth, 0.08);
+  vary("stringPresence", controls.stringPresence, 0.1);
+  vary("stringResponse", controls.stringResponse, 0.08);
+  vary("fleckAmount", controls.fleckAmount, 0.18, 0, 40);
+  vary("fleckEnergy", controls.fleckEnergy, 0.1);
 
   return varied;
 }

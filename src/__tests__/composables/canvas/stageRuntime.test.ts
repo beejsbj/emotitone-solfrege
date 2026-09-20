@@ -16,7 +16,7 @@ describe("Stage runtime", () => {
       const composition = resolveStageComposition(
         { x: 0, y: 0, width, height },
         75,
-        0.6,
+        UNIFIED_CONFIG.hilbertScope.sizeRatio.value,
       );
       const paddedMinorAxis = Math.min(width - 40, height - 40);
       const priorBodyExtent = Math.min(75 * 1.3, paddedMinorAxis * 0.115);
@@ -78,7 +78,7 @@ describe("Stage runtime", () => {
     (height) => {
       const usable = { x: 0, y: 0, width: 1200, height };
       const canonicalRadius = Math.max(75, height * 0.1);
-      const renderedRadii = [0.05, 0.1, 0.15].map((ratio) => {
+      const renderedRadii = [0.05, 0.1, 0.2, 0.5].map((ratio) => {
         const composition = resolveStageComposition(
           usable,
           canonicalRadius,
@@ -89,9 +89,11 @@ describe("Stage runtime", () => {
       });
 
       expect(renderedRadii[0]).toBeCloseTo(renderedRadii[1]! * 0.5, 6);
-      expect(renderedRadii[2]).toBeCloseTo(renderedRadii[1]! * 1.5, 6);
+      expect(renderedRadii[2]).toBeCloseTo(renderedRadii[1]! * 2, 6);
+      expect(renderedRadii[3]).toBeCloseTo(renderedRadii[1]! * 5, 6);
       expect(renderedRadii[0]).toBeLessThan(renderedRadii[1]!);
       expect(renderedRadii[1]).toBeLessThan(renderedRadii[2]!);
+      expect(renderedRadii[2]).toBeLessThan(renderedRadii[3]!);
     },
   );
 
@@ -105,6 +107,17 @@ describe("Stage runtime", () => {
     expect(smaller.orbitRadiusY).toBe(baseline.orbitRadiusY);
     expect(larger.orbitRadiusX).toBe(baseline.orbitRadiusX);
     expect(larger.orbitRadiusY).toBe(baseline.orbitRadiusY);
+  });
+
+  it("keeps Scope Size responsive at the maximum public Body Size", () => {
+    const usable = { x: 0, y: 0, width: 1200, height: 375 };
+    const canonicalRadius = Math.max(75, usable.height * 0.1);
+    const radii = [0.15, 0.65, 1.5].map((scopeSize) =>
+      resolveStageComposition(usable, canonicalRadius, scopeSize, 5).hilbertRadius,
+    );
+
+    expect(radii[0]).toBeLessThan(radii[1]!);
+    expect(radii[1]).toBeLessThanOrEqual(radii[2]!);
   });
 
   it("preserves disabled and undersized Stage behavior", () => {
@@ -123,7 +136,7 @@ describe("Stage runtime", () => {
   });
 
   it.each([150, 180, 240, 375, 600, 800])(
-    "keeps the Scope larger than a maximum-size support body at a %ipx drawable edge",
+    "keeps the Scope larger than a normal-size support body at a %ipx drawable edge",
     (height) => {
       const canonicalRadius = Math.max(75, height * 0.1);
       const composition = resolveStageComposition(

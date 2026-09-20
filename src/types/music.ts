@@ -179,7 +179,9 @@ export interface HarmonicAnalysisSnapshot {
   displayedNotes: readonly ActiveNote[];
   /** Pairwise interval relationships for the displayed notes */
   intervalEdges: readonly HarmonicIntervalEdge[];
-  /** Detected chord label when available */
+  /** Detected musical identity, independent of headline visibility. */
+  chordSymbol?: string | null;
+  /** Detected chord label when available and enabled */
   chordLabel: string | null;
   /** Optional emotional summary for the displayed notes */
   emotionalDescription: string;

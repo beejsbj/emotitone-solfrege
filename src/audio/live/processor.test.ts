@@ -19,7 +19,9 @@ async function setup() {
   const Processor = register.mock.calls[0][1]
   const processor = new Processor({ processorOptions: { instanceId: 'boundary' } })
   const expected: LiveResponse[] = []
-  const reference = new LiveAudioCore(1000, response => expected.push(response), 'boundary')
+  // The previous singleton port cloned immediately at emission. Snapshot the
+  // reference there so later mutations cannot disguise a batching regression.
+  const reference = new LiveAudioCore(1000, response => expected.push(structuredClone(response)), 'boundary')
   let frame = 0
   function expectBoundary(call: () => void) {
     const start = processor.port.postMessage.mock.calls.length

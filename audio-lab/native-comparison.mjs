@@ -27,6 +27,10 @@ export const targetedDeliveryLimits = Object.freeze({ postReleaseSettlementMs: 1
 
 export async function exerciseNativeComparison({ call, evaluate, delay }) {
   const cases = [], checks = [];
+  const fullDeliveryAcceptance = process.env.LAB_NATIVE_TARGETED !== '1' && process.env.LAB_NATIVE_PROFILE !== '1';
+  // Observe for at least 1200ms so the existing 1000ms acceptance boundary can
+  // be evaluated. A notification in the extra 200ms still fails that boundary.
+  const deliveryObservationMs = targetedDeliveryLimits.postReleaseSettlementMs + 200;
   let worstExternalSlip = 0, previous = performance.now();
   const external = setInterval(() => { const now = performance.now(); worstExternalSlip = Math.max(worstExternalSlip, now - previous - 100); previous = now; }, 100);
   const key = (type, letter) => call('Input.dispatchKeyEvent', { type, key: letter.toLowerCase(), code: `Key${letter}`, windowsVirtualKeyCode: letter.charCodeAt(0) });
@@ -40,6 +44,38 @@ export async function exerciseNativeComparison({ call, evaluate, delay }) {
     await evaluate(`window.__uiVisual.config.codeStrip.bpm=${bpm};window.__uiMusic.setPlayMode(${JSON.stringify(mode)});window.__audioUiLab.configure(${JSON.stringify({ stall })});document.activeElement?.blur()`);
     await delay(1400);
     await evaluate('window.__nativeComparison.reset();window.__audioUiLab.begin()', true);
+  };
+  const verifyCompleteDelivery = async row => {
+    const { measured, pcm, name } = row;
+    const finalInput = measured.input.filter(event => event.type === 'keyup').at(-1);
+    const expectedOwners = measured.operations.filter(operation => operation.method === 'press').map(operation => operation.args[0]);
+    const ownerIds = measured.endedOwners.map(owner => owner.ownerId);
+    const active = new Map(), completed = new Map();
+    let pairsOrdered = true;
+    for (const event of measured.lifecycle) {
+      if (event.phase === 'attack') {
+        if (active.has(event.noteId) || completed.has(event.noteId)) pairsOrdered = false;
+        active.set(event.noteId, event);
+      } else {
+        const attack = active.get(event.noteId);
+        if (!attack || attack.ownerId !== event.ownerId || attack.pitch !== event.pitch || event.at < attack.at) pairsOrdered = false;
+        active.delete(event.noteId); completed.set(event.noteId, event);
+      }
+    }
+    const edgeIdentity = event => [event.phase, event.noteId, event.ownerId, event.pitch, event.at];
+    const arrivals = pcm.trace.filter(event => event.type === 'worklet-event');
+    const fifoMatchesArrivals = JSON.stringify(arrivals.map(edgeIdentity)) === JSON.stringify(measured.lifecycle.map(edgeIdentity));
+    const lastNotificationAt = Math.max(...measured.lifecycle.map(event => event.deliveredAt), ...measured.endedOwners.map(owner => owner.deliveredAt));
+    const settlementMs = lastNotificationAt - finalInput.time;
+    const recording = await evaluate(`(()=>{const store=document.querySelector('#app').__vue_app__.config.globalProperties.$pinia._s.get('patterns');const notes=store.exportNotes();return {recordedNotes:notes.length,activeMusicNotes:window.__uiMusic.activeNotes.size,validTimeline:notes.every(note=>Number.isFinite(note.pressTime)&&Number.isFinite(note.releaseTime)&&note.releaseTime>=note.pressTime)}})()`);
+    row.deliveryAcceptance = { limits: targetedDeliveryLimits, minimumObservationMs: deliveryObservationMs,
+      expectedOwners, endedOwners: ownerIds, completedNotes: completed.size, pairsOrdered, stillActive: active.size,
+      fifoMatchesArrivals, finalInput, lastNotificationAt, settlementMs, recording };
+    checks.push({ name: `${name}: lifecycle pairs are complete, unique and ordered`, passed: pairsOrdered && active.size === 0 && completed.size > 0 });
+    if (process.env.LAB_UI_BACKEND !== 'native') checks.push({ name: `${name}: every arriving worklet lifecycle edge is delivered in exact FIFO order`, passed: fifoMatchesArrivals });
+    checks.push({ name: `${name}: every pressed owner closes exactly once`, passed: expectedOwners.length > 0 && new Set(expectedOwners).size === expectedOwners.length && ownerIds.length === expectedOwners.length && expectedOwners.every(owner => ownerIds.filter(id => id === owner).length === 1) });
+    checks.push({ name: `${name}: final lifecycle and owner notifications settle within1000ms of final trusted release`, passed: settlementMs >= 0 && settlementMs <= targetedDeliveryLimits.postReleaseSettlementMs });
+    checks.push({ name: `${name}: recording retains every completed note and leaves no active musical notes`, passed: recording.recordedNotes === completed.size && recording.activeMusicNotes === 0 && recording.validTimeline });
   };
   const finish = async (name, options = {}) => {
     const pcm = await evaluate('window.__audioUiLab.finish()', true);
@@ -55,6 +91,7 @@ export async function exerciseNativeComparison({ call, evaluate, delay }) {
       && measured.operations.every(x => x.duration <= comparisonLimits.synchronousOperationMs)
       && (!measured.tail || measured.tail.samples > 0 && measured.tail.peak < .001) });
     checks.push({ name: `${name}: PCM capture includes every delivered release`, passed: measured.input.filter(x => x.type === 'keyup').every(x => x.audioTime + .1 < measured.captureEndAudioTime) });
+    if (fullDeliveryAcceptance) await verifyCompleteDelivery(row);
     return row;
   };
   try {
@@ -146,7 +183,7 @@ export async function exerciseNativeComparison({ call, evaluate, delay }) {
       await press(letters);
       await delay(3150);
       await release(letters);
-      await delay(500);
+      await delay(deliveryObservationMs);
       const row = await finish(`${bpm} BPM ${letters.length}-key repeat through ${stallDuration}ms stall`, { stepSeconds: 60 / bpm / 4, tailAfterFinalInputReleaseMs: targetedDeliveryLimits.tailAfterReleaseMs });
       const presses = row.measured.input.filter(x => x.type === 'keydown');
       row.chordSubmissionSpanMs = presses.at(-1).time - presses[0].time;
@@ -162,8 +199,8 @@ export async function exerciseNativeComparison({ call, evaluate, delay }) {
     const changedAt = await evaluate('window.__uiAudio.getAudioContext().currentTime');
     await delay(350);
     await evaluate('window.__uiVisual.config.codeStrip.bpm=120');
-    await delay(1600); await release('AFG'); await delay(500);
-    const edited = await finish('Three-key arpeggio chord revision followed by 220-to-120 BPM edit');
+    await delay(1600); await release('AFG'); await delay(deliveryObservationMs);
+    const edited = await finish('Three-key arpeggio chord revision followed by 220-to-120 BPM edit', { tailAfterFinalInputReleaseMs: targetedDeliveryLimits.tailAfterReleaseMs });
     edited.changedAt = changedAt;
     const secondPress = edited.measured.operations.filter(x => x.method === 'press')[1];
     const removed = edited.measured.operations.find(x => x.method === 'release' && x.args[0] === secondPress?.args[0]);
@@ -177,8 +214,8 @@ export async function exerciseNativeComparison({ call, evaluate, delay }) {
     await begin(220, 'together');
     for (let i = 0; i < 8; i++) { await press('ADF'); await delay(65); await release('ADF'); await delay(45); }
     await delay(1500);
-    await finish('Eight fast three-key chords through trusted keyboard input');
-    return { limits: comparisonLimits, horizonTransform: process.env.LAB_NATIVE_LOOKAHEAD_MS ? Number(process.env.LAB_NATIVE_LOOKAHEAD_MS) : null,
+    await finish('Eight fast three-key chords through trusted keyboard input', { tailAfterFinalInputReleaseMs: targetedDeliveryLimits.tailAfterReleaseMs });
+    return { limits: comparisonLimits, targetedDeliveryLimits, minimumDeliveryObservationMs: deliveryObservationMs, horizonTransform: process.env.LAB_NATIVE_LOOKAHEAD_MS ? Number(process.env.LAB_NATIVE_LOOKAHEAD_MS) : null,
       scope: 'Trusted actual application piano input, PCM grid windows beyond prior-pulse release tail; existing ui-run warm input trials complement these cases. Node counts include source and gain separately. External event-loop slip diagnoses severe host contention; browser long tasks retain application stalls.',
       cases, worstExternalEventLoopSlipMs: worstExternalSlip,
       checks: [...checks, { name: 'External runner avoids severe host contention', passed: worstExternalSlip <= comparisonLimits.maxExternalEventLoopSlipMs }] };

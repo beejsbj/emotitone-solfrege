@@ -61,6 +61,21 @@ describe("Merge field pixels", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
+  it.each(["merge", "web"] as const)("takes %s opacity from the prepared note strength, independently of color alpha", (mode) => {
+    const opaque = framesAt();
+    const translucent = framesAt();
+    translucent.forEach((frame, index) => {
+      frame.primaryColor = opaque[index].primaryColor.replace("rgb(", "rgba(").replace(")", ", 0.1)");
+    });
+    const reference = render(opaque, mode).getImageData(0, 0, 1000, 650).data;
+    const actual = render(translucent, mode).getImageData(0, 0, 1000, 650).data;
+    let mismatches = 0;
+    for (let index = 0; index < actual.length; index++) {
+      if (actual[index] !== reference[index]) mismatches++;
+    }
+    expect(mismatches).toBe(0);
+  });
+
   it.each([
     { radius: 10, fieldSoftness: 30, fusionStrength: 0 },
     { radius: 40, fieldSoftness: 12, fusionStrength: 0.4 },
@@ -245,6 +260,21 @@ describe("Filled Merge and fine Web pixels", () => {
         for (let i = 0; i < 4; i++) expect(Math.abs(a[i] - b[i])).toBeLessThanOrEqual(3);
       }
     }
+  });
+
+  it("preserves color in a faint dense Merge without quantizing its influence away", () => {
+    const positions = Array.from({ length: 12 }, (_, i) => [
+      500 + Math.cos(i / 12 * Math.PI * 2) * 300,
+      325 + Math.sin(i / 12 * Math.PI * 2) * 220,
+    ]);
+    const frames = framesAt(positions);
+    frames.forEach((frame) => {
+      frame.primaryColor = "rgb(0, 255, 255)";
+      frame.opacity = 0.02;
+      frame.blob.isFadingOut = true;
+    });
+    const center = render(frames, "merge").getImageData(500, 325, 1, 1).data;
+    expect([...center]).toEqual([0, 255, 255, 5]);
   });
 
   it.each([

@@ -4,7 +4,6 @@ import {
   blurFieldChannel,
   createBlobWebConnectionPlanner,
   getBlobFieldConnectionGeometry,
-  getBlobFieldColorBatchSize,
   getBlobFieldBounds,
   getBlobFieldMaterialPasses,
   getBlobFieldResolution,
@@ -317,15 +316,6 @@ describe("useBlobFieldRenderer", () => {
     expect(boundaryWidth).toBeGreaterThan(interiorWidth);
     expect(interiorWidth).toBeGreaterThanOrEqual(0.8);
     expect(boundaryWidth).toBeLessThanOrEqual(3);
-  });
-
-  it("keeps faint field color contributions above 8-bit quantization", () => {
-    const divisor = getBlobFieldColorBatchSize(78);
-    const faintBodyOpacity = 0.1 * 0.46;
-
-    expect(divisor).toBe(8);
-    expect((faintBodyOpacity / divisor) * 255).toBeGreaterThan(1);
-    expect(getBlobFieldColorBatchSize(4)).toBe(4);
   });
 
   it("keeps Blob blur and glow as the field material", () => {

@@ -535,51 +535,45 @@ export function useBlobRenderer() {
     const points: Array<{ x: number; y: number }> = [];
     const segments = blobConfig.edgeSegments;
 
-    const radialPulse =
-      Math.sin(
-        state.blobElapsed * state.visualFrequency * 2 * Math.PI +
-          blob.vibrationPhase
-      ) *
-      state.vibrationAmplitude *
-      0.3;
-
     for (let i = 0; i <= segments; i++) {
       const angle = (i / segments) * Math.PI * 2;
-      // Surface waves rippling through the perimeter at the note's pitch frequency
+      // Mode 3 wave travelling forward at the fundamental pitch frequency
       const waveForward =
         Math.sin(
           state.blobElapsed * state.visualFrequency * 2 * Math.PI -
-            angle * 4 +
+            angle * 3 +
             blob.vibrationPhase
         ) *
         state.vibrationAmplitude *
-        0.5;
+        0.45;
 
-      const waveReflected =
+      // Mode 5 wave travelling in counter-direction at 2nd harmonic (2x pitch frequency)
+      const waveCounter =
         Math.sin(
-          state.blobElapsed * state.visualFrequency * 2 * Math.PI +
-            angle * 4 +
+          state.blobElapsed * state.visualFrequency * 4 * Math.PI +
+            angle * 5 +
             blob.vibrationPhase * 1.3
         ) *
         state.vibrationAmplitude *
-        0.25;
+        0.22;
 
-      // Subtle second harmonic wave (2x pitch frequency, 6 lobes)
+      // Fine capillary ripple at 3rd harmonic (3x pitch frequency, 7 lobes)
       const waveHarmonic =
         Math.sin(
-          state.blobElapsed * state.visualFrequency * 4 * Math.PI -
-            angle * 6 +
+          state.blobElapsed * state.visualFrequency * 6 * Math.PI -
+            angle * 7 +
             blob.vibrationPhase * 1.7
         ) *
         state.vibrationAmplitude *
-        0.12;
+        0.1;
+
+      // Soft asymmetric fluid envelope (breaks polygon corners so it stays organic and round)
+      const fluidEnvelope =
+        0.75 + 0.25 * Math.cos(angle * 2 + blob.vibrationPhase * 0.8);
 
       const vibratingRadius =
         state.scaledRadius +
-        radialPulse +
-        waveForward +
-        waveReflected +
-        waveHarmonic;
+        (waveForward + waveCounter + waveHarmonic) * fluidEnvelope;
 
       points.push({
         x: blob.x + Math.cos(angle) * vibratingRadius,

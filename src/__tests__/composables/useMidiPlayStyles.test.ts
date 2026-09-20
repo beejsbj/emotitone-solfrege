@@ -31,7 +31,7 @@ function packet(status: number, pitch: number) {
   input.onmidimessage!({ data: new Uint8Array([status, pitch, status === 0x90 ? 100 : 0]) });
 }
 
-function notes() {
+function notesWithTimestamps() {
   const messages = midiMessages
     .map(({ message, timestamp, index }) => ({
       message,
@@ -58,15 +58,19 @@ function notes() {
       for (const status of statuses) {
         if (status === 0x90 && !active.has(pitch)) {
           active.add(pitch);
-          transitions.push([status, pitch]);
+          transitions.push([status, pitch, timestamp]);
         } else if (status === 0x80 && active.delete(pitch)) {
-          transitions.push([status, pitch]);
+          transitions.push([status, pitch, timestamp]);
         }
       }
     }
   }
 
   return transitions;
+}
+
+function notes() {
+  return notesWithTimestamps().map(([status, pitch]) => [status, pitch]);
 }
 
 function scheduledNotes() {
@@ -179,11 +183,13 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     await vi.advanceTimersByTimeAsync(499);
     expect(notes()).toEqual([
       [0x90, 60], [0x80, 60], [0x90, 64], [0x80, 64], [0x90, 67], [0x80, 67],
+      [0x90, 60], [0x80, 60],
     ]);
     expect(scheduledNotes().map(({ timestamp }) => timestamp))
-      .toEqual([50, 250, 300, 500, 550, 750]);
+      .toEqual([50, 250, 300, 500, 550, 750, 800, 1000]);
     [60, 64, 67].forEach((pitch) => packet(0x80, pitch));
     await vi.advanceTimersByTimeAsync(1000);
+    // The fourth pulse was queued ahead but physical release cancels it.
     expect(notes()).toHaveLength(6);
     expect(music.activeNotes.size).toBe(0);
     expect(useKeyboardDrawerStore().touch.activeTouches.size).toBe(0);
@@ -204,6 +210,67 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
       [0x80, 60], [0x80, 64], [0x80, 67],
     ]);
     expect(music.activeNotes.size).toBe(0);
+  });
+
+  it("adds a new held pitch to the next queued sixteenth repeat on MIDI output", async () => {
+    const music = useMusicStore();
+    music.setPlayMode("repeat:16");
+    await connect();
+    packet(0x90, 60);
+    await vi.advanceTimersByTimeAsync(60);
+    packet(0x90, 64);
+    await vi.advanceTimersByTimeAsync(230);
+    [60, 64].forEach((pitch) => packet(0x80, pitch));
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(notesWithTimestamps()).toEqual([
+      [0x90, 60, 50], [0x80, 60, 150],
+      [0x90, 60, 175], [0x90, 64, 175],
+      [0x80, 60, 275], [0x80, 64, 275],
+    ]);
+    expect(music.activeNotes.size).toBe(0);
+    expect(useKeyboardDrawerStore().touch.activeTouches.size).toBe(0);
+  });
+
+  it("replaces a released pitch in a queued MIDI arpeggio without leaving a silent step", async () => {
+    const music = useMusicStore();
+    music.setPlayMode("arp-up:16");
+    await connect();
+    [60, 64, 67].forEach((pitch) => packet(0x90, pitch));
+    await vi.advanceTimersByTimeAsync(60);
+    packet(0x80, 64);
+    await vi.advanceTimersByTimeAsync(230);
+    [60, 67].forEach((pitch) => packet(0x80, pitch));
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(notesWithTimestamps()).toEqual([
+      [0x90, 60, 50], [0x80, 60, 150],
+      [0x90, 67, 175], [0x80, 67, 275],
+    ]);
+    expect(music.activeNotes.size).toBe(0);
+    expect(useKeyboardDrawerStore().touch.activeTouches.size).toBe(0);
+  });
+
+  it("restores a twice-revised MIDI arpeggio slot without its canceled off swallowing the attack", async () => {
+    const music = useMusicStore();
+    music.setPlayMode("arp-up:16");
+    await connect();
+    [60, 67].forEach((pitch) => packet(0x90, pitch));
+    await vi.advanceTimersByTimeAsync(60);
+    packet(0x90, 64);
+    await vi.advanceTimersByTimeAsync(10);
+    expect(notesWithTimestamps()).toContainEqual([0x90, 64, 175]);
+    packet(0x80, 64);
+    await vi.advanceTimersByTimeAsync(220);
+    [60, 67].forEach((pitch) => packet(0x80, pitch));
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(notesWithTimestamps()).toEqual([
+      [0x90, 60, 50], [0x80, 60, 150],
+      [0x90, 67, 175], [0x80, 67, 275],
+    ]);
+    expect(music.activeNotes.size).toBe(0);
+    expect(useKeyboardDrawerStore().touch.activeTouches.size).toBe(0);
   });
 
   it("starts mirroring when a held ordinary ROLI note changes to Repeat", async () => {

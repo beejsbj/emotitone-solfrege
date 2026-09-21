@@ -1264,6 +1264,59 @@ describe("Patterns Store", () => {
     }));
   });
 
+  it("preserves retained scale degrees through sparse-mode octave changes", async () => {
+    const musicStore = useMusicStore();
+    const keyboardStore = useKeyboardDrawerStore();
+    const pattern = createPattern({
+      key: "C",
+      mode: "major",
+      notes: [
+        createPatternNote({ note: "C4", octave: 4, scaleIndex: 0, scaleDegree: 1 }),
+        createPatternNote({
+          id: "major-seventh",
+          note: "B4",
+          octave: 4,
+          scaleIndex: 6,
+          scaleDegree: 7,
+        }),
+      ],
+    });
+    patternsStore.savedPatterns.push(pattern);
+    patternsStore.loadPatternAsBase(pattern.id);
+    await nextTick();
+
+    musicStore.setMode("major pentatonic");
+    await nextTick();
+    keyboardStore.setMainOctave(5);
+    await nextTick();
+    expect(patternsStore.currentSketchNotes[1]).toEqual(expect.objectContaining({
+      note: "B5",
+      scaleIndex: 6,
+      scaleDegree: 7,
+    }));
+
+    musicStore.setMode("major");
+    await nextTick();
+    expect(patternsStore.currentSketchNotes[1]).toEqual(expect.objectContaining({
+      note: "B5",
+      octave: 5,
+      scaleIndex: 6,
+    }));
+
+    musicStore.setMode("major pentatonic");
+    await nextTick();
+    musicStore.setKey("D");
+    await nextTick();
+    expect(patternsStore.currentSketchNotes[1]).toEqual(expect.objectContaining({
+      note: "C#6",
+      scaleIndex: 6,
+    }));
+
+    musicStore.setMode("major");
+    await nextTick();
+    expect(patternsStore.currentSketchNotes[1]?.note).toBe("C#6");
+  });
+
   it("uses the previous octave knob value for legacy loaded metadata", async () => {
     const musicStore = useMusicStore();
     const keyboardStore = useKeyboardDrawerStore();
@@ -1334,5 +1387,49 @@ describe("Patterns Store", () => {
 
     patternsStore.sendCurrentPattern();
     expect(patternsStore.savedPatterns.at(-1)?.duration).toBe(8400);
+  });
+
+  it("shrinks loaded phrase duration when Backspace removes its final note", () => {
+    const twinkle = patternsStore.patterns.find(
+      (pattern) => pattern.id === "pattern-twinkle-1",
+    );
+    if (!twinkle) throw new Error("Missing Twinkle default");
+    patternsStore.loadPatternAsBase(twinkle.id);
+    expect(patternsStore.currentSketchDuration).toBe(10_000);
+
+    patternsStore.removeLastFromCurrentSketch();
+    expect(patternsStore.currentSketchDuration).toBe(8_750);
+
+    patternsStore.sendCurrentPattern();
+    expect(patternsStore.savedPatterns.at(-1)?.duration).toBe(8_750);
+  });
+
+  it("retains authored trailing silence after Backspace removes a loaded note", () => {
+    const pattern = createPattern({
+      duration: 2_500,
+      notes: [
+        createPatternNote({
+          id: "first",
+          pressTime: 0,
+          releaseTime: 500,
+          duration: 500,
+        }),
+        createPatternNote({
+          id: "second",
+          note: "D4",
+          scaleIndex: 1,
+          pressTime: 500,
+          releaseTime: 2_000,
+          duration: 1_500,
+        }),
+      ],
+    });
+    patternsStore.savedPatterns.push(pattern);
+    patternsStore.loadPatternAsBase(pattern.id);
+
+    patternsStore.removeLastFromCurrentSketch();
+
+    expect(patternsStore.currentSketchDuration).toBe(1_000);
+    expect(patternsStore.loadedBaseMeta?.trailingSilence).toBe(500);
   });
 });

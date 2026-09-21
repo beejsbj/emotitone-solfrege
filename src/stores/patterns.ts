@@ -102,6 +102,7 @@ export const usePatternsStore = defineStore(
       bpm: number;
       octave?: number;
       duration?: number;
+      trailingSilence?: number;
     } | null>(null);
 
     // True immediately after Send, until first new note arrives
@@ -183,12 +184,8 @@ export const usePatternsStore = defineStore(
         return liveNotes;
       }
 
-      const baseStart = Math.min(...loadedBaseNotes.value.map((note) => note.pressTime));
       const soundingEnd = Math.max(...loadedBaseNotes.value.map((note) => note.releaseTime));
-      const baseEnd = baseStart + Math.max(
-        soundingEnd - baseStart,
-        loadedBaseMeta.value?.duration ?? 0,
-      );
+      const baseEnd = soundingEnd + loadedBaseTrailingSilence();
       const firstLiveStart = liveNotes[0].pressTime;
       const seamOffset = Math.max(0, firstLiveStart - baseEnd);
 
@@ -211,9 +208,12 @@ export const usePatternsStore = defineStore(
       const loadedBaseContributes = loadedBaseNotes.value.length > 0
         && (currentWorkingNotes.value.length === 0 || canContinueLoadedBase.value);
 
-      return loadedBaseContributes
-        ? Math.max(soundingDuration, loadedBaseMeta.value?.duration ?? 0)
-        : soundingDuration;
+      if (!loadedBaseContributes) return soundingDuration;
+
+      const baseSpan = noteSpan(loadedBaseNotes.value);
+      const basePhraseDuration = baseSpan.end - baseSpan.start
+        + loadedBaseTrailingSilence();
+      return Math.max(soundingDuration, basePhraseDuration);
     });
 
     // Extract dynamic patterns from logged notes using isStartingNewPattern
@@ -314,6 +314,20 @@ export const usePatternsStore = defineStore(
       if (!pattern.notes.length) return 0;
       const span = noteSpan(pattern.notes);
       return span.end - span.start;
+    }
+
+    function loadedBaseTrailingSilence(): number {
+      const authoredSilence = loadedBaseMeta.value?.trailingSilence;
+      if (typeof authoredSilence === "number" && Number.isFinite(authoredSilence)) {
+        return Math.max(0, authoredSilence);
+      }
+      if (!loadedBaseNotes.value.length) return 0;
+      const span = noteSpan(loadedBaseNotes.value);
+      return Math.max(
+        0,
+        (loadedBaseMeta.value?.duration ?? (span.end - span.start))
+          - (span.end - span.start),
+      );
     }
 
     function clamp(value: number, min: number, max: number): number {
@@ -606,13 +620,17 @@ export const usePatternsStore = defineStore(
       loadedBasePatternId.value = patternId;
       const patternOctave = resolvePatternOctave(pattern)
         ?? keyboardStore.keyboardConfig.mainOctave;
+      const patternDuration = resolvePatternDuration(pattern);
+      const patternSpan = pattern.notes.length ? noteSpan(pattern.notes) : undefined;
+      const soundingDuration = patternSpan ? patternSpan.end - patternSpan.start : 0;
       const patternMeta = {
         mode: pattern.mode,
         key: pattern.key,
         instrument: pattern.instrument,
         bpm: resolveBpm(pattern.bpm),
         octave: patternOctave,
-        duration: resolvePatternDuration(pattern),
+        duration: patternDuration,
+        trailingSilence: Math.max(0, patternDuration - soundingDuration),
       };
       loadedBaseMeta.value = patternMeta;
       isStripCleared.value = false;
@@ -683,9 +701,7 @@ export const usePatternsStore = defineStore(
           const shift = getSemitoneShift(loadedBaseMeta.value.key, newKey as ChromaticNote);
           loadedBaseNotes.value = transposePatternNotes(
             loadedBaseNotes.value,
-            shift,
-            newKey as ChromaticNote,
-            loadedBaseMeta.value.mode
+            shift
           );
           loadedBaseMeta.value = {
             ...loadedBaseMeta.value,
@@ -747,9 +763,7 @@ export const usePatternsStore = defineStore(
           }
           loadedBaseNotes.value = transposePatternNotes(
             loadedBaseNotes.value,
-            (newOctave - previousOctave) * 12,
-            loadedBaseMeta.value.key,
-            loadedBaseMeta.value.mode
+            (newOctave - previousOctave) * 12
           );
           loadedBaseMeta.value = {
             ...loadedBaseMeta.value,
@@ -826,7 +840,19 @@ export const usePatternsStore = defineStore(
       }
 
       if (loadedBaseNotes.value.length > 0) {
-        loadedBaseNotes.value = loadedBaseNotes.value.slice(0, -1);
+        const trailingSilence = loadedBaseTrailingSilence();
+        const remainingNotes = loadedBaseNotes.value.slice(0, -1);
+        const remainingSpan = remainingNotes.length ? noteSpan(remainingNotes) : undefined;
+        loadedBaseNotes.value = remainingNotes;
+        if (loadedBaseMeta.value) {
+          loadedBaseMeta.value = {
+            ...loadedBaseMeta.value,
+            duration: remainingSpan
+              ? remainingSpan.end - remainingSpan.start + trailingSilence
+              : 0,
+            trailingSilence,
+          };
+        }
       }
     }
 

@@ -77,8 +77,6 @@ export function getSemitoneShift(oldKey: ChromaticNote, newKey: ChromaticNote): 
 export function transposePatternNotes(
   notes: PatternNote[],
   semitones: number,
-  newKey: ChromaticNote,
-  newMode: MusicalMode
 ): PatternNote[] {
   if (semitones === 0) return notes;
   return notes.map((note) => {
@@ -89,16 +87,11 @@ export function transposePatternNotes(
     const pc = CHROMATIC_NOTES[parsed.chroma >= 0 ? parsed.chroma : 0];
     const octave = Number.isFinite(parsed.oct) ? (parsed.oct as number) : 4;
     const canonicalNote = `${pc}${octave}`;
-    const { scaleIndex, isBorrowed } = getScaleIndex(pc, newKey, newMode);
-    const scaleDegree = isBorrowed ? 0 : scaleIndex + 1;
 
     return {
       ...note,
       note: canonicalNote,
-      scaleIndex,
-      scaleDegree,
       pitchClassIndex: parsed.chroma >= 0 ? parsed.chroma : undefined,
-      isBorrowed,
       octave,
       frequency: parsed.freq || undefined,
     };

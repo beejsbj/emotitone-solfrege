@@ -9,7 +9,7 @@ import TabbedOverlayPanel, {
   type TabbedOverlayTab,
 } from "./TabbedOverlayPanel.vue";
 import TopDrawer from "./TopDrawer.vue";
-import { Search, X } from "lucide-vue-next";
+import { RotateCcw, Search, X } from "lucide-vue-next";
 import { instrumentIconFor } from "@/components/primatives/instrumentIcon";
 import Knob from "@/components/primatives/Knob/index.vue";
 import { displayInstrumentName, isSynthSound } from "@/data/instruments";
@@ -713,19 +713,6 @@ async function selectInstrument(name: string, close: () => void) {
               data-testid="synth-sculptor"
               class="synth-sculptor"
             >
-              <div class="synth-sculptor__heading">
-                <span class="synth-sculptor__title">Synth Sculptor</span>
-                <button
-                  type="button"
-                  data-testid="synth-sculptor-reset"
-                  class="synth-sculptor__reset"
-                  title="Reset synth controls"
-                  aria-label="Reset synth controls"
-                  @click="instrumentStore.resetSynthControls"
-                >
-                  Reset
-                </button>
-              </div>
               <div class="synth-sculptor__grid">
                 <div class="synth-sculptor__knob-cell">
                   <Knob
@@ -783,6 +770,16 @@ async function selectInstrument(name: string, close: () => void) {
                     @update:model-value="(v) => instrumentStore.setSynthControl('release', Number(v))"
                   />
                 </div>
+                <Button
+                  size="sm"
+                  tone="ink"
+                  data-testid="synth-sculptor-reset"
+                  title="Reset synth controls"
+                  accessible-name="Reset synth controls"
+                  @click="instrumentStore.resetSynthControls"
+                >
+                  <RotateCcw :size="13" />
+                </Button>
               </div>
             </div>
 
@@ -845,48 +842,16 @@ async function selectInstrument(name: string, close: () => void) {
 .synth-sculptor {
   border: 1px solid color-mix(in srgb, var(--brass) 24%, var(--ink-5));
   background: #111111;
-  padding: 0.625rem 0.75rem 0.75rem;
-  margin-bottom: 1rem;
+  padding: 0.375rem 0.5rem;
+  margin-bottom: 0.75rem;
   clip-path: polygon(0 6px, 6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%);
-}
-
-.synth-sculptor__heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  padding-bottom: 0.375rem;
-  margin-bottom: 0.5rem;
-  font-family: var(--font-mono);
-  font-size: 8px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--ivory-3);
-}
-
-.synth-sculptor__reset {
-  border: 0;
-  background: transparent;
-  padding: 0;
-  color: var(--brass-hi, #e0a93a);
-  font-family: var(--font-mono);
-  font-size: 8px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  cursor: pointer;
-  opacity: 0.8;
-  transition: opacity var(--dur-tap) ease;
-}
-
-.synth-sculptor__reset:hover {
-  opacity: 1;
 }
 
 .synth-sculptor__grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
   gap: 0.375rem;
-  align-items: start;
+  align-items: center;
   justify-items: center;
 }
 
@@ -998,9 +963,5 @@ async function selectInstrument(name: string, close: () => void) {
 @media (max-width: 460px) {
   .instrument-group__choices { gap: .5625rem .5rem; }
   .instrument-choice__sticker { font-size: 12px; }
-  .synth-sculptor__grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    row-gap: 0.75rem;
-  }
 }
 </style>

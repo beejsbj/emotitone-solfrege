@@ -127,6 +127,7 @@ vi.mock('lucide-vue-next', () => ({
   Wine: { template: '<svg data-testid="wine-icon"></svg>' },
   AudioWaveform: { template: '<svg data-testid="waveform-icon"></svg>' },
   Search: { template: '<svg data-testid="search-icon"></svg>' },
+  RotateCcw: { template: '<svg data-testid="reset-icon"></svg>' },
   X: { template: '<svg data-testid="close-icon"></svg>' },
 }))
 
@@ -492,12 +493,16 @@ describe('InstrumentSelector.vue', () => {
 
     const sculptor = wrapper.find('[data-testid="synth-sculptor"]')
     expect(sculptor.exists()).toBe(true)
-    expect(sculptor.text()).toContain('Synth Sculptor')
-    expect(sculptor.find('[data-testid="synth-sculptor-reset"]').exists()).toBe(true)
+    expect(sculptor.text()).not.toContain('Synth Sculptor')
+    const reset = sculptor.get('[data-testid="synth-sculptor-reset"]')
+    expect(reset.find('[data-testid="reset-icon"]').exists()).toBe(true)
     expect(sculptor.find('[data-testid="synth-knob-cutoff"]').exists()).toBe(true)
     expect(sculptor.find('[data-testid="synth-knob-resonance"]').exists()).toBe(true)
     expect(sculptor.find('[data-testid="synth-knob-attack"]').exists()).toBe(true)
     expect(sculptor.find('[data-testid="synth-knob-release"]').exists()).toBe(true)
+
+    await reset.trigger('click')
+    expect(instrumentStore.resetSynthControls).toHaveBeenCalledOnce()
 
     await wrapper.get('[data-testid="instrument-tab-keyboards"]').trigger('click')
     await nextTick()

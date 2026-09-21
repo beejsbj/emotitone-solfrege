@@ -95,42 +95,6 @@ describe('Visual Config Store', () => {
       expect(newStore.visualsEnabled).toBe(false)
     })
 
-    it('migrates the former untouched Blob motion default to still', () => {
-      localStorage.setItem('emotitone-visual-config', JSON.stringify({
-        config: {
-          blobs: {
-            oscillationAmplitude: 0.4,
-            driftSpeed: 8,
-            vibrationAmplitude: 10,
-          },
-        },
-      }))
-
-      const migratedStore = createFreshStore()
-      expect(migratedStore.config.blobs).toMatchObject({
-        oscillationAmplitude: 0,
-        driftSpeed: 0,
-        vibrationAmplitude: 0,
-      })
-
-      localStorage.setItem('emotitone-visual-config', JSON.stringify({
-        config: {
-          blobs: {
-            oscillationAmplitude: 0.6,
-            driftSpeed: 12,
-            vibrationAmplitude: 15,
-          },
-        },
-      }))
-
-      const customizedStore = createFreshStore()
-      expect(customizedStore.config.blobs).toMatchObject({
-        oscillationAmplitude: 0.6,
-        driftSpeed: 12,
-        vibrationAmplitude: 15,
-      })
-    })
-
     it('defaults missing or invalid Code Strip duration display values', () => {
       localStorage.setItem('emotitone-visual-config', JSON.stringify({
         config: { codeStrip: { bpm: 144, durationMode: 'sparkles' } },

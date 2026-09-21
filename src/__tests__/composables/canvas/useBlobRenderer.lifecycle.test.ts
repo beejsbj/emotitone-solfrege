@@ -352,12 +352,28 @@ describe("useBlobRenderer lifecycle", () => {
     expect(lowFrame).toBeDefined();
     expect(highFrame).toBeDefined();
 
-    const meanRadius = (frame: typeof lowFrame) =>
-      frame.contour.reduce((sum, point) => sum + Math.hypot(
-        point.x - frame.blob.x,
-        point.y - frame.blob.y,
-      ), 0) / frame.contour.length;
-    expect(meanRadius(lowFrame)).not.toBeCloseTo(meanRadius(highFrame), 4);
+    const highPitchPeriod = 100 / highFrame.blob.frequency;
+    renderer.prepareBlobs(context, motionConfig, {
+      elapsed: 1.5 + highPitchPeriod,
+    });
+    const laterFrames = renderer.getPreparedBlobFrames();
+    const laterLowFrame = laterFrames.find((f) => f.key === "low-c2")!;
+    const laterHighFrame = laterFrames.find((f) => f.key === "high-c5")!;
+    const contourDifference = (
+      first: typeof lowFrame,
+      second: typeof lowFrame,
+    ) => first.contour.reduce((sum, point, index) => {
+      const laterPoint = second.contour[index]!;
+      return sum + Math.hypot(
+        point.x - laterPoint.x,
+        point.y - laterPoint.y,
+      );
+    }, 0) / first.contour.length;
+
+    // One period of the high note returns its contour to the same shape while
+    // the low note has advanced by only one eighth of its own period.
+    expect(contourDifference(highFrame, laterHighFrame)).toBeCloseTo(0, 6);
+    expect(contourDifference(lowFrame, laterLowFrame)).toBeGreaterThan(0.1);
 
     // Both contours should be closed (first and last points match)
     const lowContour = lowFrame.contour;

@@ -97,12 +97,6 @@ const LEGACY_HARMONIC_DEFAULTS = {
   hideDelay: 2000,
 } as const;
 
-const LEGACY_BLOB_MOTION_DEFAULTS = {
-  oscillationAmplitude: 0.4,
-  driftSpeed: 8,
-  vibrationAmplitude: 10,
-} as const;
-
 function cloneDefaultConfig(): VisualEffectsConfig {
   return JSON.parse(JSON.stringify(DEFAULT_CONFIG)) as VisualEffectsConfig;
 }
@@ -297,21 +291,6 @@ function migrateLegacySectionKeys(
     if (durationMode !== "stacked" && durationMode !== "bar" && durationMode !== "hidden") {
       mergedSection.durationMode = DEFAULT_CONFIG.codeStrip.durationMode;
     }
-  }
-
-  // Motion now defaults to still. Upgrade the former untouched default as a
-  // unit while preserving any independently customized motion values.
-  if (
-    sectionName === "blobs" &&
-    incomingSection.oscillationAmplitude ===
-      LEGACY_BLOB_MOTION_DEFAULTS.oscillationAmplitude &&
-    incomingSection.driftSpeed === LEGACY_BLOB_MOTION_DEFAULTS.driftSpeed &&
-    incomingSection.vibrationAmplitude ===
-      LEGACY_BLOB_MOTION_DEFAULTS.vibrationAmplitude
-  ) {
-    mergedSection.oscillationAmplitude = 0;
-    mergedSection.driftSpeed = 0;
-    mergedSection.vibrationAmplitude = 0;
   }
 
 }

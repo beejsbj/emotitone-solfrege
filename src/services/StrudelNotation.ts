@@ -32,6 +32,8 @@ export interface StrudelConfig {
   scaleMode?: MusicalMode;
   /** Optional scale octave override for relative notation. */
   scaleOctave?: number;
+  /** Optional full phrase duration, including silence after the final note. */
+  patternDurationMs?: number;
 }
 
 const DEFAULT_CONFIG: StrudelConfig = {
@@ -122,6 +124,11 @@ export class StrudelNotation {
 
       cursor = blockEnd;
       index = nextIndex;
+    }
+
+    const trailingSilence = (this.config.patternDurationMs ?? cursor) - cursor;
+    if (trailingSilence > OVERLAP_EPSILON_MS) {
+      tokens.push(`~${toAt(trailingSilence, barMs, this.config.precision)}`);
     }
 
     const inner = `[ ${tokens.join(" ")} ]`;

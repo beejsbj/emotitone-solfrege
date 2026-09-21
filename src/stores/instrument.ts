@@ -21,6 +21,13 @@ export interface SynthControls {
   resonance: number;
   attack: number;
   release: number;
+  room: number;
+  delay: number;
+}
+
+export interface SynthControlOverrides {
+  attack: boolean;
+  release: boolean;
 }
 
 export const DEFAULT_SYNTH_CONTROLS: Readonly<SynthControls> = {
@@ -28,6 +35,13 @@ export const DEFAULT_SYNTH_CONTROLS: Readonly<SynthControls> = {
   resonance: 0,
   attack: 0.003,
   release: 0.12,
+  room: 0,
+  delay: 0,
+};
+
+export const DEFAULT_SYNTH_CONTROL_OVERRIDES: Readonly<SynthControlOverrides> = {
+  attack: false,
+  release: false,
 };
 
 /**
@@ -49,19 +63,31 @@ export const useInstrumentStore = defineStore("instrument", () => {
   const warmupPromises = new Map<string, Promise<void>>();
   const selectionEpoch = ref(0);
   const synthControls = ref<SynthControls>({ ...DEFAULT_SYNTH_CONTROLS });
-  setLiveSynthControls(synthControls.value);
+  const synthControlOverrides = ref<SynthControlOverrides>({
+    ...DEFAULT_SYNTH_CONTROL_OVERRIDES,
+  });
+  const syncLiveSynthControls = () => {
+    setLiveSynthControls({
+      ...synthControls.value,
+      overrides: { ...synthControlOverrides.value },
+    });
+  };
+  syncLiveSynthControls();
 
   const setSynthControl = <K extends keyof SynthControls>(
     key: K,
     value: SynthControls[K],
   ) => {
     synthControls.value[key] = value;
-    setLiveSynthControls(synthControls.value);
+    if (key === "attack") synthControlOverrides.value.attack = true;
+    if (key === "release") synthControlOverrides.value.release = true;
+    syncLiveSynthControls();
   };
 
   const resetSynthControls = () => {
     synthControls.value = { ...DEFAULT_SYNTH_CONTROLS };
-    setLiveSynthControls(synthControls.value);
+    synthControlOverrides.value = { ...DEFAULT_SYNTH_CONTROL_OVERRIDES };
+    syncLiveSynthControls();
   };
 
   const isInteractionLocked = computed(() => warmingInstrument.value !== null);
@@ -220,6 +246,7 @@ export const useInstrumentStore = defineStore("instrument", () => {
     isLoading,
     isInteractionLocked,
     synthControls,
+    synthControlOverrides,
 
     // Actions
     initializeInstruments,

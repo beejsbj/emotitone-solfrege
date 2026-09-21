@@ -48,7 +48,6 @@ import {
   stopStrudelVisuals,
 } from "@/services/superdoughAudio";
 import { logNotesToStrudel } from "@/services/StrudelNotation";
-import { isSynthSound } from "@/data/instruments";
 import { useInstrumentStore } from "@/stores/instrument";
 import { usePatternsStore } from "@/stores/patterns";
 import { useVisualConfigStore } from "@/stores/visualConfig";
@@ -272,7 +271,6 @@ const generatedCode = computed(() => {
   }
 
   const sound = toStrudelSound(sketchMeta.value.instrument ?? "triangle");
-  const isSynth = isSynthSound(sound);
   return logNotesToStrudel(patternsStore.currentSketchNotes as LogNote[], {
     bpm: codeStripConfig.value.bpm,
     sourceBpm: sketchMeta.value.bpm,
@@ -281,10 +279,14 @@ const generatedCode = computed(() => {
     scaleMode: sketchMeta.value.mode,
     scaleOctave: keyboardConfig.value.mainOctave,
     sound,
-    cutoff: isSynth && instrumentStore.synthControls ? instrumentStore.synthControls.cutoff : undefined,
-    resonance: isSynth && instrumentStore.synthControls ? instrumentStore.synthControls.resonance : undefined,
-    attack: isSynth && instrumentStore.synthControls ? instrumentStore.synthControls.attack : undefined,
-    release: isSynth && instrumentStore.synthControls ? instrumentStore.synthControls.release : undefined,
+    cutoff: instrumentStore.synthControls?.cutoff,
+    resonance: instrumentStore.synthControls?.resonance,
+    attack: instrumentStore.synthControls?.attack,
+    release: instrumentStore.synthControls?.release,
+    attackOverride: instrumentStore.synthControlOverrides?.attack,
+    releaseOverride: instrumentStore.synthControlOverrides?.release,
+    room: instrumentStore.synthControls?.room,
+    delay: instrumentStore.synthControls?.delay,
   }).replace(/\s+/g, " ").trim();
 });
 const generatedPhaseSourceKey = computed(() => {

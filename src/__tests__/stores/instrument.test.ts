@@ -205,15 +205,28 @@ describe("instrument store warmup", () => {
       resonance: 0,
       attack: 0.003,
       release: 0.12,
+      room: 0,
+      delay: 0,
     });
-    expect(audioMocks.setLiveSynthControls).toHaveBeenCalledWith(store.synthControls);
+    expect(store.synthControlOverrides).toEqual({ attack: false, release: false });
+    expect(audioMocks.setLiveSynthControls).toHaveBeenCalledWith(expect.objectContaining({
+      ...store.synthControls,
+      overrides: { attack: false, release: false },
+    }));
 
     store.setSynthControl("cutoff", 2500);
     expect(store.synthControls.cutoff).toBe(2500);
-    expect(audioMocks.setLiveSynthControls).toHaveBeenLastCalledWith(store.synthControls);
+    expect(store.synthControlOverrides.attack).toBe(false);
+
+    store.setSynthControl("attack", 0.003);
+    expect(store.synthControlOverrides.attack).toBe(true);
 
     store.resetSynthControls();
     expect(store.synthControls.cutoff).toBe(12000);
-    expect(audioMocks.setLiveSynthControls).toHaveBeenLastCalledWith(store.synthControls);
+    expect(store.synthControlOverrides).toEqual({ attack: false, release: false });
+    expect(audioMocks.setLiveSynthControls).toHaveBeenLastCalledWith(expect.objectContaining({
+      ...store.synthControls,
+      overrides: { attack: false, release: false },
+    }));
   });
 });

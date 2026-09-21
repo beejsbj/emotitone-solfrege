@@ -40,6 +40,14 @@ export interface StrudelConfig {
   attack?: number;
   /** Envelope release in seconds. */
   release?: number;
+  /** Whether attack was intentionally overridden, including when equal to its default. */
+  attackOverride?: boolean;
+  /** Whether release was intentionally overridden, including when equal to its default. */
+  releaseOverride?: boolean;
+  /** Reverb wet amount. */
+  room?: number;
+  /** Echo wet amount. Uses fixed delaytime=.25 and delayfeedback=.3. */
+  delay?: number;
 }
 
 const DEFAULT_CONFIG: StrudelConfig = {
@@ -152,11 +160,23 @@ export class StrudelNotation {
     if (this.config.resonance !== undefined && this.config.resonance > 0) {
       strudel += `.lpq(${Number(this.config.resonance.toFixed(1))})`;
     }
-    if (this.config.attack !== undefined && this.config.attack !== 0.003) {
+    if (this.config.attack !== undefined && (
+      this.config.attackOverride === true ||
+      (this.config.attackOverride === undefined && this.config.attack !== 0.003)
+    )) {
       strudel += `.attack(${Number(this.config.attack.toFixed(3))})`;
     }
-    if (this.config.release !== undefined && this.config.release !== 0.12) {
+    if (this.config.release !== undefined && (
+      this.config.releaseOverride === true ||
+      (this.config.releaseOverride === undefined && this.config.release !== 0.12)
+    )) {
       strudel += `.release(${Number(this.config.release.toFixed(2))})`;
+    }
+    if (this.config.room !== undefined && this.config.room > 0) {
+      strudel += `.room(${Number(this.config.room.toFixed(3))})`;
+    }
+    if (this.config.delay !== undefined && this.config.delay > 0) {
+      strudel += `.delay(${Number(this.config.delay.toFixed(3))}).delaytime(0.25).delayfeedback(0.3)`;
     }
     strudel += `.cpm(${cpmExpression})`;
     return strudel;

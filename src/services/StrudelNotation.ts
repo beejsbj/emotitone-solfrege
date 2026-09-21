@@ -152,7 +152,7 @@ export class StrudelNotation {
     if (this.config.resonance !== undefined && this.config.resonance > 0) {
       strudel += `.lpq(${Number(this.config.resonance.toFixed(1))})`;
     }
-    if (this.config.attack !== undefined && this.config.attack > 0.003) {
+    if (this.config.attack !== undefined && this.config.attack !== 0.003) {
       strudel += `.attack(${Number(this.config.attack.toFixed(3))})`;
     }
     if (this.config.release !== undefined && this.config.release !== 0.12) {

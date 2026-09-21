@@ -237,4 +237,25 @@ describe('StrudelNotation', () => {
     expect(result).toContain('.attack(0.05)');
     expect(result).toContain('.release(0.8)');
   });
+
+  it("exports shorter attacks while omitting neutral synth defaults", () => {
+    const notes = [makeNote("c", "C4", 0, 4, 1000, 500)];
+    const shorterAttack = logNotesToStrudel(notes, {
+      sound: "triangle",
+      attack: 0.001,
+    });
+    const defaults = logNotesToStrudel(notes, {
+      sound: "triangle",
+      cutoff: 12000,
+      resonance: 0,
+      attack: 0.003,
+      release: 0.12,
+    });
+
+    expect(shorterAttack).toContain('.attack(0.001)');
+    expect(defaults).not.toContain('.lpf(');
+    expect(defaults).not.toContain('.lpq(');
+    expect(defaults).not.toContain('.attack(');
+    expect(defaults).not.toContain('.release(');
+  });
 })

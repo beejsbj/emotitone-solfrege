@@ -427,7 +427,6 @@ export function useUnifiedCanvas(
       blobRenderer.prepareBlobs(ctx, cachedConfigs.blob, {
         reducedMotion,
         bounds: composition.usable,
-        elapsed,
       });
     }
 

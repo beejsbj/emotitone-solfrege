@@ -8,7 +8,6 @@ import type { ActiveBlob, PreparedBlobFrame } from "@/types/canvas";
 import type { ChromaticNote, MusicalMode, SolfegeData } from "@/types/music";
 import type { BlobConfig } from "@/types/visual";
 import { useMusicColor } from "../useMusicColor";
-import { createVisualFrequency } from "@/utils/visualEffects";
 import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { Note as TonalNote } from "@tonaljs/tonal";
@@ -41,12 +40,9 @@ export function resolveBlobPitchClass(
 interface BlobRenderState {
   blobElapsed: number;
   currentScale: number;
-  bounceScale: number;
   currentOpacity: number;
   glowIntensity: number;
   scaledRadius: number;
-  vibrationAmplitude: number;
-  visualFrequency: number;
   reducedMotion: boolean;
 }
 
@@ -274,9 +270,10 @@ export function useBlobRenderer() {
       opacity: blobConfig.opacity,
       isFadingOut: false,
       fadeOutStartTime: undefined,
-      // Reduced drift for circle positioning - keep blobs near their harmonic positions
-      driftVx: (Math.random() - 0.5) * blobConfig.driftSpeed * 0.3, // 30% of normal drift
-      driftVy: (Math.random() - 0.5) * blobConfig.driftSpeed * 0.3, // 30% of normal drift
+      // Body motion is intentionally disabled. Retain these legacy fields so
+      // existing blob snapshots remain structurally compatible.
+      driftVx: 0,
+      driftVy: 0,
       vibrationPhase: Math.random() * Math.PI * 2,
       scale: 0, // Start at zero scale for grow-in animation
       renderScale: 0,
@@ -332,7 +329,7 @@ export function useBlobRenderer() {
   const prepareBlobs = (
     ctx: CanvasRenderingContext2D,
     blobConfig: BlobConfig,
-    options: { reducedMotion?: boolean; bounds?: StageRect; elapsed?: number } = {},
+    options: { reducedMotion?: boolean; bounds?: StageRect } = {},
   ) => {
     if (!ctx) return;
 
@@ -344,12 +341,6 @@ export function useBlobRenderer() {
 
     activeBlobs.forEach((blob, blobKey) => {
       const blobElapsed = (Date.now() - blob.startTime) / 1000;
-      const motionElapsed = options.elapsed !== undefined ? options.elapsed : blobElapsed;
-
-      if (!options.reducedMotion) {
-        blob.x += blob.driftVx * (1 / 60);
-        blob.y += blob.driftVy * (1 / 60);
-      }
 
       const bounds = options.bounds ?? {
         x: 0,
@@ -380,11 +371,9 @@ export function useBlobRenderer() {
 
       const scaleInElapsed = blobElapsed;
       let currentScale = blob.scale;
-      let bounceScale = 1;
 
       if (options.reducedMotion) {
         currentScale = 1;
-        bounceScale = 1;
       } else if (scaleInElapsed < blobConfig.scaleInDuration) {
         const progress = Math.min(
           scaleInElapsed / blobConfig.scaleInDuration,
@@ -397,11 +386,6 @@ export function useBlobRenderer() {
           1 + c3 * Math.pow(progress - 1, 3) + c1 * Math.pow(progress - 1, 2);
         blob.scale = currentScale;
       } else if (!blob.isFadingOut) {
-        const oscillation =
-          Math.sin(blobElapsed * 3) *
-          0.02 *
-          blobConfig.oscillationAmplitude;
-        bounceScale = 1 + oscillation;
         currentScale = 1;
       }
 
@@ -409,7 +393,6 @@ export function useBlobRenderer() {
       // sync so held and releasing notes respond without a fresh attack.
       blob.opacity = blobConfig.opacity;
       let currentOpacity = blob.opacity;
-      let vibrationIntensity = 1;
       const glowIntensity = blobConfig.glowIntensity || 0;
 
       if (blob.isFadingOut && blob.fadeOutStartTime) {
@@ -427,7 +410,6 @@ export function useBlobRenderer() {
           currentScale = 1 - Math.pow(scaleOutProgress, 2);
           const fadeMultiplier = Math.cos(fadeProgress * Math.PI * 0.5);
           currentOpacity = blobConfig.opacity * fadeMultiplier;
-          vibrationIntensity = fadeMultiplier;
         }
 
         if (fadeProgress >= 1) {
@@ -436,20 +418,7 @@ export function useBlobRenderer() {
         }
       }
 
-      const frequencyDivisor =
-        blobConfig.vibrationFrequencyDivisor === 10
-          ? 100
-          : (blobConfig.vibrationFrequencyDivisor || 100);
-      const visualFrequency = createVisualFrequency(
-        blob.frequency,
-        frequencyDivisor
-      );
-      const scaledRadius = blob.baseRadius * compositionFitScale * currentScale * bounceScale;
-      const vibrationAmplitude =
-        (options.reducedMotion ? 0 : blobConfig.vibrationAmplitude) *
-        scaledRadius *
-        0.01 *
-        vibrationIntensity;
+      const scaledRadius = blob.baseRadius * compositionFitScale * currentScale;
 
       blob.renderScale = scaledRadius / blob.baseRadius;
       blob.renderOpacity = currentOpacity;
@@ -465,14 +434,11 @@ export function useBlobRenderer() {
       }
 
       const state = {
-        blobElapsed: motionElapsed,
+        blobElapsed,
         currentScale,
-        bounceScale,
         currentOpacity,
         glowIntensity,
         scaledRadius,
-        vibrationAmplitude,
-        visualFrequency,
         reducedMotion: Boolean(options.reducedMotion),
       };
 
@@ -535,49 +501,12 @@ export function useBlobRenderer() {
     const points: Array<{ x: number; y: number }> = [];
     const segments = blobConfig.edgeSegments;
 
-    // Dominant radial pulse driven by note pitch frequency (Option 3)
-    const radialPulse =
-      Math.sin(
-        state.blobElapsed * state.visualFrequency * 2 * Math.PI +
-          blob.vibrationPhase
-      ) *
-      state.vibrationAmplitude *
-      0.75 +
-      Math.sin(
-        state.blobElapsed * state.visualFrequency * 4 * Math.PI +
-          blob.vibrationPhase * 1.2
-      ) *
-      state.vibrationAmplitude *
-      0.15;
-
-    // Subtle non-rotating standing shimmer on the perimeter
-    const shimmerFactor =
-      Math.sin(
-        state.blobElapsed * state.visualFrequency * 2 * Math.PI +
-          blob.vibrationPhase
-      ) *
-      state.vibrationAmplitude *
-      0.15;
-
-    const shimmerHarmonic =
-      Math.sin(
-        state.blobElapsed * state.visualFrequency * 4 * Math.PI +
-          blob.vibrationPhase * 1.6
-      ) *
-      state.vibrationAmplitude *
-      0.08;
-
     for (let i = 0; i <= segments; i++) {
       const angle = (i / segments) * Math.PI * 2;
-      const surfaceShimmer =
-        shimmerFactor * Math.cos(angle * 4 + blob.vibrationPhase) +
-        shimmerHarmonic * Math.cos(angle * 6 + blob.vibrationPhase * 1.4);
-
-      const vibratingRadius = state.scaledRadius + radialPulse + surfaceShimmer;
 
       points.push({
-        x: blob.x + Math.cos(angle) * vibratingRadius,
-        y: blob.y + Math.sin(angle) * vibratingRadius,
+        x: blob.x + Math.cos(angle) * state.scaledRadius,
+        y: blob.y + Math.sin(angle) * state.scaledRadius,
       });
     }
 
@@ -633,11 +562,9 @@ export function useBlobRenderer() {
     const {
       blobElapsed,
       currentScale,
-      bounceScale,
       currentOpacity,
       glowIntensity,
       scaledRadius,
-      vibrationAmplitude,
     } = state;
     const gradient = ctx.createRadialGradient(
       blob.x,
@@ -645,7 +572,7 @@ export function useBlobRenderer() {
       0,
       blob.x,
       blob.y,
-      scaledRadius + vibrationAmplitude
+      scaledRadius
     );
     const primaryColor = frame.primaryColor;
     const primaryWithOpacity = withAlpha(primaryColor, currentOpacity);
@@ -663,7 +590,7 @@ export function useBlobRenderer() {
       const bounceGlow =
         blobElapsed < blobConfig.scaleInDuration
           ? glowIntensity * (1 + (1 - currentScale) * 0.5)
-          : glowIntensity * bounceScale;
+          : glowIntensity;
 
       ctx.shadowColor = primaryWithOpacity;
       ctx.shadowBlur = bounceGlow;
@@ -722,18 +649,9 @@ export function useBlobRenderer() {
     const state: BlobRenderState = {
       blobElapsed: elapsed,
       currentScale,
-      bounceScale: 1,
       currentOpacity: blob.renderOpacity ?? blob.opacity,
       glowIntensity: blobConfig.glowIntensity || 0,
       scaledRadius,
-      vibrationAmplitude:
-        blobConfig.vibrationAmplitude * scaledRadius * 0.01,
-      visualFrequency: createVisualFrequency(
-        blob.frequency,
-        blobConfig.vibrationFrequencyDivisor === 10
-          ? 100
-          : (blobConfig.vibrationFrequencyDivisor || 100)
-      ),
       reducedMotion: false,
     };
 

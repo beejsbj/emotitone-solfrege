@@ -332,7 +332,7 @@ export function useBlobRenderer() {
   const prepareBlobs = (
     ctx: CanvasRenderingContext2D,
     blobConfig: BlobConfig,
-    options: { reducedMotion?: boolean; bounds?: StageRect } = {},
+    options: { reducedMotion?: boolean; bounds?: StageRect; elapsed?: number } = {},
   ) => {
     if (!ctx) return;
 
@@ -344,6 +344,7 @@ export function useBlobRenderer() {
 
     activeBlobs.forEach((blob, blobKey) => {
       const blobElapsed = (Date.now() - blob.startTime) / 1000;
+      const motionElapsed = options.elapsed !== undefined ? options.elapsed : blobElapsed;
 
       if (!options.reducedMotion) {
         blob.x += blob.driftVx * (1 / 60);
@@ -435,9 +436,13 @@ export function useBlobRenderer() {
         }
       }
 
+      const frequencyDivisor =
+        blobConfig.vibrationFrequencyDivisor === 10
+          ? 100
+          : (blobConfig.vibrationFrequencyDivisor || 100);
       const visualFrequency = createVisualFrequency(
         blob.frequency,
-        blobConfig.vibrationFrequencyDivisor
+        frequencyDivisor
       );
       const scaledRadius = blob.baseRadius * compositionFitScale * currentScale * bounceScale;
       const vibrationAmplitude =
@@ -460,7 +465,7 @@ export function useBlobRenderer() {
       }
 
       const state = {
-        blobElapsed,
+        blobElapsed: motionElapsed,
         currentScale,
         bounceScale,
         currentOpacity,
@@ -530,52 +535,45 @@ export function useBlobRenderer() {
     const points: Array<{ x: number; y: number }> = [];
     const segments = blobConfig.edgeSegments;
 
+    // Dominant radial pulse driven by note pitch frequency (Option 3)
+    const radialPulse =
+      Math.sin(
+        state.blobElapsed * state.visualFrequency * 2 * Math.PI +
+          blob.vibrationPhase
+      ) *
+      state.vibrationAmplitude *
+      0.75 +
+      Math.sin(
+        state.blobElapsed * state.visualFrequency * 4 * Math.PI +
+          blob.vibrationPhase * 1.2
+      ) *
+      state.vibrationAmplitude *
+      0.15;
+
+    // Subtle non-rotating standing shimmer on the perimeter
+    const shimmerFactor =
+      Math.sin(
+        state.blobElapsed * state.visualFrequency * 2 * Math.PI +
+          blob.vibrationPhase
+      ) *
+      state.vibrationAmplitude *
+      0.15;
+
+    const shimmerHarmonic =
+      Math.sin(
+        state.blobElapsed * state.visualFrequency * 4 * Math.PI +
+          blob.vibrationPhase * 1.6
+      ) *
+      state.vibrationAmplitude *
+      0.08;
+
     for (let i = 0; i <= segments; i++) {
       const angle = (i / segments) * Math.PI * 2;
-      const primaryVibration =
-        Math.sin(
-          state.blobElapsed * state.visualFrequency * 2 * Math.PI +
-            angle * 4 +
-            blob.vibrationPhase
-        ) *
-        state.vibrationAmplitude *
-        0.7;
-      const secondaryVibration =
-        Math.sin(
-          state.blobElapsed * state.visualFrequency * 3.7 * Math.PI +
-            angle * 7 +
-            blob.vibrationPhase * 1.6
-        ) *
-        state.vibrationAmplitude *
-        0.4;
-      const tertiaryVibration =
-        Math.sin(
-          state.blobElapsed * state.visualFrequency * 1.3 * Math.PI +
-            angle * 2.3 +
-            blob.vibrationPhase * 0.8
-        ) *
-        state.vibrationAmplitude *
-        0.2;
-      const chaoticVibration =
-        Math.sin(
-          state.blobElapsed * state.visualFrequency * 5.1 * Math.PI +
-            angle * 11 +
-            blob.vibrationPhase * 2.1
-        ) *
-        state.vibrationAmplitude *
-        0.15;
-      const dampingFactor =
-        0.6 +
-        0.4 *
-          Math.sin(angle * 3.7 + blob.vibrationPhase) *
-          Math.cos(angle * 1.9 + blob.vibrationPhase * 0.5);
-      const vibratingRadius =
-        state.scaledRadius +
-        (primaryVibration +
-          secondaryVibration +
-          tertiaryVibration +
-          chaoticVibration) *
-          dampingFactor;
+      const surfaceShimmer =
+        shimmerFactor * Math.cos(angle * 4 + blob.vibrationPhase) +
+        shimmerHarmonic * Math.cos(angle * 6 + blob.vibrationPhase * 1.4);
+
+      const vibratingRadius = state.scaledRadius + radialPulse + surfaceShimmer;
 
       points.push({
         x: blob.x + Math.cos(angle) * vibratingRadius,
@@ -732,7 +730,9 @@ export function useBlobRenderer() {
         blobConfig.vibrationAmplitude * scaledRadius * 0.01,
       visualFrequency: createVisualFrequency(
         blob.frequency,
-        blobConfig.vibrationFrequencyDivisor
+        blobConfig.vibrationFrequencyDivisor === 10
+          ? 100
+          : (blobConfig.vibrationFrequencyDivisor || 100)
       ),
       reducedMotion: false,
     };

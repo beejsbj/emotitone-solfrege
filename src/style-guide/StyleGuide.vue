@@ -75,10 +75,6 @@
           <div class="sink-frame__source">primitive-buttons.html</div>
           <PrimitiveButtons />
         </article>
-        <article id="primitive-card" class="sink-frame">
-          <div class="sink-frame__source">primitive-card.html</div>
-          <PrimitiveCard />
-        </article>
         <article class="sink-frame">
           <div class="sink-frame__source">primitive-note.html</div>
           <PrimitiveNote />
@@ -200,7 +196,6 @@ import SystemUIBeat from "./systems/SystemUIBeat.vue";
 import PrimitiveSticker from "./primatives/PrimitiveSticker.vue";
 import PrimitiveBarTape from "./primatives/PrimitiveBarTape.vue";
 import PrimitiveButtons from "./primatives/PrimitiveButtons.vue";
-import PrimitiveCard from "./primatives/PrimitiveCard.vue";
 import PrimitiveNote from "./primatives/PrimitiveNote.vue";
 import UniqueJoystick from "./uniques/UniqueJoystick.vue";
 import PrimitiveKnobsAnalog from "./primatives/PrimitiveKnobsAnalog.vue";

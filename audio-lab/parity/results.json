@@ -1,6 +1,6 @@
 {
-  "capturedAt": "2026-09-21T12:20:11.602Z",
-  "revision": "75562b753491f01996cd1866f05e63aa7d963457",
+  "capturedAt": "2026-09-21T12:46:26.668Z",
+  "revision": "66364a0f24ebe0542ffcf9368b22d602f7dd5fb0",
   "environment": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.0.0 Safari/537.36",
     "sampleRate": 48000,
@@ -71,7 +71,7 @@
   "sha256": {
     "node_modules/superdough/dist/index.mjs": "0fd8d71a890902aff433f19201145f001f522634ebfe92b56f2252753945dc1d",
     "node_modules/@strudel/soundfonts/dist/index.mjs": "6ce481a2b0c0e0c7f1caeaa78845fdc7a310bc24fb8ea642691952a366482d48",
-    "src/audio/live/core.ts": "6844cf7fb2b27b5aa2a19fba13e445a2386dd052dbbc104a59261a762232f3bd",
+    "src/audio/live/core.ts": "e0b6e7680a5c805d1eb4181d2d3baff19f55999ea908340e7779c20a5f291337",
     "src/audio/live/resampler.ts": "9b77802556bc48b41838eddd9d52714cadb27dba91c4e1e079d011efccf508c6",
     "src/audio/voicePolicy.ts": "b3b3964b1969d7ee0f9c93f20af3ff41db11cd9ce777ec7d4117c16d13bc0370",
     "src/services/StrudelNotation.ts": "fbaaf0df3e5a43e39d733133d7a30008e831bed47e3396301781ab0a8bf68202",
@@ -85,8 +85,8 @@
     "audio-lab/parity/voice-budget.mjs": "44fe31c790410dbe95195ce89b92dbffb16a62f4f44c938f3eecf6ad99507cc2"
   },
   "fullReceipt": {
-    "localPath": "/tmp/emotitone-pr90-final-pcm-20260921.json",
-    "sha256": "ba486ee27a92db93d8d1219b45695f994df7d3231768cdc65ed0658399260abc",
-    "bytes": 164680
+    "localPath": "/tmp/emotitone-pr90-tail-pcm-20260921.json",
+    "sha256": "363f33b84eec655eea1329f795f6a078221932e4f2df738e5a926aaea8228e1d",
+    "bytes": 164706
   }
 }

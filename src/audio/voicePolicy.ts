@@ -2,6 +2,8 @@
  * Application admission limit for each live worklet and the Superdough graph.
  * Keep the worklet's render headroom: native playback gives up its default 128
  * slots so recorded performances face the same 64-voice admission pressure.
+ * This bounds simultaneous audio, not prepared graph allocations: native
+ * lookahead can retain more graphs with distinct future audible intervals.
  * This is not a combined cross-engine budget. Each engine separately permits
  * up to eight retiring fades and prefers the oldest releasing voice, then the
  * oldest held voice. Authored patterns also share Superdough's 64 slots.

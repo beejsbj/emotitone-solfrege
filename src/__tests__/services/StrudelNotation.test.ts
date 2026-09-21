@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { logNotesToStrudel, mergeStrudelRests } from '@/services/StrudelNotation'
 import { defaultPatterns } from '@/data/patterns'
-import { logNotesToStrudel } from '@/services/StrudelNotation'
 import type { LogNote } from '@/types/patterns'
 
 function makeNote(
@@ -50,7 +50,7 @@ describe('StrudelNotation', () => {
     expect(result).toContain('.cpm(60 / 4)')
   })
 
-  it('wraps captured events in one sequential pattern inside the repeating cycle', () => {
+  it('keeps captured weights directly inside the repeating sequence with a loop tail', () => {
     const notes = [
       makeNote('c', 'C4', 0, 4, 1000, 120),
       makeNote('d', 'D4', 1, 4, 1200, 120),
@@ -58,7 +58,7 @@ describe('StrudelNotation', () => {
 
     const result = logNotesToStrudel(notes)
 
-    expect(result).toContain('<\n[ C4@0.06 ~@0.04 D4@0.06 ]\n>')
+    expect(result).toContain('<\nC4@0.06 ~@0.04 D4@0.06 ~@0.25\n>')
   })
 
   it('preserves octave displacement in relative scale degrees', () => {
@@ -79,8 +79,8 @@ describe('StrudelNotation', () => {
       scaleOctave: 4,
     })
 
-    expect(high).toContain('[ 28@0.06 ]')
-    expect(low).toContain('[ -7@0.06 ]')
+    expect(high).toContain('28@0.06 ~@0.25')
+    expect(low).toContain('-7@0.06 ~@0.25')
   })
 
   it('uses the active scale length for octave displacement in sparse modes', () => {
@@ -96,7 +96,7 @@ describe('StrudelNotation', () => {
       scaleOctave: 4,
     })
 
-    expect(result).toContain('[ 20@0.06 ]')
+    expect(result).toContain('20@0.06 ~@0.25')
   })
 
   it('falls back to absolute notation when a pitch is outside the active scale', () => {
@@ -109,7 +109,7 @@ describe('StrudelNotation', () => {
       scaleOctave: 4,
     })
 
-    expect(result).toContain('[ F#4@0.06 ]')
+    expect(result).toContain('F#4@0.06 ~@0.25')
     expect(result).toContain('.as("note")')
     expect(result).not.toContain('.scale(')
   })
@@ -188,7 +188,7 @@ describe('StrudelNotation', () => {
 
     const result = logNotesToStrudel(notes, { sourceBpm: 120 })
 
-    expect(result).toContain('{C4, ~@0.04 E4@0.21}@0.25')
+    expect(result).toContain('{C4@0.25, ~@0.04 E4@0.21}@0.25')
   })
 
   it('preserves an intentional pause after the rapid-tap coalescing window', () => {
@@ -218,8 +218,29 @@ describe('StrudelNotation', () => {
       scaleOctave: 4,
     })
 
-    expect(result).toContain("[ 4@0.25 ]")
+    expect(result).toContain("4@0.25 ~@0.25")
     expect(result).toContain('.scale("C4:major pentatonic")')
+  })
+
+  it('merges adjacent rests without crossing notes or chord lanes', () => {
+    expect(mergeStrudelRests(['~@0.1', '~@0.15', 'C4@0.25', '~', '~@0.5', '{~@0.2 D4@0.8, E4}']))
+      .toEqual(['~@0.25', 'C4@0.25', '~@1.5', '{~@0.2 D4@0.8, E4}']);
+  })
+
+  it('still pads a live take when the caller supplies its note-span duration', () => {
+    const result = logNotesToStrudel([makeNote('c', 'C4', 0, 4, 1000, 500)], {
+      sourceBpm: 120, patternDurationMs: 500,
+    })
+    expect(result).toContain('C4@0.25 ~@0.25')
+    expect(result).not.toContain('[ ')
+  })
+
+  it('uses authored trailing silence instead of adding another beat to it', () => {
+    const result = logNotesToStrudel([makeNote('c', 'C4', 0, 4, 1000, 500)], {
+      sourceBpm: 120, patternDurationMs: 750,
+    })
+    expect(result).toContain('C4@0.25 ~@0.125')
+    expect(result).not.toContain('~@0.375')
   })
 
   it("preserves a parsed pattern's trailing rest at the loop boundary", () => {

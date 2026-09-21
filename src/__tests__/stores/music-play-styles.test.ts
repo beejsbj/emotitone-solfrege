@@ -58,6 +58,30 @@ describe("live styles through music, recording, and Strudel", () => {
     vi.useRealTimers();
   });
 
+  it.each(["solfege", "exact"] as const)("records the full %s input hold when the fallback attack resolves late", async (input) => {
+    const music = useMusicStore();
+    const patterns = connectRecorder();
+    let finishAttack!: (startedAt: number) => void;
+    vi.mocked(audio.attackNote).mockImplementationOnce(() => new Promise<number>((resolve) => {
+      finishAttack = resolve;
+    }));
+
+    const pendingOwner = input === "exact" ? music.attackExactPitch("C4") : music.attackNote(0);
+    expect(audio.attackNote).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(200);
+    expect(noteEvents("note-played")).toEqual([]);
+    expect(patterns.loggedNotes).toEqual([]);
+    finishAttack(0.2);
+    const owner = await pendingOwner;
+
+    await vi.advanceTimersByTimeAsync(300);
+    await music.releaseNote(owner!);
+    expect(patterns.loggedNotes.map(note => [note.note, note.pressTime, note.releaseTime, note.duration]))
+      .toEqual([["C4", EPOCH, EPOCH + 500, 500]]);
+    expect(noteEvents("note-played")[0]).toMatchObject({ timestamp: EPOCH, audibleAt: 200 });
+    expect(music.activeNotes.size).toBe(0);
+  });
+
   it("cancels held output on audio suspension and preserves wall-clock position after resume", async () => {
     let pausedAt: number | undefined;
     let pausedDuration = 0;

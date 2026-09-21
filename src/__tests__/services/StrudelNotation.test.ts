@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { logNotesToStrudel, mergeStrudelRests } from '@/services/StrudelNotation'
+import { defaultPatterns } from '@/data/patterns'
 import type { LogNote } from '@/types/patterns'
 
 function makeNote(
@@ -224,5 +225,37 @@ describe('StrudelNotation', () => {
   it('merges adjacent rests without crossing notes or chord lanes', () => {
     expect(mergeStrudelRests(['~@0.1', '~@0.15', 'C4@0.25', '~', '~@0.5', '{~@0.2 D4@0.8, E4}']))
       .toEqual(['~@0.25', 'C4@0.25', '~@1.5', '{~@0.2 D4@0.8, E4}']);
+  })
+
+  it('still pads a live take when the caller supplies its note-span duration', () => {
+    const result = logNotesToStrudel([makeNote('c', 'C4', 0, 4, 1000, 500)], {
+      sourceBpm: 120, patternDurationMs: 500,
+    })
+    expect(result).toContain('C4@0.25 ~@0.25')
+    expect(result).not.toContain('[ ')
+  })
+
+  it('uses authored trailing silence instead of adding another beat to it', () => {
+    const result = logNotesToStrudel([makeNote('c', 'C4', 0, 4, 1000, 500)], {
+      sourceBpm: 120, patternDurationMs: 750,
+    })
+    expect(result).toContain('C4@0.25 ~@0.125')
+    expect(result).not.toContain('~@0.375')
+  })
+
+  it("preserves a parsed pattern's trailing rest at the loop boundary", () => {
+    const chorus = defaultPatterns.find(
+      (pattern) => pattern.name === "Warrior of the Mind (Chorus)",
+    )
+    expect(chorus).toBeDefined()
+    expect(chorus?.duration).toBe(7920)
+
+    const result = logNotesToStrudel(chorus!.notes as LogNote[], {
+      bpm: chorus!.bpm,
+      sourceBpm: chorus!.bpm,
+      patternDurationMs: chorus!.duration,
+    })
+
+    expect(result).toContain('C#4@0.25 ~@0.375')
   })
 })

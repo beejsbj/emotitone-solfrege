@@ -33,6 +33,8 @@ export interface StrudelConfig {
   scaleMode?: MusicalMode;
   /** Optional scale octave override for relative notation. */
   scaleOctave?: number;
+  /** Optional full phrase duration, including silence after the final note. */
+  patternDurationMs?: number;
 }
 
 const DEFAULT_CONFIG: StrudelConfig = {
@@ -142,7 +144,12 @@ export class StrudelNotation {
       index = nextIndex;
     }
 
-    tokens.push(`~${toAt(recordedLoopTailMs(this.config.sourceBpm), barMs, this.config.precision)}`);
+    // Preserve a loaded phrase's authored trailing rest. A fresh take's
+    // duration ends at its last note, so it still gets one beat of padding.
+    const authoredTail = (this.config.patternDurationMs ?? cursor) - cursor;
+    const trailingSilence = Number.isFinite(authoredTail) && authoredTail > 0
+      ? authoredTail : recordedLoopTailMs(this.config.sourceBpm);
+    tokens.push(`~${toAt(trailingSilence, barMs, this.config.precision)}`);
     // Direct @ weights in <> are cycle lengths. A surrounding [] would
     // normalize the entire take into one cycle, regardless of its duration.
     const inner = mergeStrudelRests(tokens, this.config.precision).join(" ");

@@ -1,4 +1,5 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
+import { nextTick } from "vue";
 import { setActivePinia } from "pinia";
 import { createTestPinia } from "../helpers/test-utils";
 import { usePatternsStore } from "@/stores/patterns";
@@ -635,6 +636,52 @@ describe("Patterns Store", () => {
     }));
   });
 
+  it("saves a transformed imported take without overwriting its source candidate", async () => {
+    const musicStore = useMusicStore();
+    const [sourceId] = patternsStore.importPatternCandidates(
+      [{
+        name: "Hummed triad",
+        notes: [
+          createPatternNote({ id: "source-c", note: "C4", scaleIndex: 0 }),
+          createPatternNote({ id: "source-e", note: "E4", scaleIndex: 2 }),
+          createPatternNote({ id: "source-g", note: "G4", scaleIndex: 4 }),
+        ],
+        source: {
+          kind: "pitch-analysis",
+          schemaVersion: 1,
+          tracker: "praat-ac",
+          takeNumber: 1,
+        },
+      }],
+      { key: "C", mode: "major", instrument: "piano", bpm: 120 },
+    );
+    await nextTick();
+
+    musicStore.setKey("D");
+    await nextTick();
+    expect(patternsStore.currentSketchNotes.map((note) => note.note)).toEqual([
+      "D4",
+      "F#4",
+      "A4",
+    ]);
+
+    patternsStore.sendCurrentPattern();
+
+    const source = patternsStore.savedPatterns.find((pattern) => pattern.id === sourceId);
+    expect(source).toEqual(expect.objectContaining({ key: "C", isSaved: false }));
+    expect(source?.notes.map((note) => note.note)).toEqual(["C4", "E4", "G4"]);
+    expect(patternsStore.savedPatterns.at(-1)).toEqual(expect.objectContaining({
+      key: "D",
+      isSaved: true,
+      source: expect.objectContaining({ kind: "pitch-analysis", takeNumber: 1 }),
+    }));
+    expect(patternsStore.savedPatterns.at(-1)?.notes.map((note) => note.note)).toEqual([
+      "D4",
+      "F#4",
+      "A4",
+    ]);
+  });
+
   it("derives edited-take provenance from the loaded pattern, not focus", () => {
     patternsStore.importPatternCandidates(
       [{
@@ -1102,5 +1149,287 @@ describe("Patterns Store", () => {
       "live-c",
       "live-d",
     ]);
+  });
+
+  it("dynamically updates loaded pattern instrument, key, mode, and octave when controls change", async () => {
+    const musicStore = useMusicStore();
+    const instrumentStore = useInstrumentStore();
+    const keyboardStore = useKeyboardDrawerStore();
+    const pattern = createPattern({
+      key: "E",
+      mode: "minor",
+      instrument: "piano",
+      bpm: 120,
+      notes: [
+        createPatternNote({ note: "E4", octave: 4, scaleIndex: 0, scaleDegree: 1 }),
+        createPatternNote({ note: "G4", octave: 4, scaleIndex: 2, scaleDegree: 3 }),
+        createPatternNote({ note: "B4", octave: 4, scaleIndex: 4, scaleDegree: 5 }),
+      ],
+    });
+    patternsStore.savedPatterns.push(pattern);
+    patternsStore.loadPatternAsBase(pattern.id);
+
+    expect(patternsStore.currentSketchMeta.instrument).toBe("piano");
+    expect(patternsStore.currentSketchMeta.key).toBe("E");
+    expect(patternsStore.currentSketchMeta.mode).toBe("minor");
+
+    // 1. Change instrument before playing any live note
+    await instrumentStore.setInstrument("gm_flute");
+    await nextTick();
+    expect(patternsStore.currentSketchMeta.instrument).toBe("gm_flute");
+
+    // 2. Change key
+    musicStore.setKey("G");
+    await nextTick();
+    expect(patternsStore.currentSketchMeta.key).toBe("G");
+    // Transposed from E (+3 semitones): E4 -> G4, G4 -> A#4, B4 -> D5
+    expect(patternsStore.currentSketchNotes.map((n) => n.note)).toEqual(["G4", "A#4", "D5"]);
+
+    // 3. Change mode
+    musicStore.setMode("major");
+    await nextTick();
+    expect(patternsStore.currentSketchMeta.mode).toBe("major");
+    expect(patternsStore.currentSketchNotes.map((n) => n.note)).toEqual(["G4", "B4", "D5"]);
+
+    // 4. Change octave without mutating the stored source pattern
+    keyboardStore.setMainOctave(5);
+    await nextTick();
+    expect(patternsStore.currentSketchNotes.map((n) => n.note)).toEqual(["G5", "B5", "D6"]);
+    expect(pattern.notes.map((n) => n.note)).toEqual(["E4", "G4", "B4"]);
+  });
+
+  it("preserves tonic-relative register when a mode change crosses C", async () => {
+    const musicStore = useMusicStore();
+    const pattern = createPattern({
+      key: "C#",
+      mode: "minor",
+      notes: [
+        createPatternNote({ note: "C#4", octave: 4, scaleIndex: 0, scaleDegree: 1 }),
+        createPatternNote({
+          id: "leading-tone",
+          note: "B4",
+          octave: 4,
+          scaleIndex: 6,
+          scaleDegree: 7,
+        }),
+      ],
+    });
+    patternsStore.savedPatterns.push(pattern);
+    patternsStore.loadPatternAsBase(pattern.id);
+    await nextTick();
+
+    musicStore.setMode("major");
+    await nextTick();
+    expect(patternsStore.currentSketchNotes.map((note) => note.note)).toEqual(["C#4", "C5"]);
+    expect(patternsStore.currentSketchNotes[1]?.octave).toBe(5);
+
+    musicStore.setMode("minor");
+    await nextTick();
+    expect(patternsStore.currentSketchNotes.map((note) => note.note)).toEqual(["C#4", "B4"]);
+    expect(patternsStore.currentSketchNotes[1]?.octave).toBe(4);
+  });
+
+  it("preserves tonic-relative register for tritone mode changes", async () => {
+    const musicStore = useMusicStore();
+    const pattern = createPattern({
+      key: "D",
+      mode: "minor pentatonic",
+      notes: [
+        createPatternNote({ note: "D4", octave: 4, scaleIndex: 0, scaleDegree: 1 }),
+        createPatternNote({
+          id: "minor-pentatonic-fifth",
+          note: "C5",
+          octave: 5,
+          scaleIndex: 4,
+          scaleDegree: 5,
+        }),
+      ],
+    });
+    patternsStore.savedPatterns.push(pattern);
+    patternsStore.loadPatternAsBase(pattern.id);
+    await nextTick();
+
+    musicStore.setMode("chromatic");
+    await nextTick();
+    expect(patternsStore.currentSketchNotes[1]).toEqual(expect.objectContaining({
+      note: "F#4",
+      octave: 4,
+    }));
+
+    musicStore.setMode("minor pentatonic");
+    await nextTick();
+    expect(patternsStore.currentSketchNotes[1]).toEqual(expect.objectContaining({
+      note: "C5",
+      octave: 5,
+    }));
+  });
+
+  it("preserves retained scale degrees through sparse-mode octave changes", async () => {
+    const musicStore = useMusicStore();
+    const keyboardStore = useKeyboardDrawerStore();
+    const pattern = createPattern({
+      key: "C",
+      mode: "major",
+      notes: [
+        createPatternNote({ note: "C4", octave: 4, scaleIndex: 0, scaleDegree: 1 }),
+        createPatternNote({
+          id: "major-seventh",
+          note: "B4",
+          octave: 4,
+          scaleIndex: 6,
+          scaleDegree: 7,
+        }),
+      ],
+    });
+    patternsStore.savedPatterns.push(pattern);
+    patternsStore.loadPatternAsBase(pattern.id);
+    await nextTick();
+
+    musicStore.setMode("major pentatonic");
+    await nextTick();
+    keyboardStore.setMainOctave(5);
+    await nextTick();
+    expect(patternsStore.currentSketchNotes[1]).toEqual(expect.objectContaining({
+      note: "B5",
+      scaleIndex: 6,
+      scaleDegree: 7,
+    }));
+
+    musicStore.setMode("major");
+    await nextTick();
+    expect(patternsStore.currentSketchNotes[1]).toEqual(expect.objectContaining({
+      note: "B5",
+      octave: 5,
+      scaleIndex: 6,
+    }));
+
+    musicStore.setMode("major pentatonic");
+    await nextTick();
+    musicStore.setKey("D");
+    await nextTick();
+    expect(patternsStore.currentSketchNotes[1]).toEqual(expect.objectContaining({
+      note: "C#6",
+      scaleIndex: 6,
+    }));
+
+    musicStore.setMode("major");
+    await nextTick();
+    expect(patternsStore.currentSketchNotes[1]?.note).toBe("C#6");
+  });
+
+  it("uses the previous octave knob value for legacy loaded metadata", async () => {
+    const musicStore = useMusicStore();
+    const keyboardStore = useKeyboardDrawerStore();
+    const pattern = createPattern({
+      key: "B",
+      mode: "major",
+      notes: [
+        createPatternNote({ note: "B4", octave: 4, scaleIndex: 0, scaleDegree: 1 }),
+      ],
+    });
+    patternsStore.savedPatterns.push(pattern);
+    patternsStore.loadPatternAsBase(pattern.id);
+    await nextTick();
+    delete patternsStore.loadedBaseMeta!.octave;
+
+    musicStore.setKey("C");
+    await nextTick();
+    expect(patternsStore.currentSketchNotes[0]?.note).toBe("C5");
+
+    keyboardStore.setMainOctave(5);
+    await nextTick();
+    expect(patternsStore.currentSketchNotes[0]).toEqual(expect.objectContaining({
+      note: "C6",
+      octave: 6,
+    }));
+  });
+
+  it("keeps a loaded pattern's trailing rest when Return saves a transformed copy", () => {
+    const chorus = patternsStore.patterns.find(
+      (pattern) => pattern.name === "Warrior of the Mind (Chorus)",
+    );
+    if (!chorus) throw new Error("Missing Warrior chorus default");
+
+    patternsStore.loadPatternAsBase(chorus.id);
+    expect(patternsStore.currentSketchDuration).toBe(7920);
+
+    patternsStore.sendCurrentPattern();
+
+    expect(patternsStore.savedPatterns.at(-1)?.duration).toBe(7920);
+  });
+
+  it("appends live notes after a loaded pattern's trailing rest", () => {
+    const chorus = patternsStore.patterns.find(
+      (pattern) => pattern.name === "Warrior of the Mind (Chorus)",
+    );
+    if (!chorus) throw new Error("Missing Warrior chorus default");
+    patternsStore.loadPatternAsBase(chorus.id);
+    patternsStore.loggedNotes.push(createLogNote({
+      id: "appended-note",
+      note: "E4",
+      key: "E",
+      mode: "major",
+      instrument: "gm_violin",
+      bpm: 125,
+      scaleIndex: 0,
+      scaleDegree: 1,
+      pressTime: 30_000,
+      releaseTime: 30_480,
+      duration: 480,
+    }));
+
+    const appended = patternsStore.currentSketchNotes.at(-1);
+    expect(appended).toEqual(expect.objectContaining({
+      pressTime: 7920,
+      releaseTime: 8400,
+    }));
+    expect(patternsStore.currentSketchDuration).toBe(8400);
+
+    patternsStore.sendCurrentPattern();
+    expect(patternsStore.savedPatterns.at(-1)?.duration).toBe(8400);
+  });
+
+  it("shrinks loaded phrase duration when Backspace removes its final note", () => {
+    const twinkle = patternsStore.patterns.find(
+      (pattern) => pattern.id === "pattern-twinkle-1",
+    );
+    if (!twinkle) throw new Error("Missing Twinkle default");
+    patternsStore.loadPatternAsBase(twinkle.id);
+    expect(patternsStore.currentSketchDuration).toBe(10_000);
+
+    patternsStore.removeLastFromCurrentSketch();
+    expect(patternsStore.currentSketchDuration).toBe(8_750);
+
+    patternsStore.sendCurrentPattern();
+    expect(patternsStore.savedPatterns.at(-1)?.duration).toBe(8_750);
+  });
+
+  it("retains authored trailing silence after Backspace removes a loaded note", () => {
+    const pattern = createPattern({
+      duration: 2_500,
+      notes: [
+        createPatternNote({
+          id: "first",
+          pressTime: 0,
+          releaseTime: 500,
+          duration: 500,
+        }),
+        createPatternNote({
+          id: "second",
+          note: "D4",
+          scaleIndex: 1,
+          pressTime: 500,
+          releaseTime: 2_000,
+          duration: 1_500,
+        }),
+      ],
+    });
+    patternsStore.savedPatterns.push(pattern);
+    patternsStore.loadPatternAsBase(pattern.id);
+
+    patternsStore.removeLastFromCurrentSketch();
+
+    expect(patternsStore.currentSketchDuration).toBe(1_000);
+    expect(patternsStore.loadedBaseMeta?.trailingSilence).toBe(500);
   });
 });

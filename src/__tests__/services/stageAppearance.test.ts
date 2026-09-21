@@ -190,7 +190,7 @@ describe("Stage appearance domain", () => {
       bodiesVisible: true,
       bodySize: 0.2,
       bodyStrength: 0.75,
-      bodyMotion: expect.closeTo(0.4),
+      bodyMotion: 0,
       connectionMode: "merge",
       connectionStrength: 0.2,
       connectionSoftness: 0.25,

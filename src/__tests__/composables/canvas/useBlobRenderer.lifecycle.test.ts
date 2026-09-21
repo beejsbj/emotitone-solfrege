@@ -305,4 +305,102 @@ describe("useBlobRenderer lifecycle", () => {
     expect(blob.renderOpacity).toBeCloseTo(0.65, 6);
     expect(blob.fadeOutStartTime).toBe(fadeOutStartTime);
   });
+
+  it("vibrates with pitch-scaled harmonic motion matching strings", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_000);
+    const renderer = useBlobRenderer();
+    // Low note: C2 (65.41 Hz)
+    renderer.createBlob(
+      MAJOR_SOLFEGE[0],
+      65.41,
+      0,
+      0,
+      800,
+      600,
+      DEFAULT_CONFIG.blobs,
+      "low-c2",
+      "C",
+      "major",
+      2
+    );
+    // High note: C5 (523.25 Hz)
+    renderer.createBlob(
+      MAJOR_SOLFEGE[0],
+      523.25,
+      0,
+      0,
+      800,
+      600,
+      DEFAULT_CONFIG.blobs,
+      "high-c5",
+      "C",
+      "major",
+      5
+    );
+
+    vi.mocked(Date.now).mockReturnValue(1_500);
+    const motionConfig = {
+      ...DEFAULT_CONFIG.blobs,
+      vibrationAmplitude: 10,
+    };
+    renderer.prepareBlobs(context, motionConfig, { elapsed: 1.5 });
+
+    const frames = renderer.getPreparedBlobFrames();
+    const lowFrame = frames.find((f) => f.key === "low-c2")!;
+    const highFrame = frames.find((f) => f.key === "high-c5")!;
+
+    expect(lowFrame).toBeDefined();
+    expect(highFrame).toBeDefined();
+
+    const highPitchPeriod = 100 / highFrame.blob.frequency;
+    renderer.prepareBlobs(context, motionConfig, {
+      elapsed: 1.5 + highPitchPeriod,
+    });
+    const laterFrames = renderer.getPreparedBlobFrames();
+    const laterLowFrame = laterFrames.find((f) => f.key === "low-c2")!;
+    const laterHighFrame = laterFrames.find((f) => f.key === "high-c5")!;
+    const contourDifference = (
+      first: typeof lowFrame,
+      second: typeof lowFrame,
+    ) => first.contour.reduce((sum, point, index) => {
+      const laterPoint = second.contour[index]!;
+      return sum + Math.hypot(
+        point.x - laterPoint.x,
+        point.y - laterPoint.y,
+      );
+    }, 0) / first.contour.length;
+
+    // One period of the high note returns its contour to the same shape while
+    // the low note has advanced by only one eighth of its own period.
+    expect(contourDifference(highFrame, laterHighFrame)).toBeCloseTo(0, 6);
+    expect(contourDifference(lowFrame, laterLowFrame)).toBeGreaterThan(0.1);
+
+    // Both contours should be closed (first and last points match)
+    const lowContour = lowFrame.contour;
+    expect(lowContour[0].x).toBeCloseTo(lowContour[lowContour.length - 1].x, 6);
+    expect(lowContour[0].y).toBeCloseTo(lowContour[lowContour.length - 1].y, 6);
+
+    // Reduced motion keeps contour at exact scaledRadius
+    renderer.prepareBlobs(context, DEFAULT_CONFIG.blobs, {
+      reducedMotion: true,
+      elapsed: 1.5,
+    });
+    const stillLowFrame = renderer.getPreparedBlobFrames().find((f) => f.key === "low-c2")!;
+    const stillRadius = stillLowFrame.scaledRadius;
+    for (const pt of stillLowFrame.contour) {
+      const dist = Math.hypot(pt.x - stillLowFrame.blob.x, pt.y - stillLowFrame.blob.y);
+      expect(dist).toBeCloseTo(stillRadius, 4);
+    }
+
+    // Default config (motion at 0) keeps contour at exact scaledRadius without reducedMotion
+    renderer.prepareBlobs(context, DEFAULT_CONFIG.blobs, {
+      reducedMotion: false,
+      elapsed: 1.5,
+    });
+    const defaultLowFrame = renderer.getPreparedBlobFrames().find((f) => f.key === "low-c2")!;
+    for (const pt of defaultLowFrame.contour) {
+      const dist = Math.hypot(pt.x - defaultLowFrame.blob.x, pt.y - defaultLowFrame.blob.y);
+      expect(dist).toBeCloseTo(defaultLowFrame.scaledRadius, 4);
+    }
+  });
 });

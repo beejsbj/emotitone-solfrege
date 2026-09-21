@@ -161,6 +161,37 @@ describe("Patterns Store", () => {
     dateNowSpy?.mockRestore();
   });
 
+  it("preserves measured pitch expression through Send, serialization, and loading", () => {
+    const start = Date.now();
+    for (let index = 0; index < 3; index++) {
+      const noteId = `finger-${index}`;
+      patternsStore.handleNotePressed({ detail: {
+        noteId, noteName: "C4", solfegeIndex: 0, octave: 4,
+        note: createLogNote().solfege, timestamp: start + index * 500,
+      } } as CustomEvent);
+      const express = (cents: number, delta: number) => patternsStore.handleNoteExpression({ detail: {
+        noteId, cents, timestamp: start + index * 500 + delta,
+      } } as CustomEvent);
+      express(0, 5);
+      express(NaN, 6);
+      express(30, 100);
+      express(-30, 200);
+      express(25, 300);
+      express(-10, 250); // out-of-order delivery cannot corrupt the curve
+      patternsStore.handleNoteReleased({ detail: { noteId, timestamp: start + index * 500 + 400 } } as CustomEvent);
+      express(50, 450); // late gesture cannot change a completed recording
+    }
+    const curve = [{ timeMs: 0, cents: 0 }, { timeMs: 100, cents: 30 },
+      { timeMs: 200, cents: -30 }, { timeMs: 300, cents: 25 }];
+    expect(patternsStore.currentSketchNotes[0].pitchExpression).toEqual(curve);
+    patternsStore.sendCurrentPattern();
+    expect(patternsStore.savedPatterns).toHaveLength(1);
+    const saved = JSON.parse(JSON.stringify(patternsStore.savedPatterns[0]));
+    expect(saved.notes[0].pitchExpression).toEqual(curve);
+    patternsStore.loadPatternAsBase(saved.id);
+    expect(patternsStore.currentSketchNotes[0].pitchExpression).toEqual(curve);
+  });
+
   it("treats loaded base notes and live notes as one current sketch", () => {
     const pattern = createPattern({
       notes: [createPatternNote()],

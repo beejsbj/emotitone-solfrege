@@ -6,11 +6,12 @@ import { subscribeLivePlayback } from '@/services/livePlayback'
 export function createLivePerformance<T>(callbacks: {
   now(): number
   onEvent(event: LiveVoiceEvent, metadata: T, boundary?: LiveClockBoundary): void
+  onExpression?(noteId: string, cents: number, at: number): void
   onMirror(event: LiveVoiceEvent, metadata: T, phase: 'attack' | 'release' | 'cancel'): void
   onOwnerClosed(ownerId: string): void
   onError(error: Error): void
 }) {
-  const owners = new Map<string, { ownerId: string; metadata: T; renderer: LiveRenderer; held: boolean }>()
+  const owners = new Map<string, { ownerId: string; metadata: T; renderer: LiveRenderer; held: boolean; cents?: number; expressionAt?: number }>()
   const currentOwners = new Map<string, string>()
   let ownerSerial = 0
   let closed = false
@@ -69,6 +70,9 @@ export function createLivePerformance<T>(callbacks: {
         mirrored.delete(`${event.noteId}:release`)
       }
       callbacks.onEvent({ ...event, ownerId: owner.ownerId }, owner.metadata)
+      if (event.phase === 'attack' && owner.cents) {
+        callbacks.onExpression?.(event.noteId, owner.cents, Math.max(event.at, owner.expressionAt ?? event.at))
+      }
     },
     onPlan(events) {
       const next = new Map(events.filter(event => owners.has(event.ownerId))
@@ -117,6 +121,20 @@ export function createLivePerformance<T>(callbacks: {
       currentOwners.set(ownerId, rendererOwnerId)
       renderer.configure(config)
       renderer.press(rendererOwnerId, notes)
+    },
+    setPitchBend(ownerId: string, cents: number) {
+      const rendererOwnerId = currentOwners.get(ownerId)
+      const owner = rendererOwnerId === undefined ? undefined : owners.get(rendererOwnerId)
+      if (!owner?.held || !owner.renderer.setPitchBend || !Number.isFinite(cents)) return false
+      const value = Math.max(-50, Math.min(50, cents))
+      if ((owner.cents ?? 0) === value) return true
+      owner.cents = value
+      owner.expressionAt = callbacks.now()
+      owner.renderer.setPitchBend(rendererOwnerId!, value)
+      for (const event of active.values()) if (event.ownerId === rendererOwnerId) {
+        callbacks.onExpression?.(event.noteId, value, Math.max(event.at, owner.expressionAt))
+      }
+      return true
     },
     release,
     releaseAll,

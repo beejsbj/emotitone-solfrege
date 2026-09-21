@@ -15,8 +15,8 @@ const event = (ownerId: string, phase: 'attack' | 'release', at: number, pitch =
   ownerId, phase, at, pitch, noteId: 'voice', instrumentId: 'piano', style: 'repeat',
 })
 function setup() {
-  const callbacks = { now: () => 1, onEvent: vi.fn(), onMirror: vi.fn(), onOwnerClosed: vi.fn(), onError: vi.fn() }
-  const renderer = { configure: vi.fn(), press: vi.fn(), release: vi.fn(), clear: vi.fn(), dispose: vi.fn(), forget: vi.fn() }
+  const callbacks = { now: () => 1, onEvent: vi.fn(), onMirror: vi.fn(), onOwnerClosed: vi.fn(), onError: vi.fn(), onExpression: vi.fn() }
+  const renderer = { setPitchBend: vi.fn(), configure: vi.fn(), press: vi.fn(), release: vi.fn(), clear: vi.fn(), dispose: vi.fn(), forget: vi.fn() }
   const performance = createLivePerformance(callbacks)
   performance.press('hand', [{ instrumentId: 'piano', pitch: 60 }], { label: 'first' }, renderer, config)
   return { performance, renderer, callbacks }
@@ -24,6 +24,22 @@ function setup() {
 beforeEach(() => vi.clearAllMocks())
 
 describe('prepared performance MIDI ownership', () => {
+  it('routes expression only to a held owner and records active or delayed note onsets', () => {
+    const { performance, renderer, callbacks } = setup()
+    expect(performance.setPitchBend('unknown', 20)).toBe(false)
+    expect(performance.setPitchBend('hand', NaN)).toBe(false)
+    expect(performance.setPitchBend('hand', 80)).toBe(true)
+    expect(renderer.setPitchBend).toHaveBeenLastCalledWith('hand', 50)
+    expect(callbacks.onExpression).not.toHaveBeenCalled()
+    listener.onEvent(event('hand', 'attack', .9))
+    expect(callbacks.onExpression).toHaveBeenLastCalledWith('voice', 50, 1)
+    performance.setPitchBend('hand', -20)
+    expect(callbacks.onExpression).toHaveBeenLastCalledWith('voice', -20, 1)
+    performance.release('hand')
+    expect(performance.setPitchBend('hand', 0)).toBe(false)
+    expect(renderer.setPitchBend).toHaveBeenCalledTimes(2)
+  })
+
   it('does not replay a completed MIDI plan when stalled audio lifecycle callbacks arrive', () => {
     const { callbacks } = setup()
     const attack = event('hand', 'attack', .125), release = event('hand', 'release', .225)

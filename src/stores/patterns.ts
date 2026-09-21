@@ -480,6 +480,7 @@ export const usePatternsStore = defineStore(
         octave: note.octave,
         frequency: note.frequency,
         velocity: note.velocity,
+        pitchExpression: note.pitchExpression?.map((point) => ({ ...point })),
         pressTime: note.pressTime,
         releaseTime: note.releaseTime,
         duration: note.duration,
@@ -513,6 +514,7 @@ export const usePatternsStore = defineStore(
         octave: note.octave,
         frequency: note.frequency,
         velocity: note.velocity,
+        pitchExpression: note.pitchExpression?.map((point) => ({ ...point })),
         pressTime: note.pressTime,
         releaseTime: note.releaseTime,
         duration: note.duration,
@@ -1008,6 +1010,24 @@ export const usePatternsStore = defineStore(
       pendingNotes.value.set(noteId, { ...partialLogNote, forcedPatternStart });
     }
 
+    function handleNoteExpression(event: CustomEvent): void {
+      if (!isLoggingEnabled.value) return;
+      const { noteId, cents, timestamp } = event.detail ?? {};
+      const note = pendingNotes.value.get(noteId);
+      if (!note || !Number.isFinite(cents) || !Number.isFinite(timestamp)) return;
+      const timeMs = Math.max(0, timestamp - note.pressTime!);
+      const value = Math.round(Math.max(-50, Math.min(50, cents)));
+      if (!note.pitchExpression && value === 0) return;
+      const curve = note.pitchExpression ??= [{ timeMs: 0, cents: 0 }];
+      const last = curve[curve.length - 1];
+      if (timeMs < last.timeMs || value === last.cents) return;
+      if (timeMs === last.timeMs) last.cents = value;
+      else curve.push({ timeMs, cents: value });
+      // Bound a very long held note while retaining both ends and measurements
+      // across its entire history. Normal gestures keep every changed cent.
+      if (curve.length > 8192) note.pitchExpression = curve.filter((_, index) => index % 2 === 0);
+    }
+
     function handleNoteReleased(event: CustomEvent): void {
       if (!isLoggingEnabled.value) return;
       if (event.detail?.record === false) return;
@@ -1046,11 +1066,15 @@ export const usePatternsStore = defineStore(
           bpm: partialNote.bpm,
         }),
       );
-      // Complete the log note
+      // Audio lifecycle delivery can lag the gesture task. Discard movement
+      // after the actual gate ended rather than extending the recorded note.
+      const duration = releaseTime - partialNote.pressTime!;
+      const expression = partialNote.pitchExpression?.filter((point) => point.timeMs <= duration);
       const completedLogNote: LogNote = {
         ...partialNote,
+        pitchExpression: expression?.some((point) => point.cents !== 0) ? expression : undefined,
         releaseTime,
-        duration: releaseTime - partialNote.pressTime!,
+        duration,
         isStartingNewPattern,
       } as LogNote;
 
@@ -1133,6 +1157,7 @@ export const usePatternsStore = defineStore(
     // Event listener setup
     let notePlayedListener: EventListener;
     let noteReleasedListener: EventListener;
+    let noteExpressionListener: EventListener;
 
     function setupEventListeners(): void {
       notePlayedListener = (event: Event) =>
@@ -1140,11 +1165,14 @@ export const usePatternsStore = defineStore(
       noteReleasedListener = (event: Event) =>
         handleNoteReleased(event as CustomEvent);
 
+      noteExpressionListener = (event: Event) => handleNoteExpression(event as CustomEvent);
+      window.addEventListener("note-expression", noteExpressionListener);
       window.addEventListener("note-played", notePlayedListener);
       window.addEventListener("note-released", noteReleasedListener);
     }
 
     function removeEventListeners(): void {
+      if (noteExpressionListener) window.removeEventListener("note-expression", noteExpressionListener);
       if (notePlayedListener) {
         window.removeEventListener("note-played", notePlayedListener);
       }
@@ -1216,6 +1244,7 @@ export const usePatternsStore = defineStore(
       // Internal methods (exposed for testing/debugging)
       handleNotePressed,
       handleNoteReleased,
+      handleNoteExpression,
       setupEventListeners,
       removeEventListeners,
     };

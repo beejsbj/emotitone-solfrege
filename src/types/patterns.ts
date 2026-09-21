@@ -3,6 +3,7 @@
  * Type definitions for logging and analyzing musical patterns
  */
 
+import type { PitchExpressionPoint } from "./expression";
 import type { ChromaticNote, MusicalMode, SolfegeData, Note } from "./music";
 
 /**
@@ -69,6 +70,8 @@ export interface LogNote {
   bpm?: number;
   /** Velocity/volume (0-1) */
   velocity?: number;
+  /** Measured finger pitch curve; portable Strudel currently approximates its vibrato. */
+  pitchExpression?: PitchExpressionPoint[];
 
   /* Timing Information */
   /** Timestamp when note was pressed (Date.now()) */
@@ -117,6 +120,8 @@ export interface PatternNote {
 
   /** Velocity/volume (0-1) */
   velocity?: number;
+  /** Measured finger pitch curve; portable Strudel currently approximates its vibrato. */
+  pitchExpression?: PitchExpressionPoint[];
 
   /* Timing Information */
   /** Timestamp when note was pressed (Date.now()) */

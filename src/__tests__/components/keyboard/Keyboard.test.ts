@@ -49,6 +49,7 @@ const mocks = vi.hoisted(() => {
     attackNoteWithOctave: vi.fn(async () => "melody-note"),
     attackExactPitch: vi.fn(async (pitch: string) => `exact-${pitch}`),
     releaseNote: vi.fn(),
+    setNotePitchBend: vi.fn(),
   };
   const instrumentStore = {
     isInteractionLocked: false,
@@ -836,6 +837,60 @@ describe("Keyboard pointer gestures", () => {
       (intent as { keyId: string }).keyId)).toEqual(["do-4", "re-4", "do-4"]);
     expect(wrapper.emitted("release")?.map(([intent]) =>
       (intent as { keyId: string }).keyId)).toEqual(["do-4", "re-4", "do-4"]);
+  });
+
+  it("bends within a key with a dead zone, then resets the origin on a glissando", async () => {
+    const wrapper = mount(Keyboard, {
+      props: { usage: "controlled", rows: controlledRows() },
+      global: { stubs: { Key: KeyStub, ChordKey: ChordKeyStub } },
+    });
+    const [first, second] = wrapper.findAll<HTMLButtonElement>(".keyboard__key");
+    const root = wrapper.get(".keyboard");
+    vi.spyOn(document, "elementFromPoint").mockImplementation((x) => x < 100 ? first.element : second.element);
+    const send = (type: string, x: number) => root.element.dispatchEvent(pointerEvent(type, {
+      pointerId: 31, pointerType: "touch", clientX: x,
+    }));
+    send("pointerdown", 50);
+    send("pointermove", 52);
+    expect(wrapper.emitted("pitchBend")).toBeUndefined();
+    send("pointermove", 73);
+    send("pointermove", 27);
+    send("pointermove", 50);
+    expect(wrapper.emitted("pitchBend")?.map(([intent]) => (intent as { cents: number }).cents)).toEqual([50, -50, 0]);
+    expect(wrapper.emitted("press")).toHaveLength(1);
+    send("pointermove", 120);
+    expect(wrapper.emitted("press")).toHaveLength(2);
+    send("pointermove", 143);
+    expect(wrapper.emitted("pitchBend")?.at(-1)?.[0]).toMatchObject({ keyId: "re-4", cents: 50 });
+    send("pointercancel", 143);
+    send("pointermove", 170);
+    expect(wrapper.emitted("pitchBend")).toHaveLength(4);
+    wrapper.unmount();
+  });
+
+  it("routes expression to the resolved voice and gives a shared key one controlling finger", async () => {
+    const wrapper = mountKeyboard();
+    const first = wrapper.findAll<HTMLButtonElement>(".keyboard__key")[0];
+    vi.spyOn(document, "elementFromPoint").mockReturnValue(first.element);
+    const root = wrapper.get(".keyboard");
+    const send = (type: string, id: number, x: number) => root.element.dispatchEvent(pointerEvent(type, {
+      pointerId: id, pointerType: "touch", clientX: x,
+    }));
+    send("pointerdown", 1, 50);
+    send("pointerdown", 2, 50);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    send("pointermove", 2, 73);
+    expect(mocks.musicStore.setNotePitchBend).not.toHaveBeenCalled();
+    send("pointermove", 1, 27);
+    expect(mocks.musicStore.setNotePitchBend).toHaveBeenLastCalledWith("melody-note", -50);
+    send("pointerup", 1, 27);
+    expect(mocks.musicStore.releaseNote).not.toHaveBeenCalled();
+    expect(mocks.musicStore.setNotePitchBend).toHaveBeenLastCalledWith("melody-note", 0);
+    send("pointermove", 2, 60);
+    expect(mocks.musicStore.setNotePitchBend).toHaveBeenLastCalledWith("melody-note", 18);
+    send("pointercancel", 2, 60);
+    expect(mocks.musicStore.releaseNote).toHaveBeenCalledWith("melody-note");
+    wrapper.unmount();
   });
 
   it("keeps a held note sounding when a surviving row is added", async () => {

@@ -163,6 +163,11 @@ export const useMusicStore = defineStore(
           },
         }));
       },
+      onExpression(noteId, cents, at) {
+        window.dispatchEvent(new CustomEvent("note-expression", {
+          detail: { noteId, cents, timestamp: liveAudioClock.toEpochTime(at * 1000) },
+        }));
+      },
       onOwnerClosed(owner) {
         heldOwners.delete(owner);
         for (const [alias, aliasedOwner] of heldAliases) if (aliasedOwner === owner) heldAliases.delete(alias);
@@ -758,6 +763,12 @@ export const useMusicStore = defineStore(
       );
     }
 
+    /** Prototype expression is available on prepared oscillator/sample voices. */
+    function setNotePitchBend(noteId: string, cents: number): boolean {
+      const owner = heldAliases.get(noteId);
+      return owner ? livePerformance.setPitchBend(owner, cents) : false;
+    }
+
     async function releaseNote(noteId?: string) {
       if (!noteId) {
         clearLiveInputs();
@@ -942,6 +953,7 @@ export const useMusicStore = defineStore(
       attackNoteWithOctave,
       attackExactPitch,
       releaseNote,
+      setNotePitchBend,
       releaseAllNotes,
       addToSequence,
       clearSequence,

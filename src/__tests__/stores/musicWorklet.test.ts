@@ -11,7 +11,7 @@ const worklet = vi.hoisted(() => ({
     onOwnerEnded(ownerId: string): void;
     onError(error: unknown): void;
   },
-  engine: { press: vi.fn(), release: vi.fn(), configure: vi.fn(), clear: vi.fn(), dispose: vi.fn() },
+  engine: { setPitchBend: vi.fn(), press: vi.fn(), release: vi.fn(), configure: vi.fn(), clear: vi.fn(), dispose: vi.fn() },
   unsubscribe: vi.fn(),
 }));
 vi.mock("@/services/livePlayback", () => ({
@@ -43,7 +43,7 @@ function recorder() {
   const store = usePatternsStore();
   const handlers = new Map<string, EventListener>();
   for (const [type, listener] of vi.mocked(window.addEventListener).mock.calls) {
-    if (type === "note-played" || type === "note-released") handlers.set(type, listener as EventListener);
+    if (type === "note-played" || type === "note-released" || type === "note-expression") handlers.set(type, listener as EventListener);
   }
   vi.mocked(window.dispatchEvent).mockImplementation(event => { handlers.get(event.type)?.(event); return true; });
   return store;
@@ -86,6 +86,24 @@ describe("music store production worklet integration", () => {
     await music.releaseNote(owner!);
     expect(worklet.engine.release).toHaveBeenCalledWith(owner);
     expect(audio.releaseNote).not.toHaveBeenCalled();
+  });
+
+  it("records per-owner pitch at audio time and trims gestures after a delayed release", async () => {
+    const music = useMusicStore(); const patterns = recorder();
+    const owner = await music.attackExactPitch("C4");
+    worklet.listener!.onEvent(event(owner!, "bent", "attack", 12));
+    await vi.advanceTimersByTimeAsync(100);
+    expect(music.setNotePitchBend(owner!, 30)).toBe(true);
+    expect(worklet.engine.setPitchBend).toHaveBeenLastCalledWith(owner, 30);
+    await vi.advanceTimersByTimeAsync(100);
+    music.setNotePitchBend(owner!, -30);
+    // This note actually ended at 150ms; its release notification arrives late.
+    worklet.listener!.onEvent(event(owner!, "bent", "release", 12.15));
+    expect(patterns.loggedNotes[0].pitchExpression).toEqual([
+      { timeMs: 0, cents: 0 }, { timeMs: 100, cents: 30 },
+    ]);
+    await music.releaseNote(owner!);
+    expect(music.setNotePitchBend(owner!, 20)).toBe(false);
   });
 
   it("captures metadata before a native renderer emits its synchronous attack", async () => {

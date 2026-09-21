@@ -61,7 +61,7 @@ function validatedBuffer(buffer: AudioBuffer): AudioBuffer {
 
 async function prepare(context: AudioContext, instrumentId: string, sound: SoundRegistration): Promise<PreparedNativeInstrument> {
   const articulation = getLiveArticulation(instrumentId);
-  const envelope = { ...articulation, decay: 0.001, sustain: 1 };
+  const envelope = { ...articulation };
   const data = sound.data;
   if (data?.type === "synth" && OSCILLATORS.has(instrumentId)) {
     return { kind: "oscillator", instrumentId, waveform: instrumentId as "sine" | "triangle" | "square" | "sawtooth",

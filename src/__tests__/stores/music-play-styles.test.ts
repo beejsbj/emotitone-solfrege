@@ -58,6 +58,37 @@ describe("live styles through music, recording, and Strudel", () => {
     vi.useRealTimers();
   });
 
+  it.each(["solfege", "exact"] as const)("records the full normal envelope for %s fallback input", async (input) => {
+    const music = useMusicStore();
+    const patterns = connectRecorder();
+    const owner = await (input === "exact" ? music.attackExactPitch("C4") : music.attackNote(0));
+    await vi.advanceTimersByTimeAsync(200);
+    await music.releaseNote(owner!);
+
+    const expected = { attack: 0.001, decay: 0.001, sustain: 1, release: 0.2 };
+    expect(noteEvents("note-played")[0].articulation).toEqual(expected);
+    expect(noteEvents("note-released")[0].articulation).toEqual(expected);
+    expect(patterns.loggedNotes[0].articulation).toEqual(expected);
+  });
+
+  it.each(["together", "repeat"])("isolates %s fallback events from later release snapshots", async (style) => {
+    const music = useMusicStore();
+    const patterns = connectRecorder();
+    music.setPlayStyle(style);
+    const owner = await music.attackExactPitch("C4");
+    await vi.advanceTimersByTimeAsync(10);
+    noteEvents("note-played")[0].articulation.release = 9;
+    await vi.advanceTimersByTimeAsync(200);
+    await music.releaseNote(owner!);
+    expect(patterns.loggedNotes[0].articulation).toEqual({
+      attack: 0.001, decay: 0.001, sustain: 1, release: style === "repeat" ? 0.03 : 0.2,
+    });
+    music.setPlayStyle("together");
+    const nextOwner = await music.attackExactPitch("E4");
+    await music.releaseNote(nextOwner!);
+    expect(patterns.loggedNotes.at(-1)?.articulation?.release).toBe(0.2);
+  });
+
   it.each(["solfege", "exact"] as const)("records the full %s input hold when the fallback attack resolves late", async (input) => {
     const music = useMusicStore();
     const patterns = connectRecorder();
@@ -80,6 +111,24 @@ describe("live styles through music, recording, and Strudel", () => {
       .toEqual([["C4", EPOCH, EPOCH + 500, 500]]);
     expect(noteEvents("note-played")[0]).toMatchObject({ timestamp: EPOCH, audibleAt: 200 });
     expect(music.activeNotes.size).toBe(0);
+  });
+
+  it.each(["repeat", "arp-up", "arp-up-down", "strum-down"])("records the full %s fallback envelope", async (style) => {
+    const music = useMusicStore();
+    const patterns = connectRecorder();
+    music.setPlayStyle(style);
+    const owners = await Promise.all(["C4", "E4", "G4"].map(pitch => music.attackExactPitch(pitch)));
+    await vi.advanceTimersByTimeAsync(710);
+    await Promise.all(owners.map(owner => music.releaseNote(owner!)));
+
+    const expected = { attack: 0.001, decay: 0.001, sustain: 1, release: style === "strum-down" ? 0.2 : 0.03 };
+    expect(patterns.loggedNotes.length).toBeGreaterThanOrEqual(3);
+    for (const type of ["note-played", "note-released"]) {
+      expect(noteEvents(type).map(note => note.articulation)).toEqual(
+        patterns.loggedNotes.map(() => expected),
+      );
+    }
+    expect(patterns.loggedNotes.map(note => note.articulation)).toEqual(patterns.loggedNotes.map(() => expected));
   });
 
   it("cancels held output on audio suspension and preserves wall-clock position after resume", async () => {
@@ -175,6 +224,9 @@ describe("live styles through music, recording, and Strudel", () => {
     expect(patterns.loggedNotes.map((note) => [note.pressTime - EPOCH, note.duration])).toEqual([
       [0, 20], [25, 100], [150, 100],
     ]);
+    expect(patterns.loggedNotes.map(note => note.articulation?.release)).toEqual([0.2, 0.03, 0.03]);
+    expect(patterns.dynamicPatterns).toHaveLength(1);
+    expect(patterns.currentSketchNotes.map(note => note.articulation?.release)).toEqual([0.2, 0.03, 0.03]);
     music.setPlayMode("strum-down");
     expect(music.playMode).toBe("strum-down");
     music.setPlayMode("invalid:8");

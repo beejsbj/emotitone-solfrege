@@ -4,6 +4,7 @@
  */
 
 import type { ChromaticNote, MusicalMode, SolfegeData, Note } from "./music";
+import type { LiveArticulation } from "@/services/liveArticulation";
 
 /**
  * Pattern store state interface
@@ -70,6 +71,9 @@ export interface LogNote {
   /** Velocity/volume (0-1) */
   velocity?: number;
 
+  /** Captured live envelope; absent on legacy and authored notes. */
+  articulation?: LiveArticulation;
+
   /* Timing Information */
   /** Timestamp when note was pressed (Date.now()) */
   pressTime: number;
@@ -117,6 +121,9 @@ export interface PatternNote {
 
   /** Velocity/volume (0-1) */
   velocity?: number;
+
+  /** Captured live envelope; absent on legacy and authored notes. */
+  articulation?: LiveArticulation;
 
   /* Timing Information */
   /** Timestamp when note was pressed (Date.now()) */

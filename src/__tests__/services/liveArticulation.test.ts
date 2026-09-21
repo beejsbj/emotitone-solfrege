@@ -2,23 +2,29 @@ import { describe, expect, it } from "vitest";
 import { getLiveArticulation } from "@/services/liveArticulation";
 
 describe("live instrument articulation", () => {
+  it("exposes the complete live envelope including the held sustain stage", () => {
+    expect(getLiveArticulation("sine")).toEqual({
+      attack: 0.003, decay: 0.001, sustain: 1, release: 0.12,
+    });
+  });
+
   it("keeps percussive onsets crisp and uses a short oscillator ramp", () => {
-    expect(getLiveArticulation("piano")).toEqual({ attack: 0.001, release: 0.2 });
-    expect(getLiveArticulation("gm_marimba")).toEqual({ attack: 0.001, release: 0.2 });
-    expect(getLiveArticulation("triangle")).toEqual({ attack: 0.003, release: 0.12 });
+    expect(getLiveArticulation("piano")).toEqual({ attack: 0.001, decay: 0.001, sustain: 1, release: 0.2 });
+    expect(getLiveArticulation("gm_marimba")).toEqual({ attack: 0.001, decay: 0.001, sustain: 1, release: 0.2 });
+    expect(getLiveArticulation("triangle")).toEqual({ attack: 0.003, decay: 0.001, sustain: 1, release: 0.12 });
   });
 
   it("keeps sustained articulation and unknown instruments conservative", () => {
-    expect(getLiveArticulation("gm_violin")).toEqual({ attack: 0.01, release: 0.4 });
-    expect(getLiveArticulation("custom-bank")).toEqual({ attack: 0.01, release: 1.5 });
+    expect(getLiveArticulation("gm_violin")).toEqual({ attack: 0.01, decay: 0.001, sustain: 1, release: 0.4 });
+    expect(getLiveArticulation("custom-bank")).toEqual({ attack: 0.01, decay: 0.001, sustain: 1, release: 1.5 });
   });
 
   it.each(["gm_epiano1", "gm_epiano2"])("recognizes the registered electric piano %s", (instrument) => {
-    expect(getLiveArticulation(instrument)).toEqual({ attack: 0.001, release: 0.2 });
+    expect(getLiveArticulation(instrument)).toEqual({ attack: 0.001, decay: 0.001, sustain: 1, release: 0.2 });
   });
 
   it.each(["gm_drawbar_organ", "gm_percussive_organ", "gm_rock_organ", "gm_church_organ", "gm_reed_organ", "gm_recorder"])("recognizes the registered sustained instrument %s", (instrument) => {
-    expect(getLiveArticulation(instrument)).toEqual({ attack: 0.01, release: 0.4 });
+    expect(getLiveArticulation(instrument)).toEqual({ attack: 0.01, decay: 0.001, sustain: 1, release: 0.4 });
   });
 
   it.each([

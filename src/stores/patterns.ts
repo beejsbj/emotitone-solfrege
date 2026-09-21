@@ -55,6 +55,10 @@ interface PendingLogNote extends Partial<LogNote> {
   forcedPatternStart: boolean;
 }
 
+function cloneNoteArticulation<T extends PatternNote | LogNote>(note: T): T {
+  return { ...note, articulation: note.articulation ? { ...note.articulation } : undefined };
+}
+
 export const usePatternsStore = defineStore(
   "patterns",
   () => {
@@ -406,6 +410,7 @@ export const usePatternsStore = defineStore(
         octave: note.octave,
         frequency: note.frequency,
         velocity: note.velocity,
+        articulation: note.articulation ? { ...note.articulation } : undefined,
         pressTime: note.pressTime,
         releaseTime: note.releaseTime,
         duration: note.duration,
@@ -439,6 +444,7 @@ export const usePatternsStore = defineStore(
         octave: note.octave,
         frequency: note.frequency,
         velocity: note.velocity,
+        articulation: note.articulation ? { ...note.articulation } : undefined,
         pressTime: note.pressTime,
         releaseTime: note.releaseTime,
         duration: note.duration,
@@ -461,7 +467,7 @@ export const usePatternsStore = defineStore(
           .toString(36)
           .substr(2, 9)}`,
         name: options.name ?? `Pattern ${new Date().toLocaleDateString()}`,
-        notes,
+        notes: notes.map(cloneNoteArticulation),
         duration: span.end - span.start,
         noteCount: notes.length,
         key: meta.key,
@@ -510,7 +516,7 @@ export const usePatternsStore = defineStore(
       loadedBasePatternId.value = null;
       loadedBaseMeta.value = null;
       loggedNotes.value = (options.workingNotes ?? []).map((note, index) => ({
-        ...note,
+        ...cloneNoteArticulation(note),
         isStartingNewPattern: index === 0 ? true : note.isStartingNewPattern,
       }));
       forcedCompletedNoteIds.clear();
@@ -537,7 +543,7 @@ export const usePatternsStore = defineStore(
         forcedCompletedNoteIds.clear();
       }
 
-      loadedBaseNotes.value = [...pattern.notes];
+      loadedBaseNotes.value = pattern.notes.map(cloneNoteArticulation);
       loadedBasePatternId.value = patternId;
       const patternMeta = {
         mode: pattern.mode,
@@ -661,7 +667,7 @@ export const usePatternsStore = defineStore(
 
       savedPatterns.value.push({
         ...patternToKeep,
-        notes: [...patternToKeep.notes],
+        notes: patternToKeep.notes.map(cloneNoteArticulation),
         isSaved: true,
         isKept: true,
       });
@@ -685,7 +691,7 @@ export const usePatternsStore = defineStore(
       savedPatterns.value.push({
         ...pattern,
         name,
-        notes: pattern.notes.map((note) => ({ ...note })),
+        notes: pattern.notes.map(cloneNoteArticulation),
       });
       return true;
     }
@@ -780,6 +786,7 @@ export const usePatternsStore = defineStore(
         solfege: note as SolfegeData,
         octave,
         frequency,
+        articulation: event.detail.articulation ? { ...event.detail.articulation } : undefined,
         // Scheduled Style pulses carry the instrument captured by their held
         // input. Ordinary notes keep the existing live-store boundary so an
         // instrument change still starts a fresh take.
@@ -839,6 +846,9 @@ export const usePatternsStore = defineStore(
       // Complete the log note
       const completedLogNote: LogNote = {
         ...partialNote,
+        articulation: event.detail.articulation
+          ? { ...event.detail.articulation }
+          : partialNote.articulation ? { ...partialNote.articulation } : undefined,
         releaseTime,
         duration: releaseTime - partialNote.pressTime!,
         isStartingNewPattern,
@@ -907,7 +917,7 @@ export const usePatternsStore = defineStore(
     }
 
     function exportNotes(): LogNote[] {
-      return [...loggedNotes.value];
+      return loggedNotes.value.map(cloneNoteArticulation);
     }
 
     function importNotes(notes: LogNote[]): void {
@@ -915,7 +925,7 @@ export const usePatternsStore = defineStore(
       const validNotes = notes.filter(
         (note) => note.id && note.pressTime && note.releaseTime && note.duration
       );
-      loggedNotes.value.push(...validNotes);
+      loggedNotes.value.push(...validNotes.map(cloneNoteArticulation));
       loggedNotes.value.sort((left, right) => left.pressTime - right.pressTime);
       purgeOldNotes();
     }

@@ -1,10 +1,8 @@
 import type { LiveCommand, LiveConfig, LiveInputNote, LiveResponse, LiveSampleZone,
   LiveVoiceEvent, PreparedLiveInstrument } from './types'
 import { createSampleResampler, type SampleResampler } from './resampler'
+import { MAX_AUDIO_VOICES, VOICE_RETIRE_SECONDS } from '../voicePolicy'
 
-// Leave render headroom for the eight-tap stereo mixer, effects and capture.
-// The separate Superdough fallback retains its own 128-voice limit.
-const MAX_VOICES = 64
 const MAX_FADES = 8
 const PLAN_SECONDS = .15
 const GATE = .8
@@ -120,10 +118,8 @@ export class LiveAudioCore {
         for (const collection of [this.voices, this.fades]) for (let index = collection.length - 1; index >= 0; index--) {
           const voice = collection[index]
           if (voice.instrumentId !== command.instrumentId) continue
-          const level = this.envelope(voice, frame)
-          this.releaseVoice(voice, frame)
+          this.releaseVoice(voice, frame, command.instant ? 0 : VOICE_RETIRE_SECONDS * this.sampleRate)
           if (command.instant) collection.splice(index, 1)
-          else { voice.releaseLevel = level; voice.releaseStart = frame; voice.releaseLength = .005 * this.sampleRate }
         }
         this.planDirty = true
         break
@@ -253,6 +249,11 @@ export class LiveAudioCore {
     return { phase, noteId: note.noteId, ownerId: note.ownerId, pitch: note.pitch,
       instrumentId: note.instrumentId, style, at: Math.ceil(frame) / this.sampleRate }
   }
+  private voiceEvent(voice: Voice, phase: LiveVoiceEvent['phase'], frame: number): LiveVoiceEvent {
+    const { attack, decay, sustain } = voice.instrument
+    return { ...this.event(voice, phase, frame, voice.style),
+      articulation: { attack, decay, sustain, release: voice.releaseLength / this.sampleRate } }
+  }
   private publishPlan(frame: number) {
     if (!this.planDirty) return
     this.planDirty = false
@@ -281,15 +282,12 @@ export class LiveAudioCore {
     if (!instrument) return
     const zone = this.zone(instrument, note.pitch)
     if (instrument.kind === 'sample-bank' && (!zone || !zone.channels[0]?.length)) return
-    if (this.voices.length >= MAX_VOICES) {
+    if (this.voices.length >= MAX_AUDIO_VOICES) {
       // Prefer an already releasing voice, otherwise the oldest held voice.
       const index = Math.max(0, this.voices.findIndex(voice => voice.released))
       const [stolen] = this.voices.splice(index, 1)
       if (stolen.published) {
-        this.releaseVoice(stolen, frame)
-        stolen.releaseLevel = this.envelope(stolen, frame)
-        stolen.releaseStart = frame
-        stolen.releaseLength = this.sampleRate * .005
+        this.releaseVoice(stolen, frame, VOICE_RETIRE_SECONDS * this.sampleRate)
         this.fades.push(stolen)
         if (this.fades.length > MAX_FADES) this.fades.shift()
       }
@@ -313,12 +311,16 @@ export class LiveAudioCore {
     if (decay > 0 && elapsed < attack + decay) return 1 + (sustain - 1) * (elapsed - attack) / decay
     return sustain
   }
-  private releaseVoice(voice: Voice, frame: number) {
-    if (voice.released) return
+  private releaseVoice(voice: Voice, frame: number, releaseLength?: number) {
+    if (voice.released && releaseLength === undefined) return
+    const wasReleased = voice.released
     voice.releaseLevel = this.envelope(voice, frame)
     voice.releaseStart = frame
+    // Apply forced retirement before reporting it to the recorder. Already
+    // releasing tails may be shortened, but retain their single note-off.
+    voice.releaseLength = releaseLength ?? voice.releaseLength
     voice.released = true
-    if (voice.published) this.send({ type: 'event', event: this.event(voice, 'release', frame, voice.style) })
+    if (voice.published && !wasReleased) this.send({ type: 'event', event: this.voiceEvent(voice, 'release', frame) })
     this.planDirty = true
   }
 
@@ -371,7 +373,7 @@ export class LiveAudioCore {
           const consumed = voice.resampler.mix(output[0], output[1], offset + sampleOffset, span, voice.position, gain, gainStep)
           voice.position += consumed * voice.increment
           if (consumed < span) {
-            this.releaseVoice(voice, frame + consumed)
+            this.releaseVoice(voice, frame + consumed, 0)
             collection.splice(index, 1); break
           }
         } else {
@@ -404,7 +406,7 @@ export class LiveAudioCore {
       // unrendered voice; do not report that voice as an audible performance.
       for (const voice of this.voices) if (!voice.published) {
         voice.published = true
-        this.send({ type: 'event', event: this.event(voice, 'attack', frame, voice.style) })
+        this.send({ type: 'event', event: this.voiceEvent(voice, 'attack', frame) })
       }
       for (const voice of this.voices) if (!voice.released && frame >= voice.end) this.releaseVoice(voice, frame)
       let boundary = endFrame

@@ -3,6 +3,7 @@ import { nextTick, ref } from 'vue'
 import { flushPromises } from '@vue/test-utils'
 import { createTestWrapper } from '../../helpers/test-utils'
 import InstrumentSelector from '@/components/InstrumentSelector.vue'
+import instrumentSelectorSource from '@/components/InstrumentSelector.vue?raw'
 
 const instrumentStore = vi.hoisted(() => {
   const readySounds = new Set<string>(['piano', 'triangle'])
@@ -500,6 +501,10 @@ describe('InstrumentSelector.vue', () => {
     expect(sculptor.find('[data-testid="synth-knob-resonance"]').exists()).toBe(true)
     expect(sculptor.find('[data-testid="synth-knob-attack"]').exists()).toBe(true)
     expect(sculptor.find('[data-testid="synth-knob-release"]').exists()).toBe(true)
+    expect(sculptor.findAll('.knob-face--brass')).toHaveLength(4)
+    expect(instrumentSelectorSource.match(/tone="brass"/g)).toHaveLength(4)
+    expect(instrumentSelectorSource).not.toContain('var(--brass')
+    expect(instrumentSelectorSource).not.toContain(':deep(.knob-wrapper__face)')
 
     await reset.trigger('click')
     expect(instrumentStore.resetSynthControls).toHaveBeenCalledOnce()

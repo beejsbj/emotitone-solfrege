@@ -1,6 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+vi.unmock('@strudel/core')
 import { logNotesToStrudel, mergeStrudelRests } from '@/services/StrudelNotation'
 import { defaultPatterns } from '@/data/patterns'
+import { as } from '@strudel/core/controls.mjs'
+import { mini } from '@strudel/mini/mini.mjs'
+
 import type { LogNote } from '@/types/patterns'
 
 function makeNote(
@@ -35,6 +39,61 @@ function makeNote(
 }
 
 describe('StrudelNotation', () => {
+  it('keeps non-expressive notation exactly unchanged', () => {
+    const result = logNotesToStrudel([
+      makeNote('c', 'C4', 0, 4, 1000, 500),
+    ])
+
+    expect(result).toBe('`<\nC4@0.25 ~@0.25\n>`.as("note").sound("sine").cpm(120 / 4)')
+  })
+
+  it('maps expressive chord members independently without extra Strudel events', () => {
+    const curve = [
+      { timeMs: 0, cents: 0 }, { timeMs: 50, cents: 30 },
+      { timeMs: 100, cents: -30 }, { timeMs: 150, cents: 30 },
+      { timeMs: 200, cents: -30 }, { timeMs: 250, cents: 30 },
+      { timeMs: 300, cents: -30 },
+    ]
+    const result = logNotesToStrudel([
+      { ...makeNote('c', 'C4', 0, 4, 1000, 500), pitchExpression: curve },
+      makeNote('e', 'E4', 2, 4, 1000, 500),
+    ])
+
+    expect(result).toContain('{C4:10:0.3, E4:0:0}@0.25')
+    expect(result).toContain('.as(["note", "vib", "vibmod"])')
+
+    const pattern = as(["note", "vib", "vibmod"], mini(result.split('`')[1]))
+    const events = pattern.queryArc(0, 0.5)
+    expect(events).toHaveLength(2)
+    expect(events.map((event) => event.value)).toEqual([
+      { note: 'C4', vib: 10, vibmod: 0.3 },
+      { note: 'E4', vib: 0, vibmod: 0 },
+    ])
+  })
+
+  it('maps relative expressive values through n:vib:vibmod without changing pitch event count', () => {
+    const curve = [
+      { timeMs: 0, cents: 0 }, { timeMs: 50, cents: 25 },
+      { timeMs: 100, cents: -25 }, { timeMs: 150, cents: 25 },
+      { timeMs: 200, cents: -25 }, { timeMs: 250, cents: 25 },
+      { timeMs: 300, cents: -25 },
+    ]
+    const result = logNotesToStrudel([
+      { ...makeNote('do', 'C4', 0, 4, 1000, 500), pitchExpression: curve },
+      makeNote('mi', 'E4', 2, 4, 1000, 500),
+    ], { notationType: 'relative' })
+
+    expect(result).toContain('{0:10:0.25, 2:0:0}@0.25')
+    expect(result).toContain('.as(["n", "vib", "vibmod"])')
+
+    const events = as(["n", "vib", "vibmod"], mini(result.split('`')[1])).queryArc(0, 0.5)
+    expect(events).toHaveLength(2)
+    expect(events.map((event) => event.value)).toEqual([
+      { n: 0, vib: 10, vibmod: 0.25 },
+      { n: 2, vib: 0, vibmod: 0 },
+    ])
+  })
+
   it('keeps @ durations tied to source BPM rather than playback BPM', () => {
     const notes = [
       makeNote('c', 'C4', 0, 4, 1000, 500),

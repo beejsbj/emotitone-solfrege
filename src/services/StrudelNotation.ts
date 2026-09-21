@@ -13,6 +13,7 @@ import type { MusicalMode } from "@/types/music";
 import { Note as TonalNote } from "@tonaljs/tonal";
 import { getScaleForMode, normalizeScaleIndex } from "@/data";
 import { prepareRecordedNotes, recordedLoopTailMs } from "./recordedTiming";
+import { approximateVibrato, type VibratoApproximation } from "./vibratoApproximation";
 
 export interface StrudelConfig {
   /** Playback tempo in BPM. Used by the live runtime, not @ duration sizing. @default 120 */
@@ -89,6 +90,8 @@ export class StrudelNotation {
   private notes: LogNote[];
   private config: StrudelConfig;
   private renderRelative = false;
+  private renderVibrato = false;
+  private vibratoByNote = new Map<LogNote, VibratoApproximation>();
 
   constructor(notes: LogNote[], config?: Partial<StrudelConfig>) {
     this.notes = prepareRecordedNotes(notes).sort(
@@ -106,6 +109,12 @@ export class StrudelNotation {
 
     this.renderRelative = this.config.notationType === "relative" &&
       this.notes.every((note) => this.relativeNoteValue(note) != null);
+    this.vibratoByNote.clear();
+    for (const note of this.notes) {
+      const vibrato = approximateVibrato(note.pitchExpression);
+      if (vibrato) this.vibratoByNote.set(note, vibrato);
+    }
+    this.renderVibrato = this.vibratoByNote.size > 0;
     const barMs = barLengthMs(this.config);
     const origin = this.notes[0].pressTime;
     const tokens: string[] = [];
@@ -161,10 +170,10 @@ export class StrudelNotation {
         this.config.scaleOctave ??
         (Number.isFinite(first?.octave) ? first.octave : 4);
       const scale = `${this.config.scaleKey ?? first?.key ?? "C"}${scaleOctave}:${this.config.scaleMode ?? first?.mode ?? "major"}`;
-      return `\`<\n${inner}\n>\`.as("n").scale("${scale}").sound("${this.config.sound}").cpm(${cpmExpression})`;
+      return `\`<\n${inner}\n>\`.as(${this.renderVibrato ? '["n", "vib", "vibmod"]' : '"n"'}).scale("${scale}").sound("${this.config.sound}").cpm(${cpmExpression})`;
     }
 
-    return `\`<\n${inner}\n>\`.as("note").sound("${this.config.sound}").cpm(${cpmExpression})`;
+    return `\`<\n${inner}\n>\`.as(${this.renderVibrato ? '["note", "vib", "vibmod"]' : '"note"'}).sound("${this.config.sound}").cpm(${cpmExpression})`;
   }
 
   private renderStandaloneNote(note: LogNote, barMs: number) {
@@ -261,8 +270,11 @@ export class StrudelNotation {
   }
 
   private noteValue(note: LogNote) {
-    if (!this.renderRelative) return note.note;
-    return String(this.relativeNoteValue(note));
+    const value = !this.renderRelative ? note.note : String(this.relativeNoteValue(note));
+    if (!this.renderVibrato) return value;
+
+    const vibrato = this.vibratoByNote.get(note);
+    return `${value}:${vibrato?.vib ?? 0}:${vibrato?.vibmod ?? 0}`;
   }
 
   private relativeNoteValue(note: LogNote) {

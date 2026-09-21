@@ -137,6 +137,17 @@ describe("CodeStrip Strudel source decorations", () => {
     ]);
   });
 
+  it("does not decorate vibrato metadata as phantom relative notes", () => {
+    const doc = EditorState.create({
+      doc: '`< [ {C4:5:0.25, E4:0:0}@0.5 2:6.5:0.3@0.25 ] >`.as(["note", "vib", "vibmod"])',
+    }).doc;
+
+    const events = parseCodeStripEvents(doc);
+    expect(events).toHaveLength(2);
+    expect(events[0].notes.map((note) => note.text)).toEqual(["C4", "E4"]);
+    expect(events[1].notes).toMatchObject([{ text: "2", isRelative: true }]);
+  });
+
   const mountedViews: EditorView[] = [];
 
   afterEach(() => {

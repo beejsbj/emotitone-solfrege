@@ -352,6 +352,13 @@ describe("useBlobRenderer lifecycle", () => {
     expect(lowFrame).toBeDefined();
     expect(highFrame).toBeDefined();
 
+    const meanRadius = (frame: typeof lowFrame) =>
+      frame.contour.reduce((sum, point) => sum + Math.hypot(
+        point.x - frame.blob.x,
+        point.y - frame.blob.y,
+      ), 0) / frame.contour.length;
+    expect(meanRadius(lowFrame)).not.toBeCloseTo(meanRadius(highFrame), 4);
+
     // Both contours should be closed (first and last points match)
     const lowContour = lowFrame.contour;
     expect(lowContour[0].x).toBeCloseTo(lowContour[lowContour.length - 1].x, 6);

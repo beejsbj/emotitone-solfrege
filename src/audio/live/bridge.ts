@@ -142,6 +142,7 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
       })
     },
     press: (ownerId, notes) => post({ type: 'press', ownerId, notes }),
+    setPitchBend: (ownerId, cents) => post({ type: 'pitch-bend', ownerId, cents }),
     release: ownerId => post({ type: 'release', ownerId }),
     configure: config => post({ type: 'configure', config }),
     clear: () => post({ type: 'clear' }),

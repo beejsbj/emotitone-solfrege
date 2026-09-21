@@ -31,6 +31,7 @@ export type LiveCommand =
   | { type: 'prepare'; requestId: number; instrument: PreparedLiveInstrument }
   | { type: 'forget'; requestId: number; instrumentId: string; instant: boolean }
   | { type: 'press'; ownerId: string; notes: LiveInputNote[] }
+  | { type: 'pitch-bend'; ownerId: string; cents: number }
   | { type: 'release'; ownerId: string }
   | { type: 'configure'; config: Partial<LiveConfig> }
   | { type: 'clear' }

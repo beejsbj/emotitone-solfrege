@@ -71,6 +71,14 @@ describe('production live worklet bridge', () => {
     bridge.dispose()
   })
 
+  it('transports bounded pitch expression commands to the worklet', async () => {
+    const { context, callbacks, node } = setup()
+    const bridge = await createLiveWorklet(context, {} as AudioNode, callbacks)
+    bridge.setPitchBend?.('finger', 37.5)
+    expect(node.port.postMessage).toHaveBeenCalledWith({ type: 'pitch-bend', ownerId: 'finger', cents: 37.5 })
+    bridge.dispose()
+  })
+
   it('waits for retired PCM acknowledgement and requests instant removal while suspended', async () => {
     const { context, callbacks, node, drain } = setup()
     const bridge = await createLiveWorklet(context, {} as AudioNode, callbacks)

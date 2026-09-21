@@ -31,6 +31,62 @@ function setup(instrument = bank) {
 }
 
 describe('production live audio render core', () => {
+  it('smoothly bends only its expression owner while leaving oscillator and PCM pitch events unchanged', () => {
+    const oscillator: PreparedLiveInstrument = { kind: 'oscillator', instrumentId: 'osc', waveform: 'sine',
+      gain: 1, attack: 0, decay: 0, sustain: 1, release: 0 }
+    const baseline = setup(oscillator)
+    baseline.press('finger', [48]); baseline.render(20)
+    const base = baseline.render(1000)[0]
+    const bent = setup(oscillator)
+    bent.press('finger', [48]); bent.render(20)
+    bent.send({ type: 'pitch-bend', ownerId: 'finger', cents: 500 })
+    const expressive = bent.render(1000)[0]
+    const rising = (samples: Float32Array) => samples.reduce((count, value, index) =>
+      count + +(index > 20 && samples[index - 1] <= 0 && value > 0), 0)
+    expect(rising(expressive)).toBeGreaterThan(rising(base))
+    expect(bent.events.filter(event => event.phase === 'attack').map(event => event.pitch)).toEqual([48])
+    const clamped = setup(oscillator)
+    clamped.press('finger', [48]); clamped.render(20)
+    clamped.send({ type: 'pitch-bend', ownerId: 'finger', cents: 50 })
+    expect(expressive).toEqual(clamped.render(1000)[0])
+
+    const pcm: PreparedLiveInstrument = { ...bank, zones: [{ ...bank.zones[0], rootMidi: 69,
+      channels: [Float32Array.from({ length: 2000 }, (_, index) => Math.sin(2 * Math.PI * index / 10))],
+      loopStartFrame: 0, loopEndFrame: 2000 }] }
+    const pcmBase = setup(pcm)
+    pcmBase.press('finger', [69]); pcmBase.render(20)
+    const pcmUnbent = pcmBase.render(1000)[0]
+    const pcmBent = setup(pcm)
+    pcmBent.press('finger', [69]); pcmBent.render(20)
+    pcmBent.send({ type: 'pitch-bend', ownerId: 'finger', cents: 50 })
+    expect(rising(pcmBent.render(1000)[0])).toBeGreaterThan(rising(pcmUnbent))
+  })
+
+  it('isolates bends and clears stale expression on release, repress, clear, and invalid input', () => {
+    const oscillator: PreparedLiveInstrument = { kind: 'oscillator', instrumentId: 'osc', waveform: 'sine',
+      gain: 1, attack: 0, decay: 0, sustain: 1, release: 0 }
+    const reference = setup(oscillator)
+    reference.press('b', [48]); reference.render(30)
+    const actual = setup(oscillator)
+    actual.press('a', [48]); actual.press('b', [48]); actual.render(20)
+    actual.send({ type: 'pitch-bend', ownerId: 'a', cents: 50 }); actual.render(10)
+    actual.send({ type: 'release', ownerId: 'a' })
+    expect(actual.render(10)[0]).toEqual(reference.render(10)[0])
+
+    actual.send({ type: 'pitch-bend', ownerId: 'b', cents: 50 }); actual.send({ type: 'release', ownerId: 'b' })
+    actual.press('b', [48]); actual.render(1)
+    const fresh = setup(oscillator)
+    fresh.press('b', [48]); fresh.render(1)
+    expect(actual.render(10)[0]).toEqual(fresh.render(10)[0])
+    actual.send({ type: 'pitch-bend', ownerId: 'b', cents: Infinity })
+    expect(actual.render(20)[0].every(Number.isFinite)).toBe(true)
+    actual.send({ type: 'pitch-bend', ownerId: 'b', cents: 50 }); actual.send({ type: 'clear' })
+    actual.press('b', [48])
+    const cleared = setup(oscillator)
+    cleared.press('b', [48])
+    expect(actual.render(20)[0]).toEqual(cleared.render(20)[0])
+  })
+
   it('renders immediate stereo PCM, resamples by source rate/root pitch and loops', () => {
     const { press, render } = setup()
     press('finger', [48])

@@ -20,6 +20,8 @@ export interface LiveRendererCallbacks {
 export interface LiveRenderer {
   forget(instrumentId: string): Promise<void>
   press(ownerId: string, notes: LiveInputNote[]): void
+  /** Bounded, per-owner live pitch expression in cents. */
+  setPitchBend?(ownerId: string, cents: number): void
   release(ownerId: string): void
   configure(config: Partial<LiveConfig>): void
   clear(): void

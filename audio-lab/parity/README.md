@@ -30,15 +30,17 @@ Negative controls must fail the applicable metric: omitted sample gating (no cli
 
 Any matched-control mismatch remains a failure; the harness does not calibrate away gain differences or widen limits.
 
-## Final verified result
+## Latest verification receipt
 
-2026-09-21, Linux HeadlessChrome 147, 48 kHz, production revision `04a7fd307bc02d0dc5b13285aaaa17a065bfba7e`: **38/38 checks passed** with unchanged tolerances, stable input hashes, no external requests and no uncaught exceptions. [Compact results and SHA-256 hashes](results.json) preserve the tested environment, all watched inputs and full-receipt digest; the 164,707-byte detailed receipt remains at `/tmp/recorded-playback-parity-final.json`.
+[Compact results and SHA-256 hashes](results.json) are the verification record: tested production revision, capture time, environment, check and case counts, measured errors, every watched input hash, and the full-receipt size and digest. Read those values directly rather than treating this README as a second snapshot:
 
-- All 24 positive parity cases passed: RMS ratios .999796–1.000530, maximum harmonic error .000591, maximum envelope error .015076, onset error zero and maximum offset error one 48 kHz sample.
-- Native square/saw at each of A3–A7: RMS ratio 1.0, harmonic error zero, maximum envelope error 1.04e−9.
-- Single and twelve-staggered future-retirement cases: pre-retirement RMS ratio 1.0 and post-retirement peak zero. All three negative controls detected their intended regressions.
+```sh
+jq '{revision, capturedAt, checks, parity, nativeSquareSaw, negativeControls, voiceBudget, sha256, fullReceipt}' audio-lab/parity/results.json
+```
 
-The frozen Superdough bundle SHA-256 is `d7adfff1426645fef3f0a56474a74ce7204d12fc96ba5672a14b12fd37e94bf9`; the soundfont bundle is `6ce481a2b0c0e0c7f1caeaa78845fdc7a310bc24fb8ea642691952a366482d48`. Scope remains offline audio parity, not store/UI latency or a cross-browser guarantee.
+The revision identifies the tested code commit. Later commits that only save its receipt or update documentation do not change those production inputs. After a code change, rerun the harness and refresh the compact record, verifying its hashes against the new inputs. The detailed receipt path is local to the recording machine and may be temporary; use the command above to generate a new detailed receipt when it is unavailable.
+
+Scope remains offline audio parity, not store/UI latency or a cross-browser guarantee.
 
 ## Square/saw fallback decision and measured evidence
 

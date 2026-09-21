@@ -1,0 +1,92 @@
+{
+  "capturedAt": "2026-09-21T11:52:29.210Z",
+  "revision": "04a7fd307bc02d0dc5b13285aaaa17a065bfba7e",
+  "environment": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.0.0 Safari/537.36",
+    "sampleRate": 48000,
+    "scope": "Finite generated Superdough PCM versus LiveAudioCore or square/saw native held-voice API; no devices, catalog downloads, or UI/store latency",
+    "phasePolicy": "Hann-window harmonic magnitudes and energy envelope; waveform phase is not compared pointwise"
+  },
+  "checks": {
+    "passed": 38,
+    "total": 38,
+    "failed": [],
+    "stableInputs": true,
+    "externalRequests": 0,
+    "uncaughtExceptions": 0
+  },
+  "parity": {
+    "positiveCases": 24,
+    "rmsRatioRange": [
+      0.9997955942375828,
+      1.0005291692504041
+    ],
+    "maxEnvelopeError": 0.015075143567363409,
+    "maxHarmonicError": 0.000590652579058862,
+    "maxOnsetErrorSeconds": 0,
+    "maxOffsetErrorSeconds": 0.000020833333333247772
+  },
+  "nativeSquareSaw": {
+    "pitches": [
+      "A3",
+      "A4",
+      "A5",
+      "A6",
+      "A7"
+    ],
+    "cases": 10,
+    "rmsRatioRange": [
+      1,
+      1
+    ],
+    "maxHarmonicError": 0,
+    "maxEnvelopeError": 1.0356048169874986e-9
+  },
+  "negativeControls": [
+    {
+      "name": "negative sample gate detected",
+      "passed": true
+    },
+    {
+      "name": "negative synth envelope detected",
+      "passed": true
+    },
+    {
+      "name": "negative overwritten gate ratio detected",
+      "passed": true
+    }
+  ],
+  "voiceBudget": [
+    {
+      "name": "one-future-retirement",
+      "holdRmsRatio": 1,
+      "postRetirementPeak": 0
+    },
+    {
+      "name": "twelve-staggered-retirements",
+      "holdRmsRatio": 1,
+      "postRetirementPeak": 0
+    }
+  ],
+  "sha256": {
+    "node_modules/superdough/dist/index.mjs": "d7adfff1426645fef3f0a56474a74ce7204d12fc96ba5672a14b12fd37e94bf9",
+    "node_modules/@strudel/soundfonts/dist/index.mjs": "6ce481a2b0c0e0c7f1caeaa78845fdc7a310bc24fb8ea642691952a366482d48",
+    "src/audio/live/core.ts": "6844cf7fb2b27b5aa2a19fba13e445a2386dd052dbbc104a59261a762232f3bd",
+    "src/audio/live/resampler.ts": "9b77802556bc48b41838eddd9d52714cadb27dba91c4e1e079d011efccf508c6",
+    "src/audio/voicePolicy.ts": "b3b3964b1969d7ee0f9c93f20af3ff41db11cd9ce777ec7d4117c16d13bc0370",
+    "src/services/StrudelNotation.ts": "dd8ed2e7508298617840ae2f06ab1c5391b7c305d7dcbdc9751351cd8765c370",
+    "src/services/recordedTiming.ts": "b76ae59f4e5bee1cc936bfadc8090eb2cc389f3313d3cc8b069d01801ab471fe",
+    "src/services/liveArticulation.ts": "2f0f7bdc815f6e66e41736d9810e19ace024ff8cfb0978d63f06e1994a0b2df7",
+    "src/services/preparedNativeInstrument.ts": "8ee459070e0d4f2c44124b0e5c3c125e303cb7a81cddcdc693f113acd7e1d76b",
+    "src/services/preparedLiveInstrument.ts": "09de7318ccd48d143a232794985d16fa79d82bab0fec90e2d8fed32e73b413c4",
+    "audio-lab/parity/suite.mjs": "92773be750a582dbb1dc12a8dfa549e928d1430c588c6c76db771f2b91e1f3fd",
+    "audio-lab/parity/metrics.mjs": "8f573b7e51ed910fb1919d719aa73d36533de6f71a1064bd10fd3fb80a9e6110",
+    "audio-lab/parity/fixtures.mjs": "cb32706cb6bdfcea82358e3653106805744f2fac2b9e46e41c6f6fde2a519b3c",
+    "audio-lab/parity/voice-budget.mjs": "44fe31c790410dbe95195ce89b92dbffb16a62f4f44c938f3eecf6ad99507cc2"
+  },
+  "fullReceipt": {
+    "localPath": "/tmp/recorded-playback-parity-final.json",
+    "sha256": "bc14bc7a17ed304e462663d10dfbfcedb8b6b3756d35daad4b5e3d009a16f33d",
+    "bytes": 164707
+  }
+}

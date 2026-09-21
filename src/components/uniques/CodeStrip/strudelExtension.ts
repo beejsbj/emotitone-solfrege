@@ -103,9 +103,9 @@ type PlaybackState = {
 
 type InlineMetaToken = { from: number; to: number };
 
-const INLINE_META_REGEX = /(?:@(?:\d+(?:\.\d+)?)|:(?:\d+(?:\.\d+)?))/g;
+const INLINE_META_REGEX = /[@:][+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/g;
 const ABSOLUTE_NOTE_REGEX = /\b[a-gA-G](?:[#bsf]+)?-?\d+\b/g;
-const RELATIVE_NOTE_REGEX = /(?<![@.\w])-?\d{1,3}(?=@|\b)/g;
+const RELATIVE_NOTE_REGEX = /(?<![:@.\w])-?\d{1,3}(?=@|\b)/g;
 const REST_CHARACTERS = new Set(["~", "-"]);
 const NOTE_NAMES: CodeStripNote[] = ["do", "re", "mi", "fa", "sol", "la", "ti"];
 
@@ -865,6 +865,11 @@ function extractNotes(content: string, from: number, to: number) {
   const notes: ParsedNote[] = [];
   const slice = content.slice(from, to);
   const absoluteRanges: SourceRange[] = [];
+  // Colon values are sound controls (clip/envelope), not more scale degrees.
+  // Exclude their entire span, including signs and exponent notation.
+  const metadataRanges = Array.from(slice.matchAll(INLINE_META_REGEX), match => ({
+    start: from + match.index!, end: from + match.index! + match[0].length,
+  }));
 
   for (const match of slice.matchAll(ABSOLUTE_NOTE_REGEX)) {
     if (match.index == null) continue;
@@ -879,11 +884,12 @@ function extractNotes(content: string, from: number, to: number) {
     });
   }
 
+  const nonDegreeRanges = [...absoluteRanges, ...metadataRanges];
   for (const match of slice.matchAll(RELATIVE_NOTE_REGEX)) {
     if (match.index == null) continue;
     const relativeFrom = from + match.index;
     const relativeTo = relativeFrom + match[0].length;
-    if (absoluteRanges.some((range) => relativeFrom < range.end && relativeTo > range.start)) {
+    if (nonDegreeRanges.some((range) => relativeFrom < range.end && relativeTo > range.start)) {
       continue;
     }
     notes.push({

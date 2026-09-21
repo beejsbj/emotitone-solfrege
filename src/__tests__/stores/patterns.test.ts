@@ -9,6 +9,7 @@ import { useMusicStore } from "@/stores/music";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { isPrewarmed, prewarmSoundSamples } from "@/services/superdoughAudio";
 import type { LogNote, Pattern, PatternNote } from "@/types/patterns";
+import { serializePatternsState, deserializePatternsState } from "@/services/patternPersistence";
 
 const audioContext = vi.hoisted(() => ({
   state: "running",
@@ -159,6 +160,80 @@ describe("Patterns Store", () => {
   afterEach(() => {
     patternsStore?.removeEventListeners();
     dateNowSpy?.mockRestore();
+  });
+
+  it("preserves mixed articulation and legacy notes through save, persistence, and sketch reopen", () => {
+    const normal = { attack: 0.001, decay: 0.001, sustain: 1, release: 0.2 };
+    const rhythmic = { ...normal, release: 0.03 };
+    patternsStore.loggedNotes = [normal, rhythmic, undefined].map((articulation, index) => createLogNote({
+      id: `articulation-${index}`, articulation,
+      pressTime: Date.now() + index * 200,
+      releaseTime: Date.now() + index * 200 + 100,
+      duration: 100,
+      isStartingNewPattern: index === 0,
+    }));
+
+    expect(patternsStore.dynamicPatterns[0].notes.map(note => note.articulation)).toEqual([normal, rhythmic, undefined]);
+    expect(patternsStore.currentSketchNotes.map(note => note.articulation)).toEqual([normal, rhythmic, undefined]);
+    const sketchBeforeSave = patternsStore.currentSketchNotes;
+    patternsStore.sendCurrentPattern();
+    const savedId = patternsStore.savedPatterns[0].id;
+    sketchBeforeSave[0].articulation!.release = 9;
+    expect(patternsStore.savedPatterns[0].notes.map(note => note.articulation)).toEqual([normal, rhythmic, undefined]);
+
+    const persisted = serializePatternsState(patternsStore.$state);
+    patternsStore.removeEventListeners();
+    setActivePinia(createTestPinia());
+    patternsStore = usePatternsStore();
+    patternsStore.$patch(deserializePatternsState(persisted));
+    patternsStore.loadPatternAsBase(savedId, { discardWorkingNotes: true });
+    expect(patternsStore.currentSketchNotes.map(note => note.articulation)).toEqual([normal, rhythmic, undefined]);
+
+    patternsStore.loadedBaseNotes[1].articulation!.release = 8;
+    expect(patternsStore.savedPatterns[0].notes[1].articulation).toEqual(rhythmic);
+    patternsStore.loadPatternAsBase(savedId, { discardWorkingNotes: true });
+    expect(patternsStore.currentSketchNotes[1].articulation).toEqual(rhythmic);
+    expect(patternsStore.currentSketchNotes[2].articulation).toBeUndefined();
+  });
+
+  it("keeps articulation snapshots independent when importing, exporting, and keeping a phrase", () => {
+    const articulation = { attack: 0.001, decay: 0.001, sustain: 1, release: 0.03 };
+    const notes = Array.from({ length: 3 }, (_, index) => createLogNote({
+      id: `snapshot-${index}`, articulation: { ...articulation },
+      pressTime: Date.now() + index * 200,
+      releaseTime: Date.now() + index * 200 + 100,
+      duration: 100, isStartingNewPattern: index === 0,
+    }));
+    patternsStore.importNotes(notes);
+    notes[0].articulation!.attack = 9;
+    expect(patternsStore.loggedNotes[0].articulation).toEqual(articulation);
+    const exported = patternsStore.exportNotes();
+    exported[1].articulation!.release = 8;
+    expect(patternsStore.loggedNotes[1].articulation).toEqual(articulation);
+
+    const dynamic = patternsStore.dynamicPatterns[0];
+    patternsStore.keepPattern(dynamic.id);
+    dynamic.notes[2].articulation!.sustain = 0;
+    expect(patternsStore.savedPatterns[0].notes[2].articulation).toEqual(articulation);
+  });
+
+  it.each([false, true])("snapshots note-on metadata and applies note-off override when present (%s)", (override) => {
+    const articulation = { attack: 0.01, decay: 0.08, sustain: 0.5, release: 0.4 };
+    patternsStore.handleNotePressed({ detail: {
+      noteId: "pending-envelope", noteName: "C4", solfegeIndex: 0, octave: 4,
+      note: createLogNote().solfege, articulation,
+      timestamp: Date.now(),
+    } } as CustomEvent);
+    articulation.attack = 9;
+    const released = { attack: 0.01, decay: 0.08, sustain: 0.5, release: 0.008 };
+    patternsStore.handleNoteReleased({ detail: {
+      noteId: "pending-envelope", timestamp: Date.now() + 100,
+      ...(override ? { articulation: released } : {}),
+    } } as CustomEvent);
+    released.release = 9;
+    expect(patternsStore.loggedNotes[0].articulation).toEqual({
+      attack: 0.01, decay: 0.08, sustain: 0.5, release: override ? 0.008 : 0.4,
+    });
   });
 
   it("treats loaded base notes and live notes as one current sketch", () => {

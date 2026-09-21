@@ -19,7 +19,7 @@ import { getLivePlayback } from "@/services/livePlayback";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import type { LiveVoiceEvent } from "@/audio/liveRenderer";
 import { createLivePerformance } from "@/services/livePerformance";
-import { getLiveArticulation } from "@/services/liveArticulation";
+import { getLiveArticulation, type LiveArticulation } from "@/services/liveArticulation";
 import {
   createScheduledLiveVoice,
   SCHEDULED_LIVE_MIDI_EVENT,
@@ -104,6 +104,7 @@ export const useMusicStore = defineStore(
     const currentMode = ref<MusicalMode>("major");
     const currentNote = ref<string | null>(null); // Keep for backward compatibility
     const activeNotes = ref<Map<string, ActiveNote>>(new Map());
+    const fallbackArticulations = new Map<string, LiveArticulation>();
     const isPlaying = ref<boolean>(false);
     const sequence = ref<string[]>([]);
     const playStyle = ref<PlayStyle>("together");
@@ -132,11 +133,18 @@ export const useMusicStore = defineStore(
       return audioTimeToOutputTime(context, context.currentTime + (timestamp - Date.now()) / 1000);
     }
 
+    function styleArticulation(instrument: string, style: PlayStyle): LiveArticulation {
+      const articulation = { ...getLiveArticulation(instrument) };
+      if (style !== "together" && !style.startsWith("strum")) articulation.release = 0.03;
+      return articulation;
+    }
+
     function liveDetail(event: LiveVoiceEvent, held: HeldPitch) {
       return {
         ...held.snapshot, noteId: event.noteId, note: held.snapshot.solfege,
         isBorrowed: held.snapshot.solfegeIndex === -1,
         instrument: held.instrument, instrumentConfig: null, source: "live-play-style",
+        articulation: { ...(event.articulation ?? styleArticulation(held.instrument, event.style)) },
         timestamp: liveAudioClock.toEpochTime(event.at * 1000),
         midiTimestamp: liveAudioClock.toPerformanceTime(event.at * 1000),
         audibleAt: audioTimeToOutputTime(superdoughAudio.getAudioContext(), event.at),
@@ -203,6 +211,7 @@ export const useMusicStore = defineStore(
         held.firstAttack = undefined;
         const noteId = `style_${++generatedCounter}`;
         const activeNote: ActiveNote = { ...held.snapshot, noteId };
+        const articulation = styleArticulation(held.instrument, style);
         const detail = {
           ...activeNote,
           note: activeNote.solfege,
@@ -216,18 +225,17 @@ export const useMusicStore = defineStore(
           noteName: activeNote.noteName,
           instrument: held.instrument,
           at,
-          releaseSeconds: style === "together" || style.startsWith("strum")
-            ? getLiveArticulation(held.instrument).release : 0.03,
+          releaseSeconds: articulation.release,
           now,
           clock: liveAudioClock,
           onScheduleStart(timestamp) {
             window.dispatchEvent(new CustomEvent(SCHEDULED_LIVE_MIDI_EVENT, {
-              detail: { ...detail, phase: "attack", timestamp, midiTimestamp: liveAudioClock.toPerformanceTime(liveAudioClock.fromEpochTime(timestamp)) },
+              detail: { ...detail, articulation: { ...articulation }, phase: "attack", timestamp, midiTimestamp: liveAudioClock.toPerformanceTime(liveAudioClock.fromEpochTime(timestamp)) },
             }));
           },
           onScheduleEnd(timestamp) {
             window.dispatchEvent(new CustomEvent(SCHEDULED_LIVE_MIDI_EVENT, {
-              detail: { ...detail, phase: "release", timestamp, midiTimestamp: liveAudioClock.toPerformanceTime(liveAudioClock.fromEpochTime(timestamp)) },
+              detail: { ...detail, articulation: { ...articulation }, phase: "release", timestamp, midiTimestamp: liveAudioClock.toPerformanceTime(liveAudioClock.fromEpochTime(timestamp)) },
             }));
           },
           onStart(timestamp) {
@@ -238,13 +246,14 @@ export const useMusicStore = defineStore(
             currentNote.value = activeNote.solfege.name;
             isPlaying.value = true;
             window.dispatchEvent(new CustomEvent("note-played", {
-              detail: { ...detail, audibleAt: activeNote.audibleAt, mirrorMidi: false, timestamp },
+              detail: { ...detail, articulation: { ...articulation }, audibleAt: activeNote.audibleAt, mirrorMidi: false, timestamp },
             }));
           },
           onEnd(timestamp) {
             window.dispatchEvent(new CustomEvent("note-released", {
               detail: {
                 ...detail,
+                articulation: { ...articulation },
                 note: activeNote.solfege.name,
                 mirrorMidi: false,
                 timestamp,
@@ -593,6 +602,7 @@ export const useMusicStore = defineStore(
       const noteId = [...prefix, Date.now(), Math.random().toString(36).slice(2, 8)].join("_");
       // Recording follows input onset, even when audio preparation resolves later.
       const timestamp = Date.now();
+      const articulation = { ...getLiveArticulation(instrument) };
       const startedAt = await superdoughAudio.attackNote(noteId, snapshot.noteName, instrument);
       if (
         isCancelled()
@@ -608,6 +618,7 @@ export const useMusicStore = defineStore(
         activeNote.audibleAt = audioTimeToOutputTime(superdoughAudio.getAudioContext(), startedAt);
       }
       activeNotes.value.set(noteId, activeNote);
+      fallbackArticulations.set(noteId, articulation);
       currentNote.value = snapshot.solfege.name;
       isPlaying.value = true;
       window.dispatchEvent(new CustomEvent("note-played", {
@@ -616,6 +627,7 @@ export const useMusicStore = defineStore(
           note: snapshot.solfege,
           isBorrowed: snapshot.solfegeIndex === -1,
           instrument,
+          articulation: { ...articulation },
           instrumentConfig: null,
           timestamp,
         },
@@ -798,6 +810,8 @@ export const useMusicStore = defineStore(
               mode: activeNote.mode,
               key: activeNote.key,
               instrument: instrumentStore.currentInstrument,
+              articulation: fallbackArticulations.has(noteId)
+                ? { ...fallbackArticulations.get(noteId)! } : undefined,
               instrumentConfig: null,
               audibleAt: activeNote.audibleAt === undefined ? undefined : audibleTime(),
             },
@@ -806,6 +820,7 @@ export const useMusicStore = defineStore(
 
           // Remove from active notes
           activeNotes.value.delete(noteId);
+          fallbackArticulations.delete(noteId);
 
           // Update legacy state if this was the current note
           if (currentNote.value === activeNote.solfege.name) {
@@ -836,6 +851,8 @@ export const useMusicStore = defineStore(
               mode: activeNote.mode,
               key: activeNote.key,
               instrument: instrumentStore.currentInstrument,
+              articulation: fallbackArticulations.has(activeNote.noteId)
+                ? { ...fallbackArticulations.get(activeNote.noteId)! } : undefined,
               instrumentConfig: null,
               audibleAt: activeNote.audibleAt === undefined ? undefined : audibleTime(),
             },
@@ -844,7 +861,10 @@ export const useMusicStore = defineStore(
         });
 
         // Clear all active notes
-        allActiveNotes.forEach(note => activeNotes.value.delete(note.noteId));
+        allActiveNotes.forEach(note => {
+          activeNotes.value.delete(note.noteId);
+          fallbackArticulations.delete(note.noteId);
+        });
         currentNote.value = activeNotes.value.values().next().value?.solfege.name ?? null;
       }
 

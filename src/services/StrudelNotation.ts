@@ -12,7 +12,8 @@ import type { LogNote } from "@/types/patterns";
 import type { MusicalMode } from "@/types/music";
 import { Note as TonalNote } from "@tonaljs/tonal";
 import { getScaleForMode, normalizeScaleIndex } from "@/data";
-import { prepareRecordedNotes, recordedLoopTailMs } from "./recordedTiming";
+import { prepareRecordedNotes, recordedLoopTailMs, type PreparedRecordedNote } from "./recordedTiming";
+import { getLiveArticulation, type LiveArticulation } from "./liveArticulation";
 
 export interface StrudelConfig {
   /** Playback tempo in BPM. Used by the live runtime, not @ duration sizing. @default 120 */
@@ -49,6 +50,8 @@ const DEFAULT_CONFIG: StrudelConfig = {
 export const DEFAULT_SOURCE_BPM = DEFAULT_CONFIG.sourceBpm;
 
 const OVERLAP_EPSILON_MS = 0;
+type RecordedControl = 'clip' | keyof LiveArticulation;
+const RECORDED_CONTROLS: RecordedControl[] = ['clip', 'attack', 'decay', 'sustain', 'release'];
 
 /** Length of one bar in milliseconds. */
 function barLengthMs(config: StrudelConfig): number {
@@ -86,9 +89,10 @@ export function mergeStrudelRests(tokens: string[], precision = 4): string[] {
  * The first note's pressTime is treated as t=0.
  */
 export class StrudelNotation {
-  private notes: LogNote[];
+  private notes: PreparedRecordedNote<LogNote>[];
   private config: StrudelConfig;
   private renderRelative = false;
+  private controlFields: RecordedControl[] = [];
 
   constructor(notes: LogNote[], config?: Partial<StrudelConfig>) {
     this.notes = prepareRecordedNotes(notes).sort(
@@ -106,6 +110,10 @@ export class StrudelNotation {
 
     this.renderRelative = this.config.notationType === "relative" &&
       this.notes.every((note) => this.relativeNoteValue(note) != null);
+    const envelope = getLiveArticulation(this.config.sound);
+    this.controlFields = RECORDED_CONTROLS.filter(control =>
+      this.notes.some(note => this.noteControl(note, control) !==
+        (control === 'clip' ? 1 : envelope[control])));
     const barMs = barLengthMs(this.config);
     const origin = this.notes[0].pressTime;
     const tokens: string[] = [];
@@ -154,6 +162,11 @@ export class StrudelNotation {
     // normalize the entire take into one cycle, regardless of its duration.
     const inner = mergeStrudelRests(tokens, this.config.precision).join(" ");
     const cpmExpression = `${this.config.bpm} / ${this.config.beatsPerBar}`;
+    // Each mapped column is present on every note. Apply global defaults only
+    // to unmapped controls so they cannot overwrite recorded per-note values.
+    const controls = RECORDED_CONTROLS.filter(control => !this.controlFields.includes(control))
+      .map(control => `.${control}(${control === 'clip' ? 1 : envelope[control]})`).join('');
+    const mapping = [this.renderRelative ? 'n' : 'note', ...this.controlFields].join(':');
 
     if (this.renderRelative) {
       const first = this.notes[0];
@@ -161,10 +174,10 @@ export class StrudelNotation {
         this.config.scaleOctave ??
         (Number.isFinite(first?.octave) ? first.octave : 4);
       const scale = `${this.config.scaleKey ?? first?.key ?? "C"}${scaleOctave}:${this.config.scaleMode ?? first?.mode ?? "major"}`;
-      return `\`<\n${inner}\n>\`.as("n").scale("${scale}").sound("${this.config.sound}").cpm(${cpmExpression})`;
+      return `\`<\n${inner}\n>\`.as("${mapping}").scale("${scale}").sound("${this.config.sound}")${controls}.cpm(${cpmExpression})`;
     }
 
-    return `\`<\n${inner}\n>\`.as("note").sound("${this.config.sound}").cpm(${cpmExpression})`;
+    return `\`<\n${inner}\n>\`.as("${mapping}").sound("${this.config.sound}")${controls}.cpm(${cpmExpression})`;
   }
 
   private renderStandaloneNote(note: LogNote, barMs: number) {
@@ -260,9 +273,20 @@ export class StrudelNotation {
     return mergeStrudelRests(tokens, precision).join(" ");
   }
 
-  private noteValue(note: LogNote) {
-    if (!this.renderRelative) return note.note;
-    return String(this.relativeNoteValue(note));
+  private noteValue(note: PreparedRecordedNote<LogNote>) {
+    const pitch = this.renderRelative ? String(this.relativeNoteValue(note)) : note.note;
+    return [pitch, ...this.controlFields.map(control => this.noteControl(note, control))].join(':');
+  }
+
+  private noteControl(note: PreparedRecordedNote<LogNote>, control: RecordedControl): number {
+    if (control === 'clip') {
+      const ratio = (note.gateDuration ?? this.noteDuration(note)) / this.noteDuration(note);
+      return Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
+    }
+    const value = note.articulation?.[control];
+    return typeof value === 'number' && Number.isFinite(value) && value >= 0 &&
+      (control !== 'sustain' || value <= 1)
+      ? value : getLiveArticulation(this.config.sound)[control];
   }
 
   private relativeNoteValue(note: LogNote) {

@@ -6,6 +6,7 @@
  */
 // @ts-ignore — superdough does not publish TypeScript declarations.
 import { getAudioContext as superdoughContext, getSuperdoughAudioController, initAudio } from "superdough";
+import { MAX_AUDIO_VOICES } from "@/audio/voicePolicy";
 
 let context: AudioContext | undefined;
 let initialization: Promise<void> | undefined;
@@ -30,7 +31,7 @@ export function getMasterGain(): GainNode | null {
  */
 export async function initializeAudio(): Promise<void> {
   getAudioContext();
-  initialization ??= Promise.resolve().then(() => initAudio()).catch((error) => {
+  initialization ??= Promise.resolve().then(() => initAudio({ maxPolyphony: MAX_AUDIO_VOICES })).catch((error) => {
     initialization = undefined;
     throw error;
   });

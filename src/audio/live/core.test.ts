@@ -9,6 +9,11 @@ const bank: PreparedLiveInstrument = {
     channels: [new Float32Array([1, .5, 0, -.5]), new Float32Array([.2, .4, .6, .8])],
     loopStartFrame: 0, loopEndFrame: 4 }],
 }
+// A constant loop makes envelope timing measurable directly from rendered PCM.
+const envelopeBank: PreparedLiveInstrument = {
+  ...bank, attack: .002, decay: .003, sustain: .6, release: .2,
+  zones: [{ ...bank.zones[0], channels: [new Float32Array([1, 1, 1, 1])] }],
+}
 function setup(instrument = bank) {
   const events: LiveVoiceEvent[] = []
   const messages: LiveResponse[] = []
@@ -128,7 +133,7 @@ describe('production live audio render core', () => {
     send({ type: 'forget', requestId: 2, instrumentId: 'test', instant: false })
     expect(messages.filter(message => message.type === 'forgotten')).toHaveLength(0)
     expect(render(4)[0].some(value => value !== 0)).toBe(true)
-    render(2)
+    render(7)
     expect(messages.filter(message => message.type === 'forgotten')).toEqual([{ type: 'forgotten', requestId: 2 }])
     press('new', [60]); render(4)
     expect(events.filter(event => event.phase === 'attack')).toHaveLength(1)
@@ -156,6 +161,8 @@ describe('production live audio render core', () => {
     press('held', [60]); render(20)
     expect(core.voiceCount).toBe(0)
     expect(events.map(event => [event.phase, event.at])).toEqual([['attack', 0], ['release', .004]])
+    expect(events[0].articulation).toEqual({ attack: 0, decay: 0, sustain: 1, release: .01 })
+    expect(events[1].articulation).toEqual({ attack: 0, decay: 0, sustain: 1, release: 0 })
     send({ type: 'release', ownerId: 'held' })
     expect(events).toHaveLength(2)
   })
@@ -222,5 +229,115 @@ describe('production live audio render core', () => {
     expect(core.voiceCount).toBe(64)
     expect(events).toHaveLength(64)
     expect(events.every(event => event.phase === 'attack')).toBe(true)
+  })
+
+  it.each([
+    ['together', .2], ['repeat', .03], ['arp-up', .03],
+  ] as const)('reports the rendered ADSR and key-up fade for %s', (style, release) => {
+    const { press, send, render, events, core } = setup(envelopeBank)
+    send({ type: 'configure', config: { style } })
+    press('held', [60]); render(10)
+    send({ type: 'release', ownerId: 'held' })
+    const output = render(release * 1000 + 1)[0]
+    expect(events.map(event => event.articulation)).toEqual([
+      { attack: .002, decay: .003, sustain: .6, release },
+      { attack: .002, decay: .003, sustain: .6, release },
+    ])
+    expect(events[1].at).toBe(.01)
+    expect(output[0]).toBeCloseTo(.6)
+    expect(output[output.length - 2]).toBeCloseTo(.6 / (release * 1000))
+    expect(output[output.length - 1]).toBe(0)
+    expect(core.voiceCount).toBe(0)
+  })
+
+  it('reports a30ms automatic rhythmic gate fade', () => {
+    const { press, send, render, events } = setup(envelopeBank)
+    send({ type: 'configure', config: { style: 'repeat', rate: 16 } })
+    press('held', [60]); render(101)
+    expect(events.at(-1)).toMatchObject({ phase: 'release', at: .1,
+      articulation: { attack: .002, decay: .003, sustain: .6, release: .03 } })
+  })
+
+  it.each(['pressure', 'forget'] as const)('never extends an existing release during %s retirement', reason => {
+    for (const remaining of [0, 1, 10, 15]) {
+      const { core, press, render, send, events } = setup({ ...envelopeBank,
+        attack: 0, decay: 0, sustain: 1, release: .02 })
+      send({ type: 'prepare', requestId: 2, instrument: { kind: 'oscillator', instrumentId: 'silent',
+        waveform: 'sine', gain: 0, attack: 0, decay: 0, sustain: 1, release: .02 } })
+      press('tail', [60])
+      if (reason === 'pressure') send({ type: 'press', ownerId: 'held',
+        notes: Array.from({ length: 63 }, () => ({ pitch: 60, instrumentId: 'silent' })) })
+      render(10)
+      send({ type: 'release', ownerId: 'tail' })
+      render(20 - remaining)
+      if (reason === 'pressure') send({ type: 'press', ownerId: 'replacement',
+        notes: [{ pitch: 60, instrumentId: 'silent' }] })
+      else send({ type: 'forget', requestId: 3, instrumentId: 'test', instant: false })
+      const output = render(12)[0]
+      const fade = Math.min(10, remaining)
+      for (let frame = 0; frame < output.length; frame++) {
+        expect(output[frame], `${reason}: ${remaining}ms left, frame ${frame}`).toBeCloseTo(
+          frame < fade ? remaining / 20 * (1 - frame / fade) : 0, 6)
+      }
+      expect(events.filter(event => event.ownerId === 'tail' && event.phase === 'release')).toHaveLength(1)
+      expect(core.voiceCount).toBe(reason === 'pressure' ? 64 : 0)
+    }
+  })
+
+  it('publishes only the actual10ms fade when stealing the oldest held voice', () => {
+    const { press, send, render, events, core } = setup(envelopeBank)
+    send({ type: 'prepare', requestId: 2, instrument: { ...envelopeBank, instrumentId: 'silent', gain: 0 } })
+    press('oldest', [60])
+    for (let i = 0; i < 63; i++) send({ type: 'press', ownerId: `silent-${i}`,
+      notes: [{ pitch: 60, instrumentId: 'silent' }] })
+    render(10)
+    send({ type: 'press', ownerId: 'new', notes: [{ pitch: 60, instrumentId: 'silent' }] })
+    const output = render(11)[0]
+    expect([...output]).toEqual([.6, .54, .48, .42, .36, .3, .24, .18, .12, .06, 0].map(Math.fround))
+    expect(core.voiceCount).toBe(64)
+    expect(events.filter(event => event.phase === 'release')).toEqual([
+      expect.objectContaining({ ownerId: 'oldest', at: .01,
+        articulation: { attack: .002, decay: .003, sustain: .6, release: .01 } }),
+    ])
+    send({ type: 'clear' }); render(201)
+    const attacks = events.filter(event => event.phase === 'attack').map(event => event.noteId).sort()
+    const releases = events.filter(event => event.phase === 'release').map(event => event.noteId).sort()
+    expect(releases).toEqual(attacks)
+    expect(core.voiceCount).toBe(0)
+  })
+
+  it('steals the oldest admitted releasing voice before an older held voice', () => {
+    const { press, send, render, events } = setup(envelopeBank)
+    send({ type: 'prepare', requestId: 2, instrument: { ...envelopeBank, instrumentId: 'silent', gain: 0 } })
+    const silent = (ownerId: string) => send({ type: 'press', ownerId,
+      notes: [{ pitch: 60, instrumentId: 'silent' }] })
+    silent('oldest-held')
+    press('older-tail', [60])
+    silent('younger-tail')
+    for (let i = 0; i < 61; i++) silent(`held-${i}`)
+    render(10)
+    send({ type: 'release', ownerId: 'younger-tail' })
+    send({ type: 'release', ownerId: 'older-tail' })
+    silent('new')
+    const output = render(11)[0]
+    expect(output[9]).toBeCloseTo(.06)
+    expect(output[10]).toBe(0)
+    expect(events.filter(event => event.phase === 'release').map(event => event.ownerId))
+      .toEqual(['younger-tail', 'older-tail'])
+    send({ type: 'clear' }); render(201)
+    expect(events.filter(event => event.phase === 'release' && event.ownerId === 'oldest-held')).toHaveLength(1)
+    expect(new Set(events.filter(event => event.phase === 'release').map(event => event.noteId)).size).toBe(65)
+  })
+
+  it.each([false, true])('reports the actual bank retirement fade (instant=%s)', instant => {
+    const { press, send, render, events, core } = setup(envelopeBank)
+    press('held', [60]); render(10)
+    send({ type: 'forget', requestId: 2, instrumentId: 'test', instant })
+    expect(events.at(-1)).toMatchObject({ phase: 'release', at: .01,
+      articulation: { attack: .002, decay: .003, sustain: .6, release: instant ? 0 : .01 } })
+    const output = render(11)[0]
+    expect([...output]).toEqual((instant ? Array(11).fill(0)
+      : [.6, .54, .48, .42, .36, .3, .24, .18, .12, .06, 0]).map(Math.fround))
+    expect(core.voiceCount).toBe(0)
   })
 })

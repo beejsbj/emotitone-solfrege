@@ -38,7 +38,7 @@ Any matched-control mismatch remains a failure; the harness does not calibrate a
 jq '{revision, capturedAt, checks, parity, nativeSquareSaw, negativeControls, voiceBudget, sha256, fullReceipt}' audio-lab/parity/results.json
 ```
 
-The revision identifies the tested code commit. Later commits that only save its receipt or update documentation do not change those production inputs. After a code change, rerun the harness and refresh the compact record, verifying its hashes against the new inputs. The detailed receipt path is local to the recording machine and may be temporary; use the command above to generate a new detailed receipt when it is unavailable.
+The revision identifies the tested code commit. Later commits that only save its receipt or update documentation do not change those production inputs. After a code change, rerun the harness and refresh the compact record, verifying its hashes against the new inputs. The detailed receipt path is local to the recording machine and may be temporary; use the runner command at the top of this README to generate a new detailed receipt when it is unavailable.
 
 Scope remains offline audio parity, not store/UI latency or a cross-browser guarantee.
 

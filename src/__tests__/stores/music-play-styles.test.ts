@@ -207,7 +207,7 @@ describe("live styles through music, recording, and Strudel", () => {
     ]);
     expect(noteEvents("note-released").map((note) => note.noteId).sort())
       .toEqual(noteEvents("note-played").map((note) => note.noteId).sort());
-    expect(logNotesToStrudel(patterns.loggedNotes)).toContain("C4@0.1 ~@0.025 E4@0.1 ~@0.025 G4@0.1");
+    expect(logNotesToStrudel(patterns.loggedNotes)).toContain("C4:0.001:0.03@0.1 ~@0.025 E4:0.001:0.03@0.1 ~@0.025 G4:0.001:0.03@0.1");
     expect(music.activeNotes.size).toBe(0);
     expect(vi.getTimerCount()).toBe(0);
   });

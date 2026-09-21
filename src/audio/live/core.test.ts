@@ -258,6 +258,32 @@ describe('production live audio render core', () => {
       articulation: { attack: .002, decay: .003, sustain: .6, release: .03 } })
   })
 
+  it.each(['pressure', 'forget'] as const)('never extends an existing release during %s retirement', reason => {
+    for (const remaining of [0, 1, 10, 15]) {
+      const { core, press, render, send, events } = setup({ ...envelopeBank,
+        attack: 0, decay: 0, sustain: 1, release: .02 })
+      send({ type: 'prepare', requestId: 2, instrument: { kind: 'oscillator', instrumentId: 'silent',
+        waveform: 'sine', gain: 0, attack: 0, decay: 0, sustain: 1, release: .02 } })
+      press('tail', [60])
+      if (reason === 'pressure') send({ type: 'press', ownerId: 'held',
+        notes: Array.from({ length: 63 }, () => ({ pitch: 60, instrumentId: 'silent' })) })
+      render(10)
+      send({ type: 'release', ownerId: 'tail' })
+      render(20 - remaining)
+      if (reason === 'pressure') send({ type: 'press', ownerId: 'replacement',
+        notes: [{ pitch: 60, instrumentId: 'silent' }] })
+      else send({ type: 'forget', requestId: 3, instrumentId: 'test', instant: false })
+      const output = render(12)[0]
+      const fade = Math.min(10, remaining)
+      for (let frame = 0; frame < output.length; frame++) {
+        expect(output[frame], `${reason}: ${remaining}ms left, frame ${frame}`).toBeCloseTo(
+          frame < fade ? remaining / 20 * (1 - frame / fade) : 0, 6)
+      }
+      expect(events.filter(event => event.ownerId === 'tail' && event.phase === 'release')).toHaveLength(1)
+      expect(core.voiceCount).toBe(reason === 'pressure' ? 64 : 0)
+    }
+  })
+
   it('publishes only the actual10ms fade when stealing the oldest held voice', () => {
     const { press, send, render, events, core } = setup(envelopeBank)
     send({ type: 'prepare', requestId: 2, instrument: { ...envelopeBank, instrumentId: 'silent', gain: 0 } })

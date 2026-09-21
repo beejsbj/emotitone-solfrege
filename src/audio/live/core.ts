@@ -314,11 +314,13 @@ export class LiveAudioCore {
   private releaseVoice(voice: Voice, frame: number, releaseLength?: number) {
     if (voice.released && releaseLength === undefined) return
     const wasReleased = voice.released
+    const remaining = voice.releaseStart === undefined ? Infinity
+      : Math.max(0, voice.releaseStart + voice.releaseLength - frame)
     voice.releaseLevel = this.envelope(voice, frame)
     voice.releaseStart = frame
     // Apply forced retirement before reporting it to the recorder. Already
     // releasing tails may be shortened, but retain their single note-off.
-    voice.releaseLength = releaseLength ?? voice.releaseLength
+    voice.releaseLength = Math.min(releaseLength ?? voice.releaseLength, remaining)
     voice.released = true
     if (voice.published && !wasReleased) this.send({ type: 'event', event: this.voiceEvent(voice, 'release', frame) })
     this.planDirty = true

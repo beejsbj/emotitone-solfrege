@@ -183,7 +183,12 @@ export const usePatternsStore = defineStore(
         return liveNotes;
       }
 
-      const baseEnd = Math.max(...loadedBaseNotes.value.map((note) => note.releaseTime));
+      const baseStart = Math.min(...loadedBaseNotes.value.map((note) => note.pressTime));
+      const soundingEnd = Math.max(...loadedBaseNotes.value.map((note) => note.releaseTime));
+      const baseEnd = baseStart + Math.max(
+        soundingEnd - baseStart,
+        loadedBaseMeta.value?.duration ?? 0,
+      );
       const firstLiveStart = liveNotes[0].pressTime;
       const seamOffset = Math.max(0, firstLiveStart - baseEnd);
 
@@ -370,6 +375,27 @@ export const usePatternsStore = defineStore(
         start: Math.min(...notes.map((note) => note.pressTime)),
         end: Math.max(...notes.map((note) => note.releaseTime)),
       };
+    }
+
+    function isSamePatternNote(
+      left: PatternNote | undefined,
+      right: PatternNote,
+    ): boolean {
+      return Boolean(
+        left
+        && left.id === right.id
+        && left.note === right.note
+        && left.scaleDegree === right.scaleDegree
+        && left.scaleIndex === right.scaleIndex
+        && left.pitchClassIndex === right.pitchClassIndex
+        && left.isBorrowed === right.isBorrowed
+        && left.octave === right.octave
+        && left.frequency === right.frequency
+        && left.velocity === right.velocity
+        && left.pressTime === right.pressTime
+        && left.releaseTime === right.releaseTime
+        && left.duration === right.duration,
+      );
     }
 
     // Pattern detection helpers
@@ -695,7 +721,7 @@ export const usePatternsStore = defineStore(
 
     watch(
       () => keyboardStore.keyboardConfig.mainOctave,
-      (newOctave) => {
+      (newOctave, oldOctave) => {
         if (isContextSyncing) return;
         if (
           loadedBaseNotes.value.length > 0 &&
@@ -707,9 +733,11 @@ export const usePatternsStore = defineStore(
           const previousOctave = typeof storedOctave === "number"
             && Number.isFinite(storedOctave)
             ? storedOctave
-            : loadedBaseNotes.value.find((note) => note.scaleIndex === 0)?.octave
-              ?? loadedBaseNotes.value[0]?.octave
-              ?? newOctave;
+            : Number.isFinite(oldOctave)
+              ? oldOctave
+              : loadedBaseNotes.value.find((note) => note.scaleIndex === 0)?.octave
+                ?? loadedBaseNotes.value[0]?.octave
+                ?? newOctave;
           if (previousOctave === newOctave) {
             loadedBaseMeta.value = {
               ...loadedBaseMeta.value,
@@ -754,12 +782,11 @@ export const usePatternsStore = defineStore(
           && loadedBaseNotes.value.length > 0
           && currentWorkingNotes.value.length === 0
           && loadedBaseNotes.value.length === contributingLoadedPattern.notes.length
-          && loadedBaseNotes.value.every((note, index) => {
-            const original = contributingLoadedPattern.notes[index];
-            return original?.id === note.id
-              && original.pressTime === note.pressTime
-              && original.releaseTime === note.releaseTime;
-          }),
+          && loadedBaseNotes.value.every((note, index) =>
+            isSamePatternNote(contributingLoadedPattern.notes[index], note)
+          )
+          && isSamePatternContext(contributingLoadedPattern, currentSketchMeta.value)
+          && resolvePatternDuration(contributingLoadedPattern) === currentSketchDuration.value,
         );
 
         if (contributingLoadedPattern && isUnchangedLoadedCandidate) {

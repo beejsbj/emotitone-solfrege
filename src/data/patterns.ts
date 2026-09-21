@@ -111,19 +111,18 @@ export function mutatePatternMode(
   newMode: MusicalMode
 ): PatternNote[] {
   const scaleNotes = getScaleNotes(key, newMode);
+  const targetIntervals = getScaleForMode(newMode).intervals;
+  const rootChroma = CHROMATIC_NOTES.indexOf(key);
   return notes.map((note) => {
     const degree = note.scaleIndex;
-    if (degree >= 0 && degree < scaleNotes.length) {
+    if (degree >= 0 && degree < scaleNotes.length && degree < targetIntervals.length) {
       const pc = scaleNotes[degree];
       const currentMidi = TonalNote.midi(note.note);
       const currentChroma = TonalNote.get(note.note).chroma;
-      const targetChroma = CHROMATIC_NOTES.indexOf(pc);
-      let chromaShift = targetChroma - currentChroma;
-      if (chromaShift > 6) chromaShift -= 12;
-      if (chromaShift < -6) chromaShift += 12;
-      const shiftedNote = currentMidi == null
+      const currentInterval = (currentChroma - rootChroma + 12) % 12;
+      const shiftedNote = currentMidi == null || currentChroma < 0 || rootChroma < 0
         ? `${pc}${note.octave}`
-        : TonalNote.fromMidi(currentMidi + chromaShift);
+        : TonalNote.fromMidi(currentMidi - currentInterval + targetIntervals[degree]);
       const shifted = TonalNote.get(shiftedNote);
       const octave = Number.isFinite(shifted.oct) ? (shifted.oct as number) : note.octave;
       const newNoteName = `${pc}${octave}`;

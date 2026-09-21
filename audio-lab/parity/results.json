@@ -1,6 +1,6 @@
 {
-  "capturedAt": "2026-09-21T11:52:29.210Z",
-  "revision": "04a7fd307bc02d0dc5b13285aaaa17a065bfba7e",
+  "capturedAt": "2026-09-21T12:20:11.602Z",
+  "revision": "75562b753491f01996cd1866f05e63aa7d963457",
   "environment": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.0.0 Safari/537.36",
     "sampleRate": 48000,
@@ -16,7 +16,7 @@
     "uncaughtExceptions": 0
   },
   "parity": {
-    "positiveCases": 24,
+    "positiveCases": 25,
     "rmsRatioRange": [
       0.9997955942375828,
       1.0005291692504041
@@ -34,13 +34,13 @@
       "A6",
       "A7"
     ],
-    "cases": 10,
+    "cases": 12,
     "rmsRatioRange": [
       1,
       1
     ],
-    "maxHarmonicError": 0,
-    "maxEnvelopeError": 1.0356048169874986e-9
+    "maxEnvelopeError": 1.0356048169874986e-9,
+    "maxHarmonicError": 0
   },
   "negativeControls": [
     {
@@ -69,12 +69,12 @@
     }
   ],
   "sha256": {
-    "node_modules/superdough/dist/index.mjs": "d7adfff1426645fef3f0a56474a74ce7204d12fc96ba5672a14b12fd37e94bf9",
+    "node_modules/superdough/dist/index.mjs": "0fd8d71a890902aff433f19201145f001f522634ebfe92b56f2252753945dc1d",
     "node_modules/@strudel/soundfonts/dist/index.mjs": "6ce481a2b0c0e0c7f1caeaa78845fdc7a310bc24fb8ea642691952a366482d48",
     "src/audio/live/core.ts": "6844cf7fb2b27b5aa2a19fba13e445a2386dd052dbbc104a59261a762232f3bd",
     "src/audio/live/resampler.ts": "9b77802556bc48b41838eddd9d52714cadb27dba91c4e1e079d011efccf508c6",
     "src/audio/voicePolicy.ts": "b3b3964b1969d7ee0f9c93f20af3ff41db11cd9ce777ec7d4117c16d13bc0370",
-    "src/services/StrudelNotation.ts": "dd8ed2e7508298617840ae2f06ab1c5391b7c305d7dcbdc9751351cd8765c370",
+    "src/services/StrudelNotation.ts": "fbaaf0df3e5a43e39d733133d7a30008e831bed47e3396301781ab0a8bf68202",
     "src/services/recordedTiming.ts": "b76ae59f4e5bee1cc936bfadc8090eb2cc389f3313d3cc8b069d01801ab471fe",
     "src/services/liveArticulation.ts": "2f0f7bdc815f6e66e41736d9810e19ace024ff8cfb0978d63f06e1994a0b2df7",
     "src/services/preparedNativeInstrument.ts": "8ee459070e0d4f2c44124b0e5c3c125e303cb7a81cddcdc693f113acd7e1d76b",
@@ -85,8 +85,8 @@
     "audio-lab/parity/voice-budget.mjs": "44fe31c790410dbe95195ce89b92dbffb16a62f4f44c938f3eecf6ad99507cc2"
   },
   "fullReceipt": {
-    "localPath": "/tmp/recorded-playback-parity-final.json",
-    "sha256": "bc14bc7a17ed304e462663d10dfbfcedb8b6b3756d35daad4b5e3d009a16f33d",
-    "bytes": 164707
+    "localPath": "/tmp/emotitone-pr90-final-pcm-20260921.json",
+    "sha256": "ba486ee27a92db93d8d1219b45695f994df7d3231768cdc65ed0658399260abc",
+    "bytes": 164680
   }
 }

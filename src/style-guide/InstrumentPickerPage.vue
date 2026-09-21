@@ -42,7 +42,7 @@
         <div><dt>Warming</dt><dd>Filled Ivory Sticker held with the current/ready sounds while the progress banner names the load.</dd></div>
         <div><dt>Icons</dt><dd>The shared instrument resolver identifies both Drawer handles and choice Stickers.</dd></div>
         <div><dt>Choice button</dt><dd>Invisible native semantics only; Sticker owns all visible choice geometry and material.</dd></div>
-        <div><dt>Synth shaping</dt><dd>Four compact Brass Knobs form an unframed row; the Synths section header holds the Ink reset Button.</dd></div>
+        <div><dt>Sound shaping</dt><dd>The leftmost Brass Shape tab holds six unframed Knobs for every instrument, with Reset in the panel header. Narrow screens use two rows of three.</dd></div>
       </dl>
     </section>
 
@@ -51,7 +51,7 @@
       <h2>Sticker is the choice language.</h2>
       <p>
         The picker owns grouping, ready-first ordering, and state mapping, not another choice
-        component. Badge remains absent; brass is reserved for the four synth-shaping Knobs and
+        component. Badge remains absent; brass is reserved for the Shape tab and its six Knobs and
         never enters the Sticker choice language.
       </p>
     </aside>

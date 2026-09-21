@@ -3,6 +3,7 @@ import { nextTick, ref } from 'vue'
 import { flushPromises } from '@vue/test-utils'
 import { createTestWrapper } from '../../helpers/test-utils'
 import InstrumentSelector from '@/components/InstrumentSelector.vue'
+import Knob from '@/components/primatives/Knob/index.vue'
 import instrumentSelectorSource from '@/components/InstrumentSelector.vue?raw'
 
 const instrumentStore = vi.hoisted(() => {
@@ -24,6 +25,8 @@ const instrumentStore = vi.hoisted(() => {
       resonance: 0,
       attack: 0.003,
       release: 0.12,
+      room: 0,
+      delay: 0,
     },
     setSynthControl: vi.fn(),
     resetSynthControls: vi.fn(),
@@ -486,23 +489,30 @@ describe('InstrumentSelector.vue', () => {
     expect(wrapper.find('[data-testid="instrument-tab-gm"]').exists()).toBe(true)
   })
 
-  it("renders synth sculptor with 4 shaping knobs and reset button in synths bank", async () => {
+  it("offers a leftmost brass Shape tab with six knobs for a non-synth instrument", async () => {
     wrapper = await mountSelector()
 
-    await wrapper.get('[data-testid="instrument-tab-synths"]').trigger('click')
+    expect(wrapper.findAll('[role="tab"]')[0].attributes('data-testid')).toBe('instrument-tab-shape')
+    expect(wrapper.get('[data-testid="instrument-tab-shape"]').attributes('data-tone')).toBe('brass')
+    await wrapper.get('[data-testid="instrument-tab-shape"]').trigger('click')
     await nextTick()
 
-    const sculptor = wrapper.find('[data-testid="synth-sculptor"]')
+    const sculptor = wrapper.find('[data-testid="sound-shape"]')
     expect(sculptor.exists()).toBe(true)
     expect(sculptor.text()).not.toContain('Synth Sculptor')
-    const reset = wrapper.get('.instrument-group__heading [data-testid="synth-sculptor-reset"]')
+    const reset = wrapper.get('[data-testid="overlay-panel-header"] [data-testid="shape-reset"]')
     expect(reset.find('[data-testid="reset-icon"]').exists()).toBe(true)
-    expect(sculptor.find('[data-testid="synth-knob-cutoff"]').exists()).toBe(true)
-    expect(sculptor.find('[data-testid="synth-knob-resonance"]').exists()).toBe(true)
-    expect(sculptor.find('[data-testid="synth-knob-attack"]').exists()).toBe(true)
-    expect(sculptor.find('[data-testid="synth-knob-release"]').exists()).toBe(true)
-    expect(sculptor.findAll('.knob-face--brass')).toHaveLength(4)
-    expect(instrumentSelectorSource.match(/tone="brass"/g)).toHaveLength(4)
+    for (const key of ['cutoff', 'resonance', 'attack', 'release', 'room', 'delay']) {
+      expect(sculptor.find(`[data-testid="shape-knob-${key}"]`).exists()).toBe(true)
+    }
+    expect(sculptor.findAll('.knob-face--brass')).toHaveLength(6)
+    expect(sculptor.get('[data-testid="shape-knob-attack"]').text()).toContain('Auto')
+    const knobs = sculptor.findAllComponents(Knob)
+    knobs[4].vm.$emit('update:modelValue', 0.35)
+    knobs[5].vm.$emit('update:modelValue', 0.2)
+    expect(instrumentStore.setSynthControl).toHaveBeenCalledWith('room', 0.35)
+    expect(instrumentStore.setSynthControl).toHaveBeenCalledWith('delay', 0.2)
+    expect(wrapper.find('[data-testid="instrument-search"]').exists()).toBe(false)
     expect(instrumentSelectorSource).not.toContain('var(--brass')
     expect(instrumentSelectorSource).not.toContain(':deep(.knob-wrapper__face)')
 
@@ -511,6 +521,30 @@ describe('InstrumentSelector.vue', () => {
 
     await wrapper.get('[data-testid="instrument-tab-keyboards"]').trigger('click')
     await nextTick()
-    expect(wrapper.find('[data-testid="synth-sculptor"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="sound-shape"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="instrument-search"]').exists()).toBe(true)
+  })
+
+  it('keeps a bank search separate from Shape and explains controls on focus', async () => {
+    wrapper = await mountSelector()
+    await wrapper.get('[data-testid="instrument-search"]').setValue('no-such-sound')
+    await wrapper.get('[data-testid="instrument-tab-shape"]').trigger('click')
+    expect(wrapper.find('[data-testid="sound-shape"]').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('no matches')
+    await wrapper.get('[data-testid="shape-knob-room"]').trigger('focusin')
+    expect(wrapper.get('.sound-shape__help').text()).toContain('sense of space')
+    await wrapper.get('[data-testid="instrument-tab-keyboards"]').trigger('click')
+    expect((wrapper.get('[data-testid="instrument-search"]').element as HTMLInputElement).value).toBe('no-such-sound')
+  })
+
+  it('does not leave Shape when library initialization completes', async () => {
+    let finish!: () => void
+    instrumentStore.initializeInstruments.mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve }))
+    wrapper = await mountSelector()
+    await wrapper.get('[data-testid="instrument-tab-shape"]').trigger('click')
+    finish()
+    await flushPromises()
+    expect(wrapper.get('[data-testid="instrument-tab-shape"]').attributes('aria-selected')).toBe('true')
+    expect(wrapper.find('[data-testid="sound-shape"]').exists()).toBe(true)
   })
 })

@@ -12,7 +12,7 @@ import TopDrawer from "./TopDrawer.vue";
 import { RotateCcw, Search, X } from "lucide-vue-next";
 import { instrumentIconFor } from "@/components/primatives/instrumentIcon";
 import Knob from "@/components/primatives/Knob/index.vue";
-import { displayInstrumentName, isSynthSound } from "@/data/instruments";
+import { displayInstrumentName } from "@/data/instruments";
 
 const drawerContentHeight = ref<number>();
 const topDrawerRef = ref<
@@ -384,7 +384,34 @@ function groupSounds(sounds: string[]) {
   return map;
 }
 
-const activeTab = ref<Category>(categorise(currentInstrumentId.value) ?? "synths");
+const activeTab = ref<Category | "shape">(categorise(currentInstrumentId.value) ?? "synths");
+const shapeHelp = ref("Shape the current sound. Reset restores its natural envelope and removes effects.");
+const shapeKnobs = [
+  { key: "cutoff", label: "Cutoff", min: 200, max: 12000, step: 100,
+    help: "Cutoff: lower it to soften the brightness. Fully up leaves the filter off.",
+    format: (v: number) => v >= 12000 ? "Off" : v >= 1000 ? `${(v / 1000).toFixed(1)}k` : `${v}Hz` },
+  { key: "resonance", label: "Resonance", min: 0, max: 12, step: 0.5,
+    help: "Resonance: emphasize the filter edge for a ringing tone. Lower Cutoff to hear it.",
+    format: (v: number) => v.toFixed(1) },
+  { key: "attack", label: "Attack", min: 0.001, max: 0.5, step: 0.001,
+    help: "Attack: how gently a note fades in. Higher values soften its beginning.",
+    format: (v: number) => `${Math.round(v * 1000)}ms` },
+  { key: "release", label: "Release", min: 0.01, max: 2.5, step: 0.01,
+    help: "Release: how long a note fades after you let go. It cannot extend a sample beyond its recording.",
+    format: (v: number) => `${v.toFixed(2)}s` },
+  { key: "room", label: "Reverb", min: 0, max: 1, step: 0.01,
+    help: "Reverb: add a sense of space around the sound. Zero is dry.",
+    format: (v: number) => `${Math.round(v * 100)}%` },
+  { key: "delay", label: "Echo", min: 0, max: 1, step: 0.01,
+    help: "Echo: add fading repeats, a quarter-second apart. Zero is off.",
+    format: (v: number) => `${Math.round(v * 100)}%` },
+] as const;
+type ShapeKnob = typeof shapeKnobs[number];
+function formatShapeValue(control: ShapeKnob, value: number): string {
+  if ((control.key === "attack" || control.key === "release")
+    && !instrumentStore.synthControlOverrides?.[control.key]) return "Auto";
+  return control.format(value);
+}
 const hasSearchQuery = computed(() => query.value.trim().length > 0);
 const allGrouped = computed(() => groupSounds(allSounds.value));
 const grouped = computed(() => groupSounds(filteredSounds.value));
@@ -399,13 +426,14 @@ const categoryTabs = computed(() =>
   )
 );
 
-const bankTabs = computed<TabbedOverlayTab[]>(() =>
-  categoryTabs.value.map((tab) => ({
+const bankTabs = computed<TabbedOverlayTab[]>(() => [
+  { value: "shape", label: "Shape", shortLabel: "Shape", tone: "brass" },
+  ...categoryTabs.value.map((tab) => ({
     value: tab.key,
     label: tab.label,
     shortLabel: tab.shortLabel,
   })),
-);
+]);
 
 function syncActiveTabToInstrument(instrumentId: string) {
   const preferredCategory = categorise(instrumentId);
@@ -424,16 +452,14 @@ onMounted(async () => {
   allSounds.value = getRegisteredSounds()
     .filter((sound) => categorise(sound) !== null)
     .sort();
-  syncActiveTabToInstrument(currentInstrumentId.value);
+  if (activeTab.value !== "shape") syncActiveTabToInstrument(currentInstrumentId.value);
 });
 
-watch(currentInstrumentId, syncActiveTabToInstrument);
+watch(currentInstrumentId, (instrumentId) => {
+  if (activeTab.value !== "shape") syncActiveTabToInstrument(instrumentId);
+});
 
-const activeTabMeta = computed(() => ({
-  value: activeTab.value,
-  label: CATEGORY_LABELS[activeTab.value],
-  shortLabel: CATEGORY_SHORT_LABELS[activeTab.value],
-}));
+const activeTabMeta = computed(() => bankTabs.value.find((tab) => tab.value === activeTab.value));
 
 function orderedGroupsFor(tabValue: string) {
   if (hasSearchQuery.value) {
@@ -463,6 +489,7 @@ function orderedGroupsFor(tabValue: string) {
 }
 
 const visibleSoundCount = computed(() => {
+  if (activeTab.value === "shape") return undefined;
   if (hasSearchQuery.value) {
     return filteredSounds.value.length;
   }
@@ -471,11 +498,12 @@ const visibleSoundCount = computed(() => {
 });
 
 const bankLabel = computed(() => {
+  if (activeTab.value === "shape") return `Shape · ${displayInstrumentName(currentInstrumentId.value)}`;
   if (hasSearchQuery.value) {
     return "Search";
   }
 
-  return activeTabMeta.value.label;
+  return activeTabMeta.value?.label;
 });
 
 const warmupStatusMessage = computed(() => {
@@ -623,6 +651,17 @@ async function selectInstrument(name: string, close: () => void) {
             :status="visibleSoundCount"
           >
             <Button
+              v-if="activeTab === 'shape'"
+              size="sm"
+              tone="ink"
+              data-testid="shape-reset"
+              title="Reset sound shaping"
+              accessible-name="Reset sound shaping"
+              @click="instrumentStore.resetSynthControls"
+            >
+              <RotateCcw :size="13" />
+            </Button>
+            <Button
               size="sm"
               title="Close sounds"
               accessible-name="Close sounds"
@@ -634,7 +673,7 @@ async function selectInstrument(name: string, close: () => void) {
         </template>
 
         <template #toolbar>
-          <div class="flex items-center gap-2">
+          <div v-if="activeTab !== 'shape'" class="flex items-center gap-2">
             <label
               class="flex flex-1 items-center gap-2 border-b border-[var(--ink-5)] px-0.5 pb-2 pt-0.5 text-[var(--ivory-3)] transition-colors focus-within:border-[var(--ivory-2)] focus-within:text-[var(--ivory)]"
             >
@@ -686,8 +725,35 @@ async function selectInstrument(name: string, close: () => void) {
             {{ warmupErrorMessage }}
           </div>
 
+          <section v-if="panelTab === 'shape'" class="sound-shape" data-testid="sound-shape" aria-label="Sound shaping">
+            <div class="sound-shape__grid">
+              <div
+                v-for="control in shapeKnobs"
+                :key="control.key"
+                class="sound-shape__knob-cell"
+                :title="control.help"
+                @mouseenter="shapeHelp = control.help"
+                @focusin="shapeHelp = control.help"
+              >
+                <Knob
+                  :model-value="instrumentStore.synthControls[control.key]"
+                  type="range"
+                  :min="control.min"
+                  :max="control.max"
+                  :step="control.step"
+                  :label="control.label"
+                  tone="brass"
+                  :data-testid="`shape-knob-${control.key}`"
+                  :format-value="(value) => formatShapeValue(control, value)"
+                  @update:model-value="(v) => instrumentStore.setSynthControl(control.key, Number(v))"
+                />
+              </div>
+            </div>
+            <p class="sound-shape__help" aria-live="polite">{{ shapeHelp }}</p>
+          </section>
+
           <div
-            v-if="!allSounds.length"
+            v-else-if="!allSounds.length"
             class="border border-dashed border-[#3a3a3a] bg-[#121212] px-4 py-5 text-center text-[10px] italic text-neutral-500 [clip-path:polygon(0_10px,10px_0,100%_0,100%_calc(100%-10px),calc(100%-10px)_100%,0_100%)]"
           >
             loading sounds…
@@ -708,71 +774,6 @@ async function selectInstrument(name: string, close: () => void) {
           </div>
 
           <template v-else>
-            <div
-              v-if="panelTab === 'synths' && instrumentStore.synthControls"
-              data-testid="synth-sculptor"
-              class="synth-sculptor"
-            >
-              <div class="synth-sculptor__grid">
-                <div class="synth-sculptor__knob-cell">
-                  <Knob
-                    :model-value="instrumentStore.synthControls.cutoff"
-                    type="range"
-                    :min="200"
-                    :max="12000"
-                    :step="100"
-                    label="Cutoff"
-                    tone="brass"
-                    data-testid="synth-knob-cutoff"
-                    :format-value="(v) => Number(v) >= 1000 ? `${(Number(v) / 1000).toFixed(1)}k` : `${v}Hz`"
-                    @update:model-value="(v) => instrumentStore.setSynthControl('cutoff', Number(v))"
-                  />
-                </div>
-                <div class="synth-sculptor__knob-cell">
-                  <Knob
-                    :model-value="instrumentStore.synthControls.resonance"
-                    type="range"
-                    :min="0"
-                    :max="12"
-                    :step="0.5"
-                    label="Resonance"
-                    tone="brass"
-                    data-testid="synth-knob-resonance"
-                    :format-value="(v) => `${Number(v).toFixed(1)}`"
-                    @update:model-value="(v) => instrumentStore.setSynthControl('resonance', Number(v))"
-                  />
-                </div>
-                <div class="synth-sculptor__knob-cell">
-                  <Knob
-                    :model-value="instrumentStore.synthControls.attack"
-                    type="range"
-                    :min="0.001"
-                    :max="0.5"
-                    :step="0.005"
-                    label="Attack"
-                    tone="brass"
-                    data-testid="synth-knob-attack"
-                    :format-value="(v) => `${Math.round(Number(v) * 1000)}ms`"
-                    @update:model-value="(v) => instrumentStore.setSynthControl('attack', Number(v))"
-                  />
-                </div>
-                <div class="synth-sculptor__knob-cell">
-                  <Knob
-                    :model-value="instrumentStore.synthControls.release"
-                    type="range"
-                    :min="0.05"
-                    :max="2.5"
-                    :step="0.05"
-                    label="Release"
-                    tone="brass"
-                    data-testid="synth-knob-release"
-                    :format-value="(v) => `${Number(v).toFixed(2)}s`"
-                    @update:model-value="(v) => instrumentStore.setSynthControl('release', Number(v))"
-                  />
-                </div>
-              </div>
-            </div>
-
             <section
               v-for="group in orderedGroupsFor(panelTab)"
               :key="group.key"
@@ -780,20 +781,7 @@ async function selectInstrument(name: string, close: () => void) {
             >
               <div class="instrument-group__heading">
                 <span>{{ group.label }}</span>
-                <div class="instrument-group__actions">
-                  {{ group.sounds.length }}
-                  <Button
-                    v-if="panelTab === 'synths' && group.key === 'synths' && instrumentStore.synthControls"
-                    size="sm"
-                    tone="ink"
-                    data-testid="synth-sculptor-reset"
-                    title="Reset synth controls"
-                    accessible-name="Reset synth controls"
-                    @click="instrumentStore.resetSynthControls"
-                  >
-                    <RotateCcw :size="13" />
-                  </Button>
-                </div>
+                <span>{{ group.sounds.length }}</span>
               </div>
 
               <div class="instrument-group__choices">
@@ -840,23 +828,30 @@ async function selectInstrument(name: string, close: () => void) {
   margin-top: 1.5rem;
 }
 
-.synth-sculptor {
+.sound-shape {
   padding-block: 0.375rem;
-  margin-bottom: 0.75rem;
 }
 
-.synth-sculptor__grid {
+.sound-shape__grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 0.375rem;
   align-items: center;
   justify-items: center;
 }
 
-.synth-sculptor__knob-cell {
+.sound-shape__knob-cell {
   width: 100%;
   display: flex;
   justify-content: center;
+}
+
+.sound-shape__help {
+  min-height: 2.8em;
+  margin: .75rem 0 0;
+  color: var(--ivory-3);
+  font: var(--t-body-mono);
+  font-size: 10px;
 }
 
 .instrument-group__heading {
@@ -871,12 +866,6 @@ async function selectInstrument(name: string, close: () => void) {
   font-size: 8px;
   letter-spacing: .18em;
   text-transform: uppercase;
-}
-
-.instrument-group__actions {
-  display: flex;
-  align-items: center;
-  gap: .5rem;
 }
 
 .instrument-group__choices {
@@ -926,6 +915,7 @@ async function selectInstrument(name: string, close: () => void) {
 }
 
 @media (max-width: 460px) {
+  .sound-shape__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .instrument-group__choices { gap: .5625rem .5rem; }
   .instrument-choice__sticker { font-size: 12px; }
 }

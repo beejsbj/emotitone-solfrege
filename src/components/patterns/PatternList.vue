@@ -111,7 +111,11 @@ function barTape(notes: PatternNote[], context: PatternContext): BarTapeSegment[
   }));
 }
 
-function notation(notes: PatternNote[], context: PatternContext) {
+function notation(
+  notes: PatternNote[],
+  context: PatternContext,
+  patternDurationMs?: number,
+) {
   const bpm = sourceBpm(context.bpm);
   return logNotesToStrudel(notes as unknown as LogNote[], {
     bpm,
@@ -120,6 +124,7 @@ function notation(notes: PatternNote[], context: PatternContext) {
     scaleKey: context.key,
     scaleMode: context.mode,
     scaleOctave: keyboardStore.keyboardConfig.mainOctave,
+    patternDurationMs,
     sound: toStrudelSound(context.instrument ?? "sine"),
   });
 }
@@ -271,7 +276,7 @@ function notationForId(id: string) {
     return hasPlayableCode.value ? currentCode.value : "";
   }
   const pattern = patternById(id);
-  return pattern ? notation(pattern.notes, pattern) : "";
+  return pattern ? notation(pattern.notes, pattern, pattern.duration) : "";
 }
 
 async function copyNotation(id: string) {

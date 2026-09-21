@@ -115,7 +115,18 @@ export function mutatePatternMode(
     const degree = note.scaleIndex;
     if (degree >= 0 && degree < scaleNotes.length) {
       const pc = scaleNotes[degree];
-      const newNoteName = `${pc}${note.octave}`;
+      const currentMidi = TonalNote.midi(note.note);
+      const currentChroma = TonalNote.get(note.note).chroma;
+      const targetChroma = CHROMATIC_NOTES.indexOf(pc);
+      let chromaShift = targetChroma - currentChroma;
+      if (chromaShift > 6) chromaShift -= 12;
+      if (chromaShift < -6) chromaShift += 12;
+      const shiftedNote = currentMidi == null
+        ? `${pc}${note.octave}`
+        : TonalNote.fromMidi(currentMidi + chromaShift);
+      const shifted = TonalNote.get(shiftedNote);
+      const octave = Number.isFinite(shifted.oct) ? (shifted.oct as number) : note.octave;
+      const newNoteName = `${pc}${octave}`;
       const parsed = TonalNote.get(newNoteName);
       return {
         ...note,
@@ -124,6 +135,7 @@ export function mutatePatternMode(
         scaleIndex: degree,
         pitchClassIndex: parsed.chroma >= 0 ? parsed.chroma : undefined,
         isBorrowed: false,
+        octave,
         frequency: parsed.freq || undefined,
       };
     }
@@ -172,10 +184,11 @@ function parseStrudelNotes(
   bpm: number,
   key: ChromaticNote,
   mode: MusicalMode
-): PatternNote[] {
+): { notes: PatternNote[]; duration: number } {
   const cycleMs = (60000 / bpm) * 4;
   const layers = raw.split(",");
   const allNotes: PatternNote[] = [];
+  let phraseDuration = 0;
 
   layers.forEach((layerStr) => {
     const tokens = layerStr.trim().split(/\s+/);
@@ -189,7 +202,7 @@ function parseStrudelNotes(
         noteName = parts[0].trim();
         fraction = parseFloat(parts[1]);
       }
-      const duration = Math.round(fraction * cycleMs);
+      const tokenDuration = Math.round(fraction * cycleMs);
       if (noteName !== "~" && noteName && noteName !== ",") {
         const parsed = TonalNote.get(noteName);
         const pitchClassIndex = parsed.chroma >= 0 ? parsed.chroma : 0;
@@ -209,15 +222,19 @@ function parseStrudelNotes(
           octave,
           frequency: parsed.freq || undefined,
           pressTime: cursor,
-          releaseTime: cursor + duration,
-          duration,
+          releaseTime: cursor + tokenDuration,
+          duration: tokenDuration,
         });
       }
-      cursor += duration;
+      cursor += tokenDuration;
     });
+    phraseDuration = Math.max(phraseDuration, cursor);
   });
 
-  return allNotes.sort((a, b) => a.pressTime - b.pressTime);
+  return {
+    notes: allNotes.sort((a, b) => a.pressTime - b.pressTime),
+    duration: phraseDuration,
+  };
 }
 
 export function buildDefaultPattern(
@@ -251,9 +268,11 @@ export function buildDefaultPattern(
     patternInstrument = instrument;
   }
 
-  const notes = strudelNotation
+  const parsedStrudel = strudelNotation
     ? parseStrudelNotes(id, strudelNotation, patternBpm, patternKey, patternMode)
-    : buildPatternNotes(id, patternKey, patternMode, patternSteps ?? []);
+    : undefined;
+  const notes = parsedStrudel?.notes
+    ?? buildPatternNotes(id, patternKey, patternMode, patternSteps ?? []);
   const firstNote = notes[0];
   const lastNote = notes[notes.length - 1];
 
@@ -261,7 +280,8 @@ export function buildDefaultPattern(
     id,
     name: patternName,
     notes,
-    duration: lastNote ? lastNote.releaseTime - firstNote.pressTime : 0,
+    duration: parsedStrudel?.duration
+      ?? (lastNote ? lastNote.releaseTime - firstNote.pressTime : 0),
     noteCount: notes.length,
     key: patternKey,
     mode: patternMode,

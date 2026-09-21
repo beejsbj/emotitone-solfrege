@@ -100,6 +100,8 @@ export const usePatternsStore = defineStore(
       key: ChromaticNote;
       instrument: string;
       bpm: number;
+      octave?: number;
+      duration?: number;
     } | null>(null);
 
     // True immediately after Send, until first new note arrives
@@ -195,6 +197,20 @@ export const usePatternsStore = defineStore(
       ];
     });
 
+    const currentSketchDuration = computed(() => {
+      const notes = currentSketchNotes.value;
+      if (!notes.length) return 0;
+
+      const span = noteSpan(notes);
+      const soundingDuration = span.end - span.start;
+      const loadedBaseContributes = loadedBaseNotes.value.length > 0
+        && (currentWorkingNotes.value.length === 0 || canContinueLoadedBase.value);
+
+      return loadedBaseContributes
+        ? Math.max(soundingDuration, loadedBaseMeta.value?.duration ?? 0)
+        : soundingDuration;
+    });
+
     // Extract dynamic patterns from logged notes using isStartingNewPattern
     const dynamicPatterns = computed(() => {
       const patterns: Pattern[] = [];
@@ -280,6 +296,19 @@ export const usePatternsStore = defineStore(
     function resolvePatternOctave(pattern: Pattern): number | undefined {
       const tonic = pattern.notes.find((note) => note.scaleIndex === 0);
       return tonic?.octave ?? pattern.notes[0]?.octave;
+    }
+
+    function resolvePatternDuration(pattern: Pattern): number {
+      if (
+        typeof pattern.duration === "number"
+        && Number.isFinite(pattern.duration)
+        && pattern.duration >= 0
+      ) {
+        return pattern.duration;
+      }
+      if (!pattern.notes.length) return 0;
+      const span = noteSpan(pattern.notes);
+      return span.end - span.start;
     }
 
     function clamp(value: number, min: number, max: number): number {
@@ -454,7 +483,12 @@ export const usePatternsStore = defineStore(
     function createPatternFromNoteSet(
       notes: PatternNote[],
       meta: { mode: MusicalMode; key: ChromaticNote; instrument: string; bpm: number },
-      options: { name?: string; source?: PatternSource; isSaved?: boolean } = {},
+      options: {
+        name?: string;
+        source?: PatternSource;
+        isSaved?: boolean;
+        duration?: number;
+      } = {},
     ): Pattern {
       if (notes.length === 0) {
         throw new Error("Cannot create pattern from empty notes array");
@@ -467,7 +501,7 @@ export const usePatternsStore = defineStore(
           .substr(2, 9)}`,
         name: options.name ?? `Pattern ${new Date().toLocaleDateString()}`,
         notes,
-        duration: span.end - span.start,
+        duration: options.duration ?? (span.end - span.start),
         noteCount: notes.length,
         key: meta.key,
         mode: meta.mode,
@@ -544,11 +578,15 @@ export const usePatternsStore = defineStore(
 
       loadedBaseNotes.value = [...pattern.notes];
       loadedBasePatternId.value = patternId;
+      const patternOctave = resolvePatternOctave(pattern)
+        ?? keyboardStore.keyboardConfig.mainOctave;
       const patternMeta = {
         mode: pattern.mode,
         key: pattern.key,
         instrument: pattern.instrument,
         bpm: resolveBpm(pattern.bpm),
+        octave: patternOctave,
+        duration: resolvePatternDuration(pattern),
       };
       loadedBaseMeta.value = patternMeta;
       isStripCleared.value = false;
@@ -559,10 +597,7 @@ export const usePatternsStore = defineStore(
       try {
         musicStore.setKey(pattern.key);
         musicStore.setMode(pattern.mode as MusicalMode);
-        const patternOctave = resolvePatternOctave(pattern);
-        if (patternOctave !== undefined) {
-          keyboardStore.setMainOctave(patternOctave);
-        }
+        keyboardStore.setMainOctave(patternOctave);
         visualConfigStore.updateConfig("codeStrip", {
           bpm: resolveBpm(pattern.bpm),
         });
@@ -658,6 +693,44 @@ export const usePatternsStore = defineStore(
       }
     );
 
+    watch(
+      () => keyboardStore.keyboardConfig.mainOctave,
+      (newOctave) => {
+        if (isContextSyncing) return;
+        if (
+          loadedBaseNotes.value.length > 0 &&
+          currentWorkingNotes.value.length === 0 &&
+          !isStripCleared.value &&
+          loadedBaseMeta.value
+        ) {
+          const storedOctave = loadedBaseMeta.value.octave;
+          const previousOctave = typeof storedOctave === "number"
+            && Number.isFinite(storedOctave)
+            ? storedOctave
+            : loadedBaseNotes.value.find((note) => note.scaleIndex === 0)?.octave
+              ?? loadedBaseNotes.value[0]?.octave
+              ?? newOctave;
+          if (previousOctave === newOctave) {
+            loadedBaseMeta.value = {
+              ...loadedBaseMeta.value,
+              octave: newOctave,
+            };
+            return;
+          }
+          loadedBaseNotes.value = transposePatternNotes(
+            loadedBaseNotes.value,
+            (newOctave - previousOctave) * 12,
+            loadedBaseMeta.value.key,
+            loadedBaseMeta.value.mode
+          );
+          loadedBaseMeta.value = {
+            ...loadedBaseMeta.value,
+            octave: newOctave,
+          };
+        }
+      }
+    );
+
     // Send the current working buffer as a new saved pattern, then clear the desk
     function sendCurrentPattern(): void {
       const allNotes = currentSketchNotes.value;
@@ -696,7 +769,10 @@ export const usePatternsStore = defineStore(
           const newPattern = createPatternFromNoteSet(
             allNotes,
             currentSketchMeta.value,
-            { source: contributingLoadedPattern?.source },
+            {
+              source: contributingLoadedPattern?.source,
+              duration: currentSketchDuration.value,
+            },
           );
           savedPatterns.value.push(newPattern);
           focusedPatternId.value = newPattern.id;
@@ -1050,6 +1126,7 @@ export const usePatternsStore = defineStore(
       patterns,
       currentWorkingNotes,
       currentSketchNotes,
+      currentSketchDuration,
       currentSketchMeta,
 
       // Focused pattern

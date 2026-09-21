@@ -276,6 +276,7 @@ const generatedCode = computed(() => {
     scaleKey: sketchMeta.value.key,
     scaleMode: sketchMeta.value.mode,
     scaleOctave: keyboardConfig.value.mainOctave,
+    patternDurationMs: patternsStore.currentSketchDuration,
     sound: toStrudelSound(sketchMeta.value.instrument ?? "sine"),
   }).replace(/\s+/g, " ").trim();
 });

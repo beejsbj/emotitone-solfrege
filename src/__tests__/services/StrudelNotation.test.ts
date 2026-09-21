@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { defaultPatterns } from '@/data/patterns'
 import { logNotesToStrudel } from '@/services/StrudelNotation'
 import type { LogNote } from '@/types/patterns'
 
@@ -219,5 +220,21 @@ describe('StrudelNotation', () => {
 
     expect(result).toContain("[ 4@0.25 ]")
     expect(result).toContain('.scale("C4:major pentatonic")')
+  })
+
+  it("preserves a parsed pattern's trailing rest at the loop boundary", () => {
+    const chorus = defaultPatterns.find(
+      (pattern) => pattern.name === "Warrior of the Mind (Chorus)",
+    )
+    expect(chorus).toBeDefined()
+    expect(chorus?.duration).toBe(7920)
+
+    const result = logNotesToStrudel(chorus!.notes as LogNote[], {
+      bpm: chorus!.bpm,
+      sourceBpm: chorus!.bpm,
+      patternDurationMs: chorus!.duration,
+    })
+
+    expect(result).toContain('C#4@0.25 ~@0.375')
   })
 })

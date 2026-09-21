@@ -1105,9 +1105,10 @@ describe("Patterns Store", () => {
     ]);
   });
 
-  it("dynamically updates loaded pattern instrument, key, and mode when controls change", async () => {
+  it("dynamically updates loaded pattern instrument, key, mode, and octave when controls change", async () => {
     const musicStore = useMusicStore();
     const instrumentStore = useInstrumentStore();
+    const keyboardStore = useKeyboardDrawerStore();
     const pattern = createPattern({
       key: "E",
       mode: "minor",
@@ -1142,5 +1143,57 @@ describe("Patterns Store", () => {
     musicStore.setMode("major");
     await nextTick();
     expect(patternsStore.currentSketchMeta.mode).toBe("major");
+    expect(patternsStore.currentSketchNotes.map((n) => n.note)).toEqual(["G4", "B4", "D5"]);
+
+    // 4. Change octave without mutating the stored source pattern
+    keyboardStore.setMainOctave(5);
+    await nextTick();
+    expect(patternsStore.currentSketchNotes.map((n) => n.note)).toEqual(["G5", "B5", "D6"]);
+    expect(pattern.notes.map((n) => n.note)).toEqual(["E4", "G4", "B4"]);
+  });
+
+  it("preserves tonic-relative register when a mode change crosses C", async () => {
+    const musicStore = useMusicStore();
+    const pattern = createPattern({
+      key: "C#",
+      mode: "minor",
+      notes: [
+        createPatternNote({ note: "C#4", octave: 4, scaleIndex: 0, scaleDegree: 1 }),
+        createPatternNote({
+          id: "leading-tone",
+          note: "B4",
+          octave: 4,
+          scaleIndex: 6,
+          scaleDegree: 7,
+        }),
+      ],
+    });
+    patternsStore.savedPatterns.push(pattern);
+    patternsStore.loadPatternAsBase(pattern.id);
+    await nextTick();
+
+    musicStore.setMode("major");
+    await nextTick();
+    expect(patternsStore.currentSketchNotes.map((note) => note.note)).toEqual(["C#4", "C5"]);
+    expect(patternsStore.currentSketchNotes[1]?.octave).toBe(5);
+
+    musicStore.setMode("minor");
+    await nextTick();
+    expect(patternsStore.currentSketchNotes.map((note) => note.note)).toEqual(["C#4", "B4"]);
+    expect(patternsStore.currentSketchNotes[1]?.octave).toBe(4);
+  });
+
+  it("keeps a loaded pattern's trailing rest when Return saves a transformed copy", () => {
+    const chorus = patternsStore.patterns.find(
+      (pattern) => pattern.name === "Warrior of the Mind (Chorus)",
+    );
+    if (!chorus) throw new Error("Missing Warrior chorus default");
+
+    patternsStore.loadPatternAsBase(chorus.id);
+    expect(patternsStore.currentSketchDuration).toBe(7920);
+
+    patternsStore.sendCurrentPattern();
+
+    expect(patternsStore.savedPatterns.at(-1)?.duration).toBe(7920);
   });
 });

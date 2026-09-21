@@ -213,6 +213,30 @@ describe('published superdough lifecycle and voice budget', () => {
     expect(audio.voices[1].ended).toBe(true)
   })
 
+  it.each([2, 64])('withdraws obsolete release-priority reservations on out-of-order admission at budget %i', async limit => {
+    dough.setMaxPolyphony(limit)
+    audio.advance(.99)
+    await dough.superdough({ s: 'gated-test', release: .25 }, 1, .15, 1) // A: release 1.15, end 1.40
+    const a = audio.voices[0]
+    const aGains = [...audio.gains]
+    await dough.superdough({ s: 'gated-test', release: .25 }, 1, .05, 1) // B: release 1.05, end 1.30
+    for (let i = 0; i < limit - 2; i++) await attack(`held-${i}`, 1)
+    await dough.superdough({ s: 'gated-test', release: .1 }, 1.2, .8, 1) // D
+    const retirementGain = aGains.find(node => node.gain.linearRampToValueAtTime.mock.calls
+      .some(([value, at]) => value === 0 && Math.abs(at - 1.21) < 1e-9))!.gain
+    const withdrawal = vi.spyOn(retirementGain, 'cancelScheduledValues')
+
+    // C retires B earlier, then ends before D; A no longer needs retirement.
+    await dough.superdough({ s: 'gated-test', release: .02 }, 1.1, .02, 1)
+    expect(withdrawal).toHaveBeenCalledWith(1.2)
+    expect(retirementGain.setValueAtTime).toHaveBeenLastCalledWith(1, 1.2)
+    // Deliver all ended/cleanup callbacks late, after the obsolete cutoff.
+    audio.advance(1.211)
+    expect(a.ended).toBe(false)
+    expect(a.disconnected).toBe(false)
+    expect(audio.voices.filter(source => !source.disconnected)).toHaveLength(limit)
+  })
+
   it('bounds overlapping future fades at their retirement boundary without cutting prior hold', async () => {
     dough.setMaxPolyphony(64)
     audio.advance(.99)

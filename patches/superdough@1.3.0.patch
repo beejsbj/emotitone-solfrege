@@ -1,5 +1,5 @@
 diff --git a/dist/index.mjs b/dist/index.mjs
-index da81977b3a8f9cb8af08440c61990437041f69b7..89aca5aeb8f4f145da19368250191bac4a2cb0c7 100644
+index da81977b3a8f9cb8af08440c61990437041f69b7..6bf1817cf388869b5fab5dfc871da8176038933a 100644
 --- a/dist/index.mjs
 +++ b/dist/index.mjs
 @@ -1,8 +1,8 @@
@@ -2881,7 +2881,7 @@ index da81977b3a8f9cb8af08440c61990437041f69b7..89aca5aeb8f4f145da19368250191bac
 +    D.releaseAt = Math.min(D.releaseAt, h);
 +    const I = h + Bn;
 +    ct(I), he && Tt(he.gain, h, Math.max(h, ge));
-+  }), xe.set(nt, new WeakRef(D)), ye != null && i && ie.set(ye, D), Je(D.startAt), i)
++  }), xe.set(nt, new WeakRef(D)), ye != null && i && ie.set(ye, D), Je(s.currentTime, !0), i)
 +    return Math.max(t, s.currentTime);
 +}, rs = (e, t, n, o) => {
 +  Wc(t, e - n, t.duration / o, o);
@@ -3818,7 +3818,7 @@ index 25c34c641ccff7292fe917bf3a5489ff7b512340..82a3439457f7fbea54f0ee880099492e
    // cut groups
    if (cut !== undefined) {
 diff --git a/superdough.mjs b/superdough.mjs
-index 03a4c3da8f01c6f303ae0aa1205dbab340798b65..4e1202adec22d16a203c4e696dbb5afd547ca5fb 100644
+index 03a4c3da8f01c6f303ae0aa1205dbab340798b65..a2477235236994b41f4c9123fbf020a43d338da7 100644
 --- a/superdough.mjs
 +++ b/superdough.mjs
 @@ -47,7 +47,8 @@ export let maxPolyphony = DEFAULT_MAX_POLYPHONY;
@@ -4212,7 +4212,7 @@ index 03a4c3da8f01c6f303ae0aa1205dbab340798b65..4e1202adec22d16a203c4e696dbb5afd
    // last gain
    const post = new GainNode(ac, { gain: postgain });
    nodes.main['post'] = [post];
-@@ -1025,6 +1280,139 @@ export const superdough = async (value, t, hapDuration, cps = 0.5, cycle = 0.5)
+@@ -1025,6 +1280,142 @@ export const superdough = async (value, t, hapDuration, cps = 0.5, cycle = 0.5)
        }
      }
    });
@@ -4345,7 +4345,10 @@ index 03a4c3da8f01c6f303ae0aa1205dbab340798b65..4e1202adec22d16a203c4e696dbb5afd
 +  if (voiceId != null && sustainUntilRelease) {
 +    liveVoices.set(voiceId, managedVoice);
 +  }
-+  makeVoiceRoom(managedVoice.startAt);
++  // A newly prepared, earlier onset can change later release-priority victims.
++  // Rebuild every reversible reservation now, without depending on onended
++  // delivery to withdraw obsolete future gain automation.
++  makeVoiceRoom(ac.currentTime, true);
 +  // A source may start while its async handle is still being prepared. Until
 +  // the graph connects it cannot be heard, even when the requested time passed.
 +  if (sustainUntilRelease) return Math.max(t, ac.currentTime);

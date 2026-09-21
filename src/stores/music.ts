@@ -591,6 +591,8 @@ export const useMusicStore = defineStore(
         ? ["exact", snapshot.noteName]
         : [snapshot.noteName, snapshot.solfegeIndex, snapshot.keyboardOctave];
       const noteId = [...prefix, Date.now(), Math.random().toString(36).slice(2, 8)].join("_");
+      // Recording follows input onset, even when audio preparation resolves later.
+      const timestamp = Date.now();
       const startedAt = await superdoughAudio.attackNote(noteId, snapshot.noteName, instrument);
       if (
         isCancelled()
@@ -615,6 +617,7 @@ export const useMusicStore = defineStore(
           isBorrowed: snapshot.solfegeIndex === -1,
           instrument,
           instrumentConfig: null,
+          timestamp,
         },
       }));
       return noteId;

@@ -770,16 +770,6 @@ async function selectInstrument(name: string, close: () => void) {
                     @update:model-value="(v) => instrumentStore.setSynthControl('release', Number(v))"
                   />
                 </div>
-                <Button
-                  size="sm"
-                  tone="ink"
-                  data-testid="synth-sculptor-reset"
-                  title="Reset synth controls"
-                  accessible-name="Reset synth controls"
-                  @click="instrumentStore.resetSynthControls"
-                >
-                  <RotateCcw :size="13" />
-                </Button>
               </div>
             </div>
 
@@ -790,8 +780,19 @@ async function selectInstrument(name: string, close: () => void) {
             >
               <div class="instrument-group__heading">
                 <span>{{ group.label }}</span>
-                <div>
+                <div class="instrument-group__actions">
                   {{ group.sounds.length }}
+                  <Button
+                    v-if="panelTab === 'synths' && group.key === 'synths' && instrumentStore.synthControls"
+                    size="sm"
+                    tone="ink"
+                    data-testid="synth-sculptor-reset"
+                    title="Reset synth controls"
+                    accessible-name="Reset synth controls"
+                    @click="instrumentStore.resetSynthControls"
+                  >
+                    <RotateCcw :size="13" />
+                  </Button>
                 </div>
               </div>
 
@@ -840,16 +841,13 @@ async function selectInstrument(name: string, close: () => void) {
 }
 
 .synth-sculptor {
-  border: 1px solid var(--ink-5);
-  background: #111111;
-  padding: 0.375rem 0.5rem;
+  padding-block: 0.375rem;
   margin-bottom: 0.75rem;
-  clip-path: polygon(0 6px, 6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%);
 }
 
 .synth-sculptor__grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.375rem;
   align-items: center;
   justify-items: center;
@@ -873,6 +871,12 @@ async function selectInstrument(name: string, close: () => void) {
   font-size: 8px;
   letter-spacing: .18em;
   text-transform: uppercase;
+}
+
+.instrument-group__actions {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
 }
 
 .instrument-group__choices {

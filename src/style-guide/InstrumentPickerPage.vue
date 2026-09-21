@@ -42,7 +42,7 @@
         <div><dt>Warming</dt><dd>Filled Ivory Sticker held with the current/ready sounds while the progress banner names the load.</dd></div>
         <div><dt>Icons</dt><dd>The shared instrument resolver identifies both Drawer handles and choice Stickers.</dd></div>
         <div><dt>Choice button</dt><dd>Invisible native semantics only; Sticker owns all visible choice geometry and material.</dd></div>
-        <div><dt>Synth shaping</dt><dd>Four compact Brass Knobs share one row with an Ink reset Button in the Synths bank.</dd></div>
+        <div><dt>Synth shaping</dt><dd>Four compact Brass Knobs form an unframed row; the Synths section header holds the Ink reset Button.</dd></div>
       </dl>
     </section>
 

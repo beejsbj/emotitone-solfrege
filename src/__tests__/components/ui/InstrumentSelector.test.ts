@@ -495,7 +495,7 @@ describe('InstrumentSelector.vue', () => {
     const sculptor = wrapper.find('[data-testid="synth-sculptor"]')
     expect(sculptor.exists()).toBe(true)
     expect(sculptor.text()).not.toContain('Synth Sculptor')
-    const reset = sculptor.get('[data-testid="synth-sculptor-reset"]')
+    const reset = wrapper.get('.instrument-group__heading [data-testid="synth-sculptor-reset"]')
     expect(reset.find('[data-testid="reset-icon"]').exists()).toBe(true)
     expect(sculptor.find('[data-testid="synth-knob-cutoff"]').exists()).toBe(true)
     expect(sculptor.find('[data-testid="synth-knob-resonance"]').exists()).toBe(true)

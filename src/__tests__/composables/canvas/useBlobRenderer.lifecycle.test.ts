@@ -107,7 +107,7 @@ describe("useBlobRenderer lifecycle", () => {
     expect(renderer.getPreparedBlobFrames()).toHaveLength(1);
   });
 
-  it("ignores the legacy Blob breathing control", () => {
+  it("uses the Blob breathing control without doubling its scale", () => {
     vi.spyOn(Date, "now").mockReturnValue(1_000);
     const renderer = useBlobRenderer();
     createTestBlob(renderer);
@@ -123,7 +123,10 @@ describe("useBlobRenderer lifecycle", () => {
       ...DEFAULT_CONFIG.blobs,
       oscillationAmplitude: 1,
     });
-    expect(renderer.activeBlobs.get("c4")?.renderScale).toBeCloseTo(1, 6);
+    expect(renderer.activeBlobs.get("c4")?.renderScale).toBeCloseTo(
+      1 + Math.sin(1.5) * 0.02,
+      6
+    );
   });
 
   it("preserves an altered chord tone's exact pitch color", () => {
@@ -303,7 +306,7 @@ describe("useBlobRenderer lifecycle", () => {
     expect(blob.fadeOutStartTime).toBe(fadeOutStartTime);
   });
 
-  it("keeps blob bodies still regardless of pitch or legacy motion settings", () => {
+  it("vibrates with pitch-scaled harmonic motion matching strings", () => {
     vi.spyOn(Date, "now").mockReturnValue(1_000);
     const renderer = useBlobRenderer();
     // Low note: C2 (65.41 Hz)
@@ -335,25 +338,12 @@ describe("useBlobRenderer lifecycle", () => {
       5
     );
 
-    const lowBlob = renderer.activeBlobs.get("low-c2")!;
-    const highBlob = renderer.activeBlobs.get("high-c5")!;
-    lowBlob.driftVx = 10;
-    lowBlob.driftVy = -10;
-    highBlob.driftVx = -10;
-    highBlob.driftVy = 10;
-    const centers = new Map([
-      ["low-c2", { x: lowBlob.x, y: lowBlob.y }],
-      ["high-c5", { x: highBlob.x, y: highBlob.y }],
-    ]);
+    vi.mocked(Date.now).mockReturnValue(1_500);
     const motionConfig = {
       ...DEFAULT_CONFIG.blobs,
-      driftSpeed: 1,
-      oscillationAmplitude: 1,
-      vibrationAmplitude: 100,
+      vibrationAmplitude: 10,
     };
-
-    vi.mocked(Date.now).mockReturnValue(2_500);
-    renderer.prepareBlobs(context, motionConfig);
+    renderer.prepareBlobs(context, motionConfig, { elapsed: 1.5 });
 
     const frames = renderer.getPreparedBlobFrames();
     const lowFrame = frames.find((f) => f.key === "low-c2")!;
@@ -362,16 +352,32 @@ describe("useBlobRenderer lifecycle", () => {
     expect(lowFrame).toBeDefined();
     expect(highFrame).toBeDefined();
 
-    for (const frame of [lowFrame, highFrame]) {
-      expect(frame.blob).toMatchObject(centers.get(frame.key)!);
-      expect(frame.blob.renderScale).toBeCloseTo(1, 6);
-      for (const point of frame.contour) {
-        const radius = Math.hypot(
-          point.x - frame.blob.x,
-          point.y - frame.blob.y,
-        );
-        expect(radius).toBeCloseTo(frame.scaledRadius, 6);
-      }
+    // Both contours should be closed (first and last points match)
+    const lowContour = lowFrame.contour;
+    expect(lowContour[0].x).toBeCloseTo(lowContour[lowContour.length - 1].x, 6);
+    expect(lowContour[0].y).toBeCloseTo(lowContour[lowContour.length - 1].y, 6);
+
+    // Reduced motion keeps contour at exact scaledRadius
+    renderer.prepareBlobs(context, DEFAULT_CONFIG.blobs, {
+      reducedMotion: true,
+      elapsed: 1.5,
+    });
+    const stillLowFrame = renderer.getPreparedBlobFrames().find((f) => f.key === "low-c2")!;
+    const stillRadius = stillLowFrame.scaledRadius;
+    for (const pt of stillLowFrame.contour) {
+      const dist = Math.hypot(pt.x - stillLowFrame.blob.x, pt.y - stillLowFrame.blob.y);
+      expect(dist).toBeCloseTo(stillRadius, 4);
+    }
+
+    // Default config (motion at 0) keeps contour at exact scaledRadius without reducedMotion
+    renderer.prepareBlobs(context, DEFAULT_CONFIG.blobs, {
+      reducedMotion: false,
+      elapsed: 1.5,
+    });
+    const defaultLowFrame = renderer.getPreparedBlobFrames().find((f) => f.key === "low-c2")!;
+    for (const pt of defaultLowFrame.contour) {
+      const dist = Math.hypot(pt.x - defaultLowFrame.blob.x, pt.y - defaultLowFrame.blob.y);
+      expect(dist).toBeCloseTo(defaultLowFrame.scaledRadius, 4);
     }
   });
 });

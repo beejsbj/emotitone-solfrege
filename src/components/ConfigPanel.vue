@@ -716,6 +716,7 @@ const stageLooksDisabled = computed(
 const BODY_DEPENDENT_CONTROLS = new Set<StageControlId>([
   "bodySize",
   "bodyStrength",
+  "bodyMotion",
   "connectionMode",
   "connectionStrength",
   "connectionSoftness",

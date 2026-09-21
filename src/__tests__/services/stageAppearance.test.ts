@@ -37,10 +37,10 @@ function changedPaths(before: unknown, after: unknown, prefix = ""): string[] {
 }
 
 describe("Stage appearance domain", () => {
-  it("publishes exactly the accepted 22 controls with Motion hidden from bodies", () => {
+  it("publishes exactly the accepted 23 controls", () => {
     const controls = STAGE_CONTROL_DEFINITIONS;
-    expect(controls).toHaveLength(22);
-    expect(new Set(controls.map((control) => control.id)).size).toBe(22);
+    expect(controls).toHaveLength(23);
+    expect(new Set(controls.map((control) => control.id)).size).toBe(23);
     expect(STAGE_CONTROL_GROUPS.map((group) => group.label)).toEqual([
       "Scope",
       "Note Bodies",
@@ -190,7 +190,7 @@ describe("Stage appearance domain", () => {
       bodiesVisible: true,
       bodySize: 0.2,
       bodyStrength: 0.75,
-      bodyMotion: expect.closeTo(0.4),
+      bodyMotion: 0,
       connectionMode: "merge",
       connectionStrength: 0.2,
       connectionSoftness: 0.25,

@@ -95,7 +95,7 @@ export const UNIFIED_CONFIG = {
       group: "Appearance",
     },
     oscillationAmplitude: {
-      value: 0.4,
+      value: 0,
       min: 0,
       max: 1,
       step: 0.02,
@@ -131,7 +131,7 @@ export const UNIFIED_CONFIG = {
       group: "Motion",
     },
     driftSpeed: {
-      value: 8,
+      value: 0,
       min: 0,
       max: 100,
       step: 2,
@@ -156,7 +156,7 @@ export const UNIFIED_CONFIG = {
       group: "Motion",
     },
     vibrationAmplitude: {
-      value: 10,
+      value: 0,
       min: 0,
       max: 50,
       step: 1,

@@ -59,6 +59,7 @@ describe("CodeStrip recorded-token metadata", () => {
         rawPitch: "D4",
         duration: "@0.125",
       },
+      { type: "rest", duration: "@0.25" },
     ]);
     expect(result.every((token) => !("progress" in token))).toBe(true);
   });
@@ -71,7 +72,24 @@ describe("CodeStrip recorded-token metadata", () => {
       { type: "note", duration: "@0.04" },
       { type: "rest", duration: "@0.04" },
       { type: "note", duration: "@0.04" },
+      { type: "rest", duration: "@0.25" },
     ]);
+  });
+
+  it("fills tiny silences in the displayed sequence and includes one loop tail", () => {
+    const notes = [note("c", "C4", 0, 4, 1000, 500), note("d", "D4", 1, 4, 1520, 500)];
+    expect(tokens(notes)).toMatchObject([
+      { type: "note", duration: "@0.26" },
+      { type: "note", duration: "@0.25" },
+      { type: "rest", duration: "@0.25" },
+    ]);
+    expect(notes[0].duration).toBe(500);
+  });
+
+  it("keeps tiny overlaps grouped and does not add a tail to an empty take", () => {
+    expect(tokens([note("c", "C4", 0, 4, 0, 500.5), note("d", "D4", 1, 4, 500, 500)]))
+      .toMatchObject([{ type: "chord", duration: "@0.5" }, { type: "rest", duration: "@0.25" }]);
+    expect(tokens([])).toEqual([]);
   });
 
   it.each([
@@ -139,6 +157,6 @@ describe("CodeStrip recorded-token metadata", () => {
     expect(tokens([
       note("c", "C4", 0, 4, 1000, 500),
       note("d", "D4", 1, 4, 2000, 500),
-    ]).map((token) => token.type)).toEqual(["note", "rest", "note"]);
+    ]).map((token) => token.type)).toEqual(["note", "rest", "note", "rest"]);
   });
 });

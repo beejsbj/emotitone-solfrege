@@ -12,6 +12,7 @@ import type { LogNote } from "@/types/patterns";
 import type { MusicalMode } from "@/types/music";
 import { Note as TonalNote } from "@tonaljs/tonal";
 import { getScaleForMode, normalizeScaleIndex } from "@/data";
+import { prepareRecordedNotes, recordedLoopTailMs } from "./recordedTiming";
 
 export interface StrudelConfig {
   /** Playback tempo in BPM. Used by the live runtime, not @ duration sizing. @default 120 */
@@ -45,7 +46,7 @@ const DEFAULT_CONFIG: StrudelConfig = {
 
 export const DEFAULT_SOURCE_BPM = DEFAULT_CONFIG.sourceBpm;
 
-const OVERLAP_EPSILON_MS = 1;
+const OVERLAP_EPSILON_MS = 0;
 
 /** Length of one bar in milliseconds. */
 function barLengthMs(config: StrudelConfig): number {
@@ -54,8 +55,25 @@ function barLengthMs(config: StrudelConfig): number {
 
 /** Converts a duration in ms to a Strudel @x string. Returns "" when @x === 1. */
 function toAt(ms: number, barMs: number, precision: number): string {
-  const x = parseFloat((ms / barMs).toFixed(precision));
+  const x = Math.max(10 ** -precision, parseFloat((ms / barMs).toFixed(precision)));
   return x === 1 ? "" : `@${x}`;
+}
+
+/** Coalesce adjacent rests in one sequence; brace lanes stay independent. */
+export function mergeStrudelRests(tokens: string[], precision = 4): string[] {
+  const merged: string[] = [];
+  let restWeight = 0;
+  const flush = () => {
+    if (restWeight > 0) merged.push(`~${toAt(restWeight, 1, precision)}`);
+    restWeight = 0;
+  };
+  for (const token of tokens) {
+    const rest = token.match(/^~(?:@(\d+(?:\.\d+)?))?$/);
+    if (rest) restWeight += rest[1] === undefined ? 1 : Number(rest[1]);
+    else { flush(); merged.push(token); }
+  }
+  flush();
+  return merged;
 }
 
 /**
@@ -71,7 +89,7 @@ export class StrudelNotation {
   private renderRelative = false;
 
   constructor(notes: LogNote[], config?: Partial<StrudelConfig>) {
-    this.notes = [...notes].sort(
+    this.notes = prepareRecordedNotes(notes).sort(
       (a, b) =>
         a.pressTime - b.pressTime ||
         a.octave - b.octave ||
@@ -124,7 +142,10 @@ export class StrudelNotation {
       index = nextIndex;
     }
 
-    const inner = `[ ${tokens.join(" ")} ]`;
+    tokens.push(`~${toAt(recordedLoopTailMs(this.config.sourceBpm), barMs, this.config.precision)}`);
+    // Direct @ weights in <> are cycle lengths. A surrounding [] would
+    // normalize the entire take into one cycle, regardless of its duration.
+    const inner = mergeStrudelRests(tokens, this.config.precision).join(" ");
     const cpmExpression = `${this.config.bpm} / ${this.config.beatsPerBar}`;
 
     if (this.renderRelative) {
@@ -154,6 +175,12 @@ export class StrudelNotation {
     blockEnd: number,
     barMs: number
   ) {
+    if (notes.every(note => this.noteStart(note, origin) === blockStart &&
+      this.noteEnd(note, origin) === blockEnd)) {
+      return `{${notes.map(note => this.noteValue(note)).join(", ")}}${toAt(
+        blockEnd - blockStart, barMs, this.config.precision,
+      )}`;
+    }
     const lanes = this.buildLanes(notes, origin);
     const laneStrings = lanes.map((lane) =>
       this.renderLane(lane, origin, blockStart, blockEnd, barMs)
@@ -197,46 +224,33 @@ export class StrudelNotation {
     blockEnd: number,
     barMs: number
   ) {
-    if (lane.length === 1) {
-      const note = lane[0];
-      const startsWithBlock =
-        this.noteStart(note, origin) - blockStart <= OVERLAP_EPSILON_MS;
-      const endsWithBlock =
-        blockEnd - this.noteEnd(note, origin) <= OVERLAP_EPSILON_MS;
-
-      if (startsWithBlock && endsWithBlock) {
-        return this.noteValue(note);
-      }
-    }
-
+    // Every lane must carry the same total weight. Omitting a full-span
+    // note's weight makes it 1 while padded lanes may total e.g. 0.25;
+    // {} then repeats those shorter lanes, inventing extra attacks.
+    // Round shared boundaries, not individual durations: independent rounding
+    // can give lanes different totals and create an extra attack at the end.
+    const precision = Math.max(6, this.config.precision);
+    const units = 10 ** precision;
+    const boundary = (time: number) => Math.round((time - blockStart) / barMs * units);
+    const format = (ticks: number) => toAt(ticks, units, precision);
     const tokens: string[] = [];
-    let cursor = blockStart;
+    let cursor = 0;
 
     for (const note of lane) {
-      const start = this.noteStart(note, origin);
-      const end = this.noteEnd(note, origin);
+      const start = boundary(this.noteStart(note, origin));
+      const end = boundary(this.noteEnd(note, origin));
       const gap = start - cursor;
 
-      if (gap > OVERLAP_EPSILON_MS) {
-        tokens.push(`~${toAt(gap, barMs, this.config.precision)}`);
-      }
+      if (gap > 0) tokens.push(`~${format(gap)}`);
 
-      tokens.push(
-        `${this.noteValue(note)}${toAt(
-          this.noteDuration(note),
-          barMs,
-          this.config.precision
-        )}`
-      );
+      tokens.push(`${this.noteValue(note)}${format(end - start)}`);
       cursor = end;
     }
 
-    const trailingGap = blockEnd - cursor;
-    if (trailingGap > OVERLAP_EPSILON_MS) {
-      tokens.push(`~${toAt(trailingGap, barMs, this.config.precision)}`);
-    }
+    const trailingGap = boundary(blockEnd) - cursor;
+    if (trailingGap > 0) tokens.push(`~${format(trailingGap)}`);
 
-    return tokens.join(" ");
+    return mergeStrudelRests(tokens, precision).join(" ");
   }
 
   private noteValue(note: LogNote) {

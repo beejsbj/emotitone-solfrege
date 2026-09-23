@@ -17,7 +17,7 @@
 
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
-import Sticker from "./Sticker.vue";
+import Sticker from "./Sticker";
 
 export type DragValueTone = "brass" | "ivory" | "ivory-badge";
 

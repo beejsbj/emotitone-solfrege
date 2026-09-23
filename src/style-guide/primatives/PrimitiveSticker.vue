@@ -49,7 +49,7 @@
 </template>
 
 <script setup lang="ts">
-import Sticker from "../../components/primatives/Sticker.vue";
+import Sticker from "../../components/primatives/Sticker";
 import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
 import VariantCell from "../guide/VariantCell.vue";
 import VariantGrid from "../guide/VariantGrid.vue";

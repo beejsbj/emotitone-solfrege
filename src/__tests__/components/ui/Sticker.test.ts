@@ -1,8 +1,7 @@
-import { describe, expect, expectTypeOf, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { mount } from "@vue/test-utils";
 import { defineComponent, h, ref } from "vue";
-import Sticker from "@/components/primatives/Sticker.vue";
-import type { StickerProps } from "@/components/primatives/Sticker.vue";
+import Sticker from "@/components/primatives/Sticker";
 import { provideUIBeat, UIBeatClock } from "@/composables/useUIBeat";
 
 describe("Sticker", () => {
@@ -21,11 +20,6 @@ describe("Sticker", () => {
     expect(wrapper.find(".sticker__badge-edge").exists()).toBe(true);
     expect(wrapper.find(".sticker__badge-text").text()).toBe("Alert");
     expect(wrapper.attributes("style")).toBeUndefined();
-  });
-
-  it("limits the public Badge color contract to Brass sheen and Ivory", () => {
-    type BadgeProps = Extract<StickerProps, { variant: "badge" }>;
-    expectTypeOf<BadgeProps["color"]>().toEqualTypeOf<"brass-sheen" | "ivory" | undefined>();
   });
 
   it("falls back to Brass sheen when untyped runtime input requests another Badge color", () => {

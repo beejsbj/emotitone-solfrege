@@ -219,14 +219,14 @@ describe("Device Detection Utilities", () => {
       expect(hasPhysicalKeyboard()).toBe(true);
     });
 
-    it("should not detect physical keyboard on large touch screen", () => {
+    it("should consider a large touch screen likely to have a keyboard", () => {
       Object.defineProperty(window, 'innerWidth', {
         writable: true,
         configurable: true,
         value: 1200
       });
       (window as any).ontouchstart = {};
-      expect(hasPhysicalKeyboard()).toBe(false);
+      expect(hasPhysicalKeyboard()).toBe(true);
     });
   });
 

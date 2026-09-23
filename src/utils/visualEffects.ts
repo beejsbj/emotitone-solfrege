@@ -14,6 +14,9 @@ export function mapFrequencyToValue(
 ): number {
   const { minFreq, maxFreq, minValue, maxValue } = mapping;
 
+  // A constant input range has no interpolation interval.
+  if (maxFreq === minFreq) return Math.round(minValue);
+
   // Clamp frequency to the specified range
   const clampedFreq = Math.max(minFreq, Math.min(maxFreq, frequency));
 

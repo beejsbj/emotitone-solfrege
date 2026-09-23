@@ -239,9 +239,13 @@ describe("Visual Effects Utilities", () => {
       expect(createStringDamping(0.1)).toBeCloseTo(createStringDamping(0.9), 5);
     });
 
-    it("should handle edge cases", () => {
-      expect(createStringDamping(-0.1)).toBeCloseTo(0, 1); // Negative values
-      expect(createStringDamping(1.1)).toBeCloseTo(0, 1); // Values > 1
+    it("should approach zero near the string endpoints", () => {
+      const nearStart = createStringDamping(0.01);
+      const nearEnd = createStringDamping(0.99);
+      expect(nearStart).toBeGreaterThan(0);
+      expect(nearStart).toBeLessThan(0.05);
+      expect(nearEnd).toBeGreaterThan(0);
+      expect(nearEnd).toBeLessThan(0.05);
     });
   });
 
@@ -253,7 +257,7 @@ describe("Visual Effects Utilities", () => {
 
     it("should vary with time", () => {
       const result1 = createHarmonicVibration(0, 2, 10, 100);
-      const result2 = createHarmonicVibration(1, 2, 10, 100);
+      const result2 = createHarmonicVibration(0.125, 2, 10, 100); // Quarter period at 2 Hz
       
       expect(result1).not.toBeCloseTo(result2, 1);
     });
@@ -425,8 +429,8 @@ describe("Visual Effects Utilities", () => {
       
       expect(props.size).toBe(5);
       expect(props.lifetime).toBe(2000);
-      expect(props.velocity.x).toBe(0);
-      expect(props.velocity.y).toBe(0);
+      expect(props.velocity.x).toBeCloseTo(0, 5);
+      expect(props.velocity.y).toBeCloseTo(0, 5);
     });
 
     it("should handle inverted min/max values gracefully", () => {

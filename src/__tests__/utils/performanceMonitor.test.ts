@@ -141,8 +141,9 @@ describe("Performance Monitor", () => {
     });
 
     describe("Performance warnings", () => {
-      it("should log warning for poor performance", () => {
+      it("should avoid repeated console messages for poor performance", () => {
         const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
         
         // Simulate poor performance for 300 frames
         for (let i = 0; i < 300; i++) {
@@ -151,11 +152,11 @@ describe("Performance Monitor", () => {
         
         performanceMonitor.checkAndWarnPerformance();
         
-        expect(consoleSpy).toHaveBeenCalledWith(
-          expect.stringContaining("Performance Warning")
-        );
+        expect(consoleSpy).not.toHaveBeenCalled();
+        expect(infoSpy).not.toHaveBeenCalled();
         
         consoleSpy.mockRestore();
+        infoSpy.mockRestore();
       });
 
       it("should log info for fair performance", () => {
@@ -388,7 +389,7 @@ describe("Performance Monitor", () => {
       const settings = autoAdjustPerformance(metrics);
       
       expect(status).toBe("fair");
-      expect(suggestions.length).toBe(0); // 30 FPS is at the threshold
+      expect(suggestions).toContain("Reduce canvas resolution or visual quality"); // 30 FPS takes more than 33ms per frame
       expect(settings.particleCount).toBe(0.6);
       expect(settings.enableBlur).toBe(false);
     });

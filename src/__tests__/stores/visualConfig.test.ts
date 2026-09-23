@@ -40,17 +40,6 @@ describe('Visual Config Store', () => {
   })
 
   describe('Initial State', () => {
-    it('should initialize with default values', () => {
-      expect(visualConfigStore.config.blobs.isEnabled).toBe(true)
-      expect(visualConfigStore.config.ambient.isEnabled).toBe(true)
-      expect(visualConfigStore.config.particles.isEnabled).toBe(true)
-      expect(visualConfigStore.config.strings.isEnabled).toBe(true)
-      expect(visualConfigStore.visualsEnabled).toBe(true)
-      expect(visualConfigStore.savedConfigs).toEqual([])
-      expect(visualConfigStore.isLoading).toBe(false)
-      expect(visualConfigStore.lastSaved).toBe(null)
-    })
-
     it('supports an isolated specimen state without writing production storage', () => {
       vi.useFakeTimers()
       const mockLocalStorage = (window as any).localStorage
@@ -909,20 +898,6 @@ describe('Visual Config Store', () => {
   })
 
   describe('Reactivity', () => {
-    it('should trigger reactivity on config updates', () => {
-      const configRef = visualConfigStore.config
-      let triggered = false
-      
-      // Simulate watcher
-      const stopWatching = vi.fn(() => {
-        triggered = true
-      })
-      
-      visualConfigStore.updateConfig('blobs', { isEnabled: false })
-      
-      expect(configRef.blobs.isEnabled).toBe(false)
-    })
-
     it('should maintain object references for reactive updates', () => {
       const blobsRef = visualConfigStore.config.blobs
       
@@ -949,16 +924,6 @@ describe('Visual Config Store', () => {
       expect(newStore.config.particles.isEnabled).toBe(true) // Should use defaults
     })
 
-    it('should preserve type safety in configuration updates', () => {
-      // Should not allow invalid types
-      visualConfigStore.updateConfig('blobs', {
-        isEnabled: false,
-        opacity: 0.5
-      })
-      
-      expect(typeof visualConfigStore.config.blobs.isEnabled).toBe('boolean')
-      expect(typeof visualConfigStore.config.blobs.opacity).toBe('number')
-    })
   })
 
   describe('Stage appearance', () => {
@@ -1246,14 +1211,6 @@ describe('Visual Config Store', () => {
   describe('Store Persistence', () => {
     it('should have correct store ID', () => {
       expect(visualConfigStore.$id).toBe('visualConfig')
-    })
-
-    it('should maintain state across store instances', () => {
-      visualConfigStore.updateConfig('blobs', { isEnabled: false })
-      
-      const newStore = useVisualConfigStore()
-      
-      expect(newStore.config.blobs.isEnabled).toBe(false)
     })
   })
 

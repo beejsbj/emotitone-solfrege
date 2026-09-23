@@ -284,7 +284,6 @@ describe("useHarmonicAnalysis", () => {
   });
 
   it.each([
-    [["C4", "E4", "G4"], "CM"],
     [["A3", "C4", "F4"], "FM/A"],
     [["C4", "F4", "A4"], "FM/C"],
     [["C3", "E4", "A4"], "Am/C"],

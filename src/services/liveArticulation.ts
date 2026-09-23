@@ -1,14 +1,16 @@
 export interface LiveArticulation {
   attack: number;
+  decay: number;
+  sustain: number;
   release: number;
 }
 
-const PERCUSSIVE: LiveArticulation = { attack: 0.001, release: 0.2 };
-const OSCILLATOR: LiveArticulation = { attack: 0.003, release: 0.12 };
-const SUSTAINED: LiveArticulation = { attack: 0.01, release: 0.4 };
-const DEFAULT: LiveArticulation = { attack: 0.01, release: 1.5 };
+const PERCUSSIVE: LiveArticulation = { attack: 0.001, decay: 0.001, sustain: 1, release: 0.2 };
+const OSCILLATOR: LiveArticulation = { attack: 0.003, decay: 0.001, sustain: 1, release: 0.12 };
+const SUSTAINED: LiveArticulation = { attack: 0.01, decay: 0.001, sustain: 1, release: 0.4 };
+const DEFAULT: LiveArticulation = { attack: 0.01, decay: 0.001, sustain: 1, release: 1.5 };
 
-/** Live keyboard envelopes; pattern-authored articulation remains independent.
+/** Shared defaults for live keyboard and recorded-note playback envelopes.
  * Samples retain their recorded onset. This small gain ramp avoids adding a
  * blanket soft attack to percussive instruments without introducing a hard step.
  */

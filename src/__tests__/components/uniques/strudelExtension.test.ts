@@ -115,6 +115,27 @@ const progress = (host: HTMLElement, selector: string) =>
   host.querySelector<HTMLElement>(selector)?.style.getPropertyValue("--code-strip-progress");
 
 describe("CodeStrip Strudel source decorations", () => {
+  it("keeps clip and envelope parameters out of the displayed notes", () => {
+    const doc = EditorState.create({
+      doc: '`< C4:0.96:0.003:0.001:1:0.12@0.13 {-7:1:0.03@0.25, 0:1:0.2@0.25} ~@0.25 >`.as("note:clip:attack:decay:sustain:release")',
+    }).doc;
+    const events = parseCodeStripEvents(doc);
+    expect(events.map(event => event.notes.map(note => note.text))).toEqual([
+      ["C4"], ["-7", "0"], [],
+    ]);
+    expect(events.map(event => [event.startWeight, event.endWeight])).toEqual([
+      [0, 0.13], [0.13, 1.13], [1.13, 1.38],
+    ]);
+  });
+
+  it("does not mistake short-decimal or exponent control values for pitches", () => {
+    const doc = EditorState.create({
+      doc: '`< 0:.5:1e-3@0.25 C4:1:-0.5@0.25 >`.as("note:clip:release")',
+    }).doc;
+    expect(parseCodeStripEvents(doc).map(event => event.notes.map(note => note.text)))
+      .toEqual([["0"], ["C4"]]);
+  });
+
   it("parses negative relative degrees as notes rather than rest aliases", () => {
     const doc = EditorState.create({
       doc: "`< [ -7@0.06 0@0.06 ] >`.as(\"n\").scale(\"C4:major\")",
@@ -146,6 +167,16 @@ describe("CodeStrip Strudel source decorations", () => {
     expect(events).toHaveLength(2);
     expect(events[0].notes.map((note) => note.text)).toEqual(["C4", "E4"]);
     expect(events[1].notes).toMatchObject([{ text: "2", isRelative: true }]);
+  });
+
+  it("keeps combined articulation and expression controls out of overlapping pitches", () => {
+    const doc = EditorState.create({
+      doc: '`< {C4:.96:2e-2:.04:.6:.03:10:.25:10:.385@0.25, ~@0.125 -7:1:0:0:1:.12:0:0:0:0@0.25}@0.375 >`.as(["note", "clip", "attack", "decay", "sustain", "release", "vib", "vibmod", "tremolo", "tremolodepth"])',
+    }).doc;
+    const events = parseCodeStripEvents(doc);
+    expect(events).toHaveLength(1);
+    expect(events[0].notes.map(note => note.text)).toEqual(["C4", "-7"]);
+    expect([events[0].startWeight, events[0].endWeight]).toEqual([0, 0.375]);
   });
 
   const mountedViews: EditorView[] = [];

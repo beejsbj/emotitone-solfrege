@@ -1,15 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { mount } from "@vue/test-utils";
 import { defineComponent, h, ref } from "vue";
-import Sticker from "@/components/primatives/Sticker.vue";
+import Sticker from "@/components/primatives/Sticker";
 import { provideUIBeat, UIBeatClock } from "@/composables/useUIBeat";
 
 describe("Sticker", () => {
-  it("applies the Brass Badge treatment without randomized geometry", () => {
+  it("defaults Badge to its accepted Brass sheen without randomized geometry", () => {
     const wrapper = mount(Sticker, {
       props: {
         variant: "badge",
-        color: "brass-sheen",
       },
       slots: {
         default: "Alert",
@@ -21,6 +20,21 @@ describe("Sticker", () => {
     expect(wrapper.find(".sticker__badge-edge").exists()).toBe(true);
     expect(wrapper.find(".sticker__badge-text").text()).toBe("Alert");
     expect(wrapper.attributes("style")).toBeUndefined();
+  });
+
+  it("falls back to Brass sheen when untyped runtime input requests another Badge color", () => {
+    const wrapper = mount(Sticker, {
+      props: {
+        variant: "badge",
+        color: "tomato",
+      } as never,
+      slots: {
+        default: "Signal",
+      },
+    });
+
+    expect(wrapper.classes()).toContain("sticker--color-brass-sheen");
+    expect(wrapper.classes()).not.toContain("sticker--color-tomato");
   });
 
   it("supports the Ivory Badge material used for committed joystick latches", () => {

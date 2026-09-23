@@ -5,6 +5,7 @@
 
 import type { GainExpressionPoint, PitchExpressionPoint } from "./expression";
 import type { ChromaticNote, MusicalMode, SolfegeData, Note } from "./music";
+import type { LiveArticulation } from "@/services/liveArticulation";
 
 /**
  * Pattern store state interface
@@ -75,6 +76,9 @@ export interface LogNote {
   /** Measured note-relative gain curve; portable Strudel currently approximates its tremolo. */
   gainExpression?: GainExpressionPoint[];
 
+  /** Captured live envelope; absent on legacy and authored notes. */
+  articulation?: LiveArticulation;
+
   /* Timing Information */
   /** Timestamp when note was pressed (Date.now()) */
   pressTime: number;
@@ -126,6 +130,9 @@ export interface PatternNote {
   pitchExpression?: PitchExpressionPoint[];
   /** Measured note-relative gain curve; portable Strudel currently approximates its tremolo. */
   gainExpression?: GainExpressionPoint[];
+
+  /** Captured live envelope; absent on legacy and authored notes. */
+  articulation?: LiveArticulation;
 
   /* Timing Information */
   /** Timestamp when note was pressed (Date.now()) */

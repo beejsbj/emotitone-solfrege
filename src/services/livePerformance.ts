@@ -2,6 +2,10 @@ import type { LiveConfig, LiveInputNote, LiveRenderer, LiveVoiceEvent } from '@/
 import type { LiveClockBoundary } from '@/services/liveAudioClock'
 import { subscribeLivePlayback } from '@/services/livePlayback'
 
+function snapshotEvent(event: LiveVoiceEvent): LiveVoiceEvent {
+  return { ...event, articulation: event.articulation ? { ...event.articulation } : undefined }
+}
+
 /** Owns prepared live input independently of musical state and renderer choice. */
 export function createLivePerformance<T>(callbacks: {
   now(): number
@@ -63,6 +67,7 @@ export function createLivePerformance<T>(callbacks: {
     onEvent(event) {
       const owner = owners.get(event.ownerId)
       if (!owner) return
+      event = snapshotEvent(event)
       submit(event)
       plans.delete(key(event))
       if (event.phase === 'attack') active.set(event.noteId, event)
@@ -81,7 +86,7 @@ export function createLivePerformance<T>(callbacks: {
     },
     onPlan(events) {
       const next = new Map(events.filter(event => owners.has(event.ownerId))
-        .map(event => [key(event), event]))
+        .map(event => [key(event), snapshotEvent(event)]))
       for (const [id, old] of plans) {
         // Both renderers deliver elapsed lifecycle before the snapshot that
         // drops it (the worklet uses one FIFO port). A missing, still-inactive

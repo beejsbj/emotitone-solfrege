@@ -44,8 +44,9 @@ Strudel replay approximates regular oscillation; it does not reproduce exact
 movement, onset within the note, pauses, a one-way bend, or a sustained volume
 offset. Tremolo export uses conservative downward modulation, so its loudness
 range differs from the live gesture. Curves remain saved for future replay.
-Instruments using the fallback Superdough live path do not bend or change gain,
-and do not record unheard expression. MIDI expression output remains out of scope.
+Instruments using the fallback Superdough live path (including Square and Saw)
+do not bend or change gain, and do not record unheard expression. MIDI expression
+output remains out of scope.
 
 Run `node audio-lab/finger-expression.mjs /tmp/finger-expression.json` for the
 browser integration check. It uses real browser touch events to check melody

@@ -1,4 +1,5 @@
 import type { PlayStyle, PlayStyleRate } from '@/services/playStyles'
+import type { LiveArticulation } from '@/services/liveArticulation'
 
 export interface LiveInputNote { pitch: number; instrumentId: string }
 export interface LiveConfig { style: PlayStyle; bpm: number; rate: PlayStyleRate }
@@ -7,6 +8,8 @@ export interface LiveVoiceEvent extends LiveInputNote {
   noteId: string
   ownerId: string
   style: PlayStyle
+  /** Actual voice envelope, including any release override. */
+  articulation?: LiveArticulation
   /** Absolute AudioContext time, in seconds. */
   at: number
 }

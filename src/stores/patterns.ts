@@ -60,6 +60,15 @@ interface PendingLogNote extends Partial<LogNote> {
   forcedPatternStart: boolean;
 }
 
+function clonePerformedNote<T extends PatternNote | LogNote>(note: T): T {
+  return {
+    ...note,
+    articulation: note.articulation ? { ...note.articulation } : undefined,
+    pitchExpression: note.pitchExpression?.map((point) => ({ ...point })),
+    gainExpression: note.gainExpression?.map((point) => ({ ...point })),
+  };
+}
+
 export const usePatternsStore = defineStore(
   "patterns",
   () => {
@@ -504,6 +513,7 @@ export const usePatternsStore = defineStore(
         velocity: note.velocity,
         pitchExpression: note.pitchExpression?.map((point) => ({ ...point })),
         gainExpression: note.gainExpression?.map((point) => ({ ...point })),
+        articulation: note.articulation ? { ...note.articulation } : undefined,
         pressTime: note.pressTime,
         releaseTime: note.releaseTime,
         duration: note.duration,
@@ -539,6 +549,7 @@ export const usePatternsStore = defineStore(
         velocity: note.velocity,
         pitchExpression: note.pitchExpression?.map((point) => ({ ...point })),
         gainExpression: note.gainExpression?.map((point) => ({ ...point })),
+        articulation: note.articulation ? { ...note.articulation } : undefined,
         pressTime: note.pressTime,
         releaseTime: note.releaseTime,
         duration: note.duration,
@@ -566,11 +577,7 @@ export const usePatternsStore = defineStore(
           .toString(36)
           .substr(2, 9)}`,
         name: options.name ?? `Pattern ${new Date().toLocaleDateString()}`,
-        notes: notes.map((note) => ({
-          ...note,
-          pitchExpression: note.pitchExpression?.map((point) => ({ ...point })),
-          gainExpression: note.gainExpression?.map((point) => ({ ...point })),
-        })),
+        notes: notes.map(clonePerformedNote),
         duration: options.duration ?? (span.end - span.start),
         noteCount: notes.length,
         key: meta.key,
@@ -619,7 +626,7 @@ export const usePatternsStore = defineStore(
       loadedBasePatternId.value = null;
       loadedBaseMeta.value = null;
       loggedNotes.value = (options.workingNotes ?? []).map((note, index) => ({
-        ...note,
+        ...clonePerformedNote(note),
         isStartingNewPattern: index === 0 ? true : note.isStartingNewPattern,
       }));
       forcedCompletedNoteIds.clear();
@@ -646,11 +653,7 @@ export const usePatternsStore = defineStore(
         forcedCompletedNoteIds.clear();
       }
 
-      loadedBaseNotes.value = pattern.notes.map((note) => ({
-        ...note,
-        pitchExpression: note.pitchExpression?.map((point) => ({ ...point })),
-        gainExpression: note.gainExpression?.map((point) => ({ ...point })),
-      }));
+      loadedBaseNotes.value = pattern.notes.map(clonePerformedNote);
       loadedBasePatternId.value = patternId;
       const patternOctave = resolvePatternOctave(pattern)
         ?? keyboardStore.keyboardConfig.mainOctave;
@@ -905,11 +908,7 @@ export const usePatternsStore = defineStore(
 
       savedPatterns.value.push({
         ...patternToKeep,
-        notes: patternToKeep.notes.map((note) => ({
-          ...note,
-          pitchExpression: note.pitchExpression?.map((point) => ({ ...point })),
-          gainExpression: note.gainExpression?.map((point) => ({ ...point })),
-        })),
+        notes: patternToKeep.notes.map(clonePerformedNote),
         isSaved: true,
         isKept: true,
       });
@@ -933,11 +932,7 @@ export const usePatternsStore = defineStore(
       savedPatterns.value.push({
         ...pattern,
         name,
-        notes: pattern.notes.map((note) => ({
-          ...note,
-          pitchExpression: note.pitchExpression?.map((point) => ({ ...point })),
-          gainExpression: note.gainExpression?.map((point) => ({ ...point })),
-        })),
+        notes: pattern.notes.map(clonePerformedNote),
       });
       return true;
     }
@@ -1032,6 +1027,7 @@ export const usePatternsStore = defineStore(
         solfege: note as SolfegeData,
         octave,
         frequency,
+        articulation: event.detail.articulation ? { ...event.detail.articulation } : undefined,
         // Scheduled Style pulses carry the instrument captured by their held
         // input. Ordinary notes keep the existing live-store boundary so an
         // instrument change still starts a fresh take.
@@ -1115,6 +1111,9 @@ export const usePatternsStore = defineStore(
         ...partialNote,
         pitchExpression: expression?.some((point) => point.cents !== 0) ? expression : undefined,
         gainExpression: gainExpression?.some((point) => point.gain !== 1) ? gainExpression : undefined,
+        articulation: event.detail.articulation
+          ? { ...event.detail.articulation }
+          : partialNote.articulation ? { ...partialNote.articulation } : undefined,
         releaseTime,
         duration,
         isStartingNewPattern,
@@ -1183,7 +1182,7 @@ export const usePatternsStore = defineStore(
     }
 
     function exportNotes(): LogNote[] {
-      return [...loggedNotes.value];
+      return loggedNotes.value.map(clonePerformedNote);
     }
 
     function importNotes(notes: LogNote[]): void {
@@ -1191,7 +1190,7 @@ export const usePatternsStore = defineStore(
       const validNotes = notes.filter(
         (note) => note.id && note.pressTime && note.releaseTime && note.duration
       );
-      loggedNotes.value.push(...validNotes);
+      loggedNotes.value.push(...validNotes.map(clonePerformedNote));
       loggedNotes.value.sort((left, right) => left.pressTime - right.pressTime);
       purgeOldNotes();
     }

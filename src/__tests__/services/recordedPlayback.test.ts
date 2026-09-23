@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { mini } from '@strudel/mini';
-import { logNotesToStrudel } from '@/services/StrudelNotation';
+import { m } from '@strudel/mini';
+import { transpiler } from '@strudel/transpiler';
+import '@strudel/tonal';
+import { logNotesToStrudel, type StrudelConfig } from '@/services/StrudelNotation';
 import type { LogNote } from '@/types/patterns';
 
 function note(pitch: string, start: number, duration: number): LogNote {
@@ -9,20 +11,143 @@ function note(pitch: string, start: number, duration: number): LogNote {
     key: 'C', mode: 'major', instrument: 'sine' } as LogNote;
 }
 
-// Run the generated mini-notation through the actual installed Strudel parser.
+// Execute the complete generated code through the installed mini + transpiler.
 // Query whole onsets, not fragments split at scheduler query boundaries.
-function playback(notes: LogNote[], sourceBpm = 120, bpm = sourceBpm) {
-  const code = logNotesToStrudel(notes, { sourceBpm, bpm });
-  const pattern = mini(code.split('`')[1]);
-  const cycleMs = 240000 / bpm;
-  const events = pattern.queryArc(0, 12).filter((hap: any) => hap.hasOnset())
-    .map((hap: any) => ({ pitch: hap.value, start: Number(hap.whole.begin) * cycleMs,
-      duration: Number(hap.whole.duration) * cycleMs }))
-    .sort((a: any, b: any) => a.start - b.start || a.pitch.localeCompare(b.pitch));
-  return { code, events };
+function playback(notes: LogNote[], sourceBpm = 120, bpm = sourceBpm, sound = 'sine', config?: Partial<StrudelConfig>) {
+  const code = logNotesToStrudel(notes, { sourceBpm, bpm, sound, ...config });
+  const { output } = transpiler(code);
+  const pattern = new Function('m', output)(m);
+  // .cpm() scales the pattern against Strudel's 1 cycle/second base.
+  const haps = pattern.queryArc(0, 24).filter((hap: any) => hap.hasOnset());
+  const events = haps
+    .map((hap: any) => ({ pitch: hap.value.note, start: Number(hap.whole.begin) * 1000,
+      duration: Number(hap.whole.duration) * 1000 * (hap.value.clip ?? 1) }))
+    .sort((a: any, b: any) => a.start - b.start || String(a.pitch).localeCompare(String(b.pitch)));
+  return { code, events, controls: haps.map((hap: any) => hap.value) };
 }
 
 describe('recording to actual Strudel playback', () => {
+  it('replays a legacy hold with the resolved sound live envelope and an explicit full gate', () => {
+    const { code, controls } = playback([note('C4', 0, 500)], 120, 120, 'gm_marimba');
+    expect(code).toContain('.clip(1)');
+    expect(controls[0]).toMatchObject({
+      note: 'C4', s: 'gm_marimba', clip: 1,
+      attack: 0.001, decay: 0.001, sustain: 1, release: 0.2,
+    });
+  });
+
+  it('preserves distinct captured envelopes in simultaneous chord lanes and legacy defaults', () => {
+    const normal = { ...note('C4', 0, 500), articulation: {
+      attack: 0.003, decay: 0.001, sustain: 1, release: 0.12,
+    } };
+    const rhythmic = { ...note('E4', 0, 500), articulation: {
+      attack: 0.003, decay: 0.001, sustain: 1, release: 0.03,
+    } };
+    const custom = { ...note('G4', 0, 500), articulation: {
+      attack: 0.02, decay: 0.05, sustain: 0.6, release: 0.4,
+    } };
+    const { events, controls, code } = playback([normal, rhythmic, custom, note('D4', 520, 500)]);
+    expect(events.slice(0, 5)).toEqual([
+      { pitch: 'C4', start: 0, duration: 500 },
+      { pitch: 'E4', start: 0, duration: 500 },
+      { pitch: 'G4', start: 0, duration: 500 },
+      { pitch: 'D4', start: 520, duration: 500 },
+      { pitch: 'C4', start: 1520, duration: 500 },
+    ]);
+    for (const captured of [normal, rhythmic, custom]) {
+      expect(controls.find((value: any) => value.note === captured.note))
+        .toMatchObject(captured.articulation);
+    }
+    expect(controls.find((value: any) => value.note === 'D4')).toMatchObject({
+      clip: 1, attack: 0.003, decay: 0.001, sustain: 1, release: 0.12,
+    });
+    expect(code).toContain('.as("note:clip:attack:decay:sustain:release")');
+  });
+
+  it.each([
+    { attack: NaN, decay: -1, sustain: 2, release: Infinity },
+    { attack: -1, decay: Infinity, sustain: -0.1, release: NaN },
+    { attack: '0.1', decay: null, sustain: NaN, release: -0.1 },
+    { attack: undefined, decay: NaN, sustain: Infinity, release: null },
+    null,
+  ])('falls back per field for malformed persisted articulation %j', articulation => {
+    const captured = { ...note('C4', 0, 500), articulation } as unknown as LogNote;
+    const { controls, code } = playback([captured]);
+    expect(controls[0]).toMatchObject({
+      attack: 0.003, decay: 0.001, sustain: 1, release: 0.12,
+    });
+    expect(code).not.toMatch(/NaN|Infinity|undefined/);
+  });
+
+  it('retains valid fields in partial metadata, including zero envelope stages', () => {
+    const captured = { ...note('C4', 0, 500), articulation: {
+      attack: 0, sustain: 0, release: 0,
+    } } as LogNote;
+    expect(playback([captured]).controls[0]).toMatchObject({
+      attack: 0, decay: 0.001, sustain: 0, release: 0,
+    });
+  });
+
+  it.each([NaN, Infinity, 0, -1])('falls back to a full gate for invalid persisted gate %s', gateDuration => {
+    const captured = { ...note('C4', 0, 500), gateDuration };
+    const { events, controls, code } = playback([captured]);
+    expect(events[0].duration).toBe(500);
+    expect(controls[0].clip).toBe(1);
+    expect(code).not.toMatch(/NaN|Infinity|undefined/);
+  });
+
+  it.each([
+    [60, 1000, 160, 840, 1040, 600, 2640],
+    [120, 500, 80, 420, 520, 300, 1320],
+    [240, 250, 40, 210, 260, 150, 660],
+  ])('scales rolled chord gates and onsets at playback BPM %s while keeping release seconds',
+    (bpm, firstGate, rolledStart, rolledGate, nextStart, nextGate, loopStart) => {
+      const rhythmic = { ...note('E4', 80, 420), articulation: {
+        attack: 0.003, decay: 0.001, sustain: 1, release: 0.03,
+      } };
+      const { events, controls, code } = playback([
+        note('C4', 0, 500), rhythmic, note('D4', 520, 300),
+      ], 120, bpm);
+      expect(events.slice(0, 4)).toEqual([
+        { pitch: 'C4', start: 0, duration: firstGate },
+        { pitch: 'E4', start: rolledStart, duration: rolledGate },
+        { pitch: 'D4', start: nextStart, duration: nextGate },
+        { pitch: 'C4', start: loopStart, duration: firstGate },
+      ]);
+      expect(controls.find((value: any) => value.note === 'E4').release).toBe(0.03);
+      expect(controls.find((value: any) => value.note === 'C4').release).toBe(0.12);
+      expect(code).toContain('.as("note:clip:release")');
+    });
+
+  it('encodes only the release column for mixed normal and rhythmic notes without coalesced gates', () => {
+    const rhythmic = { ...note('E4', 500, 500), articulation: {
+      attack: 0.003, decay: 0.001, sustain: 1, release: 0.03,
+    } };
+    const { code, controls } = playback([note('C4', 0, 500), rhythmic]);
+    expect(code).toContain('C4:0.12@0.25 E4:0.03@0.25');
+    expect(code).toContain('.as("note:release")');
+    expect(['C4', 'E4'].map(pitch => controls.find((value: any) => value.note === pitch))).toEqual([
+      { note: 'C4', s: 'sine', clip: 1, attack: 0.003, decay: 0.001, sustain: 1, release: 0.12 },
+      { note: 'E4', s: 'sine', clip: 1, attack: 0.003, decay: 0.001, sustain: 1, release: 0.03 },
+    ]);
+  });
+
+  it('maps relative colon controls through the actual scale transform, including octave displacement', () => {
+    const high = { ...note('C5', 0, 500), octave: 5 };
+    const low = { ...note('C3', 520, 500), octave: 3, articulation: {
+      attack: 0.003, decay: 0.001, sustain: 1, release: 0.03,
+    } };
+    const { events, controls, code } = playback([high, low], 120, 120, 'sine', {
+      notationType: 'relative', scaleKey: 'C', scaleMode: 'major', scaleOctave: 4,
+    });
+    expect(code).toContain('.as("n:clip:release").scale("C4:major")');
+    expect(events.slice(0, 2)).toEqual([
+      { pitch: 'C5', start: 0, duration: 500 },
+      { pitch: 'C3', start: 520, duration: 500 },
+    ]);
+    expect(controls.find((value: any) => value.note === 'C3').release).toBe(0.03);
+  });
+
   it.each([60, 120, 180])('preserves a long phrase at source tempo %s', bpm => {
     const notes = Array.from({ length: 8 }, (_, i) => note('C4', i * 500, 500));
     const { events, code } = playback(notes, bpm);
@@ -58,11 +183,11 @@ describe('recording to actual Strudel playback', () => {
     ]);
   });
 
-  it('fills a tiny silent gap without moving the next onset or changing raw notes', () => {
+  it('coalesces a tiny gap visually without stretching the key hold or moving the next onset', () => {
     const notes = [note('C4', 0, 500), note('D4', 520, 500)];
     const { code, events } = playback(notes);
     expect(code.split('`')[1].match(/~/g)).toHaveLength(1); // Only loop tail.
-    expect(events[0].duration).toBeCloseTo(520, 0);
+    expect(events[0].duration).toBeCloseTo(500, 0);
     expect(events[1].start).toBeCloseTo(520, 0);
     expect(notes[0].duration).toBe(500);
   });

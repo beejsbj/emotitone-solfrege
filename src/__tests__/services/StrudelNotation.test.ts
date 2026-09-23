@@ -4,6 +4,9 @@ import { logNotesToStrudel, mergeStrudelRests } from '@/services/StrudelNotation
 import { defaultPatterns } from '@/data/patterns'
 import { as } from '@strudel/core/controls.mjs'
 import { mini } from '@strudel/mini/mini.mjs'
+import { m } from '@strudel/mini'
+import { transpiler } from '@strudel/transpiler'
+import '@strudel/tonal'
 
 import type { LogNote } from '@/types/patterns'
 
@@ -39,12 +42,12 @@ function makeNote(
 }
 
 describe('StrudelNotation', () => {
-  it('keeps non-expressive notation exactly unchanged', () => {
+  it('keeps plain pitches and timing with explicit playback gate and envelope', () => {
     const result = logNotesToStrudel([
       makeNote('c', 'C4', 0, 4, 1000, 500),
     ])
 
-    expect(result).toBe('`<\nC4@0.25 ~@0.25\n>`.as("note").sound("sine").cpm(120 / 4)')
+    expect(result).toBe('`<\nC4@0.25 ~@0.25\n>`.as("note").sound("sine").clip(1).attack(0.003).decay(0.001).sustain(1).release(0.12).cpm(120 / 4)')
   })
 
   it('maps expressive chord members independently without extra Strudel events', () => {
@@ -60,7 +63,7 @@ describe('StrudelNotation', () => {
     ])
 
     expect(result).toContain('{C4:10:0.3, E4:0:0}@0.25')
-    expect(result).toContain('.as(["note", "vib", "vibmod"])')
+    expect(result).toContain(".as(['note', 'vib', 'vibmod'])")
 
     const pattern = as(["note", "vib", "vibmod"], mini(result.split('`')[1]))
     const events = pattern.queryArc(0, 0.5)
@@ -84,7 +87,7 @@ describe('StrudelNotation', () => {
     ], { notationType: 'relative' })
 
     expect(result).toContain('{0:10:0.25, 2:0:0}@0.25')
-    expect(result).toContain('.as(["n", "vib", "vibmod"])')
+    expect(result).toContain(".as(['n', 'vib', 'vibmod'])")
 
     const events = as(["n", "vib", "vibmod"], mini(result.split('`')[1])).queryArc(0, 0.5)
     expect(events).toHaveLength(2)
@@ -108,7 +111,7 @@ describe('StrudelNotation', () => {
       { ...makeNote('e', 'E4', 2, 4, 1000, 500), pitchExpression: pitch },
     ])
     expect(result).toContain('{C4:0:0:10:0.385, E4:10:0.25:0:0}@0.25')
-    expect(result).toContain('.as(["note", "vib", "vibmod", "tremolo", "tremolodepth"])')
+    expect(result).toContain(".as(['note', 'vib', 'vibmod', 'tremolo', 'tremolodepth'])")
     const events = as(["note", "vib", "vibmod", "tremolo", "tremolodepth"], mini(result.split('`')[1])).queryArc(0, 0.5)
     expect(events.map((event) => event.value)).toEqual([
       { note: 'C4', vib: 0, vibmod: 0, tremolo: 10, tremolodepth: 0.385 },
@@ -127,12 +130,67 @@ describe('StrudelNotation', () => {
     ], { notationType })
     const field = notationType === 'relative' ? 'n' : 'note'
     const keys = [field, 'vib', 'vibmod', 'tremolo', 'tremolodepth']
-    expect(result).toContain(`.as([${keys.map(key => `"${key}"`).join(', ')}])`)
+    expect(result).toContain(`.as([${keys.map(key => `'${key}'`).join(', ')}])`)
     const events = as(keys, mini(result.split('`')[1])).queryArc(0, 0.5)
     expect(events.map(event => event.value)).toEqual([
       { [field]: field === 'n' ? 0 : 'C4', vib: 10, vibmod: 0.25, tremolo: 10, tremolodepth: 0.385 },
       { [field]: field === 'n' ? 2 : 'E4', vib: 0, vibmod: 0, tremolo: 0, tremolodepth: 0 },
     ])
+  })
+
+  describe.each(['absolute', 'relative'] as const)('%s playback fidelity', (notationType) => {
+    it.each(['plain', 'articulated', 'vibrato', 'tremolo', 'both'] as const)(
+      'evaluates complete %s notation with overlapping voices and recorded gates', (kind) => {
+        const expressive = kind === 'vibrato' || kind === 'both'
+        const tremolo = kind === 'tremolo' || kind === 'both'
+        const articulated = kind !== 'plain'
+        const pitchExpression = [0, 25, -25, 25, -25, 25, -25]
+          .map((cents, index) => ({ timeMs: index * 50, cents }))
+        const gainExpression = [1, 1.3, 0.8, 1.3, 0.8, 1.3, 0.8]
+          .map((gain, index) => ({ timeMs: index * 50, gain }))
+        const envelope = { attack: 0.02, decay: 0.04, sustain: 0.6, release: 0.03 }
+        const defaults = { attack: 0.003, decay: 0.001, sustain: 1, release: 0.12 }
+        const notes = [
+          { ...makeNote('c', 'C4', 0, 4, 1000, 500),
+            ...(articulated ? { articulation: envelope } : {}),
+            ...(expressive ? { pitchExpression } : {}),
+            ...(tremolo ? { gainExpression } : {}),
+          },
+          makeNote('e', 'E4', 2, 4, 1250, 500),
+          // The 20ms silent gap becomes a display slot, retaining E's 500ms gate.
+          makeNote('g', 'G4', 4, 4, 1770, 500),
+        ]
+        const code = logNotesToStrudel(notes, { notationType, sourceBpm: 120, bpm: 120 })
+        const { output } = transpiler(code)
+        const pattern = new Function('m', output)(m)
+        const events = pattern.queryArc(0, 1.77).filter((event: any) => event.hasOnset())
+          .sort((a: any, b: any) => Number(a.whole.begin) - Number(b.whole.begin))
+        expect(events).toHaveLength(3)
+        for (const [index, event] of events.entries()) {
+          expect(event.value).toMatchObject({
+            note: notes[index].note, s: 'sine',
+            ...(index === 0 && articulated ? envelope : defaults),
+          })
+          expect(event.value.clip).toBeCloseTo(index === 1 ? 500 / 520 : 1, 10)
+          expect(Number(event.whole.begin) * 1000).toBeCloseTo([0, 250, 770][index], 6)
+          expect(Number(event.whole.duration) * event.value.clip * 1000).toBeCloseTo(500, 6)
+          if (expressive) {
+            expect(event.value.vib).toBe(index === 0 ? 10 : 0)
+            expect(event.value.vibmod).toBe(index === 0 ? 0.25 : 0)
+          } else {
+            expect(event.value).not.toHaveProperty('vib')
+            expect(event.value).not.toHaveProperty('vibmod')
+          }
+          if (tremolo) {
+            expect(event.value.tremolo).toBe(index === 0 ? 10 : 0)
+            expect(event.value.tremolodepth).toBe(index === 0 ? 0.385 : 0)
+          } else {
+            expect(event.value).not.toHaveProperty('tremolo')
+            expect(event.value).not.toHaveProperty('tremolodepth')
+          }
+        }
+      },
+    )
   })
 
   it('keeps @ durations tied to source BPM rather than playback BPM', () => {

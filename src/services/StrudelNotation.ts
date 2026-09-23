@@ -12,9 +12,11 @@ import type { LogNote } from "@/types/patterns";
 import type { MusicalMode } from "@/types/music";
 import { Note as TonalNote } from "@tonaljs/tonal";
 import { getScaleForMode, normalizeScaleIndex } from "@/data";
-import { prepareRecordedNotes, recordedLoopTailMs } from "./recordedTiming";
+import { prepareRecordedNotes, recordedLoopTailMs, type PreparedRecordedNote } from "./recordedTiming";
 import { approximateVibrato, type VibratoApproximation } from "./vibratoApproximation";
 import { approximateTremolo, type TremoloApproximation } from "./tremoloApproximation";
+
+import { getLiveArticulation, type LiveArticulation } from "./liveArticulation";
 
 export interface StrudelConfig {
   /** Playback tempo in BPM. Used by the live runtime, not @ duration sizing. @default 120 */
@@ -51,6 +53,8 @@ const DEFAULT_CONFIG: StrudelConfig = {
 export const DEFAULT_SOURCE_BPM = DEFAULT_CONFIG.sourceBpm;
 
 const OVERLAP_EPSILON_MS = 0;
+type RecordedControl = 'clip' | keyof LiveArticulation;
+const RECORDED_CONTROLS: RecordedControl[] = ['clip', 'attack', 'decay', 'sustain', 'release'];
 
 /** Length of one bar in milliseconds. */
 function barLengthMs(config: StrudelConfig): number {
@@ -88,7 +92,8 @@ export function mergeStrudelRests(tokens: string[], precision = 4): string[] {
  * The first note's pressTime is treated as t=0.
  */
 export class StrudelNotation {
-  private notes: LogNote[];
+  private notes: PreparedRecordedNote<LogNote>[];
+  private controlFields: RecordedControl[] = [];
   private config: StrudelConfig;
   private renderRelative = false;
   private renderVibrato = false;
@@ -112,6 +117,10 @@ export class StrudelNotation {
 
     this.renderRelative = this.config.notationType === "relative" &&
       this.notes.every((note) => this.relativeNoteValue(note) != null);
+    const envelope = getLiveArticulation(this.config.sound);
+    this.controlFields = RECORDED_CONTROLS.filter(control =>
+      this.notes.some(note => this.noteControl(note, control) !==
+        (control === 'clip' ? 1 : envelope[control])));
     this.vibratoByNote.clear();
     this.tremoloByNote.clear();
     for (const note of this.notes) {
@@ -169,6 +178,9 @@ export class StrudelNotation {
     // Direct @ weights in <> are cycle lengths. A surrounding [] would
     // normalize the entire take into one cycle, regardless of its duration.
     const inner = mergeStrudelRests(tokens, this.config.precision).join(" ");
+    // Mapped controls carry a value on every note; defaults must not overwrite them.
+    const controls = RECORDED_CONTROLS.filter(control => !this.controlFields.includes(control))
+      .map(control => `.${control}(${control === 'clip' ? 1 : envelope[control]})`).join('');
     const cpmExpression = `${this.config.bpm} / ${this.config.beatsPerBar}`;
 
     if (this.renderRelative) {
@@ -177,10 +189,10 @@ export class StrudelNotation {
         this.config.scaleOctave ??
         (Number.isFinite(first?.octave) ? first.octave : 4);
       const scale = `${this.config.scaleKey ?? first?.key ?? "C"}${scaleOctave}:${this.config.scaleMode ?? first?.mode ?? "major"}`;
-      return `\`<\n${inner}\n>\`.as(${this.asFields("n")}).scale("${scale}").sound("${this.config.sound}").cpm(${cpmExpression})`;
+      return `\`<\n${inner}\n>\`.as(${this.asFields("n")}).scale("${scale}").sound("${this.config.sound}")${controls}.cpm(${cpmExpression})`;
     }
 
-    return `\`<\n${inner}\n>\`.as(${this.asFields("note")}).sound("${this.config.sound}").cpm(${cpmExpression})`;
+    return `\`<\n${inner}\n>\`.as(${this.asFields("note")}).sound("${this.config.sound}")${controls}.cpm(${cpmExpression})`;
   }
 
   private renderStandaloneNote(note: LogNote, barMs: number) {
@@ -276,23 +288,36 @@ export class StrudelNotation {
     return mergeStrudelRests(tokens, precision).join(" ");
   }
 
-  private noteValue(note: LogNote) {
+  private noteValue(note: PreparedRecordedNote<LogNote>) {
     const value = !this.renderRelative ? note.note : String(this.relativeNoteValue(note));
-    if (!this.renderVibrato && !this.renderTremolo) return value;
 
     const vibrato = this.vibratoByNote.get(note);
     const tremolo = this.tremoloByNote.get(note);
-    const fields = [value];
+    const fields = [value, ...this.controlFields.map(control => String(this.noteControl(note, control)))];
     if (this.renderVibrato) fields.push(String(vibrato?.vib ?? 0), String(vibrato?.vibmod ?? 0));
     if (this.renderTremolo) fields.push(String(tremolo?.tremolo ?? 0), String(tremolo?.tremolodepth ?? 0));
     return fields.join(":");
   }
 
   private asFields(noteField: "note" | "n") {
-    const fields: string[] = [noteField];
+    const fields: string[] = [noteField, ...this.controlFields];
     if (this.renderVibrato) fields.push("vib", "vibmod");
     if (this.renderTremolo) fields.push("tremolo", "tremolodepth");
-    return fields.length === 1 ? `"${noteField}"` : `[${fields.map((field) => `"${field}"`).join(", ")}]`;
+    if (!this.renderVibrato && !this.renderTremolo) return `"${fields.join(":")}"`;
+    // Double-quoted strings inside arrays are mini-patterns after transpilation.
+    // Literal keys must use single quotes so as() receives strings, not Patterns.
+    return `[${fields.map((field) => `'${field}'`).join(", ")}]`;
+  }
+
+  private noteControl(note: PreparedRecordedNote<LogNote>, control: RecordedControl): number {
+    if (control === 'clip') {
+      const ratio = (note.gateDuration ?? this.noteDuration(note)) / this.noteDuration(note);
+      return Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
+    }
+    const value = note.articulation?.[control];
+    return typeof value === 'number' && Number.isFinite(value) && value >= 0 &&
+      (control !== 'sustain' || value <= 1)
+      ? value : getLiveArticulation(this.config.sound)[control];
   }
 
   private relativeNoteValue(note: LogNote) {

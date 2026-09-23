@@ -6,18 +6,19 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port 5175",
-    "build": "vue-tsc && vite build",
+    "build": "node scripts/verify.mjs build",
     "preview": "vite preview",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore",
-    "type-check": "vue-tsc --noEmit",
-    "test": "vitest",
-    "test:ui": "vitest --ui",
-    "test:run": "vitest run",
+    "type-check": "node scripts/verify.mjs type-check",
+    "test": "node scripts/verify.mjs test run",
+    "test:ui": "node scripts/verify.mjs test --ui",
+    "test:run": "node scripts/verify.mjs test run",
     "test:audio-browser": "node audio-lab/run.mjs",
-    "test:coverage": "vitest run --coverage",
-    "test:e2e": "vitest run src/__tests__/e2e/",
-    "test:e2e:ui": "vitest --ui src/__tests__/e2e/",
-    "test:e2e:watch": "vitest src/__tests__/e2e/"
+    "test:coverage": "node scripts/verify.mjs test run --coverage",
+    "test:watch": "node scripts/verify.mjs test watch",
+    "test:node": "node scripts/verify.mjs test run --project=node",
+    "test:dom": "node scripts/verify.mjs test run --project=dom",
+    "test:verify": "node --test scripts/verify.test.mjs"
   },
   "dependencies": {
     "@strudel/codemirror": "^1.3.0",

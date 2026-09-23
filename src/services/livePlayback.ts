@@ -1,5 +1,7 @@
-import type { PreparedLiveInstrument, LiveWorklet } from "@/audio/live/types";
+import type { LiveEnvelopeOverride, PreparedLiveInstrument, LiveWorklet } from "@/audio/live/types";
 import type { LiveRenderer, LiveRendererCallbacks } from "@/audio/liveRenderer";
+import { createLiveShapingChain, type LiveShaping } from "@/audio/liveShaping";
+import { getLiveOrbit } from "@/services/audioRuntime";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 
 type Listener = LiveRendererCallbacks;
@@ -15,9 +17,12 @@ const listeners = new Set<Listener>();
 const reasons = new Map<string, string>();
 const unsupported = new Set<string>();
 let context: AudioContext | undefined;
-let engine: LiveRenderer | undefined;
+let engine: ShapedLiveWorklet | undefined;
 let managedEngine: LiveRenderer | undefined;
-let enginePromise: Promise<LiveWorklet> | undefined;
+type LiveShapingState = LiveShaping & { envelope: LiveEnvelopeOverride };
+type ShapedLiveWorklet = LiveWorklet & { applyShaping(next: LiveShapingState): void };
+let shaping: LiveShapingState = { cutoff: 12000, resonance: 0, room: 0, delay: 0, envelope: {} };
+let enginePromise: Promise<ShapedLiveWorklet> | undefined;
 let generation = 0;
 const installed = new Map<string, number>();
 const preparing = new Map<string, Promise<void>>();
@@ -110,10 +115,28 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
       };
       enginePromise ??= (async () => {
         const { createLiveWorklet } = await import("@/audio/live/bridge");
-        return createLiveWorklet(nextContext, destination, callbacks);
+        // The chain lives and dies with its worklet, so a stale build can
+        // never tear down the effects of a newer one.
+        const chain = createLiveShapingChain(nextContext, destination, getLiveOrbit);
+        chain.apply(shaping);
+        let worklet: LiveWorklet;
+        try {
+          worklet = await createLiveWorklet(nextContext, chain.input, callbacks);
+        } catch (error) {
+          chain.dispose();
+          throw error;
+        }
+        worklet.shape(shaping.envelope);
+        const disposeWorklet = worklet.dispose;
+        return {
+          ...worklet,
+          dispose() { disposeWorklet(); chain.dispose(); },
+          applyShaping(next: LiveShapingState) { chain.apply(next); worklet.shape(next.envelope); },
+        };
       })();
       const ready = await enginePromise;
       if (run !== generation) { ready.dispose(); return; }
+      if (engine !== ready) ready.applyShaping(shaping);
       engine = ready;
       managedEngine ??= {
         ...ready,
@@ -168,6 +191,12 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
   installQueue = promise;
   preparing.set(instrumentId, promise);
   return promise;
+}
+
+/** Apply Shape-tab controls to prepared live instruments, now and after rebuilds. */
+export function setLivePlaybackShaping(next: LiveShapingState): void {
+  shaping = { ...next, envelope: { ...next.envelope } };
+  engine?.applyShaping(shaping);
 }
 
 export function getLivePlayback(name: string): LiveRenderer | undefined {

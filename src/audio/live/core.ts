@@ -1,4 +1,4 @@
-import type { LiveCommand, LiveConfig, LiveInputNote, LiveResponse, LiveSampleZone,
+import type { LiveCommand, LiveConfig, LiveEnvelopeOverride, LiveInputNote, LiveResponse, LiveSampleZone,
   LiveVoiceEvent, PreparedLiveInstrument } from './types'
 import { createSampleResampler, type SampleResampler } from './resampler'
 
@@ -47,6 +47,9 @@ interface Voice extends PlannedNote {
 /** Audio-thread musical transport and PCM mixer. No DOM, timers, or promises. */
 export class LiveAudioCore {
   private instruments = new Map<string, PreparedLiveInstrument>()
+  private envelopeOverride: LiveEnvelopeOverride = {}
+  // Shaped copies are built once per shape change, not per voice.
+  private shaped = new Map<string, PreparedLiveInstrument>()
   private held = new Map<string, LiveInputNote[]>()
   private voices: Voice[] = []
   private fades: Voice[] = []
@@ -105,10 +108,12 @@ export class LiveAudioCore {
     switch (command.type) {
       case 'prepare':
         this.instruments.set(command.instrument.instrumentId, command.instrument)
+        this.shaped.delete(command.instrument.instrumentId)
         this.send({ type: 'prepared', requestId: command.requestId })
         return
       case 'forget': {
         this.instruments.delete(command.instrumentId)
+        this.shaped.delete(command.instrumentId)
         this.forgetting.set(command.requestId, command.instrumentId)
         for (const pulse of this.pulses) pulse.notes = pulse.notes.filter(note => note.instrumentId !== command.instrumentId)
         this.strum = this.strum.filter(note => note.instrumentId !== command.instrumentId)
@@ -127,6 +132,15 @@ export class LiveAudioCore {
         }
         this.planDirty = true
         break
+      }
+      case 'shape': {
+        // Sounding voices keep their envelope; the next attack uses the new one.
+        const { attack, release } = command.envelope
+        const valid = (value?: number) => value === undefined || (Number.isFinite(value) && value >= 0)
+        if (!valid(attack) || !valid(release)) return
+        this.envelopeOverride = { attack, release }
+        this.shaped.clear()
+        return
       }
       case 'clear': this.held.clear(); this.cancel(frame); break
       case 'release': this.release(command.ownerId, frame); break
@@ -276,8 +290,19 @@ export class LiveAudioCore {
     for (const zone of instrument.zones) if (!best || Math.abs(zone.rootMidi - pitch) < Math.abs(best.rootMidi - pitch)) best = zone
     return best
   }
+  private instrument(instrumentId: string) {
+    const prepared = this.instruments.get(instrumentId)
+    const { attack, release } = this.envelopeOverride
+    if (!prepared || (attack === undefined && release === undefined)) return prepared
+    let shaped = this.shaped.get(instrumentId)
+    if (!shaped) {
+      shaped = { ...prepared, attack: attack ?? prepared.attack, release: release ?? prepared.release }
+      this.shaped.set(instrumentId, shaped)
+    }
+    return shaped
+  }
   private start(note: PlannedNote, pulse: Pulse, frame: number) {
-    const instrument = this.instruments.get(note.instrumentId)
+    const instrument = this.instrument(note.instrumentId)
     if (!instrument) return
     const zone = this.zone(instrument, note.pitch)
     if (instrument.kind === 'sample-bank' && (!zone || !zone.channels[0]?.length)) return

@@ -24,7 +24,9 @@ import { prepareLivePlayback } from "@/services/livePlayback";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import { getLiveArticulation } from "@/services/liveArticulation";
 import { audioTimeToOutputTime, LIVE_AUDIO_SCHEDULING_LEAD_MS } from "@/services/liveAudioTiming";
-import { getAudioContext, getMasterGain, initializeAudio } from "@/services/audioRuntime";
+import { getAudioContext, getMasterGain, initializeAudio, LIVE_ORBIT } from "@/services/audioRuntime";
+import { setLivePlaybackShaping } from "@/services/livePlayback";
+import { LIVE_DELAY_FEEDBACK, LIVE_DELAY_TIME_SECONDS } from "@/audio/liveShaping";
 
 /** Compatibility facade: the playback graph is owned by audioRuntime. */
 export { getAudioContext };
@@ -60,11 +62,20 @@ export function setLiveSynthControls(
     ...controls,
     ...(controls.overrides ? { overrides: { ...controls.overrides } } : {}),
   } : null;
+  // Prepared instruments bypass attackNote; mirror the same rules to the worklet.
+  const current = _liveSynthControls;
+  setLivePlaybackShaping({
+    cutoff: current?.cutoff ?? 12000,
+    resonance: current?.resonance ?? 0,
+    room: current?.room ?? 0,
+    delay: current?.delay ?? 0,
+    envelope: {
+      attack: current?.overrides?.attack ? current.attack : undefined,
+      release: current?.overrides?.release ? current.release : undefined,
+    },
+  });
 }
 const STRUDEL_PLAYBACK_SOURCE = "strudel-playback";
-const LIVE_ORBIT = 2;
-const LIVE_DELAY_TIME_SECONDS = 0.25;
-const LIVE_DELAY_FEEDBACK = 0.3;
 const LIVE_NOTE_PLACEHOLDER_DURATION_SECONDS = 0.25;
 const _activeStrudelVisuals = new Map<
   string,

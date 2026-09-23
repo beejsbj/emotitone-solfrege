@@ -94,6 +94,47 @@ describe('StrudelNotation', () => {
     ])
   })
 
+  it('maps gain tremolo and vibrato independently per overlapping note', () => {
+    const pitch = [
+      { timeMs: 0, cents: 0 }, { timeMs: 50, cents: 25 }, { timeMs: 100, cents: -25 },
+      { timeMs: 150, cents: 25 }, { timeMs: 200, cents: -25 }, { timeMs: 250, cents: 25 }, { timeMs: 300, cents: -25 },
+    ]
+    const gain = [
+      { timeMs: 0, gain: 1 }, { timeMs: 50, gain: 1.3 }, { timeMs: 100, gain: 0.8 },
+      { timeMs: 150, gain: 1.3 }, { timeMs: 200, gain: 0.8 }, { timeMs: 250, gain: 1.3 }, { timeMs: 300, gain: 0.8 },
+    ]
+    const result = logNotesToStrudel([
+      { ...makeNote('c', 'C4', 0, 4, 1000, 500), gainExpression: gain },
+      { ...makeNote('e', 'E4', 2, 4, 1000, 500), pitchExpression: pitch },
+    ])
+    expect(result).toContain('{C4:0:0:10:0.385, E4:10:0.25:0:0}@0.25')
+    expect(result).toContain('.as(["note", "vib", "vibmod", "tremolo", "tremolodepth"])')
+    const events = as(["note", "vib", "vibmod", "tremolo", "tremolodepth"], mini(result.split('`')[1])).queryArc(0, 0.5)
+    expect(events.map((event) => event.value)).toEqual([
+      { note: 'C4', vib: 0, vibmod: 0, tremolo: 10, tremolodepth: 0.385 },
+      { note: 'E4', vib: 10, vibmod: 0.25, tremolo: 0, tremolodepth: 0 },
+    ])
+  })
+
+  it.each(['absolute', 'relative'] as const)('combines both expression axes on one %s note', (notationType) => {
+    const gainExpression = [1, 1.3, 0.8, 1.3, 0.8, 1.3, 0.8]
+      .map((gain, index) => ({ timeMs: index * 50, gain }))
+    const pitchExpression = [0, 25, -25, 25, -25, 25, -25]
+      .map((cents, index) => ({ timeMs: index * 50, cents }))
+    const result = logNotesToStrudel([
+      { ...makeNote('c', 'C4', 0, 4, 1000, 500), gainExpression, pitchExpression },
+      makeNote('e', 'E4', 2, 4, 1000, 500),
+    ], { notationType })
+    const field = notationType === 'relative' ? 'n' : 'note'
+    const keys = [field, 'vib', 'vibmod', 'tremolo', 'tremolodepth']
+    expect(result).toContain(`.as([${keys.map(key => `"${key}"`).join(', ')}])`)
+    const events = as(keys, mini(result.split('`')[1])).queryArc(0, 0.5)
+    expect(events.map(event => event.value)).toEqual([
+      { [field]: field === 'n' ? 0 : 'C4', vib: 10, vibmod: 0.25, tremolo: 10, tremolodepth: 0.385 },
+      { [field]: field === 'n' ? 2 : 'E4', vib: 0, vibmod: 0, tremolo: 0, tremolodepth: 0 },
+    ])
+  })
+
   it('keeps @ durations tied to source BPM rather than playback BPM', () => {
     const notes = [
       makeNote('c', 'C4', 0, 4, 1000, 500),

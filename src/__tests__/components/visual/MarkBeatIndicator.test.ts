@@ -4,7 +4,7 @@ import { defineComponent, nextTick, ref } from "vue";
 import BeatIndicator from "@/components/compounds/BeatIndicator.vue";
 import beatIndicatorSource from "@/components/compounds/BeatIndicator.vue?raw";
 import Mark from "@/components/primatives/Mark.vue";
-import Sticker from "@/components/primatives/Sticker.vue";
+import Sticker from "@/components/primatives/Sticker";
 import { MARK_DEFINITIONS, MARK_NAMES, markViewBox } from "@/components/primatives/marks";
 import { provideUIBeat, UIBeatClock } from "@/composables/useUIBeat";
 

@@ -1,5 +1,7 @@
 # Verification and test scope
 
+The [2026-09-23 test-value audit](testing-audit/2026-09-23/README.md) inventories the remaining suite and records specific pruning, replacement, and harness recommendations. Those recommendations are separate from the resource controls already implemented below.
+
 Use `bun install --frozen-lockfile`, then the package commands. Node 22 and Git are required by the verification launcher and its subprocess checks.
 
 | Task | Command |

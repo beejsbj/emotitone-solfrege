@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn, execFileSync } from 'node:child_process'
-import { appendFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -93,5 +93,38 @@ test('a crashed owner cannot release a still-running orphan child', async () => 
     const recovered = launch(f, f.peer, 'recovered', 40)
     assert.equal((await recovered.done).exitCode, 0)
     assert.equal(existsSync(lockDirectoryFor(f.dir)), false)
+  } finally { f.clean() }
+})
+
+test('stuck recovery marker times out without spinning or starting a child', async () => {
+  const f = fixture()
+  try {
+    const lock = lockDirectoryFor(f.dir)
+    mkdirSync(lock)
+    writeFileSync(join(lock, 'owner.json'), JSON.stringify({ token: 'stale', pid: 999999999, phase: 'idle' }))
+    mkdirSync(`${lock}.recovery`)
+    const started = Date.now()
+    const proc = spawn(process.execPath,
+      [f.runner, f.peer, f.child, f.log, 'blocked', '40', '0', '350'],
+      { stdio: ['ignore', 'ignore', 'pipe'] })
+    let stderr = ''
+    proc.stderr.setEncoding('utf8')
+    proc.stderr.on('data', chunk => { stderr += chunk })
+    const guard = setTimeout(() => proc.kill('SIGKILL'), 2500)
+    let result
+    try {
+      result = await new Promise((resolve, reject) => {
+        proc.once('error', reject)
+        proc.once('close', (exitCode, signal) => resolve({ exitCode, signal }))
+      })
+    } finally { clearTimeout(guard) }
+    assert.deepEqual(result, { exitCode: 1, signal: null })
+    assert.ok(Date.now() - started < 2000)
+    assert.match(stderr, /waiting for existing verification lock/)
+    assert.match(stderr, /Stop an existing watch\/UI run/)
+    assert.ok(stderr.includes(`${lock}.recovery`))
+    assert.equal(existsSync(f.log), false)
+    assert.equal(existsSync(lock), true)
+    assert.equal(existsSync(`${lock}.recovery`), true)
   } finally { f.clean() }
 })

@@ -52,16 +52,17 @@ function lockError(lockDir, detail) {
 function recoverStale(lockDir) {
   const recovery = `${lockDir}.recovery`
   try { mkdirSync(recovery) } catch (error) {
-    if (error.code === 'EEXIST') return
+    if (error.code === 'EEXIST') return false
     throw error
   }
   try {
-    if (!existsSync(lockDir)) return
+    if (!existsSync(lockDir)) return true
     const owner = readOwner(lockDir)
-    if (!owner || !stale(owner)) return
+    if (!owner || !stale(owner)) return false
     const moved = `${lockDir}.stale-${randomUUID()}`
     renameSync(lockDir, moved)
     rmSync(moved, { recursive: true, force: true })
+    return true
   } finally {
     rmSync(recovery, { recursive: true, force: true })
   }
@@ -72,6 +73,7 @@ function pause(ms) { return new Promise(resolve => setTimeout(resolve, ms)) }
 async function acquire(lockDir, owner, interrupted, waitMs) {
   const deadline = Date.now() + waitMs
   let missingSince = 0
+  let waitingLogged = false
   while (true) {
     if (interrupted()) return false
     try {
@@ -84,6 +86,15 @@ async function acquire(lockDir, owner, interrupted, waitMs) {
     } catch (error) {
       if (error.code !== 'EEXIST') throw error
     }
+    if (!waitingLogged) {
+      console.error(`verify: waiting for existing verification lock ${lockDir}; watch/UI runs hold it until stopped`)
+      waitingLogged = true
+    }
+    if (Date.now() >= deadline) {
+      const recovery = `${lockDir}.recovery`
+      const detail = `Timed out after ${waitMs} ms waiting for verification. Stop an existing watch/UI run if one is active.${existsSync(recovery) ? ` Recovery marker ${recovery} exists; inspect it before manual cleanup.` : ''}`
+      throw lockError(lockDir, detail)
+    }
     const ownerNow = readOwner(lockDir)
     if (!ownerNow) {
       missingSince ||= Date.now()
@@ -94,8 +105,10 @@ async function acquire(lockDir, owner, interrupted, waitMs) {
     if (!alive(ownerNow.pid) && ownerNow.phase === 'spawning') {
       throw lockError(lockDir, 'Owner died while launching a child; child identity is unknown')
     }
-    if (stale(ownerNow)) { recoverStale(lockDir); continue }
-    if (Date.now() >= deadline) throw lockError(lockDir, `Timed out after ${waitMs} ms waiting for verification`)
+    if (stale(ownerNow)) {
+      if (!recoverStale(lockDir)) await pause(POLL_MS)
+      continue
+    }
     await pause(POLL_MS)
   }
 }

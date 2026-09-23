@@ -1,5 +1,5 @@
 diff --git a/dist/index.mjs b/dist/index.mjs
-index f973c75..790e3a9 100644
+index f973c758dbb690aae35bb570b91e90d68f24f505..84f9f1264c0e868c80cc784e833bfafb7acd0e6f 100644
 --- a/dist/index.mjs
 +++ b/dist/index.mjs
 @@ -157,8 +157,8 @@ const gm = {
@@ -54,7 +54,7 @@ index f973c75..790e3a9 100644
      "0700_GeneralUserGS_sf2_file",
      //0700_SBLive_sf2
      //0700_SoundBlasterOld_sf2
-@@ -1821,88 +1821,133 @@ async function loadFont(name) {
+@@ -1821,88 +1821,139 @@ async function loadFont(name) {
    const load = async () => {
      const url = `${soundfontUrl}/${name}.js`, preset = await fetch(url).then((e) => e.text());
      let [_, data] = preset.split("={");
@@ -85,10 +85,10 @@ index f973c75..790e3a9 100644
 -  G.buffer = n;
 -  const u = i.originalPitch - 100 * i.coarseTune - i.fineTune, o = 1 * Math.pow(2, (100 * r - u) / 1200);
 -  return G.playbackRate.value = o, i.loopStart > 1 && i.loopStart < i.loopEnd && (G.loop = !0, G.loopStart = i.loopStart / i.sampleRate, G.loopEnd = i.loopEnd / i.sampleRate), G;
-+  const { buffer: a, zone: l } = await getFontPitch(e, r, i), G = i.createBufferSource();
-+  G.buffer = a;
++  const { buffer: G, zone: l } = await getFontPitch(e, r, i), a = i.createBufferSource();
++  a.buffer = G;
 +  const u = l.originalPitch - 100 * l.coarseTune - l.fineTune, o = 1 * Math.pow(2, (100 * r - u) / 1200);
-+  return G.playbackRate.value = o, l.loopStart > 1 && l.loopStart < l.loopEnd && (G.loop = !0, G.loopStart = l.loopStart / l.sampleRate, G.loopEnd = l.loopEnd / l.sampleRate), G;
++  return a.playbackRate.value = o, l.loopStart > 1 && l.loopStart < l.loopEnd && (a.loop = !0, a.loopStart = l.loopStart / l.sampleRate, a.loopEnd = l.loopEnd / l.sampleRate), a;
  }
  let bufferCache = {};
 -async function getFontPitch(e, l, s) {
@@ -146,13 +146,13 @@ index f973c75..790e3a9 100644
 -    if (!i)
 -      throw new Error(`no soundfont buffer found for preset ${e}, pitch: ${l}`);
 -    return { buffer: i, zone: n };
-+    const a = findZone(r, s);
-+    if (!a)
++    const G = findZone(r, s);
++    if (!G)
 +      throw new Error("no soundfont zone found for preset ", e, "pitch", s);
-+    const l = await loadZoneBuffer(a, i);
++    const l = await loadZoneBuffer(G, i);
 +    if (!l)
 +      throw new Error(`no soundfont buffer found for preset ${e}, pitch: ${s}`);
-+    return { buffer: l, zone: a };
++    return { buffer: l, zone: G };
    };
 -  return bufferCache[f] = a(), bufferCache[f];
 +  return bufferCache[f] = n().catch((r) => {
@@ -176,21 +176,21 @@ index f973c75..790e3a9 100644
 -      r = f.charCodeAt(s * 2), n = f.charCodeAt(s * 2 + 1), r < 0 && (r = 256 + r), n < 0 && (n = 256 + n), i = n * 256 + r, i >= 65536 / 2 && (i = i - 65536), a[s] = i / 65536;
 +    e.buffer = s.createBuffer(1, f.length / 2, e.sampleRate);
 +    const n = e.buffer.getChannelData(0);
-+    let r, a, l;
++    let r, G, l;
 +    for (var i = 0; i < f.length / 2; i++)
-+      r = f.charCodeAt(i * 2), a = f.charCodeAt(i * 2 + 1), r < 0 && (r = 256 + r), a < 0 && (a = 256 + a), l = a * 256 + r, l >= 65536 / 2 && (l = l - 65536), n[i] = l / 65536;
++      r = f.charCodeAt(i * 2), G = f.charCodeAt(i * 2 + 1), r < 0 && (r = 256 + r), G < 0 && (G = 256 + G), l = G * 256 + r, l >= 65536 / 2 && (l = l - 65536), n[i] = l / 65536;
    } else if (e.file) {
 -    const f = e.file.length, a = new ArrayBuffer(f), r = new Uint8Array(a), n = atob(e.file);
 -    let i;
 -    for (let G = 0; G < n.length; G++)
 -      i = n.charCodeAt(G), r[G] = i;
 -    return new Promise((G) => l.decodeAudioData(a, G));
-+    const f = e.file.length, n = new ArrayBuffer(f), r = new Uint8Array(n), a = atob(e.file);
++    const f = e.file.length, n = new ArrayBuffer(f), r = new Uint8Array(n), G = atob(e.file);
 +    let l;
-+    for (let G = 0; G < a.length; G++)
-+      l = a.charCodeAt(G), r[G] = l;
++    for (let a = 0; a < G.length; a++)
++      l = G.charCodeAt(a), r[a] = l;
 +    return new Promise(
-+      (G, u) => s.decodeAudioData(n, G, u)
++      (a, u) => s.decodeAudioData(n, a, u)
 +    );
    }
  }
@@ -202,7 +202,7 @@ index f973c75..790e3a9 100644
 -      async (s, f, a) => {
 -        const [r, n, i, G] = getADSRValues([
 +      async (i, f, n) => {
-+        const [r, a, l, G] = getADSRValues([
++        const [r, G, l, a] = getADSRValues([
            f.attack,
            f.decay,
            f.sustain,
@@ -215,28 +215,34 @@ index f973c75..790e3a9 100644
 -        const p = getVibratoOscillator(t.detune, f, s);
 -        getPitchEnvelope(t.detune, f, s, d), t.stop(F);
 -        const R = (M) => {
-+        ]), { duration: u } = f, o = getSoundIndex(f.n, s.length), d = s[o], p = getAudioContext(), t = await getFontBufferSource(d, f, p);
++        ]), { duration: u } = f, o = getSoundIndex(f.n, s.length), S = s[o], p = getAudioContext(), t = await getFontBufferSource(S, f, p);
 +        t.start(i);
-+        const h = p.createGain(), U = t.connect(h), S = i + u;
-+        getParamADSR(U.gain, r, a, l, G, 0, 0.3, i, S, "linear");
-+        let C = S + G + 0.01;
++        const h = p.createGain(), U = t.connect(h), C = i + u;
++        getParamADSR(U.gain, r, G, l, a, 0, 0.3, i, C, "linear");
++        let d = C + a + 0.01;
 +        const m = getVibratoOscillator(t.detune, f, i);
-+        getPitchEnvelope(t.detune, f, i, S), t.stop(C);
++        getPitchEnvelope(t.detune, f, i, C), t.stop(d);
 +        const R = (F) => {
-+          C = Math.min(C, F), t.stop(C);
++          d = Math.min(d, F), t.stop(d);
          };
          return onceEnded(t, () => {
 -          releaseAudioNode(t), p?.stop(), a();
 -        }), { node: U, stop: R, nodes: { source: [t], ...p?.nodes } };
 +          releaseAudioNode(t), m?.stop(), n();
-+        }), { node: U, stop: R, nodes: { source: [t], ...m?.nodes } };
++        }), {
++          node: U,
++          stop: R,
++          nodes: { source: [t], ...m?.nodes },
++          releaseAt: C,
++          endAt: C + a
++        };
        },
 -      { type: "soundfont", prebake: !0, fonts: l }
 +      { type: "soundfont", prebake: !0, fonts: s }
      );
    });
  }
-@@ -3934,22 +3979,24 @@ const list = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty
+@@ -3934,22 +3985,24 @@ const list = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty
    instrumentNames,
    instruments
  }, Symbol.toStringTag, { value: "Module" }));
@@ -246,7 +252,7 @@ index f973c75..790e3a9 100644
 -    startPresetNote(...o)(u + s.duration);
 +Pattern.prototype.soundfont = function(e, s = 0) {
 +  return this.onTrigger((i, f, n, r) => {
-+    const a = getAudioContext(), l = getPlayableNoteValue(i), G = e.presets[s % e.presets.length], u = r, o = [a, G, noteToMidi(l), u];
++    const G = getAudioContext(), l = getPlayableNoteValue(i), a = e.presets[s % e.presets.length], u = r, o = [G, a, noteToMidi(l), u];
 +    startPresetNote(...o)(u + i.duration);
    });
  };
@@ -268,7 +274,7 @@ index f973c75..790e3a9 100644
    setSoundfontUrl,
    list as soundfontList,
 diff --git a/fontloader.mjs b/fontloader.mjs
-index b4ae598..6a3036d 100644
+index b4ae59828244ce7f832e89467f4c412e2aa32695..c12695f85f9cdc1eedc77547adb709ef31a0f40e 100644
 --- a/fontloader.mjs
 +++ b/fontloader.mjs
 @@ -28,9 +28,13 @@ async function loadFont(name) {
@@ -376,7 +382,7 @@ index b4ae598..6a3036d 100644
      }
    }
  }
-@@ -171,7 +232,12 @@ export function registerSoundfonts() {
+@@ -171,13 +232,19 @@ export function registerSoundfonts() {
          getPitchEnvelope(bufferSource.detune, value, time, holdEnd);
 
          bufferSource.stop(envEnd);
@@ -390,8 +396,16 @@ index b4ae598..6a3036d 100644
          onceEnded(bufferSource, () => {
            releaseAudioNode(bufferSource);
            vibratoHandle?.stop();
+           onended();
+         });
+-        return { node, stop, nodes: { source: [bufferSource], ...vibratoHandle?.nodes } };
++        return { node, stop, nodes: { source: [bufferSource], ...vibratoHandle?.nodes },
++          releaseAt: holdEnd, endAt: holdEnd + release };
+       },
+       { type: 'soundfont', prebake: true, fonts },
+     );
 diff --git a/gm.mjs b/gm.mjs
-index d8b7687..df2eea6 100644
+index d8b7687d7523d161a204d812f0f1b6fc53dc3cf3..df2eea6ad307c9c59975779b8d4b837c5c459b56 100644
 --- a/gm.mjs
 +++ b/gm.mjs
 @@ -153,8 +153,8 @@ export default {
@@ -447,7 +461,7 @@ index d8b7687..df2eea6 100644
      //0700_SBLive_sf2
      //0700_SoundBlasterOld_sf2
 diff --git a/index.mjs b/index.mjs
-index 3179260..7126b57 100644
+index 31792603cf4b2c1659d73dac0ab66fb954a30f3a..7126b5783e62a7bf6cfc9449f39837c7f86ddfb9 100644
 --- a/index.mjs
 +++ b/index.mjs
 @@ -1,6 +1,6 @@

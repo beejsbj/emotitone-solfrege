@@ -41,6 +41,7 @@ describe("live styles through music, recording, and Strudel", () => {
     vi.setSystemTime(EPOCH);
     vi.spyOn(window, "addEventListener").mockImplementation(() => {});
     vi.mocked(audio.attackNote).mockResolvedValue(undefined);
+    vi.mocked(audio.prewarmSoundSamples).mockResolvedValue(undefined);
     vi.spyOn(performance, "now").mockImplementation(() => Date.now() - EPOCH);
     vi.mocked(audio.getAudioContext).mockImplementation(() => ({
       currentTime: performance.now() / 1000,
@@ -56,6 +57,111 @@ describe("live styles through music, recording, and Strudel", () => {
     vi.clearAllTimers();
     vi.restoreAllMocks();
     vi.useRealTimers();
+  });
+
+  it.each(["solfege", "exact"] as const)("records the full normal envelope for %s fallback input", async (input) => {
+    const music = useMusicStore();
+    const patterns = connectRecorder();
+    const owner = await (input === "exact" ? music.attackExactPitch("C4") : music.attackNote(0));
+    await vi.advanceTimersByTimeAsync(200);
+    await music.releaseNote(owner!);
+
+    const expected = { attack: 0.001, decay: 0.001, sustain: 1, release: 0.2 };
+    expect(noteEvents("note-played")[0].articulation).toEqual(expected);
+    expect(noteEvents("note-released")[0].articulation).toEqual(expected);
+    expect(patterns.loggedNotes[0].articulation).toEqual(expected);
+  });
+
+  it.each(["together", "repeat"])("isolates %s fallback events from later release snapshots", async (style) => {
+    const music = useMusicStore();
+    const patterns = connectRecorder();
+    music.setPlayStyle(style);
+    const owner = await music.attackExactPitch("C4");
+    await vi.advanceTimersByTimeAsync(10);
+    noteEvents("note-played")[0].articulation.release = 9;
+    await vi.advanceTimersByTimeAsync(200);
+    await music.releaseNote(owner!);
+    expect(patterns.loggedNotes[0].articulation).toEqual({
+      attack: 0.001, decay: 0.001, sustain: 1, release: style === "repeat" ? 0.03 : 0.2,
+    });
+    music.setPlayStyle("together");
+    const nextOwner = await music.attackExactPitch("E4");
+    await music.releaseNote(nextOwner!);
+    expect(patterns.loggedNotes.at(-1)?.articulation?.release).toBe(0.2);
+  });
+
+  it.each(["solfege", "exact"] as const)("records the full %s input hold when the fallback attack resolves late", async (input) => {
+    const music = useMusicStore();
+    const patterns = connectRecorder();
+    let finishAttack!: (startedAt: number) => void;
+    vi.mocked(audio.attackNote).mockImplementationOnce(() => new Promise<number>((resolve) => {
+      finishAttack = resolve;
+    }));
+
+    const pendingOwner = input === "exact" ? music.attackExactPitch("C4") : music.attackNote(0);
+    expect(audio.attackNote).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(200);
+    expect(noteEvents("note-played")).toEqual([]);
+    expect(patterns.loggedNotes).toEqual([]);
+    finishAttack(0.2);
+    const owner = await pendingOwner;
+
+    await vi.advanceTimersByTimeAsync(300);
+    await music.releaseNote(owner!);
+    expect(patterns.loggedNotes.map(note => [note.note, note.pressTime, note.releaseTime, note.duration]))
+      .toEqual([["C4", EPOCH, EPOCH + 500, 500]]);
+    expect(noteEvents("note-played")[0]).toMatchObject({ timestamp: EPOCH, audibleAt: 200 });
+    expect(music.activeNotes.size).toBe(0);
+  });
+
+  it.each(["repeat", "arp-up", "arp-up-down", "strum-down"])("records the full %s fallback envelope", async (style) => {
+    const music = useMusicStore();
+    const patterns = connectRecorder();
+    music.setPlayStyle(style);
+    const owners = await Promise.all(["C4", "E4", "G4"].map(pitch => music.attackExactPitch(pitch)));
+    await vi.advanceTimersByTimeAsync(710);
+    await Promise.all(owners.map(owner => music.releaseNote(owner!)));
+
+    const expected = { attack: 0.001, decay: 0.001, sustain: 1, release: style === "strum-down" ? 0.2 : 0.03 };
+    expect(patterns.loggedNotes.length).toBeGreaterThanOrEqual(3);
+    for (const type of ["note-played", "note-released"]) {
+      expect(noteEvents(type).map(note => note.articulation)).toEqual(
+        patterns.loggedNotes.map(() => expected),
+      );
+    }
+    expect(patterns.loggedNotes.map(note => note.articulation)).toEqual(patterns.loggedNotes.map(() => expected));
+  });
+
+  it.each([
+    ['square', 'together', 0.12], ['sawtooth', 'strum-down', 0.12],
+    ['square', 'repeat', 0.03], ['sawtooth', 'arp-up', 0.03],
+    ['amSynth', 'strum-down', 0.12], ['fmSynth', 'together', 0.12], ['metalSynth', 'repeat', 0.03],
+  ] as const)('captures the native %s envelope for high-pitch %s notes', async (instrument, style, release) => {
+    await useInstrumentStore().setInstrument(instrument);
+    const music = useMusicStore();
+    const patterns = connectRecorder();
+    music.setPlayStyle(style);
+    const owners = await Promise.all(['C7', 'E7'].map(pitch => music.attackExactPitch(pitch)));
+    await vi.advanceTimersByTimeAsync(510);
+    await Promise.all(owners.map(owner => music.releaseNote(owner!)));
+
+    const expected = { attack: 0.003, decay: 0.001, sustain: 1, release };
+    expect(patterns.loggedNotes.length).toBeGreaterThanOrEqual(2);
+    for (const logged of patterns.loggedNotes) {
+      expect(logged).toMatchObject({ instrument, articulation: expected });
+      expect(['C7', 'E7']).toContain(logged.note);
+    }
+    for (const type of ['note-played', 'note-released']) {
+      expect(noteEvents(type)).toHaveLength(patterns.loggedNotes.length);
+      for (const event of noteEvents(type)) expect(event).toMatchObject({ instrument, articulation: expected });
+    }
+    expect(vi.mocked(audio.attackNote).mock.calls.length).toBeGreaterThanOrEqual(2);
+    for (const call of vi.mocked(audio.attackNote).mock.calls) {
+      expect(call[2]).toBe(instrument);
+      if (style !== 'together') expect(call[3]?.release).toBe(release);
+    }
+    expect(music.activeNotes.size).toBe(0);
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it("cancels held output on audio suspension and preserves wall-clock position after resume", async () => {
@@ -134,7 +240,7 @@ describe("live styles through music, recording, and Strudel", () => {
     ]);
     expect(noteEvents("note-released").map((note) => note.noteId).sort())
       .toEqual(noteEvents("note-played").map((note) => note.noteId).sort());
-    expect(logNotesToStrudel(patterns.loggedNotes)).toContain("C4@0.1 ~@0.025 E4@0.1 ~@0.025 G4@0.1");
+    expect(logNotesToStrudel(patterns.loggedNotes)).toContain("C4:0.001:0.03@0.1 ~@0.025 E4:0.001:0.03@0.1 ~@0.025 G4:0.001:0.03@0.1");
     expect(music.activeNotes.size).toBe(0);
     expect(vi.getTimerCount()).toBe(0);
   });
@@ -151,6 +257,9 @@ describe("live styles through music, recording, and Strudel", () => {
     expect(patterns.loggedNotes.map((note) => [note.pressTime - EPOCH, note.duration])).toEqual([
       [0, 20], [25, 100], [150, 100],
     ]);
+    expect(patterns.loggedNotes.map(note => note.articulation?.release)).toEqual([0.2, 0.03, 0.03]);
+    expect(patterns.dynamicPatterns).toHaveLength(1);
+    expect(patterns.currentSketchNotes.map(note => note.articulation?.release)).toEqual([0.2, 0.03, 0.03]);
     music.setPlayMode("strum-down");
     expect(music.playMode).toBe("strum-down");
     music.setPlayMode("invalid:8");
@@ -277,11 +386,14 @@ describe("live styles through music, recording, and Strudel", () => {
     expect(patterns.loggedNotes.every((note) => note.key === "C" && note.isBorrowed)).toBe(true);
   });
 
-  it("keeps the held input when a mode change replaces an unresolved Together attack", async () => {
+  it.each(['piano', 'square', 'sawtooth'])("keeps the held %s input when a mode change replaces an unresolved Together attack", async (instrument) => {
+    await useInstrumentStore().setInstrument(instrument);
     const music = useMusicStore();
+    const patterns = connectRecorder();
     let resolve!: () => void;
     vi.mocked(audio.attackNote).mockImplementationOnce(() => new Promise<void>((done) => { resolve = done; }));
     const pendingOwner = music.attackExactPitch("C4");
+    const pendingNoteId = vi.mocked(audio.attackNote).mock.calls[0][0];
     music.setPlayStyle("repeat");
     await vi.advanceTimersByTimeAsync(10);
     resolve();
@@ -290,8 +402,39 @@ describe("live styles through music, recording, and Strudel", () => {
     await vi.advanceTimersByTimeAsync(310);
     expect(noteEvents("note-played")).toHaveLength(2);
     await music.releaseNote(owner!);
+    expect(audio.stopNote).toHaveBeenCalledWith(pendingNoteId);
+    expect(noteEvents('note-played').map(event => event.noteId)).not.toContain(pendingNoteId);
+    expect(patterns.loggedNotes).toHaveLength(2);
+    expect(patterns.loggedNotes.map(note => note.articulation?.release)).toEqual([0.03, 0.03]);
     expect(music.activeNotes.size).toBe(0);
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it.each(['square', 'sawtooth'])('cancels a pending native %s attack without recording or reviving it', async instrument => {
+    await useInstrumentStore().setInstrument(instrument);
+    const music = useMusicStore();
+    const patterns = connectRecorder();
+    let finishAttack!: () => void;
+    vi.mocked(audio.attackNote).mockImplementationOnce(() => new Promise<void>(resolve => { finishAttack = resolve; }));
+    const pendingOwner = music.attackExactPitch('C7');
+    const pendingNoteId = vi.mocked(audio.attackNote).mock.calls[0][0];
+    await music.releaseAllNotes();
+    await vi.advanceTimersByTimeAsync(100);
+    finishAttack();
+
+    expect(await pendingOwner).toBeNull();
+    expect(audio.stopNote).toHaveBeenCalledWith(pendingNoteId);
+    expect(noteEvents('note-played')).toEqual([]);
+    expect(patterns.loggedNotes).toEqual([]);
+    expect(music.activeNotes.size).toBe(0);
+    expect(vi.getTimerCount()).toBe(0);
+
+    const nextOwner = await music.attackExactPitch('E7');
+    await vi.advanceTimersByTimeAsync(50);
+    await music.releaseNote(nextOwner!);
+    expect(patterns.loggedNotes).toHaveLength(1);
+    expect(patterns.loggedNotes[0]).toMatchObject({ note: 'E7', instrument,
+      articulation: { attack: 0.003, decay: 0.001, sustain: 1, release: 0.12 } });
   });
 
   it("stops every generated voice and timer when switching instruments", async () => {

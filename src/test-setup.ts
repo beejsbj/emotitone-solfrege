@@ -429,7 +429,7 @@ vi.mock('@/composables/useVisualConfig', () => ({
       scaleInDuration: 0.5,
       scaleOutDuration: 1,
       driftSpeed: 30,
-      vibrationFrequencyDivisor: 4,
+      vibrationFrequencyDivisor: 100,
       edgeSegments: 12,
       vibrationAmplitude: 0.05,
       glowEnabled: true,

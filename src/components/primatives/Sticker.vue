@@ -1,26 +1,26 @@
 <template>
   <span ref="stickerRef" :class="stickerClasses" :style="stickerStyle">
-    <template v-if="variant === 'badge'">
+    <template v-if="resolvedVariant === 'badge'">
       <span class="sticker__badge-edge" aria-hidden="true"></span>
       <span class="sticker__badge-text">
         <slot />
       </span>
     </template>
-    <template v-else-if="mark">
+    <template v-else-if="props.mark">
       <Mark
-        v-if="markPosition === 'before'"
+        v-if="resolvedMarkPosition === 'before'"
         class="sticker__mark"
-        :name="mark"
+        :name="props.mark"
         tone="inherit"
-        :size="markSize"
+        :size="resolvedMarkSize"
       />
       <span class="sticker__marked-text"><slot /></span>
       <Mark
-        v-if="markPosition === 'after'"
+        v-if="resolvedMarkPosition === 'after'"
         class="sticker__mark"
-        :name="mark"
+        :name="props.mark"
         tone="inherit"
-        :size="markSize"
+        :size="resolvedMarkSize"
       />
     </template>
     <slot v-else />
@@ -35,9 +35,10 @@ import Mark from "./Mark.vue";
 import type { MarkName } from "./marks";
 import { getRandomGeometry } from "../../utils/randomGeometry";
 
-export type StickerVariant = "outline" | "fill" | "badge";
+export type StickerPaperVariant = "outline" | "fill";
+export type StickerVariant = StickerPaperVariant | "badge";
 export type StickerMarkPosition = "before" | "after";
-export type StickerColor =
+export type StickerPaperColor =
   | "ink"
   | "ink-5"
   | "ivory"
@@ -50,28 +51,44 @@ export type StickerColor =
   | "plum"
   | "bone"
   | "mustard";
+export type StickerColor = StickerPaperColor;
+export type BadgeColor = "brass-sheen" | "ivory";
+export type StickerProps =
+  | {
+      variant?: StickerPaperVariant;
+      color?: StickerPaperColor;
+      mark?: MarkName;
+      markPosition?: StickerMarkPosition;
+      markSize?: number | string;
+      uiBeat?: boolean;
+    }
+  | {
+      variant: "badge";
+      color?: BadgeColor;
+      mark?: never;
+      markPosition?: never;
+      markSize?: never;
+      uiBeat?: boolean;
+    };
 
-const props = withDefaults(
-  defineProps<{
-    variant?: StickerVariant;
-    color?: StickerColor;
-    mark?: MarkName;
-    markPosition?: StickerMarkPosition;
-    markSize?: number | string;
-    uiBeat?: boolean;
-  }>(),
-  {
-    variant: "outline",
-    color: "ivory",
-    mark: undefined,
-    markPosition: "before",
-    markSize: "1em",
-    uiBeat: false,
-  },
-);
+const props = defineProps<StickerProps>();
 
 const stickerRef = ref<HTMLElement>();
 const geometryStyle = ref<CSSProperties>(getRandomGeometry("sticker"));
+
+const resolvedVariant = computed<StickerVariant>(() => props.variant ?? "outline");
+const resolvedColor = computed<StickerPaperColor>(() => {
+  if (props.variant === "badge") {
+    return props.color === "ivory" ? "ivory" : "brass-sheen";
+  }
+  return props.color ?? "ivory";
+});
+const resolvedMarkPosition = computed<StickerMarkPosition>(() =>
+  props.variant === "badge" ? "before" : props.markPosition ?? "before",
+);
+const resolvedMarkSize = computed<number | string>(() =>
+  props.variant === "badge" ? "1em" : props.markSize ?? "1em",
+);
 
 useUIBeatScale(stickerRef, () => props.uiBeat, {
   restScale: 0.8,
@@ -80,13 +97,13 @@ useUIBeatScale(stickerRef, () => props.uiBeat, {
 
 const stickerClasses = computed(() => [
   "sticker",
-  `sticker--${props.variant}`,
-  `sticker--color-${props.color}`,
-  { "sticker--marked": Boolean(props.mark) && props.variant !== "badge" },
+  `sticker--${resolvedVariant.value}`,
+  `sticker--color-${resolvedColor.value}`,
+  { "sticker--marked": Boolean(props.mark) && resolvedVariant.value !== "badge" },
 ]);
 
 const stickerStyle = computed<CSSProperties>(() =>
-  props.variant === "badge" ? {} : geometryStyle.value,
+  resolvedVariant.value === "badge" ? {} : geometryStyle.value,
 );
 </script>
 

@@ -35,8 +35,8 @@ export function createSuperdoughTestAudio() {
   }
   class Param {
     value = 1
-    setValueAtTime() {}
-    linearRampToValueAtTime() {}
+    setValueAtTime = vi.fn<(value: number, at: number) => void>()
+    linearRampToValueAtTime = vi.fn<(value: number, at: number) => void>()
     exponentialRampToValueAtTime() {}
     cancelScheduledValues() {}
     cancelAndHoldAtTime() {}
@@ -92,5 +92,6 @@ export function createSuperdoughTestAudio() {
       }
     } while (changed)
   }
-  return { context, sources, buffers, shapers, gains, Source, Constant, Shaper, advance }
+  return { context, sources, get voices() { return sources.filter(source => !(source instanceof Constant)) },
+    buffers, shapers, gains, Source, Constant, Shaper, advance }
 }

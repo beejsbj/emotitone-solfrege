@@ -153,6 +153,8 @@ describe("superdoughAudio live note handling", () => {
         gain: 0.8,
         attack: 0.003,
         release: 0.12,
+        decay: 0.001,
+        sustain: 1,
         voiceId: "note-1",
         sustainUntilRelease: true,
         orbit: 2,
@@ -459,6 +461,23 @@ describe("superdoughAudio live note handling", () => {
     expect(audio.getActiveStrudelStageNotes()).toEqual([]);
 
     vi.useRealTimers();
+  });
+
+  it("presents a short clipped gate without stretching its note-off to 40 ms", async () => {
+    vi.useFakeTimers();
+    try {
+      const dispatchEvent = vi.spyOn(window, "dispatchEvent");
+      const audio = await import("@/services/superdoughAudio");
+      await audio.emotitoneStrudelOutput({ value: { note: "C4", s: "piano", clip: 0.02 } }, 0, 0.005, 1, 12);
+      await vi.advanceTimersByTimeAsync(5);
+      expect(audio.getActiveStrudelStageNotes()).toEqual([]);
+      const events = dispatchEvent.mock.calls.map(([event]) => event as CustomEvent);
+      const played = events.find(event => event.type === "note-played")!;
+      const released = events.find(event => event.type === "note-released")!;
+      expect(released.detail.audibleAt - played.detail.audibleAt).toBeCloseTo(5);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("does not present a pattern event whose audio deadline was already missed", async () => {

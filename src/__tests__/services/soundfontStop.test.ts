@@ -84,6 +84,9 @@ describe.each([
   it('ends a held source at release and cleans up through its ended event', async () => {
     const { handle, onended } = await instrument()
     expect(source.start).toHaveBeenCalledWith(10)
+    expect(handle.releaseAt).toBe(70)
+    expect(handle.endAt).toBe(70.2)
+    expect(source.stop.mock.calls[0][0]).toBeCloseTo(handle.endAt + .01)
     handle.stop(10.5)
     await vi.advanceTimersByTimeAsync(10499)
     expect(onended).not.toHaveBeenCalled()

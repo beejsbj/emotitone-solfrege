@@ -6,6 +6,7 @@
  */
 // @ts-ignore — superdough does not publish TypeScript declarations.
 import { getAudioContext as superdoughContext, getDefaultValue, getSuperdoughAudioController, initAudio, multiChannelOrbits } from "superdough";
+import { MAX_AUDIO_VOICES } from "@/audio/voicePolicy";
 import type { LiveOrbitSends } from "@/audio/liveShaping";
 
 /** Live notes on either backend share this orbit's reverb and delay. */
@@ -46,7 +47,7 @@ export function getLiveOrbit(): LiveOrbitSends | undefined {
  */
 export async function initializeAudio(): Promise<void> {
   getAudioContext();
-  initialization ??= Promise.resolve().then(() => initAudio()).catch((error) => {
+  initialization ??= Promise.resolve().then(() => initAudio({ maxPolyphony: MAX_AUDIO_VOICES })).catch((error) => {
     initialization = undefined;
     throw error;
   });

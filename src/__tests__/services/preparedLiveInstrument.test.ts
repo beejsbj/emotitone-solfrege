@@ -89,11 +89,24 @@ describe("prepared live instrument catalog", () => {
         { rootMidi: 59.25, lowMidi: 60, highMidi: 73 }] });
   });
 
-  it.each(["sine", "square", "triangle", "sawtooth"])("prepares %s without sample work and keeps the explicit live envelope", async name => {
+  it.each(["sine", "triangle"])("prepares %s without sample work and keeps the explicit live envelope", async name => {
     mocks.sounds.set(name, { data: { type: "synth" } });
     expect(await prepareLiveInstrument(context(), name)).toEqual({ kind: "oscillator", instrumentId: name, waveform: name,
       gain: 0.24, attack: 0.003, decay: 0.001, sustain: 1, release: 0.12 });
     expect(mocks.font).not.toHaveBeenCalled(); expect(mocks.load).not.toHaveBeenCalled();
+  });
+
+  it.each(["square", "sawtooth"])("keeps %s on the native renderer before allocating worklet preparation", async name => {
+    mocks.sounds.set(name, { data: { type: "synth" } });
+    const ctx = context();
+    expect(await prepareLiveInstrument(ctx, name)).toMatchObject({ kind: "unsupported", instrumentId: name,
+      reason: expect.stringContaining("native oscillator") });
+    expect(mocks.font).not.toHaveBeenCalled(); expect(mocks.load).not.toHaveBeenCalled();
+    expect(mocks.mipmaps).not.toHaveBeenCalled();
+    expect(getPreparedLiveInstrumentDiagnostics(ctx)).toMatchObject({ cachedPreparationPcmBytes: 0, preparingPcmBytes: 0 });
+    // This restriction belongs to worklet preparation, not the native catalog.
+    expect(await prepareNativeInstrument(ctx, name)).toMatchObject({ kind: "oscillator", waveform: name, gain: 0.24,
+      attack: 0.003, decay: 0.001, sustain: 1, release: 0.12 });
   });
 
   it("prepares only octave levels reachable through each root's actual MIDI selection range", async () => {

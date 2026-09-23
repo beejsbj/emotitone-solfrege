@@ -482,7 +482,9 @@ export async function emotitoneStrudelOutput(
 
   if (visualPayload && typeof window !== "undefined" && t >= submittedAt) {
     const noteId = `strudel_${++_strudelVisualCounter}`;
-    const durationMs = Math.max(40, Math.round(hapDuration * 1000));
+    // The scheduler supplies the clipped gate. Presentation must not invent a
+    // longer hold for short notes; release tails are separate from key-down.
+    const durationMs = Math.max(0, hapDuration * 1000);
     const audibleAt = audioTimeToOutputTime(context, t);
     const releaseAt = audioTimeToOutputTime(context, t + durationMs / 1000);
     const releaseTimeout = window.setTimeout(() => {
@@ -615,6 +617,8 @@ export async function attackNote(
     note: noteName,
     gain: 0.8,
     attack,
+    decay: articulation.decay,
+    sustain: articulation.sustain,
     release,
     voiceId: noteId,
     sustainUntilRelease: true,

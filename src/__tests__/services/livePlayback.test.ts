@@ -11,7 +11,6 @@ vi.mock('@/audio/liveShaping', () => ({ createLiveShapingChain: vi.fn(() => {
 vi.mock('@/services/audioRuntime', () => ({ getLiveOrbit: vi.fn() }))
 vi.mock('@/services/preparedLiveInstrument', () => ({ prepareLiveInstrument: mocks.prepare,
   releasePreparedLiveInstrument: mocks.releasePrepared, getPreparedLiveInstrumentDiagnostics: mocks.preparationDiagnostics }))
-vi.mock('@/services/liveInstrumentNames', () => ({ resolveLiveSoundName: (name: string) => name }))
 
 const bank = (instrumentId: string) => ({ kind: 'oscillator', instrumentId, waveform: 'sine',
   gain: .3, attack: 0, decay: 0, sustain: 1, release: .01 })
@@ -237,6 +236,35 @@ describe('live Shape controls on the worklet backend', () => {
 })
 
 describe('production renderer selection', () => {
+  it.each([
+    ['square', 'square'], ['sawtooth', 'sawtooth'], ['amSynth', 'sawtooth'],
+    ['fmSynth', 'square'], ['metalSynth', 'square'],
+  ])('routes unsupported %s through %s to fallback without disturbing a held worklet bank', async (name, resolved) => {
+    const { manager, context, engine } = await setup()
+    await manager.prepareLivePlayback(context, destination, 'sine')
+    const held = manager.getLivePlayback('sine')!
+    held.press('finger', [{ pitch: 96, instrumentId: 'sine' }])
+    const unsupported = { kind: 'unsupported', instrumentId: resolved, reason: 'Native oscillator required for timbre fidelity' }
+    mocks.prepare.mockResolvedValueOnce(unsupported)
+
+    await manager.prepareLivePlayback(context, destination, name)
+
+    expect(mocks.prepare).toHaveBeenLastCalledWith(context, resolved)
+    expect(manager.getLivePlayback(name)).toBeUndefined()
+    expect(manager.getLivePlayback(resolved)).toBeUndefined()
+    expect(manager.needsLivePlaybackPreparation(name)).toBe(false)
+    expect(manager.needsLivePlaybackPreparation(resolved)).toBe(false)
+    expect(manager.getLivePlaybackDiagnostics(name)).toMatchObject({
+      backend: 'superdough', reason: unsupported.reason, installedBanks: 1, installingPcmBytes: 0,
+    })
+    expect(engine.prepare).toHaveBeenCalledTimes(1)
+    expect(engine.forget).not.toHaveBeenCalled()
+    expect(engine.dispose).not.toHaveBeenCalled()
+    expect(manager.getLivePlayback('sine')).toBe(held)
+    held.release('finger')
+    expect(engine.release).toHaveBeenCalledWith('finger')
+  })
+
   it('keeps the worklet when an obsolete native backend environment variable is present', async () => {
     vi.stubEnv('VITE_LIVE_AUDIO_BACKEND', 'native')
     const { manager, context } = await setup()

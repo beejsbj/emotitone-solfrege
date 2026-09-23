@@ -95,16 +95,17 @@ export interface CodeStripPresentation {
 
 type PlaybackState = {
   atTime: number;
-  cycle: number;
+  loop: number;
+  weightPosition: number;
   active: ActiveSourceRange[];
   played: SourceRange[];
 };
 
 type InlineMetaToken = { from: number; to: number };
 
-const INLINE_META_REGEX = /(?:@(?:\d+(?:\.\d+)?)|:(?:\d+(?:\.\d+)?))/g;
+const INLINE_META_REGEX = /[@:][+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/g;
 const ABSOLUTE_NOTE_REGEX = /\b[a-gA-G](?:[#bsf]+)?-?\d+\b/g;
-const RELATIVE_NOTE_REGEX = /(?<![@.\w])-?\d{1,3}(?=@|\b)/g;
+const RELATIVE_NOTE_REGEX = /(?<![:@.\w])-?\d{1,3}(?=@|\b)/g;
 const REST_CHARACTERS = new Set(["~", "-"]);
 const NOTE_NAMES: CodeStripNote[] = ["do", "re", "mi", "fa", "sol", "la", "ti"];
 
@@ -140,7 +141,8 @@ const initialPresentation = Facet.define<
 
 const idlePlayback = (): PlaybackState => ({
   atTime: 0,
-  cycle: -1,
+  loop: -1,
+  weightPosition: 0,
   active: [],
   played: [],
 });
@@ -227,13 +229,13 @@ const playbackState = StateField.define<PlaybackState>({
       if (!effect.is(showMiniLocations)) continue;
 
       const atTime = numericValue(effect.value.atTime);
-      const cycle = Math.floor(atTime);
+      const { loop, weightPosition } = getPlaybackTiming(transaction.state.doc, atTime);
       const active = collectLeafPlaybackRanges(
         effect.value.haps as HapLike[],
         getPatternBounds(transaction.state.doc.toString()),
         atTime,
       );
-      const played = cycle === playback.cycle ? [...playback.played] : [];
+      const played = loop === playback.loop ? [...playback.played] : [];
 
       for (const range of active) {
         if (!played.some((candidate) => sameRange(candidate, range))) {
@@ -241,7 +243,7 @@ const playbackState = StateField.define<PlaybackState>({
         }
       }
 
-      playback = { atTime, cycle, active, played };
+      playback = { atTime, loop, weightPosition, active, played };
     }
 
     return playback;
@@ -321,8 +323,8 @@ const codeStripEventDecorations = EditorView.decorations.compute(
       const baseToken = compatibleToken(event, supplied, relativeScale)
         ? withSourceDuration(supplied, event)
         : fallbackToken(event, presentation, relativeScale);
-      const rendered = applyPlayback(baseToken, event, events, playing, playback);
-      const active = isEventActive(event, events, playing, playback);
+      const rendered = applyPlayback(baseToken, event, playing, playback);
+      const active = isEventActive(event, playing, playback);
       const followRank = active ? activeFollowRank(event, playback) : undefined;
 
       builder.add(
@@ -597,7 +599,6 @@ function specimenHap(range: { from: number; to: number }, progress: number): Hap
 function applyPlayback(
   token: CodeStripToken,
   event: ParsedCodeStripEvent,
-  events: ParsedCodeStripEvent[],
   playing: boolean,
   playback: PlaybackState,
 ): CodeStripToken {
@@ -614,7 +615,7 @@ function applyPlayback(
       ...token,
       progress: highlighted
         ? progressForRange(event, playing, playback)
-        : restProgress(event, events, playing, playback),
+        : restProgress(event, playing, playback),
     };
   }
 
@@ -864,6 +865,11 @@ function extractNotes(content: string, from: number, to: number) {
   const notes: ParsedNote[] = [];
   const slice = content.slice(from, to);
   const absoluteRanges: SourceRange[] = [];
+  // Colon values are sound controls (clip/envelope), not more scale degrees.
+  // Exclude their entire span, including signs and exponent notation.
+  const metadataRanges = Array.from(slice.matchAll(INLINE_META_REGEX), match => ({
+    start: from + match.index!, end: from + match.index! + match[0].length,
+  }));
 
   for (const match of slice.matchAll(ABSOLUTE_NOTE_REGEX)) {
     if (match.index == null) continue;
@@ -878,11 +884,12 @@ function extractNotes(content: string, from: number, to: number) {
     });
   }
 
+  const nonDegreeRanges = [...absoluteRanges, ...metadataRanges];
   for (const match of slice.matchAll(RELATIVE_NOTE_REGEX)) {
     if (match.index == null) continue;
     const relativeFrom = from + match.index;
     const relativeTo = relativeFrom + match[0].length;
-    if (absoluteRanges.some((range) => relativeFrom < range.end && relativeTo > range.start)) {
+    if (nonDegreeRanges.some((range) => relativeFrom < range.end && relativeTo > range.start)) {
       continue;
     }
     notes.push({
@@ -1052,16 +1059,32 @@ function progressForRange(
   return playback.played.some((candidate) => overlaps(range, candidate)) ? 1 : 0;
 }
 
+function getPlaybackTiming(doc: Text, atTime: number) {
+  const events = parseCodeStripEvents(doc);
+  const total = events[events.length - 1]?.endWeight ?? 0;
+  // Direct < event@weight ... > weights are cycle durations. A single
+  // enclosing [ ... ] normalizes those same weights into one cycle instead.
+  // This follows the flat CodeStrip grammar, not arbitrary Strudel transforms.
+  const duration = getSequentialPatternBrackets(doc.toString()) ? 1 : total;
+  if (duration <= 0) return { loop: 0, weightPosition: 0 };
+  let loopTime = atTime / duration;
+  const nearestBoundary = Math.round(loopTime);
+  // Decimal source weights can sum to 0.30000000000000004 at time 0.3.
+  if (Math.abs(loopTime - nearestBoundary) <=
+    Number.EPSILON * 8 * Math.max(1, Math.abs(loopTime))) {
+    loopTime = nearestBoundary;
+  }
+  const loop = Math.floor(loopTime);
+  return { loop, weightPosition: (loopTime - loop) * total };
+}
+
 function restProgress(
   event: ParsedCodeStripEvent,
-  events: ParsedCodeStripEvent[],
   playing: boolean,
   playback: PlaybackState,
 ) {
   if (!playing) return 1;
-  const total = events[events.length - 1]?.endWeight ?? 0;
-  if (total <= 0) return 0;
-  const position = positiveModulo(playback.atTime, 1) * total;
+  const position = playback.weightPosition;
   if (position <= event.startWeight) return 0;
   if (position >= event.endWeight) return 1;
   return (position - event.startWeight) /
@@ -1070,15 +1093,13 @@ function restProgress(
 
 function isEventActive(
   event: ParsedCodeStripEvent,
-  events: ParsedCodeStripEvent[],
   playing: boolean,
   playback: PlaybackState,
 ) {
   if (!playing) return false;
   if (hasActiveRange(event, playback)) return true;
   if (event.kind !== "rest") return false;
-  const total = events[events.length - 1]?.endWeight ?? 0;
-  const position = positiveModulo(playback.atTime, 1) * total;
+  const position = playback.weightPosition;
   return position >= event.startWeight && position < event.endWeight;
 }
 

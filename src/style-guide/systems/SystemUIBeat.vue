@@ -99,7 +99,7 @@ import { Play, Square } from "lucide-vue-next";
 import BeatIndicator from "@/components/compounds/BeatIndicator.vue";
 import Button from "@/components/primatives/Button.vue";
 import Knob from "@/components/primatives/Knob/index.vue";
-import Sticker from "@/components/primatives/Sticker.vue";
+import Sticker from "@/components/primatives/Sticker";
 import Joystick from "@/components/uniques/Joystick/index.vue";
 import type { HarmonyAlteration } from "@/domain/harmony";
 import {

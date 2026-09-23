@@ -115,6 +115,27 @@ const progress = (host: HTMLElement, selector: string) =>
   host.querySelector<HTMLElement>(selector)?.style.getPropertyValue("--code-strip-progress");
 
 describe("CodeStrip Strudel source decorations", () => {
+  it("keeps clip and envelope parameters out of the displayed notes", () => {
+    const doc = EditorState.create({
+      doc: '`< C4:0.96:0.003:0.001:1:0.12@0.13 {-7:1:0.03@0.25, 0:1:0.2@0.25} ~@0.25 >`.as("note:clip:attack:decay:sustain:release")',
+    }).doc;
+    const events = parseCodeStripEvents(doc);
+    expect(events.map(event => event.notes.map(note => note.text))).toEqual([
+      ["C4"], ["-7", "0"], [],
+    ]);
+    expect(events.map(event => [event.startWeight, event.endWeight])).toEqual([
+      [0, 0.13], [0.13, 1.13], [1.13, 1.38],
+    ]);
+  });
+
+  it("does not mistake short-decimal or exponent control values for pitches", () => {
+    const doc = EditorState.create({
+      doc: '`< 0:.5:1e-3@0.25 C4:1:-0.5@0.25 >`.as("note:clip:release")',
+    }).doc;
+    expect(parseCodeStripEvents(doc).map(event => event.notes.map(note => note.text)))
+      .toEqual([["0"], ["C4"]]);
+  });
+
   it("parses negative relative degrees as notes rather than rest aliases", () => {
     const doc = EditorState.create({
       doc: "`< [ -7@0.06 0@0.06 ] >`.as(\"n\").scale(\"C4:major\")",
@@ -158,11 +179,12 @@ describe("CodeStrip Strudel source decorations", () => {
   function createView(
     extensions = codeStripStrudelExtension,
     presentation: CodeStripPresentation = { tokens, durationMode: "stacked" },
+    doc = source,
   ) {
     const host = document.createElement("div");
     document.body.appendChild(host);
     const view = new EditorView({
-      state: EditorState.create({ doc: source, extensions: [extensions] }),
+      state: EditorState.create({ doc, extensions: [extensions] }),
       parent: host,
     });
     mountedViews.push(view);
@@ -548,6 +570,99 @@ describe("CodeStrip Strudel source decorations", () => {
     await Promise.resolve();
     expect(progress(host, ".code-strip__note")).toBe("1");
     expect(restEvent.kind).toBe("rest");
+  });
+
+  it.each([
+    {
+      name: "multi-cycle outer weights",
+      doc: '`< C4@0.5 ~@1.5 D4@0.5 >`.as("note")',
+      samples: [[0.25, 0, false], [0.5, 0, true], [1.25, 0.5, true], [2, 1, false], [2.5, 0, false], [3.75, 0.5, true]] as const,
+    },
+    {
+      name: "fractional outer weights",
+      doc: '`< C4@0.125 ~@0.25 D4@0.125 >`.as("note")',
+      samples: [[0.125, 0, true], [0.25, 0.5, true], [0.375, 1, false], [0.5, 0, false], [0.75, 0.5, true]] as const,
+    },
+    {
+      name: "legacy brackets normalized to one cycle",
+      doc: '`< [ C4@0.5 ~@1 D4@0.5 ] >`.as("note")',
+      samples: [[0.25, 0, true], [0.5, 0.5, true], [0.75, 1, false], [1, 0, false], [1.5, 0.5, true]] as const,
+    },
+  ])("times rests using $name", async ({ doc, samples }) => {
+    const { host, view } = createView(codeStripStrudelExtension, { tokens: [] }, doc);
+    setCodeStripPlaying(view, true);
+
+    for (const [atTime, expectedProgress, active] of samples) {
+      view.dispatch({ effects: showMiniLocations.of({ atTime, haps: [] }) });
+      await Promise.resolve();
+      expect(Number(progress(host, ".code-strip__rest"))).toBeCloseTo(expectedProgress);
+      expect(host.querySelector(".code-strip__rest")?.closest(".cm-code-strip-event")
+        ?.classList.contains("cm-code-strip-event--active")).toBe(active);
+    }
+    expect(view.state.doc.toString()).toBe(doc);
+    expect(host.querySelectorAll(".cm-line")).toHaveLength(1);
+    expect(host.querySelectorAll(".cm-code-strip-event")).toHaveLength(3);
+  });
+
+  it.each([
+    { name: "multi-cycle", doc: '`< C4@0.25 ~@2.25 >`', begin: 0, within: [0.5, 1, 2.25], boundary: 2.5 },
+    { name: "first fractional loop", doc: '`< C4@0.25 ~@0.5 >`', begin: 0, within: [0.25, 0.5], boundary: 0.75 },
+    { name: "fractional", doc: '`< C4@0.25 ~@0.5 >`', begin: 0.75, within: [1, 1.25], boundary: 1.5 },
+    { name: "decimal", doc: '`< C4@0.1 ~@0.2 >`', begin: 0, within: [0.2], boundary: 0.3 },
+    { name: "legacy bracketed", doc: '`< [ C4@0.5 ~@1.5 ] >`', begin: 0, within: [0.5, 0.75], boundary: 1 },
+  ])("resets $name played history only at the loop boundary", async ({ doc, begin, within, boundary }) => {
+    const { host, view, events } = createView(codeStripStrudelExtension, { tokens: [] }, doc);
+    const note = events[0].notes[0];
+    setCodeStripPlaying(view, true);
+    view.dispatch({ effects: showMiniLocations.of({
+      atTime: begin + 0.05,
+      haps: [{
+        context: { locations: [{ start: note.from, end: note.to }] },
+        whole: { begin, duration: 0.1 },
+      }],
+    }) });
+    await Promise.resolve();
+    expect(Number(progress(host, ".code-strip__note"))).toBeCloseTo(0.5);
+
+    for (const atTime of within) {
+      view.dispatch({ effects: showMiniLocations.of({ atTime, haps: [] }) });
+      await Promise.resolve();
+      expect(progress(host, ".code-strip__note")).toBe("1");
+    }
+    view.dispatch({ effects: showMiniLocations.of({ atTime: boundary, haps: [] }) });
+    await Promise.resolve();
+    expect(progress(host, ".code-strip__note")).toBe("0");
+    expect(progress(host, ".code-strip__rest")).toBe("0");
+  });
+
+  it("retains chord member history and sustained progress across cycle ticks without remounting", async () => {
+    const doc = '`< {C4@0.25, E4@2}@2 ~@0.5 >`.as("note")';
+    const { host, view, events } = createView(codeStripStrudelExtension, { tokens: [] }, doc);
+    const members = [...host.querySelectorAll(".chord__cluster-member .note")];
+    const haps = events[0].notes.map((note, index) => ({
+      context: { locations: [{ start: note.from, end: note.to }] },
+      whole: { begin: 0, duration: index === 0 ? 0.25 : 2 },
+    }));
+    const memberProgress = () => [...host.querySelectorAll<HTMLElement>(".chord__cluster-member")]
+      .map((member) => Number(member.style.getPropertyValue("--chord-member-progress")));
+    setCodeStripPlaying(view, true);
+    view.dispatch({ effects: showMiniLocations.of({ atTime: 0.125, haps }) });
+    await Promise.resolve();
+    expect(memberProgress()).toEqual([0.5, 0.0625]);
+
+    view.dispatch({ effects: showMiniLocations.of({ atTime: 1.25, haps: [haps[1]] }) });
+    await Promise.resolve();
+    expect(memberProgress()).toEqual([1, 0.625]);
+    host.querySelectorAll(".chord__cluster-member .note").forEach((member, index) => {
+      expect(member).toBe(members[index]);
+    });
+
+    view.dispatch({ effects: showMiniLocations.of({ atTime: 2.25, haps: [] }) });
+    await Promise.resolve();
+    expect(memberProgress()).toEqual([1, 1]);
+    view.dispatch({ effects: showMiniLocations.of({ atTime: 2.5, haps: [] }) });
+    await Promise.resolve();
+    expect(memberProgress()).toEqual([0, 0]);
   });
 
   it("defers hidden native playback updates and catches up on scroll without replacing the note", async () => {

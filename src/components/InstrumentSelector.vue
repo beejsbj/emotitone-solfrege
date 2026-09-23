@@ -3,7 +3,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useInstrumentStore } from "@/stores/instrument";
 import { getRegisteredSounds } from "@/services/superdoughAudio";
 import Button from "@/components/primatives/Button.vue";
-import Sticker from "@/components/primatives/Sticker.vue";
+import Sticker from "@/components/primatives/Sticker";
 import OverlayPanelHeader from "@/components/OverlayPanelHeader.vue";
 import TabbedOverlayPanel, {
   type TabbedOverlayTab,

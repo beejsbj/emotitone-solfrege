@@ -29,6 +29,11 @@ export function releasePreparedLiveInstrument(context: AudioContext, instrumentI
 }
 
 async function prepare(context: AudioContext, instrumentId: string, reserve: (bytes: number) => void): Promise<LiveInstrumentPreparation> {
+  // Native square/saw bandlimiting differs from the worklet's polyBLEP shape,
+  // especially at high pitches. Preserve native timbre via existing fallback.
+  if (instrumentId === "square" || instrumentId === "sawtooth") {
+    return { kind: "unsupported", instrumentId, reason: "Use the native oscillator to preserve square/saw timbre" };
+  }
   const raw = await prepareNativeInstrument(context, instrumentId);
   if (raw.kind !== "sample-bank") return raw;
   const { zoneSelection } = raw;

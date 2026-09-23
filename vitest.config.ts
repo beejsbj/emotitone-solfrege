@@ -10,7 +10,9 @@ export default defineConfig({
     setupFiles: ['./src/test-setup.ts'],
     server: {
       deps: {
-        inline: ['@strudel/soundfonts'],
+        // Use the browser ESM entries, as Vite does in production. The core's
+        // Kabelsalat dependency also publishes a non-ESM `main` entry.
+        inline: ['@strudel/soundfonts', '@strudel/core', '@strudel/mini', '@strudel/transpiler', '@strudel/tonal', '@kabelsalat/web'],
       },
     },
   },

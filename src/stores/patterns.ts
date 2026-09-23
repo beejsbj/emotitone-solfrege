@@ -4,7 +4,12 @@ import { useMusicStore } from "@/stores/music";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useVisualConfigStore } from "@/stores/visualConfig";
-import { defaultPatterns } from "@/data/patterns";
+import {
+  defaultPatterns,
+  getSemitoneShift,
+  transposePatternNotes,
+  mutatePatternMode,
+} from "@/data/patterns";
 import { DEFAULT_SOURCE_BPM } from "@/services/StrudelNotation";
 import {
   deserializePatternsState,
@@ -55,6 +60,10 @@ interface PendingLogNote extends Partial<LogNote> {
   forcedPatternStart: boolean;
 }
 
+function cloneNoteArticulation<T extends PatternNote | LogNote>(note: T): T {
+  return { ...note, articulation: note.articulation ? { ...note.articulation } : undefined };
+}
+
 export const usePatternsStore = defineStore(
   "patterns",
   () => {
@@ -95,6 +104,9 @@ export const usePatternsStore = defineStore(
       key: ChromaticNote;
       instrument: string;
       bpm: number;
+      octave?: number;
+      duration?: number;
+      trailingSilence?: number;
     } | null>(null);
 
     // True immediately after Send, until first new note arrives
@@ -176,7 +188,8 @@ export const usePatternsStore = defineStore(
         return liveNotes;
       }
 
-      const baseEnd = Math.max(...loadedBaseNotes.value.map((note) => note.releaseTime));
+      const soundingEnd = Math.max(...loadedBaseNotes.value.map((note) => note.releaseTime));
+      const baseEnd = soundingEnd + loadedBaseTrailingSilence();
       const firstLiveStart = liveNotes[0].pressTime;
       const seamOffset = Math.max(0, firstLiveStart - baseEnd);
 
@@ -188,6 +201,23 @@ export const usePatternsStore = defineStore(
           releaseTime: note.releaseTime - seamOffset,
         })),
       ];
+    });
+
+    const currentSketchDuration = computed(() => {
+      const notes = currentSketchNotes.value;
+      if (!notes.length) return 0;
+
+      const span = noteSpan(notes);
+      const soundingDuration = span.end - span.start;
+      const loadedBaseContributes = loadedBaseNotes.value.length > 0
+        && (currentWorkingNotes.value.length === 0 || canContinueLoadedBase.value);
+
+      if (!loadedBaseContributes) return soundingDuration;
+
+      const baseSpan = noteSpan(loadedBaseNotes.value);
+      const basePhraseDuration = baseSpan.end - baseSpan.start
+        + loadedBaseTrailingSilence();
+      return Math.max(soundingDuration, basePhraseDuration);
     });
 
     // Extract dynamic patterns from logged notes using isStartingNewPattern
@@ -277,6 +307,33 @@ export const usePatternsStore = defineStore(
       return tonic?.octave ?? pattern.notes[0]?.octave;
     }
 
+    function resolvePatternDuration(pattern: Pattern): number {
+      if (
+        typeof pattern.duration === "number"
+        && Number.isFinite(pattern.duration)
+        && pattern.duration >= 0
+      ) {
+        return pattern.duration;
+      }
+      if (!pattern.notes.length) return 0;
+      const span = noteSpan(pattern.notes);
+      return span.end - span.start;
+    }
+
+    function loadedBaseTrailingSilence(): number {
+      const authoredSilence = loadedBaseMeta.value?.trailingSilence;
+      if (typeof authoredSilence === "number" && Number.isFinite(authoredSilence)) {
+        return Math.max(0, authoredSilence);
+      }
+      if (!loadedBaseNotes.value.length) return 0;
+      const span = noteSpan(loadedBaseNotes.value);
+      return Math.max(
+        0,
+        (loadedBaseMeta.value?.duration ?? (span.end - span.start))
+          - (span.end - span.start),
+      );
+    }
+
     function clamp(value: number, min: number, max: number): number {
       return Math.min(max, Math.max(min, value));
     }
@@ -336,6 +393,27 @@ export const usePatternsStore = defineStore(
         start: Math.min(...notes.map((note) => note.pressTime)),
         end: Math.max(...notes.map((note) => note.releaseTime)),
       };
+    }
+
+    function isSamePatternNote(
+      left: PatternNote | undefined,
+      right: PatternNote,
+    ): boolean {
+      return Boolean(
+        left
+        && left.id === right.id
+        && left.note === right.note
+        && left.scaleDegree === right.scaleDegree
+        && left.scaleIndex === right.scaleIndex
+        && left.pitchClassIndex === right.pitchClassIndex
+        && left.isBorrowed === right.isBorrowed
+        && left.octave === right.octave
+        && left.frequency === right.frequency
+        && left.velocity === right.velocity
+        && left.pressTime === right.pressTime
+        && left.releaseTime === right.releaseTime
+        && left.duration === right.duration,
+      );
     }
 
     // Pattern detection helpers
@@ -406,6 +484,7 @@ export const usePatternsStore = defineStore(
         octave: note.octave,
         frequency: note.frequency,
         velocity: note.velocity,
+        articulation: note.articulation ? { ...note.articulation } : undefined,
         pressTime: note.pressTime,
         releaseTime: note.releaseTime,
         duration: note.duration,
@@ -439,6 +518,7 @@ export const usePatternsStore = defineStore(
         octave: note.octave,
         frequency: note.frequency,
         velocity: note.velocity,
+        articulation: note.articulation ? { ...note.articulation } : undefined,
         pressTime: note.pressTime,
         releaseTime: note.releaseTime,
         duration: note.duration,
@@ -449,7 +529,12 @@ export const usePatternsStore = defineStore(
     function createPatternFromNoteSet(
       notes: PatternNote[],
       meta: { mode: MusicalMode; key: ChromaticNote; instrument: string; bpm: number },
-      options: { name?: string; source?: PatternSource; isSaved?: boolean } = {},
+      options: {
+        name?: string;
+        source?: PatternSource;
+        isSaved?: boolean;
+        duration?: number;
+      } = {},
     ): Pattern {
       if (notes.length === 0) {
         throw new Error("Cannot create pattern from empty notes array");
@@ -461,8 +546,8 @@ export const usePatternsStore = defineStore(
           .toString(36)
           .substr(2, 9)}`,
         name: options.name ?? `Pattern ${new Date().toLocaleDateString()}`,
-        notes,
-        duration: span.end - span.start,
+        notes: notes.map(cloneNoteArticulation),
+        duration: options.duration ?? (span.end - span.start),
         noteCount: notes.length,
         key: meta.key,
         mode: meta.mode,
@@ -510,7 +595,7 @@ export const usePatternsStore = defineStore(
       loadedBasePatternId.value = null;
       loadedBaseMeta.value = null;
       loggedNotes.value = (options.workingNotes ?? []).map((note, index) => ({
-        ...note,
+        ...cloneNoteArticulation(note),
         isStartingNewPattern: index === 0 ? true : note.isStartingNewPattern,
       }));
       forcedCompletedNoteIds.clear();
@@ -537,24 +622,37 @@ export const usePatternsStore = defineStore(
         forcedCompletedNoteIds.clear();
       }
 
-      loadedBaseNotes.value = [...pattern.notes];
+      loadedBaseNotes.value = pattern.notes.map(cloneNoteArticulation);
       loadedBasePatternId.value = patternId;
+      const patternOctave = resolvePatternOctave(pattern)
+        ?? keyboardStore.keyboardConfig.mainOctave;
+      const patternDuration = resolvePatternDuration(pattern);
+      const patternSpan = pattern.notes.length ? noteSpan(pattern.notes) : undefined;
+      const soundingDuration = patternSpan ? patternSpan.end - patternSpan.start : 0;
       const patternMeta = {
         mode: pattern.mode,
         key: pattern.key,
         instrument: pattern.instrument,
         bpm: resolveBpm(pattern.bpm),
+        octave: patternOctave,
+        duration: patternDuration,
+        trailingSilence: Math.max(0, patternDuration - soundingDuration),
       };
       loadedBaseMeta.value = patternMeta;
       isStripCleared.value = false;
       focusedPatternId.value = patternId;
 
       // Sync the desk to the pattern's musical context
-      musicStore.setKey(pattern.key);
-      musicStore.setMode(pattern.mode as MusicalMode);
-      const patternOctave = resolvePatternOctave(pattern);
-      if (patternOctave !== undefined) {
+      isContextSyncing = true;
+      try {
+        musicStore.setKey(pattern.key);
+        musicStore.setMode(pattern.mode as MusicalMode);
         keyboardStore.setMainOctave(patternOctave);
+        visualConfigStore.updateConfig("codeStrip", {
+          bpm: resolveBpm(pattern.bpm),
+        });
+      } finally {
+        isContextSyncing = false;
       }
       void instrumentStore.setInstrument(pattern.instrument).then((result) => {
         if (
@@ -569,13 +667,117 @@ export const usePatternsStore = defineStore(
           };
         }
       });
-      visualConfigStore.updateConfig("codeStrip", {
-        bpm: resolveBpm(pattern.bpm),
-      });
 
       // Create fresh boundary so new live notes start clean after the base
       setNextNoteAsNewPattern();
     }
+
+    let isContextSyncing = false;
+
+    watch(
+      () => instrumentStore.currentInstrument,
+      (newInstrument) => {
+        if (isContextSyncing) return;
+        if (
+          loadedBaseNotes.value.length > 0 &&
+          currentWorkingNotes.value.length === 0 &&
+          !isStripCleared.value &&
+          loadedBaseMeta.value &&
+          loadedBaseMeta.value.instrument !== newInstrument
+        ) {
+          loadedBaseMeta.value = {
+            ...loadedBaseMeta.value,
+            instrument: newInstrument,
+          };
+        }
+      }
+    );
+
+    watch(
+      () => musicStore.currentKey,
+      (newKey) => {
+        if (isContextSyncing) return;
+        if (
+          loadedBaseNotes.value.length > 0 &&
+          currentWorkingNotes.value.length === 0 &&
+          !isStripCleared.value &&
+          loadedBaseMeta.value &&
+          loadedBaseMeta.value.key !== newKey
+        ) {
+          const shift = getSemitoneShift(loadedBaseMeta.value.key, newKey as ChromaticNote);
+          loadedBaseNotes.value = transposePatternNotes(
+            loadedBaseNotes.value,
+            shift
+          );
+          loadedBaseMeta.value = {
+            ...loadedBaseMeta.value,
+            key: newKey as ChromaticNote,
+          };
+        }
+      }
+    );
+
+    watch(
+      () => musicStore.currentMode,
+      (newMode) => {
+        if (isContextSyncing) return;
+        if (
+          loadedBaseNotes.value.length > 0 &&
+          currentWorkingNotes.value.length === 0 &&
+          !isStripCleared.value &&
+          loadedBaseMeta.value &&
+          loadedBaseMeta.value.mode !== newMode
+        ) {
+          loadedBaseNotes.value = mutatePatternMode(
+            loadedBaseNotes.value,
+            loadedBaseMeta.value.key,
+            newMode as MusicalMode
+          );
+          loadedBaseMeta.value = {
+            ...loadedBaseMeta.value,
+            mode: newMode as MusicalMode,
+          };
+        }
+      }
+    );
+
+    watch(
+      () => keyboardStore.keyboardConfig.mainOctave,
+      (newOctave, oldOctave) => {
+        if (isContextSyncing) return;
+        if (
+          loadedBaseNotes.value.length > 0 &&
+          currentWorkingNotes.value.length === 0 &&
+          !isStripCleared.value &&
+          loadedBaseMeta.value
+        ) {
+          const storedOctave = loadedBaseMeta.value.octave;
+          const previousOctave = typeof storedOctave === "number"
+            && Number.isFinite(storedOctave)
+            ? storedOctave
+            : Number.isFinite(oldOctave)
+              ? oldOctave
+              : loadedBaseNotes.value.find((note) => note.scaleIndex === 0)?.octave
+                ?? loadedBaseNotes.value[0]?.octave
+                ?? newOctave;
+          if (previousOctave === newOctave) {
+            loadedBaseMeta.value = {
+              ...loadedBaseMeta.value,
+              octave: newOctave,
+            };
+            return;
+          }
+          loadedBaseNotes.value = transposePatternNotes(
+            loadedBaseNotes.value,
+            (newOctave - previousOctave) * 12
+          );
+          loadedBaseMeta.value = {
+            ...loadedBaseMeta.value,
+            octave: newOctave,
+          };
+        }
+      }
+    );
 
     // Send the current working buffer as a new saved pattern, then clear the desk
     function sendCurrentPattern(): void {
@@ -600,12 +802,11 @@ export const usePatternsStore = defineStore(
           && loadedBaseNotes.value.length > 0
           && currentWorkingNotes.value.length === 0
           && loadedBaseNotes.value.length === contributingLoadedPattern.notes.length
-          && loadedBaseNotes.value.every((note, index) => {
-            const original = contributingLoadedPattern.notes[index];
-            return original?.id === note.id
-              && original.pressTime === note.pressTime
-              && original.releaseTime === note.releaseTime;
-          }),
+          && loadedBaseNotes.value.every((note, index) =>
+            isSamePatternNote(contributingLoadedPattern.notes[index], note)
+          )
+          && isSamePatternContext(contributingLoadedPattern, currentSketchMeta.value)
+          && resolvePatternDuration(contributingLoadedPattern) === currentSketchDuration.value,
         );
 
         if (contributingLoadedPattern && isUnchangedLoadedCandidate) {
@@ -615,7 +816,10 @@ export const usePatternsStore = defineStore(
           const newPattern = createPatternFromNoteSet(
             allNotes,
             currentSketchMeta.value,
-            { source: contributingLoadedPattern?.source },
+            {
+              source: contributingLoadedPattern?.source,
+              duration: currentSketchDuration.value,
+            },
           );
           savedPatterns.value.push(newPattern);
           focusedPatternId.value = newPattern.id;
@@ -642,7 +846,19 @@ export const usePatternsStore = defineStore(
       }
 
       if (loadedBaseNotes.value.length > 0) {
-        loadedBaseNotes.value = loadedBaseNotes.value.slice(0, -1);
+        const trailingSilence = loadedBaseTrailingSilence();
+        const remainingNotes = loadedBaseNotes.value.slice(0, -1);
+        const remainingSpan = remainingNotes.length ? noteSpan(remainingNotes) : undefined;
+        loadedBaseNotes.value = remainingNotes;
+        if (loadedBaseMeta.value) {
+          loadedBaseMeta.value = {
+            ...loadedBaseMeta.value,
+            duration: remainingSpan
+              ? remainingSpan.end - remainingSpan.start + trailingSilence
+              : 0,
+            trailingSilence,
+          };
+        }
       }
     }
 
@@ -661,7 +877,7 @@ export const usePatternsStore = defineStore(
 
       savedPatterns.value.push({
         ...patternToKeep,
-        notes: [...patternToKeep.notes],
+        notes: patternToKeep.notes.map(cloneNoteArticulation),
         isSaved: true,
         isKept: true,
       });
@@ -685,7 +901,7 @@ export const usePatternsStore = defineStore(
       savedPatterns.value.push({
         ...pattern,
         name,
-        notes: pattern.notes.map((note) => ({ ...note })),
+        notes: pattern.notes.map(cloneNoteArticulation),
       });
       return true;
     }
@@ -780,6 +996,7 @@ export const usePatternsStore = defineStore(
         solfege: note as SolfegeData,
         octave,
         frequency,
+        articulation: event.detail.articulation ? { ...event.detail.articulation } : undefined,
         // Scheduled Style pulses carry the instrument captured by their held
         // input. Ordinary notes keep the existing live-store boundary so an
         // instrument change still starts a fresh take.
@@ -839,6 +1056,9 @@ export const usePatternsStore = defineStore(
       // Complete the log note
       const completedLogNote: LogNote = {
         ...partialNote,
+        articulation: event.detail.articulation
+          ? { ...event.detail.articulation }
+          : partialNote.articulation ? { ...partialNote.articulation } : undefined,
         releaseTime,
         duration: releaseTime - partialNote.pressTime!,
         isStartingNewPattern,
@@ -907,7 +1127,7 @@ export const usePatternsStore = defineStore(
     }
 
     function exportNotes(): LogNote[] {
-      return [...loggedNotes.value];
+      return loggedNotes.value.map(cloneNoteArticulation);
     }
 
     function importNotes(notes: LogNote[]): void {
@@ -915,7 +1135,7 @@ export const usePatternsStore = defineStore(
       const validNotes = notes.filter(
         (note) => note.id && note.pressTime && note.releaseTime && note.duration
       );
-      loggedNotes.value.push(...validNotes);
+      loggedNotes.value.push(...validNotes.map(cloneNoteArticulation));
       loggedNotes.value.sort((left, right) => left.pressTime - right.pressTime);
       purgeOldNotes();
     }
@@ -969,6 +1189,7 @@ export const usePatternsStore = defineStore(
       patterns,
       currentWorkingNotes,
       currentSketchNotes,
+      currentSketchDuration,
       currentSketchMeta,
 
       // Focused pattern

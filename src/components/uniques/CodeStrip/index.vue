@@ -278,6 +278,7 @@ const generatedCode = computed(() => {
     scaleKey: sketchMeta.value.key,
     scaleMode: sketchMeta.value.mode,
     scaleOctave: keyboardConfig.value.mainOctave,
+    patternDurationMs: patternsStore.currentSketchDuration,
     sound,
     cutoff: instrumentStore.synthControls?.cutoff,
     resonance: instrumentStore.synthControls?.resonance,
@@ -940,7 +941,14 @@ watch(
 );
 
 watch(
-  [() => sketchMeta.value.bpm, () => codeStripConfig.value.bpm],
+  [
+    () => sketchMeta.value.bpm,
+    () => codeStripConfig.value.bpm,
+    () => sketchMeta.value.instrument,
+    () => sketchMeta.value.key,
+    () => sketchMeta.value.mode,
+    () => keyboardConfig.value.mainOctave,
+  ],
   () => {
     const instance = mirror.value;
     if (isControlled.value || !instance || !isPlaying.value) return;

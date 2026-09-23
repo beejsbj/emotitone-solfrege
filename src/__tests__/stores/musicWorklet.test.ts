@@ -70,6 +70,46 @@ afterEach(() => {
 });
 
 describe("music store production worklet integration", () => {
+  it("records the renderer envelope and final release override as independent snapshots", async () => {
+    const music = useMusicStore(); const patterns = recorder();
+    const owner = await music.attackExactPitch("C4");
+    const articulation = { attack: 0.015, decay: 0.08, sustain: 0.65, release: 0.03 };
+    worklet.listener!.onEvent({ ...event(owner!, "envelope", "attack", 12), articulation });
+    articulation.attack = 9;
+    expect(events("note-played")[0].articulation).toEqual({ attack: 0.015, decay: 0.08, sustain: 0.65, release: 0.03 });
+
+    const released = { attack: 0.015, decay: 0.08, sustain: 0.65, release: 0.008 };
+    worklet.listener!.onEvent({ ...event(owner!, "envelope", "release", 12.05), articulation: released });
+    released.release = 9;
+    expect(events("note-released")[0].articulation).toEqual({ attack: 0.015, decay: 0.08, sustain: 0.65, release: 0.008 });
+    expect(patterns.loggedNotes[0].articulation).toEqual({ attack: 0.015, decay: 0.08, sustain: 0.65, release: 0.008 });
+    expect(events("note-played")[0].articulation.release).toBe(0.03);
+    await music.releaseNote(owner!);
+  });
+
+  it("retains the captured envelope if a renderer reuses its event before forced close", async () => {
+    const music = useMusicStore(); const patterns = recorder();
+    const owner = await music.attackExactPitch("C4");
+    const articulation = { attack: 0.015, decay: 0.08, sustain: 0.65, release: 0.03 };
+    worklet.listener!.onEvent({ ...event(owner!, "reused", "attack", 12), articulation });
+    articulation.attack = 9;
+    await vi.advanceTimersByTimeAsync(50);
+    worklet.listener!.onError(new Error("processor stopped"));
+    expect(patterns.loggedNotes[0].articulation).toEqual({ attack: 0.015, decay: 0.08, sustain: 0.65, release: 0.03 });
+  });
+
+  it.each(["together", "repeat", "arp-up", "strum-up"] as const)("uses the captured %s style when renderer metadata is absent", async (style) => {
+    const music = useMusicStore(); const patterns = recorder();
+    const owner = await music.attackExactPitch("C4");
+    worklet.listener!.onEvent({ ...event(owner!, "fallback", "attack", 12), style });
+    worklet.listener!.onEvent({ ...event(owner!, "fallback", "release", 12.1), style });
+    expect(patterns.loggedNotes[0].articulation).toEqual({
+      attack: 0.001, decay: 0.001, sustain: 1,
+      release: style === "repeat" || style === "arp-up" ? 0.03 : 0.2,
+    });
+    await music.releaseNote(owner!);
+  });
+
   it("submits a prepared attack immediately and bypasses the per-note audio wrapper", async () => {
     const music = useMusicStore();
     const pending = music.attackExactPitch("C4");

@@ -4,7 +4,7 @@ import MidiPermissionIcon from "@/components/MidiPermissionIcon.vue";
 import BrandLogo from "@/components/uniques/BrandLogo.vue";
 import Mark from "@/components/primatives/Mark.vue";
 import type { MarkName } from "@/components/primatives/Mark.vue";
-import Sticker from "@/components/primatives/Sticker.vue";
+import Sticker from "@/components/primatives/Sticker";
 import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
 import { DEFAULT_CONFIG } from "@/data/visual-config-metadata";
 import {

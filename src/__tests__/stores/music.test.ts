@@ -18,6 +18,7 @@ const superdoughMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/services/superdoughAudio", () => ({
+  setLiveSynthControls: vi.fn(),
   attackNote: superdoughMocks.attackNote,
   releaseNote: superdoughMocks.releaseNote,
   stopNote: superdoughMocks.stopNote,

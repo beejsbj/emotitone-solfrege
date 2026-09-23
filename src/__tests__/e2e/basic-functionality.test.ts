@@ -9,6 +9,7 @@ const audioContext = vi.hoisted(() => ({
 }));
 
 const audioMocks = vi.hoisted(() => ({
+  setLiveSynthControls: vi.fn(),
   initSuperdoughAudio: vi.fn().mockResolvedValue(undefined),
   isPrewarmed: vi.fn(() => true),
   prewarmSoundSamples: vi.fn().mockResolvedValue(undefined),

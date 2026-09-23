@@ -15,6 +15,7 @@ const audioContext = vi.hoisted(() => ({
 }));
 
 vi.mock("@/services/superdoughAudio", () => ({
+  setLiveSynthControls: vi.fn(),
   attackNote: vi.fn().mockResolvedValue(undefined),
   releaseNote: vi.fn(),
   stopNote: vi.fn(),

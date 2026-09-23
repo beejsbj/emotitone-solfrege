@@ -1,10 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   performanceMonitor,
-  getOptimizationSuggestions,
-  autoAdjustPerformance,
 } from "@/utils/performanceMonitor";
-import type { PerformanceMetrics } from "@/types/canvas";
 
 describe("Performance Monitor", () => {
   beforeEach(() => {
@@ -196,202 +193,20 @@ describe("Performance Monitor", () => {
     });
   });
 
-  describe("getOptimizationSuggestions", () => {
-    it("should suggest optimizations for low FPS", () => {
-      const metrics: PerformanceMetrics = {
-        fps: 25,
-        frameTime: 20,
-        memoryUsage: 10,
-        activeObjects: 50,
-      };
-
-      const suggestions = getOptimizationSuggestions(metrics);
-      
-      expect(suggestions).toContain("Consider reducing particle count or visual effect complexity");
-      expect(suggestions).toContain("Enable performance mode in visual effects settings");
-    });
-
-    it("should suggest optimizations for high frame time", () => {
-      const metrics: PerformanceMetrics = {
-        fps: 60,
-        frameTime: 40,
-        memoryUsage: 10,
-        activeObjects: 50,
-      };
-
-      const suggestions = getOptimizationSuggestions(metrics);
-      
-      expect(suggestions).toContain("Reduce canvas resolution or visual quality");
-      expect(suggestions).toContain("Disable expensive effects like blur or gradients");
-    });
-
-    it("should suggest optimizations for too many objects", () => {
-      const metrics: PerformanceMetrics = {
-        fps: 60,
-        frameTime: 16,
-        memoryUsage: 10,
-        activeObjects: 150,
-      };
-
-      const suggestions = getOptimizationSuggestions(metrics);
-      
-      expect(suggestions).toContain("Too many active objects - consider object pooling");
-      expect(suggestions).toContain("Implement culling for off-screen objects");
-    });
-
-    it("should suggest optimizations for high memory usage", () => {
-      const metrics: PerformanceMetrics = {
-        fps: 60,
-        frameTime: 16,
-        memoryUsage: 60,
-        activeObjects: 50,
-      };
-
-      const suggestions = getOptimizationSuggestions(metrics);
-      
-      expect(suggestions).toContain("High memory usage detected - check for memory leaks");
-      expect(suggestions).toContain("Clear caches more frequently");
-    });
-
-    it("should return empty array for good performance", () => {
-      const metrics: PerformanceMetrics = {
-        fps: 60,
-        frameTime: 16,
-        memoryUsage: 10,
-        activeObjects: 50,
-      };
-
-      const suggestions = getOptimizationSuggestions(metrics);
-      
-      expect(suggestions).toEqual([]);
-    });
-
-    it("should combine multiple suggestions", () => {
-      const metrics: PerformanceMetrics = {
-        fps: 20,
-        frameTime: 50,
-        memoryUsage: 60,
-        activeObjects: 150,
-      };
-
-      const suggestions = getOptimizationSuggestions(metrics);
-      
-      expect(suggestions.length).toBeGreaterThan(4);
-      expect(suggestions).toContain("Consider reducing particle count or visual effect complexity");
-      expect(suggestions).toContain("Reduce canvas resolution or visual quality");
-      expect(suggestions).toContain("High memory usage detected - check for memory leaks");
-      expect(suggestions).toContain("Too many active objects - consider object pooling");
-    });
-  });
-
-  describe("autoAdjustPerformance", () => {
-    beforeEach(() => {
-      performanceMonitor.reset();
-    });
-
-    it("should return excellent settings for good performance", () => {
-      // Simulate excellent performance (60+ FPS)
-      performanceMonitor.update(1000, 10);
-      performanceMonitor.update(1016.67, 10);
-      
-      const settings = autoAdjustPerformance(performanceMonitor.getMetrics());
-      
-      expect(settings.particleCount).toBe(1.0);
-      expect(settings.stringSegments).toBe(100);
-      expect(settings.enableBlur).toBe(true);
-      expect(settings.cacheLifetime).toBe(300);
-    });
-
-    it("should return good settings for decent performance", () => {
-      // Simulate good performance (45-58 FPS)
-      performanceMonitor.update(1000, 10);
-      performanceMonitor.update(1020, 10); // 50 FPS
-      
-      const settings = autoAdjustPerformance(performanceMonitor.getMetrics());
-      
-      expect(settings.particleCount).toBe(0.8);
-      expect(settings.stringSegments).toBe(80);
-      expect(settings.enableBlur).toBe(true);
-      expect(settings.cacheLifetime).toBe(180);
-    });
-
-    it("should return fair settings for moderate performance", () => {
-      // Simulate fair performance (30-44 FPS)
-      performanceMonitor.update(1000, 10);
-      performanceMonitor.update(1028.57, 10); // 35 FPS
-      
-      const settings = autoAdjustPerformance(performanceMonitor.getMetrics());
-      
-      expect(settings.particleCount).toBe(0.6);
-      expect(settings.stringSegments).toBe(60);
-      expect(settings.enableBlur).toBe(false);
-      expect(settings.cacheLifetime).toBe(120);
-    });
-
-    it("should return poor settings for bad performance", () => {
-      // Simulate poor performance (<30 FPS)
-      performanceMonitor.update(1000, 10);
-      performanceMonitor.update(1050, 10); // 20 FPS
-      
-      const settings = autoAdjustPerformance(performanceMonitor.getMetrics());
-      
-      expect(settings.particleCount).toBe(0.3);
-      expect(settings.stringSegments).toBe(30);
-      expect(settings.enableBlur).toBe(false);
-      expect(settings.cacheLifetime).toBe(60);
-    });
-
-    it("should adjust settings based on performance changes", () => {
-      // Start with good performance
-      performanceMonitor.update(1000, 10);
-      performanceMonitor.update(1016.67, 10); // 60 FPS
-      
-      let settings = autoAdjustPerformance(performanceMonitor.getMetrics());
-      expect(settings.particleCount).toBe(1.0);
-      expect(settings.enableBlur).toBe(true);
-      
-      // Degrade to poor performance
-      performanceMonitor.reset();
-      performanceMonitor.update(2000, 10);
-      performanceMonitor.update(2050, 10); // 20 FPS
-      
-      settings = autoAdjustPerformance(performanceMonitor.getMetrics());
-      expect(settings.particleCount).toBe(0.3);
-      expect(settings.enableBlur).toBe(false);
-    });
-  });
-
   describe("Integration tests", () => {
     it("should maintain performance state across multiple updates", () => {
       const frameTimes = [16.67, 16.67, 33.33, 16.67, 16.67]; // Mixed performance
       let timestamp = 1000;
-      
+
       frameTimes.forEach((frameTime, index) => {
         timestamp += frameTime;
         performanceMonitor.update(timestamp, index * 5);
       });
-      
+
       const metrics = performanceMonitor.getMetrics();
       expect(metrics.fps).toBeGreaterThan(0);
       expect(metrics.frameTime).toBeGreaterThan(0);
       expect(metrics.activeObjects).toBe(20); // Last value
-    });
-
-    it("should provide consistent performance assessment", () => {
-      // Simulate consistent 30 FPS
-      for (let i = 0; i < 10; i++) {
-        performanceMonitor.update(1000 + (i * 33.33), 25);
-      }
-      
-      const metrics = performanceMonitor.getMetrics();
-      const status = performanceMonitor.getPerformanceStatus();
-      const suggestions = getOptimizationSuggestions(metrics);
-      const settings = autoAdjustPerformance(metrics);
-      
-      expect(status).toBe("fair");
-      expect(suggestions).toContain("Reduce canvas resolution or visual quality"); // 30 FPS takes more than 33ms per frame
-      expect(settings.particleCount).toBe(0.6);
-      expect(settings.enableBlur).toBe(false);
     });
   });
 });

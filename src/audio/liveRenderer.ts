@@ -22,6 +22,8 @@ export interface LiveRenderer {
   press(ownerId: string, notes: LiveInputNote[]): void
   /** Bounded, per-owner live pitch expression in cents. */
   setPitchBend?(ownerId: string, cents: number): void
+  /** Bounded, per-owner live gain expression (1 is neutral). */
+  setGain?(ownerId: string, gain: number): void
   release(ownerId: string): void
   configure(config: Partial<LiveConfig>): void
   clear(): void

@@ -32,6 +32,7 @@ export type LiveCommand =
   | { type: 'forget'; requestId: number; instrumentId: string; instant: boolean }
   | { type: 'press'; ownerId: string; notes: LiveInputNote[] }
   | { type: 'pitch-bend'; ownerId: string; cents: number }
+  | { type: 'gain-expression'; ownerId: string; gain: number }
   | { type: 'release'; ownerId: string }
   | { type: 'configure'; config: Partial<LiveConfig> }
   | { type: 'clear' }

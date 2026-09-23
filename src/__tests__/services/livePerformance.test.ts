@@ -15,8 +15,8 @@ const event = (ownerId: string, phase: 'attack' | 'release', at: number, pitch =
   ownerId, phase, at, pitch, noteId: 'voice', instrumentId: 'piano', style: 'repeat',
 })
 function setup() {
-  const callbacks = { now: () => 1, onEvent: vi.fn(), onMirror: vi.fn(), onOwnerClosed: vi.fn(), onError: vi.fn(), onExpression: vi.fn() }
-  const renderer = { setPitchBend: vi.fn(), configure: vi.fn(), press: vi.fn(), release: vi.fn(), clear: vi.fn(), dispose: vi.fn(), forget: vi.fn() }
+  const callbacks = { now: () => 1, onEvent: vi.fn(), onMirror: vi.fn(), onOwnerClosed: vi.fn(), onError: vi.fn(), onExpression: vi.fn(), onGainExpression: vi.fn() }
+  const renderer = { setPitchBend: vi.fn(), setGain: vi.fn(), configure: vi.fn(), press: vi.fn(), release: vi.fn(), clear: vi.fn(), dispose: vi.fn(), forget: vi.fn() }
   const performance = createLivePerformance(callbacks)
   performance.press('hand', [{ instrumentId: 'piano', pitch: 60 }], { label: 'first' }, renderer, config)
   return { performance, renderer, callbacks }
@@ -38,6 +38,24 @@ describe('prepared performance MIDI ownership', () => {
     performance.release('hand')
     expect(performance.setPitchBend('hand', 0)).toBe(false)
     expect(renderer.setPitchBend).toHaveBeenCalledTimes(2)
+  })
+
+  it('bounds gain, records it for delayed attacks, and does nothing for unsupported renderers', () => {
+    const { performance, renderer, callbacks } = setup()
+    expect(performance.setGain('unknown', 1)).toBe(false)
+    expect(performance.setGain('hand', NaN)).toBe(false)
+    expect(performance.setGain('hand', 2)).toBe(true)
+    expect(renderer.setGain).toHaveBeenLastCalledWith('hand', 1.75)
+    listener.onEvent(event('hand', 'attack', .9))
+    expect(callbacks.onGainExpression).toHaveBeenLastCalledWith('voice', 1.75, 1)
+    performance.release('hand')
+    expect(performance.setGain('hand', 1)).toBe(false)
+
+    const fallback = { ...renderer, setGain: undefined }
+    performance.press('fallback', [{ instrumentId: 'piano', pitch: 62 }], {}, fallback, config)
+    expect(performance.setGain('fallback', .5)).toBe(false)
+    listener.onEvent(event('fallback', 'attack', 2, 62))
+    expect(callbacks.onGainExpression).toHaveBeenCalledTimes(1)
   })
 
   it('does not replay a completed MIDI plan when stalled audio lifecycle callbacks arrive', () => {

@@ -7,11 +7,13 @@ export function createLivePerformance<T>(callbacks: {
   now(): number
   onEvent(event: LiveVoiceEvent, metadata: T, boundary?: LiveClockBoundary): void
   onExpression?(noteId: string, cents: number, at: number): void
+  onGainExpression?(noteId: string, gain: number, at: number): void
   onMirror(event: LiveVoiceEvent, metadata: T, phase: 'attack' | 'release' | 'cancel'): void
   onOwnerClosed(ownerId: string): void
   onError(error: Error): void
 }) {
-  const owners = new Map<string, { ownerId: string; metadata: T; renderer: LiveRenderer; held: boolean; cents?: number; expressionAt?: number }>()
+  const owners = new Map<string, { ownerId: string; metadata: T; renderer: LiveRenderer; held: boolean;
+    cents?: number; expressionAt?: number; gain?: number; gainExpressionAt?: number }>()
   const currentOwners = new Map<string, string>()
   let ownerSerial = 0
   let closed = false
@@ -73,6 +75,9 @@ export function createLivePerformance<T>(callbacks: {
       if (event.phase === 'attack' && owner.cents) {
         callbacks.onExpression?.(event.noteId, owner.cents, Math.max(event.at, owner.expressionAt ?? event.at))
       }
+      if (event.phase === 'attack' && owner.gain !== undefined && owner.gain !== 1) {
+        callbacks.onGainExpression?.(event.noteId, owner.gain, Math.max(event.at, owner.gainExpressionAt ?? event.at))
+      }
     },
     onPlan(events) {
       const next = new Map(events.filter(event => owners.has(event.ownerId))
@@ -133,6 +138,20 @@ export function createLivePerformance<T>(callbacks: {
       owner.renderer.setPitchBend(rendererOwnerId!, value)
       for (const event of active.values()) if (event.ownerId === rendererOwnerId) {
         callbacks.onExpression?.(event.noteId, value, Math.max(event.at, owner.expressionAt))
+      }
+      return true
+    },
+    setGain(ownerId: string, gain: number) {
+      const rendererOwnerId = currentOwners.get(ownerId)
+      const owner = rendererOwnerId === undefined ? undefined : owners.get(rendererOwnerId)
+      if (!owner?.held || !owner.renderer.setGain || !Number.isFinite(gain)) return false
+      const value = Math.max(.25, Math.min(1.75, gain))
+      if ((owner.gain ?? 1) === value) return true
+      owner.gain = value
+      owner.gainExpressionAt = callbacks.now()
+      owner.renderer.setGain(rendererOwnerId!, value)
+      for (const event of active.values()) if (event.ownerId === rendererOwnerId) {
+        callbacks.onGainExpression?.(event.noteId, value, Math.max(event.at, owner.gainExpressionAt))
       }
       return true
     },

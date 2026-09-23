@@ -10,6 +10,9 @@ const PLAN_SECONDS = .15
 const GATE = .8
 const MAX_PITCH_BEND_CENTS = 50
 const PITCH_SMOOTH_SECONDS = .007
+const MIN_GAIN_EXPRESSION = .25
+const MAX_GAIN_EXPRESSION = 1.75
+const GAIN_SMOOTH_SECONDS = .007
 function polyBlep(t: number, dt: number) {
   return t < dt ? 2 * t / dt - (t / dt) ** 2 - 1
     : t > 1 - dt ? ((t - 1) / dt) ** 2 + 2 * (t - 1) / dt + 1 : 0
@@ -42,6 +45,9 @@ interface Voice extends PlannedNote {
   pitchIncrement: number
   pitchTarget: number
   pitchRampRemaining: number
+  gainExpression: number
+  gainTarget: number
+  gainRampRemaining: number
   releaseStart?: number
   releaseLength: number
   releaseLevel: number
@@ -67,6 +73,7 @@ export class LiveAudioCore {
   private endingOwners = new Set<string>()
   private forgetting = new Map<number, string>()
   private pitchBends = new Map<string, number>()
+  private gainExpressions = new Map<string, number>()
 
   constructor(private sampleRate: number, private send: (message: LiveResponse) => void, private notePrefix = 'worklet') {}
 
@@ -121,7 +128,7 @@ export class LiveAudioCore {
         for (const [owner, notes] of this.held) {
           const remaining = notes.filter(note => note.instrumentId !== command.instrumentId)
           if (remaining.length) this.held.set(owner, remaining)
-          else { this.held.delete(owner); this.pitchBends.delete(owner); this.endingOwners.add(owner) }
+          else { this.held.delete(owner); this.pitchBends.delete(owner); this.gainExpressions.delete(owner); this.endingOwners.add(owner) }
         }
         for (const collection of [this.voices, this.fades]) for (let index = collection.length - 1; index >= 0; index--) {
           const voice = collection[index]
@@ -134,9 +141,10 @@ export class LiveAudioCore {
         this.planDirty = true
         break
       }
-      case 'clear': this.held.clear(); this.pitchBends.clear(); this.cancel(frame); break
+      case 'clear': this.held.clear(); this.pitchBends.clear(); this.gainExpressions.clear(); this.cancel(frame); break
       case 'release': this.release(command.ownerId, frame); break
       case 'pitch-bend': this.pitchBend(command.ownerId, command.cents); break
+      case 'gain-expression': this.gainExpression(command.ownerId, command.gain); break
       case 'press': {
         if (this.held.has(command.ownerId)) this.release(command.ownerId, frame)
         const notes = command.notes.filter(note => Number.isFinite(note.pitch) && note.pitch >= 0 && note.pitch <= 127
@@ -212,6 +220,7 @@ export class LiveAudioCore {
   private release(owner: string, frame: number) {
     this.held.delete(owner)
     this.pitchBends.delete(owner)
+    this.gainExpressions.delete(owner)
     this.strum = this.strum.filter(note => note.ownerId !== owner)
     for (const pulse of this.pulses) pulse.notes = pulse.notes.filter(note => {
       note.owners.delete(owner)
@@ -247,6 +256,20 @@ export class LiveAudioCore {
       if (voice.released || voice.ownerId !== ownerId) continue
       voice.pitchTarget = voice.increment * ratio
       voice.pitchRampRemaining = Math.max(1, Math.round(PITCH_SMOOTH_SECONDS * this.sampleRate))
+    }
+  }
+
+  private gainExpression(ownerId: string, gain: number) {
+    if (!Number.isFinite(gain) || !this.held.has(ownerId)) return
+    const bounded = Math.max(MIN_GAIN_EXPRESSION, Math.min(MAX_GAIN_EXPRESSION, gain))
+    if (bounded === 1) this.gainExpressions.delete(ownerId)
+    else this.gainExpressions.set(ownerId, bounded)
+    for (const voice of this.voices) {
+      // Just like pitch, a deduped rhythmic voice has one deterministic owner.
+      // Release tails retain their last multiplier and are never snapped back.
+      if (voice.released || voice.ownerId !== ownerId) continue
+      voice.gainTarget = bounded
+      voice.gainRampRemaining = Math.max(1, Math.round(GAIN_SMOOTH_SECONDS * this.sampleRate))
     }
   }
 
@@ -320,10 +343,12 @@ export class LiveAudioCore {
     const increment = zone ? 2 ** ((note.pitch - zone.rootMidi) / 12) * zone.sampleRate / this.sampleRate
       : 440 * 2 ** ((note.pitch - 69) / 12) / this.sampleRate
     const pitchIncrement = increment * 2 ** ((this.pitchBends.get(note.ownerId) ?? 0) / 1200)
+    const gainExpression = this.gainExpressions.get(note.ownerId) ?? 1
     const voice: Voice = { ...note, owners: new Set(note.owners), instrument, zone,
       resampler: zone ? createSampleResampler(zone, increment) : undefined,
       style: pulse.style, start: frame, end: pulse.duration === undefined ? Infinity : Math.ceil(pulse.frame + pulse.duration),
       position: 0, increment, pitchIncrement, pitchTarget: pitchIncrement, pitchRampRemaining: 0,
+      gainExpression, gainTarget: gainExpression, gainRampRemaining: 0,
       releaseLength: (pulse.duration === undefined ? Math.max(0, instrument.release) : .03) * this.sampleRate,
       releaseLevel: 0, released: false, published: false }
     this.voices.push(voice)
@@ -389,24 +414,36 @@ export class LiveAudioCore {
           }
         }
         if (voice.pitchRampRemaining) boundary = Math.min(boundary, frame + voice.pitchRampRemaining)
+        if (voice.gainRampRemaining) boundary = Math.min(boundary, frame + voice.gainRampRemaining)
         const span = boundary - frame
-        let gain = this.envelope(voice, frame) * instrument.gain
-        const gainStep = envelopeStep * instrument.gain
+        let envelope = this.envelope(voice, frame)
+        let gain = envelope * instrument.gain * voice.gainExpression
+        const gainStep = envelopeStep * instrument.gain * voice.gainExpression
         if (voice.resampler) {
-          if (voice.pitchRampRemaining) {
+          if (voice.pitchRampRemaining || voice.gainRampRemaining) {
             let consumed = 0
             while (consumed < span) {
-              const step = (voice.pitchTarget - voice.pitchIncrement) / voice.pitchRampRemaining
+              const pitchStep = voice.pitchRampRemaining
+                ? (voice.pitchTarget - voice.pitchIncrement) / voice.pitchRampRemaining : 0
+              const gainExpressionStep = voice.gainRampRemaining
+                ? (voice.gainTarget - voice.gainExpression) / voice.gainRampRemaining : 0
+              gain = envelope * instrument.gain * voice.gainExpression
               const mixed = voice.resampler.mix(output[0], output[1], offset + sampleOffset + consumed, 1,
-                voice.position, gain, gainStep, voice.pitchIncrement)
+                voice.position, gain, 0, voice.pitchIncrement)
               if (!mixed) {
                 this.releaseVoice(voice, frame + consumed)
                 collection.splice(index, 1); break
               }
               voice.position += voice.pitchIncrement
-              voice.pitchIncrement += step
-              if (--voice.pitchRampRemaining === 0) voice.pitchIncrement = voice.pitchTarget
-              gain += gainStep
+              if (voice.pitchRampRemaining) {
+                voice.pitchIncrement += pitchStep
+                if (--voice.pitchRampRemaining === 0) voice.pitchIncrement = voice.pitchTarget
+              }
+              if (voice.gainRampRemaining) {
+                voice.gainExpression += gainExpressionStep
+                if (--voice.gainRampRemaining === 0) voice.gainExpression = voice.gainTarget
+              }
+              envelope += envelopeStep
               consumed++
             }
             if (consumed < span) break
@@ -420,13 +457,19 @@ export class LiveAudioCore {
           }
         } else {
           for (let i = 0; i < span; i++) {
-            const sample = this.oscillator(voice) * gain
+            const sample = this.oscillator(voice) * (voice.gainRampRemaining
+              ? envelope * instrument.gain * voice.gainExpression : gain)
             for (let channel = 0; channel < output.length; channel++) output[channel][offset + sampleOffset + i] += sample
             voice.position += voice.pitchIncrement
             if (voice.pitchRampRemaining) {
               voice.pitchIncrement += (voice.pitchTarget - voice.pitchIncrement) / voice.pitchRampRemaining
               if (--voice.pitchRampRemaining === 0) voice.pitchIncrement = voice.pitchTarget
             }
+            if (voice.gainRampRemaining) {
+              voice.gainExpression += (voice.gainTarget - voice.gainExpression) / voice.gainRampRemaining
+              if (--voice.gainRampRemaining === 0) voice.gainExpression = voice.gainTarget
+            }
+            envelope += envelopeStep
             gain += gainStep
           }
         }

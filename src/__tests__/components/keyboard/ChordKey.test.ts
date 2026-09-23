@@ -73,6 +73,35 @@ describe("ChordKey", () => {
     )).toEqual(["touch:1", "touch:2"]);
   });
 
+  it("leaves pointer and touch ownership to a managed parent", async () => {
+    const wrapper = mount(ChordKey, {
+      props: {
+        members,
+        symbol: "C",
+        accessibleName: "C major chord",
+        managedInput: true,
+      },
+    });
+    vi.spyOn(wrapper.element, "getBoundingClientRect").mockReturnValue({
+      left: 0, right: 100, top: 0, bottom: 100,
+      width: 100, height: 100, x: 0, y: 0, toJSON: () => ({}),
+    });
+    const touchStart = new Event("touchstart", { bubbles: true, cancelable: true });
+    Object.defineProperties(touchStart, {
+      touches: { value: [{ identifier: 4, clientX: 50, clientY: 50 }] },
+      changedTouches: { value: [{ identifier: 4, clientX: 50, clientY: 50 }] },
+    });
+
+    await wrapper.trigger("mousedown", { button: 0 });
+    wrapper.element.dispatchEvent(touchStart);
+    await wrapper.vm.$nextTick();
+
+    expect(touchStart.defaultPrevented).toBe(true);
+    expect(wrapper.emitted("press")).toBeUndefined();
+    expect(wrapper.emitted("release")).toBeUndefined();
+    wrapper.unmount();
+  });
+
   it("releases an active touch when disabled", async () => {
     const wrapper = mount(ChordKey, {
       props: { members, symbol: "C", accessibleName: "C major chord" },

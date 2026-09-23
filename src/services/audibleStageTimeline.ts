@@ -6,6 +6,8 @@ interface NoteTiming {
   endAt?: number;
   attackTimer?: ReturnType<typeof setTimeout>;
   releaseTimer?: ReturnType<typeof setTimeout>;
+  expressionTimers: Map<ReturnType<typeof setTimeout>, number>;
+  lastExpressionAt?: number;
 }
 
 /** A presentation-only projection. Original events, MIDI and recording retain
@@ -18,6 +20,7 @@ export function createAudibleStageTimeline(
 ) {
   const eventTarget = new EventTarget();
   const notes = new Map<string, NoteTiming>();
+  const knownNotes = new Map<string, ActiveNote>();
   const timers = new Set<ReturnType<typeof setTimeout>>();
   let disposed = false;
 
@@ -44,6 +47,14 @@ export function createAudibleStageTimeline(
   const relay = (event: CustomEvent) => {
     eventTarget.dispatchEvent(new CustomEvent(event.type, { detail: event.detail }));
   };
+  const cancelExpressionsAfter = (state: NoteTiming, timestamp: number) => {
+    for (const [timer, scheduledAt] of state.expressionTimers) {
+      if (scheduledAt >= timestamp) {
+        cancel(timer);
+        state.expressionTimers.delete(timer);
+      }
+    }
+  };
   const onPlayed = (raw: Event) => {
     const event = raw as CustomEvent;
     const { noteId, audibleAt } = event.detail ?? {};
@@ -55,8 +66,13 @@ export function createAudibleStageTimeline(
     const previous = notes.get(noteId);
     cancel(previous?.attackTimer);
     cancel(previous?.releaseTimer);
+    if (previous) cancelExpressionsAfter(previous, -Infinity);
     const note = readNotes().find(candidate => candidate.noteId === noteId);
-    const state: NoteTiming = { note: note ? { ...note } : undefined, startAt };
+    const state: NoteTiming = {
+      note: note ? { ...note } : undefined,
+      startAt,
+      expressionTimers: new Map(),
+    };
     notes.set(noteId, state);
     state.attackTimer = schedule(startAt, () => {
       state.attackTimer = undefined;
@@ -74,13 +90,15 @@ export function createAudibleStageTimeline(
       return;
     }
     const note = readNotes().find(candidate => candidate.noteId === noteId);
-    const state = notes.get(noteId) ?? {
+    const state: NoteTiming = notes.get(noteId) ?? {
       note: note ? { ...note } : undefined,
       startAt: note?.audibleAt ?? -Infinity,
+      expressionTimers: new Map(),
     };
     if (state.endAt !== undefined && state.endAt <= endAt) return;
     notes.set(noteId, state);
     state.endAt = endAt;
+    cancelExpressionsAfter(state, endAt);
     cancel(state.releaseTimer);
     if (endAt <= state.startAt) {
       cancel(state.attackTimer);
@@ -92,12 +110,43 @@ export function createAudibleStageTimeline(
       // Producers may remove their registry entry just after dispatching the
       // release. Retire our snapshot even when the canvas is not animating.
       queueMicrotask(() => {
-        if (notes.get(noteId) === state && !readNotes().some(note => note.noteId === noteId)) notes.delete(noteId);
+        if (notes.get(noteId) === state && !readNotes().some(note => note.noteId === noteId)) {
+          notes.delete(noteId);
+          knownNotes.delete(noteId);
+        }
       });
     });
   };
+  const onExpression = (raw: Event) => {
+    const event = raw as CustomEvent;
+    const { noteId, cents, audibleAt } = event.detail ?? {};
+    if (!noteId || typeof cents !== "number" || !Number.isFinite(cents) || Math.abs(cents) > 50) return;
+    const expressionAt = at(audibleAt);
+    const registryNote = readNotes().find(candidate => candidate.noteId === noteId);
+    const knownNote = knownNotes.get(noteId);
+    const state: NoteTiming | undefined = notes.get(noteId) ?? (registryNote ? {
+      note: { ...(knownNote ?? registryNote) },
+      startAt: (knownNote ?? registryNote).audibleAt ?? -Infinity,
+      expressionTimers: new Map(),
+    } satisfies NoteTiming : undefined);
+    if (!state || (state.lastExpressionAt !== undefined && expressionAt < state.lastExpressionAt)
+      || (state.endAt !== undefined && expressionAt >= state.endAt)) return;
+    notes.set(noteId, state);
+    state.lastExpressionAt = expressionAt;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const apply = () => {
+      if (timer !== undefined) state.expressionTimers.delete(timer);
+      if (notes.get(noteId) !== state || expressionAt < state.startAt
+        || (state.endAt !== undefined && expressionAt >= state.endAt)) return;
+      if (state.note) state.note = { ...state.note, pitchBendCents: cents };
+      relay(event);
+    };
+    timer = schedule(expressionAt, apply);
+    if (timer !== undefined) state.expressionTimers.set(timer, expressionAt);
+  };
   source.addEventListener("note-played", onPlayed);
   source.addEventListener("note-released", onReleased);
+  source.addEventListener("note-expression", onExpression);
 
   return {
     eventTarget,
@@ -105,10 +154,14 @@ export function createAudibleStageTimeline(
       if (disposed) return [];
       const timestamp = now();
       const rawNotes = new Map(readNotes().map(note => [note.noteId, note]));
+      for (const noteId of knownNotes.keys()) {
+        if (!rawNotes.has(noteId)) knownNotes.delete(noteId);
+      }
       const visible = new Map<string, ActiveNote>();
       for (const note of rawNotes.values()) {
         if (!notes.has(note.noteId) && (!Number.isFinite(note.audibleAt) || note.audibleAt! <= timestamp)) {
           visible.set(note.noteId, note);
+          knownNotes.set(note.noteId, { ...note });
         }
       }
       for (const [noteId, state] of notes) {
@@ -125,9 +178,11 @@ export function createAudibleStageTimeline(
       disposed = true;
       source.removeEventListener("note-played", onPlayed);
       source.removeEventListener("note-released", onReleased);
+      source.removeEventListener("note-expression", onExpression);
       timers.forEach(timer => clearTimeout(timer));
       timers.clear();
       notes.clear();
+      knownNotes.clear();
     },
   };
 }

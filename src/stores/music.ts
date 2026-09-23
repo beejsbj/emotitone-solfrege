@@ -164,8 +164,17 @@ export const useMusicStore = defineStore(
         }));
       },
       onExpression(noteId, cents, at) {
+        const note = activeNotes.value.get(noteId);
+        if (note) activeNotes.value.set(noteId, { ...note, pitchBendCents: cents });
         window.dispatchEvent(new CustomEvent("note-expression", {
-          detail: { noteId, cents, timestamp: liveAudioClock.toEpochTime(at * 1000) },
+          detail: { noteId, cents, timestamp: liveAudioClock.toEpochTime(at * 1000),
+            audibleAt: audioTimeToOutputTime(superdoughAudio.getAudioContext(), at) },
+        }));
+      },
+      onGainExpression(noteId, gain, at) {
+        window.dispatchEvent(new CustomEvent("note-expression", {
+          detail: { noteId, gain, timestamp: liveAudioClock.toEpochTime(at * 1000),
+            audibleAt: audioTimeToOutputTime(superdoughAudio.getAudioContext(), at) },
         }));
       },
       onOwnerClosed(owner) {
@@ -769,6 +778,12 @@ export const useMusicStore = defineStore(
       return owner ? livePerformance.setPitchBend(owner, cents) : false;
     }
 
+    /** Volume expression follows the same held owner as live pitch bends. */
+    function setNoteGain(noteId: string, gain: number): boolean {
+      const owner = heldAliases.get(noteId);
+      return owner ? livePerformance.setGain(owner, gain) : false;
+    }
+
     async function releaseNote(noteId?: string) {
       if (!noteId) {
         clearLiveInputs();
@@ -954,6 +969,7 @@ export const useMusicStore = defineStore(
       attackExactPitch,
       releaseNote,
       setNotePitchBend,
+      setNoteGain,
       releaseAllNotes,
       addToSequence,
       clearSequence,

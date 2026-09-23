@@ -11,7 +11,7 @@ const worklet = vi.hoisted(() => ({
     onOwnerEnded(ownerId: string): void;
     onError(error: unknown): void;
   },
-  engine: { setPitchBend: vi.fn(), press: vi.fn(), release: vi.fn(), configure: vi.fn(), clear: vi.fn(), dispose: vi.fn() },
+  engine: { setPitchBend: vi.fn(), setGain: vi.fn(), press: vi.fn(), release: vi.fn(), configure: vi.fn(), clear: vi.fn(), dispose: vi.fn() },
   unsubscribe: vi.fn(),
 }));
 vi.mock("@/services/livePlayback", () => ({
@@ -104,6 +104,59 @@ describe("music store production worklet integration", () => {
     ]);
     await music.releaseNote(owner!);
     expect(music.setNotePitchBend(owner!, 20)).toBe(false);
+  });
+
+  it("publishes bent pitch for presentation without changing the musical note", async () => {
+    const music = useMusicStore();
+    const c = await music.attackExactPitch("C4");
+    const g = await music.attackExactPitch("G4");
+    worklet.listener!.onEvent(event(c!, "c", "attack", 12));
+    worklet.listener!.onEvent(event(g!, "g", "attack", 12, 67));
+    const original = { ...music.activeNotes.get("c")! };
+    await vi.advanceTimersByTimeAsync(100);
+    expect(music.setNotePitchBend(c!, 40)).toBe(true);
+    expect(music.activeNotes.get("c")).toEqual({ ...original, pitchBendCents: 40 });
+    expect(music.activeNotes.get("g")?.pitchBendCents).toBeUndefined();
+    const expression = events("note-expression").at(-1);
+    expect(expression).toMatchObject({ noteId: "c", cents: 40, timestamp: EPOCH + 100 });
+    expect(expression.audibleAt).toBeCloseTo(1300);
+    music.setNotePitchBend(c!, 0);
+    expect(music.activeNotes.get("c")).toEqual({ ...original, pitchBendCents: 0 });
+    expect(events("note-played")).toHaveLength(2);
+  });
+
+  it("records simultaneous pitch and gain independently with the audio clock", async () => {
+    const music = useMusicStore(); const patterns = recorder();
+    const owner = await music.attackExactPitch("C4");
+    worklet.listener!.onEvent(event(owner!, "expressive", "attack", 12));
+    await vi.advanceTimersByTimeAsync(100);
+    expect(music.setNoteGain(owner!, 0.5)).toBe(true);
+    expect(worklet.engine.setGain).toHaveBeenLastCalledWith(owner, 0.5);
+    music.setNotePitchBend(owner!, 30);
+    await vi.advanceTimersByTimeAsync(100);
+    music.setNoteGain(owner!, 1.5);
+    worklet.listener!.onEvent(event(owner!, "expressive", "release", 12.15));
+    expect(patterns.loggedNotes[0].gainExpression).toEqual([
+      { timeMs: 0, gain: 1 }, { timeMs: 100, gain: 0.5 },
+    ]);
+    expect(patterns.loggedNotes[0].pitchExpression).toEqual([
+      { timeMs: 0, cents: 0 }, { timeMs: 100, cents: 30 },
+    ]);
+    await music.releaseNote(owner!);
+    expect(music.setNoteGain(owner!, 1)).toBe(false);
+    expect(events("note-played")).toHaveLength(1);
+  });
+
+  it("does not publish expression for renderers without the corresponding audio control", async () => {
+    vi.mocked(getLivePlayback).mockReturnValue({ ...worklet.engine,
+      setPitchBend: undefined, setGain: undefined } as never);
+    const music = useMusicStore();
+    const owner = await music.attackExactPitch("C4");
+    worklet.listener!.onEvent(event(owner!, "plain", "attack", 12));
+    expect(music.setNoteGain(owner!, 0.5)).toBe(false);
+    expect(music.setNotePitchBend(owner!, 30)).toBe(false);
+    expect(events("note-expression")).toEqual([]);
+    expect(music.activeNotes.get("plain")?.pitchBendCents).toBeUndefined();
   });
 
   it("captures metadata before a native renderer emits its synchronous attack", async () => {

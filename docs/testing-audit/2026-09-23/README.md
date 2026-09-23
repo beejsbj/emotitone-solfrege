@@ -96,3 +96,18 @@ Tests of different layers are not automatically duplicates: a correct audio core
 5. Run one full runtime suite at the combined checkpoint, along with launcher checks only if the launcher changes. Report case inventory, failures, time and sampled RSS separately. A smaller count is useful only when retained coverage remains meaningful.
 
 No implementation, source/test deletion, remote push, or bjslab update occurred in this investigation. The artifacts are committed locally on the existing resource-fix branch. The next action is a bounded cleanup following these named findings, not another open-ended scan or a numerical test quota.
+
+## Implementation status — 2026-09-24
+
+Before implementation, the claims were checked again against the current code. An independent blind review, which did not see this audit, suggested cuts of 12–30%. Spot checks did not support the larger cuts: most of the `visualConfig` cases it would cut are migrations of users' saved localStorage data, and the `Keyboard` prop-mapping test it flagged checks real behavior. Its specific duplicate findings were already in the 16 direct cuts. A separate check confirmed every consumer claim and all 16 survivors. It also found that `src/utils/index.ts` re-exported `deviceDetection`; nothing imports that barrel.
+
+Done:
+
+- Sections 1 and H-05: `audio-lab/validate.mjs` requires every expected attack, sequence and production scenario exactly once. `validate.test.ts` checks it against the stored capture and fails when the gap check is disabled. `ui-run.mjs` lists zero-trial checks under `notExercised` instead of passing them.
+- Section 2: all 16 direct cuts.
+- Section 3: `deviceDetection.ts`, `duration.ts`, six `visualEffects` helpers and two `performanceMonitor` helpers are removed together with their tests. The three renderer helpers and the monitor singleton remain.
+- Section 4 and H-04: the stale integration README/index, `audio-mocks.ts` and unused `test-utils` exports are removed. The keyboard-controls suite mounts a real host and unmounts it after each case. A probe counted this composable's keydown handlers still attached after the file: 4 before, 0 after.
+
+Checkpoint: **1,557 passed, 1 skipped (1,558)**, down from 1,662. That is 107 existing cases removed and 3 validator cases added. Runtime was 32.0 s against a 35.5 s same-day baseline. Environment setup and collection take about 29 s of that, so case count is not what drives suite cost. `bun run build` and the four launcher checks passed. No browser capture was rerun, and no memory change is claimed.
+
+Not done: the ten semantic repairs listed in section 1's second paragraph, the global clock and localStorage shims (H-02, H-03), strengthening the malformed-persistence case, and moving the skipped benchmark out of the suite.

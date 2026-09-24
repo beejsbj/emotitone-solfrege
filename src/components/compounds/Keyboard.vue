@@ -1245,18 +1245,24 @@ function pointerSamples(event: PointerEvent) {
 function expressionSamples(event: PointerEvent) {
   const samples = pointerSamples(event);
   if (samples.length === 1) {
-    pointerSampleTimes.set(event.pointerId, performance.now());
-    return [{ sample: samples[0], sampleTime: undefined }];
+    const sampleTime = performance.now();
+    pointerSampleTimes.set(event.pointerId, sampleTime);
+    return [{ sample: samples[0], sampleTime }];
   }
-  // Coalesced hardware timestamps can precede the last dispatched move. Shift
-  // the whole batch forward so reversals retain their actual spacing and order.
+  // Coalesced hardware timestamps can precede the last dispatched move. Fit
+  // the batch between that move and now, retaining its spacing when possible
+  // and compressing it when the raw span would put expression in the future.
   const firstTime = samples[0].timeStamp;
   const lastTime = samples[samples.length - 1].timeStamp;
   const previous = pointerSampleTimes.get(event.pointerId) ?? -Infinity;
-  const end = Math.max(performance.now(), lastTime, previous + Math.max(0, lastTime - firstTime));
+  const end = Math.max(performance.now(), lastTime, previous);
+  const span = Math.max(0, lastTime - firstTime);
+  const available = Number.isFinite(previous) ? Math.max(0, end - previous - .001) : span;
+  const scale = span > 0 ? Math.min(1, available / span) : 1;
   let latest = previous;
   return samples.map((sample) => {
-    const sampleTime = Math.max(latest, end - Math.max(0, lastTime - sample.timeStamp));
+    const projected = end - Math.max(0, lastTime - sample.timeStamp) * scale;
+    const sampleTime = Math.max(latest + .001, projected);
     latest = sampleTime;
     pointerSampleTimes.set(event.pointerId, sampleTime);
     return { sample, sampleTime };

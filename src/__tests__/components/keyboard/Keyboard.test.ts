@@ -903,7 +903,7 @@ describe("Keyboard pointer gestures", () => {
     send("pointermove", 2, 73, 0);
     expect(mocks.musicStore.setNotePitchBend).not.toHaveBeenCalled();
     send("pointermove", 1, 27);
-    expect(mocks.musicStore.setNotePitchBend).toHaveBeenLastCalledWith("melody-note", -50);
+    expect(mocks.musicStore.setNotePitchBend).toHaveBeenLastCalledWith("melody-note", -50, expect.any(Number));
     send("pointerup", 1, 27);
     expect(mocks.musicStore.releaseNote).not.toHaveBeenCalled();
     expect(mocks.musicStore.setNotePitchBend).toHaveBeenLastCalledWith("melody-note", 0);
@@ -916,8 +916,8 @@ describe("Keyboard pointer gestures", () => {
     expect(mocks.musicStore.setNotePitchBend.mock.calls).toHaveLength(callsAfterTransfer.pitch);
     expect(mocks.musicStore.setNoteGain.mock.calls).toHaveLength(callsAfterTransfer.gain);
     send("pointermove", 2, 60, 20);
-    expect(mocks.musicStore.setNotePitchBend).toHaveBeenLastCalledWith("melody-note", -25);
-    expect(mocks.musicStore.setNoteGain).toHaveBeenLastCalledWith("melody-note", .575);
+    expect(mocks.musicStore.setNotePitchBend).toHaveBeenLastCalledWith("melody-note", -25, expect.any(Number));
+    expect(mocks.musicStore.setNoteGain).toHaveBeenLastCalledWith("melody-note", .575, expect.any(Number));
     send("pointercancel", 2, 60, 20);
     expect(mocks.musicStore.releaseNote).toHaveBeenCalledWith("melody-note");
     wrapper.unmount();
@@ -946,8 +946,8 @@ describe("Keyboard pointer gestures", () => {
     expect(wrapper.emitted("gainChange")?.at(-1)?.[0]).toMatchObject({
       keyId: "1_5", gain: 1.675,
     });
-    expect(mocks.musicStore.setNotePitchBend).toHaveBeenCalledWith("melody-note", 50);
-    expect(mocks.musicStore.setNoteGain).toHaveBeenCalledWith("melody-note", 1.675);
+    expect(mocks.musicStore.setNotePitchBend).toHaveBeenCalledWith("melody-note", 50, expect.any(Number));
+    expect(mocks.musicStore.setNoteGain).toHaveBeenCalledWith("melody-note", 1.675, expect.any(Number));
     wrapper.unmount();
   });
 
@@ -976,7 +976,7 @@ describe("Keyboard pointer gestures", () => {
     send("pointerup", 73, 20);
     for (const voiceId of voiceIds) {
       expect(mocks.musicStore.releaseNote).toHaveBeenCalledWith(voiceId);
-      expect(mocks.musicStore.setNoteGain).not.toHaveBeenCalledWith(voiceId, 1);
+      expect(mocks.musicStore.setNoteGain).not.toHaveBeenCalledWith(voiceId, 1, expect.any(Number));
     }
     wrapper.unmount();
   });
@@ -1035,8 +1035,8 @@ describe("Keyboard pointer gestures", () => {
     expect(wrapper.emitted("chordPitchBend")?.at(-1)?.[0]).toMatchObject({ cents: 50 });
     expect(wrapper.emitted("chordGainChange")?.at(-1)?.[0]).toMatchObject({ gain: 1.675 });
     for (const [pitch] of vi.mocked(mocks.musicStore.attackExactPitch).mock.calls) {
-      expect(mocks.musicStore.setNotePitchBend).toHaveBeenCalledWith(`exact-${pitch}`, 50);
-      expect(mocks.musicStore.setNoteGain).toHaveBeenCalledWith(`exact-${pitch}`, 1.675);
+      expect(mocks.musicStore.setNotePitchBend).toHaveBeenCalledWith(`exact-${pitch}`, 50, expect.any(Number));
+      expect(mocks.musicStore.setNoteGain).toHaveBeenCalledWith(`exact-${pitch}`, 1.675, expect.any(Number));
       expect(mocks.musicStore.releaseNote).toHaveBeenCalledWith(`exact-${pitch}`);
     }
     wrapper.unmount();
@@ -1074,7 +1074,8 @@ describe("Keyboard pointer gestures", () => {
     wrapper.unmount();
   });
 
-  it("forwards each coalesced chord sample timestamp to live expression", async () => {
+  it("keeps coalesced chord sample spacing on the performance clock", async () => {
+    const clock = vi.spyOn(performance, "now").mockReturnValue(1200);
     const wrapper = mountKeyboard();
     const chord = wrapper.find<HTMLButtonElement>(".keyboard__chord-key");
     vi.spyOn(document, "elementFromPoint").mockReturnValue(chord.element);
@@ -1090,6 +1091,7 @@ describe("Keyboard pointer gestures", () => {
       pointerId: 84, pointerType: "touch", clientX: 50, clientY: 50,
     }));
     await new Promise((resolve) => setTimeout(resolve, 0));
+    clock.mockReturnValue(1300);
     const move = sample(73, 20, 1090);
     Object.defineProperty(move, "getCoalescedEvents", {
       value: () => [sample(73, 20, 1030), sample(27, 50, 1060), sample(73, 20, 1090)],
@@ -1105,7 +1107,7 @@ describe("Keyboard pointer gestures", () => {
     expect(pitch[1][1] - pitch[0][1]).toBe(30);
     expect(pitch[2][1] - pitch[1][1]).toBe(30);
     expect(gain.map(([, timestamp]) => timestamp)).toEqual(pitch.map(([, timestamp]) => timestamp));
-    expect(pitch[0][1]).toBeGreaterThan(1030);
+    expect(pitch[0][1]).toBe(1240);
     root.element.dispatchEvent(pointerEvent("pointerup", {
       pointerId: 84, pointerType: "touch", clientX: 73, clientY: 20,
     }));
@@ -1131,16 +1133,22 @@ describe("Keyboard pointer gestures", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     clock.mockReturnValue(1180);
     root.element.dispatchEvent(sample(27, 1180));
-    clock.mockReturnValue(1250);
+    clock.mockReturnValue(1190);
     const move = sample(73, 1160);
     Object.defineProperty(move, "getCoalescedEvents", {
       value: () => [sample(73, 1100), sample(27, 1130), sample(73, 1160)],
     });
     root.element.dispatchEvent(move);
     const voiceId = `exact-${vi.mocked(mocks.musicStore.attackExactPitch).mock.calls[0][0]}`;
-    expect(vi.mocked(mocks.musicStore.setNotePitchBend).mock.calls
-      .filter(([id]) => id === voiceId).map(([, cents, timestamp]) => [cents, timestamp]))
-      .toEqual([[-50, undefined], [50, 1190], [-50, 1220], [50, 1250]]);
+    const pitch = vi.mocked(mocks.musicStore.setNotePitchBend).mock.calls
+      .filter(([id]) => id === voiceId).map(([, cents, timestamp]) => [cents, timestamp]);
+    expect(pitch.map(([cents]) => cents)).toEqual([-50, 50, -50, 50]);
+    expect(pitch[0][1]).toBe(1180);
+    const times = pitch.slice(1).map(([, timestamp]) => timestamp as number);
+    expect(times[0]).toBeGreaterThan(1180);
+    expect(times[1]).toBeGreaterThan(times[0]);
+    expect(times[2]).toBeGreaterThan(times[1]);
+    expect(times[2]).toBe(1190);
     root.element.dispatchEvent(pointerEvent("pointerup", {
       pointerId: 85, pointerType: "touch", clientX: 73, clientY: 50,
     }));

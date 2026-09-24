@@ -1,7 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { shallowMount } from "@vue/test-utils";
+import SystemUIBeat from "@/style-guide/systems/SystemUIBeat.vue";
+import { UIBeatClock } from "@/composables/useUIBeat";
+// Child controls register GSAP plugins on import; shallowMount never runs them.
+vi.mock("@/composables/useGSAP", () => ({ default: vi.fn() }));
 import systemUIBeatSource from "@/style-guide/systems/SystemUIBeat.vue?raw";
 
 describe("SystemUIBeat guide fixture", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
   it("keeps the dense keyboard family outside the accepted guide distribution", () => {
     expect(systemUIBeatSource).not.toContain("<Key");
     expect(systemUIBeatSource).not.toContain("<ChordKey");
@@ -9,22 +19,26 @@ describe("SystemUIBeat guide fixture", () => {
     expect(systemUIBeatSource).toContain("<Joystick");
   });
 
-  it("maintains musical phase continuity when tempo changes: tick accumulates barPosition, preserveTempoPhase re-arms on BPM change without resetting position", () => {
-    // Behavioral verification through source-level contract enforcement:
-    // tick() accumulates barPosition based on elapsed time (not wall-clock jumps)
-    // preserveTempoPhase() is watched on bpm changes (not meter), and publishes
-    // the current barPosition without resetting, keeping phase continuous.
-    expect(systemUIBeatSource).toContain("barPosition += elapsed / barDuration");
-    expect(systemUIBeatSource).toContain("function preserveTempoPhase()");
-    expect(systemUIBeatSource).toContain("watch(bpm, preserveTempoPhase)");
-    expect(systemUIBeatSource).toContain(
-      "clock.publish(generation, { rawPosition: barPosition, barPosition })",
-    );
-    // Absence of watch([bpm, meter]) ensures meter change does not preserve phase the same way
-    expect(systemUIBeatSource).not.toContain("watch([bpm, meter]");
-    // Verify previousTimestamp is managed to enable elapsed-time calculation
-    expect(systemUIBeatSource).toContain("previousTimestamp");
-    // Verify generation re-arms (new clock session) on tempo/meter change
-    expect(systemUIBeatSource).toContain("generation = clock.arm");
+  it("keeps bar position continuous when tempo changes during playback", async () => {
+    const frames: FrameRequestCallback[] = [];
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => frames.push(callback));
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+    const runFrame = (timestamp: number) => frames.shift()?.(timestamp);
+    const published: number[] = [];
+    vi.spyOn(UIBeatClock.prototype, "publish").mockImplementation(function (_generation, position) {
+      published.push(position.barPosition);
+    });
+
+    const wrapper = shallowMount(SystemUIBeat);
+    runFrame(0);
+    runFrame(1000); // 120 BPM in 4/4: 2000 ms bar, so half a bar.
+
+    vi.spyOn(performance, "now").mockReturnValue(1000);
+    await wrapper.findAll("button").find((button) => button.text() === "140 BPM")!.trigger("click");
+    runFrame(1000 + (4 * 60_000) / 140 / 2); // Half a bar at the new tempo.
+
+    expect(published).toHaveLength(4);
+    [0, 0.5, 0.5, 1].forEach((position, index) => expect(published[index]).toBeCloseTo(position, 6));
+    wrapper.unmount();
   });
 });

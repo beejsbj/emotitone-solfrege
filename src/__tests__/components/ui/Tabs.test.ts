@@ -3,7 +3,7 @@ import { mount } from "@vue/test-utils";
 import { markRaw } from "vue";
 import Tabs from "@/components/primatives/Tabs.vue";
 import tabsSource from "@/components/primatives/Tabs.vue?raw";
-import tabsPageSource from "@/style-guide/TabsPage.vue?raw";
+import TabsPage from "@/style-guide/TabsPage.vue";
 
 const TestIcon = markRaw({ template: "<svg />" });
 
@@ -51,38 +51,15 @@ describe("Tabs", () => {
   });
 
   it("renders the accepted fifteen destinations and excludes retired floatingPopup", () => {
-    // Verify all fifteen canonical destination labels exist in TabsPage
-    const expectedLabels = [
-      "home",
-      "blobs",
-      "ambient",
-      "particles",
-      "strings",
-      "animation",
-      "frequencyMapping",
-      "dynamicColors",
-      "hilbertScope",
-      "uiBeat",
-      "patterns",
-      "keyboard",
-      "codeStrip",
-      "midi",
-      "presets",
-    ];
+    const wrapper = mount(TabsPage);
+    const stress = wrapper.get('[aria-label="Configuration stress-case tabs"]');
+    const destinations = stress.findAll('[data-testid^="tabs-page-config-"]');
 
-    for (const label of expectedLabels) {
-      expect(tabsPageSource).toContain(`"${label}"`);
-    }
-
-    // Count the configLabels array entries to verify exactly 15
-    const configLabelMatch = tabsPageSource.match(/const configLabels\s*=\s*\[([\s\S]*?)\]\s*as const/);
-    const arrayContent = configLabelMatch?.[1] || "";
-    // Count items by counting number of inner arrays (each item is [value, label, shortLabel])
-    const itemCount = (arrayContent.match(/\[/g) || []).length;
-    expect(itemCount).toBe(15);
-
-    // Verify floatingPopup is absent from the entire guide
-    expect(tabsPageSource).not.toContain("floatingPopup");
+    expect(destinations).toHaveLength(15);
+    expect(destinations.map((tab) => tab.attributes("data-testid"))).not.toContain(
+      "tabs-page-config-floatingPopup",
+    );
+    wrapper.unmount();
   });
 
   it("reveals the active destination again after the viewport resizes", async () => {

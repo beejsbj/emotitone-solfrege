@@ -113,7 +113,8 @@ describe("active-note canvas color routing", () => {
     const pitchClassCall = colorResolutionCalls.find(
       (call) => call.function === "resolveMusicColorSampleByPitchClass"
     );
-    expect(pitchClassCall).toBeDefined("Ambient must call resolveMusicColorSampleByPitchClass for exact-pitch notes");
+    // Pitch class 1 resolves as C#; solfege index 0 in C major would be C.
+    expect(pitchClassCall?.args[0]).toBe("C#");
     expect(pitchClassCall?.args).toContain("fixed-chromatic");
   });
 
@@ -175,6 +176,6 @@ describe("active-note canvas color routing", () => {
     const scaleIndexCall = colorResolutionCalls.find(
       (call) => call.function === "resolveMusicColorSampleByScaleIndex"
     );
-    expect(scaleIndexCall).toBeDefined("Ambient must use scale-index fallback when pitchClassIndex is undefined");
+    expect(scaleIndexCall).toBeDefined();
   });
 });

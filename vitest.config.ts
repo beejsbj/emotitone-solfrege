@@ -35,7 +35,7 @@ export default defineConfig({
           name: 'dom',
           environment: 'happy-dom',
           include: ['src/**/*.test.ts'],
-          exclude: [...configDefaults.exclude, ...nodeTests],
+          exclude: [...configDefaults.exclude, ...nodeTests, '**/patternPersistence.bench.test.ts'],
           setupFiles: ['./src/test-setup.ts'],
         },
       },

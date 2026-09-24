@@ -149,7 +149,7 @@ describe("pattern persistence serializer", () => {
     expect(JSON.parse(persisted!).savedPatterns[0].notes[0].solfege.name).toBe("Re");
   });
 
-  it("leaves malformed persisted JSON on safe store defaults", () => {
+  it("leaves malformed persisted JSON on safe store defaults and allows subsequent save/load", async () => {
     storage.setItem("patterns", "{ malformed");
 
     const pinia = createPinia();
@@ -159,5 +159,28 @@ describe("pattern persistence serializer", () => {
 
     expect(() => usePatternsStore()).not.toThrow();
     expect(() => deserializePatternsState("{ malformed")).toThrow();
+
+    // Verify safe defaults are initialized
+    const store = usePatternsStore();
+    expect(store.loggedNotes).toEqual([]);
+    expect(store.savedPatterns).toEqual([]);
+    expect(store.isLoggingEnabled).toBe(true);
+    expect(store.loadedBaseNotes).toEqual([]);
+    expect(store.loadedBasePatternId).toBeNull();
+    expect(store.loadedBaseMeta).toBeNull();
+    expect(store.isStripCleared).toBe(false);
+    expect(store.currentTakeGeneration).toBe(0);
+    expect(store.focusedPatternId).toBeNull();
+
+    // Verify subsequent normal save/load cycle works
+    const note = createNote(0);
+    store.loggedNotes.push(note);
+    await nextTick();
+
+    const persisted = storage.getItem("patterns");
+    expect(persisted).not.toBeNull();
+    const parsed = JSON.parse(persisted!);
+    expect(parsed.loggedNotes).toHaveLength(1);
+    expect(parsed.loggedNotes[0].id).toBe("note-0");
   });
 });

@@ -3,8 +3,7 @@ import { createPinia, setActivePinia } from "pinia";
 import { usePatternsStore } from "@/stores/patterns";
 import { serializePatternsState } from "@/services/patternPersistence";
 
-/** Run with LAB_PATTERN_SERIALIZATION_BENCH=1; no timing assertion in CI. */
-describe.runIf(process.env.LAB_PATTERN_SERIALIZATION_BENCH === "1")("pattern persistence benchmark", () => {
+describe("pattern persistence benchmark", () => {
   it("compares legacy and optimized JSON on a 512-note reactive Pinia state", () => {
     const pinia = createPinia();
     setActivePinia(pinia);
@@ -28,11 +27,14 @@ describe.runIf(process.env.LAB_PATTERN_SERIALIZATION_BENCH === "1")("pattern per
     const optimizedStart = performance.now();
     for (let i = 0; i < iterations; i++) serializePatternsState(store.$state);
     const optimizedMs = performance.now() - optimizedStart;
+    const stateSize = JSON.stringify(store.$state).length;
     console.info(JSON.stringify({
       iterations,
       legacyMs: Number(legacyMs.toFixed(2)),
       optimizedMs: Number(optimizedMs.toFixed(2)),
       improvementPercent: Number(((1 - optimizedMs / legacyMs) * 100).toFixed(1)),
+      stateSizeBytes: stateSize,
+      noteCount: store.loggedNotes.length,
     }));
   });
 });

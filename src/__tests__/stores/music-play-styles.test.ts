@@ -282,7 +282,11 @@ describe("live styles through music, recording, and Strudel", () => {
     ]);
     expect(noteEvents("note-released").map((note) => note.noteId).sort())
       .toEqual(noteEvents("note-played").map((note) => note.noteId).sort());
-    expect(logNotesToStrudel(patterns.loggedNotes)).toContain("C4:0.001:0.03@0.1 ~@0.025 E4:0.001:0.03@0.1 ~@0.025 G4:0.001:0.03@0.1");
+    // Uniform recorded gates print once, not as a per-note column.
+    const code = logNotesToStrudel(patterns.loggedNotes);
+    expect(code).toContain("C4@0.1 ~@0.025 E4@0.1 ~@0.025 G4@0.1");
+    expect(code).toContain('.as("note")');
+    expect(code).toContain(".attack(0.001).decay(0.001).sustain(1).release(0.03)");
     expect(music.activeNotes.size).toBe(0);
     expect(vi.getTimerCount()).toBe(0);
   });

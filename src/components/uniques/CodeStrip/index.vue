@@ -265,7 +265,6 @@ const generatedCode = computed(() => {
   }
 
   const patternsStore = productionWiring!.patternsStore;
-  const instrumentStore = productionWiring!.instrumentStore;
   if (patternsStore.isStripCleared || !patternsStore.currentSketchNotes.length) {
     return EMPTY_EDITOR_CODE;
   }
@@ -280,14 +279,8 @@ const generatedCode = computed(() => {
     scaleOctave: keyboardConfig.value.mainOctave,
     patternDurationMs: patternsStore.currentSketchDuration,
     sound,
-    cutoff: instrumentStore.synthControls?.cutoff,
-    resonance: instrumentStore.synthControls?.resonance,
-    attack: instrumentStore.synthControls?.attack,
-    release: instrumentStore.synthControls?.release,
-    attackOverride: instrumentStore.synthControlOverrides?.attack,
-    releaseOverride: instrumentStore.synthControlOverrides?.release,
-    room: instrumentStore.synthControls?.room,
-    delay: instrumentStore.synthControls?.delay,
+    // The pattern's own Shape, not the live knobs.
+    shape: patternsStore.currentSketchMeta.shape,
   }).replace(/\s+/g, " ").trim();
 });
 const generatedPhaseSourceKey = computed(() => {

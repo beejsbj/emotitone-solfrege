@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { logNotesToStrudel, mergeStrudelRests } from '@/services/StrudelNotation'
 import { defaultPatterns } from '@/data/patterns'
 import type { LogNote } from '@/types/patterns'
+import type { Shape } from '@/types/instrument'
+
+const NEUTRAL: Shape = { cutoff: 12000, resonance: 0, room: 0, delay: 0, attack: null, release: null }
 
 function makeNote(
   id: string,
@@ -222,14 +225,11 @@ describe('StrudelNotation', () => {
     expect(result).toContain('.scale("C4:major pentatonic")')
   })
 
-  it("includes synth shaping controls (lpf, lpq, attack, release) when provided", () => {
+  it("prints the pattern Shape's filter and uses its envelope for notes without articulation", () => {
     const notes = [makeNote("c", "C4", 0, 4, 1000, 500)];
     const result = logNotesToStrudel(notes, {
       sound: "triangle",
-      cutoff: 1800,
-      resonance: 4.5,
-      attack: 0.05,
-      release: 0.8,
+      shape: { ...NEUTRAL, cutoff: 1800, resonance: 4.5, attack: 0.05, release: 0.8 },
     });
 
     expect(result).toContain('.sound("triangle")');
@@ -239,99 +239,74 @@ describe('StrudelNotation', () => {
     expect(result).toContain('.release(0.8)');
   });
 
-  it("omits neutral envelopes while preserving explicit envelope intent", () => {
+  it("omits neutral filters and falls back to the natural envelope", () => {
     const notes = [makeNote("c", "C4", 0, 4, 1000, 500)];
-    const shorterAttack = logNotesToStrudel(notes, {
-      sound: "triangle",
-      attack: 0.001,
-      attackOverride: true,
-    });
-    const defaults = logNotesToStrudel(notes, {
-      sound: "triangle",
-      cutoff: 12000,
-      resonance: 0,
-      attack: 0.003,
-      release: 0.12,
-    });
+    const neutral = logNotesToStrudel(notes, { sound: "triangle", shape: NEUTRAL });
+    expect(neutral).not.toContain('.lpf(');
+    expect(neutral).not.toContain('.lpq(');
+    expect(neutral).not.toContain('.room(');
+    expect(neutral).not.toContain('.delay(');
+    expect(neutral).toContain('.attack(0.003)');
+    expect(neutral).toContain('.release(0.12)');
 
-    expect(shorterAttack).toContain('.attack(0.001)');
-    // Untouched envelopes emit the natural articulation for playback fidelity.
-    expect(defaults).not.toContain('.lpf(');
-    expect(defaults).not.toContain('.lpq(');
-    expect(defaults).toContain('.attack(0.003)');
-    expect(defaults).toContain('.release(0.12)');
+    // Absent Shape (legacy) is neutral: piano keeps its own envelope.
+    const legacy = logNotesToStrudel(notes, { sound: "piano" });
+    expect(legacy).toContain('.attack(0.001)');
+    expect(legacy).toContain('.release(0.2)');
 
-    const sampleDefaults = logNotesToStrudel(notes, {
-      sound: "piano",
-      attack: 0.003,
-      release: 0.12,
+    // An explicit stage equal to another instrument's default is still intent.
+    const explicit = logNotesToStrudel(notes, {
+      sound: "piano", shape: { ...NEUTRAL, attack: 0.003, release: 0.12 },
     });
-    // Default-valued legacy input is not intent; piano keeps its own envelope.
-    expect(sampleDefaults).toContain('.attack(0.001)');
-    expect(sampleDefaults).toContain('.release(0.2)');
-
-    const explicitDefaults = logNotesToStrudel(notes, {
-      sound: "piano",
-      attack: 0.003,
-      release: 0.12,
-      attackOverride: true,
-      releaseOverride: true,
-    });
-    expect(explicitDefaults).toContain('.attack(0.003)');
-    expect(explicitDefaults).toContain('.release(0.12)');
-
-    const suppressedNonDefaults = logNotesToStrudel(notes, {
-      sound: "piano",
-      attack: 0.1,
-      release: 0.8,
-      attackOverride: false,
-      releaseOverride: false,
-    });
-    expect(suppressedNonDefaults).not.toContain('.attack(0.1)');
-    expect(suppressedNonDefaults).not.toContain('.release(0.8)');
-    expect(suppressedNonDefaults).toContain('.attack(0.001)');
-
-    const legacySampleValues = logNotesToStrudel(notes, {
-      sound: "piano",
-      attack: 0.1,
-      release: 0.8,
-    });
-    expect(legacySampleValues).toContain('.attack(0.1)');
-    expect(legacySampleValues).toContain('.release(0.8)');
+    expect(explicit).toContain('.attack(0.003)');
+    expect(explicit).toContain('.release(0.12)');
   });
 
-  it("keeps explicit sample shaping and effects in generated code", () => {
+  it("keeps sample shaping and effects from the pattern Shape", () => {
     const notes = [makeNote("c", "C4", 0, 4, 1000, 500)];
     const result = logNotesToStrudel(notes, {
       sound: "piano",
-      cutoff: 2200,
-      resonance: 2,
-      attack: 0.003,
-      release: 0.12,
-      attackOverride: true,
-      releaseOverride: true,
-      room: 0.4,
-      delay: 0.6,
+      shape: { cutoff: 2200, resonance: 2, room: 0.4, delay: 0.6, attack: null, release: null },
     });
 
     expect(result).toContain('.lpf(2200).lpq(2)');
-    expect(result).toContain('.attack(0.003)');
-    expect(result).toContain('.release(0.12)');
+    expect(result).toContain('.attack(0.001)');
+    expect(result).toContain('.release(0.2)');
     expect(result).toContain('.room(0.4)');
     expect(result).toContain('.delay(0.6).delaytime(0.25).delayfeedback(0.3)');
   });
 
-  it("applies a Shape envelope to every note instead of recorded per-note values", () => {
+  it("prints uniform recorded articulation once and varying articulation per note", () => {
     const notes = [
-      { ...makeNote("c", "C4", 0, 4, 1000, 500), articulation: { attack: 0.2, decay: 0.001, sustain: 1, release: 1 } },
-      { ...makeNote("d", "D4", 1, 4, 1500, 500), articulation: { attack: 0.4, decay: 0.001, sustain: 1, release: 1 } },
+      { ...makeNote("c", "C4", 0, 4, 1000, 500), articulation: { attack: 0.2, decay: 0.001, sustain: 1, release: 0.8 } },
+      { ...makeNote("d", "D4", 1, 4, 1500, 500), articulation: { attack: 0.4, decay: 0.001, sustain: 1, release: 0.8 } },
     ] as LogNote[];
-    const recorded = logNotesToStrudel(notes, { sound: "triangle" });
-    expect(recorded).toContain('.as("note:attack:release")');
+    // Recorded values win over the pattern Shape.
+    const result = logNotesToStrudel(notes, { sound: "triangle", shape: { ...NEUTRAL, attack: 0.05 } });
 
-    const shaped = logNotesToStrudel(notes, { sound: "triangle", attack: 0.05, attackOverride: true });
-    expect(shaped).toContain('.as("note:release")');
-    expect(shaped).toContain('.attack(0.05)');
+    expect(result).toContain('.as("note:attack")');
+    expect(result).toContain('C4:0.2@0.25 D4:0.4@0.25');
+    expect(result).toContain('.clip(1).decay(0.001).sustain(1).release(0.8)');
+    expect(result).not.toContain('.attack(');
+
+    const uniform = logNotesToStrudel(notes.map(note => ({ ...note, articulation: { ...note.articulation!, attack: 0.2 } })), {
+      sound: "triangle",
+    });
+    expect(uniform).toContain('.as("note")');
+    expect(uniform).toContain('C4@0.25 D4@0.25');
+    expect(uniform).toContain('.attack(0.2)');
+    expect(uniform).toContain('.release(0.8)');
+  });
+
+  it("fills legacy notes in a recorded take from the Shape, then the natural envelope", () => {
+    const notes = [
+      { ...makeNote("c", "C4", 0, 4, 1000, 500), articulation: { attack: 0.2, decay: 0.001, sustain: 1, release: 0.8 } },
+      makeNote("d", "D4", 1, 4, 1500, 500),
+    ] as LogNote[];
+    const result = logNotesToStrudel(notes, { sound: "triangle", shape: { ...NEUTRAL, attack: 0.05 } });
+
+    expect(result).toContain('.as("note:attack:release")');
+    expect(result).toContain('C4:0.2:0.8@0.25 D4:0.05:0.12@0.25');
   });
 
   it('merges adjacent rests without crossing notes or chord lanes', () => {

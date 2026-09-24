@@ -682,7 +682,8 @@ export const usePatternsStore = defineStore(
 
     // An untouched loaded base follows the instrument and its Shape. One
     // watcher reads both, so an instrument switch that also recalls a Shape
-    // re-skins once, from the pair the notes carry to the new pair.
+    // re-skins once, from the pair the notes carry to the new pair. A held
+    // note counts as playing over the base: it keeps its press-time Shape.
     watch(
       () => [instrumentStore.currentInstrument, instrumentStore.shape] as const,
       ([newInstrument, newShape]) => {
@@ -690,6 +691,7 @@ export const usePatternsStore = defineStore(
         if (
           loadedBaseNotes.value.length > 0 &&
           currentWorkingNotes.value.length === 0 &&
+          pendingNotes.value.size === 0 &&
           !isStripCleared.value
         ) {
           reskinLoadedBase(newInstrument, newShape);

@@ -1660,6 +1660,32 @@ describe("Patterns Store", () => {
       ]);
     });
 
+    it("keeps a loaded base when a knob turns while the first note over it is held", async () => {
+      const instrumentStore = useInstrumentStore();
+      const pattern = createPattern();
+      patternsStore.savedPatterns.push(pattern);
+      patternsStore.loadPatternAsBase(pattern.id);
+      await nextTick();
+      const startedAt = Date.now();
+      patternsStore.handleNotePressed({
+        detail: {
+          noteId: "held", noteName: "C4", timestamp: startedAt, solfegeIndex: 0, octave: 4,
+          frequency: 261.63, instrument: pattern.instrument, key: pattern.key, mode: pattern.mode,
+          note: createLogNote().solfege,
+        },
+      } as CustomEvent);
+
+      instrumentStore.setSynthControl("cutoff", 900);
+      await nextTick();
+      expect(patternsStore.currentSketchMeta.shape).toEqual(NEUTRAL);
+
+      patternsStore.handleNoteReleased({
+        detail: { noteId: "held", timestamp: startedAt + 300 },
+      } as CustomEvent);
+      await nextTick();
+      expect(patternsStore.currentSketchNotes).toHaveLength(pattern.notes.length + 1);
+    });
+
     it("re-skins an untouched loaded base, keeping rhythmic gates", async () => {
       const instrumentStore = useInstrumentStore();
       const natural = { attack: 0.001, decay: 0.001, sustain: 1, release: 0.2 };

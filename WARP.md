@@ -38,10 +38,10 @@ bun run test:ui
 bun run test:coverage
 
 # Run single test file
-bun run test src/path/to/test.test.ts
+bun run test:run src/path/to/test.test.ts
 
-# Run E2E tests
-bun run test:e2e
+# Browser-rendered audio checks (the old test:e2e suite was retired)
+bun run test:audio-browser
 ```
 
 ## Architecture Overview

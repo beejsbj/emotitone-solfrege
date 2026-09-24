@@ -1,17 +1,22 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-vi.mock("vue", async () => {
-  const actual = await vi.importActual<typeof import("vue")>("vue");
-
-  return {
-    ...actual,
-    onMounted: (callback: () => void) => callback(),
-    onUnmounted: vi.fn(),
-  };
-});
-
-import { reactive, ref } from "vue";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { defineComponent, reactive, ref, type Ref } from "vue";
+import { mount, type VueWrapper } from "@vue/test-utils";
 import { useKeyboardControls } from "@/composables/useKeyboardControls";
+
+// Mount through a real host so onMounted/onUnmounted attach and remove the
+// window listeners and the lock watcher; unmounting after each test keeps
+// earlier instances from reacting to later key events.
+const hosts: VueWrapper[] = [];
+function mountControls(octave: Ref<number>) {
+  let controls!: ReturnType<typeof useKeyboardControls>;
+  hosts.push(mount(defineComponent({
+    setup() {
+      controls = useKeyboardControls(octave);
+      return () => null;
+    },
+  })));
+  return controls;
+}
 
 const mockInstrumentStore = reactive({
   isInteractionLocked: false,
@@ -61,6 +66,10 @@ vi.mock("@/stores/keyboardDrawer", () => ({
 }));
 
 describe("useKeyboardControls", () => {
+  afterEach(() => {
+    hosts.splice(0).forEach((host) => host.unmount());
+  });
+
   beforeEach(() => {
     mockInstrumentStore.isInteractionLocked = false;
     mockMusicStore.currentScale.degreeCount = 12;
@@ -76,7 +85,7 @@ describe("useKeyboardControls", () => {
   });
 
   it("builds two full 12-key rows plus a ten-key bottom row (number row excluded)", () => {
-    const controls = useKeyboardControls(ref(4));
+    const controls = mountControls(ref(4));
     const mapping = controls.getKeyboardMapping();
 
     // Two 12-key letter rows + one 10-key bottom row = 34 keys
@@ -108,7 +117,7 @@ describe("useKeyboardControls", () => {
 
   it("uses the leftmost keys for smaller mode sizes", () => {
     mockMusicStore.currentScale.degreeCount = 5;
-    const controls = useKeyboardControls(ref(4));
+    const controls = mountControls(ref(4));
     const mapping = controls.getKeyboardMapping();
 
     // Two 5-key letter rows + one 5-key bottom row = 15 keys
@@ -122,7 +131,7 @@ describe("useKeyboardControls", () => {
 
   it("returns display labels for mapped notes", () => {
     mockMusicStore.currentScale.degreeCount = 12;
-    const controls = useKeyboardControls(ref(4));
+    const controls = mountControls(ref(4));
 
     expect(controls.getKeyboardLetterForNote(11, 4)).toBe("\\");
     expect(controls.getKeyboardLetterForNote(0, 5)).toBe("Q");
@@ -130,7 +139,7 @@ describe("useKeyboardControls", () => {
 
   it("enables only physical rows whose octaves are visible", () => {
     mockKeyboardDrawerStore.visibleOctaves = [4];
-    const controls = useKeyboardControls(ref(4));
+    const controls = mountControls(ref(4));
 
     expect(controls.getKeyboardMapping()).toMatchObject({
       KeyA: { solfegeIndex: 0, octave: 4, label: "A" },
@@ -170,7 +179,7 @@ describe("useKeyboardControls", () => {
 
   it("keeps physical row identities anchored near octave limits", () => {
     mockKeyboardDrawerStore.visibleOctaves = [8, 7, 6];
-    const controls = useKeyboardControls(ref(8));
+    const controls = mountControls(ref(8));
     const mapping = controls.getKeyboardMapping();
 
     expect(mapping.KeyA.octave).toBe(8);
@@ -183,7 +192,7 @@ describe("useKeyboardControls", () => {
   });
 
   it("attacks distinct octaves from the letter rows and chords from the number row", async () => {
-    const controls = useKeyboardControls(ref(4));
+    const controls = mountControls(ref(4));
 
     // Number row triggers chords via attackExactPitch
     await controls.handleKeyDown(
@@ -232,7 +241,7 @@ describe("useKeyboardControls", () => {
   });
 
   it("number row chord keys register touch as chord:degree-N", async () => {
-    const controls = useKeyboardControls(ref(4));
+    const controls = mountControls(ref(4));
 
     await controls.handleKeyDown(
       new KeyboardEvent("keydown", { code: "Digit1", key: "1" })
@@ -250,7 +259,7 @@ describe("useKeyboardControls", () => {
   });
 
   it("does not turn modified keyboard shortcuts into notes", async () => {
-    const controls = useKeyboardControls(ref(4));
+    const controls = mountControls(ref(4));
     const shortcuts = [
       new KeyboardEvent("keydown", {
         code: "KeyC",
@@ -283,7 +292,7 @@ describe("useKeyboardControls", () => {
   });
 
   it("does not turn modified number-row shortcuts into chords", async () => {
-    const controls = useKeyboardControls(ref(4));
+    const controls = mountControls(ref(4));
     const shortcut = new KeyboardEvent("keydown", {
       code: "Digit1",
       key: "1",
@@ -300,7 +309,7 @@ describe("useKeyboardControls", () => {
   });
 
   it("requires keyup before a modified shortcut key can attack", async () => {
-    const controls = useKeyboardControls(ref(4));
+    const controls = mountControls(ref(4));
     const shortcut = new KeyboardEvent("keydown", {
       code: "KeyC",
       key: "c",
@@ -335,7 +344,7 @@ describe("useKeyboardControls", () => {
   });
 
   it("still releases a note held before a modifier is pressed", async () => {
-    const controls = useKeyboardControls(ref(4));
+    const controls = mountControls(ref(4));
 
     await controls.handleKeyDown(
       new KeyboardEvent("keydown", { code: "KeyC", key: "c" })
@@ -367,7 +376,7 @@ describe("useKeyboardControls", () => {
         return new Promise<string>((resolve) => { resolveAttack = resolve; });
       },
     );
-    useKeyboardControls(ref(4));
+    mountControls(ref(4));
     const listeners = addEventListener.mock.calls;
     const keydown = listeners.find(([type]) => type === "keydown")?.[1] as EventListener;
     const keyup = listeners.find(([type]) => type === "keyup")?.[1] as EventListener;
@@ -386,7 +395,7 @@ describe("useKeyboardControls", () => {
 
   it("ignores hardware key presses while instrument samples are warming", async () => {
     mockInstrumentStore.isInteractionLocked = true;
-    const controls = useKeyboardControls(ref(4));
+    const controls = mountControls(ref(4));
     const keyDown = new KeyboardEvent("keydown", {
       code: "KeyQ",
       key: "q",
@@ -403,7 +412,7 @@ describe("useKeyboardControls", () => {
 
   it("requires keyup before a blocked key can attack after unlock", async () => {
     mockInstrumentStore.isInteractionLocked = true;
-    const controls = useKeyboardControls(ref(4));
+    const controls = mountControls(ref(4));
 
     await controls.handleKeyDown(
       new KeyboardEvent("keydown", { code: "KeyQ", key: "q" })
@@ -437,7 +446,7 @@ describe("useKeyboardControls", () => {
   it("releases an asynchronous attack that finishes after warmup starts", async () => {
     const deferred = createDeferred<string | null>();
     mockMusicStore.attackNoteWithOctave.mockReturnValueOnce(deferred.promise);
-    const controls = useKeyboardControls(ref(4));
+    const controls = mountControls(ref(4));
 
     const pendingAttack = controls.handleKeyDown(
       new KeyboardEvent("keydown", { code: "KeyQ", key: "q" })

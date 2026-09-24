@@ -1,13 +1,22 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { setActivePinia } from "pinia";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { disposePinia, setActivePinia, type Pinia } from "pinia";
 import { useMusicStore } from "@/stores/music";
 import * as superdoughAudio from "@/services/superdoughAudio";
 import { createTestPinia } from "../helpers/test-utils";
 
 describe("Music Store live note semantics", () => {
+  let pinia: Pinia;
+
   beforeEach(() => {
-    setActivePinia(createTestPinia());
+    pinia = createTestPinia();
+    setActivePinia(pinia);
     vi.clearAllMocks();
+    vi.spyOn(window, "dispatchEvent");
+  });
+
+  afterEach(() => {
+    disposePinia(pinia);
+    vi.restoreAllMocks();
   });
 
   it("keeps symbolic note state while delegating attack to the audio service", async () => {

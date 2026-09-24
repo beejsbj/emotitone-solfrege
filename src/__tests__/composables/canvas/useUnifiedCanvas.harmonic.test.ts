@@ -230,6 +230,9 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
     mocks.hilbertScopeConfig.value.isEnabled = false;
     mocks.blobConfig.value.isEnabled = true;
     mocks.blobConfig.value.connectionMode = "web";
+    mocks.blobConfig.value.showChordLabel = true;
+    mocks.blobConfig.value.showIntervalLabels = true;
+    mocks.blobConfig.value.showEmotionLabel = true;
     mocks.activeBlobs.clear();
     mocks.liveStageNotes.length = 0;
     mocks.strudelStageNotes.length = 0;
@@ -621,8 +624,40 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
   it("exposes only enabled harmonic labels as accessible text", () => {
     const canvas = useUnifiedCanvas(createCanvasRef());
 
-    expect(canvas.harmonicAccessibleText.value).toBe(
-      "Chord: C major. Interval C4 to E4: 3M. Emotion: Grounded & radiant"
-    );
+    const fullText = "Chord: C major. Interval C4 to E4: 3M. Emotion: Grounded & radiant";
+    expect(canvas.harmonicAccessibleText.value).toBe(fullText);
+  });
+
+  it("selectively exposes only enabled chord label in accessible text", () => {
+    mocks.blobConfig.value.showIntervalLabels = false;
+    mocks.blobConfig.value.showEmotionLabel = false;
+    const canvas = useUnifiedCanvas(createCanvasRef());
+
+    expect(canvas.harmonicAccessibleText.value).toBe("Chord: C major");
+  });
+
+  it("selectively exposes only enabled interval label in accessible text", () => {
+    mocks.blobConfig.value.showChordLabel = false;
+    mocks.blobConfig.value.showEmotionLabel = false;
+    const canvas = useUnifiedCanvas(createCanvasRef());
+
+    expect(canvas.harmonicAccessibleText.value).toBe("Interval C4 to E4: 3M");
+  });
+
+  it("selectively exposes only enabled emotion label in accessible text", () => {
+    mocks.blobConfig.value.showChordLabel = false;
+    mocks.blobConfig.value.showIntervalLabels = false;
+    const canvas = useUnifiedCanvas(createCanvasRef());
+
+    expect(canvas.harmonicAccessibleText.value).toBe("Emotion: Grounded & radiant");
+  });
+
+  it("exposes no text when all harmonic labels are disabled", () => {
+    mocks.blobConfig.value.showChordLabel = false;
+    mocks.blobConfig.value.showIntervalLabels = false;
+    mocks.blobConfig.value.showEmotionLabel = false;
+    const canvas = useUnifiedCanvas(createCanvasRef());
+
+    expect(canvas.harmonicAccessibleText.value).toBe("");
   });
 });

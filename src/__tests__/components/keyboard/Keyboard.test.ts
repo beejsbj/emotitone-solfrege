@@ -981,6 +981,67 @@ describe("Keyboard pointer gestures", () => {
     wrapper.unmount();
   });
 
+  it("keeps a controlled chord visibly pressed until its last pointer releases", async () => {
+    const wrapper = mount(Keyboard, {
+      props: { usage: "controlled", rows: controlledRows() },
+      global: { stubs: { Key: KeyStub, ChordKey: ChordKeyStub } },
+    });
+    const chord = wrapper.findAllComponents(ChordKeyStub)[0];
+    vi.spyOn(document, "elementFromPoint").mockReturnValue(chord.element);
+    const send = (type: string, pointerId: number) => chord.element.dispatchEvent(pointerEvent(type, {
+      pointerId, pointerType: "touch", clientX: 50, clientY: 20,
+    }));
+
+    send("pointerdown", 71);
+    send("pointerdown", 72);
+    await nextTick();
+    expect(chord.props("pressed")).toBe(true);
+    send("pointerup", 71);
+    await nextTick();
+    expect(chord.props("pressed")).toBe(true);
+    send("pointerup", 72);
+    await nextTick();
+    expect(chord.props("pressed")).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("leaves a mouse chord press uncancelled so the button can take native focus", () => {
+    const wrapper = mountKeyboard();
+    const chord = wrapper.find<HTMLButtonElement>(".keyboard__chord-key");
+    vi.spyOn(document, "elementFromPoint").mockReturnValue(chord.element);
+    const press = pointerEvent("pointerdown", {
+      pointerId: 81, pointerType: "mouse", clientX: 50, clientY: 20,
+    });
+    chord.element.dispatchEvent(press);
+    expect(press.defaultPrevented).toBe(false);
+    chord.element.dispatchEvent(pointerEvent("pointerup", {
+      pointerId: 81, pointerType: "mouse", clientX: 50, clientY: 20,
+    }));
+    wrapper.unmount();
+  });
+
+  it("applies the final chord coordinate before releasing its voices", async () => {
+    const wrapper = mountKeyboard();
+    const chord = wrapper.find<HTMLButtonElement>(".keyboard__chord-key");
+    vi.spyOn(document, "elementFromPoint").mockReturnValue(chord.element);
+    const root = wrapper.get(".keyboard");
+    const send = (type: string, x: number, y: number) => root.element.dispatchEvent(pointerEvent(type, {
+      pointerId: 82, pointerType: "touch", clientX: x, clientY: y,
+    }));
+
+    send("pointerdown", 50, 50);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    send("pointerup", 73, 20);
+    expect(wrapper.emitted("chordPitchBend")?.at(-1)?.[0]).toMatchObject({ cents: 50 });
+    expect(wrapper.emitted("chordGainChange")?.at(-1)?.[0]).toMatchObject({ gain: 1.675 });
+    for (const [pitch] of vi.mocked(mocks.musicStore.attackExactPitch).mock.calls) {
+      expect(mocks.musicStore.setNotePitchBend).toHaveBeenCalledWith(`exact-${pitch}`, 50);
+      expect(mocks.musicStore.setNoteGain).toHaveBeenCalledWith(`exact-${pitch}`, 1.675);
+      expect(mocks.musicStore.releaseNote).toHaveBeenCalledWith(`exact-${pitch}`);
+    }
+    wrapper.unmount();
+  });
+
   it("keeps chord touch ownership at Keyboard through pointer and compatibility touch events", async () => {
     const wrapper = mount(Keyboard, {
       global: { stubs: { Key: KeyStub, Chord: true } },

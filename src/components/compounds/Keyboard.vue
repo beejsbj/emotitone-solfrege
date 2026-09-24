@@ -39,7 +39,7 @@
         :symbol="chord.harmony.symbol"
         :accessible-name="chord.harmony.accessibleName"
         :geometry="resolvedChordFamily"
-        :pressed="chord.pressed"
+        :pressed="chord.pressed || chordGesturePressedIds.has(chord.harmony.id)"
         managed-input
         :disabled="isInteractionLocked"
         :tabindex="chord.harmony.id === rememberedChordFocusId ? 0 : -1"
@@ -696,6 +696,9 @@ const chordPointerSnapshotId = (inputId: string, chordId: string) =>
   `${inputId}:${chordId}`;
 const activePointerInputs = reactive(new Map<number, KeyboardIntent | null>());
 const activeChordGestureInputs = reactive(new Map<number, KeyboardChordIntent>());
+const chordGesturePressedIds = computed(() => new Set(
+  Array.from(activeChordGestureInputs.values(), (intent) => intent.chordId),
+));
 const pointerPositions = new Map<number, { x: number; y: number }>();
 interface PointerExpressionOrigin {
   x: number;
@@ -1278,9 +1281,9 @@ function handlePointerDown(event: PointerEvent) {
   const intent = chordIntent ? null : keyIntentAtPoint(event);
   if (!intent && !chordIntent) return;
 
-  // Suppress ChordKey's compatibility mouse/touch lifecycle: this captured
-  // pointer is the sole owner, which preserves true multi-touch expression.
-  if (event.pointerType !== "mouse" || chordIntent) event.preventDefault();
+  // Touch and pen gestures suppress compatibility events. Mouse presses retain
+  // the button's native focus behavior; managedInput already owns its lifecycle.
+  if (event.pointerType !== "mouse") event.preventDefault();
   keyboardRef.value?.setPointerCapture?.(event.pointerId);
   pointerExpressionOrigins.set(event.pointerId, {
     x: event.clientX, y: event.clientY, cents: 0, gain: 1,
@@ -1330,6 +1333,7 @@ function handlePointerUp(event: PointerEvent) {
   if (activePointerInputs.has(event.pointerId) && pointerMovedSinceLastSample(event)) {
     movePointerThroughSamples(event);
   }
+  if (activeChordGestureInputs.has(event.pointerId)) updatePointerExpression(event.pointerId, event);
   finishPointerInput(event);
 }
 

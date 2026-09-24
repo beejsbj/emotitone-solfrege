@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { lockDirectoryFor } from './verify.mjs'
+import { lockDirectoryFor, onlyZombies } from './verify.mjs'
 
 const moduleUrl = pathToFileURL(join(import.meta.dirname, 'verify.mjs')).href
 
@@ -127,4 +127,16 @@ test('stuck recovery marker times out without spinning or starting a child', asy
     assert.equal(existsSync(lock), true)
     assert.equal(existsSync(`${lock}.recovery`), true)
   } finally { f.clean() }
+})
+
+test('a group or pid whose only members are unreaped zombies counts as gone', () => {
+  const table = [
+    { pid: 40, pgid: 40, state: 'Z' }, { pid: 41, pgid: 40, state: 'Z+' },
+    { pid: 50, pgid: 50, state: 'Z' }, { pid: 51, pgid: 50, state: 'S' },
+  ]
+  assert.equal(onlyZombies(40, true, table), true)
+  assert.equal(onlyZombies(50, true, table), false)
+  assert.equal(onlyZombies(50, false, table), true)
+  assert.equal(onlyZombies(51, false, table), false)
+  assert.equal(onlyZombies(40, true, null), false, 'an unreadable table is not proof of exit')
 })

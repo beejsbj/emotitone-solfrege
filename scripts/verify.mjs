@@ -2,7 +2,7 @@
 import { spawn, execFileSync } from 'node:child_process'
 import { constants } from 'node:os'
 import { createHash, randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -32,12 +32,43 @@ function readOwner(lockDir) {
   return owner
 }
 
-function alive(pid, group = false) {
+/** Every process as { pid, pgid, state }, or null when the table cannot be read. */
+function processTable() {
+  try {
+    if (process.platform === 'linux') {
+      return readdirSync('/proc').filter(name => /^\d+$/.test(name)).flatMap(name => {
+        try {
+          // Fields after the parenthesised command: state, ppid, pgrp, ...
+          const stat = readFileSync(`/proc/${name}/stat`, 'utf8')
+          const [state, , pgid] = stat.slice(stat.lastIndexOf(')') + 2).split(' ')
+          return [{ pid: Number(name), pgid: Number(pgid), state }]
+        } catch { return [] }
+      })
+    }
+    return execFileSync('ps', ['-A', '-o', 'pid=,pgid=,stat='], { encoding: 'utf8' }).trim().split('\n')
+      .map(line => line.trim().split(/\s+/))
+      .map(([pid, pgid, state]) => ({ pid: Number(pid), pgid: Number(pgid), state }))
+  } catch { return null }
+}
+
+/**
+ * A zombie answers kill(0) until its parent reaps it. Container PID 1s often
+ * never reap reparented children, so a finished group can look alive forever.
+ * Treat a pid or group whose only members are zombies as gone.
+ */
+export function onlyZombies(pid, group, table) {
+  if (!table) return false
+  const members = table.filter(row => (group ? row.pgid : row.pid) === pid)
+  return members.every(row => row.state.startsWith('Z'))
+}
+
+function alive(pid, group = false, table = processTable) {
   if (!Number.isSafeInteger(pid) || pid <= 0) return false
-  try { process.kill(group && process.platform !== 'win32' ? -pid : pid, 0); return true } catch (error) {
+  try { process.kill(group && process.platform !== 'win32' ? -pid : pid, 0) } catch (error) {
     if (error.code === 'ESRCH') return false
     return true // Permission denied is not proof that the process is gone.
   }
+  return process.platform === 'win32' || !onlyZombies(pid, group, table())
 }
 
 function stale(owner) {

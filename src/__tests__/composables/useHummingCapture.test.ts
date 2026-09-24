@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
   bridgeStop: vi.fn(),
   updateBridgeContext: vi.fn(),
   musicStore: null as unknown as { currentKey: string; currentMode: string },
-  instrumentStore: null as unknown as { currentInstrument: string },
+  instrumentStore: null as unknown as { currentInstrument: string; shape: Record<string, number | null> },
   startMicrophoneCapture: vi.fn(),
   sessionStop: vi.fn(),
   sessionCancel: vi.fn(),
@@ -58,6 +58,8 @@ vi.mock("@/stores/patterns", () => ({
   }),
 }));
 
+const ROOMY = { cutoff: 12000, resonance: 0, room: 0.4, delay: 0, attack: null, release: null };
+
 describe("useHummingCapture", () => {
   let capture: ReturnType<typeof useHummingCapture>;
 
@@ -76,7 +78,7 @@ describe("useHummingCapture", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.musicStore = reactive({ currentKey: "D", currentMode: "dorian" });
-    mocks.instrumentStore = reactive({ currentInstrument: "piano" });
+    mocks.instrumentStore = reactive({ currentInstrument: "piano", shape: { ...ROOMY } });
     mocks.loggedNotes.splice(0);
     mocks.startMicrophoneCapture.mockResolvedValue({
       stop: mocks.sessionStop,
@@ -112,11 +114,11 @@ describe("useHummingCapture", () => {
     expect(mocks.analyzePitchRecording).toHaveBeenCalledTimes(1);
     expect(mocks.toCandidates).toHaveBeenCalledWith(
       { product: "Melograph" },
-      { key: "D", mode: "dorian", instrument: "piano", bpm: 96 },
+      { key: "D", mode: "dorian", instrument: "piano", bpm: 96, shape: ROOMY },
     );
     expect(mocks.importPatternCandidates).toHaveBeenCalledWith(
       expect.any(Array),
-      { key: "D", mode: "dorian", instrument: "piano", bpm: 96 },
+      { key: "D", mode: "dorian", instrument: "piano", bpm: 96, shape: ROOMY },
       { workingNotes: [] },
     );
     expect(capture.takeCount.value).toBe(2);
@@ -165,7 +167,7 @@ describe("useHummingCapture", () => {
 
     await capture.stop();
     expect(mocks.toCandidates).toHaveBeenCalledWith(expect.anything(), {
-      key: "D", mode: "dorian", instrument: "piano", bpm: 96,
+      key: "D", mode: "dorian", instrument: "piano", bpm: 96, shape: ROOMY,
     });
     wrapper.unmount();
     mocks.updateBridgeContext.mockClear();

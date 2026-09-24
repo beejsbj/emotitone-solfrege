@@ -544,7 +544,7 @@ export const usePatternsStore = defineStore(
      */
     function importPatternCandidates(
       candidates: ImportedPatternCandidate[],
-      meta: { mode: MusicalMode; key: ChromaticNote; instrument: string; bpm: number },
+      meta: { mode: MusicalMode; key: ChromaticNote; instrument: string; bpm: number; shape?: Shape },
       options: ImportPatternCandidatesOptions = {},
     ): string[] {
       const imported = candidates

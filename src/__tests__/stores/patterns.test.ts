@@ -475,6 +475,22 @@ describe("Patterns Store", () => {
     expect(patternsStore.loggedNotes).toEqual([]);
   });
 
+  it("keeps the Shape a hummed take was captured under", () => {
+    const roomy = { cutoff: 1800, resonance: 0, room: 0.4, delay: 0, attack: null, release: null };
+    const [patternId] = patternsStore.importPatternCandidates(
+      [{
+        name: "Hummed take 1",
+        notes: [createPatternNote({ id: "take-note", note: "C4" })],
+        source: { kind: "pitch-analysis", schemaVersion: 1, tracker: "praat-ac", takeNumber: 1 },
+      }],
+      { key: "C", mode: "major", instrument: "piano", bpm: 96, shape: roomy },
+    );
+
+    expect(patternsStore.savedPatterns.find((pattern) => pattern.id === patternId)?.shape).toEqual(roomy);
+    expect(patternsStore.currentSketchMeta.shape).toEqual(roomy);
+    expect(useInstrumentStore().shape).toEqual(roomy);
+  });
+
   it("imports finalized pitch-analysis takes as separate selectable Patterns", () => {
     const takeOne = [createPatternNote({ id: "take-1-note", note: "C4" })];
     const takeTwo = [

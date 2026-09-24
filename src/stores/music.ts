@@ -785,15 +785,21 @@ export const useMusicStore = defineStore(
     }
 
     /** Prototype expression is available on prepared oscillator/sample voices. */
-    function setNotePitchBend(noteId: string, cents: number): boolean {
+    function expressionSampleAt(performanceTimestamp?: number): number | undefined {
+      return performanceTimestamp !== undefined && Number.isFinite(performanceTimestamp)
+        ? liveAudioClock.toAudioTime(liveAudioClock.fromPerformanceTime(performanceTimestamp))
+        : undefined;
+    }
+
+    function setNotePitchBend(noteId: string, cents: number, performanceTimestamp?: number): boolean {
       const owner = heldAliases.get(noteId);
-      return owner ? livePerformance.setPitchBend(owner, cents) : false;
+      return owner ? livePerformance.setPitchBend(owner, cents, expressionSampleAt(performanceTimestamp)) : false;
     }
 
     /** Volume expression follows the same held owner as live pitch bends. */
-    function setNoteGain(noteId: string, gain: number): boolean {
+    function setNoteGain(noteId: string, gain: number, performanceTimestamp?: number): boolean {
       const owner = heldAliases.get(noteId);
-      return owner ? livePerformance.setGain(owner, gain) : false;
+      return owner ? livePerformance.setGain(owner, gain, expressionSampleAt(performanceTimestamp)) : false;
     }
 
     async function releaseNote(noteId?: string) {

@@ -56,6 +56,10 @@ export function createLiveAudioClock(
       sync();
       return performanceOffset + timestamp;
     },
+    fromPerformanceTime(timestamp: number) {
+      sync();
+      return timestamp - performanceOffset;
+    },
     toEpochTime(timestamp: number) {
       sync();
       return epochOffset + timestamp;

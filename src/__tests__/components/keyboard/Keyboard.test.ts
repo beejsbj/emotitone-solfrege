@@ -1074,6 +1074,40 @@ describe("Keyboard pointer gestures", () => {
     wrapper.unmount();
   });
 
+  it("forwards each coalesced chord sample timestamp to live expression", async () => {
+    const wrapper = mountKeyboard();
+    const chord = wrapper.find<HTMLButtonElement>(".keyboard__chord-key");
+    vi.spyOn(document, "elementFromPoint").mockReturnValue(chord.element);
+    const root = wrapper.get<HTMLElement>(".keyboard");
+    const sample = (x: number, y: number, timestamp: number) => {
+      const event = pointerEvent("pointermove", {
+        pointerId: 84, pointerType: "touch", clientX: x, clientY: y,
+      });
+      Object.defineProperty(event, "timeStamp", { value: timestamp });
+      return event;
+    };
+    chord.element.dispatchEvent(pointerEvent("pointerdown", {
+      pointerId: 84, pointerType: "touch", clientX: 50, clientY: 50,
+    }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const move = sample(73, 20, 1090);
+    Object.defineProperty(move, "getCoalescedEvents", {
+      value: () => [sample(73, 20, 1030), sample(27, 50, 1060), sample(73, 20, 1090)],
+    });
+    root.element.dispatchEvent(move);
+    const voiceId = `exact-${vi.mocked(mocks.musicStore.attackExactPitch).mock.calls[0][0]}`;
+    expect(vi.mocked(mocks.musicStore.setNotePitchBend).mock.calls
+      .filter(([id]) => id === voiceId).map(([, cents, timestamp]) => [cents, timestamp]))
+      .toEqual([[50, 1030], [-50, 1060], [50, 1090]]);
+    expect(vi.mocked(mocks.musicStore.setNoteGain).mock.calls
+      .filter(([id]) => id === voiceId).map(([, gain, timestamp]) => [gain, timestamp]))
+      .toEqual([[1.675, 1030], [1, 1060], [1.675, 1090]]);
+    root.element.dispatchEvent(pointerEvent("pointerup", {
+      pointerId: 84, pointerType: "touch", clientX: 73, clientY: 20,
+    }));
+    wrapper.unmount();
+  });
+
   it("keeps chord touch ownership at Keyboard through pointer and compatibility touch events", async () => {
     const wrapper = mount(Keyboard, {
       global: { stubs: { Key: KeyStub, Chord: true } },

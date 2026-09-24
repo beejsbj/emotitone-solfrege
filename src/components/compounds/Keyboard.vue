@@ -441,6 +441,14 @@ function createProductionWiring() {
   }
   const melodyExpression = new Map<string, Expression>();
   const chordExpression = new Map<string, Expression>();
+  const setPitchBend = (voiceId: string, cents: number, sampleTime?: number) => {
+    if (sampleTime === undefined) musicStore.setNotePitchBend(voiceId, cents);
+    else musicStore.setNotePitchBend(voiceId, cents, sampleTime);
+  };
+  const setGain = (voiceId: string, gain: number, sampleTime?: number) => {
+    if (sampleTime === undefined) musicStore.setNoteGain(voiceId, gain);
+    else musicStore.setNoteGain(voiceId, gain, sampleTime);
+  };
   const chordPressId = (intent: KeyboardChordIntent) =>
     `chord:${intent.inputId}:${intent.chordId}`;
 
@@ -510,18 +518,18 @@ function createProductionWiring() {
     voiceGroups.release(melodyVoiceOwnerId(intent.keyId));
   }
 
-  function pitchBend(intent: KeyboardIntent, cents: number) {
+  function pitchBend(intent: KeyboardIntent, cents: number, sampleTime?: number) {
     const expression = melodyExpression.get(intent.keyId);
     if (!expression || expression.controller !== inputPressId(intent)) return;
     expression.cents = cents;
-    expression.voiceIds.forEach((id) => musicStore.setNotePitchBend(id, cents));
+    expression.voiceIds.forEach((id) => setPitchBend(id, cents, sampleTime));
   }
 
-  function gainChange(intent: KeyboardIntent, gain: number) {
+  function gainChange(intent: KeyboardIntent, gain: number, sampleTime?: number) {
     const expression = melodyExpression.get(intent.keyId);
     if (!expression || expression.controller !== inputPressId(intent)) return;
     expression.gain = gain;
-    expression.voiceIds.forEach((id) => musicStore.setNoteGain(id, gain));
+    expression.voiceIds.forEach((id) => setGain(id, gain, sampleTime));
   }
 
   function pressChord(intent: KeyboardChordIntent) {
@@ -564,18 +572,18 @@ function createProductionWiring() {
     voiceGroups.release(ownerId);
   }
 
-  function chordPitchBend(intent: KeyboardChordIntent, cents: number) {
+  function chordPitchBend(intent: KeyboardChordIntent, cents: number, sampleTime?: number) {
     const expression = chordExpression.get(chordPressId(intent));
     if (!expression) return;
     expression.cents = cents;
-    expression.voiceIds.forEach((id) => musicStore.setNotePitchBend(id, cents));
+    expression.voiceIds.forEach((id) => setPitchBend(id, cents, sampleTime));
   }
 
-  function chordGainChange(intent: KeyboardChordIntent, gain: number) {
+  function chordGainChange(intent: KeyboardChordIntent, gain: number, sampleTime?: number) {
     const expression = chordExpression.get(chordPressId(intent));
     if (!expression) return;
     expression.gain = gain;
-    expression.voiceIds.forEach((id) => musicStore.setNoteGain(id, gain));
+    expression.voiceIds.forEach((id) => setGain(id, gain, sampleTime));
   }
 
   function clear() {
@@ -736,7 +744,7 @@ function expressionForOrigin(origin: PointerExpressionOrigin, event: PointerEven
   return { cents, gain };
 }
 
-function updatePointerExpression(pointerId: number, event: PointerEvent) {
+function updatePointerExpression(pointerId: number, event: PointerEvent, sampleTime?: number) {
   const intent = activePointerInputs.get(pointerId);
   const chordIntent = activeChordGestureInputs.get(pointerId);
   const origin = pointerExpressionOrigins.get(pointerId);
@@ -745,20 +753,20 @@ function updatePointerExpression(pointerId: number, event: PointerEvent) {
   if (origin.cents !== cents) {
     origin.cents = cents;
     if (intent) {
-      productionWiring?.pitchBend(intent, cents);
+      productionWiring?.pitchBend(intent, cents, sampleTime);
       emit("pitchBend", { ...intent, event, cents });
     } else if (chordIntent) {
-      productionWiring?.chordPitchBend(chordIntent, cents);
+      productionWiring?.chordPitchBend(chordIntent, cents, sampleTime);
       emit("chordPitchBend", { ...chordIntent, event, cents });
     }
   }
   if (origin.gain !== gain) {
     origin.gain = gain;
     if (intent) {
-      productionWiring?.gainChange(intent, gain);
+      productionWiring?.gainChange(intent, gain, sampleTime);
       emit("gainChange", { ...intent, event, gain });
     } else if (chordIntent) {
-      productionWiring?.chordGainChange(chordIntent, gain);
+      productionWiring?.chordGainChange(chordIntent, gain, sampleTime);
       emit("chordGainChange", { ...chordIntent, event, gain });
     }
   }
@@ -1234,16 +1242,20 @@ function pointerSamples(event: PointerEvent) {
 }
 
 function movePointerThroughSamples(event: PointerEvent) {
-  for (const sample of pointerSamples(event)) {
+  const samples = pointerSamples(event);
+  for (const sample of samples) {
     const start = pointerPositions.get(event.pointerId)
       ?? { x: sample.clientX, y: sample.clientY };
     movePointerAlongSegment(event.pointerId, start, sample);
-    updatePointerExpression(event.pointerId, sample);
+    updatePointerExpression(event.pointerId, sample, samples.length > 1 ? sample.timeStamp : undefined);
   }
 }
 
 function moveChordPointerThroughSamples(event: PointerEvent) {
-  for (const sample of pointerSamples(event)) updatePointerExpression(event.pointerId, sample);
+  const samples = pointerSamples(event);
+  for (const sample of samples) {
+    updatePointerExpression(event.pointerId, sample, samples.length > 1 ? sample.timeStamp : undefined);
+  }
 }
 
 function pointerMovedSinceLastSample(event: PointerEvent) {

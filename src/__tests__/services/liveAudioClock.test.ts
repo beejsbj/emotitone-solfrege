@@ -10,10 +10,12 @@ describe("live audio clock", () => {
       epochNow: () => wall, performanceNow: () => monotonic,
     });
     expect(clock.toPerformanceTime(12_125)).toBe(1125);
+    expect(clock.fromPerformanceTime(1125)).toBe(12_125);
     wall += 3_600_000;
     monotonic += 125;
     context.currentTime += 0.125;
     expect(clock.toPerformanceTime(12_250)).toBe(1250);
+    expect(clock.fromPerformanceTime(1250)).toBe(12_250);
   });
   it("holds a shared epoch anchor across quantized audio reads and long-running hardware drift", () => {
     let wallTime = 1_800_000_000_000;

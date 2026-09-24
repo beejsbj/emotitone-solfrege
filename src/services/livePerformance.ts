@@ -113,15 +113,16 @@ export function createLivePerformance<T>(callbacks: {
       const expressionAt = Math.max(event.at, change.at)
       callbacks.onExpression?.(change.noteId, change.cents, expressionAt)
       callbacks.onGainExpression?.(change.noteId, change.gain, expressionAt)
-      // A later gesture can be queued while the worklet's handoff response is
-      // in flight. Preserve its timestamp instead of backdating it to handoff.
-      if (owner.expressionAt !== undefined && owner.expressionAt > expressionAt
-        && (owner.cents ?? 0) !== change.cents) {
-        callbacks.onExpression?.(change.noteId, owner.cents ?? 0, owner.expressionAt)
+      // A gesture posted after release can be queued behind the handoff even
+      // when the two clocks report the same time. Different values prove the
+      // worklet snapshot predates it; keep recording timestamps monotonic.
+      if ((owner.cents ?? 0) !== change.cents) {
+        callbacks.onExpression?.(change.noteId, owner.cents ?? 0,
+          Math.max(expressionAt, owner.expressionAt ?? expressionAt))
       }
-      if (owner.gainExpressionAt !== undefined && owner.gainExpressionAt > expressionAt
-        && (owner.gain ?? 1) !== change.gain) {
-        callbacks.onGainExpression?.(change.noteId, owner.gain ?? 1, owner.gainExpressionAt)
+      if ((owner.gain ?? 1) !== change.gain) {
+        callbacks.onGainExpression?.(change.noteId, owner.gain ?? 1,
+          Math.max(expressionAt, owner.gainExpressionAt ?? expressionAt))
       }
     },
     onOwnerEnded(rendererOwnerId) {
@@ -157,28 +158,28 @@ export function createLivePerformance<T>(callbacks: {
       renderer.configure(config)
       renderer.press(rendererOwnerId, notes)
     },
-    setPitchBend(ownerId: string, cents: number) {
+    setPitchBend(ownerId: string, cents: number, at?: number) {
       const rendererOwnerId = currentOwners.get(ownerId)
       const owner = rendererOwnerId === undefined ? undefined : owners.get(rendererOwnerId)
       if (!owner?.held || !owner.renderer.setPitchBend || !Number.isFinite(cents)) return false
       const value = Math.max(-50, Math.min(50, cents))
       if ((owner.cents ?? 0) === value) return true
       owner.cents = value
-      owner.expressionAt = callbacks.now()
+      owner.expressionAt = at !== undefined && Number.isFinite(at) ? at : callbacks.now()
       owner.renderer.setPitchBend(rendererOwnerId!, value)
       for (const event of active.values()) if (expressionOwners.get(event.noteId) === rendererOwnerId) {
         callbacks.onExpression?.(event.noteId, value, Math.max(event.at, owner.expressionAt))
       }
       return true
     },
-    setGain(ownerId: string, gain: number) {
+    setGain(ownerId: string, gain: number, at?: number) {
       const rendererOwnerId = currentOwners.get(ownerId)
       const owner = rendererOwnerId === undefined ? undefined : owners.get(rendererOwnerId)
       if (!owner?.held || !owner.renderer.setGain || !Number.isFinite(gain)) return false
       const value = Math.max(.25, Math.min(1.75, gain))
       if ((owner.gain ?? 1) === value) return true
       owner.gain = value
-      owner.gainExpressionAt = callbacks.now()
+      owner.gainExpressionAt = at !== undefined && Number.isFinite(at) ? at : callbacks.now()
       owner.renderer.setGain(rendererOwnerId!, value)
       for (const event of active.values()) if (expressionOwners.get(event.noteId) === rendererOwnerId) {
         callbacks.onGainExpression?.(event.noteId, value, Math.max(event.at, owner.gainExpressionAt))

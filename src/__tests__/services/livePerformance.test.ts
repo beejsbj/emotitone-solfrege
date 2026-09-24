@@ -98,6 +98,21 @@ describe('prepared performance MIDI ownership', () => {
     ])
   })
 
+  it('replays queued gestures even when their clock does not exceed the handoff frame', () => {
+    const { performance, renderer, callbacks } = setup()
+    performance.press('second', [{ instrumentId: 'piano', pitch: 60 }], {}, renderer, config)
+    listener.onEvent(event('hand', 'attack', .9))
+    performance.setPitchBend('second', -30)
+    performance.setGain('second', 1.5)
+    listener.onExpressionOwner?.({ noteId: 'voice', ownerId: 'second', at: 1.05, cents: 0, gain: 1 })
+    expect(callbacks.onExpression.mock.calls.map(([, cents, at]) => [cents, at])).toEqual([
+      [0, 1.05], [-30, 1.05],
+    ])
+    expect(callbacks.onGainExpression.mock.calls.map(([, gain, at]) => [gain, at])).toEqual([
+      [1, 1.05], [1.5, 1.05],
+    ])
+  })
+
   it('does not replay a completed MIDI plan when stalled audio lifecycle callbacks arrive', () => {
     const { callbacks } = setup()
     const attack = event('hand', 'attack', .125), release = event('hand', 'release', .225)

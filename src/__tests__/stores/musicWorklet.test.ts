@@ -232,6 +232,28 @@ describe("music store production worklet integration", () => {
     expect(events("note-played")).toHaveLength(1);
   });
 
+  it("records every timestamped sample in one coalesced gesture", async () => {
+    const music = useMusicStore(); const patterns = recorder();
+    const owner = await music.attackExactPitch("C4");
+    worklet.listener!.onEvent(event(owner!, "coalesced", "attack", 12));
+    await vi.advanceTimersByTimeAsync(100);
+    for (const [sampleTime, cents, gain] of [
+      [1030, 30, 1.4], [1060, -30, .6], [1090, 30, 1.4],
+    ]) {
+      music.setNotePitchBend(owner!, cents, sampleTime);
+      music.setNoteGain(owner!, gain, sampleTime);
+    }
+    worklet.listener!.onEvent(event(owner!, "coalesced", "release", 12.15));
+    expect(patterns.loggedNotes[0].pitchExpression).toEqual([
+      { timeMs: 0, cents: 0 }, { timeMs: 30, cents: 30 },
+      { timeMs: 60, cents: -30 }, { timeMs: 90, cents: 30 },
+    ]);
+    expect(patterns.loggedNotes[0].gainExpression).toEqual([
+      { timeMs: 0, gain: 1 }, { timeMs: 30, gain: 1.4 },
+      { timeMs: 60, gain: .6 }, { timeMs: 90, gain: 1.4 },
+    ]);
+  });
+
   it("does not publish expression for renderers without the corresponding audio control", async () => {
     vi.mocked(getLivePlayback).mockReturnValue({ ...worklet.engine,
       setPitchBend: undefined, setGain: undefined } as never);

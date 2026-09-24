@@ -147,6 +147,7 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
     setGain: (ownerId, gain) => post({ type: 'gain-expression', ownerId, gain }),
     release: ownerId => post({ type: 'release', ownerId }),
     configure: config => post({ type: 'configure', config }),
+    shape: envelope => post({ type: 'shape', envelope }),
     clear: () => post({ type: 'clear' }),
     dispose,
   }

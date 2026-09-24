@@ -9,6 +9,12 @@ export interface LiveEnvelope {
   release: number
 }
 
+/** Shape-tab envelope edits; an omitted stage keeps the prepared articulation. */
+export interface LiveEnvelopeOverride {
+  attack?: number
+  release?: number
+}
+
 export interface LiveSampleZone {
   id: string
   rootMidi: number
@@ -35,6 +41,7 @@ export type LiveCommand =
   | { type: 'gain-expression'; ownerId: string; gain: number }
   | { type: 'release'; ownerId: string }
   | { type: 'configure'; config: Partial<LiveConfig> }
+  | { type: 'shape'; envelope: LiveEnvelopeOverride }
   | { type: 'clear' }
 
 export type LiveResponse =
@@ -47,4 +54,5 @@ export type LiveResponse =
 
 export interface LiveWorklet extends LiveRenderer {
   prepare(instrument: PreparedLiveInstrument): Promise<void>
+  shape(envelope: LiveEnvelopeOverride): void
 }

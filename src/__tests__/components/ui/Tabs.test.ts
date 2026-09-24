@@ -20,6 +20,20 @@ const tabs = [
 ];
 
 describe("Tabs", () => {
+  it("uses a destination's brass material without pinning the rail geometry or other tabs", async () => {
+    const wrapper = mount(Tabs, { props: {
+      tabs: [{ label: "Shape", value: "shape", tone: "brass" }, ...tabs],
+      modelValue: "keys", geometry: "offcut", tone: "ivory",
+    } });
+    expect(wrapper.classes()).toContain("tabs--tone-ivory");
+    await wrapper.setProps({ modelValue: "shape" });
+    expect(wrapper.classes()).toContain("tabs--tone-brass");
+    expect(wrapper.classes()).toContain("tabs--geometry-offcut");
+    expect(wrapper.get('.tabs__chip').classes()).toContain("brass");
+    await wrapper.setProps({ modelValue: "keys" });
+    expect(wrapper.classes()).toContain("tabs--tone-ivory");
+    wrapper.unmount();
+  });
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();

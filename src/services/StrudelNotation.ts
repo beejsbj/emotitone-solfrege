@@ -37,6 +37,22 @@ export interface StrudelConfig {
   scaleMode?: MusicalMode;
   /** Optional scale octave override for relative notation. */
   scaleOctave?: number;
+  /** Lowpass filter cutoff frequency in Hz. */
+  cutoff?: number;
+  /** Filter resonance (Q factor). */
+  resonance?: number;
+  /** Envelope attack in seconds. */
+  attack?: number;
+  /** Envelope release in seconds. */
+  release?: number;
+  /** Whether attack was intentionally overridden, including when equal to its default. */
+  attackOverride?: boolean;
+  /** Whether release was intentionally overridden, including when equal to its default. */
+  releaseOverride?: boolean;
+  /** Reverb wet amount. */
+  room?: number;
+  /** Echo wet amount. Uses fixed delaytime=.25 and delayfeedback=.3. */
+  delay?: number;
   /** Optional full phrase duration, including silence after the final note. */
   patternDurationMs?: number;
 }
@@ -118,7 +134,9 @@ export class StrudelNotation {
     this.renderRelative = this.config.notationType === "relative" &&
       this.notes.every((note) => this.relativeNoteValue(note) != null);
     const envelope = getLiveArticulation(this.config.sound);
-    this.controlFields = RECORDED_CONTROLS.filter(control =>
+    const shaped = this.shapedEnvelope();
+    // A Shape override is one value for the whole take, like live playback.
+    this.controlFields = RECORDED_CONTROLS.filter(control => !(control in shaped) &&
       this.notes.some(note => this.noteControl(note, control) !==
         (control === 'clip' ? 1 : envelope[control])));
     this.vibratoByNote.clear();
@@ -180,19 +198,20 @@ export class StrudelNotation {
     const inner = mergeStrudelRests(tokens, this.config.precision).join(" ");
     // Mapped controls carry a value on every note; defaults must not overwrite them.
     const controls = RECORDED_CONTROLS.filter(control => !this.controlFields.includes(control))
-      .map(control => `.${control}(${control === 'clip' ? 1 : envelope[control]})`).join('');
+      .map(control => `.${control}(${control === 'clip' ? 1 : shaped[control as keyof typeof shaped] ?? envelope[control]})`).join('');
+    const filters = this.filterModifiers();
+    const effects = this.effectModifiers();
     const cpmExpression = `${this.config.bpm} / ${this.config.beatsPerBar}`;
-
     if (this.renderRelative) {
       const first = this.notes[0];
       const scaleOctave =
         this.config.scaleOctave ??
         (Number.isFinite(first?.octave) ? first.octave : 4);
       const scale = `${this.config.scaleKey ?? first?.key ?? "C"}${scaleOctave}:${this.config.scaleMode ?? first?.mode ?? "major"}`;
-      return `\`<\n${inner}\n>\`.as(${this.asFields("n")}).scale("${scale}").sound("${this.config.sound}")${controls}.cpm(${cpmExpression})`;
+      return `\`<\n${inner}\n>\`.as(${this.asFields("n")}).scale("${scale}").sound("${this.config.sound}")${filters}${controls}${effects}.cpm(${cpmExpression})`;
     }
 
-    return `\`<\n${inner}\n>\`.as(${this.asFields("note")}).sound("${this.config.sound}")${controls}.cpm(${cpmExpression})`;
+    return `\`<\n${inner}\n>\`.as(${this.asFields("note")}).sound("${this.config.sound}")${filters}${controls}${effects}.cpm(${cpmExpression})`;
   }
 
   private renderStandaloneNote(note: LogNote, barMs: number) {
@@ -286,6 +305,38 @@ export class StrudelNotation {
     if (trailingGap > 0) tokens.push(`~${format(trailingGap)}`);
 
     return mergeStrudelRests(tokens, precision).join(" ");
+  }
+
+  /** Shape-tab envelope stages that replace recorded and natural values. */
+  private shapedEnvelope(): { attack?: number; release?: number } {
+    const { attack, release, attackOverride, releaseOverride } = this.config;
+    const shaped: { attack?: number; release?: number } = {};
+    // Undefined override flags keep the legacy rule: non-default values are intent.
+    if (attack !== undefined && (attackOverride === true || (attackOverride === undefined && attack !== 0.003))) {
+      shaped.attack = Number(attack.toFixed(3));
+    }
+    if (release !== undefined && (releaseOverride === true || (releaseOverride === undefined && release !== 0.12))) {
+      shaped.release = Number(release.toFixed(2));
+    }
+    return shaped;
+  }
+
+  private filterModifiers(): string {
+    const { cutoff, resonance } = this.config;
+    let modifiers = "";
+    if (cutoff !== undefined && cutoff < 12000) modifiers += `.lpf(${Math.round(cutoff)})`;
+    if (resonance !== undefined && resonance > 0) modifiers += `.lpq(${Number(resonance.toFixed(1))})`;
+    return modifiers;
+  }
+
+  private effectModifiers(): string {
+    const { room, delay } = this.config;
+    let modifiers = "";
+    if (room !== undefined && room > 0) modifiers += `.room(${Number(room.toFixed(3))})`;
+    if (delay !== undefined && delay > 0) {
+      modifiers += `.delay(${Number(delay.toFixed(3))}).delaytime(0.25).delayfeedback(0.3)`;
+    }
+    return modifiers;
   }
 
   private noteValue(note: PreparedRecordedNote<LogNote>) {

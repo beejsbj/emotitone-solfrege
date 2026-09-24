@@ -1,4 +1,5 @@
 import type { Pattern, PatternNote } from "@/types/patterns";
+import { DEFAULT_INSTRUMENT } from "@/data/instruments";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 import { CHROMATIC_NOTES } from "@/data/notes";
 import { getScaleForMode } from "@/data/scales";
@@ -233,7 +234,7 @@ export function buildDefaultPattern(
   idOrOptions: string | DefaultPatternOptions,
   name?: string,
   steps?: MelodyStep[],
-  instrument: string = "piano"
+  instrument: string = DEFAULT_INSTRUMENT
 ): Pattern {
   let id: string;
   let patternName: string;

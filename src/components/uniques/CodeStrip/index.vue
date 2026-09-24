@@ -265,10 +265,12 @@ const generatedCode = computed(() => {
   }
 
   const patternsStore = productionWiring!.patternsStore;
+  const instrumentStore = productionWiring!.instrumentStore;
   if (patternsStore.isStripCleared || !patternsStore.currentSketchNotes.length) {
     return EMPTY_EDITOR_CODE;
   }
 
+  const sound = toStrudelSound(sketchMeta.value.instrument ?? "triangle");
   return logNotesToStrudel(patternsStore.currentSketchNotes as LogNote[], {
     bpm: codeStripConfig.value.bpm,
     sourceBpm: sketchMeta.value.bpm,
@@ -277,7 +279,15 @@ const generatedCode = computed(() => {
     scaleMode: sketchMeta.value.mode,
     scaleOctave: keyboardConfig.value.mainOctave,
     patternDurationMs: patternsStore.currentSketchDuration,
-    sound: toStrudelSound(sketchMeta.value.instrument ?? "sine"),
+    sound,
+    cutoff: instrumentStore.synthControls?.cutoff,
+    resonance: instrumentStore.synthControls?.resonance,
+    attack: instrumentStore.synthControls?.attack,
+    release: instrumentStore.synthControls?.release,
+    attackOverride: instrumentStore.synthControlOverrides?.attack,
+    releaseOverride: instrumentStore.synthControlOverrides?.release,
+    room: instrumentStore.synthControls?.room,
+    delay: instrumentStore.synthControls?.delay,
   }).replace(/\s+/g, " ").trim();
 });
 const generatedPhaseSourceKey = computed(() => {

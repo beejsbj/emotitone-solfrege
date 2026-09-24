@@ -4,6 +4,11 @@ import { vi } from 'vitest'
 // Mock GSAP
 vi.mock('gsap', () => ({
   default: {
+    registerPlugin: vi.fn(),
+    context: vi.fn((fn?: () => void) => {
+      fn?.();
+      return { revert: vi.fn(), kill: vi.fn(), add: vi.fn() };
+    }),
     timeline: vi.fn(() => ({
       to: vi.fn().mockReturnThis(),
       from: vi.fn().mockReturnThis(),
@@ -154,6 +159,7 @@ vi.mock('@/services/superdoughAudio', () => ({
   })),
   getSuperdoughMasterGain: vi.fn().mockReturnValue(null),
   getRegisteredSounds: vi.fn().mockReturnValue(['piano', 'triangle']),
+  setLiveSynthControls: vi.fn(),
   stopStrudelVisuals: vi.fn(),
   emotitoneStrudelOutput: vi.fn().mockResolvedValue(undefined),
   playStrudelCode: vi.fn().mockResolvedValue(undefined),

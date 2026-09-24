@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, provide, ref, type Component } fro
 import Tabs, {
   type TabItem,
   type TabsSelectionSource,
+  type TabsTone,
 } from "@/components/primatives/Tabs.vue";
 import OverlayPanelShell from "./OverlayPanelShell.vue";
 
@@ -12,6 +13,7 @@ export interface TabbedOverlayTab {
   shortLabel: string;
   icon?: Component;
   disabled?: boolean;
+  tone?: TabsTone;
 }
 
 interface Props {
@@ -52,6 +54,7 @@ const tabItems = computed<TabItem[]>(() =>
     shortLabel: tab.shortLabel,
     icon: tab.icon,
     disabled: tab.disabled,
+    tone: tab.tone,
     testId: `${props.tabTestIdPrefix}-${tab.value}`,
   })),
 );

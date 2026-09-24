@@ -65,6 +65,9 @@ beforeEach(() => {
   Object.defineProperty(context, "currentTime", { configurable: true, get: () => 12 + elapsed() / 1000 });
   vi.mocked(audio.getAudioContext).mockReturnValue(context);
   pinia = createPinia(); setActivePinia(pinia);
+  // Renderer events and expected envelopes below use piano's percussive
+  // articulation. Pin it instead of inheriting the app default instrument.
+  useInstrumentStore().currentInstrument = "piano";
   useVisualConfigStore().updateConfig("codeStrip", { bpm: 120 });
 });
 afterEach(() => {

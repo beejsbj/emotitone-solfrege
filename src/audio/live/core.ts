@@ -32,6 +32,7 @@ interface Pulse {
   notes: PlannedNote[]
 }
 interface Voice extends PlannedNote {
+  expressionOwnerId: string
   instrument: PreparedLiveInstrument
   zone?: LiveSampleZone
   resampler?: SampleResampler
@@ -220,11 +221,15 @@ export class LiveAudioCore {
     this.strum = this.strum.filter(note => note.ownerId !== owner)
     for (const pulse of this.pulses) pulse.notes = pulse.notes.filter(note => {
       note.owners.delete(owner)
+      if (note.ownerId === owner && note.owners.size) note.ownerId = note.owners.values().next().value!
       return note.owners.size > 0
     })
     for (const voice of this.voices) {
       voice.owners.delete(owner)
       if (!voice.owners.size) this.releaseVoice(voice, frame)
+      else if (!voice.released && voice.expressionOwnerId === owner) {
+        this.retargetExpression(voice, voice.owners.values().next().value!)
+      }
     }
     if (!this.held.size) this.cancel(frame)
     else if (this.rhythmic()) this.revise(frame)
@@ -240,6 +245,14 @@ export class LiveAudioCore {
     this.planDirty = true
   }
 
+  private retargetExpression(voice: Voice, ownerId: string) {
+    voice.expressionOwnerId = ownerId
+    voice.pitchTarget = voice.increment * 2 ** ((this.pitchBends.get(ownerId) ?? 0) / 1200)
+    voice.pitchRampRemaining = Math.max(1, Math.round(PITCH_SMOOTH_SECONDS * this.sampleRate))
+    voice.gainTarget = this.gainExpressions.get(ownerId) ?? 1
+    voice.gainRampRemaining = Math.max(1, Math.round(GAIN_SMOOTH_SECONDS * this.sampleRate))
+  }
+
   private pitchBend(ownerId: string, cents: number) {
     if (!Number.isFinite(cents) || !this.held.has(ownerId)) return
     const bounded = Math.max(-MAX_PITCH_BEND_CENTS, Math.min(MAX_PITCH_BEND_CENTS, cents))
@@ -249,7 +262,7 @@ export class LiveAudioCore {
     for (const voice of this.voices) {
       // A deduped rhythmic voice has one deterministic expression owner.
       // Never retune a release tail, including one from an earlier press.
-      if (voice.released || voice.ownerId !== ownerId) continue
+      if (voice.released || voice.expressionOwnerId !== ownerId) continue
       voice.pitchTarget = voice.increment * ratio
       voice.pitchRampRemaining = Math.max(1, Math.round(PITCH_SMOOTH_SECONDS * this.sampleRate))
     }
@@ -263,7 +276,7 @@ export class LiveAudioCore {
     for (const voice of this.voices) {
       // Just like pitch, a deduped rhythmic voice has one deterministic owner.
       // Release tails retain their last multiplier and are never snapped back.
-      if (voice.released || voice.ownerId !== ownerId) continue
+      if (voice.released || voice.expressionOwnerId !== ownerId) continue
       voice.gainTarget = bounded
       voice.gainRampRemaining = Math.max(1, Math.round(GAIN_SMOOTH_SECONDS * this.sampleRate))
     }
@@ -342,7 +355,7 @@ export class LiveAudioCore {
       : 440 * 2 ** ((note.pitch - 69) / 12) / this.sampleRate
     const pitchIncrement = increment * 2 ** ((this.pitchBends.get(note.ownerId) ?? 0) / 1200)
     const gainExpression = this.gainExpressions.get(note.ownerId) ?? 1
-    const voice: Voice = { ...note, owners: new Set(note.owners), instrument, zone,
+    const voice: Voice = { ...note, owners: new Set(note.owners), expressionOwnerId: note.ownerId, instrument, zone,
       resampler: zone ? createSampleResampler(zone, increment) : undefined,
       style: pulse.style, start: frame, end: pulse.duration === undefined ? Infinity : Math.ceil(pulse.frame + pulse.duration),
       position: 0, increment, pitchIncrement, pitchTarget: pitchIncrement, pitchRampRemaining: 0,

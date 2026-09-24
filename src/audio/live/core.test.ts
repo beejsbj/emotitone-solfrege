@@ -292,6 +292,40 @@ describe('production live audio render core', () => {
     expect(endedIndex).toBeGreaterThan(releaseIndex)
   })
 
+  it.each(['repeat', 'arp-up'] as const)('hands a shared %s voice to the surviving expression owner', style => {
+    const constant: PreparedLiveInstrument = { ...bank, zones: [{ ...bank.zones[0],
+      channels: [new Float32Array(500).fill(1)], loopEndFrame: 500 }] }
+    const { core, press, render, send, events } = setup(constant)
+    send({ type: 'configure', config: { style, rate: 16 } })
+    press('first', [60]); render(1)
+    press('second', [60])
+    send({ type: 'gain-expression', ownerId: 'first', gain: .25 })
+    send({ type: 'gain-expression', ownerId: 'second', gain: 1.5 })
+    render(10)
+    send({ type: 'release', ownerId: 'first' })
+    expect(core.voiceCount).toBe(1)
+    expect(render(10)[0].at(-1)).toBeCloseTo(1.5, 3)
+    send({ type: 'gain-expression', ownerId: 'second', gain: .5 })
+    expect(render(10)[0].at(-1)).toBeCloseTo(.5, 3)
+    expect(events.filter(event => event.phase === 'attack')).toHaveLength(1)
+  })
+
+  it('retunes a shared rhythmic voice immediately when its expression owner releases', () => {
+    const oscillator: PreparedLiveInstrument = { kind: 'oscillator', instrumentId: 'osc', waveform: 'sine',
+      gain: 1, attack: 0, decay: 0, sustain: 1, release: 0 }
+    const run = (cents: number) => {
+      const { press, render, send } = setup(oscillator)
+      send({ type: 'configure', config: { style: 'repeat', rate: 16 } })
+      press('first', [48]); render(1); press('second', [48]); render(10)
+      send({ type: 'release', ownerId: 'first' })
+      send({ type: 'pitch-bend', ownerId: 'second', cents })
+      return render(50)[0]
+    }
+    const neutral = run(0)
+    const bent = run(50)
+    expect([...bent.subarray(10)]).not.toEqual([...neutral.subarray(10)])
+  })
+
   it('preserves arp phase at the next old-grid tempo boundary', () => {
     const { send, press, render, events } = setup()
     send({ type: 'configure', config: { style: 'arp-up', rate: 16 } })

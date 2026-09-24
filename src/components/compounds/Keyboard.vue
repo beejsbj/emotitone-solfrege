@@ -1242,6 +1242,10 @@ function movePointerThroughSamples(event: PointerEvent) {
   }
 }
 
+function moveChordPointerThroughSamples(event: PointerEvent) {
+  for (const sample of pointerSamples(event)) updatePointerExpression(event.pointerId, sample);
+}
+
 function pointerMovedSinceLastSample(event: PointerEvent) {
   const previous = pointerPositions.get(event.pointerId);
   if (!previous) return true;
@@ -1305,7 +1309,7 @@ function handlePointerMove(event: PointerEvent) {
   if (!activePointerInputs.has(event.pointerId) && !activeChordGestureInputs.has(event.pointerId)) return;
   event.preventDefault();
   if (activeChordGestureInputs.has(event.pointerId)) {
-    updatePointerExpression(event.pointerId, event);
+    moveChordPointerThroughSamples(event);
   } else {
     movePointerThroughSamples(event);
   }
@@ -1333,7 +1337,7 @@ function handlePointerUp(event: PointerEvent) {
   if (activePointerInputs.has(event.pointerId) && pointerMovedSinceLastSample(event)) {
     movePointerThroughSamples(event);
   }
-  if (activeChordGestureInputs.has(event.pointerId)) updatePointerExpression(event.pointerId, event);
+  if (activeChordGestureInputs.has(event.pointerId)) moveChordPointerThroughSamples(event);
   finishPointerInput(event);
 }
 

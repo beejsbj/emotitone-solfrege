@@ -1042,6 +1042,38 @@ describe("Keyboard pointer gestures", () => {
     wrapper.unmount();
   });
 
+  it("preserves chord expression reversals in coalesced move and release events", () => {
+    const wrapper = mount(Keyboard, {
+      props: { usage: "controlled", rows: controlledRows() },
+      global: { stubs: { Key: KeyStub, ChordKey: ChordKeyStub } },
+    });
+    const chord = wrapper.findAllComponents(ChordKeyStub)[0];
+    vi.spyOn(document, "elementFromPoint").mockReturnValue(chord.element);
+    const root = wrapper.get<HTMLElement>(".keyboard");
+    const sample = (type: string, x: number, y: number) => pointerEvent(type, {
+      pointerId: 83, pointerType: "touch", clientX: x, clientY: y,
+    });
+    const coalesced = (type: string, path: Array<[number, number]>) => {
+      const [x, y] = path.at(-1)!;
+      const event = sample(type, x, y);
+      Object.defineProperty(event, "getCoalescedEvents", {
+        value: () => path.map(([sampleX, sampleY]) => sample(type, sampleX, sampleY)),
+      });
+      root.element.dispatchEvent(event);
+    };
+
+    chord.element.dispatchEvent(sample("pointerdown", 50, 50));
+    coalesced("pointermove", [[73, 20], [50, 50]]);
+    coalesced("pointerup", [[27, 20], [50, 50]]);
+
+    expect(wrapper.emitted("chordPitchBend")?.map(([intent]) =>
+      (intent as { cents: number }).cents)).toEqual([50, 0, -50, 0]);
+    expect(wrapper.emitted("chordGainChange")?.map(([intent]) =>
+      (intent as { gain: number }).gain)).toEqual([1.675, 1, 1.675, 1]);
+    expect(wrapper.emitted("chordRelease")).toHaveLength(1);
+    wrapper.unmount();
+  });
+
   it("keeps chord touch ownership at Keyboard through pointer and compatibility touch events", async () => {
     const wrapper = mount(Keyboard, {
       global: { stubs: { Key: KeyStub, Chord: true } },

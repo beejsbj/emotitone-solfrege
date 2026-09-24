@@ -3,6 +3,7 @@
  * Type definitions for logging and analyzing musical patterns
  */
 
+import type { GainExpressionPoint, PitchExpressionPoint } from "./expression";
 import type { ChromaticNote, MusicalMode, SolfegeData, Note } from "./music";
 import type { LiveArticulation } from "@/services/liveArticulation";
 import type { Shape } from "./instrument";
@@ -73,6 +74,10 @@ export interface LogNote {
   shape?: Shape;
   /** Velocity/volume (0-1) */
   velocity?: number;
+  /** Measured finger pitch curve; portable Strudel currently approximates its vibrato. */
+  pitchExpression?: PitchExpressionPoint[];
+  /** Measured note-relative gain curve; portable Strudel currently approximates its tremolo. */
+  gainExpression?: GainExpressionPoint[];
 
   /** Captured live envelope; absent on legacy and authored notes. */
   articulation?: LiveArticulation;
@@ -124,6 +129,10 @@ export interface PatternNote {
 
   /** Velocity/volume (0-1) */
   velocity?: number;
+  /** Measured finger pitch curve; portable Strudel currently approximates its vibrato. */
+  pitchExpression?: PitchExpressionPoint[];
+  /** Measured note-relative gain curve; portable Strudel currently approximates its tremolo. */
+  gainExpression?: GainExpressionPoint[];
 
   /** Captured live envelope; absent on legacy and authored notes. */
   articulation?: LiveArticulation;

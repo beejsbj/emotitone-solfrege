@@ -51,6 +51,12 @@ export function useStringRenderer() {
   const keyboardDrawerStore = useKeyboardDrawerStore();
   const visualConfigStore = useVisualConfigStore();
   let noteEventTarget: EventTarget | null = null;
+  const temporalCycles = new Map<VibratingStringConfig, {
+    cycles: number;
+    elapsed: number;
+    frequency: number;
+    hasFrequencyChange: boolean;
+  }>();
 
   // String state
   const strings = ref<VibratingStringConfig[]>([]);
@@ -73,6 +79,7 @@ export function useStringRenderer() {
         mode: MusicalMode;
         key: ChromaticNote;
         pitchClassIndex?: number;
+        pitchBendCents?: number;
         endTime: number | null;
       }
     >()
@@ -95,6 +102,7 @@ export function useStringRenderer() {
     // canvas resize or remount.
     lastCanvasWidth = canvasWidth;
     lastCanvasHeight = _canvasHeight;
+    temporalCycles.clear();
 
     if (!stringConfig.isEnabled) {
       strings.value = [];
@@ -202,6 +210,7 @@ export function useStringRenderer() {
       key,
       pitchClassIndex,
       noteName,
+      pitchBendCents,
     } = event.detail;
     const activationOctave = keyboardOctave ?? octave;
 
@@ -244,6 +253,7 @@ export function useStringRenderer() {
           mode: (mode ?? musicStore.currentMode) as MusicalMode,
           key: (key ?? musicStore.currentKey) as ChromaticNote,
           pitchClassIndex: resolvePitchClassIndex({ pitchClassIndex, noteName }),
+          pitchBendCents: isPitchBendCents(pitchBendCents) ? pitchBendCents : undefined,
           endTime,
         },
       );
@@ -253,6 +263,13 @@ export function useStringRenderer() {
   const handleNoteReleased = (event: CustomEvent) => {
     const noteId = event.detail?.noteId;
     if (noteId) eventActivatedStrings.value.delete(noteId);
+  };
+
+  const handleNoteExpression = (event: CustomEvent) => {
+    const { noteId, cents } = event.detail ?? {};
+    if (!noteId || typeof cents !== "number" || !Number.isFinite(cents) || Math.abs(cents) > 50) return;
+    const activation = eventActivatedStrings.value.get(noteId);
+    if (activation) activation.pitchBendCents = cents;
   };
 
   /**
@@ -371,12 +388,12 @@ export function useStringRenderer() {
 
         if (isStringActiveFromInput) {
           // Use the frequency from the matching octave note
-          visualFrequency =
-            matchingActiveNote?.frequency ||
+          visualFrequency = matchingActiveNote?.frequency ||
             musicStore.getNoteFrequency(string.noteIndex, string.octave);
+          visualFrequency = bendFrequency(visualFrequency, matchingActiveNote?.pitchBendCents);
         } else if (eventActivation) {
           // Use frequency from event activation (sequencer)
-          visualFrequency = eventActivation.frequency;
+          visualFrequency = bendFrequency(eventActivation.frequency, eventActivation.pitchBendCents);
         } else {
           // Fallback
           visualFrequency = musicStore.getNoteFrequency(
@@ -385,10 +402,10 @@ export function useStringRenderer() {
           );
         }
 
-        string.frequency = createVisualFrequency(
+        setStringVisualFrequency(string, createVisualFrequency(
           visualFrequency,
           animationConfig.visualFrequencyDivisor
-        );
+        ));
       } else {
         string.isActive = false;
         string.amplitude = reducedMotion
@@ -411,7 +428,7 @@ export function useStringRenderer() {
           string.noteIndex,
           string.octave
         );
-        string.frequency = createVisualFrequency(noteFrequency, 200);
+        setStringVisualFrequency(string, createVisualFrequency(noteFrequency, 200));
       }
     });
   };
@@ -426,7 +443,6 @@ export function useStringRenderer() {
     reducedMotion = false,
   ) => {
     if (!ctx) return;
-
     strings.value.forEach((string) => {
       if (!ctx) return;
 
@@ -443,7 +459,7 @@ export function useStringRenderer() {
 
         // Create harmonic vibration
         const totalVibration = createHarmonicVibration(
-          reducedMotion ? 0 : elapsed,
+          reducedMotion ? 0 : resolveHarmonicElapsed(string, elapsed),
           string.frequency,
           string.amplitude,
           y,
@@ -490,6 +506,7 @@ export function useStringRenderer() {
   const clearAllStrings = () => {
     strings.value = [];
     eventActivatedStrings.value.clear();
+    temporalCycles.clear();
   };
 
   /**
@@ -500,6 +517,7 @@ export function useStringRenderer() {
     noteEventTarget = target;
     noteEventTarget.addEventListener("note-played", handleNotePlayed as EventListener);
     noteEventTarget.addEventListener("note-released", handleNoteReleased as EventListener);
+    noteEventTarget.addEventListener("note-expression", handleNoteExpression as EventListener);
   };
 
   /**
@@ -513,6 +531,10 @@ export function useStringRenderer() {
     noteEventTarget?.removeEventListener(
       "note-released",
       handleNoteReleased as EventListener
+    );
+    noteEventTarget?.removeEventListener(
+      "note-expression",
+      handleNoteExpression as EventListener
     );
     noteEventTarget = null;
   };
@@ -533,7 +555,54 @@ export function useStringRenderer() {
     removeEventListeners,
     handleNotePlayed,
     handleNoteReleased,
+    handleNoteExpression,
   };
+
+  function setStringVisualFrequency(string: VibratingStringConfig, frequency: number) {
+    string.frequency = frequency;
+  }
+
+  function resolveHarmonicElapsed(string: VibratingStringConfig, elapsed: number) {
+    const state = temporalCycles.get(string);
+    if (!state) {
+      temporalCycles.set(string, {
+        cycles: elapsed * string.frequency,
+        elapsed,
+        frequency: string.frequency,
+        hasFrequencyChange: false,
+      });
+      return elapsed;
+    }
+    const elapsedSinceLastRender = elapsed - state.elapsed;
+    if (state.frequency !== string.frequency) {
+      // A frequency update is applied after the previous frame, so advance the
+      // newly bent frequency from that frame while retaining the old cycle count.
+      state.cycles += elapsedSinceLastRender * string.frequency;
+      state.frequency = string.frequency;
+      state.hasFrequencyChange = true;
+    } else if (state.hasFrequencyChange) {
+      state.cycles += elapsedSinceLastRender * string.frequency;
+    } else {
+      state.cycles = elapsed * string.frequency;
+    }
+    state.elapsed = elapsed;
+    // createHarmonicVibration's public contract is elapsed × frequency. Passing
+    // this equivalent elapsed retains its static harmonic phases while the
+    // integrated cycle count makes every harmonic continuous across pitch bends.
+    return state.hasFrequencyChange && string.frequency !== 0
+      ? state.cycles / string.frequency
+      : elapsed;
+  }
+}
+
+function bendFrequency(frequency: number, cents: unknown) {
+  return isPitchBendCents(cents)
+    ? frequency * 2 ** (cents / 1200)
+    : frequency;
+}
+
+function isPitchBendCents(cents: unknown): cents is number {
+  return typeof cents === "number" && Number.isFinite(cents) && Math.abs(cents) <= 50;
 }
 
 function resolveStringPitchClass(

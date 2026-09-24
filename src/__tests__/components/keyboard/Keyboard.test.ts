@@ -49,6 +49,8 @@ const mocks = vi.hoisted(() => {
     attackNoteWithOctave: vi.fn(async () => "melody-note"),
     attackExactPitch: vi.fn(async (pitch: string) => `exact-${pitch}`),
     releaseNote: vi.fn(),
+    setNotePitchBend: vi.fn(),
+    setNoteGain: vi.fn(),
   };
   const instrumentStore = {
     isInteractionLocked: false,
@@ -110,6 +112,7 @@ const KeyStub = defineComponent({
     keySaturation: Number,
     sounding: Boolean,
     pressed: Boolean,
+    managedInput: Boolean,
     disabled: Boolean,
     ariaLabel: String,
   },
@@ -126,6 +129,7 @@ const ChordKeyStub = defineComponent({
     accessibleName: String,
     geometry: String,
     pressed: Boolean,
+    managedInput: Boolean,
     disabled: Boolean,
   },
   emits: ["press", "release"],
@@ -158,6 +162,21 @@ function pointerEvent(
     clientY: { value: options.clientY ?? 20 },
     button: { value: options.button ?? 0 },
     isPrimary: { value: true },
+  });
+  return event;
+}
+
+function touchEvent(
+  type: string,
+  identifier: number,
+  clientX: number,
+  clientY: number,
+) {
+  const event = new Event(type, { bubbles: true, cancelable: true });
+  const touch = { identifier, clientX, clientY };
+  Object.defineProperties(event, {
+    touches: { value: type === "touchend" || type === "touchcancel" ? [] : [touch] },
+    changedTouches: { value: [touch] },
   });
   return event;
 }
@@ -249,6 +268,9 @@ describe("Keyboard production usage", () => {
     const wrapper = mountKeyboard();
     const keys = wrapper.findAllComponents(KeyStub);
     expect(wrapper.findAllComponents(ChordKeyStub)).toHaveLength(7);
+    expect(wrapper.findAllComponents(ChordKeyStub).every(
+      (chord) => chord.props("managedInput") === true,
+    )).toBe(true);
 
     expect(keys).toHaveLength(6);
 
@@ -836,6 +858,334 @@ describe("Keyboard pointer gestures", () => {
       (intent as { keyId: string }).keyId)).toEqual(["do-4", "re-4", "do-4"]);
     expect(wrapper.emitted("release")?.map(([intent]) =>
       (intent as { keyId: string }).keyId)).toEqual(["do-4", "re-4", "do-4"]);
+  });
+
+  it("bends within a key with a dead zone, then resets the origin on a glissando", async () => {
+    const wrapper = mount(Keyboard, {
+      props: { usage: "controlled", rows: controlledRows() },
+      global: { stubs: { Key: KeyStub, ChordKey: ChordKeyStub } },
+    });
+    const [first, second] = wrapper.findAll<HTMLButtonElement>(".keyboard__key");
+    const root = wrapper.get(".keyboard");
+    vi.spyOn(document, "elementFromPoint").mockImplementation((x) => x < 100 ? first.element : second.element);
+    const send = (type: string, x: number) => root.element.dispatchEvent(pointerEvent(type, {
+      pointerId: 31, pointerType: "touch", clientX: x,
+    }));
+    send("pointerdown", 50);
+    send("pointermove", 52);
+    expect(wrapper.emitted("pitchBend")).toBeUndefined();
+    send("pointermove", 73);
+    send("pointermove", 27);
+    send("pointermove", 50);
+    expect(wrapper.emitted("pitchBend")?.map(([intent]) => (intent as { cents: number }).cents)).toEqual([50, -50, 0]);
+    expect(wrapper.emitted("press")).toHaveLength(1);
+    send("pointermove", 120);
+    expect(wrapper.emitted("press")).toHaveLength(2);
+    send("pointermove", 143);
+    expect(wrapper.emitted("pitchBend")?.at(-1)?.[0]).toMatchObject({ keyId: "re-4", cents: 50 });
+    send("pointercancel", 143);
+    send("pointermove", 170);
+    expect(wrapper.emitted("pitchBend")).toHaveLength(4);
+    wrapper.unmount();
+  });
+
+  it("routes expression to the resolved voice and gives a shared key one controlling finger", async () => {
+    const wrapper = mountKeyboard();
+    const first = wrapper.findAll<HTMLButtonElement>(".keyboard__key")[0];
+    vi.spyOn(document, "elementFromPoint").mockReturnValue(first.element);
+    const root = wrapper.get(".keyboard");
+    const send = (type: string, id: number, x: number, y = 20) => root.element.dispatchEvent(pointerEvent(type, {
+      pointerId: id, pointerType: "touch", clientX: x, clientY: y,
+    }));
+    send("pointerdown", 1, 50);
+    send("pointerdown", 2, 50);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    send("pointermove", 2, 73, 0);
+    expect(mocks.musicStore.setNotePitchBend).not.toHaveBeenCalled();
+    send("pointermove", 1, 27);
+    expect(mocks.musicStore.setNotePitchBend).toHaveBeenLastCalledWith("melody-note", -50, expect.any(Number));
+    send("pointerup", 1, 27);
+    expect(mocks.musicStore.releaseNote).not.toHaveBeenCalled();
+    expect(mocks.musicStore.setNotePitchBend).toHaveBeenLastCalledWith("melody-note", 0);
+    expect(mocks.musicStore.setNoteGain).toHaveBeenLastCalledWith("melody-note", 1);
+    const callsAfterTransfer = {
+      pitch: mocks.musicStore.setNotePitchBend.mock.calls.length,
+      gain: mocks.musicStore.setNoteGain.mock.calls.length,
+    };
+    send("pointermove", 2, 73, 0);
+    expect(mocks.musicStore.setNotePitchBend.mock.calls).toHaveLength(callsAfterTransfer.pitch);
+    expect(mocks.musicStore.setNoteGain.mock.calls).toHaveLength(callsAfterTransfer.gain);
+    send("pointermove", 2, 60, 20);
+    expect(mocks.musicStore.setNotePitchBend).toHaveBeenLastCalledWith("melody-note", -25, expect.any(Number));
+    expect(mocks.musicStore.setNoteGain).toHaveBeenLastCalledWith("melody-note", .575, expect.any(Number));
+    send("pointercancel", 2, 60, 20);
+    expect(mocks.musicStore.releaseNote).toHaveBeenCalledWith("melody-note");
+    wrapper.unmount();
+  });
+
+  it("keeps pitch and vertical gain independent for simultaneous melody contacts", async () => {
+    const wrapper = mountKeyboard();
+    const [first, second] = wrapper.findAll<HTMLButtonElement>(".keyboard__key");
+    vi.spyOn(document, "elementFromPoint").mockImplementation((x) =>
+      x < 100 ? first.element : second.element,
+    );
+    const root = wrapper.get(".keyboard");
+    const send = (type: string, id: number, x: number, y: number) => root.element.dispatchEvent(pointerEvent(type, {
+      pointerId: id, pointerType: "touch", clientX: x, clientY: y,
+    }));
+
+    send("pointerdown", 41, 50, 50);
+    send("pointerdown", 42, 150, 50);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    send("pointermove", 41, 73, 50);
+    send("pointermove", 42, 150, 20);
+
+    expect(wrapper.emitted("pitchBend")?.at(-1)?.[0]).toMatchObject({
+      keyId: "0_5", cents: 50,
+    });
+    expect(wrapper.emitted("gainChange")?.at(-1)?.[0]).toMatchObject({
+      keyId: "1_5", gain: 1.675,
+    });
+    expect(mocks.musicStore.setNotePitchBend).toHaveBeenCalledWith("melody-note", 50, expect.any(Number));
+    expect(mocks.musicStore.setNoteGain).toHaveBeenCalledWith("melody-note", 1.675, expect.any(Number));
+    wrapper.unmount();
+  });
+
+  it("applies pointer expression to every async chord voice and preserves it through release", async () => {
+    const wrapper = mountKeyboard();
+    const chord = wrapper.find<HTMLButtonElement>(".keyboard__chord-key");
+    vi.spyOn(document, "elementFromPoint").mockReturnValue(chord.element);
+    const root = wrapper.get(".keyboard");
+    const send = (type: string, x: number, y: number) => root.element.dispatchEvent(pointerEvent(type, {
+      pointerId: 61, pointerType: "touch", clientX: x, clientY: y,
+    }));
+
+    send("pointerdown", 50, 50);
+    send("pointermove", 73, 20);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const voiceIds = vi.mocked(mocks.musicStore.attackExactPitch).mock.calls.map(
+      ([pitch]) => `exact-${pitch}`,
+    );
+
+    expect(wrapper.emitted("chordPitchBend")?.at(-1)?.[0]).toMatchObject({ cents: 50 });
+    expect(wrapper.emitted("chordGainChange")?.at(-1)?.[0]).toMatchObject({ gain: 1.675 });
+    for (const voiceId of voiceIds) {
+      expect(mocks.musicStore.setNotePitchBend).toHaveBeenCalledWith(voiceId, 50);
+      expect(mocks.musicStore.setNoteGain).toHaveBeenCalledWith(voiceId, 1.675);
+    }
+    send("pointerup", 73, 20);
+    for (const voiceId of voiceIds) {
+      expect(mocks.musicStore.releaseNote).toHaveBeenCalledWith(voiceId);
+      expect(mocks.musicStore.setNoteGain).not.toHaveBeenCalledWith(voiceId, 1, expect.any(Number));
+    }
+    wrapper.unmount();
+  });
+
+  it("keeps a controlled chord visibly pressed until its last pointer releases", async () => {
+    const wrapper = mount(Keyboard, {
+      props: { usage: "controlled", rows: controlledRows() },
+      global: { stubs: { Key: KeyStub, ChordKey: ChordKeyStub } },
+    });
+    const chord = wrapper.findAllComponents(ChordKeyStub)[0];
+    vi.spyOn(document, "elementFromPoint").mockReturnValue(chord.element);
+    const send = (type: string, pointerId: number) => chord.element.dispatchEvent(pointerEvent(type, {
+      pointerId, pointerType: "touch", clientX: 50, clientY: 20,
+    }));
+
+    send("pointerdown", 71);
+    send("pointerdown", 72);
+    await nextTick();
+    expect(chord.props("pressed")).toBe(true);
+    send("pointerup", 71);
+    await nextTick();
+    expect(chord.props("pressed")).toBe(true);
+    send("pointerup", 72);
+    await nextTick();
+    expect(chord.props("pressed")).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("leaves a mouse chord press uncancelled so the button can take native focus", () => {
+    const wrapper = mountKeyboard();
+    const chord = wrapper.find<HTMLButtonElement>(".keyboard__chord-key");
+    vi.spyOn(document, "elementFromPoint").mockReturnValue(chord.element);
+    const press = pointerEvent("pointerdown", {
+      pointerId: 81, pointerType: "mouse", clientX: 50, clientY: 20,
+    });
+    chord.element.dispatchEvent(press);
+    expect(press.defaultPrevented).toBe(false);
+    chord.element.dispatchEvent(pointerEvent("pointerup", {
+      pointerId: 81, pointerType: "mouse", clientX: 50, clientY: 20,
+    }));
+    wrapper.unmount();
+  });
+
+  it("applies the final chord coordinate before releasing its voices", async () => {
+    const wrapper = mountKeyboard();
+    const chord = wrapper.find<HTMLButtonElement>(".keyboard__chord-key");
+    vi.spyOn(document, "elementFromPoint").mockReturnValue(chord.element);
+    const root = wrapper.get(".keyboard");
+    const send = (type: string, x: number, y: number) => root.element.dispatchEvent(pointerEvent(type, {
+      pointerId: 82, pointerType: "touch", clientX: x, clientY: y,
+    }));
+
+    send("pointerdown", 50, 50);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    send("pointerup", 73, 20);
+    expect(wrapper.emitted("chordPitchBend")?.at(-1)?.[0]).toMatchObject({ cents: 50 });
+    expect(wrapper.emitted("chordGainChange")?.at(-1)?.[0]).toMatchObject({ gain: 1.675 });
+    for (const [pitch] of vi.mocked(mocks.musicStore.attackExactPitch).mock.calls) {
+      expect(mocks.musicStore.setNotePitchBend).toHaveBeenCalledWith(`exact-${pitch}`, 50, expect.any(Number));
+      expect(mocks.musicStore.setNoteGain).toHaveBeenCalledWith(`exact-${pitch}`, 1.675, expect.any(Number));
+      expect(mocks.musicStore.releaseNote).toHaveBeenCalledWith(`exact-${pitch}`);
+    }
+    wrapper.unmount();
+  });
+
+  it("preserves chord expression reversals in coalesced move and release events", () => {
+    const wrapper = mount(Keyboard, {
+      props: { usage: "controlled", rows: controlledRows() },
+      global: { stubs: { Key: KeyStub, ChordKey: ChordKeyStub } },
+    });
+    const chord = wrapper.findAllComponents(ChordKeyStub)[0];
+    vi.spyOn(document, "elementFromPoint").mockReturnValue(chord.element);
+    const root = wrapper.get<HTMLElement>(".keyboard");
+    const sample = (type: string, x: number, y: number) => pointerEvent(type, {
+      pointerId: 83, pointerType: "touch", clientX: x, clientY: y,
+    });
+    const coalesced = (type: string, path: Array<[number, number]>) => {
+      const [x, y] = path.at(-1)!;
+      const event = sample(type, x, y);
+      Object.defineProperty(event, "getCoalescedEvents", {
+        value: () => path.map(([sampleX, sampleY]) => sample(type, sampleX, sampleY)),
+      });
+      root.element.dispatchEvent(event);
+    };
+
+    chord.element.dispatchEvent(sample("pointerdown", 50, 50));
+    coalesced("pointermove", [[73, 20], [50, 50]]);
+    coalesced("pointerup", [[27, 20], [50, 50]]);
+
+    expect(wrapper.emitted("chordPitchBend")?.map(([intent]) =>
+      (intent as { cents: number }).cents)).toEqual([50, 0, -50, 0]);
+    expect(wrapper.emitted("chordGainChange")?.map(([intent]) =>
+      (intent as { gain: number }).gain)).toEqual([1.675, 1, 1.675, 1]);
+    expect(wrapper.emitted("chordRelease")).toHaveLength(1);
+    wrapper.unmount();
+  });
+
+  it("keeps coalesced chord sample spacing on the performance clock", async () => {
+    const clock = vi.spyOn(performance, "now").mockReturnValue(1200);
+    const wrapper = mountKeyboard();
+    const chord = wrapper.find<HTMLButtonElement>(".keyboard__chord-key");
+    vi.spyOn(document, "elementFromPoint").mockReturnValue(chord.element);
+    const root = wrapper.get<HTMLElement>(".keyboard");
+    const sample = (x: number, y: number, timestamp: number) => {
+      const event = pointerEvent("pointermove", {
+        pointerId: 84, pointerType: "touch", clientX: x, clientY: y,
+      });
+      Object.defineProperty(event, "timeStamp", { value: timestamp });
+      return event;
+    };
+    chord.element.dispatchEvent(pointerEvent("pointerdown", {
+      pointerId: 84, pointerType: "touch", clientX: 50, clientY: 50,
+    }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    clock.mockReturnValue(1300);
+    const move = sample(73, 20, 1090);
+    Object.defineProperty(move, "getCoalescedEvents", {
+      value: () => [sample(73, 20, 1030), sample(27, 50, 1060), sample(73, 20, 1090)],
+    });
+    root.element.dispatchEvent(move);
+    const voiceId = `exact-${vi.mocked(mocks.musicStore.attackExactPitch).mock.calls[0][0]}`;
+    const pitch = vi.mocked(mocks.musicStore.setNotePitchBend).mock.calls
+      .filter(([id]) => id === voiceId).map(([, cents, timestamp]) => [cents, timestamp]);
+    const gain = vi.mocked(mocks.musicStore.setNoteGain).mock.calls
+      .filter(([id]) => id === voiceId).map(([, value, timestamp]) => [value, timestamp]);
+    expect(pitch.map(([value]) => value)).toEqual([50, -50, 50]);
+    expect(gain.map(([value]) => value)).toEqual([1.675, 1, 1.675]);
+    expect(pitch[1][1] - pitch[0][1]).toBe(30);
+    expect(pitch[2][1] - pitch[1][1]).toBe(30);
+    expect(gain.map(([, timestamp]) => timestamp)).toEqual(pitch.map(([, timestamp]) => timestamp));
+    expect(pitch[0][1]).toBe(1240);
+    root.element.dispatchEvent(pointerEvent("pointerup", {
+      pointerId: 84, pointerType: "touch", clientX: 73, clientY: 20,
+    }));
+    wrapper.unmount();
+  });
+
+  it("rebases a delayed coalesced chord batch after an ordinary move", async () => {
+    const clock = vi.spyOn(performance, "now").mockReturnValue(1150);
+    const wrapper = mountKeyboard();
+    const chord = wrapper.find<HTMLButtonElement>(".keyboard__chord-key");
+    vi.spyOn(document, "elementFromPoint").mockReturnValue(chord.element);
+    const root = wrapper.get<HTMLElement>(".keyboard");
+    const sample = (x: number, timestamp: number) => {
+      const event = pointerEvent("pointermove", {
+        pointerId: 85, pointerType: "touch", clientX: x, clientY: 50,
+      });
+      Object.defineProperty(event, "timeStamp", { value: timestamp });
+      return event;
+    };
+    chord.element.dispatchEvent(pointerEvent("pointerdown", {
+      pointerId: 85, pointerType: "touch", clientX: 50, clientY: 50,
+    }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    clock.mockReturnValue(1180);
+    root.element.dispatchEvent(sample(27, 1180));
+    clock.mockReturnValue(1190);
+    const move = sample(73, 1160);
+    Object.defineProperty(move, "getCoalescedEvents", {
+      value: () => [sample(73, 1100), sample(27, 1130), sample(73, 1160)],
+    });
+    root.element.dispatchEvent(move);
+    const voiceId = `exact-${vi.mocked(mocks.musicStore.attackExactPitch).mock.calls[0][0]}`;
+    const pitch = vi.mocked(mocks.musicStore.setNotePitchBend).mock.calls
+      .filter(([id]) => id === voiceId).map(([, cents, timestamp]) => [cents, timestamp]);
+    expect(pitch.map(([cents]) => cents)).toEqual([-50, 50, -50, 50]);
+    expect(pitch[0][1]).toBe(1180);
+    const times = pitch.slice(1).map(([, timestamp]) => timestamp as number);
+    expect(times[0]).toBeGreaterThan(1180);
+    expect(times[1]).toBeGreaterThan(times[0]);
+    expect(times[2]).toBeGreaterThan(times[1]);
+    expect(times[2]).toBe(1190);
+    root.element.dispatchEvent(pointerEvent("pointerup", {
+      pointerId: 85, pointerType: "touch", clientX: 73, clientY: 50,
+    }));
+    wrapper.unmount();
+  });
+
+  it("keeps chord touch ownership at Keyboard through pointer and compatibility touch events", async () => {
+    const wrapper = mount(Keyboard, {
+      global: { stubs: { Key: KeyStub, Chord: true } },
+    });
+    const chord = wrapper.find<HTMLButtonElement>(".keyboard__chord-key");
+    const root = wrapper.get<HTMLElement>(".keyboard");
+    vi.spyOn(document, "elementFromPoint").mockReturnValue(chord.element);
+    const pointer = (type: string, pointerId: number) => pointerEvent(type, {
+      pointerId, pointerType: "touch", clientX: 50, clientY: 20,
+    });
+
+    chord.element.dispatchEvent(pointer("pointerdown", 71));
+    chord.element.dispatchEvent(touchEvent("touchstart", 71, 50, 20));
+    root.element.dispatchEvent(pointer("pointermove", 71));
+    chord.element.dispatchEvent(touchEvent("touchmove", 71, 50, 20));
+    await Promise.resolve();
+    expect(mocks.musicStore.attackExactPitch).toHaveBeenCalledTimes(3);
+
+    root.element.dispatchEvent(pointer("pointerup", 71));
+    chord.element.dispatchEvent(touchEvent("touchend", 71, 50, 20));
+    await Promise.resolve();
+    expect(mocks.musicStore.releaseNote).toHaveBeenCalledTimes(3);
+
+    chord.element.dispatchEvent(pointer("pointerdown", 72));
+    chord.element.dispatchEvent(touchEvent("touchstart", 72, 50, 20));
+    root.element.dispatchEvent(pointer("pointercancel", 72));
+    chord.element.dispatchEvent(touchEvent("touchcancel", 72, 50, 20));
+    await Promise.resolve();
+    expect(mocks.musicStore.attackExactPitch).toHaveBeenCalledTimes(6);
+    expect(mocks.musicStore.releaseNote).toHaveBeenCalledTimes(6);
+    wrapper.unmount();
   });
 
   it("keeps a held note sounding when a surviving row is added", async () => {

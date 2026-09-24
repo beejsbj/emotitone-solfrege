@@ -163,6 +163,62 @@ describe("Patterns Store", () => {
     dateNowSpy?.mockRestore();
   });
 
+  it("preserves measured pitch and gain through Send, serialization, and loading", () => {
+    const start = Date.now();
+    for (let index = 0; index < 3; index++) {
+      const noteId = `finger-${index}`;
+      patternsStore.handleNotePressed({ detail: {
+        noteId, noteName: "C4", solfegeIndex: 0, octave: 4,
+        note: createLogNote().solfege, timestamp: start + index * 500,
+      } } as CustomEvent);
+      const express = (cents: number, delta: number) => patternsStore.handleNoteExpression({ detail: {
+        noteId, cents, timestamp: start + index * 500 + delta,
+      } } as CustomEvent);
+      express(0, 5);
+      express(NaN, 6);
+      express(30, 100);
+      express(-30, 200);
+      express(25, 300);
+      express(-10, 250); // out-of-order delivery cannot corrupt the curve
+      patternsStore.handleNoteExpression({ detail: {
+        noteId, gain: 0.5, timestamp: start + index * 500 + 150,
+      } } as CustomEvent);
+      patternsStore.handleNoteReleased({ detail: { noteId, timestamp: start + index * 500 + 400 } } as CustomEvent);
+      express(50, 450); // late gesture cannot change a completed recording
+    }
+    const curve = [{ timeMs: 0, cents: 0 }, { timeMs: 100, cents: 30 },
+      { timeMs: 200, cents: -30 }, { timeMs: 300, cents: 25 }];
+    expect(patternsStore.currentSketchNotes[0].pitchExpression).toEqual(curve);
+    const gainCurve = [{ timeMs: 0, gain: 1 }, { timeMs: 150, gain: 0.5 }];
+    expect(patternsStore.currentSketchNotes[0].gainExpression).toEqual(gainCurve);
+    patternsStore.sendCurrentPattern();
+    expect(patternsStore.savedPatterns).toHaveLength(1);
+    const saved = JSON.parse(JSON.stringify(patternsStore.savedPatterns[0]));
+    expect(saved.notes[0].pitchExpression).toEqual(curve);
+    expect(saved.notes[0].gainExpression).toEqual(gainCurve);
+    patternsStore.loadPatternAsBase(saved.id);
+    expect(patternsStore.currentSketchNotes[0].pitchExpression).toEqual(curve);
+    expect(patternsStore.currentSketchNotes[0].gainExpression).toEqual(gainCurve);
+    expect(patternsStore.currentSketchNotes[0].gainExpression)
+      .not.toBe(patternsStore.savedPatterns[0].notes[0].gainExpression);
+  });
+
+  it("records gain-only and simultaneous expression independently", () => {
+    const start = Date.now();
+    patternsStore.handleNotePressed({ detail: {
+      noteId: "gain", noteName: "C4", solfegeIndex: 0, octave: 4,
+      note: createLogNote().solfege, timestamp: start,
+    } } as CustomEvent);
+    patternsStore.handleNoteExpression({ detail: { noteId: "gain", gain: 0.1, timestamp: start + 50 } } as CustomEvent);
+    patternsStore.handleNoteExpression({ detail: { noteId: "gain", cents: 30, gain: 1.5, timestamp: start + 100 } } as CustomEvent);
+    patternsStore.handleNoteExpression({ detail: { noteId: "gain", gain: Number.NaN, timestamp: start + 150 } } as CustomEvent);
+    patternsStore.handleNoteReleased({ detail: { noteId: "gain", timestamp: start + 125 } } as CustomEvent);
+    expect(patternsStore.loggedNotes[0]).toMatchObject({
+      gainExpression: [{ timeMs: 0, gain: 1 }, { timeMs: 50, gain: 0.25 }, { timeMs: 100, gain: 1.5 }],
+      pitchExpression: [{ timeMs: 0, cents: 0 }, { timeMs: 100, cents: 30 }],
+    });
+  });
+
   it("preserves mixed articulation and legacy notes through save, persistence, and sketch reopen", () => {
     const normal = { attack: 0.001, decay: 0.001, sustain: 1, release: 0.2 };
     const rhythmic = { ...normal, release: 0.03 };

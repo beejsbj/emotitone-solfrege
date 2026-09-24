@@ -147,6 +147,16 @@ describe("CodeStrip Strudel source decorations", () => {
     ]);
   });
 
+  it("keeps hand-edited relative degrees before mini-notation modifiers visible", () => {
+    const doc = EditorState.create({
+      doc: '`< 0*2 1! 2? >`.as("n").scale("C4:major")',
+    }).doc;
+    const events = parseCodeStripEvents(doc);
+    expect(events[0].notes.some((note) => note.text === "0")).toBe(true);
+    expect(events[1].notes.some((note) => note.text === "1")).toBe(true);
+    expect(events[2].notes.some((note) => note.text === "2")).toBe(true);
+  });
+
   it("does not parse absolute-note octaves as relative notes", () => {
     const doc = EditorState.create({
       doc: "`< [ {C#4, E4} ] >`.as(\"note\")",
@@ -156,6 +166,27 @@ describe("CodeStrip Strudel source decorations", () => {
       "C#4",
       "E4",
     ]);
+  });
+
+  it("does not decorate vibrato metadata as phantom relative notes", () => {
+    const doc = EditorState.create({
+      doc: '`< [ {C4:5:0.25, E4:0:0}@0.5 2:6.5:0.3@0.25 ] >`.as(["note", "vib", "vibmod"])',
+    }).doc;
+
+    const events = parseCodeStripEvents(doc);
+    expect(events).toHaveLength(2);
+    expect(events[0].notes.map((note) => note.text)).toEqual(["C4", "E4"]);
+    expect(events[1].notes).toMatchObject([{ text: "2", isRelative: true }]);
+  });
+
+  it("keeps combined articulation and expression controls out of overlapping pitches", () => {
+    const doc = EditorState.create({
+      doc: '`< {C4:.96:2e-2:.04:.6:.03:10:.25:10:.385@0.25, ~@0.125 -7:1:0:0:1:.12:0:0:0:0@0.25}@0.375 >`.as(["note", "clip", "attack", "decay", "sustain", "release", "vib", "vibmod", "tremolo", "tremolodepth"])',
+    }).doc;
+    const events = parseCodeStripEvents(doc);
+    expect(events).toHaveLength(1);
+    expect(events[0].notes.map(note => note.text)).toEqual(["C4", "-7"]);
+    expect([events[0].startWeight, events[0].endWeight]).toEqual([0, 0.375]);
   });
 
   const mountedViews: EditorView[] = [];

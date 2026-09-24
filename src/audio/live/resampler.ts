@@ -126,7 +126,7 @@ export async function prepareSampleMipmapsAsync(channels: Float32Array[], loopSt
 export interface SampleResampler {
   sample(channel: number, originalPosition: number): number
   /** Mix a linear envelope span, returning frames consumed before a one-shot ends. */
-  mix(left: Float32Array, right: Float32Array | undefined, offset: number, length: number, originalPosition: number, gain: number, gainStep: number): number
+  mix(left: Float32Array, right: Float32Array | undefined, offset: number, length: number, originalPosition: number, gain: number, gainStep: number, increment?: number): number
 }
 
 /** Select an already filtered octave once per voice, then interpolate with a
@@ -147,8 +147,8 @@ export function createSampleResampler(zone: LiveSampleZone, increment: number): 
   const inverseFactor = 1 / factor
   const rateOffset = rateIndex * PHASES * TAPS
   return {
-    mix(outputLeft, outputRight, offset, length, originalPosition, gain, gainStep) {
-      const count = looping ? length : Math.max(0, Math.min(length, Math.ceil((zone.channels[0].length - originalPosition) / increment)))
+    mix(outputLeft, outputRight, offset, length, originalPosition, gain, gainStep, playbackIncrement = increment) {
+      const count = looping ? length : Math.max(0, Math.min(length, Math.ceil((zone.channels[0].length - originalPosition) / playbackIncrement)))
       for (let frame = 0; frame < count; frame++) {
         let position = originalPosition * inverseFactor
         if (looping && position >= loopEnd) position = loopStart + (position - loopStart) % (loopEnd - loopStart)
@@ -184,7 +184,7 @@ export function createSampleResampler(zone: LiveSampleZone, increment: number): 
         }
         outputLeft[offset + frame] += leftValue * gain
         if (outputRight) outputRight[offset + frame] += rightValue * gain
-        originalPosition += increment
+        originalPosition += playbackIncrement
         gain += gainStep
       }
       return count

@@ -21,7 +21,7 @@ function setup() {
     connect: vi.fn(), disconnect: vi.fn(), onprocessorerror: null as any }
   vi.stubGlobal('AudioWorkletNode', vi.fn(() => node))
   const context = { audioWorklet: { addModule: vi.fn().mockResolvedValue(undefined) }, state: 'suspended' } as any
-  const callbacks = { onEvent: vi.fn(), onPlan: vi.fn(), onOwnerEnded: vi.fn(), onError: vi.fn() }
+  const callbacks = { onEvent: vi.fn(), onPlan: vi.fn(), onExpressionOwner: vi.fn(), onOwnerEnded: vi.fn(), onError: vi.fn() }
   const drain = () => { tasks.shift()?.() }
   return { node, context, callbacks, tasks, channels, drain }
 }
@@ -68,6 +68,34 @@ describe('production live worklet bridge', () => {
     node.onprocessorerror()
     await pending
     expect(callbacks.onError).toHaveBeenCalledOnce()
+    bridge.dispose()
+  })
+
+  it('transports bounded pitch expression commands to the worklet', async () => {
+    const { context, callbacks, node } = setup()
+    const bridge = await createLiveWorklet(context, {} as AudioNode, callbacks)
+    bridge.setPitchBend?.('finger', 37.5)
+    expect(node.port.postMessage).toHaveBeenCalledWith({ type: 'pitch-bend', ownerId: 'finger', cents: 37.5 })
+    bridge.dispose()
+  })
+
+  it('transports per-owner gain expression commands to the worklet', async () => {
+    const { context, callbacks, node } = setup()
+    const bridge = await createLiveWorklet(context, {} as AudioNode, callbacks)
+    bridge.setGain?.('finger', .75)
+    expect(node.port.postMessage).toHaveBeenCalledWith({ type: 'gain-expression', ownerId: 'finger', gain: .75 })
+    bridge.dispose()
+  })
+
+  it('delivers a shared voice expression handoff through the ordered worklet drain', async () => {
+    const { context, callbacks, node, drain } = setup()
+    const bridge = await createLiveWorklet(context, {} as AudioNode, callbacks)
+    const change = { type: 'expression-owner' as const, noteId: 'voice', ownerId: 'second',
+      at: .011, cents: -30, gain: 1.5 }
+    node.port.onmessage({ data: change })
+    expect(callbacks.onExpressionOwner).not.toHaveBeenCalled()
+    drain()
+    expect(callbacks.onExpressionOwner).toHaveBeenCalledWith(change)
     bridge.dispose()
   })
 

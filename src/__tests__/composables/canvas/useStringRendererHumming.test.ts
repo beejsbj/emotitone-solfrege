@@ -303,6 +303,49 @@ describe("useStringRenderer humming lifecycle", () => {
     expect(renderer.strings.value.some((string) => string.isActive)).toBe(false);
   });
 
+  it("keeps every rendered String harmonic continuous through a bend at long elapsed time", () => {
+    const renderer = useStringRenderer();
+    const stringConfig = {
+      isEnabled: true, octaveOffset: 0, baseOpacity: 0.1, activeOpacity: 1,
+      maxAmplitude: 20, interpolationSpeed: 1, opacityInterpolationSpeed: 1, dampingFactor: 1,
+    } as any;
+    const animationConfig = { visualFrequencyDivisor: 100 } as any;
+    const baseNote = {
+      noteId: "live-c4", noteName: "C4", solfegeIndex: 0, pitchClassIndex: 0,
+      solfege: { name: "Do", number: 1 }, frequency: 261.63, octave: 4,
+      keyboardOctave: 4, mode: "major", key: "C",
+    } as any;
+    renderer.initializeStrings(stringConfig, 800, 600, mocks.musicStore.solfegeData);
+    const paths: number[][] = [];
+    let path: number[] = [];
+    const ctx = {
+      globalAlpha: 1, strokeStyle: "", lineWidth: 0, shadowColor: "", shadowBlur: 0,
+      beginPath() { path = []; paths.push(path); },
+      moveTo(x: number) { path.push(x); },
+      lineTo(x: number) { path.push(x); },
+      stroke() {},
+    } as any;
+    renderer.updateStringProperties(stringConfig, animationConfig, mocks.musicStore, { envelope: 1, hasSignal: true }, false, [baseNote]);
+    const string = renderer.strings.value.find(candidate => candidate.octave === 4)!;
+    string.amplitude = 9;
+    renderer.renderStrings(ctx, 0, 600);
+    paths.length = 0;
+    renderer.renderStrings(ctx, 1_000, 600);
+    const phaseBeforeBend = string.phase;
+    const frequencyBeforeBend = string.frequency;
+
+    renderer.updateStringProperties(stringConfig, animationConfig, mocks.musicStore, { envelope: 1, hasSignal: true }, false, [{ ...baseNote, pitchBendCents: 50 }]);
+    string.amplitude = 9;
+    renderer.renderStrings(ctx, 1_000, 600);
+
+    expect(string.frequency).toBeCloseTo(frequencyBeforeBend * 2 ** (50 / 1200));
+    expect(string.phase).toBe(phaseBeforeBend);
+    expect(paths[3]).toHaveLength(101);
+    paths[3]?.forEach((x, index) => expect(x).toBeCloseTo(paths[1]?.[index]!, 9));
+    expect(baseNote.frequency).toBe(261.63);
+    expect(baseNote.noteName).toBe("C4");
+  });
+
   it("subscribes exact-pitch String lifecycle to a controlled event target", () => {
     const renderer = useStringRenderer();
     const target = new EventTarget();

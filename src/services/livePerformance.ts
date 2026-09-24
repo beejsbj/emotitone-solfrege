@@ -10,15 +10,36 @@ function snapshotEvent(event: LiveVoiceEvent): LiveVoiceEvent {
 export function createLivePerformance<T>(callbacks: {
   now(): number
   onEvent(event: LiveVoiceEvent, metadata: T, boundary?: LiveClockBoundary): void
+  onExpression?(noteId: string, cents: number, at: number): void
+  onGainExpression?(noteId: string, gain: number, at: number): void
   onMirror(event: LiveVoiceEvent, metadata: T, phase: 'attack' | 'release' | 'cancel'): void
   onOwnerClosed(ownerId: string): void
   onError(error: Error): void
 }) {
-  const owners = new Map<string, { ownerId: string; metadata: T; renderer: LiveRenderer; held: boolean }>()
+  const owners = new Map<string, { ownerId: string; metadata: T; renderer: LiveRenderer; held: boolean;
+    cents?: number; expressionAt?: number; gain?: number; gainExpressionAt?: number }>()
   const currentOwners = new Map<string, string>()
   let ownerSerial = 0
   let closed = false
   const active = new Map<string, LiveVoiceEvent>()
+  const expressionOwners = new Map<string, string>()
+  const pitchTimes = new Map<string, number>()
+  const gainTimes = new Map<string, number>()
+  function publishExpression(noteId: string, cents: number, at: number) {
+    const previous = pitchTimes.get(noteId)
+    const orderedAt = previous !== undefined && at < previous ? previous + .000001 : at
+    pitchTimes.set(noteId, orderedAt)
+    callbacks.onExpression?.(noteId, cents, orderedAt)
+  }
+  function publishGain(noteId: string, gain: number, at: number) {
+    const previous = gainTimes.get(noteId)
+    const orderedAt = previous !== undefined && at < previous ? previous + .000001 : at
+    gainTimes.set(noteId, orderedAt)
+    callbacks.onGainExpression?.(noteId, gain, orderedAt)
+  }
+  function orderedOwnerTime(previous: number | undefined, at: number) {
+    return previous !== undefined && at < previous ? previous + .000001 : at
+  }
   const plans = new Map<string, LiveVoiceEvent>()
   // A plan is already a MIDI submission. Keep its receipt until the matching
   // audio lifecycle arrives, even as newer plan snapshots drop elapsed edges.
@@ -54,6 +75,9 @@ export function createLivePerformance<T>(callbacks: {
       if (owner) callbacks.onEvent({ ...ended, ownerId: owner.ownerId }, owner.metadata, boundary)
     }
     active.clear()
+    expressionOwners.clear()
+    pitchTimes.clear()
+    gainTimes.clear()
     plans.clear()
     mirrored.clear()
     for (const ownerId of currentOwners.keys()) callbacks.onOwnerClosed(ownerId)
@@ -67,13 +91,25 @@ export function createLivePerformance<T>(callbacks: {
       event = snapshotEvent(event)
       submit(event)
       plans.delete(key(event))
-      if (event.phase === 'attack') active.set(event.noteId, event)
+      if (event.phase === 'attack') {
+        active.set(event.noteId, event)
+        expressionOwners.set(event.noteId, event.ownerId)
+      }
       else {
         active.delete(event.noteId)
+        expressionOwners.delete(event.noteId)
+        pitchTimes.delete(event.noteId)
+        gainTimes.delete(event.noteId)
         mirrored.delete(`${event.noteId}:attack`)
         mirrored.delete(`${event.noteId}:release`)
       }
       callbacks.onEvent({ ...event, ownerId: owner.ownerId }, owner.metadata)
+      if (event.phase === 'attack' && owner.cents) {
+        publishExpression(event.noteId, owner.cents, Math.max(event.at, owner.expressionAt ?? event.at))
+      }
+      if (event.phase === 'attack' && owner.gain !== undefined && owner.gain !== 1) {
+        publishGain(event.noteId, owner.gain, Math.max(event.at, owner.gainExpressionAt ?? event.at))
+      }
     },
     onPlan(events) {
       const next = new Map(events.filter(event => owners.has(event.ownerId))
@@ -89,6 +125,26 @@ export function createLivePerformance<T>(callbacks: {
       for (const event of next.values()) submit(event)
       plans.clear()
       next.forEach((event, id) => plans.set(id, event))
+    },
+    onExpressionOwner(change) {
+      const event = active.get(change.noteId)
+      const owner = owners.get(change.ownerId)
+      if (!event || !owner) return
+      expressionOwners.set(change.noteId, change.ownerId)
+      const expressionAt = Math.max(event.at, change.at)
+      publishExpression(change.noteId, change.cents, expressionAt)
+      publishGain(change.noteId, change.gain, expressionAt)
+      // A gesture posted after release can be queued behind the handoff even
+      // when the two clocks report the same time. Different values prove the
+      // worklet snapshot predates it; keep recording timestamps monotonic.
+      if ((owner.cents ?? 0) !== change.cents) {
+        publishExpression(change.noteId, owner.cents ?? 0,
+          Math.max(expressionAt, owner.expressionAt ?? expressionAt))
+      }
+      if ((owner.gain ?? 1) !== change.gain) {
+        publishGain(change.noteId, owner.gain ?? 1,
+          Math.max(expressionAt, owner.gainExpressionAt ?? expressionAt))
+      }
     },
     onOwnerEnded(rendererOwnerId) {
       const owner = owners.get(rendererOwnerId)
@@ -122,6 +178,36 @@ export function createLivePerformance<T>(callbacks: {
       currentOwners.set(ownerId, rendererOwnerId)
       renderer.configure(config)
       renderer.press(rendererOwnerId, notes)
+    },
+    setPitchBend(ownerId: string, cents: number, at?: number) {
+      const rendererOwnerId = currentOwners.get(ownerId)
+      const owner = rendererOwnerId === undefined ? undefined : owners.get(rendererOwnerId)
+      if (!owner?.held || !owner.renderer.setPitchBend || !Number.isFinite(cents)) return false
+      const value = Math.max(-50, Math.min(50, cents))
+      if ((owner.cents ?? 0) === value) return true
+      owner.cents = value
+      owner.expressionAt = orderedOwnerTime(owner.expressionAt,
+        at !== undefined && Number.isFinite(at) ? at : callbacks.now())
+      owner.renderer.setPitchBend(rendererOwnerId!, value)
+      for (const event of active.values()) if (expressionOwners.get(event.noteId) === rendererOwnerId) {
+        publishExpression(event.noteId, value, Math.max(event.at, owner.expressionAt))
+      }
+      return true
+    },
+    setGain(ownerId: string, gain: number, at?: number) {
+      const rendererOwnerId = currentOwners.get(ownerId)
+      const owner = rendererOwnerId === undefined ? undefined : owners.get(rendererOwnerId)
+      if (!owner?.held || !owner.renderer.setGain || !Number.isFinite(gain)) return false
+      const value = Math.max(.25, Math.min(1.75, gain))
+      if ((owner.gain ?? 1) === value) return true
+      owner.gain = value
+      owner.gainExpressionAt = orderedOwnerTime(owner.gainExpressionAt,
+        at !== undefined && Number.isFinite(at) ? at : callbacks.now())
+      owner.renderer.setGain(rendererOwnerId!, value)
+      for (const event of active.values()) if (expressionOwners.get(event.noteId) === rendererOwnerId) {
+        publishGain(event.noteId, value, Math.max(event.at, owner.gainExpressionAt))
+      }
+      return true
     },
     release,
     releaseAll,

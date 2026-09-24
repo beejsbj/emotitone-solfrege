@@ -176,6 +176,20 @@ export const useMusicStore = defineStore(
           },
         }));
       },
+      onExpression(noteId, cents, at) {
+        const note = activeNotes.value.get(noteId);
+        if (note) activeNotes.value.set(noteId, { ...note, pitchBendCents: cents });
+        window.dispatchEvent(new CustomEvent("note-expression", {
+          detail: { noteId, cents, timestamp: liveAudioClock.toEpochTime(at * 1000),
+            audibleAt: audioTimeToOutputTime(superdoughAudio.getAudioContext(), at) },
+        }));
+      },
+      onGainExpression(noteId, gain, at) {
+        window.dispatchEvent(new CustomEvent("note-expression", {
+          detail: { noteId, gain, timestamp: liveAudioClock.toEpochTime(at * 1000),
+            audibleAt: audioTimeToOutputTime(superdoughAudio.getAudioContext(), at) },
+        }));
+      },
       onOwnerClosed(owner) {
         heldOwners.delete(owner);
         for (const [alias, aliasedOwner] of heldAliases) if (aliasedOwner === owner) heldAliases.delete(alias);
@@ -780,6 +794,24 @@ export const useMusicStore = defineStore(
       );
     }
 
+    /** Prototype expression is available on prepared oscillator/sample voices. */
+    function expressionSampleAt(performanceTimestamp?: number): number | undefined {
+      return performanceTimestamp !== undefined && Number.isFinite(performanceTimestamp)
+        ? liveAudioClock.toAudioTime(liveAudioClock.fromPerformanceTime(performanceTimestamp))
+        : undefined;
+    }
+
+    function setNotePitchBend(noteId: string, cents: number, performanceTimestamp?: number): boolean {
+      const owner = heldAliases.get(noteId);
+      return owner ? livePerformance.setPitchBend(owner, cents, expressionSampleAt(performanceTimestamp)) : false;
+    }
+
+    /** Volume expression follows the same held owner as live pitch bends. */
+    function setNoteGain(noteId: string, gain: number, performanceTimestamp?: number): boolean {
+      const owner = heldAliases.get(noteId);
+      return owner ? livePerformance.setGain(owner, gain, expressionSampleAt(performanceTimestamp)) : false;
+    }
+
     async function releaseNote(noteId?: string) {
       if (!noteId) {
         clearLiveInputs();
@@ -972,6 +1004,8 @@ export const useMusicStore = defineStore(
       attackNoteWithOctave,
       attackExactPitch,
       releaseNote,
+      setNotePitchBend,
+      setNoteGain,
       releaseAllNotes,
       addToSequence,
       clearSequence,

@@ -13,7 +13,7 @@ function setup() {
   const registry = new Map<string, ActiveNote>();
   const timeline = createAudibleStageTimeline(source, () => [...registry.values()], () => Date.now());
   const events: Array<[string, unknown]> = [];
-  for (const type of ["note-played", "note-released"]) {
+  for (const type of ["note-played", "note-released", "note-expression"]) {
     timeline.eventTarget.addEventListener(type, event => events.push([event.type, (event as CustomEvent).detail]));
   }
   const emit = (type: string, noteId: string, audibleAt?: number) => {
@@ -21,7 +21,7 @@ function setup() {
     source.dispatchEvent(new CustomEvent(type, { detail }));
     return detail;
   };
-  return { registry, timeline, events, emit };
+  return { source, registry, timeline, events, emit };
 }
 
 describe("audible Stage timeline", () => {
@@ -90,6 +90,47 @@ describe("audible Stage timeline", () => {
     expect(events).toHaveLength(1);
     vi.advanceTimersByTime(100);
     expect(timeline.getActiveNotes()).toHaveLength(2);
+    timeline.dispose();
+  });
+
+  it("applies only bounded pitch expression at the audible clock while retaining base note identity", () => {
+    const { source, registry, timeline, events, emit } = setup();
+    const active = note("bent");
+    registry.set(active.noteId, active);
+    emit("note-played", active.noteId);
+    expect(timeline.getActiveNotes()[0]).toEqual(active);
+
+    registry.set(active.noteId, { ...active, pitchBendCents: 25 });
+    source.dispatchEvent(new CustomEvent("note-expression", { detail: { noteId: active.noteId, cents: 25, audibleAt: 50 } }));
+    source.dispatchEvent(new CustomEvent("note-expression", { detail: { noteId: active.noteId, gain: 0.4, audibleAt: 25 } }));
+    expect(timeline.getActiveNotes()[0]).toEqual(active);
+    vi.advanceTimersByTime(50);
+    expect(timeline.getActiveNotes()[0]).toEqual({ ...active, pitchBendCents: 25 });
+    expect(timeline.getActiveNotes()[0]?.frequency).toBe(active.frequency);
+    expect(events.map(([type]) => type)).toEqual(["note-played", "note-expression"]);
+
+    emit("note-released", active.noteId, 75);
+    source.dispatchEvent(new CustomEvent("note-expression", { detail: { noteId: active.noteId, cents: -20, audibleAt: 100 } }));
+    registry.delete(active.noteId);
+    vi.advanceTimersByTime(100);
+    expect(events.map(([type]) => type)).toEqual(["note-played", "note-expression", "note-released"]);
+    expect(timeline.getActiveNotes()).toEqual([]);
+    timeline.dispose();
+  });
+
+  it("cancels a replaced note's pending expression and forgets removed registry snapshots", () => {
+    const { source, registry, timeline, events, emit } = setup();
+    const active = note("replayed");
+    registry.set(active.noteId, active);
+    expect(timeline.getActiveNotes()).toEqual([active]);
+    emit("note-played", active.noteId);
+    source.dispatchEvent(new CustomEvent("note-expression", { detail: { noteId: active.noteId, cents: 20, audibleAt: 100 } }));
+    emit("note-played", active.noteId, 50);
+    registry.delete(active.noteId);
+    expect(timeline.getActiveNotes()).toEqual([]);
+    vi.advanceTimersByTime(200);
+    expect(events.map(([type]) => type)).toEqual(["note-played", "note-played"]);
+    expect(vi.getTimerCount()).toBe(0);
     timeline.dispose();
   });
 

@@ -133,6 +133,8 @@ export type ChromaticNote =
 export interface ActiveNote {
   /** Estimated audible onset on performance.now's clock, for presentation only. */
   audibleAt?: number;
+  /** Live per-note pitch expression, in cents. The base frequency remains unchanged. */
+  pitchBendCents?: number;
   /** Index of the solfege note in the scale; -1 marks an exact borrowed pitch. */
   solfegeIndex: number;
   /** Absolute chromatic identity, retained when the pitch is outside the scale. */

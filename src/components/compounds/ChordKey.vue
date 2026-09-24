@@ -54,11 +54,13 @@ const props = withDefaults(defineProps<{
   proportion?: ChordProportion;
   geometry?: NoteGeometry;
   pressed?: boolean;
+  managedInput?: boolean;
   disabled?: boolean;
 }>(), {
   proportion: "compact",
   geometry: "offcut",
   pressed: false,
+  managedInput: false,
   disabled: false,
 });
 
@@ -87,6 +89,7 @@ const {
   release: (payload) => emit("release", payload),
 }, {
   disabled: () => props.disabled,
+  managedInput: () => props.managedInput,
 });
 
 watch(

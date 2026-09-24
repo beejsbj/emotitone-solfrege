@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createPinia, disposePinia, setActivePinia, type Pinia } from "pinia";
-import type { LiveVoiceEvent } from "@/audio/live/types";
+import type { LiveExpressionOwner, LiveVoiceEvent } from "@/audio/liveRenderer";
 
 vi.unmock("@/services/music");
 vi.unmock("@/data");
@@ -8,10 +8,11 @@ const worklet = vi.hoisted(() => ({
   listener: undefined as undefined | {
     onEvent(event: LiveVoiceEvent): void;
     onPlan(events: LiveVoiceEvent[]): void;
+    onExpressionOwner(change: LiveExpressionOwner): void;
     onOwnerEnded(ownerId: string): void;
     onError(error: unknown): void;
   },
-  engine: { press: vi.fn(), release: vi.fn(), configure: vi.fn(), clear: vi.fn(), dispose: vi.fn() },
+  engine: { setPitchBend: vi.fn(), setGain: vi.fn(), press: vi.fn(), release: vi.fn(), configure: vi.fn(), clear: vi.fn(), dispose: vi.fn() },
   unsubscribe: vi.fn(),
 }));
 vi.mock("@/services/livePlayback", () => ({
@@ -41,7 +42,13 @@ function event(ownerId: string, noteId: string, phase: "attack" | "release", at:
   return { ownerId, noteId, phase, at, pitch, instrumentId: "piano", style: "repeat" };
 }
 function recorder() {
+  vi.spyOn(window, "addEventListener");
   recorderStore = usePatternsStore();
+  const handlers = new Map<string, EventListener>();
+  for (const [type, listener] of vi.mocked(window.addEventListener).mock.calls) {
+    if (type === "note-played" || type === "note-released" || type === "note-expression") handlers.set(type, listener as EventListener);
+  }
+  vi.mocked(window.dispatchEvent).mockImplementation(event => { handlers.get(event.type)?.(event); return true; });
   return recorderStore;
 }
 
@@ -127,6 +134,159 @@ describe("music store production worklet integration", () => {
     await music.releaseNote(owner!);
     expect(worklet.engine.release).toHaveBeenCalledWith(owner);
     expect(audio.releaseNote).not.toHaveBeenCalled();
+  });
+
+  it("records per-owner pitch at audio time and trims gestures after a delayed release", async () => {
+    const music = useMusicStore(); const patterns = recorder();
+    const owner = await music.attackExactPitch("C4");
+    worklet.listener!.onEvent(event(owner!, "bent", "attack", 12));
+    await vi.advanceTimersByTimeAsync(100);
+    expect(music.setNotePitchBend(owner!, 30)).toBe(true);
+    expect(worklet.engine.setPitchBend).toHaveBeenLastCalledWith(owner, 30);
+    await vi.advanceTimersByTimeAsync(100);
+    music.setNotePitchBend(owner!, -30);
+    // This note actually ended at 150ms; its release notification arrives late.
+    worklet.listener!.onEvent(event(owner!, "bent", "release", 12.15));
+    expect(patterns.loggedNotes[0].pitchExpression).toEqual([
+      { timeMs: 0, cents: 0 }, { timeMs: 100, cents: 30 },
+    ]);
+    await music.releaseNote(owner!);
+    expect(music.setNotePitchBend(owner!, 20)).toBe(false);
+  });
+
+  it("publishes bent pitch for presentation without changing the musical note", async () => {
+    const music = useMusicStore();
+    const c = await music.attackExactPitch("C4");
+    const g = await music.attackExactPitch("G4");
+    worklet.listener!.onEvent(event(c!, "c", "attack", 12));
+    worklet.listener!.onEvent(event(g!, "g", "attack", 12, 67));
+    const original = { ...music.activeNotes.get("c")! };
+    await vi.advanceTimersByTimeAsync(100);
+    expect(music.setNotePitchBend(c!, 40)).toBe(true);
+    expect(music.activeNotes.get("c")).toEqual({ ...original, pitchBendCents: 40 });
+    expect(music.activeNotes.get("g")?.pitchBendCents).toBeUndefined();
+    const expression = events("note-expression").at(-1);
+    expect(expression).toMatchObject({ noteId: "c", cents: 40, timestamp: EPOCH + 100 });
+    expect(expression.audibleAt).toBeCloseTo(1300);
+    music.setNotePitchBend(c!, 0);
+    expect(music.activeNotes.get("c")).toEqual({ ...original, pitchBendCents: 0 });
+    expect(events("note-played")).toHaveLength(2);
+  });
+
+  it("keeps shared rhythmic expression visible and recorded after the first owner releases", async () => {
+    const music = useMusicStore(); const patterns = recorder();
+    const first = await music.attackExactPitch("C4");
+    const second = await music.attackExactPitch("C4");
+    worklet.listener!.onEvent(event(first!, "shared", "attack", 12));
+    await vi.advanceTimersByTimeAsync(50);
+    music.setNotePitchBend(first!, 40);
+    music.setNoteGain(first!, .5);
+    await vi.advanceTimersByTimeAsync(50);
+    music.setNotePitchBend(second!, -20);
+    music.setNoteGain(second!, 1.5);
+    await music.releaseNote(first!);
+    worklet.listener!.onExpressionOwner({ noteId: "shared", ownerId: second!,
+      at: 12.1, cents: -20, gain: 1.5 });
+    expect(music.activeNotes.get("shared")?.pitchBendCents).toBe(-20);
+    expect(events("note-expression").slice(-2)).toMatchObject([
+      { noteId: "shared", cents: -20, timestamp: EPOCH + 100 },
+      { noteId: "shared", gain: 1.5, timestamp: EPOCH + 100 },
+    ]);
+    await vi.advanceTimersByTimeAsync(50);
+    music.setNotePitchBend(second!, 30);
+    music.setNoteGain(second!, .75);
+    expect(music.activeNotes.get("shared")?.pitchBendCents).toBe(30);
+    worklet.listener!.onEvent(event(first!, "shared", "release", 12.2));
+    expect(patterns.loggedNotes[0].pitchExpression).toEqual([
+      { timeMs: 0, cents: 0 }, { timeMs: 50, cents: 40 },
+      { timeMs: 100, cents: -20 }, { timeMs: 150, cents: 30 },
+    ]);
+    expect(patterns.loggedNotes[0].gainExpression).toEqual([
+      { timeMs: 0, gain: 1 }, { timeMs: 50, gain: .5 },
+      { timeMs: 100, gain: 1.5 }, { timeMs: 150, gain: .75 },
+    ]);
+    expect(events("note-played")).toHaveLength(1);
+    expect(events("note-released")).toHaveLength(1);
+    expect(music.activeNotes.has("shared")).toBe(false);
+  });
+
+  it("records simultaneous pitch and gain independently with the audio clock", async () => {
+    const music = useMusicStore(); const patterns = recorder();
+    const owner = await music.attackExactPitch("C4");
+    worklet.listener!.onEvent(event(owner!, "expressive", "attack", 12));
+    await vi.advanceTimersByTimeAsync(100);
+    expect(music.setNoteGain(owner!, 0.5)).toBe(true);
+    expect(worklet.engine.setGain).toHaveBeenLastCalledWith(owner, 0.5);
+    music.setNotePitchBend(owner!, 30);
+    await vi.advanceTimersByTimeAsync(100);
+    music.setNoteGain(owner!, 1.5);
+    worklet.listener!.onEvent(event(owner!, "expressive", "release", 12.15));
+    expect(patterns.loggedNotes[0].gainExpression).toEqual([
+      { timeMs: 0, gain: 1 }, { timeMs: 100, gain: 0.5 },
+    ]);
+    expect(patterns.loggedNotes[0].pitchExpression).toEqual([
+      { timeMs: 0, cents: 0 }, { timeMs: 100, cents: 30 },
+    ]);
+    await music.releaseNote(owner!);
+    expect(music.setNoteGain(owner!, 1)).toBe(false);
+    expect(events("note-played")).toHaveLength(1);
+  });
+
+  it("records every timestamped sample in one coalesced gesture", async () => {
+    const music = useMusicStore(); const patterns = recorder();
+    const owner = await music.attackExactPitch("C4");
+    worklet.listener!.onEvent(event(owner!, "coalesced", "attack", 12));
+    await vi.advanceTimersByTimeAsync(100);
+    for (const [sampleTime, cents, gain] of [
+      [1030, 30, 1.4], [1060, -30, .6], [1090, 30, 1.4],
+    ]) {
+      music.setNotePitchBend(owner!, cents, sampleTime);
+      music.setNoteGain(owner!, gain, sampleTime);
+    }
+    worklet.listener!.onEvent(event(owner!, "coalesced", "release", 12.15));
+    expect(patterns.loggedNotes[0].pitchExpression).toEqual([
+      { timeMs: 0, cents: 0 }, { timeMs: 30, cents: 30 },
+      { timeMs: 60, cents: -30 }, { timeMs: 90, cents: 30 },
+    ]);
+    expect(patterns.loggedNotes[0].gainExpression).toEqual([
+      { timeMs: 0, gain: 1 }, { timeMs: 30, gain: 1.4 },
+      { timeMs: 60, gain: .6 }, { timeMs: 90, gain: 1.4 },
+    ]);
+  });
+
+  it("keeps a late timestamped reversal visible and recorded after an ordinary move", async () => {
+    const music = useMusicStore(); const patterns = recorder();
+    const owner = await music.attackExactPitch("C4");
+    worklet.listener!.onEvent(event(owner!, "late", "attack", 12));
+    await vi.advanceTimersByTimeAsync(100);
+    music.setNotePitchBend(owner!, 30);
+    music.setNoteGain(owner!, 1.5);
+    await vi.advanceTimersByTimeAsync(50);
+    music.setNotePitchBend(owner!, -30, 1030);
+    music.setNoteGain(owner!, .5, 1030);
+    music.setNotePitchBend(owner!, 20, 1060);
+    music.setNoteGain(owner!, 1.25, 1060);
+    expect(music.activeNotes.get("late")?.pitchBendCents).toBe(20);
+    worklet.listener!.onEvent(event(owner!, "late", "release", 12.2));
+    const pitch = patterns.loggedNotes[0].pitchExpression!;
+    const gain = patterns.loggedNotes[0].gainExpression!;
+    expect(pitch.map((point) => point.cents)).toEqual([0, 30, -30, 20]);
+    expect(gain.map((point) => point.gain)).toEqual([1, 1.5, .5, 1.25]);
+    expect(pitch.map((point) => point.timeMs)).toEqual([...pitch.map((point) => point.timeMs)].sort((a, b) => a - b));
+    expect(new Set(pitch.map((point) => point.timeMs)).size).toBe(pitch.length);
+    expect(events("note-expression").at(-2)).toMatchObject({ noteId: "late", cents: 20 });
+  });
+
+  it("does not publish expression for renderers without the corresponding audio control", async () => {
+    vi.mocked(getLivePlayback).mockReturnValue({ ...worklet.engine,
+      setPitchBend: undefined, setGain: undefined } as never);
+    const music = useMusicStore();
+    const owner = await music.attackExactPitch("C4");
+    worklet.listener!.onEvent(event(owner!, "plain", "attack", 12));
+    expect(music.setNoteGain(owner!, 0.5)).toBe(false);
+    expect(music.setNotePitchBend(owner!, 30)).toBe(false);
+    expect(events("note-expression")).toEqual([]);
+    expect(music.activeNotes.get("plain")?.pitchBendCents).toBeUndefined();
   });
 
   it("captures metadata before a native renderer emits its synchronous attack", async () => {

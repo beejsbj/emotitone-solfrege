@@ -36,6 +36,109 @@ function setup(instrument = bank) {
 }
 
 describe('production live audio render core', () => {
+  it('smoothly bends only its expression owner while leaving oscillator and PCM pitch events unchanged', () => {
+    const oscillator: PreparedLiveInstrument = { kind: 'oscillator', instrumentId: 'osc', waveform: 'sine',
+      gain: 1, attack: 0, decay: 0, sustain: 1, release: 0 }
+    const baseline = setup(oscillator)
+    baseline.press('finger', [48]); baseline.render(20)
+    const base = baseline.render(1000)[0]
+    const bent = setup(oscillator)
+    bent.press('finger', [48]); bent.render(20)
+    bent.send({ type: 'pitch-bend', ownerId: 'finger', cents: 500 })
+    const expressive = bent.render(1000)[0]
+    const rising = (samples: Float32Array) => samples.reduce((count, value, index) =>
+      count + +(index > 20 && samples[index - 1] <= 0 && value > 0), 0)
+    expect(rising(expressive)).toBeGreaterThan(rising(base))
+    expect(bent.events.filter(event => event.phase === 'attack').map(event => event.pitch)).toEqual([48])
+    const clamped = setup(oscillator)
+    clamped.press('finger', [48]); clamped.render(20)
+    clamped.send({ type: 'pitch-bend', ownerId: 'finger', cents: 50 })
+    expect(expressive).toEqual(clamped.render(1000)[0])
+
+    const pcm: PreparedLiveInstrument = { ...bank, zones: [{ ...bank.zones[0], rootMidi: 69,
+      channels: [Float32Array.from({ length: 2000 }, (_, index) => Math.sin(2 * Math.PI * index / 10))],
+      loopStartFrame: 0, loopEndFrame: 2000 }] }
+    const pcmBase = setup(pcm)
+    pcmBase.press('finger', [69]); pcmBase.render(20)
+    const pcmUnbent = pcmBase.render(1000)[0]
+    const pcmBent = setup(pcm)
+    pcmBent.press('finger', [69]); pcmBent.render(20)
+    pcmBent.send({ type: 'pitch-bend', ownerId: 'finger', cents: 50 })
+    expect(rising(pcmBent.render(1000)[0])).toBeGreaterThan(rising(pcmUnbent))
+  })
+
+  it('isolates bends and clears stale expression on release, repress, clear, and invalid input', () => {
+    const oscillator: PreparedLiveInstrument = { kind: 'oscillator', instrumentId: 'osc', waveform: 'sine',
+      gain: 1, attack: 0, decay: 0, sustain: 1, release: 0 }
+    const reference = setup(oscillator)
+    reference.press('b', [48]); reference.render(30)
+    const actual = setup(oscillator)
+    actual.press('a', [48]); actual.press('b', [48]); actual.render(20)
+    actual.send({ type: 'pitch-bend', ownerId: 'a', cents: 50 }); actual.render(10)
+    actual.send({ type: 'release', ownerId: 'a' })
+    expect(actual.render(10)[0]).toEqual(reference.render(10)[0])
+
+    actual.send({ type: 'pitch-bend', ownerId: 'b', cents: 50 }); actual.send({ type: 'release', ownerId: 'b' })
+    actual.press('b', [48]); actual.render(1)
+    const fresh = setup(oscillator)
+    fresh.press('b', [48]); fresh.render(1)
+    expect(actual.render(10)[0]).toEqual(fresh.render(10)[0])
+    actual.send({ type: 'pitch-bend', ownerId: 'b', cents: Infinity })
+    expect(actual.render(20)[0].every(Number.isFinite)).toBe(true)
+    actual.send({ type: 'pitch-bend', ownerId: 'b', cents: 50 }); actual.send({ type: 'clear' })
+    actual.press('b', [48])
+    const cleared = setup(oscillator)
+    cleared.press('b', [48])
+    expect(actual.render(20)[0]).toEqual(cleared.render(20)[0])
+  })
+
+  it('smoothly applies bounded per-owner gain to oscillator and PCM voices without changing their lifecycle', () => {
+    const oscillator: PreparedLiveInstrument = { kind: 'oscillator', instrumentId: 'osc', waveform: 'sine',
+      gain: 1, attack: 0, decay: 0, sustain: 1, release: .1 }
+    const rms = (samples: Float32Array) => Math.sqrt(samples.reduce((sum, sample) => sum + sample ** 2, 0) / samples.length)
+    const oscillatorBase = setup(oscillator)
+    oscillatorBase.press('a', [60]); oscillatorBase.render(40)
+    const oscillatorReference = oscillatorBase.render(100)[0]
+    const oscillatorGain = setup(oscillator)
+    oscillatorGain.press('a', [60]); oscillatorGain.render(40)
+    oscillatorGain.send({ type: 'gain-expression', ownerId: 'a', gain: .25 })
+    const oscillatorOutput = oscillatorGain.render(100)[0]
+    expect(rms(oscillatorOutput.subarray(10))).toBeCloseTo(rms(oscillatorReference.subarray(10)) * .25, 2)
+    expect(oscillatorGain.events.filter(event => event.phase === 'attack')).toHaveLength(1)
+    oscillatorGain.send({ type: 'release', ownerId: 'a' })
+    expect(rms(oscillatorGain.render(10)[0])).toBeLessThan(rms(oscillatorReference.subarray(0, 10)) * .3)
+
+    const pcm = setup({ ...bank, gain: 1, release: .1, zones: [{ ...bank.zones[0],
+      channels: [Float32Array.from({ length: 500 }, (_, index) => Math.sin(2 * Math.PI * index / 20))], loopEndFrame: 500 }] })
+    const pcmReference = setup({ ...bank, gain: 1, release: .1, zones: [{ ...bank.zones[0],
+      channels: [Float32Array.from({ length: 500 }, (_, index) => Math.sin(2 * Math.PI * index / 20))], loopEndFrame: 500 }] })
+    pcm.press('a', [60]); pcmReference.press('a', [60]); pcm.render(40); pcmReference.render(40)
+    pcm.send({ type: 'gain-expression', ownerId: 'a', gain: .25 })
+    expect(rms(pcm.render(100)[0].subarray(10))).toBeCloseTo(rms(pcmReference.render(100)[0].subarray(10)) * .25, 2)
+  })
+
+  it('isolates gain owners, retains a release-tail gain, and carries gain into delayed attacks', () => {
+    const constant: PreparedLiveInstrument = { ...bank, gain: 1, release: .1, zones: [{ ...bank.zones[0],
+      channels: [new Float32Array(500).fill(1)], loopEndFrame: 500 }] }
+    const isolated = setup(constant)
+    isolated.press('a', [60]); isolated.press('b', [64]); isolated.render(1)
+    isolated.send({ type: 'gain-expression', ownerId: 'a', gain: .25 }); isolated.render(10)
+    // Owner b is still unity, so its distinct PCM voice keeps the total above one.
+    expect(isolated.render(1)[0][0]).toBeCloseTo(1.25, 3)
+    isolated.send({ type: 'release', ownerId: 'a' })
+    expect(isolated.render(1)[0][0]).toBeCloseTo(1.25, 2)
+    isolated.send({ type: 'clear' }); isolated.render(200)
+    isolated.press('a', [60]); isolated.render(1)
+    expect(isolated.render(1)[0][0]).toBeCloseTo(1, 3)
+
+    const delayed = setup(constant)
+    delayed.send({ type: 'configure', config: { style: 'strum-up' } })
+    delayed.press('a', [60]); delayed.send({ type: 'gain-expression', ownerId: 'a', gain: .25 })
+    expect(delayed.render(31)[0].at(-1)).toBeCloseTo(.25, 3)
+    delayed.send({ type: 'gain-expression', ownerId: 'a', gain: Infinity })
+    expect(delayed.render(10)[0].every(Number.isFinite)).toBe(true)
+  })
+
   it('renders immediate stereo PCM, resamples by source rate/root pitch and loops', () => {
     const { press, render } = setup()
     press('finger', [48])
@@ -187,6 +290,44 @@ describe('production live audio render core', () => {
     const releaseIndex = messages.findIndex(message => message.type === 'event' && message.event.phase === 'release')
     const endedIndex = messages.findIndex(message => message.type === 'owner-ended' && message.ownerId === 'original')
     expect(endedIndex).toBeGreaterThan(releaseIndex)
+  })
+
+  it.each(['repeat', 'arp-up'] as const)('hands a shared %s voice to the surviving expression owner', style => {
+    const constant: PreparedLiveInstrument = { ...bank, zones: [{ ...bank.zones[0],
+      channels: [new Float32Array(500).fill(1)], loopEndFrame: 500 }] }
+    const { core, press, render, send, events, messages } = setup(constant)
+    send({ type: 'configure', config: { style, rate: 16 } })
+    press('first', [60]); render(1)
+    press('second', [60])
+    send({ type: 'gain-expression', ownerId: 'first', gain: .25 })
+    send({ type: 'gain-expression', ownerId: 'second', gain: 1.5 })
+    render(10)
+    send({ type: 'release', ownerId: 'first' })
+    expect(core.voiceCount).toBe(1)
+    expect(messages.filter(message => message.type === 'expression-owner')).toEqual([
+      { type: 'expression-owner', noteId: events[0].noteId, ownerId: 'second', at: .011,
+        cents: 0, gain: 1.5 },
+    ])
+    expect(render(10)[0].at(-1)).toBeCloseTo(1.5, 3)
+    send({ type: 'gain-expression', ownerId: 'second', gain: .5 })
+    expect(render(10)[0].at(-1)).toBeCloseTo(.5, 3)
+    expect(events.filter(event => event.phase === 'attack')).toHaveLength(1)
+  })
+
+  it('retunes a shared rhythmic voice immediately when its expression owner releases', () => {
+    const oscillator: PreparedLiveInstrument = { kind: 'oscillator', instrumentId: 'osc', waveform: 'sine',
+      gain: 1, attack: 0, decay: 0, sustain: 1, release: 0 }
+    const run = (cents: number) => {
+      const { press, render, send } = setup(oscillator)
+      send({ type: 'configure', config: { style: 'repeat', rate: 16 } })
+      press('first', [48]); render(1); press('second', [48]); render(10)
+      send({ type: 'release', ownerId: 'first' })
+      send({ type: 'pitch-bend', ownerId: 'second', cents })
+      return render(50)[0]
+    }
+    const neutral = run(0)
+    const bent = run(50)
+    expect([...bent.subarray(10)]).not.toEqual([...neutral.subarray(10)])
   })
 
   it('preserves arp phase at the next old-grid tempo boundary', () => {

@@ -65,10 +65,12 @@ interface PendingLogNote extends Partial<LogNote> {
 /** Everything whose change starts a new pattern. Absent shape is neutral. */
 type PatternContext = Pick<LogNote, "mode" | "key" | "instrument" | "bpm" | "shape">;
 
-function cloneNoteArticulation<T extends PatternNote | LogNote>(note: T): T {
+function clonePerformedNote<T extends PatternNote | LogNote>(note: T): T {
   return {
     ...note,
     articulation: note.articulation ? { ...note.articulation } : undefined,
+    pitchExpression: note.pitchExpression?.map((point) => ({ ...point })),
+    gainExpression: note.gainExpression?.map((point) => ({ ...point })),
     ...("shape" in note && note.shape ? { shape: { ...note.shape } } : {}),
   };
 }
@@ -91,6 +93,28 @@ export const usePatternsStore = defineStore(
     // Track pending notes (pressed but not yet released)
     const pendingNotes = ref<Map<string, PendingLogNote>>(new Map());
     const forcedCompletedNoteIds = new Set<string>();
+
+    function appendExpressionPoint<T extends { timeMs: number }>(
+      existing: T[] | undefined,
+      point: T,
+      neutral: T,
+      valueOf: (point: T) => number,
+    ): T[] | undefined {
+      const value = valueOf(point);
+      if (!existing && value === valueOf(neutral)) return existing;
+      const curve = existing ?? [neutral];
+      const last = curve[curve.length - 1];
+      if (point.timeMs < last.timeMs || value === valueOf(last)) return existing;
+      if (point.timeMs === last.timeMs) curve[curve.length - 1] = point;
+      else curve.push(point);
+      // Bound a very long held note while retaining both endpoints.
+      if (curve.length > 8192) {
+        const decimated = curve.filter((_, index) => index % 2 === 0);
+        if (decimated[decimated.length - 1] !== curve[curve.length - 1]) decimated.push(curve[curve.length - 1]);
+        curve.splice(0, curve.length, ...decimated);
+      }
+      return curve;
+    }
 
     function pruneForcedCompletedNoteIds(): void {
       const retainedIds = new Set(loggedNotes.value.map((note) => note.id));
@@ -461,6 +485,8 @@ export const usePatternsStore = defineStore(
         octave: note.octave,
         frequency: note.frequency,
         velocity: note.velocity,
+        pitchExpression: note.pitchExpression?.map((point) => ({ ...point })),
+        gainExpression: note.gainExpression?.map((point) => ({ ...point })),
         articulation: note.articulation ? { ...note.articulation } : undefined,
         pressTime: note.pressTime,
         releaseTime: note.releaseTime,
@@ -496,6 +522,8 @@ export const usePatternsStore = defineStore(
         octave: note.octave,
         frequency: note.frequency,
         velocity: note.velocity,
+        pitchExpression: note.pitchExpression?.map((point) => ({ ...point })),
+        gainExpression: note.gainExpression?.map((point) => ({ ...point })),
         articulation: note.articulation ? { ...note.articulation } : undefined,
         pressTime: note.pressTime,
         releaseTime: note.releaseTime,
@@ -524,7 +552,7 @@ export const usePatternsStore = defineStore(
           .toString(36)
           .substr(2, 9)}`,
         name: options.name ?? `Pattern ${new Date().toLocaleDateString()}`,
-        notes: notes.map(cloneNoteArticulation),
+        notes: notes.map(clonePerformedNote),
         duration: options.duration ?? (span.end - span.start),
         noteCount: notes.length,
         key: meta.key,
@@ -574,7 +602,7 @@ export const usePatternsStore = defineStore(
       loadedBasePatternId.value = null;
       loadedBaseMeta.value = null;
       loggedNotes.value = (options.workingNotes ?? []).map((note, index) => ({
-        ...cloneNoteArticulation(note),
+        ...clonePerformedNote(note),
         isStartingNewPattern: index === 0 ? true : note.isStartingNewPattern,
       }));
       forcedCompletedNoteIds.clear();
@@ -601,7 +629,7 @@ export const usePatternsStore = defineStore(
         forcedCompletedNoteIds.clear();
       }
 
-      loadedBaseNotes.value = pattern.notes.map(cloneNoteArticulation);
+      loadedBaseNotes.value = pattern.notes.map(clonePerformedNote);
       loadedBasePatternId.value = patternId;
       const patternOctave = resolvePatternOctave(pattern)
         ?? keyboardStore.keyboardConfig.mainOctave;
@@ -883,7 +911,7 @@ export const usePatternsStore = defineStore(
 
       savedPatterns.value.push({
         ...patternToKeep,
-        notes: patternToKeep.notes.map(cloneNoteArticulation),
+        notes: patternToKeep.notes.map(clonePerformedNote),
         isSaved: true,
         isKept: true,
       });
@@ -907,7 +935,7 @@ export const usePatternsStore = defineStore(
       savedPatterns.value.push({
         ...pattern,
         name,
-        notes: pattern.notes.map(cloneNoteArticulation),
+        notes: pattern.notes.map(clonePerformedNote),
       });
       return true;
     }
@@ -1024,6 +1052,24 @@ export const usePatternsStore = defineStore(
       pendingNotes.value.set(noteId, { ...partialLogNote, forcedPatternStart });
     }
 
+    function handleNoteExpression(event: CustomEvent): void {
+      if (!isLoggingEnabled.value) return;
+      const { noteId, cents, gain, timestamp } = event.detail ?? {};
+      const note = pendingNotes.value.get(noteId);
+      if (!note || !Number.isFinite(timestamp)) return;
+      const timeMs = Math.max(0, timestamp - note.pressTime!);
+      if (Number.isFinite(cents)) {
+        const value = Math.round(Math.max(-50, Math.min(50, cents)));
+        note.pitchExpression = appendExpressionPoint(note.pitchExpression,
+          { timeMs, cents: value }, { timeMs: 0, cents: 0 }, (point) => point.cents);
+      }
+      if (Number.isFinite(gain)) {
+        const value = Math.max(0.25, Math.min(1.75, gain));
+        note.gainExpression = appendExpressionPoint(note.gainExpression,
+          { timeMs, gain: value }, { timeMs: 0, gain: 1 }, (point) => point.gain);
+      }
+    }
+
     function handleNoteReleased(event: CustomEvent): void {
       if (!isLoggingEnabled.value) return;
       if (event.detail?.record === false) return;
@@ -1063,14 +1109,20 @@ export const usePatternsStore = defineStore(
           shape: partialNote.shape,
         }),
       );
-      // Complete the log note
+      // Audio lifecycle delivery can lag the gesture task. Discard movement
+      // after the actual gate ended rather than extending the recorded note.
+      const duration = releaseTime - partialNote.pressTime!;
+      const expression = partialNote.pitchExpression?.filter((point) => point.timeMs <= duration);
+      const gainExpression = partialNote.gainExpression?.filter((point) => point.timeMs <= duration);
       const completedLogNote: LogNote = {
         ...partialNote,
+        pitchExpression: expression?.some((point) => point.cents !== 0) ? expression : undefined,
+        gainExpression: gainExpression?.some((point) => point.gain !== 1) ? gainExpression : undefined,
         articulation: event.detail.articulation
           ? { ...event.detail.articulation }
           : partialNote.articulation ? { ...partialNote.articulation } : undefined,
         releaseTime,
-        duration: releaseTime - partialNote.pressTime!,
+        duration,
         isStartingNewPattern,
       } as LogNote;
 
@@ -1137,7 +1189,7 @@ export const usePatternsStore = defineStore(
     }
 
     function exportNotes(): LogNote[] {
-      return loggedNotes.value.map(cloneNoteArticulation);
+      return loggedNotes.value.map(clonePerformedNote);
     }
 
     function importNotes(notes: LogNote[]): void {
@@ -1145,7 +1197,7 @@ export const usePatternsStore = defineStore(
       const validNotes = notes.filter(
         (note) => note.id && note.pressTime && note.releaseTime && note.duration
       );
-      loggedNotes.value.push(...validNotes.map(cloneNoteArticulation));
+      loggedNotes.value.push(...validNotes.map(clonePerformedNote));
       loggedNotes.value.sort((left, right) => left.pressTime - right.pressTime);
       purgeOldNotes();
     }
@@ -1153,6 +1205,7 @@ export const usePatternsStore = defineStore(
     // Event listener setup
     let notePlayedListener: EventListener;
     let noteReleasedListener: EventListener;
+    let noteExpressionListener: EventListener;
 
     function setupEventListeners(): void {
       notePlayedListener = (event: Event) =>
@@ -1160,11 +1213,14 @@ export const usePatternsStore = defineStore(
       noteReleasedListener = (event: Event) =>
         handleNoteReleased(event as CustomEvent);
 
+      noteExpressionListener = (event: Event) => handleNoteExpression(event as CustomEvent);
+      window.addEventListener("note-expression", noteExpressionListener);
       window.addEventListener("note-played", notePlayedListener);
       window.addEventListener("note-released", noteReleasedListener);
     }
 
     function removeEventListeners(): void {
+      if (noteExpressionListener) window.removeEventListener("note-expression", noteExpressionListener);
       if (notePlayedListener) {
         window.removeEventListener("note-played", notePlayedListener);
       }
@@ -1236,6 +1292,7 @@ export const usePatternsStore = defineStore(
       // Internal methods (exposed for testing/debugging)
       handleNotePressed,
       handleNoteReleased,
+      handleNoteExpression,
       setupEventListeners,
       removeEventListeners,
     };

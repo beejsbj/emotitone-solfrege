@@ -147,6 +147,16 @@ describe("CodeStrip Strudel source decorations", () => {
     ]);
   });
 
+  it("keeps hand-edited relative degrees before mini-notation modifiers visible", () => {
+    const doc = EditorState.create({
+      doc: '`< 0*2 1! 2? >`.as("n").scale("C4:major")',
+    }).doc;
+    const events = parseCodeStripEvents(doc);
+    expect(events[0].notes.some((note) => note.text === "0")).toBe(true);
+    expect(events[1].notes.some((note) => note.text === "1")).toBe(true);
+    expect(events[2].notes.some((note) => note.text === "2")).toBe(true);
+  });
+
   it("does not parse absolute-note octaves as relative notes", () => {
     const doc = EditorState.create({
       doc: "`< [ {C#4, E4} ] >`.as(\"note\")",

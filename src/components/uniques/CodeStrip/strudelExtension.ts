@@ -108,7 +108,7 @@ const ABSOLUTE_NOTE_REGEX = /\b[a-gA-G](?:[#bsf]+)?-?\d+\b/g;
 // A leading relative degree may have colon control fields, but those fields are
 // metadata, not additional notes. Colons are therefore valid *after* a degree
 // and forbidden before one.
-const RELATIVE_NOTE_REGEX = /(?<![@:.\w])-?\d{1,3}(?=@|:|(?=[\s,}\]]|$))/g;
+const RELATIVE_NOTE_REGEX = /(?<![@:.\w])-?\d{1,3}(?=[^\w.]|$)/g;
 const REST_CHARACTERS = new Set(["~", "-"]);
 const NOTE_NAMES: CodeStripNote[] = ["do", "re", "mi", "fa", "sol", "la", "ti"];
 

@@ -362,27 +362,24 @@ describe("superdoughAudio live note handling", () => {
     expect(audio.isPrewarmed("gm_celesta")).toBe(true);
   });
 
-  it("decodes only the default piano during startup", async () => {
-    hoisted.mockGetSound.mockImplementation((name: string) =>
-      name === "piano"
-        ? { data: { samples: ["https://example.test/piano.wav"] } }
-        : {
-            data: {
-              type: "soundfont",
-              fonts: [`${name}_font`],
-            },
-          }
-    );
+  it("prepares only the default oscillator during startup, decoding no sample banks", async () => {
+    hoisted.mockGetSound.mockImplementation((name: string) => {
+      if (name === "triangle") return { data: { type: "synth" } };
+      if (name === "piano") {
+        return { data: { samples: ["https://example.test/piano.wav"] } };
+      }
+      return { data: { type: "soundfont", fonts: [`${name}_font`] } };
+    });
     const audio = await import("@/services/superdoughAudio");
+    const { DEFAULT_INSTRUMENT } = await import("@/data/instruments");
 
     await audio.initSuperdoughAudio();
 
-    expect(hoisted.mockLoadBuffer).toHaveBeenCalledTimes(1);
-    expect(hoisted.mockLoadBuffer).toHaveBeenCalledWith(
-      "https://example.test/piano.wav",
-      hoisted.mockAudioContext
-    );
+    expect(DEFAULT_INSTRUMENT).toBe("triangle");
+    expect(audio.isPrewarmed("triangle")).toBe(true);
+    expect(hoisted.mockLoadBuffer).not.toHaveBeenCalled();
     expect(hoisted.mockPrewarmSoundfont).not.toHaveBeenCalled();
+    expect(audio.isPrewarmed("piano")).toBe(false);
   });
 
   it("leaves a soundfont cold when its preset fails to warm", async () => {

@@ -13,6 +13,7 @@ import * as audio from "@/services/superdoughAudio";
 
 const EPOCH = 1_800_000_000_000;
 let pinia: Pinia;
+let recorderStore: ReturnType<typeof usePatternsStore> | undefined;
 
 function noteEvents(type: string) {
   return vi.mocked(window.dispatchEvent).mock.calls
@@ -22,16 +23,8 @@ function noteEvents(type: string) {
 }
 
 function connectRecorder() {
-  const patterns = usePatternsStore();
-  const handlers = new Map<string, EventListener>();
-  for (const [type, listener] of vi.mocked(window.addEventListener).mock.calls) {
-    if (type === "note-played" || type === "note-released") handlers.set(type, listener as EventListener);
-  }
-  vi.mocked(window.dispatchEvent).mockImplementation((event) => {
-    handlers.get(event.type)?.(event);
-    return true;
-  });
-  return patterns;
+  recorderStore = usePatternsStore();
+  return recorderStore;
 }
 
 describe("live styles through music, recording, and Strudel", () => {
@@ -39,7 +32,8 @@ describe("live styles through music, recording, and Strudel", () => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     vi.setSystemTime(EPOCH);
-    vi.spyOn(window, "addEventListener").mockImplementation(() => {});
+    localStorage.removeItem("emotitone-visual-config");
+    vi.spyOn(window, "dispatchEvent");
     vi.mocked(audio.attackNote).mockResolvedValue(undefined);
     vi.mocked(audio.prewarmSoundSamples).mockResolvedValue(undefined);
     vi.spyOn(performance, "now").mockImplementation(() => Date.now() - EPOCH);
@@ -52,8 +46,9 @@ describe("live styles through music, recording, and Strudel", () => {
   });
 
   afterEach(() => {
+    recorderStore?.removeEventListeners();
+    recorderStore = undefined;
     disposePinia(pinia);
-    vi.mocked(window.dispatchEvent).mockReset();
     vi.clearAllTimers();
     vi.restoreAllMocks();
     vi.useRealTimers();

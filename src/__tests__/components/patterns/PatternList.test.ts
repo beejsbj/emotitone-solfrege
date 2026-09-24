@@ -407,6 +407,72 @@ describe("PatternList production adapter", () => {
     expect(reelItems(wrapper).find((item) => item.id === originalId)?.deleteArmed).toBe(true);
   });
 
+  it("orders notes by onset time regardless of input sequence", async () => {
+    const patternsStore = usePatternsStore();
+    // Create a pattern with deliberately out-of-order pressTime
+    const pattern = createUserPattern("unordered-pattern", {
+      notes: [
+        {
+          id: "note-3",
+          note: "G4",
+          scaleDegree: 4,
+          scaleIndex: 4,
+          pitchClassIndex: 7,
+          isBorrowed: false,
+          octave: 4,
+          pressTime: 1500,
+          releaseTime: 1750,
+          duration: 250,
+        },
+        {
+          id: "note-1",
+          note: "C4",
+          scaleDegree: 0,
+          scaleIndex: 0,
+          pitchClassIndex: 0,
+          isBorrowed: false,
+          octave: 4,
+          pressTime: 1000,
+          releaseTime: 1250,
+          duration: 250,
+        },
+        {
+          id: "note-2",
+          note: "E4",
+          scaleDegree: 2,
+          scaleIndex: 2,
+          pitchClassIndex: 4,
+          isBorrowed: false,
+          octave: 4,
+          pressTime: 1250,
+          releaseTime: 1500,
+          duration: 250,
+        },
+      ],
+      noteCount: 3,
+      duration: 750,
+    });
+    patternsStore.savedPatterns = [pattern];
+    colors.byPitchClass.mockImplementation((pitchClass) => {
+      const colorMap: { [key: number]: string } = {
+        0: "rgb(255, 0, 0)",
+        4: "rgb(0, 255, 0)",
+        7: "rgb(0, 0, 255)",
+      };
+      return colorMap[pitchClass] || "rgb(128, 128, 128)";
+    });
+
+    const wrapper = shallowMount(PatternList);
+    const mapped = reelItems(wrapper).find((item) => item.id === pattern.id);
+
+    // Assert that barTape segments are ordered by pressTime, not input order
+    expect(mapped?.barTape).toEqual([
+      { color: "rgb(255, 0, 0)", durationMs: 250 },
+      { color: "rgb(0, 255, 0)", durationMs: 250 },
+      { color: "rgb(0, 0, 255)", durationMs: 250 },
+    ]);
+  });
+
   it("retains clipboard and Strudel effects in the production adapter", async () => {
     const patternsStore = usePatternsStore();
     const pattern = createUserPattern("share-me");

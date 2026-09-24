@@ -271,12 +271,21 @@ try {
   const backend = process.env.LAB_UI_REF ? { backend: 'superdough', revision } : await evaluate("import('/src/services/livePlayback.ts').then(module=>module.getLivePlaybackDiagnostics('piano'))", true);
   const sourceHashes = await hashSources();
   const comparisonHashes = comparisonHashesBefore ? await hashComparison() : null;
+  const trialChecks = [
+    { name: 'All inputs are trusted real browser events', passed: trials.every((row) => row.input?.isTrusted) },
+    { name: 'Every trial produces captured audio', passed: trials.every((row) => row.onsetAudioTime !== null) },
+    { name: 'Actual piano retains two distinct audible stereo channels', passed: trials.every(row=>row.stereo.rightPeak>0.001 && row.stereo.differenceRms>0.00001) },
+    { name: 'Previous voice tails do not contaminate trial starts', passed: trials.every((row) => row.preInputPeak < 0.001) },
+  ];
   const results = { recordedAt: new Date().toISOString(), revision, appRootMode: process.env.LAB_UI_REF ? 'immutable git archive' : 'current checkout', sourceHashesBefore, sourceHashes, backend,
     superdoughSha256: createHash('sha256').update(await readFile(join(repoRoot, 'node_modules/superdough/dist/index.mjs'))).digest('hex'),
     bank, environment: state, scope: 'Normal application UI and sample initialization, CDP trusted touch/keyboard input, native graph PCM capture. Haptic/UI stress is injected platform/main-thread delay; no physical input/output latency claim.',
     trials, stress, architecture, warnings, comparison, comparisonHashesBefore, comparisonHashes,
     labNativeLookaheadMs: process.env.LAB_NATIVE_LOOKAHEAD_MS ? Number(process.env.LAB_NATIVE_LOOKAHEAD_MS) : null,
     requestedBackend: requestedBackend ?? null,
+    // Focused modes (LAB_UI_TRIALS=0 or a filter matching nothing) run no trials;
+    // list those checks as not exercised instead of passing them vacuously.
+    notExercised: trials.length ? [] : trialChecks.map((check) => check.name),
     checks: [
       ...(comparison?.checks ?? []),
       ...(comparisonHashesBefore ? [{ name: 'Comparison harness remained unchanged during capture', passed: JSON.stringify(comparisonHashesBefore) === JSON.stringify(comparisonHashes) }] : []),
@@ -291,14 +300,11 @@ try {
         && (row.expectedOnsets === undefined || row.onsets.length === row.expectedOnsets)
         && (row.capacitySummary === undefined || row.capacitySummary.maxThreeSampleMean < 0.8)
         && (row.expectedFirst3s === undefined || row.requireRhythmContinuity === false || (row.detectedFirst3s === row.expectedFirst3s && row.maxIntervalDeviationMs < 1))})),
-      { name: 'All inputs are trusted real browser events', passed: trials.every((row) => row.input?.isTrusted) },
-      { name: 'Every trial produces captured audio', passed: trials.every((row) => row.onsetAudioTime !== null) },
-      { name: 'Actual piano retains two distinct audible stereo channels', passed: trials.every(row=>row.stereo.rightPeak>0.001 && row.stereo.differenceRms>0.00001) },
-      { name: 'Previous voice tails do not contaminate trial starts', passed: trials.every((row) => row.preInputPeak < 0.001) },
+      ...(trials.length ? trialChecks : []),
     ] };
   const output = process.argv[2] || join(labRoot, 'results/ui-current.json');
   await writeFile(output, JSON.stringify(results, null, 2) + '\n');
-  console.log(JSON.stringify({ output, checks: results.checks, warnings: warnings.slice(-5) }));
+  console.log(JSON.stringify({ output, checks: results.checks, notExercised: results.notExercised, warnings: warnings.slice(-5) }));
   if (results.checks.some((check) => !check.passed)) process.exitCode = 1;
 } catch (error) {
   const output = process.argv[2] || join(labRoot, 'results/ui-current.json');

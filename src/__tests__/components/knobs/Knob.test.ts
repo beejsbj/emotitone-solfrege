@@ -49,14 +49,12 @@ describe("Knob public interface", () => {
     wrappers = [];
     document.body.innerHTML = "";
     uiBeatClock.stop();
+    vi.restoreAllMocks();
   });
 
-  // Global setup mocks document events. Exercise the actual registered handlers.
   const documentEvent = async (type: string, event: Event) => {
-    const registration = vi.mocked(document.addEventListener).mock.calls
-      .filter(([name]) => name === type).at(-1);
-    expect(registration).toBeDefined();
-    (registration![1] as EventListener)(event);
+    expect(event.type).toBe(type);
+    document.dispatchEvent(event);
     await nextTick();
   };
 
@@ -196,6 +194,7 @@ describe("Knob public interface", () => {
     expect(document.querySelector(".knob-drag-value")).toBeNull();
     expect(wrapper.emitted("update:modelValue")).toBeUndefined();
     await wrapper.trigger("mousedown", { clientX: 150, clientY: 300 });
+    vi.spyOn(document, "removeEventListener");
     wrapper.unmount();
     wrappers = wrappers.filter((entry) => entry !== wrapper);
     expect(document.querySelector(".knob-drag-value")).toBeNull();
@@ -638,11 +637,8 @@ describe("Knob public interface", () => {
     document.dispatchEvent(mouseAt("mousemove", 130, 102));
     document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
 
-    // happy-dom does not deliver this component-attached mousedown into the
-    // native document listener path. Keep the setter observable so the gap is
-    // explicit; live-browser QA owns the positive scrollLeft handoff proof.
-    expect(setScrollLeft).not.toHaveBeenCalled();
-    expect(scrollLeft).toBe(40);
+    expect(setScrollLeft).toHaveBeenCalledWith(10);
+    expect(scrollLeft).toBe(10);
     expect(knob.emitted("update:modelValue")).toBeUndefined();
     expect(triggerUIHaptic).not.toHaveBeenCalled();
   });

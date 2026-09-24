@@ -11,6 +11,7 @@ import {
   mutatePatternMode,
 } from "@/data/patterns";
 import { DEFAULT_SOURCE_BPM } from "@/services/StrudelNotation";
+import { isSameShape, NEUTRAL_SHAPE, resolveLiveEnvelope } from "@/services/shape";
 import {
   deserializePatternsState,
   serializePatternsState,
@@ -23,6 +24,7 @@ import type {
   PatternSource,
 } from "@/types/patterns";
 import type { ChromaticNote, MusicalMode, SolfegeData } from "@/types/music";
+import type { Shape } from "@/types/instrument";
 
 // Default configuration
 const DEFAULT_CONFIG: PatternConfig = {
@@ -60,8 +62,15 @@ interface PendingLogNote extends Partial<LogNote> {
   forcedPatternStart: boolean;
 }
 
+/** Everything whose change starts a new pattern. Absent shape is neutral. */
+type PatternContext = Pick<LogNote, "mode" | "key" | "instrument" | "bpm" | "shape">;
+
 function cloneNoteArticulation<T extends PatternNote | LogNote>(note: T): T {
-  return { ...note, articulation: note.articulation ? { ...note.articulation } : undefined };
+  return {
+    ...note,
+    articulation: note.articulation ? { ...note.articulation } : undefined,
+    ...("shape" in note && note.shape ? { shape: { ...note.shape } } : {}),
+  };
 }
 
 export const usePatternsStore = defineStore(
@@ -104,6 +113,7 @@ export const usePatternsStore = defineStore(
       key: ChromaticNote;
       instrument: string;
       bpm: number;
+      shape: Shape;
       octave?: number;
       duration?: number;
       trailingSilence?: number;
@@ -143,6 +153,7 @@ export const usePatternsStore = defineStore(
       key: musicStore.currentKey as ChromaticNote,
       instrument: instrumentStore.currentInstrument,
       bpm: resolveBpm(visualConfigStore.config.codeStrip.bpm),
+      shape: instrumentStore.shape,
     }));
 
     const currentSketchMeta = computed(() => {
@@ -153,6 +164,7 @@ export const usePatternsStore = defineStore(
           key: firstLiveNote.key,
           instrument: firstLiveNote.instrument,
           bpm: resolveBpm(firstLiveNote.bpm),
+          shape: firstLiveNote.shape ?? { ...NEUTRAL_SHAPE },
         };
       }
 
@@ -348,29 +360,13 @@ export const usePatternsStore = defineStore(
       );
     }
 
-    function isSamePatternContext(
-      left:
-        | {
-            mode: MusicalMode;
-            key: ChromaticNote;
-            instrument: string;
-            bpm?: number;
-          }
-        | Pick<LogNote, "mode" | "key" | "instrument" | "bpm">,
-      right:
-        | {
-            mode: MusicalMode;
-            key: ChromaticNote;
-            instrument: string;
-            bpm?: number;
-          }
-        | Pick<LogNote, "mode" | "key" | "instrument" | "bpm">
-    ): boolean {
+    function isSamePatternContext(left: PatternContext, right: PatternContext): boolean {
       return (
         left.key === right.key &&
         left.mode === right.mode &&
         left.instrument === right.instrument &&
-        resolveBpm(left.bpm) === resolveBpm(right.bpm)
+        resolveBpm(left.bpm) === resolveBpm(right.bpm) &&
+        isSameShape(left.shape, right.shape)
       );
     }
 
@@ -433,27 +429,8 @@ export const usePatternsStore = defineStore(
         return true;
       }
 
-      // Check if key changed
-      if (currentNote.key !== previousNote.key) {
-        return true;
-      }
-
-      // Check if mode changed
-      if (currentNote.mode !== previousNote.mode) {
-        return true;
-      }
-
-      // Check if instrument changed
-      if (currentNote.instrument !== previousNote.instrument) {
-        return true;
-      }
-
-      // Check if source BPM changed
-      if (resolveBpm(currentNote.bpm) !== resolveBpm(previousNote.bpm)) {
-        return true;
-      }
-
-      return false;
+      // Key, mode, instrument, source BPM, or Shape changed between notes
+      return !isSamePatternContext(currentNote as PatternContext, previousNote);
     }
 
     // State for manually forcing next note to start new pattern
@@ -500,6 +477,7 @@ export const usePatternsStore = defineStore(
         mode: firstNote.mode,
         instrument: firstNote.instrument,
         bpm: resolveBpm(firstNote.bpm),
+        shape: firstNote.shape ? { ...firstNote.shape } : undefined,
         createdAt: span.end,
         isDefault: false,
         isSaved: false,
@@ -528,7 +506,7 @@ export const usePatternsStore = defineStore(
     // Create a Pattern from PatternNote[] + explicit meta
     function createPatternFromNoteSet(
       notes: PatternNote[],
-      meta: { mode: MusicalMode; key: ChromaticNote; instrument: string; bpm: number },
+      meta: { mode: MusicalMode; key: ChromaticNote; instrument: string; bpm: number; shape?: Shape },
       options: {
         name?: string;
         source?: PatternSource;
@@ -553,6 +531,7 @@ export const usePatternsStore = defineStore(
         mode: meta.mode,
         instrument: meta.instrument,
         bpm: resolveBpm(meta.bpm),
+        shape: meta.shape ? { ...meta.shape } : undefined,
         createdAt: Date.now(),
         isDefault: false,
         isSaved: options.isSaved ?? true,
@@ -569,7 +548,7 @@ export const usePatternsStore = defineStore(
      */
     function importPatternCandidates(
       candidates: ImportedPatternCandidate[],
-      meta: { mode: MusicalMode; key: ChromaticNote; instrument: string; bpm: number },
+      meta: { mode: MusicalMode; key: ChromaticNote; instrument: string; bpm: number; shape?: Shape },
       options: ImportPatternCandidatesOptions = {},
     ): string[] {
       const imported = candidates
@@ -629,11 +608,13 @@ export const usePatternsStore = defineStore(
       const patternDuration = resolvePatternDuration(pattern);
       const patternSpan = pattern.notes.length ? noteSpan(pattern.notes) : undefined;
       const soundingDuration = patternSpan ? patternSpan.end - patternSpan.start : 0;
+      const patternShape: Shape = { ...(pattern.shape ?? NEUTRAL_SHAPE) };
       const patternMeta = {
         mode: pattern.mode,
         key: pattern.key,
         instrument: pattern.instrument,
         bpm: resolveBpm(pattern.bpm),
+        shape: patternShape,
         octave: patternOctave,
         duration: patternDuration,
         trailingSilence: Math.max(0, patternDuration - soundingDuration),
@@ -651,22 +632,24 @@ export const usePatternsStore = defineStore(
         visualConfigStore.updateConfig("codeStrip", {
           bpm: resolveBpm(pattern.bpm),
         });
+        // Selecting the instrument recalls its remembered Shape; the
+        // pattern's Shape then wins and becomes that instrument's memory.
+        // setInstrument assigns synchronously, before any warmup await.
+        void instrumentStore.setInstrument(pattern.instrument).then((result) => {
+          if (
+            result.status === "failed" &&
+            result.fallback &&
+            loadedBasePatternId.value === patternId &&
+            loadedBaseMeta.value?.instrument === result.instrument
+          ) {
+            // The fallback instrument brings its own remembered Shape.
+            reskinLoadedBase(result.fallback, instrumentStore.shape);
+          }
+        });
+        instrumentStore.applyShape(patternShape);
       } finally {
         isContextSyncing = false;
       }
-      void instrumentStore.setInstrument(pattern.instrument).then((result) => {
-        if (
-          result.status === "failed" &&
-          result.fallback &&
-          loadedBasePatternId.value === patternId &&
-          loadedBaseMeta.value?.instrument === result.instrument
-        ) {
-          loadedBaseMeta.value = {
-            ...patternMeta,
-            instrument: result.fallback,
-          };
-        }
-      });
 
       // Create fresh boundary so new live notes start clean after the base
       setNextNoteAsNewPattern();
@@ -674,21 +657,44 @@ export const usePatternsStore = defineStore(
 
     let isContextSyncing = false;
 
+    /**
+     * Move the loaded base to another instrument and/or Shape. Envelope stages
+     * that came from the old instrument + Shape follow the new pair; other
+     * values (e.g. 30ms rhythmic gates) stay. Both ends resolve against the
+     * instrument the notes carry at that moment, so instrument and Shape
+     * changes compose in any order.
+     */
+    function reskinLoadedBase(instrument: string, shape: Shape): void {
+      const meta = loadedBaseMeta.value;
+      if (!meta || (meta.instrument === instrument && isSameShape(meta.shape, shape))) return;
+      const from = resolveLiveEnvelope(meta.instrument, meta.shape);
+      const to = resolveLiveEnvelope(instrument, shape);
+      loadedBaseNotes.value = loadedBaseNotes.value.map((note) => {
+        if (!note.articulation) return note;
+        const articulation = { ...note.articulation };
+        // Compare at knob precision; recorded values may carry float noise.
+        if (Number(articulation.attack.toFixed(3)) === from.attack) articulation.attack = to.attack;
+        if (Number(articulation.release.toFixed(2)) === from.release) articulation.release = to.release;
+        return { ...note, articulation };
+      });
+      loadedBaseMeta.value = { ...meta, instrument, shape: { ...shape } };
+    }
+
+    // An untouched loaded base follows the instrument and its Shape. One
+    // watcher reads both, so an instrument switch that also recalls a Shape
+    // re-skins once, from the pair the notes carry to the new pair. A held
+    // note counts as playing over the base: it keeps its press-time Shape.
     watch(
-      () => instrumentStore.currentInstrument,
-      (newInstrument) => {
+      () => [instrumentStore.currentInstrument, instrumentStore.shape] as const,
+      ([newInstrument, newShape]) => {
         if (isContextSyncing) return;
         if (
           loadedBaseNotes.value.length > 0 &&
           currentWorkingNotes.value.length === 0 &&
-          !isStripCleared.value &&
-          loadedBaseMeta.value &&
-          loadedBaseMeta.value.instrument !== newInstrument
+          pendingNotes.value.size === 0 &&
+          !isStripCleared.value
         ) {
-          loadedBaseMeta.value = {
-            ...loadedBaseMeta.value,
-            instrument: newInstrument,
-          };
+          reskinLoadedBase(newInstrument, newShape);
         }
       }
     );
@@ -1003,6 +1009,9 @@ export const usePatternsStore = defineStore(
         instrument: event.detail.source === "live-play-style"
           ? instrument ?? instrumentStore.currentInstrument
           : instrumentStore.currentInstrument,
+        // Held inputs carry their press-time Shape, so a knob sweep during
+        // one hold (repeat/arp pulses) stays inside one pattern.
+        shape: { ...(event.detail.shape ?? instrumentStore.shape) },
         bpm: resolveBpm(visualConfigStore.config.codeStrip.bpm),
         pressTime: Number.isFinite(event.detail.timestamp) ? event.detail.timestamp : Date.now(),
         sessionId: currentSessionId.value,
@@ -1051,6 +1060,7 @@ export const usePatternsStore = defineStore(
           mode: partialNote.mode as MusicalMode,
           instrument: partialNote.instrument as string,
           bpm: partialNote.bpm,
+          shape: partialNote.shape,
         }),
       );
       // Complete the log note

@@ -13,6 +13,7 @@ import { useInstrumentStore } from "@/stores/instrument";
 import { useMusicStore } from "@/stores/music";
 import { usePatternsStore } from "@/stores/patterns";
 import { useVisualConfigStore } from "@/stores/visualConfig";
+import type { Shape } from "@/types/instrument";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 
 export type HummingCaptureStatus =
@@ -46,6 +47,7 @@ export function useHummingCapture() {
     mode: MusicalMode;
     instrument: string;
     bpm: number;
+    shape: Shape;
   } | null = null;
 
   // Live presentation follows the controls; analysis retains the take's starting context.
@@ -94,6 +96,7 @@ export function useHummingCapture() {
       mode: musicStore.currentMode as MusicalMode,
       instrument: instrumentStore.currentInstrument,
       bpm: visualConfigStore.config.codeStrip.bpm,
+      shape: { ...instrumentStore.shape },
     };
     stageBridge = createHummingStageBridge(captureContext);
 

@@ -9,11 +9,13 @@
  */
 
 import type { LogNote } from "@/types/patterns";
+import type { Shape } from "@/types/instrument";
 import type { MusicalMode } from "@/types/music";
 import { Note as TonalNote } from "@tonaljs/tonal";
 import { getScaleForMode, normalizeScaleIndex } from "@/data";
 import { prepareRecordedNotes, recordedLoopTailMs, type PreparedRecordedNote } from "./recordedTiming";
-import { getLiveArticulation, type LiveArticulation } from "./liveArticulation";
+import type { LiveArticulation } from "./liveArticulation";
+import { resolveLiveEnvelope } from "./shape";
 
 export interface StrudelConfig {
   /** Playback tempo in BPM. Used by the live runtime, not @ duration sizing. @default 120 */
@@ -34,22 +36,12 @@ export interface StrudelConfig {
   scaleMode?: MusicalMode;
   /** Optional scale octave override for relative notation. */
   scaleOctave?: number;
-  /** Lowpass filter cutoff frequency in Hz. */
-  cutoff?: number;
-  /** Filter resonance (Q factor). */
-  resonance?: number;
-  /** Envelope attack in seconds. */
-  attack?: number;
-  /** Envelope release in seconds. */
-  release?: number;
-  /** Whether attack was intentionally overridden, including when equal to its default. */
-  attackOverride?: boolean;
-  /** Whether release was intentionally overridden, including when equal to its default. */
-  releaseOverride?: boolean;
-  /** Reverb wet amount. */
-  room?: number;
-  /** Echo wet amount. Uses fixed delaytime=.25 and delayfeedback=.3. */
-  delay?: number;
+  /**
+   * The Shape the pattern was played with: filter and effects modifiers, and
+   * the envelope fallback for notes without recorded articulation. Recorded
+   * per-note articulation always wins. Absent means neutral.
+   */
+  shape?: Shape;
   /** Optional full phrase duration, including silence after the final note. */
   patternDurationMs?: number;
 }
@@ -109,6 +101,7 @@ export class StrudelNotation {
   private config: StrudelConfig;
   private renderRelative = false;
   private controlFields: RecordedControl[] = [];
+  private fallbackEnvelope: LiveArticulation = resolveLiveEnvelope(DEFAULT_CONFIG.sound);
 
   constructor(notes: LogNote[], config?: Partial<StrudelConfig>) {
     this.notes = prepareRecordedNotes(notes).sort(
@@ -126,12 +119,13 @@ export class StrudelNotation {
 
     this.renderRelative = this.config.notationType === "relative" &&
       this.notes.every((note) => this.relativeNoteValue(note) != null);
-    const envelope = getLiveArticulation(this.config.sound);
-    const shaped = this.shapedEnvelope();
-    // A Shape override is one value for the whole take, like live playback.
-    this.controlFields = RECORDED_CONTROLS.filter(control => !(control in shaped) &&
-      this.notes.some(note => this.noteControl(note, control) !==
-        (control === 'clip' ? 1 : envelope[control])));
+    this.fallbackEnvelope = resolveLiveEnvelope(this.config.sound, this.config.shape);
+    // A control varies per note only when the take's values differ; a uniform
+    // value is printed once as a global modifier.
+    const values = new Map(RECORDED_CONTROLS.map(control =>
+      [control, this.notes.map(note => this.noteControl(note, control))] as const));
+    this.controlFields = RECORDED_CONTROLS.filter(control =>
+      new Set(values.get(control)).size > 1);
     const barMs = barLengthMs(this.config);
     const origin = this.notes[0].pressTime;
     const tokens: string[] = [];
@@ -180,10 +174,10 @@ export class StrudelNotation {
     // normalize the entire take into one cycle, regardless of its duration.
     const inner = mergeStrudelRests(tokens, this.config.precision).join(" ");
     const cpmExpression = `${this.config.bpm} / ${this.config.beatsPerBar}`;
-    // Each mapped column is present on every note. Apply global defaults only
-    // to unmapped controls so they cannot overwrite recorded per-note values.
+    // Each mapped column is present on every note. Globals cover only the
+    // unmapped controls so they cannot overwrite recorded per-note values.
     const controls = RECORDED_CONTROLS.filter(control => !this.controlFields.includes(control))
-      .map(control => `.${control}(${control === 'clip' ? 1 : shaped[control as keyof typeof shaped] ?? envelope[control]})`).join('');
+      .map(control => `.${control}(${values.get(control)![0]})`).join('');
     const filters = this.filterModifiers();
     const effects = this.effectModifiers();
     const mapping = [this.renderRelative ? 'n' : 'note', ...this.controlFields].join(':');
@@ -294,22 +288,8 @@ export class StrudelNotation {
     return mergeStrudelRests(tokens, precision).join(" ");
   }
 
-  /** Shape-tab envelope stages that replace recorded and natural values. */
-  private shapedEnvelope(): { attack?: number; release?: number } {
-    const { attack, release, attackOverride, releaseOverride } = this.config;
-    const shaped: { attack?: number; release?: number } = {};
-    // Undefined override flags keep the legacy rule: non-default values are intent.
-    if (attack !== undefined && (attackOverride === true || (attackOverride === undefined && attack !== 0.003))) {
-      shaped.attack = Number(attack.toFixed(3));
-    }
-    if (release !== undefined && (releaseOverride === true || (releaseOverride === undefined && release !== 0.12))) {
-      shaped.release = Number(release.toFixed(2));
-    }
-    return shaped;
-  }
-
   private filterModifiers(): string {
-    const { cutoff, resonance } = this.config;
+    const { cutoff, resonance } = this.config.shape ?? {};
     let modifiers = "";
     if (cutoff !== undefined && cutoff < 12000) modifiers += `.lpf(${Math.round(cutoff)})`;
     if (resonance !== undefined && resonance > 0) modifiers += `.lpq(${Number(resonance.toFixed(1))})`;
@@ -317,7 +297,7 @@ export class StrudelNotation {
   }
 
   private effectModifiers(): string {
-    const { room, delay } = this.config;
+    const { room, delay } = this.config.shape ?? {};
     let modifiers = "";
     if (room !== undefined && room > 0) modifiers += `.room(${Number(room.toFixed(3))})`;
     if (delay !== undefined && delay > 0) {
@@ -339,7 +319,7 @@ export class StrudelNotation {
     const value = note.articulation?.[control];
     return typeof value === 'number' && Number.isFinite(value) && value >= 0 &&
       (control !== 'sustain' || value <= 1)
-      ? value : getLiveArticulation(this.config.sound)[control];
+      ? value : this.fallbackEnvelope[control];
   }
 
   private relativeNoteValue(note: LogNote) {

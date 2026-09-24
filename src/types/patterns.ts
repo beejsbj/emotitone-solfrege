@@ -5,6 +5,7 @@
 
 import type { ChromaticNote, MusicalMode, SolfegeData, Note } from "./music";
 import type { LiveArticulation } from "@/services/liveArticulation";
+import type { Shape } from "./instrument";
 
 /**
  * Pattern store state interface
@@ -68,6 +69,8 @@ export interface LogNote {
   instrument: string;
   /** Source tempo used to interpret this note's Strudel duration context */
   bpm?: number;
+  /** Shape at input onset; absent (legacy) means the neutral Shape. */
+  shape?: Shape;
   /** Velocity/volume (0-1) */
   velocity?: number;
 
@@ -187,6 +190,8 @@ export interface Pattern {
   mode: MusicalMode;
   //  Primary instrument for this pattern /
   instrument: string;
+  //  Shape (Shape-tab sound context) this pattern was played with; absent means neutral /
+  shape?: Shape;
 
   //  Visual color associated with this pattern (from color system) /
   color?: string;

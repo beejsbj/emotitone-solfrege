@@ -506,7 +506,8 @@ describe('InstrumentSelector.vue', () => {
       expect(sculptor.find(`[data-testid="shape-knob-${key}"]`).exists()).toBe(true)
     }
     expect(sculptor.findAll('.knob-face--brass')).toHaveLength(6)
-    expect(sculptor.get('[data-testid="shape-knob-attack"]').text()).toContain('Auto')
+    expect(sculptor.get('[data-testid="shape-knob-attack"]').text()).toContain('3ms')
+    expect(sculptor.get('[data-testid="shape-knob-release"]').text()).toContain('0.12s')
     const knobs = sculptor.findAllComponents(Knob)
     knobs[4].vm.$emit('update:modelValue', 0.35)
     knobs[5].vm.$emit('update:modelValue', 0.2)

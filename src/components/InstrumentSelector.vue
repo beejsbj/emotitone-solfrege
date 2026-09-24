@@ -13,6 +13,9 @@ import { RotateCcw, Search, X } from "lucide-vue-next";
 import { instrumentIconFor } from "@/components/primatives/instrumentIcon";
 import Knob from "@/components/primatives/Knob/index.vue";
 import { displayInstrumentName } from "@/data/instruments";
+import { categoriseInstrument as categorise } from "@/data/instrumentCatalog";
+import { SHAPE_KNOB_RANGES } from "@/services/shape";
+import type { InstrumentCategory as Category } from "@/types/instrument";
 
 const drawerContentHeight = ref<number>();
 const topDrawerRef = ref<
@@ -51,15 +54,6 @@ const instrumentIcon = computed(() => instrumentIconFor(currentInstrumentId.valu
 const allSounds = ref<string[]>([]);
 const query = ref("");
 
-type Category =
-  | "synths"
-  | "keyboards"
-  | "mallets"
-  | "strings"
-  | "organs"
-  | "winds"
-  | "gm";
-
 const CATEGORY_ORDER: Category[] = [
   "synths",
   "keyboards",
@@ -90,276 +84,6 @@ const CATEGORY_SHORT_LABELS: Record<Category, string> = {
   gm: "GM",
 };
 
-const KEYBOARD_SOUNDS = new Set([
-  "piano",
-  "steinway",
-  "kawai",
-  "fmpiano",
-  "clavisynth",
-  "gm_piano",
-  "gm_epiano1",
-  "gm_epiano2",
-  "gm_harpsichord",
-  "gm_clavinet",
-  "gm_music_box",
-  "gm_celesta",
-]);
-const MALLET_SOUNDS = new Set([
-  "marimba",
-  "vibraphone",
-  "vibraphone_bowed",
-  "vibraphone_soft",
-  "kalimba",
-  "kalimba2",
-  "kalimba3",
-  "kalimba4",
-  "kalimba5",
-  "glockenspiel",
-  "tubularbells",
-  "tubularbells2",
-  "xylophone_hard_ff",
-  "xylophone_hard_pp",
-  "xylophone_medium_ff",
-  "xylophone_medium_pp",
-  "xylophone_soft_ff",
-  "xylophone_soft_pp",
-  "gm_glockenspiel",
-  "gm_xylophone",
-  "gm_vibraphone",
-  "gm_marimba",
-  "gm_tubular_bells",
-  "gm_steel_drums",
-  "gm_kalimba",
-]);
-const STRING_SOUNDS = new Set([
-  "harp",
-  "folkharp",
-  "gm_orchestral_harp",
-  "gm_pizzicato_strings",
-  "gm_tremolo_strings",
-  "gm_string_ensemble_1",
-  "gm_string_ensemble_2",
-  "gm_synth_strings_1",
-  "gm_synth_strings_2",
-  "gm_violin",
-  "gm_viola",
-  "gm_cello",
-  "gm_contrabass",
-  "gm_fiddle",
-]);
-const ORGAN_SOUNDS = new Set([
-  "organ_full",
-  "organ_4inch",
-  "organ_8inch",
-  "pipeorgan_loud",
-  "pipeorgan_quiet",
-  "pipeorgan_loud_pedal",
-  "pipeorgan_quiet_pedal",
-  "gm_church_organ",
-  "gm_percussive_organ",
-  "gm_rock_organ",
-  "gm_reed_organ",
-  "gm_drawbar_organ",
-  "organ",
-]);
-const WIND_SOUNDS = new Set([
-  "sax",
-  "sax_stacc",
-  "sax_vib",
-  "saxello",
-  "saxello_stacc",
-  "saxello_vib",
-  "recorder_alto_stacc",
-  "recorder_alto_sus",
-  "recorder_alto_vib",
-  "recorder_bass_stacc",
-  "recorder_bass_sus",
-  "recorder_bass_vib",
-  "recorder_soprano_stacc",
-  "recorder_soprano_sus",
-  "recorder_tenor_stacc",
-  "recorder_tenor_sus",
-  "recorder_tenor_vib",
-  "ocarina",
-  "ocarina_small",
-  "ocarina_small_stacc",
-  "ocarina_vib",
-  "harmonica",
-  "harmonica_soft",
-  "harmonica_vib",
-  "super64",
-  "super64_acc",
-  "super64_vib",
-  "gm_flute",
-  "gm_clarinet",
-  "gm_oboe",
-  "gm_bassoon",
-  "gm_piccolo",
-  "gm_recorder",
-  "gm_pan_flute",
-  "gm_blown_bottle",
-  "gm_shakuhachi",
-  "gm_whistle",
-  "gm_ocarina",
-  "gm_english_horn",
-  "gm_alto_sax",
-  "gm_tenor_sax",
-  "gm_soprano_sax",
-  "gm_baritone_sax",
-  "gm_shanai",
-  "gm_sitar",
-  "gm_koto",
-  "gm_shamisen",
-  "gm_dulcimer",
-  "gm_banjo",
-]);
-const SYNTH_SOUNDS = new Set([
-  "triangle",
-  "sine",
-  "square",
-  "sawtooth",
-  "pulse",
-  "supersaw",
-  "tri",
-  "sin",
-  "sqr",
-  "saw",
-  "z_sine",
-  "z_square",
-  "z_sawtooth",
-  "z_triangle",
-  "gm_lead_1_square",
-  "gm_lead_2_sawtooth",
-  "gm_lead_3_calliope",
-  "gm_lead_4_chiff",
-  "gm_lead_5_charang",
-  "gm_lead_6_voice",
-  "gm_lead_7_fifths",
-  "gm_lead_8_bass_lead",
-  "gm_pad_new_age",
-  "gm_pad_warm",
-  "gm_pad_poly",
-  "gm_pad_choir",
-  "gm_pad_bowed",
-  "gm_pad_metallic",
-  "gm_pad_halo",
-  "gm_pad_sweep",
-  "gm_synth_bass_1",
-  "gm_synth_bass_2",
-  "gm_synth_brass_1",
-  "gm_synth_brass_2",
-  "gm_synth_choir",
-]);
-
-const EXCLUDED_SOUNDS = new Set([
-  // Unpitched noise / non-melodic synths
-  "brown",
-  "white",
-  "pink",
-  "bytebeat",
-  "crackle",
-  "sbd",
-  "zzfx",
-  "user",
-  "bus",
-  "z_noise",
-  "z_tan",
-  // VCSL percussion / unpitched SFX
-  "agogo",
-  "anvil",
-  "ballwhistle",
-  "bassdrum1",
-  "bassdrum2",
-  "belltree",
-  "bongo",
-  "brakedrum",
-  "cabasa",
-  "cajon",
-  "clap",
-  "clash",
-  "clash2",
-  "clave",
-  "cowbell",
-  "darbuka",
-  "fingercymbal",
-  "flexatone",
-  "framedrum",
-  "gong",
-  "gong2",
-  "guiro",
-  "hihat",
-  "marktrees",
-  "oceandrum",
-  "ratchet",
-  "shaker_large",
-  "shaker_small",
-  "siren",
-  "slapstick",
-  "sleighbells",
-  "slitdrum",
-  "snare_hi",
-  "snare_low",
-  "snare_modern",
-  "snare_rim",
-  "sus_cymbal",
-  "sus_cymbal2",
-  "tambourine",
-  "tambourine2",
-  "timpani",
-  "timpani2",
-  "timpani_roll",
-  "tom_mallet",
-  "tom_rim",
-  "tom_stick",
-  "tom2_mallet",
-  "tom2_rim",
-  "tom2_stick",
-  "trainwhistle",
-  "triangles",
-  "vibraslap",
-  "woodblock",
-  // GM sound effects & unpitched percussion
-  "gm_applause",
-  "gm_bird_tweet",
-  "gm_breath_noise",
-  "gm_guitar_fret_noise",
-  "gm_gunshot",
-  "gm_helicopter",
-  "gm_melodic_tom",
-  "gm_orchestra_hit",
-  "gm_reverse_cymbal",
-  "gm_seashore",
-  "gm_synth_drum",
-  "gm_taiko_drum",
-  "gm_telephone",
-  "gm_timpani",
-  // GM FX
-  "gm_fx_rain",
-  "gm_fx_soundtrack",
-  "gm_fx_crystal",
-  "gm_fx_atmosphere",
-  "gm_fx_brightness",
-  "gm_fx_goblins",
-  "gm_fx_echoes",
-  "gm_fx_sci_fi",
-]);
-
-const UNPITCHED_REGEX =
-  /^(gm_drum|bd|sd|hh|cp|cr|cb|mt|ht|lt|misc|kick|snare|clap|hat|tom|perc|rim|cym|cow|tamb|bong|conga|mrid|agogo|anv|brak|bongo|clave|cong|darb|frame|gong|guiro|mark|ocean|ratch|shak|siren|slap|sleigh|slit|sus_c|tamb|timpa|triangles|vibraslap|wine|wood)|^(AJK|Akai|Roland|casio|crow|insect|wind|jazz|metal|east|space|numbers)/;
-
-function categorise(name: string): Category | null {
-  if (EXCLUDED_SOUNDS.has(name)) return null;
-  if (SYNTH_SOUNDS.has(name)) return "synths";
-  if (KEYBOARD_SOUNDS.has(name)) return "keyboards";
-  if (MALLET_SOUNDS.has(name)) return "mallets";
-  if (STRING_SOUNDS.has(name)) return "strings";
-  if (ORGAN_SOUNDS.has(name)) return "organs";
-  if (WIND_SOUNDS.has(name)) return "winds";
-  if (UNPITCHED_REGEX.test(name)) return null;
-  if (name.startsWith("gm_")) return "gm";
-  return null;
-}
-
 const filteredSounds = computed(() => {
   const normalizedQuery = query.value.trim().toLowerCase();
   if (!normalizedQuery) {
@@ -387,31 +111,25 @@ function groupSounds(sounds: string[]) {
 const activeTab = ref<Category | "shape">(categorise(currentInstrumentId.value) ?? "synths");
 const shapeHelp = ref("Shape the current sound. Reset restores its natural envelope and removes effects.");
 const shapeKnobs = [
-  { key: "cutoff", label: "Cutoff", min: 200, max: 12000, step: 100,
+  { key: "cutoff", label: "Cutoff", ...SHAPE_KNOB_RANGES.cutoff, step: 100,
     help: "Cutoff: lower it to soften the brightness. Fully up leaves the filter off.",
     format: (v: number) => v >= 12000 ? "Off" : v >= 1000 ? `${(v / 1000).toFixed(1)}k` : `${v}Hz` },
-  { key: "resonance", label: "Resonance", min: 0, max: 12, step: 0.5,
+  { key: "resonance", label: "Resonance", ...SHAPE_KNOB_RANGES.resonance, step: 0.5,
     help: "Resonance: emphasize the filter edge for a ringing tone. Lower Cutoff to hear it.",
     format: (v: number) => v.toFixed(1) },
-  { key: "attack", label: "Attack", min: 0.001, max: 0.5, step: 0.001,
+  { key: "attack", label: "Attack", ...SHAPE_KNOB_RANGES.attack, step: 0.001,
     help: "Attack: how gently a note fades in. Higher values soften its beginning.",
     format: (v: number) => `${Math.round(v * 1000)}ms` },
-  { key: "release", label: "Release", min: 0.01, max: 2.5, step: 0.01,
+  { key: "release", label: "Release", ...SHAPE_KNOB_RANGES.release, step: 0.01,
     help: "Release: how long a note fades after you let go. It cannot extend a sample beyond its recording.",
     format: (v: number) => `${v.toFixed(2)}s` },
-  { key: "room", label: "Reverb", min: 0, max: 1, step: 0.01,
+  { key: "room", label: "Reverb", ...SHAPE_KNOB_RANGES.room, step: 0.01,
     help: "Reverb: add a sense of space around the sound. Zero is dry.",
     format: (v: number) => `${Math.round(v * 100)}%` },
-  { key: "delay", label: "Echo", min: 0, max: 1, step: 0.01,
+  { key: "delay", label: "Echo", ...SHAPE_KNOB_RANGES.delay, step: 0.01,
     help: "Echo: add fading repeats, a quarter-second apart. Zero is off.",
     format: (v: number) => `${Math.round(v * 100)}%` },
 ] as const;
-type ShapeKnob = typeof shapeKnobs[number];
-function formatShapeValue(control: ShapeKnob, value: number): string {
-  if ((control.key === "attack" || control.key === "release")
-    && !instrumentStore.synthControlOverrides?.[control.key]) return "Auto";
-  return control.format(value);
-}
 const hasSearchQuery = computed(() => query.value.trim().length > 0);
 const allGrouped = computed(() => groupSounds(allSounds.value));
 const grouped = computed(() => groupSounds(filteredSounds.value));
@@ -744,7 +462,7 @@ async function selectInstrument(name: string, close: () => void) {
                   :label="control.label"
                   tone="brass"
                   :data-testid="`shape-knob-${control.key}`"
-                  :format-value="(value) => formatShapeValue(control, value)"
+                  :format-value="control.format"
                   @update:model-value="(v) => instrumentStore.setSynthControl(control.key, Number(v))"
                 />
               </div>

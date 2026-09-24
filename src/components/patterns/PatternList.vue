@@ -58,7 +58,7 @@ onBeforeUnmount(() => {
   clearTimeout(deleteArmTimer);
 });
 
-type PatternContext = Pick<Pattern, "key" | "mode" | "instrument" | "bpm">;
+type PatternContext = Pick<Pattern, "key" | "mode" | "instrument" | "bpm" | "shape">;
 
 function sourceBpm(bpm: number | undefined) {
   return typeof bpm === "number" && bpm > 0
@@ -126,6 +126,7 @@ function notation(
     scaleOctave: keyboardStore.keyboardConfig.mainOctave,
     patternDurationMs,
     sound: toStrudelSound(context.instrument ?? "sine"),
+    shape: context.shape,
   });
 }
 

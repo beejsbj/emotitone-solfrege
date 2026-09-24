@@ -110,12 +110,12 @@ describe('StrudelNotation', () => {
       { ...makeNote('c', 'C4', 0, 4, 1000, 500), gainExpression: gain },
       { ...makeNote('e', 'E4', 2, 4, 1000, 500), pitchExpression: pitch },
     ])
-    expect(result).toContain('{C4:0:0:10:0.385, E4:10:0.25:0:0}@0.25')
+    expect(result).toContain('{C4:0:0:10:0.385, E4:10:0.25}@0.25')
     expect(result).toContain(".as(['note', 'vib', 'vibmod', 'tremolo', 'tremolodepth'])")
     const events = as(["note", "vib", "vibmod", "tremolo", "tremolodepth"], mini(result.split('`')[1])).queryArc(0, 0.5)
     expect(events.map((event) => event.value)).toEqual([
       { note: 'C4', vib: 0, vibmod: 0, tremolo: 10, tremolodepth: 0.385 },
-      { note: 'E4', vib: 10, vibmod: 0.25, tremolo: 0, tremolodepth: 0 },
+      { note: 'E4', vib: 10, vibmod: 0.25 },
     ])
   })
 
@@ -134,7 +134,7 @@ describe('StrudelNotation', () => {
     const events = as(keys, mini(result.split('`')[1])).queryArc(0, 0.5)
     expect(events.map(event => event.value)).toEqual([
       { [field]: field === 'n' ? 0 : 'C4', vib: 10, vibmod: 0.25, tremolo: 10, tremolodepth: 0.385 },
-      { [field]: field === 'n' ? 2 : 'E4', vib: 0, vibmod: 0, tremolo: 0, tremolodepth: 0 },
+      { [field]: field === 'n' ? 2 : 'E4', vib: 0, vibmod: 0 },
     ])
   })
 
@@ -181,9 +181,9 @@ describe('StrudelNotation', () => {
             expect(event.value).not.toHaveProperty('vib')
             expect(event.value).not.toHaveProperty('vibmod')
           }
-          if (tremolo) {
-            expect(event.value.tremolo).toBe(index === 0 ? 10 : 0)
-            expect(event.value.tremolodepth).toBe(index === 0 ? 0.385 : 0)
+          if (tremolo && index === 0) {
+            expect(event.value.tremolo).toBe(10)
+            expect(event.value.tremolodepth).toBe(0.385)
           } else {
             expect(event.value).not.toHaveProperty('tremolo')
             expect(event.value).not.toHaveProperty('tremolodepth')

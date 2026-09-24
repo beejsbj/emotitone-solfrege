@@ -295,7 +295,9 @@ export class StrudelNotation {
     const tremolo = this.tremoloByNote.get(note);
     const fields = [value, ...this.controlFields.map(control => String(this.noteControl(note, control)))];
     if (this.renderVibrato) fields.push(String(vibrato?.vib ?? 0), String(vibrato?.vibmod ?? 0));
-    if (this.renderTremolo) fields.push(String(tremolo?.tremolo ?? 0), String(tremolo?.tremolodepth ?? 0));
+    // Omit trailing fields when this note has no tremolo. A zero tremolo value
+    // still creates an LFO AudioWorkletNode in Superdough on every playback.
+    if (tremolo) fields.push(String(tremolo.tremolo), String(tremolo.tremolodepth));
     return fields.join(":");
   }
 

@@ -124,7 +124,8 @@ describe('App.vue', () => {
     })
   })
 
-  it('keeps the style guide out of the production entry graph', () => {
+  it('guards lazy StyleGuide import and guide CSS gating in production App entry', () => {
+    // Structural guard: lazy-load boundary contract protecting style guide exclusion from entry graph
     expect(appSource).toContain('defineAsyncComponent')
     expect(appSource).toContain('import("./style-guide/StyleGuide.vue")')
     expect(appSource).toContain('import("./style-guide/guide-defaults.css")')
@@ -145,7 +146,9 @@ describe('App.vue', () => {
     expect(appSource).not.toContain('isRoughPage')
   })
 
-  it('keeps isolated design routes out of page-edition persistence', () => {
+  it('pins the bootstrap routing wiring: two persistence-free guide routes and sole main.ts tab-edition call', () => {
+    // Structural guard: guards the entry-graph routing contract that beginsTabsPageEdition
+    // is called once in main.ts only for non-design routes
     expect(mainSource).toMatch(
       /const isPersistenceFreeDesignRoute = \[\s*"\/style-guide\/performance-deck",\s*"\/style-guide\/stage",\s*\]\.includes\(pathname\);/,
     )
@@ -154,7 +157,8 @@ describe('App.vue', () => {
     )
   })
 
-  it('replaces the production popup mount with canvas-owned harmonic geometry', () => {
+  it('bans the named retired FloatingPopup mount and requires UnifiedVisualEffects in MainApp', () => {
+    // Structural guard: migration contract protecting the named component removal seam
     expect(mainAppSource).not.toContain('FloatingPopup')
     expect(mainAppSource).toContain('UnifiedVisualEffects')
   })

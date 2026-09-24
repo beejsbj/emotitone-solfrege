@@ -31,6 +31,7 @@ import { SCHEDULED_LIVE_MIDI_EVENT } from "@/services/scheduledLiveVoice";
 const EPOCH = 1_800_000_000_000;
 let pinia: Pinia;
 let context: AudioContext;
+let recorderStore: ReturnType<typeof usePatternsStore> | undefined;
 const elapsed = () => Date.now() - EPOCH;
 function events(type: string) {
   return vi.mocked(window.dispatchEvent).mock.calls
@@ -40,20 +41,15 @@ function event(ownerId: string, noteId: string, phase: "attack" | "release", at:
   return { ownerId, noteId, phase, at, pitch, instrumentId: "piano", style: "repeat" };
 }
 function recorder() {
-  const store = usePatternsStore();
-  const handlers = new Map<string, EventListener>();
-  for (const [type, listener] of vi.mocked(window.addEventListener).mock.calls) {
-    if (type === "note-played" || type === "note-released") handlers.set(type, listener as EventListener);
-  }
-  vi.mocked(window.dispatchEvent).mockImplementation(event => { handlers.get(event.type)?.(event); return true; });
-  return store;
+  recorderStore = usePatternsStore();
+  return recorderStore;
 }
 
 beforeEach(() => {
   vi.clearAllMocks(); vi.useFakeTimers(); vi.setSystemTime(EPOCH);
   vi.mocked(getLivePlayback).mockReturnValue(worklet.engine as never);
   vi.mocked(audio.attackNote).mockResolvedValue(undefined);
-  vi.spyOn(window, "addEventListener").mockImplementation(() => {});
+  vi.spyOn(window, "dispatchEvent");
   vi.spyOn(performance, "now").mockImplementation(() => 1000 + elapsed());
   context = Object.assign(new EventTarget(), {
     state: "running",
@@ -65,7 +61,9 @@ beforeEach(() => {
   useVisualConfigStore().updateConfig("codeStrip", { bpm: 120 });
 });
 afterEach(() => {
-  disposePinia(pinia); vi.mocked(window.dispatchEvent).mockReset();
+  recorderStore?.removeEventListeners();
+  recorderStore = undefined;
+  disposePinia(pinia);
   vi.clearAllTimers(); vi.restoreAllMocks(); vi.useRealTimers();
 });
 

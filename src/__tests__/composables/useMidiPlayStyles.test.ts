@@ -103,25 +103,6 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
       currentTime: performance.now() / 1000,
     } as AudioContext));
 
-    // The shared test setup replaces dispatchEvent. Route production listeners
-    // through it so these tests exercise the complete music-to-MIDI event path.
-    const listeners = new Map<string, Set<EventListenerOrEventListenerObject>>();
-    vi.spyOn(window, "addEventListener").mockImplementation((type, listener) => {
-      if (!listener) return;
-      if (!listeners.has(type)) listeners.set(type, new Set());
-      listeners.get(type)!.add(listener);
-    });
-    vi.spyOn(window, "removeEventListener").mockImplementation((type, listener) => {
-      if (listener) listeners.get(type)?.delete(listener);
-    });
-    vi.mocked(window.dispatchEvent).mockImplementation((event) => {
-      for (const listener of listeners.get(event.type) ?? []) {
-        if (typeof listener === "function") listener.call(window, event);
-        else listener.handleEvent(event);
-      }
-      return true;
-    });
-
     input = { id: "roli-input", name: "LUMI Keys", state: "connected", onmidimessage: null };
     midiMessages = [];
     send = vi.fn((message: number[], timestamp?: number) => {
@@ -164,7 +145,6 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     disposePinia(pinia);
     if (midiDescriptor) Object.defineProperty(navigator, "requestMIDIAccess", midiDescriptor);
     else Reflect.deleteProperty(navigator, "requestMIDIAccess");
-    vi.mocked(window.dispatchEvent).mockReset();
     vi.clearAllTimers();
     vi.restoreAllMocks();
     vi.useRealTimers();

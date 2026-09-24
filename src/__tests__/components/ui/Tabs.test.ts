@@ -3,7 +3,7 @@ import { mount } from "@vue/test-utils";
 import { markRaw } from "vue";
 import Tabs from "@/components/primatives/Tabs.vue";
 import tabsSource from "@/components/primatives/Tabs.vue?raw";
-import tabsPageSource from "@/style-guide/TabsPage.vue?raw";
+import TabsPage from "@/style-guide/TabsPage.vue";
 
 const TestIcon = markRaw({ template: "<svg />" });
 
@@ -64,9 +64,16 @@ describe("Tabs", () => {
     expect(wrapper.emitted("update:modelValue")).toBeUndefined();
   });
 
-  it("keeps the guide stress rail aligned with production's fifteen destinations", () => {
-    expect(tabsPageSource).toContain("Fifteen destinations.");
-    expect(tabsPageSource).not.toContain("floatingPopup");
+  it("renders the accepted fifteen destinations and excludes retired floatingPopup", () => {
+    const wrapper = mount(TabsPage);
+    const stress = wrapper.get('[aria-label="Configuration stress-case tabs"]');
+    const destinations = stress.findAll('[data-testid^="tabs-page-config-"]');
+
+    expect(destinations).toHaveLength(15);
+    expect(destinations.map((tab) => tab.attributes("data-testid"))).not.toContain(
+      "tabs-page-config-floatingPopup",
+    );
+    wrapper.unmount();
   });
 
   it("reveals the active destination again after the viewport resizes", async () => {

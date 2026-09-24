@@ -1,12 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const musicColor = vi.hoisted(() => ({
+  getPrimaryColorForPitch: vi.fn(),
+  getStaticPrimaryColorForPitch: vi.fn(),
+  getPrimaryColor: vi.fn(),
+  getStaticPrimaryColor: vi.fn(),
+}));
+
 vi.mock("@/composables/useMusicColor", () => ({
-  useMusicColor: () => ({
-    getPrimaryColorForPitch: vi.fn(),
-    getStaticPrimaryColorForPitch: vi.fn(),
-    getPrimaryColor: vi.fn(),
-    getStaticPrimaryColor: vi.fn(),
-  }),
+  useMusicColor: () => musicColor,
 }));
 
 vi.mock("@/stores/music", () => ({
@@ -132,6 +134,9 @@ describe("Hilbert Scope waveform source", () => {
       thickness: 2,
     } as any;
 
+    // Exact-pitch note: solfege index 0 (Do) but sounding pitch class 1 (C#).
+    const exactPitchNote = { solfegeIndex: 0, pitchClassIndex: 1, octave: 4, mode: "major", key: "C" } as any;
+
     await renderer.initializeHilbertScope(800, 600, config, stageBus as unknown as AudioNode);
     renderer.renderHilbertScope(
       mainContext as unknown as CanvasRenderingContext2D,
@@ -141,7 +146,11 @@ describe("Hilbert Scope waveform source", () => {
       600,
       undefined,
       { envelope: 1, hasSignal: true },
+      false,
+      [exactPitchNote],
     );
+    expect(musicColor.getPrimaryColorForPitch).toHaveBeenCalledWith(0, 1, "major", "C", 4);
+    expect(musicColor.getPrimaryColor).not.toHaveBeenCalled();
     expect(historyContext.stroke).toHaveBeenCalled();
     expect(mainContext.drawImage).toHaveBeenCalledWith(historyCanvas, 0, 0);
 

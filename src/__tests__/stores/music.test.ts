@@ -55,6 +55,7 @@ describe("music store", () => {
     expect(musicStore.currentModeDefinition.label).toBe("Harmonic Minor");
     expect(musicStore.currentKeyDisplay).toBe("D Harmonic Minor");
     expect(musicStore.currentScale.degreeCount).toBe(7);
+    expect(musicStore.currentScaleNotes).toEqual(["D", "E", "F", "G", "A", "A#", "C#"]);
     expect(musicStore.currentScale.solfege.map((note) => note.name)).toEqual([
       "Do",
       "Re",

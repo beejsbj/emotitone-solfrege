@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createApp, nextTick } from "vue";
 import { createPinia, setActivePinia } from "pinia";
+import { createPersistedState } from "pinia-plugin-persistedstate";
 import { useInstrumentStore } from "@/stores/instrument";
+import { deserializeInstrumentState } from "@/services/instrumentPersistence";
+import { DEFAULT_INSTRUMENT } from "@/data/instruments";
 
 const liveMocks = vi.hoisted(() => ({ needsLivePlaybackPreparation: vi.fn(() => false) }));
 vi.mock("@/services/livePlayback", () => liveMocks);
@@ -296,5 +300,136 @@ describe("instrument store warmup", () => {
       expect(store.currentInstrument).toBe("piano");
       expect(store.shape).toEqual({ ...NEUTRAL, delay: 0.3 });
     });
+  });
+});
+
+describe("instrument persistence", () => {
+  const NEUTRAL = { cutoff: 12000, resonance: 0, room: 0, delay: 0, attack: null, release: null };
+  const KEY = "emotitone-instrument";
+  let saved: Map<string, string>;
+  const storage = {
+    getItem: (key: string) => saved.get(key) ?? null,
+    setItem: (key: string, value: string) => { saved.set(key, value); },
+  };
+
+  // A fresh page load: new Pinia with the persistence plugin installed.
+  function freshStore() {
+    const pinia = createPinia();
+    pinia.use(createPersistedState({ storage }));
+    createApp({}).use(pinia);
+    setActivePinia(pinia);
+    return useInstrumentStore();
+  }
+
+  beforeEach(() => {
+    saved = new Map();
+    vi.clearAllMocks();
+    audioMocks.isPrewarmed.mockImplementation((name: string) => name === "piano");
+    audioMocks.prewarmSoundSamples.mockResolvedValue(undefined);
+    audioMocks.getReadySounds.mockReturnValue(["piano"]);
+    liveMocks.needsLivePlaybackPreparation.mockReturnValue(false);
+  });
+
+  it("restores the selected instrument and each instrument's Shape on a fresh load", async () => {
+    const first = freshStore();
+    await first.setInstrument("piano");
+    first.setSynthControl("cutoff", 1800);
+    first.setSynthControl("release", 0.8);
+    await first.setInstrument("gm_flute");
+    first.setSynthControl("room", 0.4);
+    await nextTick(); // the persistence subscription flushes before render
+    expect(JSON.parse(saved.get(KEY)!)).toEqual({
+      currentInstrument: "gm_flute",
+      instrumentShapes: {
+        piano: { ...NEUTRAL, cutoff: 1800, release: 0.8 },
+        gm_flute: { ...NEUTRAL, room: 0.4 },
+      },
+    });
+
+    vi.clearAllMocks();
+    const second = freshStore();
+    expect(second.currentInstrument).toBe("gm_flute");
+    expect(second.shape).toEqual({ ...NEUTRAL, room: 0.4 });
+    // Setup synced defaults before hydration; the restored Shape must win.
+    expect(audioMocks.setLiveSynthControls).toHaveBeenLastCalledWith(expect.objectContaining({
+      room: 0.4, overrides: { attack: false, release: false },
+    }));
+    await second.setInstrument("piano");
+    expect(second.shape).toEqual({ ...NEUTRAL, cutoff: 1800, release: 0.8 });
+  });
+
+  it("falls back to the default instrument when the persisted one is not selectable", () => {
+    saved.set(KEY, JSON.stringify({ currentInstrument: "bassdrum1", instrumentShapes: {} }));
+    expect(freshStore().currentInstrument).toBe(DEFAULT_INSTRUMENT);
+    expect(deserializeInstrumentState(JSON.stringify({ currentInstrument: "not_a_sound" })).currentInstrument)
+      .toBe(DEFAULT_INSTRUMENT);
+    saved.set(KEY, JSON.stringify({ currentInstrument: 42 }));
+    expect(freshStore().currentInstrument).toBe(DEFAULT_INSTRUMENT);
+    saved.set(KEY, "{not json");
+    const store = freshStore();
+    expect(store.currentInstrument).toBe(DEFAULT_INSTRUMENT);
+    expect(store.shape).toEqual(NEUTRAL);
+  });
+
+  it("sanitizes persisted Shapes: clamps ranges and drops malformed entries", () => {
+    const state = deserializeInstrumentState(JSON.stringify({
+      currentInstrument: "piano",
+      instrumentShapes: {
+        piano: { cutoff: 99999, resonance: -3, room: 0.5, delay: 0, attack: null, release: 9 },
+        gm_flute: { cutoff: "bright", resonance: 0, room: 0, delay: 0, attack: null, release: null },
+        sawtooth: { cutoff: 900, resonance: 0, room: 0, delay: 0, attack: "slow", release: null },
+        bassdrum1: { ...NEUTRAL, cutoff: 900 },
+        triangle: "junk",
+        sine: { ...NEUTRAL },
+      },
+    }));
+    expect(state).toEqual({
+      currentInstrument: "piano",
+      instrumentShapes: {
+        piano: { cutoff: 12000, resonance: 0, room: 0.5, delay: 0, attack: null, release: 2.5 },
+      },
+    });
+
+    saved.set(KEY, JSON.stringify({ currentInstrument: "piano", instrumentShapes: {
+      piano: { cutoff: 1800.44, resonance: 0, room: 0, delay: 0, attack: 0.05, release: null },
+      gm_flute: { cutoff: null },
+    } }));
+    const store = freshStore();
+    expect(store.shape).toEqual({ ...NEUTRAL, cutoff: 1800, attack: 0.05 });
+    expect(store.instrumentShapes).toEqual({ piano: { ...NEUTRAL, cutoff: 1800, attack: 0.05 } });
+  });
+
+  it("warms a persisted sampled instrument during startup", async () => {
+    saved.set(KEY, JSON.stringify({ currentInstrument: "gm_epiano1", instrumentShapes: {} }));
+    audioMocks.isPrewarmed.mockImplementation((name: string) => name === DEFAULT_INSTRUMENT);
+    audioMocks.getReadySounds.mockReturnValue([DEFAULT_INSTRUMENT]);
+    const store = freshStore();
+    const progress = vi.fn();
+
+    await store.initializeInstruments(progress);
+
+    expect(audioMocks.prewarmSoundSamples).toHaveBeenCalledWith("gm_epiano1");
+    expect(progress).toHaveBeenCalledWith(99, "Preparing epiano1…");
+    expect(store.currentInstrument).toBe("gm_epiano1");
+    expect(store.isInstrumentReady("gm_epiano1")).toBe(true);
+  });
+
+  it("falls back at startup when the persisted instrument fails, recalling the fallback's Shape", async () => {
+    saved.set(KEY, JSON.stringify({ currentInstrument: "gm_epiano1", instrumentShapes: {
+      gm_epiano1: { ...NEUTRAL, cutoff: 1800 },
+      [DEFAULT_INSTRUMENT]: { ...NEUTRAL, delay: 0.3 },
+    } }));
+    audioMocks.isPrewarmed.mockImplementation((name: string) => name === DEFAULT_INSTRUMENT);
+    audioMocks.getReadySounds.mockReturnValue([DEFAULT_INSTRUMENT]);
+    audioMocks.prewarmSoundSamples.mockRejectedValueOnce(new Error("Network down"));
+    const store = freshStore();
+    expect(store.shape.cutoff).toBe(1800);
+
+    await store.initializeInstruments();
+
+    expect(store.currentInstrument).toBe(DEFAULT_INSTRUMENT);
+    expect(store.shape).toEqual({ ...NEUTRAL, delay: 0.3 });
+    expect(store.lastWarmupErrorInstrument).toBe("gm_epiano1");
+    expect(audioMocks.setLiveSynthControls).toHaveBeenLastCalledWith(expect.objectContaining({ delay: 0.3 }));
   });
 });

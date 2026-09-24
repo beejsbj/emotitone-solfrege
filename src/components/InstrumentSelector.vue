@@ -14,6 +14,7 @@ import { instrumentIconFor } from "@/components/primatives/instrumentIcon";
 import Knob from "@/components/primatives/Knob/index.vue";
 import { displayInstrumentName } from "@/data/instruments";
 import { categoriseInstrument as categorise } from "@/data/instrumentCatalog";
+import { SHAPE_KNOB_RANGES } from "@/services/shape";
 import type { InstrumentCategory as Category } from "@/types/instrument";
 
 const drawerContentHeight = ref<number>();
@@ -110,22 +111,22 @@ function groupSounds(sounds: string[]) {
 const activeTab = ref<Category | "shape">(categorise(currentInstrumentId.value) ?? "synths");
 const shapeHelp = ref("Shape the current sound. Reset restores its natural envelope and removes effects.");
 const shapeKnobs = [
-  { key: "cutoff", label: "Cutoff", min: 200, max: 12000, step: 100,
+  { key: "cutoff", label: "Cutoff", ...SHAPE_KNOB_RANGES.cutoff, step: 100,
     help: "Cutoff: lower it to soften the brightness. Fully up leaves the filter off.",
     format: (v: number) => v >= 12000 ? "Off" : v >= 1000 ? `${(v / 1000).toFixed(1)}k` : `${v}Hz` },
-  { key: "resonance", label: "Resonance", min: 0, max: 12, step: 0.5,
+  { key: "resonance", label: "Resonance", ...SHAPE_KNOB_RANGES.resonance, step: 0.5,
     help: "Resonance: emphasize the filter edge for a ringing tone. Lower Cutoff to hear it.",
     format: (v: number) => v.toFixed(1) },
-  { key: "attack", label: "Attack", min: 0.001, max: 0.5, step: 0.001,
+  { key: "attack", label: "Attack", ...SHAPE_KNOB_RANGES.attack, step: 0.001,
     help: "Attack: how gently a note fades in. Higher values soften its beginning.",
     format: (v: number) => `${Math.round(v * 1000)}ms` },
-  { key: "release", label: "Release", min: 0.01, max: 2.5, step: 0.01,
+  { key: "release", label: "Release", ...SHAPE_KNOB_RANGES.release, step: 0.01,
     help: "Release: how long a note fades after you let go. It cannot extend a sample beyond its recording.",
     format: (v: number) => `${v.toFixed(2)}s` },
-  { key: "room", label: "Reverb", min: 0, max: 1, step: 0.01,
+  { key: "room", label: "Reverb", ...SHAPE_KNOB_RANGES.room, step: 0.01,
     help: "Reverb: add a sense of space around the sound. Zero is dry.",
     format: (v: number) => `${Math.round(v * 100)}%` },
-  { key: "delay", label: "Echo", min: 0, max: 1, step: 0.01,
+  { key: "delay", label: "Echo", ...SHAPE_KNOB_RANGES.delay, step: 0.01,
     help: "Echo: add fading repeats, a quarter-second apart. Zero is off.",
     format: (v: number) => `${Math.round(v * 100)}%` },
 ] as const;

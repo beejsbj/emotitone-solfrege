@@ -1,6 +1,6 @@
 import { computed, ref, watch } from "vue";
 import { defineStore } from "pinia";
-import { DEFAULT_INSTRUMENT } from "@/data/instruments";
+import { DEFAULT_INSTRUMENT, displayInstrumentName } from "@/data/instruments";
 import {
   getReadySounds,
   initSuperdoughAudio,
@@ -10,7 +10,8 @@ import {
 } from "@/services/superdoughAudio";
 
 import { needsLivePlaybackPreparation } from "@/services/livePlayback";
-import { canonicalShape, NEUTRAL_SHAPE } from "@/services/shape";
+import { canonicalShape, isSameShape, NEUTRAL_SHAPE } from "@/services/shape";
+import { deserializeInstrumentState } from "@/services/instrumentPersistence";
 import type { Shape } from "@/types/instrument";
 
 export type InstrumentSelectionResult =
@@ -122,16 +123,20 @@ export const useInstrumentStore = defineStore("instrument", () => {
   };
 
   // Instrument + Shape is nearly a new instrument: each instrument remembers
-  // the Shape it was last left with, for this session only.
-  const shapeMemory: Record<string, Shape> = {};
+  // the Shape it was last left with. Persisted with the selection; the live
+  // knobs are derived from it, and neutral Shapes are not stored.
+  const instrumentShapes = ref<Record<string, Shape>>({});
   function rememberShape() {
-    shapeMemory[currentInstrument.value] = { ...shape.value };
+    if (isSameShape(shape.value, NEUTRAL_SHAPE)) delete instrumentShapes.value[currentInstrument.value];
+    else instrumentShapes.value[currentInstrument.value] = { ...shape.value };
   }
+  /** Apply the current instrument's remembered Shape (neutral if never shaped). */
+  const recallShape = () => {
+    applyShape(instrumentShapes.value[currentInstrument.value] ?? NEUTRAL_SHAPE);
+  };
   // Sync, so every assignment (including warmup fallbacks) recalls the
   // Shape before anything reads the new instrument.
-  watch(currentInstrument, (instrument) => {
-    applyShape(shapeMemory[instrument] ?? NEUTRAL_SHAPE);
-  }, { flush: "sync" });
+  watch(currentInstrument, recallShape, { flush: "sync" });
 
   const isInteractionLocked = computed(() => warmingInstrument.value !== null);
   const isLoading = computed(
@@ -174,8 +179,8 @@ export const useInstrumentStore = defineStore("instrument", () => {
     );
   };
 
-  const syncReadyInstrumentsFromAudio = () => {
-    readyInstruments.value = new Set(getReadySounds());
+  const syncReadyInstrumentsFromAudio = (warmed: string[] = []) => {
+    readyInstruments.value = new Set([...getReadySounds(), ...warmed]);
 
     const fallback = findReadyFallback([currentInstrument.value]);
     if (fallback) {
@@ -198,8 +203,27 @@ export const useInstrumentStore = defineStore("instrument", () => {
     isInitializing.value = true;
     try {
       await initSuperdoughAudio(progressCallback);
-      syncReadyInstrumentsFromAudio();
-      if (needsLivePlaybackPreparation(currentInstrument.value)) {
+      // A persisted sampled instrument is still cold here. Warm it during
+      // loading rather than silently replacing it with a ready fallback; if
+      // it fails, the sync below falls back and recalls that one's Shape.
+      const preferred = currentInstrument.value;
+      const warmed: string[] = [];
+      if (preferred !== DEFAULT_INSTRUMENT && !isInstrumentReady(preferred)) {
+        progressCallback?.(99, `Preparing ${displayInstrumentName(preferred)}…`);
+        try {
+          await prewarmSoundSamples(preferred);
+          warmed.push(preferred);
+        } catch (error) {
+          lastWarmupError.value =
+            error instanceof Error && error.message
+              ? error.message
+              : "Could not download samples for this instrument.";
+          lastWarmupErrorInstrument.value = preferred;
+        }
+      }
+      syncReadyInstrumentsFromAudio(warmed);
+      // Prewarming above already prepared the live renderer for that sound.
+      if (!warmed.includes(currentInstrument.value) && needsLivePlaybackPreparation(currentInstrument.value)) {
         await prewarmSoundSamples(currentInstrument.value);
       }
       // Guarantee a 100% call even when already initialized (early return path)
@@ -291,6 +315,7 @@ export const useInstrumentStore = defineStore("instrument", () => {
     synthControls,
     synthControlOverrides,
     shape,
+    instrumentShapes,
 
     // Actions
     initializeInstruments,
@@ -300,5 +325,18 @@ export const useInstrumentStore = defineStore("instrument", () => {
     setSynthControl,
     resetSynthControls,
     applyShape,
+    recallShape,
   };
+}, {
+  persist: {
+    key: "emotitone-instrument",
+    pick: ["currentInstrument", "instrumentShapes"],
+    // Deserialization validates the instrument and sanitizes every Shape;
+    // afterHydrate then pushes the restored Shape to live audio, since setup
+    // synced defaults before hydration ran.
+    serializer: { serialize: JSON.stringify, deserialize: deserializeInstrumentState },
+    afterHydrate: ({ store }) => {
+      (store as unknown as { recallShape: () => void }).recallShape();
+    },
+  },
 });

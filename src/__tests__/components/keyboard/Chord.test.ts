@@ -226,7 +226,9 @@ describe("Chord compound", () => {
     expect(wrapper.emitted()).toEqual({});
   });
 
-  it("mounts a real-source specimen with the corrected display and motion matrix", () => {
+  it("guards guide registration, removed identity/structure props, reduced-motion and animation ownership", () => {
+    // Structural guard: style guide adoption contract pinning guide-only animation ownership,
+    // retired props removal, and reduced-motion boundary
     expect(styleGuideSource).toContain('id="compound-chord"');
     expect(styleGuideSource).toContain('import CompoundChord from "./compounds/CompoundChord.vue"');
     expect(specimenSource).toContain('import Chord from "@/components/compounds/Chord.vue"');

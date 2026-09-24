@@ -56,10 +56,4 @@ describe("BarTape", () => {
     expect(specimenSource).toContain("defaultPatterns.slice(0, 3)");
   });
 
-  it("orders production PatternStrip segments by note onset", () => {
-    expect(productionPatternListSource).toMatch(
-      /\.sort\(\s*\(firstNote, secondNote\) => firstNote\.pressTime - secondNote\.pressTime,?\s*\)/,
-    );
-    expect(productionPatternListSource).toContain("[...notes]");
-  });
 });

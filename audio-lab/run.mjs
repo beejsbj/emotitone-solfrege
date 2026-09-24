@@ -6,6 +6,7 @@ import { resolve, join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+import { validateResults } from './validate.mjs';
 
 const directory = await mkdtemp(join(tmpdir(), 'emotitone-audio-lab-'));
 const packagePath = process.env.LAB_SUPERDOUGH || resolve('node_modules/superdough/dist/index.mjs');
@@ -71,33 +72,11 @@ try {
   if (run.exceptionDetails) throw new Error(JSON.stringify(run.exceptionDetails));
   const results = { recordedAt: new Date().toISOString(), revision: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
     superdoughSha256: packageHash, warnings, ...run.result.value };
-  const checks = [
-    ['direct and Superdough 5/10ms attacks produce all notes', results.attacks.filter((row) => row.leadMs > 0).every((row) => row.missing === 0 && row.duplicatesOrUnexpected === 0)],
-    ['all idle sequences produce all notes', results.sequences.filter((row) => !row.stress).every((row) => row.missing === 0 && row.duplicatesOrUnexpected === 0)],
-    ['render-thread sequences survive 300ms main-thread stalls', results.sequences.filter((row) => row.engine.startsWith('worklet')).every((row) => row.missing === 0 && row.duplicatesOrUnexpected === 0 && row.onsetErrorMs.max < 1)],
-    ['worklet queued cancellation produces silence', results.prototypeLifecycle.cancelledOnsets === 0],
-    ['worklet release becomes silent without a large sample discontinuity', results.prototypeLifecycle.releaseTailPeakAfter15ms === 0 && results.prototypeLifecycle.releaseLargestAdjacentSampleStep < 0.03],
-    ['worklet bounds voices and releases all', results.prototypeLifecycle.denseStats.peak <= 16 && results.prototypeLifecycle.releasedStats.active === 0],
-  ];
-  if (!process.env.LAB_SUPERDOUGH) checks.push(
-    ['finished Superdough voices leave the registry', results.cleanup.voicesStillRegisteredAfterNaturalEndAndRelease === 0],
-    ['Superdough has a finite default voice budget', results.cleanup.maxPolyphony === 128],
-    ['production engine and scheduled voices match rendered attacks during input changes and stress',
-      results.productionScenarios.every((row) => row.missing === 0 && row.duplicatesOrUnexpected === 0 && row.errors.length === 0
-        && row.published === row.ended && row.remainingVoices === 0
-        && (row.expectedMusicalPulses === null || row.expectedMusicalPulses === row.published))],
-    ['500 overlapping sample voices exercise the budget and clean up', results.denseLifecycle.attacks === 500
-      && results.denseLifecycle.admitted === 500 && results.denseLifecycle.peakRegistered >= 120
-      // Registry includes up to eight 10ms retirement fades beyond active128.
-      && results.denseLifecycle.peakRegistered <= 136 && results.denseLifecycle.remainingRegistered === 0],
-    ['ongoing production sixteenth-note intervals stay within 1ms of the audio grid',
-      results.productionScenarios.find((row) => row.name === 'stable-stall').maxOngoingIntervalDeviationMs <= 1],
-  );
-  results.checks = checks.map(([name, passed]) => ({ name, passed }));
+  results.checks = validateResults(results, { legacySuperdough: Boolean(process.env.LAB_SUPERDOUGH) });
   const output = process.argv[2] || 'audio-lab/results/current.json';
   await writeFile(output, JSON.stringify(results, null, 2) + '\n');
   console.log(JSON.stringify({ output, attacks: results.attacks, sequences: results.sequences, cleanup: results.cleanup, prototypeLifecycle: results.prototypeLifecycle }, null, 2));
-  if (checks.some(([, passed]) => !passed)) { console.error('Audio assertions failed:', results.checks.filter((check) => !check.passed)); process.exitCode = 1; }
+  if (results.checks.some((check) => !check.passed)) { console.error('Audio assertions failed:', results.checks.filter((check) => !check.passed)); process.exitCode = 1; }
 } finally {
   socket?.close(); chrome.kill(); await vite.close();
   await new Promise((resolveExit) => chrome.exitCode !== null || chrome.signalCode !== null ? resolveExit() : chrome.once('exit', resolveExit));

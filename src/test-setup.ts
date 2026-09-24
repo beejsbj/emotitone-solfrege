@@ -1,60 +1,5 @@
-// Setup DOM before anything else
-import './__tests__/helpers/setup-dom'
+// Browser-only shims and external-effect mocks. Pure logic tests use no setup.
 import { vi } from 'vitest'
-
-// Mock Tone.js
-vi.mock('tone', () => ({
-  start: vi.fn(),
-  Synth: vi.fn(() => ({
-    toDestination: vi.fn().mockReturnThis(),
-    triggerAttack: vi.fn(),
-    triggerRelease: vi.fn(),
-    triggerAttackRelease: vi.fn(),
-    releaseAll: vi.fn(),
-    dispose: vi.fn(),
-  })),
-  PolySynth: vi.fn(() => ({
-    toDestination: vi.fn().mockReturnThis(),
-    triggerAttack: vi.fn(),
-    triggerRelease: vi.fn(),
-    triggerAttackRelease: vi.fn(),
-    releaseAll: vi.fn(),
-    dispose: vi.fn(),
-  })),
-  Player: vi.fn(() => ({
-    toDestination: vi.fn().mockReturnThis(),
-    start: vi.fn(),
-    stop: vi.fn(),
-    dispose: vi.fn(),
-  })),
-  Sequence: vi.fn(() => ({
-    start: vi.fn(),
-    stop: vi.fn(),
-    dispose: vi.fn(),
-  })),
-  Transport: {
-    start: vi.fn(),
-    stop: vi.fn(),
-    pause: vi.fn(),
-    cancel: vi.fn(),
-    bpm: { value: 120 },
-  },
-  getTransport: vi.fn(() => ({
-    start: vi.fn(),
-    stop: vi.fn(),
-    pause: vi.fn(),
-    cancel: vi.fn(),
-    bpm: { value: 120 },
-  })),
-  context: {
-    state: 'running',
-    resume: vi.fn(),
-  },
-  getContext: vi.fn(() => ({
-    state: 'running',
-    resume: vi.fn(),
-  })),
-}))
 
 // Mock GSAP
 vi.mock('gsap', () => ({
@@ -137,13 +82,6 @@ Object.defineProperty(window, 'AudioContext', {
   configurable: true,
 })
 
-// Mock requestAnimationFrame
-Object.defineProperty(window, 'requestAnimationFrame', {
-  value: vi.fn(cb => setTimeout(cb, 16)),
-  writable: true,
-  configurable: true,
-})
-
 // Mock Touch Events
 Object.defineProperty(window, 'TouchEvent', {
   value: class TouchEvent extends Event {
@@ -156,24 +94,24 @@ Object.defineProperty(window, 'TouchEvent', {
   },
 })
 
-// Mock localStorage with realistic behavior
+// localStorage keeps vi.fn methods so suites can inject failures, but follows
+// the Storage contract: string values, stored "" readable, live length.
 const localStorageMock = {
   store: new Map<string, string>(),
-  getItem: vi.fn((key: string) => localStorageMock.store.get(key) || null),
-  setItem: vi.fn((key: string, value: string) => {
-    localStorageMock.store.set(key, value);
+  getItem: vi.fn((key: string) => localStorageMock.store.get(String(key)) ?? null),
+  setItem: vi.fn((key: string, value: unknown) => {
+    localStorageMock.store.set(String(key), String(value));
   }),
   removeItem: vi.fn((key: string) => {
-    localStorageMock.store.delete(key);
+    localStorageMock.store.delete(String(key));
   }),
   clear: vi.fn(() => {
     localStorageMock.store.clear();
   }),
-  length: 0,
-  key: vi.fn((index: number) => {
-    const keys = Array.from(localStorageMock.store.keys());
-    return keys[index] || null;
-  }),
+  get length() {
+    return localStorageMock.store.size;
+  },
+  key: vi.fn((index: number) => Array.from(localStorageMock.store.keys())[index] ?? null),
 };
 
 Object.defineProperty(window, 'localStorage', {
@@ -188,188 +126,6 @@ Object.defineProperty(global, 'localStorage', {
   writable: true,
   configurable: true,
 });
-
-// Mock performance
-Object.defineProperty(window, 'performance', {
-  value: {
-    now: vi.fn(() => Date.now()),
-    mark: vi.fn(),
-    measure: vi.fn(),
-    timing: {},
-  },
-  writable: true,
-  configurable: true,
-})
-
-// Mock Audio Service to prevent DOM access during module loading
-vi.mock('@/services/audio', () => ({
-  AudioService: vi.fn().mockImplementation(() => ({
-    playNote: vi.fn().mockResolvedValue('mock-note-id'),
-    attackNote: vi.fn().mockResolvedValue('mock-note-id'),
-    releaseNote: vi.fn(),
-    playNoteWithDuration: vi.fn().mockResolvedValue('mock-note-id'),
-    startAudioContext: vi.fn().mockResolvedValue(true),
-    isAudioReady: vi.fn().mockReturnValue(true),
-    getAudioState: vi.fn().mockReturnValue('running'),
-    getActiveNotes: vi.fn().mockReturnValue([]),
-    isNoteActive: vi.fn().mockReturnValue(false),
-    stop: vi.fn(),
-    dispose: vi.fn()
-  })),
-  audioService: {
-    playNote: vi.fn().mockResolvedValue('mock-note-id'),
-    attackNote: vi.fn().mockResolvedValue('mock-note-id'),
-    releaseNote: vi.fn(),
-    playNoteWithDuration: vi.fn().mockResolvedValue('mock-note-id'),
-    startAudioContext: vi.fn().mockResolvedValue(true),
-    isAudioReady: vi.fn().mockReturnValue(true),
-    getAudioState: vi.fn().mockReturnValue('running'),
-    getActiveNotes: vi.fn().mockReturnValue([]),
-    isNoteActive: vi.fn().mockReturnValue(false),
-    stop: vi.fn(),
-    dispose: vi.fn()
-  }
-}))
-
-// Mock Music Service  
-vi.mock('@/services/music', () => ({
-  musicTheory: {
-    getCurrentScale: vi.fn(() => ({
-      name: 'Major',
-      intervals: [0, 2, 4, 5, 7, 9, 11],
-      solfege: [
-        { name: 'Do', number: 1, emotion: 'stable', description: 'home', texture: 'smooth' },
-        { name: 'Re', number: 2, emotion: 'longing', description: 'movement', texture: 'rough' },
-        { name: 'Mi', number: 3, emotion: 'hopeful', description: 'bright', texture: 'crystalline' },
-        { name: 'Fa', number: 4, emotion: 'restless', description: 'pull', texture: 'jagged' },
-        { name: 'Sol', number: 5, emotion: 'confident', description: 'dominant', texture: 'smooth' },
-        { name: 'La', number: 6, emotion: 'yearning', description: 'melancholy', texture: 'flowing' },
-        { name: 'Ti', number: 7, emotion: 'urgent', description: 'leading', texture: 'sharp' }
-      ]
-    })),
-    getCurrentScaleNotes: vi.fn(() => ['C', 'D', 'E', 'F', 'G', 'A', 'B']),
-    setCurrentKey: vi.fn(),
-    setCurrentMode: vi.fn(),
-    getNoteFrequency: vi.fn((index, octave) => 261.63 * Math.pow(2, (index + (octave - 4) * 12) / 12)),
-    getNoteName: vi.fn((index, octave) => `${['C', 'D', 'E', 'F', 'G', 'A', 'B'][index]}${octave}`),
-    getAllMelodies: vi.fn(() => []),
-    getMelodiesByCategory: vi.fn(() => []),
-    getMelodicPatterns: vi.fn(() => []),
-    searchMelodies: vi.fn(() => []),
-    getMelodiesByEmotion: vi.fn(() => []),
-    addUserMelody: vi.fn(),
-    removeUserMelody: vi.fn()
-  },
-  CHROMATIC_NOTES: ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-}))
-
-// Mock data files
-vi.mock('@/data', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/data')>()
-
-  return {
-    ...actual,
-    SEQUENCER_ICONS: ['music', 'piano', 'guitar', 'violin', 'drums', 'trumpet', 'microphone'],
-    CHROMATIC_NOTES: ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'],
-    MAJOR_SOLFEGE: [
-      { name: 'Do', number: 1, emotion: 'stable', description: 'home', texture: 'smooth' },
-      { name: 'Re', number: 2, emotion: 'longing', description: 'movement', texture: 'rough' }
-    ],
-    MINOR_SOLFEGE: [
-      { name: 'Do', number: 1, emotion: 'stable', description: 'home', texture: 'smooth' },
-      { name: 'Re', number: 2, emotion: 'longing', description: 'movement', texture: 'rough' }
-    ],
-    MAJOR_SCALE: {
-      name: 'Major',
-      intervals: [0, 2, 4, 5, 7, 9, 11, 12],
-      solfege: [
-        { name: 'Do', number: 1, emotion: 'stable', description: 'home', texture: 'smooth' },
-        { name: 'Re', number: 2, emotion: 'longing', description: 'movement', texture: 'rough' },
-        { name: 'Mi', number: 3, emotion: 'bright', description: 'clarity', texture: 'clear' },
-        { name: 'Fa', number: 4, emotion: 'tender', description: 'suspension', texture: 'soft' },
-        { name: 'So', number: 5, emotion: 'strong', description: 'resolve', texture: 'firm' },
-        { name: 'La', number: 6, emotion: 'warm', description: 'yearning', texture: 'glowing' },
-        { name: 'Ti', number: 7, emotion: 'urgent', description: 'leading', texture: 'tense' },
-      ],
-    },
-    MINOR_SCALE: {
-      name: 'Minor',
-      intervals: [0, 2, 3, 5, 7, 8, 10, 12],
-      solfege: [
-        { name: 'Do', number: 1, emotion: 'stable', description: 'home', texture: 'smooth' },
-        { name: 'Re', number: 2, emotion: 'longing', description: 'movement', texture: 'rough' },
-        { name: 'Me', number: 3, emotion: 'wistful', description: 'shade', texture: 'velvet' },
-        { name: 'Fa', number: 4, emotion: 'tender', description: 'suspension', texture: 'soft' },
-        { name: 'So', number: 5, emotion: 'strong', description: 'resolve', texture: 'firm' },
-        { name: 'Le', number: 6, emotion: 'dark', description: 'falling', texture: 'glowing' },
-        { name: 'Te', number: 7, emotion: 'haunting', description: 'pull', texture: 'tense' },
-      ],
-    },
-    getAllMelodicPatterns: vi.fn(() => [])
-  }
-})
-
-// Mock instrument configurations
-vi.mock('@/data/instruments', () => ({
-  displayInstrumentName: (instrument: string) =>
-    instrument.startsWith('gm_') ? instrument.slice(3) : instrument,
-  AVAILABLE_INSTRUMENTS: {
-    'piano': {
-      id: 'piano',
-      displayName: 'Piano',
-      category: 'keyboard',
-      type: 'sample',
-      minify: false
-    },
-    'synth': {
-      id: 'synth',
-      displayName: 'Synth',
-      category: 'synth',
-      type: 'synth'
-    }
-  },
-  DEFAULT_INSTRUMENT: 'piano',
-  MAX_POLYPHONY: 8,
-  PIANO_ENVELOPE: {
-    attack: 0.01,
-    decay: 0.1,
-    sustain: 0.5,
-    release: 0.3
-  },
-  STANDARD_COMPRESSOR: {
-    threshold: -24,
-    ratio: 4,
-    attack: 0.003,
-    release: 0.01
-  },
-  SYNTH_CONFIGS: {
-    basic: {
-      oscillator: { type: 'triangle' },
-      envelope: { attack: 0.01, decay: 0.1, sustain: 0.5, release: 0.3 }
-    }
-  },
-  getInstrumentsByCategory: vi.fn(() => ({
-    keyboard: [{ id: 'piano', displayName: 'Piano' }],
-    synth: [{ id: 'synth', displayName: 'Synth' }]
-  })),
-  getInstrumentConfig: vi.fn(() => ({
-    id: 'piano',
-    displayName: 'Piano',
-    category: 'keyboard'
-  }))
-}))
-
-// Mock sample library
-vi.mock('@/lib/sample-library', () => ({
-  loadSampleInstrument: vi.fn().mockResolvedValue({
-    connect: vi.fn().mockReturnThis(),
-    dispose: vi.fn()
-  }),
-  createSalamanderPiano: vi.fn().mockResolvedValue({
-    connect: vi.fn().mockReturnThis(),
-    dispose: vi.fn()
-  })
-}))
 
 // Mock toast notifications
 vi.mock('vue-sonner', () => ({
@@ -403,130 +159,3 @@ vi.mock('@/services/superdoughAudio', () => ({
   playStrudelCode: vi.fn().mockResolvedValue(undefined),
   stopStrudelPlayback: vi.fn(),
 }))
-
-// Mock visual config composable
-vi.mock('@/composables/useVisualConfig', () => ({
-  DEFAULT_CONFIG: {
-    blobs: {
-      isEnabled: true,
-      baseSizeRatio: 0.15,
-      minSize: 50,
-      maxSize: 300,
-      opacity: 0.3,
-      blurRadius: 20,
-      oscillationAmplitude: 0.1,
-      fadeOutDuration: 2,
-      scaleInDuration: 0.5,
-      scaleOutDuration: 1,
-      driftSpeed: 30,
-      vibrationFrequencyDivisor: 100,
-      edgeSegments: 12,
-      vibrationAmplitude: 0.05,
-      glowEnabled: true,
-      glowIntensity: 15,
-      circleTopMargin: 30,
-      connectionMode: 'merge',
-      analysisHoldTime: 2100,
-      analysisNoteLimit: 5,
-      showChordLabel: true,
-      showIntervalLabels: true,
-      showEmotionLabel: true,
-      fieldSoftness: 10,
-      fusionStrength: 0.15,
-      webOpacity: 0.5,
-      labelOpacity: 0.5
-    },
-    ambient: {
-      isEnabled: true,
-      opacityMajor: 0.2,
-      opacityMinor: 0.15,
-      brightnessMajor: 1.2,
-      brightnessMinor: 0.8,
-      saturationMajor: 0.7,
-      saturationMinor: 0.5
-    },
-    particles: {
-      isEnabled: true,
-      count: 20,
-      sizeMin: 2,
-      sizeMax: 8,
-      lifetimeMin: 1000,
-      lifetimeMax: 3000,
-      speed: 100,
-      gravity: 0.5,
-      airResistance: 0.1
-    },
-    strings: {
-      isEnabled: true,
-      count: 7,
-      baseOpacity: 0.1,
-      activeOpacity: 0.8,
-      maxAmplitude: 20,
-      dampingFactor: 0.95,
-      interpolationSpeed: 0.1,
-      opacityInterpolationSpeed: 0.05
-    },
-    animation: {
-      visualFrequencyDivisor: 10,
-      frameRate: 60,
-      smoothingFactor: 0.1
-    },
-    frequencyMapping: {
-      minFreq: 100,
-      maxFreq: 2000,
-      minValue: 0,
-      maxValue: 1
-    },
-    dynamicColors: {
-      recipeVersion: 1,
-      musicColorMode: "movable-ordinal",
-      hueMotionEnabled: true,
-      animationSpeed: 1,
-      chroma: 0.1575,
-      lightnessCenter: 0.575,
-      lightnessSpan: 0.2571
-    },
-    palette: {
-      isEnabled: true,
-      gradientDirection: 45,
-      useGlassmorphism: true,
-      glassmorphOpacity: 0.2
-    }
-  }
-}))
-
-// Mock localStorage
-const mockLocalStorage = {
-  getItem: vi.fn(),
-  setItem: vi.fn(),
-  removeItem: vi.fn()
-}
-
-Object.defineProperty(window, 'localStorage', {
-  value: mockLocalStorage,
-  writable: true
-})
-
-// Mock DOM methods needed by audio service
-Object.defineProperty(document, 'addEventListener', {
-  value: vi.fn(),
-  writable: true,
-  configurable: true,
-})
-
-Object.defineProperty(document, 'removeEventListener', {
-  value: vi.fn(),
-  writable: true,
-  configurable: true,
-})
-
-Object.defineProperty(document, 'dispatchEvent', {
-  value: vi.fn(),
-  writable: true,
-  configurable: true,
-})
-
-Object.defineProperty(window, 'dispatchEvent', {
-  value: vi.fn(),
-  writable: true
-})

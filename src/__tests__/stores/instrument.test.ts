@@ -312,6 +312,9 @@ describe("instrument store warmup", () => {
 
     it("applies the fallback instrument's Shape when warmup fails", async () => {
       const store = useInstrumentStore();
+      // Shape piano explicitly; the app default (triangle) is not ready under
+      // this suite's readiness mock, so it cannot serve as the fallback.
+      await store.setInstrument("piano");
       store.setSynthControl("delay", 0.3);
       audioMocks.prewarmSoundSamples.mockRejectedValueOnce(new Error("Network down"));
 

@@ -102,6 +102,9 @@ describe("instrument store warmup", () => {
 
   it("restores the last ready instrument when warmup fails", async () => {
     const store = useInstrumentStore();
+    // Establish piano as the last ready instrument explicitly; the app default
+    // (triangle) is not ready under this suite's readiness mock.
+    await store.setInstrument("piano");
     audioMocks.prewarmSoundSamples.mockRejectedValueOnce(
       new Error("Network down")
     );

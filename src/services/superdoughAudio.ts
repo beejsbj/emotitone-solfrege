@@ -19,11 +19,14 @@ import type {
   SolfegeData,
 } from "@/types/music";
 import { Note as TonalNote } from "@tonaljs/tonal";
+import { DEFAULT_INSTRUMENT, isSynthSound } from "@/data/instruments";
 import { prepareLivePlayback } from "@/services/livePlayback";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import { getLiveArticulation } from "@/services/liveArticulation";
 import { audioTimeToOutputTime, LIVE_AUDIO_SCHEDULING_LEAD_MS } from "@/services/liveAudioTiming";
-import { getAudioContext, getMasterGain, initializeAudio } from "@/services/audioRuntime";
+import { getAudioContext, getMasterGain, initializeAudio, LIVE_ORBIT } from "@/services/audioRuntime";
+import { setLivePlaybackShaping } from "@/services/livePlayback";
+import { LIVE_DELAY_FEEDBACK, LIVE_DELAY_TIME_SECONDS } from "@/audio/liveShaping";
 
 /** Compatibility facade: the playback graph is owned by audioRuntime. */
 export { getAudioContext };
@@ -40,6 +43,38 @@ const SYNTH_SOUNDS = new Set([
 let _initialized = false;
 let _initPromise: Promise<void> | null = null;
 const _prewarmedSounds = new Set<string>();
+type LiveSynthControls = {
+  cutoff?: number;
+  resonance?: number;
+  attack?: number;
+  release?: number;
+  room?: number;
+  delay?: number;
+  overrides?: { attack?: boolean; release?: boolean };
+};
+
+let _liveSynthControls: LiveSynthControls | null = null;
+
+export function setLiveSynthControls(
+  controls: LiveSynthControls | null
+): void {
+  _liveSynthControls = controls ? {
+    ...controls,
+    ...(controls.overrides ? { overrides: { ...controls.overrides } } : {}),
+  } : null;
+  // Prepared instruments bypass attackNote; mirror the same rules to the worklet.
+  const current = _liveSynthControls;
+  setLivePlaybackShaping({
+    cutoff: current?.cutoff ?? 12000,
+    resonance: current?.resonance ?? 0,
+    room: current?.room ?? 0,
+    delay: current?.delay ?? 0,
+    envelope: {
+      attack: current?.overrides?.attack ? current.attack : undefined,
+      release: current?.overrides?.release ? current.release : undefined,
+    },
+  });
+}
 const STRUDEL_PLAYBACK_SOURCE = "strudel-playback";
 const LIVE_NOTE_PLACEHOLDER_DURATION_SECONDS = 0.25;
 const _activeStrudelVisuals = new Map<
@@ -81,16 +116,12 @@ export function getActiveStrudelStageNotes(): readonly ActiveNote[] {
 const SAMPLE_PACKS = [
   { key: "piano", label: "Piano" },
   { key: "vcsl", label: "Orchestra" },
-  { key: "tidal-drum-machines", label: "Drum Machines" },
-  { key: "EmuSP12", label: "EmuSP12" },
-  { key: "Dirt-Samples", label: "Dirt Samples" },
-  { key: "mridangam", label: "Mridangam" },
 ] as const;
 
 /**
  * Core pre-warm logic — assumes superdough is already initialised.
  * Do NOT call initSuperdoughAudio() here; it would deadlock when invoked
- * from inside the init flow (e.g. _prewarmPianoSamples called by initSuperdoughAudio).
+ * from inside the init flow (e.g. _prewarmDefaultInstrument called by initSuperdoughAudio).
  */
 async function _prewarmSoundCore(
   soundName: string,
@@ -204,9 +235,9 @@ export function getReadySounds(): string[] {
   return getRegisteredSounds().filter((soundName) => isPrewarmed(soundName));
 }
 
-async function _prewarmPianoSamples(): Promise<void> {
+async function _prewarmDefaultInstrument(): Promise<void> {
   // Called from within initSuperdoughAudio — skip the init guard to avoid deadlock.
-  return _prewarmSoundCore("piano", true);
+  return _prewarmSoundCore(DEFAULT_INSTRUMENT, true);
 }
 
 /**
@@ -256,9 +287,9 @@ export async function initSuperdoughAudio(
 
       // Only the default instrument is decoded eagerly. Other registered
       // instruments warm on selection so startup stays bounded on mobile.
-      progressCallback?.(80, "Warming up piano…");
-      await _prewarmPianoSamples();
-      progressCallback?.(98, "Piano ready");
+      progressCallback?.(80, `Preparing ${DEFAULT_INSTRUMENT}…`);
+      await _prewarmDefaultInstrument();
+      progressCallback?.(98, `${DEFAULT_INSTRUMENT} ready`);
 
       progressCallback?.(100, "Audio engine ready");
       _initialized = true;
@@ -530,7 +561,13 @@ export async function attackNote(
   noteId: string,
   noteName: string,
   instrument: string,
-  options?: { atTime?: number; attack?: number; release?: number },
+  options?: {
+    atTime?: number;
+    attack?: number;
+    release?: number;
+    cutoff?: number;
+    resonance?: number;
+  },
 ): Promise<number> {
   // The ready path must submit audio before yielding to unrelated microtasks.
   // Initialization and resume remain asynchronous only when actually needed.
@@ -548,6 +585,8 @@ export async function attackNote(
   const articulation = getLiveArticulation(sound);
   const duration = LIVE_NOTE_PLACEHOLDER_DURATION_SECONDS;
   const wasReady = isPrewarmed(sound);
+  const isSynth = isSynthSound(sound);
+  const hasEnvelopeOverrideContract = _liveSynthControls?.overrides !== undefined;
 
   // Defensively clear stale voices if a note id is ever re-used.
   if (hasVoice(noteId)) {
@@ -558,18 +597,51 @@ export async function attackNote(
   // patched engine preserves overdue live presses, but this margin normally
   // lets the complete graph reach the render thread before its intended onset.
   const requestedAt = Math.max(options?.atTime ?? 0, nowPlusOffset(LIVE_AUDIO_SCHEDULING_LEAD_MS / 1000));
+  const attack = options?.attack ?? (
+    _liveSynthControls?.attack !== undefined &&
+    (hasEnvelopeOverrideContract ? _liveSynthControls.overrides?.attack : isSynth)
+      ? _liveSynthControls.attack
+      : articulation.attack
+  );
+  const release = options?.release ?? (
+    _liveSynthControls?.release !== undefined &&
+    (hasEnvelopeOverrideContract ? _liveSynthControls.overrides?.release : isSynth)
+      ? _liveSynthControls.release
+      : articulation.release
+  );
+  const cutoff = options?.cutoff ?? _liveSynthControls?.cutoff;
+  const resonance = options?.resonance ?? _liveSynthControls?.resonance;
+
+  const payload: Record<string, unknown> = {
+    s: sound,
+    note: noteName,
+    gain: 0.8,
+    attack,
+    decay: articulation.decay,
+    sustain: articulation.sustain,
+    release,
+    voiceId: noteId,
+    sustainUntilRelease: true,
+    orbit: LIVE_ORBIT,
+  };
+
+  if (cutoff !== undefined && cutoff < 12000) {
+    payload.cutoff = cutoff;
+  }
+  if (resonance !== undefined && resonance > 0) {
+    payload.resonance = resonance;
+  }
+  if ((_liveSynthControls?.room ?? 0) > 0) {
+    payload.room = _liveSynthControls?.room;
+  }
+  if ((_liveSynthControls?.delay ?? 0) > 0) {
+    payload.delay = _liveSynthControls?.delay;
+    payload.delaytime = LIVE_DELAY_TIME_SECONDS;
+    payload.delayfeedback = LIVE_DELAY_FEEDBACK;
+  }
+
   const armedAt = await superdough(
-    {
-      s: sound,
-      note: noteName,
-      gain: 0.8,
-      attack: options?.attack ?? articulation.attack,
-      decay: articulation.decay,
-      sustain: articulation.sustain,
-      release: options?.release ?? articulation.release,
-      voiceId: noteId,
-      sustainUntilRelease: true,
-    },
+    payload,
     requestedAt,
     duration,
     1 // cps
@@ -615,6 +687,17 @@ export async function playNoteWithDuration(
 
   const sound = resolveLiveSoundName(instrument);
   const durationSeconds = durationMs / 1000;
+  const isSynth = isSynthSound(sound);
+  const hasEnvelopeOverrideContract = _liveSynthControls?.overrides !== undefined;
+  const articulation = getLiveArticulation(sound);
+  const attack = _liveSynthControls?.attack !== undefined &&
+    (hasEnvelopeOverrideContract ? _liveSynthControls.overrides?.attack : isSynth)
+    ? _liveSynthControls.attack
+    : articulation.attack;
+  const release = _liveSynthControls?.release !== undefined &&
+    (hasEnvelopeOverrideContract ? _liveSynthControls.overrides?.release : isSynth)
+    ? _liveSynthControls.release
+    : articulation.release;
 
   await superdough(
     {
@@ -622,8 +705,25 @@ export async function playNoteWithDuration(
       note: noteName,
       duration: durationSeconds,
       gain: 0.8,
-      attack: 0.01,
-      release: Math.min(durationSeconds * 0.5, 1),
+      attack,
+      release,
+      orbit: LIVE_ORBIT,
+      ...((_liveSynthControls?.cutoff ?? 12000) < 12000
+        ? { cutoff: _liveSynthControls?.cutoff }
+        : {}),
+      ...((_liveSynthControls?.resonance ?? 0) > 0
+        ? { resonance: _liveSynthControls?.resonance }
+        : {}),
+      ...((_liveSynthControls?.room ?? 0) > 0
+        ? { room: _liveSynthControls?.room }
+        : {}),
+      ...((_liveSynthControls?.delay ?? 0) > 0
+        ? {
+            delay: _liveSynthControls?.delay,
+            delaytime: LIVE_DELAY_TIME_SECONDS,
+            delayfeedback: LIVE_DELAY_FEEDBACK,
+          }
+        : {}),
     },
     nowPlusOffset(),
     durationSeconds,

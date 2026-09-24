@@ -231,6 +231,49 @@ describe('production live audio render core', () => {
     expect(events.every(event => event.phase === 'attack')).toBe(true)
   })
 
+  // A constant-level loop makes every rendered frame equal the envelope.
+  const dc: PreparedLiveInstrument = { ...bank, instrumentId: 'dc', attack: 0, release: 0,
+    zones: [{ id: 'dc', rootMidi: 60, sampleRate: 1000, channels: [new Float32Array([1, 1, 1, 1])],
+      loopStartFrame: 0, loopEndFrame: 4 }] }
+
+  it('applies Shape envelope overrides to new voices only', () => {
+    const { send, press, render } = setup(dc)
+    press('before', [60])
+    render(1)
+    send({ type: 'shape', envelope: { attack: .01, release: .5 } })
+    // The sounding voice keeps its instant attack and prepared release.
+    expect(render(2)[0][1]).toBe(1)
+    send({ type: 'shape', envelope: { attack: .01 } })
+    send({ type: 'release', ownerId: 'before' })
+    render(1)
+    press('after', [60])
+    // 10ms at 1kHz ramps over ten frames.
+    expect([...render(4)[0]]).toEqual([0, .1, .2, .3].map(Math.fround))
+  })
+
+  it('restores prepared articulation when the override is cleared and ignores invalid values', () => {
+    const { send, press, render } = setup(dc)
+    send({ type: 'shape', envelope: { attack: .01 } })
+    send({ type: 'shape', envelope: { attack: -1 } })
+    send({ type: 'shape', envelope: { attack: Number.NaN } })
+    press('shaped', [60])
+    expect(render(2)[0][1]).toBeCloseTo(.1)
+    send({ type: 'release', ownerId: 'shaped' })
+    render(5)
+    send({ type: 'shape', envelope: {} })
+    press('natural', [60])
+    expect(render(2)[0][1]).toBe(1)
+  })
+
+  it('uses the Shape release for held voices', () => {
+    const { send, press, render } = setup(dc)
+    send({ type: 'shape', envelope: { release: .004 } })
+    press('finger', [60])
+    render(3)
+    send({ type: 'release', ownerId: 'finger' })
+    expect([...render(5)[0]]).toEqual([1, .75, .5, .25, 0])
+  })
+
   it.each([
     ['together', .2], ['repeat', .03], ['arp-up', .03],
   ] as const)('reports the rendered ADSR and key-up fade for %s', (style, release) => {

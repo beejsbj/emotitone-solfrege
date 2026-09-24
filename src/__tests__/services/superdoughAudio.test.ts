@@ -157,12 +157,91 @@ describe("superdoughAudio live note handling", () => {
         sustain: 1,
         voiceId: "note-1",
         sustainUntilRelease: true,
+        orbit: 2,
       }),
       12.005,
       0.25,
       1,
     );
     expect(hoisted.mockReleaseVoice).not.toHaveBeenCalled();
+  });
+
+  it("keeps native sample articulation on reset while applying shared shaping", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    audio.setLiveSynthControls({
+      cutoff: 2400,
+      resonance: 3,
+      attack: 0.003,
+      release: 0.12,
+      room: 0.4,
+      delay: 0.6,
+      overrides: { attack: false, release: false },
+    });
+
+    await audio.attackNote("sample-1", "C4", "piano");
+
+    expect(hoisted.mockSuperdough).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attack: 0.001,
+        release: 0.2,
+        cutoff: 2400,
+        resonance: 3,
+        room: 0.4,
+        delay: 0.6,
+        delaytime: 0.25,
+        delayfeedback: 0.3,
+        orbit: 2,
+      }),
+      expect.any(Number), 0.25, 1,
+    );
+  });
+
+  it("keeps GM pad articulation when envelope overrides are not active", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    audio.setLiveSynthControls({
+      attack: 0.003,
+      release: 0.12,
+      overrides: { attack: false, release: false },
+    });
+
+    await audio.attackNote("pad-1", "C4", "gm_pad_1");
+
+    expect(hoisted.mockSuperdough).toHaveBeenCalledWith(
+      expect.objectContaining({ attack: 0.01, release: 0.4 }),
+      expect.any(Number), 0.25, 1,
+    );
+  });
+
+  it("applies an explicit sample envelope override and uses the same effect payload for preview", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    audio.setLiveSynthControls({
+      attack: 0.003,
+      release: 0.12,
+      room: 0.25,
+      delay: 0.5,
+      overrides: { attack: true, release: true },
+    });
+
+    await audio.attackNote("sample-2", "C4", "piano");
+    expect(hoisted.mockSuperdough).toHaveBeenCalledWith(
+      expect.objectContaining({ attack: 0.003, release: 0.12, room: 0.25, delay: 0.5 }),
+      expect.any(Number), 0.25, 1,
+    );
+
+    hoisted.mockSuperdough.mockClear();
+    await audio.playNoteWithDuration("C4", 500, "piano");
+    expect(hoisted.mockSuperdough).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attack: 0.003,
+        release: 0.12,
+        room: 0.25,
+        delay: 0.5,
+        delaytime: 0.25,
+        delayfeedback: 0.3,
+        orbit: 2,
+      }),
+      expect.any(Number), 0.5, 1,
+    );
   });
 
   it("submits a ready note synchronously and preserves explicit articulation", async () => {
@@ -283,27 +362,24 @@ describe("superdoughAudio live note handling", () => {
     expect(audio.isPrewarmed("gm_celesta")).toBe(true);
   });
 
-  it("decodes only the default piano during startup", async () => {
-    hoisted.mockGetSound.mockImplementation((name: string) =>
-      name === "piano"
-        ? { data: { samples: ["https://example.test/piano.wav"] } }
-        : {
-            data: {
-              type: "soundfont",
-              fonts: [`${name}_font`],
-            },
-          }
-    );
+  it("prepares only the default oscillator during startup, decoding no sample banks", async () => {
+    hoisted.mockGetSound.mockImplementation((name: string) => {
+      if (name === "triangle") return { data: { type: "synth" } };
+      if (name === "piano") {
+        return { data: { samples: ["https://example.test/piano.wav"] } };
+      }
+      return { data: { type: "soundfont", fonts: [`${name}_font`] } };
+    });
     const audio = await import("@/services/superdoughAudio");
+    const { DEFAULT_INSTRUMENT } = await import("@/data/instruments");
 
     await audio.initSuperdoughAudio();
 
-    expect(hoisted.mockLoadBuffer).toHaveBeenCalledTimes(1);
-    expect(hoisted.mockLoadBuffer).toHaveBeenCalledWith(
-      "https://example.test/piano.wav",
-      hoisted.mockAudioContext
-    );
+    expect(DEFAULT_INSTRUMENT).toBe("triangle");
+    expect(audio.isPrewarmed("triangle")).toBe(true);
+    expect(hoisted.mockLoadBuffer).not.toHaveBeenCalled();
     expect(hoisted.mockPrewarmSoundfont).not.toHaveBeenCalled();
+    expect(audio.isPrewarmed("piano")).toBe(false);
   });
 
   it("leaves a soundfont cold when its preset fails to warm", async () => {

@@ -222,6 +222,118 @@ describe('StrudelNotation', () => {
     expect(result).toContain('.scale("C4:major pentatonic")')
   })
 
+  it("includes synth shaping controls (lpf, lpq, attack, release) when provided", () => {
+    const notes = [makeNote("c", "C4", 0, 4, 1000, 500)];
+    const result = logNotesToStrudel(notes, {
+      sound: "triangle",
+      cutoff: 1800,
+      resonance: 4.5,
+      attack: 0.05,
+      release: 0.8,
+    });
+
+    expect(result).toContain('.sound("triangle")');
+    expect(result).toContain('.lpf(1800)');
+    expect(result).toContain('.lpq(4.5)');
+    expect(result).toContain('.attack(0.05)');
+    expect(result).toContain('.release(0.8)');
+  });
+
+  it("omits neutral envelopes while preserving explicit envelope intent", () => {
+    const notes = [makeNote("c", "C4", 0, 4, 1000, 500)];
+    const shorterAttack = logNotesToStrudel(notes, {
+      sound: "triangle",
+      attack: 0.001,
+      attackOverride: true,
+    });
+    const defaults = logNotesToStrudel(notes, {
+      sound: "triangle",
+      cutoff: 12000,
+      resonance: 0,
+      attack: 0.003,
+      release: 0.12,
+    });
+
+    expect(shorterAttack).toContain('.attack(0.001)');
+    // Untouched envelopes emit the natural articulation for playback fidelity.
+    expect(defaults).not.toContain('.lpf(');
+    expect(defaults).not.toContain('.lpq(');
+    expect(defaults).toContain('.attack(0.003)');
+    expect(defaults).toContain('.release(0.12)');
+
+    const sampleDefaults = logNotesToStrudel(notes, {
+      sound: "piano",
+      attack: 0.003,
+      release: 0.12,
+    });
+    // Default-valued legacy input is not intent; piano keeps its own envelope.
+    expect(sampleDefaults).toContain('.attack(0.001)');
+    expect(sampleDefaults).toContain('.release(0.2)');
+
+    const explicitDefaults = logNotesToStrudel(notes, {
+      sound: "piano",
+      attack: 0.003,
+      release: 0.12,
+      attackOverride: true,
+      releaseOverride: true,
+    });
+    expect(explicitDefaults).toContain('.attack(0.003)');
+    expect(explicitDefaults).toContain('.release(0.12)');
+
+    const suppressedNonDefaults = logNotesToStrudel(notes, {
+      sound: "piano",
+      attack: 0.1,
+      release: 0.8,
+      attackOverride: false,
+      releaseOverride: false,
+    });
+    expect(suppressedNonDefaults).not.toContain('.attack(0.1)');
+    expect(suppressedNonDefaults).not.toContain('.release(0.8)');
+    expect(suppressedNonDefaults).toContain('.attack(0.001)');
+
+    const legacySampleValues = logNotesToStrudel(notes, {
+      sound: "piano",
+      attack: 0.1,
+      release: 0.8,
+    });
+    expect(legacySampleValues).toContain('.attack(0.1)');
+    expect(legacySampleValues).toContain('.release(0.8)');
+  });
+
+  it("keeps explicit sample shaping and effects in generated code", () => {
+    const notes = [makeNote("c", "C4", 0, 4, 1000, 500)];
+    const result = logNotesToStrudel(notes, {
+      sound: "piano",
+      cutoff: 2200,
+      resonance: 2,
+      attack: 0.003,
+      release: 0.12,
+      attackOverride: true,
+      releaseOverride: true,
+      room: 0.4,
+      delay: 0.6,
+    });
+
+    expect(result).toContain('.lpf(2200).lpq(2)');
+    expect(result).toContain('.attack(0.003)');
+    expect(result).toContain('.release(0.12)');
+    expect(result).toContain('.room(0.4)');
+    expect(result).toContain('.delay(0.6).delaytime(0.25).delayfeedback(0.3)');
+  });
+
+  it("applies a Shape envelope to every note instead of recorded per-note values", () => {
+    const notes = [
+      { ...makeNote("c", "C4", 0, 4, 1000, 500), articulation: { attack: 0.2, decay: 0.001, sustain: 1, release: 1 } },
+      { ...makeNote("d", "D4", 1, 4, 1500, 500), articulation: { attack: 0.4, decay: 0.001, sustain: 1, release: 1 } },
+    ] as LogNote[];
+    const recorded = logNotesToStrudel(notes, { sound: "triangle" });
+    expect(recorded).toContain('.as("note:attack:release")');
+
+    const shaped = logNotesToStrudel(notes, { sound: "triangle", attack: 0.05, attackOverride: true });
+    expect(shaped).toContain('.as("note:release")');
+    expect(shaped).toContain('.attack(0.05)');
+  });
+
   it('merges adjacent rests without crossing notes or chord lanes', () => {
     expect(mergeStrudelRests(['~@0.1', '~@0.15', 'C4@0.25', '~', '~@0.5', '{~@0.2 D4@0.8, E4}']))
       .toEqual(['~@0.25', 'C4@0.25', '~@1.5', '{~@0.2 D4@0.8, E4}']);

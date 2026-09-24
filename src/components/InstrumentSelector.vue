@@ -9,8 +9,9 @@ import TabbedOverlayPanel, {
   type TabbedOverlayTab,
 } from "./TabbedOverlayPanel.vue";
 import TopDrawer from "./TopDrawer.vue";
-import { Search, X } from "lucide-vue-next";
+import { RotateCcw, Search, X } from "lucide-vue-next";
 import { instrumentIconFor } from "@/components/primatives/instrumentIcon";
+import Knob from "@/components/primatives/Knob/index.vue";
 import { displayInstrumentName } from "@/data/instruments";
 
 const drawerContentHeight = ref<number>();
@@ -57,20 +58,16 @@ type Category =
   | "strings"
   | "organs"
   | "winds"
-  | "drums"
-  | "gm"
-  | "other";
+  | "gm";
 
 const CATEGORY_ORDER: Category[] = [
+  "synths",
   "keyboards",
   "mallets",
   "strings",
   "organs",
   "winds",
-  "synths",
-  "drums",
   "gm",
-  "other",
 ];
 
 const CATEGORY_LABELS: Record<Category, string> = {
@@ -80,9 +77,7 @@ const CATEGORY_LABELS: Record<Category, string> = {
   strings: "Strings",
   organs: "Organs",
   winds: "Winds",
-  drums: "Drums & Percussion",
   gm: "GM Soundfonts",
-  other: "Other",
 };
 
 const CATEGORY_SHORT_LABELS: Record<Category, string> = {
@@ -92,9 +87,7 @@ const CATEGORY_SHORT_LABELS: Record<Category, string> = {
   strings: "Strings",
   organs: "Organs",
   winds: "Winds",
-  drums: "Drums",
   gm: "GM",
-  other: "Other",
 };
 
 const KEYBOARD_SOUNDS = new Set([
@@ -231,20 +224,10 @@ const SYNTH_SOUNDS = new Set([
   "sin",
   "sqr",
   "saw",
-  "brown",
-  "white",
-  "pink",
-  "bytebeat",
-  "crackle",
-  "sbd",
-  "zzfx",
-  "user",
-  "z_noise",
   "z_sine",
   "z_square",
   "z_sawtooth",
   "z_triangle",
-  "z_tan",
   "gm_lead_1_square",
   "gm_lead_2_sawtooth",
   "gm_lead_3_calliope",
@@ -261,6 +244,96 @@ const SYNTH_SOUNDS = new Set([
   "gm_pad_metallic",
   "gm_pad_halo",
   "gm_pad_sweep",
+  "gm_synth_bass_1",
+  "gm_synth_bass_2",
+  "gm_synth_brass_1",
+  "gm_synth_brass_2",
+  "gm_synth_choir",
+]);
+
+const EXCLUDED_SOUNDS = new Set([
+  // Unpitched noise / non-melodic synths
+  "brown",
+  "white",
+  "pink",
+  "bytebeat",
+  "crackle",
+  "sbd",
+  "zzfx",
+  "user",
+  "bus",
+  "z_noise",
+  "z_tan",
+  // VCSL percussion / unpitched SFX
+  "agogo",
+  "anvil",
+  "ballwhistle",
+  "bassdrum1",
+  "bassdrum2",
+  "belltree",
+  "bongo",
+  "brakedrum",
+  "cabasa",
+  "cajon",
+  "clap",
+  "clash",
+  "clash2",
+  "clave",
+  "cowbell",
+  "darbuka",
+  "fingercymbal",
+  "flexatone",
+  "framedrum",
+  "gong",
+  "gong2",
+  "guiro",
+  "hihat",
+  "marktrees",
+  "oceandrum",
+  "ratchet",
+  "shaker_large",
+  "shaker_small",
+  "siren",
+  "slapstick",
+  "sleighbells",
+  "slitdrum",
+  "snare_hi",
+  "snare_low",
+  "snare_modern",
+  "snare_rim",
+  "sus_cymbal",
+  "sus_cymbal2",
+  "tambourine",
+  "tambourine2",
+  "timpani",
+  "timpani2",
+  "timpani_roll",
+  "tom_mallet",
+  "tom_rim",
+  "tom_stick",
+  "tom2_mallet",
+  "tom2_rim",
+  "tom2_stick",
+  "trainwhistle",
+  "triangles",
+  "vibraslap",
+  "woodblock",
+  // GM sound effects & unpitched percussion
+  "gm_applause",
+  "gm_bird_tweet",
+  "gm_breath_noise",
+  "gm_guitar_fret_noise",
+  "gm_gunshot",
+  "gm_helicopter",
+  "gm_melodic_tom",
+  "gm_orchestra_hit",
+  "gm_reverse_cymbal",
+  "gm_seashore",
+  "gm_synth_drum",
+  "gm_taiko_drum",
+  "gm_telephone",
+  "gm_timpani",
+  // GM FX
   "gm_fx_rain",
   "gm_fx_soundtrack",
   "gm_fx_crystal",
@@ -269,41 +342,22 @@ const SYNTH_SOUNDS = new Set([
   "gm_fx_goblins",
   "gm_fx_echoes",
   "gm_fx_sci_fi",
-  "gm_synth_bass_1",
-  "gm_synth_bass_2",
-  "gm_synth_brass_1",
-  "gm_synth_brass_2",
-  "gm_synth_drum",
-  "gm_synth_choir",
 ]);
 
-function categorise(name: string): Category {
+const UNPITCHED_REGEX =
+  /^(gm_drum|bd|sd|hh|cp|cr|cb|mt|ht|lt|misc|kick|snare|clap|hat|tom|perc|rim|cym|cow|tamb|bong|conga|mrid|agogo|anv|brak|bongo|clave|cong|darb|frame|gong|guiro|mark|ocean|ratch|shak|siren|slap|sleigh|slit|sus_c|tamb|timpa|triangles|vibraslap|wine|wood)|^(AJK|Akai|Roland|casio|crow|insect|wind|jazz|metal|east|space|numbers)/;
+
+function categorise(name: string): Category | null {
+  if (EXCLUDED_SOUNDS.has(name)) return null;
+  if (SYNTH_SOUNDS.has(name)) return "synths";
   if (KEYBOARD_SOUNDS.has(name)) return "keyboards";
   if (MALLET_SOUNDS.has(name)) return "mallets";
   if (STRING_SOUNDS.has(name)) return "strings";
   if (ORGAN_SOUNDS.has(name)) return "organs";
   if (WIND_SOUNDS.has(name)) return "winds";
-  if (SYNTH_SOUNDS.has(name)) return "synths";
-  if (
-    /^(gm_drum|gm_taiko|gm_melodic_tom|gm_reverse_cymbal|gm_gunshot|gm_helicopter|gm_applause|gm_bird_tweet|gm_telephone|gm_seashore|gm_orchestra_hit|gm_brass_section|gm_voice_oohs|gm_choir_aahs|bd|sd|hh|cp|cr|cb|mt|ht|lt|misc|kick|snare|clap|hat|bass|tom|perc|rim|cym|cow|tamb|bong|conga|mrid|agogo|anv|brak|bongo|clave|cong|darb|frame|gong|guiro|mark|ocean|ratch|shak|siren|slap|sleigh|slit|sus_c|tamb|timpa|trian|vibra|wine|wood)/.test(
-      name
-    )
-  ) {
-    return "drums";
-  }
+  if (UNPITCHED_REGEX.test(name)) return null;
   if (name.startsWith("gm_")) return "gm";
-  if (
-    name.startsWith("AJK") ||
-    name.startsWith("Akai") ||
-    name.startsWith("Roland") ||
-    name.includes("_bd") ||
-    name.includes("_sd") ||
-    name.includes("_hh")
-  ) {
-    return "drums";
-  }
-
-  return "other";
+  return null;
 }
 
 const filteredSounds = computed(() => {
@@ -320,6 +374,7 @@ function groupSounds(sounds: string[]) {
 
   for (const sound of sounds) {
     const category = categorise(sound);
+    if (!category) continue;
     if (!map[category]) {
       map[category] = [];
     }
@@ -329,7 +384,34 @@ function groupSounds(sounds: string[]) {
   return map;
 }
 
-const activeTab = ref<Category>(categorise(currentInstrumentId.value));
+const activeTab = ref<Category | "shape">(categorise(currentInstrumentId.value) ?? "synths");
+const shapeHelp = ref("Shape the current sound. Reset restores its natural envelope and removes effects.");
+const shapeKnobs = [
+  { key: "cutoff", label: "Cutoff", min: 200, max: 12000, step: 100,
+    help: "Cutoff: lower it to soften the brightness. Fully up leaves the filter off.",
+    format: (v: number) => v >= 12000 ? "Off" : v >= 1000 ? `${(v / 1000).toFixed(1)}k` : `${v}Hz` },
+  { key: "resonance", label: "Resonance", min: 0, max: 12, step: 0.5,
+    help: "Resonance: emphasize the filter edge for a ringing tone. Lower Cutoff to hear it.",
+    format: (v: number) => v.toFixed(1) },
+  { key: "attack", label: "Attack", min: 0.001, max: 0.5, step: 0.001,
+    help: "Attack: how gently a note fades in. Higher values soften its beginning.",
+    format: (v: number) => `${Math.round(v * 1000)}ms` },
+  { key: "release", label: "Release", min: 0.01, max: 2.5, step: 0.01,
+    help: "Release: how long a note fades after you let go. It cannot extend a sample beyond its recording.",
+    format: (v: number) => `${v.toFixed(2)}s` },
+  { key: "room", label: "Reverb", min: 0, max: 1, step: 0.01,
+    help: "Reverb: add a sense of space around the sound. Zero is dry.",
+    format: (v: number) => `${Math.round(v * 100)}%` },
+  { key: "delay", label: "Echo", min: 0, max: 1, step: 0.01,
+    help: "Echo: add fading repeats, a quarter-second apart. Zero is off.",
+    format: (v: number) => `${Math.round(v * 100)}%` },
+] as const;
+type ShapeKnob = typeof shapeKnobs[number];
+function formatShapeValue(control: ShapeKnob, value: number): string {
+  if ((control.key === "attack" || control.key === "release")
+    && !instrumentStore.synthControlOverrides?.[control.key]) return "Auto";
+  return control.format(value);
+}
 const hasSearchQuery = computed(() => query.value.trim().length > 0);
 const allGrouped = computed(() => groupSounds(allSounds.value));
 const grouped = computed(() => groupSounds(filteredSounds.value));
@@ -344,19 +426,20 @@ const categoryTabs = computed(() =>
   )
 );
 
-const bankTabs = computed<TabbedOverlayTab[]>(() =>
-  categoryTabs.value.map((tab) => ({
+const bankTabs = computed<TabbedOverlayTab[]>(() => [
+  { value: "shape", label: "Shape", shortLabel: "Shape", tone: "brass" },
+  ...categoryTabs.value.map((tab) => ({
     value: tab.key,
     label: tab.label,
     shortLabel: tab.shortLabel,
   })),
-);
+]);
 
 function syncActiveTabToInstrument(instrumentId: string) {
   const preferredCategory = categorise(instrumentId);
-  activeTab.value = allGrouped.value[preferredCategory]?.length
+  activeTab.value = (preferredCategory && allGrouped.value[preferredCategory]?.length)
     ? preferredCategory
-    : categoryTabs.value[0]?.key ?? preferredCategory;
+    : categoryTabs.value[0]?.key ?? "synths";
 }
 
 onMounted(async () => {
@@ -366,17 +449,17 @@ onMounted(async () => {
     // The global loading flow already reports degraded initialization. Keep
     // the chooser usable for whatever sounds were registered successfully.
   }
-  allSounds.value = getRegisteredSounds().sort();
-  syncActiveTabToInstrument(currentInstrumentId.value);
+  allSounds.value = getRegisteredSounds()
+    .filter((sound) => categorise(sound) !== null)
+    .sort();
+  if (activeTab.value !== "shape") syncActiveTabToInstrument(currentInstrumentId.value);
 });
 
-watch(currentInstrumentId, syncActiveTabToInstrument);
+watch(currentInstrumentId, (instrumentId) => {
+  if (activeTab.value !== "shape") syncActiveTabToInstrument(instrumentId);
+});
 
-const activeTabMeta = computed(() => ({
-  value: activeTab.value,
-  label: CATEGORY_LABELS[activeTab.value],
-  shortLabel: CATEGORY_SHORT_LABELS[activeTab.value],
-}));
+const activeTabMeta = computed(() => bankTabs.value.find((tab) => tab.value === activeTab.value));
 
 function orderedGroupsFor(tabValue: string) {
   if (hasSearchQuery.value) {
@@ -406,6 +489,7 @@ function orderedGroupsFor(tabValue: string) {
 }
 
 const visibleSoundCount = computed(() => {
+  if (activeTab.value === "shape") return undefined;
   if (hasSearchQuery.value) {
     return filteredSounds.value.length;
   }
@@ -414,11 +498,12 @@ const visibleSoundCount = computed(() => {
 });
 
 const bankLabel = computed(() => {
+  if (activeTab.value === "shape") return `Shape · ${displayInstrumentName(currentInstrumentId.value)}`;
   if (hasSearchQuery.value) {
     return "Search";
   }
 
-  return activeTabMeta.value.label;
+  return activeTabMeta.value?.label;
 });
 
 const warmupStatusMessage = computed(() => {
@@ -566,6 +651,17 @@ async function selectInstrument(name: string, close: () => void) {
             :status="visibleSoundCount"
           >
             <Button
+              v-if="activeTab === 'shape'"
+              size="sm"
+              tone="ink"
+              data-testid="shape-reset"
+              title="Reset sound shaping"
+              accessible-name="Reset sound shaping"
+              @click="instrumentStore.resetSynthControls"
+            >
+              <RotateCcw :size="13" />
+            </Button>
+            <Button
               size="sm"
               title="Close sounds"
               accessible-name="Close sounds"
@@ -577,7 +673,7 @@ async function selectInstrument(name: string, close: () => void) {
         </template>
 
         <template #toolbar>
-          <div class="flex items-center gap-2">
+          <div v-if="activeTab !== 'shape'" class="flex items-center gap-2">
             <label
               class="flex flex-1 items-center gap-2 border-b border-[var(--ink-5)] px-0.5 pb-2 pt-0.5 text-[var(--ivory-3)] transition-colors focus-within:border-[var(--ivory-2)] focus-within:text-[var(--ivory)]"
             >
@@ -629,8 +725,35 @@ async function selectInstrument(name: string, close: () => void) {
             {{ warmupErrorMessage }}
           </div>
 
+          <section v-if="panelTab === 'shape'" class="sound-shape" data-testid="sound-shape" aria-label="Sound shaping">
+            <div class="sound-shape__grid">
+              <div
+                v-for="control in shapeKnobs"
+                :key="control.key"
+                class="sound-shape__knob-cell"
+                :title="control.help"
+                @mouseenter="shapeHelp = control.help"
+                @focusin="shapeHelp = control.help"
+              >
+                <Knob
+                  :model-value="instrumentStore.synthControls[control.key]"
+                  type="range"
+                  :min="control.min"
+                  :max="control.max"
+                  :step="control.step"
+                  :label="control.label"
+                  tone="brass"
+                  :data-testid="`shape-knob-${control.key}`"
+                  :format-value="(value) => formatShapeValue(control, value)"
+                  @update:model-value="(v) => instrumentStore.setSynthControl(control.key, Number(v))"
+                />
+              </div>
+            </div>
+            <p class="sound-shape__help" aria-live="polite">{{ shapeHelp }}</p>
+          </section>
+
           <div
-            v-if="!allSounds.length"
+            v-else-if="!allSounds.length"
             class="border border-dashed border-[#3a3a3a] bg-[#121212] px-4 py-5 text-center text-[10px] italic text-neutral-500 [clip-path:polygon(0_10px,10px_0,100%_0,100%_calc(100%-10px),calc(100%-10px)_100%,0_100%)]"
           >
             loading sounds…
@@ -658,9 +781,7 @@ async function selectInstrument(name: string, close: () => void) {
             >
               <div class="instrument-group__heading">
                 <span>{{ group.label }}</span>
-                <div>
-                  {{ group.sounds.length }}
-                </div>
+                <span>{{ group.sounds.length }}</span>
               </div>
 
               <div class="instrument-group__choices">
@@ -705,6 +826,32 @@ async function selectInstrument(name: string, close: () => void) {
 <style scoped>
 .instrument-group + .instrument-group {
   margin-top: 1.5rem;
+}
+
+.sound-shape {
+  padding-block: 0.375rem;
+}
+
+.sound-shape__grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.375rem;
+  align-items: center;
+  justify-items: center;
+}
+
+.sound-shape__knob-cell {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.sound-shape__help {
+  min-height: 2.8em;
+  margin: .75rem 0 0;
+  color: var(--ivory-3);
+  font: var(--t-body-mono);
+  font-size: 10px;
 }
 
 .instrument-group__heading {
@@ -768,6 +915,7 @@ async function selectInstrument(name: string, close: () => void) {
 }
 
 @media (max-width: 460px) {
+  .sound-shape__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .instrument-group__choices { gap: .5625rem .5rem; }
   .instrument-choice__sticker { font-size: 12px; }
 }

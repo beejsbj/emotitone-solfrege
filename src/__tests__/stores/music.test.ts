@@ -7,6 +7,7 @@ vi.unmock("@/data");
 import { useMusicStore } from "@/stores/music";
 import { usePatternsStore } from "@/stores/patterns";
 import { useInstrumentStore } from "@/stores/instrument";
+import { DEFAULT_INSTRUMENT } from "@/data/instruments";
 
 const superdoughMocks = vi.hoisted(() => ({
   attackNote: vi.fn().mockResolvedValue(undefined),
@@ -18,6 +19,7 @@ const superdoughMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/services/superdoughAudio", () => ({
+  setLiveSynthControls: vi.fn(),
   attackNote: superdoughMocks.attackNote,
   releaseNote: superdoughMocks.releaseNote,
   stopNote: superdoughMocks.stopNote,
@@ -137,7 +139,7 @@ describe("music store", () => {
     expect(superdoughMocks.attackNote).toHaveBeenCalledWith(
       noteId,
       "D#4",
-      "piano",
+      DEFAULT_INSTRUMENT,
     );
     expect(musicStore.getActiveNotes()[0]).toMatchObject({
       noteName: "D#4",
@@ -207,7 +209,7 @@ describe("music store", () => {
     expect(superdoughMocks.attackNote).toHaveBeenCalledWith(
       noteId,
       "F5",
-      "piano"
+      DEFAULT_INSTRUMENT,
     );
     expect(musicStore.getActiveNotes()).toHaveLength(1);
     expect(musicStore.getActiveNotes()[0].solfege.name).toBe("Ti");
@@ -356,7 +358,7 @@ describe("music store", () => {
     expect(superdoughMocks.playNoteWithDuration).toHaveBeenCalledWith(
       "F#4",
       250,
-      "piano"
+      DEFAULT_INSTRUMENT,
     );
     const notePlayedEvent = dispatchEventSpy.mock.calls.find(
       ([event]) => event.type === "note-played"
@@ -374,7 +376,7 @@ describe("music store", () => {
     expect(superdoughMocks.playNoteWithDuration).toHaveBeenCalledWith(
       "C4",
       2000,
-      "piano",
+      DEFAULT_INSTRUMENT,
     );
     expect(superdoughMocks.attackNote).not.toHaveBeenCalled();
 

@@ -29,6 +29,7 @@
         :class="{ 'tabs__button--active': tab.value === activeValue }"
         :disabled="tab.disabled"
         :data-testid="tab.testId"
+        :data-tone="tab.tone"
         :tabindex="tab.value === activeValue ? 0 : -1"
         role="tab"
         :aria-label="tab.icon ? tab.label : undefined"
@@ -68,6 +69,8 @@ export interface TabItem {
   icon?: Component;
   disabled?: boolean;
   testId?: string;
+  /** Optional material for one destination; geometry still follows the rail. */
+  tone?: TabsTone;
 }
 
 export type TabsGeometry = "tab" | "offcut" | "tile" | "sharp" | "rip";
@@ -128,7 +131,8 @@ const resolvedGeometry = computed(() =>
   props.geometry ?? (hasPinnedEdition.value ? "tab" : pageEdition.geometry),
 );
 const resolvedTone = computed(() =>
-  props.tone ?? (hasPinnedEdition.value ? "ivory" : pageEdition.tone),
+  props.tabs.find((tab) => tab.value === activeValue.value)?.tone
+    ?? props.tone ?? (hasPinnedEdition.value ? "ivory" : pageEdition.tone),
 );
 
 const classes = computed(() => [
@@ -453,6 +457,11 @@ onBeforeUnmount(() => {
 .tabs--layout-scroll .tabs__button {
   flex: 0 0 auto;
   min-width: 58px;
+}
+
+.tabs__button[data-tone="brass"]:not(.tabs__button--active) {
+  color: var(--brass-hi);
+  mix-blend-mode: normal;
 }
 
 .tabs__label,

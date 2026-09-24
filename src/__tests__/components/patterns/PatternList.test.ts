@@ -5,6 +5,7 @@ import { computed, nextTick, ref, type ComputedRef, type Ref } from "vue";
 import PatternReel from "@/components/compounds/PatternReel.vue";
 import PatternList from "@/components/patterns/PatternList.vue";
 import { instrumentIconFor } from "@/components/primatives/instrumentIcon";
+import { DEFAULT_INSTRUMENT } from "@/data/instruments";
 import { usePatternsStore } from "@/stores/patterns";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import type { PatternReelItem } from "@/components/compounds/PatternReel.vue";
@@ -112,7 +113,7 @@ describe("PatternList production adapter", () => {
     expect(current).toMatchObject({
       id: "current-pattern-take",
       name: "Current Take",
-      instrumentLabel: "piano",
+      instrumentLabel: DEFAULT_INSTRUMENT,
       canDelete: false,
       canCopy: false,
       canOpenStrudel: false,
@@ -120,7 +121,7 @@ describe("PatternList production adapter", () => {
       copyUnavailableLabel: "Record notes before copying Current Take",
       openUnavailableLabel: "Record notes before opening Current Take in Strudel",
     });
-    expect(current?.instrumentIcon).toBe(instrumentIconFor("piano"));
+    expect(current?.instrumentIcon).toBe(instrumentIconFor(DEFAULT_INSTRUMENT));
     expect(reel.props("selectedId")).toBe("current-pattern-take");
   });
 

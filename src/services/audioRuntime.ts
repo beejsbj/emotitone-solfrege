@@ -5,8 +5,12 @@
  * the same destination as the live AudioWorklet.
  */
 // @ts-ignore — superdough does not publish TypeScript declarations.
-import { getAudioContext as superdoughContext, getSuperdoughAudioController, initAudio } from "superdough";
+import { getAudioContext as superdoughContext, getDefaultValue, getSuperdoughAudioController, initAudio, multiChannelOrbits } from "superdough";
 import { MAX_AUDIO_VOICES } from "@/audio/voicePolicy";
+import type { LiveOrbitSends } from "@/audio/liveShaping";
+
+/** Live notes on either backend share this orbit's reverb and delay. */
+export const LIVE_ORBIT = 2;
 
 let context: AudioContext | undefined;
 let initialization: Promise<void> | undefined;
@@ -21,6 +25,18 @@ export function getMasterGain(): GainNode | null {
     return getSuperdoughAudioController()?.output?.destinationGain ?? null;
   } catch {
     return null;
+  }
+}
+
+/** The live orbit, created with the channels Superdough itself would choose. */
+export function getLiveOrbit(): LiveOrbitSends | undefined {
+  try {
+    const channels = multiChannelOrbits
+      ? [LIVE_ORBIT * 2 - 1, LIVE_ORBIT * 2]
+      : ([] as number[]).concat(getDefaultValue("channels"));
+    return getSuperdoughAudioController()?.getOrbit(LIVE_ORBIT, channels.map((channel) => channel - 1));
+  } catch {
+    return undefined;
   }
 }
 

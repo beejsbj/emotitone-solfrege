@@ -6,6 +6,7 @@ import {
   initSuperdoughAudio,
   isPrewarmed,
   prewarmSoundSamples,
+  setLiveSynthControls,
 } from "@/services/superdoughAudio";
 
 import { needsLivePlaybackPreparation } from "@/services/livePlayback";
@@ -14,6 +15,34 @@ export type InstrumentSelectionResult =
   | { status: "ready"; instrument: string }
   | { status: "failed"; instrument: string; fallback: string | null }
   | { status: "superseded"; instrument: string };
+
+export interface SynthControls {
+  cutoff: number;
+  resonance: number;
+  attack: number;
+  release: number;
+  room: number;
+  delay: number;
+}
+
+export interface SynthControlOverrides {
+  attack: boolean;
+  release: boolean;
+}
+
+export const DEFAULT_SYNTH_CONTROLS: Readonly<SynthControls> = {
+  cutoff: 12000,
+  resonance: 0,
+  attack: 0.003,
+  release: 0.12,
+  room: 0,
+  delay: 0,
+};
+
+export const DEFAULT_SYNTH_CONTROL_OVERRIDES: Readonly<SynthControlOverrides> = {
+  attack: false,
+  release: false,
+};
 
 /**
  * Instrument Store
@@ -33,6 +62,33 @@ export const useInstrumentStore = defineStore("instrument", () => {
   const isInitializing = ref(false);
   const warmupPromises = new Map<string, Promise<void>>();
   const selectionEpoch = ref(0);
+  const synthControls = ref<SynthControls>({ ...DEFAULT_SYNTH_CONTROLS });
+  const synthControlOverrides = ref<SynthControlOverrides>({
+    ...DEFAULT_SYNTH_CONTROL_OVERRIDES,
+  });
+  const syncLiveSynthControls = () => {
+    setLiveSynthControls({
+      ...synthControls.value,
+      overrides: { ...synthControlOverrides.value },
+    });
+  };
+  syncLiveSynthControls();
+
+  const setSynthControl = <K extends keyof SynthControls>(
+    key: K,
+    value: SynthControls[K],
+  ) => {
+    synthControls.value[key] = value;
+    if (key === "attack") synthControlOverrides.value.attack = true;
+    if (key === "release") synthControlOverrides.value.release = true;
+    syncLiveSynthControls();
+  };
+
+  const resetSynthControls = () => {
+    synthControls.value = { ...DEFAULT_SYNTH_CONTROLS };
+    synthControlOverrides.value = { ...DEFAULT_SYNTH_CONTROL_OVERRIDES };
+    syncLiveSynthControls();
+  };
 
   const isInteractionLocked = computed(() => warmingInstrument.value !== null);
   const isLoading = computed(
@@ -189,11 +245,15 @@ export const useInstrumentStore = defineStore("instrument", () => {
     selectionEpoch,
     isLoading,
     isInteractionLocked,
+    synthControls,
+    synthControlOverrides,
 
     // Actions
     initializeInstruments,
     setInstrument,
     isInstrumentReady,
     isInstrumentWarming,
+    setSynthControl,
+    resetSynthControls,
   };
 });

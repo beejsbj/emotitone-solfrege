@@ -10,6 +10,8 @@ import {
 } from "@/services/superdoughAudio";
 
 import { needsLivePlaybackPreparation } from "@/services/livePlayback";
+import { canonicalShape } from "@/services/shape";
+import type { Shape } from "@/types/instrument";
 
 export type InstrumentSelectionResult =
   | { status: "ready"; instrument: string }
@@ -87,6 +89,32 @@ export const useInstrumentStore = defineStore("instrument", () => {
   const resetSynthControls = () => {
     synthControls.value = { ...DEFAULT_SYNTH_CONTROLS };
     synthControlOverrides.value = { ...DEFAULT_SYNTH_CONTROL_OVERRIDES };
+    syncLiveSynthControls();
+  };
+
+  // The knobs as pattern context; untouched envelope stages stay natural.
+  const shape = computed<Shape>(() => canonicalShape({
+    cutoff: synthControls.value.cutoff,
+    resonance: synthControls.value.resonance,
+    room: synthControls.value.room,
+    delay: synthControls.value.delay,
+    attack: synthControlOverrides.value.attack ? synthControls.value.attack : null,
+    release: synthControlOverrides.value.release ? synthControls.value.release : null,
+  }));
+
+  const applyShape = (next: Shape) => {
+    synthControls.value = {
+      cutoff: next.cutoff,
+      resonance: next.resonance,
+      room: next.room,
+      delay: next.delay,
+      attack: next.attack ?? DEFAULT_SYNTH_CONTROLS.attack,
+      release: next.release ?? DEFAULT_SYNTH_CONTROLS.release,
+    };
+    synthControlOverrides.value = {
+      attack: next.attack !== null,
+      release: next.release !== null,
+    };
     syncLiveSynthControls();
   };
 
@@ -247,6 +275,7 @@ export const useInstrumentStore = defineStore("instrument", () => {
     isInteractionLocked,
     synthControls,
     synthControlOverrides,
+    shape,
 
     // Actions
     initializeInstruments,
@@ -255,5 +284,6 @@ export const useInstrumentStore = defineStore("instrument", () => {
     isInstrumentWarming,
     setSynthControl,
     resetSynthControls,
+    applyShape,
   };
 });

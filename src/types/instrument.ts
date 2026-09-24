@@ -4,6 +4,20 @@
  */
 
 /**
+ * Shape-tab sound context. Like key, mode, and instrument it is pattern
+ * context: notes carry the Shape they were played with.
+ * A null envelope stage means the instrument's natural articulation.
+ */
+export interface Shape {
+  cutoff: number;
+  resonance: number;
+  room: number;
+  delay: number;
+  attack: number | null;
+  release: number | null;
+}
+
+/**
  * Instrument store state interface
  */
 export interface InstrumentStoreState {

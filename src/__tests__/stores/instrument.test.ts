@@ -229,4 +229,28 @@ describe("instrument store warmup", () => {
       overrides: { attack: false, release: false },
     }));
   });
+  it("derives a canonical Shape and applies one back to the knobs", () => {
+    const store = useInstrumentStore();
+    expect(store.shape).toEqual({
+      cutoff: 12000, resonance: 0, room: 0, delay: 0, attack: null, release: null,
+    });
+
+    store.setSynthControl("cutoff", 2500.4);
+    store.setSynthControl("attack", 0.0504);
+    expect(store.shape).toMatchObject({ cutoff: 2500, attack: 0.05, release: null });
+
+    store.applyShape({ cutoff: 800, resonance: 3, room: 0.2, delay: 0.1, attack: null, release: 0.8 });
+    expect(store.synthControls).toEqual({
+      cutoff: 800, resonance: 3, room: 0.2, delay: 0.1, attack: 0.003, release: 0.8,
+    });
+    expect(store.synthControlOverrides).toEqual({ attack: false, release: true });
+    expect(store.shape).toEqual({
+      cutoff: 800, resonance: 3, room: 0.2, delay: 0.1, attack: null, release: 0.8,
+    });
+    expect(audioMocks.setLiveSynthControls).toHaveBeenLastCalledWith(expect.objectContaining({
+      cutoff: 800,
+      release: 0.8,
+      overrides: { attack: false, release: true },
+    }));
+  });
 });

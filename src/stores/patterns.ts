@@ -628,23 +628,24 @@ export const usePatternsStore = defineStore(
         visualConfigStore.updateConfig("codeStrip", {
           bpm: resolveBpm(pattern.bpm),
         });
+        // Selecting the instrument recalls its remembered Shape; the
+        // pattern's Shape then wins and becomes that instrument's memory.
+        // setInstrument assigns synchronously, before any warmup await.
+        void instrumentStore.setInstrument(pattern.instrument).then((result) => {
+          if (
+            result.status === "failed" &&
+            result.fallback &&
+            loadedBasePatternId.value === patternId &&
+            loadedBaseMeta.value?.instrument === result.instrument
+          ) {
+            // The fallback instrument brings its own remembered Shape.
+            reskinLoadedBase(result.fallback, instrumentStore.shape);
+          }
+        });
         instrumentStore.applyShape(patternShape);
       } finally {
         isContextSyncing = false;
       }
-      void instrumentStore.setInstrument(pattern.instrument).then((result) => {
-        if (
-          result.status === "failed" &&
-          result.fallback &&
-          loadedBasePatternId.value === patternId &&
-          loadedBaseMeta.value?.instrument === result.instrument
-        ) {
-          loadedBaseMeta.value = {
-            ...patternMeta,
-            instrument: result.fallback,
-          };
-        }
-      });
 
       // Create fresh boundary so new live notes start clean after the base
       setNextNoteAsNewPattern();
@@ -652,52 +653,43 @@ export const usePatternsStore = defineStore(
 
     let isContextSyncing = false;
 
+    /**
+     * Move the loaded base to another instrument and/or Shape. Envelope stages
+     * that came from the old instrument + Shape follow the new pair; other
+     * values (e.g. 30ms rhythmic gates) stay. Both ends resolve against the
+     * instrument the notes carry at that moment, so instrument and Shape
+     * changes compose in any order.
+     */
+    function reskinLoadedBase(instrument: string, shape: Shape): void {
+      const meta = loadedBaseMeta.value;
+      if (!meta || (meta.instrument === instrument && isSameShape(meta.shape, shape))) return;
+      const from = resolveLiveEnvelope(meta.instrument, meta.shape);
+      const to = resolveLiveEnvelope(instrument, shape);
+      loadedBaseNotes.value = loadedBaseNotes.value.map((note) => {
+        if (!note.articulation) return note;
+        const articulation = { ...note.articulation };
+        // Compare at knob precision; recorded values may carry float noise.
+        if (Number(articulation.attack.toFixed(3)) === from.attack) articulation.attack = to.attack;
+        if (Number(articulation.release.toFixed(2)) === from.release) articulation.release = to.release;
+        return { ...note, articulation };
+      });
+      loadedBaseMeta.value = { ...meta, instrument, shape: { ...shape } };
+    }
+
+    // An untouched loaded base follows the instrument and its Shape. One
+    // watcher reads both, so an instrument switch that also recalls a Shape
+    // re-skins once, from the pair the notes carry to the new pair.
     watch(
-      () => instrumentStore.currentInstrument,
-      (newInstrument) => {
+      () => [instrumentStore.currentInstrument, instrumentStore.shape] as const,
+      ([newInstrument, newShape]) => {
         if (isContextSyncing) return;
         if (
           loadedBaseNotes.value.length > 0 &&
           currentWorkingNotes.value.length === 0 &&
-          !isStripCleared.value &&
-          loadedBaseMeta.value &&
-          loadedBaseMeta.value.instrument !== newInstrument
+          !isStripCleared.value
         ) {
-          loadedBaseMeta.value = {
-            ...loadedBaseMeta.value,
-            instrument: newInstrument,
-          };
+          reskinLoadedBase(newInstrument, newShape);
         }
-      }
-    );
-
-    // Re-skin an untouched loaded base: its envelope stages that came from the
-    // old Shape follow the new one. Other values (e.g. 30ms rhythmic gates) stay.
-    watch(
-      () => instrumentStore.shape,
-      (newShape) => {
-        if (isContextSyncing) return;
-        const meta = loadedBaseMeta.value;
-        if (
-          loadedBaseNotes.value.length === 0 ||
-          currentWorkingNotes.value.length > 0 ||
-          isStripCleared.value ||
-          !meta ||
-          isSameShape(meta.shape, newShape)
-        ) {
-          return;
-        }
-        const from = resolveLiveEnvelope(meta.instrument, meta.shape);
-        const to = resolveLiveEnvelope(meta.instrument, newShape);
-        loadedBaseNotes.value = loadedBaseNotes.value.map((note) => {
-          if (!note.articulation) return note;
-          const articulation = { ...note.articulation };
-          // Compare at knob precision; recorded values may carry float noise.
-          if (Number(articulation.attack.toFixed(3)) === from.attack) articulation.attack = to.attack;
-          if (Number(articulation.release.toFixed(2)) === from.release) articulation.release = to.release;
-          return { ...note, articulation };
-        });
-        loadedBaseMeta.value = { ...meta, shape: { ...newShape } };
       }
     );
 

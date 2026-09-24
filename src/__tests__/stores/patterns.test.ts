@@ -399,6 +399,7 @@ describe("Patterns Store", () => {
     const instrumentStore = useInstrumentStore();
     instrumentStore.currentInstrument = "piano";
     instrumentStore.readyInstruments.add("piano");
+    instrumentStore.setSynthControl("room", 0.4);
     vi.mocked(isPrewarmed).mockReturnValue(false);
     vi.mocked(prewarmSoundSamples).mockRejectedValueOnce(
       new Error("preset unavailable")
@@ -413,6 +414,10 @@ describe("Patterns Store", () => {
 
     expect(instrumentStore.currentInstrument).toBe("piano");
     expect(patternsStore.currentSketchMeta.instrument).toBe("piano");
+    // The fallback recalls its own Shape and the loaded base follows it.
+    await nextTick();
+    expect(instrumentStore.shape.room).toBe(0.4);
+    expect(patternsStore.currentSketchMeta.shape).toEqual(instrumentStore.shape);
   });
 
   it("restores every displayed musical control when loading a pattern", async () => {
@@ -1575,6 +1580,63 @@ describe("Patterns Store", () => {
       patternsStore.loadPatternAsBase("legacy", { discardWorkingNotes: true });
       expect(instrumentStore.shape).toEqual(NEUTRAL);
       expect(patternsStore.currentSketchMeta.shape).toEqual(NEUTRAL);
+    });
+
+    it("makes a loaded pattern's Shape its instrument's remembered Shape", async () => {
+      const instrumentStore = useInstrumentStore();
+      await instrumentStore.setInstrument("gm_flute");
+      instrumentStore.setSynthControl("cutoff", 900);
+      await instrumentStore.setInstrument("piano");
+      const shape = { ...NEUTRAL, room: 0.3, attack: 0.05 };
+      const pattern = createPattern({ instrument: "gm_flute", shape });
+      patternsStore.savedPatterns.push(pattern);
+
+      patternsStore.loadPatternAsBase(pattern.id);
+      expect(instrumentStore.currentInstrument).toBe("gm_flute");
+      expect(instrumentStore.shape).toEqual(shape);
+      await nextTick();
+      expect(patternsStore.currentSketchMeta.shape).toEqual(shape);
+
+      patternsStore.sendCurrentPattern();
+      await instrumentStore.setInstrument("piano");
+      await instrumentStore.setInstrument("gm_flute");
+      expect(instrumentStore.shape).toEqual(shape);
+    });
+
+    it("re-skins a loaded base against both instruments when switching recalls a Shape", async () => {
+      const instrumentStore = useInstrumentStore();
+      await instrumentStore.setInstrument("triangle");
+      instrumentStore.setSynthControl("release", 0.8);
+      const piano = { attack: 0.001, decay: 0.001, sustain: 1, release: 0.2 };
+      const pattern = createPattern({
+        instrument: "piano",
+        notes: [
+          createPatternNote({ articulation: { ...piano } }),
+          createPatternNote({ id: "gate", pressTime: 1400, releaseTime: 1500, duration: 100,
+            articulation: { ...piano, release: 0.03 } }),
+        ],
+      });
+      patternsStore.savedPatterns.push(pattern);
+      patternsStore.loadPatternAsBase(pattern.id);
+      await nextTick();
+
+      await instrumentStore.setInstrument("triangle");
+      await nextTick();
+      expect(patternsStore.currentSketchMeta).toMatchObject({
+        instrument: "triangle", shape: { ...NEUTRAL, release: 0.8 },
+      });
+      // Piano's natural attack becomes triangle's; its natural release takes
+      // triangle's remembered release; the rhythmic gate stays.
+      expect(patternsStore.loadedBaseNotes.map((note) => note.articulation)).toEqual([
+        { attack: 0.003, decay: 0.001, sustain: 1, release: 0.8 },
+        { attack: 0.003, decay: 0.001, sustain: 1, release: 0.03 },
+      ]);
+
+      await instrumentStore.setInstrument("piano");
+      await nextTick();
+      expect(patternsStore.loadedBaseNotes.map((note) => note.articulation)).toEqual([
+        piano, { ...piano, release: 0.03 },
+      ]);
     });
 
     it("re-skins an untouched loaded base, keeping rhythmic gates", async () => {

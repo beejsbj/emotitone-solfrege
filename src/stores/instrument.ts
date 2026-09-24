@@ -1,4 +1,4 @@
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { defineStore } from "pinia";
 import { DEFAULT_INSTRUMENT } from "@/data/instruments";
 import {
@@ -10,7 +10,7 @@ import {
 } from "@/services/superdoughAudio";
 
 import { needsLivePlaybackPreparation } from "@/services/livePlayback";
-import { canonicalShape } from "@/services/shape";
+import { canonicalShape, NEUTRAL_SHAPE } from "@/services/shape";
 import type { Shape } from "@/types/instrument";
 
 export type InstrumentSelectionResult =
@@ -84,12 +84,14 @@ export const useInstrumentStore = defineStore("instrument", () => {
     if (key === "attack") synthControlOverrides.value.attack = true;
     if (key === "release") synthControlOverrides.value.release = true;
     syncLiveSynthControls();
+    rememberShape();
   };
 
   const resetSynthControls = () => {
     synthControls.value = { ...DEFAULT_SYNTH_CONTROLS };
     synthControlOverrides.value = { ...DEFAULT_SYNTH_CONTROL_OVERRIDES };
     syncLiveSynthControls();
+    rememberShape();
   };
 
   // The knobs as pattern context; untouched envelope stages stay natural.
@@ -116,7 +118,20 @@ export const useInstrumentStore = defineStore("instrument", () => {
       release: next.release !== null,
     };
     syncLiveSynthControls();
+    rememberShape();
   };
+
+  // Instrument + Shape is nearly a new instrument: each instrument remembers
+  // the Shape it was last left with, for this session only.
+  const shapeMemory: Record<string, Shape> = {};
+  function rememberShape() {
+    shapeMemory[currentInstrument.value] = { ...shape.value };
+  }
+  // Sync, so every assignment (including warmup fallbacks) recalls the
+  // Shape before anything reads the new instrument.
+  watch(currentInstrument, (instrument) => {
+    applyShape(shapeMemory[instrument] ?? NEUTRAL_SHAPE);
+  }, { flush: "sync" });
 
   const isInteractionLocked = computed(() => warmingInstrument.value !== null);
   const isLoading = computed(

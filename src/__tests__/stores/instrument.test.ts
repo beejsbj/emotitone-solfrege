@@ -253,4 +253,48 @@ describe("instrument store warmup", () => {
       overrides: { attack: false, release: true },
     }));
   });
+  describe("per-instrument Shape memory", () => {
+    const NEUTRAL = { cutoff: 12000, resonance: 0, room: 0, delay: 0, attack: null, release: null };
+
+    it("restores each instrument's Shape and starts never-shaped ones neutral", async () => {
+      const store = useInstrumentStore();
+      audioMocks.isPrewarmed.mockReturnValue(true);
+      await store.setInstrument("piano");
+      store.setSynthControl("cutoff", 1800);
+      store.setSynthControl("release", 0.8);
+      const pianoShape = { ...NEUTRAL, cutoff: 1800, release: 0.8 };
+
+      await store.setInstrument("triangle");
+      expect(store.shape).toEqual(NEUTRAL);
+      expect(store.synthControlOverrides).toEqual({ attack: false, release: false });
+      store.setSynthControl("room", 0.5);
+
+      await store.setInstrument("piano");
+      expect(store.shape).toEqual(pianoShape);
+      expect(audioMocks.setLiveSynthControls).toHaveBeenLastCalledWith(expect.objectContaining({
+        cutoff: 1800, release: 0.8, overrides: { attack: false, release: true },
+      }));
+
+      await store.setInstrument("triangle");
+      expect(store.shape).toEqual({ ...NEUTRAL, room: 0.5 });
+      store.resetSynthControls();
+      await store.setInstrument("piano");
+      await store.setInstrument("triangle");
+      expect(store.shape).toEqual(NEUTRAL);
+    });
+
+    it("applies the fallback instrument's Shape when warmup fails", async () => {
+      const store = useInstrumentStore();
+      store.setSynthControl("delay", 0.3);
+      audioMocks.prewarmSoundSamples.mockRejectedValueOnce(new Error("Network down"));
+
+      const pending = store.setInstrument("gm_vibraphone");
+      expect(store.shape).toEqual(NEUTRAL);
+      const result = await pending;
+
+      expect(result).toMatchObject({ status: "failed", fallback: "piano" });
+      expect(store.currentInstrument).toBe("piano");
+      expect(store.shape).toEqual({ ...NEUTRAL, delay: 0.3 });
+    });
+  });
 });

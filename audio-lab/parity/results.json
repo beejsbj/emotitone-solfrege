@@ -1,6 +1,6 @@
 {
-  "capturedAt": "2026-09-24T13:49:49.785466+00:00",
-  "revision": "8b46269d3cf566fcc64e27ab2e18276a96a46b49",
+  "capturedAt": "2026-09-24T14:05:46.184958+00:00",
+  "revision": "31939eb5b73739fe33558b0749fa62764f42679d",
   "environment": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.0.0 Safari/537.36",
     "sampleRate": 48000,
@@ -74,7 +74,7 @@
     "src/audio/live/core.ts": "788f59f78ce880904b02478be7323ddc52c332f2a88cd2d11da9978475a23e15",
     "src/audio/live/resampler.ts": "57ac286011932f4adae1f360f66b19d1820346ee9eddadd52191ab9cea4a0eca",
     "src/audio/voicePolicy.ts": "b3b3964b1969d7ee0f9c93f20af3ff41db11cd9ce777ec7d4117c16d13bc0370",
-    "src/services/StrudelNotation.ts": "39676daa70a197a10b0183e5e1771246a5461cb373958a9e37bcc5a2cc9515cb",
+    "src/services/StrudelNotation.ts": "f06a9090bfce9c3f2565d90d0d31315445addbe226d183b44c35ed6ef4db24e6",
     "src/services/recordedTiming.ts": "b76ae59f4e5bee1cc936bfadc8090eb2cc389f3313d3cc8b069d01801ab471fe",
     "src/services/liveArticulation.ts": "2f0f7bdc815f6e66e41736d9810e19ace024ff8cfb0978d63f06e1994a0b2df7",
     "src/services/preparedNativeInstrument.ts": "8ee459070e0d4f2c44124b0e5c3c125e303cb7a81cddcdc693f113acd7e1d76b",
@@ -85,8 +85,8 @@
     "audio-lab/parity/voice-budget.mjs": "44fe31c790410dbe95195ce89b92dbffb16a62f4f44c938f3eecf6ad99507cc2"
   },
   "fullReceipt": {
-    "localPath": "/tmp/pr92-parity-merged-final.json",
-    "sha256": "23a85b81ee268c012b72a32f4c225b3c9359194fa7f62c7f615fbb929b1b44f1",
-    "bytes": 164733
+    "localPath": "/tmp/pr92-parity-shape-final.json",
+    "sha256": "a92982c9ad5185388e975c7c5b15acd533c4bea142820071d7950e0c018d7ca6",
+    "bytes": 164762
   }
 }

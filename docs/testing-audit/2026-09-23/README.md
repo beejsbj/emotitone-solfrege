@@ -110,4 +110,13 @@ Done:
 
 Checkpoint: **1,557 passed, 1 skipped (1,558)**, down from 1,662. That is 107 existing cases removed and 3 validator cases added. Runtime was 32.0 s against a 35.5 s same-day baseline. Environment setup and collection take about 29 s of that, so case count is not what drives suite cost. `bun run build` and the four launcher checks passed. No browser capture was rerun, and no memory change is claimed.
 
-Not done: the ten semantic repairs listed in section 1's second paragraph, the global clock and localStorage shims (H-02, H-03), strengthening the malformed-persistence case, and moving the skipped benchmark out of the suite.
+Second pass, same day. All remaining findings are now implemented:
+
+- UI: PatternList onset order, Keyboard specimen control wiring, the UIBeat guide's tempo-phase continuity (driven frame queue) and the fifteen mounted Tabs destinations are now observed at runtime. UI-03/05/07/08 keep their structural checks under narrower titles.
+- Logic/canvas: Ambient and Hilbert both resolve an exact pitch class that differs from the solfege index. Particle fills use the registry Path2D, and retired particles are reused and reset. Monitor history evicts old frames. Each harmonic label is exposed only when enabled.
+- Audio/state: the patched superdough bundle the app actually loads (`dist/index.mjs`) is exercised directly. A held ZZFX voice loops a buffer of at most ~1 s, and a held synth voice outlives 70 s. Malformed pattern storage leaves safe defaults and later saves still persist. The benchmark moved to `bun run bench:persistence`.
+- Harness: `performance.now()` is no longer aliased to `Date.now()`. The localStorage shim now follows the Storage contract.
+
+Each behavioral replacement was checked by breaking the protected production behavior and watching the test fail, then restoring the file. The AS-03 hydration case was not mutation-checked. Several agent-written repairs failed this check on review and were redone: two UI tests were still source-string checks, the Ambient test ignored which pitch class was used, and the ZZFX test missed the open-ended duration.
+
+Final checkpoint: **146 files, 1,562 passed**, no skips. `bun run build` passed, and so did the four launcher checks. The optional typography assertion-cost optimization (logic-canvas-009) was not done.

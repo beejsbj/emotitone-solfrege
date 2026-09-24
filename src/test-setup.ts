@@ -94,24 +94,24 @@ Object.defineProperty(window, 'TouchEvent', {
   },
 })
 
-// Mock localStorage with realistic behavior
+// localStorage keeps vi.fn methods so suites can inject failures, but follows
+// the Storage contract: string values, stored "" readable, live length.
 const localStorageMock = {
   store: new Map<string, string>(),
-  getItem: vi.fn((key: string) => localStorageMock.store.get(key) || null),
-  setItem: vi.fn((key: string, value: string) => {
-    localStorageMock.store.set(key, value);
+  getItem: vi.fn((key: string) => localStorageMock.store.get(String(key)) ?? null),
+  setItem: vi.fn((key: string, value: unknown) => {
+    localStorageMock.store.set(String(key), String(value));
   }),
   removeItem: vi.fn((key: string) => {
-    localStorageMock.store.delete(key);
+    localStorageMock.store.delete(String(key));
   }),
   clear: vi.fn(() => {
     localStorageMock.store.clear();
   }),
-  length: 0,
-  key: vi.fn((index: number) => {
-    const keys = Array.from(localStorageMock.store.keys());
-    return keys[index] || null;
-  }),
+  get length() {
+    return localStorageMock.store.size;
+  },
+  key: vi.fn((index: number) => Array.from(localStorageMock.store.keys())[index] ?? null),
 };
 
 Object.defineProperty(window, 'localStorage', {
@@ -126,18 +126,6 @@ Object.defineProperty(global, 'localStorage', {
   writable: true,
   configurable: true,
 });
-
-// Mock performance
-Object.defineProperty(window, 'performance', {
-  value: {
-    now: vi.fn(() => Date.now()),
-    mark: vi.fn(),
-    measure: vi.fn(),
-    timing: {},
-  },
-  writable: true,
-  configurable: true,
-})
 
 // Mock toast notifications
 vi.mock('vue-sonner', () => ({

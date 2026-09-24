@@ -66,7 +66,11 @@ interface PendingLogNote extends Partial<LogNote> {
 type PatternContext = Pick<LogNote, "mode" | "key" | "instrument" | "bpm" | "shape">;
 
 function cloneNoteArticulation<T extends PatternNote | LogNote>(note: T): T {
-  return { ...note, articulation: note.articulation ? { ...note.articulation } : undefined };
+  return {
+    ...note,
+    articulation: note.articulation ? { ...note.articulation } : undefined,
+    ...("shape" in note && note.shape ? { shape: { ...note.shape } } : {}),
+  };
 }
 
 export const usePatternsStore = defineStore(

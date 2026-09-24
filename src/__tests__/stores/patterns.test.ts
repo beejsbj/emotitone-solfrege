@@ -197,20 +197,25 @@ describe("Patterns Store", () => {
     expect(patternsStore.currentSketchNotes[2].articulation).toBeUndefined();
   });
 
-  it("keeps articulation snapshots independent when importing, exporting, and keeping a phrase", () => {
+  it("keeps articulation and Shape snapshots independent when importing, exporting, and keeping a phrase", () => {
     const articulation = { attack: 0.001, decay: 0.001, sustain: 1, release: 0.03 };
+    const shape = { cutoff: 900, resonance: 0, room: 0.2, delay: 0, attack: null, release: null };
     const notes = Array.from({ length: 3 }, (_, index) => createLogNote({
-      id: `snapshot-${index}`, articulation: { ...articulation },
+      id: `snapshot-${index}`, articulation: { ...articulation }, shape: { ...shape },
       pressTime: Date.now() + index * 200,
       releaseTime: Date.now() + index * 200 + 100,
       duration: 100, isStartingNewPattern: index === 0,
     }));
     patternsStore.importNotes(notes);
     notes[0].articulation!.attack = 9;
+    notes[0].shape!.cutoff = 200;
     expect(patternsStore.loggedNotes[0].articulation).toEqual(articulation);
+    expect(patternsStore.loggedNotes[0].shape).toEqual(shape);
     const exported = patternsStore.exportNotes();
     exported[1].articulation!.release = 8;
+    exported[1].shape!.room = 1;
     expect(patternsStore.loggedNotes[1].articulation).toEqual(articulation);
+    expect(patternsStore.loggedNotes[1].shape).toEqual(shape);
 
     const dynamic = patternsStore.dynamicPatterns[0];
     patternsStore.keepPattern(dynamic.id);

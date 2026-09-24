@@ -50,8 +50,38 @@ describe("Tabs", () => {
     expect(wrapper.emitted("update:modelValue")).toBeUndefined();
   });
 
-  it("keeps the guide stress rail aligned with production's fifteen destinations", () => {
-    expect(tabsPageSource).toContain("Fifteen destinations.");
+  it("renders the accepted fifteen destinations and excludes retired floatingPopup", () => {
+    // Verify all fifteen canonical destination labels exist in TabsPage
+    const expectedLabels = [
+      "home",
+      "blobs",
+      "ambient",
+      "particles",
+      "strings",
+      "animation",
+      "frequencyMapping",
+      "dynamicColors",
+      "hilbertScope",
+      "uiBeat",
+      "patterns",
+      "keyboard",
+      "codeStrip",
+      "midi",
+      "presets",
+    ];
+
+    for (const label of expectedLabels) {
+      expect(tabsPageSource).toContain(`"${label}"`);
+    }
+
+    // Count the configLabels array entries to verify exactly 15
+    const configLabelMatch = tabsPageSource.match(/const configLabels\s*=\s*\[([\s\S]*?)\]\s*as const/);
+    const arrayContent = configLabelMatch?.[1] || "";
+    // Count items by counting number of inner arrays (each item is [value, label, shortLabel])
+    const itemCount = (arrayContent.match(/\[/g) || []).length;
+    expect(itemCount).toBe(15);
+
+    // Verify floatingPopup is absent from the entire guide
     expect(tabsPageSource).not.toContain("floatingPopup");
   });
 

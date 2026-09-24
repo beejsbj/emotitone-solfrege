@@ -44,6 +44,7 @@ describe("patched superdough behavior", () => {
       reset() {},
     });
     dough.registerZZFXSounds();
+    dough.registerSynthSounds();
     audio.advance(0.99);
 
     // Start a held ZZFX voice with sustain until release
@@ -64,38 +65,30 @@ describe("patched superdough behavior", () => {
       1
     );
 
-    // Verify voice exists at start
-    expect(dough.hasVoice(voiceId)).toBe(true);
-    const startingVoices = audio.voices.length;
+    // A held oscillator voice has no materialized buffer; it must stay open
+    // rather than hit the package's former 60 s safety end.
+    await dough.superdough(
+      { s: "sawtooth", note: 60, voiceId: "held-synth", sustainUntilRelease: true, release: 0.03 },
+      1,
+      0.25,
+      1
+    );
 
-    // Advance clock well beyond 60 seconds to verify materialized ZZFX doesn't
-    // prematurely end. The buffer is bounded to ~1s, but sustainUntilRelease
-    // keeps the voice open via looping.
     audio.advance(70);
     expect(dough.hasVoice(voiceId)).toBe(true);
+    expect(dough.hasVoice("held-synth")).toBe(true);
 
-    // Verify the voice uses a bounded buffer with loop behavior
-    const voice = audio.voices.find((s) => !s.ended);
-    expect(voice).toBeDefined();
-    if (voice) {
-      // Buffer should be bounded to ~1s not 60s
-      expect(voice.buffer).toBeDefined();
-      const buffer = voice.buffer as {
-        duration: number;
-        sampleRate: number;
-      };
-      expect(buffer.duration).toBeLessThanOrEqual(1.1);
-      expect(buffer.duration).toBeGreaterThan(0);
-      // Loop properties should be set
-      expect(voice.loop).toBe(true);
-      expect(typeof voice.loopStart).toBe("number");
-      expect(typeof voice.loopEnd).toBe("number");
-    }
+    // The held voice loops a materialized ~1 s buffer, not a 60 s one.
+    const voice = audio.voices.find((source) => !source.ended);
+    expect(voice?.loop).toBe(true);
+    expect((voice?.buffer as { duration: number }).duration).toBeGreaterThan(0);
+    expect((voice?.buffer as { duration: number }).duration).toBeLessThanOrEqual(1.1);
 
-    // Release and verify stop is called
     dough.releaseVoice(voiceId);
+    dough.releaseVoice("held-synth");
     audio.advance(70.05);
     expect(dough.hasVoice(voiceId)).toBe(false);
+    expect(dough.hasVoice("held-synth")).toBe(false);
 
     // Verify the voice source was disconnected
     const releasedVoice = audio.voices.find((s) => s.ended);

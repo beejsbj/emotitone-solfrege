@@ -160,6 +160,20 @@ describe("music store production worklet integration", () => {
     await music.releaseNote(owner!);
   });
 
+  it("records worklet pulses with the Shape captured when the input was pressed", async () => {
+    const music = useMusicStore(); const patterns = recorder();
+    const instrument = useInstrumentStore();
+    instrument.setSynthControl("room", 0.4);
+    const owner = await music.attackExactPitch("C4");
+    instrument.setSynthControl("room", 0.8);
+    worklet.listener!.onEvent(event(owner!, "pulse_1", "attack", 12.01));
+    worklet.listener!.onEvent(event(owner!, "pulse_1", "release", 12.02));
+    worklet.listener!.onEvent(event(owner!, "pulse_2", "attack", 12.03));
+    worklet.listener!.onEvent(event(owner!, "pulse_2", "release", 12.04));
+    await music.releaseNote(owner!);
+    expect(patterns.loggedNotes.map(note => [note.shape?.room, note.isStartingNewPattern])).toEqual([[0.4, true], [0.4, false]]);
+  });
+
   it("retains owner context through physical release until delayed audio lifecycle is delivered", async () => {
     const music = useMusicStore(); const patterns = recorder();
     const owner = await music.attackExactPitch("C4");

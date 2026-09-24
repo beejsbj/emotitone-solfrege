@@ -1508,4 +1508,108 @@ describe("Patterns Store", () => {
     expect(patternsStore.currentSketchDuration).toBe(1_000);
     expect(patternsStore.loadedBaseMeta?.trailingSilence).toBe(500);
   });
+  describe("Shape as pattern context", () => {
+    const NEUTRAL = { cutoff: 12000, resonance: 0, room: 0, delay: 0, attack: null, release: null };
+
+    it("starts a new pattern when Shape changes between notes, not when it returns", () => {
+      const instrumentStore = useInstrumentStore();
+      sequenceDateNow(dateNowSpy, [1000, 1001, 1200, 1201, 1300, 1301, 1500, 1501, 1600, 1601, 1800, 1801]);
+
+      dispatchLoggedNote(patternsStore, "note-a", "C4", 0);
+      instrumentStore.setSynthControl("cutoff", 2000);
+      dispatchLoggedNote(patternsStore, "note-b", "D4", 1);
+      // A sweep between notes that lands on the same value is no boundary.
+      instrumentStore.setSynthControl("cutoff", 3000);
+      instrumentStore.setSynthControl("cutoff", 2000);
+      dispatchLoggedNote(patternsStore, "note-c", "E4", 2);
+
+      expect(patternsStore.loggedNotes.map((note) => note.isStartingNewPattern)).toEqual([true, true, false]);
+      expect(patternsStore.loggedNotes[0]?.shape).toEqual(NEUTRAL);
+      expect(patternsStore.loggedNotes[1]?.shape).toEqual({ ...NEUTRAL, cutoff: 2000 });
+      expect(patternsStore.currentSketchMeta.shape).toEqual({ ...NEUTRAL, cutoff: 2000 });
+      expect(patternsStore.currentTakeGeneration).toBe(1);
+    });
+
+    it("logs held pulses with their press-time Shape while knobs sweep", () => {
+      const instrumentStore = useInstrumentStore();
+      const heldShape = { ...NEUTRAL, room: 0.4 };
+      sequenceDateNow(dateNowSpy, [1000, 1001, 1100, 1101, 1200, 1201, 1300, 1301]);
+      for (const [index, cutoff] of [800, 1600, 3200].entries()) {
+        instrumentStore.setSynthControl("cutoff", cutoff);
+        patternsStore.handleNotePressed({
+          detail: {
+            noteId: `pulse-${index}`, noteName: "C4", solfegeIndex: 0, octave: 4,
+            instrument: "piano", source: "live-play-style", shape: heldShape,
+            note: createLogNote().solfege,
+          },
+        } as CustomEvent);
+        patternsStore.handleNoteReleased({
+          detail: { noteId: `pulse-${index}`, source: "live-play-style" },
+        } as CustomEvent);
+      }
+
+      expect(patternsStore.loggedNotes.map((note) => note.shape)).toEqual([heldShape, heldShape, heldShape]);
+      expect(patternsStore.loggedNotes.map((note) => note.isStartingNewPattern)).toEqual([true, false, false]);
+      expect(patternsStore.dynamicPatterns).toHaveLength(1);
+      expect(patternsStore.dynamicPatterns[0]?.shape).toEqual(heldShape);
+    });
+
+    it("applies a loaded pattern's Shape, and neutral for a legacy pattern", () => {
+      const instrumentStore = useInstrumentStore();
+      const shaped = createPattern({
+        id: "shaped",
+        shape: { cutoff: 1800, resonance: 4.5, room: 0.3, delay: 0.2, attack: 0.05, release: null },
+      });
+      const legacy = createPattern({ id: "legacy" });
+      patternsStore.savedPatterns.push(shaped, legacy);
+
+      patternsStore.loadPatternAsBase("shaped");
+      expect(instrumentStore.shape).toEqual(shaped.shape);
+      expect(instrumentStore.synthControlOverrides).toEqual({ attack: true, release: false });
+      expect(patternsStore.currentSketchMeta.shape).toEqual(shaped.shape);
+
+      // Playing on in the loaded Shape continues the loaded base.
+      dispatchLoggedNote(patternsStore, "note-a", "D4", 1);
+      expect(patternsStore.currentSketchNotes).toHaveLength(3);
+
+      patternsStore.loadPatternAsBase("legacy", { discardWorkingNotes: true });
+      expect(instrumentStore.shape).toEqual(NEUTRAL);
+      expect(patternsStore.currentSketchMeta.shape).toEqual(NEUTRAL);
+    });
+
+    it("re-skins an untouched loaded base, keeping rhythmic gates", async () => {
+      const instrumentStore = useInstrumentStore();
+      const natural = { attack: 0.001, decay: 0.001, sustain: 1, release: 0.2 };
+      const pattern = createPattern({
+        notes: [
+          createPatternNote({ articulation: { ...natural } }),
+          createPatternNote({ id: "gate", pressTime: 1400, releaseTime: 1500, duration: 100,
+            articulation: { ...natural, release: 0.03 } }),
+          createPatternNote({ id: "legacy", pressTime: 1500, releaseTime: 1700, duration: 200 }),
+        ],
+      });
+      patternsStore.savedPatterns.push(pattern);
+      patternsStore.loadPatternAsBase(pattern.id);
+
+      instrumentStore.setSynthControl("attack", 0.05);
+      instrumentStore.setSynthControl("release", 0.8);
+      await nextTick();
+
+      expect(patternsStore.loadedBaseNotes.map((note) => note.articulation)).toEqual([
+        { ...natural, attack: 0.05, release: 0.8 },
+        { ...natural, attack: 0.05, release: 0.03 },
+        undefined,
+      ]);
+      expect(patternsStore.currentSketchMeta.shape).toEqual({ ...NEUTRAL, attack: 0.05, release: 0.8 });
+      expect(pattern.notes[0]?.articulation).toEqual(natural);
+
+      // Back to natural release: shape-derived values return, gates stay.
+      instrumentStore.applyShape({ ...NEUTRAL, attack: 0.05 });
+      await nextTick();
+      expect(patternsStore.loadedBaseNotes.map((note) => note.articulation?.release)).toEqual([0.2, 0.03, undefined]);
+
+      patternsStore.sendCurrentPattern();
+      expect(patternsStore.savedPatterns.at(-1)?.shape).toEqual({ ...NEUTRAL, attack: 0.05 });
+    });
+  });
 });

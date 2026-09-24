@@ -72,6 +72,48 @@ describe("live styles through music, recording, and Strudel", () => {
     expect(patterns.loggedNotes[0].articulation).toEqual(expected);
   });
 
+  it.each(["together", "repeat"])("records the Shaped %s fallback envelope and press-time Shape", async (style) => {
+    const music = useMusicStore();
+    const instrument = useInstrumentStore();
+    const patterns = connectRecorder();
+    music.setPlayStyle(style);
+    instrument.setSynthControl("attack", 0.2);
+    instrument.setSynthControl("release", 0.8);
+    const owner = await music.attackExactPitch("C4");
+    await vi.advanceTimersByTimeAsync(200);
+    await music.releaseNote(owner!);
+
+    expect(patterns.loggedNotes[0].articulation).toEqual({
+      attack: 0.2, decay: 0.001, sustain: 1, release: style === "repeat" ? 0.03 : 0.8,
+    });
+    expect(patterns.loggedNotes[0].shape).toMatchObject({ attack: 0.2, release: 0.8 });
+  });
+
+  it("keeps a held repeat in one pattern while a Shape knob sweeps", async () => {
+    const music = useMusicStore();
+    const instrument = useInstrumentStore();
+    const patterns = connectRecorder();
+    music.setPlayMode("repeat:16");
+    const owner = await music.attackExactPitch("C4");
+    for (const cutoff of [6000, 3000, 1500]) {
+      await vi.advanceTimersByTimeAsync(130);
+      instrument.setSynthControl("cutoff", cutoff);
+    }
+    await vi.advanceTimersByTimeAsync(130);
+    await music.releaseNote(owner!);
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(patterns.loggedNotes.length).toBeGreaterThan(3);
+    expect(patterns.loggedNotes.every((note) => note.shape?.cutoff === 12000)).toBe(true);
+    expect(patterns.loggedNotes.filter((note) => note.isStartingNewPattern)).toHaveLength(1);
+
+    // The next press carries the swept Shape and starts a new pattern.
+    const next = await music.attackExactPitch("E4");
+    await vi.advanceTimersByTimeAsync(20);
+    await music.releaseNote(next!);
+    expect(patterns.loggedNotes.at(-1)).toMatchObject({ shape: { cutoff: 1500 }, isStartingNewPattern: true });
+  });
+
   it.each(["together", "repeat"])("isolates %s fallback events from later release snapshots", async (style) => {
     const music = useMusicStore();
     const patterns = connectRecorder();

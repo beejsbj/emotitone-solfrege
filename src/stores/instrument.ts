@@ -91,15 +91,24 @@ export const useInstrumentStore = defineStore("instrument", () => {
 
   const resetSynthControls = () => applyShape(NEUTRAL_SHAPE);
 
-  // The knobs as pattern context; untouched envelope stages stay natural.
-  const shape = computed<Shape>(() => canonicalShape({
-    cutoff: synthControls.value.cutoff,
-    resonance: synthControls.value.resonance,
-    room: synthControls.value.room,
-    delay: synthControls.value.delay,
-    attack: synthControlOverrides.value.attack ? synthControls.value.attack : null,
-    release: synthControlOverrides.value.release ? synthControls.value.release : null,
-  }));
+  // The knobs as pattern context. An envelope stage that is untouched, or
+  // turned back onto the instrument's natural value, stays natural (null).
+  const shape = computed<Shape>(() => {
+    const knobs = canonicalShape({
+      cutoff: synthControls.value.cutoff,
+      resonance: synthControls.value.resonance,
+      room: synthControls.value.room,
+      delay: synthControls.value.delay,
+      attack: synthControlOverrides.value.attack ? synthControls.value.attack : null,
+      release: synthControlOverrides.value.release ? synthControls.value.release : null,
+    });
+    const natural = getLiveArticulation(currentInstrument.value);
+    return {
+      ...knobs,
+      attack: knobs.attack === natural.attack ? null : knobs.attack,
+      release: knobs.release === natural.release ? null : knobs.release,
+    };
+  });
 
   // Untouched envelope knobs rest on the instrument's natural envelope, so
   // they show what is sounding and the first nudge starts from there.

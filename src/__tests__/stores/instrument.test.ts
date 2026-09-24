@@ -265,6 +265,12 @@ describe("instrument store warmup", () => {
     expect(store.shape).toMatchObject({ attack: null, release: null });
 
     store.setSynthControl("release", 1.4);
+    expect(store.shape.release).toBe(1.4);
+    // Turned back onto the natural value, the stage is untouched again.
+    store.setSynthControl("release", 1.5);
+    expect(store.shape.release).toBeNull();
+    expect(store.instrumentShapes).not.toHaveProperty("gm_acoustic_guitar_nylon");
+    store.setSynthControl("release", 1.4);
     store.resetSynthControls();
     expect(store.synthControls).toMatchObject({ attack: 0.01, release: 1.5 });
 

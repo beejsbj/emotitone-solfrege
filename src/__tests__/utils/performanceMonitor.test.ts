@@ -59,18 +59,27 @@ describe("Performance Monitor", () => {
       expect(metrics.activeObjects).toBe(18); // Last value
     });
 
-    it("should limit frame history size", () => {
+    it("should limit frame history size by evicting old slow frames", () => {
       const baseTime = 1000;
-      const frameInterval = 16.67;
 
-      // Update more than max history size (60)
+      // First, feed 100 slow frames (50ms each = 20 FPS)
       for (let i = 0; i < 100; i++) {
-        performanceMonitor.update(baseTime + (i * frameInterval), i);
+        performanceMonitor.update(baseTime + (i * 50), i);
       }
 
-      const metrics = performanceMonitor.getMetrics();
-      expect(metrics.fps).toBeCloseTo(60, 1);
-      // Should still calculate correctly with limited history
+      let metrics = performanceMonitor.getMetrics();
+      expect(metrics.fps).toBeCloseTo(20, 1);
+
+      // Now feed 70 fast frames (16.67ms each = 60 FPS) to completely evict all slow frames
+      // With maxHistorySize of 60, we need to add 70 frames to guarantee all slow frames are gone
+      for (let i = 100; i < 170; i++) {
+        performanceMonitor.update(baseTime + (5000 + ((i - 100) * 16.67)), i);
+      }
+
+      metrics = performanceMonitor.getMetrics();
+      // Should now be close to 60 FPS, proving old slow frames were evicted from the bounded history
+      expect(metrics.fps).toBeCloseTo(60, 0);
+      expect(metrics.frameTime).toBeCloseTo(16.67, 1);
     });
 
     it("should estimate memory usage", () => {

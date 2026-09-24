@@ -1,0 +1,10 @@
+const root='/home/admin/.t3/worktrees/emotitone-solfrege/t3code-48955534';
+const fs=require('fs'),vm=require('vm'),ts=require(root+'/node_modules/typescript');
+const {ref}=require(root+'/node_modules/vue'),{createPinia,setActivePinia,defineStore}=require(root+'/node_modules/pinia');
+setActivePinia(createPinia());const store=defineStore('probe',()=>({visualsEnabled:ref(true)}))();const {visualsEnabled}=store;store.visualsEnabled=false;console.log('Pinia source pattern:',{store:store.visualsEnabled,hostSnapshot:visualsEnabled});
+const master={edges:new Set(),connect(n){this.edges.add(n)},disconnect(n){this.edges.delete(n)}};
+const node=()=>({gain:{value:0},delayTime:{value:0},frequencyBinCount:128,connect(){},disconnect(){}});
+const ac={createGain:node,createAnalyser:node,createConvolver:node,createDelay:node,sampleRate:48000,createBuffer:()=>({copyToChannel(){}})};
+const sandbox={exports:{},console,Float32Array,Uint8Array,Math,setInterval,clearInterval,document:{createElement:()=>({getContext:()=>({})})},require:(id)=>id.includes('superdoughAudio')?{getAudioContext:()=>ac,getSuperdoughMasterGain:()=>master}:id.includes('useColorSystem')?{useColorSystem:()=>({})}:{useMusicStore:()=>({})}};
+vm.runInNewContext(ts.transpileModule(fs.readFileSync(root+'/src/composables/canvas/useHilbertScopeRenderer.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,sandbox);
+(async()=>{const scope=sandbox.exports.useHilbertScopeRenderer();await scope.initializeHilbertScope(800,600,{sizeRatio:.5});scope.cleanup();console.log('After normal cleanup:',{active:scope.isActive(),masterEdges:master.edges.size});const racing=sandbox.exports.useHilbertScopeRenderer();const pending=racing.initializeHilbertScope(800,600,{sizeRatio:.5});racing.cleanup();try{await pending;console.log('After cleanup before init resolves:',{active:racing.isActive(),masterEdges:master.edges.size})}catch(error){console.log('After cleanup before init resolves:',{error:error.message,masterEdges:master.edges.size})}})();

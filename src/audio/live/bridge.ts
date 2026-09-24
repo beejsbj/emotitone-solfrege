@@ -40,6 +40,7 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
   function deliver(data: LiveResponse) {
     if (data.type === 'event') callbacks.onEvent(data.event)
     else if (data.type === 'plan') callbacks.onPlan?.(data.events)
+    else if (data.type === 'expression-owner') callbacks.onExpressionOwner?.(data)
     else if (data.type === 'owner-ended') callbacks.onOwnerEnded?.(data.ownerId)
     else if (data.type === 'prepared' || data.type === 'forgotten') {
       const entry = pending.get(data.requestId)

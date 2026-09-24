@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createPinia, disposePinia, setActivePinia, type Pinia } from "pinia";
-import type { LiveVoiceEvent } from "@/audio/live/types";
+import type { LiveExpressionOwner, LiveVoiceEvent } from "@/audio/liveRenderer";
 
 vi.unmock("@/services/music");
 vi.unmock("@/data");
@@ -8,6 +8,7 @@ const worklet = vi.hoisted(() => ({
   listener: undefined as undefined | {
     onEvent(event: LiveVoiceEvent): void;
     onPlan(events: LiveVoiceEvent[]): void;
+    onExpressionOwner(change: LiveExpressionOwner): void;
     onOwnerEnded(ownerId: string): void;
     onError(error: unknown): void;
   },
@@ -167,6 +168,43 @@ describe("music store production worklet integration", () => {
     music.setNotePitchBend(c!, 0);
     expect(music.activeNotes.get("c")).toEqual({ ...original, pitchBendCents: 0 });
     expect(events("note-played")).toHaveLength(2);
+  });
+
+  it("keeps shared rhythmic expression visible and recorded after the first owner releases", async () => {
+    const music = useMusicStore(); const patterns = recorder();
+    const first = await music.attackExactPitch("C4");
+    const second = await music.attackExactPitch("C4");
+    worklet.listener!.onEvent(event(first!, "shared", "attack", 12));
+    await vi.advanceTimersByTimeAsync(50);
+    music.setNotePitchBend(first!, 40);
+    music.setNoteGain(first!, .5);
+    await vi.advanceTimersByTimeAsync(50);
+    music.setNotePitchBend(second!, -20);
+    music.setNoteGain(second!, 1.5);
+    await music.releaseNote(first!);
+    worklet.listener!.onExpressionOwner({ noteId: "shared", ownerId: second!,
+      at: 12.1, cents: -20, gain: 1.5 });
+    expect(music.activeNotes.get("shared")?.pitchBendCents).toBe(-20);
+    expect(events("note-expression").slice(-2)).toMatchObject([
+      { noteId: "shared", cents: -20, timestamp: EPOCH + 100 },
+      { noteId: "shared", gain: 1.5, timestamp: EPOCH + 100 },
+    ]);
+    await vi.advanceTimersByTimeAsync(50);
+    music.setNotePitchBend(second!, 30);
+    music.setNoteGain(second!, .75);
+    expect(music.activeNotes.get("shared")?.pitchBendCents).toBe(30);
+    worklet.listener!.onEvent(event(first!, "shared", "release", 12.2));
+    expect(patterns.loggedNotes[0].pitchExpression).toEqual([
+      { timeMs: 0, cents: 0 }, { timeMs: 50, cents: 40 },
+      { timeMs: 100, cents: -20 }, { timeMs: 150, cents: 30 },
+    ]);
+    expect(patterns.loggedNotes[0].gainExpression).toEqual([
+      { timeMs: 0, gain: 1 }, { timeMs: 50, gain: .5 },
+      { timeMs: 100, gain: 1.5 }, { timeMs: 150, gain: .75 },
+    ]);
+    expect(events("note-played")).toHaveLength(1);
+    expect(events("note-released")).toHaveLength(1);
+    expect(music.activeNotes.has("shared")).toBe(false);
   });
 
   it("records simultaneous pitch and gain independently with the audio clock", async () => {

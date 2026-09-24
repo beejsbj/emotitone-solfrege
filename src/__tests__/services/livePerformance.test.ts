@@ -58,6 +58,46 @@ describe('prepared performance MIDI ownership', () => {
     expect(callbacks.onGainExpression).toHaveBeenCalledTimes(1)
   })
 
+  it('records shared-voice handoff and later gestures without changing lifecycle ownership', () => {
+    const { performance, renderer, callbacks } = setup()
+    performance.press('second', [{ instrumentId: 'piano', pitch: 60 }], { label: 'second' }, renderer, config)
+    listener.onEvent(event('hand', 'attack', .9))
+    performance.setPitchBend('hand', 40)
+    performance.setGain('hand', .25)
+    performance.setPitchBend('second', -30)
+    performance.setGain('second', 1.5)
+    expect(callbacks.onExpression).toHaveBeenCalledTimes(1)
+    expect(callbacks.onGainExpression).toHaveBeenCalledTimes(1)
+    performance.release('hand')
+    listener.onExpressionOwner?.({ noteId: 'voice', ownerId: 'second', at: 1, cents: -30, gain: 1.5 })
+    expect(callbacks.onExpression).toHaveBeenLastCalledWith('voice', -30, 1)
+    expect(callbacks.onGainExpression).toHaveBeenLastCalledWith('voice', 1.5, 1)
+    performance.setPitchBend('second', 20)
+    performance.setGain('second', .5)
+    expect(callbacks.onExpression).toHaveBeenLastCalledWith('voice', 20, 1)
+    expect(callbacks.onGainExpression).toHaveBeenLastCalledWith('voice', .5, 1)
+    listener.onEvent(event('hand', 'release', 1.1))
+    expect(callbacks.onEvent.mock.calls.map(([next, metadata]) => [next.phase, metadata.label])).toEqual([
+      ['attack', 'first'], ['release', 'first'],
+    ])
+    expect(performance.isActive('voice')).toBe(false)
+  })
+
+  it('keeps the audio handoff state separate from a later queued gesture', () => {
+    const { performance, renderer, callbacks } = setup()
+    performance.press('second', [{ instrumentId: 'piano', pitch: 60 }], {}, renderer, config)
+    listener.onEvent(event('hand', 'attack', .9))
+    performance.setPitchBend('second', -30)
+    performance.setGain('second', 1.5)
+    listener.onExpressionOwner?.({ noteId: 'voice', ownerId: 'second', at: .95, cents: 0, gain: 1 })
+    expect(callbacks.onExpression.mock.calls.map(([noteId, cents, at]) => [noteId, cents, at])).toEqual([
+      ['voice', 0, .95], ['voice', -30, 1],
+    ])
+    expect(callbacks.onGainExpression.mock.calls.map(([noteId, gain, at]) => [noteId, gain, at])).toEqual([
+      ['voice', 1, .95], ['voice', 1.5, 1],
+    ])
+  })
+
   it('does not replay a completed MIDI plan when stalled audio lifecycle callbacks arrive', () => {
     const { callbacks } = setup()
     const attack = event('hand', 'attack', .125), release = event('hand', 'release', .225)

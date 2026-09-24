@@ -295,7 +295,7 @@ describe('production live audio render core', () => {
   it.each(['repeat', 'arp-up'] as const)('hands a shared %s voice to the surviving expression owner', style => {
     const constant: PreparedLiveInstrument = { ...bank, zones: [{ ...bank.zones[0],
       channels: [new Float32Array(500).fill(1)], loopEndFrame: 500 }] }
-    const { core, press, render, send, events } = setup(constant)
+    const { core, press, render, send, events, messages } = setup(constant)
     send({ type: 'configure', config: { style, rate: 16 } })
     press('first', [60]); render(1)
     press('second', [60])
@@ -304,6 +304,10 @@ describe('production live audio render core', () => {
     render(10)
     send({ type: 'release', ownerId: 'first' })
     expect(core.voiceCount).toBe(1)
+    expect(messages.filter(message => message.type === 'expression-owner')).toEqual([
+      { type: 'expression-owner', noteId: events[0].noteId, ownerId: 'second', at: .011,
+        cents: 0, gain: 1.5 },
+    ])
     expect(render(10)[0].at(-1)).toBeCloseTo(1.5, 3)
     send({ type: 'gain-expression', ownerId: 'second', gain: .5 })
     expect(render(10)[0].at(-1)).toBeCloseTo(.5, 3)

@@ -13,9 +13,17 @@ export interface LiveVoiceEvent extends LiveInputNote {
   /** Absolute AudioContext time, in seconds. */
   at: number
 }
+export interface LiveExpressionOwner {
+  noteId: string
+  ownerId: string
+  at: number
+  cents: number
+  gain: number
+}
 export interface LiveRendererCallbacks {
   onEvent(event: LiveVoiceEvent): void
   onPlan?(events: LiveVoiceEvent[]): void
+  onExpressionOwner?(change: LiveExpressionOwner): void
   onError?(error: Error): void
   onOwnerEnded?(ownerId: string): void
 }

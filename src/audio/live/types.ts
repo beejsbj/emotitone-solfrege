@@ -1,4 +1,4 @@
-import type { LiveConfig, LiveInputNote, LiveRenderer, LiveVoiceEvent } from '../liveRenderer'
+import type { LiveConfig, LiveExpressionOwner, LiveInputNote, LiveRenderer, LiveVoiceEvent } from '../liveRenderer'
 export type { LiveConfig, LiveInputNote, LiveVoiceEvent } from '../liveRenderer'
 
 export interface LiveEnvelope {
@@ -41,6 +41,7 @@ export type LiveResponse =
   | { type: 'prepared'; requestId: number }
   | { type: 'forgotten'; requestId: number }
   | { type: 'owner-ended'; ownerId: string }
+  | ({ type: 'expression-owner' } & LiveExpressionOwner)
   | { type: 'event'; event: LiveVoiceEvent }
   | { type: 'plan'; events: LiveVoiceEvent[] }
 

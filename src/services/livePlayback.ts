@@ -105,6 +105,7 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
       const callbacks: LiveRendererCallbacks = {
         onEvent: event => { if (run === generation) listeners.forEach(listener => listener.onEvent(event)); },
         onPlan: events => { if (run === generation) listeners.forEach(listener => listener.onPlan?.(events)); },
+        onExpressionOwner: change => { if (run === generation) listeners.forEach(listener => listener.onExpressionOwner?.(change)); },
         onError: error => { if (run === generation) invalidate(error); },
         onOwnerEnded: ownerId => { if (run === generation) listeners.forEach(listener => listener.onOwnerEnded?.(ownerId)); },
       };

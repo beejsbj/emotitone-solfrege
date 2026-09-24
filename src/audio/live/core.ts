@@ -229,6 +229,10 @@ export class LiveAudioCore {
       if (!voice.owners.size) this.releaseVoice(voice, frame)
       else if (!voice.released && voice.expressionOwnerId === owner) {
         this.retargetExpression(voice, voice.owners.values().next().value!)
+        if (voice.published) this.send({ type: 'expression-owner', noteId: voice.noteId,
+          ownerId: voice.expressionOwnerId, at: frame / this.sampleRate,
+          cents: this.pitchBends.get(voice.expressionOwnerId) ?? 0,
+          gain: this.gainExpressions.get(voice.expressionOwnerId) ?? 1 })
       }
     }
     if (!this.held.size) this.cancel(frame)

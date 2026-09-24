@@ -22,7 +22,8 @@ import { Note as TonalNote } from "@tonaljs/tonal";
 import { DEFAULT_INSTRUMENT, isSynthSound } from "@/data/instruments";
 import { prepareLivePlayback } from "@/services/livePlayback";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
-import { getLiveArticulation } from "@/services/liveArticulation";
+import { resolveLiveEnvelope } from "@/services/shape";
+import type { Shape } from "@/types/instrument";
 import { audioTimeToOutputTime, LIVE_AUDIO_SCHEDULING_LEAD_MS } from "@/services/liveAudioTiming";
 import { getAudioContext, getMasterGain, initializeAudio, LIVE_ORBIT } from "@/services/audioRuntime";
 import { setLivePlaybackShaping } from "@/services/livePlayback";
@@ -75,6 +76,22 @@ export function setLiveSynthControls(
     },
   });
 }
+
+/**
+ * Envelope stages the live Shape controls set for this sound. Callers without
+ * an override contract keep the legacy rule: controls shape synths only.
+ */
+function liveEnvelopeShape(sound: string): Pick<Shape, "attack" | "release"> {
+  const controls = _liveSynthControls;
+  const hasOverrideContract = controls?.overrides !== undefined;
+  const isSynth = isSynthSound(sound);
+  const stage = (name: "attack" | "release") =>
+    controls?.[name] !== undefined && (hasOverrideContract ? controls.overrides?.[name] : isSynth)
+      ? controls[name]!
+      : null;
+  return { attack: stage("attack"), release: stage("release") };
+}
+
 const STRUDEL_PLAYBACK_SOURCE = "strudel-playback";
 const LIVE_NOTE_PLACEHOLDER_DURATION_SECONDS = 0.25;
 const _activeStrudelVisuals = new Map<
@@ -582,11 +599,9 @@ export async function attackNote(
   }
 
   const sound = resolveLiveSoundName(instrument);
-  const articulation = getLiveArticulation(sound);
+  const envelope = resolveLiveEnvelope(sound, liveEnvelopeShape(sound));
   const duration = LIVE_NOTE_PLACEHOLDER_DURATION_SECONDS;
   const wasReady = isPrewarmed(sound);
-  const isSynth = isSynthSound(sound);
-  const hasEnvelopeOverrideContract = _liveSynthControls?.overrides !== undefined;
 
   // Defensively clear stale voices if a note id is ever re-used.
   if (hasVoice(noteId)) {
@@ -597,18 +612,8 @@ export async function attackNote(
   // patched engine preserves overdue live presses, but this margin normally
   // lets the complete graph reach the render thread before its intended onset.
   const requestedAt = Math.max(options?.atTime ?? 0, nowPlusOffset(LIVE_AUDIO_SCHEDULING_LEAD_MS / 1000));
-  const attack = options?.attack ?? (
-    _liveSynthControls?.attack !== undefined &&
-    (hasEnvelopeOverrideContract ? _liveSynthControls.overrides?.attack : isSynth)
-      ? _liveSynthControls.attack
-      : articulation.attack
-  );
-  const release = options?.release ?? (
-    _liveSynthControls?.release !== undefined &&
-    (hasEnvelopeOverrideContract ? _liveSynthControls.overrides?.release : isSynth)
-      ? _liveSynthControls.release
-      : articulation.release
-  );
+  const attack = options?.attack ?? envelope.attack;
+  const release = options?.release ?? envelope.release;
   const cutoff = options?.cutoff ?? _liveSynthControls?.cutoff;
   const resonance = options?.resonance ?? _liveSynthControls?.resonance;
 
@@ -617,8 +622,8 @@ export async function attackNote(
     note: noteName,
     gain: 0.8,
     attack,
-    decay: articulation.decay,
-    sustain: articulation.sustain,
+    decay: envelope.decay,
+    sustain: envelope.sustain,
     release,
     voiceId: noteId,
     sustainUntilRelease: true,
@@ -687,17 +692,7 @@ export async function playNoteWithDuration(
 
   const sound = resolveLiveSoundName(instrument);
   const durationSeconds = durationMs / 1000;
-  const isSynth = isSynthSound(sound);
-  const hasEnvelopeOverrideContract = _liveSynthControls?.overrides !== undefined;
-  const articulation = getLiveArticulation(sound);
-  const attack = _liveSynthControls?.attack !== undefined &&
-    (hasEnvelopeOverrideContract ? _liveSynthControls.overrides?.attack : isSynth)
-    ? _liveSynthControls.attack
-    : articulation.attack;
-  const release = _liveSynthControls?.release !== undefined &&
-    (hasEnvelopeOverrideContract ? _liveSynthControls.overrides?.release : isSynth)
-    ? _liveSynthControls.release
-    : articulation.release;
+  const { attack, release } = resolveLiveEnvelope(sound, liveEnvelopeShape(sound));
 
   await superdough(
     {

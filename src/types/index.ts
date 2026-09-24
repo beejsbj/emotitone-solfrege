@@ -75,6 +75,7 @@ export type {
   OscillatorConfig,
   InstrumentEvent,
   AudioContextInfo,
+  Shape,
 } from "./instrument";
 
 // App Loading and Initialization Types

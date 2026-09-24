@@ -48,7 +48,11 @@ if (!isDesignRoute || pathname === "/style-guide/config-menu") {
 }
 
 app.use(pinia);
-pinia.use(piniaPluginPersistedstate);
+// The picker specimen drives the real instrument store; keep its knob edits
+// out of the app's saved instrument and Shapes.
+if (pathname !== "/style-guide/instrument-picker") {
+  pinia.use(piniaPluginPersistedstate);
+}
 app.use(tooltipPlugin);
 
 if (import.meta.env.DEV) {

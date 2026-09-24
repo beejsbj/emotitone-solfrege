@@ -19,7 +19,9 @@ import { getLivePlayback } from "@/services/livePlayback";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import type { LiveVoiceEvent } from "@/audio/liveRenderer";
 import { createLivePerformance } from "@/services/livePerformance";
-import { getLiveArticulation, type LiveArticulation } from "@/services/liveArticulation";
+import type { LiveArticulation } from "@/services/liveArticulation";
+import { resolveLiveEnvelope } from "@/services/shape";
+import type { Shape } from "@/types/instrument";
 import {
   createScheduledLiveVoice,
   SCHEDULED_LIVE_MIDI_EVENT,
@@ -116,6 +118,8 @@ export const useMusicStore = defineStore(
     type HeldPitch = {
       snapshot: Omit<ActiveNote, "noteId">;
       instrument: string;
+      /** Shape at input onset: pattern context for every note this hold logs. */
+      shape: Shape;
       isCancelled: () => boolean;
       firstAttack?: (cancelled: () => boolean) => Promise<string | null>;
       initialVoice?: Promise<string | null>;
@@ -133,8 +137,9 @@ export const useMusicStore = defineStore(
       return audioTimeToOutputTime(context, context.currentTime + (timestamp - Date.now()) / 1000);
     }
 
+    // Scheduled voices sound with the live Shape at scheduling time; record that.
     function styleArticulation(instrument: string, style: PlayStyle): LiveArticulation {
-      const articulation = { ...getLiveArticulation(instrument) };
+      const articulation = resolveLiveEnvelope(instrument, instrumentStore.shape);
       if (style !== "together" && !style.startsWith("strum")) articulation.release = 0.03;
       return articulation;
     }
@@ -143,7 +148,7 @@ export const useMusicStore = defineStore(
       return {
         ...held.snapshot, noteId: event.noteId, note: held.snapshot.solfege,
         isBorrowed: held.snapshot.solfegeIndex === -1,
-        instrument: held.instrument, instrumentConfig: null, source: "live-play-style",
+        instrument: held.instrument, shape: held.shape, instrumentConfig: null, source: "live-play-style",
         articulation: { ...(event.articulation ?? styleArticulation(held.instrument, event.style)) },
         timestamp: liveAudioClock.toEpochTime(event.at * 1000),
         midiTimestamp: liveAudioClock.toPerformanceTime(event.at * 1000),
@@ -231,6 +236,7 @@ export const useMusicStore = defineStore(
           note: activeNote.solfege,
           isBorrowed: activeNote.solfegeIndex === -1,
           instrument: held.instrument,
+          shape: held.shape,
           instrumentConfig: null,
           source: "live-play-style",
         };
@@ -363,9 +369,10 @@ export const useMusicStore = defineStore(
           ...getCurrentNoteContext(),
         },
         instrument: instrumentStore.currentInstrument,
+        shape: instrumentStore.shape,
         isCancelled,
       };
-      held.firstAttack = (cancelled) => attackPreparedPitch(held.snapshot, held.instrument, exactInput, cancelled);
+      held.firstAttack = (cancelled) => attackPreparedPitch(held.snapshot, held.instrument, held.shape, exactInput, cancelled);
       heldOwners.add(owner);
       const renderer = getLivePlayback(held.instrument);
       if (renderer) {
@@ -605,6 +612,7 @@ export const useMusicStore = defineStore(
     async function attackPreparedPitch(
       snapshot: Omit<ActiveNote, "noteId">,
       instrument: string,
+      shape: Shape,
       exactInput: boolean,
       isCancelled: () => boolean,
     ): Promise<string | null> {
@@ -616,7 +624,8 @@ export const useMusicStore = defineStore(
       const noteId = [...prefix, Date.now(), Math.random().toString(36).slice(2, 8)].join("_");
       // Recording follows input onset, even when audio preparation resolves later.
       const timestamp = Date.now();
-      const articulation = { ...getLiveArticulation(instrument) };
+      // attackNote resolves the same Shaped envelope from the live controls.
+      const articulation = resolveLiveEnvelope(instrument, shape);
       const startedAt = await superdoughAudio.attackNote(noteId, snapshot.noteName, instrument);
       if (
         isCancelled()
@@ -641,6 +650,7 @@ export const useMusicStore = defineStore(
           note: snapshot.solfege,
           isBorrowed: snapshot.solfegeIndex === -1,
           instrument,
+          shape,
           articulation: { ...articulation },
           instrumentConfig: null,
           timestamp,

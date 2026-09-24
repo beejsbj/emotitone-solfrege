@@ -10,6 +10,7 @@ import {
 } from "@/services/superdoughAudio";
 
 import { needsLivePlaybackPreparation } from "@/services/livePlayback";
+import { getLiveArticulation } from "@/services/liveArticulation";
 import { canonicalShape, isSameShape, NEUTRAL_SHAPE } from "@/services/shape";
 import { deserializeInstrumentState } from "@/services/instrumentPersistence";
 import type { Shape } from "@/types/instrument";
@@ -88,12 +89,7 @@ export const useInstrumentStore = defineStore("instrument", () => {
     rememberShape();
   };
 
-  const resetSynthControls = () => {
-    synthControls.value = { ...DEFAULT_SYNTH_CONTROLS };
-    synthControlOverrides.value = { ...DEFAULT_SYNTH_CONTROL_OVERRIDES };
-    syncLiveSynthControls();
-    rememberShape();
-  };
+  const resetSynthControls = () => applyShape(NEUTRAL_SHAPE);
 
   // The knobs as pattern context; untouched envelope stages stay natural.
   const shape = computed<Shape>(() => canonicalShape({
@@ -105,14 +101,17 @@ export const useInstrumentStore = defineStore("instrument", () => {
     release: synthControlOverrides.value.release ? synthControls.value.release : null,
   }));
 
+  // Untouched envelope knobs rest on the instrument's natural envelope, so
+  // they show what is sounding and the first nudge starts from there.
   const applyShape = (next: Shape) => {
+    const natural = getLiveArticulation(currentInstrument.value);
     synthControls.value = {
       cutoff: next.cutoff,
       resonance: next.resonance,
       room: next.room,
       delay: next.delay,
-      attack: next.attack ?? DEFAULT_SYNTH_CONTROLS.attack,
-      release: next.release ?? DEFAULT_SYNTH_CONTROLS.release,
+      attack: next.attack ?? natural.attack,
+      release: next.release ?? natural.release,
     };
     synthControlOverrides.value = {
       attack: next.attack !== null,

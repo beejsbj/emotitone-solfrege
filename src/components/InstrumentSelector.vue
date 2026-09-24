@@ -130,12 +130,6 @@ const shapeKnobs = [
     help: "Echo: add fading repeats, a quarter-second apart. Zero is off.",
     format: (v: number) => `${Math.round(v * 100)}%` },
 ] as const;
-type ShapeKnob = typeof shapeKnobs[number];
-function formatShapeValue(control: ShapeKnob, value: number): string {
-  if ((control.key === "attack" || control.key === "release")
-    && !instrumentStore.synthControlOverrides?.[control.key]) return "Auto";
-  return control.format(value);
-}
 const hasSearchQuery = computed(() => query.value.trim().length > 0);
 const allGrouped = computed(() => groupSounds(allSounds.value));
 const grouped = computed(() => groupSounds(filteredSounds.value));
@@ -468,7 +462,7 @@ async function selectInstrument(name: string, close: () => void) {
                   :label="control.label"
                   tone="brass"
                   :data-testid="`shape-knob-${control.key}`"
-                  :format-value="(value) => formatShapeValue(control, value)"
+                  :format-value="control.format"
                   @update:model-value="(v) => instrumentStore.setSynthControl(control.key, Number(v))"
                 />
               </div>

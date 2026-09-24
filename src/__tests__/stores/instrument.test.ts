@@ -257,6 +257,20 @@ describe("instrument store warmup", () => {
       overrides: { attack: false, release: true },
     }));
   });
+  it("rests untouched envelope knobs on the current instrument's natural envelope", async () => {
+    const store = useInstrumentStore();
+    audioMocks.isPrewarmed.mockReturnValue(true);
+    await store.setInstrument("gm_acoustic_guitar_nylon");
+    expect(store.synthControls).toMatchObject({ attack: 0.01, release: 1.5 });
+    expect(store.shape).toMatchObject({ attack: null, release: null });
+
+    store.setSynthControl("release", 1.4);
+    store.resetSynthControls();
+    expect(store.synthControls).toMatchObject({ attack: 0.01, release: 1.5 });
+
+    await store.setInstrument("piano");
+    expect(store.synthControls).toMatchObject({ attack: 0.001, release: 0.2 });
+  });
   describe("per-instrument Shape memory", () => {
     const NEUTRAL = { cutoff: 12000, resonance: 0, room: 0, delay: 0, attack: null, release: null };
 

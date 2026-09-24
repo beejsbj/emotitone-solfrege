@@ -1,6 +1,6 @@
 {
-  "capturedAt": "2026-09-24T14:05:46.184958+00:00",
-  "revision": "31939eb5b73739fe33558b0749fa62764f42679d",
+  "capturedAt": "2026-09-24T14:14:19.431046+00:00",
+  "revision": "9fc419b02eaec75465f5c507852581ebb5175361",
   "environment": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.0.0 Safari/537.36",
     "sampleRate": 48000,
@@ -85,8 +85,8 @@
     "audio-lab/parity/voice-budget.mjs": "44fe31c790410dbe95195ce89b92dbffb16a62f4f44c938f3eecf6ad99507cc2"
   },
   "fullReceipt": {
-    "localPath": "/tmp/pr92-parity-shape-final.json",
-    "sha256": "a92982c9ad5185388e975c7c5b15acd533c4bea142820071d7950e0c018d7ca6",
-    "bytes": 164762
+    "localPath": "/tmp/pr92-parity-final.json",
+    "sha256": "e6949c39ef7d6f3977dc41f3f2408effbe72e1a6075c619bc2ff772ae46b8d56",
+    "bytes": 164694
   }
 }

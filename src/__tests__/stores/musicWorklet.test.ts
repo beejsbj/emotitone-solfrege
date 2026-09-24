@@ -254,6 +254,29 @@ describe("music store production worklet integration", () => {
     ]);
   });
 
+  it("keeps a late timestamped reversal visible and recorded after an ordinary move", async () => {
+    const music = useMusicStore(); const patterns = recorder();
+    const owner = await music.attackExactPitch("C4");
+    worklet.listener!.onEvent(event(owner!, "late", "attack", 12));
+    await vi.advanceTimersByTimeAsync(100);
+    music.setNotePitchBend(owner!, 30);
+    music.setNoteGain(owner!, 1.5);
+    await vi.advanceTimersByTimeAsync(50);
+    music.setNotePitchBend(owner!, -30, 1030);
+    music.setNoteGain(owner!, .5, 1030);
+    music.setNotePitchBend(owner!, 20, 1060);
+    music.setNoteGain(owner!, 1.25, 1060);
+    expect(music.activeNotes.get("late")?.pitchBendCents).toBe(20);
+    worklet.listener!.onEvent(event(owner!, "late", "release", 12.2));
+    const pitch = patterns.loggedNotes[0].pitchExpression!;
+    const gain = patterns.loggedNotes[0].gainExpression!;
+    expect(pitch.map((point) => point.cents)).toEqual([0, 30, -30, 20]);
+    expect(gain.map((point) => point.gain)).toEqual([1, 1.5, .5, 1.25]);
+    expect(pitch.map((point) => point.timeMs)).toEqual([...pitch.map((point) => point.timeMs)].sort((a, b) => a - b));
+    expect(new Set(pitch.map((point) => point.timeMs)).size).toBe(pitch.length);
+    expect(events("note-expression").at(-2)).toMatchObject({ noteId: "late", cents: 20 });
+  });
+
   it("does not publish expression for renderers without the corresponding audio control", async () => {
     vi.mocked(getLivePlayback).mockReturnValue({ ...worklet.engine,
       setPitchBend: undefined, setGain: undefined } as never);

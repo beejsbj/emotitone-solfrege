@@ -1096,14 +1096,53 @@ describe("Keyboard pointer gestures", () => {
     });
     root.element.dispatchEvent(move);
     const voiceId = `exact-${vi.mocked(mocks.musicStore.attackExactPitch).mock.calls[0][0]}`;
-    expect(vi.mocked(mocks.musicStore.setNotePitchBend).mock.calls
-      .filter(([id]) => id === voiceId).map(([, cents, timestamp]) => [cents, timestamp]))
-      .toEqual([[50, 1030], [-50, 1060], [50, 1090]]);
-    expect(vi.mocked(mocks.musicStore.setNoteGain).mock.calls
-      .filter(([id]) => id === voiceId).map(([, gain, timestamp]) => [gain, timestamp]))
-      .toEqual([[1.675, 1030], [1, 1060], [1.675, 1090]]);
+    const pitch = vi.mocked(mocks.musicStore.setNotePitchBend).mock.calls
+      .filter(([id]) => id === voiceId).map(([, cents, timestamp]) => [cents, timestamp]);
+    const gain = vi.mocked(mocks.musicStore.setNoteGain).mock.calls
+      .filter(([id]) => id === voiceId).map(([, value, timestamp]) => [value, timestamp]);
+    expect(pitch.map(([value]) => value)).toEqual([50, -50, 50]);
+    expect(gain.map(([value]) => value)).toEqual([1.675, 1, 1.675]);
+    expect(pitch[1][1] - pitch[0][1]).toBe(30);
+    expect(pitch[2][1] - pitch[1][1]).toBe(30);
+    expect(gain.map(([, timestamp]) => timestamp)).toEqual(pitch.map(([, timestamp]) => timestamp));
+    expect(pitch[0][1]).toBeGreaterThan(1030);
     root.element.dispatchEvent(pointerEvent("pointerup", {
       pointerId: 84, pointerType: "touch", clientX: 73, clientY: 20,
+    }));
+    wrapper.unmount();
+  });
+
+  it("rebases a delayed coalesced chord batch after an ordinary move", async () => {
+    const clock = vi.spyOn(performance, "now").mockReturnValue(1150);
+    const wrapper = mountKeyboard();
+    const chord = wrapper.find<HTMLButtonElement>(".keyboard__chord-key");
+    vi.spyOn(document, "elementFromPoint").mockReturnValue(chord.element);
+    const root = wrapper.get<HTMLElement>(".keyboard");
+    const sample = (x: number, timestamp: number) => {
+      const event = pointerEvent("pointermove", {
+        pointerId: 85, pointerType: "touch", clientX: x, clientY: 50,
+      });
+      Object.defineProperty(event, "timeStamp", { value: timestamp });
+      return event;
+    };
+    chord.element.dispatchEvent(pointerEvent("pointerdown", {
+      pointerId: 85, pointerType: "touch", clientX: 50, clientY: 50,
+    }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    clock.mockReturnValue(1180);
+    root.element.dispatchEvent(sample(27, 1180));
+    clock.mockReturnValue(1250);
+    const move = sample(73, 1160);
+    Object.defineProperty(move, "getCoalescedEvents", {
+      value: () => [sample(73, 1100), sample(27, 1130), sample(73, 1160)],
+    });
+    root.element.dispatchEvent(move);
+    const voiceId = `exact-${vi.mocked(mocks.musicStore.attackExactPitch).mock.calls[0][0]}`;
+    expect(vi.mocked(mocks.musicStore.setNotePitchBend).mock.calls
+      .filter(([id]) => id === voiceId).map(([, cents, timestamp]) => [cents, timestamp]))
+      .toEqual([[-50, undefined], [50, 1190], [-50, 1220], [50, 1250]]);
+    root.element.dispatchEvent(pointerEvent("pointerup", {
+      pointerId: 85, pointerType: "touch", clientX: 73, clientY: 50,
     }));
     wrapper.unmount();
   });

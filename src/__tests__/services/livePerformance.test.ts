@@ -113,6 +113,27 @@ describe('prepared performance MIDI ownership', () => {
     ])
   })
 
+  it('keeps late sample and handoff timestamps ordered while retaining each reversal', () => {
+    const { performance, renderer, callbacks } = setup()
+    performance.press('second', [{ instrumentId: 'piano', pitch: 60 }], {}, renderer, config)
+    listener.onEvent(event('hand', 'attack', .9))
+    performance.setPitchBend('hand', 30, 1.1)
+    performance.setGain('hand', 1.5, 1.1)
+    performance.setPitchBend('hand', -30, 1.05)
+    performance.setGain('hand', .5, 1.05)
+    performance.release('hand')
+    performance.setPitchBend('second', 20, 1.02)
+    performance.setGain('second', 1.25, 1.02)
+    listener.onExpressionOwner?.({ noteId: 'voice', ownerId: 'second', at: 1, cents: 0, gain: 1 })
+    for (const calls of [callbacks.onExpression.mock.calls, callbacks.onGainExpression.mock.calls]) {
+      const times = calls.map(([, , at]) => at as number)
+      expect(times).toEqual([...times].sort((a, b) => a - b))
+      expect(new Set(times).size).toBe(times.length)
+    }
+    expect(callbacks.onExpression.mock.calls.map(([, value]) => value)).toEqual([30, -30, 0, 20])
+    expect(callbacks.onGainExpression.mock.calls.map(([, value]) => value)).toEqual([1.5, .5, 1, 1.25])
+  })
+
   it('does not replay a completed MIDI plan when stalled audio lifecycle callbacks arrive', () => {
     const { callbacks } = setup()
     const attack = event('hand', 'attack', .125), release = event('hand', 'release', .225)

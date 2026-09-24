@@ -708,6 +708,7 @@ const chordGesturePressedIds = computed(() => new Set(
   Array.from(activeChordGestureInputs.values(), (intent) => intent.chordId),
 ));
 const pointerPositions = new Map<number, { x: number; y: number }>();
+const pointerSampleTimes = new Map<number, number>();
 interface PointerExpressionOrigin {
   x: number;
   y: number;
@@ -1241,20 +1242,39 @@ function pointerSamples(event: PointerEvent) {
   return samples;
 }
 
-function movePointerThroughSamples(event: PointerEvent) {
+function expressionSamples(event: PointerEvent) {
   const samples = pointerSamples(event);
-  for (const sample of samples) {
+  if (samples.length === 1) {
+    pointerSampleTimes.set(event.pointerId, performance.now());
+    return [{ sample: samples[0], sampleTime: undefined }];
+  }
+  // Coalesced hardware timestamps can precede the last dispatched move. Shift
+  // the whole batch forward so reversals retain their actual spacing and order.
+  const firstTime = samples[0].timeStamp;
+  const lastTime = samples[samples.length - 1].timeStamp;
+  const previous = pointerSampleTimes.get(event.pointerId) ?? -Infinity;
+  const end = Math.max(performance.now(), lastTime, previous + Math.max(0, lastTime - firstTime));
+  let latest = previous;
+  return samples.map((sample) => {
+    const sampleTime = Math.max(latest, end - Math.max(0, lastTime - sample.timeStamp));
+    latest = sampleTime;
+    pointerSampleTimes.set(event.pointerId, sampleTime);
+    return { sample, sampleTime };
+  });
+}
+
+function movePointerThroughSamples(event: PointerEvent) {
+  for (const { sample, sampleTime } of expressionSamples(event)) {
     const start = pointerPositions.get(event.pointerId)
       ?? { x: sample.clientX, y: sample.clientY };
     movePointerAlongSegment(event.pointerId, start, sample);
-    updatePointerExpression(event.pointerId, sample, samples.length > 1 ? sample.timeStamp : undefined);
+    updatePointerExpression(event.pointerId, sample, sampleTime);
   }
 }
 
 function moveChordPointerThroughSamples(event: PointerEvent) {
-  const samples = pointerSamples(event);
-  for (const sample of samples) {
-    updatePointerExpression(event.pointerId, sample, samples.length > 1 ? sample.timeStamp : undefined);
+  for (const { sample, sampleTime } of expressionSamples(event)) {
+    updatePointerExpression(event.pointerId, sample, sampleTime);
   }
 }
 
@@ -1308,6 +1328,7 @@ function handlePointerDown(event: PointerEvent) {
     x: event.clientX,
     y: event.clientY,
   });
+  pointerSampleTimes.set(event.pointerId, performance.now());
   if (chordIntent) {
     activeChordGestureInputs.set(event.pointerId, chordIntent);
     dispatchChordIntent("press", chordIntent);
@@ -1338,6 +1359,7 @@ function finishPointerInput(event: PointerEvent) {
   movePointerInput(event.pointerId, null, event);
   activePointerInputs.delete(event.pointerId);
   pointerPositions.delete(event.pointerId);
+  pointerSampleTimes.delete(event.pointerId);
   pointerExpressionOrigins.delete(event.pointerId);
 }
 
@@ -1367,6 +1389,7 @@ function releasePointerInputs(event: Event) {
   }
   activeChordGestureInputs.clear();
   pointerPositions.clear();
+  pointerSampleTimes.clear();
   pointerExpressionOrigins.clear();
 }
 

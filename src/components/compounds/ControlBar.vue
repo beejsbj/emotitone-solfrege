@@ -134,7 +134,7 @@ const emit = defineEmits<{
   padding: 3px 0 4px;
   overflow: hidden;
   background-color: var(--instrument-bar-surface);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid var(--hairline);
   contain: layout style;
   user-select: none;
 }

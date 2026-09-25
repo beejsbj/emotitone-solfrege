@@ -5,8 +5,8 @@
  */
 html.style-guide-route,
 body.style-guide-route {
-  background: var(--bg);
-  color: var(--fg);
+  background: var(--ink);
+  color: var(--ivory);
   font: var(--t-body);
   -webkit-font-smoothing: antialiased;
 }
@@ -39,12 +39,11 @@ body.style-guide-route {
   text-transform: uppercase;
 }
 
-.style-guide-route .label,
-.style-guide-route .ds-label {
+.style-guide-route .label {
   font: var(--t-label);
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
-  color: var(--fg-3);
+  color: var(--ivory-3);
 }
 
 .style-guide-route code,
@@ -54,7 +53,7 @@ body.style-guide-route {
 
 .style-guide-route .caption {
   font: var(--t-caption);
-  color: var(--fg-3);
+  color: var(--ivory-3);
 }
 
 .style-guide-route .mono {

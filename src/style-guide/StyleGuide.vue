@@ -1,248 +1,68 @@
 <template>
-  <TabsPage v-if="page === 'tabs'" />
-  <InstrumentPickerPage v-else-if="page === 'instrument-picker'" />
-  <ConfigMenuPage v-else-if="page === 'config-menu'" />
-  <PatternReelPage v-else-if="page === 'pattern-reel'" />
-  <StagePage v-else-if="page === 'stage'" />
-  <PerformanceDeckPage v-else-if="page === 'performance-deck'" />
-  <main v-else class="style-guide-sink-port">
-    <header class="sink-header">
-      <div class="label">Emotitone Design System Sink Port</div>
-      <h1>Preview Components</h1>
-      <p>One Vue component per source preview file. Token collections, primatives, uniques, compounds, then compositions.</p>
-    </header>
-
-    <section class="sink-section" aria-labelledby="tokens-heading">
-      <h2 id="tokens-heading">Token Collections</h2>
-      <div class="sink-stack">
-        <article class="sink-frame">
-          <div class="sink-frame__source">token-ui-colors.html</div>
-          <TokenUiColors />
-        </article>
-        <article class="sink-frame">
-          <div class="sink-frame__source">token-brand-colors.html</div>
-          <TokenBrandColors />
-        </article>
-        <article class="sink-frame">
-          <div class="sink-frame__source">token-music-colors.html</div>
-          <TokenMusicColors />
-        </article>
-        <article class="sink-frame">
-          <div class="sink-frame__source">token-spacing-radius.html</div>
-          <TokenSpacingRadius />
-        </article>
-        <article class="sink-frame">
-          <div class="sink-frame__source">token-spacing-scale.html</div>
-          <TokenSpacingScale />
-        </article>
-        <article class="sink-frame">
-          <div class="sink-frame__source">token-typography.html</div>
-          <TokenTypography />
-        </article>
-        <article class="sink-frame">
-          <div class="sink-frame__source">token-motion.html</div>
-          <TokenMotion />
-        </article>
-        <article class="sink-frame">
-          <div class="sink-frame__source">token-geometry.html</div>
-          <TokenGeometry />
-        </article>
-      </div>
-    </section>
-
-    <section class="sink-section" aria-labelledby="systems-heading">
-      <h2 id="systems-heading">System Protocols</h2>
-      <div class="sink-stack">
-        <article id="system-ui-beat" class="sink-frame">
-          <div class="sink-frame__source">system-ui-beat</div>
-          <SystemUIBeat />
-        </article>
-      </div>
-    </section>
-
-    <section class="sink-section" aria-labelledby="primitives-heading">
-      <h2 id="primitives-heading">Primitives</h2>
-      <div class="sink-stack">
-        <article class="sink-frame">
-          <div class="sink-frame__source">primitive-sticker</div>
-          <PrimitiveSticker />
-        </article>
-        <article class="sink-frame">
-          <div class="sink-frame__source">primitive-bar-tape.html</div>
-          <PrimitiveBarTape />
-        </article>
-        <article class="sink-frame">
-          <div class="sink-frame__source">primitive-buttons.html</div>
-          <PrimitiveButtons />
-        </article>
-        <article class="sink-frame">
-          <div class="sink-frame__source">primitive-note.html</div>
-          <PrimitiveNote />
-        </article>
-        <article class="sink-frame">
-          <div class="sink-frame__source">primitive-knobs-analog.html</div>
-          <PrimitiveKnobsAnalog />
-        </article>
-        <article class="sink-frame">
-          <div class="sink-frame__source">primitive-knobs-digital.html</div>
-          <PrimitiveKnobsDigital />
-        </article>
-        <article class="sink-frame">
-          <div class="sink-frame__source">primitive-marks.html</div>
-          <PrimitiveMarks />
-        </article>
-        <article class="sink-frame">
-          <div class="sink-frame__source">primitive-tabs.html</div>
-          <PrimitiveTabs />
-        </article>
-      </div>
-    </section>
-
-    <section class="sink-section" aria-labelledby="uniques-heading">
-      <h2 id="uniques-heading">Uniques</h2>
-      <div class="sink-stack">
-        <article id="unique-brand-logo" class="sink-frame">
-          <div class="sink-frame__source">unique-brand-logo.html</div>
-          <UniqueBrandLogo />
-        </article>
-        <article id="unique-code-strip" class="sink-frame">
-          <div class="sink-frame__source">unique-code-strip.html</div>
-          <UniqueCodeStrip />
-        </article>
-        <article id="unique-joystick" class="sink-frame">
-          <div class="sink-frame__source">unique-joystick</div>
-          <UniqueJoystick />
-        </article>
-        <article id="unique-drawer" class="sink-frame">
-          <div class="sink-frame__source">unique-drawer.html</div>
-          <UniqueDrawer />
-        </article>
-        <article id="unique-harmonic-geometry" class="sink-frame">
-          <div class="sink-frame__source">unique-harmonic-geometry</div>
-          <UniqueHarmonicGeometry />
-        </article>
-      </div>
-    </section>
-
-    <section class="sink-section" aria-labelledby="compounds-heading">
-      <h2 id="compounds-heading">Compounds</h2>
-      <div class="sink-stack">
-        <article class="sink-frame">
-          <div class="sink-frame__source">compound-beat-indicator</div>
-          <CompoundBeatIndicator />
-        </article>
-        <article id="compound-code-strip-bar" class="sink-frame">
-          <div class="sink-frame__source">compound-code-strip-bar</div>
-          <CompoundCodeStripBar />
-        </article>
-        <article id="compound-control-bar" class="sink-frame">
-          <div class="sink-frame__source">compound-control-bar</div>
-          <CompoundControlBar />
-        </article>
-        <article id="compound-chord" class="sink-frame">
-          <div class="sink-frame__source">compound-chord</div>
-          <CompoundChord />
-        </article>
-        <article class="sink-frame">
-          <div class="sink-frame__source">compound-key</div>
-          <CompoundKey />
-        </article>
-        <article id="compound-keyboard" class="sink-frame">
-          <div class="sink-frame__source">compound-keyboard</div>
-          <CompoundKeyboard />
-        </article>
-        <article id="compound-pattern-strip" class="sink-frame">
-          <div class="sink-frame__source">compound-pattern-strip</div>
-          <CompoundPatternStrip />
-        </article>
-        <article class="sink-frame">
-          <div class="sink-frame__source">compound-pattern-reel.html</div>
-          <CompoundPatternReel />
-        </article>
-      </div>
-    </section>
-
-    <section class="sink-section" aria-labelledby="compositions-heading">
-      <h2 id="compositions-heading">Compositions</h2>
-      <div class="sink-stack">
-        <article id="composition-performance-deck" class="sink-frame">
-          <div class="sink-frame__source">composition-performance-deck</div>
-          <a class="sink-frame__focused-link" href="/style-guide/performance-deck">
-            <strong>PerformanceDeck</strong>
-            <span>Open the isolated, real-source composition</span>
-          </a>
-        </article>
-        <article class="sink-frame">
-          <div class="sink-frame__source">composition-loading-screen</div>
-          <CompositionLoadingScreen />
-        </article>
-      </div>
-    </section>
-  </main>
+  <GuideShell :active-layer="activeLayer">
+    <TabsPage v-if="page === 'tabs'" />
+    <InstrumentPickerPage v-else-if="page === 'instrument-picker'" />
+    <ConfigMenuPage v-else-if="page === 'config-menu'" />
+    <PatternReelPage v-else-if="page === 'pattern-reel'" />
+    <StagePage v-else-if="page === 'stage'" />
+    <PerformanceDeckPage v-else-if="page === 'performance-deck'" />
+    <GuideLayerPage v-else-if="layer" :key="layer.id" :layer="layer" />
+    <GuideIndex v-else />
+  </GuideShell>
 </template>
 
 <script setup lang="ts">
-import { defineAsyncComponent, nextTick, onBeforeUnmount, onMounted } from "vue";
+import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted } from "vue";
+import type { GuideLayerId } from "@/types/styleGuide";
 import "./preview-card.css";
-import TokenUiColors from "./tokens/TokenUiColors.vue";
-import TokenBrandColors from "./tokens/TokenBrandColors.vue";
-import TokenMusicColors from "./tokens/TokenMusicColors.vue";
-import TokenSpacingRadius from "./tokens/TokenSpacingRadius.vue";
-import TokenSpacingScale from "./tokens/TokenSpacingScale.vue";
-import TokenTypography from "./tokens/TokenTypography.vue";
-import TokenMotion from "./tokens/TokenMotion.vue";
-import TokenGeometry from "./tokens/TokenGeometry.vue";
-import SystemUIBeat from "./systems/SystemUIBeat.vue";
-import PrimitiveSticker from "./primatives/PrimitiveSticker.vue";
-import PrimitiveBarTape from "./primatives/PrimitiveBarTape.vue";
-import PrimitiveButtons from "./primatives/PrimitiveButtons.vue";
-import PrimitiveNote from "./primatives/PrimitiveNote.vue";
-import UniqueJoystick from "./uniques/UniqueJoystick.vue";
-import PrimitiveKnobsAnalog from "./primatives/PrimitiveKnobsAnalog.vue";
-import PrimitiveKnobsDigital from "./primatives/PrimitiveKnobsDigital.vue";
-import PrimitiveMarks from "./primatives/PrimitiveMarks.vue";
-import PrimitiveTabs from "./primatives/PrimitiveTabs.vue";
-import CompoundCodeStripBar from "./compounds/CompoundCodeStripBar.vue";
-import CompoundBeatIndicator from "./compounds/CompoundBeatIndicator.vue";
-import CompoundControlBar from "./compounds/CompoundControlBar.vue";
-import CompoundChord from "./compounds/CompoundChord.vue";
-import CompoundKey from "./compounds/CompoundKey.vue";
-import CompoundKeyboard from "./compounds/CompoundKeyboard.vue";
-import CompoundPatternStrip from "./compounds/CompoundPatternStrip.vue";
-import CompoundPatternReel from "./compounds/CompoundPatternReel.vue";
-import CompositionLoadingScreen from "./compositions/CompositionLoadingScreen.vue";
-import UniqueBrandLogo from "./uniques/UniqueBrandLogo.vue";
-import UniqueCodeStrip from "./uniques/UniqueCodeStrip.vue";
-import UniqueDrawer from "./uniques/UniqueDrawer.vue";
-import UniqueHarmonicGeometry from "./uniques/UniqueHarmonicGeometry.vue";
+import "./shell/guide-paper.css";
+import { guideLayer } from "./guideCatalog";
+import GuideShell from "./shell/GuideShell.vue";
+import GuideIndex from "./shell/GuideIndex.vue";
+import GuideLayerPage from "./shell/GuideLayerPage.vue";
 
-defineProps<{
-  page?: "tabs" | "instrument-picker" | "config-menu" | "pattern-reel" | "stage" | "performance-deck";
+type FocusedPage = "tabs" | "instrument-picker" | "config-menu" | "pattern-reel" | "stage" | "performance-deck";
+
+const props = defineProps<{
+  page?: FocusedPage | GuideLayerId;
 }>();
 
-const TabsPage = defineAsyncComponent(() => import("./TabsPage.vue"));
-const InstrumentPickerPage = defineAsyncComponent(
-  () => import("./InstrumentPickerPage.vue"),
-);
-const ConfigMenuPage = defineAsyncComponent(
-  () => import("./ConfigMenuPage.vue"),
-);
-const PatternReelPage = defineAsyncComponent(
-  () => import("./PatternReelPage.vue"),
-);
-const StagePage = defineAsyncComponent(
-  () => import("./StagePage.vue"),
-);
-const PerformanceDeckPage = defineAsyncComponent(
-  () => import("./PerformanceDeckPage.vue"),
-);
+const FOCUSED_PAGE_LAYERS: Record<FocusedPage, GuideLayerId> = {
+  tabs: "primitives",
+  "pattern-reel": "compounds",
+  "instrument-picker": "compositions",
+  "config-menu": "compositions",
+  stage: "compositions",
+  "performance-deck": "compositions",
+};
 
+const layer = computed(() => (props.page ? guideLayer(props.page as GuideLayerId) : undefined));
+const activeLayer = computed<GuideLayerId | undefined>(() => {
+  if (!props.page) return undefined;
+  if (layer.value) return layer.value.id;
+  return FOCUSED_PAGE_LAYERS[props.page as FocusedPage];
+});
+
+const TabsPage = defineAsyncComponent(() => import("./TabsPage.vue"));
+const InstrumentPickerPage = defineAsyncComponent(() => import("./InstrumentPickerPage.vue"));
+const ConfigMenuPage = defineAsyncComponent(() => import("./ConfigMenuPage.vue"));
+const PatternReelPage = defineAsyncComponent(() => import("./PatternReelPage.vue"));
+const StagePage = defineAsyncComponent(() => import("./StagePage.vue"));
+const PerformanceDeckPage = defineAsyncComponent(() => import("./PerformanceDeckPage.vue"));
+
+// Unit specimens load asynchronously, so retry the hash target briefly.
 const scrollToHash = async () => {
   const id = decodeURIComponent(window.location.hash.slice(1));
   if (!id) return;
-
   await nextTick();
-  window.requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView());
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const target = document.getElementById(id);
+    if (target) {
+      target.scrollIntoView();
+      return;
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, 100));
+  }
 };
 
 onMounted(() => {
@@ -252,98 +72,3 @@ onMounted(() => {
 
 onBeforeUnmount(() => window.removeEventListener("hashchange", scrollToHash));
 </script>
-
-<style scoped>
-.style-guide-sink-port {
-  min-height: 100vh;
-  padding: 32px;
-  background: var(--ink);
-  color: var(--ivory);
-}
-
-.sink-header,
-.sink-section {
-  width: min-content;
-  max-width: calc(100vw - 64px);
-}
-
-.sink-header {
-  margin-bottom: 28px;
-}
-
-.sink-header h1,
-.sink-section h2 {
-  margin: 0;
-  color: var(--ivory);
-  font: var(--t-display-l);
-  letter-spacing: var(--tracking-display);
-  text-transform: uppercase;
-}
-
-.sink-header p {
-  margin: 8px 0 0;
-  color: var(--ivory-3);
-  font: var(--t-mono);
-}
-
-.sink-section {
-  display: grid;
-  gap: 16px;
-  margin-top: 32px;
-}
-
-.sink-section h2 {
-  font: var(--t-display-m);
-}
-
-.sink-stack {
-  display: grid;
-  gap: 22px;
-}
-
-.sink-frame {
-  display: grid;
-  gap: 8px;
-  scroll-margin-top: 16px;
-}
-
-.sink-frame__source {
-  color: var(--ivory-4);
-  font: var(--t-caption);
-}
-
-.sink-frame__focused-link {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--s-4);
-  padding: var(--s-5);
-  border: 1px solid var(--ink-5);
-  background: var(--ink-2);
-  color: var(--ivory);
-  text-decoration: none;
-}
-
-.sink-frame__focused-link strong {
-  font: var(--t-display-m);
-  text-transform: uppercase;
-}
-
-.sink-frame__focused-link span {
-  color: var(--ivory-3);
-  font: var(--t-caption);
-  text-transform: uppercase;
-}
-
-@media (max-width: 760px) {
-  .style-guide-sink-port {
-    padding: 16px;
-    overflow-x: auto;
-  }
-
-  .sink-header,
-  .sink-section {
-    max-width: none;
-  }
-}
-</style>

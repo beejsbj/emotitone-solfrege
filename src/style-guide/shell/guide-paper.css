@@ -1,0 +1,19 @@
+/* Guide-only flair: each design-system layer is identified by one brand
+   paper. Brand colours stay decorative; specimens still sit on plain Ink. */
+.guide-paper--bone    { --guide-paper: var(--bone);    --guide-paper-ink: var(--ink); }
+.guide-paper--tomato  { --guide-paper: var(--tomato);  --guide-paper-ink: var(--ink); }
+.guide-paper--mustard { --guide-paper: var(--mustard); --guide-paper-ink: var(--ink); }
+.guide-paper--plum    { --guide-paper: var(--plum);    --guide-paper-ink: var(--ivory); }
+.guide-paper--cobalt  { --guide-paper: var(--cobalt);  --guide-paper-ink: var(--ivory); }
+.guide-paper--pine    { --guide-paper: var(--pine);    --guide-paper-ink: var(--ivory); }
+
+/* Legacy specimen cards (tokens and a few uniques) predate the unit sheet.
+   Inside a unit they lose their fixed 700px rounded frame and fit the sheet. */
+.guide-unit .card {
+  width: auto;
+  max-width: 100%;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+}

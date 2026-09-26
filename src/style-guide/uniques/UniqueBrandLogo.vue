@@ -1,8 +1,26 @@
+<script setup lang="ts">
+import BrandLogo from "../../components/uniques/BrandLogo.vue";
+import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
+import VariantCell from "../guide/VariantCell.vue";
+import VariantGrid from "../guide/VariantGrid.vue";
+
+const features = [
+  { label: "Role", value: "singular EmotiTone identity artifact" },
+  { label: "Structure", value: "five circles → four beats → two paste-up scraps" },
+  { label: "Silhouette", value: "the OG five-circle cluster: big Plum behind, Cobalt left, Mustard right, Tomato and Pine low" },
+  { label: "Monogram", value: "Ink E on a Mustard scrap · Ivory T on a Tomato scrap · Ink cut-edges" },
+  { label: "Contrast", value: "each scrap sits on a colour other than its own paper" },
+  { label: "Small sizes", value: "beats drop out below 72px; cluster + ET carry the favicon" },
+  { label: "Lockups", value: "stacked · compact · mark-only · EMOTI + Tomato TONE tab" },
+  { label: "Source", value: "geometry in brandMark.ts, shared with the exported app icons" },
+];
+</script>
+
 <template>
   <AnatomyDisplay
-    title="Brand Logo · Centered Cluster"
+    title="Brand Logo · Count-In Cluster"
     :features="features"
-    caption="One singular identity source: five smooth brand-colour circles behind a six-cut Ink/Ivory ET, with nine real Marks scattered across and around it."
+    caption="The Count-In paste-up ET pasted onto the brand's original five-circle cluster. Static by design: motion belongs to the Loading Screen."
   >
     <template #hero>
       <div class="brand-logo-specimen">
@@ -32,35 +50,32 @@
             <BrandLogo layout="mark" surface="bone" size="128px" />
           </div>
         </VariantCell>
+        <VariantCell caption="Mark · 48 · 32 · 16 · the favicon silhouette">
+          <div class="brand-logo-specimen brand-logo-specimen--small">
+            <BrandLogo layout="mark" :size="48" />
+            <BrandLogo layout="mark" :size="32" />
+            <BrandLogo layout="mark" :size="16" />
+          </div>
+        </VariantCell>
       </VariantGrid>
     </div>
   </AnatomyDisplay>
 </template>
 
-<script setup lang="ts">
-import BrandLogo from "../../components/uniques/BrandLogo.vue";
-import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
-import VariantCell from "../guide/VariantCell.vue";
-import VariantGrid from "../guide/VariantGrid.vue";
-
-const features = [
-  { label: "Role", value: "singular EmotiTone identity artifact" },
-  { label: "Structure", value: "five circles → six ET paper cuts → nine Marks" },
-  { label: "Monogram", value: "E = four Ink cuts · T = two Ivory cuts" },
-  { label: "Scatter", value: "accepted Mark primitives on an expanded 180 × 160 field" },
-  { label: "Lockups", value: "stacked · compact · mark-only" },
-  { label: "Boundary", value: "circles and placement stay local to BrandLogo" },
-];
-</script>
-
 <style scoped>
-/* The circles bleed past the mark box by design; leave them room, never clip. */
 .brand-logo-specimen {
   display: grid;
   width: 100%;
   min-width: 0;
   padding-block: clamp(20px, 5vw, 40px) var(--s-4);
   place-items: center;
+}
+
+.brand-logo-specimen--small {
+  display: flex;
+  align-items: end;
+  justify-content: center;
+  gap: var(--s-6);
 }
 
 /* Lockups are wide artifacts: give each one a full-width well on a phone. */

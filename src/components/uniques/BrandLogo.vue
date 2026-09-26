@@ -1,69 +1,16 @@
-<template>
-  <div
-    class="brand-logo"
-    :class="[`brand-logo--${layout}`, `brand-logo--on-${surface}`]"
-    :style="logoStyle"
-    role="img"
-    :aria-label="accessibleLabel"
-  >
-    <div class="brand-logo__mark" aria-hidden="true">
-      <span
-        v-for="blob in backdrops"
-        :key="blob.tone"
-        class="brand-logo__backdrop"
-        :style="backdropStyle(blob)"
-      />
-
-      <svg class="brand-logo__monogram" viewBox="0 0 140 120">
-        <polygon class="brand-logo__cut brand-logo__cut--e" data-cut="e-stem" points="12,16 31,12 33,104 13,108" />
-        <polygon class="brand-logo__cut brand-logo__cut--t" data-cut="t-stem" points="83,34 106,32 101,111 77,114" />
-        <polygon class="brand-logo__cut brand-logo__cut--e" data-cut="e-top" points="36,13 78,9 77,31 36,34" />
-        <polygon class="brand-logo__cut brand-logo__cut--e" data-cut="e-middle" points="36,45 70,42 71,63 36,66" />
-        <polygon class="brand-logo__cut brand-logo__cut--e" data-cut="e-bottom" points="36,80 77,77 80,100 36,103" />
-        <polygon class="brand-logo__cut brand-logo__cut--t" data-cut="t-cap" points="62,14 130,8 127,33 61,39" />
-      </svg>
-
-      <Mark
-        v-for="sprinkle in sprinkles"
-        :key="sprinkle.name"
-        class="brand-logo__sprinkle"
-        :name="sprinkle.name"
-        tone="inherit"
-        size="100"
-        :style="sprinkleStyle(sprinkle)"
-      />
-    </div>
-
-    <strong v-if="layout !== 'mark'" class="brand-logo__wordmark">EMOTITONE</strong>
-  </div>
-</template>
-
 <script setup lang="ts">
 import { computed } from "vue";
-import Mark from "../primatives/Mark.vue";
-import type { MarkName } from "../primatives/Mark.vue";
+import {
+  BRAND_BEATS,
+  BRAND_BLOBS,
+  BRAND_CUT_WIDTH,
+  BRAND_MARK_VIEWBOX,
+  BRAND_SCRAPS,
+  BRAND_SCRAPS_TRANSFORM,
+} from "./brandMark";
 
 export type BrandLogoLayout = "stacked" | "compact" | "mark";
 export type BrandLogoSurface = "ink" | "bone";
-
-type LogoTone = "cobalt" | "ink" | "ivory" | "mustard" | "pine" | "plum" | "tomato";
-type BrandTone = Exclude<LogoTone, "ink" | "ivory">;
-
-interface BackdropBlob {
-  x: number;
-  y: number;
-  size: number;
-  tone: BrandTone;
-}
-
-interface Sprinkle {
-  name: MarkName;
-  x: number;
-  y: number;
-  size: number;
-  rotate: number;
-  tone: LogoTone;
-}
 
 const props = withDefaults(
   defineProps<{
@@ -80,27 +27,8 @@ const props = withDefaults(
   },
 );
 
-// Approved A · Centered Cluster. The 180 × 160 artboard gives the Marks more air
-// while preserving the selected five-circle hierarchy and six-cut ET.
-const backdrops: BackdropBlob[] = [
-  { x: 90, y: 45, size: 146, tone: "plum" },
-  { x: 43, y: 82, size: 86, tone: "cobalt" },
-  { x: 137, y: 63, size: 86, tone: "mustard" },
-  { x: 59, y: 120, size: 66, tone: "tomato" },
-  { x: 116, y: 122, size: 68, tone: "pine" },
-];
-
-const sprinkles: Sprinkle[] = [
-  { name: "wave", x: 74, y: 75, size: 19, rotate: -5, tone: "ivory" },
-  { name: "eighth", x: 111, y: 89, size: 18, rotate: 4, tone: "ink" },
-  { name: "staccato", x: 92, y: 9, size: 14, rotate: 0, tone: "ivory" },
-  { name: "diamond", x: 9, y: 64, size: 13, rotate: -16, tone: "tomato" },
-  { name: "grace", x: 169, y: 105, size: 17, rotate: 12, tone: "mustard" },
-  { name: "triangle", x: 48, y: 22, size: 12, rotate: 16, tone: "mustard" },
-  { name: "star", x: 140, y: 18, size: 13, rotate: 9, tone: "cobalt" },
-  { name: "whole", x: 18, y: 126, size: 14, rotate: -8, tone: "ivory" },
-  { name: "sharp", x: 95, y: 151, size: 15, rotate: -5, tone: "ink" },
-];
+/* Count-In Cluster (2026-09-26): geometry and rationale live in brandMark.ts. */
+const viewBox = [BRAND_MARK_VIEWBOX.x, BRAND_MARK_VIEWBOX.y, BRAND_MARK_VIEWBOX.width, BRAND_MARK_VIEWBOX.height].join(" ");
 
 const resolvedSize = computed(() => {
   if (props.size !== undefined) return typeof props.size === "number" ? `${props.size}px` : props.size;
@@ -110,26 +38,61 @@ const resolvedSize = computed(() => {
 });
 
 const logoStyle = computed(() => ({ "--brand-logo-mark-width": resolvedSize.value }));
-
-function backdropStyle(blob: BackdropBlob) {
-  return {
-    left: `${(blob.x / 180) * 100}%`,
-    top: `${(blob.y / 160) * 100}%`,
-    width: `${(blob.size / 180) * 100}%`,
-    background: `var(--${blob.tone})`,
-  };
-}
-
-function sprinkleStyle(sprinkle: Sprinkle) {
-  return {
-    left: `${(sprinkle.x / 180) * 100}%`,
-    top: `${(sprinkle.y / 160) * 100}%`,
-    width: `${(sprinkle.size / 180) * 100}%`,
-    color: `var(--${sprinkle.tone})`,
-    transform: `translate(-50%, -50%) rotate(${sprinkle.rotate}deg)`,
-  };
-}
 </script>
+
+<template>
+  <div
+    class="brand-logo"
+    :class="[`brand-logo--${layout}`, `brand-logo--on-${surface}`]"
+    :style="logoStyle"
+    role="img"
+    :aria-label="accessibleLabel"
+  >
+    <div class="brand-logo__mark" aria-hidden="true">
+      <svg class="brand-logo__svg" :viewBox="viewBox">
+        <circle
+          v-for="blob in BRAND_BLOBS"
+          :key="blob.tone"
+          class="brand-logo__backdrop"
+          :data-tone="blob.tone"
+          :cx="blob.x"
+          :cy="blob.y"
+          :r="blob.r"
+          :style="{ fill: `var(--${blob.tone})` }"
+        />
+
+        <g class="brand-logo__beats">
+          <circle
+            v-for="(x, index) in BRAND_BEATS.xs"
+            :key="x"
+            class="brand-logo__beat"
+            :class="{ 'brand-logo__beat--downbeat': index === 0 }"
+            :cx="x"
+            :cy="BRAND_BEATS.y"
+            :r="index === 0 ? BRAND_BEATS.downbeatR : BRAND_BEATS.r"
+          />
+        </g>
+
+        <g class="brand-logo__scraps" :transform="BRAND_SCRAPS_TRANSFORM">
+          <g
+            v-for="scrap in BRAND_SCRAPS"
+            :key="scrap.id"
+            class="brand-logo__scrap"
+            :class="`brand-logo__scrap--${scrap.id}`"
+            :data-scrap="scrap.id"
+          >
+            <polygon class="brand-logo__paper" :points="scrap.paper" :stroke-width="BRAND_CUT_WIDTH" />
+            <polygon v-for="glyph in scrap.glyphs" :key="glyph" class="brand-logo__glyph" :points="glyph" />
+          </g>
+        </g>
+      </svg>
+    </div>
+
+    <strong v-if="layout !== 'mark'" class="brand-logo__wordmark">
+      <span>EMOTI</span><span class="brand-logo__tab">TONE</span>
+    </strong>
+  </div>
+</template>
 
 <style scoped>
 .brand-logo {
@@ -143,7 +106,7 @@ function sprinkleStyle(sprinkle: Sprinkle) {
 .brand-logo--on-bone { --brand-logo-wordmark: var(--ink); }
 
 .brand-logo--stacked {
-  gap: calc(var(--brand-logo-mark-width) * .04);
+  gap: calc(var(--brand-logo-mark-width) * .08);
   justify-items: center;
 }
 
@@ -153,61 +116,68 @@ function sprinkleStyle(sprinkle: Sprinkle) {
 }
 
 .brand-logo__mark {
-  position: relative;
-  isolation: isolate;
   width: var(--brand-logo-mark-width);
   max-width: 100%;
-  aspect-ratio: 180 / 160;
+  container-type: inline-size;
 }
 
-.brand-logo__backdrop,
-.brand-logo__sprinkle,
-.brand-logo__monogram {
-  position: absolute;
-}
-
-.brand-logo__backdrop {
-  z-index: 0;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-}
-
-.brand-logo__monogram {
-  z-index: 1;
-  left: calc(20 / 180 * 100%);
-  top: calc(20 / 160 * 100%);
-  width: calc(140 / 180 * 100%);
-  height: calc(120 / 160 * 100%);
+.brand-logo__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 180 / 184;
   overflow: visible;
 }
 
-.brand-logo__cut--e { fill: var(--ink); }
-.brand-logo__cut--t { fill: var(--ivory); }
+.brand-logo__beat { fill: var(--ivory); }
+.brand-logo__beat--downbeat { fill: var(--tomato); }
 
-.brand-logo__sprinkle {
-  z-index: 2;
-  height: auto;
-  pointer-events: none;
+/* Paper-on-paper: an Ink cut-edge drawn under each scrap's fill. */
+.brand-logo__paper {
+  stroke: var(--ink);
+  stroke-linejoin: round;
+  paint-order: stroke;
+}
+
+.brand-logo__scrap--e .brand-logo__paper { fill: var(--mustard); }
+.brand-logo__scrap--e .brand-logo__glyph { fill: var(--ink); }
+.brand-logo__scrap--t .brand-logo__paper { fill: var(--tomato); }
+.brand-logo__scrap--t .brand-logo__glyph { fill: var(--ivory); }
+
+/* Below 72px (BRAND_BEATS_MIN_WIDTH) the beats are noise; the cluster and ET carry the mark alone. */
+@container (max-width: 72px) {
+  .brand-logo__beats { display: none; }
 }
 
 .brand-logo__wordmark {
+  display: inline-flex;
+  align-items: center;
   color: var(--brand-logo-wordmark);
-  font: 700 calc(var(--brand-logo-mark-width) * .22)/.9 var(--font-display);
-  letter-spacing: .01em;
-  text-transform: uppercase;
+  font: 700 calc(var(--brand-logo-mark-width) * .2)/1 var(--font-display);
+  letter-spacing: var(--tracking-display);
+  white-space: nowrap;
+}
+
+.brand-logo__tab {
+  margin-left: .06em;
+  padding: .12em .14em .08em;
+  line-height: 1;
+  background: var(--tomato);
+  color: var(--ivory);
+  clip-path: var(--clip-tab);
+  transform: rotate(var(--rot-sticker));
 }
 
 .brand-logo--compact .brand-logo__wordmark {
-  font-size: calc(var(--brand-logo-mark-width) * .43);
-  line-height: 1;
+  font-size: calc(var(--brand-logo-mark-width) * .42);
 }
 
 @media (forced-colors: active) {
-  .brand-logo__backdrop { background: CanvasText !important; }
-  .brand-logo__cut--e,
-  .brand-logo__cut--t,
-  .brand-logo__sprinkle { color: Canvas; fill: Canvas; }
+  .brand-logo__backdrop { fill: CanvasText !important; }
+  .brand-logo__beat,
+  .brand-logo__scrap .brand-logo__paper { fill: Canvas; stroke: CanvasText; }
+  .brand-logo__scrap .brand-logo__glyph { fill: CanvasText; }
   .brand-logo__wordmark { color: CanvasText; }
+  .brand-logo__tab { background: Canvas; color: CanvasText; outline: 1px solid CanvasText; }
 }
 </style>

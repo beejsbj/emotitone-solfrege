@@ -134,7 +134,7 @@ const { running, toggle } = useUIBeatFixture({
 const features = [
   { label: "Class", value: "compound; wraps one transport control in its slot" },
   { label: "Ring", value: "one butt-ended 8-unit segment per beat over a 0.4 hairline track, after Knob's Digital Arc" },
-  { label: "Tone", value: "ivory segments with their own glow; metallic brass downbeat sharing the controls' fill colors and edge light" },
+  { label: "Tone", value: "ivory segments with their own glow; metallic brass downbeat using the controls' shared fill, sheen, and edge light" },
   { label: "Presence", value: "hidden while the transport is idle; fades in when it arms" },
   { label: "Pulse", value: "lit segment kicks outward 1→1.12 (downbeat 1.18) at full opacity; brass stays opaque throughout the bar, inactive ivory stays at 0.2" },
   { label: "Clock", value: "UIBeat injection; no component-local timer" },

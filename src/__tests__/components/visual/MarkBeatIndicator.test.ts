@@ -74,8 +74,8 @@ describe("Beat Indicator ring", () => {
     expect(beats.slice(1).some((beat) => beat.classes().includes("beat-indicator__beat--downbeat")))
       .toBe(false);
     beats.forEach((beat) => {
-      expect(beat.attributes("d").match(/A /g)).toHaveLength(1);
-      expect(beat.attributes("stroke-width")).toBe("8");
+      expect(beat.get(".beat-indicator__stroke").attributes("d").match(/A /g)).toHaveLength(1);
+      expect(beat.get(".beat-indicator__stroke").attributes("stroke-width")).toBe("8");
     });
     const track = wrapper.get("circle.beat-indicator__track");
     expect(track.attributes("stroke-width")).toBe("2");
@@ -90,7 +90,7 @@ describe("Beat Indicator ring", () => {
 
     const single = mount(BeatIndicator, { props: { beats: 1 } }).get(".beat-indicator__beat");
     // Two half-circle arcs: SVG cannot draw a closed ring as one arc command.
-    expect(single.attributes("d").match(/A /g)).toHaveLength(2);
+    expect(single.get(".beat-indicator__stroke").attributes("d").match(/A /g)).toHaveLength(2);
   });
 
   it("wraps its control without hiding it inside the decorative image", () => {

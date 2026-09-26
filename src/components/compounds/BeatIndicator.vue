@@ -37,7 +37,7 @@ const props = withDefaults(
  * ring scales with whatever control it wraps. Segment 1 is centred at twelve
  * o'clock and the bar reads clockwise.
  */
-const brassGradientId = `beat-brass-${getCurrentInstance()!.uid}`;
+const brassMaskId = `beat-brass-${getCurrentInstance()!.uid}`;
 const STROKE = 8;
 const TRACK_STROKE = 2;
 const RADIUS = 50 - STROKE / 2;
@@ -82,6 +82,17 @@ const segments = computed(() => {
     const end = middle + sweep / 2;
     return `M ${point(start)} A ${RADIUS} ${RADIUS} 0 ${sweep > 180 ? 1 : 0} 1 ${point(end)}`;
   });
+});
+
+// Fit the material to the arc, so its full highlight crosses the metal rather
+// than being spread over the empty centre of the ring.
+const brassBounds = computed(() => {
+  if (beatCount.value === 1) return { x: 0, y: 0, width: 100, height: 100 };
+  const span = 360 / beatCount.value;
+  const halfSweep = (span - Math.min(MAX_GAP_DEGREES, span * 0.25)) * Math.PI / 360;
+  const halfWidth = RADIUS * Math.sin(halfSweep) + STROKE / 2;
+  return { x: 50 - halfWidth, y: 0, width: halfWidth * 2,
+    height: RADIUS * (1 - Math.cos(halfSweep)) + STROKE };
 });
 
 const isDownbeat = (index: number) => props.downbeat && index === 0;
@@ -192,15 +203,9 @@ onBeforeUnmount(() => unsubscribe?.());
       :aria-label="ariaLabel"
     >
       <defs>
-        <linearGradient :id="brassGradientId" x1="32.9%" y1="3%" x2="67.1%" y2="97%">
-          <stop offset="0%" stop-color="var(--brass-fill-recess)" />
-          <stop offset="22%" stop-color="var(--brass-fill-body)" />
-          <stop offset="42%" stop-color="var(--brass-fill-rise)" />
-          <stop offset="50%" stop-color="var(--brass-hi)" />
-          <stop offset="60%" stop-color="var(--brass-fill-fall)" />
-          <stop offset="82%" stop-color="var(--brass-fill-recess)" />
-          <stop offset="100%" stop-color="var(--brass-fill-end)" />
-        </linearGradient>
+        <mask :id="brassMaskId" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100">
+          <path :d="segments[0]" fill="none" stroke="white" :stroke-width="STROKE" />
+        </mask>
       </defs>
       <circle
         class="beat-indicator__track"
@@ -209,16 +214,23 @@ onBeforeUnmount(() => unsubscribe?.());
         :r="RADIUS"
         :stroke-width="TRACK_STROKE"
       />
-      <path
+      <g
         v-for="(d, index) in segments"
         :key="index"
         class="beat-indicator__beat"
         :class="{ 'beat-indicator__beat--downbeat': isDownbeat(index) }"
-        :style="isDownbeat(index) ? { stroke: `url(#${brassGradientId})` } : undefined"
-        :d="d"
-        :stroke-width="STROKE"
         :data-beat="index + 1"
-      />
+      >
+        <path class="beat-indicator__stroke" :d="d" :stroke-width="STROKE" />
+        <foreignObject
+          v-if="isDownbeat(index)"
+          class="beat-indicator__metal"
+          v-bind="brassBounds"
+          :mask="`url(#${brassMaskId})`"
+        >
+          <div xmlns="http://www.w3.org/1999/xhtml" class="beat-indicator__brass brass" />
+        </foreignObject>
+      </g>
     </svg>
     <div class="beat-indicator__content">
       <slot />
@@ -281,6 +293,16 @@ onBeforeUnmount(() => unsubscribe?.());
   will-change: transform, opacity;
 }
 
+.beat-indicator__brass {
+  width: 100%;
+  height: 100%;
+  box-shadow: none;
+}
+
+.beat-indicator__beat--downbeat .beat-indicator__stroke {
+  visibility: hidden;
+}
+
 .beat-indicator__beat--downbeat {
   color: var(--brass);
   filter:
@@ -294,7 +316,12 @@ onBeforeUnmount(() => unsubscribe?.());
     transform var(--dur-ui) var(--ease-brush);
 }
 
+.beat-indicator:not([data-ui-beat-state="running"]) .beat-indicator__brass::after {
+  animation: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .beat-indicator__brass::after { animation: none !important; }
   .beat-indicator__ring,
   .beat-indicator__beat {
     transition: none !important;
@@ -320,5 +347,7 @@ onBeforeUnmount(() => unsubscribe?.());
   }
 
   .beat-indicator__beat--downbeat { color: Highlight; }
+  .beat-indicator__beat--downbeat .beat-indicator__stroke { visibility: visible; }
+  .beat-indicator__metal { display: none; }
 }
 </style>

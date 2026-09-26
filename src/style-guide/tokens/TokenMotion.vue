@@ -329,7 +329,7 @@ const eases: EaseCell[] = [
   color: var(--ivory-3);
 }
 .mo-value {
-  color: var(--guide-paper, var(--bone));
+  color: var(--guide-paper-text, var(--bone));
 }
 
 /* ─── cells ─────────────────────────────────────────────────────── */
@@ -405,7 +405,7 @@ const eases: EaseCell[] = [
 .mo-ms {
   font: 700 28px/1 var(--font-display);
   letter-spacing: var(--tracking-display);
-  color: var(--guide-paper, var(--bone));
+  color: var(--guide-paper-text, var(--bone));
 }
 .mo-ms small {
   margin-left: 2px;
@@ -537,7 +537,7 @@ const eases: EaseCell[] = [
   animation-fill-mode: both;
 }
 .demo-rip-mode .cf-label--out { animation-name: rip-mode-out; }
-.demo-rip-mode .cf-label--in  { animation-name: rip-mode-in; color: var(--guide-paper, var(--bone)); }
+.demo-rip-mode .cf-label--in  { animation-name: rip-mode-in; color: var(--guide-paper-text, var(--bone)); }
 
 .demo-lift .mo-tile {
   animation: lift var(--dur-scene) var(--ease-stab) both;

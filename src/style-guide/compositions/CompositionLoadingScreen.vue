@@ -61,7 +61,7 @@ const parts: { label: string; color: StickerPaperColor; mark: MarkName }[] = [
   font: 700 clamp(20px, 3vw, 26px)/1 var(--font-display);
   letter-spacing: var(--tracking-display);
   text-transform: uppercase;
-  color: var(--guide-paper, var(--ivory-2));
+  color: var(--guide-paper-text, var(--ivory-2));
 }
 
 .loading-specimen__well {
@@ -95,6 +95,6 @@ const parts: { label: string; color: StickerPaperColor; mark: MarkName }[] = [
 }
 
 .loading-specimen__caption code {
-  color: var(--guide-paper, var(--ivory));
+  color: var(--guide-paper-text, var(--ivory));
 }
 </style>

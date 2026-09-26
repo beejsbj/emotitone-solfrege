@@ -70,7 +70,7 @@ const steps = [
 .step__num {
   font: 700 22px/1 var(--font-display);
   letter-spacing: var(--tracking-display);
-  color: var(--guide-paper, var(--bone));
+  color: var(--guide-paper-text, var(--bone));
   text-align: right;
 }
 

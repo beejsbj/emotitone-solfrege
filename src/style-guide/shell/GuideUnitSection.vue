@@ -74,7 +74,7 @@ const ordinal = `${props.layer.number}.${String(props.index + 1).padStart(2, "0"
 
 .guide-unit__focused {
   margin-left: auto;
-  color: var(--guide-paper);
+  color: var(--guide-paper-text);
   font: var(--t-mono);
   text-decoration: none;
 }

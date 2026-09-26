@@ -192,7 +192,7 @@ const noteSource = `<Note
   font: 700 22px/1 var(--font-display);
   letter-spacing: var(--tracking-display);
   text-transform: uppercase;
-  color: var(--guide-paper);
+  color: var(--guide-paper-text);
 }
 
 .face__role {
@@ -350,7 +350,7 @@ const noteSource = `<Note
   grid-row: span 2;
   font: var(--t-display-l);
   letter-spacing: var(--tracking-display);
-  color: var(--guide-paper);
+  color: var(--guide-paper-text);
 }
 
 .rule:nth-child(2) .rule__num { color: var(--tomato); }

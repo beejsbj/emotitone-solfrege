@@ -7,6 +7,14 @@
 .guide-paper--cobalt  { --guide-paper: var(--cobalt);  --guide-paper-ink: var(--ivory); }
 .guide-paper--pine    { --guide-paper: var(--pine);    --guide-paper-ink: var(--ivory); }
 
+/* The paper used as text on the dark sheet. Light papers read as-is; the
+   dark papers (plum, cobalt, pine) are lifted toward Ivory so they stay
+   legible at caption and heading sizes. */
+[class*="guide-paper--"] { --guide-paper-text: var(--guide-paper); }
+.guide-paper--plum,
+.guide-paper--cobalt,
+.guide-paper--pine { --guide-paper-text: color-mix(in oklch, var(--guide-paper) 45%, var(--ivory)); }
+
 /* Legacy specimen cards (tokens and a few uniques) predate the unit sheet.
    Inside a unit they lose their fixed 700px rounded frame and fit the sheet. */
 .guide-unit .card {

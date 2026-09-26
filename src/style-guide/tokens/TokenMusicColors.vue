@@ -423,7 +423,7 @@ const wheelLabel = computed(() =>
 .music-recipe__controls output {
   margin-left: var(--s-3);
   font: var(--t-mono);
-  color: var(--guide-paper);
+  color: var(--guide-paper-text);
 }
 
 .music-recipe select,
@@ -602,7 +602,7 @@ const wheelLabel = computed(() =>
   font: 700 15px/1 var(--font-display);
   letter-spacing: var(--tracking-display);
   text-transform: uppercase;
-  color: var(--guide-paper);
+  color: var(--guide-paper-text);
 }
 
 .music-recipe__facts dd {

@@ -119,7 +119,7 @@ const headlinePapers = computed(() =>
 }
 
 .guide-layer__jump a:hover,
-.guide-layer__jump a:focus-visible { color: var(--guide-paper); }
+.guide-layer__jump a:focus-visible { color: var(--guide-paper-text); }
 
 .guide-layer__units {
   padding: 0 var(--s-6);

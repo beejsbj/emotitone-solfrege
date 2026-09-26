@@ -85,7 +85,7 @@ const restFeatures = computed(() =>
   font: 700 clamp(20px, 3vw, 26px)/1 var(--font-display);
   letter-spacing: var(--tracking-display);
   text-transform: uppercase;
-  color: var(--guide-paper, var(--ivory-2));
+  color: var(--guide-paper-text, var(--ivory-2));
 }
 
 .anatomy-display__wrap {
@@ -149,7 +149,7 @@ const restFeatures = computed(() =>
 .anatomy-display__more summary {
   width: max-content;
   cursor: pointer;
-  color: var(--guide-paper, var(--ivory-2));
+  color: var(--guide-paper-text, var(--ivory-2));
   font: var(--t-mono);
 }
 

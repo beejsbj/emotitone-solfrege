@@ -395,13 +395,13 @@ async function selectInstrument(name: string, close: () => void) {
             <label
               class="flex flex-1 items-center gap-2 border-b border-[var(--ink-5)] px-0.5 pb-2 pt-0.5 text-[var(--ivory-3)] transition-colors focus-within:border-[var(--ivory-2)] focus-within:text-[var(--ivory)]"
             >
-              <Search :size="14" class="text-neutral-500" />
+              <Search :size="14" class="text-[var(--ivory-3)]" />
               <input
                 v-model="query"
                 data-testid="instrument-search"
                 type="text"
                 placeholder="search sounds"
-                class="w-full bg-transparent text-[10px] text-white placeholder:text-neutral-600 focus:outline-none"
+                class="w-full bg-transparent text-[10px] text-[var(--ivory)] placeholder:text-[var(--ivory-4)] focus:outline-none"
                 autocomplete="off"
                 autocorrect="off"
                 spellcheck="false"
@@ -409,7 +409,7 @@ async function selectInstrument(name: string, close: () => void) {
             </label>
 
             <span
-              class="hidden h-8 shrink-0 items-center border border-[#3b3b3b] bg-[#141414] px-2 text-[8px] font-mono uppercase tracking-[0.14em] text-[#dfdfdf] [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)] sm:inline-flex"
+              class="hidden h-8 shrink-0 items-center border border-[var(--ink-5)] bg-[var(--ink-2)] px-2 text-[8px] font-mono uppercase tracking-[0.14em] text-[var(--ivory-2)] [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)] sm:inline-flex"
             >
               {{ displayInstrumentName(currentInstrumentId) }}
             </span>
@@ -423,14 +423,14 @@ async function selectInstrument(name: string, close: () => void) {
             data-testid="instrument-warmup-banner"
             role="status"
             aria-live="polite"
-            class="flex items-center justify-between gap-3 border border-[#5d5d5d] bg-[#1b1b1b] px-3 py-2 text-[9px] uppercase tracking-[0.18em] text-[#e6e6e6] [clip-path:polygon(0_8px,8px_0,100%_0,100%_calc(100%-8px),calc(100%-8px)_100%,0_100%)]"
+            class="flex items-center justify-between gap-3 border border-[var(--ivory-4)] bg-[var(--ink-3)] px-3 py-2 text-[9px] uppercase tracking-[0.18em] text-[var(--ivory)] [clip-path:polygon(0_8px,8px_0,100%_0,100%_calc(100%-8px),calc(100%-8px)_100%,0_100%)]"
           >
             <span class="truncate">
               {{ warmupStatusMessage }}
             </span>
             <span class="relative h-3 w-3 shrink-0" aria-hidden="true">
-              <span class="absolute inset-0 rounded-full border border-white/20" />
-              <span class="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-r-white border-t-neutral-400 motion-reduce:animate-none" />
+              <span class="absolute inset-0 rounded-full border border-[rgb(244_239_230/0.2)]" />
+              <span class="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-r-[var(--ivory)] border-t-[var(--ivory-3)] motion-reduce:animate-none" />
             </span>
           </div>
 
@@ -472,21 +472,21 @@ async function selectInstrument(name: string, close: () => void) {
 
           <div
             v-else-if="!allSounds.length"
-            class="border border-dashed border-[#3a3a3a] bg-[#121212] px-4 py-5 text-center text-[10px] italic text-neutral-500 [clip-path:polygon(0_10px,10px_0,100%_0,100%_calc(100%-10px),calc(100%-10px)_100%,0_100%)]"
+            class="border border-dashed border-[var(--ink-5)] bg-[var(--ink-2)] px-4 py-5 text-center text-[10px] italic text-[var(--ivory-3)] [clip-path:polygon(0_10px,10px_0,100%_0,100%_calc(100%-10px),calc(100%-10px)_100%,0_100%)]"
           >
             loading sounds…
           </div>
 
           <div
             v-else-if="!filteredSounds.length"
-            class="border border-dashed border-[#3a3a3a] bg-[#121212] px-4 py-5 text-center text-[10px] italic text-neutral-500 [clip-path:polygon(0_10px,10px_0,100%_0,100%_calc(100%-10px),calc(100%-10px)_100%,0_100%)]"
+            class="border border-dashed border-[var(--ink-5)] bg-[var(--ink-2)] px-4 py-5 text-center text-[10px] italic text-[var(--ivory-3)] [clip-path:polygon(0_10px,10px_0,100%_0,100%_calc(100%-10px),calc(100%-10px)_100%,0_100%)]"
           >
             no matches for "{{ query }}"
           </div>
 
           <div
             v-else-if="!orderedGroupsFor(panelTab).length"
-            class="border border-dashed border-[#3a3a3a] bg-[#121212] px-4 py-5 text-center text-[10px] italic text-neutral-500 [clip-path:polygon(0_10px,10px_0,100%_0,100%_calc(100%-10px),calc(100%-10px)_100%,0_100%)]"
+            class="border border-dashed border-[var(--ink-5)] bg-[var(--ink-2)] px-4 py-5 text-center text-[10px] italic text-[var(--ivory-3)] [clip-path:polygon(0_10px,10px_0,100%_0,100%_calc(100%-10px),calc(100%-10px)_100%,0_100%)]"
           >
             no sounds in this bank yet.
           </div>

@@ -22,7 +22,7 @@ const isActive = computed(
 <template>
   <div
     v-if="isActive"
-    class="mt-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+    class="mt-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ivory)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ink)]"
     :data-state="isActive ? 'active' : 'inactive'"
     role="tabpanel"
     :tabindex="0"

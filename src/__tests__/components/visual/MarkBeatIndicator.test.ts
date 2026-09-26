@@ -133,11 +133,12 @@ describe("Beat Indicator ring", () => {
     const cells = wrapper.findAll(".beat-indicator__beat");
     clock.publish(generation, { rawPosition: 0.25, barPosition: 0.25 });
     expect(wrapper.get(".beat-indicator").attributes("data-ui-beat-state")).toBe("running");
-    expect(cells[0].attributes("style")).toContain("opacity: 0.2;");
+    expect(cells[0].attributes("style")).toContain("opacity: 1;");
     expect(cells[1].attributes("style")).toContain("scale(1.000)");
     expect(cells[1].attributes("style")).toContain("opacity: 1");
 
     clock.publish(generation, { rawPosition: 0.285, barPosition: 0.285 });
+    expect(cells[0].attributes("style")).toContain("opacity: 1;");
     expect(cells[1].attributes("style")).toContain("scale(1.120)");
     expect(cells[1].attributes("style")).toContain("opacity: 1");
 

@@ -121,7 +121,7 @@ function applyFrame(snapshot: UIBeatSnapshot) {
 
   beatElements.forEach((element, index) => {
     if (index !== activeIndex) {
-      element.style.opacity = String(DIM_OPACITY);
+      element.style.opacity = isDownbeat(index) ? "1" : String(DIM_OPACITY);
       element.style.transform = "scale(1)";
       return;
     }

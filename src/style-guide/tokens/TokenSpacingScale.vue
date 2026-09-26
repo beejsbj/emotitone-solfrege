@@ -1,75 +1,38 @@
+<script setup lang="ts">
+const steps = [
+  { token: "--s-1", value: "2px", hint: "Hairline gap" },
+  { token: "--s-2", value: "4px", hint: "Icon nudge" },
+  { token: "--s-3", value: "6px", hint: "Tight inline gap" },
+  { token: "--s-4", value: "8px", hint: "Chip padding" },
+  { token: "--s-5", value: "12px", hint: "Row gap" },
+  { token: "--s-6", value: "16px", hint: "Panel inset" },
+  { token: "--s-7", value: "20px", hint: "Section gap" },
+  { token: "--s-8", value: "24px", hint: "Card padding" },
+  { token: "--s-9", value: "32px", hint: "Block spacing" },
+  { token: "--s-10", value: "48px", hint: "Large margin" },
+  { token: "--s-11", value: "64px", hint: "Page gutter" },
+];
+</script>
+
 <template>
   <section class="preview-port preview-port--token-spacing-scale">
     <div class="card">
       <div class="label">Spacing</div>
-      <div class="caption" style="margin-bottom:14px">Eleven-step scale from 2 to 64px.</div>
-    
-      <div class="swatch-row">
-        <span class="swatch-token">--s-1</span>
-        <div class="swatch-bar" style="width:var(--s-1)"></div>
-        <span class="swatch-val">2px</span>
-        <span class="swatch-hint">Hairline gap</span>
-      </div>
-      <div class="swatch-row">
-        <span class="swatch-token">--s-2</span>
-        <div class="swatch-bar" style="width:var(--s-2)"></div>
-        <span class="swatch-val">4px</span>
-        <span class="swatch-hint">Icon nudge</span>
-      </div>
-      <div class="swatch-row">
-        <span class="swatch-token">--s-3</span>
-        <div class="swatch-bar" style="width:var(--s-3)"></div>
-        <span class="swatch-val">6px</span>
-        <span class="swatch-hint">Tight inline gap</span>
-      </div>
-      <div class="swatch-row">
-        <span class="swatch-token">--s-4</span>
-        <div class="swatch-bar" style="width:var(--s-4)"></div>
-        <span class="swatch-val">8px</span>
-        <span class="swatch-hint">Chip padding</span>
-      </div>
-      <div class="swatch-row">
-        <span class="swatch-token">--s-5</span>
-        <div class="swatch-bar" style="width:var(--s-5)"></div>
-        <span class="swatch-val">12px</span>
-        <span class="swatch-hint">Row gap</span>
-      </div>
-      <div class="swatch-row">
-        <span class="swatch-token">--s-6</span>
-        <div class="swatch-bar" style="width:var(--s-6)"></div>
-        <span class="swatch-val">16px</span>
-        <span class="swatch-hint">Panel inset</span>
-      </div>
-      <div class="swatch-row">
-        <span class="swatch-token">--s-7</span>
-        <div class="swatch-bar" style="width:var(--s-7)"></div>
-        <span class="swatch-val">20px</span>
-        <span class="swatch-hint">Section gap</span>
-      </div>
-      <div class="swatch-row">
-        <span class="swatch-token">--s-8</span>
-        <div class="swatch-bar" style="width:var(--s-8)"></div>
-        <span class="swatch-val">24px</span>
-        <span class="swatch-hint">Card padding</span>
-      </div>
-      <div class="swatch-row">
-        <span class="swatch-token">--s-9</span>
-        <div class="swatch-bar" style="width:var(--s-9)"></div>
-        <span class="swatch-val">32px</span>
-        <span class="swatch-hint">Block spacing</span>
-      </div>
-      <div class="swatch-row">
-        <span class="swatch-token">--s-10</span>
-        <div class="swatch-bar" style="width:var(--s-10)"></div>
-        <span class="swatch-val">48px</span>
-        <span class="swatch-hint">Large margin</span>
-      </div>
-      <div class="swatch-row">
-        <span class="swatch-token">--s-11</span>
-        <div class="swatch-bar" style="width:var(--s-11)"></div>
-        <span class="swatch-val">64px</span>
-        <span class="swatch-hint">Page gutter</span>
-      </div>
+      <p class="caption lede">Eleven-step scale from 2 to 64px, measured against a 4px tape.</p>
+
+      <ol class="tape">
+        <li v-for="(step, i) in steps" :key="step.token" class="step">
+          <span class="step__num">{{ i + 1 }}</span>
+          <span class="step__id">
+            <code>{{ step.token }}</code>
+            <span class="step__hint">{{ step.hint }}</span>
+          </span>
+          <span class="step__rule">
+            <span class="step__bar" :style="{ width: `var(${step.token})` }"></span>
+          </span>
+          <span class="step__val">{{ step.value }}</span>
+        </li>
+      </ol>
     </div>
   </section>
 </template>
@@ -78,35 +41,88 @@
 .preview-port {
   display: block;
 }
-.swatch-row {
+
+.lede {
+  max-width: 64ch;
+  margin: var(--s-5) 0 0;
+}
+
+/* A tape measure on the Ink: each step laid against 4px ticks with a
+   major tick every 16px. Ticks are the thing measured, so they stay. */
+.tape {
+  list-style: none;
+  margin: var(--s-8) 0 0;
+  padding: var(--s-7) var(--s-6);
+  background: var(--ink);
   display: grid;
-  grid-template-columns: 52px 1fr 48px 120px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: var(--s-5) var(--s-9);
+}
+
+.step {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) 72px 40px;
   align-items: center;
-  gap: 12px;
-  padding: 5px 0;
-  border-bottom: 1px solid var(--ink-5);
+  gap: var(--s-4);
+  min-height: 40px;
 }
-.swatch-row:last-child { border-bottom: 0; }
-.swatch-token {
-  font: var(--t-mono);
-  color: var(--ivory-2);
-  letter-spacing: 0.06em;
-  white-space: nowrap;
-}
-.swatch-bar {
-  height: 8px;
-  background: var(--brass);
-  border-radius: 1px;
-  min-width: 2px;
-}
-.swatch-val {
-  font: var(--t-mono);
-  color: var(--ivory-3);
+
+.step__num {
+  font: 700 22px/1 var(--font-display);
+  letter-spacing: var(--tracking-display);
+  color: var(--guide-paper, var(--bone));
   text-align: right;
 }
-.swatch-hint {
+
+.step__id {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.step__id code {
+  font: var(--t-body-s-mono);
+  color: var(--ivory);
+  white-space: nowrap;
+}
+
+.step__hint {
   font: var(--t-caption);
-  color: var(--ivory-4);
-  padding-left: 4px;
+  color: var(--ivory-3);
+}
+
+.step__rule {
+  position: relative;
+  height: 22px;
+  background:
+    repeating-linear-gradient(90deg, var(--ivory-3) 0 1px, transparent 1px 16px) 0 100% / 100% 10px no-repeat,
+    repeating-linear-gradient(90deg, var(--ink-5) 0 1px, transparent 1px 4px) 0 100% / 100% 5px no-repeat;
+}
+
+.step__bar {
+  position: absolute;
+  left: 0;
+  top: 2px;
+  height: 12px;
+  min-width: 2px;
+  background: var(--guide-paper, var(--bone));
+  transform-origin: left center;
+  transition: transform var(--dur-ui) var(--ease-stab);
+}
+
+.step:hover .step__bar {
+  transform: scaleY(1.4);
+}
+
+.step__val {
+  font: var(--t-body-s-mono);
+  color: var(--ivory-2);
+  text-align: right;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .step__bar { transition: none; }
+  .step:hover .step__bar { transform: none; }
 }
 </style>

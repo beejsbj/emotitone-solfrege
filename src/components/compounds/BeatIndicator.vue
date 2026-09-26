@@ -50,6 +50,7 @@ type Presentation = "hidden" | "rest" | "running";
 
 const beatCount = computed(() => Math.max(1, Math.floor(props.beats)));
 const rootRef = ref<HTMLElement | null>(null);
+const ringVisible = ref(props.static);
 const { clock, presentationEnabled } = useUIBeat();
 const consumerEnabled = () => props.enabled && presentationEnabled();
 let beatElements: SVGElement[] = [];
@@ -99,6 +100,7 @@ const isDownbeat = (index: number) => props.downbeat && index === 0;
 
 function setPresentation(next: Presentation) {
   presentation = next;
+  ringVisible.value = next !== "hidden";
   if (!rootRef.value) return;
   rootRef.value.dataset.uiBeatState = next === "running" ? "running" : "idle";
   rootRef.value.dataset.beatTransport = next === "hidden" ? "idle" : "active";
@@ -201,6 +203,7 @@ onBeforeUnmount(() => unsubscribe?.());
       viewBox="0 0 100 100"
       role="img"
       :aria-label="ariaLabel"
+      :aria-hidden="!ringVisible"
     >
       <defs>
         <mask :id="brassMaskId" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100">

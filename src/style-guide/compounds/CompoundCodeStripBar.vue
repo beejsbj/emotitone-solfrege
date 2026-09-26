@@ -20,14 +20,14 @@
     <VariantGrid title="Responsive bar">
       <VariantCell caption="320px host &middot; stopped" stage="ink3">
         <div class="code-strip-bar-specimen__narrow">
-          <CodeStripBar :tokens="shortTokens" />
+          <CodeStripBarFixture :tokens="shortTokens" />
         </div>
       </VariantCell>
-      <VariantCell caption="Playing &middot; Stop; ring follows the hero's clock" stage="ink3">
-        <CodeStripBar :tokens="tokens" is-playing />
+      <VariantCell caption="Playing &middot; Stop; isolated running clock" stage="ink3">
+        <CodeStripBarFixture :tokens="tokens" playing />
       </VariantCell>
       <VariantCell caption="Empty &middot; recording prompt" stage="ink3">
-        <CodeStripBar :tokens="[]" />
+        <CodeStripBarFixture :tokens="[]" />
       </VariantCell>
     </VariantGrid>
   </AnatomyDisplay>
@@ -36,6 +36,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import CodeStripBar from "@/components/compounds/CodeStripBar.vue";
+import CodeStripBarFixture from "./CodeStripBarFixture.vue";
 import type { CodeStripToken } from "@/components/uniques/CodeStrip/index.vue";
 import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
 import VariantCell from "../guide/VariantCell.vue";

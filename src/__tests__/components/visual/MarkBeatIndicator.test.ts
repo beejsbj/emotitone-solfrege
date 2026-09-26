@@ -107,21 +107,26 @@ describe("Beat Indicator ring", () => {
       .toBe(true);
   });
 
-  it("stays hidden until the transport arms and hides again when it stops", () => {
+  it("stays hidden until the transport arms and hides again when it stops", async () => {
     const { clock, wrapper } = mountWithClock('<BeatIndicator :beats="4" />');
     const root = () => wrapper.get(".beat-indicator");
 
     expect(root().attributes("data-beat-transport")).toBe("idle");
+    expect(wrapper.get("svg.beat-indicator__ring").attributes("aria-hidden")).toBe("true");
     expect(beatIndicatorSource).toMatch(
       /\[data-beat-transport="idle"\] \.beat-indicator__ring\s*\{\s*opacity: 0;/,
     );
 
     const generation = armFourFour(clock);
+    await nextTick();
     expect(root().attributes("data-beat-transport")).toBe("active");
+    expect(wrapper.get("svg.beat-indicator__ring").attributes("aria-hidden")).toBe("false");
     expect(root().attributes("data-ui-beat-state")).toBe("idle");
 
     clock.stop(generation);
+    await nextTick();
     expect(root().attributes("data-beat-transport")).toBe("idle");
+    expect(wrapper.get("svg.beat-indicator__ring").attributes("aria-hidden")).toBe("true");
     wrapper.unmount();
     clock.destroy();
   });

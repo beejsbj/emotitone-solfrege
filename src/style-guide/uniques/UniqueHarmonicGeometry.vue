@@ -1,24 +1,29 @@
 <template>
   <section class="harmonic-specimen">
-    <header class="harmonic-specimen__header">
-      <div>
-        <h3>Harmonic Geometry · Canvas Unique</h3>
-        <p>
-          One filled Merge body or distinct bodies joined by fine Web strands. Labels remain an
-          optional layer and default off.
-        </p>
-      </div>
+    <p class="harmonic-specimen__role">Canvas unique · strands or one body</p>
+    <p class="harmonic-specimen__intro">
+      Distinct bodies joined by fine Web strands, or one filled Merge body.
+      Analysis labels are an optional layer and default off.
+    </p>
 
-      <label class="harmonic-specimen__toggle">
-        <input v-model="showLabels" type="checkbox" />
+    <div class="harmonic-specimen__toggles" role="group" aria-label="Specimen layers">
+      <button
+        type="button"
+        class="harmonic-specimen__toggle"
+        :aria-pressed="showLabels"
+        @click="showLabels = !showLabels"
+      >
         Show analysis labels
-      </label>
-    </header>
-
-    <label class="harmonic-specimen__toggle">
-      <input v-model="fullyFused" type="checkbox" />
-      Fuse Merge body
-    </label>
+      </button>
+      <button
+        type="button"
+        class="harmonic-specimen__toggle"
+        :aria-pressed="fullyFused"
+        @click="fullyFused = !fullyFused"
+      >
+        Fuse Merge body
+      </button>
+    </div>
 
     <div class="harmonic-specimen__grid">
       <figure>
@@ -45,9 +50,9 @@
     </div>
 
     <p class="harmonic-specimen__boundary">
-      The specimen freezes real vibrating blob frames. Contours, field fusion,
-      music colors, label placement, and configuration all cross production
-      renderer seams; no audio is driven here.
+      Frozen frames from the real vibrating blob renderer. Contours, field
+      fusion, Music Color, label placement, and configuration all cross
+      production renderer seams; no audio is driven here.
     </p>
   </section>
 </template>
@@ -297,58 +302,77 @@ onBeforeUnmount(() => {
 <style scoped>
 .harmonic-specimen {
   display: grid;
-  gap: 18px;
-  width: min(960px, calc(100vw - 32px));
+  gap: var(--s-6);
   min-width: 0;
   color: var(--ivory);
 }
 
-.harmonic-specimen__header {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 20px;
-}
-
-.harmonic-specimen h3,
 .harmonic-specimen p {
   margin: 0;
 }
 
-.harmonic-specimen h3 {
-  font: var(--t-h2);
+.harmonic-specimen__role {
+  font: 700 clamp(20px, 3vw, 26px)/1.05 var(--font-display);
+  letter-spacing: var(--tracking-display);
   text-transform: uppercase;
+  color: var(--guide-paper, var(--ivory-2));
 }
 
-.harmonic-specimen p,
-.harmonic-specimen figcaption,
-.harmonic-specimen__toggle {
-  color: var(--ivory-3);
-  font: var(--t-label);
-}
-
-.harmonic-specimen__header p {
+.harmonic-specimen__intro,
+.harmonic-specimen__boundary {
   max-width: 64ch;
-  margin-top: 6px;
+  font: var(--t-body-mono);
+  color: var(--ivory-2);
 }
 
+.harmonic-specimen__boundary {
+  font: var(--t-body-s-mono);
+  color: var(--ivory-3);
+}
+
+.harmonic-specimen__toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3) var(--s-4);
+}
+
+/* Layer toggles: cut-paper tabs; the layer's paper when on. */
 .harmonic-specimen__toggle {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 8px;
-  min-height: 36px;
+  min-height: 40px;
+  padding: 8px 14px 6px;
+  border: 0;
+  background: var(--ink-4);
+  color: var(--ivory-2);
+  font: 700 16px/1 var(--font-display);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+  clip-path: var(--clip-tab);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-ui) var(--ease-brush),
+    color var(--dur-ui) var(--ease-brush);
+}
+
+.harmonic-specimen__toggle[aria-pressed="true"] {
+  background: var(--guide-paper, var(--ivory));
+  color: var(--guide-paper-ink, var(--ink));
+  transform: rotate(var(--rot-tile-2));
+}
+
+.harmonic-specimen__toggle:focus-visible {
+  outline: 2px solid var(--ivory);
+  outline-offset: 2px;
 }
 
 .harmonic-specimen__grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: var(--s-7) var(--s-6);
 }
 
 .harmonic-specimen figure {
   display: grid;
-  gap: 10px;
+  gap: var(--s-3);
   min-width: 0;
   margin: 0;
 }
@@ -356,40 +380,25 @@ onBeforeUnmount(() => {
 .harmonic-specimen canvas {
   display: block;
   width: 100%;
-  height: 260px;
-  border-radius: var(--r-md);
-  background:
-    radial-gradient(circle at 50% 42%, hsla(210, 18%, 16%, 0.76), transparent 68%),
-    var(--ink);
+  height: clamp(220px, 28vw, 340px);
+  background: var(--ink);
 }
 
 .harmonic-specimen figcaption {
   display: grid;
-  gap: 2px;
+  gap: var(--s-2);
+  font: var(--t-caption);
+  color: var(--ivory-3);
 }
 
 .harmonic-specimen figcaption strong {
   color: var(--ivory);
-  font: var(--t-mono);
+  font: 700 18px/1 var(--font-display);
+  letter-spacing: var(--tracking-display);
   text-transform: uppercase;
 }
 
-.harmonic-specimen__boundary {
-  max-width: 78ch;
-}
-
-@media (max-width: 720px) {
-  .harmonic-specimen__header {
-    align-items: start;
-    flex-direction: column;
-  }
-
-  .harmonic-specimen__grid {
-    grid-template-columns: 1fr;
-  }
-
-  .harmonic-specimen canvas {
-    height: 220px;
-  }
+@media (prefers-reduced-motion: reduce) {
+  .harmonic-specimen__toggle { transition: none; }
 }
 </style>

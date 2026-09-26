@@ -11,7 +11,7 @@
           <strong>{{ family }}</strong>
           <code>{{ dateKey }} / load {{ editionNumber }}</code>
         </div>
-        <div class="keyboard-specimen__mini" :style="{ width: `${Math.min(width, 390)}px` }">
+        <div class="keyboard-specimen__mini" :style="{ '--mini-width': `${Math.min(width, 390)}px` }">
           <Keyboard
             usage="controlled"
             :rows="rows"
@@ -377,8 +377,12 @@ const features = [
   font-size: 8px;
 }
 
+/* Never wider than the hero well: clamp to the requested width or the well. */
 .keyboard-specimen__mini {
-  max-width: 100%;
+  justify-self: stretch;
+  width: min(100%, var(--mini-width));
+  min-width: 0;
+  margin-inline: auto;
 }
 
 .keyboard-specimen__workbench {

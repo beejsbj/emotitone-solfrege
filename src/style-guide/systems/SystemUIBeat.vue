@@ -1,95 +1,102 @@
 <template>
-  <section class="preview-port preview-port--system-ui-beat">
-    <div class="card ui-beat-system">
-      <div class="label">UIBeat · System Protocol</div>
-      <p class="caption ui-beat-system__intro">
-        One injected clock drives real UI control families: Beat Indicator
-        Marks, both Knob editions, Button, Joystick, and the selected
-        current-instrument Sticker. The same general scale binding reaches each
-        actual control without replacing its gestures.
-      </p>
+  <section class="ui-beat-system">
+    <p class="ui-beat-system__role">One clock · every control on the beat</p>
+    <p class="ui-beat-system__intro">
+      Beat Indicator Marks, both Knob editions, Button, Joystick, and the
+      current-instrument Sticker all read the same scale binding. It reaches
+      each actual control without replacing its gestures.
+    </p>
 
-      <div class="ui-beat-system__stage">
-        <div class="ui-beat-system__transport">
-          <BeatIndicator
-            :beats="meter.beatsPerBar"
-            size="lg"
-            aria-label="Controlled UIBeat indicator"
+    <div class="ui-beat-system__stage">
+      <div class="ui-beat-system__transport">
+        <BeatIndicator
+          :beats="meter.beatsPerBar"
+          size="lg"
+          aria-label="Controlled UIBeat indicator"
+        />
+        <strong>{{ meter.label }} · {{ bpm }} BPM</strong>
+        <span>{{ running ? "Sounding-phase fixture" : "Idle rest state" }}</span>
+      </div>
+
+      <div class="ui-beat-system__consumers">
+        <div class="ui-beat-system__knobs" aria-label="BPM control editions">
+          <Knob
+            :model-value="bpm"
+            type="range"
+            label="BPM · Ring"
+            :min="40"
+            :max="220"
+            is-display
+            visual="ring"
           />
-          <strong>{{ meter.label }} · {{ bpm }} BPM</strong>
-          <span>{{ running ? "Sounding-phase fixture" : "Idle rest state" }}</span>
+          <Knob
+            :model-value="bpm"
+            type="range"
+            label="BPM · Arc"
+            :min="40"
+            :max="220"
+            is-display
+            visual="arc"
+          />
         </div>
 
-        <div class="ui-beat-system__consumers">
-          <div class="ui-beat-system__knobs" aria-label="BPM control editions">
-            <Knob
-              :model-value="bpm"
-              type="range"
-              label="BPM · Ring"
-              :min="40"
-              :max="220"
-              is-display
-              visual="ring"
-            />
-            <Knob
-              :model-value="bpm"
-              type="range"
-              label="BPM · Arc"
-              :min="40"
-              :max="220"
-              is-display
-              visual="arc"
-            />
-          </div>
-
-          <div class="ui-beat-system__primitives" aria-label="Primitive consumers">
-            <Button
-              size="sm"
-              :tone="running ? 'ink' : 'ivory'"
-              :accessible-name="running ? 'Pause UIBeat fixture' : 'Play UIBeat fixture'"
-              :title="running ? 'Pause UIBeat fixture' : 'Play UIBeat fixture'"
-              @click="toggle"
-            >
-              <Square v-if="running" />
-              <Play v-else />
-            </Button>
-            <Sticker variant="fill" color="ivory" mark="eighth" ui-beat>
-              Current Piano
-            </Sticker>
-            <Joystick v-model="harmony" label="Harmony" visual="analog" />
-          </div>
+        <div class="ui-beat-system__primitives" aria-label="Primitive consumers">
+          <Button
+            size="sm"
+            :tone="running ? 'ink' : 'ivory'"
+            :accessible-name="running ? 'Pause UIBeat fixture' : 'Play UIBeat fixture'"
+            :title="running ? 'Pause UIBeat fixture' : 'Play UIBeat fixture'"
+            @click="toggle"
+          >
+            <Square v-if="running" />
+            <Play v-else />
+          </Button>
+          <Sticker variant="fill" color="ivory" mark="eighth" ui-beat>
+            Current Piano
+          </Sticker>
+          <Joystick v-model="harmony" label="Harmony" visual="analog" />
         </div>
       </div>
-
-      <div class="ui-beat-system__controls">
-        <button
-          v-for="tempo in tempos"
-          :key="tempo"
-          type="button"
-          :aria-pressed="bpm === tempo"
-          @click="bpm = tempo"
-        >
-          {{ tempo }} BPM
-        </button>
-        <button
-          v-for="choice in meters"
-          :key="choice.label"
-          type="button"
-          :aria-pressed="meter.label === choice.label"
-          @click="meter = choice"
-        >
-          {{ choice.label }}
-        </button>
-      </div>
-
-      <dl class="ui-beat-system__contract">
-        <div><dt>Production</dt><dd>Generated playback maps only verified 4/4</dd></div>
-        <div><dt>Guide</dt><dd>3/4 and 6/8 are isolated meter fixtures</dd></div>
-        <div><dt>Scale</dt><dd>Compact → 14% swell → long settle → late tuck</dd></div>
-        <div><dt>Binding</dt><dd>Actual UI node; component transforms stay intact</dd></div>
-        <div><dt>Stillness</dt><dd>Reduced Motion removes recurring scale change</dd></div>
-      </dl>
     </div>
+
+    <div class="ui-beat-system__controls">
+      <div class="ui-beat-system__group">
+        <h3 class="label">Tempo</h3>
+        <div class="ui-beat-system__chips">
+          <button
+            v-for="tempo in tempos"
+            :key="tempo"
+            type="button"
+            :aria-pressed="bpm === tempo"
+            @click="bpm = tempo"
+          >
+            {{ tempo }} BPM
+          </button>
+        </div>
+      </div>
+      <div class="ui-beat-system__group">
+        <h3 class="label">Meter</h3>
+        <div class="ui-beat-system__chips">
+          <button
+            v-for="choice in meters"
+            :key="choice.label"
+            type="button"
+            :aria-pressed="meter.label === choice.label"
+            @click="meter = choice"
+          >
+            {{ choice.label }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <dl class="ui-beat-system__contract">
+      <div><dt>Production</dt><dd>Generated playback maps only verified 4/4</dd></div>
+      <div><dt>Guide</dt><dd>3/4 and 6/8 are isolated meter fixtures</dd></div>
+      <div><dt>Scale</dt><dd>Compact → 14% swell → long settle → late tuck</dd></div>
+      <div><dt>Binding</dt><dd>Actual UI node; component transforms stay intact</dd></div>
+      <div><dt>Stillness</dt><dd>Reduced Motion removes recurring scale change</dd></div>
+    </dl>
   </section>
 </template>
 
@@ -196,127 +203,154 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.preview-port--system-ui-beat {
-  width: min(700px, 100vw);
+.ui-beat-system {
+  display: grid;
+  gap: var(--s-6);
   min-width: 0;
 }
 
-.ui-beat-system {
-  width: 100%;
-  min-width: 0;
+.ui-beat-system__role {
+  margin: 0;
+  font: 700 clamp(20px, 3vw, 26px)/1 var(--font-display);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+  color: var(--guide-paper, var(--ivory-2));
 }
 
 .ui-beat-system__intro {
-  max-width: 72ch;
-  margin: 4px 0 18px;
+  max-width: 64ch;
+  margin: 0;
+  font: var(--t-body-mono);
+  color: var(--ivory-2);
 }
 
+/* One Ink well; the clock and its consumers share it. */
 .ui-beat-system__stage {
   display: grid;
-  grid-template-columns: minmax(210px, 1fr) minmax(180px, .7fr);
-  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: var(--s-8);
   align-items: center;
-  padding: 20px;
+  padding: clamp(20px, 4vw, 40px) clamp(12px, 3vw, 40px);
   background: var(--ink);
-  border: 1px solid var(--hairline);
 }
 
 .ui-beat-system__transport {
   display: grid;
   justify-items: center;
-  gap: 10px;
+  gap: var(--s-4);
   min-width: 0;
+  text-align: center;
 }
 
 .ui-beat-system__transport strong {
   color: var(--ivory);
-  font: var(--t-h2);
+  font: 700 clamp(28px, 5vw, 44px)/1 var(--font-display);
   letter-spacing: var(--tracking-display);
   text-transform: uppercase;
 }
 
 .ui-beat-system__transport span {
-  color: var(--ivory-4);
+  color: var(--ivory-3);
   font: var(--t-caption);
-  letter-spacing: .12em;
-  text-transform: uppercase;
 }
 
 .ui-beat-system__consumers {
   display: grid;
-  gap: 18px;
+  gap: var(--s-7);
   min-width: 0;
 }
 
 .ui-beat-system__knobs {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: var(--s-5);
   min-width: 0;
 }
 
 .ui-beat-system__primitives {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 18px;
+  gap: var(--s-6);
   min-width: 0;
 }
 
 .ui-beat-system__controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 12px;
+  gap: var(--s-6) var(--s-9);
 }
 
-.ui-beat-system__controls button {
-  min-height: 30px;
-  padding: 5px 9px;
-  border: 1px solid var(--ink-5);
-  background: var(--ink-2);
-  color: var(--ivory-3);
-  font: 700 9px/1 var(--font-mono);
-  letter-spacing: .1em;
+.ui-beat-system__group {
+  display: grid;
+  gap: var(--s-4);
+}
+
+.ui-beat-system__group .label {
+  margin: 0;
+}
+
+.ui-beat-system__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+}
+
+/* Fixture switches: cut-paper tabs, the layer's paper when chosen. */
+.ui-beat-system__chips button {
+  min-height: 40px;
+  padding: 8px 14px 6px;
+  border: 0;
+  background: var(--ink-4);
+  color: var(--ivory-2);
+  font: 700 16px/1 var(--font-display);
+  letter-spacing: var(--tracking-display);
   text-transform: uppercase;
+  clip-path: var(--clip-tab);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-ui) var(--ease-brush),
+    color var(--dur-ui) var(--ease-brush);
 }
 
-.ui-beat-system__controls button[aria-pressed="true"] {
-  border-color: var(--brass-lo);
-  background: var(--brass-fill);
-  color: var(--ink);
+.ui-beat-system__chips button[aria-pressed="true"] {
+  background: var(--guide-paper, var(--ivory));
+  color: var(--guide-paper-ink, var(--ink));
+  transform: rotate(var(--rot-tile-2));
+}
+
+.ui-beat-system__chips button:focus-visible {
+  outline: 2px solid var(--ivory);
+  outline-offset: 2px;
 }
 
 .ui-beat-system__contract {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 14px;
-  margin: 16px 0 0;
-  font: var(--t-caption);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: var(--s-6) var(--s-7);
+  margin: 0;
 }
 
 .ui-beat-system__contract div {
   display: grid;
-  grid-template-columns: 76px 1fr;
-  gap: 8px;
-  padding: 7px 0;
-  border-bottom: 1px solid var(--ink-5);
+  gap: var(--s-1);
 }
 
 .ui-beat-system__contract dt {
   color: var(--ivory);
-  font-weight: 700;
+  font: 700 15px/1 var(--font-display);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
 }
 
 .ui-beat-system__contract dd {
   margin: 0;
-  color: var(--ivory-4);
+  color: var(--ivory-2);
+  font: var(--t-body-s-mono);
 }
 
-@media (max-width: 620px) {
-  .ui-beat-system__stage,
-  .ui-beat-system__contract {
-    grid-template-columns: 1fr;
-  }
+@media (prefers-reduced-motion: reduce) {
+  .ui-beat-system__chips button { transition: none; }
 }
 </style>

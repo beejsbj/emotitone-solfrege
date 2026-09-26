@@ -40,7 +40,7 @@ import LoadingScreen from "../../components/compositions/LoadingScreen.vue";
 
 .caption {
   margin-top: 14px;
-  color: var(--fg-3);
+  color: var(--ivory-3);
   line-height: 1.55;
 }
 </style>

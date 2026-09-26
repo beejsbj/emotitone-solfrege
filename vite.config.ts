@@ -15,8 +15,8 @@ export default defineConfig({
         short_name: "EmotiTone",
         description:
           "An interactive music theory web app that teaches solfège through emotional experiences",
-        theme_color: "#1a1a1a",
-        background_color: "#1a1a1a",
+        theme_color: "#0A0908",
+        background_color: "#0A0908",
         display: "standalone",
         orientation: "portrait",
         scope: "/",

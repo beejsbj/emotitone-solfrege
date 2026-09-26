@@ -197,15 +197,6 @@
           </div>
     
           <div class="shadow-cell">
-            <div class="shadow-sample shadow-2">Panel</div>
-            <div class="shadow-token">
-              --shadow-2
-              <em>0 8px 24px rgba(0,0,0,.55),<br>inset 0 1px 0 rgba(255,255,255,.05)</em>
-              <em style="color:var(--ivory-4);font-size:7px">Elevated panel / drawer</em>
-            </div>
-          </div>
-    
-          <div class="shadow-cell">
             <div class="shadow-sample shadow-pressed">Pressed</div>
             <div class="shadow-token">
               --shadow-pressed
@@ -618,11 +609,6 @@
     0 0 0 1px rgba(0,0,0,.18),
     0 0 14px rgba(224,169,58,.22);
   border: 1px solid var(--brass-lo);
-}
-
-/* --shadow-2: 0 8px 24px rgba(0,0,0,.55) + inset 0 1px 0 rgba(255,255,255,.05) — panel lift */
-.shadow-2 {
-  box-shadow: var(--shadow-2);
 }
 
 /* --shadow-pressed: inset 0 2px 6px rgba(0,0,0,.6) — pressed state */

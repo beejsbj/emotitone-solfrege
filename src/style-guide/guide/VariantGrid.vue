@@ -1,6 +1,6 @@
 <template>
   <section class="variant-grid">
-    <div class="variant-grid__heading">{{ title }}</div>
+    <h3 class="variant-grid__heading">{{ title }}</h3>
     <div class="variant-grid__items">
       <slot />
     </div>
@@ -14,21 +14,35 @@ defineProps<{
 </script>
 
 <style scoped>
+.variant-grid {
+  margin-top: var(--s-9);
+}
+
 .variant-grid__heading {
-  font-family: var(--font-mono);
-  font-weight: 600;
-  font-size: 9px;
-  letter-spacing: .22em;
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  margin: 0 0 var(--s-5);
+  font: 700 clamp(20px, 3vw, 24px)/1 var(--font-display);
+  letter-spacing: var(--tracking-display);
   text-transform: uppercase;
-  color: var(--ivory-4);
-  margin: 24px 0 10px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--ink-5);
+  color: var(--ivory);
+}
+
+/* A strip of the layer's tape ahead of each heading. */
+.variant-grid__heading::before {
+  content: "";
+  flex: none;
+  width: 22px;
+  height: 10px;
+  background: var(--guide-paper, var(--brass));
+  clip-path: var(--clip-tab);
+  transform: rotate(var(--rot-tile-3));
 }
 
 .variant-grid__items {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 140px), 1fr));
+  gap: var(--s-6) var(--s-5);
 }
 </style>

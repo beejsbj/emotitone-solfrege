@@ -1,325 +1,287 @@
+<script setup lang="ts">
+import { onBeforeUnmount, onMounted, ref } from "vue";
+import VariantGrid from "@/style-guide/guide/VariantGrid.vue";
+
+/*
+ * One-shot gestures replay on a guide "bar": four beats of --dur-scene
+ * (4 × 600ms). Each replay remounts the demo so it runs once at its real
+ * token duration and then rests, instead of looping frantically.
+ * Under Reduced Motion the bar never starts and CSS holds every demo still.
+ */
+const DEMO_BAR_MS = 2400;
+
+const take = ref(0);
+let timer: ReturnType<typeof setInterval> | undefined;
+
+onMounted(() => {
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+  timer = setInterval(() => {
+    take.value += 1;
+  }, DEMO_BAR_MS);
+});
+
+onBeforeUnmount(() => {
+  if (timer) clearInterval(timer);
+});
+
+interface DurationLane {
+  id: string;
+  name: string;
+  token: string;
+  ms: number;
+  ease: string;
+  role: string;
+}
+
+const durations: DurationLane[] = [
+  { id: "tap", name: "Tap", token: "--dur-tap", ms: 90, ease: "--ease-stab", role: "press · ripple · instant ack" },
+  { id: "ui", name: "UI", token: "--dur-ui", ms: 220, ease: "--ease-stab", role: "tab swap · chip · segmented" },
+  { id: "panel", name: "Panel", token: "--dur-panel", ms: 360, ease: "--ease-swing", role: "drawer in/out · mode change" },
+  { id: "rip-mode", name: "Rip Mode", token: "--dur-rip-mode", ms: 360, ease: "--ease-rip-mode", role: "alias of --dur-panel · Mode Knob label swap" },
+  { id: "scene", name: "Scene", token: "--dur-scene", ms: 600, ease: "--ease-brush", role: "visual fx fade · hero swap" },
+  { id: "bounce", name: "Bounce", token: "--dur-bounce", ms: 600, ease: "--ease-bounce", role: "tactile elastic rebound" },
+];
+
+interface EaseCell {
+  id: string;
+  name: string;
+  value: string;
+  role: string;
+  path: string;
+  viewBox: string;
+  polyline?: boolean;
+}
+
+const eases: EaseCell[] = [
+  { id: "swing", name: "Swing", value: "cubic-bezier(.7, -.2, .3, 1.2)", role: "overshoot · press-play · tabs · knobs · drawer-in", path: "M0 28 C 70 32, 30 -4, 100 0", viewBox: "0 -6 100 40" },
+  { id: "stab", name: "Stab", value: "cubic-bezier(.2, .9, .3, 1)", role: "snap in · key hit · press · play", path: "M0 28 C 20 0, 30 0, 100 0", viewBox: "0 -6 100 40" },
+  { id: "brush", name: "Brush", value: "cubic-bezier(.4, 0, .2, 1)", role: "smooth · reveal fade · drift", path: "M0 28 C 40 28, 60 0, 100 0", viewBox: "0 -6 100 40" },
+  { id: "sustain", name: "Sustain", value: "linear", role: "flywheel · playhead · scrub · meters", path: "M0 28 L 100 0", viewBox: "0 -6 100 40" },
+  { id: "bend", name: "Bend", value: "cubic-bezier(.85, 0, .15, 1)", role: "tears and recovers · pitch · mode change · --ease-rip-mode alias", path: "M0 28 C 60 26, 40 2, 100 0", viewBox: "0 -6 100 40" },
+  { id: "bounce", name: "Bounce", value: "linear() · 21 stops · elastic", role: "Boolean Knob · non-brass Button · Joystick stick · drag value", path: "0,28 10,-4 15,-8 25,3 30,5 40,0 45,-1 60,0 100,0", viewBox: "0 -12 100 42", polyline: true },
+];
+</script>
+
 <template>
   <section class="preview-port preview-port--token-motion">
-    <div class="card">
-    
-      <div class="label">Motion</div>
-    
-      <div class="caption" style="margin-bottom:4px">
-        UIBeat is the transport clock. Duration tokens say how long a local gesture takes; easing tokens shape that gesture. See the System Protocols specimen for tempo and meter behavior.
-      </div>
-    
-      <!-- ═══════════════════════════════════════════════════════════
-           BLOCK 2 — GESTURE · DURATION
-           ═══════════════════════════════════════════════════════════ -->
-      <div class="block">
-        <div class="block-head">Gesture · Duration</div>
-        <div class="kf-row">
-    
-          <div class="kf dur-cell tap">
-            <div class="stage">
-              <div class="stage-name">Tap</div>
-              <div class="stage-ms">90<sup>ms</sup></div>
-              <div class="dur-track"><i></i></div>
-            </div>
-            <div class="kf-name">--dur-tap</div>
-            <div class="kf-role">90ms · press · ripple · instant ack</div>
-          </div>
-    
-          <div class="kf dur-cell ui">
-            <div class="stage">
-              <div class="stage-name">UI</div>
-              <div class="stage-ms">220<sup>ms</sup></div>
-              <div class="dur-track"><i></i></div>
-            </div>
-            <div class="kf-name">--dur-ui</div>
-            <div class="kf-role">220ms · tab swap · chip · segmented</div>
-          </div>
-    
-          <div class="kf dur-cell panel">
-            <div class="stage">
-              <div class="stage-name">Panel</div>
-              <div class="stage-ms">360<sup>ms</sup></div>
-              <div class="dur-track"><i></i></div>
-            </div>
-            <div class="kf-name">--dur-panel</div>
-            <div class="kf-role">360ms · drawer in/out · mode change</div>
-          </div>
-    
-          <div class="kf dur-cell scene">
-            <div class="stage">
-              <div class="stage-name">Scene</div>
-              <div class="stage-ms">600<sup>ms</sup></div>
-              <div class="dur-track"><i></i></div>
-            </div>
-            <div class="kf-name">--dur-scene</div>
-            <div class="kf-role">600ms · visual fx fade · hero swap</div>
-          </div>
+    <p class="caption mo-intro">
+      Local gestures: durations say how long, easings say how it feels, keyframes say what moves.
+      UIBeat is the transport clock; tempo and meter live in its System Protocols specimen.
+    </p>
+    <p class="mo-bar-note">
+      <span class="mo-tape">Demo bar</span>
+      <span class="mo-mono">each demo replays every 4 × --dur-scene and runs once at its own token timing</span>
+    </p>
 
-          <div class="kf dur-cell bounce">
-            <div class="stage">
-              <div class="stage-name">Bounce</div>
-              <div class="stage-ms">600<sup>ms</sup></div>
-              <div class="dur-track"><i></i></div>
-            </div>
-            <div class="kf-name">--dur-bounce</div>
-            <div class="kf-role">600ms · tactile elastic rebound</div>
+    <!-- ═══ DURATION ═══════════════════════════════════════════════ -->
+    <VariantGrid id="motion-duration" title="Duration &middot; how long">
+      <div class="mo-span-all mo-score">
+        <div
+          v-for="lane in durations"
+          :key="lane.id"
+          class="mo-lane"
+          :class="`mo-lane--${lane.id}`"
+          :style="{ '--lane-span': `${(lane.ms / 600) * 100}%` }"
+        >
+          <div class="mo-lane__head">
+            <span class="mo-name">{{ lane.name }}</span>
+            <span class="mo-ms">{{ lane.ms }}<small>ms</small></span>
           </div>
-    
+          <div class="mo-lane__well">
+            <div class="mo-lane__track">
+              <i :key="take" class="mo-lane__fill"></i>
+            </div>
+          </div>
+          <div class="mo-lane__meta">
+            <code class="mo-token">{{ lane.token }}</code>
+            <span class="mo-mono">{{ lane.role }} · filled with {{ lane.ease }}</span>
+          </div>
         </div>
+        <p class="mo-mono mo-score__scale">Track length is time: full width = 600ms. Bounce overshoots its track, then settles.</p>
       </div>
-    
-      <!-- ═══════════════════════════════════════════════════════════
-           BLOCK 3 — GESTURE · EASING
-           ═══════════════════════════════════════════════════════════ -->
-      <div class="block">
-        <div class="block-head">Gesture · Easing · Horn Section</div>
-        <div class="kf-row">
-    
-          <div class="kf ease-cell">
-            <div class="stage">
-              <div class="ease-name-big">Swing</div>
-              <svg viewBox="0 0 100 28" preserveAspectRatio="none">
-                <path d="M0 28 C 70 32, 30 -4, 100 0" stroke="var(--brass)" stroke-width="1.5" fill="none" stroke-linecap="butt"/>
-              </svg>
-              <div class="ease-track"><div class="e-dot swing"></div></div>
-            </div>
-            <div class="kf-name">--ease-swing</div>
-            <div class="kf-role">Press-play · tabs · drawer-in</div>
-          </div>
-    
-          <div class="kf ease-cell">
-            <div class="stage">
-              <div class="ease-name-big">Stab</div>
-              <svg viewBox="0 0 100 28" preserveAspectRatio="none">
-                <path d="M0 28 C 20 0, 30 0, 100 0" stroke="var(--tomato)" stroke-width="1.5" fill="none" stroke-linecap="butt"/>
-              </svg>
-              <div class="ease-track"><div class="e-dot stab"></div></div>
-            </div>
-            <div class="kf-name">--ease-stab</div>
-            <div class="kf-role">Key hit · press · snap in</div>
-          </div>
-    
-          <div class="kf ease-cell">
-            <div class="stage">
-              <div class="ease-name-big">Brush</div>
-              <svg viewBox="0 0 100 28" preserveAspectRatio="none">
-                <path d="M0 28 C 40 28, 60 0, 100 0" stroke="var(--ivory)" stroke-width="1.5" fill="none" stroke-linecap="butt"/>
-              </svg>
-              <div class="ease-track"><div class="e-dot brush"></div></div>
-            </div>
-            <div class="kf-name">--ease-brush</div>
-            <div class="kf-role">Reveal fade · drift · smooth out</div>
-          </div>
-    
-          <div class="kf ease-cell">
-            <div class="stage">
-              <div class="ease-name-big">Sustain</div>
-              <svg viewBox="0 0 100 28" preserveAspectRatio="none">
-                <path d="M0 28 L 100 0" stroke="var(--pine)" stroke-width="1.5" fill="none" stroke-linecap="butt"/>
-              </svg>
-              <div class="ease-track"><div class="e-dot sustain"></div></div>
-            </div>
-            <div class="kf-name">--ease-sustain</div>
-            <div class="kf-role">Flywheel · playhead · meters</div>
-          </div>
-    
-          <div class="kf ease-cell">
-            <div class="stage">
-              <div class="ease-name-big">Bend</div>
-              <svg viewBox="0 0 100 28" preserveAspectRatio="none">
-                <path d="M0 28 C 60 26, 40 2, 100 0" stroke="var(--plum)" stroke-width="1.5" fill="none" stroke-linecap="butt"/>
-              </svg>
-              <div class="ease-track"><div class="e-dot bend"></div></div>
-            </div>
-            <div class="kf-name">--ease-bend</div>
-            <div class="kf-role">Pitch mode-change · tears &amp; recovers</div>
-          </div>
+    </VariantGrid>
 
-          <div class="kf ease-cell">
-            <div class="stage">
-              <div class="ease-name-big">Bounce</div>
-              <svg viewBox="0 -10 100 38" preserveAspectRatio="none">
-                <polyline points="0,28 10,-4 15,-8 25,3 30,5 40,0 45,-1 60,0 100,0" stroke="var(--mustard)" stroke-width="1.5" fill="none" stroke-linecap="butt"/>
-              </svg>
-              <div class="ease-track"><div class="e-dot bounce"></div></div>
-            </div>
-            <div class="kf-name">--ease-bounce</div>
-            <div class="kf-role">Boolean Knob · non-brass Button · Joystick stick · Drag value</div>
-          </div>
-    
+    <!-- ═══ EASING ═════════════════════════════════════════════════ -->
+    <VariantGrid id="motion-easing" title="Easing &middot; the horn section">
+      <figure
+        v-for="(ease, i) in eases"
+        :key="ease.id"
+        class="mo-cell mo-ease"
+        :class="`mo-ease--${ease.id}`"
+        :style="{ '--cell-rot': `var(--rot-tile-${(i % 5) + 1})` }"
+      >
+        <div class="mo-well mo-ease__well">
+          <svg :viewBox="ease.viewBox" preserveAspectRatio="none" aria-hidden="true">
+            <polyline v-if="ease.polyline" :points="ease.path" class="mo-ease__curve" />
+            <path v-else :d="ease.path" class="mo-ease__curve" />
+          </svg>
+          <div class="mo-ease__track"><i class="mo-ease__runner"></i></div>
         </div>
-      </div>
-    
-      <!-- ═══════════════════════════════════════════════════════════
-           BLOCK 4 — KEYFRAMES
-           Lifted from prior token-motion-keyframes specimen
-           ═══════════════════════════════════════════════════════════ -->
-      <div class="block">
-        <div class="block-head">Keyframes</div>
-    
-        <!-- GROUP B — TRANSITION -->
-        <div class="group">
-          <div class="group-label">Transition</div>
-          <div class="swatches">
-    
-            <div class="kf-kf">
-              <div class="kf-stage demo-slide">
-                <div class="dot"></div>
-              </div>
-              <div class="kf-name">cut-slide-in</div>
-              <div class="kf-role">Off-cut tab swap — skewX + translateX + fade. Ease-stab</div>
-            </div>
-    
-            <div class="kf-kf">
-              <div class="kf-stage demo-rip">
-                <div class="rip-corner"></div>
-              </div>
-              <div class="kf-name">rip</div>
-              <div class="kf-role">Paper corner tears off top-right of tile on fire</div>
-            </div>
-    
-            <div class="kf-kf">
-              <div class="kf-stage demo-rip-mode">
-                <span class="cf-label cf-label--out">Lydian</span>
-                <span class="cf-label cf-label--in">Phrygian</span>
-              </div>
-              <div class="kf-name">rip-mode</div>
-              <div class="kf-role">Mode change: old tears up, new slides in. --dur-rip-mode · --ease-rip-mode</div>
-            </div>
-    
-            <div class="kf-kf">
-              <div class="kf-stage demo-lift">
-                <div class="dot"></div>
-              </div>
-              <div class="kf-name">lift</div>
-              <div class="kf-role">Tile rises 3 px on tap, returns by 34 %. Ease-stab</div>
-            </div>
-    
-            <div class="kf-kf">
-              <div class="kf-stage demo-smear">
-                <div class="dot"></div>
-              </div>
-              <div class="kf-name">smear</div>
-              <div class="kf-role">Horizontal stretch-snap. Lifted from v2 .p5-active.smearing</div>
-            </div>
-    
+        <figcaption class="mo-cap">
+          <span class="mo-name">{{ ease.name }}</span>
+          <code class="mo-token">--ease-{{ ease.id }}</code>
+          <span class="mo-mono mo-value">{{ ease.value }}</span>
+          <span class="mo-mono">{{ ease.role }}</span>
+        </figcaption>
+      </figure>
+    </VariantGrid>
+
+    <!-- ═══ KEYFRAMES · TRANSITION ═════════════════════════════════ -->
+    <VariantGrid id="motion-keyframes-transition" title="Keyframes &middot; transition">
+      <figure class="mo-cell">
+        <div class="mo-well demo-slide">
+          <div :key="take" class="mo-tile mo-tile--cobalt"></div>
+        </div>
+        <figcaption class="mo-cap">
+          <span class="mo-name">Cut Slide In</span>
+          <code class="mo-token">@keyframes cut-slide-in</code>
+          <span class="mo-mono mo-value">--dur-panel · --ease-stab</span>
+          <span class="mo-mono">off-cut tab swap: skewX + translateX + fade</span>
+        </figcaption>
+      </figure>
+
+      <figure class="mo-cell">
+        <div class="mo-well demo-rip">
+          <div class="mo-tile mo-tile--bone mo-tile--lg">
+            <i :key="take" class="rip-corner"></i>
           </div>
         </div>
-    
-        <!-- GROUP C — FEEDBACK -->
-        <div class="group">
-          <div class="group-label">Feedback · Flash · Glow</div>
-          <div class="swatches">
-    
-            <div class="kf-kf">
-              <div class="kf-stage demo-ring">
-                <div class="ring-el"></div>
-                <div class="dot-sm"></div>
-              </div>
-              <div class="kf-name">ring</div>
-              <div class="kf-role">Chromatic ring expands to 1.5× and fades on tile fire</div>
-            </div>
-    
-            <div class="kf-kf">
-              <div class="kf-stage demo-flash-tile">
-                <div class="ring-el"></div>
-                <div class="dot"></div>
-              </div>
-              <div class="kf-name">flash</div>
-              <div class="kf-role">Tile fire — rise + scale + brighten. Lifted from v2 tileFire</div>
-            </div>
-    
-            <div class="kf-kf">
-              <div class="kf-stage demo-paper-rip-flash">
-                <div class="ring-el"></div>
-                <div class="dot"></div>
-              </div>
-              <div class="kf-name">paper-rip-flash</div>
-              <div class="kf-role">Composed: lift + flash + flash-ring layered on one tile</div>
-            </div>
-    
-          </div>
+        <figcaption class="mo-cap">
+          <span class="mo-name">Rip</span>
+          <code class="mo-token">@keyframes rip</code>
+          <span class="mo-mono mo-value">--dur-scene · --ease-stab</span>
+          <span class="mo-mono">paper corner (--clip-paper-rip) tears off a tile on fire</span>
+        </figcaption>
+      </figure>
+
+      <figure class="mo-cell">
+        <div class="mo-well demo-rip-mode">
+          <template v-if="take % 2 === 0">
+            <span :key="`out-${take}`" class="cf-label cf-label--out">Lydian</span>
+            <span :key="`in-${take}`" class="cf-label cf-label--in">Phrygian</span>
+          </template>
+          <template v-else>
+            <span :key="`out-${take}`" class="cf-label cf-label--out">Phrygian</span>
+            <span :key="`in-${take}`" class="cf-label cf-label--in">Lydian</span>
+          </template>
         </div>
-    
-        <!-- GROUP D — GESTURE EASES (ease-run on each curve) -->
-        <div class="group">
-          <div class="group-label">Gesture Eases · Horn Section</div>
-          <div class="swatches">
-    
-            <div class="kf-kf">
-              <div class="kf-stage">
-                <div class="kf-ease-name-big">Swing</div>
-                <div class="kf-ease-track"><div class="e-dot swing"></div></div>
-              </div>
-              <div class="kf-name">ease-swing</div>
-              <div class="kf-role">Overshoot. Tabs, knobs, drawer-in</div>
-            </div>
-    
-            <div class="kf-kf">
-              <div class="kf-stage">
-                <div class="kf-ease-name-big">Stab</div>
-                <div class="kf-ease-track"><div class="e-dot stab"></div></div>
-              </div>
-              <div class="kf-name">ease-stab</div>
-              <div class="kf-role">Snap in. Press, play, hit</div>
-            </div>
-    
-            <div class="kf-kf">
-              <div class="kf-stage">
-                <div class="kf-ease-name-big">Brush</div>
-                <div class="kf-ease-track"><div class="e-dot brush"></div></div>
-              </div>
-              <div class="kf-name">ease-brush</div>
-              <div class="kf-role">Smooth fade. Reveal, drift</div>
-            </div>
-    
-            <div class="kf-kf">
-              <div class="kf-stage">
-                <div class="kf-ease-name-big">Sustain</div>
-                <div class="kf-ease-track"><div class="e-dot sustain"></div></div>
-              </div>
-              <div class="kf-name">ease-sustain</div>
-              <div class="kf-role">Linear. Playhead, scrub, meters</div>
-            </div>
-    
-            <div class="kf-kf">
-              <div class="kf-stage">
-                <div class="kf-ease-name-big">Bend</div>
-                <div class="kf-ease-track"><div class="e-dot bend"></div></div>
-              </div>
-              <div class="kf-name">ease-bend</div>
-              <div class="kf-role">Tears and recovers. Pitch, mode change</div>
-            </div>
-    
-          </div>
+        <figcaption class="mo-cap">
+          <span class="mo-name">Rip Mode</span>
+          <code class="mo-token">@keyframes rip-mode-out · rip-mode-in</code>
+          <span class="mo-mono mo-value">--dur-rip-mode · --ease-rip-mode</span>
+          <span class="mo-mono">mode change: old label tears up, new one slides in</span>
+        </figcaption>
+      </figure>
+
+      <figure class="mo-cell">
+        <div class="mo-well demo-lift">
+          <div :key="take" class="mo-tile mo-tile--pine"></div>
         </div>
-    
-        <!-- GROUP E — BRASS / SHIMMER -->
-        <div class="group">
-          <div class="group-label">Brass · Shimmer</div>
-          <div class="swatches">
-    
-            <div class="kf-kf" style="width:200px">
-              <div class="kf-stage" style="width:200px">
-                <div class="demo-shimmer" style="position:absolute;inset:0">
-                  <div class="brass-bar"></div>
-                </div>
-              </div>
-              <div class="kf-name">brass-sheen · shimmer</div>
-              <div class="kf-role">Gradient sweep across brass fills. 6.5 s, cubic. One signal max</div>
-            </div>
-    
-          </div>
+        <figcaption class="mo-cap">
+          <span class="mo-name">Lift</span>
+          <code class="mo-token">@keyframes lift</code>
+          <span class="mo-mono mo-value">--dur-scene · --ease-stab</span>
+          <span class="mo-mono">tile rises 3px on tap, home by 34%</span>
+        </figcaption>
+      </figure>
+
+      <figure class="mo-cell">
+        <div class="mo-well demo-smear">
+          <div :key="take" class="mo-tile mo-tile--plum"></div>
         </div>
-    
-        <div class="caption" style="margin-top:20px;color:var(--ivory-3);line-height:1.55">
-          Shared keyframes cover transition (<code>cut-slide-in</code>, <code>rip</code>, <code>rip-mode-out</code>, <code>rip-mode-in</code>, <code>smear</code>, <code>lift</code>), event feedback (<code>ring</code>, <code>flash</code>, <code>flash-ring</code>), and brand (<code>brass-sheen</code>). <code>paper-rip-flash</code> composes <code>lift</code> + <code>flash</code> + <code>flash-ring</code>. Tempo-linked recipes belong to UIBeat consumers, not global CSS loops.
-          The six gesture eases (swing / stab / brush / sustain / bend / bounce) are easing curves, not keyframes — shown here on the shared <code>ease-run</code> track for comparison. Bounce promotes the Boolean Knob's elastic rebound for shared tactile use.
+        <figcaption class="mo-cap">
+          <span class="mo-name">Smear</span>
+          <code class="mo-token">@keyframes smear</code>
+          <span class="mo-mono mo-value">--dur-panel · --ease-swing</span>
+          <span class="mo-mono">horizontal stretch-snap</span>
+        </figcaption>
+      </figure>
+    </VariantGrid>
+
+    <!-- ═══ KEYFRAMES · FEEDBACK ═══════════════════════════════════ -->
+    <VariantGrid id="motion-keyframes-feedback" title="Keyframes &middot; flash and glow">
+      <figure class="mo-cell">
+        <div class="mo-well demo-ring">
+          <template v-for="n in [take]" :key="n">
+            <i class="ring-el"></i>
+            <div class="mo-tile mo-tile--sm mo-tile--ivory"></div>
+          </template>
         </div>
-    
-      </div><!-- .block -->
-    
-    </div><!-- .card -->
+        <figcaption class="mo-cap">
+          <span class="mo-name">Ring</span>
+          <code class="mo-token">@keyframes ring</code>
+          <span class="mo-mono mo-value">--dur-scene · --ease-brush</span>
+          <span class="mo-mono">chromatic ring grows to 1.45× and fades on tile fire</span>
+        </figcaption>
+      </figure>
+
+      <figure class="mo-cell">
+        <div class="mo-well demo-flash-tile">
+          <div :key="take" class="mo-tile mo-tile--tomato"></div>
+        </div>
+        <figcaption class="mo-cap">
+          <span class="mo-name">Flash</span>
+          <code class="mo-token">@keyframes flash</code>
+          <span class="mo-mono mo-value">--dur-panel · --ease-stab</span>
+          <span class="mo-mono">tile fire: rise + scale + brighten</span>
+        </figcaption>
+      </figure>
+
+      <figure class="mo-cell">
+        <div class="mo-well demo-flash-ring">
+          <template v-for="n in [take]" :key="n">
+            <i class="ring-el"></i>
+            <div class="mo-tile mo-tile--mustard"></div>
+          </template>
+        </div>
+        <figcaption class="mo-cap">
+          <span class="mo-name">Flash Ring</span>
+          <code class="mo-token">@keyframes flash-ring</code>
+          <span class="mo-mono mo-value">--dur-ui · --ease-stab</span>
+          <span class="mo-mono">ring scales to 1.18× and fades · Note fire</span>
+        </figcaption>
+      </figure>
+
+      <figure class="mo-cell">
+        <div class="mo-well demo-paper-rip-flash">
+          <template v-for="n in [take]" :key="n">
+            <i class="ring-el"></i>
+            <div class="mo-tile mo-tile--tomato"></div>
+          </template>
+        </div>
+        <figcaption class="mo-cap">
+          <span class="mo-name">Paper Rip Flash</span>
+          <code class="mo-token">lift + flash + flash-ring</code>
+          <span class="mo-mono mo-value">--dur-panel · ring --dur-ui</span>
+          <span class="mo-mono">composed recipe layered on one tile</span>
+        </figcaption>
+      </figure>
+    </VariantGrid>
+
+    <!-- ═══ KEYFRAMES · BRASS ══════════════════════════════════════ -->
+    <VariantGrid id="motion-keyframes-brass" title="Keyframes &middot; brass">
+      <figure class="mo-cell mo-cell--wide">
+        <div class="mo-well demo-shimmer">
+          <div class="brass-bar"></div>
+        </div>
+        <figcaption class="mo-cap">
+          <span class="mo-name">Brass Sheen</span>
+          <code class="mo-token">@keyframes brass-sheen</code>
+          <span class="mo-mono mo-value">6.5s · cubic-bezier(.55, .05, .45, .95) · the .brass recipe</span>
+          <span class="mo-mono">gradient sweep across brass fills; one signal per view</span>
+        </figcaption>
+      </figure>
+    </VariantGrid>
+
+    <p class="caption mo-outro">
+      Shared keyframes cover transition (<code>cut-slide-in</code>, <code>rip</code>, <code>rip-mode-out</code>,
+      <code>rip-mode-in</code>, <code>smear</code>, <code>lift</code>), event feedback (<code>ring</code>,
+      <code>flash</code>, <code>flash-ring</code>), and brand (<code>brass-sheen</code>).
+      <code>paper-rip-flash</code> composes <code>lift</code> + <code>flash</code> + <code>flash-ring</code>.
+      The six gesture eases are curves, not keyframes; the horn section runs each on the same track for comparison.
+      Bounce promotes the Boolean Knob's elastic rebound for shared tactile use.
+      Tempo-linked recipes belong to UIBeat consumers, not global CSS loops.
+    </p>
   </section>
 </template>
 
@@ -327,394 +289,301 @@
 .preview-port {
   display: block;
 }
-/* ─── TOKENS · MOTION ────────────────────────────────────────────
-   Duration · Easing · Keyframes — local gesture tokens in one
-   card using the named-cell-grid pattern (no specimen grammar).
-   ─────────────────────────────────────────────────────────── */
 
-/* ── block chrome ─────────────────────────────────────────────── */
-.block {
-  margin-top: 24px;
+/* ─── intro ─────────────────────────────────────────────────────── */
+.mo-intro {
+  max-width: 62ch;
+  margin: 0;
 }
-.block-head {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.28em;
-  text-transform: uppercase;
-  color: var(--ivory-4);
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--ink-5);
-  margin-bottom: 12px;
-}
-
-/* ── shared swatch cell chrome ────────────────────────────────── */
-.kf-row {
+.mo-bar-note {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-}
-.kf {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-.kf:nth-child(1) { transform: rotate(-0.3deg); }
-.kf:nth-child(2) { transform: rotate( 0.2deg); }
-.kf:nth-child(3) { transform: rotate(-0.2deg); }
-.kf:nth-child(4) { transform: rotate( 0.3deg); }
-.kf:nth-child(5) { transform: rotate(-0.25deg); }
-.kf:nth-child(6) { transform: rotate( 0.2deg); }
-.kf:nth-child(7) { transform: rotate(-0.3deg); }
-
-.stage {
-  background: var(--ink);
-  border: 1px solid var(--ink-5);
-  box-sizing: border-box;
-  position: relative;
-  display: flex;
   align-items: center;
-  justify-content: center;
-  overflow: hidden;
+  gap: var(--s-3) var(--s-4);
+  margin: var(--s-5) 0 0;
 }
-
-.kf-name {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.18em;
+.mo-tape {
+  padding: 5px 10px 3px;
+  background: var(--guide-paper, var(--bone));
+  color: var(--guide-paper-ink, var(--ink));
+  font: 700 16px/1 var(--font-display);
+  letter-spacing: var(--tracking-display);
   text-transform: uppercase;
-  color: var(--ivory-2);
-  line-height: 1.2;
-}
-.kf-role {
-  font-family: var(--font-mono);
-  font-size: 8px;
-  letter-spacing: 0.1em;
-  color: var(--ivory-4);
-  line-height: 1.35;
+  clip-path: var(--clip-tab);
+  transform: rotate(var(--rot-sticker));
 }
 
-/* ════════════════════════════════════════════════════════════════
-   BLOCK 2 — GESTURE · DURATION
-   Ivory bar fills over each token's duration (looped).
-   ════════════════════════════════════════════════════════════════ */
-
-.dur-cell .stage {
-  width: 155px;
-  height: 80px;
-  padding: 10px 12px;
-  flex-direction: column;
-  justify-content: space-between;
-}
-
-.stage-name {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 18px;
-  letter-spacing: 0.02em;
+/* ─── shared type ───────────────────────────────────────────────── */
+.mo-name {
+  font: 700 20px/1 var(--font-display);
+  letter-spacing: var(--tracking-display);
   text-transform: uppercase;
   color: var(--ivory);
-  line-height: 1;
-  align-self: flex-start;
 }
-.stage-ms {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 13px;
-  color: var(--brass);
-  letter-spacing: 0.02em;
-  position: absolute;
-  top: 10px;
-  right: 10px;
+.mo-token {
+  font: var(--t-body-s-mono);
+  color: var(--ivory);
 }
-.stage-ms sup {
-  font-family: var(--font-mono);
-  font-size: 8px;
-  letter-spacing: 0.1em;
-  color: var(--ivory-4);
-  vertical-align: 4px;
-  margin-left: 2px;
+.mo-mono {
+  font: var(--t-caption);
+  color: var(--ivory-3);
 }
-.dur-track {
-  width: 100%;
-  height: 8px;
-  background: var(--ink-2);
-  border: 1px solid var(--ink-5);
-  position: relative;
-  overflow: hidden;
-  align-self: flex-end;
-}
-.dur-track i {
-  position: absolute;
-  top: 0; bottom: 0; left: 0;
-  background: var(--ivory);
-  width: 8px;
+.mo-value {
+  color: var(--guide-paper-text, var(--bone));
 }
 
-@keyframes dur-fill {
-  0%, 5%  { width: 8px; }
-  48%     { width: calc(100% - 8px); }
-  52%     { width: calc(100% - 8px); }
-  100%    { width: 8px; }
-}
+/* ─── cells ─────────────────────────────────────────────────────── */
+.mo-span-all { grid-column: 1 / -1; }
 
-.dur-cell.tap   .dur-track i { animation: dur-fill 1.4s var(--ease-stab)   infinite; }
-.dur-cell.ui    .dur-track i { animation: dur-fill 1.8s var(--ease-brush)  infinite; }
-.dur-cell.panel .dur-track i { animation: dur-fill 2.4s var(--ease-swing)  infinite; }
-.dur-cell.scene .dur-track i { animation: dur-fill 3.2s var(--ease-bend)   infinite; }
-.dur-cell.bounce .dur-track i { animation: dur-fill 3.2s var(--ease-bounce) infinite; }
-
-/* ════════════════════════════════════════════════════════════════
-   BLOCK 3 — GESTURE · EASING
-   Bezier curve SVG + runner dot per easing token.
-   ════════════════════════════════════════════════════════════════ */
-
-.ease-cell .stage {
-  width: 120px;
-  height: 90px;
-}
-
-.ease-name-big {
-  position: absolute;
-  top: 8px;
-  left: 9px;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 16px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--ivory-2);
-  line-height: 1;
-}
-
-.ease-cell .stage svg {
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  bottom: 22px;
-  width: calc(100% - 16px);
-  height: 30px;
-}
-
-.ease-track {
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  height: 8px;
-  bottom: 8px;
-  background: var(--ink-2);
-  border: 1px solid var(--ink-5);
-}
-.ease-track .e-dot {
-  position: absolute;
-  top: 50%;
-  width: 8px;
-  height: 8px;
-  background: var(--ivory);
-  transform: translateY(-50%);
-}
-
-@keyframes ease-run {
-  0%   { left: 4px; }
-  50%  { left: calc(100% - 12px); }
-  100% { left: 4px; }
-}
-
-.ease-track .e-dot.swing   { animation: ease-run 2.2s var(--ease-swing)   infinite; }
-.ease-track .e-dot.stab    { animation: ease-run 1.6s var(--ease-stab)    infinite; }
-.ease-track .e-dot.brush   { animation: ease-run 2.0s var(--ease-brush)   infinite; }
-.ease-track .e-dot.sustain { animation: ease-run 2.4s var(--ease-sustain) infinite; }
-.ease-track .e-dot.bend    { animation: ease-run 2.0s var(--ease-bend)    infinite; }
-.ease-track .e-dot.bounce  { animation: ease-run 2.0s var(--ease-bounce)  infinite; }
-
-/* ════════════════════════════════════════════════════════════════
-   BLOCK 4 — KEYFRAMES (lifted verbatim from tokens-motion-keyframes)
-   ════════════════════════════════════════════════════════════════ */
-
-.group {
-  margin-top: 20px;
-}
-.group-label {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.28em;
-  text-transform: uppercase;
-  color: var(--ivory-4);
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--ink-5);
-  margin-bottom: 10px;
-}
-.swatches {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.kf-kf {
-  width: 100px;
+.mo-cell {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: var(--s-3);
+  min-width: 0;
+  margin: 0;
 }
-.kf-kf:nth-child(1)  { transform: rotate(-0.3deg); }
-.kf-kf:nth-child(2)  { transform: rotate(0.2deg); }
-.kf-kf:nth-child(3)  { transform: rotate(-0.2deg); }
-.kf-kf:nth-child(4)  { transform: rotate(0.3deg); }
-.kf-kf:nth-child(5)  { transform: rotate(-0.25deg); }
-.kf-kf:nth-child(6)  { transform: rotate(0.2deg); }
-.kf-kf:nth-child(7)  { transform: rotate(-0.3deg); }
+.mo-cell--wide { grid-column: span 2; }
 
-.kf-stage {
-  width: 100px;
-  height: 70px;
-  background: var(--ink);
-  border: 1px solid var(--ink-5);
-  box-sizing: border-box;
+.mo-well {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: 110px;
+  background: var(--ink);
   overflow: hidden;
 }
 
-.kf-kf .kf-name { color: var(--ivory-2); }
-.kf-kf .kf-role { color: var(--ivory-4); }
+.mo-cap {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 
-/* ── dots / wires for keyframe demos ─────────────────────────── */
-.dot {
+/* cut-paper tiles used by every keyframe demo */
+.mo-tile {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  clip-path: var(--clip-tile);
+}
+.mo-tile--sm { width: 14px; height: 14px; }
+.mo-tile--lg { width: 44px; height: 44px; clip-path: none; }
+.mo-tile--ivory   { background: var(--ivory); }
+.mo-tile--bone    { background: var(--bone); }
+.mo-tile--tomato  { background: var(--tomato); }
+.mo-tile--pine    { background: var(--pine); }
+.mo-tile--plum    { background: var(--plum); }
+.mo-tile--mustard { background: var(--mustard); }
+.mo-tile--cobalt  { background: var(--cobalt); }
+
+/* ════════════════════════════════════════════════════════════════
+   DURATION — a score: each lane's track is proportional to its time,
+   and the fill crosses it in exactly that token's duration.
+   ════════════════════════════════════════════════════════════════ */
+.mo-score {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: var(--s-6) var(--s-7);
+}
+.mo-score__scale { grid-column: 1 / -1; margin: 0; }
+
+.mo-lane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  min-width: 0;
+}
+.mo-lane__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-4);
+}
+.mo-ms {
+  font: 700 28px/1 var(--font-display);
+  letter-spacing: var(--tracking-display);
+  color: var(--guide-paper-text, var(--bone));
+}
+.mo-ms small {
+  margin-left: 2px;
+  font: var(--t-caption);
+  color: var(--ivory-3);
+}
+.mo-lane__well {
+  padding: 16px 14px;
+  background: var(--ink);
+}
+.mo-lane__track {
+  position: relative;
+  width: var(--lane-span);
+  height: 14px;
+  background: var(--ink-3);
+  clip-path: var(--clip-tab);
+  overflow: visible;
+}
+.mo-lane__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 100%;
+  background: var(--ivory);
+  clip-path: var(--clip-tab);
+  animation: dur-fill var(--lane-dur) var(--lane-ease) both;
+  animation-delay: var(--lane-delay, 0s);
+}
+.mo-lane--bounce .mo-lane__track { clip-path: none; }
+.mo-lane__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mo-lane--tap      { --lane-dur: var(--dur-tap);      --lane-ease: var(--ease-stab); }
+.mo-lane--ui       { --lane-dur: var(--dur-ui);       --lane-ease: var(--ease-stab); }
+.mo-lane--panel    { --lane-dur: var(--dur-panel);    --lane-ease: var(--ease-swing); }
+.mo-lane--rip-mode { --lane-dur: var(--dur-rip-mode); --lane-ease: var(--ease-rip-mode); }
+.mo-lane--scene    { --lane-dur: var(--dur-scene);    --lane-ease: var(--ease-brush); }
+.mo-lane--bounce   { --lane-dur: var(--dur-bounce);   --lane-ease: var(--ease-bounce); }
+.mo-lane--bounce .mo-lane__fill { background: var(--mustard); }
+
+@keyframes dur-fill {
+  from { width: 0; }
+  to   { width: 100%; }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   EASING — the horn section: curve + a cut-paper runner on one track.
+   Each runner crosses in 2 × --dur-scene, then plays back.
+   ════════════════════════════════════════════════════════════════ */
+.mo-ease { transform: rotate(var(--cell-rot)); }
+.mo-ease--swing   { --ease-colour: var(--cobalt);  --ease-fn: var(--ease-swing); }
+.mo-ease--stab    { --ease-colour: var(--tomato);  --ease-fn: var(--ease-stab); }
+.mo-ease--brush   { --ease-colour: var(--bone);    --ease-fn: var(--ease-brush); }
+.mo-ease--sustain { --ease-colour: var(--pine);    --ease-fn: var(--ease-sustain); }
+.mo-ease--bend    { --ease-colour: var(--plum);    --ease-fn: var(--ease-bend); }
+.mo-ease--bounce  { --ease-colour: var(--mustard); --ease-fn: var(--ease-bounce); }
+
+.mo-ease__well {
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 12px;
+  min-height: 120px;
+  padding: 14px 12px 14px;
+}
+.mo-ease__well svg {
+  width: 100%;
+  height: 52px;
+  overflow: visible;
+}
+.mo-ease__curve {
+  fill: none;
+  stroke: var(--ease-colour);
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+}
+.mo-ease__track {
+  position: relative;
+  width: 100%;
+  height: 12px;
+  background: var(--ink-3);
+  clip-path: var(--clip-tab);
+}
+.mo-ease__runner {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 18px;
-  height: 18px;
-  background: var(--ivory);
-  border-radius: 0;
+  height: 12px;
+  background: var(--ease-colour);
+  clip-path: var(--clip-tile);
+  animation: ease-run calc(var(--dur-scene) * 2) var(--ease-fn) infinite alternate;
 }
-.dot-sm {
-  width: 10px;
-  height: 10px;
-  background: var(--ivory);
-}
-.wire {
-  position: absolute;
-  inset: 10px;
-  border: 1px solid var(--hairline);
-}
-.panel-demo {
-  position: absolute;
-  inset: 8px;
-  background: var(--ink-2);
-  border: 1px solid var(--hairline);
+.mo-ease--bounce .mo-ease__track { clip-path: none; }
+
+@keyframes ease-run {
+  from { left: 0; }
+  to   { left: calc(100% - 18px); }
 }
 
-/* GROUP B — TRANSITION */
-.demo-slide .dot  { animation: cut-slide-in var(--dur-panel) var(--ease-stab) infinite; position: absolute; }
+/* ════════════════════════════════════════════════════════════════
+   KEYFRAMES — global @keyframes from the design system, run once per
+   demo bar at the token timing printed under each well.
+   ════════════════════════════════════════════════════════════════ */
+.demo-slide .mo-tile {
+  animation: cut-slide-in var(--dur-panel) var(--ease-stab) both;
+}
+
 .demo-rip .rip-corner {
+  position: absolute;
+  top: -6px;
+  right: -6px;
   width: 20px;
   height: 20px;
-  background: var(--ivory-2);
-  clip-path: polygon(0 0, 100% 0, 100% 4%, 88% 20%, 100% 40%, 78% 56%, 100% 78%, 100% 100%, 0 100%);
-  animation: rip 1.8s var(--ease-stab) infinite;
+  background: var(--ivory);
+  clip-path: var(--clip-paper-rip);
+  animation: rip var(--dur-scene) var(--ease-stab) both;
 }
-.demo-rip-mode {
-  overflow: hidden;
-  flex-direction: column;
-  gap: 0;
-}
+
 .demo-rip-mode .cf-label {
   position: absolute;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 15px;
-  letter-spacing: 0.04em;
+  font: 700 24px/1 var(--font-display);
+  letter-spacing: var(--tracking-display);
   text-transform: uppercase;
   color: var(--ivory);
   animation-duration: var(--dur-rip-mode);
   animation-timing-function: var(--ease-rip-mode);
-  animation-iteration-count: infinite;
-  animation-direction: alternate;
   animation-fill-mode: both;
 }
 .demo-rip-mode .cf-label--out { animation-name: rip-mode-out; }
-.demo-rip-mode .cf-label--in  { animation-name: rip-mode-in; }
-.demo-lift .dot   { animation: lift 1.6s var(--ease-stab) infinite; }
+.demo-rip-mode .cf-label--in  { animation-name: rip-mode-in; color: var(--guide-paper-text, var(--bone)); }
 
-/* smear — horizontal stretch-snap (lifted from v2 .p5-active.smearing) */
-.demo-smear .dot  { animation: smear 1.8s var(--ease-swing) infinite; }
-
-/* flash — standalone tile fire (lifted from v2 @keyframes tileFire) */
-.demo-flash-tile .dot {
-  background: var(--tomato);
-  animation: flash 1.6s var(--ease-stab) infinite;
+.demo-lift .mo-tile {
+  animation: lift var(--dur-scene) var(--ease-stab) both;
 }
-.demo-flash-tile .ring-el {
-  position: absolute;
-  inset: 14px;
-  border: 2px solid var(--tomato);
-  border-radius: 0;
-  opacity: 0;
+.demo-smear .mo-tile {
+  animation: smear var(--dur-panel) var(--ease-swing) both;
 }
 
-/* paper-rip-flash — composed: lift + flash + flash-ring layered */
-.demo-paper-rip-flash .dot {
-  background: var(--tomato);
-  animation: flash 1.6s var(--ease-stab) infinite, lift 1.6s var(--ease-stab) infinite;
-}
-.demo-paper-rip-flash .ring-el {
-  position: absolute;
-  inset: 14px;
-  border: 2px solid var(--tomato);
-  border-radius: 0;
-  animation: flash-ring 1.6s var(--ease-brush) infinite;
-}
-
-/* GROUP C — FEEDBACK */
-.demo-ring .ring-el {
-  position: absolute;
-  inset: 14px;
-  border: 2px solid var(--tomato);
-  animation: ring 2s var(--ease-brush) infinite;
-}
-/* GROUP D — ease-run track for keyframes card (reuse shared @keyframes) */
-.kf-ease-track {
-  position: absolute;
-  left: 6px; right: 6px;
-  height: 8px;
-  bottom: 16px;
-  background: var(--ink-3);
-  border: 1px solid var(--ink-5);
-}
-.kf-ease-track .e-dot {
+.ring-el {
   position: absolute;
   top: 50%;
-  width: 8px; height: 8px;
-  background: var(--ivory);
-  transform: translateY(-50%);
+  left: 50%;
+  width: 46px;
+  height: 46px;
+  margin: -23px 0 0 -23px;
+  border: 2px solid var(--tomato);
+  box-sizing: border-box;
+  opacity: 0;
 }
-.kf-ease-track .e-dot.swing   { animation: ease-run 2.2s var(--ease-swing)   infinite; }
-.kf-ease-track .e-dot.stab    { animation: ease-run 1.6s var(--ease-stab)    infinite; }
-.kf-ease-track .e-dot.brush   { animation: ease-run 2.0s var(--ease-brush)   infinite; }
-.kf-ease-track .e-dot.sustain { animation: ease-run 2.4s var(--ease-sustain) infinite; }
-.kf-ease-track .e-dot.bend    { animation: ease-run 2.0s var(--ease-bend)    infinite; }
-
-.kf-ease-name-big {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 14px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--ivory-2);
-  line-height: 1;
+.demo-ring .ring-el {
+  animation: ring var(--dur-scene) var(--ease-brush) both;
+}
+.demo-flash-tile .mo-tile {
+  animation: flash var(--dur-panel) var(--ease-stab) both;
+}
+.demo-flash-ring .ring-el {
+  border-color: var(--mustard);
+  animation: flash-ring var(--dur-ui) var(--ease-stab) both;
+}
+.demo-paper-rip-flash .mo-tile {
+  animation:
+    flash var(--dur-panel) var(--ease-stab) both,
+    lift var(--dur-panel) var(--ease-stab) both;
+}
+.demo-paper-rip-flash .ring-el {
+  animation: flash-ring var(--dur-ui) var(--ease-stab) both;
 }
 
-/* GROUP E — BRASS */
+/* brass-sheen: brass is the subject here, so the brass finish is allowed */
 .demo-shimmer .brass-bar {
   position: absolute;
-  inset: 12px;
+  inset: 22px 18px;
   background: var(--brass-fill);
   overflow: hidden;
   isolation: isolate;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.55),
-    inset 0 -1px 0 rgba(0,0,0,.45);
+  clip-path: var(--clip-offcut);
 }
 .demo-shimmer .brass-bar::after {
   content: "";
@@ -728,8 +597,15 @@
   animation: brass-sheen 6.5s cubic-bezier(.55,.05,.45,.95) infinite;
 }
 
+.mo-outro {
+  max-width: 72ch;
+  margin: var(--s-9) 0 0;
+  line-height: 1.55;
+}
+
 /* ─── Reduced motion ─────────────────────────────────────────────
-   The guide becomes fully still; UIBeat keeps logical phase only. */
+   The guide becomes fully still; UIBeat keeps logical phase only.
+   Every demo rests on its end state. */
 @media (prefers-reduced-motion: reduce) {
   .preview-port--token-motion *,
   .preview-port--token-motion *::before,
@@ -739,5 +615,6 @@
   }
 
   .demo-rip-mode .cf-label--out { display: none; }
+  .demo-rip-mode .cf-label--in  { opacity: 1; }
 }
 </style>

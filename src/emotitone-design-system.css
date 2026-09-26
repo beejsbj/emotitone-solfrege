@@ -133,7 +133,7 @@
     radial-gradient(110% 60% at 50% 0%, rgba(255,255,255,.12), transparent 55%),
     linear-gradient(180deg, transparent 65%, rgba(0,0,0,.1) 100%);
 
-  /* Cut-paper clip tokens — mirrored from token-geometry.html. */
+  /* Cut-paper clip tokens. */
   --clip-offcut: polygon(2% 6%, 96% 0%, 100% 8%, 98% 94%, 4% 100%, 0% 90%);
   --clip-tile: polygon(3% 1%, 98% 2%, 100% 98%, 1% 99%);
   --clip-tab: polygon(2% 0, 100% 4%, 98% 100%, 0 96%);
@@ -197,7 +197,7 @@
   --keyboard-pill-shadow-2: inset 1px -2px 0 rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.18);
   --keyboard-pill-shadow-3: inset -1px -2px 0 rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.18);
 
-  /* Cut-paper tilt tokens — mirrored from token-geometry.html. */
+  /* Cut-paper tilt tokens. */
   --rot-tile-1: 0.2deg;
   --rot-tile-2: -0.3deg;
   --rot-tile-3: 0.5deg;

@@ -1,5 +1,5 @@
 <template>
-  <main class="stage-page" :class="{ 'stage-page--focused': focused }">
+  <main class="stage-page focused-page guide-paper--cobalt" :class="{ 'stage-page--focused': focused }">
     <StageSpecimenCanvas
       ref="stageCanvas"
       :signal="effectiveSignal"
@@ -8,23 +8,24 @@
       :show-labels="showLabels"
     />
 
-    <button class="stage-page__focus" type="button" :aria-pressed="focused" @click="focused = !focused">
+    <button class="stage-page__focus guide-chip" type="button" :aria-pressed="focused" @click="focused = !focused">
       {{ focused ? "Show controls" : "Focus Stage" }}
     </button>
 
-    <header class="stage-page__header">
-      <p class="stage-page__eyebrow">Stage · real isolated specimen</p>
-      <h1>One body.<br /> One orbit.</h1>
-      <p>
-        The production Stage source, driven through ephemeral configuration, a silent synthetic
-        waveform, and controlled envelope values. Hilbert owns raw waveform form; exact pitch selects Strings; Blobs support
-        the usable centre; Ambient breathes below them.
-      </p>
-    </header>
+    <div class="stage-page__header">
+      <FocusedPoster layer="compositions" unit-id="stage" kicker="Stage · real isolated specimen" title="Stage" compact>
+        <p class="stage-page__motto">One body. One orbit.</p>
+        <p>
+          The production Stage source, driven through ephemeral configuration, a silent synthetic
+          waveform, and controlled envelope values. Hilbert owns raw waveform form; exact pitch
+          selects Strings; Blobs support the usable centre; Ambient breathes below them.
+        </p>
+      </FocusedPoster>
+    </div>
 
-    <section class="stage-page__controls" aria-label="Stage specimen controls">
+    <section class="stage-page__controls focused-sheet" aria-label="Stage specimen controls">
       <button
-        class="stage-page__start"
+        class="stage-page__start guide-chip"
         type="button"
         :disabled="audioState === 'starting' || audioState === 'started'"
         @click="startSignal"
@@ -37,6 +38,7 @@
         <button
           v-for="option in signalOptions"
           :key="option.value"
+          class="guide-chip"
           type="button"
           :aria-pressed="signal === option.value"
           @click="selectSignal(option.value)"
@@ -50,6 +52,7 @@
         <button
           v-for="option in relationshipOptions"
           :key="option"
+          class="guide-chip"
           type="button"
           :aria-pressed="relationship === option"
           @click="relationship = option"
@@ -58,11 +61,11 @@
         </button>
       </fieldset>
 
-      <button type="button" :aria-pressed="showLabels" @click="showLabels = !showLabels">
+      <button class="guide-chip" type="button" :aria-pressed="showLabels" @click="showLabels = !showLabels">
         Labels {{ showLabels ? "on" : "off" }}
       </button>
       <button
-        class="stage-page__master"
+        class="stage-page__master guide-chip"
         type="button"
         :aria-pressed="stageEnabled"
         @click="stageEnabled = !stageEnabled"
@@ -90,7 +93,7 @@
         >
           <span>Boundary fixture</span>
           <small>generic painted-part geometry</small>
-          <button type="button" @click="toggleBoundary">
+          <button class="guide-chip" type="button" @click="toggleBoundary">
             {{ boundaryReveal ? "Collapse" : "Reveal" }}
           </button>
         </div>
@@ -103,6 +106,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from "vue";
 import StageSpecimenCanvas from "./stage/StageSpecimenCanvas.vue";
+import FocusedPoster from "./focused/FocusedPoster.vue";
+import "./focused/focused-page.css";
 import type { StageSpecimenSignal } from "./stage/stageSpecimenAudio";
 import type { HarmonicGeometryMode } from "@/types/visual";
 
@@ -208,28 +213,13 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.stage-page__focus {
-  position: fixed;
-  top: 8px;
-  right: 8px;
-  z-index: 3;
-  background: var(--ink);
-  color: var(--ivory);
-  padding: 8px 12px;
-  font: var(--t-label);
-}
-.stage-page--focused .stage-page__header,
-.stage-page--focused .stage-page__controls,
-.stage-page--focused .stage-page__reading {
-  visibility: hidden;
-}
 .stage-page {
   min-height: 100vh;
   overflow: hidden;
-  background: var(--ink);
-  color: var(--ivory);
 }
 
+/* The live Stage canvas is fixed behind everything; the poster, controls,
+   and reading float above it. Focus hides them so Stage fills the view. */
 .stage-page__header,
 .stage-page__controls,
 .stage-page__reading {
@@ -237,52 +227,42 @@ onBeforeUnmount(() => {
   z-index: 2;
 }
 
-.stage-page__header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 38rem);
-  gap: var(--s-4) var(--s-8);
-  align-items: end;
-  width: min(100% - 40px, 1120px);
-  margin-inline: auto;
-  padding-top: clamp(24px, 6vh, 64px);
-  pointer-events: none;
+.stage-page--focused .stage-page__header,
+.stage-page--focused .stage-page__controls,
+.stage-page--focused .stage-page__reading {
+  visibility: hidden;
 }
 
-.stage-page__eyebrow {
-  grid-column: 1 / -1;
-  margin: 0;
-  color: var(--brass);
-  font: var(--t-label);
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
+.stage-page__focus {
+  position: fixed;
+  top: calc(var(--guide-masthead-height, 56px) + var(--s-4));
+  right: var(--s-4);
+  z-index: 3;
+  background: var(--ivory);
+  color: var(--ink);
 }
 
-.stage-page h1 {
-  margin: 0;
-  font: var(--t-display-xl);
+.stage-page__motto {
+  margin-bottom: var(--s-6) !important;
+  font: 700 clamp(24px, 4vw, 36px)/1.15 var(--font-display);
   letter-spacing: var(--tracking-display);
   text-transform: uppercase;
-}
-
-.stage-page__header > p:last-child {
-  margin: 0;
-  color: var(--ivory-2);
-  font: var(--t-body-mono);
-  line-height: 1.55;
 }
 
 .stage-page__controls {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--s-3);
+  gap: var(--s-6) var(--s-5);
   align-items: end;
-  width: min(100% - 40px, 1120px);
-  margin: clamp(18px, 4vh, 38px) auto 0;
+  width: min(100% - 32px, 1240px);
+  box-sizing: border-box;
+  margin: var(--s-8) auto 0;
 }
 
 .stage-page fieldset {
   display: flex;
-  gap: 2px;
+  flex-wrap: wrap;
+  gap: var(--s-3);
   min-width: 0;
   margin: 0;
   padding: 0;
@@ -291,55 +271,42 @@ onBeforeUnmount(() => {
 
 .stage-page legend {
   width: 100%;
-  margin-bottom: 5px;
-  color: var(--ivory-3);
-  font: var(--t-label);
-  letter-spacing: .12em;
+  margin-bottom: var(--s-4);
+  padding: 0;
+  color: var(--ivory);
+  font: 700 18px/1 var(--font-display);
+  letter-spacing: var(--tracking-display);
   text-transform: uppercase;
 }
 
-.stage-page button {
-  min-height: 36px;
-  border: 1px solid var(--ink-5);
-  padding: 8px 12px;
-  background: color-mix(in srgb, var(--ink-2) 92%, transparent);
-  color: var(--ivory-2);
-  font: var(--t-label);
-  cursor: pointer;
-}
-
 .stage-page .stage-page__start {
-  border-color: var(--brass);
-}
-
-.stage-page button:disabled {
-  cursor: default;
-  opacity: .72;
-}
-
-.stage-page button[aria-pressed="true"],
-.stage-page button:hover {
-  border-color: var(--brass);
-  background: var(--ivory);
-  color: var(--ink);
+  background: var(--guide-paper);
+  color: var(--guide-paper-ink);
 }
 
 .stage-page__reading {
   display: grid;
-  gap: 4px;
-  width: min(100% - 40px, 1120px);
-  margin: clamp(18px, 4vh, 40px) auto 0;
+  gap: var(--s-3);
+  width: min(100% - 32px, 1240px);
+  margin: var(--s-8) auto 0;
   pointer-events: none;
 }
 
 .stage-page__reading strong {
+  justify-self: start;
+  padding: 6px 12px 4px;
+  background: var(--ink);
   color: var(--ivory);
-  font: var(--t-body-mono);
+  clip-path: var(--clip-tab);
+  font: 700 22px/1 var(--font-display);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+  transform: rotate(var(--rot-sticker));
 }
 
 .stage-page__reading span {
   max-width: 68ch;
-  color: var(--ivory-3);
+  color: var(--ivory-2);
   font: var(--t-body-s-mono);
 }
 
@@ -350,13 +317,14 @@ onBeforeUnmount(() => {
   height: 112px;
 }
 
+/* Host occlusion fixture: a filled Ink-2 edge; its sliding part is Ink-3
+   paper with a layer-paper tab. Geometry is load-bearing for Stage layout. */
 .stage-page__boundary {
   position: absolute;
   inset: 0;
   box-sizing: border-box;
   padding: 16px 20px;
   background: var(--ink-2);
-  border-top: 1px solid var(--ink-5);
 }
 
 .stage-page__boundary-part {
@@ -370,57 +338,54 @@ onBeforeUnmount(() => {
   box-sizing: border-box;
   padding: 0 12px 0 16px;
   background: var(--ink-3);
-  border-left: 4px solid var(--brass);
-  transition: transform 220ms var(--ease-brush);
+  transition: transform var(--dur-ui) var(--ease-brush);
 }
 
-.stage-page__boundary-part span,
-.stage-page__boundary-part small,
-.stage-page__boundary p {
-  font-family: var(--font-mono);
+.stage-page__boundary-part::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 0;
+  width: 6px;
+  background: var(--guide-paper);
+  clip-path: var(--clip-tab);
 }
 
 .stage-page__boundary-part span {
   color: var(--ivory);
-  font-size: 11px;
-  font-weight: 700;
+  font: 700 18px/1 var(--font-display);
+  letter-spacing: var(--tracking-display);
   text-transform: uppercase;
 }
 
 .stage-page__boundary-part small {
   color: var(--ivory-3);
+  font: var(--t-caption);
 }
 
-.stage-page__boundary-part button {
+.stage-page__boundary-part .guide-chip {
+  background: var(--ink);
   min-height: 30px;
-  padding-block: 5px;
+  padding-block: 5px 3px;
 }
 
 .stage-page__boundary > p {
-  margin: 48px 0 0;
+  margin: 44px 0 0;
   color: var(--ivory-3);
-  font-size: 10px;
+  font: var(--t-caption);
 }
 
 @media (max-width: 640px) {
-  .stage-page__header {
-    display: block;
-    width: calc(100% - 24px);
-    padding-top: 18px;
-  }
-
-  .stage-page__eyebrow { margin-bottom: 8px; }
-  .stage-page h1 { font: var(--t-display-m); }
-  .stage-page h1 br { display: none; }
-  .stage-page__header > p:last-child { display: none; }
-  .stage-page__controls { width: calc(100% - 24px); margin-top: 14px; gap: 8px; }
+  .stage-page__header :deep(.focused-poster__blurb p:last-child) { display: none; }
+  .stage-page__controls { width: calc(100% - 24px); gap: var(--s-5); }
   .stage-page__start { width: 100%; }
   .stage-page fieldset { width: 100%; }
-  .stage-page fieldset button { flex: 1; padding-inline: 6px; }
+  .stage-page fieldset .guide-chip { flex: 1; padding-inline: 6px; }
   .stage-page__master { width: 100%; }
-  .stage-page__reading { width: calc(100% - 24px); margin-top: 14px; }
+  .stage-page__reading { width: calc(100% - 24px); }
   .stage-page__boundary { padding-inline: 12px; }
-  .stage-page__boundary-part { grid-template-columns: minmax(0, 1fr) auto; padding-inline: 8px; }
+  .stage-page__boundary-part { grid-template-columns: minmax(0, 1fr) auto; padding-inline: 12px 8px; }
   .stage-page__boundary-part small { display: none; }
 }
 

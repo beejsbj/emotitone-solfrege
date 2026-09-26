@@ -63,7 +63,7 @@
       <div class="ui-beat-system__group">
         <h3 class="label">Tempo</h3>
         <div class="ui-beat-system__chips">
-          <button
+          <button class="guide-chip"
             v-for="tempo in tempos"
             :key="tempo"
             type="button"
@@ -77,7 +77,7 @@
       <div class="ui-beat-system__group">
         <h3 class="label">Meter</h3>
         <div class="ui-beat-system__chips">
-          <button
+          <button class="guide-chip"
             v-for="choice in meters"
             :key="choice.label"
             type="button"
@@ -297,34 +297,6 @@ onBeforeUnmount(() => {
   gap: var(--s-3);
 }
 
-/* Fixture switches: cut-paper tabs, the layer's paper when chosen. */
-.ui-beat-system__chips button {
-  min-height: 40px;
-  padding: 8px 14px 6px;
-  border: 0;
-  background: var(--ink-4);
-  color: var(--ivory-2);
-  font: 700 16px/1 var(--font-display);
-  letter-spacing: var(--tracking-display);
-  text-transform: uppercase;
-  clip-path: var(--clip-tab);
-  cursor: pointer;
-  transition:
-    background-color var(--dur-ui) var(--ease-brush),
-    color var(--dur-ui) var(--ease-brush);
-}
-
-.ui-beat-system__chips button[aria-pressed="true"] {
-  background: var(--guide-paper, var(--ivory));
-  color: var(--guide-paper-ink, var(--ink));
-  transform: rotate(var(--rot-tile-2));
-}
-
-.ui-beat-system__chips button:focus-visible {
-  outline: 2px solid var(--ivory);
-  outline-offset: 2px;
-}
-
 .ui-beat-system__contract {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
@@ -350,7 +322,4 @@ onBeforeUnmount(() => {
   font: var(--t-body-s-mono);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .ui-beat-system__chips button { transition: none; }
-}
 </style>

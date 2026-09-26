@@ -8,7 +8,7 @@
       :show-labels="showLabels"
     />
 
-    <button class="stage-page__focus focused-chip" type="button" :aria-pressed="focused" @click="focused = !focused">
+    <button class="stage-page__focus guide-chip" type="button" :aria-pressed="focused" @click="focused = !focused">
       {{ focused ? "Show controls" : "Focus Stage" }}
     </button>
 
@@ -25,7 +25,7 @@
 
     <section class="stage-page__controls focused-sheet" aria-label="Stage specimen controls">
       <button
-        class="stage-page__start focused-chip"
+        class="stage-page__start guide-chip"
         type="button"
         :disabled="audioState === 'starting' || audioState === 'started'"
         @click="startSignal"
@@ -38,7 +38,7 @@
         <button
           v-for="option in signalOptions"
           :key="option.value"
-          class="focused-chip"
+          class="guide-chip"
           type="button"
           :aria-pressed="signal === option.value"
           @click="selectSignal(option.value)"
@@ -52,7 +52,7 @@
         <button
           v-for="option in relationshipOptions"
           :key="option"
-          class="focused-chip"
+          class="guide-chip"
           type="button"
           :aria-pressed="relationship === option"
           @click="relationship = option"
@@ -61,11 +61,11 @@
         </button>
       </fieldset>
 
-      <button class="focused-chip" type="button" :aria-pressed="showLabels" @click="showLabels = !showLabels">
+      <button class="guide-chip" type="button" :aria-pressed="showLabels" @click="showLabels = !showLabels">
         Labels {{ showLabels ? "on" : "off" }}
       </button>
       <button
-        class="stage-page__master focused-chip"
+        class="stage-page__master guide-chip"
         type="button"
         :aria-pressed="stageEnabled"
         @click="stageEnabled = !stageEnabled"
@@ -93,7 +93,7 @@
         >
           <span>Boundary fixture</span>
           <small>generic painted-part geometry</small>
-          <button class="focused-chip" type="button" @click="toggleBoundary">
+          <button class="guide-chip" type="button" @click="toggleBoundary">
             {{ boundaryReveal ? "Collapse" : "Reveal" }}
           </button>
         </div>
@@ -364,7 +364,7 @@ onBeforeUnmount(() => {
   font: var(--t-caption);
 }
 
-.stage-page__boundary-part .focused-chip {
+.stage-page__boundary-part .guide-chip {
   background: var(--ink);
   min-height: 30px;
   padding-block: 5px 3px;
@@ -381,7 +381,7 @@ onBeforeUnmount(() => {
   .stage-page__controls { width: calc(100% - 24px); gap: var(--s-5); }
   .stage-page__start { width: 100%; }
   .stage-page fieldset { width: 100%; }
-  .stage-page fieldset .focused-chip { flex: 1; padding-inline: 6px; }
+  .stage-page fieldset .guide-chip { flex: 1; padding-inline: 6px; }
   .stage-page__master { width: 100%; }
   .stage-page__reading { width: calc(100% - 24px); }
   .stage-page__boundary { padding-inline: 12px; }

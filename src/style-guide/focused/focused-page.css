@@ -139,34 +139,6 @@
 
 .focused-page .label { margin: 0; }
 
-/* Guide-only control chips (specimen workbench buttons). Filled cut paper,
-   pressed state flips to the layer paper. */
-.focused-chip {
-  min-height: 40px;
-  padding: 8px 14px 6px;
-  border: 0;
-  border-radius: 0;
-  background: var(--ink-3);
-  color: var(--ivory-2);
-  clip-path: var(--clip-tab);
-  font: 700 17px/1.1 var(--font-display);
-  letter-spacing: var(--tracking-display);
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: background-color var(--dur-tap) var(--ease-stab), color var(--dur-tap) var(--ease-stab), transform var(--dur-ui) var(--ease-swing);
-}
-
-.focused-chip:hover,
-.focused-chip:focus-visible { background: var(--ink-4); color: var(--ivory); }
-
-.focused-chip[aria-pressed="true"] {
-  background: var(--ivory);
-  color: var(--ink);
-  transform: rotate(var(--rot-tile-4));
-}
-
-.focused-chip:disabled { cursor: default; opacity: .72; }
-
 @media (max-width: 760px) {
   .focused-page__body { gap: var(--s-8); padding: var(--s-8) var(--s-4) 0; }
   .focused-sheet { padding: var(--s-7) var(--s-5); }
@@ -174,6 +146,3 @@
   .focused-slip { padding: var(--s-7) var(--s-6) var(--s-8); }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .focused-chip { transition: none; }
-}

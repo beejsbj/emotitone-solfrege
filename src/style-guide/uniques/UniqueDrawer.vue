@@ -60,7 +60,7 @@ const tokens: CodeStripToken[] = [
       <div class="drawer-specimen__field" role="group" aria-label="Host width">
         <h3 class="label">Host width</h3>
         <div class="drawer-specimen__chips">
-          <button
+          <button class="guide-chip"
             v-for="option in hostWidths" :key="option.value" type="button"
             :aria-pressed="width === option.value" @click="width = option.value"
           >{{ option.label }}</button>
@@ -73,7 +73,7 @@ const tokens: CodeStripToken[] = [
       <div class="drawer-specimen__field" role="group" aria-label="MIDI status">
         <h3 class="label">MIDI status</h3>
         <div class="drawer-specimen__chips">
-          <button
+          <button class="guide-chip"
             v-for="state in midiStates" :key="state" type="button"
             :aria-pressed="midiState === state" @click="midiState = state"
           >{{ state }}</button>
@@ -184,29 +184,6 @@ const tokens: CodeStripToken[] = [
   gap: var(--s-3);
 }
 
-/* Fixture switches: cut-paper tabs; the layer's paper when chosen. */
-.drawer-specimen__chips button {
-  min-height: 40px;
-  padding: 8px 14px 6px;
-  border: 0;
-  background: var(--ink-4);
-  color: var(--ivory-2);
-  font: 700 16px/1 var(--font-display);
-  letter-spacing: var(--tracking-display);
-  text-transform: uppercase;
-  clip-path: var(--clip-tab);
-  cursor: pointer;
-  transition:
-    background-color var(--dur-ui) var(--ease-brush),
-    color var(--dur-ui) var(--ease-brush);
-}
-
-.drawer-specimen__chips button[aria-pressed="true"] {
-  background: var(--guide-paper, var(--ivory));
-  color: var(--guide-paper-ink, var(--ink));
-  transform: rotate(var(--rot-tile-2));
-}
-
 .drawer-specimen__input {
   width: min(100%, 220px);
   min-height: 40px;
@@ -215,13 +192,6 @@ const tokens: CodeStripToken[] = [
   background: var(--ink);
   color: var(--ivory);
   font: var(--t-body-mono);
-}
-
-.drawer-specimen__chips button:focus-visible,
-.drawer-specimen__input:focus-visible,
-.drawer-specimen__canvas-action:focus-visible {
-  outline: 2px solid var(--ivory);
-  outline-offset: 2px;
 }
 
 /* Fixed host widths wider than the sheet scroll inside this well only. */
@@ -309,7 +279,4 @@ const tokens: CodeStripToken[] = [
   color: var(--ivory-3);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .drawer-specimen__chips button { transition: none; }
-}
 </style>

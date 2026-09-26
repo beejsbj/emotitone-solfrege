@@ -19,11 +19,11 @@
 
     <section class="performance-deck-page__workbench focused-sheet" aria-label="Specimen workbench">
       <div class="performance-deck-page__controls" aria-label="Specimen controls">
-        <button class="focused-chip" type="button" @click="drawerOpen = !drawerOpen">
+        <button class="guide-chip" type="button" @click="drawerOpen = !drawerOpen">
           {{ drawerOpen ? "Close deck" : "Open deck" }}
         </button>
-        <button class="focused-chip" type="button" @click="resetCode">Restore code</button>
-        <button class="focused-chip" type="button" @click="warming = !warming">
+        <button class="guide-chip" type="button" @click="resetCode">Restore code</button>
+        <button class="guide-chip" type="button" @click="warming = !warming">
           {{ warming ? "End warmup" : "Preview warmup" }}
         </button>
         <label>

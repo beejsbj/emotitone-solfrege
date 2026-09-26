@@ -110,3 +110,43 @@ body.style-guide-route {
   accent-color: var(--guide-paper, var(--brass));
 }
 
+
+/* The guide's one control chip: filled cut paper for specimen fixtures and
+   workbench toggles. Pressed takes the layer paper, like the masthead. */
+.style-guide-route .guide-chip {
+  min-height: 40px;
+  padding: 8px 14px 6px;
+  border: 0;
+  border-radius: 0;
+  background: var(--ink-3);
+  color: var(--ivory-2);
+  clip-path: var(--clip-tab);
+  font: 700 17px/1.1 var(--font-display);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color var(--dur-tap) var(--ease-stab), color var(--dur-tap) var(--ease-stab), transform var(--dur-ui) var(--ease-swing);
+}
+
+.style-guide-route .guide-chip:hover,
+.style-guide-route .guide-chip:focus-visible {
+  background: var(--ink-4);
+  color: var(--ivory);
+}
+
+.style-guide-route .guide-chip:focus-visible {
+  outline: 2px solid var(--guide-paper-text, var(--ivory));
+  outline-offset: 2px;
+}
+
+.style-guide-route .guide-chip[aria-pressed="true"] {
+  background: var(--guide-paper, var(--ivory));
+  color: var(--guide-paper-ink, var(--ink));
+  transform: rotate(var(--rot-tile-4));
+}
+
+.style-guide-route .guide-chip:disabled { cursor: default; opacity: .72; }
+
+@media (prefers-reduced-motion: reduce) {
+  .style-guide-route .guide-chip { transition: none; }
+}

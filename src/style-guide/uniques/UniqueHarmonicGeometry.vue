@@ -9,7 +9,7 @@
     <div class="harmonic-specimen__toggles" role="group" aria-label="Specimen layers">
       <button
         type="button"
-        class="harmonic-specimen__toggle"
+        class="guide-chip"
         :aria-pressed="showLabels"
         @click="showLabels = !showLabels"
       >
@@ -17,7 +17,7 @@
       </button>
       <button
         type="button"
-        class="harmonic-specimen__toggle"
+        class="guide-chip"
         :aria-pressed="fullyFused"
         @click="fullyFused = !fullyFused"
       >
@@ -336,34 +336,6 @@ onBeforeUnmount(() => {
   gap: var(--s-3) var(--s-4);
 }
 
-/* Layer toggles: cut-paper tabs; the layer's paper when on. */
-.harmonic-specimen__toggle {
-  min-height: 40px;
-  padding: 8px 14px 6px;
-  border: 0;
-  background: var(--ink-4);
-  color: var(--ivory-2);
-  font: 700 16px/1 var(--font-display);
-  letter-spacing: var(--tracking-display);
-  text-transform: uppercase;
-  clip-path: var(--clip-tab);
-  cursor: pointer;
-  transition:
-    background-color var(--dur-ui) var(--ease-brush),
-    color var(--dur-ui) var(--ease-brush);
-}
-
-.harmonic-specimen__toggle[aria-pressed="true"] {
-  background: var(--guide-paper, var(--ivory));
-  color: var(--guide-paper-ink, var(--ink));
-  transform: rotate(var(--rot-tile-2));
-}
-
-.harmonic-specimen__toggle:focus-visible {
-  outline: 2px solid var(--ivory);
-  outline-offset: 2px;
-}
-
 .harmonic-specimen__grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
@@ -398,7 +370,4 @@ onBeforeUnmount(() => {
   text-transform: uppercase;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .harmonic-specimen__toggle { transition: none; }
-}
 </style>

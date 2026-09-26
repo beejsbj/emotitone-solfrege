@@ -135,10 +135,14 @@ describe("Beat Indicator ring", () => {
     expect(wrapper.get(".beat-indicator").attributes("data-ui-beat-state")).toBe("running");
     expect(cells[0].attributes("style")).toContain("opacity: 0.2;");
     expect(cells[1].attributes("style")).toContain("scale(1.000)");
-    expect(cells[1].attributes("style")).toContain("opacity: 0.200");
+    expect(cells[1].attributes("style")).toContain("opacity: 1");
 
     clock.publish(generation, { rawPosition: 0.285, barPosition: 0.285 });
     expect(cells[1].attributes("style")).toContain("scale(1.120)");
+    expect(cells[1].attributes("style")).toContain("opacity: 1");
+
+    // The settling tail keeps the active material opaque instead of muddying it.
+    clock.publish(generation, { rawPosition: 0.49, barPosition: 0.49 });
     expect(cells[1].attributes("style")).toContain("opacity: 1");
 
     clock.publish(generation, { rawPosition: 0.035, barPosition: 0.035 });

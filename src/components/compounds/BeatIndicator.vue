@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   computed,
+  getCurrentInstance,
   nextTick,
   onBeforeUnmount,
   onMounted,
@@ -36,6 +37,7 @@ const props = withDefaults(
  * ring scales with whatever control it wraps. Segment 1 is centred at twelve
  * o'clock and the bar reads clockwise.
  */
+const brassGradientId = `beat-brass-${getCurrentInstance()!.uid}`;
 const STROKE = 8;
 const TRACK_STROKE = 2;
 const RADIUS = 50 - STROKE / 2;
@@ -125,10 +127,10 @@ function applyFrame(snapshot: UIBeatSnapshot) {
     }
 
     // The lit segment kicks outward from the ring's centre, away from the
-    // wrapped control, and brightens on the shared UIBeat contour.
+    // wrapped control, on the shared UIBeat contour; its material stays fully opaque.
     const peakScale = isDownbeat(index) ? DOWNBEAT_PEAK_SCALE : PEAK_SCALE;
     const scale = 1 + (peakScale - 1) * swell;
-    element.style.opacity = (DIM_OPACITY + swell * (1 - DIM_OPACITY)).toFixed(3);
+    element.style.opacity = "1";
     element.style.transform = `scale(${scale.toFixed(3)})`;
   });
 }
@@ -189,6 +191,17 @@ onBeforeUnmount(() => unsubscribe?.());
       role="img"
       :aria-label="ariaLabel"
     >
+      <defs>
+        <linearGradient :id="brassGradientId" x1="32.9%" y1="3%" x2="67.1%" y2="97%">
+          <stop offset="0%" stop-color="var(--brass-fill-recess)" />
+          <stop offset="22%" stop-color="var(--brass-fill-body)" />
+          <stop offset="42%" stop-color="var(--brass-fill-rise)" />
+          <stop offset="50%" stop-color="var(--brass-hi)" />
+          <stop offset="60%" stop-color="var(--brass-fill-fall)" />
+          <stop offset="82%" stop-color="var(--brass-fill-recess)" />
+          <stop offset="100%" stop-color="var(--brass-fill-end)" />
+        </linearGradient>
+      </defs>
       <circle
         class="beat-indicator__track"
         cx="50"
@@ -201,6 +214,7 @@ onBeforeUnmount(() => unsubscribe?.());
         :key="index"
         class="beat-indicator__beat"
         :class="{ 'beat-indicator__beat--downbeat': isDownbeat(index) }"
+        :style="isDownbeat(index) ? { stroke: `url(#${brassGradientId})` } : undefined"
         :d="d"
         :stroke-width="STROKE"
         :data-beat="index + 1"
@@ -277,8 +291,7 @@ onBeforeUnmount(() => unsubscribe?.());
 
 .beat-indicator:not([data-ui-beat-state="running"]) .beat-indicator__beat {
   transition:
-    transform var(--dur-ui) var(--ease-brush),
-    opacity var(--dur-ui) var(--ease-brush);
+    transform var(--dur-ui) var(--ease-brush);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -302,6 +315,7 @@ onBeforeUnmount(() => unsubscribe?.());
   .beat-indicator__track,
   .beat-indicator__beat {
     color: CanvasText;
+    stroke: currentColor !important;
     filter: none;
   }
 

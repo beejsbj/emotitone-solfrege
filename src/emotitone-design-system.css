@@ -51,15 +51,21 @@
   --brass-hi:   #f5d278;     /* warm highlight */
   --brass-lo:   #c89230;     /* deep recess */
   --brass-edge: #2a1c08;     /* engraved edge text */
+  /* Shared stops for CSS metal surfaces and SVG instrument strokes. */
+  --brass-fill-recess: #d6a03e;
+  --brass-fill-body: #e0aa42;
+  --brass-fill-rise: #efbf50;
+  --brass-fill-fall: #ebb947;
+  --brass-fill-end: #e3ac42;
   --brass-fill:
       linear-gradient(160deg,
-        #d6a03e 0%,
-        #e0aa42 22%,
-        #efbf50 42%,
-        #f5d278 50%,
-        #ebb947 60%,
-        #d6a03e 82%,
-        #e3ac42 100%);
+        var(--brass-fill-recess) 0%,
+        var(--brass-fill-body) 22%,
+        var(--brass-fill-rise) 42%,
+        var(--brass-hi) 50%,
+        var(--brass-fill-fall) 60%,
+        var(--brass-fill-recess) 82%,
+        var(--brass-fill-end) 100%);
   --brass-sheen:
       linear-gradient(110deg,
         transparent 0%,

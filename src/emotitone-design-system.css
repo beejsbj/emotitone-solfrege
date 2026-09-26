@@ -32,17 +32,20 @@
      RULE: --ink and --ivory are the workhorses — reach for them first.
      The shaded steps (--ink-2…5, --ivory-2…4) are surface and meta;
      use them surgically. The dark stage earns its high contrast by
-     keeping the gray midtones rare, not by adding more of them. */
+     keeping the gray midtones rare, not by adding more of them.
+     --ink-2…4 step evenly in OKLCH lightness (0.184 / 0.216 / 0.251);
+     --ink-5 is a wire, not a surface, and sits a deliberately larger
+     step above. */
   --ink:        #0A0908;     /* deepest stage black */
   --ink-2:      #141210;     /* surface 1 — rise */
-  --ink-3:      #1B1815;     /* panel body */
+  --ink-3:      #1C1916;     /* panel body */
   --ink-4:      #25211D;     /* hovered / pressed */
   --ink-5:      #3A352F;     /* wire / divider */
 
   /* Ivory (light text on dark) — same rule as ink: --ivory does the work. */
   --ivory:      #F4EFE6;     /* primary text */
   --ivory-2:    #C9C2B5;     /* secondary text */
-  --ivory-3:    #8E867A;     /* meta / muted */
+  --ivory-3:    #8F877B;     /* meta / muted — keeps 4.5:1 on --ink through --ink-4 */
   --ivory-4:    #514B42;     /* disabled / decorative */
 
   /* Brass — instrument metal, always coupled with ink and ivory.
@@ -220,7 +223,7 @@
   --ease-bend:    cubic-bezier(.85, 0, .15, 1);     /* pitch, mode change */
   --ease-bounce:  linear(0 0%, .646 5%, 1.25 10%, 1.354 15%, 1.125 20%, .912 25%, .875 30%, .956 35%, 1.031 40%, 1.044 45%, 1.016 50%, .989 55%, .984 60%, .994 65%, 1.004 70%, 1.006 75%, 1.002 80%, .999 85%, .998 90%, .999 95%, 1 100%); /* elastic rebound · tactile controls and drag feedback */
 
-  /* Named durations — short labels for the four gestures. */
+  /* Named durations — four gesture lengths plus the tactile rebound. */
   --dur-tap:    90ms;     /* instant ack — press, ripple */
   --dur-ui:    220ms;     /* tab swap, chip select */
   --dur-panel: 360ms;     /* drawer in/out, mode change */
@@ -382,6 +385,11 @@
   z-index: 1;
 }
 .brass > * { position: relative; z-index: 2; }
+/* Component owners (Button, Sticker, Joystick) already stop their sheens
+   under Reduced Motion; the shared utility honours the same preference. */
+@media (prefers-reduced-motion: reduce) {
+  .brass::after { animation: none; }
+}
 @keyframes brass-sheen {
   0%   { background-position: -60% 0; }
   55%  { background-position: 160% 0; }

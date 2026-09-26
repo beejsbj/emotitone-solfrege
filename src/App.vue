@@ -23,6 +23,7 @@ const styleGuidePages = {
   "/style-guide/pattern-reel": "pattern-reel",
   "/style-guide/stage": "stage",
   "/style-guide/performance-deck": "performance-deck",
+  "/style-guide/lab": "lab",
 } as const;
 const isStyleGuideRoute = Object.prototype.hasOwnProperty.call(styleGuidePages, pathname);
 const styleGuidePage = isStyleGuideRoute

@@ -6,6 +6,7 @@
     <PatternReelPage v-else-if="page === 'pattern-reel'" />
     <StagePage v-else-if="page === 'stage'" />
     <PerformanceDeckPage v-else-if="page === 'performance-deck'" />
+    <LabPage v-else-if="page === 'lab'" />
     <GuideLayerPage v-else-if="layer" :key="layer.id" :layer="layer" />
     <GuideIndex v-else />
   </GuideShell>
@@ -21,7 +22,7 @@ import GuideShell from "./shell/GuideShell.vue";
 import GuideIndex from "./shell/GuideIndex.vue";
 import GuideLayerPage from "./shell/GuideLayerPage.vue";
 
-type FocusedPage = "tabs" | "instrument-picker" | "config-menu" | "pattern-reel" | "stage" | "performance-deck";
+type FocusedPage = "tabs" | "instrument-picker" | "config-menu" | "pattern-reel" | "stage" | "performance-deck" | "lab";
 
 const props = defineProps<{
   page?: FocusedPage | GuideLayerId;
@@ -34,6 +35,7 @@ const FOCUSED_PAGE_LAYERS: Record<FocusedPage, GuideLayerId> = {
   "config-menu": "compositions",
   stage: "compositions",
   "performance-deck": "compositions",
+  lab: "compositions",
 };
 
 const layer = computed(() => (props.page ? guideLayer(props.page as GuideLayerId) : undefined));
@@ -49,6 +51,7 @@ const ConfigMenuPage = defineAsyncComponent(() => import("./ConfigMenuPage.vue")
 const PatternReelPage = defineAsyncComponent(() => import("./PatternReelPage.vue"));
 const StagePage = defineAsyncComponent(() => import("./StagePage.vue"));
 const PerformanceDeckPage = defineAsyncComponent(() => import("./PerformanceDeckPage.vue"));
+const LabPage = defineAsyncComponent(() => import("./lab/LabPage.vue"));
 
 // Unit specimens load asynchronously, so retry the hash target briefly.
 const scrollToHash = async () => {

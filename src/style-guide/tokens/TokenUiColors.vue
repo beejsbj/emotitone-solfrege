@@ -15,7 +15,7 @@ interface Chip {
 const inkScale: Chip[] = [
   { token: "--ink", name: "Ink", hex: "#0A0908", role: "deepest stage", ink: "var(--ivory)", tilt: "var(--rot-tile-2)", cut: "var(--clip-tile)" },
   { token: "--ink-2", name: "Ink 2", hex: "#141210", role: "surface 1 · rise", ink: "var(--ivory)", tilt: "var(--rot-tile-3)", cut: "var(--clip-offcut)" },
-  { token: "--ink-3", name: "Ink 3", hex: "#1B1815", role: "panel body", ink: "var(--ivory)", tilt: "var(--rot-tile-4)", cut: "var(--clip-tab)" },
+  { token: "--ink-3", name: "Ink 3", hex: "#1C1916", role: "panel body", ink: "var(--ivory)", tilt: "var(--rot-tile-4)", cut: "var(--clip-tab)" },
   { token: "--ink-4", name: "Ink 4", hex: "#25211D", role: "hover / press", ink: "var(--ivory)", tilt: "var(--rot-tile-5)", cut: "var(--clip-tile)" },
   { token: "--ink-5", name: "Ink 5", hex: "#3A352F", role: "wire / divider", ink: "var(--ivory)", tilt: "var(--rot-tile-1)", cut: "var(--clip-offcut)" },
 ];
@@ -23,7 +23,7 @@ const inkScale: Chip[] = [
 const ivoryScale: Chip[] = [
   { token: "--ivory", name: "Ivory", hex: "#F4EFE6", role: "primary text", ink: "var(--ink)", tilt: "var(--rot-tile-3)", cut: "var(--clip-offcut)" },
   { token: "--ivory-2", name: "Ivory 2", hex: "#C9C2B5", role: "secondary text", ink: "var(--ink)", tilt: "var(--rot-tile-2)", cut: "var(--clip-tab)" },
-  { token: "--ivory-3", name: "Ivory 3", hex: "#8E867A", role: "meta / muted", ink: "var(--ink)", tilt: "var(--rot-tile-5)", cut: "var(--clip-tile)" },
+  { token: "--ivory-3", name: "Ivory 3", hex: "#8F877B", role: "meta / muted", ink: "var(--ink)", tilt: "var(--rot-tile-5)", cut: "var(--clip-tile)" },
   { token: "--ivory-4", name: "Ivory 4", hex: "#514B42", role: "disabled / decorative", ink: "var(--ivory)", tilt: "var(--rot-tile-4)", cut: "var(--clip-offcut)" },
 ];
 

@@ -32,17 +32,20 @@
      RULE: --ink and --ivory are the workhorses — reach for them first.
      The shaded steps (--ink-2…5, --ivory-2…4) are surface and meta;
      use them surgically. The dark stage earns its high contrast by
-     keeping the gray midtones rare, not by adding more of them. */
+     keeping the gray midtones rare, not by adding more of them.
+     --ink-2…4 step evenly in OKLCH lightness (0.184 / 0.216 / 0.251);
+     --ink-5 is a wire, not a surface, and sits a deliberately larger
+     step above. */
   --ink:        #0A0908;     /* deepest stage black */
   --ink-2:      #141210;     /* surface 1 — rise */
-  --ink-3:      #1B1815;     /* panel body */
+  --ink-3:      #1C1916;     /* panel body */
   --ink-4:      #25211D;     /* hovered / pressed */
   --ink-5:      #3A352F;     /* wire / divider */
 
   /* Ivory (light text on dark) — same rule as ink: --ivory does the work. */
   --ivory:      #F4EFE6;     /* primary text */
   --ivory-2:    #C9C2B5;     /* secondary text */
-  --ivory-3:    #8E867A;     /* meta / muted */
+  --ivory-3:    #8F877B;     /* meta / muted — keeps 4.5:1 on --ink through --ink-4 */
   --ivory-4:    #514B42;     /* disabled / decorative */
 
   /* Brass — instrument metal, always coupled with ink and ivory.

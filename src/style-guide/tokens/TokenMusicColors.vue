@@ -1,12 +1,12 @@
 <template>
   <section class="music-recipe">
     <header class="music-recipe__header">
-      <div>
-        <div class="music-recipe__eyebrow">Music Color · numeric OKLCH authority</div>
-        <h3>One identity, three mappings</h3>
+      <div class="music-recipe__intro">
+        <span class="music-recipe__eyebrow">Numeric OKLCH authority</span>
+        <h3>One identity, three mappings.</h3>
         <p>
-          The wheel keeps twelve physical pitch positions. Mapping changes color identity,
-          never pitch geometry. Every rendered value comes through the production resolver.
+          Twelve physical pitch positions. Mapping changes color identity, never pitch
+          geometry. Every rendered value comes through the production resolver.
         </p>
       </div>
       <div class="music-recipe__mode" role="group" aria-label="Music Color mapping">
@@ -33,7 +33,7 @@
         </select>
       </label>
       <label>
-        Scientific octave <output>{{ octave }}</output>
+        <span>Scientific octave <output>{{ octave }}</output></span>
         <input v-model.number="octave" type="range" min="1" max="9" step="1" />
       </label>
       <label>
@@ -77,14 +77,15 @@
             >{{ cell.pitch }}</text>
           </g>
           <g class="music-recipe__hub">
-            <text y="-7" text-anchor="middle">{{ mappingLabel }}</text>
-            <text y="8" text-anchor="middle">{{ musicKey }} · {{ scale.degreeCount }} notes</text>
-            <text y="23" text-anchor="middle">oct {{ octave }} · {{ phaseLabel }}</text>
+            <text y="-18" text-anchor="middle" dominant-baseline="central">{{ mappingLabel }}</text>
+            <text y="0" text-anchor="middle" dominant-baseline="central">{{ musicKey }} · {{ scale.degreeCount }} notes</text>
+            <text y="14" text-anchor="middle" dominant-baseline="central">oct {{ octave }}</text>
+            <text y="28" text-anchor="middle" dominant-baseline="central">{{ phaseLabel }}</text>
           </g>
         </svg>
         <figcaption>
-          C stays centered at twelve o’clock. The tonic marker follows Key. Ink cells are
-          valid off-scale omissions, not calculation failures.
+          C stays at twelve o’clock; the ivory-ringed tonic follows Key. Ink cells are valid
+          off-scale omissions, not calculation failures.
         </figcaption>
       </figure>
 
@@ -306,113 +307,171 @@ const wheelLabel = computed(() =>
 </script>
 
 <style scoped>
+/* The layer sheet already supplies Ink 2; the specimen groups on filled Ink
+   wells, cut-paper tabs, and spacing — no frames, no hairlines. */
 .music-recipe {
-  padding: clamp(18px, 3vw, 30px);
-  border: 1px solid var(--hairline);
-  background: var(--ink-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-7);
+  min-width: 0;
   color: var(--ivory);
 }
 
+/* ── Header: role line + mapping switch ─────────────────────────────── */
 .music-recipe__header {
   display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 24px;
+  gap: var(--s-6) var(--s-9);
 }
 
-.music-recipe__eyebrow,
-.music-recipe label,
-.music-recipe figcaption,
-.music-recipe article > span,
-.music-recipe dt,
-.music-recipe dd {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: .12em;
+.music-recipe__intro {
+  display: flex;
+  flex: 1 1 320px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-4);
+  min-width: 0;
+}
+
+.music-recipe__eyebrow {
+  padding: 5px 10px 3px;
+  background: var(--guide-paper);
+  color: var(--guide-paper-ink);
+  font: 700 14px/1 var(--font-display);
+  letter-spacing: var(--tracking-display);
   text-transform: uppercase;
+  clip-path: var(--clip-tab);
+  transform: rotate(var(--rot-sticker));
 }
 
 .music-recipe h3 {
-  margin: 6px 0;
-  font-family: var(--font-display);
-  font-size: clamp(25px, 4vw, 34px);
+  margin: 0;
+  padding-bottom: 0.2em;
+  font: 700 clamp(30px, 7vw, 48px)/0.95 var(--font-display);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+  color: var(--ivory);
 }
 
 .music-recipe p {
-  max-width: 700px;
+  max-width: 62ch;
   margin: 0;
+  font: var(--t-body-s-mono);
   color: var(--ivory-3);
-  font-size: 13px;
 }
 
 .music-recipe__mode {
   display: flex;
-  align-self: flex-start;
-  border: 1px solid var(--hairline);
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  gap: var(--s-3);
 }
 
 .music-recipe__mode button {
-  min-height: 34px;
-  padding: 7px 10px;
+  min-height: 40px;
+  padding: 8px 16px 6px;
   border: 0;
-  background: transparent;
+  background: var(--ink);
   color: var(--ivory-3);
-  font-family: var(--font-mono);
-  font-size: 9px;
+  font: 700 18px/1 var(--font-display);
+  letter-spacing: var(--tracking-display);
   text-transform: uppercase;
+  clip-path: var(--clip-tile);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-ui) var(--ease-stab),
+    color var(--dur-ui) var(--ease-stab),
+    transform var(--dur-ui) var(--ease-stab);
 }
+
+.music-recipe__mode button:hover { color: var(--ivory); }
 
 .music-recipe__mode button.active {
-  background: var(--ivory);
-  color: var(--ink);
+  background: var(--guide-paper);
+  color: var(--guide-paper-ink);
+  clip-path: var(--clip-offcut);
+  transform: rotate(var(--rot-mark));
 }
 
+.music-recipe__mode button:focus-visible {
+  outline: 2px solid var(--guide-paper);
+  outline-offset: 3px;
+}
+
+/* ── Controls well ─────────────────────────────────────────────────── */
 .music-recipe__controls {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr));
   align-items: end;
-  gap: 18px;
-  margin: 24px 0;
-  padding-top: 18px;
-  border-top: 1px solid var(--hairline);
+  gap: var(--s-6) var(--s-6);
+  padding: var(--s-7) var(--s-6);
+  background: var(--ink);
 }
 
 .music-recipe__controls label {
   display: grid;
-  gap: 6px;
-  color: var(--ivory-3);
+  gap: var(--s-3);
+  min-width: 0;
+  font: 700 15px/1 var(--font-display);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+  color: var(--ivory-2);
+}
+
+.music-recipe__controls output {
+  margin-left: var(--s-3);
+  font: var(--t-mono);
+  color: var(--guide-paper);
 }
 
 .music-recipe select,
 .music-recipe input[type="range"] {
-  min-width: 132px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
-.music-recipe__sweep {
-  display: flex !important;
+.music-recipe select { background-color: var(--ink-2); }
+
+.music-recipe__controls .music-recipe__sweep {
+  grid-column: 1 / -1;
+  display: flex;
   align-items: center;
+  gap: var(--s-4);
+  min-height: 34px;
 }
 
+.music-recipe__sweep input { width: 18px; height: 18px; margin: 0; }
+
+/* ── Workbench: wheel + evidence ───────────────────────────────────── */
 .music-recipe__workbench {
   display: grid;
-  grid-template-columns: minmax(260px, .9fr) minmax(280px, 1.1fr);
-  gap: clamp(20px, 4vw, 44px);
-  align-items: center;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+  gap: var(--s-7);
+  align-items: stretch;
 }
 
 .music-recipe__wheel-frame {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-6);
   margin: 0;
+  padding: var(--s-7) var(--s-5);
+  background: var(--ink);
 }
 
 .music-recipe__wheel {
   display: block;
-  width: min(100%, 430px);
+  width: min(100%, 480px);
   margin: auto;
   overflow: visible;
 }
 
 .music-recipe__segment {
   stroke: var(--ink);
-  stroke-width: 1.2;
+  stroke-width: 1.6;
 }
 
 .music-recipe__segment--empty {
@@ -424,94 +483,135 @@ const wheelLabel = computed(() =>
   stroke-width: 3;
 }
 
-.music-recipe__labels text,
-.music-recipe__hub text {
-  fill: var(--ivory);
+.music-recipe__labels text {
+  fill: var(--ivory-2);
   font-family: var(--font-mono);
-  font-size: 8px;
-  letter-spacing: .04em;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.music-recipe__hub text {
+  fill: var(--ivory-2);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
 }
 
 .music-recipe__hub text:first-child {
-  font-size: 9px;
+  fill: var(--ivory);
+  font-family: var(--font-display);
+  font-size: 12px;
   font-weight: 700;
+  letter-spacing: var(--tracking-display);
   text-transform: uppercase;
 }
 
 .music-recipe figcaption {
-  max-width: 420px;
-  margin: 14px auto 0;
-  color: var(--ivory-4);
-  line-height: 1.6;
+  max-width: 48ch;
+  margin: 0 auto;
+  font: var(--t-caption);
+  color: var(--ivory-3);
+  text-align: center;
 }
 
 .music-recipe__evidence {
   display: grid;
-  gap: 16px;
+  gap: var(--s-7);
+  align-content: start;
 }
 
 .music-recipe__policy,
 .music-recipe__real-sources {
-  padding: 16px;
-  border: 1px solid var(--hairline);
-  background: var(--ink-3);
+  padding: var(--s-7) var(--s-6);
+  background: var(--ink);
+}
+
+.music-recipe article > span,
+.music-recipe__real-sources > div > span {
+  font: 700 17px/1.15 var(--font-display);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+  color: var(--ivory);
+}
+
+.music-recipe__policy > span {
+  display: inline-block;
+  padding: 5px 10px 3px;
+  background: var(--tomato);
+  color: var(--ivory);
+  clip-path: var(--clip-tab);
+  transform: rotate(var(--rot-tile-2));
 }
 
 .music-recipe__policy strong {
   display: block;
-  margin: 8px 0;
-  font-family: var(--font-display);
-  font-size: 27px;
+  margin: var(--s-6) 0 var(--s-5);
+  padding-bottom: 0.2em;
+  font: 700 clamp(56px, 14vw, 88px)/0.9 var(--font-display);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+  color: var(--ivory);
 }
 
 .music-recipe__borrowed-chip {
   width: fit-content;
-  margin-top: 14px;
-  padding: 8px 10px;
+  max-width: 100%;
+  margin-top: var(--s-6);
+  padding: 10px 14px 8px;
   background: var(--borrowed-color);
   color: var(--ink);
-  font-family: var(--font-mono);
-  font-size: 9px;
-  text-transform: uppercase;
+  font: 600 12px/1.2 var(--font-mono);
+  overflow-wrap: anywhere;
+  clip-path: var(--clip-offcut);
+  transform: rotate(var(--rot-tile-5));
 }
 
 .music-recipe__real-sources {
   display: grid;
-  grid-template-columns: minmax(90px, .65fr) minmax(150px, 1.35fr);
-  gap: 18px;
-  align-items: end;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 130px), 1fr));
+  gap: var(--s-7);
+  align-items: start;
 }
 
 .music-recipe__real-sources > div {
   display: grid;
-  gap: 10px;
+  gap: var(--s-5);
+  min-width: 0;
 }
 
+/* ── Stats row: cut tiles, not ruled columns ───────────────────────── */
 .music-recipe__facts {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  margin: 24px 0 0;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
+  gap: var(--s-5);
+  margin: 0;
 }
 
 .music-recipe__facts div {
-  padding-top: 10px;
-  border-top: 1px solid var(--hairline);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  padding: var(--s-5) var(--s-6);
+  background: var(--ink);
+  clip-path: var(--clip-tile);
 }
 
-.music-recipe__facts dt { color: var(--ivory-4); }
-.music-recipe__facts dd { margin: 4px 0 0; color: var(--ivory); }
+.music-recipe__facts div:nth-child(odd) { transform: rotate(var(--rot-tile-1)); }
+.music-recipe__facts div:nth-child(even) { transform: rotate(var(--rot-tile-2)); }
 
-@media (max-width: 780px) {
-  .music-recipe__header { flex-direction: column; }
-  .music-recipe__mode { width: 100%; }
-  .music-recipe__mode button { flex: 1; }
-  .music-recipe__workbench { grid-template-columns: 1fr; }
-  .music-recipe__facts { grid-template-columns: repeat(2, 1fr); }
+.music-recipe__facts dt {
+  font: 700 15px/1 var(--font-display);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+  color: var(--guide-paper);
 }
 
-@media (max-width: 430px) {
-  .music-recipe__mode { flex-direction: column; }
-  .music-recipe__real-sources { grid-template-columns: 1fr; }
+.music-recipe__facts dd {
+  margin: 0;
+  font: var(--t-body-s-mono);
+  color: var(--ivory);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .music-recipe__mode button { transition: none; }
 }
 </style>

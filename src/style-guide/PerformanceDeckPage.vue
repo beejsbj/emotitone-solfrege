@@ -1,24 +1,29 @@
 <template>
-  <main class="performance-deck-page">
+  <main class="performance-deck-page focused-page guide-paper--cobalt">
     <div class="performance-deck-page__stage" aria-hidden="true" />
 
-    <header class="performance-deck-page__workbench">
-      <div>
-        <p>Focused real specimen · isolated controls</p>
-        <h1>PerformanceDeck.</h1>
-        <p class="performance-deck-page__intro">
-          The production composition in controlled mode: PatternReel, its attached Drawer
-          handle, opaque instrument rails, and Keyboard. No app store, persistence, audio,
-          haptic, or Humming wiring is constructed here.
-        </p>
-      </div>
+    <FocusedPoster
+      class="performance-deck-page__poster"
+      layer="compositions"
+      unit-id="performance-deck"
+      kicker="Focused page · isolated controls"
+      title="Performance Deck"
+      compact
+    >
+      <p>
+        The production composition in controlled mode: PatternReel, its attached Drawer handle,
+        opaque instrument rails, and Keyboard. No app store, persistence, audio, haptic, or Humming
+        wiring is constructed here.
+      </p>
+    </FocusedPoster>
 
+    <section class="performance-deck-page__workbench focused-sheet" aria-label="Specimen workbench">
       <div class="performance-deck-page__controls" aria-label="Specimen controls">
-        <button type="button" @click="drawerOpen = !drawerOpen">
+        <button class="focused-chip" type="button" @click="drawerOpen = !drawerOpen">
           {{ drawerOpen ? "Close deck" : "Open deck" }}
         </button>
-        <button type="button" @click="resetCode">Restore code</button>
-        <button type="button" @click="warming = !warming">
+        <button class="focused-chip" type="button" @click="resetCode">Restore code</button>
+        <button class="focused-chip" type="button" @click="warming = !warming">
           {{ warming ? "End warmup" : "Preview warmup" }}
         </button>
         <label>
@@ -32,7 +37,7 @@
       </div>
 
       <output aria-live="polite">{{ lastAction }}</output>
-    </header>
+    </section>
 
     <PerformanceDeck
       usage="controlled"
@@ -80,6 +85,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from "vue";
 import PerformanceDeck from "@/components/PerformanceDeck.vue";
+import FocusedPoster from "./focused/FocusedPoster.vue";
+import "./focused/focused-page.css";
 import type {
   KeyboardChordIntent,
   KeyboardIntent,
@@ -522,111 +529,65 @@ function updateRowCount(value: number) {
 .performance-deck-page {
   min-height: 100vh;
   overflow: hidden;
-  background: var(--ink);
-  color: var(--ivory);
+  padding-bottom: 0;
 }
 
+/* Stand-in for Stage: the deck always sits over plain Ink. */
 .performance-deck-page__stage {
   position: fixed;
   inset: 0;
-  background:
-    repeating-linear-gradient(
-      90deg,
-      var(--ink) 0,
-      var(--ink) 54px,
-      var(--ink-5) 54px,
-      var(--ink-5) 55px
-    );
+  background: var(--ink);
 }
 
 .performance-deck-page__workbench {
-  position: relative;
   z-index: 0;
-  display: grid;
-  width: min(760px, calc(100% - 32px));
+  width: min(1240px, calc(100% - 32px));
+  box-sizing: border-box;
+  margin: var(--s-8) auto 0;
   gap: var(--s-5);
-  margin: clamp(16px, 4vw, 48px) auto 0;
-  padding: var(--s-5);
-  border: 1px solid var(--ink-5);
-  background: var(--ink-2);
-}
-
-.performance-deck-page__workbench p,
-.performance-deck-page__workbench h1 {
-  margin: 0;
-}
-
-.performance-deck-page__workbench > div:first-child > p:first-child,
-.performance-deck-page__controls,
-.performance-deck-page__workbench output {
-  font: var(--t-caption);
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
-}
-
-.performance-deck-page__workbench > div:first-child > p:first-child {
-  color: var(--ivory-3);
-}
-
-.performance-deck-page__workbench h1 {
-  margin-block: var(--s-2) var(--s-3);
-  font: var(--t-display-l);
-  line-height: .9;
-  text-transform: uppercase;
-}
-
-.performance-deck-page__intro {
-  max-width: 70ch;
-  color: var(--ivory-2);
-  font: var(--t-body-s-mono);
 }
 
 .performance-deck-page__controls {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--s-3);
-}
-
-.performance-deck-page__controls button,
-.performance-deck-page__controls select {
-  min-height: 32px;
-  border: 1px solid var(--ivory-4);
-  border-radius: 0;
-  background: var(--ink);
-  color: var(--ivory);
-  font: inherit;
-  text-transform: uppercase;
-}
-
-.performance-deck-page__controls button {
-  padding-inline: var(--s-4);
-  cursor: pointer;
+  align-items: center;
+  gap: var(--s-4);
 }
 
 .performance-deck-page__controls label {
   display: flex;
   align-items: center;
-  gap: var(--s-2);
+  gap: var(--s-3);
+  color: var(--ivory);
+  font: 700 17px/1 var(--font-display);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+}
+
+.performance-deck-page__controls select {
+  min-height: 40px;
+  padding: 0 var(--s-5);
+  border: 0;
+  border-radius: 0;
+  background: var(--ink-3);
+  color: var(--ivory);
+  clip-path: var(--clip-tab);
+  font: var(--t-body-mono);
 }
 
 .performance-deck-page__workbench output {
   color: var(--ivory-2);
+  font: var(--t-body-s-mono);
 }
 
 @media (max-height: 700px), (max-width: 520px) {
+  .performance-deck-page__poster :deep(.focused-poster__blurb) { display: none; }
+
   .performance-deck-page__workbench {
     width: calc(100% - 16px);
-    gap: var(--s-3);
-    margin-top: 8px;
-    padding: var(--s-4);
-  }
-
-  .performance-deck-page__workbench h1 {
-    font: var(--t-display-m);
-  }
-
-  .performance-deck-page__intro {
-    display: none;
+    gap: var(--s-4);
+    margin-top: var(--s-5);
+    padding: var(--s-6) var(--s-5);
   }
 }
 

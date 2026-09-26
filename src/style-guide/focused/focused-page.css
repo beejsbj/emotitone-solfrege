@@ -1,0 +1,179 @@
+/* Shared body language for the six focused pages: filled Ink-2 sheets with a
+   torn paper tape, plain Ink wells for specimens, Jazz headings, mono prose.
+   No hairlines, no rounded frames, no boxes inside boxes. */
+
+.focused-page {
+  padding-bottom: var(--s-10);
+}
+
+.focused-page__body {
+  display: grid;
+  gap: var(--s-9);
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: var(--s-9) var(--s-6) 0;
+}
+
+.focused-sheet {
+  position: relative;
+  display: grid;
+  gap: var(--s-6);
+  align-content: start;
+  min-width: 0;
+  padding: var(--s-8);
+  background: var(--ink-2);
+}
+
+.focused-sheet::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  left: var(--s-8);
+  width: 88px;
+  height: 12px;
+  background: var(--guide-paper);
+  clip-path: var(--clip-paper-rip);
+  transform: rotate(var(--rot-tile-3));
+}
+
+.focused-sheet:nth-child(even)::before { transform: rotate(var(--rot-tile-1)); }
+
+.focused-sheet__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-3) var(--s-5);
+}
+
+.focused-sheet__title {
+  margin: 0;
+  color: var(--ivory);
+  font: 700 clamp(28px, 5vw, 44px)/0.95 var(--font-display);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+}
+
+.focused-sheet__source {
+  margin: 0 0 var(--s-2);
+  /* Lifted toward Ivory so dark papers (Cobalt) still read on Ink-2. */
+  color: color-mix(in oklch, var(--guide-paper) 72%, var(--ivory));
+  font: var(--t-body-s-mono);
+}
+
+.focused-sheet__prose {
+  max-width: 64ch;
+  margin: 0;
+  color: var(--ivory-2);
+  font: var(--t-body-s-mono);
+  line-height: 1.65;
+}
+
+.focused-sheet__prose code { color: var(--ivory); font: inherit; }
+
+/* The specimen stage: plain Ink, the product's own background. */
+.focused-well {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 200px;
+  padding: clamp(14px, 3vw, 34px);
+  background: var(--ink);
+}
+
+/* Facts: Jazz term, mono value, grouped by space rather than rules. */
+.focused-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: var(--s-5) var(--s-7);
+  margin: 0;
+}
+
+.focused-facts > div { display: grid; gap: var(--s-2); align-content: start; }
+
+.focused-facts dt {
+  color: var(--ivory);
+  font: 700 18px/1 var(--font-display);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+}
+
+.focused-facts dd {
+  margin: 0;
+  color: var(--ivory-3);
+  font: var(--t-body-s-mono);
+  line-height: 1.55;
+}
+
+/* The accepted decision: a slip of the layer paper, cut and tilted. */
+.focused-slip {
+  display: grid;
+  gap: var(--s-7);
+  justify-self: start;
+  max-width: 760px;
+  padding: var(--s-8) var(--s-8) var(--s-9);
+  background: var(--guide-paper);
+  color: var(--guide-paper-ink);
+  clip-path: var(--clip-offcut);
+  transform: rotate(var(--rot-tile-2));
+}
+
+.focused-slip__kicker {
+  margin: 0;
+  font: var(--t-body-s-mono);
+}
+
+.focused-slip h2 {
+  margin: 0;
+  font: 700 clamp(30px, 6vw, 52px)/1.15 var(--font-display);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+}
+
+.focused-slip p:last-child {
+  max-width: 62ch;
+  margin: 0;
+  font: var(--t-body-s-mono);
+  line-height: 1.65;
+}
+
+.focused-page .label { margin: 0; }
+
+/* Guide-only control chips (specimen workbench buttons). Filled cut paper,
+   pressed state flips to the layer paper. */
+.focused-chip {
+  min-height: 40px;
+  padding: 8px 14px 6px;
+  border: 0;
+  border-radius: 0;
+  background: var(--ink-3);
+  color: var(--ivory-2);
+  clip-path: var(--clip-tab);
+  font: 700 17px/1.1 var(--font-display);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color var(--dur-tap) var(--ease-stab), color var(--dur-tap) var(--ease-stab), transform var(--dur-ui) var(--ease-swing);
+}
+
+.focused-chip:hover,
+.focused-chip:focus-visible { background: var(--ink-4); color: var(--ivory); }
+
+.focused-chip[aria-pressed="true"] {
+  background: var(--ivory);
+  color: var(--ink);
+  transform: rotate(var(--rot-tile-4));
+}
+
+.focused-chip:disabled { cursor: default; opacity: .72; }
+
+@media (max-width: 760px) {
+  .focused-page__body { gap: var(--s-8); padding: var(--s-8) var(--s-4) 0; }
+  .focused-sheet { padding: var(--s-7) var(--s-5); }
+  .focused-sheet::before { left: var(--s-5); }
+  .focused-slip { padding: var(--s-7) var(--s-6) var(--s-8); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .focused-chip { transition: none; }
+}

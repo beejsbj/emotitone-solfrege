@@ -12,16 +12,10 @@ import {
   useUIBeat,
   type UIBeatSnapshot,
 } from "@/composables/useUIBeat";
-import Mark from "@/components/primatives/Mark.vue";
-import type { MarkName } from "@/components/primatives/marks";
-
-export type BeatIndicatorVariant = "ring" | "orbit";
 
 const props = withDefaults(
   defineProps<{
     beats?: number;
-    variant?: BeatIndicatorVariant;
-    marks?: MarkName[];
     downbeat?: boolean;
     static?: boolean;
     enabled?: boolean;
@@ -29,8 +23,6 @@ const props = withDefaults(
   }>(),
   {
     beats: 4,
-    variant: "ring",
-    marks: () => ["square"],
     downbeat: true,
     static: false,
     enabled: true,
@@ -39,89 +31,54 @@ const props = withDefaults(
 );
 
 /*
- * Ring shards live in a 100-unit viewBox that fills the padded root, so the
- * ring scales with whatever control it wraps. Shard 1 is centred at twelve
- * o'clock and the bar reads clockwise. Each shard is a faceted band whose
- * scissor-cut ends lean clockwise; authored radial nudges keep the edges
- * hand-cut rather than machined.
+ * Echoes Knob's Digital Arc meter: butt-ended segments over a hairline
+ * full-circle track, in a 100-unit viewBox that fills the padded root so the
+ * ring scales with whatever control it wraps. Segment 1 is centred at twelve
+ * o'clock and the bar reads clockwise.
  */
-const OUTER = 48.7;
-const INNER = 41;
-const MAX_GAP_DEGREES = 16;
-const SLANT_DEGREES = 8;
-const FACET_DEGREES = 36;
-const SHADOW_OFFSET = 4;
-const CUT_NUDGES = [0.9, -0.7, 1.3, -0.4, -1.1, 0.6, -0.2, 1.0, -0.9, 0.3];
-const ORBIT_TILTS = [2, -3, 1.5, -2.5, 3, -1];
-
-const PEAKS = {
-  ring: { beat: 1.12, downbeat: 1.18 },
-  orbit: { beat: 1.42, downbeat: 1.52 },
-} as const;
-const REST_OPACITY = 0.18;
-const INACTIVE_OPACITY = 0.14;
+const STROKE = 8;
+const TRACK_STROKE = 2;
+const RADIUS = 50 - STROKE / 2;
+const MAX_GAP_DEGREES = 12;
+const DIM_OPACITY = 0.2;
+const PEAK_SCALE = 1.12;
+const DOWNBEAT_PEAK_SCALE = 1.18;
 
 type Presentation = "hidden" | "rest" | "running";
 
 const beatCount = computed(() => Math.max(1, Math.floor(props.beats)));
-const usableMarks = computed<MarkName[]>(() => props.marks.length ? props.marks : ["square"]);
 const rootRef = ref<HTMLElement | null>(null);
 const { clock, presentationEnabled } = useUIBeat();
 const consumerEnabled = () => props.enabled && presentationEnabled();
-let beatElements: Element[] = [];
+let beatElements: SVGElement[] = [];
 let presentation: Presentation | null = null;
 let unsubscribe: (() => void) | undefined;
 
 const classes = computed(() => [
   "beat-indicator",
-  `beat-indicator--${props.variant}`,
   { "beat-indicator--static": props.static },
 ]);
 
-const nudge = (index: number) => CUT_NUDGES[index % CUT_NUDGES.length];
-
-const point = (radius: number, degrees: number) => {
+const point = (degrees: number) => {
   const radians = (degrees * Math.PI) / 180;
-  return `${(50 + radius * Math.cos(radians)).toFixed(2)} ${(50 + radius * Math.sin(radians)).toFixed(2)}`;
+  return `${(50 + RADIUS * Math.cos(radians)).toFixed(3)} ${(50 + RADIUS * Math.sin(radians)).toFixed(3)}`;
 };
 
-function facetedEdge(radius: number, start: number, sweep: number, seed: number, offset = 0) {
-  const facets = Math.max(1, Math.round(sweep / FACET_DEGREES));
-  return Array.from({ length: facets + 1 }, (_, step) =>
-    point(radius + nudge(seed + step), start + offset + (sweep * step) / facets),
-  );
-}
-
-const shards = computed(() => {
+const segments = computed(() => {
   const count = beatCount.value;
   if (count === 1) {
-    const outer = facetedEdge(OUTER, -90, 360, 0).slice(0, -1);
-    const inner = facetedEdge(INNER, -90, 360, 3).slice(0, -1).reverse();
-    return [`M ${outer.join(" L ")} Z M ${inner.join(" L ")} Z`];
+    return [
+      `M ${point(-90)} A ${RADIUS} ${RADIUS} 0 1 1 ${point(90)} A ${RADIUS} ${RADIUS} 0 1 1 ${point(-90)}`,
+    ];
   }
 
   const span = 360 / count;
-  const sweep = span - Math.min(MAX_GAP_DEGREES, span * 0.3);
+  const sweep = span - Math.min(MAX_GAP_DEGREES, span * 0.25);
   return Array.from({ length: count }, (_, index) => {
-    const start = -90 + index * span - sweep / 2 - SLANT_DEGREES / 2;
-    const outer = facetedEdge(OUTER, start, sweep, index * 5);
-    const inner = facetedEdge(INNER, start, sweep, index * 5 + 3, SLANT_DEGREES).reverse();
-    return `M ${[...outer, ...inner].join(" L ")} Z`;
-  });
-});
-
-const orbitSlots = computed(() => {
-  const count = beatCount.value;
-  return Array.from({ length: count }, (_, index) => {
-    const radians = ((-90 + (index * 360) / count) * Math.PI) / 180;
-    return {
-      mark: usableMarks.value[index % usableMarks.value.length],
-      style: {
-        "--beat-orbit-x": Math.cos(radians).toFixed(4),
-        "--beat-orbit-y": Math.sin(radians).toFixed(4),
-        "--beat-orbit-tilt": `${ORBIT_TILTS[index % ORBIT_TILTS.length]}deg`,
-      },
-    };
+    const middle = -90 + index * span;
+    const start = middle - sweep / 2;
+    const end = middle + sweep / 2;
+    return `M ${point(start)} A ${RADIUS} ${RADIUS} 0 ${sweep > 180 ? 1 : 0} 1 ${point(end)}`;
   });
 });
 
@@ -138,15 +95,14 @@ function applyStill(next: Exclude<Presentation, "running">) {
   if (presentation === next) return;
   setPresentation(next);
   beatElements.forEach((element, index) => {
-    const style = (element as HTMLElement | SVGElement).style;
-    style.opacity = isDownbeat(index) ? "1" : String(REST_OPACITY);
-    style.transform = "scale(1)";
+    element.style.opacity = isDownbeat(index) ? "1" : String(DIM_OPACITY);
+    element.style.transform = "scale(1)";
   });
 }
 
 function applyFrame(snapshot: UIBeatSnapshot) {
-  // Static specimens hold a still bar; otherwise the indicator only exists
-  // while the transport is active, and only moves while UIBeat presents.
+  // Static specimens hold a still bar; otherwise the ring only exists while
+  // the transport is active, and only moves while UIBeat presents.
   if (props.static) return applyStill("rest");
   if (snapshot.status === "idle") return applyStill("hidden");
   if (
@@ -160,28 +116,26 @@ function applyFrame(snapshot: UIBeatSnapshot) {
   setPresentation("running");
   const activeIndex = snapshot.beatIndex % beatCount.value;
   const swell = uiBeatScaleSwell(snapshot.beatPhase);
-  const peaks = PEAKS[props.variant];
 
   beatElements.forEach((element, index) => {
-    const style = (element as HTMLElement | SVGElement).style;
     if (index !== activeIndex) {
-      style.opacity = String(INACTIVE_OPACITY);
-      style.transform = "scale(1)";
+      element.style.opacity = String(DIM_OPACITY);
+      element.style.transform = "scale(1)";
       return;
     }
 
-    // Ring shards kick outward from the ring's centre; orbit Marks swell in
-    // place. Both brighten on the shared UIBeat contour.
-    const peakScale = isDownbeat(index) ? peaks.downbeat : peaks.beat;
+    // The lit segment kicks outward from the ring's centre, away from the
+    // wrapped control, and brightens on the shared UIBeat contour.
+    const peakScale = isDownbeat(index) ? DOWNBEAT_PEAK_SCALE : PEAK_SCALE;
     const scale = 1 + (peakScale - 1) * swell;
-    style.opacity = (0.22 + swell * 0.78).toFixed(3);
-    style.transform = `scale(${scale.toFixed(3)})`;
+    element.style.opacity = (DIM_OPACITY + swell * (1 - DIM_OPACITY)).toFixed(3);
+    element.style.transform = `scale(${scale.toFixed(3)})`;
   });
 }
 
 function collectBeatElements() {
   beatElements = rootRef.value
-    ? Array.from(rootRef.value.querySelectorAll(".beat-indicator__beat"))
+    ? Array.from(rootRef.value.querySelectorAll<SVGElement>(".beat-indicator__beat"))
     : [];
   presentation = null;
   applyFrame(clock.snapshot);
@@ -198,7 +152,7 @@ function syncSubscription() {
   }
 
   // Subscribed even while presentation is disabled: arm and stop still
-  // decide whether the indicator is shown, just without beat motion.
+  // decide whether the ring is shown, just without beat motion.
   unsubscribe = clock.subscribe(applyFrame, rootRef.value);
 }
 
@@ -207,7 +161,7 @@ onMounted(() => {
   syncSubscription();
 });
 
-watch([beatCount, () => props.variant], async () => {
+watch(beatCount, async () => {
   await nextTick();
   collectBeatElements();
 });
@@ -230,54 +184,28 @@ onBeforeUnmount(() => unsubscribe?.());
     data-beat-transport="idle"
   >
     <svg
-      v-if="variant === 'ring'"
-      class="beat-indicator__ring beat-indicator__layer"
+      class="beat-indicator__ring"
       viewBox="0 0 100 100"
       role="img"
       :aria-label="ariaLabel"
     >
-      <g
-        v-for="(d, index) in shards"
+      <circle
+        class="beat-indicator__track"
+        cx="50"
+        cy="50"
+        :r="RADIUS"
+        :stroke-width="TRACK_STROKE"
+      />
+      <path
+        v-for="(d, index) in segments"
         :key="index"
         class="beat-indicator__beat"
         :class="{ 'beat-indicator__beat--downbeat': isDownbeat(index) }"
+        :d="d"
+        :stroke-width="STROKE"
         :data-beat="index + 1"
-      >
-        <path
-          class="beat-indicator__shadow"
-          :d="d"
-          fill-rule="evenodd"
-          :transform="`translate(0 ${SHADOW_OFFSET})`"
-        />
-        <path class="beat-indicator__shard" :d="d" fill-rule="evenodd" />
-      </g>
+      />
     </svg>
-    <div
-      v-else
-      class="beat-indicator__orbit beat-indicator__layer"
-      role="img"
-      :aria-label="ariaLabel"
-    >
-      <span
-        v-for="(slot, index) in orbitSlots"
-        :key="index"
-        class="beat-indicator__slot"
-        :style="slot.style"
-      >
-        <span
-          class="beat-indicator__beat"
-          :class="{ 'beat-indicator__beat--downbeat': isDownbeat(index) }"
-          :data-beat="index + 1"
-          :data-mark="slot.mark"
-        >
-          <Mark
-            :name="slot.mark"
-            :tone="isDownbeat(index) ? 'brass' : 'ivory'"
-            size="100%"
-          />
-        </span>
-      </span>
-    </div>
     <div class="beat-indicator__content">
       <slot />
     </div>
@@ -288,8 +216,7 @@ onBeforeUnmount(() => unsubscribe?.());
 .beat-indicator {
   /* Air between the wrapped control's edge and the ring. Consumers read it
      to overhang an inset without growing their layout. */
-  --beat-indicator-gap: 7px;
-  --beat-indicator-mark: 8px;
+  --beat-indicator-gap: 6px;
 
   position: relative;
   display: inline-grid;
@@ -298,11 +225,7 @@ onBeforeUnmount(() => unsubscribe?.());
   padding: var(--beat-indicator-gap);
 }
 
-.beat-indicator--orbit {
-  --beat-indicator-gap: 12px;
-}
-
-.beat-indicator__layer {
+.beat-indicator__ring {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -312,7 +235,7 @@ onBeforeUnmount(() => unsubscribe?.());
   transition: opacity var(--dur-ui) var(--ease-brush);
 }
 
-.beat-indicator[data-beat-transport="idle"] .beat-indicator__layer {
+.beat-indicator[data-beat-transport="idle"] .beat-indicator__ring {
   opacity: 0;
 }
 
@@ -324,40 +247,32 @@ onBeforeUnmount(() => unsubscribe?.());
   min-block-size: var(--beat-indicator-hole, 32px);
 }
 
+.beat-indicator__track,
 .beat-indicator__beat {
-  opacity: 0.18;
+  fill: none;
+  color: var(--ivory);
+  stroke: currentColor;
+  stroke-linecap: butt;
+}
+
+.beat-indicator__track {
+  opacity: 0.4;
+}
+
+.beat-indicator__beat {
+  opacity: 0.2;
+  transform-box: view-box;
+  transform-origin: 50% 50%;
+  filter: drop-shadow(0 0 3px color-mix(in srgb, currentColor 55%, transparent));
   will-change: transform, opacity;
 }
 
-.beat-indicator__ring .beat-indicator__beat {
-  transform-box: view-box;
-  transform-origin: 50% 50%;
-}
-
-.beat-indicator__shard { fill: var(--ivory); }
-.beat-indicator__shadow { fill: var(--ivory-4); }
-.beat-indicator__beat--downbeat .beat-indicator__shard { fill: var(--brass); }
-.beat-indicator__beat--downbeat .beat-indicator__shadow { fill: var(--brass-lo); }
-
-.beat-indicator__slot {
-  position: absolute;
-  left: calc(50% + (50% - var(--beat-indicator-mark) / 2) * var(--beat-orbit-x));
-  top: calc(50% + (50% - var(--beat-indicator-mark) / 2) * var(--beat-orbit-y));
-  width: var(--beat-indicator-mark);
-  height: var(--beat-indicator-mark);
-  transform: translate(-50%, -50%) rotate(var(--beat-orbit-tilt));
-}
-
-.beat-indicator__orbit .beat-indicator__beat {
-  display: block;
-  width: 100%;
-  height: 100%;
-  transform-origin: 50% 50%;
-  filter: drop-shadow(0 1.5px 0 var(--ivory-4));
-}
-
-.beat-indicator__orbit .beat-indicator__beat--downbeat {
-  filter: drop-shadow(0 1.5px 0 var(--brass-lo));
+.beat-indicator__beat--downbeat {
+  color: var(--brass);
+  filter:
+    drop-shadow(0 -0.6px 0 var(--brass-hi))
+    drop-shadow(0 0.6px 0 var(--brass-lo))
+    drop-shadow(0 0 5px color-mix(in srgb, var(--brass) 78%, transparent));
 }
 
 .beat-indicator:not([data-ui-beat-state="running"]) .beat-indicator__beat {
@@ -367,13 +282,13 @@ onBeforeUnmount(() => unsubscribe?.());
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .beat-indicator__layer,
+  .beat-indicator__ring,
   .beat-indicator__beat {
     transition: none !important;
   }
 
   .beat-indicator__beat {
-    opacity: 0.18 !important;
+    opacity: 0.2 !important;
     transform: none !important;
   }
 
@@ -384,9 +299,12 @@ onBeforeUnmount(() => unsubscribe?.());
 }
 
 @media (forced-colors: active) {
-  .beat-indicator__shard { fill: CanvasText; }
-  .beat-indicator__shadow { fill: none; }
-  .beat-indicator__beat--downbeat .beat-indicator__shard { fill: Highlight; }
-  .beat-indicator__orbit .beat-indicator__beat { filter: none; }
+  .beat-indicator__track,
+  .beat-indicator__beat {
+    color: CanvasText;
+    filter: none;
+  }
+
+  .beat-indicator__beat--downbeat { color: Highlight; }
 }
 </style>

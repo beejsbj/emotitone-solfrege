@@ -2,42 +2,29 @@
   <AnatomyDisplay
     title="Beat Indicator &middot; Transport Ring"
     :features="features"
-    caption="Beat Indicator wraps its transport control in cut-paper shards, one per beat, with the downbeat centred at twelve o'clock and reading clockwise. It appears only while the transport runs. The orbit form is an exploration that places Marks at the same beat positions. UIBeat owns the clock; this compound owns no timer and never replaces the wrapped control's gestures."
+    caption="Beat Indicator wraps its transport control in a segmented ring that echoes Knob's Digital Arc: one butt-ended segment per beat over a hairline track, with the downbeat centred at twelve o'clock and reading clockwise. It appears only while the transport runs. UIBeat owns the clock; this compound owns no timer and never replaces the wrapped control's gestures."
   >
     <template #hero>
       <div class="hero-stage">
-        <div class="hero-pair">
-          <BeatIndicator aria-label="Live beat ring around Play">
-            <Button
-              size="lg"
-              :tone="running ? 'ink' : 'ivory'"
-              :accessible-name="running ? 'Stop ring specimen' : 'Play ring specimen'"
-              @click="toggle"
-            >
-              <Square v-if="running" />
-              <Play v-else />
-            </Button>
-          </BeatIndicator>
-          <BeatIndicator variant="orbit" aria-label="Live orbiting beat Marks around Play">
-            <Button
-              size="lg"
-              :tone="running ? 'ink' : 'ivory'"
-              :accessible-name="running ? 'Stop orbit specimen' : 'Play orbit specimen'"
-              @click="toggle"
-            >
-              <Square v-if="running" />
-              <Play v-else />
-            </Button>
-          </BeatIndicator>
-        </div>
+        <BeatIndicator aria-label="Live beat ring around Play">
+          <Button
+            size="lg"
+            :tone="running ? 'ink' : 'ivory'"
+            :accessible-name="running ? 'Stop ring specimen' : 'Play ring specimen'"
+            @click="toggle"
+          >
+            <Square v-if="running" />
+            <Play v-else />
+          </Button>
+        </BeatIndicator>
         <div class="hero-label">
-          {{ running ? "Ring vs orbit · 120 BPM" : "Stopped · ring hidden" }}
+          {{ running ? "4/4 · 120 BPM" : "Stopped · ring hidden" }}
         </div>
       </div>
     </template>
 
-    <VariantGrid title="Form &mdash; live on one isolated clock">
-      <VariantCell caption="Ring &middot; cut shards">
+    <VariantGrid title="Live &mdash; one isolated clock">
+      <VariantCell caption="Small &middot; ivory Play / ink Stop">
         <BeatIndicator aria-label="Live small beat ring">
           <Button
             size="sm"
@@ -50,46 +37,12 @@
           </Button>
         </BeatIndicator>
       </VariantCell>
-      <VariantCell caption="Orbit &middot; Squares">
-        <BeatIndicator variant="orbit" aria-label="Live small orbiting Squares">
+      <VariantCell caption="Even &middot; no brass downbeat">
+        <BeatIndicator :downbeat="false" aria-label="Live even beat ring">
           <Button
             size="sm"
             :tone="running ? 'ink' : 'ivory'"
-            :accessible-name="running ? 'Stop small orbit specimen' : 'Play small orbit specimen'"
-            @click="toggle"
-          >
-            <Square v-if="running" />
-            <Play v-else />
-          </Button>
-        </BeatIndicator>
-      </VariantCell>
-      <VariantCell caption="Orbit &middot; notation set">
-        <BeatIndicator
-          variant="orbit"
-          :marks="['eighth', 'accent', 'flat', 'fermata']"
-          aria-label="Live orbiting notation Marks"
-        >
-          <Button
-            size="sm"
-            :tone="running ? 'ink' : 'ivory'"
-            :accessible-name="running ? 'Stop notation orbit specimen' : 'Play notation orbit specimen'"
-            @click="toggle"
-          >
-            <Square v-if="running" />
-            <Play v-else />
-          </Button>
-        </BeatIndicator>
-      </VariantCell>
-      <VariantCell caption="Orbit &middot; structural set">
-        <BeatIndicator
-          variant="orbit"
-          :marks="['triangle', 'disk', 'wave', 'diamond']"
-          aria-label="Live orbiting structural Marks"
-        >
-          <Button
-            size="sm"
-            :tone="running ? 'ink' : 'ivory'"
-            :accessible-name="running ? 'Stop structural orbit specimen' : 'Play structural orbit specimen'"
+            :accessible-name="running ? 'Stop even ring specimen' : 'Play even ring specimen'"
             @click="toggle"
           >
             <Square v-if="running" />
@@ -99,7 +52,7 @@
       </VariantCell>
     </VariantGrid>
 
-    <VariantGrid title="Meter &mdash; still, one shard per beat">
+    <VariantGrid title="Meter &mdash; still, one segment per beat">
       <VariantCell caption="4/4">
         <BeatIndicator static aria-label="Four beat ring">
           <Button size="sm" tone="ivory" accessible-name="Play 4/4 specimen">
@@ -152,9 +105,9 @@
           </Button>
         </BeatIndicator>
       </VariantCell>
-      <VariantCell caption="Orbit &middot; still">
-        <BeatIndicator static variant="orbit" aria-label="Still orbiting Squares">
-          <Button size="sm" tone="ivory" accessible-name="Play still orbit specimen">
+      <VariantCell caption="One beat &middot; full ring">
+        <BeatIndicator static :beats="1" aria-label="Single beat ring">
+          <Button size="sm" tone="ivory" accessible-name="Play single beat specimen">
             <Play />
           </Button>
         </BeatIndicator>
@@ -180,11 +133,10 @@ const { running, toggle } = useUIBeatFixture({
 
 const features = [
   { label: "Class", value: "compound; wraps one transport control in its slot" },
-  { label: "Ring", value: "one cut-paper shard per beat: faceted band, clockwise-leaning scissor cuts, offset paper shadow" },
-  { label: "Tone", value: "ivory shards on an Ivory-4 shadow; brass downbeat on Brass-lo" },
+  { label: "Ring", value: "one butt-ended 8-unit segment per beat over a 0.4 hairline track, after Knob's Digital Arc" },
+  { label: "Tone", value: "ivory segments with their own glow; brass downbeat with Knob's brass edge light" },
   { label: "Presence", value: "hidden while the transport is idle; fades in when it arms" },
-  { label: "Pulse", value: "active shard kicks outward 1→1.12 (downbeat 1.18) and brightens" },
-  { label: "Orbit", value: "exploration: Marks at the beat positions swell in place 1→1.42 (downbeat 1.52)" },
+  { label: "Pulse", value: "lit segment kicks outward 1→1.12 (downbeat 1.18) and brightens from 0.2" },
   { label: "Clock", value: "UIBeat injection; no component-local timer" },
   { label: "Still", value: "static specimens always, and playback under Reduced Motion or Visuals off, hold the downbeat without motion" },
 ];
@@ -197,12 +149,6 @@ const features = [
   align-items: center;
   justify-content: center;
   gap: 14px;
-}
-
-.hero-pair {
-  display: flex;
-  align-items: center;
-  gap: 28px;
 }
 
 .hero-label {

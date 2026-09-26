@@ -50,7 +50,7 @@ body.style-guide-route {
   color: var(--ivory);
 }
 
-.style-guide-route .guide-unit .label::before {
+.style-guide-route :is(.guide-unit, .focused-page) .label::before {
   content: "";
   flex: none;
   width: 18px;

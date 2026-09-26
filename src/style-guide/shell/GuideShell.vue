@@ -5,11 +5,14 @@ import { GUIDE_LAYERS, guideLayerHref } from "../guideCatalog";
 
 defineProps<{
   activeLayer?: GuideLayerId;
+  /** Focused pages that mount production top drawers keep their fixed
+      handles clear by hanging the masthead below them. */
+  reserveDrawerHandles?: boolean;
 }>();
 </script>
 
 <template>
-  <div class="guide-shell">
+  <div class="guide-shell" :class="{ 'guide-shell--below-handles': reserveDrawerHandles }">
     <header class="guide-shell__masthead">
       <a class="guide-shell__home" href="/style-guide" aria-label="Design system index">
         <BrandLogo layout="mark" :size="38" accessible-label="EmotiTone" />
@@ -49,11 +52,17 @@ defineProps<{
 
 .guide-shell {
   --guide-masthead-height: 56px;
+  --guide-masthead-top: 0px;
+}
+
+.guide-shell--below-handles {
+  --guide-masthead-top: 48px;
+  padding-top: var(--guide-masthead-top);
 }
 
 .guide-shell__masthead {
   position: sticky;
-  top: 0;
+  top: var(--guide-masthead-top);
   z-index: 40;
   box-sizing: border-box;
   height: var(--guide-masthead-height);

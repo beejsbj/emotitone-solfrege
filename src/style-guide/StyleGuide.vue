@@ -1,5 +1,5 @@
 <template>
-  <GuideShell :active-layer="activeLayer">
+  <GuideShell :active-layer="activeLayer" :reserve-drawer-handles="page === 'instrument-picker' || page === 'config-menu'">
     <TabsPage v-if="page === 'tabs'" />
     <InstrumentPickerPage v-else-if="page === 'instrument-picker'" />
     <ConfigMenuPage v-else-if="page === 'config-menu'" />

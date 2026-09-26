@@ -87,6 +87,7 @@ export const GUIDE_LAYERS: GuideLayer[] = [
       { id: "instrument-picker", name: "Instrument Picker", density: "detailed", focusedHref: "/style-guide/instrument-picker", summary: "Sounds and Shape in the top drawer, chosen with Ivory stickers." },
       { id: "config-menu", name: "Config Menu", density: "detailed", focusedHref: "/style-guide/config-menu", summary: "Eight shallow destinations of Ivory knobs and Brass masters." },
       { id: "loading-screen", name: "Loading Screen", density: "short", specimen: () => import("./compositions/CompositionLoadingScreen.vue") },
+      { id: "loading-logo-lab", name: "Loading + Logo Lab", density: "detailed", focusedHref: "/style-guide/lab", summary: "Three reimagined Brand Logo and Loading Screen pairs beside the accepted production pair." },
     ],
   },
   {

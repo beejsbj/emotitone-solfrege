@@ -41,8 +41,30 @@ describe("Mark lineage", () => {
 
 });
 
+function mountWithClock(template: string, presentationEnabled: () => boolean = () => true) {
+  const clock = new UIBeatClock({
+    observeEnvironment: false,
+    reducedMotion: () => false,
+    documentVisible: () => true,
+  });
+  const Host = defineComponent({
+    components: { BeatIndicator },
+    setup() {
+      provideUIBeat({ clock, presentationEnabled });
+    },
+    template,
+  });
+  return { clock, wrapper: mount(Host) };
+}
+
+const armFourFour = (clock: UIBeatClock) => clock.arm({
+  mappingAvailable: true,
+  bpm: 120,
+  meter: { beatsPerBar: 4, beatUnit: 4 },
+});
+
 describe("Beat Indicator ring", () => {
-  it("draws one arc per beat with the downbeat first", () => {
+  it("cuts one paper shard per beat with the downbeat first", () => {
     const wrapper = mount(BeatIndicator, { props: { beats: 5 } });
     const beats = wrapper.findAll(".beat-indicator__beat");
 
@@ -51,15 +73,22 @@ describe("Beat Indicator ring", () => {
     expect(beats[0].classes()).toContain("beat-indicator__beat--downbeat");
     expect(beats.slice(1).some((beat) => beat.classes().includes("beat-indicator__beat--downbeat")))
       .toBe(false);
+    // Each shard is a straight-edged polygon over its own offset paper shadow.
+    beats.forEach((beat) => {
+      const shard = beat.get(".beat-indicator__shard").attributes("d");
+      expect(shard).not.toMatch(/A /);
+      expect(beat.get(".beat-indicator__shadow").attributes("d")).toBe(shard);
+    });
     expect(wrapper.find("svg.mark").exists()).toBe(false);
   });
 
-  it("defaults to four arcs, and closes a single beat into a full circle", () => {
+  it("defaults to four shards, and closes a single beat into a full band", () => {
     expect(mount(BeatIndicator).findAll(".beat-indicator__beat")).toHaveLength(4);
 
-    const single = mount(BeatIndicator, { props: { beats: 1 } }).get(".beat-indicator__beat");
-    // Two half-circle arcs: SVG cannot draw a closed ring as one arc command.
-    expect(single.attributes("d").match(/A /g)).toHaveLength(2);
+    const single = mount(BeatIndicator, { props: { beats: 1 } }).get(".beat-indicator__shard");
+    // Outer and inner outlines, filled even-odd into one band with a hole.
+    expect(single.attributes("d").match(/M /g)).toHaveLength(2);
+    expect(single.attributes("fill-rule")).toBe("evenodd");
   });
 
   it("wraps its control without hiding it inside the decorative image", () => {
@@ -76,25 +105,28 @@ describe("Beat Indicator ring", () => {
       .toBe(true);
   });
 
+  it("stays hidden until the transport arms and hides again when it stops", () => {
+    const { clock, wrapper } = mountWithClock('<BeatIndicator :beats="4" />');
+    const root = () => wrapper.get(".beat-indicator");
+
+    expect(root().attributes("data-beat-transport")).toBe("idle");
+    expect(beatIndicatorSource).toMatch(
+      /\[data-beat-transport="idle"\] \.beat-indicator__layer\s*\{\s*opacity: 0;/,
+    );
+
+    const generation = armFourFour(clock);
+    expect(root().attributes("data-beat-transport")).toBe("active");
+    expect(root().attributes("data-ui-beat-state")).toBe("idle");
+
+    clock.stop(generation);
+    expect(root().attributes("data-beat-transport")).toBe("idle");
+    wrapper.unmount();
+    clock.destroy();
+  });
+
   it("renders one injected transport frame without owning a timer", () => {
-    const clock = new UIBeatClock({
-      observeEnvironment: false,
-      reducedMotion: () => false,
-      documentVisible: () => true,
-    });
-    const Host = defineComponent({
-      components: { BeatIndicator },
-      setup() {
-        provideUIBeat({ clock, presentationEnabled: () => true });
-      },
-      template: '<BeatIndicator :beats="4" />',
-    });
-    const wrapper = mount(Host);
-    const generation = clock.arm({
-      mappingAvailable: true,
-      bpm: 120,
-      meter: { beatsPerBar: 4, beatUnit: 4 },
-    });
+    const { clock, wrapper } = mountWithClock('<BeatIndicator :beats="4" />');
+    const generation = armFourFour(clock);
 
     const cells = wrapper.findAll(".beat-indicator__beat");
     clock.publish(generation, { rawPosition: 0.25, barPosition: 0.25 });
@@ -120,38 +152,52 @@ describe("Beat Indicator ring", () => {
     clock.destroy();
   });
 
-  it("keeps transport phase independent from the provider's presentation gate", async () => {
+  it("holds a still ring during playback while the provider's presentation gate is off", async () => {
     const presentationEnabled = ref(false);
-    const clock = new UIBeatClock({
-      observeEnvironment: false,
-      reducedMotion: () => false,
-      documentVisible: () => true,
-    });
-    const Host = defineComponent({
-      components: { BeatIndicator },
-      setup() {
-        provideUIBeat({
-          clock,
-          presentationEnabled: () => presentationEnabled.value,
-        });
-      },
-      template: '<BeatIndicator :beats="4" />',
-    });
-    const wrapper = mount(Host);
-    const generation = clock.arm({
-      mappingAvailable: true,
-      bpm: 120,
-      meter: { beatsPerBar: 4, beatUnit: 4 },
-    });
+    const { clock, wrapper } = mountWithClock(
+      '<BeatIndicator :beats="4" />',
+      () => presentationEnabled.value,
+    );
+    const generation = armFourFour(clock);
+    const root = () => wrapper.get(".beat-indicator");
 
     clock.publish(generation, { rawPosition: 0.285, barPosition: 0.285 });
     expect(clock.snapshot.status).toBe("running");
-    expect(wrapper.get(".beat-indicator").attributes("data-ui-beat-state")).toBe("idle");
+    expect(root().attributes("data-ui-beat-state")).toBe("idle");
+    expect(root().attributes("data-beat-transport")).toBe("active");
+    expect(wrapper.findAll(".beat-indicator__beat")[0].attributes("style")).toContain("opacity: 1");
 
     presentationEnabled.value = true;
     await nextTick();
     clock.publish(generation, { rawPosition: 0.285, barPosition: 0.285 });
-    expect(wrapper.get(".beat-indicator").attributes("data-ui-beat-state")).toBe("running");
+    expect(root().attributes("data-ui-beat-state")).toBe("running");
+    wrapper.unmount();
+    clock.destroy();
+  });
+
+  it("shows static specimens without a running transport", () => {
+    const wrapper = mount(BeatIndicator, { props: { static: true } });
+
+    expect(wrapper.get(".beat-indicator").attributes("data-beat-transport")).toBe("active");
+    expect(wrapper.findAll(".beat-indicator__beat")[0].attributes("style")).toContain("opacity: 1");
+  });
+
+  it("orbits a selected Mark set at the beat positions and swells it in place", () => {
+    const { clock, wrapper } = mountWithClock(
+      '<BeatIndicator variant="orbit" :beats="5" :marks="[\'disk\', \'eighth\']" />',
+    );
+    const beats = wrapper.findAll(".beat-indicator__beat");
+
+    expect(wrapper.find(".beat-indicator__ring").exists()).toBe(false);
+    expect(beats.map((beat) => beat.attributes("data-mark")))
+      .toEqual(["disk", "eighth", "disk", "eighth", "disk"]);
+    expect(wrapper.findAll("svg.mark")).toHaveLength(5);
+
+    const generation = armFourFour(clock);
+    clock.publish(generation, { rawPosition: 0.285, barPosition: 0.285 });
+    expect(beats[1].attributes("style")).toContain("scale(1.420)");
+    clock.publish(generation, { rawPosition: 0.035, barPosition: 0.035 });
+    expect(beats[0].attributes("style")).toContain("scale(1.520)");
     wrapper.unmount();
     clock.destroy();
   });

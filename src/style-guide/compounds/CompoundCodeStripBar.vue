@@ -9,7 +9,7 @@
         <CodeStripBar
           :tokens="tokens"
           :is-playing="isPlaying"
-          @toggle-playback="isPlaying = !isPlaying"
+          @toggle-playback="toggle"
           @backspace="lastAction = 'Deleted last event'"
           @return="lastAction = 'Returned to a new line'"
         />
@@ -23,7 +23,7 @@
           <CodeStripBar :tokens="shortTokens" />
         </div>
       </VariantCell>
-      <VariantCell caption="Playing &middot; Play becomes Stop" stage="ink3">
+      <VariantCell caption="Playing &middot; Stop; ring follows the hero's clock" stage="ink3">
         <CodeStripBar :tokens="tokens" is-playing />
       </VariantCell>
       <VariantCell caption="Empty &middot; recording prompt" stage="ink3">
@@ -40,8 +40,13 @@ import type { CodeStripToken } from "@/components/uniques/CodeStrip/index.vue";
 import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
 import VariantCell from "../guide/VariantCell.vue";
 import VariantGrid from "../guide/VariantGrid.vue";
+import { useUIBeatFixture } from "../guide/useUIBeatFixture";
 
-const isPlaying = ref(false);
+const { running: isPlaying, toggle } = useUIBeatFixture({
+  bpm: ref(120),
+  meter: ref({ beatsPerBar: 4, beatUnit: 4 }),
+  autoplay: false,
+});
 const lastAction = ref("Choose an action");
 
 const tokens: CodeStripToken[] = [
@@ -59,6 +64,7 @@ const features = [
   { label: "Rhythm", value: "8px around the flexible strip; 6px between Backspace and Return" },
   { label: "CodeStrip", value: "dense, zero-inset, unframed, and transparent inside this bar only; empty state stays compact" },
   { label: "Actions", value: "32px icon-only Button primitives; accessible names remain" },
+  { label: "Beat", value: "Play/Stop sits inside the Beat Indicator ring, shown only during playback and overhanging the block inset" },
   { label: "Material", value: "ivory Play; ink Stop and Backspace; ivory Return with Ink icon" },
   { label: "Backspace", value: "removes the last recorded event; never presented as editor Undo" },
   { label: "Return", value: "typewriter carriage return for commit-and-clear; never presented as Send" },

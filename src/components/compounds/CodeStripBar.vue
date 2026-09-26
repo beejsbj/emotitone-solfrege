@@ -150,8 +150,9 @@ const emit = defineEmits<{
 
 .code-strip-bar__beat {
   flex: 0 0 auto;
-  /* The 44px ring overhangs the block inset rather than growing the rail. */
-  margin-block: calc(var(--s-1) * -1);
+  /* The ring overhangs the block inset rather than growing the rail: the
+     32px Button leaves 4px free on each side of the 40px row. */
+  margin-block: calc(var(--s-2) - var(--beat-indicator-gap));
 }
 
 </style>

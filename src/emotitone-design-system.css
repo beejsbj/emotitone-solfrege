@@ -223,7 +223,7 @@
   --ease-bend:    cubic-bezier(.85, 0, .15, 1);     /* pitch, mode change */
   --ease-bounce:  linear(0 0%, .646 5%, 1.25 10%, 1.354 15%, 1.125 20%, .912 25%, .875 30%, .956 35%, 1.031 40%, 1.044 45%, 1.016 50%, .989 55%, .984 60%, .994 65%, 1.004 70%, 1.006 75%, 1.002 80%, .999 85%, .998 90%, .999 95%, 1 100%); /* elastic rebound · tactile controls and drag feedback */
 
-  /* Named durations — short labels for the four gestures. */
+  /* Named durations — four gesture lengths plus the tactile rebound. */
   --dur-tap:    90ms;     /* instant ack — press, ripple */
   --dur-ui:    220ms;     /* tab swap, chip select */
   --dur-panel: 360ms;     /* drawer in/out, mode change */
@@ -385,6 +385,11 @@
   z-index: 1;
 }
 .brass > * { position: relative; z-index: 2; }
+/* Component owners (Button, Sticker, Joystick) already stop their sheens
+   under Reduced Motion; the shared utility honours the same preference. */
+@media (prefers-reduced-motion: reduce) {
+  .brass::after { animation: none; }
+}
 @keyframes brass-sheen {
   0%   { background-position: -60% 0; }
   55%  { background-position: 160% 0; }

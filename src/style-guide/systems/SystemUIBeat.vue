@@ -3,8 +3,8 @@
     <div class="card ui-beat-system">
       <div class="label">UIBeat · System Protocol</div>
       <p class="caption ui-beat-system__intro">
-        One injected clock drives real UI control families: Beat Indicator
-        Marks, both Knob editions, Button, Joystick, and the selected
+        One injected clock drives real UI control families: the Beat Indicator
+        ring around Play, both Knob editions, Button, Joystick, and the selected
         current-instrument Sticker. The same general scale binding reaches each
         actual control without replacing its gestures.
       </p>
@@ -13,9 +13,19 @@
         <div class="ui-beat-system__transport">
           <BeatIndicator
             :beats="meter.beatsPerBar"
-            size="lg"
             aria-label="Controlled UIBeat indicator"
-          />
+          >
+            <Button
+              size="lg"
+              :tone="running ? 'ink' : 'ivory'"
+              :accessible-name="running ? 'Pause UIBeat fixture' : 'Play UIBeat fixture'"
+              :title="running ? 'Pause UIBeat fixture' : 'Play UIBeat fixture'"
+              @click="toggle"
+            >
+              <Square v-if="running" />
+              <Play v-else />
+            </Button>
+          </BeatIndicator>
           <strong>{{ meter.label }} · {{ bpm }} BPM</strong>
           <span>{{ running ? "Sounding-phase fixture" : "Idle rest state" }}</span>
         </div>
@@ -43,16 +53,6 @@
           </div>
 
           <div class="ui-beat-system__primitives" aria-label="Primitive consumers">
-            <Button
-              size="sm"
-              :tone="running ? 'ink' : 'ivory'"
-              :accessible-name="running ? 'Pause UIBeat fixture' : 'Play UIBeat fixture'"
-              :title="running ? 'Pause UIBeat fixture' : 'Play UIBeat fixture'"
-              @click="toggle"
-            >
-              <Square v-if="running" />
-              <Play v-else />
-            </Button>
             <Sticker variant="fill" color="ivory" mark="eighth" ui-beat>
               Current Piano
             </Sticker>

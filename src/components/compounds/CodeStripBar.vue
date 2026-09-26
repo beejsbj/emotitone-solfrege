@@ -1,24 +1,24 @@
 <template>
   <section class="code-strip-bar" aria-label="Pattern controls">
     <div class="code-strip-bar__left">
-      <Button
-        class="code-strip-bar__play"
-        size="sm"
-        :tone="isPlaying ? 'ink' : 'ivory'"
-        :haptic="haptic"
-        :disabled="playDisabled"
-        :accessible-name="isPlaying ? 'Stop' : 'Play'"
-        :title="isPlaying ? 'Stop' : 'Play'"
-        @click="emit('togglePlayback')"
-      >
-        <Square v-if="isPlaying" />
-        <Play v-else />
-      </Button>
       <BeatIndicator
         class="code-strip-bar__beat"
-        size="sm"
         aria-label="Pattern beat"
-      />
+      >
+        <Button
+          class="code-strip-bar__play"
+          size="sm"
+          :tone="isPlaying ? 'ink' : 'ivory'"
+          :haptic="haptic"
+          :disabled="playDisabled"
+          :accessible-name="isPlaying ? 'Stop' : 'Play'"
+          :title="isPlaying ? 'Stop' : 'Play'"
+          @click="emit('togglePlayback')"
+        >
+          <Square v-if="isPlaying" />
+          <Play v-else />
+        </Button>
+      </BeatIndicator>
     </div>
 
     <div class="code-strip-bar__strip">
@@ -150,6 +150,8 @@ const emit = defineEmits<{
 
 .code-strip-bar__beat {
   flex: 0 0 auto;
+  /* The 44px ring overhangs the block inset rather than growing the rail. */
+  margin-block: calc(var(--s-1) * -1);
 }
 
 </style>

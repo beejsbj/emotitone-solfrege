@@ -8,7 +8,6 @@
       unit-id="performance-deck"
       kicker="Focused page · isolated controls"
       title="Performance Deck"
-      compact
     >
       <p>
         The production composition in controlled mode: PatternReel, its attached Drawer handle,

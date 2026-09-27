@@ -106,6 +106,25 @@ describe("production loading flow", () => {
     wrapper.unmount();
   });
 
+  it("fills the active tile from its own phase, not from the averaged overall progress", async () => {
+    let report: (progress: number, message: string) => void = () => {};
+    instruments.initializeInstruments.mockImplementation((callback?: (progress: number, message: string) => void) => {
+      report = callback ?? report;
+      return new Promise<void>(() => {}); // still loading
+    });
+    const wrapper = await mountLoaded();
+
+    report(50, "Piano loaded (3/7)");
+    await flushPromises();
+
+    const tiles = wrapper.findAll(".count-tile");
+    expect(tiles[0].classes()).toContain("is-complete");
+    expect(tiles[1].classes()).toContain("is-active");
+    // Overall is (100 + 50 + 0) / 3 = 50%; the old equal-quarter estimate read that as a full Instrument tile.
+    expect(tiles[1].attributes("style")).toContain("--tile-fill: 0.5");
+    wrapper.unmount();
+  });
+
   it("holds a failed sample load on the retry gate instead of offering Play", async () => {
     instruments.initializeInstruments.mockRejectedValueOnce(new Error("Instrument initialization timeout"));
     const wrapper = await mountLoaded();

@@ -99,12 +99,16 @@ const isOptional = (stage: LoadingStage) => stage.optional ?? stage.icon === "mi
 const required = computed(() => resolvedStages.value.filter((stage) => !isOptional(stage)));
 const midi = computed(() => resolvedStages.value.find(isOptional));
 
-/** How far the active beat's tile has filled; estimated from overall progress when not given. */
+/**
+ * How far the active beat's tile has filled. The adapter passes the active
+ * phase's own progress; the specimen fallback reads its stage's slice. With
+ * neither, the tile shows a token fill rather than guessing from the average.
+ */
 const activeFill = computed(() => {
   if (props.stageProgress !== undefined) return Math.min(1, Math.max(0, props.stageProgress));
-  const count = required.value.length || 1;
-  const done = required.value.filter((stage) => stage.complete).length;
-  return Math.min(1, Math.max(.12, (percent.value / 100) * count - done));
+  const slice = props.stages ? undefined : FALLBACK_STAGES.find((stage) => percent.value >= stage.start && percent.value < stage.end);
+  if (!slice) return .12;
+  return Math.min(1, Math.max(.12, (percent.value - slice.start) / (slice.end - slice.start)));
 });
 
 /** A held beat carries a stamp that says why the count paused. */

@@ -87,6 +87,9 @@ const message = computed(() => {
   return "Preparing the room where sound becomes shape.";
 });
 
+/** The loading phase behind each counted beat; the fourth beat is Ready itself. */
+const STAGE_PHASES = ["visualEffects", "instruments", "audioContext"] as const;
+
 const stages = computed(() => {
   const { visualEffects, instruments, audioContext } = loadingState.progress;
   // Each tile reports its own phase, so a held phase (a failed load, blocked audio) stays the active beat.
@@ -114,6 +117,13 @@ const stages = computed(() => {
     ...stage,
     active: index === activeIndex,
   }));
+});
+
+/** How far the active beat's own phase has loaded, so its tile fills truthfully. */
+const stageProgress = computed(() => {
+  const active = stages.value.findIndex((stage) => !stage.optional && stage.active);
+  const phase = STAGE_PHASES[active];
+  return phase ? loadingState.progress[phase].progress / 100 : undefined;
 });
 
 /** Resume audio inside the tap; the splash closes only once the browser lets sound run. */
@@ -177,6 +187,7 @@ onMounted(startInitialization);
       mode="app"
       :progress="overallProgress"
       :stages="stages"
+      :stage-progress="stageProgress"
       :phase="phase"
       :message="message"
       :show-progress="loadingState.config.showProgress"

@@ -5,18 +5,18 @@ import type { StickerPaperColor } from "../../components/primatives/Sticker";
 import type { MarkName } from "../../components/primatives/marks";
 
 const parts: { label: string; color: StickerPaperColor; mark: MarkName }[] = [
-  { label: "Living Brand Logo", color: "plum", mark: "star" },
-  { label: "Floating Marks", color: "ink-5", mark: "wave" },
-  { label: "Stamped stages", color: "ivory", mark: "staccato" },
-  { label: "Equalizer meter", color: "pine", mark: "eighth" },
-  { label: "12 solfège lanes", color: "tomato", mark: "sharp" },
+  { label: "Count-In Cluster logo", color: "plum", mark: "star" },
+  { label: "Four beat tiles", color: "tomato", mark: "staccato" },
+  { label: "MIDI “and” · optional", color: "ink-5", mark: "wave" },
+  { label: "Status + percent", color: "ivory", mark: "eighth" },
   { label: "Brass Play gate", color: "mustard", mark: "triangle" },
+  { label: "Cue + retry gates", color: "pine", mark: "sharp" },
 ];
 </script>
 
 <template>
   <section class="loading-specimen">
-    <p class="loading-specimen__role">The startup composition · every stage set</p>
+    <p class="loading-specimen__role">Count-In · the startup composition</p>
 
     <div class="loading-specimen__well">
       <LoadingScreen
@@ -30,9 +30,32 @@ const parts: { label: string; color: StickerPaperColor; mark: MarkName }[] = [
           { label: 'Instrument samples', complete: true, active: false },
           { label: 'Audio system', complete: true, active: false },
           { label: 'Ready to play', complete: true, active: false },
-          { label: 'MIDI input', complete: true, active: false, icon: 'midi' },
+          { label: 'MIDI input', complete: true, active: false, icon: 'midi', optional: true, stamp: 'SET', detail: 'MIDI ready. Connect a controller anytime.' },
         ]"
       />
+    </div>
+
+    <h3 class="label loading-specimen__heading">Recovery states · production only</h3>
+    <div class="loading-specimen__states">
+      <figure>
+        <div class="loading-specimen__well loading-specimen__well--phone">
+          <LoadingScreen
+            mode="specimen"
+            :progress="43"
+            :is-complete="false"
+            still
+            has-error
+            error-message="Instrument samples timed out after 30 seconds."
+          />
+        </div>
+        <figcaption>Error · the count holds on a STOP stamp; Tomato “From the top” emits retry.</figcaption>
+      </figure>
+      <figure>
+        <div class="loading-specimen__well loading-specimen__well--phone">
+          <LoadingScreen mode="specimen" :progress="72" :is-complete="false" still needs-audio-interaction />
+        </div>
+        <figcaption>Enable audio · the browser blocked sound; an Ivory cue gate emits enable-audio.</figcaption>
+      </figure>
     </div>
 
     <h3 class="label loading-specimen__heading">Composed from</h3>
@@ -43,8 +66,11 @@ const parts: { label: string; color: StickerPaperColor; mark: MarkName }[] = [
     </ul>
 
     <p class="loading-specimen__caption">
-      Shown complete, with the Play gate open. Production <code>LoadingSplash.vue</code> owns
-      initialization and feeds its live progress and stages into this source composition.
+      The load is the band counting in: four required stages are four beats, pasted up as poster tiles
+      when they land; MIDI is the optional “and” and never holds the gate. Brass appears only on the Play
+      gate; recovery gates are paper. Reduced Motion renders the composed still frame. Production
+      <code>LoadingSplash.vue</code> owns initialization and feeds its live progress and stages into this
+      source composition.
     </p>
   </section>
 </template>
@@ -73,6 +99,18 @@ const parts: { label: string; color: StickerPaperColor; mark: MarkName }[] = [
 .loading-specimen__well :deep(.loading-screen) {
   height: clamp(640px, 62vw, 760px);
 }
+
+.loading-specimen__states {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: var(--s-6);
+}
+
+.loading-specimen__states figure { display: grid; gap: var(--s-3); margin: 0; min-width: 0; }
+.loading-specimen__states figcaption { font: var(--t-caption); color: var(--ivory-2); }
+
+.loading-specimen__well--phone { width: min(100%, 390px); justify-self: center; }
+.loading-specimen__well--phone :deep(.loading-screen) { height: auto; aspect-ratio: 390 / 844; }
 
 .loading-specimen__heading {
   margin: var(--s-4) 0 0;

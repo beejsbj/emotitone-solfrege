@@ -27,8 +27,16 @@ const app = createApp(App);
 const pinia = createPinia();
 
 const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
+// Every guide URL App.vue routes to the style guide belongs here, so browsing
+// the guide never runs production-only bootstrap such as the knob edition.
 const isDesignRoute = [
   "/style-guide",
+  "/style-guide/tokens",
+  "/style-guide/primitives",
+  "/style-guide/compounds",
+  "/style-guide/uniques",
+  "/style-guide/compositions",
+  "/style-guide/systems",
   "/style-guide/tabs",
   "/style-guide/instrument-picker",
   "/style-guide/config-menu",

@@ -133,6 +133,8 @@ describe("production loading flow", () => {
     expect(wrapper.text()).toContain("FROM THE TOP");
     expect(wrapper.text()).toContain("Instrument initialization timeout");
     expect(wrapper.get(".count-tile.is-held").text()).toContain("Instrument samples");
+    // The count holds on beat two: the audio beat is not pasted up behind a failed load.
+    expect(wrapper.findAll(".count-tile")[2].classes()).toContain("is-pending");
     expect(useAppLoading().loadingState.progress.overall.isComplete).toBe(false);
 
     // Retry runs the load again; this time it lands and Play opens.

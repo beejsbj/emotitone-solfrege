@@ -156,6 +156,8 @@ function startInitialization() {
     try {
       await initializeVisualEffects();
       await initializeInstruments();
+      // A failed load holds the count on its own beat; the audio beat waits for the retry.
+      if (loadingState.progress.instruments.error) return;
       updatePhase("audioContext", {
         phase: "audio-context",
         progress: 100,

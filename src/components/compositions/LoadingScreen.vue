@@ -622,6 +622,7 @@ const midiPaper = computed(() => (midi.value?.stamp === "SET" ? "plum" : "ink-4"
 .loading-screen__status span {
   color: var(--ivory-3);
   font: var(--t-caption);
+  overflow-wrap: anywhere; /* raw error text can carry an unbroken URL */
 }
 
 .loading-screen.is-error .loading-screen__status span { color: var(--ivory-2); }

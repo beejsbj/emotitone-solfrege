@@ -4,7 +4,6 @@ import App from "./App.vue";
 import "./style.css";
 import "./emotitone-design-system.css";
 import piniaPluginPersistedstate from "pinia-plugin-persistedstate";
-import { tooltipPlugin } from "./directives/tooltip";
 import { beginKnobPageEdition } from "./components/primatives/Knob/edition";
 import { beginTabsPageEdition } from "./components/primatives/TabsEdition";
 import { registerSW } from 'virtual:pwa-register';
@@ -61,7 +60,6 @@ app.use(pinia);
 if (pathname !== "/style-guide/instrument-picker") {
   pinia.use(piniaPluginPersistedstate);
 }
-app.use(tooltipPlugin);
 
 if (import.meta.env.DEV) {
   void clearDevServiceWorkers();

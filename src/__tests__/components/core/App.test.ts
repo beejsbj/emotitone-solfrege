@@ -20,12 +20,6 @@ const patternsStore = vi.hoisted(() => ({
 
 const useMidiControls = vi.hoisted(() => vi.fn())
 
-const tooltipState = vi.hoisted(() => ({
-  tooltipState: { value: { id: 'tip-1' } },
-  rotation: { value: 12 },
-  translation: { value: { x: 10, y: 24 } },
-}))
-
 vi.mock('@/components/LoadingSplash.vue', () => ({
   default: { template: '<div data-testid="loading-splash">Loading...</div>' },
 }))
@@ -42,14 +36,6 @@ vi.mock('@/components/InstrumentSelector.vue', () => ({
   default: {
     props: ['compact', 'floating'],
     template: '<div data-testid="instrument-selector">Instrument</div>',
-  },
-}))
-
-vi.mock('@/components/TooltipRenderer.vue', () => ({
-  default: {
-    name: 'TooltipRenderer',
-    props: ['tooltipState', 'rotation', 'translation'],
-    template: '<div data-testid="tooltip-renderer">Tooltip</div>',
   },
 }))
 
@@ -75,10 +61,6 @@ vi.mock('@/composables/useMidiControls', () => ({
   useMidiControls,
 }))
 
-vi.mock('@/directives/tooltip', () => ({
-  globalTooltip: tooltipState,
-}))
-
 describe('App.vue', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -93,7 +75,6 @@ describe('App.vue', () => {
     expect(wrapper.find('[data-testid="config-panel"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="instrument-selector"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="performance-deck"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="tooltip-renderer"]').exists()).toBe(true)
     expect(wrapper.find('.relative.z-50.min-h-screen.flex.flex-col').exists()).toBe(true)
     expect(useMidiControls).toHaveBeenCalledTimes(1)
   })
@@ -109,19 +90,11 @@ describe('App.vue', () => {
     expect(wrapper.find('[data-testid="config-panel"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="instrument-selector"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="performance-deck"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="tooltip-renderer"]').exists()).toBe(true)
   })
 
-  it('passes the tooltip state through to the renderer', () => {
-    const wrapper = createTestWrapper(App)
-
-    const renderer = wrapper.findComponent({ name: 'TooltipRenderer' })
-    expect(renderer.exists()).toBe(true)
-    expect(renderer.props()).toEqual({
-      tooltipState: tooltipState.tooltipState.value,
-      rotation: tooltipState.rotation.value,
-      translation: tooltipState.translation.value,
-    })
+  it('mounts no tooltip layer: the retired v-tooltip stack had no consumer', () => {
+    expect(mainAppSource).not.toContain('TooltipRenderer')
+    expect(mainSource).not.toContain('tooltipPlugin')
   })
 
   it('guards lazy StyleGuide import and guide CSS gating in production App entry', () => {

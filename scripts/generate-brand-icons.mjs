@@ -3,18 +3,45 @@
 //
 //   node scripts/generate-brand-icons.mjs
 //
-// Geometry comes from src/components/uniques/brandMark.ts (Node strips the
-// types natively), so the icons can never drift from BrandLogo.vue. The hex
-// values below mirror the design tokens in src/emotitone-design-system.css;
-// a static file cannot read CSS variables. PNGs are rasterised with headless
-// Chrome over the DevTools protocol (set CHROME=/path/to/chrome if it is not
-// on PATH).
+// Geometry comes from src/components/uniques/brandMark.ts, loaded through
+// Vite's module runner (Node 20 cannot import .ts), so the icons can never
+// drift from BrandLogo.vue. The hex values below mirror the design tokens in
+// src/emotitone-design-system.css; a static file cannot read CSS variables.
+// PNGs are rasterised with headless Chrome over the DevTools protocol on
+// --remote-debugging-pipe, which needs no WebSocket client (set
+// CHROME=/path/to/chrome if it is not on PATH).
 import { spawn } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import {
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { createServer } from "vite";
+
+const ROOT = resolve(fileURLToPath(new URL("..", import.meta.url)));
+const PUBLIC = join(ROOT, "public");
+
+/** Loads the TypeScript geometry sources with Vite, without the app's config or plugins. */
+async function loadGeometry() {
+  const vite = await createServer({
+    configFile: false,
+    root: ROOT,
+    logLevel: "error",
+    appType: "custom",
+    resolve: { alias: { "@": join(ROOT, "src") } },
+    server: { middlewareMode: true, hmr: false },
+    optimizeDeps: { disabled: true },
+  });
+  try {
+    return {
+      ...(await vite.ssrLoadModule("/src/components/uniques/brandMark.ts")),
+      ...(await vite.ssrLoadModule("/src/components/primatives/marks.ts")),
+    };
+  } finally {
+    await vite.close();
+  }
+}
+
+const {
   BRAND_BEATS,
   BRAND_BEATS_MIN_WIDTH,
   BRAND_BLOBS,
@@ -24,8 +51,8 @@ import {
   BRAND_SCRAPS_TRANSFORM,
   BRAND_SPRINKLES,
   brandSprinkleTransform,
-} from "../src/components/uniques/brandMark.ts";
-import { MARK_DEFINITIONS } from "../src/components/primatives/marks.ts";
+  MARK_DEFINITIONS,
+} = await loadGeometry();
 
 const TOKENS = {
   ink: "#0A0908",
@@ -36,8 +63,6 @@ const TOKENS = {
   mustard: "#f0b137",
   cobalt: "#2f67b2",
 };
-
-const PUBLIC = resolve(fileURLToPath(new URL("../public", import.meta.url)));
 
 /** The mark on a rounded Ink tile, padded so launchers and tabs never crop a circle. */
 function iconSvg(size, withDetail) {
@@ -88,65 +113,70 @@ const outputs = [
   { file: "icon-512.svg", size: 512, png: "icon-512.png" },
 ];
 
-/** Rasterises an SVG string at exactly size × size with a transparent page, over CDP. */
-async function rasterise(svg, size, out, scratch) {
-  const port = 9300 + Math.floor(Math.random() * 600);
+/** Opens headless Chrome and returns a DevTools protocol client over its pipe (fd 3 in, fd 4 out). */
+function openChrome(scratch) {
   const browser = spawn(process.env.CHROME || "google-chrome", [
     "--headless=new",
     "--no-sandbox",
     "--hide-scrollbars",
-    `--remote-debugging-port=${port}`,
-    `--user-data-dir=${join(scratch, `profile-${port}`)}`,
+    "--remote-debugging-pipe",
+    `--user-data-dir=${join(scratch, "profile")}`,
     "about:blank",
-  ], { stdio: "ignore" });
-  try {
-    let target;
-    for (let attempt = 0; attempt < 60 && !target; attempt += 1) {
-      await new Promise((done) => setTimeout(done, 250));
-      try {
-        const targets = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
-        target = targets.find((entry) => entry.type === "page");
-      } catch { /* Chrome is still starting. */ }
+  ], { stdio: ["ignore", "ignore", "ignore", "pipe", "pipe"] });
+  const [, , , input, output] = browser.stdio;
+  let id = 0;
+  let buffered = "";
+  const pending = new Map();
+  output.setEncoding("utf8");
+  output.on("data", (chunk) => {
+    const frames = (buffered + chunk).split("\0");
+    buffered = frames.pop();
+    for (const frame of frames) {
+      const message = JSON.parse(frame);
+      if (!message.id || !pending.has(message.id)) continue;
+      const { resolve: done, reject, method } = pending.get(message.id);
+      pending.delete(message.id);
+      if (message.error) reject(new Error(`${method}: ${message.error.message}`));
+      else done(message.result);
     }
-    if (!target) throw new Error("Chrome did not expose a page target");
-    const socket = new WebSocket(target.webSocketDebuggerUrl);
-    await new Promise((done) => { socket.onopen = done; });
-    let id = 0;
-    const pending = new Map();
-    socket.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-      if (message.id && pending.has(message.id)) pending.get(message.id)(message);
-    };
-    const send = (method, params = {}) => new Promise((done) => {
-      id += 1;
-      pending.set(id, done);
-      socket.send(JSON.stringify({ id, method, params }));
-    });
-    await send("Page.enable");
-    await send("Emulation.setDeviceMetricsOverride", { width: size, height: size, deviceScaleFactor: 1, mobile: false });
-    await send("Emulation.setDefaultBackgroundColorOverride", { color: { r: 0, g: 0, b: 0, a: 0 } });
-    const html = `<!doctype html><style>html,body{margin:0;background:transparent}svg{display:block}</style>${svg}`;
-    await send("Page.navigate", { url: `data:text/html;base64,${Buffer.from(html).toString("base64")}` });
-    await new Promise((done) => setTimeout(done, 500));
-    const shot = await send("Page.captureScreenshot", { format: "png", clip: { x: 0, y: 0, width: size, height: size, scale: 1 } });
-    writeFileSync(out, Buffer.from(shot.result.data, "base64"));
-    socket.close();
-  } finally {
-    browser.kill();
-  }
+  });
+  const send = (method, params = {}, sessionId) => new Promise((done, reject) => {
+    id += 1;
+    pending.set(id, { resolve: done, reject, method });
+    input.write(`${JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) })}\0`);
+  });
+  return { send, close: () => browser.kill() };
+}
+
+/** Rasterises an SVG string at exactly size × size with a transparent page. */
+async function rasterise(chrome, svg, size, out) {
+  const { targetId } = await chrome.send("Target.createTarget", { url: "about:blank" });
+  const { sessionId } = await chrome.send("Target.attachToTarget", { targetId, flatten: true });
+  const send = (method, params) => chrome.send(method, params, sessionId);
+  await send("Page.enable");
+  await send("Emulation.setDeviceMetricsOverride", { width: size, height: size, deviceScaleFactor: 1, mobile: false });
+  await send("Emulation.setDefaultBackgroundColorOverride", { color: { r: 0, g: 0, b: 0, a: 0 } });
+  const html = `<!doctype html><style>html,body{margin:0;background:transparent}svg{display:block}</style>${svg}`;
+  await send("Page.navigate", { url: `data:text/html;base64,${Buffer.from(html).toString("base64")}` });
+  await new Promise((done) => setTimeout(done, 500));
+  const shot = await send("Page.captureScreenshot", { format: "png", clip: { x: 0, y: 0, width: size, height: size, scale: 1 } });
+  writeFileSync(out, Buffer.from(shot.data, "base64"));
+  await chrome.send("Target.closeTarget", { targetId });
 }
 
 const scratch = mkdtempSync(join(tmpdir(), "brand-icons-"));
+const chrome = openChrome(scratch);
 try {
   for (const output of outputs) {
     const svg = iconSvg(output.size, (output.renderedAt ?? output.size) >= BRAND_BEATS_MIN_WIDTH);
     writeFileSync(join(PUBLIC, output.file), svg);
     console.log(`wrote public/${output.file}`);
     if (!output.png) continue;
-    await rasterise(svg, output.size, join(PUBLIC, output.png), scratch);
+    await rasterise(chrome, svg, output.size, join(PUBLIC, output.png));
     console.log(`wrote public/${output.png}`);
   }
 } finally {
+  chrome.close();
   await new Promise((done) => setTimeout(done, 300));
   rmSync(scratch, { recursive: true, force: true });
 }

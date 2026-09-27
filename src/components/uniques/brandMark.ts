@@ -99,8 +99,8 @@ export const BRAND_SPRINKLES: BrandSprinkle[] = [
 
 /**
  * Places a Mark's own drawing (its viewBox from marks.ts) at a sprinkle's
- * centre, size and tilt. The viewBox is passed in so the icon script can run
- * this file in plain Node.
+ * centre, size and tilt. The viewBox is passed in so this module stays free
+ * of runtime imports for the icon script.
  */
 export function brandSprinkleTransform(sprinkle: BrandSprinkle, viewBox: readonly [number, number, number, number]): string {
   const [, , width, height] = viewBox;

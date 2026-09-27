@@ -254,7 +254,7 @@ const midiPaper = computed(() => (midi.value?.stamp === "SET" ? "plum" : "ink-4"
         <button
           v-if="isReady"
           type="button"
-          class="count-gate count-gate--play"
+          class="count-gate count-gate--play brass"
           aria-label="Play EmotiTone"
           title="Enter EmotiTone"
           @click="emit('start')"
@@ -637,24 +637,9 @@ const midiPaper = computed(() => (midi.value?.stamp === "SET" ? "plum" : "ink-4"
   animation: count-gate-in var(--dur-scene) var(--ease-swing) both;
 }
 
-/* Brass is the single signal, and it lives only here. */
-.count-gate--play {
-  background: var(--brass-fill);
-  box-shadow: 0 3px 0 var(--brass-lo), var(--shadow-glow-brass);
-  color: var(--brass-edge);
-}
-
-.count-gate--play::after {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  inset: -10% -30%;
-  background: var(--brass-sheen);
-  background-size: 220% 100%;
-  background-repeat: no-repeat;
-  mix-blend-mode: screen;
-  animation: brass-sheen 6.5s var(--ease-brush) infinite;
-}
+/* Brass is the single signal, and it lives only here. The finish, its edge
+   shadows and its sheen come from the shared .brass owner in the design system;
+   the gate adds only its own geometry above. */
 
 /* The recovery gates are paper, never Brass: Ivory for the cue, Tomato to take it from the top. */
 .count-gate--cue { background: var(--ivory); color: var(--ink); }

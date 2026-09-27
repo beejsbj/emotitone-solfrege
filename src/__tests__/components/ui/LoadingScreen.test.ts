@@ -73,9 +73,11 @@ describe("LoadingScreen · Count-In", () => {
     await play.trigger("click");
     expect(wrapper.emitted("start")).toHaveLength(1);
 
-    const brassRules = loadingScreenSource.match(/[^{}]*\{[^}]*var\(--brass-[^}]*\}/g) ?? [];
-    expect(brassRules.length).toBeGreaterThan(0);
-    expect(brassRules.every((rule) => rule.includes(".count-gate--play"))).toBe(true);
+    // The gate wears the shared .brass owner; the composition never re-derives the finish.
+    expect(play.classes()).toContain("brass");
+    expect(wrapper.findAll(".brass")).toHaveLength(1);
+    const style = loadingScreenSource.slice(loadingScreenSource.indexOf("<style"));
+    expect(style).not.toMatch(/--brass-|brass-sheen|--shadow-glow-brass/);
   });
 
   it("holds the count on error and offers Retry, never Play", async () => {

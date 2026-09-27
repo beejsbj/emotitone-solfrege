@@ -100,7 +100,7 @@
      --s-1 hairline gap, --s-2 icon nudge, --s-3 tight gap,
      --s-4 chip padding, --s-5 control gap, --s-6 panel inset,
      --s-7 card rhythm, --s-8 card padding, --s-9 section gap,
-     --s-10 page gutter, --s-11 poster/hero gap. */
+     --s-10 page gutter, --s-11 poster / hero gap. */
   --s-1: 2px;  --s-2: 4px;  --s-3: 6px;  --s-4: 8px;
   --s-5: 12px; --s-6: 16px; --s-7: 20px; --s-8: 24px;
   --s-9: 32px; --s-10: 48px; --s-11: 64px;

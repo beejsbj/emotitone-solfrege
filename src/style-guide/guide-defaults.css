@@ -34,6 +34,13 @@ body.style-guide-route {
   line-height: 1.55;
 }
 
+/* Guide copy blocks that hold no production source keep the whole guide
+   body recipe, so their line boxes (and inline-block links) keep the guide's
+   metrics rather than production's 16px root. */
+.style-guide-route :where(.focused-poster__copy, .scrap__meta) {
+  font: var(--t-body);
+}
+
 .style-guide-route h1,
 .style-guide-route .h-display-l {
   font: var(--t-display-l);

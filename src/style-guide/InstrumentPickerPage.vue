@@ -80,7 +80,7 @@ function selectInstrument(instrumentId: string) {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: clamp(18px, 4vw, 42px);
-  min-height: 15rem;
+  min-height: 210px; /* was 15rem at the guide's former 14px root */
   padding: clamp(24px, 5vw, 48px);
 }
 
@@ -98,7 +98,7 @@ function selectInstrument(instrumentId: string) {
 .picker-page__stage .label { margin-bottom: var(--s-4); }
 
 @media (max-width: 460px) {
-  .picker-page__stage { grid-template-columns: 1fr; min-height: 13rem; }
+  .picker-page__stage { grid-template-columns: 1fr; min-height: 182px; }
   .picker-page__stage-number { justify-self: start; }
 }
 </style>

@@ -5,6 +5,7 @@ import App from '@/App.vue'
 import appSource from '@/App.vue?raw'
 import mainAppSource from '@/MainApp.vue?raw'
 import mainSource from '@/main.ts?raw'
+import { STYLE_GUIDE_PAGES, isStyleGuideRoute } from '@/styleGuideRoutes'
 
 const appLoadingState = vi.hoisted(() => ({
   isLoading: false,
@@ -102,8 +103,9 @@ describe('App.vue', () => {
     expect(appSource).toContain('defineAsyncComponent')
     expect(appSource).toContain('import("./style-guide/StyleGuide.vue")')
     expect(appSource).toContain('import("./style-guide/guide-defaults.css")')
-    expect(appSource).toContain('"/style-guide/config-menu": "config-menu"')
-    expect(appSource).toContain('"/style-guide/performance-deck": "performance-deck"')
+    expect(appSource).toContain('from "./styleGuideRoutes"')
+    expect(STYLE_GUIDE_PAGES['/style-guide/config-menu']).toBe('config-menu')
+    expect(STYLE_GUIDE_PAGES['/style-guide/performance-deck']).toBe('performance-deck')
     expect(appSource).not.toContain('TabsLab')
     expect(appSource).not.toContain('InstrumentPickerLab')
     expect(appSource).not.toContain('TabsPage')
@@ -117,6 +119,20 @@ describe('App.vue', () => {
       .toBeGreaterThan(appSource.indexOf('} else {'))
     expect(appSource).not.toContain('MarksBeatParticlesPage')
     expect(appSource).not.toContain('isRoughPage')
+  })
+
+  it('routes and bootstraps the guide from one shared route list', () => {
+    // App.vue and main.ts once kept separate copies, and main.ts drifted
+    // behind (the six layer pages ran production bootstrap).
+    expect(mainSource).toContain('from "./styleGuideRoutes"')
+    expect(mainSource).toContain('const isDesignRoute = isStyleGuideRoute(pathname);')
+    expect(mainSource).not.toMatch(/"\/style-guide\/(tokens|primitives|tabs)"/)
+    expect(appSource).not.toMatch(/"\/style-guide\/(tokens|primitives|tabs)"/)
+    for (const page of ['tokens', 'primitives', 'compounds', 'uniques', 'compositions', 'systems']) {
+      expect(isStyleGuideRoute(`/style-guide/${page}`)).toBe(true)
+    }
+    expect(isStyleGuideRoute('/')).toBe(false)
+    expect(isStyleGuideRoute('/style-guide/unknown')).toBe(false)
   })
 
   it('pins the bootstrap routing wiring: two persistence-free guide routes and sole main.ts tab-edition call', () => {

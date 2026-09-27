@@ -7,6 +7,7 @@ import piniaPluginPersistedstate from "pinia-plugin-persistedstate";
 import { beginKnobPageEdition } from "./components/primatives/Knob/edition";
 import { beginTabsPageEdition } from "./components/primatives/TabsEdition";
 import { registerSW } from 'virtual:pwa-register';
+import { currentPathname, isStyleGuideRoute } from "./styleGuideRoutes";
 
 async function clearDevServiceWorkers() {
   if (!("serviceWorker" in navigator)) {
@@ -25,24 +26,11 @@ async function clearDevServiceWorkers() {
 const app = createApp(App);
 const pinia = createPinia();
 
-const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
-// Every guide URL App.vue routes to the style guide belongs here, so browsing
-// the guide never runs production-only bootstrap such as the knob edition.
-const isDesignRoute = [
-  "/style-guide",
-  "/style-guide/tokens",
-  "/style-guide/primitives",
-  "/style-guide/compounds",
-  "/style-guide/uniques",
-  "/style-guide/compositions",
-  "/style-guide/systems",
-  "/style-guide/tabs",
-  "/style-guide/instrument-picker",
-  "/style-guide/config-menu",
-  "/style-guide/pattern-reel",
-  "/style-guide/stage",
-  "/style-guide/performance-deck",
-].includes(pathname);
+const pathname = currentPathname();
+// Every guide URL App.vue routes to the style guide comes from the same
+// module, so browsing the guide never runs production-only bootstrap such as
+// the knob edition.
+const isDesignRoute = isStyleGuideRoute(pathname);
 const isPersistenceFreeDesignRoute = [
   "/style-guide/performance-deck",
   "/style-guide/stage",

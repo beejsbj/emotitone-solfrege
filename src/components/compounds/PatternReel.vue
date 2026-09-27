@@ -12,7 +12,7 @@
     tabindex="0"
     role="group"
     :aria-label="resolvedLabel"
-    :aria-roledescription="items.length > 1 ? 'cyclic pattern reel' : undefined"
+    :aria-roledescription="items.length > 1 ? (cyclic ? 'cyclic pattern reel' : 'pattern reel') : undefined"
     :data-stage-occlusion-active="handleGuardActive ? 'true' : undefined"
     @keydown="handleKeydown"
     @wheel="handleWheel"
@@ -52,6 +52,8 @@
           @copy="emit('copy', slot.item.id)"
           @open-strudel="emit('openStrudel', slot.item.id)"
           @rename="emit('rename', slot.item.id, $event)"
+          @keep="emit('keep', slot.item.id)"
+          @load="emit('load', slot.item.id)"
         />
       </div>
     </div>
@@ -107,10 +109,13 @@ const props = withDefaults(defineProps<{
   disabled?: boolean;
   label?: string;
   entrySignal?: number;
+  /** Wrap from the last item to the first. Linear reels stop at both ends. */
+  cyclic?: boolean;
 }>(), {
   disabled: false,
   label: DEFAULT_REEL_LABEL,
   entrySignal: 0,
+  cyclic: true,
 });
 
 const emit = defineEmits<{
@@ -119,6 +124,8 @@ const emit = defineEmits<{
   copy: [id: string];
   openStrudel: [id: string];
   rename: [id: string, name: string];
+  keep: [id: string];
+  load: [id: string];
   interactionChange: [active: boolean];
 }>();
 
@@ -196,12 +203,28 @@ watch(
 
 function wrapIndex(index: number) {
   if (!props.items.length) return 0;
+  if (!props.cyclic) return Math.max(0, Math.min(props.items.length - 1, index));
   return ((index % props.items.length) + props.items.length) % props.items.length;
+}
+
+/** Linear reels resist travel past either end instead of wrapping. */
+function isAtLinearEnd(direction: number) {
+  if (props.cyclic) return false;
+  return direction < 0
+    ? selectedIndex.value <= 0
+    : selectedIndex.value >= props.items.length - 1;
 }
 
 function slotForIndex(itemIndex: number) {
   const count = props.items.length;
   if (!count) return null;
+
+  if (!props.cyclic) {
+    const distance = displayIndex.value - itemIndex;
+    if (distance === 0) return 0;
+    if (distance > 0 && distance <= 3) return -distance;
+    return distance === -1 ? 1 : null;
+  }
 
   const backward = (displayIndex.value - itemIndex + count) % count;
   if (backward === 0) return 0;
@@ -219,7 +242,7 @@ function presentationKey(item: PatternReelItem) {
 }
 
 const renderedSlots = computed(() => {
-  const stagesShortIncoming = props.items.length > 1 && props.items.length <= 4;
+  const stagesShortIncoming = props.cyclic && props.items.length > 1 && props.items.length <= 4;
   const incoming = stagesShortIncoming
     ? props.items[wrapIndex(displayIndex.value + 1)]
     : undefined;
@@ -303,6 +326,7 @@ function isCommittedCurrent(id: string) {
 function isSlotUnavailable(slot: number, id: string) {
   const stagedForwardSlot = slot === 1 && !isActiveSlot(slot, id);
   const recedingShortDuplicate = slot < 0
+    && props.cyclic
     && dragging.value
     && dragProgress.value > 0
     && props.items.length <= 4
@@ -628,7 +652,9 @@ function handlePointerMove(event: PointerEvent) {
   event.preventDefault();
 
   const maxTravel = WHEEL_STEP * 1.45;
-  dragDistance.value = Math.max(-maxTravel, Math.min(maxTravel, delta));
+  // Dragging down reaches back (lower index); up comes forward.
+  const resisted = isAtLinearEnd(delta > 0 ? -1 : 1) ? delta * .2 : delta;
+  dragDistance.value = Math.max(-maxTravel, Math.min(maxTravel, resisted));
 }
 
 function finishPointer(event: PointerEvent, cancelled = false) {

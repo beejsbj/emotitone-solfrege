@@ -4,6 +4,8 @@
     :class="{
       'pattern-strip--active': active,
       'pattern-strip--disabled': disabled,
+      [`pattern-strip--tone-${item.tone}`]: Boolean(item.tone),
+      'pattern-strip--recording': item.recording,
     }"
     :style="stripStyle"
   >
@@ -50,6 +52,18 @@
         <span class="pattern-strip__identity-copy">
           <strong>{{ item.name }}</strong>
           <small>
+            <span
+              v-if="item.shelfTag"
+              class="pattern-strip__shelf"
+              data-testid="pattern-strip-shelf"
+            >
+              <span
+                v-if="item.tone === 'take'"
+                class="pattern-strip__lamp"
+                aria-hidden="true"
+              />
+              {{ item.shelfTag }}
+            </span>
             <component
               :is="item.instrumentIcon"
               :size="10"
@@ -58,11 +72,35 @@
               aria-hidden="true"
             />
             <span>{{ item.instrumentLabel }}</span>
+            <span v-if="item.detail" class="pattern-strip__detail">{{ item.detail }}</span>
           </small>
         </span>
       </component>
 
       <div
+        v-if="item.actions"
+        class="pattern-strip__actions"
+        data-reel-control
+        aria-label="Pattern actions"
+        @pointerdown.stop
+      >
+        <Button
+          v-for="action in item.actions"
+          :key="action.kind"
+          size="sm"
+          :tone="ACTION_TONES[action.kind]"
+          :disabled="disabled || action.disabled"
+          :accessible-name="action.label"
+          :title="action.label"
+          :data-action="action.kind"
+          @click.stop="runAction(action.kind)"
+        >
+          <Check v-if="action.done" aria-hidden="true" />
+          <component :is="ACTION_ICONS[action.kind]" v-else aria-hidden="true" />
+        </Button>
+      </div>
+      <div
+        v-else
         class="pattern-strip__actions"
         data-reel-control
         aria-label="Pattern actions"
@@ -114,10 +152,30 @@ import {
   type Component,
   type CSSProperties,
 } from "vue";
-import { Check, Copy, ExternalLink, Trash2 } from "lucide-vue-next";
+import {
+  ArrowDownToLine,
+  Bookmark,
+  Check,
+  Copy,
+  ExternalLink,
+  Trash2,
+} from "lucide-vue-next";
 import BarTape from "../primatives/BarTape.vue";
 import Button from "../primatives/Button.vue";
 import type { BarTapeSegment } from "../primatives/BarTape.vue";
+
+export type PatternStripActionKind = "keep" | "delete" | "copy" | "open" | "load";
+
+export interface PatternStripAction {
+  kind: PatternStripActionKind;
+  label: string;
+  disabled?: boolean;
+  /** Show a check: delete armed, copied, kept. */
+  done?: boolean;
+}
+
+/** Which shelf a strip belongs to; `take` gets the desk material and lamp. */
+export type PatternStripTone = "take" | "recent" | "kept" | "library";
 
 export interface PatternStripItem {
   id: string;
@@ -136,7 +194,31 @@ export interface PatternStripItem {
   deleteUnavailableLabel?: string;
   copyUnavailableLabel?: string;
   openUnavailableLabel?: string;
+  tone?: PatternStripTone;
+  /** Engraved shelf tag, e.g. "Now" or "Recent · 3m". */
+  shelfTag?: string;
+  /** Trailing meta, e.g. the solfège contour of a named phrase. */
+  detail?: string;
+  /** A key is down in this phrase right now. */
+  recording?: boolean;
+  /** Replaces the default delete/copy/open trio when present. */
+  actions?: PatternStripAction[];
 }
+
+const ACTION_ICONS: Record<PatternStripActionKind, Component> = {
+  keep: Bookmark,
+  delete: Trash2,
+  copy: Copy,
+  open: ExternalLink,
+  load: ArrowDownToLine,
+};
+const ACTION_TONES: Record<PatternStripActionKind, "ink" | "ivory" | "brass"> = {
+  keep: "ivory",
+  delete: "ink",
+  copy: "ivory",
+  open: "ink",
+  load: "brass",
+};
 
 const props = withDefaults(defineProps<{
   item: PatternStripItem;
@@ -155,7 +237,17 @@ const emit = defineEmits<{
   copy: [];
   openStrudel: [];
   rename: [name: string];
+  keep: [];
+  load: [];
 }>();
+
+function runAction(kind: PatternStripActionKind) {
+  if (kind === "keep") emit("keep");
+  else if (kind === "delete") emit("delete");
+  else if (kind === "copy") emit("copy");
+  else if (kind === "open") emit("openStrudel");
+  else emit("load");
+}
 
 const renaming = ref(false);
 const draftName = ref("");
@@ -399,6 +491,61 @@ const openLabel = computed(() => props.item.canOpenStrudel === false
   flex: 0 0 auto;
   align-items: center;
   gap: var(--s-3);
+}
+
+.pattern-strip--tone-take {
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--brass) 10%, transparent), transparent 55%),
+    var(--ink);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--brass-hi) 38%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--brass-lo) 30%, transparent),
+    0 8px 20px color-mix(in srgb, var(--ink) 42%, transparent);
+}
+
+.pattern-strip__shelf {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  padding: 0 3px;
+  /* An inset rule, not a border: the meta line must not grow taller. */
+  box-shadow: inset 0 0 0 1px var(--shelf-rule, var(--ink-5));
+  color: var(--ivory-2);
+  line-height: 1;
+}
+
+.pattern-strip--tone-take .pattern-strip__shelf {
+  --shelf-rule: color-mix(in srgb, var(--brass) 55%, transparent);
+  color: var(--brass-hi);
+}
+
+.pattern-strip--tone-kept .pattern-strip__shelf {
+  --shelf-rule: var(--ivory-3);
+  color: var(--ivory);
+}
+
+.pattern-strip__lamp {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--tomato) 35%, var(--ink-4));
+  transition: background-color 120ms var(--ease-brush), box-shadow 120ms var(--ease-brush);
+}
+
+.pattern-strip--recording .pattern-strip__lamp {
+  background: var(--tomato);
+  box-shadow: 0 0 6px var(--tomato);
+}
+
+.pattern-strip__detail {
+  color: var(--ivory-3);
+  text-transform: none;
+}
+
+.pattern-strip__detail::before {
+  content: "· ";
 }
 
 .pattern-strip__tape {

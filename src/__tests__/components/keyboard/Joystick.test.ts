@@ -82,7 +82,7 @@ describe("Joystick unique", () => {
     expect(wrapper.get(".joystick__label").classes()).toContain("instrument-control__label");
     expect(joystickSource).toContain("--instrument-control-visible-diameter");
     expect(joystickSource).toContain("--instrument-control-dark-well");
-    expect(joystickSource).toContain("animation: brass-sheen 6.5s");
+    expect(joystickSource).toContain("animation: brass-sheen var(--dur-sheen) var(--ease-sheen)");
     expect(joystickSource).toContain("point.x * 44");
     expect(joystickSource).toContain('import DragValue from "@/components/primatives/DragValue.vue"');
 

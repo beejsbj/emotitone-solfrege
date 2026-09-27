@@ -59,6 +59,7 @@ const eases: EaseCell[] = [
   { id: "sustain", name: "Sustain", value: "linear", role: "flywheel · playhead · scrub · meters", path: "M0 28 L 100 0", viewBox: "0 -6 100 40" },
   { id: "bend", name: "Bend", value: "cubic-bezier(.85, 0, .15, 1)", role: "tears and recovers · pitch · mode change · --ease-rip-mode alias", path: "M0 28 C 60 26, 40 2, 100 0", viewBox: "0 -6 100 40" },
   { id: "bounce", name: "Bounce", value: "linear() · 21 stops · elastic", role: "Boolean Knob · non-brass Button · Joystick stick · drag value", path: "0,28 10,-4 15,-8 25,3 30,5 40,0 45,-1 60,0 100,0", viewBox: "0 -12 100 42", polyline: true },
+  { id: "sheen", name: "Sheen", value: "cubic-bezier(.55, .05, .45, .95)", role: "brass sheen sweep · paired with --dur-sheen 6.5s", path: "M0 28 C 55 26.6, 45 1.4, 100 0", viewBox: "0 -6 100 40" },
 ];
 </script>
 
@@ -97,7 +98,7 @@ const eases: EaseCell[] = [
             <span class="mo-mono">{{ lane.role }} · filled with {{ lane.ease }}</span>
           </div>
         </div>
-        <p class="mo-mono mo-score__scale">Track length is time: full width = 600ms. Bounce overshoots its track, then settles.</p>
+        <p class="mo-mono mo-score__scale">Track length is time: full width = 600ms. Bounce overshoots its track, then settles. The ambient brass sheen runs off this scale at <code>--dur-sheen</code> 6.5s; see Keyframes · brass.</p>
       </div>
     </VariantGrid>
 
@@ -267,7 +268,7 @@ const eases: EaseCell[] = [
         <figcaption class="mo-cap">
           <span class="mo-name">Brass Sheen</span>
           <code class="mo-token">@keyframes brass-sheen</code>
-          <span class="mo-mono mo-value">6.5s · cubic-bezier(.55, .05, .45, .95) · the .brass recipe</span>
+          <span class="mo-mono mo-value">--dur-sheen 6.5s · --ease-sheen · the .brass recipe</span>
           <span class="mo-mono">gradient sweep across brass fills; one signal per view</span>
         </figcaption>
       </figure>
@@ -464,6 +465,7 @@ const eases: EaseCell[] = [
 .mo-ease--sustain { --ease-colour: var(--pine);    --ease-fn: var(--ease-sustain); }
 .mo-ease--bend    { --ease-colour: var(--plum);    --ease-fn: var(--ease-bend); }
 .mo-ease--bounce  { --ease-colour: var(--mustard); --ease-fn: var(--ease-bounce); }
+.mo-ease--sheen   { --ease-colour: var(--brass);   --ease-fn: var(--ease-sheen); }
 
 .mo-ease__well {
   flex-direction: column;
@@ -594,7 +596,7 @@ const eases: EaseCell[] = [
   background-repeat: no-repeat;
   pointer-events: none;
   mix-blend-mode: screen;
-  animation: brass-sheen 6.5s cubic-bezier(.55,.05,.45,.95) infinite;
+  animation: brass-sheen var(--dur-sheen) var(--ease-sheen) infinite;
 }
 
 .mo-outro {

@@ -132,17 +132,6 @@ Object.defineProperty(global, 'localStorage', {
   configurable: true,
 });
 
-// Mock toast notifications
-vi.mock('vue-sonner', () => ({
-  toast: {
-    loading: vi.fn().mockReturnValue('loading-toast-id'),
-    dismiss: vi.fn(),
-    success: vi.fn(),
-    error: vi.fn(),
-    warning: vi.fn()
-  }
-}))
-
 vi.mock('@/services/superdoughAudio', () => ({
   initSuperdoughAudio: vi.fn().mockResolvedValue(undefined),
   prewarmSoundSamples: vi.fn().mockResolvedValue(undefined),

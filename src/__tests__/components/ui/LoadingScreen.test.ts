@@ -80,6 +80,17 @@ describe("LoadingScreen · Count-In", () => {
     expect(style).not.toMatch(/--brass-|brass-sheen|--shadow-glow-brass/);
   });
 
+  it("opens the fallback gate once the required beats land, without waiting on optional MIDI", async () => {
+    const wrapper = mount(LoadingScreen, { props: { progress: 95 } });
+    expect(wrapper.find(".count-gate--play").exists()).toBe(false);
+
+    await wrapper.setProps({ progress: 97 });
+    expect(wrapper.findAll(".count-tile").every((tile) => tile.classes().includes("is-complete"))).toBe(true);
+    expect(wrapper.get(".count-and").classes()).toContain("is-active"); // MIDI still resolving
+    expect(wrapper.classes()).toContain("is-ready");
+    expect(wrapper.find(".count-gate--play").exists()).toBe(true);
+  });
+
   it("holds the count on error and offers Retry, never Play", async () => {
     const errored = mount(LoadingScreen, {
       props: {

@@ -66,14 +66,6 @@ const percent = computed(() => (
   Math.round(Math.min(100, Math.max(0, Number.isFinite(props.progress) ? props.progress : 0)))
 ));
 
-// Precedence: a blocked audio cue, then an error, and only then ready. A held
-// state always wins, so a failure can never be dismissed through the Play gate.
-const needsCue = computed(() => props.needsAudioInteraction);
-const isStopped = computed(() => props.hasError && !needsCue.value);
-const isReady = computed(() => (
-  !needsCue.value && !isStopped.value && (props.isComplete ?? percent.value === 100)
-));
-
 /** Specimen stand-in when no live stages are given: each stage owns a slice of the percentage. */
 const FALLBACK_STAGES = [
   { label: "Visual stage", start: 0, end: 18 },
@@ -98,6 +90,17 @@ const resolvedStages = computed<LoadingStage[]>(() => {
 const isOptional = (stage: LoadingStage) => stage.optional ?? stage.icon === "midi";
 const required = computed(() => resolvedStages.value.filter((stage) => !isOptional(stage)));
 const midi = computed(() => resolvedStages.value.find(isOptional));
+
+// Precedence: a blocked audio cue, then an error, and only then ready. A held
+// state always wins, so a failure can never be dismissed through the Play gate.
+const needsCue = computed(() => props.needsAudioInteraction);
+const isStopped = computed(() => props.hasError && !needsCue.value);
+// Without an explicit isComplete, ready means every required beat has landed;
+// the optional MIDI "and" never holds the gate.
+const requiredComplete = computed(() => required.value.length > 0 && required.value.every((stage) => stage.complete));
+const isReady = computed(() => (
+  !needsCue.value && !isStopped.value && (props.isComplete ?? requiredComplete.value)
+));
 
 /**
  * How far the active beat's tile has filled. The adapter passes the active

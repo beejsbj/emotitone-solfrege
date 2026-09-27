@@ -1,13 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import { mount } from "@vue/test-utils";
 import LoadingScreen from "@/components/compositions/LoadingScreen.vue";
+import loadingScreenSource from "@/components/compositions/LoadingScreen.vue?raw";
 
 vi.mock("@/components/MidiPermissionIcon.vue", () => ({
   default: { template: '<span data-testid="midi-icon" />' },
 }));
 
-describe("LoadingScreen", () => {
-  it("renders the accepted loading anatomy and development action", async () => {
+describe("LoadingScreen · Count-In", () => {
+  it("counts the four required stages in as beats, with MIDI as the optional “and”", async () => {
     const wrapper = mount(LoadingScreen, {
       props: {
         progress: 57,
@@ -19,34 +20,46 @@ describe("LoadingScreen", () => {
     });
 
     expect(wrapper.classes()).toContain("loading-screen--app");
+    expect(wrapper.find(".brand-logo").exists()).toBe(true);
     expect(wrapper.text()).toContain("EMOTITONE");
-    expect(wrapper.text()).toContain("LET'S MAKESOME MUSIC.");
+    expect(wrapper.text()).toContain("COUNTIT IN.");
     expect(wrapper.text()).toContain("Tuning the room");
     expect(wrapper.text()).toContain("57%");
     expect(wrapper.text()).toContain("Loading samples");
-    expect(wrapper.findAll(".converged-loader__bars > .is-filled")).toHaveLength(13);
-    const lanes = wrapper.findAll(".converged-loader__lane");
-    expect(lanes).toHaveLength(12);
-    expect(lanes.every((lane) => {
-      const foreground = lane.attributes("style").match(/--lane-neutral:\s*([^;]+)/)?.[1];
-      return foreground === "var(--ink)" || foreground === "var(--ivory)";
-    })).toBe(true);
-    expect(wrapper.findAll(".converged-loader__floating-mark")).toHaveLength(5);
-    const midiStage = wrapper.findAll(".converged-loader__stages li").at(-1)!;
-    expect(midiStage.text()).toContain("MIDI input");
-    expect(midiStage.attributes("aria-label")).toContain("pending");
+
+    const progress = wrapper.get('[role="progressbar"]');
+    expect(progress.attributes("aria-valuenow")).toBe("57");
+
+    const tiles = wrapper.findAll(".count-tile");
+    expect(tiles.map((tile) => tile.find(".count-tile__label").text())).toEqual([
+      "Visual stage",
+      "Instrument samples",
+      "Audio system",
+      "Ready to play",
+    ]);
+    expect(tiles.map((tile) => tile.classes().find((name) => name.startsWith("is-")))).toEqual([
+      "is-complete",
+      "is-active",
+      "is-pending",
+      "is-pending",
+    ]);
+    expect(tiles[1].attributes("aria-current")).toBe("step");
+
+    const midi = wrapper.get(".count-and");
+    expect(midi.text()).toContain("MIDI input");
+    expect(midi.text()).toContain("optional");
+    expect(midi.attributes("aria-label")).toContain("pending");
     expect(wrapper.find('[data-testid="midi-icon"]').exists()).toBe(true);
 
-    await wrapper.setProps({ progress: 99 });
-    const lateBars = wrapper.findAll(".converged-loader__bars > span");
-    expect(lateBars.filter((bar) => bar.classes("is-filled"))).toHaveLength(23);
-    expect(lateBars.at(-1)?.classes("is-frontier")).toBe(false);
+    // The gate stays shut until ready: no Play, only the waiting slot.
+    expect(wrapper.find(".count-gate--play").exists()).toBe(false);
+    expect(wrapper.find(".count-gate-slot").exists()).toBe(true);
 
-    await wrapper.get(".converged-loader__skip").trigger("click");
+    await wrapper.get(".loading-screen__skip").trigger("click");
     expect(wrapper.emitted("skip")).toHaveLength(1);
   });
 
-  it("emits start from the brass completion gate", async () => {
+  it("emits start from the Brass Play gate, the only Brass on the screen", async () => {
     const wrapper = mount(LoadingScreen, {
       props: {
         progress: 100,
@@ -55,13 +68,17 @@ describe("LoadingScreen", () => {
     });
 
     expect(wrapper.classes()).toContain("is-ready");
-    const play = wrapper.get(".converged-loader__completion-action");
+    const play = wrapper.get(".count-gate--play");
     expect(play.attributes("aria-label")).toBe("Play EmotiTone");
     await play.trigger("click");
     expect(wrapper.emitted("start")).toHaveLength(1);
+
+    const brassRules = loadingScreenSource.match(/[^{}]*\{[^}]*var\(--brass-[^}]*\}/g) ?? [];
+    expect(brassRules.length).toBeGreaterThan(0);
+    expect(brassRules.every((rule) => rule.includes(".count-gate--play"))).toBe(true);
   });
 
-  it("retains retry and audio-interaction states in the same composition", async () => {
+  it("holds the count on error and offers Retry, never Play", async () => {
     const errored = mount(LoadingScreen, {
       props: {
         progress: 48,
@@ -71,10 +88,17 @@ describe("LoadingScreen", () => {
       },
     });
 
+    expect(errored.classes()).toContain("is-error");
+    expect(errored.text()).toContain("Soundcheck interrupted");
     expect(errored.text()).toContain("Instrument initialization timeout");
-    await errored.get(".converged-loader__state-action--retry").trigger("click");
+    expect(errored.text()).toContain("FROM THE TOP");
+    expect(errored.get(".count-tile.is-held").text()).toContain("STOP");
+    expect(errored.find(".count-gate--play").exists()).toBe(false);
+    await errored.get(".count-gate--retry").trigger("click");
     expect(errored.emitted("retry")).toHaveLength(1);
+  });
 
+  it("asks for the audio cue instead of surfacing the raw audio error", async () => {
     const audio = mount(LoadingScreen, {
       props: {
         progress: 20,
@@ -85,10 +109,25 @@ describe("LoadingScreen", () => {
       },
     });
 
+    expect(audio.classes()).toContain("is-cue");
+    expect(audio.classes()).not.toContain("is-error");
     expect(audio.text()).toContain("Audio needs a tap");
     expect(audio.text()).toContain("browser needs permission");
     expect(audio.text()).not.toContain("Raw audio context error");
-    await audio.get(".converged-loader__state-action").trigger("click");
+    expect(audio.find(".count-gate--retry").exists()).toBe(false);
+    const cue = audio.get(".count-gate--cue");
+    expect(cue.text()).toContain("ENABLE AUDIO");
+    await cue.trigger("click");
     expect(audio.emitted("enable-audio")).toHaveLength(1);
+
+    await audio.setProps({ audioInitializing: true });
+    expect(audio.get(".count-gate--cue").attributes("disabled")).toBeDefined();
+    expect(audio.get(".count-gate--cue").text()).toContain("ENABLING");
+  });
+
+  it("renders a composed still frame for Reduced Motion", () => {
+    const still = mount(LoadingScreen, { props: { still: true } });
+    expect(still.classes()).toContain("is-still");
+    expect(loadingScreenSource).toMatch(/@media \(prefers-reduced-motion: reduce\)\s*\{[^}]*animation: none !important/s);
   });
 });

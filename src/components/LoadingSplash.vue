@@ -101,6 +101,7 @@ const stages = computed(() => {
       label: "MIDI input",
       complete: midiCheckComplete,
       icon: "midi" as const,
+      optional: true,
       detail: midiMessage.value,
       stamp: midiStamp,
     },

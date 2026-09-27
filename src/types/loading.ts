@@ -68,3 +68,18 @@ export interface LoadingEvent {
   message: string;
   timestamp: number;
 }
+
+/**
+ * One row of the Loading Screen's stage list. Required stages are the four
+ * counted beats; an optional stage (MIDI input) is the "and" and never holds
+ * the Play gate.
+ */
+export interface LoadingStage {
+  label: string;
+  complete: boolean;
+  active: boolean;
+  icon?: "midi";
+  detail?: string;
+  stamp?: string;
+  optional?: boolean;
+}

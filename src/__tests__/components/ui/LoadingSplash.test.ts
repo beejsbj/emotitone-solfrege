@@ -47,6 +47,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   loadingState.progress.overall.isComplete = false;
   loadingState.progress.instruments.error = "";
+  loadingState.progress.audioContext.isComplete = true;
+  loadingState.progress.audioContext.error = "";
   midi.isSupported = false;
   midi.isConnecting = false;
   midi.isListening = false;
@@ -60,10 +62,12 @@ describe("production loading splash", () => {
     const wrapper = mount(LoadingSplash, { props: { autoStart: false } });
     expect(wrapper.get(".loading-screen--app").exists()).toBe(true);
     expect(wrapper.text()).toContain("EMOTITONE");
-    expect(wrapper.text()).toContain("LET'S MAKESOME MUSIC.");
+    expect(wrapper.text()).toContain("COUNTIT IN.");
     expect(wrapper.text()).toContain("Warming up piano");
     expect(wrapper.text()).not.toContain("NOT FOR PRESS");
-    expect(wrapper.findAll(".converged-loader__stages li").at(-1)?.text()).toContain("MIDI input");
+    expect(wrapper.findAll(".count-tile")).toHaveLength(4);
+    expect(wrapper.get(".count-and").text()).toContain("MIDI input");
+    expect(wrapper.get(".count-and").attributes("aria-label")).toContain("optional");
     wrapper.unmount();
   });
 
@@ -71,7 +75,8 @@ describe("production loading splash", () => {
     vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true })));
     loadingState.progress.overall.isComplete = true;
     const wrapper = mount(LoadingSplash, { props: { autoStart: false } });
-    await wrapper.get(".converged-loader__completion-action").trigger("click");
+    expect(enableAudioContext).not.toHaveBeenCalled();
+    await wrapper.get(".count-gate--play").trigger("click");
     expect(enableAudioContext).toHaveBeenCalledOnce();
     expect(hideSplash).toHaveBeenCalledWith(0);
     vi.unstubAllGlobals();
@@ -81,7 +86,9 @@ describe("production loading splash", () => {
   it("keeps optional MIDI status visible and stamps resolved outcomes accurately", async () => {
     loadingState.progress.overall.isComplete = true;
     const wrapper = mount(LoadingSplash, { props: { autoStart: false } });
-    const midiStage = wrapper.findAll(".converged-loader__stages li").at(-1)!;
+    const midiStage = wrapper.get(".count-and");
+    // MIDI never holds the Play gate, even while it is still resolving.
+    expect(wrapper.find(".count-gate--play").exists()).toBe(true);
 
     expect(midiStage.text()).toContain("MIDI is unavailable");
     expect(midiStage.text()).toContain("N/A");
@@ -90,14 +97,16 @@ describe("production loading splash", () => {
     midi.isConnecting = true;
     await wrapper.vm.$nextTick();
     expect(midiStage.text()).toContain("Requesting browser MIDI access");
-    expect(midiStage.find(".converged-loader__stamp").classes()).not.toContain("is-visible");
+    expect(midiStage.find(".count-and__stamp").classes()).not.toContain("is-visible");
+    expect(wrapper.find(".count-gate--play").exists()).toBe(true);
 
     midi.isConnecting = false;
     midi.lastError = "Permission denied";
     await wrapper.vm.$nextTick();
     expect(midiStage.text()).toContain("MIDI permission was not granted");
     expect(midiStage.text()).toContain("SKIP");
-    expect(midiStage.find(".converged-loader__stamp").classes()).toContain("is-visible");
+    expect(midiStage.find(".count-and__stamp").classes()).toContain("is-visible");
+    expect(midiStage.attributes("aria-label")).toContain("skipped");
     wrapper.unmount();
   });
 
@@ -105,8 +114,24 @@ describe("production loading splash", () => {
     loadingState.progress.instruments.error = "Sample download failed";
     const wrapper = mount(LoadingSplash, { props: { autoStart: false } });
     expect(wrapper.text()).toContain("Sample download failed");
-    await wrapper.get(".converged-loader__state-action--retry").trigger("click");
+    expect(wrapper.find(".count-gate--play").exists()).toBe(false);
+    await wrapper.get(".count-gate--retry").trigger("click");
     expect(resetLoading).toHaveBeenCalledOnce();
+    wrapper.unmount();
+  });
+
+  it("asks for the audio cue when the browser blocks audio, and enables it only on that tap", async () => {
+    loadingState.progress.audioContext.isComplete = false;
+    loadingState.progress.audioContext.error = "AudioContext was not allowed to start";
+    const wrapper = mount(LoadingSplash, { props: { autoStart: false } });
+
+    expect(wrapper.text()).toContain("Audio needs a tap");
+    expect(wrapper.text()).not.toContain("AudioContext was not allowed to start");
+    expect(wrapper.find(".count-gate--retry").exists()).toBe(false);
+    expect(enableAudioContext).not.toHaveBeenCalled();
+
+    await wrapper.get(".count-gate--cue").trigger("click");
+    expect(enableAudioContext).toHaveBeenCalledOnce();
     wrapper.unmount();
   });
 });

@@ -6,11 +6,11 @@ import VariantGrid from "../guide/VariantGrid.vue";
 
 const features = [
   { label: "Role", value: "singular EmotiTone identity artifact" },
-  { label: "Structure", value: "five circles → four beats → two paste-up scraps" },
+  { label: "Structure", value: "five circles → four beats → two paste-up scraps → seven Mark sprinkles" },
   { label: "Silhouette", value: "the OG five-circle cluster: big Plum behind, Cobalt left, Mustard right, Tomato and Pine low" },
-  { label: "Monogram", value: "Ink E on a Mustard scrap · Ivory T on a Tomato scrap · Ink cut-edges" },
-  { label: "Contrast", value: "each scrap sits on a colour other than its own paper" },
-  { label: "Small sizes", value: "beats drop out below 72px; cluster + ET carry the favicon" },
+  { label: "Monogram", value: "Ink E on an Ivory scrap · Ivory T on an Ink scrap · Ink cut-edges" },
+  { label: "Contrast", value: "Ink/Ivory scraps read on any blob; the colour belongs to the cluster" },
+  { label: "Small sizes", value: "beats and sprinkles drop out below 72px; cluster + ET carry the favicon" },
   { label: "Lockups", value: "stacked · compact · mark-only · EMOTI + Tomato TONE tab" },
   { label: "Source", value: "geometry in brandMark.ts, shared with the exported app icons" },
 ];

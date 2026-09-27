@@ -7,7 +7,10 @@ import {
   BRAND_MARK_VIEWBOX,
   BRAND_SCRAPS,
   BRAND_SCRAPS_TRANSFORM,
+  BRAND_SPRINKLES,
+  brandSprinkleTransform,
 } from "./brandMark";
+import { MARK_DEFINITIONS } from "../primatives/marks";
 
 export type BrandLogoLayout = "stacked" | "compact" | "mark";
 export type BrandLogoSurface = "ink" | "bone";
@@ -85,6 +88,24 @@ const logoStyle = computed(() => ({ "--brand-logo-mark-width": resolvedSize.valu
             <polygon v-for="glyph in scrap.glyphs" :key="glyph" class="brand-logo__glyph" :points="glyph" />
           </g>
         </g>
+
+        <g class="brand-logo__sprinkles">
+          <g
+            v-for="sprinkle in BRAND_SPRINKLES"
+            :key="sprinkle.name"
+            class="brand-logo__sprinkle"
+            :data-mark="sprinkle.name"
+            :transform="brandSprinkleTransform(sprinkle, MARK_DEFINITIONS[sprinkle.name].viewBox)"
+            :style="{ fill: `var(--${sprinkle.tone})` }"
+          >
+            <path
+              v-for="(path, index) in MARK_DEFINITIONS[sprinkle.name].paths"
+              :key="index"
+              :d="path.d"
+              :fill-rule="path.fillRule"
+            />
+          </g>
+        </g>
       </svg>
     </div>
 
@@ -139,14 +160,15 @@ const logoStyle = computed(() => ({ "--brand-logo-mark-width": resolvedSize.valu
   paint-order: stroke;
 }
 
-.brand-logo__scrap--e .brand-logo__paper { fill: var(--mustard); }
+.brand-logo__scrap--e .brand-logo__paper { fill: var(--ivory); }
 .brand-logo__scrap--e .brand-logo__glyph { fill: var(--ink); }
-.brand-logo__scrap--t .brand-logo__paper { fill: var(--tomato); }
+.brand-logo__scrap--t .brand-logo__paper { fill: var(--ink); }
 .brand-logo__scrap--t .brand-logo__glyph { fill: var(--ivory); }
 
-/* Below 72px (BRAND_BEATS_MIN_WIDTH) the beats are noise; the cluster and ET carry the mark alone. */
+/* Below 72px (BRAND_BEATS_MIN_WIDTH) the beats and sprinkles are noise; the cluster and ET carry the mark alone. */
 @container (max-width: 72px) {
   .brand-logo__beats { display: none; }
+  .brand-logo__sprinkles { display: none; }
 }
 
 .brand-logo__wordmark {
@@ -175,6 +197,7 @@ const logoStyle = computed(() => ({ "--brand-logo-mark-width": resolvedSize.valu
 @media (forced-colors: active) {
   .brand-logo__backdrop { fill: CanvasText !important; }
   .brand-logo__beat,
+  .brand-logo__sprinkle,
   .brand-logo__scrap .brand-logo__paper { fill: Canvas; stroke: CanvasText; }
   .brand-logo__scrap .brand-logo__glyph { fill: CanvasText; }
   .brand-logo__wordmark { color: CanvasText; }

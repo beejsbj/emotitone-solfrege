@@ -39,6 +39,10 @@ describe("BrandLogo", () => {
     expect(children.slice(0, 5).every((element) => element.classList.contains("brand-logo__backdrop"))).toBe(true);
     expect(children[5].classList.contains("brand-logo__beats")).toBe(true);
     expect(children[6].classList.contains("brand-logo__scraps")).toBe(true);
+    expect(children[7].classList.contains("brand-logo__sprinkles")).toBe(true);
+    expect(wrapper.findAll(".brand-logo__sprinkle")).toHaveLength(7);
+    expect(brandLogoSource).toMatch(/\.brand-logo__scrap--e \.brand-logo__paper \{ fill: var\(--ivory\); \}/);
+    expect(brandLogoSource).toMatch(/\.brand-logo__scrap--t \.brand-logo__paper \{ fill: var\(--ink\); \}/);
     expect(BRAND_SCRAPS.map((scrap) => scrap.id)).toEqual(["e", "t"]);
     expect(brandLogoSource).toMatch(/\.brand-logo__paper\s*\{[^}]*stroke:\s*var\(--ink\)/s);
     expect(brandLogoSource).toMatch(/@container \(max-width: 72px\)\s*\{\s*\.brand-logo__beats \{ display: none; \}/s);

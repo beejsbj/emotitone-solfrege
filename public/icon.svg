@@ -6,16 +6,16 @@
   <circle cx="137" cy="63" r="43" fill="#f0b137"/>
   <circle cx="59" cy="120" r="33" fill="#d8362a"/>
   <circle cx="116" cy="122" r="34" fill="#1f4d3f"/>
-  <g transform="translate(40 2) scale(.86)">
+  <g transform="translate(33 -3) scale(.98)">
     <g>
-      <polygon points="6,20 66,14 70,102 10,108" fill="#f0b137" stroke="#0A0908" stroke-width="4.5" stroke-linejoin="round" paint-order="stroke"/>
+      <polygon points="6,20 66,14 70,102 10,108" fill="#F4EFE6" stroke="#0A0908" stroke-width="4.5" stroke-linejoin="round" paint-order="stroke"/>
       <polygon points="16,28 29,27 31,97 18,98" fill="#0A0908"/>
       <polygon points="29,27 51,25 51,38 29,39" fill="#0A0908"/>
       <polygon points="29,55 47,54 47,66 30,67" fill="#0A0908"/>
       <polygon points="30,84 51,82 52,95 31,97" fill="#0A0908"/>
     </g>
     <g>
-      <polygon points="54,34 116,28 113,118 57,121" fill="#d8362a" stroke="#0A0908" stroke-width="4.5" stroke-linejoin="round" paint-order="stroke"/>
+      <polygon points="54,34 116,28 113,118 57,121" fill="#0A0908" stroke="#0A0908" stroke-width="4.5" stroke-linejoin="round" paint-order="stroke"/>
       <polygon points="61,41 109,37 109,52 61,55" fill="#F4EFE6"/>
       <polygon points="78,52 93,51 91,112 77,113" fill="#F4EFE6"/>
     </g>

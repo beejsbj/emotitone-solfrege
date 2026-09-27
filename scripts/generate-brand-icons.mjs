@@ -22,7 +22,10 @@ import {
   BRAND_MARK_VIEWBOX,
   BRAND_SCRAPS,
   BRAND_SCRAPS_TRANSFORM,
+  BRAND_SPRINKLES,
+  brandSprinkleTransform,
 } from "../src/components/uniques/brandMark.ts";
+import { MARK_DEFINITIONS } from "../src/components/primatives/marks.ts";
 
 const TOKENS = {
   ink: "#0A0908",
@@ -37,14 +40,14 @@ const TOKENS = {
 const PUBLIC = resolve(fileURLToPath(new URL("../public", import.meta.url)));
 
 /** The mark on a rounded Ink tile, padded so launchers and tabs never crop a circle. */
-function iconSvg(size, withBeats) {
+function iconSvg(size, withDetail) {
   const { x, y, width, height } = BRAND_MARK_VIEWBOX;
   const pad = width * 0.1;
   const side = Math.max(width, height) + pad * 2;
   const ox = x - pad - (side - pad * 2 - width) / 2;
   const oy = y - pad - (side - pad * 2 - height) / 2;
   const scraps = BRAND_SCRAPS.map((scrap) => {
-    const paper = scrap.id === "e" ? TOKENS.mustard : TOKENS.tomato;
+    const paper = scrap.id === "e" ? TOKENS.ivory : TOKENS.ink;
     const glyph = scrap.id === "e" ? TOKENS.ink : TOKENS.ivory;
     return [
       `    <g>`,
@@ -53,7 +56,14 @@ function iconSvg(size, withBeats) {
       `    </g>`,
     ].join("\n");
   }).join("\n");
-  const beats = withBeats
+  const sprinkles = withDetail
+    ? `  <g>\n${BRAND_SPRINKLES.map((sprinkle) => (
+      `    <g transform="${brandSprinkleTransform(sprinkle, MARK_DEFINITIONS[sprinkle.name].viewBox)}" fill="${TOKENS[sprinkle.tone]}">${
+        MARK_DEFINITIONS[sprinkle.name].paths.map((path) => `<path d="${path.d}"${path.fillRule ? ` fill-rule="${path.fillRule}"` : ""}/>`).join("")
+      }</g>`
+    )).join("\n")}\n  </g>\n`
+    : "";
+  const beats = withDetail
     ? BRAND_BEATS.xs.map((bx, index) => (
       `  <circle cx="${bx}" cy="${BRAND_BEATS.y}" r="${index === 0 ? BRAND_BEATS.downbeatR : BRAND_BEATS.r}" fill="${index === 0 ? TOKENS.tomato : TOKENS.ivory}"/>`
     )).join("\n") + "\n"
@@ -66,12 +76,12 @@ ${BRAND_BLOBS.map((blob) => `  <circle cx="${blob.x}" cy="${blob.y}" r="${blob.r
 ${beats}  <g transform="${BRAND_SCRAPS_TRANSFORM}">
 ${scraps}
   </g>
-</svg>
+${sprinkles}</svg>
 `;
 }
 
 // icon.svg is the browser-tab favicon, drawn at 16–32px: below BRAND_BEATS_MIN_WIDTH,
-// so it drops the beats exactly as BrandLogo does. The PWA icons carry them.
+// so it drops the beats and sprinkles exactly as BrandLogo does. The PWA icons carry them.
 const outputs = [
   { file: "icon.svg", size: 512, renderedAt: 32 },
   { file: "icon-192.svg", size: 192, png: "icon-192.png" },

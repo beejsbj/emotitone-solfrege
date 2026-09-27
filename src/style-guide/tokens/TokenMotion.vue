@@ -13,15 +13,31 @@ const DEMO_BAR_MS = 2400;
 const take = ref(0);
 let timer: ReturnType<typeof setInterval> | undefined;
 
-onMounted(() => {
-  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+let reducedMotion: MediaQueryList | undefined;
+
+function stopBar() {
+  if (timer) clearInterval(timer);
+  timer = undefined;
+}
+
+// Follow the preference live: turning Reduced Motion on mid-page stops the bar.
+function syncBar() {
+  stopBar();
+  if (reducedMotion?.matches) return;
   timer = setInterval(() => {
     take.value += 1;
   }, DEMO_BAR_MS);
+}
+
+onMounted(() => {
+  reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+  reducedMotion?.addEventListener("change", syncBar);
+  syncBar();
 });
 
 onBeforeUnmount(() => {
-  if (timer) clearInterval(timer);
+  reducedMotion?.removeEventListener("change", syncBar);
+  stopBar();
 });
 
 interface DurationLane {

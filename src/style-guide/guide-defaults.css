@@ -2,13 +2,43 @@
  * Typography defaults for the style-guide route only. The design-system token
  * file is imported by every production entry, so native elements stay
  * unstyled there until a production unit explicitly opts into a recipe.
+ *
+ * The root keeps production's inherited typography from style.css (display
+ * face, weight 600, small-caps/old-style features), so a real production
+ * source mounted as a specimen renders exactly as it does in the app. A
+ * root `font:` shorthand here would reset those features and the weight.
  */
 html.style-guide-route,
 body.style-guide-route {
   background: var(--ink);
   color: var(--ivory);
-  font: var(--t-body);
   -webkit-font-smoothing: antialiased;
+}
+
+/* Guide-authored fixture chrome that sets only its size keeps the guide's
+   quieter body voice (--t-body weight and leading, no feature settings)
+   instead of inheriting the production root. */
+.style-guide-route :where(
+  .music-recipe__wheel,
+  .note-specimen__controls,
+  .hero-head,
+  .key-specimen__live,
+  .keyboard-specimen__controls,
+  .keyboard-specimen__tuning,
+  .keyboard-specimen__readout,
+  .keyboard-specimen__note,
+  .code-strip-bar-specimen > output
+) {
+  font-weight: 450;
+  font-feature-settings: normal;
+  line-height: 1.55;
+}
+
+/* Guide copy blocks that hold no production source keep the whole guide
+   body recipe, so their line boxes (and inline-block links) keep the guide's
+   metrics rather than production's 16px root. */
+.style-guide-route :where(.focused-poster__copy, .scrap__meta) {
+  font: var(--t-body);
 }
 
 .style-guide-route h1,

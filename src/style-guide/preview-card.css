@@ -1,8 +1,9 @@
+/* No root font here: the guide keeps production's inherited typography so
+   real specimens render as they do in the app (see guide-defaults.css). */
 html, body {
   margin: 0; padding: 0;
   background: var(--ink);
   color: var(--ivory);
-  font: var(--t-body);
   -webkit-font-smoothing: antialiased;
 }
 .card {

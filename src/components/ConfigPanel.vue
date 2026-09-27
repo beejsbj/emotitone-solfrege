@@ -1248,7 +1248,7 @@ const formatTimestamp = (timestamp: string) => {
 }
 
 .config-panel__empty-state {
-  border-inline-start: 3px solid rgb(244 239 230 / 22%);
+  border-inline-start: 3px solid color-mix(in srgb, var(--ivory) 22%, transparent);
   padding: var(--s-4);
   color: var(--ivory);
   font: var(--t-body-mono);
@@ -1295,7 +1295,7 @@ const formatTimestamp = (timestamp: string) => {
   block-size: 2.5rem;
   flex: none;
   place-items: center;
-  border: 1px solid rgb(244 239 230 / 22%);
+  border: 1px solid color-mix(in srgb, var(--ivory) 22%, transparent);
   border-radius: 50%;
   background: var(--ink);
   color: var(--ivory);
@@ -1304,12 +1304,12 @@ const formatTimestamp = (timestamp: string) => {
 .config-panel__midi-mark--quiet { opacity: .48; }
 .config-panel__midi-mark--active {
   border-color: var(--ivory);
-  box-shadow: 0 0 12px rgb(244 239 230 / 14%);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--ivory) 14%, transparent);
 }
 
 .config-panel__midi-port {
   padding: var(--s-3);
-  border: 1px solid rgb(244 239 230 / 12%);
+  border: 1px solid color-mix(in srgb, var(--ivory) 12%, transparent);
 }
 
 .config-panel__midi-kicker,

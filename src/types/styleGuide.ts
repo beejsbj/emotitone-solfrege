@@ -36,3 +36,10 @@ export interface GuideLayer {
   blurb: string;
   units: GuideUnit[];
 }
+
+/** One step of the spacing scale, parsed from the token file for the guide. */
+export interface SpacingStep {
+  token: string;
+  value: string;
+  hint: string;
+}

@@ -326,7 +326,7 @@ const dragValue = computed(() => {
 
 // Default theme color
 const defaultThemeColor = computed(() =>
-  props.tone === "brass" ? "var(--brass, #e0a93a)" : "hsla(0, 0%, 82%, 1)"
+  props.tone === "brass" ? "var(--brass)" : "hsla(0, 0%, 82%, 1)"
 );
 
 let suppressClickTimeout: ReturnType<typeof setTimeout> | undefined;

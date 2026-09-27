@@ -337,7 +337,7 @@ onBeforeUnmount(() => {
 .tabs {
   position: relative;
   width: 100%;
-  border: 1px solid rgb(244 239 230 / 18%);
+  border: 1px solid color-mix(in srgb, var(--ivory) 18%, transparent);
   background: var(--ink);
   overflow: hidden;
 }

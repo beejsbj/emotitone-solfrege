@@ -106,7 +106,6 @@ bun run build
 
 - `useAppLoading.ts`: Application initialization state
 - `useKeyboardControls.ts`: Keyboard shortcuts and navigation
-- `useTooltip.ts`: Global tooltip system
 
 ## Development Guidelines
 

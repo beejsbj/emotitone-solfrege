@@ -27,7 +27,7 @@
         </button>
         <label>
           <span>Rows</span>
-          <select v-model.number="rowCount">
+          <select class="guide-field" v-model.number="rowCount">
             <option v-for="count in [1, 3, 5]" :key="count" :value="count">
               {{ count }}
             </option>

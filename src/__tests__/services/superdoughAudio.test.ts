@@ -112,6 +112,19 @@ describe("superdoughAudio live note handling", () => {
     expect(hoisted.mockInitStrudel).not.toHaveBeenCalled();
   });
 
+  it("tags only sample-pack failures as SampleLoadError, never a graph failure after the samples load", async () => {
+    const { SampleLoadError } = await import("@/services/audioFailures");
+    const audio = await import("@/services/superdoughAudio");
+
+    hoisted.mockSamples.mockRejectedValueOnce(new Error("error loading piano.json"));
+    await expect(audio.initSuperdoughAudio()).rejects.toBeInstanceOf(SampleLoadError);
+
+    hoisted.mockInitAudio.mockRejectedValueOnce(new Error("AudioWorklet failed"));
+    const graph = await audio.initSuperdoughAudio().catch((error: unknown) => error);
+    expect(graph).toBeInstanceOf(Error);
+    expect(graph).not.toBeInstanceOf(SampleLoadError);
+  });
+
   it("starts basic synths without the sample packs after a failed load, so notes stop retrying the download", async () => {
     hoisted.mockSamples.mockRejectedValue(new Error("error loading piano.json"));
     const audio = await import("@/services/superdoughAudio");

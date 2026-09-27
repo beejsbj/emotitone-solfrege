@@ -28,6 +28,7 @@ import { audioTimeToOutputTime, LIVE_AUDIO_SCHEDULING_LEAD_MS } from "@/services
 import { getAudioContext, getMasterGain, initializeAudio, LIVE_ORBIT } from "@/services/audioRuntime";
 import { setLivePlaybackShaping } from "@/services/livePlayback";
 import { LIVE_DELAY_FEEDBACK, LIVE_DELAY_TIME_SECONDS } from "@/audio/liveShaping";
+import { SampleLoadError } from "@/services/audioFailures";
 
 /** Compatibility facade: the playback graph is owned by audioRuntime. */
 export { getAudioContext };
@@ -290,12 +291,17 @@ export async function initSuperdoughAudio(
         progressCallback?.(pct, `${label} loaded (${done}/${total})`);
       };
 
-      await Promise.all([
-        ...SAMPLE_PACKS.map(({ key, label }) =>
-          Promise.resolve(samples(`${BASE}${key}.json`)).then(() => reportPack(label))
-        ),
-        Promise.resolve(registerSoundfonts()).then(() => reportPack("Soundfonts")),
-      ]);
+      try {
+        await Promise.all([
+          ...SAMPLE_PACKS.map(({ key, label }) =>
+            Promise.resolve(samples(`${BASE}${key}.json`)).then(() => reportPack(label))
+          ),
+          Promise.resolve(registerSoundfonts()).then(() => reportPack("Soundfonts")),
+        ]);
+      } catch (error) {
+        // Tagged so the loading screen can offer the synths, which need no download.
+        throw new SampleLoadError(error instanceof Error ? error.message : String(error), { cause: error });
+      }
 
       // The editor creates the single pattern transport through patternPlayback.
       // Instrument startup only initializes the shared audio graph.

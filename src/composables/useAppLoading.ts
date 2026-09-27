@@ -13,6 +13,7 @@ import type {
   LoadingEvent,
 } from "@/types/loading";
 import { getAudioContext, initSuperdoughAudio, initSynthOnlyAudio } from "@/services/superdoughAudio";
+import { AudioBlockedError, SampleLoadError } from "@/services/audioFailures";
 
 /**
  * A browser that refuses to start audio leaves resume() pending rather than
@@ -122,23 +123,26 @@ export function useAppLoading() {
           new Promise((resolve) => setTimeout(resolve, AUDIO_RESUME_TIMEOUT_MS)),
         ]);
       }
-      if (context.state !== "running") {
-        throw new Error("The browser has not allowed audio to start yet");
-      }
+      if (context.state !== "running") throw new AudioBlockedError();
 
       updatePhase("audioContext", {
         progress: 100,
         message: "Audio context ready",
         isComplete: true,
         error: undefined,
+        failure: undefined,
       });
       return true;
     } catch (error) {
+      // Only a context the browser refused is a cue; anything the initializers
+      // throw is an engine fault, which a tap cannot fix.
+      const blocked = error instanceof AudioBlockedError;
       updatePhase("audioContext", {
         progress: 0,
-        message: "Audio initialization failed",
+        message: blocked ? "Audio is waiting for a tap" : "Audio engine failed to start",
         isComplete: false,
         error: error instanceof Error ? error.message : "Unknown error",
+        failure: blocked ? "blocked" : "engine",
       });
       return false;
     }
@@ -170,7 +174,7 @@ export function useAppLoading() {
       // Add timeout to prevent hanging
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => {
-          reject(new Error("Instrument initialization timeout"));
+          reject(new SampleLoadError("Instrument initialization timeout"));
         }, 60000); // 60 second timeout for all instruments
       });
 
@@ -190,10 +194,14 @@ export function useAppLoading() {
 
       // A failed load holds the count: the phase stays incomplete so loading
       // never reports ready, and the splash offers a retry from the top.
+      // Sample fetches and the load timeout can fall back to synths; any other
+      // rejection (the audio graph failing to initialise) is an engine fault.
+      const samples = error instanceof SampleLoadError;
       updatePhase("instruments", {
-        message: "Instrument samples failed to load",
+        message: samples ? "Instrument samples failed to load" : "Audio engine failed to start",
         isComplete: false,
         error: error instanceof Error ? error.message : "Unknown error",
+        failure: samples ? "samples" : "engine",
       });
     }
   };

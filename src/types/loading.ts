@@ -3,6 +3,8 @@
  * Types for managing app loading states, splash screens, and initialization progress
  */
 
+import type { AudioFailureKind } from "@/services/audioFailures";
+
 /**
  * Different phases of app loading
  */
@@ -22,6 +24,8 @@ export interface LoadingState {
   progress: number;     // 0-100
   message: string;
   error?: string;
+  /** Set with error: what kind of failure it was, so the screen offers the right way on. */
+  failure?: AudioFailureKind;
   isComplete: boolean;
 }
 

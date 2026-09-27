@@ -8,6 +8,7 @@ import { reactive } from "vue";
 import { flushPromises, mount } from "@vue/test-utils";
 import LoadingSplash from "@/components/LoadingSplash.vue";
 import { useAppLoading } from "@/composables/useAppLoading";
+import { SampleLoadError } from "@/services/audioFailures";
 
 const audio = vi.hoisted(() => {
   const context = {
@@ -20,7 +21,6 @@ const audio = vi.hoisted(() => {
   };
   return { context, initSuperdoughAudio: vi.fn(async () => {}), initSynthOnlyAudio: vi.fn(async () => {}) };
 });
-const toast = vi.hoisted(() => ({ warning: vi.fn() }));
 
 const instruments = vi.hoisted(() => ({ initializeInstruments: vi.fn(async () => {}) }));
 
@@ -29,7 +29,7 @@ vi.mock("@/services/superdoughAudio", () => ({
   initSynthOnlyAudio: audio.initSynthOnlyAudio,
   getAudioContext: () => audio.context,
 }));
-vi.mock("vue-sonner", () => ({ toast }));
+
 vi.mock("@/stores/instrument", () => ({ useInstrumentStore: () => instruments }));
 vi.mock("@/stores/keyboardDrawer", () => ({
   useKeyboardDrawerStore: () => ({
@@ -107,7 +107,6 @@ describe("production loading flow", () => {
     expect(audio.context.resume).toHaveBeenCalledOnce();
     expect(useAppLoading().isVisible.value).toBe(false);
     expect(audio.initSynthOnlyAudio).not.toHaveBeenCalled();
-    expect(toast.warning).not.toHaveBeenCalled();
     wrapper.unmount();
   });
 
@@ -131,7 +130,7 @@ describe("production loading flow", () => {
   });
 
   it("holds a failed sample load on the retry gate instead of offering Play", async () => {
-    instruments.initializeInstruments.mockRejectedValueOnce(new Error("Instrument initialization timeout"));
+    instruments.initializeInstruments.mockRejectedValueOnce(new SampleLoadError("Instrument initialization timeout"));
     const wrapper = await mountLoaded();
 
     expect(wrapper.find(".count-gate--play").exists()).toBe(false);
@@ -154,7 +153,7 @@ describe("production loading flow", () => {
   });
 
   it("offers a quieter way in with basic synths after a failed load, still started by the tap", async () => {
-    instruments.initializeInstruments.mockRejectedValueOnce(new Error("Instrument initialization timeout"));
+    instruments.initializeInstruments.mockRejectedValueOnce(new SampleLoadError("Instrument initialization timeout"));
     const wrapper = await mountLoaded();
 
     // Retry stays the gate; the fallback is secondary paper, never Brass.
@@ -173,7 +172,6 @@ describe("production loading flow", () => {
     expect(audio.initSynthOnlyAudio).toHaveBeenCalledOnce();
     expect(useAppLoading().isVisible.value).toBe(true);
     expect(wrapper.find(".count-gate--cue").exists()).toBe(true);
-    expect(toast.warning).not.toHaveBeenCalled();
 
     audio.context.allow = true;
     await wrapper.get(".count-gate--cue").trigger("click");
@@ -182,8 +180,6 @@ describe("production loading flow", () => {
     expect(audio.initSynthOnlyAudio).toHaveBeenCalledTimes(2);
     expect(audio.initSuperdoughAudio).not.toHaveBeenCalled(); // no sample download inside the tap
     expect(useAppLoading().isVisible.value).toBe(false);
-    expect(toast.warning).toHaveBeenCalledOnce();
-    expect(toast.warning.mock.calls[0][1].description).toMatch(/basic synthesizers/);
     wrapper.unmount();
   });
 
@@ -191,6 +187,55 @@ describe("production loading flow", () => {
     const wrapper = await mountLoaded();
     expect(wrapper.find(".count-gate--play").exists()).toBe(true);
     expect(wrapper.find(".count-fallback").exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("holds an audio-graph failure during loading on retry, with no synth fallback and no cue", async () => {
+    // The samples arrived, then the engine failed to initialise its graph.
+    instruments.initializeInstruments.mockRejectedValueOnce(new Error("AudioWorklet module failed to load"));
+    const wrapper = await mountLoaded();
+
+    expect(useAppLoading().loadingState.progress.instruments.failure).toBe("engine");
+    expect(wrapper.find(".count-gate--retry").exists()).toBe(true);
+    expect(wrapper.find(".count-fallback").exists()).toBe(false);
+    expect(wrapper.find(".count-gate--cue").exists()).toBe(false);
+    expect(wrapper.find(".count-gate--play").exists()).toBe(false);
+    expect(wrapper.text()).toContain("AudioWorklet module failed to load");
+    wrapper.unmount();
+  });
+
+  it("holds an engine failure at the Play tap on retry, never the Enable Audio cue", async () => {
+    audio.context.allow = true;
+    const wrapper = await mountLoaded();
+    audio.initSuperdoughAudio.mockRejectedValueOnce(new Error("Audio graph failed to initialise"));
+
+    await wrapper.get(".count-gate--play").trigger("click");
+    await flushPromises();
+
+    expect(useAppLoading().loadingState.progress.audioContext.failure).toBe("engine");
+    expect(useAppLoading().isVisible.value).toBe(true);
+    expect(wrapper.find(".count-gate--cue").exists()).toBe(false);
+    expect(wrapper.find(".count-gate--retry").exists()).toBe(true);
+    expect(wrapper.get(".count-tile.is-held").text()).toContain("Audio system");
+    expect(wrapper.text()).toContain("Audio graph failed to initialise");
+    wrapper.unmount();
+  });
+
+  it("drops the synth fallback once the engine itself fails, rather than looping on the cue", async () => {
+    audio.context.allow = true;
+    instruments.initializeInstruments.mockRejectedValueOnce(new SampleLoadError("error loading piano.json"));
+    const wrapper = await mountLoaded();
+    audio.initSynthOnlyAudio.mockRejectedValueOnce(new Error("Audio graph failed to initialise"));
+
+    await wrapper.get(".count-fallback").trigger("click");
+    await flushPromises();
+
+    expect(audio.initSynthOnlyAudio).toHaveBeenCalledOnce();
+    expect(useAppLoading().isVisible.value).toBe(true);
+    expect(wrapper.find(".count-gate--cue").exists()).toBe(false);
+    expect(wrapper.find(".count-gate--retry").exists()).toBe(true);
+    expect(wrapper.find(".count-fallback").exists()).toBe(false);
+    expect(wrapper.text()).toContain("Audio graph failed to initialise");
     wrapper.unmount();
   });
 });

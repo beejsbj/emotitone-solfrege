@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { toast } from "vue-sonner";
 import LoadingScreen from "@/components/compositions/LoadingScreen.vue";
 import { useAppLoading } from "@/composables/useAppLoading";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
@@ -34,10 +33,10 @@ const isDev = import.meta.env.DEV;
 
 const isComplete = computed(() => loadingState.progress.overall.isComplete);
 
+// The cue answers only a context the browser refused; an engine fault holds on retry.
 const needsAudioInteraction = computed(() => (
-  loadingState.progress.audioContext.phase === "audio-context" &&
   !loadingState.progress.audioContext.isComplete &&
-  Boolean(loadingState.progress.audioContext.error)
+  loadingState.progress.audioContext.failure === "blocked"
 ));
 
 const hasError = computed(() => (
@@ -129,8 +128,14 @@ const stageProgress = computed(() => {
   return phase ? loadingState.progress[phase].progress / 100 : undefined;
 });
 
-/** Only a failed sample load can fall back: the built-in synths need nothing downloaded. */
-const canPlayBasicSynths = computed(() => Boolean(loadingState.progress.instruments.error));
+/**
+ * Only a failed sample fetch can fall back: the built-in synths need nothing
+ * downloaded. Once the engine itself has failed, synths cannot run either.
+ */
+const canPlayBasicSynths = computed(() => (
+  loadingState.progress.instruments.failure === "samples" &&
+  loadingState.progress.audioContext.failure !== "engine"
+));
 
 /** Resume audio inside the tap; the splash closes only once the browser lets sound run. */
 async function startAudioThenEnter() {
@@ -141,12 +146,6 @@ async function startAudioThenEnter() {
     console.error("Error enabling audio:", error);
   }
   if (!started) return; // needsAudioInteraction now holds the splash on the Enable Audio cue.
-
-  if (basicSynths.value) {
-    toast.warning("Some instruments are not available", {
-      description: "The sample library didn't load, so you're playing with basic synthesizers. Reload to try again.",
-    });
-  }
 
   const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
   hideSplash(reducedMotion ? 0 : 500);

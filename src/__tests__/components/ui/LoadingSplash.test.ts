@@ -6,7 +6,7 @@ import LoadingSplash from "@/components/LoadingSplash.vue";
 const loadingState = reactive({
   config: { showProgress: true, showMessages: true },
   progress: {
-    audioContext: { phase: "audio-context", isComplete: true, error: "" },
+    audioContext: { phase: "audio-context", isComplete: true, error: "", failure: undefined as string | undefined },
     instruments: { isComplete: false, error: "", message: "Warming up piano" },
     visualEffects: { isComplete: true, error: "" },
     overall: { isComplete: false, error: "", message: "Loading audio samples" },
@@ -49,6 +49,7 @@ beforeEach(() => {
   loadingState.progress.instruments.error = "";
   loadingState.progress.audioContext.isComplete = true;
   loadingState.progress.audioContext.error = "";
+  loadingState.progress.audioContext.failure = undefined;
   midi.isSupported = false;
   midi.isConnecting = false;
   midi.isListening = false;
@@ -134,6 +135,7 @@ describe("production loading splash", () => {
   it("asks for the audio cue when the browser blocks audio, and enables it only on that tap", async () => {
     loadingState.progress.audioContext.isComplete = false;
     loadingState.progress.audioContext.error = "AudioContext was not allowed to start";
+    loadingState.progress.audioContext.failure = "blocked";
     const wrapper = mount(LoadingSplash, { props: { autoStart: false } });
 
     expect(wrapper.text()).toContain("Audio needs a tap");

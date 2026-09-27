@@ -256,10 +256,15 @@
   --font-mono:    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
   /* Type scale — mobile first. Labels and body default to Lets Jazz per
-     the rule above; long body and captions/mono explicitly use --font-mono. */
-  --t-display-xl: 700 56px/0.92 var(--font-display);
-  --t-display-l:  700 40px/0.94 var(--font-display);
-  --t-display-m:  700 28px/0.96 var(--font-display);
+     the rule above; long body and captions/mono explicitly use --font-mono.
+
+     Line-height floor: at 75% size-adjust a Lets Jazz capital is ~1.11em
+     tall (with the synthesized bold), so any Jazz line-height below ~1.10
+     lets stacked lines collide. Display sizes sit at 1.12, the tightest
+     setting that keeps two-line headings clear. */
+  --t-display-xl: 700 56px/1.12 var(--font-display);
+  --t-display-l:  700 40px/1.12 var(--font-display);
+  --t-display-m:  700 28px/1.12 var(--font-display);
   --t-h1:         700 22px/1.10 var(--font-display);
   --t-h2:         700 18px/1.14 var(--font-display);
   --t-label:      600 11px/1.10 var(--font-display);  /* labels are Jazz */

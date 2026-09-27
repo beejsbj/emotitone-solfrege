@@ -100,6 +100,7 @@ describe("superdoughAudio live note handling", () => {
     hoisted.mockGetSound.mockReturnValue({ data: {} });
     hoisted.mockLoadBuffer.mockResolvedValue(undefined);
     hoisted.mockPrewarmSoundfont.mockResolvedValue(undefined);
+    hoisted.mockSamples.mockResolvedValue(undefined);
   });
 
   it("initializes the canonical audio graph once without bootstrapping a hidden Strudel REPL", async () => {
@@ -109,6 +110,22 @@ describe("superdoughAudio live note handling", () => {
 
     expect(hoisted.mockInitAudio).toHaveBeenCalledOnce();
     expect(hoisted.mockInitStrudel).not.toHaveBeenCalled();
+  });
+
+  it("starts basic synths without the sample packs after a failed load, so notes stop retrying the download", async () => {
+    hoisted.mockSamples.mockRejectedValue(new Error("error loading piano.json"));
+    const audio = await import("@/services/superdoughAudio");
+    await expect(audio.initSuperdoughAudio()).rejects.toThrow("piano.json");
+    const packFetches = hoisted.mockSamples.mock.calls.length;
+
+    await audio.initSynthOnlyAudio();
+    expect(hoisted.mockRegisterSynthSounds).toHaveBeenCalled();
+    expect(hoisted.mockInitAudio).toHaveBeenCalledOnce();
+    expect(audio.isPrewarmed("triangle")).toBe(true);
+
+    await audio.attackNote("basic-1", "C4", "triangle");
+    expect(hoisted.mockSuperdough).toHaveBeenCalledOnce();
+    expect(hoisted.mockSamples).toHaveBeenCalledTimes(packFetches);
   });
 
   it("schedules rhythmic attacks and releases on the audio clock and cancels queued voices", async () => {

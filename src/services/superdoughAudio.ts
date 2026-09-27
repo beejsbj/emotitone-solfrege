@@ -321,6 +321,21 @@ export async function initSuperdoughAudio(
   return _initPromise;
 }
 
+/**
+ * Degraded start for when the sample packs cannot load: registers the built-in
+ * oscillator synths, starts the shared audio graph and prepares the default
+ * synth, then marks the engine initialised so notes stop retrying the sample
+ * download. Sampled instruments stay unavailable until a reload. A full load
+ * still in flight (a slow network) keeps running and adds its samples later.
+ */
+export async function initSynthOnlyAudio(): Promise<void> {
+  if (_initialized) return;
+  registerSynthSounds();
+  await initializeAudio();
+  await _prewarmSoundCore(DEFAULT_INSTRUMENT, true);
+  _initialized = true;
+}
+
 function normalizeChromaticNote(noteName: string): ChromaticNote | null {
   const candidates = [noteName, TonalNote.enharmonic(noteName)]
     .map((candidate) => TonalNote.get(candidate).pc)

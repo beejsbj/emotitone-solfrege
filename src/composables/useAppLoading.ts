@@ -12,7 +12,7 @@ import type {
   AppLoadingState,
   LoadingEvent,
 } from "@/types/loading";
-import { getAudioContext, initSuperdoughAudio } from "@/services/superdoughAudio";
+import { getAudioContext, initSuperdoughAudio, initSynthOnlyAudio } from "@/services/superdoughAudio";
 
 /**
  * A browser that refuses to start audio leaves resume() pending rather than
@@ -102,7 +102,10 @@ export function useAppLoading() {
 
   // Start audio inside a user gesture. Loading prepares the graph but leaves the
   // context suspended; this resumes it and reports whether the browser let it run.
-  const initializeAudioContext = async (): Promise<boolean> => {
+  // synthsOnly starts the built-in synths without the sample packs, for when they failed.
+  const initializeAudioContext = async (
+    { synthsOnly = false }: { synthsOnly?: boolean } = {}
+  ): Promise<boolean> => {
     updatePhase("audioContext", {
       phase: "audio-context",
       progress: 10,
@@ -110,7 +113,7 @@ export function useAppLoading() {
     });
 
     try {
-      await initSuperdoughAudio();
+      await (synthsOnly ? initSynthOnlyAudio() : initSuperdoughAudio());
 
       const context = getAudioContext();
       if (context.state !== "running") {
@@ -263,8 +266,10 @@ export function useAppLoading() {
   );
 
   // Manual audio context trigger (for user interaction)
-  const enableAudioContext = async (): Promise<boolean> => {
-    return await initializeAudioContext();
+  const enableAudioContext = async (
+    options?: { synthsOnly?: boolean }
+  ): Promise<boolean> => {
+    return await initializeAudioContext(options);
   };
 
   // Hide the splash screen

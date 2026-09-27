@@ -30,6 +30,8 @@ const props = withDefaults(defineProps<{
   audioInitializing?: boolean;
   hasError?: boolean;
   errorMessage?: string;
+  /** Offer the quieter "play with basic synths" way in beside the retry gate. */
+  canPlayBasicSynths?: boolean;
   isDev?: boolean;
   /** Composed still frame: the Reduced Motion rendering, forced for review. */
   still?: boolean;
@@ -47,6 +49,7 @@ const props = withDefaults(defineProps<{
   audioInitializing: false,
   hasError: false,
   errorMessage: "",
+  canPlayBasicSynths: false,
   isDev: false,
   still: false,
 });
@@ -55,6 +58,7 @@ const emit = defineEmits<{
   "enable-audio": [];
   start: [];
   retry: [];
+  "play-basic-synths": [];
   skip: [];
 }>();
 
@@ -291,16 +295,27 @@ const midiPaper = computed(() => (midi.value?.stamp === "SET" ? "plum" : "ink-4"
           <span class="count-gate__sub">{{ audioInitializing ? "listening for the room" : "one tap lets the band play" }}</span>
         </button>
 
-        <button
-          v-else-if="isStopped"
-          type="button"
-          class="count-gate count-gate--retry"
-          aria-label="Retry loading"
-          @click="emit('retry')"
-        >
-          <span class="count-gate__label"><span aria-hidden="true">↺</span> FROM THE TOP</span>
-          <span class="count-gate__sub">retry the soundcheck</span>
-        </button>
+        <div v-else-if="isStopped" class="count-gates">
+          <button
+            type="button"
+            class="count-gate count-gate--retry"
+            aria-label="Retry loading"
+            @click="emit('retry')"
+          >
+            <span class="count-gate__label"><span aria-hidden="true">↺</span> FROM THE TOP</span>
+            <span class="count-gate__sub">retry the soundcheck</span>
+          </button>
+          <!-- Secondary and quieter: paper, never Brass; the retry stays the gate. -->
+          <button
+            v-if="canPlayBasicSynths"
+            type="button"
+            class="count-fallback"
+            @click="emit('play-basic-synths')"
+          >
+            <strong><span aria-hidden="true">► </span>Play on</strong>
+            <span>with basic synths</span>
+          </button>
+        </div>
 
         <div v-else class="count-gate-slot" aria-hidden="true">
           <span v-for="beat in 4" :key="beat" class="count-gate-slot__beat" :style="{ '--beat-index': beat - 1 }" />
@@ -687,6 +702,40 @@ const midiPaper = computed(() => (midi.value?.stamp === "SET" ? "plum" : "ink-4"
   text-transform: uppercase;
 }
 
+/* The fallback sits beside the retry gate at gate height, so the tiles keep their room. */
+.count-gates { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.count-gates > :only-child { grid-column: 1 / -1; }
+
+.count-fallback {
+  display: grid;
+  width: clamp(92px, 26cqi, 140px);
+  height: var(--gate-height);
+  place-content: center;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 0;
+  background: var(--ink-2);
+  color: var(--ivory-2);
+  clip-path: var(--clip-tab);
+  cursor: pointer;
+  font: 700 10px/1.2 var(--font-mono);
+  letter-spacing: var(--tracking-label);
+  text-align: center;
+  text-transform: uppercase;
+  -webkit-tap-highlight-color: transparent;
+  animation: count-gate-in var(--dur-scene) var(--ease-swing) both;
+}
+
+.count-fallback strong {
+  font: 700 clamp(15px, 4.4cqi, 20px)/1 var(--font-display);
+  letter-spacing: var(--tracking-display);
+  color: var(--ivory);
+}
+
+.count-fallback:hover { background: var(--ink-3); color: var(--ivory); }
+.count-fallback:active { transform: translateY(1px); }
+.count-fallback:focus-visible { outline: 2px solid var(--ivory); outline-offset: 3px; }
+
 .count-gate:not(:disabled):active { transform: translateY(2px); }
 .count-gate:focus-visible { outline: 2px solid var(--ivory); outline-offset: 3px; }
 
@@ -817,6 +866,7 @@ const midiPaper = computed(() => (midi.value?.stamp === "SET" ? "plum" : "ink-4"
   .count-tile.is-complete,
   .count-and.is-complete { background: Highlight; color: HighlightText; }
   .count-gate,
+  .count-fallback,
   .loading-screen__skip { border: 2px solid ButtonText; background: ButtonFace; color: ButtonText; }
 }
 </style>

@@ -18,15 +18,18 @@ const audio = vi.hoisted(() => {
       if (audio.context.allow) audio.context.state = "running";
     }),
   };
-  return { context, initSuperdoughAudio: vi.fn(async () => {}) };
+  return { context, initSuperdoughAudio: vi.fn(async () => {}), initSynthOnlyAudio: vi.fn(async () => {}) };
 });
+const toast = vi.hoisted(() => ({ warning: vi.fn() }));
 
 const instruments = vi.hoisted(() => ({ initializeInstruments: vi.fn(async () => {}) }));
 
 vi.mock("@/services/superdoughAudio", () => ({
   initSuperdoughAudio: audio.initSuperdoughAudio,
+  initSynthOnlyAudio: audio.initSynthOnlyAudio,
   getAudioContext: () => audio.context,
 }));
+vi.mock("vue-sonner", () => ({ toast }));
 vi.mock("@/stores/instrument", () => ({ useInstrumentStore: () => instruments }));
 vi.mock("@/stores/keyboardDrawer", () => ({
   useKeyboardDrawerStore: () => ({
@@ -103,6 +106,8 @@ describe("production loading flow", () => {
 
     expect(audio.context.resume).toHaveBeenCalledOnce();
     expect(useAppLoading().isVisible.value).toBe(false);
+    expect(audio.initSynthOnlyAudio).not.toHaveBeenCalled();
+    expect(toast.warning).not.toHaveBeenCalled();
     wrapper.unmount();
   });
 
@@ -145,6 +150,47 @@ describe("production loading flow", () => {
     expect(instruments.initializeInstruments).toHaveBeenCalledTimes(2);
     expect(wrapper.find(".count-gate--retry").exists()).toBe(false);
     expect(wrapper.find(".count-gate--play").exists()).toBe(true);
+    wrapper.unmount();
+  });
+
+  it("offers a quieter way in with basic synths after a failed load, still started by the tap", async () => {
+    instruments.initializeInstruments.mockRejectedValueOnce(new Error("Instrument initialization timeout"));
+    const wrapper = await mountLoaded();
+
+    // Retry stays the gate; the fallback is secondary paper, never Brass.
+    expect(wrapper.find(".count-gate--retry").exists()).toBe(true);
+    const fallback = wrapper.get(".count-fallback");
+    expect(fallback.text().replace(/\s+/g, " ")).toMatch(/Play on ?with basic synths/i);
+    expect(fallback.classes()).not.toContain("brass");
+    expect(wrapper.find(".brass").exists()).toBe(false);
+    expect(audio.context.resume).not.toHaveBeenCalled();
+    expect(audio.initSynthOnlyAudio).not.toHaveBeenCalled();
+
+    // The browser blocks the first tap: the cue takes over, and its tap keeps the basic-synth path.
+    await fallback.trigger("click");
+    await vi.advanceTimersByTimeAsync(2000);
+    await flushPromises();
+    expect(audio.initSynthOnlyAudio).toHaveBeenCalledOnce();
+    expect(useAppLoading().isVisible.value).toBe(true);
+    expect(wrapper.find(".count-gate--cue").exists()).toBe(true);
+    expect(toast.warning).not.toHaveBeenCalled();
+
+    audio.context.allow = true;
+    await wrapper.get(".count-gate--cue").trigger("click");
+    await flushPromises();
+
+    expect(audio.initSynthOnlyAudio).toHaveBeenCalledTimes(2);
+    expect(audio.initSuperdoughAudio).not.toHaveBeenCalled(); // no sample download inside the tap
+    expect(useAppLoading().isVisible.value).toBe(false);
+    expect(toast.warning).toHaveBeenCalledOnce();
+    expect(toast.warning.mock.calls[0][1].description).toMatch(/basic synthesizers/);
+    wrapper.unmount();
+  });
+
+  it("keeps the basic-synth action off every screen but a failed load", async () => {
+    const wrapper = await mountLoaded();
+    expect(wrapper.find(".count-gate--play").exists()).toBe(true);
+    expect(wrapper.find(".count-fallback").exists()).toBe(false);
     wrapper.unmount();
   });
 });

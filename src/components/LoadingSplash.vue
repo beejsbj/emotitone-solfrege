@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
+import { toast } from "vue-sonner";
 import LoadingScreen from "@/components/compositions/LoadingScreen.vue";
 import { useAppLoading } from "@/composables/useAppLoading";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
@@ -27,6 +28,8 @@ const {
 } = useAppLoading();
 
 const audioInitializing = ref(false);
+/** Set once the listener chooses to play on after a failed sample load. */
+const basicSynths = ref(false);
 const isDev = import.meta.env.DEV;
 
 const isComplete = computed(() => loadingState.progress.overall.isComplete);
@@ -126,15 +129,24 @@ const stageProgress = computed(() => {
   return phase ? loadingState.progress[phase].progress / 100 : undefined;
 });
 
+/** Only a failed sample load can fall back: the built-in synths need nothing downloaded. */
+const canPlayBasicSynths = computed(() => Boolean(loadingState.progress.instruments.error));
+
 /** Resume audio inside the tap; the splash closes only once the browser lets sound run. */
 async function startAudioThenEnter() {
   let started = false;
   try {
-    started = await enableAudioContext();
+    started = await enableAudioContext({ synthsOnly: basicSynths.value });
   } catch (error) {
     console.error("Error enabling audio:", error);
   }
   if (!started) return; // needsAudioInteraction now holds the splash on the Enable Audio cue.
+
+  if (basicSynths.value) {
+    toast.warning("Some instruments are not available", {
+      description: "The sample library didn't load, so you're playing with basic synthesizers. Reload to try again.",
+    });
+  }
 
   const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
   hideSplash(reducedMotion ? 0 : 500);
@@ -171,11 +183,18 @@ function startInitialization() {
 }
 
 function handleRetry() {
+  basicSynths.value = false;
   resetLoading();
   startInitialization();
 }
 
 function handleStartApp() {
+  return startAudioThenEnter();
+}
+
+/** The quieter way in from a failed load; the same tap-to-start-audio path as Play. */
+function handlePlayBasicSynths() {
+  basicSynths.value = true;
   return startAudioThenEnter();
 }
 
@@ -199,10 +218,12 @@ onMounted(startInitialization);
       :audio-initializing="audioInitializing"
       :has-error="hasError"
       :error-message="errorMessage"
+      :can-play-basic-synths="canPlayBasicSynths"
       :is-dev="isDev"
       @enable-audio="handleEnableAudio"
       @start="handleStartApp"
       @retry="handleRetry"
+      @play-basic-synths="handlePlayBasicSynths"
       @skip="skipLoading"
     />
   </Transition>

@@ -45,10 +45,11 @@ const parts: { label: string; color: StickerPaperColor; mark: MarkName }[] = [
             :is-complete="false"
             still
             has-error
+            can-play-basic-synths
             error-message="Instrument samples timed out after 30 seconds."
           />
         </div>
-        <figcaption>Error · the count holds on a STOP stamp; Tomato “From the top” emits retry.</figcaption>
+        <figcaption>Error · the count holds on a STOP stamp; Tomato “From the top” emits retry. When samples failed, a quieter Ink paper action plays on with basic synths.</figcaption>
       </figure>
       <figure>
         <div class="loading-specimen__well loading-specimen__well--phone">

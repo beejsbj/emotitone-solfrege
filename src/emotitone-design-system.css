@@ -74,8 +74,9 @@
         transparent 60%,
         transparent 100%);
 
-  /* Hairline — the one separator on dark surfaces */
-  --hairline:   rgba(255, 255, 255, 0.10);
+  /* Hairline — the one separator on dark surfaces. Warm Ivory at 10%,
+     so separators sit in the same warm ramp as the Ink they cut. */
+  --hairline:   color-mix(in srgb, var(--ivory) 10%, transparent);
 
   /* CodeStrip Bar and Control Bar share one opaque instrument plane. */
   --instrument-bar-surface: var(--ink);

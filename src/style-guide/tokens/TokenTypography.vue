@@ -68,6 +68,7 @@ const noteSource = `<Note
         <figcaption>
           <span class="face__name">Lets Jazz</span>
           <span class="face__role">--font-display · the uppercase voice · headings, names, labels, short body</span>
+          <span class="face__role">Ships at 400 only · the 600 and 700 in the tokens are synthesized on purpose — that heavier ink is the accepted look</span>
         </figcaption>
       </figure>
       <figure class="face face--mono">

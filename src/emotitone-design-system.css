@@ -261,7 +261,12 @@
      Line-height floor: at 75% size-adjust a Lets Jazz capital is ~1.11em
      tall (with the synthesized bold), so any Jazz line-height below ~1.10
      lets stacked lines collide. Display sizes sit at 1.12, the tightest
-     setting that keeps two-line headings clear. */
+     setting that keeps two-line headings clear.
+
+     Weight: only a 400 Lets Jazz ships (see @font-face). The 600/700 in
+     these tokens are synthesized by the browser on purpose — the heavier
+     faux-bold ink is the accepted poster look. Don't add a bold file or
+     drop the tokens to 400. */
   --t-display-xl: 700 56px/1.12 var(--font-display);
   --t-display-l:  700 40px/1.12 var(--font-display);
   --t-display-m:  700 28px/1.12 var(--font-display);

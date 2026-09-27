@@ -3,6 +3,9 @@ import LoadingScreen from "../../components/compositions/LoadingScreen.vue";
 import Sticker from "../../components/primatives/Sticker";
 import type { StickerPaperColor } from "../../components/primatives/Sticker";
 import type { MarkName } from "../../components/primatives/marks";
+import { INSTRUMENT_LOAD_TIMEOUT_MESSAGE, INSTRUMENT_LOAD_TIMEOUT_MS } from "../../services/audioFailures";
+
+const timeoutSeconds = INSTRUMENT_LOAD_TIMEOUT_MS / 1000;
 
 const parts: { label: string; color: StickerPaperColor; mark: MarkName }[] = [
   { label: "Count-In Cluster logo", color: "plum", mark: "star" },
@@ -10,7 +13,7 @@ const parts: { label: string; color: StickerPaperColor; mark: MarkName }[] = [
   { label: "MIDI “and” · optional", color: "ink-5", mark: "wave" },
   { label: "Status + percent", color: "ivory", mark: "eighth" },
   { label: "Brass Play gate", color: "mustard", mark: "triangle" },
-  { label: "Cue + retry gates", color: "pine", mark: "sharp" },
+  { label: "Cue, retry + reload gates", color: "pine", mark: "sharp" },
 ];
 </script>
 
@@ -18,7 +21,8 @@ const parts: { label: string; color: StickerPaperColor; mark: MarkName }[] = [
   <section class="loading-specimen">
     <p class="loading-specimen__role">Count-In · the startup composition</p>
 
-    <div class="loading-specimen__well">
+    <!-- Still frames: inert, so their gates are never mistaken for live controls. -->
+    <div class="loading-specimen__well" inert>
       <LoadingScreen
         mode="specimen"
         :progress="100"
@@ -38,7 +42,7 @@ const parts: { label: string; color: StickerPaperColor; mark: MarkName }[] = [
     <h3 class="label loading-specimen__heading">Recovery states · production only</h3>
     <div class="loading-specimen__states">
       <figure>
-        <div class="loading-specimen__well loading-specimen__well--phone">
+        <div class="loading-specimen__well loading-specimen__well--phone" inert>
           <LoadingScreen
             mode="specimen"
             :progress="43"
@@ -46,13 +50,30 @@ const parts: { label: string; color: StickerPaperColor; mark: MarkName }[] = [
             still
             has-error
             can-play-basic-synths
-            error-message="Instrument samples timed out after 30 seconds."
+            :error-message="INSTRUMENT_LOAD_TIMEOUT_MESSAGE"
           />
         </div>
-        <figcaption>Error · the count holds on a STOP stamp; Tomato “From the top” emits retry. When samples failed, a quieter Ink paper action plays on with basic synths.</figcaption>
+        <figcaption>
+          Samples failed · the count holds on a STOP stamp after a failed download or the {{ timeoutSeconds }}-second
+          load limit; Tomato “From the top” emits retry, and a quieter Ink paper action plays on with basic synths.
+        </figcaption>
       </figure>
       <figure>
-        <div class="loading-specimen__well loading-specimen__well--phone">
+        <div class="loading-specimen__well loading-specimen__well--phone" inert>
+          <LoadingScreen
+            mode="specimen"
+            :progress="67"
+            :is-complete="false"
+            still
+            has-error
+            recovery="reload"
+            :error-message="`${INSTRUMENT_LOAD_TIMEOUT_MESSAGE}: the audio engine did not start`"
+          />
+        </div>
+        <figcaption>Engine stalled · a hung audio engine cannot be retried in place, so the gate is an honest Reload.</figcaption>
+      </figure>
+      <figure>
+        <div class="loading-specimen__well loading-specimen__well--phone" inert>
           <LoadingScreen mode="specimen" :progress="72" :is-complete="false" still needs-audio-interaction />
         </div>
         <figcaption>Enable audio · the browser blocked sound; an Ivory cue gate emits enable-audio.</figcaption>

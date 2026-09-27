@@ -119,8 +119,9 @@
   --shadow-key: inset 0 -2px 0 rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.18);
   --shadow-pressed: inset 0 2px 6px rgba(0,0,0,.6);
 
-  /* Brand-glow halo for hero panels — adapted from v2 (var(--wire) → var(--hairline)). */
-  --shadow-glow: 0 0 0 1px var(--hairline), 0 18px 60px -28px rgba(242,107,61,.35);
+  /* Brand-glow halo for hero panels — adapted from v2 (var(--wire) → var(--hairline)).
+     The glow is Tomato at 35%, so the halo stays on the poster palette. */
+  --shadow-glow: 0 0 0 1px var(--hairline), 0 18px 60px -28px color-mix(in srgb, var(--tomato) 35%, transparent);
   /* Brass glow (canonical: lifted from components-knobs-digital + ring-flash keyframe). */
   --shadow-glow-brass: 0 0 14px rgba(224,169,58,.45);
 

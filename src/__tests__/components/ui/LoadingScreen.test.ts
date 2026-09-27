@@ -100,6 +100,29 @@ describe("LoadingScreen · Count-In", () => {
     expect(errored.emitted("retry")).toHaveLength(1);
   });
 
+  it("lets an error win over ready: a completed load with an error offers Retry, never Play", () => {
+    const failed = mount(LoadingScreen, {
+      props: { progress: 100, isComplete: true, hasError: true, errorMessage: "Instrument initialization timeout" },
+    });
+
+    expect(failed.classes()).toContain("is-error");
+    expect(failed.classes()).not.toContain("is-ready");
+    expect(failed.find(".count-gate--play").exists()).toBe(false);
+    expect(failed.find(".count-gate--retry").exists()).toBe(true);
+    expect(failed.text()).toContain("Instrument initialization timeout");
+  });
+
+  it("lets the audio cue win over ready once the browser blocks the Play tap", () => {
+    const blocked = mount(LoadingScreen, {
+      props: { progress: 67, isComplete: true, needsAudioInteraction: true, hasError: true },
+    });
+
+    expect(blocked.classes()).toContain("is-cue");
+    expect(blocked.find(".count-gate--play").exists()).toBe(false);
+    expect(blocked.find(".count-gate--retry").exists()).toBe(false);
+    expect(blocked.find(".count-gate--cue").exists()).toBe(true);
+  });
+
   it("asks for the audio cue instead of surfacing the raw audio error", async () => {
     const audio = mount(LoadingScreen, {
       props: {

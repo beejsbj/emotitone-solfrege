@@ -66,22 +66,27 @@ const percent = computed(() => (
   Math.round(Math.min(100, Math.max(0, Number.isFinite(props.progress) ? props.progress : 0)))
 ));
 
-const isReady = computed(() => props.isComplete ?? percent.value === 100);
-const needsCue = computed(() => props.needsAudioInteraction && !isReady.value);
-const isStopped = computed(() => props.hasError && !isReady.value && !needsCue.value);
+// Precedence: a blocked audio cue, then an error, and only then ready. A held
+// state always wins, so a failure can never be dismissed through the Play gate.
+const needsCue = computed(() => props.needsAudioInteraction);
+const isStopped = computed(() => props.hasError && !needsCue.value);
+const isReady = computed(() => (
+  !needsCue.value && !isStopped.value && (props.isComplete ?? percent.value === 100)
+));
+
+/** Specimen stand-in when no live stages are given: each stage owns a slice of the percentage. */
+const FALLBACK_STAGES = [
+  { label: "Visual stage", start: 0, end: 18 },
+  { label: "Instrument samples", start: 18, end: 64 },
+  { label: "Audio system", start: 64, end: 90 },
+  { label: "Ready to play", start: 90, end: 96 },
+  { label: "MIDI input", start: 96, end: 100, icon: "midi" as const, optional: true },
+];
 
 const resolvedStages = computed<LoadingStage[]>(() => {
   if (props.stages) return props.stages;
 
-  const definitions = [
-    { label: "Visual stage", start: 0, end: 18 },
-    { label: "Instrument samples", start: 18, end: 64 },
-    { label: "Audio system", start: 64, end: 90 },
-    { label: "Ready to play", start: 90, end: 96 },
-    { label: "MIDI input", start: 96, end: 100, icon: "midi" as const, optional: true },
-  ];
-
-  return definitions.map((stage) => ({
+  return FALLBACK_STAGES.map((stage) => ({
     label: stage.label,
     icon: stage.icon,
     optional: stage.optional,

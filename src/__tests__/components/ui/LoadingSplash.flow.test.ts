@@ -1,0 +1,129 @@
+/**
+ * Production loading flow through the real useAppLoading adapter. Only the
+ * audio service and the instrument store are stubbed, so these states are the
+ * ones the adapter actually produces rather than hand-built loading state.
+ */
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { reactive } from "vue";
+import { flushPromises, mount } from "@vue/test-utils";
+import LoadingSplash from "@/components/LoadingSplash.vue";
+import { useAppLoading } from "@/composables/useAppLoading";
+
+const audio = vi.hoisted(() => {
+  const context = {
+    state: "suspended" as AudioContextState,
+    /** Whether the browser lets this resume start the context. */
+    allow: false,
+    resume: vi.fn(async () => {
+      if (audio.context.allow) audio.context.state = "running";
+    }),
+  };
+  return { context, initSuperdoughAudio: vi.fn(async () => {}) };
+});
+
+const instruments = vi.hoisted(() => ({ initializeInstruments: vi.fn(async () => {}) }));
+
+vi.mock("@/services/superdoughAudio", () => ({
+  initSuperdoughAudio: audio.initSuperdoughAudio,
+  getAudioContext: () => audio.context,
+}));
+vi.mock("@/stores/instrument", () => ({ useInstrumentStore: () => instruments }));
+vi.mock("@/stores/keyboardDrawer", () => ({
+  useKeyboardDrawerStore: () => ({
+    midi: reactive({
+      isSupported: false,
+      isConnecting: false,
+      isListening: false,
+      connectedInputs: [] as string[],
+      syncedOutput: null as string | null,
+      lastError: null as string | null,
+    }),
+  }),
+}));
+vi.mock("@/components/MidiPermissionIcon.vue", () => ({ default: { template: "<span />" } }));
+
+async function mountLoaded() {
+  const wrapper = mount(LoadingSplash);
+  await vi.advanceTimersByTimeAsync(400); // the visual-effects phase
+  await flushPromises();
+  return wrapper;
+}
+
+beforeEach(() => {
+  vi.useFakeTimers();
+  vi.clearAllMocks();
+  useAppLoading().resetLoading();
+  audio.context.state = "suspended";
+  audio.context.allow = false;
+  instruments.initializeInstruments.mockImplementation(async () => {});
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+describe("production loading flow", () => {
+  it("lands a blocked Play tap on the Enable Audio cue, and a successful cue tap enters the app", async () => {
+    const wrapper = await mountLoaded();
+
+    // Gate before audio: loading finishes without touching the AudioContext.
+    expect(wrapper.find(".count-gate--play").exists()).toBe(true);
+    expect(audio.context.resume).not.toHaveBeenCalled();
+
+    // The browser refuses: resume never starts the context.
+    await wrapper.get(".count-gate--play").trigger("click");
+    await vi.advanceTimersByTimeAsync(2000);
+    await flushPromises();
+
+    expect(audio.context.resume).toHaveBeenCalledOnce();
+    expect(useAppLoading().isVisible.value).toBe(true);
+    expect(wrapper.find(".count-gate--play").exists()).toBe(false);
+    expect(wrapper.find(".count-gate--retry").exists()).toBe(false);
+    expect(wrapper.text()).toContain("GIVE US");
+    expect(wrapper.text()).toContain("Audio needs a tap");
+    expect(wrapper.get(".count-tile.is-held").text()).toContain("Audio system");
+
+    // The next tap is allowed: the splash closes into the app.
+    audio.context.allow = true;
+    await wrapper.get(".count-gate--cue").trigger("click");
+    await flushPromises();
+
+    expect(audio.context.state).toBe("running");
+    expect(useAppLoading().isVisible.value).toBe(false);
+    expect(useAppLoading().loadingState.progress.audioContext.error).toBeFalsy();
+    wrapper.unmount();
+  });
+
+  it("enters straight away when the browser lets the Play tap start audio", async () => {
+    audio.context.allow = true;
+    const wrapper = await mountLoaded();
+
+    await wrapper.get(".count-gate--play").trigger("click");
+    await flushPromises();
+
+    expect(audio.context.resume).toHaveBeenCalledOnce();
+    expect(useAppLoading().isVisible.value).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("holds a failed sample load on the retry gate instead of offering Play", async () => {
+    instruments.initializeInstruments.mockRejectedValueOnce(new Error("Instrument initialization timeout"));
+    const wrapper = await mountLoaded();
+
+    expect(wrapper.find(".count-gate--play").exists()).toBe(false);
+    expect(wrapper.text()).toContain("FROM THE TOP");
+    expect(wrapper.text()).toContain("Instrument initialization timeout");
+    expect(wrapper.get(".count-tile.is-held").text()).toContain("Instrument samples");
+    expect(useAppLoading().loadingState.progress.overall.isComplete).toBe(false);
+
+    // Retry runs the load again; this time it lands and Play opens.
+    await wrapper.get(".count-gate--retry").trigger("click");
+    await vi.advanceTimersByTimeAsync(400);
+    await flushPromises();
+
+    expect(instruments.initializeInstruments).toHaveBeenCalledTimes(2);
+    expect(wrapper.find(".count-gate--retry").exists()).toBe(false);
+    expect(wrapper.find(".count-gate--play").exists()).toBe(true);
+    wrapper.unmount();
+  });
+});

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { computed, reactive, ref } from "vue";
-import { mount } from "@vue/test-utils";
+import { flushPromises, mount } from "@vue/test-utils";
 import LoadingSplash from "@/components/LoadingSplash.vue";
 
 const loadingState = reactive({
@@ -83,6 +83,17 @@ describe("production loading splash", () => {
     wrapper.unmount();
   });
 
+  it("keeps the splash open when the browser blocks the Play tap", async () => {
+    loadingState.progress.overall.isComplete = true;
+    enableAudioContext.mockResolvedValueOnce(false);
+    const wrapper = mount(LoadingSplash, { props: { autoStart: false } });
+    await wrapper.get(".count-gate--play").trigger("click");
+    await flushPromises();
+    expect(enableAudioContext).toHaveBeenCalledOnce();
+    expect(hideSplash).not.toHaveBeenCalled();
+    wrapper.unmount();
+  });
+
   it("keeps optional MIDI status visible and stamps resolved outcomes accurately", async () => {
     loadingState.progress.overall.isComplete = true;
     const wrapper = mount(LoadingSplash, { props: { autoStart: false } });
@@ -131,7 +142,9 @@ describe("production loading splash", () => {
     expect(enableAudioContext).not.toHaveBeenCalled();
 
     await wrapper.get(".count-gate--cue").trigger("click");
+    await flushPromises();
     expect(enableAudioContext).toHaveBeenCalledOnce();
+    expect(hideSplash).toHaveBeenCalledOnce();
     wrapper.unmount();
   });
 });

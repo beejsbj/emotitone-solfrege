@@ -88,14 +88,16 @@ const message = computed(() => {
 });
 
 const stages = computed(() => {
-  const ready = isComplete.value;
+  const { visualEffects, instruments, audioContext } = loadingState.progress;
+  // Each tile reports its own phase, so a held phase (a failed load, blocked audio) stays the active beat.
+  const ready = isComplete.value && audioContext.isComplete && !hasError.value;
   const midi = keyboardDrawerStore.midi;
   const midiCheckComplete = ready && !midi.isConnecting;
   const midiStamp = !midi.isSupported ? "N/A" : midi.lastError ? "SKIP" : "SET";
   const definitions = [
-    { label: "Visual stage", complete: ready || loadingState.progress.visualEffects.isComplete },
-    { label: "Instrument samples", complete: ready || loadingState.progress.instruments.isComplete },
-    { label: "Audio system", complete: ready || loadingState.progress.audioContext.isComplete },
+    { label: "Visual stage", complete: visualEffects.isComplete },
+    { label: "Instrument samples", complete: instruments.isComplete },
+    { label: "Audio system", complete: audioContext.isComplete },
     { label: "Ready to play", complete: ready },
     {
       label: "MIDI input",
@@ -114,16 +116,24 @@ const stages = computed(() => {
   }));
 });
 
+/** Resume audio inside the tap; the splash closes only once the browser lets sound run. */
+async function startAudioThenEnter() {
+  let started = false;
+  try {
+    started = await enableAudioContext();
+  } catch (error) {
+    console.error("Error enabling audio:", error);
+  }
+  if (!started) return; // needsAudioInteraction now holds the splash on the Enable Audio cue.
+
+  const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+  hideSplash(reducedMotion ? 0 : 500);
+}
+
 async function handleEnableAudio() {
   audioInitializing.value = true;
   try {
-    const success = await enableAudioContext();
-    if (success) {
-      await initializeInstruments();
-      await initializeVisualEffects();
-    }
-  } catch (error) {
-    console.error("Error enabling audio:", error);
+    await startAudioThenEnter();
   } finally {
     audioInitializing.value = false;
   }
@@ -153,15 +163,8 @@ function handleRetry() {
   startInitialization();
 }
 
-async function handleStartApp() {
-  try {
-    await enableAudioContext();
-  } catch {
-    // Audio can still be enabled by the first user note.
-  }
-
-  const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
-  hideSplash(reducedMotion ? 0 : 500);
+function handleStartApp() {
+  return startAudioThenEnter();
 }
 
 onMounted(startInitialization);

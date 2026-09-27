@@ -12,8 +12,13 @@ import type {
   AppLoadingState,
   LoadingEvent,
 } from "@/types/loading";
-import { initSuperdoughAudio } from "@/services/superdoughAudio";
-import { toast } from "vue-sonner";
+import { getAudioContext, initSuperdoughAudio } from "@/services/superdoughAudio";
+
+/**
+ * A browser that refuses to start audio leaves resume() pending rather than
+ * rejecting it, so the gesture waits this long before reporting the block.
+ */
+const AUDIO_RESUME_TIMEOUT_MS = 1500;
 
 // Default splash configuration
 const DEFAULT_SPLASH_CONFIG: SplashConfig = {
@@ -95,7 +100,8 @@ export function useAppLoading() {
     );
   };
 
-  // Initialize audio context
+  // Start audio inside a user gesture. Loading prepares the graph but leaves the
+  // context suspended; this resumes it and reports whether the browser let it run.
   const initializeAudioContext = async (): Promise<boolean> => {
     updatePhase("audioContext", {
       phase: "audio-context",
@@ -106,16 +112,29 @@ export function useAppLoading() {
     try {
       await initSuperdoughAudio();
 
+      const context = getAudioContext();
+      if (context.state !== "running") {
+        await Promise.race([
+          context.resume(),
+          new Promise((resolve) => setTimeout(resolve, AUDIO_RESUME_TIMEOUT_MS)),
+        ]);
+      }
+      if (context.state !== "running") {
+        throw new Error("The browser has not allowed audio to start yet");
+      }
+
       updatePhase("audioContext", {
         progress: 100,
         message: "Audio context ready",
         isComplete: true,
+        error: undefined,
       });
       return true;
     } catch (error) {
       updatePhase("audioContext", {
         progress: 0,
         message: "Audio initialization failed",
+        isComplete: false,
         error: error instanceof Error ? error.message : "Unknown error",
       });
       return false;
@@ -166,17 +185,12 @@ export function useAppLoading() {
     } catch (error) {
       console.error("Instrument initialization error:", error);
 
-      // Don't fail completely - allow app to continue with basic instruments
+      // A failed load holds the count: the phase stays incomplete so loading
+      // never reports ready, and the splash offers a retry from the top.
       updatePhase("instruments", {
-        progress: 100, // Mark as complete even with errors
-        message: "Basic instruments ready",
-        isComplete: true,
+        message: "Instrument samples failed to load",
+        isComplete: false,
         error: error instanceof Error ? error.message : "Unknown error",
-      });
-
-      // Show user-friendly message
-      toast.warning("⚠️ Some instruments may not be available", {
-        description: "App will continue with basic synthesizers",
       });
     }
   };

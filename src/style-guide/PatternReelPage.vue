@@ -6,11 +6,13 @@
       <p>The approved Wheel Deck and PatternStrip sources used by production.</p>
     </header>
     <CompoundPatternReel />
+    <CompoundPhraseShelf class="pattern-reel-page__phrase-shelf" />
   </main>
 </template>
 
 <script setup lang="ts">
 import CompoundPatternReel from "./compounds/CompoundPatternReel.vue";
+import CompoundPhraseShelf from "./compounds/CompoundPhraseShelf.vue";
 </script>
 
 <style scoped>
@@ -25,6 +27,10 @@ import CompoundPatternReel from "./compounds/CompoundPatternReel.vue";
 .pattern-reel-page > :deep(*) {
   width: min(720px, 100%);
   margin-inline: auto;
+}
+
+.pattern-reel-page__phrase-shelf {
+  margin-top: var(--s-10);
 }
 
 .pattern-reel-page > header {

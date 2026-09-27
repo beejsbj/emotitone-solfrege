@@ -1,0 +1,24 @@
+/* Production Note proportions, shared by every lab Note direction. */
+.lab-note {
+  --w: 56px;
+  --h: 88px;
+  --primary: 32px;
+  --aux: 9px;
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  width: var(--w);
+  height: var(--h);
+  flex: none;
+  user-select: none;
+}
+
+.lab-note--tall { --w: 40px; --h: 116px; --primary: 20px; --aux: 7px; }
+.lab-note--stocky { --w: 72px; --h: 72px; --primary: 28px; }
+.lab-note--wide { --w: 120px; --h: 56px; --primary: 24px; --aux: 8px; }
+.lab-note--glyph {
+  --h: var(--note-host-block-size, 33.6px);
+  --w: calc(var(--h) * .75);
+  --primary: calc(var(--h) * .42);
+  --aux: calc(var(--h) * .17);
+}

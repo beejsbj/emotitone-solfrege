@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from "vue";
 import LoadingScreen from "@/components/compositions/LoadingScreen.vue";
 import { useAppLoading } from "@/composables/useAppLoading";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
+import { reloadPage } from "@/utils/reloadPage";
 
 interface Props {
   autoStart?: boolean;
@@ -137,13 +138,29 @@ const canPlayBasicSynths = computed(() => (
   loadingState.progress.audioContext.failure !== "engine"
 ));
 
-/** Resume audio inside the tap; the splash closes only once the browser lets sound run. */
+/**
+ * A stalled engine cannot be retried in place: its hung start stays cached, so
+ * the gate becomes an honest reload. Sample failures retry from the top.
+ */
+const recovery = computed(() => (
+  Object.values(loadingState.progress).some((state) => state.failure === "engine") ? "reload" : "retry"
+));
+
+/**
+ * Resume audio inside the tap; the splash closes only once the browser lets
+ * sound run. Single-flight: while one start is pending, further taps (Play,
+ * the cue, the synth fallback) are ignored and the gates show busy.
+ */
 async function startAudioThenEnter() {
+  if (audioInitializing.value) return;
+  audioInitializing.value = true;
   let started = false;
   try {
     started = await enableAudioContext({ synthsOnly: basicSynths.value });
   } catch (error) {
     console.error("Error enabling audio:", error);
+  } finally {
+    audioInitializing.value = false;
   }
   if (!started) return; // needsAudioInteraction now holds the splash on the Enable Audio cue.
 
@@ -151,13 +168,8 @@ async function startAudioThenEnter() {
   hideSplash(reducedMotion ? 0 : 500);
 }
 
-async function handleEnableAudio() {
-  audioInitializing.value = true;
-  try {
-    await startAudioThenEnter();
-  } finally {
-    audioInitializing.value = false;
-  }
+function handleEnableAudio() {
+  return startAudioThenEnter();
 }
 
 function startInitialization() {
@@ -193,6 +205,7 @@ function handleStartApp() {
 
 /** The quieter way in from a failed load; the same tap-to-start-audio path as Play. */
 function handlePlayBasicSynths() {
+  if (audioInitializing.value) return;
   basicSynths.value = true;
   return startAudioThenEnter();
 }
@@ -218,10 +231,12 @@ onMounted(startInitialization);
       :has-error="hasError"
       :error-message="errorMessage"
       :can-play-basic-synths="canPlayBasicSynths"
+      :recovery="recovery"
       :is-dev="isDev"
       @enable-audio="handleEnableAudio"
       @start="handleStartApp"
       @retry="handleRetry"
+      @reload="reloadPage"
       @play-basic-synths="handlePlayBasicSynths"
       @skip="skipLoading"
     />

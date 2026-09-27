@@ -82,6 +82,8 @@ vi.mock("@/stores/keyboardDrawer", () => ({
     }),
   }),
 }));
+const reloadPage = vi.hoisted(() => vi.fn());
+vi.mock("@/utils/reloadPage", () => ({ reloadPage }));
 vi.mock("@/components/MidiPermissionIcon.vue", () => ({ default: { template: "<span />" } }));
 
 let pinia: Pinia;
@@ -152,12 +154,19 @@ describe("instrument load timeout", () => {
     wrapper.unmount();
   });
 
-  it("names a hung engine start as engine: retry only, no synth option, no cue", async () => {
+  it("names a hung engine start as engine: an honest Reload, no in-place retry, no synth option, no cue", async () => {
     audio.state.hang = "engine";
     const wrapper = await mountAndTimeOut();
 
     expect(useAppLoading().loadingState.progress.instruments.failure).toBe("engine");
-    expect(wrapper.find(".count-gate--retry").exists()).toBe(true);
+    // The hung start stays cached, so FROM THE TOP would only wait on it again.
+    expect(wrapper.text()).not.toContain("FROM THE TOP");
+    const reload = wrapper.get(".count-gate--reload");
+    expect(reload.text()).toContain("RELOAD");
+    expect(wrapper.get(".loading-screen__title").text()).toBe("FROMSCRATCH.");
+    await reload.trigger("click");
+    expect(reloadPage).toHaveBeenCalledOnce();
+    expect(audio.initSuperdoughAudio).toHaveBeenCalledOnce(); // no second wait on the hung engine
     expect(wrapper.find(".count-fallback").exists()).toBe(false);
     expect(wrapper.find(".count-gate--cue").exists()).toBe(false);
     expect(wrapper.find(".count-gate--play").exists()).toBe(false);

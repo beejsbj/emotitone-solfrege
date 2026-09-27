@@ -25,3 +25,9 @@ export class AudioBlockedError extends Error {
     this.name = "AudioBlockedError";
   }
 }
+
+/** How long the whole instrument load may take before the count stops. */
+export const INSTRUMENT_LOAD_TIMEOUT_MS = 60_000;
+
+/** The error a load that runs out of time reports, as the loading screen shows it. */
+export const INSTRUMENT_LOAD_TIMEOUT_MESSAGE = "Instrument initialization timeout";

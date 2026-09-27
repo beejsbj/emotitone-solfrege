@@ -18,16 +18,18 @@ import {
   initSuperdoughAudio,
   initSynthOnlyAudio,
 } from "@/services/superdoughAudio";
-import { AudioBlockedError, SampleLoadError } from "@/services/audioFailures";
+import {
+  AudioBlockedError,
+  INSTRUMENT_LOAD_TIMEOUT_MESSAGE,
+  INSTRUMENT_LOAD_TIMEOUT_MS,
+  SampleLoadError,
+} from "@/services/audioFailures";
 
 /**
  * A browser that refuses to start audio leaves resume() pending rather than
  * rejecting it, so the gesture waits this long before reporting the block.
  */
 const AUDIO_RESUME_TIMEOUT_MS = 1500;
-
-/** How long the whole instrument load may take before the count stops. */
-const INSTRUMENT_LOAD_TIMEOUT_MS = 60_000;
 
 /** A tap never waits on the engine longer than this; past it, the engine has hung. */
 const ENGINE_START_TIMEOUT_MS = 15_000;
@@ -48,7 +50,7 @@ function within<T>(promise: Promise<T>, ms: number, error: () => Error): Promise
  */
 function instrumentLoadTimeout(): Error {
   const stage = getAudioStartupStage();
-  const message = "Instrument initialization timeout";
+  const message = INSTRUMENT_LOAD_TIMEOUT_MESSAGE;
   return stage === "samples" || stage === "ready"
     ? new SampleLoadError(message)
     : new Error(`${message}: the audio engine did not start`);

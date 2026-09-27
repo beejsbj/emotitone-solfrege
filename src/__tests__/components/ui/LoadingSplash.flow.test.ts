@@ -192,13 +192,14 @@ describe("production loading flow", () => {
     wrapper.unmount();
   });
 
-  it("holds an audio-graph failure during loading on retry, with no synth fallback and no cue", async () => {
+  it("holds an audio-graph failure during loading on Reload, with no synth fallback and no cue", async () => {
     // The samples arrived, then the engine failed to initialise its graph.
     instruments.initializeInstruments.mockRejectedValueOnce(new Error("AudioWorklet module failed to load"));
     const wrapper = await mountLoaded();
 
     expect(useAppLoading().loadingState.progress.instruments.failure).toBe("engine");
-    expect(wrapper.find(".count-gate--retry").exists()).toBe(true);
+    expect(wrapper.find(".count-gate--reload").exists()).toBe(true); // a stalled engine reloads
+    expect(wrapper.text()).not.toContain("FROM THE TOP");
     expect(wrapper.find(".count-fallback").exists()).toBe(false);
     expect(wrapper.find(".count-gate--cue").exists()).toBe(false);
     expect(wrapper.find(".count-gate--play").exists()).toBe(false);
@@ -206,7 +207,7 @@ describe("production loading flow", () => {
     wrapper.unmount();
   });
 
-  it("holds an engine failure at the Play tap on retry, never the Enable Audio cue", async () => {
+  it("holds an engine failure at the Play tap on Reload, never the Enable Audio cue", async () => {
     audio.context.allow = true;
     const wrapper = await mountLoaded();
     audio.initSuperdoughAudio.mockRejectedValueOnce(new Error("Audio graph failed to initialise"));
@@ -217,7 +218,8 @@ describe("production loading flow", () => {
     expect(useAppLoading().loadingState.progress.audioContext.failure).toBe("engine");
     expect(useAppLoading().isVisible.value).toBe(true);
     expect(wrapper.find(".count-gate--cue").exists()).toBe(false);
-    expect(wrapper.find(".count-gate--retry").exists()).toBe(true);
+    expect(wrapper.find(".count-gate--reload").exists()).toBe(true); // a stalled engine reloads
+    expect(wrapper.text()).not.toContain("FROM THE TOP");
     expect(wrapper.get(".count-tile.is-held").text()).toContain("Audio system");
     expect(wrapper.text()).toContain("Audio graph failed to initialise");
     wrapper.unmount();
@@ -235,9 +237,46 @@ describe("production loading flow", () => {
     expect(audio.initSynthOnlyAudio).toHaveBeenCalledOnce();
     expect(useAppLoading().isVisible.value).toBe(true);
     expect(wrapper.find(".count-gate--cue").exists()).toBe(false);
-    expect(wrapper.find(".count-gate--retry").exists()).toBe(true);
+    expect(wrapper.find(".count-gate--reload").exists()).toBe(true); // a stalled engine reloads
+    expect(wrapper.text()).not.toContain("FROM THE TOP");
     expect(wrapper.find(".count-fallback").exists()).toBe(false);
     expect(wrapper.text()).toContain("Audio graph failed to initialise");
+    wrapper.unmount();
+  });
+
+  it("runs one audio start per tap burst: a double tap on the synth fallback starts once and shows busy", async () => {
+    instruments.initializeInstruments.mockRejectedValueOnce(new SampleLoadError("error loading piano.json"));
+    const wrapper = await mountLoaded();
+    let finishStart!: () => void;
+    audio.initSynthOnlyAudio.mockImplementationOnce(() => new Promise<void>((resolve) => { finishStart = resolve; }));
+    audio.context.allow = true;
+
+    const fallback = wrapper.get(".count-fallback");
+    await fallback.trigger("click");
+    await fallback.trigger("click");
+    await flushPromises();
+
+    expect(audio.initSynthOnlyAudio).toHaveBeenCalledOnce();
+    expect(wrapper.get(".count-fallback").attributes("disabled")).toBeDefined();
+    expect(wrapper.get(".count-fallback").attributes("aria-busy")).toBe("true");
+    expect(wrapper.get(".count-fallback").text()).toContain("Starting…");
+
+    finishStart();
+    await flushPromises();
+    expect(audio.initSynthOnlyAudio).toHaveBeenCalledOnce();
+    expect(useAppLoading().isVisible.value).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("ignores a second Play tap while the first start is pending", async () => {
+    const wrapper = await mountLoaded();
+    const play = wrapper.get(".count-gate--play");
+    await play.trigger("click");
+    await play.trigger("click");
+    expect(wrapper.get(".count-gate--play").attributes("disabled")).toBeDefined();
+    await vi.advanceTimersByTimeAsync(2000);
+    await flushPromises();
+    expect(audio.context.resume).toHaveBeenCalledOnce();
     wrapper.unmount();
   });
 });

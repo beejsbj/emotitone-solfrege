@@ -32,6 +32,8 @@ const props = withDefaults(defineProps<{
   errorMessage?: string;
   /** Offer the quieter "play with basic synths" way in beside the retry gate. */
   canPlayBasicSynths?: boolean;
+  /** How the error gate recovers: retry in place, or reload when the audio engine stalled. */
+  recovery?: "retry" | "reload";
   isDev?: boolean;
   /** Composed still frame: the Reduced Motion rendering, forced for review. */
   still?: boolean;
@@ -50,6 +52,7 @@ const props = withDefaults(defineProps<{
   hasError: false,
   errorMessage: "",
   canPlayBasicSynths: false,
+  recovery: "retry",
   isDev: false,
   still: false,
 });
@@ -58,6 +61,7 @@ const emit = defineEmits<{
   "enable-audio": [];
   start: [];
   retry: [];
+  reload: [];
   "play-basic-synths": [];
   skip: [];
 }>();
@@ -128,7 +132,7 @@ const kicker = computed(() => {
 });
 
 const titleLines = computed(() => {
-  if (isStopped.value) return ["FROM", "THE TOP."];
+  if (isStopped.value) return props.recovery === "reload" ? ["FROM", "SCRATCH."] : ["FROM", "THE TOP."];
   if (needsCue.value) return ["GIVE US", "A CUE."];
   return ["COUNT", "IT IN."];
 });
@@ -278,6 +282,8 @@ const midiPaper = computed(() => (midi.value?.stamp === "SET" ? "plum" : "ink-4"
           class="count-gate count-gate--play brass"
           aria-label="Play EmotiTone"
           title="Enter EmotiTone"
+          :disabled="audioInitializing"
+          :aria-busy="audioInitializing || undefined"
           @click="emit('start')"
         >
           <span class="count-gate__label"><span aria-hidden="true">►</span> PLAY</span>
@@ -297,6 +303,17 @@ const midiPaper = computed(() => (midi.value?.stamp === "SET" ? "plum" : "ink-4"
 
         <div v-else-if="isStopped" class="count-gates">
           <button
+            v-if="recovery === 'reload'"
+            type="button"
+            class="count-gate count-gate--retry count-gate--reload"
+            aria-label="Reload EmotiTone"
+            @click="emit('reload')"
+          >
+            <span class="count-gate__label"><span aria-hidden="true">↻</span> RELOAD</span>
+            <span class="count-gate__sub">the audio engine stalled</span>
+          </button>
+          <button
+            v-else
             type="button"
             class="count-gate count-gate--retry"
             aria-label="Retry loading"
@@ -310,9 +327,11 @@ const midiPaper = computed(() => (midi.value?.stamp === "SET" ? "plum" : "ink-4"
             v-if="canPlayBasicSynths"
             type="button"
             class="count-fallback"
+            :disabled="audioInitializing"
+            :aria-busy="audioInitializing || undefined"
             @click="emit('play-basic-synths')"
           >
-            <strong><span aria-hidden="true">► </span>Play on</strong>
+            <strong><span aria-hidden="true">► </span>{{ audioInitializing ? "Starting…" : "Play on" }}</strong>
             <span>with basic synths</span>
           </button>
         </div>
@@ -732,8 +751,9 @@ const midiPaper = computed(() => (midi.value?.stamp === "SET" ? "plum" : "ink-4"
   color: var(--ivory);
 }
 
-.count-fallback:hover { background: var(--ink-3); color: var(--ivory); }
-.count-fallback:active { transform: translateY(1px); }
+.count-fallback:disabled { cursor: wait; opacity: .6; }
+.count-fallback:not(:disabled):hover { background: var(--ink-3); color: var(--ivory); }
+.count-fallback:not(:disabled):active { transform: translateY(1px); }
 .count-fallback:focus-visible { outline: 2px solid var(--ivory); outline-offset: 3px; }
 
 .count-gate:not(:disabled):active { transform: translateY(2px); }

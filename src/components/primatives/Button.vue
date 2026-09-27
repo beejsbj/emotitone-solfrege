@@ -198,7 +198,7 @@ function handleClick(event: MouseEvent) {
 .paper-button--brass-sheen .paper-button__face::after,
 .paper-button--brass-sheen-glow .paper-button__face::after {
   opacity: 1;
-  animation: brass-sheen 6.5s cubic-bezier(.55,.05,.45,.95) infinite;
+  animation: brass-sheen var(--dur-sheen) var(--ease-sheen) infinite;
 }
 
 .paper-button__content {

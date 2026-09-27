@@ -165,7 +165,7 @@ describe("Chord compound", () => {
     expect(chordSource).toContain("background: var(--ink)");
     expect(chordSource).toContain("transform: scaleY(var(--chord-member-progress))");
     expect(chordSource).toContain("transform: scaleY(calc(1 - var(--chord-member-progress)))");
-    expect(chordSource).toContain("transition: transform 72ms linear");
+    expect(chordSource).toContain("transition: transform var(--dur-press) linear");
     expect(chordSource).toContain("color-mix(in srgb");
   });
 

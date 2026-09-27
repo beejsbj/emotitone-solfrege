@@ -6,7 +6,8 @@ import Note from "@/components/primatives/Note.vue";
 import chordSource from "@/components/compounds/Chord.vue?raw";
 import noteSource from "@/components/primatives/Note.vue?raw";
 import specimenSource from "@/style-guide/compounds/CompoundChord.vue?raw";
-import styleGuideSource from "@/style-guide/StyleGuide.vue?raw";
+import guideCatalogSource from "@/style-guide/guideCatalog.ts?raw";
+import { guideLayer } from "@/style-guide/guideCatalog";
 
 const mocks = vi.hoisted(() => ({
   getKeyBackground: vi.fn((scaleIndex: number) => ({
@@ -229,8 +230,8 @@ describe("Chord compound", () => {
   it("guards guide registration, removed identity/structure props, reduced-motion and animation ownership", () => {
     // Structural guard: style guide adoption contract pinning guide-only animation ownership,
     // retired props removal, and reduced-motion boundary
-    expect(styleGuideSource).toContain('id="compound-chord"');
-    expect(styleGuideSource).toContain('import CompoundChord from "./compounds/CompoundChord.vue"');
+    expect(guideLayer("compounds")?.units.map((unit) => unit.id)).toContain("chord");
+    expect(guideCatalogSource).toContain('import("./compounds/CompoundChord.vue")');
     expect(specimenSource).toContain('import Chord from "@/components/compounds/Chord.vue"');
     expect(specimenSource).toContain("Whole-surface geometry");
     expect(specimenSource).toContain("Ink → music-color progress");

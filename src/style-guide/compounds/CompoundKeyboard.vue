@@ -11,7 +11,7 @@
           <strong>{{ family }}</strong>
           <code>{{ dateKey }} / load {{ editionNumber }}</code>
         </div>
-        <div class="keyboard-specimen__mini" :style="{ width: `${Math.min(width, 390)}px` }">
+        <div class="keyboard-specimen__mini" :style="{ '--mini-width': `${Math.min(width, 390)}px` }">
           <Keyboard
             usage="controlled"
             :rows="rows"
@@ -58,28 +58,28 @@
 
         <label class="keyboard-specimen__field">
           <span>Content width</span>
-          <select v-model.number="width">
+          <select class="guide-field" v-model.number="width">
             <option v-for="option in widths" :key="option" :value="option">{{ option }}px</option>
           </select>
         </label>
 
         <label class="keyboard-specimen__field">
           <span>Requested rows</span>
-          <select v-model.number="rowCount">
+          <select class="guide-field" v-model.number="rowCount">
             <option v-for="option in rowCounts" :key="option" :value="option">{{ option }}</option>
           </select>
         </label>
 
         <label class="keyboard-specimen__field">
           <span>Main octave</span>
-          <select v-model.number="mainOctave">
+          <select class="guide-field" v-model.number="mainOctave">
             <option v-for="option in octaves" :key="option" :value="option">{{ option }}</option>
           </select>
         </label>
 
         <label class="keyboard-specimen__field">
           <span>Primary label</span>
-          <select v-model="primaryLabel">
+          <select class="guide-field" v-model="primaryLabel">
             <option value="syllable">Syllable</option>
             <option value="degree">Degree</option>
             <option value="raw">Raw pitch</option>
@@ -88,7 +88,7 @@
 
         <label class="keyboard-specimen__field">
           <span>Chord-row scale</span>
-          <select v-model="harmonyScaleType">
+          <select class="guide-field" v-model="harmonyScaleType">
             <option
               v-for="option in harmonyScales"
               :key="option.value"
@@ -99,7 +99,7 @@
 
         <label class="keyboard-specimen__field">
           <span>Chord alteration</span>
-          <select v-model="harmonyAlteration">
+          <select class="guide-field" v-model="harmonyAlteration">
             <option
               v-for="option in JOYSTICK_OPTIONS"
               :key="option.value"
@@ -110,7 +110,7 @@
 
         <label class="keyboard-specimen__field">
           <span>Surface</span>
-          <select v-model="surfaceStyle">
+          <select class="guide-field" v-model="surfaceStyle">
             <option value="colored">Colored</option>
             <option value="monochrome">Monochrome</option>
           </select>
@@ -118,7 +118,7 @@
 
         <label class="keyboard-specimen__field">
           <span>State on Mi</span>
-          <select v-model="state">
+          <select class="guide-field" v-model="state">
             <option value="resting">Resting</option>
             <option value="focused">Focused</option>
             <option value="pressed">Pressed</option>
@@ -129,7 +129,7 @@
 
         <label class="keyboard-specimen__field">
           <span>Motion</span>
-          <select v-model="motion">
+          <select class="guide-field" v-model="motion">
             <option value="system">System preference</option>
             <option value="reduced">Reduced preview</option>
           </select>
@@ -137,19 +137,19 @@
 
         <label class="keyboard-specimen__field">
           <span>Contrast</span>
-          <select v-model="contrast">
+          <select class="guide-field" v-model="contrast">
             <option value="system">System colors</option>
             <option value="forced">Forced-color preview</option>
           </select>
         </label>
 
         <label class="keyboard-specimen__check">
-          <input v-model="showLabels" type="checkbox">
+          <input class="guide-field" v-model="showLabels" type="checkbox">
           <span>Show labels</span>
         </label>
 
         <label class="keyboard-specimen__check">
-          <input v-model="keyboardPadding" type="checkbox">
+          <input class="guide-field" v-model="keyboardPadding" type="checkbox">
           <span>Keyboard padding</span>
         </label>
 
@@ -163,23 +163,23 @@
         <div class="keyboard-specimen__tuning-grid">
           <label>
             <span>Gap · {{ gap }}px</span>
-            <input v-model.number="gap" type="range" min="0" max="6" step="1">
+            <input class="guide-field" v-model.number="gap" type="range" min="0" max="6" step="1">
           </label>
           <label>
             <span>Main height · {{ mainRowHeight }}px</span>
-            <input v-model.number="mainRowHeight" type="range" min="44" max="120" step="2">
+            <input class="guide-field" v-model.number="mainRowHeight" type="range" min="44" max="120" step="2">
           </label>
           <label>
             <span>Outer height · {{ outerRowHeight }}px</span>
-            <input v-model.number="outerRowHeight" type="range" min="44" max="88" step="2">
+            <input class="guide-field" v-model.number="outerRowHeight" type="range" min="44" max="88" step="2">
           </label>
           <label>
             <span>Outer inset · {{ outerInset }}px</span>
-            <input v-model.number="outerInset" type="range" min="0" max="24" step="1">
+            <input class="guide-field" v-model.number="outerInset" type="range" min="0" max="24" step="1">
           </label>
           <label>
             <span>Variation · {{ variationAmplitude.toFixed(2) }}</span>
-            <input v-model.number="variationAmplitude" type="range" min="0" max="1.5" step="0.05">
+            <input class="guide-field" v-model.number="variationAmplitude" type="range" min="0" max="1.5" step="0.05">
           </label>
         </div>
       </details>
@@ -377,8 +377,12 @@ const features = [
   font-size: 8px;
 }
 
+/* Never wider than the hero well: clamp to the requested width or the well. */
 .keyboard-specimen__mini {
-  max-width: 100%;
+  justify-self: stretch;
+  width: min(100%, var(--mini-width));
+  min-width: 0;
+  margin-inline: auto;
 }
 
 .keyboard-specimen__workbench {

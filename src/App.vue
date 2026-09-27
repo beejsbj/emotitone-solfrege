@@ -11,6 +11,12 @@ import { beginJoystickPageEdition } from "./components/uniques/Joystick/edition"
 const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
 const styleGuidePages = {
   "/style-guide": undefined,
+  "/style-guide/tokens": "tokens",
+  "/style-guide/primitives": "primitives",
+  "/style-guide/compounds": "compounds",
+  "/style-guide/uniques": "uniques",
+  "/style-guide/compositions": "compositions",
+  "/style-guide/systems": "systems",
   "/style-guide/tabs": "tabs",
   "/style-guide/instrument-picker": "instrument-picker",
   "/style-guide/config-menu": "config-menu",

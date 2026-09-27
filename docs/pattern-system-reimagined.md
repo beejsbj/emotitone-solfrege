@@ -110,10 +110,14 @@ Patterns you sent with Return were quietly expiring.
   is untouched.
 - **Backspace.** Removes the take's last note, whether you played it or it was
   loaded.
-- **Flick the reel.** Browsing is only a preview; the take stays on the desk.
-  Releasing on a phrase *loads* it: the phrase slides down into the front slot
-  and the old take slides back into Recent. Flicking one step and releasing
-  swaps the two most recent phrases, a free A/B.
+- **Flick the reel: browse.** Drag, wheel, tap a background strip, or Up/Down
+  moves a cursor back through the shelves. Browsing never touches the desk;
+  CodeStrip keeps showing the take.
+- **Brass button: load.** The browsed strip carries a brass "put on desk"
+  button. Loading makes that phrase the take (a Recent phrase moves, a Kept or
+  Library phrase is copied), and the old take slides back into Recent.
+- **Play: come home.** Pressing a key while browsing brings the reel back to
+  the take, because that's where the note is going.
 - **Keep from the reel.** Recent strips carry a bookmark. Tapping it moves that
   phrase to Kept without touching the take.
 - **Delete.** Only Recent and Kept phrases can be deleted. Deleting the open
@@ -125,10 +129,9 @@ The reel was a cyclic Rolodex: the defaults, your saves, and the ephemeral
 phrases shared one loop with no front and no back, so "where am I" had no
 answer. The new reel is a **linear tape with a fixed head**:
 
-- **Front slot = the take, always.** It is the only strip with the brass edge
-  (the desk material), a record lamp that glows while the take is recording,
-  and a lineage line ("from Golden Sun") when it's a fork. Its name is the
-  phrase's solfège contour until you rename it.
+- **Home slot = the take, always.** It is the only strip with the brass edge
+  (the desk material) and a record lamp that glows while a key is down in it.
+  A copy is tagged `NOW · COPY` and carries its source's name.
 - **Depth = distance from now.** Behind the take: Recent (newest first), then
   Kept, then Library. The reel stops at both ends with a rubber-band instead
   of wrapping.
@@ -138,7 +141,19 @@ answer. The new reel is a **linear tape with a fixed head**:
   where you are on the tape.
 - **Names that sound like the music.** Unnamed phrases are titled by their
   first few solfège syllables (`Do Mi Sol Mi Do…`), not by today's date.
-  In a solfège app, the contour *is* the most recognizable name.
+  Named phrases show that contour on their meta line instead. In a solfège
+  app, the contour *is* the most recognizable name.
+
+### Why browsing and loading are separate
+
+My first design loaded on every reel step, as the old reel selected on every
+step. With the take pinned to the front, that can't work. The reel moves one
+step per drag, so a drag down would load Recent[0], and the old take would
+become the new Recent[0]. Every drag would swap the same two phrases, and
+nothing deeper would be reachable. Pinning the take and loading on step are
+incompatible, and the pinned take is the point, so loading became an
+explicit action. The cost is one extra tap to load. The gain is that
+browsing is free and safe.
 
 ## Persistence and migration
 

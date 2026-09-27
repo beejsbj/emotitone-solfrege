@@ -330,7 +330,8 @@ describe("phrase book: loading", () => {
     openPhrase(book, "library-arpeggio", library, clock, newId);
     clock += 60_000;
     tap(4);
-    const last = getTake(book).notes.at(-1)!;
+    const notes = getTake(book).notes;
+    const last = notes[notes.length - 1];
     expect(last.pressTime).toBe(2000); // base duration incl. trailing silence
     expect(shelveBook(book, library).recent).toEqual([]);
   });
@@ -433,7 +434,8 @@ describe("phrase book: shelves and editing", () => {
     undoLastNote(book);
     clock += 10_000;
     tap(5);
-    expect(getTake(book).notes.at(-1)!.pressTime).toBe(2000);
+    const notes = getTake(book).notes;
+    expect(notes[notes.length - 1].pressTime).toBe(2000);
   });
 
   it("titles unnamed phrases by their solfège contour", () => {

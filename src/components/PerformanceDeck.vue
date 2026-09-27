@@ -25,7 +25,7 @@
   >
     <template #icon><KeyboardIcon /></template>
     <template #persistent-leading>
-      <PatternList
+      <PhraseShelf
         v-if="isProductionUsage"
         data-stage-occluder
         @context-change="bumpPatternControls"
@@ -148,7 +148,7 @@ import type {
 import type { CodeStripToken } from "@/components/uniques/CodeStrip/index.vue";
 import Drawer from "@/components/uniques/Drawer/index.vue";
 import HummingCaptureTransport from "@/components/humming/HummingCaptureTransport.vue";
-import PatternList from "@/components/patterns/PatternList.vue";
+import PhraseShelf from "@/components/patterns/PhraseShelf.vue";
 import {
   defaultKeyboardHeight,
   maximumKeyboardHeight,
@@ -165,7 +165,7 @@ import type { HarmonyAlteration } from "@/domain/harmony";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
-import { usePatternsStore } from "@/stores/patterns";
+import { usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 import { triggerUIHaptic } from "@/utils/hapticFeedback";
@@ -242,7 +242,7 @@ const isProductionUsage = props.usage === "production";
 const store = isProductionUsage ? useKeyboardDrawerStore() : undefined;
 const instrumentStore = isProductionUsage ? useInstrumentStore() : undefined;
 const musicStore = isProductionUsage ? useMusicStore() : undefined;
-const patternsStore = isProductionUsage ? usePatternsStore() : undefined;
+const phrasesStore = isProductionUsage ? usePhrasesStore() : undefined;
 const visualConfigStore = isProductionUsage ? useVisualConfigStore() : undefined;
 const playback = isProductionUsage ? useCodeStripStrudel() : undefined;
 const humming = isProductionUsage ? useHummingCapture() : undefined;
@@ -346,17 +346,17 @@ function selectHummingTake(index: number) {
 }
 
 function handleBackspace() {
-  if (patternsStore) patternsStore.removeLastFromCurrentSketch();
+  if (phrasesStore) phrasesStore.undoLastNote();
   else emit("backspace");
 }
 
 function handleReturn() {
-  if (!patternsStore) {
+  if (!phrasesStore) {
     emit("return");
     return;
   }
 
-  patternsStore.sendCurrentPattern();
+  phrasesStore.keepTake();
 }
 
 function updateKey(value: string) {

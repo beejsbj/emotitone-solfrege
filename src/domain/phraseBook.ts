@@ -699,7 +699,7 @@ function rootOctave(notes: readonly PatternNote[], fallback: number): number {
 }
 
 export interface PhraseCandidate {
-  name?: string;
+  name: string;
   notes: PatternNote[];
   source?: PatternSource;
 }

@@ -15,9 +15,8 @@ const mocks = vi.hoisted(() => ({
   preparePitchAnalysisAudio: vi.fn(),
   analyzePitchRecording: vi.fn(),
   toCandidates: vi.fn(),
-  importPatternCandidates: vi.fn(),
-  loadPatternAsBase: vi.fn(),
-  loggedNotes: [] as Array<{ id: string }>,
+  importPhrases: vi.fn(),
+  openPhrase: vi.fn(),
 }));
 
 vi.mock("@/services/hummingStage", () => ({
@@ -50,11 +49,10 @@ vi.mock("@/stores/visualConfig", () => ({
   useVisualConfigStore: () => ({ config: { codeStrip: { bpm: 96 } } }),
 }));
 
-vi.mock("@/stores/patterns", () => ({
-  usePatternsStore: () => ({
-    loggedNotes: mocks.loggedNotes,
-    importPatternCandidates: mocks.importPatternCandidates,
-    loadPatternAsBase: mocks.loadPatternAsBase,
+vi.mock("@/stores/phrases", () => ({
+  usePhrasesStore: () => ({
+    importPhrases: mocks.importPhrases,
+    openPhrase: mocks.openPhrase,
   }),
 }));
 
@@ -79,7 +77,6 @@ describe("useHummingCapture", () => {
     vi.clearAllMocks();
     mocks.musicStore = reactive({ currentKey: "D", currentMode: "dorian" });
     mocks.instrumentStore = reactive({ currentInstrument: "piano", shape: { ...ROOMY } });
-    mocks.loggedNotes.splice(0);
     mocks.startMicrophoneCapture.mockResolvedValue({
       stop: mocks.sessionStop,
       cancel: mocks.sessionCancel,
@@ -92,7 +89,7 @@ describe("useHummingCapture", () => {
       { name: "Hummed take 1", notes: [{ note: "D4" }, { note: "F4" }] },
       { name: "Hummed take 2", notes: [{ note: "A4" }] },
     ]);
-    mocks.importPatternCandidates.mockReturnValue(["pattern-1", "pattern-2"]);
+    mocks.importPhrases.mockReturnValue(["pattern-1", "pattern-2"]);
   });
 
   it("routes live frames to the Stage, then imports finalized phrases once", async () => {
@@ -105,7 +102,7 @@ describe("useHummingCapture", () => {
     onFrame(frame);
     expect(mocks.bridgePush).toHaveBeenCalledWith(frame);
     expect(mocks.analyzePitchRecording).not.toHaveBeenCalled();
-    expect(mocks.importPatternCandidates).not.toHaveBeenCalled();
+    expect(mocks.importPhrases).not.toHaveBeenCalled();
 
     await capture.stop();
 
@@ -116,10 +113,9 @@ describe("useHummingCapture", () => {
       { product: "Melograph" },
       { key: "D", mode: "dorian", instrument: "piano", bpm: 96, shape: ROOMY },
     );
-    expect(mocks.importPatternCandidates).toHaveBeenCalledWith(
+    expect(mocks.importPhrases).toHaveBeenCalledWith(
       expect.any(Array),
       { key: "D", mode: "dorian", instrument: "piano", bpm: 96, shape: ROOMY },
-      { workingNotes: [] },
     );
     expect(capture.takeCount.value).toBe(2);
     expect(capture.takeLabels.value).toEqual([
@@ -189,13 +185,13 @@ describe("useHummingCapture", () => {
     mocks.startMicrophoneCapture.mock.calls[0][0](frame);
     expect(mocks.bridgePush).toHaveBeenCalledWith(frame);
     expect(mocks.analyzePitchRecording).not.toHaveBeenCalled();
-    expect(mocks.importPatternCandidates).not.toHaveBeenCalled();
+    expect(mocks.importPhrases).not.toHaveBeenCalled();
 
     await capture.toggle();
 
     expect(mocks.sessionStop).toHaveBeenCalledTimes(1);
     expect(mocks.analyzePitchRecording).toHaveBeenCalledTimes(1);
-    expect(mocks.importPatternCandidates).toHaveBeenCalledTimes(1);
+    expect(mocks.importPhrases).toHaveBeenCalledTimes(1);
     expect(capture.status.value).toBe("idle");
     wrapper.unmount();
   });
@@ -225,7 +221,7 @@ describe("useHummingCapture", () => {
     expect(onCancelled).toHaveBeenCalledTimes(1);
     expect(capture.status.value).toBe("idle");
     expect(mocks.preparePitchAnalysisAudio).not.toHaveBeenCalled();
-    expect(mocks.importPatternCandidates).not.toHaveBeenCalled();
+    expect(mocks.importPhrases).not.toHaveBeenCalled();
     wrapper.unmount();
   });
 
@@ -240,7 +236,7 @@ describe("useHummingCapture", () => {
 
     expect(capture.status.value).toBe("idle");
     expect(mocks.analyzePitchRecording).not.toHaveBeenCalled();
-    expect(mocks.importPatternCandidates).not.toHaveBeenCalled();
+    expect(mocks.importPhrases).not.toHaveBeenCalled();
     await capture.toggle();
     expect(capture.status.value).toBe("recording");
     expect(mocks.startMicrophoneCapture).toHaveBeenCalledTimes(2);
@@ -269,16 +265,15 @@ describe("useHummingCapture", () => {
     wrapper.unmount();
   });
 
-  it("switches among imported takes through the Pattern store", async () => {
+  it("switches among imported takes through the phrases store", async () => {
     const wrapper = mountCapture();
     await capture.start();
     await capture.stop();
 
     capture.selectTake(1);
 
-    expect(mocks.loadPatternAsBase).toHaveBeenCalledWith(
+    expect(mocks.openPhrase).toHaveBeenCalledWith(
       "pattern-2",
-      { discardWorkingNotes: true },
     );
     expect(capture.selectedTakeIndex.value).toBe(1);
     wrapper.unmount();
@@ -295,7 +290,7 @@ describe("useHummingCapture", () => {
     expect(capture.status.value).toBe("error");
     expect(capture.error.value).toBe("Microphone permission was not granted.");
     expect(mocks.bridgeStop).toHaveBeenCalled();
-    expect(mocks.importPatternCandidates).not.toHaveBeenCalled();
+    expect(mocks.importPhrases).not.toHaveBeenCalled();
     wrapper.unmount();
   });
 
@@ -310,22 +305,6 @@ describe("useHummingCapture", () => {
     expect(capture.error.value).toBe(message);
     expect(capture.isRecording.value).toBe(false);
     expect(mocks.bridgeStop).toHaveBeenCalled();
-    wrapper.unmount();
-  });
-
-  it("preserves notes recorded while pitch analysis is pending", async () => {
-    mocks.loggedNotes.push({ id: "before-capture" });
-    const wrapper = mountCapture();
-    await capture.start();
-    mocks.loggedNotes.push({ id: "during-analysis" });
-
-    await capture.stop();
-
-    expect(mocks.importPatternCandidates).toHaveBeenCalledWith(
-      expect.any(Array),
-      expect.any(Object),
-      { workingNotes: [{ id: "during-analysis" }] },
-    );
     wrapper.unmount();
   });
 

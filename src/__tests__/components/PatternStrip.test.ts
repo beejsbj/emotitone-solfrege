@@ -4,7 +4,7 @@ import PatternStrip from "@/components/compounds/PatternStrip.vue";
 import { instrumentIconFor } from "@/components/primatives/instrumentIcon";
 import patternStripSource from "@/components/compounds/PatternStrip.vue?raw";
 import patternReelSource from "@/components/compounds/PatternReel.vue?raw";
-import patternListSource from "@/components/patterns/PatternList.vue?raw";
+import patternListSource from "@/components/patterns/PhraseShelf.vue?raw";
 import stripSpecimenSource from "@/style-guide/compounds/CompoundPatternStrip.vue?raw";
 import reelSpecimenSource from "@/style-guide/compounds/CompoundPatternReel.vue?raw";
 import type { PatternStripItem } from "@/components/compounds/PatternStrip.vue";

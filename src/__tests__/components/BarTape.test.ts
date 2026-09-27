@@ -4,7 +4,7 @@ import BarTape from "@/components/primatives/BarTape.vue";
 import barTapeSource from "@/components/primatives/BarTape.vue?raw";
 import patternStripSource from "@/components/compounds/PatternStrip.vue?raw";
 import patternReelSource from "@/components/compounds/PatternReel.vue?raw";
-import productionPatternListSource from "@/components/patterns/PatternList.vue?raw";
+import productionPhraseShelfSource from "@/components/patterns/PhraseShelf.vue?raw";
 import specimenSource from "@/style-guide/primatives/PrimitiveBarTape.vue?raw";
 
 describe("BarTape", () => {
@@ -46,10 +46,10 @@ describe("BarTape", () => {
     expect(patternReelSource).toContain(
       'import PatternStrip from "./PatternStrip.vue"',
     );
-    expect(productionPatternListSource).toContain(
+    expect(productionPhraseShelfSource).toContain(
       'import PatternReel from "@/components/compounds/PatternReel.vue"',
     );
-    expect(productionPatternListSource).not.toContain("note-color-strip");
+    expect(productionPhraseShelfSource).not.toContain("note-color-strip");
     expect(specimenSource).toContain(
       'import BarTape from "../../components/primatives/BarTape.vue"',
     );

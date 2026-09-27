@@ -5,8 +5,8 @@ import performanceDeckSource from "@/components/PerformanceDeck.vue?raw";
 import Drawer from "@/components/uniques/Drawer/index.vue";
 
 const mocks = vi.hoisted(() => ({
-  removeLastFromCurrentSketch: vi.fn(),
-  sendCurrentPattern: vi.fn(),
+  undoLastNote: vi.fn(),
+  keepTake: vi.fn(),
   toggle: vi.fn(),
   stop: vi.fn(),
   toggleHumming: vi.fn(),
@@ -81,10 +81,10 @@ vi.mock("@/stores/visualConfig", () => ({
   }),
 }));
 
-vi.mock("@/stores/patterns", () => ({
-  usePatternsStore: () => ({
-    removeLastFromCurrentSketch: mocks.removeLastFromCurrentSketch,
-    sendCurrentPattern: mocks.sendCurrentPattern,
+vi.mock("@/stores/phrases", () => ({
+  usePhrasesStore: () => ({
+    undoLastNote: mocks.undoLastNote,
+    keepTake: mocks.keepTake,
   }),
 }));
 
@@ -143,9 +143,9 @@ vi.mock("@/components/compounds/Keyboard.vue", () => ({
   },
 }));
 
-vi.mock("@/components/patterns/PatternList.vue", () => ({
+vi.mock("@/components/patterns/PhraseShelf.vue", () => ({
   default: {
-    name: "PatternList",
+    name: "PhraseShelf",
     emits: ["contextChange", "interactionChange"],
     template: '<div data-testid="pattern-list" />',
   },
@@ -188,7 +188,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
-          PatternList: true,
+          PhraseShelf: true,
           Keyboard: true,
           CodeStripBar: true,
         },
@@ -216,7 +216,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
-          PatternList: true,
+          PhraseShelf: true,
           Keyboard: true,
           CodeStripBar: true,
           HummingCaptureTransport: true,
@@ -238,7 +238,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
-          PatternList: true,
+          PhraseShelf: true,
           Keyboard: true,
           CodeStripBar: true,
         },
@@ -252,8 +252,8 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     await wrapper.vm.$nextTick();
 
     expect(mocks.toggle).toHaveBeenCalledTimes(1);
-    expect(mocks.removeLastFromCurrentSketch).toHaveBeenCalledTimes(1);
-    expect(mocks.sendCurrentPattern).toHaveBeenCalledTimes(1);
+    expect(mocks.undoLastNote).toHaveBeenCalledTimes(1);
+    expect(mocks.keepTake).toHaveBeenCalledTimes(1);
     wrapper.unmount();
   });
 
@@ -267,7 +267,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
         },
       },
     });
-    const patternList = wrapper.getComponent({ name: "PatternList" });
+    const patternList = wrapper.getComponent({ name: "PhraseShelf" });
     const controlBar = wrapper.getComponent({ name: "ControlBar" });
 
     patternList.vm.$emit("contextChange", ["key", "octave"]);
@@ -305,7 +305,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
-          PatternList: true,
+          PhraseShelf: true,
           Keyboard: true,
           CodeStripBar: true,
         },
@@ -324,7 +324,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
-          PatternList: true,
+          PhraseShelf: true,
           Keyboard: true,
           CodeStripBar: true,
         },
@@ -344,7 +344,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
-          PatternList: true,
+          PhraseShelf: true,
           Keyboard: true,
           CodeStripBar: true,
         },
@@ -376,7 +376,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
-          PatternList: true,
+          PhraseShelf: true,
           Keyboard: true,
           CodeStripBar: true,
         },
@@ -402,7 +402,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
-          PatternList: true,
+          PhraseShelf: true,
           Keyboard: true,
           CodeStripBar: true,
         },
@@ -429,7 +429,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
-          PatternList: true,
+          PhraseShelf: true,
           Keyboard: true,
           CodeStripBar: true,
         },

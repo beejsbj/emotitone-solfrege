@@ -33,11 +33,11 @@ import TooltipRenderer from "@/components/TooltipRenderer.vue";
 import UnifiedVisualEffects from "@/components/UnifiedVisualEffects.vue";
 import { globalTooltip } from "@/directives/tooltip";
 import { useMusicStore } from "@/stores/music";
-import { usePatternsStore } from "@/stores/patterns";
+import { usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 
 useMusicStore();
-usePatternsStore();
+usePhrasesStore();
 const visualConfigStore = useVisualConfigStore();
 provideUIBeat({
   clock: uiBeatClock,

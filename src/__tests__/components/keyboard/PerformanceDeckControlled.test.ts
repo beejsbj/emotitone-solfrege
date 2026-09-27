@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
   useKeyboardDrawerStore: vi.fn(),
   useInstrumentStore: vi.fn(),
   useMusicStore: vi.fn(),
-  usePatternsStore: vi.fn(),
+  usePhrasesStore: vi.fn(),
   useVisualConfigStore: vi.fn(),
   useCodeStripStrudel: vi.fn(),
   useHummingCapture: vi.fn(),
@@ -22,7 +22,7 @@ vi.mock("@/stores/instrument", () => ({
   useInstrumentStore: mocks.useInstrumentStore,
 }));
 vi.mock("@/stores/music", () => ({ useMusicStore: mocks.useMusicStore }));
-vi.mock("@/stores/patterns", () => ({ usePatternsStore: mocks.usePatternsStore }));
+vi.mock("@/stores/phrases", () => ({ usePhrasesStore: mocks.usePhrasesStore }));
 vi.mock("@/stores/visualConfig", () => ({
   useVisualConfigStore: mocks.useVisualConfigStore,
 }));
@@ -53,8 +53,8 @@ vi.mock("@/components/compounds/Keyboard.vue", () => ({
 vi.mock("@/components/compounds/PatternReel.vue", () => ({
   default: { name: "PatternReel", template: '<div data-testid="pattern-reel" />' },
 }));
-vi.mock("@/components/patterns/PatternList.vue", () => ({
-  default: { name: "PatternList", template: '<div data-testid="pattern-list" />' },
+vi.mock("@/components/patterns/PhraseShelf.vue", () => ({
+  default: { name: "PhraseShelf", template: '<div data-testid="pattern-list" />' },
 }));
 vi.mock("@/components/humming/HummingCaptureTransport.vue", () => ({
   default: { name: "HummingCaptureTransport", template: '<div data-testid="humming" />' },
@@ -100,8 +100,8 @@ const KeyboardStub = defineComponent({
   emits: ["press", "release", "chordPress", "chordRelease"],
   template: '<div data-testid="keyboard" />',
 });
-const PatternListStub = defineComponent({
-  name: "PatternList",
+const PhraseShelfStub = defineComponent({
+  name: "PhraseShelf",
   template: '<div data-testid="pattern-list" />',
 });
 const HummingStub = defineComponent({
@@ -123,7 +123,7 @@ describe("PerformanceDeck controlled usage", () => {
           CodeStripBar: CodeStripBarStub,
           ControlBar: ControlBarStub,
           Keyboard: KeyboardStub,
-          PatternList: PatternListStub,
+          PhraseShelf: PhraseShelfStub,
           HummingCaptureTransport: HummingStub,
         },
       },
@@ -177,7 +177,7 @@ describe("PerformanceDeck controlled usage", () => {
           CodeStripBar: CodeStripBarStub,
           ControlBar: ControlBarStub,
           Keyboard: KeyboardStub,
-          PatternList: PatternListStub,
+          PhraseShelf: PhraseShelfStub,
           HummingCaptureTransport: HummingStub,
         },
       },
@@ -186,7 +186,7 @@ describe("PerformanceDeck controlled usage", () => {
     expect(mocks.useKeyboardDrawerStore).not.toHaveBeenCalled();
     expect(mocks.useInstrumentStore).not.toHaveBeenCalled();
     expect(mocks.useMusicStore).not.toHaveBeenCalled();
-    expect(mocks.usePatternsStore).not.toHaveBeenCalled();
+    expect(mocks.usePhrasesStore).not.toHaveBeenCalled();
     expect(mocks.useVisualConfigStore).not.toHaveBeenCalled();
     expect(mocks.useCodeStripStrudel).not.toHaveBeenCalled();
     expect(mocks.useHummingCapture).not.toHaveBeenCalled();
@@ -235,7 +235,7 @@ describe("PerformanceDeck controlled usage", () => {
           CodeStripBar: CodeStripBarStub,
           ControlBar: ControlBarStub,
           Keyboard: KeyboardStub,
-          PatternList: PatternListStub,
+          PhraseShelf: PhraseShelfStub,
           HummingCaptureTransport: HummingStub,
         },
       },

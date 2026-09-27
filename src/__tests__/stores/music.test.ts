@@ -5,7 +5,7 @@ vi.unmock("@/services/music");
 vi.unmock("@/data");
 
 import { useMusicStore } from "@/stores/music";
-import { usePatternsStore } from "@/stores/patterns";
+import { usePhrasesStore } from "@/stores/phrases";
 import { useInstrumentStore } from "@/stores/instrument";
 import { DEFAULT_INSTRUMENT } from "@/data/instruments";
 
@@ -128,7 +128,7 @@ describe("music store", () => {
 
   it("attacks borrowed chord tones through the exact-pitch seam without scale flooring", async () => {
     const musicStore = useMusicStore();
-    const patternsStore = usePatternsStore();
+    const patternsStore = usePhrasesStore();
     const dispatchEventSpy = vi.spyOn(window, "dispatchEvent");
 
     musicStore.setKey("C");
@@ -158,13 +158,13 @@ describe("music store", () => {
       .map(([event]) => event)
       .find((event) => event.type === "note-released") as CustomEvent;
     patternsStore.handleNoteReleased(releasedEvent);
-    expect(patternsStore.loggedNotes[0]).toMatchObject({
+    expect(patternsStore.takeNotes[0]).toMatchObject({
       note: "D#4",
       scaleDegree: 0,
       scaleIndex: -1,
       pitchClassIndex: 3,
       isBorrowed: true,
-      solfege: { name: "D#", number: 0 },
+      // Solfège display data is no longer stored on each recorded note.
     });
     patternsStore.removeEventListeners();
   });

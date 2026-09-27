@@ -1,0 +1,163 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { nextTick } from "vue";
+import { setActivePinia } from "pinia";
+import { createTestPinia } from "../helpers/test-utils";
+import { usePhrasesStore, libraryPhrases } from "@/stores/phrases";
+import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
+import { useMusicStore } from "@/stores/music";
+import { useVisualConfigStore } from "@/stores/visualConfig";
+import { isPrewarmed, prewarmSoundSamples } from "@/services/superdoughAudio";
+import {
+  deserializePatternsState,
+  serializePatternsState,
+} from "@/services/patternPersistence";
+
+vi.mock("@/services/superdoughAudio", () => ({
+  setLiveSynthControls: vi.fn(),
+  attackNote: vi.fn().mockResolvedValue(undefined),
+  releaseNote: vi.fn(),
+  stopNote: vi.fn(),
+  releaseAll: vi.fn(),
+  playNoteWithDuration: vi.fn().mockResolvedValue(undefined),
+  initSuperdoughAudio: vi.fn().mockResolvedValue(undefined),
+  isPrewarmed: vi.fn().mockReturnValue(true),
+  prewarmSoundSamples: vi.fn().mockResolvedValue(undefined),
+  getAudioContext: vi.fn(() => ({ state: "running", currentTime: 0 })),
+  playStrudelCode: vi.fn().mockResolvedValue(undefined),
+  stopStrudelPlayback: vi.fn(),
+}));
+
+const START = new Date("2026-09-26T12:00:00Z").getTime();
+
+type Store = ReturnType<typeof usePhrasesStore>;
+
+function tap(store: Store, noteId: string, solfegeIndex: number, at: number, extra = {}) {
+  store.handleNotePressed({
+    detail: { noteId, noteName: "C4", solfegeIndex, octave: 4, timestamp: at, ...extra },
+  } as CustomEvent);
+  store.handleNoteReleased({ detail: { noteId, timestamp: at + 200 } } as CustomEvent);
+}
+
+function playPhrase(store: Store, prefix: string, at: number) {
+  [0, 2, 4].forEach((degree, index) => tap(store, `${prefix}-${index}`, degree, at + index * 300));
+}
+
+describe("phrases store", () => {
+  let store: Store;
+
+  beforeEach(() => {
+    vi.mocked(isPrewarmed).mockReturnValue(true);
+    vi.mocked(prewarmSoundSamples).mockResolvedValue(undefined);
+    localStorage.clear();
+    vi.spyOn(Date, "now").mockReturnValue(START);
+    setActivePinia(createTestPinia());
+    useVisualConfigStore().updateConfig("codeStrip", { bpm: 120 });
+    store = usePhrasesStore();
+  });
+
+  afterEach(() => {
+    store?.removeEventListeners();
+    vi.restoreAllMocks();
+  });
+
+  it("records played notes into the take, in phrase time", () => {
+    playPhrase(store, "a", START);
+    expect(store.takeNotes.map((note) => note.pressTime)).toEqual([0, 300, 600]);
+    expect(store.lastLiveNoteId).toBe(store.takeNotes[2].id);
+    expect(store.takeContext.key).toBe(useMusicStore().currentKey);
+  });
+
+  it("ignores playback and explicitly unrecorded notes", () => {
+    tap(store, "p", 0, START, { source: "strudel-playback" });
+    tap(store, "q", 0, START + 300, { record: false });
+    expect(store.takeNotes).toEqual([]);
+  });
+
+  it("reports a held key in the take as sounding", () => {
+    store.handleNotePressed({
+      detail: { noteId: "held", noteName: "C4", solfegeIndex: 0, octave: 4, timestamp: START },
+    } as CustomEvent);
+    expect(store.isTakeSounding).toBe(true);
+    store.handleNoteReleased({ detail: { noteId: "held", timestamp: START + 200 } } as CustomEvent);
+    expect(store.isTakeSounding).toBe(false);
+  });
+
+  it("keeps the take on Return and leaves an empty take", () => {
+    playPhrase(store, "a", START);
+    const keptId = store.keepTake();
+    expect(store.shelves.kept.map((phrase) => phrase.id)).toEqual([keptId]);
+    expect(store.takeNotes).toEqual([]);
+  });
+
+  it("points the live controls at a phrase it puts on the desk", async () => {
+    const golden = libraryPhrases.find((phrase) => phrase.context.key !== "C")!;
+    store.openPhrase(golden.id);
+    await nextTick();
+    expect(useMusicStore().currentKey).toBe(golden.context.key);
+    expect(useKeyboardDrawerStore().keyboardConfig.mainOctave).toBe(golden.context.octave);
+    expect(store.take.derivedFrom?.id).toBe(golden.id);
+    // The controls moving to the phrase's own context must not re-skin it.
+    expect(store.takeNotes.map((note) => note.note)).toEqual(golden.notes.map((note) => note.note));
+  });
+
+  it("re-skins an untouched loaded take when the key changes", async () => {
+    const phrase = libraryPhrases.find((candidate) => candidate.context.key === "C")
+      ?? libraryPhrases[0];
+    store.openPhrase(phrase.id);
+    await nextTick();
+    const music = useMusicStore();
+    const nextKey = phrase.context.key === "D" ? "E" : "D";
+    music.setKey(nextKey);
+    await nextTick();
+    expect(store.takeContext.key).toBe(nextKey);
+    expect(store.takeNotes[0].note).not.toBe(phrase.notes[0].note);
+  });
+
+  it("round-trips the book through its serializer", () => {
+    playPhrase(store, "a", START);
+    store.keepTake();
+    const json = serializePatternsState({ book: store.book, isRecordingEnabled: true });
+    const restored = deserializePatternsState(json);
+    expect(restored.book.phrases).toHaveLength(2);
+    expect(restored.book.takeId).toBe(store.takeId);
+  });
+});
+
+describe("phrases store migration", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    localStorage.clear();
+  });
+
+  it("reads the legacy patterns key once and leaves it in place", () => {
+    vi.spyOn(Date, "now").mockReturnValue(START);
+    const legacy = JSON.stringify({
+      savedPatterns: [{
+        id: "saved-1",
+        name: "Sent last week",
+        notes: [0, 1, 2].map((index) => ({
+          id: `n${index}`, note: "C4", scaleDegree: 1, scaleIndex: 0, octave: 4,
+          pressTime: START - 5000 + index * 300, releaseTime: START - 4800 + index * 300, duration: 200,
+        })),
+        key: "C", mode: "major", instrument: "piano", bpm: 120,
+        createdAt: START - 5000, isSaved: true,
+      }],
+      loggedNotes: [],
+    });
+    localStorage.setItem("patterns", legacy);
+    setActivePinia(createTestPinia());
+    const store = usePhrasesStore();
+    expect(store.shelves.kept.map((phrase) => phrase.name)).toEqual(["Sent last week"]);
+    expect(localStorage.getItem("patterns")).toBe(legacy);
+    store.removeEventListeners();
+  });
+
+  it("ignores the legacy key once the new one exists", () => {
+    localStorage.setItem("phrases", JSON.stringify({}));
+    localStorage.setItem("patterns", JSON.stringify({ savedPatterns: [{ id: "x", notes: [] }] }));
+    setActivePinia(createTestPinia());
+    const store = usePhrasesStore();
+    expect(store.shelves.kept).toEqual([]);
+    store.removeEventListeners();
+  });
+});

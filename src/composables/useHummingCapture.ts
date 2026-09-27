@@ -11,7 +11,7 @@ import {
 } from "@/services/microphoneCapture";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useMusicStore } from "@/stores/music";
-import { usePatternsStore } from "@/stores/patterns";
+import { usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import type { Shape } from "@/types/instrument";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
@@ -27,7 +27,7 @@ export type HummingCaptureStatus =
 export function useHummingCapture() {
   const musicStore = useMusicStore();
   const instrumentStore = useInstrumentStore();
-  const patternsStore = usePatternsStore();
+  const phrasesStore = usePhrasesStore();
   const visualConfigStore = useVisualConfigStore();
   const status = ref<HummingCaptureStatus>("idle");
   const error = ref<string | null>(null);
@@ -41,7 +41,6 @@ export function useHummingCapture() {
   let stageBridge: ReturnType<typeof createHummingStageBridge> | null = null;
   let requestController: AbortController | null = null;
   let generation = 0;
-  let loggedNoteIdsAtCaptureStart = new Set<string>();
   let captureContext: {
     key: ChromaticNote;
     mode: MusicalMode;
@@ -88,9 +87,6 @@ export function useHummingCapture() {
     takeLabels.value = [];
     selectedTakeIndex.value = 0;
     status.value = "requesting";
-    loggedNoteIdsAtCaptureStart = new Set(
-      patternsStore.loggedNotes.map((note) => note.id),
-    );
     captureContext = {
       key: musicStore.currentKey as ChromaticNote,
       mode: musicStore.currentMode as MusicalMode,
@@ -153,15 +149,9 @@ export function useHummingCapture() {
         throw new Error("Pitch analysis could not find a stable note in that capture.");
       }
 
-      const importedIds = patternsStore.importPatternCandidates(
-        candidates,
-        activeContext,
-        {
-          workingNotes: patternsStore.loggedNotes.filter(
-            (note) => !loggedNoteIdsAtCaptureStart.has(note.id),
-          ),
-        },
-      );
+      // Notes played during the capture are already in the take; opening
+      // the first capture sends that take to Recent rather than dropping it.
+      const importedIds = phrasesStore.importPhrases(candidates, activeContext);
       takePatternIds.value = importedIds;
       takeLabels.value = candidates.map((candidate) => {
         const takeNumber = candidate.source?.takeNumber;
@@ -193,7 +183,7 @@ export function useHummingCapture() {
     const patternId = takePatternIds.value[index];
     if (!patternId) return;
     selectedTakeIndex.value = index;
-    patternsStore.loadPatternAsBase(patternId, { discardWorkingNotes: true });
+    phrasesStore.openPhrase(patternId);
   }
 
   async function cancel() {

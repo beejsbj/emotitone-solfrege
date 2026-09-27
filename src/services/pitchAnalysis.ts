@@ -1,6 +1,6 @@
 import { CHROMATIC_NOTES } from "@/data";
 import { findScaleIndexForPitchClass } from "@/services/scalePitch";
-import type { ImportedPatternCandidate } from "@/stores/patterns";
+import type { PhraseCandidate } from "@/domain/phraseBook";
 import type { PatternNote } from "@/types/patterns";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 
@@ -160,7 +160,7 @@ export function pitchAnalysisToPatternCandidates(
   analysis: PitchAnalysisResult,
   context: PitchAnalysisContext,
   captureId = Date.now().toString(36),
-): ImportedPatternCandidate[] {
+): PhraseCandidate[] {
   return analysis.phrases.flatMap((phrase) => {
     const notes = phrase.events.flatMap((event, eventIndex) => {
       if (event.type !== "note") {

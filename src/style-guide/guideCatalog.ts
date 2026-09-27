@@ -39,6 +39,7 @@ export const GUIDE_LAYERS: GuideLayer[] = [
       { id: "marks", name: "Marks", density: "short", specimen: () => import("./primatives/PrimitiveMarks.vue") },
       { id: "bar-tape", name: "Bar Tape", density: "short", specimen: () => import("./primatives/PrimitiveBarTape.vue") },
       { id: "tabs", name: "Tabs", density: "detailed", specimen: () => import("./primatives/PrimitiveTabs.vue"), focusedHref: "/style-guide/tabs" },
+      { id: "primitives-lab", name: "Primitives Lab", density: "detailed", focusedHref: "/style-guide/lab/primitives", summary: "Reimagined Button, Sticker, Note, Knob, Bar Tape, and Tabs directions beside the accepted production units." },
     ],
   },
   {

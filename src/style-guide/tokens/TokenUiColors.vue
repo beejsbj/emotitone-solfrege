@@ -169,32 +169,4 @@
   }
   .key { width: 36px; height: 48px; box-shadow: var(--ring); }
   .uselabel { font: var(--t-mono); color: var(--ivory-3); font-size: 10px; }
-
-  /* glass / scrim showcase */
-  .layer-demo {
-    position: relative;
-    height: 80px;
-    background:
-      linear-gradient(135deg, var(--ink-4) 0%, var(--ink-2) 100%);
-    border: 1px solid var(--hairline);
-    overflow: hidden;
-  }
-  .layer-demo > .scrim {
-    position: absolute; inset: 0; background: var(--scrim);
-  }
-  .layer-demo > .glass {
-    position: absolute; left: 18px; top: 14px; right: 18px; bottom: 14px;
-    background: var(--glass);
-    border: 1px solid var(--hairline);
-    display: grid; place-items: center;
-    font: var(--t-label); letter-spacing: var(--tracking-label); color: var(--ivory);
-  }
-
-  .layers {
-    display: grid; grid-template-columns: 1fr 1fr 1fr;
-    gap: 10px; margin-top: 10px;
-  }
-  .layers .caplet {
-    font: var(--t-mono); font-size: 10px; color: var(--ivory-3); margin-top: 6px;
-  }
 </style>

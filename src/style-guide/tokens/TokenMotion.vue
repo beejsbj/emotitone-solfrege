@@ -312,7 +312,7 @@
           </div>
         </div>
     
-        <div class="caption" style="margin-top:20px;color:var(--fg-3);line-height:1.55">
+        <div class="caption" style="margin-top:20px;color:var(--ivory-3);line-height:1.55">
           Shared keyframes cover transition (<code>cut-slide-in</code>, <code>rip</code>, <code>rip-mode-out</code>, <code>rip-mode-in</code>, <code>smear</code>, <code>lift</code>), event feedback (<code>ring</code>, <code>flash</code>, <code>flash-ring</code>), and brand (<code>brass-sheen</code>). <code>paper-rip-flash</code> composes <code>lift</code> + <code>flash</code> + <code>flash-ring</code>. Tempo-linked recipes belong to UIBeat consumers, not global CSS loops.
           The six gesture eases (swing / stab / brush / sustain / bend / bounce) are easing curves, not keyframes — shown here on the shared <code>ease-run</code> track for comparison. Bounce promotes the Boolean Knob's elastic rebound for shared tactile use.
         </div>
@@ -639,26 +639,26 @@
 
 /* flash — standalone tile fire (lifted from v2 @keyframes tileFire) */
 .demo-flash-tile .dot {
-  background: var(--note-do);
+  background: var(--tomato);
   animation: flash 1.6s var(--ease-stab) infinite;
 }
 .demo-flash-tile .ring-el {
   position: absolute;
   inset: 14px;
-  border: 2px solid var(--note-do);
+  border: 2px solid var(--tomato);
   border-radius: 0;
   opacity: 0;
 }
 
 /* paper-rip-flash — composed: lift + flash + flash-ring layered */
 .demo-paper-rip-flash .dot {
-  background: var(--note-do);
+  background: var(--tomato);
   animation: flash 1.6s var(--ease-stab) infinite, lift 1.6s var(--ease-stab) infinite;
 }
 .demo-paper-rip-flash .ring-el {
   position: absolute;
   inset: 14px;
-  border: 2px solid var(--note-do);
+  border: 2px solid var(--tomato);
   border-radius: 0;
   animation: flash-ring 1.6s var(--ease-brush) infinite;
 }
@@ -667,7 +667,7 @@
 .demo-ring .ring-el {
   position: absolute;
   inset: 14px;
-  border: 2px solid var(--note-do);
+  border: 2px solid var(--tomato);
   animation: ring 2s var(--ease-brush) infinite;
 }
 /* GROUP D — ease-run track for keyframes card (reuse shared @keyframes) */

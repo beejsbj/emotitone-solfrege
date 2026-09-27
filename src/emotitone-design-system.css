@@ -3,13 +3,14 @@
    Cut-paper jazz, lit by a synth.
 
    TOKEN ARCHITECTURE (top-level groups)
-     1. UI         chrome — ink, ivory, brass, glass, scrim, hairline
+     1. UI         chrome — ink, ivory, brass, hairline
      2. BRAND      decorative — tomato, pine, plum, bone, mustard, cobalt
-     3. MUSIC      legacy named aliases; runtime recipe lives in Music Color
-     4. GEOMETRY   spacing, radii, shadows, ring
-     5. MOTION     beat, durations, easings, keyframes
-     6. LEGACY     old bg/fg/status aliases kept for compatibility only
-     7. TYPOGRAPHY display/text/mono stacks + scale + tracking
+     3. GEOMETRY   spacing, radii, shadows, ring, cut-paper clips and tilts
+     4. MOTION     durations, easings, keyframes
+     5. TYPOGRAPHY display/mono stacks + scale + tracking
+
+   Music Color is not a CSS token family: the numeric OKLCH authority in
+   musicColorCore.ts owns every pitch, degree, octave, and motion color.
    ========================================================================== */
 
 @font-face {
@@ -70,12 +71,8 @@
         transparent 60%,
         transparent 100%);
 
-  /* Glass, scrim, hairline — separators and over-content layers */
-  --hairline:   rgba(255, 255, 255, 0.10);  /* borders on dark */
-  --hairline-2: rgba(255, 255, 255, 0.06);  /* fainter dividers */
-  --scrim:      rgba(0, 0, 0, 0.55);        /* over-content scrim */
-  --glass:      rgba(20, 20, 20, 0.72);     /* drawer / popup */
-  --glass-2:    rgba(255, 255, 255, 0.04);  /* on-glass tint */
+  /* Hairline — the one separator on dark surfaces */
+  --hairline:   rgba(255, 255, 255, 0.10);
 
   /* CodeStrip Bar and Control Bar share one opaque instrument plane. */
   --instrument-bar-surface: var(--ink);
@@ -92,28 +89,8 @@
   --mustard:    #f0b137;     /* poster yellow */
   --cobalt:     #2f67b2;     /* cool poster blue */
 
-  /* Legacy named aliases remain only for older non-runtime guide references.
-     The numeric Music Color module owns pitch, degree, octave, and motion. */
-  --note-do:    hsl( 18  85% 56%);  /* C  — orange (root, home) */
-  --note-ra:    hsl( 48  90% 56%);  /* C# — gold */
-  --note-re:    hsl( 78  72% 52%);  /* D  — lime */
-  --note-me:    hsl(108  62% 48%);  /* D# — green */
-  --note-mi:    hsl(138  60% 46%);  /* E  — emerald */
-  --note-fa:    hsl(178  68% 50%);  /* F  — cyan */
-  --note-fi:    hsl(202  82% 56%);  /* F# — sky */
-  --note-se:    hsl(228  78% 58%);  /* G♭ — indigo */
-  --note-sol:   hsl(252  72% 60%);  /* G  — violet */
-  --note-le:    hsl(282  66% 60%);  /* G# — magenta */
-  --note-la:    hsl(312  76% 58%);  /* A  — pink */
-  --note-te:    hsl(342  80% 56%);  /* A# — rose */
-  --note-ti:    hsl(  2  86% 58%);  /* B  — coral, urge to home */
-
-  /* Derived: glow / wash for visual effects */
-  --glow-warm:  0 0 24px hsla(18 85% 56% / .45);
-  --glow-cool:  0 0 24px hsla(202 82% 56% / .45);
-
   /* ===============================================================
-     4. GEOMETRY — spacing, radii, shadow, ring
+     3. GEOMETRY — spacing, radii, shadow, ring
      =============================================================== */
   /* Spacing role names:
      --s-1 hairline gap, --s-2 icon nudge, --s-3 tight gap,
@@ -136,8 +113,6 @@
   --shadow-cut: 6px 6px 0 var(--ink);
 
   /* Shadows: low-key. The app is mostly dark + glow, not drop-shadow. */
-  --shadow-1: 0 1px 0 rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.04);
-  --shadow-2: 0 8px 24px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.05);
   --shadow-key: inset 0 -2px 0 rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.18);
   --shadow-pressed: inset 0 2px 6px rgba(0,0,0,.6);
 
@@ -233,7 +208,7 @@
   --rot-mark: 2deg;
 
   /* ===============================================================
-     5. MOTION — gesture durations and easings
+     4. MOTION — gesture durations and easings
         Tempo phase comes from UIBeat; transitions remain local recipes.
      =============================================================== */
   /* The horn section — named curves. Pick whose NAME matches the
@@ -244,10 +219,6 @@
   --ease-sustain: linear;                            /* playhead, scrub, meters */
   --ease-bend:    cubic-bezier(.85, 0, .15, 1);     /* pitch, mode change */
   --ease-bounce:  linear(0 0%, .646 5%, 1.25 10%, 1.354 15%, 1.125 20%, .912 25%, .875 30%, .956 35%, 1.031 40%, 1.044 45%, 1.016 50%, .989 55%, .984 60%, .994 65%, 1.004 70%, 1.006 75%, 1.002 80%, .999 85%, .998 90%, .999 95%, 1 100%); /* elastic rebound · tactile controls and drag feedback */
-  /* Legacy aliases — kept for components shipped before the horn-section rename. */
-  --ease-cut:     var(--ease-stab);
-  --ease-paper:   cubic-bezier(.7, 0, .2, 1);
-  --ease-stand:   var(--ease-brush);
 
   /* Named durations — short labels for the four gestures. */
   --dur-tap:    90ms;     /* instant ack — press, ripple */
@@ -257,37 +228,9 @@
   --dur-bounce: 600ms;    /* elastic rebound · tactile controls and drag feedback */
   --dur-rip-mode: var(--dur-panel);
   --ease-rip-mode: var(--ease-bend);
-  /* Legacy aliases. */
-  --dur-flick:  var(--dur-tap);
-  --dur-snap:   var(--dur-ui);
-  --dur-slide:  var(--dur-panel);
-  --dur-bloom:  var(--dur-scene);
 
   /* ===============================================================
-     6. LEGACY ROLE ALIASES — compatibility only, not design doctrine.
-        Brand colors are decorative; future design-system work should
-        avoid expanding semantic color aliases and eventually remove
-        functional status color roles.
-     =============================================================== */
-  --bg:           var(--ink);
-  --bg-elevated:  var(--ink-2);
-  --bg-raised:    var(--ink-3);
-
-  --fg:           var(--ivory);
-  --fg-2:         var(--ivory-2);
-  --fg-3:         var(--ivory-3);
-  --fg-disabled:  var(--ivory-4);
-
-  --border:       var(--hairline);
-  --border-strong:var(--ink-5);
-
-  --accent:       var(--brass);     /* legacy: brass object accent */
-  --danger:       var(--tomato);
-  --success:      var(--note-mi);
-  --info:         var(--note-fi);
-
-  /* ===============================================================
-     7. TYPOGRAPHY — Display, Text, Mono, Serif
+     5. TYPOGRAPHY — Display and Mono
 
         RULE: Lets Jazz is the primary typeface — use it across the
         board by default. Mono is the EXCEPTION, not the default:
@@ -307,7 +250,6 @@
         There is no serif. Two faces, that's the set.
      =============================================================== */
   --font-display: "Lets Jazz", "Oswald", system-ui, sans-serif;
-  --font-text:    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --font-mono:    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
   /* Type scale — mobile first. Labels and body default to Lets Jazz per
@@ -403,44 +345,12 @@
   }
 }
 
-/* =================================================================
-   EXPLICIT TYPOGRAPHY UTILITIES
-
-   Element defaults belong to the style guide and are loaded by its route.
-   These named classes remain opt-in so production components can use the
-   accepted token recipes without changing native element semantics.
-   ================================================================= */
-.mono { font: var(--t-mono); }
-.body  { font: var(--t-body); }
-.body-s{ font: var(--t-body-s); color: var(--fg-2); }
-.body-mono { font: var(--t-body-mono); color: var(--fg-2); }
-.body-s-mono { font: var(--t-body-s-mono); color: var(--fg-3); }
-.ds-label { font: var(--t-label); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--fg-3); }
-
-/* The signature off-cut tab clip — like Persona 5 */
-.cut-tab {
-  clip-path: polygon(
-    4% 0%, 98% 6%, 100% 90%, 96% 100%, 2% 94%, 0% 8%
-  );
-}
-
-/* Torn-paper top edge (used on top drawers) */
-.torn-edge-top {
-  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 16' preserveAspectRatio='none'><path d='M0 16 V6 L40 8 L80 4 L120 9 L160 5 L200 10 L240 6 L280 11 L320 4 L360 9 L400 5 L440 10 L480 6 L520 11 L560 4 L600 9 L640 5 L680 10 L720 6 L760 11 L800 4 L840 9 L880 5 L920 10 L960 6 L1000 11 L1040 4 L1080 9 L1120 5 L1160 10 L1200 6 V16 Z' fill='black'/></svg>");
-  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 16' preserveAspectRatio='none'><path d='M0 16 V6 L40 8 L80 4 L120 9 L160 5 L200 10 L240 6 L280 11 L320 4 L360 9 L400 5 L440 10 L480 6 L520 11 L560 4 L600 9 L640 5 L680 10 L720 6 L760 11 L800 4 L840 9 L880 5 L920 10 L960 6 L1000 11 L1040 4 L1080 9 L1120 5 L1160 10 L1200 6 V16 Z' fill='black'/></svg>");
-  -webkit-mask-size: 100% 100%;
-  mask-size: 100% 100%;
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-}
-
 /* Cut-tab slide (Persona-5 style swap) */
 @keyframes cut-slide-in {
   0%   { transform: translateX(-12%) skewX(-8deg); opacity: 0; }
   60%  { transform: translateX(2%)   skewX(-2deg); opacity: 1; }
   100% { transform: translateX(0)    skewX(0); }
 }
-.cut-slide { animation: cut-slide-in var(--dur-snap) var(--ease-cut) both; }
 
 /* ─── BRASS FINISH ───────────────────────────────────────────────
    The lone accent. Add .brass to any element to fill it with the

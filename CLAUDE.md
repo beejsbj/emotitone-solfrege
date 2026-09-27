@@ -154,7 +154,7 @@ bun run build
 
 ### Audio Context Management
 
-- Audio initialization requires user interaction (handled in `AudioInitializer.vue`)
+- Audio initialization requires user interaction (handled by the Loading Screen's Play gate in `LoadingSplash.vue`)
 - Always check audio context state before playing notes
 - Use note IDs for polyphonic note tracking and release
 

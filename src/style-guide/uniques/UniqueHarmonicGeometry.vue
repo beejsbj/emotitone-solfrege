@@ -316,7 +316,7 @@ onBeforeUnmount(() => {
 }
 
 .harmonic-specimen h3 {
-  font: var(--t-display-s);
+  font: var(--t-h2);
   text-transform: uppercase;
 }
 
@@ -357,7 +357,7 @@ onBeforeUnmount(() => {
   display: block;
   width: 100%;
   height: 260px;
-  border-radius: var(--radius-m);
+  border-radius: var(--r-md);
   background:
     radial-gradient(circle at 50% 42%, hsla(210, 18%, 16%, 0.76), transparent 68%),
     var(--ink);

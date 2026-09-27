@@ -258,7 +258,7 @@ onBeforeUnmount(() => window.removeEventListener("hashchange", scrollToHash));
   min-height: 100vh;
   padding: 32px;
   background: var(--ink);
-  color: var(--fg);
+  color: var(--ivory);
 }
 
 .sink-header,

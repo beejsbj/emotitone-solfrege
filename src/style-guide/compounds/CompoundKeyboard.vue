@@ -359,7 +359,7 @@ const features = [
   align-items: baseline;
   gap: 9px;
   color: var(--ivory-3);
-  font: var(--t-micro);
+  font: var(--t-caption);
   letter-spacing: .12em;
   text-transform: uppercase;
 }

@@ -1,7 +1,7 @@
 html, body {
   margin: 0; padding: 0;
   background: var(--ink);
-  color: var(--fg);
+  color: var(--ivory);
   font: var(--t-body);
   -webkit-font-smoothing: antialiased;
 }
@@ -14,11 +14,11 @@ html, body {
   box-sizing: border-box;
 }
 .row { display: flex; align-items: center; gap: 14px; }
-.label { font: var(--t-label); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--fg-3); }
+.label { font: var(--t-label); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--ivory-3); }
 .swatch { width: 56px; height: 56px; border-radius: var(--r-sm); box-shadow: var(--ring); flex-shrink: 0; }
 .spec { display:flex; flex-direction:column; gap: 2px; min-width: 0; }
-.spec b { font: var(--t-h2); color: var(--fg); letter-spacing: var(--tracking-display); text-transform: uppercase; }
-.spec code { font: var(--t-mono); color: var(--fg-3); }
+.spec b { font: var(--t-h2); color: var(--ivory); letter-spacing: var(--tracking-display); text-transform: uppercase; }
+.spec code { font: var(--t-mono); color: var(--ivory-3); }
 .grid { display: grid; gap: 10px; }
 
 /* CANONICAL PANEL · floating-label container ────────────────────────

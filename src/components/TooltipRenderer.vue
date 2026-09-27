@@ -11,7 +11,7 @@
         zIndex: 9999,
         pointerEvents: 'none',
       }"
-      class="flex flex-col items-center justify-center whitespace-nowrap rounded-md bg-black px-4 py-2 text-xs shadow-xl"
+      class="flex flex-col items-center justify-center whitespace-nowrap rounded-md bg-[var(--ink)] px-4 py-2 text-xs shadow-xl"
     >
       <div
         class="absolute right-1/2 translate-x-1/2 -bottom-px z-30 h-px w-2/5 me-1 bg-gradient-to-r from-transparent via-emerald-500 to-transparent"
@@ -19,7 +19,7 @@
       <div
         class="absolute left-1/2 -translate-x-1/2 -bottom-px z-30 h-px w-2/5 ms-1 bg-gradient-to-r from-transparent via-sky-500 to-transparent"
       />
-      <div class="relative z-30 text-base font-bold text-white">
+      <div class="relative z-30 text-base font-bold text-[var(--ivory)]">
         {{ tooltipState.content }}
       </div>
     </div>

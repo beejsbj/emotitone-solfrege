@@ -156,7 +156,7 @@ const { running, toggle } = useUIBeatFixture({ bpm, meter });
 
 .ui-beat-system__transport strong {
   color: var(--ivory);
-  font: var(--t-display-s);
+  font: var(--t-h2);
   letter-spacing: var(--tracking-display);
   text-transform: uppercase;
 }

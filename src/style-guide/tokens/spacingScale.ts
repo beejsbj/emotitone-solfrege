@@ -1,10 +1,7 @@
 import tokenCss from "@/emotitone-design-system.css?raw";
+import type { SpacingStep } from "@/types/styleGuide";
 
-export interface SpacingStep {
-  token: string;
-  value: string;
-  hint: string;
-}
+export type { SpacingStep };
 
 /**
  * Reads the spacing scale straight from the token source: values from the

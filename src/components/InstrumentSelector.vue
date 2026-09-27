@@ -429,7 +429,7 @@ async function selectInstrument(name: string, close: () => void) {
               {{ warmupStatusMessage }}
             </span>
             <span class="relative h-3 w-3 shrink-0" aria-hidden="true">
-              <span class="absolute inset-0 rounded-full border border-[rgb(244_239_230/0.2)]" />
+              <span class="absolute inset-0 rounded-full border border-[color-mix(in_srgb,var(--ivory)_20%,transparent)]" />
               <span class="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-r-[var(--ivory)] border-t-[var(--ivory-3)] motion-reduce:animate-none" />
             </span>
           </div>

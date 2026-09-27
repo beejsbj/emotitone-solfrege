@@ -44,6 +44,18 @@ const SYNTH_SOUNDS = new Set([
 
 let _initialized = false;
 let _initPromise: Promise<void> | null = null;
+
+/**
+ * The startup step currently in flight, so a caller that gives up waiting can
+ * say what actually hung: the sample download, or the audio engine itself
+ * (graph initialisation and preparing the default synth).
+ */
+export type AudioStartupStage = "idle" | "samples" | "engine" | "ready";
+let _startupStage: AudioStartupStage = "idle";
+
+export function getAudioStartupStage(): AudioStartupStage {
+  return _startupStage;
+}
 const _prewarmedSounds = new Set<string>();
 type LiveSynthControls = {
   cutoff?: number;
@@ -273,6 +285,7 @@ export async function initSuperdoughAudio(
 
   _initPromise = (async () => {
     try {
+      _startupStage = "samples";
       // Register built-in WebAudio oscillator sounds (sine, triangle, etc.)
       registerSynthSounds();
       progressCallback?.(3, "Synth sounds registered");
@@ -305,6 +318,7 @@ export async function initSuperdoughAudio(
 
       // The editor creates the single pattern transport through patternPlayback.
       // Instrument startup only initializes the shared audio graph.
+      _startupStage = "engine";
       progressCallback?.(79, "Starting audio context…");
       await initializeAudio();
 
@@ -316,7 +330,9 @@ export async function initSuperdoughAudio(
 
       progressCallback?.(100, "Audio engine ready");
       _initialized = true;
+      _startupStage = "ready";
     } catch (err) {
+      _startupStage = "idle";
       console.error("[superdoughAudio] init error:", err);
       // Reset so callers can retry after a user gesture
       _initPromise = null;
@@ -336,10 +352,21 @@ export async function initSuperdoughAudio(
  */
 export async function initSynthOnlyAudio(): Promise<void> {
   if (_initialized) return;
-  registerSynthSounds();
-  await initializeAudio();
-  await _prewarmSoundCore(DEFAULT_INSTRUMENT, true);
+  // Never queue behind an engine start that is still pending: if it hung, the
+  // synths would hang with it. That is an engine fault, not a sample one.
+  if (_startupStage === "engine") throw new Error("The audio engine is still starting");
+  const resumeStage = _startupStage;
+  _startupStage = "engine";
+  try {
+    registerSynthSounds();
+    await initializeAudio();
+    await _prewarmSoundCore(DEFAULT_INSTRUMENT, true);
+  } catch (error) {
+    _startupStage = resumeStage;
+    throw error;
+  }
   _initialized = true;
+  _startupStage = "ready";
 }
 
 function normalizeChromaticNote(noteName: string): ChromaticNote | null {

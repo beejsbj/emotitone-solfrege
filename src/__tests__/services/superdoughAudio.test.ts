@@ -101,6 +101,7 @@ describe("superdoughAudio live note handling", () => {
     hoisted.mockLoadBuffer.mockResolvedValue(undefined);
     hoisted.mockPrewarmSoundfont.mockResolvedValue(undefined);
     hoisted.mockSamples.mockResolvedValue(undefined);
+    hoisted.mockInitAudio.mockReset().mockResolvedValue(undefined);
   });
 
   it("initializes the canonical audio graph once without bootstrapping a hidden Strudel REPL", async () => {
@@ -123,6 +124,38 @@ describe("superdoughAudio live note handling", () => {
     const graph = await audio.initSuperdoughAudio().catch((error: unknown) => error);
     expect(graph).toBeInstanceOf(Error);
     expect(graph).not.toBeInstanceOf(SampleLoadError);
+  });
+
+  it("reports which startup step is pending, and synth-only refuses rather than awaiting a hung engine", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    expect(audio.getAudioStartupStage()).toBe("idle");
+
+    const pendingPacks: Array<() => void> = [];
+    const finishSamples = () => pendingPacks.forEach((resolve) => resolve());
+    hoisted.mockSamples.mockImplementation(() => new Promise<void>((resolve) => { pendingPacks.push(resolve); }));
+    hoisted.mockInitAudio.mockImplementationOnce(() => new Promise(() => {})); // the engine hangs
+    void audio.initSuperdoughAudio();
+    await Promise.resolve();
+    expect(audio.getAudioStartupStage()).toBe("samples");
+
+    finishSamples();
+    await vi.waitFor(() => expect(audio.getAudioStartupStage()).toBe("engine"));
+
+    const synthOnly = audio.initSynthOnlyAudio();
+    await expect(synthOnly).rejects.toThrow("still starting");
+    expect(hoisted.mockInitAudio).toHaveBeenCalledOnce(); // no second, queued engine start
+  });
+
+  it("marks startup ready once the synth-only start succeeds while samples are still pending", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    hoisted.mockSamples.mockImplementation(() => new Promise(() => {})); // the download hangs
+    void audio.initSuperdoughAudio();
+    await Promise.resolve();
+    expect(audio.getAudioStartupStage()).toBe("samples");
+
+    await audio.initSynthOnlyAudio();
+    expect(audio.getAudioStartupStage()).toBe("ready");
+    expect(audio.isPrewarmed("triangle")).toBe(true);
   });
 
   it("starts basic synths without the sample packs after a failed load, so notes stop retrying the download", async () => {

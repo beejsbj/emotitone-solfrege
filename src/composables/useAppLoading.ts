@@ -12,7 +12,12 @@ import type {
   AppLoadingState,
   LoadingEvent,
 } from "@/types/loading";
-import { getAudioContext, initSuperdoughAudio, initSynthOnlyAudio } from "@/services/superdoughAudio";
+import {
+  getAudioContext,
+  getAudioStartupStage,
+  initSuperdoughAudio,
+  initSynthOnlyAudio,
+} from "@/services/superdoughAudio";
 import { AudioBlockedError, SampleLoadError } from "@/services/audioFailures";
 
 /**
@@ -20,6 +25,34 @@ import { AudioBlockedError, SampleLoadError } from "@/services/audioFailures";
  * rejecting it, so the gesture waits this long before reporting the block.
  */
 const AUDIO_RESUME_TIMEOUT_MS = 1500;
+
+/** How long the whole instrument load may take before the count stops. */
+const INSTRUMENT_LOAD_TIMEOUT_MS = 60_000;
+
+/** A tap never waits on the engine longer than this; past it, the engine has hung. */
+const ENGINE_START_TIMEOUT_MS = 15_000;
+
+/** Rejects with `error()` after `ms`, so a hung promise becomes a named failure. */
+function within<T>(promise: Promise<T>, ms: number, error: () => Error): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expiry = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(error()), ms);
+  });
+  return Promise.race([promise, expiry]).finally(() => clearTimeout(timer));
+}
+
+/**
+ * Names a load that ran out of time by the step that was still pending. Only a
+ * hung sample download (or a sampled instrument still warming after the engine
+ * is ready) can fall back to the synths; a hung engine cannot.
+ */
+function instrumentLoadTimeout(): Error {
+  const stage = getAudioStartupStage();
+  const message = "Instrument initialization timeout";
+  return stage === "samples" || stage === "ready"
+    ? new SampleLoadError(message)
+    : new Error(`${message}: the audio engine did not start`);
+}
 
 // Default splash configuration
 const DEFAULT_SPLASH_CONFIG: SplashConfig = {
@@ -114,7 +147,17 @@ export function useAppLoading() {
     });
 
     try {
-      await (synthsOnly ? initSynthOnlyAudio() : initSuperdoughAudio());
+      await within(
+        synthsOnly ? initSynthOnlyAudio() : initSuperdoughAudio(),
+        ENGINE_START_TIMEOUT_MS,
+        () => new Error("The audio engine did not start in time"),
+      );
+      if (synthsOnly) {
+        // Whatever is selected (a persisted sampled instrument, say) may never
+        // have loaded; the synth entry plays the synth that was just prepared.
+        const { useInstrumentStore } = await import("@/stores/instrument");
+        useInstrumentStore().fallBackToSynth();
+      }
 
       const context = getAudioContext();
       if (context.state !== "running") {
@@ -171,18 +214,12 @@ export function useAppLoading() {
         // overall.message intentionally left unchanged ("Loading audio samples…")
       };
 
-      // Add timeout to prevent hanging
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => {
-          reject(new SampleLoadError("Instrument initialization timeout"));
-        }, 60000); // 60 second timeout for all instruments
-      });
-
-      // Initialize instruments with progress tracking
-      await Promise.race([
+      // A load that hangs stops the count; the timeout is named by the step that hung.
+      await within(
         instrumentStore.initializeInstruments(progressCallback),
-        timeoutPromise,
-      ]);
+        INSTRUMENT_LOAD_TIMEOUT_MS,
+        instrumentLoadTimeout,
+      );
 
       updatePhase("instruments", {
         progress: 100,

@@ -247,6 +247,20 @@ export const useInstrumentStore = defineStore("instrument", () => {
     }
   };
 
+  /**
+   * Entering with basic synths after a failed or hung sample load: select the
+   * default synth the synth-only start prepared, whatever was selected or
+   * persisted, and supersede any warmup still pending so it cannot win later.
+   * A load that finishes afterwards reconciles from this synth and keeps it.
+   */
+  const fallBackToSynth = () => {
+    selectionEpoch.value += 1;
+    clearWarmupState();
+    markInstrumentReady(DEFAULT_INSTRUMENT);
+    currentInstrument.value = DEFAULT_INSTRUMENT;
+    lastReadyInstrument.value = DEFAULT_INSTRUMENT;
+  };
+
   // Set current instrument — any registered superdough sound name is valid.
   // Awaits pre-warming for cold instruments so the first keypress is never dropped.
   const setInstrument = async (
@@ -327,6 +341,7 @@ export const useInstrumentStore = defineStore("instrument", () => {
 
     // Actions
     initializeInstruments,
+    fallBackToSynth,
     setInstrument,
     isInstrumentReady,
     isInstrumentWarming,

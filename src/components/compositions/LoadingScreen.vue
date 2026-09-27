@@ -307,6 +307,8 @@ const midiPaper = computed(() => (midi.value?.stamp === "SET" ? "plum" : "ink-4"
             type="button"
             class="count-gate count-gate--retry count-gate--reload"
             aria-label="Reload EmotiTone"
+            :disabled="audioInitializing"
+            :aria-busy="audioInitializing || undefined"
             @click="emit('reload')"
           >
             <span class="count-gate__label"><span aria-hidden="true">↻</span> RELOAD</span>
@@ -317,6 +319,8 @@ const midiPaper = computed(() => (midi.value?.stamp === "SET" ? "plum" : "ink-4"
             type="button"
             class="count-gate count-gate--retry"
             aria-label="Retry loading"
+            :disabled="audioInitializing"
+            :aria-busy="audioInitializing || undefined"
             @click="emit('retry')"
           >
             <span class="count-gate__label"><span aria-hidden="true">↺</span> FROM THE TOP</span>

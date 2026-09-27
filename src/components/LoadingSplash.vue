@@ -139,11 +139,14 @@ const canPlayBasicSynths = computed(() => (
 ));
 
 /**
- * A stalled engine cannot be retried in place: its hung start stays cached, so
- * the gate becomes an honest reload. Sample failures retry from the top.
+ * A timed-out load leaves its start pending and cached, and a stalled engine
+ * cannot be retried in place either, so both get an honest reload. Only a
+ * genuine rejection, which has already cleared its cached start, retries from the top.
  */
 const recovery = computed(() => (
-  Object.values(loadingState.progress).some((state) => state.failure === "engine") ? "reload" : "retry"
+  Object.values(loadingState.progress).some((state) => state.failure === "engine" || state.timedOut)
+    ? "reload"
+    : "retry"
 ));
 
 /**

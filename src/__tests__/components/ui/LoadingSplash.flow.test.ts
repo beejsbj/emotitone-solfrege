@@ -260,6 +260,13 @@ describe("production loading flow", () => {
     expect(wrapper.get(".count-fallback").attributes("disabled")).toBeDefined();
     expect(wrapper.get(".count-fallback").attributes("aria-busy")).toBe("true");
     expect(wrapper.get(".count-fallback").text()).toContain("Starting…");
+    // Every gate is single-flight: the retry cannot compete with the pending start.
+    const retry = wrapper.get(".count-gate--retry");
+    expect(retry.text()).toContain("FROM THE TOP"); // a genuine rejection retries in place
+    expect(retry.attributes("disabled")).toBeDefined();
+    expect(retry.attributes("aria-busy")).toBe("true");
+    await retry.trigger("click");
+    expect(instruments.initializeInstruments).toHaveBeenCalledOnce();
 
     finishStart();
     await flushPromises();

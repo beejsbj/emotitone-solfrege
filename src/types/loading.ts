@@ -26,6 +26,8 @@ export interface LoadingState {
   error?: string;
   /** Set with error: what kind of failure it was, so the screen offers the right way on. */
   failure?: AudioFailureKind;
+  /** The failure was the load running out of time: its start is still pending and cached. */
+  timedOut?: boolean;
   isComplete: boolean;
 }
 

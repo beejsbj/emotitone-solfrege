@@ -138,6 +138,21 @@ describe("instrument load timeout", () => {
     wrapper.unmount();
   });
 
+  it("recovers a samples timeout with RELOAD beside the synths, never an in-place retry of the pending start", async () => {
+    audio.state.hang = "samples";
+    const wrapper = await mountAndTimeOut();
+
+    expect(useAppLoading().loadingState.progress.instruments).toMatchObject({ failure: "samples", timedOut: true });
+    expect(wrapper.text()).not.toContain("FROM THE TOP");
+    expect(wrapper.find(".count-fallback").exists()).toBe(true); // synths need no sample promise
+
+    await wrapper.get(".count-gate--reload").trigger("click");
+    await flushPromises();
+    expect(reloadPage).toHaveBeenCalledOnce();
+    expect(audio.initSuperdoughAudio).toHaveBeenCalledOnce(); // the pending start is not awaited again
+    wrapper.unmount();
+  });
+
   it("names a sampled instrument still warming after the engine is ready as samples, and plays the synth", async () => {
     audio.state.hang = "warmup";
     const wrapper = await mountAndTimeOut();

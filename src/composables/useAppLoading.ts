@@ -201,6 +201,7 @@ export function useAppLoading() {
       message: "Loading audio samples…",
     });
 
+    let timedOut = false;
     try {
       // Lazy import to avoid circular dependencies
       const { useInstrumentStore } = await import("@/stores/instrument");
@@ -220,7 +221,10 @@ export function useAppLoading() {
       await within(
         instrumentStore.initializeInstruments(progressCallback),
         INSTRUMENT_LOAD_TIMEOUT_MS,
-        instrumentLoadTimeout,
+        () => {
+          timedOut = true;
+          return instrumentLoadTimeout();
+        },
       );
 
       updatePhase("instruments", {
@@ -241,6 +245,7 @@ export function useAppLoading() {
         isComplete: false,
         error: error instanceof Error ? error.message : "Unknown error",
         failure: samples ? "samples" : "engine",
+        timedOut,
       });
     }
   };

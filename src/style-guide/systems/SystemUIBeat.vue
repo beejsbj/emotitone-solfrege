@@ -3,8 +3,8 @@
     <div class="card ui-beat-system">
       <div class="label">UIBeat · System Protocol</div>
       <p class="caption ui-beat-system__intro">
-        One injected clock drives real UI control families: Beat Indicator
-        Marks, both Knob editions, Button, Joystick, and the selected
+        One injected clock drives real UI control families: the Beat Indicator
+        ring around Play, both Knob editions, Button, Joystick, and the selected
         current-instrument Sticker. The same general scale binding reaches each
         actual control without replacing its gestures.
       </p>
@@ -13,9 +13,19 @@
         <div class="ui-beat-system__transport">
           <BeatIndicator
             :beats="meter.beatsPerBar"
-            size="lg"
             aria-label="Controlled UIBeat indicator"
-          />
+          >
+            <Button
+              size="lg"
+              :tone="running ? 'ink' : 'ivory'"
+              :accessible-name="running ? 'Pause UIBeat fixture' : 'Play UIBeat fixture'"
+              :title="running ? 'Pause UIBeat fixture' : 'Play UIBeat fixture'"
+              @click="toggle"
+            >
+              <Square v-if="running" />
+              <Play v-else />
+            </Button>
+          </BeatIndicator>
           <strong>{{ meter.label }} · {{ bpm }} BPM</strong>
           <span>{{ running ? "Sounding-phase fixture" : "Idle rest state" }}</span>
         </div>
@@ -43,16 +53,6 @@
           </div>
 
           <div class="ui-beat-system__primitives" aria-label="Primitive consumers">
-            <Button
-              size="sm"
-              :tone="running ? 'ink' : 'ivory'"
-              :accessible-name="running ? 'Pause UIBeat fixture' : 'Play UIBeat fixture'"
-              :title="running ? 'Pause UIBeat fixture' : 'Play UIBeat fixture'"
-              @click="toggle"
-            >
-              <Square v-if="running" />
-              <Play v-else />
-            </Button>
             <Sticker variant="fill" color="ivory" mark="eighth" ui-beat>
               Current Piano
             </Sticker>
@@ -94,7 +94,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { ref } from "vue";
 import { Play, Square } from "lucide-vue-next";
 import BeatIndicator from "@/components/compounds/BeatIndicator.vue";
 import Button from "@/components/primatives/Button.vue";
@@ -102,11 +102,8 @@ import Knob from "@/components/primatives/Knob/index.vue";
 import Sticker from "@/components/primatives/Sticker";
 import Joystick from "@/components/uniques/Joystick/index.vue";
 import type { HarmonyAlteration } from "@/domain/harmony";
-import {
-  provideUIBeat,
-  UIBeatClock,
-  type UIBeatMeter,
-} from "@/composables/useUIBeat";
+import type { UIBeatMeter } from "@/composables/useUIBeat";
+import { useUIBeatFixture } from "../guide/useUIBeatFixture";
 
 interface MeterFixture extends UIBeatMeter {
   label: string;
@@ -121,78 +118,7 @@ const meters: MeterFixture[] = [
 const bpm = ref<number>(120);
 const meter = ref<MeterFixture>(meters[0]);
 const harmony = ref<HarmonyAlteration>("auto");
-const running = ref(true);
-const clock = new UIBeatClock();
-provideUIBeat({ clock, presentationEnabled: () => true });
-
-let generation = 0;
-let frame: number | null = null;
-let barPosition = 0;
-let previousTimestamp: number | null = null;
-
-function cancelFrame() {
-  if (frame !== null) cancelAnimationFrame(frame);
-  frame = null;
-}
-
-function tick(timestamp: number) {
-  if (!running.value) return;
-  const beatDuration = 60_000 / bpm.value;
-  const barDuration = beatDuration * meter.value.beatsPerBar;
-  const elapsed = previousTimestamp === null
-    ? 0
-    : Math.max(0, timestamp - previousTimestamp);
-  previousTimestamp = timestamp;
-  barPosition += elapsed / barDuration;
-  clock.publish(generation, { rawPosition: barPosition, barPosition });
-  frame = requestAnimationFrame(tick);
-}
-
-function start() {
-  cancelFrame();
-  barPosition = 0;
-  previousTimestamp = null;
-  generation = clock.arm({
-    mappingAvailable: true,
-    bpm: bpm.value,
-    meter: meter.value,
-  });
-  running.value = true;
-  frame = requestAnimationFrame(tick);
-}
-
-function preserveTempoPhase() {
-  if (!running.value) return;
-  generation = clock.arm({
-    mappingAvailable: true,
-    bpm: bpm.value,
-    meter: meter.value,
-  });
-  clock.publish(generation, { rawPosition: barPosition, barPosition });
-  previousTimestamp = performance.now();
-}
-
-function stop() {
-  cancelFrame();
-  running.value = false;
-  clock.stop(generation);
-}
-
-function toggle() {
-  if (running.value) stop();
-  else start();
-}
-
-watch(bpm, preserveTempoPhase);
-watch(meter, () => {
-  if (running.value) start();
-});
-
-onMounted(start);
-onBeforeUnmount(() => {
-  stop();
-  clock.destroy();
-});
+const { running, toggle } = useUIBeatFixture({ bpm, meter });
 </script>
 
 <style scoped>

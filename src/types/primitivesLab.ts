@@ -89,6 +89,15 @@ export interface LabTabsProps {
 
 export type LabPaper = "bone" | "tomato" | "mustard" | "plum" | "cobalt" | "pine";
 
+/** How a direction reads against the design bible (`src/style-guide/WIP-bible.md`). */
+export interface LabBibleReading {
+  zone: "Playing zone" | "Brand zone" | "Both zones";
+  /** Chassis (hardware) or applied paper stuck onto it. */
+  role: "Chassis" | "Applied paper" | "Seam";
+  fit: "fits" | "caution";
+  note: string;
+}
+
 export interface LabPrimitiveDirection {
   id: string;
   letter: string;
@@ -98,6 +107,7 @@ export interface LabPrimitiveDirection {
   idea: string;
   better: string;
   risks: string;
+  bible: LabBibleReading;
   component: Component;
 }
 
@@ -110,6 +120,8 @@ export interface LabPrimitiveUnit {
   bench: Component;
   production: Component | null;
   directions: LabPrimitiveDirection[];
+  /** The unit's place in the bible: which zone, chassis or applied paper. */
+  reading: string;
   /** Present when the lab deliberately leaves the unit alone. */
   leaveAlone?: string;
 }

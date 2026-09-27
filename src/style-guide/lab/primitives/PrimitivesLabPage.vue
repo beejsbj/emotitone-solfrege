@@ -27,8 +27,8 @@ const stickerColor = (paper: LabPaper) => (paper === "cobalt" ? "ivory" : paper)
     <FocusedPoster layer="primitives" unit-id="primitives-lab" kicker="Design lab · guide only" title="Primitives Lab">
       <p>
         Reimagined directions for the Primitives layer, each an idea rather than a variation, mounted beside
-        the accepted production unit from its real source. Every bench drives the same states: materials,
-        sizes, loading, disabled, sounding, roles, and the real product context each primitive serves.
+        the accepted production unit from its real source and judged against the design bible: the playing
+        zone is hardware with paper stuck onto it, and its only colour comes from the music.
       </p>
     </FocusedPoster>
 
@@ -44,6 +44,7 @@ const stickerColor = (paper: LabPaper) => (paper === "cobalt" ? "ivory" : paper)
           <p class="plab-unit__meta">
             {{ unit.leaveAlone ? "Left alone" : `${unit.directions.length} directions` }} · <code>{{ unit.source }}</code>
           </p>
+          <p class="plab-unit__reading">{{ unit.reading }}</p>
         </header>
 
         <div v-if="unit.leaveAlone" class="focused-sheet plab-sheet">
@@ -95,6 +96,12 @@ const stickerColor = (paper: LabPaper) => (paper === "cobalt" ? "ivory" : paper)
               </div>
               <Sticker variant="fill" :color="stickerColor(direction.paper)">{{ direction.letter }}</Sticker>
             </header>
+            <p class="plab-bible" :class="`plab-bible--${direction.bible.fit}`">
+              <span class="plab-bible__chip">{{ direction.bible.zone }}</span>
+              <span class="plab-bible__chip">{{ direction.bible.role }}</span>
+              <span class="plab-bible__chip plab-bible__chip--fit">{{ direction.bible.fit === "fits" ? "Fits the bible" : "Caution" }}</span>
+              <span class="plab-bible__note">{{ direction.bible.note }}</span>
+            </p>
             <p class="focused-sheet__prose">{{ direction.idea }}</p>
             <component :is="unit.bench" :component="direction.component" />
             <dl class="focused-facts">
@@ -135,6 +142,51 @@ const stickerColor = (paper: LabPaper) => (paper === "cobalt" ? "ivory" : paper)
 }
 
 .plab-unit__meta code { color: var(--ivory-2); font: inherit; }
+
+.plab-unit__reading {
+  max-width: 70ch;
+  margin: var(--s-4) 0 0;
+  color: var(--ivory);
+  font: var(--t-body-s-mono);
+}
+
+.plab-bible {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3);
+  margin: 0;
+}
+
+.plab-bible__chip {
+  padding: 4px 8px 3px;
+  background: var(--ink-4);
+  color: var(--ivory-2);
+  font: 700 12px/1 var(--font-display);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.plab-bible--fits .plab-bible__chip--fit { background: var(--ivory); color: var(--ink); }
+.plab-bible--caution .plab-bible__chip--fit { background: var(--brass); color: var(--brass-edge); }
+
+.plab-bible__note {
+  color: var(--ivory-3);
+  font: var(--t-caption);
+}
+
+.plab-sheet :deep(.plab-zone) {
+  grid-column: 1 / -1;
+  margin: var(--s-3) 0 0;
+  padding-bottom: var(--s-2);
+  color: var(--ivory);
+  font: 700 16px/1 var(--font-display);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  box-shadow: inset 0 -2px 0 var(--ivory-4);
+}
+
+.plab-sheet :deep(.plab-zone--brand) { box-shadow: inset 0 -2px 0 var(--guide-paper, var(--tomato)); }
 
 .plab-unit__sheets {
   display: grid;

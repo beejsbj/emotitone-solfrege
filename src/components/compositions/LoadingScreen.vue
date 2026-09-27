@@ -190,14 +190,7 @@ const midiPaper = computed(() => (midi.value?.stamp === "SET" ? "plum" : "ink-4"
       </header>
 
       <div class="loading-screen__board">
-        <ol
-          class="loading-screen__tiles"
-          :role="showProgress ? 'progressbar' : undefined"
-          :aria-label="showProgress ? 'Loading progress' : 'Loading stages'"
-          :aria-valuenow="showProgress ? percent : undefined"
-          :aria-valuemin="showProgress ? 0 : undefined"
-          :aria-valuemax="showProgress ? 100 : undefined"
-        >
+        <ol class="loading-screen__tiles" aria-label="Loading stages">
           <li
             v-for="(stage, index) in required"
             :key="stage.label"
@@ -223,6 +216,7 @@ const midiPaper = computed(() => (midi.value?.stamp === "SET" ? "plum" : "ink-4"
         <div
           v-if="midi"
           class="count-and"
+          role="group"
           :class="stageState(midi)"
           :style="{ '--and-paper': `var(--${midiPaper})` }"
           :aria-label="stageLabel(midi)"
@@ -243,13 +237,24 @@ const midiPaper = computed(() => (midi.value?.stamp === "SET" ? "plum" : "ink-4"
       </div>
 
       <footer class="loading-screen__foot">
-        <p class="loading-screen__status" role="status" aria-live="polite">
-          <template v-if="showStatusCopy">
-            <strong>{{ displayedPhase }}</strong>
-            <span>{{ displayedMessage }}</span>
-          </template>
-          <em v-if="showProgress">{{ String(percent).padStart(2, "0") }}%</em>
-        </p>
+        <div class="loading-screen__readout">
+          <!-- Live region: announces stage and message changes only, never the percent. -->
+          <p class="loading-screen__status" role="status" aria-live="polite">
+            <template v-if="showStatusCopy">
+              <strong>{{ displayedPhase }}</strong>
+              <span>{{ displayedMessage }}</span>
+            </template>
+          </p>
+          <span
+            v-if="showProgress"
+            class="loading-screen__percent"
+            role="progressbar"
+            aria-label="Loading progress"
+            :aria-valuenow="percent"
+            aria-valuemin="0"
+            aria-valuemax="100"
+          >{{ String(percent).padStart(2, "0") }}%</span>
+        </div>
 
         <button
           v-if="isReady"
@@ -584,11 +589,18 @@ const midiPaper = computed(() => (midi.value?.stamp === "SET" ? "plum" : "ink-4"
 /* ── Foot: status and the gate ──────────────────── */
 .loading-screen__foot { display: grid; gap: clamp(10px, 1.6cqh, 16px); }
 
-.loading-screen__status {
+.loading-screen__readout {
   display: grid;
   min-height: 34px;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 2px 12px;
+  align-items: center;
+  gap: 12px;
+}
+
+.loading-screen__status {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
   margin: 0;
 }
 
@@ -599,19 +611,15 @@ const midiPaper = computed(() => (midi.value?.stamp === "SET" ? "plum" : "ink-4"
 }
 
 .loading-screen__status span {
-  grid-row: 2;
   color: var(--ivory-3);
   font: var(--t-caption);
 }
 
 .loading-screen.is-error .loading-screen__status span { color: var(--ivory-2); }
 
-.loading-screen__status em {
-  grid-row: 1 / span 2;
+.loading-screen__percent {
   grid-column: 2;
-  align-self: center;
   font: 700 34px/1 var(--font-display);
-  font-style: normal;
   font-variant-numeric: tabular-nums;
 }
 

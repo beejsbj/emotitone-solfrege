@@ -127,6 +127,36 @@ describe("LoadingScreen · Count-In", () => {
     expect(audio.get(".count-gate--cue").text()).toContain("ENABLING");
   });
 
+  it("keeps the stage list, the progressbar and the live status separate", async () => {
+    const wrapper = mount(LoadingScreen, { props: { progress: 57, phase: "Loading samples", message: "Piano" } });
+
+    // The stage list stays a real list: no role override that would make its items presentational.
+    const list = wrapper.get("ol.loading-screen__tiles");
+    expect(list.attributes("role")).toBeUndefined();
+    expect(list.attributes("aria-label")).toBe("Loading stages");
+    expect(list.findAll("li")).toHaveLength(4);
+    expect(list.find('[role="progressbar"]').exists()).toBe(false);
+
+    // Progress lives on its own element, outside the live region.
+    const bar = wrapper.get('[role="progressbar"]');
+    expect(bar.element.tagName).not.toBe("OL");
+    expect(bar.attributes()).toMatchObject({ "aria-valuenow": "57", "aria-valuemin": "0", "aria-valuemax": "100" });
+    const status = wrapper.get('[role="status"]');
+    expect(status.attributes("aria-live")).toBe("polite");
+    expect(status.element.contains(bar.element)).toBe(false);
+    expect(status.text()).not.toMatch(/\d+%/);
+
+    // A percent tick changes the bar but not the announced text.
+    const announced = status.text();
+    await wrapper.setProps({ progress: 58 });
+    expect(wrapper.get('[role="progressbar"]').attributes("aria-valuenow")).toBe("58");
+    expect(wrapper.get('[role="status"]').text()).toBe(announced);
+
+    await wrapper.setProps({ showProgress: false });
+    expect(wrapper.find('[role="progressbar"]').exists()).toBe(false);
+    expect(wrapper.get("ol.loading-screen__tiles").attributes("aria-label")).toBe("Loading stages");
+  });
+
   it("renders a composed still frame for Reduced Motion", () => {
     const still = mount(LoadingScreen, { props: { still: true } });
     expect(still.classes()).toContain("is-still");

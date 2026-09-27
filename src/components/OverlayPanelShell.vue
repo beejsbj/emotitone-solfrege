@@ -53,7 +53,7 @@ onBeforeUnmount(() => sizeObserver?.disconnect());
       <header
         v-if="$slots.header"
         data-testid="overlay-panel-shell-header"
-        class="shrink-0 border-b border-[rgb(244_239_230/0.14)] bg-[var(--ink)] px-3.5 py-2.5"
+        class="shrink-0 border-b border-[color-mix(in_srgb,var(--ivory)_14%,transparent)] bg-[var(--ink)] px-3.5 py-2.5"
       >
         <slot name="header" />
       </header>
@@ -61,7 +61,7 @@ onBeforeUnmount(() => sizeObserver?.disconnect());
       <div
         v-if="$slots.toolbar"
         data-testid="overlay-panel-shell-toolbar"
-        class="shrink-0 border-b border-[rgb(244_239_230/0.14)] bg-[var(--ink)] px-3.5 py-2"
+        class="shrink-0 border-b border-[color-mix(in_srgb,var(--ivory)_14%,transparent)] bg-[var(--ink)] px-3.5 py-2"
       >
         <slot name="toolbar" />
       </div>
@@ -79,7 +79,7 @@ onBeforeUnmount(() => sizeObserver?.disconnect());
       <footer
         v-if="$slots.footer"
         data-testid="overlay-panel-shell-footer"
-        class="shrink-0 border-t border-[rgb(244_239_230/0.14)] bg-[var(--ink)] px-3.5 py-2.5"
+        class="shrink-0 border-t border-[color-mix(in_srgb,var(--ivory)_14%,transparent)] bg-[var(--ink)] px-3.5 py-2.5"
       >
         <slot name="footer" />
       </footer>

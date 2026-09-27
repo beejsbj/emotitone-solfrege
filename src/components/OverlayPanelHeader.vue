@@ -64,7 +64,7 @@ defineProps<{
 .overlay-panel-header__context {
   min-inline-size: 0;
   overflow: hidden;
-  border-inline-start: 1px solid rgb(244 239 230 / .14);
+  border-inline-start: 1px solid color-mix(in srgb, var(--ivory) 14%, transparent);
   padding-inline-start: var(--s-2);
   text-overflow: ellipsis;
   white-space: nowrap;

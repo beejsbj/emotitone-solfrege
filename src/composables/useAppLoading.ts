@@ -12,8 +12,49 @@ import type {
   AppLoadingState,
   LoadingEvent,
 } from "@/types/loading";
-import { initSuperdoughAudio } from "@/services/superdoughAudio";
-import { toast } from "vue-sonner";
+import {
+  getAudioContext,
+  getAudioStartupStage,
+  initSuperdoughAudio,
+  initSynthOnlyAudio,
+} from "@/services/superdoughAudio";
+import {
+  AudioBlockedError,
+  INSTRUMENT_LOAD_TIMEOUT_MESSAGE,
+  INSTRUMENT_LOAD_TIMEOUT_MS,
+  SampleLoadError,
+} from "@/services/audioFailures";
+
+/**
+ * A browser that refuses to start audio leaves resume() pending rather than
+ * rejecting it, so the gesture waits this long before reporting the block.
+ */
+const AUDIO_RESUME_TIMEOUT_MS = 1500;
+
+/** A tap never waits on the engine longer than this; past it, the engine has hung. */
+const ENGINE_START_TIMEOUT_MS = 15_000;
+
+/** Rejects with `error()` after `ms`, so a hung promise becomes a named failure. */
+function within<T>(promise: Promise<T>, ms: number, error: () => Error): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expiry = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(error()), ms);
+  });
+  return Promise.race([promise, expiry]).finally(() => clearTimeout(timer));
+}
+
+/**
+ * Names a load that ran out of time by the step that was still pending. Only a
+ * hung sample download (or a sampled instrument still warming after the engine
+ * is ready) can fall back to the synths; a hung engine cannot.
+ */
+function instrumentLoadTimeout(): Error {
+  const stage = getAudioStartupStage();
+  const message = INSTRUMENT_LOAD_TIMEOUT_MESSAGE;
+  return stage === "samples" || stage === "ready"
+    ? new SampleLoadError(message)
+    : new Error(`${message}: the audio engine did not start`);
+}
 
 // Default splash configuration
 const DEFAULT_SPLASH_CONFIG: SplashConfig = {
@@ -95,8 +136,12 @@ export function useAppLoading() {
     );
   };
 
-  // Initialize audio context
-  const initializeAudioContext = async (): Promise<boolean> => {
+  // Start audio inside a user gesture. Loading prepares the graph but leaves the
+  // context suspended; this resumes it and reports whether the browser let it run.
+  // synthsOnly starts the built-in synths without the sample packs, for when they failed.
+  const initializeAudioContext = async (
+    { synthsOnly = false }: { synthsOnly?: boolean } = {}
+  ): Promise<boolean> => {
     updatePhase("audioContext", {
       phase: "audio-context",
       progress: 10,
@@ -104,19 +149,45 @@ export function useAppLoading() {
     });
 
     try {
-      await initSuperdoughAudio();
+      await within(
+        synthsOnly ? initSynthOnlyAudio() : initSuperdoughAudio(),
+        ENGINE_START_TIMEOUT_MS,
+        () => new Error("The audio engine did not start in time"),
+      );
+      if (synthsOnly) {
+        // Whatever is selected (a persisted sampled instrument, say) may never
+        // have loaded; the synth entry plays the synth that was just prepared.
+        const { useInstrumentStore } = await import("@/stores/instrument");
+        useInstrumentStore().fallBackToSynth();
+      }
+
+      const context = getAudioContext();
+      if (context.state !== "running") {
+        await Promise.race([
+          context.resume(),
+          new Promise((resolve) => setTimeout(resolve, AUDIO_RESUME_TIMEOUT_MS)),
+        ]);
+      }
+      if (context.state !== "running") throw new AudioBlockedError();
 
       updatePhase("audioContext", {
         progress: 100,
         message: "Audio context ready",
         isComplete: true,
+        error: undefined,
+        failure: undefined,
       });
       return true;
     } catch (error) {
+      // Only a context the browser refused is a cue; anything the initializers
+      // throw is an engine fault, which a tap cannot fix.
+      const blocked = error instanceof AudioBlockedError;
       updatePhase("audioContext", {
         progress: 0,
-        message: "Audio initialization failed",
+        message: blocked ? "Audio is waiting for a tap" : "Audio engine failed to start",
+        isComplete: false,
         error: error instanceof Error ? error.message : "Unknown error",
+        failure: blocked ? "blocked" : "engine",
       });
       return false;
     }
@@ -130,6 +201,7 @@ export function useAppLoading() {
       message: "Loading audio samples…",
     });
 
+    let timedOut = false;
     try {
       // Lazy import to avoid circular dependencies
       const { useInstrumentStore } = await import("@/stores/instrument");
@@ -145,18 +217,15 @@ export function useAppLoading() {
         // overall.message intentionally left unchanged ("Loading audio samples…")
       };
 
-      // Add timeout to prevent hanging
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => {
-          reject(new Error("Instrument initialization timeout"));
-        }, 60000); // 60 second timeout for all instruments
-      });
-
-      // Initialize instruments with progress tracking
-      await Promise.race([
+      // A load that hangs stops the count; the timeout is named by the step that hung.
+      await within(
         instrumentStore.initializeInstruments(progressCallback),
-        timeoutPromise,
-      ]);
+        INSTRUMENT_LOAD_TIMEOUT_MS,
+        () => {
+          timedOut = true;
+          return instrumentLoadTimeout();
+        },
+      );
 
       updatePhase("instruments", {
         progress: 100,
@@ -166,17 +235,17 @@ export function useAppLoading() {
     } catch (error) {
       console.error("Instrument initialization error:", error);
 
-      // Don't fail completely - allow app to continue with basic instruments
+      // A failed load holds the count: the phase stays incomplete so loading
+      // never reports ready, and the splash offers a retry from the top.
+      // Sample fetches and the load timeout can fall back to synths; any other
+      // rejection (the audio graph failing to initialise) is an engine fault.
+      const samples = error instanceof SampleLoadError;
       updatePhase("instruments", {
-        progress: 100, // Mark as complete even with errors
-        message: "Basic instruments ready",
-        isComplete: true,
+        message: samples ? "Instrument samples failed to load" : "Audio engine failed to start",
+        isComplete: false,
         error: error instanceof Error ? error.message : "Unknown error",
-      });
-
-      // Show user-friendly message
-      toast.warning("⚠️ Some instruments may not be available", {
-        description: "App will continue with basic synthesizers",
+        failure: samples ? "samples" : "engine",
+        timedOut,
       });
     }
   };
@@ -249,8 +318,10 @@ export function useAppLoading() {
   );
 
   // Manual audio context trigger (for user interaction)
-  const enableAudioContext = async (): Promise<boolean> => {
-    return await initializeAudioContext();
+  const enableAudioContext = async (
+    options?: { synthsOnly?: boolean }
+  ): Promise<boolean> => {
+    return await initializeAudioContext(options);
   };
 
   // Hide the splash screen

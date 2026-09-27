@@ -13,9 +13,9 @@ interface RampRow {
 }
 
 const displayRows: RampRow[] = [
-  { token: "--t-display-xl", spec: "700 56px/0.92", face: "jazz", sample: "Do.", cls: "s-display-xl" },
-  { token: "--t-display-l", spec: "700 40px/0.94", face: "jazz", sample: "Sing.", cls: "s-display-l" },
-  { token: "--t-display-m", spec: "700 28px/0.96", face: "jazz", sample: "Play it.", cls: "s-display-m" },
+  { token: "--t-display-xl", spec: "700 56px/1.12", face: "jazz", sample: "Do.", cls: "s-display-xl" },
+  { token: "--t-display-l", spec: "700 40px/1.12", face: "jazz", sample: "Sing.", cls: "s-display-l" },
+  { token: "--t-display-m", spec: "700 28px/1.12", face: "jazz", sample: "Play it.", cls: "s-display-m" },
   { token: "--t-h1", spec: "700 22px/1.10", face: "jazz", sample: "The quick brown fox", cls: "s-h1" },
   { token: "--t-h2", spec: "700 18px/1.14", face: "jazz", sample: "The quick brown fox", cls: "s-h2" },
 ];
@@ -68,6 +68,7 @@ const noteSource = `<Note
         <figcaption>
           <span class="face__name">Lets Jazz</span>
           <span class="face__role">--font-display · the uppercase voice · headings, names, labels, short body</span>
+          <span class="face__role">Ships at 400 only · the 600 and 700 in the tokens are synthesized on purpose — that heavier ink is the accepted look</span>
         </figcaption>
       </figure>
       <figure class="face face--mono">

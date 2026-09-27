@@ -22,28 +22,28 @@
     <div class="music-recipe__controls">
       <label>
         Key
-        <select v-model="musicKey">
+        <select class="guide-field" v-model="musicKey">
           <option v-for="note in CHROMATIC_NOTES" :key="note" :value="note">{{ note }}</option>
         </select>
       </label>
       <label>
         Scale
-        <select v-model="mode">
+        <select class="guide-field" v-model="mode">
           <option v-for="option in MODE_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
         </select>
       </label>
       <label>
         <span>Scientific octave <output>{{ octave }}</output></span>
-        <input v-model.number="octave" type="range" min="1" max="9" step="1" />
+        <input class="guide-field" v-model.number="octave" type="range" min="1" max="9" step="1" />
       </label>
       <label>
         Borrowed pitch
-        <select v-model="selectedPitch">
+        <select class="guide-field" v-model="selectedPitch">
           <option v-for="note in CHROMATIC_NOTES" :key="note" :value="note">{{ note }}</option>
         </select>
       </label>
       <label class="music-recipe__sweep">
-        <input v-model="config.hueMotionEnabled" type="checkbox" />
+        <input class="guide-field" v-model="config.hueMotionEnabled" type="checkbox" />
         Full-cell hue motion
       </label>
     </div>

@@ -90,7 +90,7 @@ const shadows = [
     word: "Glow",
     cls: "shadow-glow",
     stage: "ink",
-    value: "0 0 0 1px var(--hairline), 0 18px 60px -28px rgba(242,107,61,.35)",
+    value: "0 0 0 1px var(--hairline), 0 18px 60px -28px color-mix(in srgb, var(--tomato) 35%, transparent)",
     use: "Hero panel ambient halo",
   },
   {

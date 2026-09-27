@@ -15,7 +15,8 @@ const props = withDefaults(
     title: string;
     /** Short taped kicker above the headline. */
     kicker: string;
-    /** Transparent band lets a live canvas (Stage) read through the torn paper. */
+    /** Tighter, see-through band for a live canvas (Stage) to read through the
+        torn paper. Only use it over a canvas; on a plain page it reads as a dim band. */
     compact?: boolean;
   }>(),
   { compact: false },
@@ -147,13 +148,17 @@ const words = computed(() =>
 .focused-poster__blurb :deep(p) { margin: 0; }
 .focused-poster__blurb :deep(code) { font: inherit; font-weight: 700; }
 
-.focused-poster--compact { padding-bottom: var(--s-10); }
-.focused-poster--compact .focused-poster__title {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s-4) .28em;
-  margin: 0;
-  font-size: clamp(40px, 10vw, 112px);
+/* Compact sits over a live canvas: the torn paper becomes a thin wash so the
+   canvas reads through it. The cut headline and kicker stay opaque scraps;
+   the loose copy gets an Ink halo so it holds over bright canvas marks. */
+.focused-poster--compact {
+  padding-bottom: var(--s-10);
+  background: color-mix(in oklch, var(--guide-paper) 38%, transparent);
+}
+
+.focused-poster--compact .focused-poster__back,
+.focused-poster--compact .focused-poster__blurb {
+  text-shadow: 0 0 2px var(--ink), 0 1px 6px var(--ink);
 }
 
 .focused-poster__blurb { margin-top: var(--s-5); }

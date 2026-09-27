@@ -1,16 +1,17 @@
 <script setup lang="ts">
+// Role names mirror the authoritative comment in src/emotitone-design-system.css.
 const steps = [
   { token: "--s-1", value: "2px", hint: "Hairline gap" },
   { token: "--s-2", value: "4px", hint: "Icon nudge" },
-  { token: "--s-3", value: "6px", hint: "Tight inline gap" },
+  { token: "--s-3", value: "6px", hint: "Tight gap" },
   { token: "--s-4", value: "8px", hint: "Chip padding" },
-  { token: "--s-5", value: "12px", hint: "Row gap" },
+  { token: "--s-5", value: "12px", hint: "Control gap" },
   { token: "--s-6", value: "16px", hint: "Panel inset" },
-  { token: "--s-7", value: "20px", hint: "Section gap" },
+  { token: "--s-7", value: "20px", hint: "Card rhythm" },
   { token: "--s-8", value: "24px", hint: "Card padding" },
-  { token: "--s-9", value: "32px", hint: "Block spacing" },
-  { token: "--s-10", value: "48px", hint: "Large margin" },
-  { token: "--s-11", value: "64px", hint: "Page gutter" },
+  { token: "--s-9", value: "32px", hint: "Section gap" },
+  { token: "--s-10", value: "48px", hint: "Page gutter" },
+  { token: "--s-11", value: "64px", hint: "Poster / hero gap" },
 ];
 </script>
 

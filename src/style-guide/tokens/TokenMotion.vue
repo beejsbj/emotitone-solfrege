@@ -34,6 +34,7 @@ interface DurationLane {
 }
 
 const durations: DurationLane[] = [
+  { id: "press", name: "Press", token: "--dur-press", ms: 72, ease: "linear", role: "continuous press follow · Chord and CodeStrip Sequence" },
   { id: "tap", name: "Tap", token: "--dur-tap", ms: 90, ease: "--ease-stab", role: "press · ripple · instant ack" },
   { id: "ui", name: "UI", token: "--dur-ui", ms: 220, ease: "--ease-stab", role: "tab swap · chip · segmented" },
   { id: "panel", name: "Panel", token: "--dur-panel", ms: 360, ease: "--ease-swing", role: "drawer in/out · mode change" },
@@ -441,6 +442,7 @@ const eases: EaseCell[] = [
   gap: 2px;
 }
 
+.mo-lane--press    { --lane-dur: var(--dur-press);    --lane-ease: linear; }
 .mo-lane--tap      { --lane-dur: var(--dur-tap);      --lane-ease: var(--ease-stab); }
 .mo-lane--ui       { --lane-dur: var(--dur-ui);       --lane-ease: var(--ease-stab); }
 .mo-lane--panel    { --lane-dur: var(--dur-panel);    --lane-ease: var(--ease-swing); }

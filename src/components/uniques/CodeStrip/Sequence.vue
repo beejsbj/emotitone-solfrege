@@ -337,7 +337,7 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
   background: var(--ink);
   transform: scaleY(calc(1 - var(--code-strip-progress)));
   transform-origin: top center;
-  transition: transform 72ms linear;
+  transition: transform var(--dur-press) linear;
   will-change: transform;
 }
 
@@ -373,7 +373,7 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
   background: var(--ivory);
   transform: scaleY(var(--code-strip-progress));
   transform-origin: bottom center;
-  transition: transform 72ms linear;
+  transition: transform var(--dur-press) linear;
   will-change: transform;
 }
 

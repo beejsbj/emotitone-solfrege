@@ -81,7 +81,7 @@ describe("Knob public interface", () => {
     expect((follower as HTMLElement).style.transform).toContain("translate3d(150px, 244px, 0)");
     expect(follower.querySelector(".readout__window--ivory")).not.toBeNull();
     expect(follower.querySelector(".readout__lit")?.textContent).toBe("-4.84 dB");
-    expect(follower.querySelector(".readout__ghost")?.textContent).toBe("88888 88");
+    expect(follower.querySelector(".readout__ghost")?.textContent).toBe(" 8 88 88");
     const paper = follower.querySelector(".readout__window")!;
     expect(paper.classList).toContain("readout__window--bounce-b");
     await wrapper.setProps({ modelValue: -3.2 });

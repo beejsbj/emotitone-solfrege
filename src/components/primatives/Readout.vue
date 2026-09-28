@@ -36,7 +36,8 @@ const props = defineProps<{
 const follower = ref<HTMLElement>();
 const bounceCycle = ref(false);
 const refresh = ref(0);
-const ghost = computed(() => [...props.value].map((char) => (char === " " ? " " : "8")).join(""));
+// Unlit segments sit only under letters and digits; punctuation keeps its own gap.
+const ghost = computed(() => [...props.value].map((char) => (/[\p{L}\p{N}]/u.test(char) ? "8" : " ")).join(""));
 let frame = 0;
 let previousTime = 0;
 let x = props.x;

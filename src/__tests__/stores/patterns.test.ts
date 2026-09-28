@@ -317,6 +317,30 @@ describe("Patterns Store", () => {
     expect(patternsStore.currentSketchMeta.bpm).toBe(120);
   });
 
+  it("loads a pattern over unsent notes from another context without losing either", () => {
+    const pattern = createPattern();
+    patternsStore.savedPatterns.push(pattern);
+    patternsStore.loggedNotes = Array.from({ length: 3 }, (_, index) => createLogNote({
+      id: `unsent-${index}`,
+      key: "G",
+      pressTime: 1500 + index * 300,
+      releaseTime: 1700 + index * 300,
+      isStartingNewPattern: index === 0,
+    }));
+    const unsentId = patternsStore.dynamicPatterns[0].id;
+
+    patternsStore.loadPatternAsBase(pattern.id);
+
+    expect(patternsStore.currentSketchNotes.map((note) => note.id))
+      .toEqual(["pattern-note-1", "pattern-note-2"]);
+    expect(patternsStore.currentSketchMeta.key).toBe("C");
+    expect(patternsStore.patterns.some((candidate) => candidate.id === unsentId)).toBe(true);
+
+    patternsStore.loadPatternAsBase(unsentId);
+    expect(patternsStore.currentSketchNotes.map((note) => note.id))
+      .toEqual(["unsent-0", "unsent-1", "unsent-2"]);
+  });
+
   it("records delayed notes with their attack-time key and mode context", () => {
     const musicStore = useMusicStore();
     musicStore.setKey("G");

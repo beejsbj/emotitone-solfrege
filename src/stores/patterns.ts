@@ -56,6 +56,8 @@ interface ImportPatternCandidatesOptions {
 
 interface LoadPatternAsBaseOptions {
   discardWorkingNotes?: boolean;
+  /** Keep unsent notes live on top of the loaded base instead of sealing them. */
+  layerWorkingNotes?: boolean;
 }
 
 interface PendingLogNote extends Partial<LogNote> {
@@ -132,6 +134,10 @@ export const usePatternsStore = defineStore(
     // Working buffer — base notes loaded from a tapped pattern
     const loadedBaseNotes = ref<PatternNote[]>([]);
     const loadedBasePatternId = ref<string | null>(null);
+    // Last logged note that was on the desk when a pattern was loaded over it.
+    // Those notes stay in the log (and the reel, as a dynamic pattern) but no
+    // longer count as live input layered on the loaded base.
+    const sealedThroughNoteId = ref<string | null>(null);
     const loadedBaseMeta = ref<{
       mode: MusicalMode;
       key: ChromaticNote;
@@ -169,7 +175,11 @@ export const usePatternsStore = defineStore(
           break;
         }
       }
-      return notes.slice(lastBreak);
+      const working = notes.slice(lastBreak);
+      const sealedIndex = working.findIndex(
+        (note) => note.id === sealedThroughNoteId.value,
+      );
+      return sealedIndex >= 0 ? working.slice(sealedIndex + 1) : working;
     });
 
     const liveInputMeta = computed(() => ({
@@ -609,7 +619,7 @@ export const usePatternsStore = defineStore(
       forceNextPatternStart.value = false;
       isStripCleared.value = false;
       purgeOldPatterns();
-      loadPatternAsBase(imported[0].id);
+      loadPatternAsBase(imported[0].id, { layerWorkingNotes: true });
       if (loggedNotes.value.length > 0) forceNextPatternStart.value = false;
 
       return imported.map((pattern) => pattern.id);
@@ -631,6 +641,9 @@ export const usePatternsStore = defineStore(
 
       loadedBaseNotes.value = pattern.notes.map(clonePerformedNote);
       loadedBasePatternId.value = patternId;
+      sealedThroughNoteId.value = options.layerWorkingNotes
+        ? null
+        : loggedNotes.value[loggedNotes.value.length - 1]?.id ?? null;
       const patternOctave = resolvePatternOctave(pattern)
         ?? keyboardStore.keyboardConfig.mainOctave;
       const patternDuration = resolvePatternDuration(pattern);
@@ -1245,6 +1258,7 @@ export const usePatternsStore = defineStore(
       loadedBaseNotes,
       loadedBasePatternId,
       loadedBaseMeta,
+      sealedThroughNoteId,
       isStripCleared,
       currentTakeGeneration,
 

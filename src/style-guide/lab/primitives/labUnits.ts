@@ -14,6 +14,11 @@ import ChickenHeadFace from "./knob/ChickenHeadFace.vue";
 import KnobBench from "./knob/KnobBench.vue";
 import KnurledDialFace from "./knob/KnurledDialFace.vue";
 import LedCollarFace from "./knob/LedCollarFace.vue";
+import DragValueBench from "./drag-value/DragValueBench.vue";
+import DymoPaper from "./drag-value/DymoPaper.vue";
+import OdometerPaper from "./drag-value/OdometerPaper.vue";
+import ProductionDragPaper from "./drag-value/ProductionDragPaper.vue";
+import ReadoutPaper from "./drag-value/ReadoutPaper.vue";
 import MarksShelf from "./MarksShelf.vue";
 import NoteBench from "./note/NoteBench.vue";
 import PitchTearNote from "./note/PitchTearNote.vue";
@@ -192,6 +197,49 @@ export const PRIMITIVE_LAB_UNITS: LabPrimitiveUnit[] = [
         risks: "Fifteen steps quantise the visual (not the value), so fine range moves can look stuck. Many small glowing elements per Knob cost paint in the Control Bar. The closest to the current Knobs.",
         bible: { zone: "Playing zone", role: "Chassis", fit: "fits", note: "Digital hardware lit by value." },
         component: LedCollarFace,
+      },
+    ],
+  },
+  {
+    id: "drag-value",
+    name: "Drag Value",
+    source: "src/components/primatives/DragValue.vue",
+    reading: "Playing zone · the floating readout over Knob and Joystick drags. Its follower physics stays; only the paper it carries is reimagined. Only Brass is a Badge; Ivory latched stays.",
+    bench: DragValueBench,
+    production: ProductionDragPaper,
+    directions: [
+      {
+        id: "dymo",
+        letter: "A",
+        name: "Dymo Label",
+        paper: "bone",
+        idea: "The value is punched into label-maker tape and stuck onto the gear: raised letters, a glossy strip, diagonal cut ends. Every new value is punched again, letter by letter, like the embosser's click.",
+        better: "Studio gear is labelled with exactly this tape, so it is the most literal applied object on the hardware. The punch-in makes every value change feel mechanical rather than a generic scale bounce.",
+        risks: "Mono letters are wider than the current Jazz sticker, so long option names ('Phrygian') grow the follower. Ivory latched becomes Ivory tape — it reads as a label, not a Badge.",
+        bible: { zone: "Playing zone", role: "Applied paper", fit: "fits", note: "Tape stuck onto the gear; Ink, Ivory, Brass." },
+        component: DymoPaper,
+      },
+      {
+        id: "odometer",
+        letter: "B",
+        name: "Odometer",
+        paper: "mustard",
+        idea: "A mechanical counter window: each character sits on its own drum behind a bezel, and only the drums that changed roll to their new face — up when the value rises, down when it falls.",
+        better: "The analog reading of the readout, matching Chicken Head and the Analog Knob. Direction of change is visible in the roll itself, so you feel which way you're turning.",
+        risks: "Word values (modes, Joystick moods) roll every drum at once and read as noise. The drum shading is fine detail at 20px. Brass becomes a bezel around dark drums rather than the familiar sheen Badge.",
+        bible: { zone: "Playing zone", role: "Chassis", fit: "fits", note: "Analog counter hardware; Brass bezel on masters." },
+        component: OdometerPaper,
+      },
+      {
+        id: "readout",
+        letter: "C",
+        name: "Segment Readout",
+        paper: "cobalt",
+        idea: "A recessed display window: lit characters over faint unlit '8' segments, the way a synth's LCD always shows its ghost digits. Each change flickers the display like a refresh.",
+        better: "The digital reading, paired with the Odometer's analog one, so the readout can follow the Knob's Analog/Digital edition. Lit characters answer the gesture with light, the bible's motion rule.",
+        risks: "Ghost 8s under letters look odd for word values. Glow on a moving follower adds paint during drags. Loses the cut-paper tilt feel the current sticker has.",
+        bible: { zone: "Playing zone", role: "Chassis", fit: "fits", note: "Digital display hardware lit by the value." },
+        component: ReadoutPaper,
       },
     ],
   },

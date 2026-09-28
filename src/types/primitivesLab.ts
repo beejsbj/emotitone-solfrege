@@ -71,6 +71,13 @@ export interface LabKnobFaceProps {
   optionLabels: string[];
 }
 
+/** The floating value's paper: what DragValue carries above the finger. */
+export interface LabDragPaperProps {
+  value: string;
+  /** Ivory for everyday Knobs, Brass Badge for masters, Ivory-latched for a committed Joystick. */
+  tone: "ivory" | "brass" | "ivory-badge";
+}
+
 export interface LabBarTapeSegment {
   color: string;
   durationMs: number;

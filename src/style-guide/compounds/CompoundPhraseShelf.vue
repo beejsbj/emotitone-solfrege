@@ -41,6 +41,7 @@
 </template>
 
 <script setup lang="ts">
+import { chromaticPitchHeight } from "@/services/scalePitch";
 import { computed, ref } from "vue";
 import PatternReel from "../../components/compounds/PatternReel.vue";
 import type { PatternReelItem } from "../../components/compounds/PatternReel.vue";
@@ -98,6 +99,7 @@ function item(
     barTape: phrase.degrees.map(([scaleIndex, durationMs]) => ({
       color: getStaticPrimaryColorByScaleIndex(scaleIndex, "major", "C", 4),
       durationMs,
+      height: chromaticPitchHeight({ scaleIndex, octave: 4 }, { key: "C", mode: "major" }),
     })),
     tone: onDesk ? "take" : (shelf as PatternStripTone),
     shelfTag: role === "front"

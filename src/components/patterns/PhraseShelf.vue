@@ -235,7 +235,7 @@ function reelItem(entry: ReelEntry, isFront: boolean): PatternReelItem {
     barTape: ordered.map((note) => ({
       color: noteColor(note, phrase),
       durationMs: note.duration,
-      height: chromaticPitchHeight(note, phrase),
+      height: chromaticPitchHeight(note, { key, mode }),
     })),
     tone: isDesk ? "take" : phrase.shelf as PatternStripTone,
     shelfTag: shelfTag(phrase, inPlace),

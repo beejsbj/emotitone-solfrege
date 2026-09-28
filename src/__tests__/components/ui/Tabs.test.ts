@@ -208,6 +208,66 @@ describe("Tabs", () => {
     expect(boundaryWheel.defaultPrevented).toBe(false);
   });
 
+  it("renders Marquee as a lit bulb row instead of a chip", () => {
+    const wrapper = mount(Tabs, {
+      props: { tabs, modelValue: "keys", geometry: "marquee" },
+    });
+
+    expect(wrapper.classes()).toContain("tabs--geometry-marquee");
+    expect(wrapper.find(".tabs__chip").exists()).toBe(false);
+    expect(wrapper.find(".tabs__streak").exists()).toBe(false);
+    const buttons = wrapper.findAll(".tabs__button");
+    for (const button of buttons) {
+      expect(button.findAll(".tabs__bulbs .tabs__bulb")).toHaveLength(7);
+      expect(button.get(".tabs__bulbs").attributes("aria-hidden")).toBe("true");
+    }
+    expect(wrapper.get('[data-testid="tab-keys"]').classes()).toContain("tabs__button--active");
+    expect(wrapper.get('[data-testid="tab-keys"]').attributes("aria-selected")).toBe("true");
+    wrapper.unmount();
+  });
+
+  it("chases Marquee bulbs in the direction of travel", async () => {
+    const wrapper = mount(Tabs, {
+      props: {
+        tabs: [...tabs.slice(0, 2), { label: "Presets", value: "presets", testId: "tab-presets" }],
+        modelValue: "keys",
+        geometry: "marquee",
+      },
+    });
+    const delays = (testId: string) => wrapper
+      .get(`[data-testid="${testId}"]`)
+      .findAll(".tabs__bulb")
+      .map((bulb) => (bulb.element as HTMLElement).style.transitionDelay);
+
+    await wrapper.setProps({ modelValue: "presets" });
+    expect(delays("tab-presets")).toEqual(["0ms", "34ms", "68ms", "102ms", "136ms", "170ms", "204ms"]);
+
+    await wrapper.setProps({ modelValue: "mallets" });
+    expect(delays("tab-mallets")).toEqual(["204ms", "170ms", "136ms", "102ms", "68ms", "34ms", "0ms"]);
+    wrapper.unmount();
+  });
+
+  it("lights a Brass destination's Marquee bulbs without toning the rest of the rail", () => {
+    const wrapper = mount(Tabs, {
+      props: {
+        tabs: [{ label: "Shape", value: "shape", tone: "brass", testId: "tab-shape" }, ...tabs],
+        modelValue: "keys",
+        geometry: "marquee",
+      },
+    });
+
+    expect(wrapper.get('[data-testid="tab-shape"]').classes()).toContain("tabs__button--brass");
+    expect(wrapper.get('[data-testid="tab-keys"]').classes()).not.toContain("tabs__button--brass");
+    wrapper.unmount();
+  });
+
+  it("keeps chip geometries free of Marquee bulbs", () => {
+    const wrapper = mount(Tabs, { props: { tabs, modelValue: "keys", geometry: "tab" } });
+    expect(wrapper.find(".tabs__bulb").exists()).toBe(false);
+    expect(wrapper.find(".tabs__chip").exists()).toBe(true);
+    wrapper.unmount();
+  });
+
   it("stops both the brass chip and its sheen under Reduced Motion", () => {
     expect(tabsSource).toMatch(
       /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.tabs__chip\.brass::after\s*\{[^}]*animation: none;/,

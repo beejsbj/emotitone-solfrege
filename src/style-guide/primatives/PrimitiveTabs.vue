@@ -22,6 +22,7 @@
           :default-value="shortTabs[0].value"
           :geometry="variant.geometry"
           :tone="variant.tone"
+          :density="variant.geometry === 'marquee' ? 'compact' : 'comfortable'"
           :aria-label="`${variant.label} tabs`"
         />
       </VariantCell>

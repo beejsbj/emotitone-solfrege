@@ -36,7 +36,7 @@ function browserStorage(): EditionStorage | undefined {
   }
 }
 
-/** Selects one chip treatment for every unpinned Tabs instance on this page load. */
+/** Selects one edition for every unpinned Tabs instance on this page load. */
 export function beginTabsPageEdition(
   storage: EditionStorage | undefined = browserStorage(),
 ): TabsEdition {

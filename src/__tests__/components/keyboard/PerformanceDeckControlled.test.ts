@@ -153,7 +153,7 @@ describe("PerformanceDeck controlled usage", () => {
           instrumentLabel: "Piano",
           rootLabel: "C4",
           spine: "red",
-          barTape: [{ color: "red", durationMs: 250 }],
+          barTape: [{ color: "red", durationMs: 250, height: 48 }],
         }],
         selectedPatternId: "current",
         patternEntrySignal: 3,

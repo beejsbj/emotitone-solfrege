@@ -17,8 +17,8 @@ const item: PatternStripItem = {
   rootLabel: "F#4",
   spine: "rgb(255, 0, 0)",
   barTape: [
-    { color: "rgb(255, 0, 0)", durationMs: 100 },
-    { color: "rgb(0, 255, 0)", durationMs: 200 },
+    { color: "rgb(255, 0, 0)", durationMs: 100, height: 54 },
+    { color: "rgb(0, 255, 0)", durationMs: 200, height: 58 },
   ],
   canDelete: true,
   canRename: true,
@@ -51,7 +51,7 @@ describe("PatternStrip", () => {
     expect(patternStripSource).toContain("@media (forced-colors: active)");
   });
 
-  it("keeps the 1px Bar Tape present when a strip becomes Current", async () => {
+  it("keeps the Piano Roll Bar Tape present when a strip becomes Current", async () => {
     const wrapper = mount(PatternStrip, {
       props: {
         item: { ...item, copied: true, deleteArmed: true },

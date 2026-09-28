@@ -37,6 +37,7 @@ import {
   type ReelEntry,
 } from "@/domain/phraseBook";
 import { logNotesToStrudel } from "@/services/StrudelNotation";
+import { chromaticPitchHeight } from "@/services/scalePitch";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
 import { usePhrasesStore } from "@/stores/phrases";
@@ -231,7 +232,11 @@ function reelItem(entry: ReelEntry, isFront: boolean): PatternReelItem {
       key,
       octave,
     ),
-    barTape: ordered.map((note) => ({ color: noteColor(note, phrase), durationMs: note.duration })),
+    barTape: ordered.map((note) => ({
+      color: noteColor(note, phrase),
+      durationMs: note.duration,
+      height: chromaticPitchHeight(note, phrase),
+    })),
     tone: isDesk ? "take" : phrase.shelf as PatternStripTone,
     shelfTag: shelfTag(phrase, inPlace),
     lamp: isDesk ? (inPlace ? "armed" : "live") : undefined,

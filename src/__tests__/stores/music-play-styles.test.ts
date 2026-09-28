@@ -5,7 +5,7 @@ vi.unmock("@/services/music");
 vi.unmock("@/data");
 
 import { useMusicStore } from "@/stores/music";
-import { usePatternsStore } from "@/stores/patterns";
+import { usePhrasesStore } from "@/stores/phrases";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { logNotesToStrudel } from "@/services/StrudelNotation";
@@ -13,7 +13,7 @@ import * as audio from "@/services/superdoughAudio";
 
 const EPOCH = 1_800_000_000_000;
 let pinia: Pinia;
-let recorderStore: ReturnType<typeof usePatternsStore> | undefined;
+let recorderStore: ReturnType<typeof usePhrasesStore> | undefined;
 
 function noteEvents(type: string) {
   return vi.mocked(window.dispatchEvent).mock.calls
@@ -23,7 +23,7 @@ function noteEvents(type: string) {
 }
 
 function connectRecorder() {
-  recorderStore = usePatternsStore();
+  recorderStore = usePhrasesStore();
   return recorderStore;
 }
 
@@ -67,7 +67,7 @@ describe("live styles through music, recording, and Strudel", () => {
     const expected = { attack: 0.001, decay: 0.001, sustain: 1, release: 0.2 };
     expect(noteEvents("note-played")[0].articulation).toEqual(expected);
     expect(noteEvents("note-released")[0].articulation).toEqual(expected);
-    expect(patterns.loggedNotes[0].articulation).toEqual(expected);
+    expect(patterns.takeNotes[0].articulation).toEqual(expected);
   });
 
   it.each(["together", "repeat"])("records the Shaped %s fallback envelope and press-time Shape", async (style) => {
@@ -81,10 +81,10 @@ describe("live styles through music, recording, and Strudel", () => {
     await vi.advanceTimersByTimeAsync(200);
     await music.releaseNote(owner!);
 
-    expect(patterns.loggedNotes[0].articulation).toEqual({
+    expect(patterns.takeNotes[0].articulation).toEqual({
       attack: 0.2, decay: 0.001, sustain: 1, release: style === "repeat" ? 0.03 : 0.8,
     });
-    expect(patterns.loggedNotes[0].shape).toMatchObject({ attack: 0.2, release: 0.8 });
+    expect(patterns.takeContext.shape).toMatchObject({ attack: 0.2, release: 0.8 });
   });
 
   it("keeps a held repeat in one pattern while a Shape knob sweeps", async () => {
@@ -101,15 +101,15 @@ describe("live styles through music, recording, and Strudel", () => {
     await music.releaseNote(owner!);
     await vi.advanceTimersByTimeAsync(1000);
 
-    expect(patterns.loggedNotes.length).toBeGreaterThan(3);
-    expect(patterns.loggedNotes.every((note) => note.shape?.cutoff === 12000)).toBe(true);
-    expect(patterns.loggedNotes.filter((note) => note.isStartingNewPattern)).toHaveLength(1);
+    expect(patterns.takeNotes.length).toBeGreaterThan(3);
+    expect(patterns.takeContext.shape.cutoff === 12000).toBe(true);
+    // The former per-note boundary flag is represented by the take itself.
 
     // The next press carries the swept Shape and starts a new pattern.
     const next = await music.attackExactPitch("E4");
     await vi.advanceTimersByTimeAsync(20);
     await music.releaseNote(next!);
-    expect(patterns.loggedNotes.at(-1)).toMatchObject({ shape: { cutoff: 1500 }, isStartingNewPattern: true });
+    expect(patterns.takeContext.shape).toMatchObject({ cutoff: 1500 });
   });
 
   it.each(["together", "repeat"])("isolates %s fallback events from later release snapshots", async (style) => {
@@ -121,13 +121,13 @@ describe("live styles through music, recording, and Strudel", () => {
     noteEvents("note-played")[0].articulation.release = 9;
     await vi.advanceTimersByTimeAsync(200);
     await music.releaseNote(owner!);
-    expect(patterns.loggedNotes[0].articulation).toEqual({
+    expect(patterns.takeNotes[0].articulation).toEqual({
       attack: 0.001, decay: 0.001, sustain: 1, release: style === "repeat" ? 0.03 : 0.2,
     });
     music.setPlayStyle("together");
     const nextOwner = await music.attackExactPitch("E4");
     await music.releaseNote(nextOwner!);
-    expect(patterns.loggedNotes.at(-1)?.articulation?.release).toBe(0.2);
+    expect(patterns.takeNotes.at(-1)?.articulation?.release).toBe(0.2);
   });
 
   it.each(["solfege", "exact"] as const)("records the full %s input hold when the fallback attack resolves late", async (input) => {
@@ -142,14 +142,14 @@ describe("live styles through music, recording, and Strudel", () => {
     expect(audio.attackNote).toHaveBeenCalledTimes(1);
     await vi.advanceTimersByTimeAsync(200);
     expect(noteEvents("note-played")).toEqual([]);
-    expect(patterns.loggedNotes).toEqual([]);
+    expect(patterns.takeNotes).toEqual([]);
     finishAttack(0.2);
     const owner = await pendingOwner;
 
     await vi.advanceTimersByTimeAsync(300);
     await music.releaseNote(owner!);
-    expect(patterns.loggedNotes.map(note => [note.note, note.pressTime, note.releaseTime, note.duration]))
-      .toEqual([["C4", EPOCH, EPOCH + 500, 500]]);
+    expect(patterns.takeNotes.map(note => [note.note, note.pressTime, note.releaseTime, note.duration]))
+      .toEqual([["C4", 0, 500, 500]]);
     expect(noteEvents("note-played")[0]).toMatchObject({ timestamp: EPOCH, audibleAt: 200 });
     expect(music.activeNotes.size).toBe(0);
   });
@@ -163,13 +163,13 @@ describe("live styles through music, recording, and Strudel", () => {
     await Promise.all(owners.map(owner => music.releaseNote(owner!)));
 
     const expected = { attack: 0.001, decay: 0.001, sustain: 1, release: style === "strum-down" ? 0.2 : 0.03 };
-    expect(patterns.loggedNotes.length).toBeGreaterThanOrEqual(3);
+    expect(patterns.takeNotes.length).toBeGreaterThanOrEqual(3);
     for (const type of ["note-played", "note-released"]) {
       expect(noteEvents(type).map(note => note.articulation)).toEqual(
-        patterns.loggedNotes.map(() => expected),
+        patterns.takeNotes.map(() => expected),
       );
     }
-    expect(patterns.loggedNotes.map(note => note.articulation)).toEqual(patterns.loggedNotes.map(() => expected));
+    expect(patterns.takeNotes.map(note => note.articulation)).toEqual(patterns.takeNotes.map(() => expected));
   });
 
   it.each([
@@ -186,13 +186,14 @@ describe("live styles through music, recording, and Strudel", () => {
     await Promise.all(owners.map(owner => music.releaseNote(owner!)));
 
     const expected = { attack: 0.003, decay: 0.001, sustain: 1, release };
-    expect(patterns.loggedNotes.length).toBeGreaterThanOrEqual(2);
-    for (const logged of patterns.loggedNotes) {
-      expect(logged).toMatchObject({ instrument, articulation: expected });
+    expect(patterns.takeNotes.length).toBeGreaterThanOrEqual(2);
+    expect(patterns.takeContext.instrument).toBe(instrument);
+    for (const logged of patterns.takeNotes) {
+      expect(logged).toMatchObject({ articulation: expected });
       expect(['C7', 'E7']).toContain(logged.note);
     }
     for (const type of ['note-played', 'note-released']) {
-      expect(noteEvents(type)).toHaveLength(patterns.loggedNotes.length);
+      expect(noteEvents(type)).toHaveLength(patterns.takeNotes.length);
       for (const event of noteEvents(type)) expect(event).toMatchObject({ instrument, articulation: expected });
     }
     expect(vi.mocked(audio.attackNote).mock.calls.length).toBeGreaterThanOrEqual(2);
@@ -275,13 +276,13 @@ describe("live styles through music, recording, and Strudel", () => {
     await vi.advanceTimersByTimeAsync(710);
     await Promise.all(owners.map((owner) => music.releaseNote(owner!)));
 
-    expect(patterns.loggedNotes.map((note) => [note.note, note.pressTime - EPOCH, note.duration])).toEqual([
-      ["C4", 5, 200], ["E4", 255, 200], ["G4", 505, 200],
+    expect(patterns.takeNotes.map((note) => [note.note, note.pressTime, note.duration])).toEqual([
+      ["C4", 0, 200], ["E4", 250, 200], ["G4", 500, 200],
     ]);
     expect(noteEvents("note-released").map((note) => note.noteId).sort())
       .toEqual(noteEvents("note-played").map((note) => note.noteId).sort());
     // Uniform recorded gates print once, not as a per-note column.
-    const code = logNotesToStrudel(patterns.loggedNotes);
+    const code = logNotesToStrudel(patterns.takeNotes);
     expect(code).toContain("C4@0.1 ~@0.025 E4@0.1 ~@0.025 G4@0.1");
     expect(code).toContain('.as("note")');
     expect(code).toContain(".attack(0.001).decay(0.001).sustain(1).release(0.03)");
@@ -298,12 +299,12 @@ describe("live styles through music, recording, and Strudel", () => {
     expect([music.playStyle, music.playRate, music.playMode]).toEqual(["repeat", 16, "repeat:16"]);
     await vi.advanceTimersByTimeAsync(250);
     await music.releaseNote(owner!);
-    expect(patterns.loggedNotes.map((note) => [note.pressTime - EPOCH, note.duration])).toEqual([
+    expect(patterns.takeNotes.map((note) => [note.pressTime, note.duration])).toEqual([
       [0, 20], [25, 100], [150, 100],
     ]);
-    expect(patterns.loggedNotes.map(note => note.articulation?.release)).toEqual([0.2, 0.03, 0.03]);
-    expect(patterns.dynamicPatterns).toHaveLength(1);
-    expect(patterns.currentSketchNotes.map(note => note.articulation?.release)).toEqual([0.2, 0.03, 0.03]);
+    expect(patterns.takeNotes.map(note => note.articulation?.release)).toEqual([0.2, 0.03, 0.03]);
+    expect(patterns.book.phrases.filter(phrase => phrase.shelf === "recent")).toHaveLength(0);
+    expect(patterns.takeNotes.map(note => note.articulation?.release)).toEqual([0.2, 0.03, 0.03]);
     music.setPlayMode("strum-down");
     expect(music.playMode).toBe("strum-down");
     music.setPlayMode("invalid:8");
@@ -330,8 +331,9 @@ describe("live styles through music, recording, and Strudel", () => {
         const pitches = style === "repeat" ? ["C4", "E4", "G4"] : [cycle[i % cycle.length]];
         return pitches.map((pitch) => [pitch, at, Math.min(100, 990 - at)]);
       }).flat();
-      expect(patterns.loggedNotes.map((note) => [note.note, note.pressTime - EPOCH, note.duration]))
-        .toEqual(expected);
+      // The take normalizes its first scheduled press to time zero.
+      expect(patterns.takeNotes.map((note) => [note.note, note.pressTime, note.duration]))
+        .toEqual(expected.map(([pitch, at, duration]) => [pitch, Number(at) - 5, duration]));
       const canceled = new Set(vi.mocked(audio.stopNote).mock.calls.map(([id]) => id));
       expect(vi.mocked(audio.attackNote).mock.calls
         .filter((call) => call[3]!.atTime! * 1000 <= 990 && !canceled.has(call[0]))
@@ -350,9 +352,9 @@ describe("live styles through music, recording, and Strudel", () => {
     const owners = await Promise.all(["C4", "E4", "G4"].map((pitch) => music.attackExactPitch(pitch)));
     await vi.advanceTimersByTimeAsync(300);
     await Promise.all(owners.map((owner) => music.releaseNote(owner!)));
-    const notes = [...patterns.loggedNotes];
-    expect(notes.map((note) => [note.note, note.pressTime - EPOCH, note.duration])).toEqual([
-      ["G4", 50, 250], ["E4", 85, 215], ["C4", 120, 180],
+    const notes = [...patterns.takeNotes];
+    expect(notes.map((note) => [note.note, note.pressTime, note.duration])).toEqual([
+      ["G4", 0, 250], ["E4", 35, 215], ["C4", 70, 180],
     ]);
     const code = logNotesToStrudel(notes);
     expect(code).toContain("~@0.0175");
@@ -370,8 +372,8 @@ describe("live styles through music, recording, and Strudel", () => {
     await vi.advanceTimersByTimeAsync(180);
     await Promise.all([c, e].map((owner) => music.releaseNote(owner!)));
     await vi.advanceTimersByTimeAsync(1000);
-    expect(patterns.loggedNotes.map((note) => [note.note, note.pressTime - EPOCH, note.duration])).toEqual([
-      ["C4", 5, 100], ["C4", 130, 100], ["E4", 130, 100],
+    expect(patterns.takeNotes.map((note) => [note.note, note.pressTime, note.duration])).toEqual([
+      ["C4", 0, 100], ["C4", 125, 100], ["E4", 125, 100],
     ]);
     expect(music.activeNotes.size).toBe(0);
     expect(vi.getTimerCount()).toBe(0);
@@ -393,8 +395,8 @@ describe("live styles through music, recording, and Strudel", () => {
     await vi.advanceTimersByTimeAsync(1000);
     expect(audio.stopNote).toHaveBeenCalledWith(originalG);
     expect(audio.stopNote).toHaveBeenCalledWith(replacementE);
-    expect(patterns.loggedNotes.map((note) => [note.note, note.pressTime - EPOCH, note.duration])).toEqual([
-      ["C4", 5, 100], ["G4", 130, 100],
+    expect(patterns.takeNotes.map((note) => [note.note, note.pressTime, note.duration])).toEqual([
+      ["C4", 0, 100], ["G4", 125, 100],
     ]);
     expect(noteEvents("note-played").map((note) => note.noteName)).toEqual(["C4", "G4"]);
     expect(music.activeNotes.size).toBe(0);
@@ -424,10 +426,10 @@ describe("live styles through music, recording, and Strudel", () => {
     music.setKey("G");
     await vi.advanceTimersByTimeAsync(500);
     await music.releaseNote(owner!);
-    expect(patterns.loggedNotes.map((note) => [note.note, note.pressTime - EPOCH, note.duration])).toEqual([
-      ["F#4", 5, 200], ["F#4", 255, 200],
+    expect(patterns.takeNotes.map((note) => [note.note, note.pressTime, note.duration])).toEqual([
+      ["F#4", 0, 200], ["F#4", 250, 200],
     ]);
-    expect(patterns.loggedNotes.every((note) => note.key === "C" && note.isBorrowed)).toBe(true);
+    expect(patterns.takeNotes.every((note) => note.isBorrowed)).toBe(true);
   });
 
   it.each(['piano', 'square', 'sawtooth'])("keeps the held %s input when a mode change replaces an unresolved Together attack", async (instrument) => {
@@ -448,8 +450,8 @@ describe("live styles through music, recording, and Strudel", () => {
     await music.releaseNote(owner!);
     expect(audio.stopNote).toHaveBeenCalledWith(pendingNoteId);
     expect(noteEvents('note-played').map(event => event.noteId)).not.toContain(pendingNoteId);
-    expect(patterns.loggedNotes).toHaveLength(2);
-    expect(patterns.loggedNotes.map(note => note.articulation?.release)).toEqual([0.03, 0.03]);
+    expect(patterns.takeNotes).toHaveLength(2);
+    expect(patterns.takeNotes.map(note => note.articulation?.release)).toEqual([0.03, 0.03]);
     expect(music.activeNotes.size).toBe(0);
     expect(vi.getTimerCount()).toBe(0);
   });
@@ -469,15 +471,16 @@ describe("live styles through music, recording, and Strudel", () => {
     expect(await pendingOwner).toBeNull();
     expect(audio.stopNote).toHaveBeenCalledWith(pendingNoteId);
     expect(noteEvents('note-played')).toEqual([]);
-    expect(patterns.loggedNotes).toEqual([]);
+    expect(patterns.takeNotes).toEqual([]);
     expect(music.activeNotes.size).toBe(0);
     expect(vi.getTimerCount()).toBe(0);
 
     const nextOwner = await music.attackExactPitch('E7');
     await vi.advanceTimersByTimeAsync(50);
     await music.releaseNote(nextOwner!);
-    expect(patterns.loggedNotes).toHaveLength(1);
-    expect(patterns.loggedNotes[0]).toMatchObject({ note: 'E7', instrument,
+    expect(patterns.takeNotes).toHaveLength(1);
+    expect(patterns.takeContext.instrument).toBe(instrument);
+    expect(patterns.takeNotes[0]).toMatchObject({ note: 'E7',
       articulation: { attack: 0.003, decay: 0.001, sustain: 1, release: 0.12 } });
   });
 
@@ -505,7 +508,7 @@ describe("live styles through music, recording, and Strudel", () => {
     await Promise.all(["C4", "E4", "G4"].map((pitch) => music.attackExactPitch(pitch)));
     await music.releaseAllNotes();
     await vi.advanceTimersByTimeAsync(1000);
-    expect(patterns.loggedNotes).toEqual([]);
+    expect(patterns.takeNotes).toEqual([]);
     expect(noteEvents("note-played")).toEqual([]);
     expect(vi.getTimerCount()).toBe(0);
   });

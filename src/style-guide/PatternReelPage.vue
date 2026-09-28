@@ -8,12 +8,16 @@
       <section class="focused-sheet pattern-reel-page__sheet" aria-label="PatternReel specimen">
         <CompoundPatternReel />
       </section>
+      <section class="focused-sheet pattern-reel-page__sheet" aria-label="Phrase Shelf specimen">
+        <CompoundPhraseShelf />
+      </section>
     </div>
   </main>
 </template>
 
 <script setup lang="ts">
 import CompoundPatternReel from "./compounds/CompoundPatternReel.vue";
+import CompoundPhraseShelf from "./compounds/CompoundPhraseShelf.vue";
 import FocusedPoster from "./focused/FocusedPoster.vue";
 import "./focused/focused-page.css";
 </script>

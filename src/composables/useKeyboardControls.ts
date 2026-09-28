@@ -6,7 +6,7 @@
 import { ref, computed, onMounted, onUnmounted, watch, type Ref } from "vue";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useMusicStore } from "@/stores/music";
-import { usePatternsStore } from "@/stores/patterns";
+import { usePhrasesStore } from "@/stores/phrases";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { createVoiceGroupLifecycle } from "@/services/inputVoiceGroups";
 import { buildHarmony } from "@/domain/harmony";
@@ -101,7 +101,7 @@ const BOTTOM_KEY_ROW = [
 export function useKeyboardControls(mainOctave: Ref<number>) {
   const instrumentStore = useInstrumentStore();
   const musicStore = useMusicStore();
-  const patternsStore = usePatternsStore();
+  const phrasesStore = usePhrasesStore();
   const keyboardDrawerStore = useKeyboardDrawerStore();
   const voiceGroups = createVoiceGroupLifecycle((noteId) => musicStore.releaseNote(noteId));
 
@@ -227,7 +227,7 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
 
     if (event.key === "Backspace" || event.key === "Delete") {
       event.preventDefault();
-      patternsStore.removeLastFromCurrentSketch();
+      phrasesStore.undoLastNote();
       return;
     }
 

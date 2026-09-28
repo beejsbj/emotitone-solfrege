@@ -54,8 +54,8 @@ vi.mock('@/stores/music', () => ({
   useMusicStore: () => musicStore,
 }))
 
-vi.mock('@/stores/patterns', () => ({
-  usePatternsStore: () => patternsStore,
+vi.mock('@/stores/phrases', () => ({
+  usePhrasesStore: () => patternsStore,
 }))
 
 vi.mock('@/composables/useMidiControls', () => ({

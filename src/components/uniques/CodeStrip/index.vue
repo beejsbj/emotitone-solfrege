@@ -49,7 +49,7 @@ import {
 } from "@/services/superdoughAudio";
 import { logNotesToStrudel } from "@/services/StrudelNotation";
 import { useInstrumentStore } from "@/stores/instrument";
-import { usePatternsStore } from "@/stores/patterns";
+import { usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import type { LogNote } from "@/types/patterns";
 import { buildRecordedCodeStripTokens } from "./recordingTokens";
@@ -105,7 +105,7 @@ const isControlled = computed(() => isControlledUsage);
 function createProductionWiring() {
   return {
     instrumentStore: useInstrumentStore(),
-    patternsStore: usePatternsStore(),
+    phrasesStore: usePhrasesStore(),
     visualConfigStore: useVisualConfigStore(),
     playback: useCodeStripStrudel(),
   };
@@ -234,14 +234,14 @@ const keyboardConfig = computed(() =>
   productionWiring?.visualConfigStore.config.keyboard ?? controlledKeyboardConfig
 );
 const sketchMeta = computed(() =>
-  productionWiring?.patternsStore.currentSketchMeta ?? controlledSketchMeta
+  productionWiring?.phrasesStore.takeContext ?? controlledSketchMeta
 );
 const barMs = computed(() => (60000 / sketchMeta.value.bpm) * 4);
 const recordedTokens = computed(() => {
-  const patternsStore = productionWiring?.patternsStore;
-  if (!patternsStore) return [];
+  const phrasesStore = productionWiring?.phrasesStore;
+  if (!phrasesStore) return [];
   return buildRecordedCodeStripTokens({
-    notes: patternsStore.isStripCleared ? [] : patternsStore.currentSketchNotes,
+    notes: phrasesStore.takeNotes,
     mode: sketchMeta.value.mode,
     musicKey: sketchMeta.value.key,
     notation: codeStripConfig.value.notation,
@@ -264,23 +264,23 @@ const generatedCode = computed(() => {
       : EMPTY_EDITOR_CODE;
   }
 
-  const patternsStore = productionWiring!.patternsStore;
-  if (patternsStore.isStripCleared || !patternsStore.currentSketchNotes.length) {
+  const phrasesStore = productionWiring!.phrasesStore;
+  if (!phrasesStore.takeNotes.length) {
     return EMPTY_EDITOR_CODE;
   }
 
   const sound = toStrudelSound(sketchMeta.value.instrument ?? "triangle");
-  return logNotesToStrudel(patternsStore.currentSketchNotes as LogNote[], {
+  return logNotesToStrudel(phrasesStore.takeNotes as LogNote[], {
     bpm: codeStripConfig.value.bpm,
     sourceBpm: sketchMeta.value.bpm,
     notationType: codeStripConfig.value.notation === "note" ? "absolute" : "relative",
     scaleKey: sketchMeta.value.key,
     scaleMode: sketchMeta.value.mode,
     scaleOctave: keyboardConfig.value.mainOctave,
-    patternDurationMs: patternsStore.currentSketchDuration,
+    patternDurationMs: phrasesStore.takeDuration,
     sound,
     // The pattern's own Shape, not the live knobs.
-    shape: patternsStore.currentSketchMeta.shape,
+    shape: phrasesStore.takeContext.shape,
   }).replace(/\s+/g, " ").trim();
 });
 const generatedPhaseSourceKey = computed(() => {
@@ -954,8 +954,7 @@ watch(
 
 watch(
   () => {
-    const notes = productionWiring?.patternsStore.currentWorkingNotes ?? [];
-    return notes[notes.length - 1]?.id;
+    return productionWiring?.phrasesStore.lastLiveNoteId;
   },
   async () => {
     if (isControlled.value) return;
@@ -965,7 +964,7 @@ watch(
 );
 
 watch(
-  () => productionWiring?.patternsStore.loadedBaseNotes.length ?? 0,
+  () => productionWiring?.phrasesStore.takeId,
   async () => {
     if (isControlled.value) return;
     await nextTick();

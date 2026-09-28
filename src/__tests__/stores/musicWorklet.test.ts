@@ -22,7 +22,7 @@ vi.mock("@/services/livePlayback", () => ({
 }));
 
 import { useMusicStore } from "@/stores/music";
-import { usePatternsStore } from "@/stores/patterns";
+import { usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { useInstrumentStore } from "@/stores/instrument";
 import * as audio from "@/services/superdoughAudio";
@@ -32,7 +32,7 @@ import { SCHEDULED_LIVE_MIDI_EVENT } from "@/services/scheduledLiveVoice";
 const EPOCH = 1_800_000_000_000;
 let pinia: Pinia;
 let context: AudioContext;
-let recorderStore: ReturnType<typeof usePatternsStore> | undefined;
+let recorderStore: ReturnType<typeof usePhrasesStore> | undefined;
 const elapsed = () => Date.now() - EPOCH;
 function events(type: string) {
   return vi.mocked(window.dispatchEvent).mock.calls
@@ -43,7 +43,7 @@ function event(ownerId: string, noteId: string, phase: "attack" | "release", at:
 }
 function recorder() {
   vi.spyOn(window, "addEventListener");
-  recorderStore = usePatternsStore();
+  recorderStore = usePhrasesStore();
   const handlers = new Map<string, EventListener>();
   for (const [type, listener] of vi.mocked(window.addEventListener).mock.calls) {
     if (type === "note-played" || type === "note-released" || type === "note-expression") handlers.set(type, listener as EventListener);
@@ -90,7 +90,7 @@ describe("music store production worklet integration", () => {
     worklet.listener!.onEvent({ ...event(owner!, "envelope", "release", 12.05), articulation: released });
     released.release = 9;
     expect(events("note-released")[0].articulation).toEqual({ attack: 0.015, decay: 0.08, sustain: 0.65, release: 0.008 });
-    expect(patterns.loggedNotes[0].articulation).toEqual({ attack: 0.015, decay: 0.08, sustain: 0.65, release: 0.008 });
+    expect(patterns.takeNotes[0].articulation).toEqual({ attack: 0.015, decay: 0.08, sustain: 0.65, release: 0.008 });
     expect(events("note-played")[0].articulation.release).toBe(0.03);
     await music.releaseNote(owner!);
   });
@@ -103,7 +103,7 @@ describe("music store production worklet integration", () => {
     articulation.attack = 9;
     await vi.advanceTimersByTimeAsync(50);
     worklet.listener!.onError(new Error("processor stopped"));
-    expect(patterns.loggedNotes[0].articulation).toEqual({ attack: 0.015, decay: 0.08, sustain: 0.65, release: 0.03 });
+    expect(patterns.takeNotes[0].articulation).toEqual({ attack: 0.015, decay: 0.08, sustain: 0.65, release: 0.03 });
   });
 
   it.each(["together", "repeat", "arp-up", "strum-up"] as const)("uses the captured %s style when renderer metadata is absent", async (style) => {
@@ -111,7 +111,7 @@ describe("music store production worklet integration", () => {
     const owner = await music.attackExactPitch("C4");
     worklet.listener!.onEvent({ ...event(owner!, "fallback", "attack", 12), style });
     worklet.listener!.onEvent({ ...event(owner!, "fallback", "release", 12.1), style });
-    expect(patterns.loggedNotes[0].articulation).toEqual({
+    expect(patterns.takeNotes[0].articulation).toEqual({
       attack: 0.001, decay: 0.001, sustain: 1,
       release: style === "repeat" || style === "arp-up" ? 0.03 : 0.2,
     });
@@ -147,7 +147,7 @@ describe("music store production worklet integration", () => {
     music.setNotePitchBend(owner!, -30);
     // This note actually ended at 150ms; its release notification arrives late.
     worklet.listener!.onEvent(event(owner!, "bent", "release", 12.15));
-    expect(patterns.loggedNotes[0].pitchExpression).toEqual([
+    expect(patterns.takeNotes[0].pitchExpression).toEqual([
       { timeMs: 0, cents: 0 }, { timeMs: 100, cents: 30 },
     ]);
     await music.releaseNote(owner!);
@@ -197,11 +197,11 @@ describe("music store production worklet integration", () => {
     music.setNoteGain(second!, .75);
     expect(music.activeNotes.get("shared")?.pitchBendCents).toBe(30);
     worklet.listener!.onEvent(event(first!, "shared", "release", 12.2));
-    expect(patterns.loggedNotes[0].pitchExpression).toEqual([
+    expect(patterns.takeNotes[0].pitchExpression).toEqual([
       { timeMs: 0, cents: 0 }, { timeMs: 50, cents: 40 },
       { timeMs: 100, cents: -20 }, { timeMs: 150, cents: 30 },
     ]);
-    expect(patterns.loggedNotes[0].gainExpression).toEqual([
+    expect(patterns.takeNotes[0].gainExpression).toEqual([
       { timeMs: 0, gain: 1 }, { timeMs: 50, gain: .5 },
       { timeMs: 100, gain: 1.5 }, { timeMs: 150, gain: .75 },
     ]);
@@ -221,10 +221,10 @@ describe("music store production worklet integration", () => {
     await vi.advanceTimersByTimeAsync(100);
     music.setNoteGain(owner!, 1.5);
     worklet.listener!.onEvent(event(owner!, "expressive", "release", 12.15));
-    expect(patterns.loggedNotes[0].gainExpression).toEqual([
+    expect(patterns.takeNotes[0].gainExpression).toEqual([
       { timeMs: 0, gain: 1 }, { timeMs: 100, gain: 0.5 },
     ]);
-    expect(patterns.loggedNotes[0].pitchExpression).toEqual([
+    expect(patterns.takeNotes[0].pitchExpression).toEqual([
       { timeMs: 0, cents: 0 }, { timeMs: 100, cents: 30 },
     ]);
     await music.releaseNote(owner!);
@@ -244,11 +244,11 @@ describe("music store production worklet integration", () => {
       music.setNoteGain(owner!, gain, sampleTime);
     }
     worklet.listener!.onEvent(event(owner!, "coalesced", "release", 12.15));
-    expect(patterns.loggedNotes[0].pitchExpression).toEqual([
+    expect(patterns.takeNotes[0].pitchExpression).toEqual([
       { timeMs: 0, cents: 0 }, { timeMs: 30, cents: 30 },
       { timeMs: 60, cents: -30 }, { timeMs: 90, cents: 30 },
     ]);
-    expect(patterns.loggedNotes[0].gainExpression).toEqual([
+    expect(patterns.takeNotes[0].gainExpression).toEqual([
       { timeMs: 0, gain: 1 }, { timeMs: 30, gain: 1.4 },
       { timeMs: 60, gain: .6 }, { timeMs: 90, gain: 1.4 },
     ]);
@@ -268,8 +268,8 @@ describe("music store production worklet integration", () => {
     music.setNoteGain(owner!, 1.25, 1060);
     expect(music.activeNotes.get("late")?.pitchBendCents).toBe(20);
     worklet.listener!.onEvent(event(owner!, "late", "release", 12.2));
-    const pitch = patterns.loggedNotes[0].pitchExpression!;
-    const gain = patterns.loggedNotes[0].gainExpression!;
+    const pitch = patterns.takeNotes[0].pitchExpression!;
+    const gain = patterns.takeNotes[0].gainExpression!;
     expect(pitch.map((point) => point.cents)).toEqual([0, 30, -30, 20]);
     expect(gain.map((point) => point.gain)).toEqual([1, 1.5, .5, 1.25]);
     expect(pitch.map((point) => point.timeMs)).toEqual([...pitch.map((point) => point.timeMs)].sort((a, b) => a - b));
@@ -313,8 +313,8 @@ describe("music store production worklet integration", () => {
       timestamp: EPOCH + 125, midiTimestamp: 1125, audibleAt: 1325, mirrorMidi: false });
     expect(music.getActiveNotes()[0].audibleAt).toBe(1325);
     worklet.listener!.onEvent(event(owner!, "live_borrowed", "release", 12.225, 66));
-    expect(patterns.loggedNotes.map(note => [note.note, note.pressTime, note.duration, note.key, note.isBorrowed]))
-      .toEqual([["F#4", EPOCH + 125, 100, "C", true]]);
+    expect(patterns.takeNotes.map(note => [note.note, note.pressTime, note.duration, note.isBorrowed]))
+      .toEqual([["F#4", 0, 100, true]]);
     expect(events("note-released")[0]).toMatchObject({ timestamp: EPOCH + 225, midiTimestamp: 1225 });
     expect(events("note-released")[0].audibleAt).toBeCloseTo(1425);
     expect(music.activeNotes.size).toBe(0);
@@ -332,7 +332,8 @@ describe("music store production worklet integration", () => {
     worklet.listener!.onEvent(event(owner!, "pulse_2", "attack", 12.03));
     worklet.listener!.onEvent(event(owner!, "pulse_2", "release", 12.04));
     await music.releaseNote(owner!);
-    expect(patterns.loggedNotes.map(note => [note.shape?.room, note.isStartingNewPattern])).toEqual([[0.4, true], [0.4, false]]);
+    expect(patterns.takeContext.shape.room).toBe(0.4);
+    expect(patterns.takeNotes).toHaveLength(2);
   });
 
   it("retains owner context through physical release until delayed audio lifecycle is delivered", async () => {
@@ -346,7 +347,7 @@ describe("music store production worklet integration", () => {
     worklet.listener!.onEvent(event(owner!, "live_delayed", "attack", 12.01));
     worklet.listener!.onEvent(event(owner!, "live_delayed", "release", 12.02));
     worklet.listener!.onOwnerEnded(owner!);
-    expect(patterns.loggedNotes.map(note => [note.pressTime - EPOCH, note.duration])).toEqual([[10, 10]]);
+    expect(patterns.takeNotes.map(note => [note.pressTime, note.duration])).toEqual([[0, 10]]);
     worklet.listener!.onEvent(event(owner!, "live_stale", "attack", 12.3));
     await music.releaseNote(owner!);
     expect(events("note-played")).toHaveLength(1);
@@ -383,7 +384,7 @@ describe("music store production worklet integration", () => {
     worklet.listener!.onPlan([event(owner!, "live_new", "attack", 12.125), event(owner!, "live_new", "release", 12.225)]);
     expect(events(SCHEDULED_LIVE_MIDI_EVENT).slice(2).map(detail => [detail.noteId, detail.phase, detail.midiTimestamp]))
       .toEqual([["live_old", "cancel", 1050], ["live_new", "attack", 1125], ["live_new", "release", 1225]]);
-    expect(patterns.loggedNotes).toEqual([]);
+    expect(patterns.takeNotes).toEqual([]);
     expect(events("note-played")).toEqual([]);
     await music.releaseNote(owner!);
     worklet.listener!.onPlan([]);
@@ -403,7 +404,7 @@ describe("music store production worklet integration", () => {
     worklet.listener!.onPlan([]);
     expect(events(SCHEDULED_LIVE_MIDI_EVENT).map(detail => [detail.phase, detail.midiTimestamp]))
       .toEqual([["attack", 1125], ["release", 1225]]);
-    expect(patterns.loggedNotes.map(note => [note.pressTime - EPOCH, note.duration])).toEqual([[125, 100]]);
+    expect(patterns.takeNotes.map(note => [note.pressTime, note.duration])).toEqual([[0, 100]]);
   });
 
   it("replaces changed planned edges and republishes cancelled plans without replaying lifecycle", async () => {
@@ -432,7 +433,7 @@ describe("music store production worklet integration", () => {
     worklet.listener!.onEvent(event(owner!, "live_clear", "release", 12.055));
     worklet.listener!.onOwnerEnded(owner!);
     expect(events("note-released")).toHaveLength(1);
-    expect(patterns.loggedNotes.map(note => note.duration)).toEqual([55]);
+    expect(patterns.takeNotes.map(note => note.duration)).toEqual([55]);
     expect(music.activeNotes.size).toBe(0);
   });
 
@@ -445,7 +446,7 @@ describe("music store production worklet integration", () => {
     await vi.advanceTimersByTimeAsync(50);
     worklet.listener!.onError(new Error("processor failed"));
     expect(events("note-released")).toHaveLength(1);
-    expect(patterns.loggedNotes.map(note => note.duration)).toEqual([50]);
+    expect(patterns.takeNotes.map(note => note.duration)).toEqual([50]);
     expect(events(SCHEDULED_LIVE_MIDI_EVENT).filter(detail => detail.phase === "cancel").map(detail => detail.noteId).sort())
       .toEqual(["custom_voice_id", "future_voice"]);
     expect(music.activeNotes.size).toBe(0);
@@ -493,7 +494,7 @@ describe("music store production worklet integration", () => {
     context.dispatchEvent(new Event("statechange"));
     expect(worklet.engine.release).toHaveBeenCalledWith(owner);
     expect(events("note-released")[0]).toMatchObject({ timestamp: EPOCH + 100, midiTimestamp: 1100 });
-    expect(patterns.loggedNotes.map(note => note.duration)).toEqual([100]);
+    expect(patterns.takeNotes.map(note => note.duration)).toEqual([100]);
     expect(events(SCHEDULED_LIVE_MIDI_EVENT).filter(detail => detail.phase === "cancel").map(detail => [detail.noteId, detail.midiTimestamp]).sort())
       .toEqual([["after_pause", 1600], ["paused_voice", 1600]]);
     worklet.listener!.onEvent(event(owner!, "paused_voice", "release", 12.1));
@@ -514,7 +515,7 @@ describe("music store production worklet integration", () => {
     // MessagePort responses arrive after this scope has unsubscribed.
     expect(worklet.engine.release).toHaveBeenCalledWith(owner);
     expect(events("note-released")).toHaveLength(1);
-    expect(patterns.loggedNotes.map(note => note.duration)).toEqual([100]);
+    expect(patterns.takeNotes.map(note => note.duration)).toEqual([100]);
     expect(events(SCHEDULED_LIVE_MIDI_EVENT).filter(detail => detail.phase === "cancel").map(detail => detail.noteId).sort())
       .toEqual(["disposed_future", "disposed_voice"]);
     expect(worklet.unsubscribe).toHaveBeenCalledOnce();
@@ -529,7 +530,7 @@ describe("music store production worklet integration", () => {
     expect(worklet.engine.release).toHaveBeenCalledWith(owner);
     worklet.listener!.onEvent(event(owner!, "live_selection", "release", 12.1));
     worklet.listener!.onOwnerEnded(owner!);
-    expect(patterns.loggedNotes.map(note => note.duration)).toEqual([100]);
+    expect(patterns.takeNotes.map(note => note.duration)).toEqual([100]);
     expect(music.activeNotes.size).toBe(0);
   });
 });

@@ -25,11 +25,11 @@ import InstrumentSelector from "@/components/InstrumentSelector.vue";
 import LoadingSplash from "@/components/LoadingSplash.vue";
 import UnifiedVisualEffects from "@/components/UnifiedVisualEffects.vue";
 import { useMusicStore } from "@/stores/music";
-import { usePatternsStore } from "@/stores/patterns";
+import { usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 
 useMusicStore();
-usePatternsStore();
+usePhrasesStore();
 const visualConfigStore = useVisualConfigStore();
 provideUIBeat({
   clock: uiBeatClock,

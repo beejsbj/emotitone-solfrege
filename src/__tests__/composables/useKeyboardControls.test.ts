@@ -32,7 +32,7 @@ const mockMusicStore = reactive({
 });
 
 const mockPatternsStore = {
-  removeLastFromCurrentSketch: vi.fn(),
+  undoLastNote: vi.fn(),
 };
 
 const mockKeyboardDrawerStore = {
@@ -57,8 +57,8 @@ vi.mock("@/stores/instrument", () => ({
   useInstrumentStore: () => mockInstrumentStore,
 }));
 
-vi.mock("@/stores/patterns", () => ({
-  usePatternsStore: () => mockPatternsStore,
+vi.mock("@/stores/phrases", () => ({
+  usePhrasesStore: () => mockPatternsStore,
 }));
 
 vi.mock("@/stores/keyboardDrawer", () => ({
@@ -78,7 +78,7 @@ describe("useKeyboardControls", () => {
     mockMusicStore.attackNoteWithOctave.mockClear();
     mockMusicStore.attackExactPitch.mockClear();
     mockMusicStore.releaseNote.mockClear();
-    mockPatternsStore.removeLastFromCurrentSketch.mockClear();
+    mockPatternsStore.undoLastNote.mockClear();
     mockKeyboardDrawerStore.visibleOctaves = [6, 5, 4, 3];
     mockKeyboardDrawerStore.addTouch.mockClear();
     mockKeyboardDrawerStore.removeTouch.mockClear();

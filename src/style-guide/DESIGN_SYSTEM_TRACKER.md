@@ -194,7 +194,24 @@ Music Color owns its settled resolver seam and consumer policies. UIBeat and Sta
 
 ## Immediate frontier
 
-The design-system programme is closed. Burooj, 2026-09-27: "We can close the design system work itself. Since it was about adoption of design and tightening the systems." The final adoption audit is its last lane. Later reimagining (for example PR #102) happens in separate lab PRs that are not part of this programme and must bring their own definition and adoption gates.
+The first design-system pass is closed. Burooj, 2026-09-27: "We can close the design system work itself. Since it was about adoption of design and tightening the systems." Its final adoption audit (#106) was its last lane. A second pass, the reimagining pass below, reopens the programme.
+
+### Reimagining pass (second pass, opened 2026-09-28)
+
+Burooj on 2026-09-28: the labs reopen the design-system programme, "each lab layer is now a 'step' in the design system. Ending with a final audit again." The Loading + Logo lab (#99, closed as a record) and its Count-In adoption (#104) set the pattern. The pass runs these steps in order:
+
+| Step | Lab (definition) | Adoptions (one PR per pick) | State |
+| --- | --- | --- | --- |
+| 1. Primitives | #102: Button, Sticker, Note, Knob Ring/Arc, Marks, Bar Tape, Tabs | #107 Bar Tape Piano Roll, #108 Tape and Stamp Sticker papers; further picks in progress | Open |
+| 2. Uniques | Code Strip, Joystick, Drawer, Harmonic Geometry. The Brand Logo is already decided | — | Not started |
+| 3. Compounds | Key, Chord, Keyboard, Beat Indicator, Control Bar, Pattern Strip/Reel | — | Not started |
+| 4. Tokens | Only where a reimagined layer above needs a new token or a changed collection; proposals, never silent retuning | — | Not started |
+| 5. Final adoption audit | Re-run the full audit across tokens, guide registrations, imports, the five compositions and other runtime surfaces | — | After steps 1–4 land |
+
+Rules for the pass:
+- **A lab is independent and exploratory.** It is based on `main`, makes no production changes, and nothing stacks on it. It mounts each direction beside the real production unit. Once its picks are adopted, it can be closed as a record.
+- **An adoption reopens its unit.** One PR per pick, based on `main`, never containing lab files. It reopens that unit's four gates in this Plan and closes them again with the new definition, authoritative source, real specimen and production adoption, plus a Log receipt. Closed consumers of a changed unit keep their accepted presentation unless the pick says otherwise.
+- **The pass closes like the first one.** It closes only when every step's picks have landed and step 5's audit passes. Until then the pass is open, even though the units not yet reopened stay closed.
 
 Burooj accepted the real-device checks the same day: "works well. Tho beat animation isn't all that smooth. But it's okay." Beat Indicator/UIBeat smoothness is a known, accepted limitation, not a blocker.
 
@@ -205,7 +222,7 @@ Deferred at closure, none of them blocking:
 3. **Burooj's call:** production assignment of the Circle-native `--clip-disc-*` geometry.
 4. **Housekeeping outside the visual pass:** decide on the unimported `useLiveListening.ts`, `audioDiagnostics.ts` and `data/instrumentCategories.ts`.
 
-Blob relationships, Keyboard, PatternStrip, PatternReel, PerformanceDeck, Loading Screen, Config Menu, Instrument Picker and Stage are closed. No unit remains open for definition or implementation.
+Blob relationships, Keyboard, PatternStrip, PatternReel, PerformanceDeck, Loading Screen, Config Menu, Instrument Picker and Stage are closed from the first pass. Units reopen only through a reimagining-pass adoption, as described above.
 
 ## Unit acceptance and handoff
 

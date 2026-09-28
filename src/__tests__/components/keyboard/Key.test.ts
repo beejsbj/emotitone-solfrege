@@ -346,7 +346,8 @@ describe("Key", () => {
     expect(pressableKeyCss).toContain("--key-face-hover-y: -1px");
     expect(pressableKeyCss).toContain("--key-face-press-y: 2px");
     expect(pressableKeyCss).toContain("rotate(var(--key-face-rotation, 0deg))");
-    expect(pressableKeyCss).toContain("transition: transform 90ms");
+    // 90ms tap acknowledgement, read from the shared token.
+    expect(pressableKeyCss).toContain("transition: transform var(--dur-tap)");
     expect(pressableKeyCss).toMatch(
       /@media \(prefers-reduced-motion: reduce\)[\s\S]*transition:\s*none/,
     );

@@ -24,6 +24,13 @@ const midiState = ref<"idle" | "connecting" | "connected" | "error">("connected"
 const instrumentName = ref("Piano");
 const instrumentIcon = computed(() => instrumentIconFor(instrumentName.value));
 const lastAction = ref("Drag any handle. Tap Keyboard to hide only its keys.");
+const hostWidths = [
+  { value: "320px", label: "320" },
+  { value: "390px", label: "390" },
+  { value: "768px", label: "768" },
+  { value: "100%", label: "Fill" },
+] as const;
+const midiStates = ["idle", "connecting", "connected", "error"] as const;
 function resizeKeyboard(contentHeight: number) {
   rowCount.value = resolveKeyboardLayout(contentHeight, rowCount.value).rowCount;
 }
@@ -43,20 +50,37 @@ const tokens: CodeStripToken[] = [
 
 <template>
   <section class="drawer-specimen">
-    <h3>Drawer · one source, both edges</h3>
-    <p>Ink surface, exposed icon/grip handle, and direct resize. Generic drawers clip continuously; the keyboard keeps complete rows and taps closed.</p>
-    <label>Host width
-      <select v-model="width">
-        <option value="320px">320px</option><option value="390px">390px</option>
-        <option value="768px">768px</option><option value="100%">Available width</option>
-      </select>
-    </label>
-    <label>Instrument label <input v-model="instrumentName" /></label>
-    <label>MIDI status
-      <select v-model="midiState">
-        <option>idle</option><option>connecting</option><option>connected</option><option>error</option>
-      </select>
-    </label>
+    <p class="drawer-specimen__role">One source · both edges</p>
+    <p class="drawer-specimen__intro">
+      Ink surface, exposed icon/grip handle, and direct resize. Generic drawers
+      clip continuously; the keyboard keeps complete rows and taps closed.
+    </p>
+
+    <div class="drawer-specimen__controls">
+      <div class="drawer-specimen__field" role="group" aria-label="Host width">
+        <h3 class="label">Host width</h3>
+        <div class="drawer-specimen__chips">
+          <button class="guide-chip"
+            v-for="option in hostWidths" :key="option.value" type="button"
+            :aria-pressed="width === option.value" @click="width = option.value"
+          >{{ option.label }}</button>
+        </div>
+      </div>
+      <label class="drawer-specimen__field">
+        <span class="label">Instrument label</span>
+        <input v-model="instrumentName" class="drawer-specimen__input" />
+      </label>
+      <div class="drawer-specimen__field" role="group" aria-label="MIDI status">
+        <h3 class="label">MIDI status</h3>
+        <div class="drawer-specimen__chips">
+          <button class="guide-chip"
+            v-for="state in midiStates" :key="state" type="button"
+            :aria-pressed="midiState === state" @click="midiState = state"
+          >{{ state }}</button>
+        </div>
+      </div>
+    </div>
+
     <div class="drawer-specimen__viewport">
       <div class="drawer-specimen__stage" :style="{ width }">
         <button class="drawer-specimen__canvas-action" @click="lastAction = 'Canvas stays interactive'">Play with the canvas</button>
@@ -112,28 +136,147 @@ const tokens: CodeStripToken[] = [
         </Drawer>
       </div>
     </div>
-    <output>{{ lastAction }}</output>
-    <p>Real Drawer, Keyboard, Control Bar, and CodeStrip Bar sources. The canvas, panel choices, and saved-pattern label are specimen scaffolding; no audio or production stores are driven here. The keyboard Drawer derives complete rows from its allocated height; top drawers reopen to fit their content and dismiss when touching outside.</p>
+    <output class="drawer-specimen__output">{{ lastAction }}</output>
+    <p class="drawer-specimen__caption">Real Drawer, Keyboard, Control Bar, and CodeStrip Bar sources. The canvas, panel choices, and saved-pattern label are specimen scaffolding; no audio or production stores are driven here. The keyboard Drawer derives complete rows from its allocated height; top drawers reopen to fit their content and dismiss when touching outside.</p>
   </section>
 </template>
 
 <style scoped>
-.drawer-specimen { display: grid; gap: 16px; width: min(960px, calc(100vw - 32px)); min-width: 0; }
-.drawer-specimen p, .drawer-specimen output { font: var(--t-label); color: var(--ivory-3); }
-.drawer-specimen label { display: flex; gap: 12px; align-items: center; }
-.drawer-specimen select, .drawer-specimen input, .drawer-specimen__panel button, .drawer-specimen__canvas-action {
-  padding: 8px; background: var(--ink-4); color: var(--ivory); border: 1px solid var(--ink-5);
+.drawer-specimen {
+  display: grid;
+  gap: var(--s-6);
+  min-width: 0;
 }
-.drawer-specimen input { min-width: 0; width: 160px; }
-.drawer-specimen__viewport { overflow-x: auto; min-width: 0; }
+
+.drawer-specimen p { margin: 0; }
+
+.drawer-specimen__role {
+  font: 700 clamp(20px, 3vw, 26px)/1.05 var(--font-display);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+  color: var(--guide-paper-text, var(--ivory-2));
+}
+
+.drawer-specimen__intro {
+  max-width: 64ch;
+  font: var(--t-body-mono);
+  color: var(--ivory-2);
+}
+
+.drawer-specimen__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-6) var(--s-9);
+}
+
+.drawer-specimen__field {
+  display: grid;
+  align-content: start;
+  gap: var(--s-4);
+  min-width: 0;
+}
+
+.drawer-specimen__field .label { margin: 0; }
+
+.drawer-specimen__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+}
+
+.drawer-specimen__input {
+  width: min(100%, 220px);
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 0;
+  background: var(--ink);
+  color: var(--ivory);
+  font: var(--t-body-mono);
+}
+
+/* Fixed host widths wider than the sheet scroll inside this well only. */
+.drawer-specimen__viewport {
+  min-width: 0;
+  overflow-x: auto;
+  background: var(--ink);
+}
+
 .drawer-specimen__stage {
-  position: relative; height: 640px; min-width: 320px;
+  position: relative;
+  height: 640px;
   background: radial-gradient(ellipse at 50% 30%, var(--pine), var(--ink) 70%);
   isolation: isolate;
 }
-.drawer-specimen__canvas-action { position: absolute; top: 90px; left: 24px; }
+
+.drawer-specimen__canvas-action {
+  position: absolute;
+  top: 90px;
+  left: 24px;
+  padding: 10px 14px 8px;
+  border: 0;
+  background: var(--ivory);
+  color: var(--ink);
+  font: 700 16px/1 var(--font-display);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+  clip-path: var(--clip-offcut);
+  transform: rotate(var(--rot-sticker));
+  cursor: pointer;
+}
+
 .drawer-specimen__top { z-index: 3; }
 .drawer-specimen__top--open { z-index: 2; }
-.drawer-specimen__panel { display: grid; gap: 12px; padding: 20px; }
-.drawer-specimen__pattern { padding: 10px; font: var(--t-label); }
+
+.drawer-specimen__panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 96px), 1fr));
+  gap: var(--s-3);
+  padding: var(--s-6);
+}
+
+.drawer-specimen__panel h4,
+.drawer-specimen__panel p { grid-column: 1 / -1; margin: 0; }
+
+.drawer-specimen__panel h4 {
+  font: 700 20px/1 var(--font-display);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+}
+
+.drawer-specimen__panel p {
+  font: var(--t-body-s-mono);
+  color: var(--ivory-3);
+}
+
+.drawer-specimen__panel button {
+  min-height: 40px;
+  padding: 8px 10px 6px;
+  border: 0;
+  background: var(--ink-4);
+  color: var(--ivory);
+  font: 700 16px/1 var(--font-display);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+  clip-path: var(--clip-tile);
+  cursor: pointer;
+}
+
+.drawer-specimen__pattern {
+  padding: 10px 12px;
+  font: var(--t-body-s-mono);
+  color: var(--ivory-2);
+}
+
+.drawer-specimen__output {
+  display: block;
+  font: var(--t-body-s-mono);
+  color: var(--guide-paper-text, var(--ivory));
+}
+
+.drawer-specimen__caption {
+  max-width: 72ch;
+  font: var(--t-body-s-mono);
+  color: var(--ivory-3);
+}
+
 </style>

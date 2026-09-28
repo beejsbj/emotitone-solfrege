@@ -247,7 +247,7 @@ const stickerStyle = computed<CSSProperties>(() =>
     var(--brass-fill);
   background-size: 220% 100%;
   background-repeat: no-repeat;
-  animation: brass-sheen 6.5s cubic-bezier(.55,.05,.45,.95) infinite;
+  animation: brass-sheen var(--dur-sheen) var(--ease-sheen) infinite;
 }
 
 .sticker--badge {
@@ -272,7 +272,7 @@ const stickerStyle = computed<CSSProperties>(() =>
   height: 2px;
   width: 100%;
   background: var(--sticker-fill);
-  animation: brass-sheen 6.5s cubic-bezier(.55,.05,.45,.95) infinite;
+  animation: brass-sheen var(--dur-sheen) var(--ease-sheen) infinite;
   background-size: 200% 100%;
 }
 
@@ -283,7 +283,7 @@ const stickerStyle = computed<CSSProperties>(() =>
   background-clip: text;
   -webkit-background-clip: text;
   color: transparent;
-  animation: brass-sheen 6.5s cubic-bezier(.55,.05,.45,.95) infinite;
+  animation: brass-sheen var(--dur-sheen) var(--ease-sheen) infinite;
   background-size: 200% 100%;
 }
 

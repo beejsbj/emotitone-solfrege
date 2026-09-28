@@ -7,7 +7,8 @@ import dragValueSource from "@/components/primatives/DragValue.vue?raw";
 import joystickSource from "@/components/uniques/Joystick/index.vue?raw";
 import specimen from "@/style-guide/uniques/UniqueJoystick.vue?raw";
 import uiBeatSpecimen from "@/style-guide/systems/SystemUIBeat.vue?raw";
-import guide from "@/style-guide/StyleGuide.vue?raw";
+import guide from "@/style-guide/guideCatalog.ts?raw";
+import { guideLayer } from "@/style-guide/guideCatalog";
 const { triggerUIHaptic, triggerLatchHaptic } = vi.hoisted(() => ({
   triggerUIHaptic: vi.fn(),
   triggerLatchHaptic: vi.fn(),
@@ -81,7 +82,7 @@ describe("Joystick unique", () => {
     expect(wrapper.get(".joystick__label").classes()).toContain("instrument-control__label");
     expect(joystickSource).toContain("--instrument-control-visible-diameter");
     expect(joystickSource).toContain("--instrument-control-dark-well");
-    expect(joystickSource).toContain("animation: brass-sheen 6.5s");
+    expect(joystickSource).toContain("animation: brass-sheen var(--dur-sheen) var(--ease-sheen)");
     expect(joystickSource).toContain("point.x * 44");
     expect(joystickSource).toContain('import DragValue from "@/components/primatives/DragValue.vue"');
 
@@ -267,7 +268,8 @@ describe("Joystick unique", () => {
     expect(wrapper.classes()).toContain("joystick--analog");
     await wrapper.setProps({ visual: "digital" });
     expect(wrapper.classes()).toContain("joystick--digital");
-    expect(guide).toContain('id="unique-joystick"');
+    expect(guideLayer("uniques")?.units.map((unit) => unit.id)).toContain("joystick");
+    expect(guide).toContain('import("./uniques/UniqueJoystick.vue")');
     expect(guide).not.toContain("PrimitiveJoystick");
     expect(specimen).toContain('visual="analog"');
     expect(specimen).toContain('visual="digital"');

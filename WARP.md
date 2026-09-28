@@ -88,7 +88,7 @@ bun run test:audio-browser
 - **Audio/Music**: `useSolfegeInteraction.ts`
 - **Keyboard Interface**: `useKeyboardDrawer.ts` (drawer behavior and GSAP animations)
 - **Visual Effects**: `useUnifiedCanvas.ts`, `useParticleSystem.ts`, `useMusicColor.ts`
-- **Utilities**: `useAppLoading.ts`, `useKeyboardControls.ts`, `useTooltip.ts`
+- **Utilities**: `useAppLoading.ts`, `useKeyboardControls.ts`
 
 ## Development Guidelines
 
@@ -113,7 +113,7 @@ bun run test:audio-browser
 ```
 
 ### Audio Context Management
-- Audio initialization requires user interaction (handled in `AudioInitializer.vue`)
+- Audio initialization requires user interaction (handled by the Loading Screen's Play gate in `LoadingSplash.vue`)
 - Always check `audioService.isAudioReady()` before playing notes
 - Use note IDs for polyphonic tracking: `noteId` returned from play methods
 - Audio context suspended errors are common - handle gracefully

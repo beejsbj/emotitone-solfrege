@@ -7,21 +7,15 @@
 import { defineAsyncComponent } from "vue";
 import MainApp from "./MainApp.vue";
 import { beginJoystickPageEdition } from "./components/uniques/Joystick/edition";
+import {
+  STYLE_GUIDE_PAGES,
+  currentPathname,
+  isStyleGuideRoute as isStyleGuideRouteFor,
+} from "./styleGuideRoutes";
 
-const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
-const styleGuidePages = {
-  "/style-guide": undefined,
-  "/style-guide/tabs": "tabs",
-  "/style-guide/instrument-picker": "instrument-picker",
-  "/style-guide/config-menu": "config-menu",
-  "/style-guide/pattern-reel": "pattern-reel",
-  "/style-guide/stage": "stage",
-  "/style-guide/performance-deck": "performance-deck",
-} as const;
-const isStyleGuideRoute = Object.prototype.hasOwnProperty.call(styleGuidePages, pathname);
-const styleGuidePage = isStyleGuideRoute
-  ? styleGuidePages[pathname as keyof typeof styleGuidePages]
-  : undefined;
+const pathname = currentPathname();
+const isStyleGuideRoute = isStyleGuideRouteFor(pathname);
+const styleGuidePage = isStyleGuideRoute ? STYLE_GUIDE_PAGES[pathname] : undefined;
 
 // The typography element defaults are deliberately loaded only for the guide.
 // Keep the route marker on the document so html/body rules can be scoped too.

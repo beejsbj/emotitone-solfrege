@@ -4,7 +4,7 @@ import Note from "@/components/primatives/Note.vue";
 import { staticNoteColorResolver } from "@/components/primatives/noteColorContext";
 import Sequence from "@/components/uniques/CodeStrip/Sequence.vue";
 import PerformanceDeckPage from "@/style-guide/PerformanceDeckPage.vue";
-import styleGuideSource from "@/style-guide/StyleGuide.vue?raw";
+import { guideLayer } from "@/style-guide/guideCatalog";
 
 vi.mock("@/components/PerformanceDeck.vue", () => ({
   default: {
@@ -50,12 +50,10 @@ vi.mock("@/components/PerformanceDeck.vue", () => ({
 }));
 
 describe("PerformanceDeck guide fixtures", () => {
-  it("registers PerformanceDeck in the Compositions sink section", () => {
-    const compositions = styleGuideSource.indexOf('id="compositions-heading"');
-    const performanceDeck = styleGuideSource.indexOf('id="composition-performance-deck"');
+  it("registers PerformanceDeck in the Compositions layer with its focused page", () => {
+    const deck = guideLayer("compositions")?.units.find((unit) => unit.id === "performance-deck");
 
-    expect(compositions).toBeGreaterThan(-1);
-    expect(performanceDeck).toBeGreaterThan(compositions);
+    expect(deck?.focusedHref).toBe("/style-guide/performance-deck");
   });
 
   it("models Return as a saved take plus an entering empty Current Take", async () => {

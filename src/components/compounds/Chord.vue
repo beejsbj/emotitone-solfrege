@@ -309,7 +309,7 @@ const resolvedAccessibleName = computed(() => {
   background: var(--chord-member-surface);
   transform: scaleY(var(--chord-member-progress));
   transform-origin: bottom center;
-  transition: transform 72ms linear;
+  transition: transform var(--dur-press) linear;
   will-change: transform;
 }
 
@@ -345,7 +345,7 @@ const resolvedAccessibleName = computed(() => {
   background: var(--ink);
   transform: scaleY(calc(1 - var(--chord-member-progress)));
   transform-origin: top center;
-  transition: transform 72ms linear;
+  transition: transform var(--dur-press) linear;
   will-change: transform;
   pointer-events: none;
 }

@@ -419,8 +419,8 @@ const stickerStyle = computed<CSSProperties>(() =>
 
 /* Forced Colors: tape and stamp become plain bordered text; no tear or wear. */
 @media (forced-colors: active) {
-  .sticker--paper-tape,
-  .sticker--paper-stamp {
+  .sticker:is(.sticker--paper-tape, .sticker--paper-stamp).sticker--outline,
+  .sticker:is(.sticker--paper-tape, .sticker--paper-stamp).sticker--fill {
     border: 1px solid CanvasText;
     border-image: none;
     outline: none;
@@ -429,6 +429,7 @@ const stickerStyle = computed<CSSProperties>(() =>
     mask: none;
     color: CanvasText;
     background: Canvas;
+    box-shadow: none;
   }
 }
 </style>

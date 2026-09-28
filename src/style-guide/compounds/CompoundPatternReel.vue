@@ -62,6 +62,7 @@ import PatternReel from "../../components/compounds/PatternReel.vue";
 import type { PatternReelItem } from "../../components/compounds/PatternReel.vue";
 import { instrumentIconFor } from "../../components/primatives/instrumentIcon";
 import { useMusicColor } from "../../composables/useMusicColor";
+import { chromaticPitchHeight } from "../../services/scalePitch";
 import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
 import VariantCell from "../guide/VariantCell.vue";
 import VariantGrid from "../guide/VariantGrid.vue";
@@ -80,6 +81,7 @@ function timeline(
   return events.map(([scaleIndex, durationMs]) => ({
     color: getStaticPrimaryColorByScaleIndex(scaleIndex, mode, key, octave),
     durationMs,
+    height: chromaticPitchHeight({ scaleIndex, octave }, { key, mode }),
   }));
 }
 

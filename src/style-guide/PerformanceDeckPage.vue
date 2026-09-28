@@ -106,6 +106,7 @@ import type {
 import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
 import type { HarmonyAlteration } from "@/domain/harmony";
 import { getChromaticNoteForScaleIndex } from "@/services/musicColor";
+import { chromaticPitchHeight } from "@/services/scalePitch";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 
 const degreeLabels = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
@@ -223,6 +224,14 @@ function tokenTimeline(
       ),
       durationMs: Math.round(
         (Number.isFinite(duration) && duration > 0 ? duration : 1) * 1000,
+      ),
+      height: chromaticPitchHeight(
+        {
+          pitchClassIndex: token.pitchClassIndex,
+          scaleIndex: token.scaleIndex,
+          octave: token.octave ?? octave,
+        },
+        { key: tokenKey, mode: tokenMode },
       ),
     }];
   });

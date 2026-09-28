@@ -63,8 +63,12 @@ function handleClick(event: MouseEvent) {
   >
     <span ref="bodyRef" class="litcap__body" aria-hidden="true">
       <span class="litcap__chase" />
+      <span class="litcap__glow" />
       <span class="litcap__switch">
-        <span class="litcap__top"><slot /></span>
+        <span class="litcap__top">
+          <span class="litcap__lamp" />
+          <slot />
+        </span>
       </span>
     </span>
   </button>
@@ -75,7 +79,6 @@ function handleClick(event: MouseEvent) {
   --size: 40px;
   --travel: 4px;
   --top: var(--ink-4);
-  --top-lit: var(--ink-5);
   --wall: var(--ink-2);
   --rim: rgb(255 255 255 / 10%);
   --legend: var(--ivory);
@@ -102,8 +105,8 @@ function handleClick(event: MouseEvent) {
 .litcap--sm { --size: 32px; --travel: 3px; }
 .litcap--lg { --size: 48px; --travel: 5px; }
 
-.litcap--ivory { --top: var(--ivory); --top-lit: var(--bone); --wall: var(--ivory-3); --rim: rgb(255 255 255 / 70%); --legend: var(--ink); --light: var(--ivory); }
-.litcap--brass { --top: var(--brass-fill); --top-lit: var(--brass-hi); --wall: var(--brass-lo); --rim: rgb(255 255 255 / 45%); --legend: var(--brass-edge); --light: var(--brass-hi); }
+.litcap--ivory { --top: var(--ivory); --wall: var(--ivory-3); --rim: rgb(255 255 255 / 70%); --legend: var(--ink); --light: var(--ivory); }
+.litcap--brass { --top: var(--brass-fill); --wall: var(--brass-lo); --rim: rgb(255 255 255 / 45%); --legend: var(--brass-edge); --light: var(--brass-hi); }
 
 .litcap__body,
 .litcap__chase,
@@ -114,6 +117,28 @@ function handleClick(event: MouseEvent) {
 }
 
 .litcap__body { inset: 0; }
+
+/* Backlight layers fade by opacity only, so the decay is smooth on every
+   material, including Brass's gradient cap. */
+.litcap__glow {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius);
+  box-shadow:
+    0 0 0 2px var(--light),
+    0 0 18px color-mix(in srgb, var(--light) 70%, transparent);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.litcap__lamp {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle at 50% 60%, var(--light), transparent 75%);
+  opacity: 0;
+  pointer-events: none;
+}
 
 .litcap__chase {
   inset: -2px;
@@ -181,20 +206,16 @@ function handleClick(event: MouseEvent) {
   transition: translate var(--dur-tap) var(--ease-stab);
 }
 
-/* Each hit floods the seam and warms the cap, then decays like a release. */
-.litcap--hit-a .litcap__switch { animation: litcap-flood-a var(--dur-bounce) var(--ease-brush) both; }
-.litcap--hit-b .litcap__switch { animation: litcap-flood-b var(--dur-bounce) var(--ease-brush) both; }
-.litcap--hit-a .litcap__top { animation: litcap-warm-a var(--dur-bounce) var(--ease-brush) both; }
-.litcap--hit-b .litcap__top { animation: litcap-warm-b var(--dur-bounce) var(--ease-brush) both; }
+/* Each hit floods the seam and lights the cap, then decays like a release. */
+.litcap--hit-a .litcap__glow { animation: litcap-flood-a var(--dur-bounce) var(--ease-brush) both; }
+.litcap--hit-b .litcap__glow { animation: litcap-flood-b var(--dur-bounce) var(--ease-brush) both; }
+.litcap--hit-a .litcap__lamp { animation: litcap-lamp-a var(--dur-bounce) var(--ease-brush) both; }
+.litcap--hit-b .litcap__lamp { animation: litcap-lamp-b var(--dur-bounce) var(--ease-brush) both; }
 
-@keyframes litcap-flood-a {
-  0% { box-shadow: inset 0 -2px 0 var(--light), 0 0 0 2px var(--light), 0 0 18px color-mix(in srgb, var(--light) 70%, transparent); }
-}
-@keyframes litcap-flood-b {
-  0% { box-shadow: inset 0 -2px 0 var(--light), 0 0 0 2px var(--light), 0 0 18px color-mix(in srgb, var(--light) 70%, transparent); }
-}
-@keyframes litcap-warm-a { 0% { background: var(--top-lit); } }
-@keyframes litcap-warm-b { 0% { background: var(--top-lit); } }
+@keyframes litcap-flood-a { from { opacity: 1; } to { opacity: 0; } }
+@keyframes litcap-flood-b { from { opacity: 1; } to { opacity: 0; } }
+@keyframes litcap-lamp-a { from { opacity: .45; } to { opacity: 0; } }
+@keyframes litcap-lamp-b { from { opacity: .45; } to { opacity: 0; } }
 
 .litcap--loading .litcap__top :deep(svg) { opacity: .3; }
 .litcap--loading .litcap__chase { opacity: 1; }
@@ -209,10 +230,10 @@ function handleClick(event: MouseEvent) {
 @media (prefers-reduced-motion: reduce) {
   .litcap__top,
   .litcap:not(:disabled):active .litcap__top { transition: none; }
-  .litcap--hit-a .litcap__switch,
-  .litcap--hit-b .litcap__switch,
-  .litcap--hit-a .litcap__top,
-  .litcap--hit-b .litcap__top,
+  .litcap--hit-a .litcap__glow,
+  .litcap--hit-b .litcap__glow,
+  .litcap--hit-a .litcap__lamp,
+  .litcap--hit-b .litcap__lamp,
   .litcap--loading .litcap__chase::before,
   .litcap--brass .litcap__top::after { animation: none; }
 }
@@ -221,6 +242,8 @@ function handleClick(event: MouseEvent) {
   .litcap { color: ButtonText; }
   .litcap__switch { background: ButtonText; box-shadow: none; }
   .litcap__top { background: ButtonFace; box-shadow: none; }
-  .litcap__chase { display: none; }
+  .litcap__chase,
+  .litcap__glow,
+  .litcap__lamp { display: none; }
 }
 </style>

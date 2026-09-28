@@ -8,8 +8,8 @@ import type { LabButtonProps } from "@/types/primitivesLab";
  * Direction A · Lit Keycap. Keycap and Pad combined: a switch cap on visible
  * side walls with real travel, backlit from inside the switch. Light leaks
  * from under the cap at rest; every hit bottoms the cap out and floods the
- * seam with light that decays like a note's release. Loading chases the light
- * around the cap's edge.
+ * seam with light that decays like a note's release. Loading orbits the lit lip
+ * itself around the cap.
  */
 const props = withDefaults(defineProps<LabButtonProps>(), {
   size: "md",
@@ -62,7 +62,6 @@ function handleClick(event: MouseEvent) {
     @click="handleClick"
   >
     <span ref="bodyRef" class="litcap__body" aria-hidden="true">
-      <span class="litcap__chase" />
       <span class="litcap__switch">
         <span class="litcap__top">
           <span class="litcap__lamp" />
@@ -109,7 +108,6 @@ function handleClick(event: MouseEvent) {
 .litcap--brass { --top: var(--brass-fill); --top-lit: var(--brass-hi); --wall: var(--brass-lo); --rim: rgb(255 255 255 / 45%); --legend: var(--brass-edge); --light: var(--brass-hi); }
 
 .litcap__body,
-.litcap__chase,
 .litcap__switch {
   position: absolute;
   border-radius: var(--radius);
@@ -125,19 +123,6 @@ function handleClick(event: MouseEvent) {
   background: var(--top-lit);
   opacity: 0;
   pointer-events: none;
-}
-
-.litcap__chase {
-  inset: -2px;
-  overflow: hidden;
-  opacity: 0;
-}
-
-.litcap__chase::before {
-  content: "";
-  position: absolute;
-  inset: -50%;
-  background: conic-gradient(var(--light) 0 22%, transparent 22% 100%);
 }
 
 /* The switch housing. Its light is Pad's: a lit lip under the key at rest.
@@ -210,10 +195,17 @@ function handleClick(event: MouseEvent) {
 @keyframes litcap-lamp-b { from { opacity: 1; } to { opacity: 0; } }
 
 .litcap--loading .litcap__top :deep(svg) { opacity: .3; }
-.litcap--loading .litcap__chase { opacity: 1; }
-.litcap--loading .litcap__chase::before { animation: litcap-chase 900ms linear infinite; }
 
-@keyframes litcap-chase { to { rotate: 1turn; } }
+/* Loading moves the lip itself: the light leaking from under the cap
+   circles the switch — bottom, right, top, left — instead of adding a ring. */
+.litcap--loading .litcap__switch { animation: litcap-orbit 900ms linear infinite; }
+
+@keyframes litcap-orbit {
+  0%, 100% { box-shadow: 0 2px 0 var(--lip), 0 0 0 transparent, var(--extra-glow); }
+  25% { box-shadow: 2px 0 0 var(--lip), 0 0 0 transparent, var(--extra-glow); }
+  50% { box-shadow: 0 -2px 0 var(--lip), 0 0 0 transparent, var(--extra-glow); }
+  75% { box-shadow: -2px 0 0 var(--lip), 0 0 0 transparent, var(--extra-glow); }
+}
 
 .litcap:focus-visible { outline: 2px solid var(--ivory); outline-offset: 4px; }
 .litcap:disabled { cursor: not-allowed; opacity: .35; }
@@ -226,7 +218,7 @@ function handleClick(event: MouseEvent) {
   .litcap--hit-b .litcap__switch,
   .litcap--hit-a .litcap__lamp,
   .litcap--hit-b .litcap__lamp,
-  .litcap--loading .litcap__chase::before,
+  .litcap--loading .litcap__switch,
   .litcap--brass .litcap__top::after { animation: none; }
 }
 
@@ -234,7 +226,6 @@ function handleClick(event: MouseEvent) {
   .litcap { color: ButtonText; }
   .litcap__switch { background: ButtonText; box-shadow: none; }
   .litcap__top { background: ButtonFace; box-shadow: none; }
-  .litcap__chase,
   .litcap__lamp { display: none; }
 }
 </style>

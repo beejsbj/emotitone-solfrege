@@ -227,6 +227,62 @@ export function takeIsLive(book: PhraseBook, held: ReadonlyMap<string, HeldNote>
   return book.recorder.liveNoteIds.length > 0 || heldInPhrase(held, book.takeId);
 }
 
+/** You have written into the take (played, held, or deleted a note). */
+export function isTakeTouched(book: PhraseBook, held: ReadonlyMap<string, HeldNote>): boolean {
+  return book.recorder.edited || takeIsLive(book, held);
+}
+
+export interface ReelEntry {
+  /** null for the blank "new take" slot at the front. */
+  phrase: Phrase | null;
+  /** desk: what you're playing into. shelf: everything else. blank: start fresh. */
+  role: "desk" | "shelf" | "blank";
+  /** Stable presentation key, so a strip keeps its node while it changes role. */
+  key: string;
+}
+
+/**
+ * The reel, deepest first, with the front last. "Whatever is at the cursor is
+ * on the desk": a take you have only looked at is drawn where it came from
+ * (its Recent slot, or in place of its Kept/Library source), and a blank slot
+ * waits at the front. Once you write into it, the take moves to the front.
+ * Because a looked-at take never leaves its place, scrolling never reorders
+ * the reel under you, which is what makes load-on-scroll safe.
+ */
+export function arrangeReel(
+  book: PhraseBook,
+  library: readonly Phrase[],
+  touched: boolean,
+): ReelEntry[] {
+  const { take, recent, kept, library: shelvedLibrary } = shelveBook(book, library);
+  const origin = book.recorder.origin;
+  const inPlace = !touched && take.notes.length > 0 && origin !== "fresh";
+  const sourceId = take.derivedFrom?.id;
+  const desk: ReelEntry = {
+    phrase: take,
+    role: "desk",
+    key: `phrase:${inPlace && sourceId ? sourceId : take.id}`,
+  };
+  const shelf = (phrase: Phrase): ReelEntry => ({ phrase, role: "shelf", key: `phrase:${phrase.id}` });
+  const withSource = (phrases: Phrase[]) =>
+    phrases.map((phrase) => (inPlace && phrase.id === sourceId ? desk : shelf(phrase)));
+
+  const recentPhrases = inPlace && origin === "recent"
+    ? [...recent, take].sort((left, right) =>
+      (right.closedAt ?? right.createdAt) - (left.closedAt ?? left.createdAt))
+    : recent;
+  const newestFirst = [
+    ...recentPhrases.map((phrase) => (phrase === take ? desk : shelf(phrase))),
+    ...withSource(kept),
+    ...withSource(shelvedLibrary),
+  ];
+  const deskIsShelved = newestFirst.includes(desk);
+  const front: ReelEntry = deskIsShelved
+    ? { phrase: null, role: "blank", key: "blank" }
+    : { ...desk, key: take.notes.length ? `phrase:${take.id}` : "blank" };
+  return [...newestFirst.reverse(), front];
+}
+
 function pitchClassOf(note: PatternNote): number | null {
   if (typeof note.pitchClassIndex === "number" && Number.isInteger(note.pitchClassIndex)) {
     return ((note.pitchClassIndex % 12) + 12) % 12;
@@ -386,12 +442,25 @@ export function releaseNote(
 
 // ─── Closing, keeping, loading ───────────────────────────────────────────────
 
+/**
+ * Why a take is closing. The stray-tap noise floor only applies to closes the
+ * performer didn't ask for (silence, a new context). Moving the reel away is a
+ * deliberate act, so it never drops notes.
+ */
+export type CloseReason = "boundary" | "navigate";
+
 /** Where a closing take goes, or null when it leaves nothing behind. */
-function closingShelf(take: Phrase, recorder: TakeRecorder): "recent" | null {
+function closingShelf(
+  take: Phrase,
+  recorder: TakeRecorder,
+  reason: CloseReason,
+): "recent" | null {
   if (!take.notes.length) return null;
   switch (recorder.origin) {
     case "fresh":
-      return take.notes.length >= MIN_FRESH_PHRASE_NOTES || take.source ? "recent" : null;
+      return reason === "navigate" || take.notes.length >= MIN_FRESH_PHRASE_NOTES || take.source
+        ? "recent"
+        : null;
     case "recent":
       return "recent";
     case "kept":
@@ -402,11 +471,19 @@ function closingShelf(take: Phrase, recorder: TakeRecorder): "recent" | null {
 }
 
 /** Retire the take by its lineage without opening a new one. */
-function retireTake(book: PhraseBook, now: number, config: PhraseBookConfig): void {
+function retireTake(
+  book: PhraseBook,
+  now: number,
+  config: PhraseBookConfig,
+  reason: CloseReason,
+): void {
   const take = getTake(book);
-  if (closingShelf(take, book.recorder) === "recent") {
+  if (closingShelf(take, book.recorder, reason) === "recent") {
+    // A Recent phrase that was only looked at goes back to its own place, so
+    // scrolling through Recent never reshuffles it.
+    const untouchedReopen = book.recorder.origin === "recent" && !book.recorder.edited;
     take.shelf = "recent";
-    take.closedAt = now;
+    take.closedAt = untouchedReopen && take.closedAt !== undefined ? take.closedAt : now;
   } else {
     book.phrases = book.phrases.filter((phrase) => phrase !== take);
   }
@@ -420,8 +497,9 @@ export function closeTake(
   nextContext: PhraseContext,
   newId: NewId = createId,
   config: PhraseBookConfig = DEFAULT_PHRASE_BOOK_CONFIG,
+  reason: CloseReason = "boundary",
 ): Phrase {
-  retireTake(book, now, config);
+  retireTake(book, now, config, reason);
   return openFreshTake(book, nextContext, now, newId);
 }
 
@@ -435,20 +513,23 @@ export function keepTake(
   nextContext: PhraseContext,
   newId: NewId = createId,
   config: PhraseBookConfig = DEFAULT_PHRASE_BOOK_CONFIG,
+  library: readonly Phrase[] = [],
 ): string | null {
   const take = getTake(book);
   if (!take.notes.length) return null;
 
-  const source = take.derivedFrom && book.recorder.origin === "kept" && !book.recorder.edited
-    ? book.phrases.find((phrase) => phrase.id === take.derivedFrom?.id)
+  const { origin, edited } = book.recorder;
+  const source = take.derivedFrom && (origin === "kept" || origin === "library") && !edited
+    ? findPhrase(book, take.derivedFrom.id, library)
     : undefined;
   if (source && isSameContext(source.context, take.context)
     && source.context.octave === take.context.octave) {
-    // Keeping an untouched copy of something already kept changes nothing.
+    // An untouched copy of something that already exists: Return just clears
+    // the desk rather than keeping a duplicate.
     book.phrases = book.phrases.filter((phrase) => phrase !== take);
     openFreshTake(book, nextContext, now, newId);
     pruneRecent(book, now, config);
-    return source.id;
+    return origin === "kept" ? source.id : null;
   }
 
   take.shelf = "kept";
@@ -475,11 +556,11 @@ export function openPhrase(
   const source = stored ?? library.find((phrase) => phrase.id === id);
   if (!source || source.shelf === "take") return null;
 
-  retireTake(book, now, config);
+  retireTake(book, now, config, "navigate");
 
   if (stored && stored.shelf === "recent") {
+    // closedAt is kept: if this phrase is only looked at, it returns to its place.
     stored.shelf = "take";
-    stored.closedAt = undefined;
     book.takeId = stored.id;
     book.recorder = freshRecorder("recent", stored.duration);
     return stored;

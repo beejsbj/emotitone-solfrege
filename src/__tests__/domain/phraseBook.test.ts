@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+  arrangeReel,
   closeTake,
   createPhraseBook,
   deletePhrase,
@@ -8,6 +9,7 @@ import {
   followControls,
   getTake,
   importPhrases,
+  isTakeTouched,
   keepPhrase,
   keepTake,
   MIN_FRESH_PHRASE_NOTES,
@@ -469,5 +471,90 @@ describe("phrase book: imports", () => {
     // Choosing another capture is a move, and the first capture stays.
     openPhrase(book, ids[1], [], clock + 10, newId);
     expect(shelveBook(book, []).recent.map((phrase) => phrase.id)).toContain(ids[0]);
+  });
+});
+
+describe("phrase book: the reel as a tape head", () => {
+  const touched = () => isTakeTouched(book, held);
+  const keys = (library: Phrase[]) => arrangeReel(book, library, touched()).map((entry) => entry.key);
+  const deskIndex = (library: Phrase[]) =>
+    arrangeReel(book, library, touched()).findIndex((entry) => entry.role === "desk");
+
+  it("draws a looked-at phrase in its own place with a blank slot at the front", () => {
+    const library = [libraryPhrase()];
+    openPhrase(book, "library-arpeggio", library, clock, newId);
+    const reel = arrangeReel(book, library, touched());
+    expect(reel.map((entry) => entry.role)).toEqual(["desk", "blank"]);
+    expect(reel[0].key).toBe("phrase:library-arpeggio");
+  });
+
+  it("moves the take to the front once you play into it, and the source comes back", () => {
+    const library = [libraryPhrase()];
+    openPhrase(book, "library-arpeggio", library, clock, newId);
+    tap(4);
+    const reel = arrangeReel(book, library, touched());
+    expect(reel.map((entry) => entry.role)).toEqual(["shelf", "desk"]);
+    expect(reel[0].phrase?.id).toBe("library-arpeggio");
+    expect(reel[1].phrase?.derivedFrom?.id).toBe("library-arpeggio");
+  });
+
+  it("loads on every step without a swap loop: every phrase is reachable, order holds", () => {
+    const library = [libraryPhrase(), libraryPhrase({ id: "library-two", name: "Two" })];
+    for (let index = 0; index < 3; index += 1) {
+      play([0, 1, 2]);
+      clock += 1000;
+      closeTake(book, clock, C_MAJOR, newId);
+    }
+    play([4, 5]); // an unkept take in progress at the front
+    const order = arrangeReel(book, library, touched());
+    const targets = order.slice(0, -1).map((entry) => entry.phrase!.id).reverse();
+
+    // Walk back one step at a time, loading each, then forward again.
+    const visited: string[] = [];
+    let stableKeys: string[] | null = null;
+    for (const id of [...targets, ...[...targets].reverse()]) {
+      clock += 100;
+      openPhrase(book, id, library, clock, newId);
+      const reel = arrangeReel(book, library, touched());
+      const desk = reel[deskIndex(library)];
+      visited.push(desk.phrase!.derivedFrom?.id ?? desk.phrase!.id);
+      stableKeys ??= keys(library);
+      expect(keys(library)).toEqual(stableKeys);
+    }
+    // Each step put exactly the phrase you scrolled to on the desk.
+    expect(visited).toEqual([...targets, ...[...targets].reverse()]);
+    expect(targets).toHaveLength(5); // three Recent phrases and two Library ones
+  });
+
+  it("returns a looked-at Recent phrase to its own place", () => {
+    play([0, 1, 2]);
+    const older = book.takeId;
+    clock += 1000;
+    closeTake(book, clock, C_MAJOR, newId);
+    play([3, 4, 5]);
+    const newer = book.takeId;
+    clock += 1000;
+    closeTake(book, clock, C_MAJOR, newId);
+
+    openPhrase(book, older, [], clock + 10, newId);
+    openPhrase(book, newer, [], clock + 20, newId);
+    openPhrase(book, older, [], clock + 30, newId);
+    closeTake(book, clock + 40, C_MAJOR, newId, undefined, "navigate");
+    expect(shelveBook(book, []).recent.map((phrase) => phrase.id)).toEqual([newer, older]);
+  });
+
+  it("never drops notes when you navigate away, even one or two", () => {
+    tap(0);
+    const brief = book.takeId;
+    openPhrase(book, "library-arpeggio", [libraryPhrase()], clock, newId);
+    expect(shelveBook(book, []).recent.map((phrase) => phrase.id)).toEqual([brief]);
+  });
+
+  it("Return on an untouched library copy clears the desk without a duplicate", () => {
+    const library = [libraryPhrase()];
+    openPhrase(book, "library-arpeggio", library, clock, newId);
+    expect(keepTake(book, clock, C_MAJOR, newId, undefined, library)).toBeNull();
+    expect(shelveBook(book, library).kept).toEqual([]);
+    expect(getTake(book).notes).toEqual([]);
   });
 });

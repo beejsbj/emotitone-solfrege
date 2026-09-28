@@ -1,34 +1,42 @@
 <template>
   <Teleport to="body">
-    <div ref="follower" class="drag-value knob-drag-value" aria-hidden="true">
-      <Sticker
-        :variant="tone === 'ivory' ? 'fill' : 'badge'"
-        :color="tone === 'brass' ? 'brass-sheen' : 'ivory'"
+    <div ref="follower" class="readout knob-readout" aria-hidden="true">
+      <span
+        class="readout__window"
         :class="[
-          'drag-value__paper knob-drag-value__paper',
-          bounceCycle ? 'drag-value__paper--bounce-a' : 'drag-value__paper--bounce-b',
+          `readout__window--${tone}`,
+          bounceCycle ? 'readout__window--bounce-a' : 'readout__window--bounce-b',
         ]"
       >
-        {{ value }}
-      </Sticker>
+        <span class="readout__ghost">{{ ghost }}</span>
+        <span :key="refresh" class="readout__lit">{{ value }}</span>
+      </span>
     </div>
   </Teleport>
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from "vue";
-import Sticker from "./Sticker";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
-export type DragValueTone = "brass" | "ivory" | "ivory-badge";
+/**
+ * The Readout: a small segment display that floats above the finger while a
+ * Knob or Joystick is dragged. Lit characters sit over faint unlit "8"
+ * segments; each change refreshes the display and rebounds the window.
+ * Ivory for everyday controls, a Brass bezel for masters and Joystick drags,
+ * an Ivory bezel for a committed (latched) Joystick direction.
+ */
+export type ReadoutTone = "brass" | "ivory" | "latched";
 
 const props = defineProps<{
   x: number;
   y: number;
   value: string;
-  tone: DragValueTone;
+  tone: ReadoutTone;
 }>();
 const follower = ref<HTMLElement>();
 const bounceCycle = ref(false);
+const refresh = ref(0);
+const ghost = computed(() => [...props.value].map((char) => (char === " " ? " " : "8")).join(""));
 let frame = 0;
 let previousTime = 0;
 let x = props.x;
@@ -39,7 +47,10 @@ let velocityY = 0;
 let tiltVelocity = 0;
 const hoverDistance = 56;
 
-watch(() => props.value, () => { bounceCycle.value = !bounceCycle.value; });
+watch(() => props.value, () => {
+  bounceCycle.value = !bounceCycle.value;
+  refresh.value += 1;
+});
 
 onMounted(() => {
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -85,7 +96,7 @@ onMounted(() => {
     element.style.maxInlineSize = `${availableWidth}px`;
 
     // Preserve the full label when zoom makes the wrapped paper taller than
-    // the visual viewport. Scale the complete Sticker rather than clipping it.
+    // the visual viewport. Scale the complete window rather than clipping it.
     const naturalWidth = element.offsetWidth;
     const naturalHeight = element.offsetHeight;
     const angle = Math.abs(tilt) * Math.PI / 180;
@@ -132,7 +143,7 @@ onBeforeUnmount(() => cancelAnimationFrame(frame));
 </script>
 
 <style scoped>
-.drag-value {
+.readout {
   position: fixed;
   inset: 0 auto auto 0;
   z-index: 1000;
@@ -144,38 +155,76 @@ onBeforeUnmount(() => cancelAnimationFrame(frame));
   will-change: transform;
 }
 
-.drag-value__paper {
+.readout__window {
+  --lit: var(--ivory);
+  --glow: color-mix(in srgb, var(--ivory) 55%, transparent);
+  --bezel: var(--ink-4);
+
+  display: inline-grid;
   max-inline-size: 100%;
   box-sizing: border-box;
+  padding: 7px 10px 6px;
+  background: var(--ink);
+  border-radius: var(--r-xs);
+  box-shadow: 0 0 0 3px var(--bezel), inset 0 2px 5px rgb(0 0 0 / 80%);
+  font: 700 20px/1 var(--font-mono);
   font-variant-numeric: tabular-nums;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  letter-spacing: .08em;
   text-align: center;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+  white-space: normal;
   transform-origin: 50% 100%;
 }
 
-.drag-value__paper.sticker--fill {
-  font-size: 20px;
-  text-transform: none;
+.readout__window--brass {
+  --lit: var(--brass-hi);
+  --glow: color-mix(in srgb, var(--brass) 70%, transparent);
+  --bezel: var(--brass);
 }
 
-@keyframes drag-value-arrive-a {
+.readout__window--latched { --bezel: var(--ivory); }
+
+.readout__ghost,
+.readout__lit { grid-area: 1 / 1; }
+
+.readout__ghost { color: color-mix(in srgb, var(--lit) 9%, transparent); }
+
+.readout__lit {
+  color: var(--lit);
+  text-shadow: 0 0 8px var(--glow);
+}
+
+@keyframes readout-arrive-a {
   from { scale: .9; }
   to { scale: 1; }
 }
 
 /* A second name lets consecutive value updates restart the same recipe. */
-@keyframes drag-value-arrive-b {
+@keyframes readout-arrive-b {
   from { scale: .9; }
   to { scale: 1; }
 }
 
+@keyframes readout-refresh {
+  from { opacity: .35; }
+  to { opacity: 1; }
+}
+
 @media (prefers-reduced-motion: no-preference) {
-  .drag-value__paper--bounce-a { animation: drag-value-arrive-a var(--dur-bounce) var(--ease-bounce); }
-  .drag-value__paper--bounce-b { animation: drag-value-arrive-b var(--dur-bounce) var(--ease-bounce); }
+  .readout__window--bounce-a { animation: readout-arrive-a var(--dur-bounce) var(--ease-bounce); }
+  .readout__window--bounce-b { animation: readout-arrive-b var(--dur-bounce) var(--ease-bounce); }
+  .readout__lit { animation: readout-refresh 140ms steps(2) both; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .drag-value__paper { animation: none; }
+  .readout__window,
+  .readout__lit { animation: none; }
+}
+
+@media (forced-colors: active) {
+  .readout__window { background: Canvas; box-shadow: none; border: 2px solid CanvasText; }
+  .readout__lit { color: CanvasText; text-shadow: none; }
+  .readout__ghost { display: none; }
 }
 </style>

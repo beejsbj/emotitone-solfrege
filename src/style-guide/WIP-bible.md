@@ -43,8 +43,8 @@ Two halves, two jobs. *Cut-paper jazz* is the identity: poster, hand-cut, loud, 
 
 **The seam: hardware with paper stuck on it.** In Burooj's words, the stage is hardware, and stickers and cut pieces are planted or stamped on top of it.
 
-- **The chassis is hardware:** Ink surfaces, dark analog wells, Knobs, Joystick, bars, Drawers, and Brass. It is machined, contrasty, and precise.
-- **Applied paper sits on the chassis:** Keys, the Tabs chip in the top menus, the instrument panel's Stickers, and the drag-value Sticker. These pieces carry the cut property — cut silhouettes, slight tilts, and hard presses — and it fits them because they are things put onto the instrument.
+- **The chassis is hardware:** Ink surfaces, dark analog wells, Knobs, Joystick, bars, Drawers, the floating Readout display, and Brass. It is machined, contrasty, and precise.
+- **Applied paper sits on the chassis:** Keys, the Tabs chip in the top menus, and the instrument panel's Stickers. These pieces carry the cut property — cut silhouettes, slight tilts, and hard presses — and it fits them because they are things put onto the instrument.
 - **Applied paper wears playing-zone colour:** Ink, Ivory, or Music Color. Keys are cut paper in their pitch's colour. Brand papers never come in.
 - **Type crosses both zones:** Lets Jazz is the display and label face everywhere, including Stage lettering, Keys, and Knob labels.
 

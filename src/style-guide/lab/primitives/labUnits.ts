@@ -9,8 +9,7 @@ import PianoRollTape from "./bar-tape/PianoRollTape.vue";
 import SpliceTape from "./bar-tape/SpliceTape.vue";
 import BurstButton from "./button/BurstButton.vue";
 import ButtonBench from "./button/ButtonBench.vue";
-import KeycapButton from "./button/KeycapButton.vue";
-import PadButton from "./button/PadButton.vue";
+import LitKeycapButton from "./button/LitKeycapButton.vue";
 import ChickenHeadFace from "./knob/ChickenHeadFace.vue";
 import KnobBench from "./knob/KnobBench.vue";
 import KnurledDialFace from "./knob/KnurledDialFace.vue";
@@ -39,35 +38,24 @@ export const PRIMITIVE_LAB_UNITS: LabPrimitiveUnit[] = [
     id: "button",
     name: "Button",
     source: "src/components/primatives/Button.vue",
-    reading: "Playing zone · on the seam: accepted as a punched paper chad, mounted on chassis bars. One direction reads it as paper, two as hardware.",
+    reading: "Playing zone · on the seam: accepted as a punched paper chad, mounted on chassis bars. Lit Keycap reads it as hardware; Burst reads it as applied paper.",
     bench: ButtonBench,
     production: Button,
     directions: [
       {
-        id: "pad",
+        id: "lit-keycap",
         letter: "A",
-        name: "Pad",
+        name: "Lit Keycap",
         paper: "mustard",
-        idea: "A drum-machine pad backlit from under the paper. A lit lip rests under each pad; every hit floods the edge with light that decays like a note's release.",
-        better: "The press becomes an attack/decay envelope, which is the instrument's own language. Rounded-square pads read as playable hardware rather than icons, and the resting lip shows which surfaces are live without adding outlines.",
-        risks: "It abandons the accepted circular paper chad and the disc-geometry token family. Glow on every hit adds compositor work to rows of buttons, and the light is new motion that UIBeat, press, and decay must share without fighting.",
-        bible: { zone: "Playing zone", role: "Chassis", fit: "fits", note: "Hardware lit by touch; Ink, Ivory, Brass only." },
-        component: PadButton,
-      },
-      {
-        id: "keycap",
-        letter: "B",
-        name: "Keycap",
-        paper: "cobalt",
-        idea: "A mechanical switch cap on the chassis: a top face over visible side walls, so every press has real travel. The cap bottoms out on press and springs back; loading lights a small status pip.",
-        better: "Travel is the most honest press feedback a flat screen can fake. The side wall reads as depth on Ink, where the current 2px offset disappears, and it makes the CodeStrip Bar look like a row of switches.",
-        risks: "Also leaves the accepted circle. The visible wall adds 4px of visual height at 32px, and a keyboard-switch look could read as computer rather than instrument.",
-        bible: { zone: "Playing zone", role: "Chassis", fit: "fits", note: "Machined hardware; Brass only on the brass tone." },
-        component: KeycapButton,
+        idea: "Pad and Keycap combined: a switch cap on visible side walls with real travel, backlit from inside the switch. Light leaks from under the cap at rest; every hit bottoms it out and floods the seam with light that decays like a note's release.",
+        better: "Two honest press signals at once: the cap physically travels, and the light speaks the instrument's attack/decay language. The side wall and lit lip give depth on Ink, where the current 2px offset disappears, and the CodeStrip Bar reads as a row of lit switches.",
+        risks: "It leaves the accepted circular paper chad and the disc-geometry token family. The wall adds about 4px of visual height at 32px. Glow on every hit adds compositor work, and the light is new motion that UIBeat, travel, and decay must share without fighting.",
+        bible: { zone: "Playing zone", role: "Chassis", fit: "fits", note: "Lit hardware; Ink, Ivory, Brass only." },
+        component: LitKeycapButton,
       },
       {
         id: "burst",
-        letter: "C",
+        letter: "B",
         name: "Burst",
         paper: "plum",
         idea: "The gig-poster price burst: a twelve-point star cut from paper. Each press ratchets it forward one point; because the star repeats every 30°, the resting silhouette never changes.",

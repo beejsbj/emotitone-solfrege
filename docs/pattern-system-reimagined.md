@@ -115,7 +115,7 @@ Patterns you sent with Return were quietly expiring.
   it; only where it lands loads. A phrase you are only looking at stays in its
   own place on the reel, wearing the brass desk edge there.
 - **Play over it: copy.** The first note (or Backspace) onto a Kept or Library
-  phrase makes a copy; the copy moves to the front tagged `NOW · COPY` and the
+  phrase makes a copy; the copy moves to the front tagged `COPY` and the
   original goes back to plain in its place. A Recent phrase simply continues.
 - **Scroll away from what you played: file it.** A take you played into goes
   to Recent, which sits between you and the front, never behind you. Moving
@@ -135,9 +135,17 @@ phrases shared one loop with no front and no back, so "where am I" had no
 answer. The new reel is a **linear tape with a fixed head**:
 
 - **The desk is where the reel is.** The strip the reel is on wears the brass
-  edge (the desk material) and a record lamp that glows while a key is down in
-  it. Looked at, it's tagged `ON DESK · LIBRARY` (or Kept, or Recent) in its own
-  place; played into, it's at the front, tagged `NOW` or `NOW · COPY`.
+  edge (the desk material). No label says "on the desk": the position already
+  does. A small lamp carries the state, beside one short word for where the
+  phrase lives:
+  - a hollow brass ring means it's loaded and you're only looking (`LIBRARY`,
+    `KEPT`, `3M AGO`)
+  - a filled lamp means it's yours (`NOW`, `COPY`), and it glows while a key is
+    down
+  - the lamp's colour is the phrase's root Music Color, never a brand colour,
+    because this is the playing zone
+  The first version used a boxed `ON DESK · LIBRARY` chip, which crowded the
+  instrument and solfège contour off a 390px strip.
 - **Depth = distance from now.** Behind the take: Recent (newest first), then
   Kept, then Library. The reel stops at both ends with a rubber-band instead
   of wrapping.

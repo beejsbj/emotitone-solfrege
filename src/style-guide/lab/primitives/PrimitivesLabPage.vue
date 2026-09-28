@@ -5,6 +5,7 @@ import { noteColorResolverKey, staticNoteColorResolver } from "@/components/prim
 import type { LabPaper } from "@/types/primitivesLab";
 import FocusedPoster from "../../focused/FocusedPoster.vue";
 import "../../focused/focused-page.css";
+import ButtonCompare from "./button/ButtonCompare.vue";
 import { PRIMITIVE_LAB_UNITS } from "./labUnits";
 
 /*
@@ -59,7 +60,22 @@ const stickerColor = (paper: LabPaper) => (paper === "cobalt" ? "ivory" : paper)
           <component :is="unit.bench" />
         </div>
 
-        <div v-else class="plab-unit__sheets">
+        <section v-if="unit.id === 'button' && unit.production" id="lab-button-compare" class="focused-sheet plab-sheet">
+          <header class="focused-sheet__head">
+            <div>
+              <p class="focused-sheet__source">Tap each one · production beside the three directions</p>
+              <h3 class="focused-sheet__title">Side by side</h3>
+            </div>
+          </header>
+          <ButtonCompare
+            :columns="[
+              { name: 'Production', component: unit.production },
+              ...unit.directions.map((direction) => ({ name: direction.name, component: direction.component })),
+            ]"
+          />
+        </section>
+
+        <div v-if="!unit.leaveAlone" class="plab-unit__sheets">
           <article :id="`lab-${unit.id}-current`" class="focused-sheet plab-sheet plab-sheet--current">
             <header class="focused-sheet__head">
               <div>

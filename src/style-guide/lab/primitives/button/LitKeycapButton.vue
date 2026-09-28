@@ -8,7 +8,7 @@ import type { LabButtonProps } from "@/types/primitivesLab";
  * Direction A · Lit Keycap. Keycap and Pad combined: a switch cap on visible
  * side walls with real travel, backlit from inside the switch. Light leaks
  * from under the cap at rest; every hit bottoms the cap out and floods the
- * seam with light that decays like a note's release. Loading orbits the lit lip
+ * seam with light that decays like a note's release. Loading rotates the lit lip
  * itself around the cap.
  */
 const props = withDefaults(defineProps<LabButtonProps>(), {
@@ -62,6 +62,7 @@ function handleClick(event: MouseEvent) {
     @click="handleClick"
   >
     <span ref="bodyRef" class="litcap__body" aria-hidden="true">
+      <span class="litcap__lip" />
       <span class="litcap__switch">
         <span class="litcap__top">
           <span class="litcap__lamp" />
@@ -125,26 +126,60 @@ function handleClick(event: MouseEvent) {
   pointer-events: none;
 }
 
-/* The switch housing. Its light is Pad's: a lit lip under the key at rest.
-   A 2px Ink seam separates the cap from the light, so the lip reads as light
-   leaking from under the housing on every material, not as the wall's edge.
-   Lists keep equal length so the lip, ring, and bloom interpolate smoothly. */
+/* The switch housing: walls, plus Brass's own glow. */
 .litcap__switch {
-  --lip: color-mix(in srgb, var(--light) 80%, transparent);
-  --glow: color-mix(in srgb, var(--light) 70%, transparent);
-  --bloom: color-mix(in srgb, var(--light) 45%, transparent);
   --extra-glow: 0 0 0 transparent;
-  --rest-light:
-    0 2px 0 var(--ink),
-    0 4px 0 var(--lip),
-    0 5px 8px -3px var(--bloom),
-    var(--extra-glow);
   inset: 0;
   background: var(--wall);
-  box-shadow: var(--rest-light);
+  box-shadow: 0 0 0 transparent, var(--extra-glow);
 }
 
 .litcap--brass .litcap__switch { --extra-glow: var(--shadow-glow-brass); }
+
+/*
+ * The lip: one arc of light just outside the housing, past a 2px dark seam, so
+ * it reads as light leaking from under the key on every material. At rest the
+ * arc sits at the bottom. A hit opens it into a full ring that closes back down
+ * to the bottom; loading rotates the same arc around the key.
+ */
+@property --litcap-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 180deg;
+}
+
+@property --litcap-span {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 100deg;
+}
+
+.litcap__lip {
+  --litcap-angle: 180deg;
+  --litcap-span: 100deg;
+  --lip: color-mix(in srgb, var(--light) 85%, transparent);
+  --feather: 14deg;
+  position: absolute;
+  inset: -4px;
+  box-sizing: border-box;
+  padding: 2px;
+  border-radius: calc(var(--radius) + 2px);
+  background: conic-gradient(
+    from calc(var(--litcap-angle) - var(--litcap-span) / 2),
+    transparent 0deg,
+    var(--lip) var(--feather),
+    var(--lip) calc(var(--litcap-span) - var(--feather)),
+    transparent var(--litcap-span),
+    transparent 360deg
+  );
+  /* Keep only a thin ring: the padding box minus the content box. */
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--light) 55%, transparent));
+  pointer-events: none;
+}
 
 .litcap__top {
   position: absolute;
@@ -183,49 +218,58 @@ function handleClick(event: MouseEvent) {
   transition: translate var(--dur-tap) var(--ease-stab);
 }
 
-/* Each hit grows the lip into a ring and lights the face; the release drains
-   the light back down into the lip, like the original Pad. */
-.litcap--hit-a .litcap__switch { animation: litcap-ring-a var(--dur-bounce) var(--ease-brush) both; }
-.litcap--hit-b .litcap__switch { animation: litcap-ring-b var(--dur-bounce) var(--ease-brush) both; }
+/* Each hit opens the lip into a full ring and lights the face; the release
+   closes the ring back down to the bottom lip, like the original Pad. */
+.litcap--hit-a .litcap__lip { animation: litcap-ring-a var(--dur-bounce) var(--ease-brush) both; }
+.litcap--hit-b .litcap__lip { animation: litcap-ring-b var(--dur-bounce) var(--ease-brush) both; }
+.litcap--hit-a .litcap__switch { animation: litcap-glow-a var(--dur-bounce) var(--ease-brush) both; }
+.litcap--hit-b .litcap__switch { animation: litcap-glow-b var(--dur-bounce) var(--ease-brush) both; }
 .litcap--hit-a .litcap__lamp { animation: litcap-lamp-a var(--dur-bounce) var(--ease-brush) both; }
 .litcap--hit-b .litcap__lamp { animation: litcap-lamp-b var(--dur-bounce) var(--ease-brush) both; }
 
 @keyframes litcap-ring-a {
-  0% { box-shadow: 0 0 0 1px var(--ink), 0 0 0 3px var(--light), 0 0 18px var(--glow), var(--extra-glow); }
-  100% { box-shadow: var(--rest-light); }
+  0% { --litcap-span: 360deg; }
+  100% { --litcap-span: 100deg; }
 }
 @keyframes litcap-ring-b {
-  0% { box-shadow: 0 0 0 1px var(--ink), 0 0 0 3px var(--light), 0 0 18px var(--glow), var(--extra-glow); }
-  100% { box-shadow: var(--rest-light); }
+  0% { --litcap-span: 360deg; }
+  100% { --litcap-span: 100deg; }
+}
+@keyframes litcap-glow-a {
+  0% { box-shadow: 0 0 18px color-mix(in srgb, var(--light) 70%, transparent), var(--extra-glow); }
+  100% { box-shadow: 0 0 0 transparent, var(--extra-glow); }
+}
+@keyframes litcap-glow-b {
+  0% { box-shadow: 0 0 18px color-mix(in srgb, var(--light) 70%, transparent), var(--extra-glow); }
+  100% { box-shadow: 0 0 0 transparent, var(--extra-glow); }
 }
 @keyframes litcap-lamp-a { from { opacity: 1; } to { opacity: 0; } }
 @keyframes litcap-lamp-b { from { opacity: 1; } to { opacity: 0; } }
 
 .litcap--loading .litcap__top :deep(svg) { opacity: .3; }
 
-/* Loading moves the lip itself: the light leaking from under the cap
-   circles the switch — bottom, right, top, left — instead of adding a ring. */
-.litcap--loading .litcap__switch { animation: litcap-orbit 900ms linear infinite; }
+/* Loading rotates the lip itself around the key. */
+.litcap--loading .litcap__lip { animation: litcap-orbit 900ms linear infinite; }
 
 @keyframes litcap-orbit {
-  0%, 100% { box-shadow: 0 2px 0 var(--ink), 0 4px 0 var(--lip), 0 5px 8px -3px var(--bloom), var(--extra-glow); }
-  25% { box-shadow: 2px 0 0 var(--ink), 4px 0 0 var(--lip), 5px 0 8px -3px var(--bloom), var(--extra-glow); }
-  50% { box-shadow: 0 -2px 0 var(--ink), 0 -4px 0 var(--lip), 0 -5px 8px -3px var(--bloom), var(--extra-glow); }
-  75% { box-shadow: -2px 0 0 var(--ink), -4px 0 0 var(--lip), -5px 0 8px -3px var(--bloom), var(--extra-glow); }
+  from { --litcap-angle: 180deg; }
+  to { --litcap-angle: 540deg; }
 }
 
 .litcap:focus-visible { outline: 2px solid var(--ivory); outline-offset: 4px; }
 .litcap:disabled { cursor: not-allowed; opacity: .35; }
-.litcap:disabled .litcap__switch { box-shadow: none; }
+.litcap:disabled .litcap__lip { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .litcap__top,
   .litcap:not(:disabled):active .litcap__top { transition: none; }
   .litcap--hit-a .litcap__switch,
   .litcap--hit-b .litcap__switch,
+  .litcap--hit-a .litcap__lip,
+  .litcap--hit-b .litcap__lip,
   .litcap--hit-a .litcap__lamp,
   .litcap--hit-b .litcap__lamp,
-  .litcap--loading .litcap__switch,
+  .litcap--loading .litcap__lip,
   .litcap--brass .litcap__top::after { animation: none; }
 }
 
@@ -233,6 +277,7 @@ function handleClick(event: MouseEvent) {
   .litcap { color: ButtonText; }
   .litcap__switch { background: ButtonText; box-shadow: none; }
   .litcap__top { background: ButtonFace; box-shadow: none; }
-  .litcap__lamp { display: none; }
+  .litcap__lamp,
+  .litcap__lip { display: none; }
 }
 </style>

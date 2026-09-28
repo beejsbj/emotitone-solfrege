@@ -110,18 +110,23 @@ Patterns you sent with Return were quietly expiring.
   is untouched.
 - **Backspace.** Removes the take's last note, whether you played it or it was
   loaded.
-- **Flick the reel: browse.** Drag, wheel, tap a background strip, or Up/Down
-  moves a cursor back through the shelves. Browsing never touches the desk;
-  CodeStrip keeps showing the take.
-- **Brass button: load.** The browsed strip carries a brass "put on desk"
-  button. Loading makes that phrase the take (a Recent phrase moves, a Kept or
-  Library phrase is copied), and the old take slides back into Recent.
-- **Play: come home.** Pressing a key while browsing brings the reel back to
-  the take, because that's where the note is going.
+- **Scroll the reel: load.** Whatever the reel settles on is on the desk:
+  CodeStrip shows it and Play plays it. A flick travels as far as you throw
+  it; only where it lands loads. A phrase you are only looking at stays in its
+  own place on the reel, wearing the brass desk edge there.
+- **Play over it: copy.** The first note (or Backspace) onto a Kept or Library
+  phrase makes a copy; the copy moves to the front tagged `NOW · COPY` and the
+  original goes back to plain in its place. A Recent phrase simply continues.
+- **Scroll away from what you played: file it.** A take you played into goes
+  to Recent, which sits between you and the front, never behind you. Moving
+  the reel never drops notes, even one or two.
+- **Front slot: start fresh.** A blank `NEW TAKE` waits at the front whenever
+  you're looking at something else. Scroll there, or press Return.
 - **Keep from the reel.** Recent strips carry a bookmark. Tapping it moves that
   phrase to Kept without touching the take.
-- **Delete.** Only Recent and Kept phrases can be deleted. Deleting the open
-  take isn't offered; Backspace or Return empties it.
+- **Delete.** Only Recent and Kept phrases can be deleted. Deleting one you are
+  looking at clears the desk to a blank take first. A take you've played into
+  isn't deletable from the reel; Backspace or Return empties it.
 
 ## Visual direction
 
@@ -129,9 +134,10 @@ The reel was a cyclic Rolodex: the defaults, your saves, and the ephemeral
 phrases shared one loop with no front and no back, so "where am I" had no
 answer. The new reel is a **linear tape with a fixed head**:
 
-- **Home slot = the take, always.** It is the only strip with the brass edge
-  (the desk material) and a record lamp that glows while a key is down in it.
-  A copy is tagged `NOW · COPY` and carries its source's name.
+- **The desk is where the reel is.** The strip the reel is on wears the brass
+  edge (the desk material) and a record lamp that glows while a key is down in
+  it. Looked at, it's tagged `ON DESK · LIBRARY` (or Kept, or Recent) in its own
+  place; played into, it's at the front, tagged `NOW` or `NOW · COPY`.
 - **Depth = distance from now.** Behind the take: Recent (newest first), then
   Kept, then Library. The reel stops at both ends with a rubber-band instead
   of wrapping.
@@ -144,16 +150,33 @@ answer. The new reel is a **linear tape with a fixed head**:
   Named phrases show that contour on their meta line instead. In a solfège
   app, the contour *is* the most recognizable name.
 
-### Why browsing and loading are separate
+### Load on scroll, without the swap loop
 
-My first design loaded on every reel step, as the old reel selected on every
-step. With the take pinned to the front, that can't work. The reel moves one
-step per drag, so a drag down would load Recent[0], and the old take would
-become the new Recent[0]. Every drag would swap the same two phrases, and
-nothing deeper would be reachable. Pinning the take and loading on step are
-incompatible, and the pinned take is the point, so loading became an
-explicit action. The cost is one extra tap to load. The gain is that
-browsing is free and safe.
+My first design loaded on every reel step and pinned the take to the front.
+Loading put the old take away into Recent, which sat *behind* the reel's
+position, so one step back and one more step back just swapped the two newest
+phrases. I then separated browsing from loading (a brass "put on desk" button,
+with the reel snapping home when you played). That was safe but not intuitive:
+the take vanished while you browsed, browsing was silent, and the load button
+was one small icon among three.
+
+An independent review (Fable 5.1) found the flawed premise. Loading on scroll
+was never the problem; drawing the take at the front was. Draw a phrase you're
+only *looking at* in its own place, and file a phrase you *played into*
+between you and the front, and nothing ever lands behind you. Scrolling then
+never reorders the reel, and every phrase is reachable. `arrangeReel` in
+`src/domain/phraseBook.ts` is that rule, and a test walks back through every
+shelf and forward again, checking the reel's order never changes.
+
+The same review supplied three supporting rules, all built:
+- a Recent phrase you only looked at keeps its original place when you move on
+- moving the reel never drops notes
+- Return on an untouched copy just clears the desk, with no duplicate
+
+The cost that remains is control sync: loading moves key, mode, BPM, octave,
+and instrument to the phrase. A cold sampled instrument can show the
+"Preparing instrument" overlay on each step. Syncing only on settle is built.
+Warming quietly in the background without the keyboard lock is not built yet.
 
 ## Persistence and migration
 
@@ -194,6 +217,11 @@ browsing is free and safe.
 
 ## Not built yet
 
+- **Quiet instrument warmup while scrolling.** Warm a newly loaded instrument
+  in the background, without the keyboard lock, and switch when it's ready.
+- **One "yours" shelf.** Kept currently sits behind all of Recent, so a phrase
+  you just kept is several steps away. Merge the two into one time-ordered
+  section, with Kept as a tag.
 - **Shelf jump.** A long flick that skips to the next shelf boundary, with a
   haptic tick at each shelf crossing.
 - **Join / split.** Merging two adjacent Recent phrases (when the silence split

@@ -200,18 +200,23 @@ The first design-system pass is closed. Burooj, 2026-09-27: "We can close the de
 
 Burooj on 2026-09-28: the labs reopen the design-system programme, "each lab layer is now a 'step' in the design system. Ending with a final audit again." The Loading + Logo lab (#99, closed as a record) and its Count-In adoption (#104) set the pattern. The pass runs these steps in order:
 
-| Step | Lab (definition) | Adoptions (one PR per pick) | State |
-| --- | --- | --- | --- |
-| 1. Primitives | #102: Button, Sticker, Note, Knob Ring/Arc, Marks, Bar Tape, Tabs | #107 Bar Tape Piano Roll, #108 Tape and Stamp Sticker papers; further picks in progress | Open |
-| 2. Uniques | Code Strip, Joystick, Drawer, Harmonic Geometry. The Brand Logo is already decided | — | Not started |
-| 3. Compounds | Key, Chord, Keyboard, Beat Indicator, Control Bar, Pattern Strip/Reel | — | Not started |
-| 4. Tokens | Only where a reimagined layer above needs a new token or a changed collection; proposals, never silent retuning | — | Not started |
-| 5. Final adoption audit | Re-run the full audit across tokens, guide registrations, imports, the five compositions and other runtime surfaces | — | After steps 1–4 land |
+| Step | Lab (definition) | Run prompt | Adoptions (one PR per pick) | State |
+| --- | --- | --- | --- | --- |
+| 1. Primitives | #102: Button, Sticker, Note, Knob Ring/Arc, Marks, Bar Tape, Tabs, and the drag value | — | #107 Bar Tape Piano Roll, #108 Tape and Stamp Sticker papers, #111 Tabs Marquee edition, #112 LED collar for the Analog Knob, #113 the Readout (DragValue reimagined), #114 Button becomes the Lit Keycap | Open: adoptions merging |
+| 2. Uniques | Code Strip, Joystick, Drawer, Harmonic Geometry. The Brand Logo is already decided | [`lab-prompts/02-uniques.md`](lab-prompts/02-uniques.md) | — | Not started; blocked by step 1 |
+| 3. Compounds | Key, Chord, Keyboard, Beat Indicator, Control Bar, CodeStrip Bar, Pattern Strip/Reel, Overlay Panel Header | [`lab-prompts/03-compounds.md`](lab-prompts/03-compounds.md) | — | Not started; blocked by step 2 |
+| 4. Compositions | PerformanceDeck, Instrument Picker, Config Menu, Stage. The Loading Screen is already decided | [`lab-prompts/04-compositions.md`](lab-prompts/04-compositions.md) | — | Not started; blocked by step 3 |
+| 5. Tokens | Only where a reimagined layer above needs a new token or a changed collection; proposals, never silent retuning. Each lab above proposes its own token needs | — | — | Not started |
+| 6. Final adoption audit | Re-run the full audit across tokens, guide registrations, imports, the five compositions and other runtime surfaces | — | — | After steps 1–5 land |
+
+Each lab's run prompt is a temporary file in `src/style-guide/lab-prompts/`. Burooj starts a step by running `$emotitone-design-system` in a fresh session; the skill runs the first step whose state is not Closed and whose predecessors are all Closed. Steps are sequential. A step closes when its picks have landed; that Plan update marks it Closed and deletes its prompt file.
+
+Burooj, 2026-09-28: Badge stays as the Brass Sticker variant even though the Readout (#113) removes its last production consumer.
 
 Rules for the pass:
 - **A lab is independent and exploratory.** It is based on `main`, makes no production changes, and nothing stacks on it. It mounts each direction beside the real production unit. Once its picks are adopted, it can be closed as a record.
 - **An adoption reopens its unit.** One PR per pick, based on `main`, never containing lab files. It reopens that unit's four gates in this Plan and closes them again with the new definition, authoritative source, real specimen and production adoption, plus a Log receipt. Closed consumers of a changed unit keep their accepted presentation unless the pick says otherwise.
-- **The pass closes like the first one.** It closes only when every step's picks have landed and step 5's audit passes. Until then the pass is open, even though the units not yet reopened stay closed.
+- **The pass closes like the first one.** It closes only when every step's picks have landed and step 6's audit passes. Until then the pass is open, even though the units not yet reopened stay closed.
 
 Burooj accepted the real-device checks the same day: "works well. Tho beat animation isn't all that smooth. But it's okay." Beat Indicator/UIBeat smoothness is a known, accepted limitation, not a blocker.
 

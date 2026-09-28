@@ -29,6 +29,10 @@ Use this truth order when sources disagree:
 
 Raise a material contradiction instead of quietly choosing a convenient source. The external design-system repository, style-guide specimens, screenshots, and old preview HTML are reference evidence, not acceptance authority.
 
+## Reimagining-pass labs
+
+When the Plan's "Reimagining pass" table has a step that is not Closed and all earlier steps are Closed, and Burooj has not named other work, run that step: read its run prompt in `src/style-guide/lab-prompts/` and follow it. A lab session owns a whole layer rather than one unit, and it builds exploratory lab PRs before any adoption; that overrides the one-unit and "no implementation before acceptance" rules below for the lab itself. Each adoption that follows a pick still obeys this skill's Formalize, Verify, and lineage rules. If the next step is blocked by an open earlier step, say which one and stop.
+
 ## Hold one unit
 
 One session owns one design unit. It starts at that unit's earliest unresolved mode—**Define**, **Formalize and adopt**, or **Verify and hand off**—and may continue through later modes once their gates are genuinely met. Derive the unit from the Plan unless Burooj names it.

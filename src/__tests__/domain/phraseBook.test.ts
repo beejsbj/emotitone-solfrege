@@ -442,11 +442,42 @@ describe("phrase book: shelves and editing", () => {
     expect(notes[notes.length - 1].pressTime).toBe(2000);
   });
 
-  it("titles unnamed phrases by their solfège contour", () => {
+  it("describes a phrase by its solfège contour", () => {
     play([0, 2, 4, 2, 0, 4]);
     expect(phraseContour(getTake(book))).toBe("Do Mi Sol Mi Do…");
-    expect(phraseTitle(getTake(book))).toBe("Do Mi Sol Mi Do…");
-    expect(phraseTitle({ notes: [], context: C_MAJOR })).toBe("New take");
+  });
+
+  it("gives a take a stable number on its first note, never a moving title", () => {
+    expect(phraseTitle(getTake(book))).toBe("New take");
+    tap(0);
+    expect(phraseTitle(getTake(book))).toBe("Take 1");
+    play([2, 4, 2]);
+    expect(phraseTitle(getTake(book))).toBe("Take 1");
+    closeTake(book, clock, C_MAJOR, newId);
+    expect(phraseTitle(getTake(book))).toBe("New take");
+    tap(4);
+    expect(phraseTitle(getTake(book))).toBe("Take 2");
+  });
+
+  it("titles a copy by its source, not by a new number", () => {
+    const library = [libraryPhrase()];
+    openPhrase(book, "library-arpeggio", library, clock, newId);
+    tap(4);
+    expect(getTake(book).number).toBeUndefined();
+    expect(phraseTitle(getTake(book))).toBe("Arpeggio");
+  });
+
+  it("numbers phrases saved before numbers existed, oldest first", () => {
+    play([0, 1, 2]);
+    closeTake(book, clock, C_MAJOR, newId);
+    play([3, 4, 5]);
+    closeTake(book, clock, C_MAJOR, newId);
+    for (const phrase of book.phrases) delete phrase.number;
+    (book as Partial<PhraseBook>).takeCounter = undefined;
+    ensureSingleTake(book, C_MAJOR, clock, newId);
+    const numbers = shelveBook(book, []).recent.map((phrase) => phrase.number);
+    expect(numbers).toEqual([2, 1]);
+    expect(book.takeCounter).toBe(2);
   });
 });
 

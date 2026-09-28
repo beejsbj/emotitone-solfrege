@@ -157,10 +157,11 @@ answer. The new reel is a **linear tape with a fixed head**:
   (`NOW`, `RECENT · 3m`, `KEPT`, `LIBRARY`). One vertical gesture reaches
   everything, which suits a drawer only one strip tall, and the tag tells you
   where you are on the tape.
-- **Names that sound like the music.** Unnamed phrases are titled by their
-  first few solfège syllables (`Do Mi Sol Mi Do…`), not by today's date.
-  Named phrases show that contour on their meta line instead. In a solfège
-  app, the contour *is* the most recognizable name.
+- **Stable names, solfège underneath.** A take gets a number the moment you
+  first play into it (`Take 7`) and keeps it; a copy keeps its source's name.
+  Every phrase shows its first few solfège syllables (`Do Mi Sol Mi Do…`) on
+  the meta line. An earlier version used the contour *as* the title, but that
+  rewrote the title on every note and read as broken text.
 
 ### Load on scroll, without the swap loop
 

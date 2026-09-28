@@ -35,8 +35,10 @@ export interface Phrase {
   /** Stable from birth; never derived from notes. */
   id: string;
   shelf: PhraseShelf;
-  /** User-given name. Absent means "title by solfège contour". */
+  /** User-given name. */
   name?: string;
+  /** "Take 7": given when you first play into a fresh take, never changed. */
+  number?: number;
   /** Notes in phrase-relative ms: the earliest press sits at 0. */
   notes: PatternNote[];
   context: PhraseContext;
@@ -75,6 +77,8 @@ export interface PhraseBook {
   recorder: TakeRecorder;
   /** Renames of library phrases, by library id. */
   libraryNames: Record<string, string>;
+  /** Last take number handed out. */
+  takeCounter: number;
 }
 
 /** A pressed note that has not been released yet. Never persisted. */

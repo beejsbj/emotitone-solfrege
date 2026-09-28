@@ -94,6 +94,7 @@ describe("legacy pattern migration", () => {
     expect(recent).toHaveLength(2);
     expect(recent[0].notes.map((entry) => entry.id)).toEqual(["n6", "n7", "n8"]);
     expect(recent[0].context).toMatchObject({ key: "G", instrument: "kalimba", bpm: 90 });
+    expect(recent.map((phrase) => phrase.number)).toEqual([2, 1]);
   });
 
   it("does not duplicate a log slice that was already kept", () => {

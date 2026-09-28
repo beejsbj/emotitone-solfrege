@@ -102,6 +102,7 @@ export function createPhraseBook(
     takeId: take.id,
     recorder: freshRecorder("fresh"),
     libraryNames: {},
+    takeCounter: 0,
   };
 }
 
@@ -135,6 +136,7 @@ export function ensureSingleTake(
     extra.shelf = "recent";
     extra.closedAt = now;
   }
+  backfillTakeNumbers(book);
   if (chosen) {
     book.takeId = chosen.id;
     book.recorder ??= freshRecorder("fresh", chosen.duration);
@@ -314,8 +316,39 @@ export function phraseContour(phrase: Pick<Phrase, "notes" | "context">): string
 }
 
 /** A user's name if given; otherwise the phrase names itself by its contour. */
-export function phraseTitle(phrase: Pick<Phrase, "name" | "notes" | "context">): string {
-  return phrase.name || (phrase.notes.length ? phraseContour(phrase) : "New take");
+/**
+ * A stable title: the user's name, a copy's source name, or "Take 7". Never
+ * the solfège contour: a title that rewrote itself on every note read as
+ * broken. The contour belongs on the meta line.
+ */
+export function phraseTitle(
+  phrase: Pick<Phrase, "name" | "number" | "derivedFrom">,
+): string {
+  return phrase.name
+    || phrase.derivedFrom?.name
+    || (phrase.number ? `Take ${phrase.number}` : "New take");
+}
+
+/**
+ * Number phrases saved before take numbers existed (older storage, migrated
+ * legacy phrases), oldest first, so none of them reads as "New take".
+ */
+export function backfillTakeNumbers(book: PhraseBook): void {
+  book.takeCounter ??= 0;
+  const unnumbered = book.phrases
+    .filter((phrase) => !phrase.number && !phrase.name && !phrase.derivedFrom && phrase.notes.length)
+    .sort((left, right) => left.createdAt - right.createdAt);
+  for (const phrase of unnumbered) {
+    book.takeCounter += 1;
+    phrase.number = book.takeCounter;
+  }
+}
+
+/** Give a fresh take its number the moment it first gets a note. */
+function numberTake(book: PhraseBook, take: Phrase): void {
+  if (take.number || take.name || take.derivedFrom) return;
+  book.takeCounter = (book.takeCounter ?? 0) + 1;
+  take.number = book.takeCounter;
 }
 
 // ─── Recording ───────────────────────────────────────────────────────────────
@@ -365,6 +398,7 @@ export function pressNote(
     }
   }
 
+  numberTake(book, take);
   if (!takeIsLive(book, held)) {
     if (take.notes.length === 0) take.context = cloneContext(press.context);
     // Seam: live input continues at the phrase's end, whenever it arrives.

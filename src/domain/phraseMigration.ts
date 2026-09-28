@@ -6,6 +6,7 @@
 import type { LogNote, Pattern } from "@/types/patterns";
 import type { Phrase, PhraseBook, PhraseContext } from "@/types/phrases";
 import {
+  backfillTakeNumbers,
   createId,
   createPhraseBook,
   DEFAULT_PHRASE_BOOK_CONFIG,
@@ -126,5 +127,6 @@ export function migrateLegacyPatterns(
   }
 
   pruneRecent(book, options.now, DEFAULT_PHRASE_BOOK_CONFIG);
+  backfillTakeNumbers(book);
   return book;
 }

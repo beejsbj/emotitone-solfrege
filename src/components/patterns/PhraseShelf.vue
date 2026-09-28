@@ -29,7 +29,12 @@ import { useCodeStripStrudel } from "@/composables/useCodeStripStrudel";
 import { toStrudelSound } from "@/composables/useStrudel";
 import { CHROMATIC_NOTES } from "@/data";
 import { displayInstrumentName } from "@/data/instruments";
-import { phraseContour, phraseStamp, type ReelEntry } from "@/domain/phraseBook";
+import {
+  phraseContour,
+  phraseStamp,
+  phraseTitle,
+  type ReelEntry,
+} from "@/domain/phraseBook";
 import { logNotesToStrudel } from "@/services/StrudelNotation";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
@@ -205,7 +210,8 @@ function reelItem(entry: ReelEntry, isFront: boolean): PatternReelItem {
     ? phrasesStore.findPhrase(phrase.derivedFrom.id)
     : undefined;
   const contour = phrase.notes.length ? phraseContour(phrase) : "";
-  const title = source?.name || phrase.name || phrase.derivedFrom?.name || contour || "New take";
+  // A stable title; the solfège contour lives on the meta line below it.
+  const title = source?.name || phraseTitle(phrase);
   const { key, mode, instrument, octave } = phrase.context;
   const ordered = [...phrase.notes].sort((left, right) => left.pressTime - right.pressTime);
   return {

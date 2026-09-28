@@ -85,7 +85,6 @@ const brandColors = [
   { label: "Tomato", value: "tomato" },
   { label: "Mustard", value: "mustard" },
   { label: "Plum", value: "plum" },
-  { label: "Cobalt", value: "cobalt" },
   { label: "Pine", value: "pine" },
   { label: "Bone", value: "bone" },
 ] as const;

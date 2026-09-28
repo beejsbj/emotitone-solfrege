@@ -54,7 +54,6 @@ export type StickerPaperColor =
   | "brass-glow"
   | "brass-sheen-glow"
   | "tomato"
-  | "cobalt"
   | "pine"
   | "plum"
   | "bone"
@@ -236,12 +235,6 @@ const stickerStyle = computed<CSSProperties>(() =>
 .sticker--color-tomato {
   --sticker-accent: var(--tomato);
   --sticker-fill: var(--tomato);
-  --sticker-fill-fg: var(--ivory);
-}
-
-.sticker--color-cobalt {
-  --sticker-accent: var(--cobalt);
-  --sticker-fill: var(--cobalt);
   --sticker-fill-fg: var(--ivory);
 }
 

@@ -109,7 +109,8 @@ Patterns you sent with Return were quietly expiring.
   note opens a fresh take. The split happens when you play again, not while
   you're thinking.
 - **Change key/mode/instrument, then play.** Same thing: a new context opens a
-  new take. Before you play, the controls re-skin the take instead.
+  new take. Before you play, the controls re-skin an untouched Kept or Library
+  copy instead; a Recent phrase on the desk is never re-skinned.
 - **Return: done.** The take is filed (to Kept, exempt from the storage cap)
   and a fresh empty take opens. Nothing else changes.
 - **Backspace.** Removes the take's last note, whether you played it or it was

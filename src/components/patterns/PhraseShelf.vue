@@ -251,6 +251,9 @@ const reelItems = computed(() => {
 
 // An armed delete means "delete what I armed". If the desk changes under it
 // (a new take, or you played into it), that meaning no longer holds.
+// Keep this watcher pre-flush (the default): on a confirmed delete of a deeper
+// item the reel changes takeId before emitting delete, and the delete must run
+// before this cancels the arm.
 watch(
   () => [phrasesStore.takeId, phrasesStore.isTakeTouched],
   () => {

@@ -101,6 +101,7 @@ const WHEEL_UNWIND_DISTANCE = 28.8;
 const WHEEL_SETTLE_DURATION_MS = 220;
 const WHEEL_OPEN_HOLD_MS = 900;
 const WHEEL_REBOUND_DURATION_MS = 200;
+const MAX_FLICK_STEPS = 5;
 const DEFAULT_REEL_LABEL = "Pattern reel. Use up and down arrows to change the selected pattern.";
 
 const props = withDefaults(defineProps<{
@@ -699,7 +700,11 @@ function finishPointer(event: PointerEvent, cancelled = false) {
   }
 
   const direction = projectedDelta > 0 ? -1 : 1;
-  commitIndex(selectedIndex.value + direction, "drag");
+  // A linear reel travels as far as you throw it; only where it lands commits.
+  const steps = props.cyclic
+    ? 1
+    : Math.max(1, Math.min(MAX_FLICK_STEPS, Math.round(Math.abs(projectedDelta) / WHEEL_STEP)));
+  commitIndex(selectedIndex.value + direction * steps, "drag");
 }
 
 function handlePointerUp(event: PointerEvent) {

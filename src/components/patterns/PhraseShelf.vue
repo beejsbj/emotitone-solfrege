@@ -2,12 +2,11 @@
   <PatternReel
     class="phrase-shelf"
     :items="reelItems"
-    :selected-id="cursorId"
+    :selected-id="deskItemId"
     :entry-signal="entrySignal"
     :cyclic="false"
-    label="Phrase reel. The front strip is what you are playing into. Up and down arrows browse older phrases."
-    @commit="browse"
-    @load="loadPhrase"
+    label="Phrase reel. The selected strip is what you play into. Up and down arrows load older phrases; the front slot starts a new take."
+    @commit="choose"
     @keep="keepPhrase"
     @delete="deletePhrase"
     @copy="copyNotation"
@@ -31,7 +30,7 @@ import { useCodeStripStrudel } from "@/composables/useCodeStripStrudel";
 import { toStrudelSound } from "@/composables/useStrudel";
 import { CHROMATIC_NOTES } from "@/data";
 import { displayInstrumentName } from "@/data/instruments";
-import { phraseContour } from "@/domain/phraseBook";
+import { phraseContour, type ReelEntry } from "@/domain/phraseBook";
 import { logNotesToStrudel } from "@/services/StrudelNotation";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
@@ -70,34 +69,37 @@ onBeforeUnmount(() => {
   clearInterval(clockTimer);
 });
 
-// ─── Browse cursor ───────────────────────────────────────────────────────────
-// The reel browses; it does not load. The cursor is where the reel is looking.
-// It returns to the take whenever the take is what matters: a new take opens,
-// or you play into it.
-const browsedId = ref<string | null>(null);
+// ─── The desk ────────────────────────────────────────────────────────────────
+// Whatever the reel is on is on the desk: scrolling loads. A phrase you only
+// look at stays in its own place, so scrolling never reorders the reel; the
+// first note you play onto it makes a copy that moves to the front.
+const BLANK_ID = "phrase-shelf-blank";
 const entrySignal = ref(0);
 
-const cursorId = computed(() => {
-  const id = browsedId.value;
-  return id && reelItems.value.some((item) => item.id === id) ? id : phrasesStore.takeId;
+// The reel is always on the desk, wherever the desk is drawn.
+const deskItemId = computed(() => phrasesStore.takeId);
+
+/** The take being played into sits at the front (not merely looked at). */
+const deskAtFront = computed(() => {
+  const front = phrasesStore.reel[phrasesStore.reel.length - 1];
+  return front.role === "desk" && Boolean(front.phrase?.notes.length);
 });
 
-watch(() => phrasesStore.takeId, (takeId, previousTakeId) => {
-  const atTake = !browsedId.value || browsedId.value === previousTakeId;
-  browsedId.value = null;
-  // A fresh take arrives from below and pushes the deck back.
-  if (atTake && phrasesStore.take.notes.length <= 1 && !phrasesStore.take.derivedFrom) {
-    entrySignal.value += 1;
-  }
-});
-// Your notes always go to the take, so playing brings the reel home.
+// Return, or a silence that splits the take: a fresh take arrives from below
+// and pushes the deck back. Scrolling to the blank slot needs no entrance.
 watch(
-  () => [phrasesStore.isTakeSounding, phrasesStore.lastLiveNoteId],
-  () => { browsedId.value = null; },
+  () => ({ id: phrasesStore.takeId, front: deskAtFront.value }),
+  (next, previous) => {
+    if (next.id === previous.id || !previous.front) return;
+    if (!phrasesStore.take.derivedFrom && phrasesStore.take.notes.length <= 1) {
+      entrySignal.value += 1;
+    }
+  },
 );
 
-function browse(id: string) {
-  browsedId.value = id === phrasesStore.takeId ? null : id;
+function choose(id: string) {
+  if (id === BLANK_ID) phrasesStore.startBlankTake();
+  else if (id !== phrasesStore.takeId) loadPhrase(id);
 }
 
 // ─── Presentation ────────────────────────────────────────────────────────────
@@ -117,20 +119,24 @@ function age(stamp: number | undefined) {
   return hours < 24 ? `${hours}h` : `${Math.floor(hours / 24)}d`;
 }
 
-function shelfTag(phrase: Phrase) {
-  if (phrase.shelf === "take") return phrase.derivedFrom ? "Now · copy" : "Now";
-  if (phrase.shelf === "recent") return `Recent · ${age(phrase.closedAt)}`;
-  return phrase.shelf === "kept" ? "Kept" : "Library";
+function shelfTag(phrase: Phrase, inPlace: boolean) {
+  if (phrase.shelf === "take" && !inPlace) return phrase.derivedFrom ? "Now · copy" : "Now";
+  const origin = phrase.shelf === "take" ? phrasesStore.book.recorder.origin : phrase.shelf;
+  const shelf = origin === "recent"
+    ? `Recent · ${age(phrase.closedAt)}`
+    : origin === "kept" ? "Kept" : "Library";
+  return inPlace ? `On desk · ${shelf}` : shelf;
 }
 
-function actionsFor(phrase: Phrase, title: string): PatternStripAction[] {
+function actionsFor(phrase: Phrase, title: string, inPlace: boolean): PatternStripAction[] {
   const copied = copiedId.value === phrase.id;
   const copy: PatternStripAction = {
     kind: "copy",
     label: copied ? `Copied ${title}` : `Copy ${title} Strudel code`,
     done: copied,
   };
-  const load: PatternStripAction = { kind: "load", label: `Put ${title} on the desk` };
+  const open: PatternStripAction = { kind: "open", label: `Open ${title} in Strudel` };
+  const keep: PatternStripAction = { kind: "keep", label: `Keep ${title}` };
   const armed = deleteArmedId.value === phrase.id;
   const remove: PatternStripAction = {
     kind: "delete",
@@ -138,36 +144,66 @@ function actionsFor(phrase: Phrase, title: string): PatternStripAction[] {
     done: armed,
   };
 
-  switch (phrase.shelf) {
-    case "take": {
+  // A phrase you're only looking at offers what its own shelf offers.
+  const shelf = phrase.shelf === "take" && inPlace
+    ? phrasesStore.book.recorder.origin
+    : phrase.shelf;
+  switch (shelf) {
+    case "take":
+    case "fresh": {
       const playable = hasPlayableCode.value;
       return [
         {
-          kind: "keep",
-          label: phrase.notes.length ? `Keep ${title}` : "Play notes before keeping the take",
+          ...keep,
+          label: phrase.notes.length ? keep.label : "Play notes before keeping the take",
           disabled: !phrase.notes.length,
         },
         { ...copy, disabled: !playable },
-        { kind: "open", label: `Open ${title} in Strudel`, disabled: !playable },
+        { ...open, disabled: !playable },
       ];
     }
     case "recent":
-      return [{ kind: "keep", label: `Keep ${title}` }, remove, load];
+      return [keep, remove, copy];
     case "kept":
-      return [remove, copy, load];
+      return [remove, copy, open];
     case "library":
-      return [copy, { kind: "open", label: `Open ${title} in Strudel` }, load];
+      return [keep, copy, open];
   }
 }
 
-function reelItem(phrase: Phrase): PatternReelItem {
+function blankItem(): PatternReelItem {
+  const { instrument } = phrasesStore.take.context;
+  return {
+    id: BLANK_ID,
+    presentationKey: "blank",
+    name: "New take",
+    instrumentIcon: instrumentIconFor(instrument),
+    instrumentLabel: displayInstrumentName(instrument),
+    rootLabel: "",
+    spine: "var(--ink-5)",
+    barTape: [],
+    shelfTag: "Blank",
+    canRename: false,
+    actions: [],
+  };
+}
+
+function reelItem(entry: ReelEntry, isFront: boolean): PatternReelItem {
+  const phrase = entry.phrase;
+  if (!phrase) return blankItem();
+  const isDesk = entry.role === "desk";
+  const inPlace = isDesk && !isFront;
+  // A looked-at copy shows its source's current name (renames go to the source).
+  const source = inPlace && phrase.derivedFrom
+    ? phrasesStore.findPhrase(phrase.derivedFrom.id)
+    : undefined;
   const contour = phrase.notes.length ? phraseContour(phrase) : "";
-  const title = phrase.name || phrase.derivedFrom?.name || contour || "New take";
+  const title = source?.name || phrase.name || phrase.derivedFrom?.name || contour || "New take";
   const { key, mode, instrument, octave } = phrase.context;
   const ordered = [...phrase.notes].sort((left, right) => left.pressTime - right.pressTime);
   return {
     id: phrase.id,
-    presentationKey: `phrase:${phrase.id}`,
+    presentationKey: entry.key,
     name: title,
     detail: contour && contour !== title ? contour : undefined,
     instrumentIcon: instrumentIconFor(instrument),
@@ -180,23 +216,18 @@ function reelItem(phrase: Phrase): PatternReelItem {
       octave,
     ),
     barTape: ordered.map((note) => ({ color: noteColor(note, phrase), durationMs: note.duration })),
-    tone: phrase.shelf as PatternStripTone,
-    shelfTag: shelfTag(phrase),
-    recording: phrase.shelf === "take" && phrasesStore.isTakeSounding,
+    tone: isDesk ? "take" : phrase.shelf as PatternStripTone,
+    shelfTag: shelfTag(phrase, inPlace),
+    recording: isDesk && phrasesStore.isTakeSounding,
     canRename: true,
-    actions: actionsFor(phrase, title),
+    actions: actionsFor(phrase, title, inPlace),
   };
 }
 
-/** Deepest first: Library, Kept, Recent, then the take at the front. */
+/** Deepest first: Library, Kept, Recent, then the front slot. */
 const reelItems = computed(() => {
-  const { take, recent, kept, library } = phrasesStore.shelves;
-  return [
-    ...[...library].reverse(),
-    ...[...kept].reverse(),
-    ...[...recent].reverse(),
-    take,
-  ].map(reelItem);
+  const reel = phrasesStore.reel;
+  return reel.map((entry, index) => reelItem(entry, index === reel.length - 1));
 });
 
 watch([deleteArmedId, () => reelItems.value.map((item) => item.id)], ([armedId, ids]) => {
@@ -214,7 +245,6 @@ function loadPhrase(id: string) {
     octave: keyboardStore.keyboardConfig.mainOctave,
   };
   if (!phrasesStore.openPhrase(id)) return;
-  browsedId.value = null;
   const changed: PatternControl[] = [];
   if (musicStore.currentKey !== before.key) changed.push("key");
   if (musicStore.currentMode !== before.mode) changed.push("mode");
@@ -224,9 +254,7 @@ function loadPhrase(id: string) {
 }
 
 function keepPhrase(id: string) {
-  const keptId = phrasesStore.keepPhrase(id);
-  // Keeping from the reel follows the phrase to its new shelf.
-  if (keptId && id !== phrasesStore.takeId && browsedId.value) browsedId.value = keptId;
+  phrasesStore.keepPhrase(id);
 }
 
 function renamePhrase(id: string, name: string) {

@@ -2,42 +2,40 @@
   <AnatomyDisplay
     title="Phrase Shelf &middot; Linear PatternReel"
     :features="features"
-    caption="The front strip is always the take: the one phrase your notes go into. Behind it, by distance from now: Recent, Kept, Library. Browsing moves through the shelves without touching the desk; the brass button puts a phrase on the desk and the old take slides back into Recent."
+    caption="Whatever the reel is on is on the desk: scrolling loads. A phrase you only look at stays in its own place and wears the brass desk edge there. Play a note onto it and a copy is made at the front, while the original goes back to plain. The blank slot at the front starts a new take."
   >
     <template #hero>
       <div class="phrase-shelf-specimen">
         <PatternReel
           :items="heroItems"
-          :selected-id="heroCursor"
+          :selected-id="deskId"
           :cyclic="false"
           :entry-signal="heroEntry"
-          @commit="heroCursor = $event"
-          @load="load"
-          @keep="keep"
+          @commit="choose"
+          @keep="report('Keep', $event)"
           @delete="report('Delete', $event)"
           @copy="report('Copy', $event)"
           @open-strudel="report('Open in Strudel', $event)"
         />
-        <output aria-live="polite">{{ lastAction }}</output>
+        <div class="phrase-shelf-specimen__controls">
+          <button type="button" @click="playNote">Play a note</button>
+          <output aria-live="polite">{{ lastAction }}</output>
+        </div>
       </div>
     </template>
 
     <VariantGrid title="States">
+      <VariantCell caption="Looking at Library · on the desk in place" stage="ink3">
+        <PatternReel :items="lookingItems" :selected-id="'library-1'" :cyclic="false" />
+      </VariantCell>
+      <VariantCell caption="Played over it · the copy moves to the front" stage="ink3">
+        <PatternReel :items="copiedItems" :selected-id="'copy-1'" :cyclic="false" />
+      </VariantCell>
       <VariantCell caption="Take · recording lamp lit" stage="ink3">
-        <PatternReel
-          :items="recordingItems"
-          :selected-id="recordingItems[recordingItems.length - 1].id"
-          :cyclic="false"
-        />
+        <PatternReel :items="recordingItems" :selected-id="'take-1'" :cyclic="false" />
       </VariantCell>
-      <VariantCell caption="Browsing · a Recent phrase" stage="ink3">
-        <PatternReel :items="staticItems" :selected-id="'recent-1'" :cyclic="false" />
-      </VariantCell>
-      <VariantCell caption="Browsing · Library, a copy source" stage="ink3">
-        <PatternReel :items="staticItems" :selected-id="'library-1'" :cyclic="false" />
-      </VariantCell>
-      <VariantCell caption="Empty take after Return" stage="ink3">
-        <PatternReel :items="emptyItems" :selected-id="'take-empty'" :cyclic="false" />
+      <VariantCell caption="Blank front · start a new take" stage="ink3">
+        <PatternReel :items="blankItems" :selected-id="'blank'" :cyclic="false" />
       </VariantCell>
     </VariantGrid>
   </AnatomyDisplay>
@@ -59,42 +57,41 @@ import VariantGrid from "../guide/VariantGrid.vue";
 
 const { getStaticPrimaryColorByScaleIndex, getStaticPrimaryColorByPitchClass } = useMusicColor();
 
+type Shelf = "recent" | "kept" | "library";
+
 interface SpecimenPhrase {
   id: string;
-  shelf: PatternStripTone;
+  shelf: Shelf | "take";
   name: string;
   contour?: string;
   instrument: string;
   label: string;
   degrees: Array<[scaleIndex: number, durationMs: number]>;
-  tag?: string;
 }
 
-const TAGS: Record<PatternStripTone, string> = {
-  take: "Now",
-  recent: "Recent · 4m",
-  kept: "Kept",
-  library: "Library",
-};
+const SHELF_TAGS: Record<Shelf, string> = { recent: "Recent · 4m", kept: "Kept", library: "Library" };
 
-function actions(phrase: SpecimenPhrase): PatternStripAction[] {
-  const load = { kind: "load" as const, label: `Put ${phrase.name} on the desk` };
-  if (phrase.shelf === "take") {
-    const empty = !phrase.degrees.length;
-    return [
-      { kind: "keep", label: `Keep ${phrase.name}`, disabled: empty },
-      { kind: "copy", label: `Copy ${phrase.name}`, disabled: empty },
-      { kind: "open", label: `Open ${phrase.name} in Strudel`, disabled: empty },
-    ];
-  }
-  if (phrase.shelf === "recent") return [{ kind: "keep", label: `Keep ${phrase.name}` }, { kind: "delete", label: `Delete ${phrase.name}` }, load];
-  if (phrase.shelf === "kept") return [{ kind: "delete", label: `Delete ${phrase.name}` }, { kind: "copy", label: `Copy ${phrase.name}` }, load];
-  return [{ kind: "copy", label: `Copy ${phrase.name}` }, { kind: "open", label: `Open ${phrase.name} in Strudel` }, load];
+function actions(shelf: Shelf | "take", name: string): PatternStripAction[] {
+  const copy = { kind: "copy" as const, label: `Copy ${name}` };
+  const open = { kind: "open" as const, label: `Open ${name} in Strudel` };
+  const keep = { kind: "keep" as const, label: `Keep ${name}` };
+  const remove = { kind: "delete" as const, label: `Delete ${name}` };
+  if (shelf === "recent") return [keep, remove, copy];
+  if (shelf === "kept") return [remove, copy, open];
+  return [keep, copy, open];
 }
 
-function item(phrase: SpecimenPhrase, recording = false): PatternReelItem {
+/** role: on the desk in its own place, on the desk at the front, or just shelved. */
+function item(
+  phrase: SpecimenPhrase,
+  role: "shelf" | "in-place" | "front",
+  recording = false,
+): PatternReelItem {
+  const onDesk = role !== "shelf";
+  const shelf = phrase.shelf === "take" ? null : phrase.shelf;
   return {
     id: phrase.id,
+    presentationKey: phrase.id,
     name: phrase.name,
     detail: phrase.contour,
     instrumentIcon: instrumentIconFor(phrase.instrument),
@@ -105,13 +102,29 @@ function item(phrase: SpecimenPhrase, recording = false): PatternReelItem {
       color: getStaticPrimaryColorByScaleIndex(scaleIndex, "major", "C", 4),
       durationMs,
     })),
-    tone: phrase.shelf,
-    shelfTag: phrase.tag ?? TAGS[phrase.shelf],
+    tone: onDesk ? "take" : (shelf as PatternStripTone),
+    shelfTag: role === "front"
+      ? (phrase.id.startsWith("copy") ? "Now · copy" : "Now")
+      : role === "in-place" && shelf ? `On desk · ${SHELF_TAGS[shelf]}` : SHELF_TAGS[shelf ?? "recent"],
     recording,
     canRename: true,
-    actions: actions(phrase),
+    actions: actions(shelf ?? "library", phrase.name),
   };
 }
+
+const blank: PatternReelItem = {
+  id: "blank",
+  presentationKey: "blank",
+  name: "New take",
+  instrumentIcon: instrumentIconFor("triangle"),
+  instrumentLabel: "Triangle",
+  rootLabel: "",
+  spine: "var(--ink-5)",
+  barTape: [],
+  shelfTag: "Blank",
+  canRename: false,
+  actions: [],
+};
 
 const library: SpecimenPhrase = {
   id: "library-1", shelf: "library", name: "Twinkle Twinkle Little Star",
@@ -130,80 +143,70 @@ const take: SpecimenPhrase = {
   id: "take-1", shelf: "take", name: "La Sol Fa Mi", instrument: "triangle",
   label: "Triangle", degrees: [[5, 180], [4, 180], [3, 180], [2, 360]],
 };
-const emptyTake: SpecimenPhrase = {
-  id: "take-empty", shelf: "take", name: "New take", instrument: "triangle",
-  label: "Triangle", degrees: [],
+const libraryCopy: SpecimenPhrase = {
+  ...library, id: "copy-1", shelf: "take",
+  degrees: [...library.degrees, [2, 300]],
 };
 
-const staticItems = [library, kept, recent, take].map((phrase) => item(phrase));
-const recordingItems = [library, kept, recent].map((phrase) => item(phrase)).concat(item(take, true));
-const emptyItems = [library, kept, { ...recent, id: "recent-2" }, emptyTake].map((phrase) => item(phrase));
+const lookingItems = [item(library, "in-place"), item(kept, "shelf"), item(recent, "shelf"), blank];
+const copiedItems = [item(library, "shelf"), item(kept, "shelf"), item(recent, "shelf"), item(libraryCopy, "front")];
+const recordingItems = [item(library, "shelf"), item(kept, "shelf"), item(recent, "shelf"), item(take, "front", true)];
+const blankItems = [item(library, "shelf"), item(kept, "shelf"), item(recent, "shelf"), blank];
 
-// Hero: a tiny simulation of the shelf rules, no store.
-const shelf = ref<SpecimenPhrase[]>([library, kept, recent, take]);
-const heroCursor = ref(take.id);
+// Hero: a tiny simulation of the tape-head rules, no store.
+const shelved = ref<SpecimenPhrase[]>([library, kept, recent]);
+const front = ref<SpecimenPhrase | null>(take);
+const lookingAt = ref<string | null>(null);
 const heroEntry = ref(0);
-const lastAction = ref("Ready · the take is on the desk");
-const heroItems = computed(() => shelf.value.map((phrase) => item(phrase)));
+const lastAction = ref("Ready · La Sol Fa Mi is on the desk");
+
+const deskId = computed(() => lookingAt.value ?? front.value?.id ?? "blank");
+const heroItems = computed(() => [
+  ...shelved.value.map((phrase) => item(phrase, phrase.id === lookingAt.value ? "in-place" : "shelf")),
+  lookingAt.value || !front.value ? blank : item(front.value, "front"),
+]);
+
+/** Scrolling loads. Leaving a played take files it into Recent, ahead of you. */
+function choose(id: string) {
+  if (id === deskId.value) return;
+  if (front.value && !lookingAt.value) {
+    const filed: SpecimenPhrase = { ...front.value, shelf: "recent" };
+    shelved.value = [...shelved.value, filed];
+    front.value = null;
+  }
+  lookingAt.value = id === "blank" ? null : id;
+  const phrase = shelved.value.find((candidate) => candidate.id === id);
+  lastAction.value = phrase ? `On the desk · ${phrase.name} (only looking)` : "Blank · a new take";
+}
+
+/** The first note makes a copy at the front; the original goes back to plain. */
+function playNote() {
+  const source = shelved.value.find((phrase) => phrase.id === lookingAt.value);
+  if (source) {
+    front.value = { ...source, id: `copy-${Date.now()}`, shelf: "take", degrees: [...source.degrees, [2, 300]] };
+    lookingAt.value = null;
+    heroEntry.value += 1;
+    lastAction.value = `Played over ${source.name} · the copy is at the front`;
+    return;
+  }
+  const current = front.value ?? { ...take, id: `take-${Date.now()}`, name: "Do", degrees: [] };
+  front.value = { ...current, degrees: [...current.degrees, [0, 250]] };
+  lastAction.value = `Played into ${front.value.name}`;
+}
 
 function report(action: string, id: string) {
-  const phrase = shelf.value.find((candidate) => candidate.id === id);
+  const phrase = [...shelved.value, front.value].find((candidate) => candidate?.id === id);
   lastAction.value = `${action} · ${phrase?.name ?? id}`;
-}
-
-function load(id: string) {
-  const chosen = shelf.value.find((phrase) => phrase.id === id);
-  const current = shelf.value.find((phrase) => phrase.shelf === "take");
-  if (!chosen || !current || chosen === current) return;
-  const rest = shelf.value.filter((phrase) => phrase !== current && phrase !== chosen);
-  const retired: SpecimenPhrase = { ...current, shelf: "recent", tag: "Recent · just now" };
-  const incoming: SpecimenPhrase = chosen.shelf === "recent"
-    ? { ...chosen, shelf: "take", tag: undefined }
-    : { ...chosen, id: `${chosen.id}-copy-${Date.now()}`, shelf: "take", tag: "Now · copy" };
-  const keepsSource = chosen.shelf !== "recent" ? [chosen] : [];
-  const ordered = [...rest, ...keepsSource];
-  const library = ordered.filter((phrase) => phrase.shelf === "library");
-  const kept = ordered.filter((phrase) => phrase.shelf === "kept");
-  const recent = ordered.filter((phrase) => phrase.shelf === "recent");
-  shelf.value = [...library, ...kept, ...recent, retired, incoming];
-  heroCursor.value = incoming.id;
-  lastAction.value = `On the desk · ${incoming.name}; ${current.name} moved to Recent`;
-}
-
-function keep(id: string) {
-  const index = shelf.value.findIndex((phrase) => phrase.id === id);
-  if (index < 0) return;
-  const phrase = shelf.value[index];
-  const kept: SpecimenPhrase = { ...phrase, shelf: "kept", tag: undefined };
-  if (phrase.shelf === "take") {
-    const next: SpecimenPhrase[] = [
-      ...shelf.value.filter((candidate) => candidate !== phrase && candidate.shelf !== "take"),
-      kept,
-      { ...emptyTake, id: `take-${Date.now()}` },
-    ];
-    shelf.value = next.sort((left, right) => order(left) - order(right));
-    heroCursor.value = shelf.value[shelf.value.length - 1].id;
-    heroEntry.value += 1;
-  } else {
-    shelf.value = shelf.value
-      .map((candidate) => candidate === phrase ? kept : candidate)
-      .sort((left, right) => order(left) - order(right));
-  }
-  lastAction.value = `Kept · ${phrase.name}`;
-}
-
-function order(phrase: SpecimenPhrase) {
-  return ["library", "kept", "recent", "take"].indexOf(phrase.shelf);
 }
 
 const features = [
   { label: "Model", value: "one Phrase noun; shelves take → recent → kept → library" },
-  { label: "Order", value: "linear, deepest first; the take is pinned to the front" },
-  { label: "Browse", value: "drag, wheel, tap, Up/Down move a cursor; the desk is untouched" },
-  { label: "Load", value: "brass button: Recent moves back to the take; Kept/Library fork a copy" },
-  { label: "Home", value: "a new take or a played note brings the cursor back to the take" },
-  { label: "Take material", value: "brass edge, record lamp while a key is down, Now tag" },
-  { label: "Source", value: "components/patterns/PhraseShelf.vue over components/compounds/PatternReel.vue" },
+  { label: "Scroll", value: "loads: whatever the reel is on is on the desk" },
+  { label: "Looking", value: "a looked-at phrase stays in place, so the reel never reorders" },
+  { label: "First note", value: "makes a copy at the front; the original returns to plain" },
+  { label: "Blank slot", value: "at the front; scroll there, or press Return, to start fresh" },
+  { label: "Desk material", value: "brass edge, record lamp while a key is down" },
+  { label: "Source", value: "components/patterns/PhraseShelf.vue; order from domain/phraseBook arrangeReel" },
 ];
 </script>
 
@@ -212,6 +215,23 @@ const features = [
   display: grid;
   gap: var(--s-4);
   padding-top: 110px;
+}
+
+.phrase-shelf-specimen__controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+}
+
+.phrase-shelf-specimen__controls button {
+  padding: var(--s-3) var(--s-5);
+  border: 0;
+  background: var(--brass);
+  color: var(--brass-edge);
+  font: var(--t-label);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
 }
 
 .phrase-shelf-specimen output {

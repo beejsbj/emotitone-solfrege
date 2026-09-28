@@ -113,6 +113,35 @@ describe("phrases store", () => {
     expect(store.takeNotes[0].note).not.toBe(phrase.notes[0].note);
   });
 
+  it("keeps, renames, and deletes the source of a copy you are only looking at", async () => {
+    const source = libraryPhrases[0];
+    store.openPhrase(source.id);
+    await nextTick();
+    expect(store.isTakeTouched).toBe(false);
+    const keptId = store.keepPhrase(store.takeId)!;
+    expect(store.shelves.kept.map((phrase) => phrase.id)).toEqual([keptId]);
+
+    store.openPhrase(keptId);
+    await nextTick();
+    store.renamePhrase(store.takeId, "Renamed source");
+    expect(store.findPhrase(keptId)?.name).toBe("Renamed source");
+    expect(store.deletePhrase(store.takeId)).toBe(true);
+    expect(store.findPhrase(keptId)).toBeUndefined();
+    expect(store.takeNotes).toEqual([]);
+  });
+
+  it("the blank slot files what you played and never churns an empty take", () => {
+    const emptyId = store.takeId;
+    store.startBlankTake();
+    expect(store.takeId).toBe(emptyId);
+
+    tap(store, "one", 0, START);
+    const played = store.takeId;
+    store.startBlankTake();
+    expect(store.takeNotes).toEqual([]);
+    expect(store.shelves.recent.map((phrase) => phrase.id)).toEqual([played]);
+  });
+
   it("round-trips the book through its serializer", () => {
     playPhrase(store, "a", START);
     store.keepTake();

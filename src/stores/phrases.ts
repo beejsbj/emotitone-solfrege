@@ -6,6 +6,7 @@ import { useMusicStore } from "@/stores/music";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { defaultPatterns } from "@/data/patterns";
 import {
+  arrangeReel,
   closeTake as closeBookTake,
   createPhraseBook,
   DEFAULT_PHRASE_BOOK_CONFIG,
@@ -15,6 +16,7 @@ import {
   followControls,
   getTake,
   importPhrases as importBookPhrases,
+  isTakeTouched as isBookTakeTouched,
   keepPhrase as keepBookPhrase,
   keepTake as keepBookTake,
   openPhrase as openBookPhrase,
@@ -126,6 +128,13 @@ export const usePhrasesStore = defineStore(
     });
     /** A key is down in the take right now. */
     const isTakeSounding = computed(() => heldCount.value > 0 && heldInTake());
+    /** You have written into the take; until then it is only being looked at. */
+    const isTakeTouched = computed(() => {
+      void heldCount.value;
+      return isBookTakeTouched(book.value, held);
+    });
+    /** The reel, deepest first; the desk is drawn where you found it. */
+    const reel = computed(() => arrangeReel(book.value, libraryPhrases, isTakeTouched.value));
 
     function heldInTake(): boolean {
       for (const note of held.values()) if (note.phraseId === book.value.takeId) return true;
@@ -174,12 +183,26 @@ export const usePhrasesStore = defineStore(
     // ─── Actions ─────────────────────────────────────────────────────────────
     /** Return: keep the take, open an empty one. */
     function keepTake(): string | null {
-      return keepBookTake(book.value, Date.now(), liveContext.value, undefined, config);
+      return keepBookTake(
+        book.value, Date.now(), liveContext.value, undefined, config, libraryPhrases,
+      );
     }
 
-    /** Close the take by its lineage and open an empty one. */
-    function closeTake(): void {
-      closeBookTake(book.value, Date.now(), liveContext.value, undefined, config);
+    /** The blank slot at the front: put the take away and start fresh. */
+    function startBlankTake(): void {
+      const current = take.value;
+      if (book.value.recorder.origin === "fresh" && !current.notes.length) return;
+      closeBookTake(book.value, Date.now(), liveContext.value, undefined, config, "navigate");
+    }
+
+    /**
+     * The phrase you are looking at when the desk is only being looked at: the
+     * Kept/Library source of an untouched copy, else the take itself.
+     */
+    function lookedAtSource(id: string): Phrase | undefined {
+      if (id !== book.value.takeId || isTakeTouched.value) return undefined;
+      const sourceId = take.value.derivedFrom?.id;
+      return sourceId ? findPhrase(sourceId) : undefined;
     }
 
     /** Put a phrase on the desk (reopen Recent, fork Kept/Library). */
@@ -190,16 +213,30 @@ export const usePhrasesStore = defineStore(
     }
 
     function keepPhrase(id: string): string | null {
-      if (id === book.value.takeId) return keepTake();
-      return keepBookPhrase(book.value, id, libraryPhrases, Date.now());
+      const source = lookedAtSource(id);
+      if (source) return keepBookPhrase(book.value, source.id, libraryPhrases, Date.now());
+      if (id !== book.value.takeId) {
+        return keepBookPhrase(book.value, id, libraryPhrases, Date.now());
+      }
+      const lookingAtRecent = !isTakeTouched.value && book.value.recorder.origin === "recent";
+      const keptId = keepTake();
+      // You were only looking at it: keep looking at it, now on the Kept shelf.
+      if (keptId && lookingAtRecent) openPhrase(keptId);
+      return keptId;
     }
 
     function deletePhrase(id: string): boolean {
-      return deleteBookPhrase(book.value, id);
+      const target = lookedAtSource(id)?.id ?? id;
+      const lookedAt = !isTakeTouched.value
+        && (target === book.value.takeId || target === take.value.derivedFrom?.id);
+      // Deleting what you're looking at clears the desk first.
+      if (lookedAt) startBlankTake();
+      return deleteBookPhrase(book.value, target);
     }
 
     function renamePhrase(id: string, name: string): boolean {
-      return renameBookPhrase(book.value, id, name, libraryPhrases);
+      const target = lookedAtSource(id)?.id ?? id;
+      return renameBookPhrase(book.value, target, name, libraryPhrases);
     }
 
     function undoLastNote(): void {
@@ -324,6 +361,8 @@ export const usePhrasesStore = defineStore(
       // Shelves and the take
       library: libraryPhrases,
       shelves,
+      reel,
+      isTakeTouched,
       take,
       takeId,
       takeNotes,
@@ -335,7 +374,7 @@ export const usePhrasesStore = defineStore(
 
       // Actions
       keepTake,
-      closeTake,
+      startBlankTake,
       openPhrase,
       keepPhrase,
       deletePhrase,

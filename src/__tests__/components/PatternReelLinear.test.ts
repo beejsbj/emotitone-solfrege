@@ -79,6 +79,28 @@ describe("PatternReel · linear", () => {
   });
 });
 
+describe("PatternReel · linear delete", () => {
+  const armed = (selected: string) => items.map((entry) => ({
+    ...entry,
+    deleteArmed: entry.id === selected,
+    actions: [{ kind: "delete" as const, label: `Delete ${entry.name}` }],
+  }));
+
+  it("deleting the front item does not load a neighbour first", async () => {
+    const wrapper = mount(PatternReel, { props: { items: armed("take"), selectedId: "take", cyclic: false } });
+    await wrapper.get('.pattern-reel__slot--active [data-action="delete"]').trigger("click");
+    expect(wrapper.emitted("commit")).toBeUndefined();
+    expect(wrapper.emitted("delete")?.[0]).toEqual(["take"]);
+  });
+
+  it("deleting a deeper item steps to its newer neighbour", async () => {
+    const wrapper = mount(PatternReel, { props: { items: armed("kept"), selectedId: "kept", cyclic: false } });
+    await wrapper.get('.pattern-reel__slot--active [data-action="delete"]').trigger("click");
+    expect(wrapper.emitted("commit")?.[0]).toEqual(["recent", "tap"]);
+    expect(wrapper.emitted("delete")?.[0]).toEqual(["kept"]);
+  });
+});
+
 describe("PatternStrip · shelf presentation", () => {
   it("renders the shelf word, the live lamp, and the contour detail", () => {
     const wrapper = mount(PatternStrip, {
@@ -116,6 +138,14 @@ describe("PatternStrip · shelf presentation", () => {
     });
     expect(wrapper.find(".pattern-strip__lamp--armed").exists()).toBe(true);
     expect(wrapper.get('[data-testid="pattern-strip-shelf"]').text()).toBe("Library");
+  });
+
+  it("renders no empty action group and no stray root for a blank slot", () => {
+    const wrapper = mount(PatternStrip, {
+      props: { item: item("blank", { rootLabel: "", actions: [] }), active: true, selectable: false },
+    });
+    expect(wrapper.find(".pattern-strip__actions").exists()).toBe(false);
+    expect(wrapper.get(".pattern-strip__identity").attributes("aria-label")).not.toContain("root");
   });
 
   it("keeps the default trio when no actions are given", () => {

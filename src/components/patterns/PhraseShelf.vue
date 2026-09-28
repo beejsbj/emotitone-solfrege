@@ -33,6 +33,7 @@ import {
   phraseContour,
   phraseStamp,
   phraseTitle,
+  untouchedCopySource,
   type ReelEntry,
 } from "@/domain/phraseBook";
 import { logNotesToStrudel } from "@/services/StrudelNotation";
@@ -139,10 +140,12 @@ function shelfTag(phrase: Phrase, inPlace: boolean) {
   return when === "just now" ? when : `${when} ago`;
 }
 
-function stateLabel(phrase: Phrase, inPlace: boolean, isDesk: boolean) {
+function stateLabel(inPlace: boolean, isDesk: boolean) {
   if (!isDesk) return undefined;
   if (!inPlace) return "on the desk, yours";
-  return phrase.derivedFrom ? "on the desk; playing makes a copy" : "on the desk";
+  return untouchedCopySource(phrasesStore.book, phrasesStore.isTakeTouched)
+    ? "on the desk; playing makes a copy"
+    : "on the desk";
 }
 
 /** "gm_acoustic_guitar_nylon" reads as "acoustic guitar nylon". */
@@ -233,7 +236,7 @@ function reelItem(entry: ReelEntry, isFront: boolean): PatternReelItem {
     shelfTag: shelfTag(phrase, inPlace),
     lamp: isDesk ? (inPlace ? "armed" : "live") : undefined,
     deleteArmed: deleteArmedId.value === phrase.id,
-    stateLabel: stateLabel(phrase, inPlace, isDesk),
+    stateLabel: stateLabel(inPlace, isDesk),
     recording: isDesk && phrasesStore.isTakeSounding,
     canRename: true,
     actions: actionsFor(phrase, title, inPlace),
@@ -245,6 +248,17 @@ const reelItems = computed(() => {
   const reel = phrasesStore.reel;
   return reel.map((entry, index) => reelItem(entry, index === reel.length - 1));
 });
+
+// An armed delete means "delete what I armed". If the desk changes under it
+// (a new take, or you played into it), that meaning no longer holds.
+watch(
+  () => [phrasesStore.takeId, phrasesStore.isTakeTouched],
+  () => {
+    clearTimeout(deleteTimer);
+    deleteArmedId.value = null;
+    deleteTargetId = null;
+  },
+);
 
 watch([deleteArmedId, () => reelItems.value.map((item) => item.id)], ([armedId, ids]) => {
   if (!armedId || ids.includes(armedId)) return;
@@ -280,11 +294,9 @@ let deleteTargetId: string | null = null;
 
 function deletePhrase(id: string) {
   if (deleteArmedId.value !== id) {
-    const take = phrasesStore.take;
+    const copySource = untouchedCopySource(phrasesStore.book, phrasesStore.isTakeTouched);
     deleteArmedId.value = id;
-    deleteTargetId = id === take.id && !phrasesStore.isTakeTouched && take.derivedFrom
-      ? take.derivedFrom.id
-      : id;
+    deleteTargetId = id === phrasesStore.takeId && copySource ? copySource : id;
     clearTimeout(deleteTimer);
     deleteTimer = setTimeout(() => {
       if (deleteArmedId.value === id) deleteArmedId.value = null;

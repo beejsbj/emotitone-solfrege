@@ -567,10 +567,13 @@ function handleDelete(id: string) {
     && id === props.selectedId
     && props.items.length > 1
   ) {
-    // A linear reel steps toward the front (newer) when it can, so deleting
-    // one of your phrases lands on another of yours rather than deeper in.
-    const toward = !props.cyclic && deletedIndex < props.items.length - 1 ? 1 : -1;
-    commitIndex(deletedIndex + toward, "tap");
+    // A linear reel steps toward the front (newer), so deleting one of your
+    // phrases lands on another of yours. Deleting the front item itself stays
+    // put: the owner replaces it (e.g. with a blank take) without loading
+    // a neighbour.
+    const isFront = deletedIndex === props.items.length - 1;
+    if (props.cyclic) commitIndex(deletedIndex - 1, "tap");
+    else if (!isFront) commitIndex(deletedIndex + 1, "tap");
   }
   emit("delete", id);
   if (!shouldRestoreFocus) return;

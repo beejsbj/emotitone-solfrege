@@ -79,7 +79,7 @@
       </component>
 
       <div
-        v-if="item.actions"
+        v-if="item.actions?.length"
         class="pattern-strip__actions"
         data-reel-control
         aria-label="Pattern actions"
@@ -101,7 +101,7 @@
         </Button>
       </div>
       <div
-        v-else
+        v-else-if="!item.actions"
         class="pattern-strip__actions"
         data-reel-control
         aria-label="Pattern actions"
@@ -324,7 +324,8 @@ const stripStyle = computed(() => ({
 
 const identityLabel = computed(() => {
   const state = props.item.stateLabel ? `, ${props.item.stateLabel}` : "";
-  const identity = `${props.item.name}${state}, ${props.item.instrumentLabel}, root ${props.item.rootLabel}`;
+  const root = props.item.rootLabel ? `, root ${props.item.rootLabel}` : "";
+  const identity = `${props.item.name}${state}, ${props.item.instrumentLabel}${root}`;
   if (!props.selectable) {
     return props.item.canRename === false
       ? `Current pattern ${identity}`

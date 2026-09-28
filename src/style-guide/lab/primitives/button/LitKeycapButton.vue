@@ -63,7 +63,6 @@ function handleClick(event: MouseEvent) {
   >
     <span ref="bodyRef" class="litcap__body" aria-hidden="true">
       <span class="litcap__chase" />
-      <span class="litcap__glow" />
       <span class="litcap__switch">
         <span class="litcap__top">
           <span class="litcap__lamp" />
@@ -79,6 +78,7 @@ function handleClick(event: MouseEvent) {
   --size: 40px;
   --travel: 4px;
   --top: var(--ink-4);
+  --top-lit: var(--ink-5);
   --wall: var(--ink-2);
   --rim: rgb(255 255 255 / 10%);
   --legend: var(--ivory);
@@ -105,8 +105,8 @@ function handleClick(event: MouseEvent) {
 .litcap--sm { --size: 32px; --travel: 3px; }
 .litcap--lg { --size: 48px; --travel: 5px; }
 
-.litcap--ivory { --top: var(--ivory); --wall: var(--ivory-3); --rim: rgb(255 255 255 / 70%); --legend: var(--ink); --light: var(--ivory); }
-.litcap--brass { --top: var(--brass-fill); --wall: var(--brass-lo); --rim: rgb(255 255 255 / 45%); --legend: var(--brass-edge); --light: var(--brass-hi); }
+.litcap--ivory { --top: var(--ivory); --top-lit: var(--bone); --wall: var(--ivory-3); --rim: rgb(255 255 255 / 70%); --legend: var(--ink); --light: var(--ivory); }
+.litcap--brass { --top: var(--brass-fill); --top-lit: var(--brass-hi); --wall: var(--brass-lo); --rim: rgb(255 255 255 / 45%); --legend: var(--brass-edge); --light: var(--brass-hi); }
 
 .litcap__body,
 .litcap__chase,
@@ -118,24 +118,11 @@ function handleClick(event: MouseEvent) {
 
 .litcap__body { inset: 0; }
 
-/* Backlight layers fade by opacity only, so the decay is smooth on every
-   material, including Brass's gradient cap. */
-.litcap__glow {
-  position: absolute;
-  inset: 0;
-  border-radius: var(--radius);
-  box-shadow:
-    0 0 0 2px var(--light),
-    0 0 18px color-mix(in srgb, var(--light) 70%, transparent);
-  opacity: 0;
-  pointer-events: none;
-}
-
 .litcap__lamp {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: radial-gradient(circle at 50% 60%, var(--light), transparent 75%);
+  background: var(--top-lit);
   opacity: 0;
   pointer-events: none;
 }
@@ -153,21 +140,19 @@ function handleClick(event: MouseEvent) {
   background: conic-gradient(var(--light) 0 22%, transparent 22% 100%);
 }
 
-/* The switch housing: walls plus the light leaking from under the cap. */
+/* The switch housing. Its light is Pad's: a lit lip under the key at rest.
+   Lists keep equal length so the lip, ring, and glow interpolate smoothly. */
 .litcap__switch {
+  --lip: color-mix(in srgb, var(--light) 55%, transparent);
+  --glow: color-mix(in srgb, var(--light) 70%, transparent);
+  --extra-glow: 0 0 0 transparent;
+  --rest-light: 0 2px 0 var(--lip), 0 0 0 transparent, var(--extra-glow);
   inset: 0;
   background: var(--wall);
-  box-shadow:
-    inset 0 -2px 0 color-mix(in srgb, var(--light) 55%, transparent),
-    0 2px 0 var(--ink);
+  box-shadow: var(--rest-light);
 }
 
-.litcap--brass .litcap__switch {
-  box-shadow:
-    inset 0 -2px 0 color-mix(in srgb, var(--light) 70%, transparent),
-    0 2px 0 var(--ink),
-    var(--shadow-glow-brass);
-}
+.litcap--brass .litcap__switch { --extra-glow: var(--shadow-glow-brass); }
 
 .litcap__top {
   position: absolute;
@@ -206,16 +191,23 @@ function handleClick(event: MouseEvent) {
   transition: translate var(--dur-tap) var(--ease-stab);
 }
 
-/* Each hit floods the seam and lights the cap, then decays like a release. */
-.litcap--hit-a .litcap__glow { animation: litcap-flood-a var(--dur-bounce) var(--ease-brush) both; }
-.litcap--hit-b .litcap__glow { animation: litcap-flood-b var(--dur-bounce) var(--ease-brush) both; }
+/* Each hit grows the lip into a ring and lights the face; the release drains
+   the light back down into the lip, like the original Pad. */
+.litcap--hit-a .litcap__switch { animation: litcap-ring-a var(--dur-bounce) var(--ease-brush) both; }
+.litcap--hit-b .litcap__switch { animation: litcap-ring-b var(--dur-bounce) var(--ease-brush) both; }
 .litcap--hit-a .litcap__lamp { animation: litcap-lamp-a var(--dur-bounce) var(--ease-brush) both; }
 .litcap--hit-b .litcap__lamp { animation: litcap-lamp-b var(--dur-bounce) var(--ease-brush) both; }
 
-@keyframes litcap-flood-a { from { opacity: 1; } to { opacity: 0; } }
-@keyframes litcap-flood-b { from { opacity: 1; } to { opacity: 0; } }
-@keyframes litcap-lamp-a { from { opacity: .45; } to { opacity: 0; } }
-@keyframes litcap-lamp-b { from { opacity: .45; } to { opacity: 0; } }
+@keyframes litcap-ring-a {
+  0% { box-shadow: 0 0 0 2px var(--light), 0 0 18px var(--glow), var(--extra-glow); }
+  100% { box-shadow: var(--rest-light); }
+}
+@keyframes litcap-ring-b {
+  0% { box-shadow: 0 0 0 2px var(--light), 0 0 18px var(--glow), var(--extra-glow); }
+  100% { box-shadow: var(--rest-light); }
+}
+@keyframes litcap-lamp-a { from { opacity: 1; } to { opacity: 0; } }
+@keyframes litcap-lamp-b { from { opacity: 1; } to { opacity: 0; } }
 
 .litcap--loading .litcap__top :deep(svg) { opacity: .3; }
 .litcap--loading .litcap__chase { opacity: 1; }
@@ -225,13 +217,13 @@ function handleClick(event: MouseEvent) {
 
 .litcap:focus-visible { outline: 2px solid var(--ivory); outline-offset: 4px; }
 .litcap:disabled { cursor: not-allowed; opacity: .35; }
-.litcap:disabled .litcap__switch { box-shadow: 0 2px 0 var(--ink); }
+.litcap:disabled .litcap__switch { box-shadow: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .litcap__top,
   .litcap:not(:disabled):active .litcap__top { transition: none; }
-  .litcap--hit-a .litcap__glow,
-  .litcap--hit-b .litcap__glow,
+  .litcap--hit-a .litcap__switch,
+  .litcap--hit-b .litcap__switch,
   .litcap--hit-a .litcap__lamp,
   .litcap--hit-b .litcap__lamp,
   .litcap--loading .litcap__chase::before,
@@ -243,7 +235,6 @@ function handleClick(event: MouseEvent) {
   .litcap__switch { background: ButtonText; box-shadow: none; }
   .litcap__top { background: ButtonFace; box-shadow: none; }
   .litcap__chase,
-  .litcap__glow,
   .litcap__lamp { display: none; }
 }
 </style>

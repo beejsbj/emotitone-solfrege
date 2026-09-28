@@ -12,7 +12,6 @@
           :cyclic="false"
           :entry-signal="heroEntry"
           @commit="choose"
-          @keep="report('Keep', $event)"
           @delete="report('Delete', $event)"
           @copy="report('Copy', $event)"
           @open-strudel="report('Open in Strudel', $event)"
@@ -74,11 +73,9 @@ const SHELF_TAGS: Record<Shelf, string> = { recent: "4m ago", kept: "Kept", libr
 function actions(shelf: Shelf | "take", name: string): PatternStripAction[] {
   const copy = { kind: "copy" as const, label: `Copy ${name}` };
   const open = { kind: "open" as const, label: `Open ${name} in Strudel` };
-  const keep = { kind: "keep" as const, label: `Keep ${name}` };
   const remove = { kind: "delete" as const, label: `Delete ${name}` };
-  if (shelf === "recent") return [keep, remove, copy];
-  if (shelf === "kept") return [remove, copy, open];
-  return [keep, copy, open];
+  // Everything you play is kept, so delete is the one curating action.
+  return shelf === "library" ? [copy, open] : [remove, copy, open];
 }
 
 /** role: on the desk in its own place, on the desk at the front, or just shelved. */
@@ -205,6 +202,7 @@ const features = [
   { label: "Looking", value: "a looked-at phrase stays in place, so the reel never reorders" },
   { label: "First note", value: "makes a copy at the front; the original returns to plain" },
   { label: "Blank slot", value: "at the front; scroll there, or press Return, to start fresh" },
+  { label: "Saving", value: "automatic: your phrases are one timeline, no expiry; delete (tap, then confirm) to curate" },
   { label: "Lamp", value: "hollow ring: loaded, only looking · filled: yours · glows while a key is down; colour from the music" },
   { label: "Source", value: "components/patterns/PhraseShelf.vue; order from domain/phraseBook arrangeReel" },
 ];

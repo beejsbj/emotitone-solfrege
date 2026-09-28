@@ -30,7 +30,7 @@ the moment it exists. Its id never depends on its notes.
 | Shelf     | What it holds                                  | Lifetime                       |
 |-----------|------------------------------------------------|--------------------------------|
 | `take`    | The one open phrase. What CodeStrip shows.     | Always exactly one, maybe empty |
-| `recent`  | Closed takes you didn't keep.                  | 7 days, newest 48              |
+| `recent`  | Closed takes.                                  | Until you delete (cap 200)     |
 | `kept`    | Phrases you chose to keep.                     | Forever, until you delete      |
 | `library` | Built-in phrases. Static data, not stored.     | Ships with the app             |
 
@@ -45,9 +45,10 @@ when the take closes.
             play a note                     silence / context change / load
  (empty take) ──────────▶ take (recording) ─────────────────────────────▶ recent
                                │                                            │
-                               │ Return (Keep)                  Keep button │
-                               ▼                                            ▼
-                             kept ◀─────────────────────────────────────────┘
+                               │ Return (done)                              │
+                               ▼                                            │
+                             kept          (shown with Recent as one        │
+                                            timeline of "yours")  ◀─────────┘
                                │
                     tap in reel│ (fork: kept stays untouched)
                                ▼
@@ -89,7 +90,7 @@ Rules, each enforced by a test in `src/__tests__/domain/phraseBook.test.ts`:
 | `isStripCleared`                      | Gone. After Return the take is simply empty      |
 | `currentTakeGeneration`               | The take's id. A new take means a new id.       |
 | saved pattern (`isSaved`)             | `kept`                                          |
-| `isKept` purge exemption              | Gone. Kept never expires; Recent always does.    |
+| `isKept` purge exemption              | Gone. Nothing you play expires; you delete.      |
 | default pattern                       | `library`                                       |
 | synthetic "Current Take" reel item    | The take itself, always present                  |
 
@@ -106,8 +107,8 @@ Patterns you sent with Return were quietly expiring.
   you're thinking.
 - **Change key/mode/instrument, then play.** Same thing: a new context opens a
   new take. Before you play, the controls re-skin the take instead.
-- **Return: Keep.** The take moves to Kept, and a fresh empty take opens. Recent
-  is untouched.
+- **Return: done.** The take is filed (to Kept, exempt from the storage cap)
+  and a fresh empty take opens. Nothing else changes.
 - **Backspace.** Removes the take's last note, whether you played it or it was
   loaded.
 - **Scroll the reel: load.** Whatever the reel settles on is on the desk:
@@ -122,11 +123,14 @@ Patterns you sent with Return were quietly expiring.
   the reel never drops notes, even one or two.
 - **Front slot: start fresh.** A blank `NEW TAKE` waits at the front whenever
   you're looking at something else. Scroll there, or press Return.
-- **Keep from the reel.** Recent strips carry a bookmark. Tapping it moves that
-  phrase to Kept without touching the take.
-- **Delete.** Only Recent and Kept phrases can be deleted. Deleting one you are
-  looking at clears the desk to a blank take first. A take you've played into
-  isn't deletable from the reel; Backspace or Return empties it.
+- **Everything is saved.** Every phrase you play stays until you delete it.
+  Recent and Kept read as one timeline of your phrases, newest first, each
+  tagged with its age. There is no save button.
+- **Delete (tap, then confirm).** Every phrase of yours carries a delete
+  button: the first tap arms it (it turns to a check), and the second deletes.
+  On your take at the front, it discards the take. On a phrase you're looking
+  at, it deletes that phrase (for an untouched copy, its source), and the reel
+  steps to the next newer phrase. Library phrases can't be deleted.
 
 ## Visual direction
 
@@ -202,8 +206,11 @@ Warming quietly in the background without the keyboard lock is not built yet.
   - the desk (`loadedBaseNotes` + unsealed live notes) is not migrated as a
     take. Its content is already in Kept, Library, or the log. The migrated app
     opens on an empty take.
-- Recent is capped at 48 phrases as well as 7 days, so localStorage can't grow
-  without bound during a long session. The old log was bounded only by time.
+- Nothing expires by time. Recent is capped at 200 phrases so localStorage
+  can't grow without bound; past that, the oldest phrases are dropped, except
+  ones finished with Return. That is the one remaining silent loss, and it
+  only happens at a size most players won't reach. A warning before the cap is
+  not built yet.
 
 ## Tradeoffs, named
 
@@ -227,9 +234,11 @@ Warming quietly in the background without the keyboard lock is not built yet.
 
 - **Quiet instrument warmup while scrolling.** Warm a newly loaded instrument
   in the background, without the keyboard lock, and switch when it's ready.
-- **One "yours" shelf.** Kept currently sits behind all of Recent, so a phrase
-  you just kept is several steps away. Merge the two into one time-ordered
-  section, with Kept as a tag.
+- **Instrument and octave jumps while scrolling.** Loading syncs octave and
+  instrument, so the Deltarune tracks (octaves 6 and 2, five different sampled
+  instruments in a row) make the keyboard jump as you pass them. Candidates:
+  sync on settle only after a short pause, or keep the octave until you play.
+- **A warning before the 200-phrase cap** drops anything.
 - **Shelf jump.** A long flick that skips to the next shelf boundary, with a
   haptic tick at each shelf crossing.
 - **Join / split.** Merging two adjacent Recent phrases (when the silence split

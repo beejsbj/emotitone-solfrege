@@ -11,6 +11,7 @@ import {
   createPhraseBook,
   DEFAULT_PHRASE_BOOK_CONFIG,
   deletePhrase as deleteBookPhrase,
+  discardTake,
   ensureSingleTake,
   findPhrase as findBookPhrase,
   followControls,
@@ -226,6 +227,11 @@ export const usePhrasesStore = defineStore(
     }
 
     function deletePhrase(id: string): boolean {
+      if (id === book.value.takeId && isTakeTouched.value) {
+        // A confirmed delete of the take you played into: gone, fresh desk.
+        discardTake(book.value, Date.now(), liveContext.value);
+        return true;
+      }
       const target = lookedAtSource(id)?.id ?? id;
       const lookedAt = !isTakeTouched.value
         && (target === book.value.takeId || target === take.value.derivedFrom?.id);

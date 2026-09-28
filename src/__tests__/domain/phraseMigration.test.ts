@@ -107,13 +107,13 @@ describe("legacy pattern migration", () => {
     expect(shelves.kept).toHaveLength(1);
   });
 
-  it("opens on an empty take in the live context and drops expired phrases", () => {
+  it("opens on an empty take in the live context and keeps old phrases", () => {
     const book = migrateLegacyPatterns({
       savedPatterns: [pattern({ id: "old", isSaved: false, createdAt: NOW - 8 * 24 * 3600 * 1000 })],
       loggedNotes: [logNote("n1", NOW - 900, true)],
     }, options)!;
     expect(getTake(book).notes).toEqual([]);
     expect(getTake(book).context).toEqual(LIVE);
-    expect(shelveBook(book, []).recent).toEqual([]);
+    expect(shelveBook(book, []).recent.map((phrase) => phrase.id)).toEqual(["old"]);
   });
 });

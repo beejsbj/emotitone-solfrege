@@ -30,8 +30,10 @@ import type {
 
 export const DEFAULT_PHRASE_BOOK_CONFIG: PhraseBookConfig = {
   silenceGapThreshold: 4000,
-  recentRetentionMs: 7 * 24 * 60 * 60 * 1000,
-  recentLimit: 48,
+  // Everything you play is kept; delete is how you curate. The count cap only
+  // guards localStorage, and phrases you finished with Return are exempt.
+  recentRetentionMs: Number.POSITIVE_INFINITY,
+  recentLimit: 200,
 };
 
 /** Fresh takes shorter than this are stray taps, not phrases. */
@@ -227,6 +229,11 @@ export function takeIsLive(book: PhraseBook, held: ReadonlyMap<string, HeldNote>
   return book.recorder.liveNoteIds.length > 0 || heldInPhrase(held, book.takeId);
 }
 
+/** When a phrase of yours last settled: closed into Recent, or kept. */
+export function phraseStamp(phrase: Phrase): number {
+  return phrase.closedAt ?? phrase.keptAt ?? phrase.createdAt;
+}
+
 /** You have written into the take (played, held, or deleted a note). */
 export function isTakeTouched(book: PhraseBook, held: ReadonlyMap<string, HeldNote>): boolean {
   return book.recorder.edited || takeIsLive(book, held);
@@ -257,7 +264,9 @@ export function arrangeReel(
   const { take, recent, kept, library: shelvedLibrary } = shelveBook(book, library);
   const origin = book.recorder.origin;
   const inPlace = !touched && take.notes.length > 0 && origin !== "fresh";
-  const sourceId = take.derivedFrom?.id;
+  // Only an untouched copy stands in for its source. A Recent phrase that
+  // began as a copy still remembers its source, but it is drawn as itself.
+  const sourceId = origin === "kept" || origin === "library" ? take.derivedFrom?.id : undefined;
   const desk: ReelEntry = {
     phrase: take,
     role: "desk",
@@ -267,13 +276,11 @@ export function arrangeReel(
   const withSource = (phrases: Phrase[]) =>
     phrases.map((phrase) => (inPlace && phrase.id === sourceId ? desk : shelf(phrase)));
 
-  const recentPhrases = inPlace && origin === "recent"
-    ? [...recent, take].sort((left, right) =>
-      (right.closedAt ?? right.createdAt) - (left.closedAt ?? left.createdAt))
-    : recent;
+  // Recent and Kept read as one timeline of your phrases, newest first.
+  const yours = [...recent, ...kept, ...(inPlace && origin === "recent" ? [take] : [])]
+    .sort((left, right) => phraseStamp(right) - phraseStamp(left));
   const newestFirst = [
-    ...recentPhrases.map((phrase) => (phrase === take ? desk : shelf(phrase))),
-    ...withSource(kept),
+    ...withSource(yours).map((entry) => (entry.phrase === take ? desk : entry)),
     ...withSource(shelvedLibrary),
   ];
   const deskIsShelved = newestFirst.includes(desk);
@@ -536,6 +543,18 @@ export function keepTake(
   take.keptAt = now;
   openFreshTake(book, nextContext, now, newId);
   return take.id;
+}
+
+/** Delete the take outright (an explicit, confirmed delete) and open an empty one. */
+export function discardTake(
+  book: PhraseBook,
+  now: number,
+  nextContext: PhraseContext,
+  newId: NewId = createId,
+): Phrase {
+  const take = getTake(book);
+  book.phrases = book.phrases.filter((phrase) => phrase !== take);
+  return openFreshTake(book, nextContext, now, newId);
 }
 
 /**

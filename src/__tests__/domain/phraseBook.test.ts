@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   arrangeReel,
   closeTake,
+  discardTake,
   createPhraseBook,
   deletePhrase,
   DEFAULT_PHRASE_BOOK_CONFIG,
@@ -265,7 +266,8 @@ describe("phrase book: nothing played is silently lost", () => {
     keepTake(book, clock, C_MAJOR, newId);
     play([0, 1, 2]);
     closeTake(book, clock, C_MAJOR, newId);
-    pruneRecent(book, clock + DEFAULT_PHRASE_BOOK_CONFIG.recentRetentionMs + 1);
+    const weekly = { ...DEFAULT_PHRASE_BOOK_CONFIG, recentRetentionMs: 7 * 24 * 60 * 60 * 1000 };
+    pruneRecent(book, clock + weekly.recentRetentionMs + 1, weekly);
     const shelves = shelveBook(book, []);
     expect(shelves.recent).toEqual([]);
     expect(shelves.kept).toHaveLength(1);
@@ -556,5 +558,53 @@ describe("phrase book: the reel as a tape head", () => {
     expect(keepTake(book, clock, C_MAJOR, newId, undefined, library)).toBeNull();
     expect(shelveBook(book, library).kept).toEqual([]);
     expect(getTake(book).notes).toEqual([]);
+  });
+});
+
+describe("phrase book: everything you play is kept", () => {
+  it("does not expire phrases by age by default", () => {
+    play([0, 1, 2]);
+    closeTake(book, clock, C_MAJOR, newId);
+    pruneRecent(book, clock + 365 * 24 * 60 * 60 * 1000);
+    expect(shelveBook(book, []).recent).toHaveLength(1);
+  });
+
+  it("shows Recent and Kept as one timeline, newest first", () => {
+    play([0, 1, 2]);
+    const older = book.takeId;
+    clock += 1000;
+    closeTake(book, clock, C_MAJOR, newId);
+    play([3, 4, 5]);
+    const kept = book.takeId;
+    clock += 1000;
+    keepTake(book, clock, C_MAJOR, newId);
+    play([4, 5, 6]);
+    const newest = book.takeId;
+    clock += 1000;
+    closeTake(book, clock, C_MAJOR, newId);
+    const ids = arrangeReel(book, [], isTakeTouched(book, held))
+      .filter((entry) => entry.role === "shelf")
+      .map((entry) => entry.phrase!.id);
+    expect(ids).toEqual([older, kept, newest]);
+  });
+
+  it("discards the take on a confirmed delete and opens an empty one", () => {
+    play([0, 1, 2]);
+    const doomed = book.takeId;
+    discardTake(book, clock, C_MAJOR, newId);
+    expect(book.phrases.some((phrase) => phrase.id === doomed)).toBe(false);
+    expect(getTake(book).notes).toEqual([]);
+  });
+
+  it("draws a reopened played-over copy once, and leaves its library source alone", () => {
+    const library = [libraryPhrase()];
+    openPhrase(book, "library-arpeggio", library, clock, newId);
+    tap(4);
+    const copy = book.takeId;
+    closeTake(book, clock, C_MAJOR, newId, undefined, "navigate");
+    openPhrase(book, copy, library, clock, newId);
+    const reel = arrangeReel(book, library, isTakeTouched(book, held));
+    expect(reel.filter((entry) => entry.role === "desk")).toHaveLength(1);
+    expect(reel.find((entry) => entry.phrase?.id === "library-arpeggio")?.role).toBe("shelf");
   });
 });

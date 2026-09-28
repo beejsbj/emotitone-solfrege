@@ -7,7 +7,6 @@
     :cyclic="false"
     label="Phrase reel. The selected strip is what you play into. Up and down arrows load older phrases; the front slot starts a new take."
     @commit="choose"
-    @keep="keepPhrase"
     @delete="deletePhrase"
     @copy="copyNotation"
     @open-strudel="openInStrudel"
@@ -30,7 +29,7 @@ import { useCodeStripStrudel } from "@/composables/useCodeStripStrudel";
 import { toStrudelSound } from "@/composables/useStrudel";
 import { CHROMATIC_NOTES } from "@/data";
 import { displayInstrumentName } from "@/data/instruments";
-import { phraseContour, type ReelEntry } from "@/domain/phraseBook";
+import { phraseContour, phraseStamp, type ReelEntry } from "@/domain/phraseBook";
 import { logNotesToStrudel } from "@/services/StrudelNotation";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
@@ -119,15 +118,20 @@ function age(stamp: number | undefined) {
   return hours < 24 ? `${hours}h` : `${Math.floor(hours / 24)}d`;
 }
 
-/** One short word for where it lives. The reel's position says "on the desk". */
+/**
+ * One short word for where it lives. The reel's position says "on the desk".
+ * Your phrases (Recent and Kept) read as one timeline, so they show their age.
+ */
 function shelfTag(phrase: Phrase, inPlace: boolean) {
   if (phrase.shelf === "take" && !inPlace) return phrase.derivedFrom ? "Copy" : "Now";
   const origin = phrase.shelf === "take" ? phrasesStore.book.recorder.origin : phrase.shelf;
-  if (origin === "recent") {
-    const when = age(phrase.closedAt);
-    return when === "just now" ? when : `${when} ago`;
-  }
-  return origin === "kept" ? "Kept" : "Library";
+  if (origin === "library") return "Library";
+  // A looked-at Kept copy shows its source's age.
+  const dated = phrase.shelf === "take" && origin === "kept" && phrase.derivedFrom
+    ? phrasesStore.findPhrase(phrase.derivedFrom.id) ?? phrase
+    : phrase;
+  const when = age(phraseStamp(dated));
+  return when === "just now" ? when : `${when} ago`;
 }
 
 function stateLabel(phrase: Phrase, inPlace: boolean, isDesk: boolean) {
@@ -143,45 +147,35 @@ function instrumentLabel(instrument: string) {
 
 function actionsFor(phrase: Phrase, title: string, inPlace: boolean): PatternStripAction[] {
   const copied = copiedId.value === phrase.id;
+  const armed = deleteArmedId.value === phrase.id;
+  const isYourTake = phrase.shelf === "take" && !inPlace;
+  const playable = isYourTake ? hasPlayableCode.value : phrase.notes.length > 0;
   const copy: PatternStripAction = {
     kind: "copy",
     label: copied ? `Copied ${title}` : `Copy ${title} Strudel code`,
     done: copied,
+    disabled: !playable,
   };
-  const open: PatternStripAction = { kind: "open", label: `Open ${title} in Strudel` };
-  const keep: PatternStripAction = { kind: "keep", label: `Keep ${title}` };
-  const armed = deleteArmedId.value === phrase.id;
-  const remove: PatternStripAction = {
-    kind: "delete",
-    label: armed ? `Confirm delete ${title}` : `Delete ${title}`,
-    done: armed,
+  const open: PatternStripAction = {
+    kind: "open",
+    label: `Open ${title} in Strudel`,
+    disabled: !playable,
   };
-
-  // A phrase you're only looking at offers what its own shelf offers.
-  const shelf = phrase.shelf === "take" && inPlace
+  const origin = phrase.shelf === "take" && inPlace
     ? phrasesStore.book.recorder.origin
     : phrase.shelf;
-  switch (shelf) {
-    case "take":
-    case "fresh": {
-      const playable = hasPlayableCode.value;
-      return [
-        {
-          ...keep,
-          label: phrase.notes.length ? keep.label : "Play notes before keeping the take",
-          disabled: !phrase.notes.length,
-        },
-        { ...copy, disabled: !playable },
-        { ...open, disabled: !playable },
-      ];
-    }
-    case "recent":
-      return [keep, remove, copy];
-    case "kept":
-      return [remove, copy, open];
-    case "library":
-      return [keep, copy, open];
-  }
+  // Everything you play is kept; the library is built in. So the one
+  // curating action is delete, armed by the first tap and confirmed by the second.
+  if (origin === "library") return [copy, open];
+  const remove: PatternStripAction = {
+    kind: "delete",
+    label: armed
+      ? `Confirm delete ${title}`
+      : isYourTake ? `Delete this take` : `Delete ${title}`,
+    done: armed,
+    disabled: isYourTake && !phrase.notes.length,
+  };
+  return [remove, copy, open];
 }
 
 function blankItem(): PatternReelItem {
@@ -232,6 +226,7 @@ function reelItem(entry: ReelEntry, isFront: boolean): PatternReelItem {
     tone: isDesk ? "take" : phrase.shelf as PatternStripTone,
     shelfTag: shelfTag(phrase, inPlace),
     lamp: isDesk ? (inPlace ? "armed" : "live") : undefined,
+    deleteArmed: deleteArmedId.value === phrase.id,
     stateLabel: stateLabel(phrase, inPlace, isDesk),
     recording: isDesk && phrasesStore.isTakeSounding,
     canRename: true,
@@ -268,17 +263,22 @@ function loadPhrase(id: string) {
   if (changed.length) emit("contextChange", changed);
 }
 
-function keepPhrase(id: string) {
-  phrasesStore.keepPhrase(id);
-}
-
 function renamePhrase(id: string, name: string) {
   phrasesStore.renamePhrase(id, name);
 }
 
+// What the armed delete will remove, resolved on the first tap. On confirm the
+// reel moves to a neighbour (loading it) before it asks for the delete, and a
+// copy you were only looking at is gone by then; its Kept source is the target.
+let deleteTargetId: string | null = null;
+
 function deletePhrase(id: string) {
   if (deleteArmedId.value !== id) {
+    const take = phrasesStore.take;
     deleteArmedId.value = id;
+    deleteTargetId = id === take.id && !phrasesStore.isTakeTouched && take.derivedFrom
+      ? take.derivedFrom.id
+      : id;
     clearTimeout(deleteTimer);
     deleteTimer = setTimeout(() => {
       if (deleteArmedId.value === id) deleteArmedId.value = null;
@@ -287,7 +287,8 @@ function deletePhrase(id: string) {
   }
   clearTimeout(deleteTimer);
   deleteArmedId.value = null;
-  phrasesStore.deletePhrase(id);
+  phrasesStore.deletePhrase(deleteTargetId ?? id);
+  deleteTargetId = null;
 }
 
 function notationFor(id: string) {

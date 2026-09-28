@@ -567,7 +567,10 @@ function handleDelete(id: string) {
     && id === props.selectedId
     && props.items.length > 1
   ) {
-    commitIndex(deletedIndex - 1, "tap");
+    // A linear reel steps toward the front (newer) when it can, so deleting
+    // one of your phrases lands on another of yours rather than deeper in.
+    const toward = !props.cyclic && deletedIndex < props.items.length - 1 ? 1 : -1;
+    commitIndex(deletedIndex + toward, "tap");
   }
   emit("delete", id);
   if (!shouldRestoreFocus) return;

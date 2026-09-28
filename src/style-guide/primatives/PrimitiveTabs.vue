@@ -1,8 +1,8 @@
 <template>
   <AnatomyDisplay
-    title="Tabs &middot; Chip-Slide Primitive"
+    title="Tabs &middot; Chip-Slide and Marquee Primitive"
     :features="features"
-    caption="Chip-slide is the sole tab presentation: a single chip tracks the active label while a dark streak holds the rail together. The source owns the rail, chip, streak, selected and disabled states, equal and scrolling layouts, density, and the shared page-load edition. Explicit specimens stay pinned; the specimen owns explanatory groupings only."
+    caption="Chip-slide is the main tab presentation: a single chip tracks the active label while a dark streak holds the rail together. Marquee is its variant edition: no chip or box, a row of bulbs under every name, only the chosen one lit, chasing in the direction of travel. The source owns the rail, chip, bulbs, selected and disabled states, equal and scrolling layouts, density, and the shared page-load edition. Explicit specimens stay pinned; the specimen owns explanatory groupings only."
   >
     <template #hero>
       <div class="hero-stage">
@@ -10,7 +10,7 @@
       </div>
     </template>
 
-    <VariantGrid title="Chip Geometry">
+    <VariantGrid title="Accepted Editions">
       <VariantCell
         v-for="variant in geometryVariants"
         :key="`${variant.geometry}-${variant.tone ?? 'ivory'}`"
@@ -106,16 +106,18 @@ const geometryVariants: GeometryExample[] = [
   { geometry: "sharp", label: "Sharp / no clip" },
   { geometry: "rip", label: "Paper rip" },
   { geometry: "tab", tone: "brass", label: "Brass chip" },
+  { geometry: "marquee", label: "Marquee / bulb chase" },
 ];
 
 const features = [
-  { label: "Rail", value: "ink-2 shell with ink streak behind all labels" },
-  { label: "Chip", value: "sliding active surface measured from the selected tab" },
-  { label: "Motion", value: "var(--dur-ui) with ease-swing; smear is transient" },
-  { label: "Geometry", value: "tab, offcut, tile, sharp, or paper-rip chip" },
+  { label: "Rail", value: "framed ink streak for chip editions; unboxed ink-2 for Marquee" },
+  { label: "Chip", value: "sliding active surface measured from the selected tab in six editions" },
+  { label: "Motion", value: "220ms chip/page handoff; Marquee bulbs chase in the direction of travel" },
+  { label: "Geometry", value: "tab, offcut, tile, sharp, or paper-rip chip; or Marquee bulbs with no chip" },
+  { label: "Marquee", value: "7 bulbs per destination; the chosen one glows and its bulbs chase in the direction of travel" },
   { label: "Tone", value: "ivory by default; brass is an ink-and-ivory instrument-metal treatment" },
   { label: "Density", value: "comfortable or compact label rhythm" },
-  { label: "Layout", value: "equal-width or horizontally scrolling without changing the chip mechanic" },
+  { label: "Layout", value: "equal-width or horizontally scrolling in every edition" },
   { label: "Edition", value: "one guide variant shared by every unpinned Tabs instance per page load" },
   { label: "State", value: "selected and disabled are source-owned tab states" },
   { label: "Boundary", value: "TabsContent retains content coordination; Tabs owns all presentation" },

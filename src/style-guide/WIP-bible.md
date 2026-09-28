@@ -75,7 +75,7 @@ Recorded corrections that already enforce this:
 
 ## 6. Analog and digital
 
-The playing zone is part hardware, part software. Some units ship in paired editions and alternate between app loads: Knob Analog Ring / Digital Arc, Joystick Analog / Digital, and six Tabs editions. The variation is part of the aliveness — each load is a slightly different pressing of the same instrument. New units should ask whether they have an analog and a digital reading.
+The playing zone is part hardware, part software. Some units ship in paired editions and alternate between app loads: Knob Analog Ring / Digital Arc, Joystick Analog / Digital, and seven Tabs editions. The variation is part of the aliveness — each load is a slightly different pressing of the same instrument. New units should ask whether they have an analog and a digital reading.
 
 ## 7. Type
 

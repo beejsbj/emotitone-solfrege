@@ -2,7 +2,7 @@
   <main class="tabs-page focused-page guide-paper--tomato">
     <FocusedPoster layer="primitives" unit-id="tabs" kicker="Focused page · one live source" title="Tabs">
       <p>
-        One live source, three real footprints: the chip slide on its own, then through the same
+        One live source, three real footprints: the selected edition on its own, then through the same
         panel seam Instrument and Config use.
       </p>
     </FocusedPoster>
@@ -13,7 +13,7 @@
           <header class="focused-sheet__head">
             <div>
               <p class="focused-sheet__source">Authoritative source · Tabs.vue</p>
-              <h2 class="focused-sheet__title">Accepted chip slide</h2>
+              <h2 class="focused-sheet__title">Accepted Tabs editions</h2>
             </div>
             <Sticker variant="outline" color="ivory">Source</Sticker>
           </header>
@@ -27,10 +27,10 @@
           </div>
 
           <dl class="focused-facts">
-            <div><dt>Active</dt><dd>One chip slides beneath the selected label.</dd></div>
-            <div><dt>Rail</dt><dd>Framed ink shell with a continuous dark streak.</dd></div>
-            <div><dt>Motion</dt><dd>Swing transition plus a brief directional smear.</dd></div>
-            <div><dt>Edition</dt><dd>One guide variant is shared across unpinned Tabs per app load.</dd></div>
+            <div><dt>Active</dt><dd>A sliding chip or seven lit bulbs mark the selected label.</dd></div>
+            <div><dt>Rail</dt><dd>The chip editions use a framed streak; Marquee is unboxed.</dd></div>
+            <div><dt>Motion</dt><dd>The chip slides and smears; Marquee bulbs chase in the direction of travel.</dd></div>
+            <div><dt>Edition</dt><dd>One of seven editions—six chips or the Marquee bulb chase—is shared across unpinned Tabs per app load.</dd></div>
           </dl>
         </article>
 
@@ -64,7 +64,7 @@
           </div>
 
           <dl class="focused-facts">
-            <div><dt>Active</dt><dd>The same selected chip moves beneath the current bank.</dd></div>
+            <div><dt>Active</dt><dd>The same selected edition marks the current bank.</dd></div>
             <div><dt>Rail</dt><dd>The panel footer imports the authoritative primitive.</dd></div>
             <div><dt>Motion</dt><dd>Swipes track the finger; rail taps slide the same paired pages.</dd></div>
             <div><dt>Scale</dt><dd>The compact rail scrolls and keeps the active item in view.</dd></div>
@@ -104,10 +104,10 @@
 
       <aside class="focused-slip">
         <p class="focused-slip__kicker">Accepted definition</p>
-        <h2>One moving surface</h2>
+        <h2>One selector, seven editions</h2>
         <p>
-          Tabs remain one visibly continuous selector and content viewport. The cut-paper chip changes
-          as a stable page-load edition; swiped or tapped pages move as a pair, and explicit guide
+          Tabs remain one selector and content viewport. Six cut-paper chip editions and one Marquee
+          edition rotate between page loads; swiped or tapped pages move as a pair, and explicit guide
           specimens stay pinned so every allowed variant remains inspectable.
         </p>
       </aside>

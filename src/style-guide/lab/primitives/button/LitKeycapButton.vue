@@ -126,12 +126,19 @@ function handleClick(event: MouseEvent) {
 }
 
 /* The switch housing. Its light is Pad's: a lit lip under the key at rest.
-   Lists keep equal length so the lip, ring, and glow interpolate smoothly. */
+   A 2px Ink seam separates the cap from the light, so the lip reads as light
+   leaking from under the housing on every material, not as the wall's edge.
+   Lists keep equal length so the lip, ring, and bloom interpolate smoothly. */
 .litcap__switch {
-  --lip: color-mix(in srgb, var(--light) 55%, transparent);
+  --lip: color-mix(in srgb, var(--light) 80%, transparent);
   --glow: color-mix(in srgb, var(--light) 70%, transparent);
+  --bloom: color-mix(in srgb, var(--light) 45%, transparent);
   --extra-glow: 0 0 0 transparent;
-  --rest-light: 0 2px 0 var(--lip), 0 0 0 transparent, var(--extra-glow);
+  --rest-light:
+    0 2px 0 var(--ink),
+    0 4px 0 var(--lip),
+    0 5px 8px -3px var(--bloom),
+    var(--extra-glow);
   inset: 0;
   background: var(--wall);
   box-shadow: var(--rest-light);
@@ -184,11 +191,11 @@ function handleClick(event: MouseEvent) {
 .litcap--hit-b .litcap__lamp { animation: litcap-lamp-b var(--dur-bounce) var(--ease-brush) both; }
 
 @keyframes litcap-ring-a {
-  0% { box-shadow: 0 0 0 2px var(--light), 0 0 18px var(--glow), var(--extra-glow); }
+  0% { box-shadow: 0 0 0 1px var(--ink), 0 0 0 3px var(--light), 0 0 18px var(--glow), var(--extra-glow); }
   100% { box-shadow: var(--rest-light); }
 }
 @keyframes litcap-ring-b {
-  0% { box-shadow: 0 0 0 2px var(--light), 0 0 18px var(--glow), var(--extra-glow); }
+  0% { box-shadow: 0 0 0 1px var(--ink), 0 0 0 3px var(--light), 0 0 18px var(--glow), var(--extra-glow); }
   100% { box-shadow: var(--rest-light); }
 }
 @keyframes litcap-lamp-a { from { opacity: 1; } to { opacity: 0; } }
@@ -201,10 +208,10 @@ function handleClick(event: MouseEvent) {
 .litcap--loading .litcap__switch { animation: litcap-orbit 900ms linear infinite; }
 
 @keyframes litcap-orbit {
-  0%, 100% { box-shadow: 0 2px 0 var(--lip), 0 0 0 transparent, var(--extra-glow); }
-  25% { box-shadow: 2px 0 0 var(--lip), 0 0 0 transparent, var(--extra-glow); }
-  50% { box-shadow: 0 -2px 0 var(--lip), 0 0 0 transparent, var(--extra-glow); }
-  75% { box-shadow: -2px 0 0 var(--lip), 0 0 0 transparent, var(--extra-glow); }
+  0%, 100% { box-shadow: 0 2px 0 var(--ink), 0 4px 0 var(--lip), 0 5px 8px -3px var(--bloom), var(--extra-glow); }
+  25% { box-shadow: 2px 0 0 var(--ink), 4px 0 0 var(--lip), 5px 0 8px -3px var(--bloom), var(--extra-glow); }
+  50% { box-shadow: 0 -2px 0 var(--ink), 0 -4px 0 var(--lip), 0 -5px 8px -3px var(--bloom), var(--extra-glow); }
+  75% { box-shadow: -2px 0 0 var(--ink), -4px 0 0 var(--lip), -5px 0 8px -3px var(--bloom), var(--extra-glow); }
 }
 
 .litcap:focus-visible { outline: 2px solid var(--ivory); outline-offset: 4px; }

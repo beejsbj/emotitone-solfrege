@@ -69,7 +69,7 @@ interface SpecimenPhrase {
   degrees: Array<[scaleIndex: number, durationMs: number]>;
 }
 
-const SHELF_TAGS: Record<Shelf, string> = { recent: "Recent · 4m", kept: "Kept", library: "Library" };
+const SHELF_TAGS: Record<Shelf, string> = { recent: "4m ago", kept: "Kept", library: "Library" };
 
 function actions(shelf: Shelf | "take", name: string): PatternStripAction[] {
   const copy = { kind: "copy" as const, label: `Copy ${name}` };
@@ -104,8 +104,9 @@ function item(
     })),
     tone: onDesk ? "take" : (shelf as PatternStripTone),
     shelfTag: role === "front"
-      ? (phrase.id.startsWith("copy") ? "Now · copy" : "Now")
-      : role === "in-place" && shelf ? `On desk · ${SHELF_TAGS[shelf]}` : SHELF_TAGS[shelf ?? "recent"],
+      ? (phrase.id.startsWith("copy") ? "Copy" : "Now")
+      : SHELF_TAGS[shelf ?? "recent"],
+    lamp: role === "front" ? "live" : role === "in-place" ? "armed" : undefined,
     recording,
     canRename: true,
     actions: actions(shelf ?? "library", phrase.name),
@@ -121,7 +122,6 @@ const blank: PatternReelItem = {
   rootLabel: "",
   spine: "var(--ink-5)",
   barTape: [],
-  shelfTag: "Blank",
   canRename: false,
   actions: [],
 };
@@ -205,7 +205,7 @@ const features = [
   { label: "Looking", value: "a looked-at phrase stays in place, so the reel never reorders" },
   { label: "First note", value: "makes a copy at the front; the original returns to plain" },
   { label: "Blank slot", value: "at the front; scroll there, or press Return, to start fresh" },
-  { label: "Desk material", value: "brass edge, record lamp while a key is down" },
+  { label: "Lamp", value: "hollow ring: loaded, only looking · filled: yours · glows while a key is down; colour from the music" },
   { label: "Source", value: "components/patterns/PhraseShelf.vue; order from domain/phraseBook arrangeReel" },
 ];
 </script>

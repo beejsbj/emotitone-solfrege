@@ -80,13 +80,15 @@ describe("PatternReel · linear", () => {
 });
 
 describe("PatternStrip · shelf presentation", () => {
-  it("renders the shelf tag, the record lamp, and the contour detail", () => {
+  it("renders the shelf word, the live lamp, and the contour detail", () => {
     const wrapper = mount(PatternStrip, {
       props: {
         item: item("take", {
           name: "Morning",
           tone: "take",
           shelfTag: "Now",
+          lamp: "live",
+          stateLabel: "on the desk, yours",
           detail: "Do Mi Sol",
           recording: true,
           actions: [{ kind: "copy", label: "Copy Morning", disabled: true }],
@@ -97,10 +99,23 @@ describe("PatternStrip · shelf presentation", () => {
     expect(wrapper.classes()).toContain("pattern-strip--tone-take");
     expect(wrapper.classes()).toContain("pattern-strip--recording");
     expect(wrapper.get('[data-testid="pattern-strip-shelf"]').text()).toBe("Now");
-    expect(wrapper.find(".pattern-strip__lamp").exists()).toBe(true);
+    expect(wrapper.find(".pattern-strip__lamp--live").exists()).toBe(true);
+    expect(wrapper.get(".pattern-strip__identity").attributes("aria-label"))
+      .toContain("Morning, on the desk, yours");
     expect(wrapper.get(".pattern-strip__detail").text()).toBe("Do Mi Sol");
     expect(wrapper.get('[data-action="copy"]').attributes("disabled")).toBeDefined();
     expect(wrapper.find('[data-action="delete"]').exists()).toBe(false);
+  });
+
+  it("marks a phrase you are only looking at with a hollow lamp and no box", () => {
+    const wrapper = mount(PatternStrip, {
+      props: {
+        item: item("twinkle", { tone: "take", shelfTag: "Library", lamp: "armed" }),
+        active: true,
+      },
+    });
+    expect(wrapper.find(".pattern-strip__lamp--armed").exists()).toBe(true);
+    expect(wrapper.get('[data-testid="pattern-strip-shelf"]').text()).toBe("Library");
   });
 
   it("keeps the default trio when no actions are given", () => {

@@ -53,13 +53,14 @@
           <strong>{{ item.name }}</strong>
           <small>
             <span
-              v-if="item.shelfTag"
+              v-if="item.shelfTag || item.lamp"
               class="pattern-strip__shelf"
               data-testid="pattern-strip-shelf"
             >
               <span
-                v-if="item.tone === 'take'"
+                v-if="item.lamp"
                 class="pattern-strip__lamp"
+                :class="`pattern-strip__lamp--${item.lamp}`"
                 aria-hidden="true"
               />
               {{ item.shelfTag }}
@@ -71,7 +72,7 @@
               class="pattern-strip__instrument-icon"
               aria-hidden="true"
             />
-            <span>{{ item.instrumentLabel }}</span>
+            <span class="pattern-strip__instrument">{{ item.instrumentLabel }}</span>
             <span v-if="item.detail" class="pattern-strip__detail">{{ item.detail }}</span>
           </small>
         </span>
@@ -195,8 +196,15 @@ export interface PatternStripItem {
   copyUnavailableLabel?: string;
   openUnavailableLabel?: string;
   tone?: PatternStripTone;
-  /** Engraved shelf tag, e.g. "Now" or "Recent · 3m". */
+  /** One short word for where the phrase lives, e.g. "Library", "3m ago", "Now". */
   shelfTag?: string;
+  /**
+   * The desk lamp. armed: loaded, only being looked at (a hollow ring).
+   * live: yours, being played into (filled; glows while a key is down).
+   */
+  lamp?: "armed" | "live";
+  /** Spoken state, e.g. "on the desk; playing makes a copy". */
+  stateLabel?: string;
   /** Trailing meta, e.g. the solfège contour of a named phrase. */
   detail?: string;
   /** A key is down in this phrase right now. */
@@ -216,7 +224,7 @@ const ACTION_TONES: Record<PatternStripActionKind, "ink" | "ivory" | "brass"> = 
   keep: "ivory",
   delete: "ink",
   copy: "ivory",
-  open: "ink",
+  open: "brass",
   load: "brass",
 };
 
@@ -315,7 +323,8 @@ const stripStyle = computed(() => ({
 }) as CSSProperties);
 
 const identityLabel = computed(() => {
-  const identity = `${props.item.name}, ${props.item.instrumentLabel}, root ${props.item.rootLabel}`;
+  const state = props.item.stateLabel ? `, ${props.item.stateLabel}` : "";
+  const identity = `${props.item.name}${state}, ${props.item.instrumentLabel}, root ${props.item.rootLabel}`;
   if (!props.selectable) {
     return props.item.canRename === false
       ? `Current pattern ${identity}`
@@ -503,44 +512,59 @@ const openLabel = computed(() => props.item.canOpenStrudel === false
     0 8px 20px color-mix(in srgb, var(--ink) 42%, transparent);
 }
 
+/* Where the phrase lives: one engraved word and, on the desk, a lamp. No box:
+   the meta line is ~200px wide and the contour needs it more. */
 .pattern-strip__shelf {
   display: inline-flex;
   flex: none;
   align-items: center;
-  gap: 4px;
-  padding: 0 3px;
-  /* An inset rule, not a border: the meta line must not grow taller. */
-  box-shadow: inset 0 0 0 1px var(--shelf-rule, var(--ink-5));
-  color: var(--ivory-2);
-  line-height: 1;
+  gap: 5px;
+  color: var(--ivory-3);
 }
 
 .pattern-strip--tone-take .pattern-strip__shelf {
-  --shelf-rule: color-mix(in srgb, var(--brass) 55%, transparent);
   color: var(--brass-hi);
 }
 
-.pattern-strip--tone-kept .pattern-strip__shelf {
-  --shelf-rule: var(--ivory-3);
-  color: var(--ivory);
-}
-
+/* The lamp takes its colour from the music (the phrase's root), never from
+   the brand palette: this is the playing zone. */
 .pattern-strip__lamp {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   flex: none;
+  box-sizing: border-box;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--tomato) 35%, var(--ink-4));
-  transition: background-color 120ms var(--ease-brush), box-shadow 120ms var(--ease-brush);
+  transition:
+    background-color 120ms var(--ease-brush),
+    box-shadow 120ms var(--ease-brush);
 }
 
-.pattern-strip--recording .pattern-strip__lamp {
-  background: var(--tomato);
-  box-shadow: 0 0 6px var(--tomato);
+.pattern-strip__lamp--armed {
+  border: 1.5px solid var(--brass);
+  background: transparent;
+}
+
+.pattern-strip__lamp--live {
+  background: var(--pattern-strip-spine, var(--brass));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ink) 60%, transparent);
+}
+
+.pattern-strip--recording .pattern-strip__lamp--live {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--ivory) 45%, transparent),
+    0 0 7px var(--pattern-strip-spine, var(--brass));
+}
+
+/* The instrument name gives way before the contour does. */
+.pattern-strip__instrument {
+  flex: 0 1000 auto;
+  min-width: 2ch;
 }
 
 .pattern-strip__detail {
-  color: var(--ivory-3);
+  flex: 0 1 auto;
+  min-width: 0;
+  color: var(--ivory-2);
   text-transform: none;
 }
 
@@ -575,6 +599,15 @@ const openLabel = computed(() => props.item.canOpenStrudel === false
 }
 
 @media (forced-colors: active) {
+  .pattern-strip__lamp--armed {
+    border-color: CanvasText;
+  }
+
+  .pattern-strip__lamp--live {
+    forced-color-adjust: none;
+    background: Highlight;
+  }
+
   .pattern-strip {
     border: 1px solid CanvasText;
     background: Canvas;

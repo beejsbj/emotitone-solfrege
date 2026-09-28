@@ -119,13 +119,26 @@ function age(stamp: number | undefined) {
   return hours < 24 ? `${hours}h` : `${Math.floor(hours / 24)}d`;
 }
 
+/** One short word for where it lives. The reel's position says "on the desk". */
 function shelfTag(phrase: Phrase, inPlace: boolean) {
-  if (phrase.shelf === "take" && !inPlace) return phrase.derivedFrom ? "Now · copy" : "Now";
+  if (phrase.shelf === "take" && !inPlace) return phrase.derivedFrom ? "Copy" : "Now";
   const origin = phrase.shelf === "take" ? phrasesStore.book.recorder.origin : phrase.shelf;
-  const shelf = origin === "recent"
-    ? `Recent · ${age(phrase.closedAt)}`
-    : origin === "kept" ? "Kept" : "Library";
-  return inPlace ? `On desk · ${shelf}` : shelf;
+  if (origin === "recent") {
+    const when = age(phrase.closedAt);
+    return when === "just now" ? when : `${when} ago`;
+  }
+  return origin === "kept" ? "Kept" : "Library";
+}
+
+function stateLabel(phrase: Phrase, inPlace: boolean, isDesk: boolean) {
+  if (!isDesk) return undefined;
+  if (!inPlace) return "on the desk, yours";
+  return phrase.derivedFrom ? "on the desk; playing makes a copy" : "on the desk";
+}
+
+/** "gm_acoustic_guitar_nylon" reads as "acoustic guitar nylon". */
+function instrumentLabel(instrument: string) {
+  return displayInstrumentName(instrument).replace(/_/g, " ");
 }
 
 function actionsFor(phrase: Phrase, title: string, inPlace: boolean): PatternStripAction[] {
@@ -178,11 +191,11 @@ function blankItem(): PatternReelItem {
     presentationKey: "blank",
     name: "New take",
     instrumentIcon: instrumentIconFor(instrument),
-    instrumentLabel: displayInstrumentName(instrument),
+    instrumentLabel: instrumentLabel(instrument),
     rootLabel: "",
     spine: "var(--ink-5)",
     barTape: [],
-    shelfTag: "Blank",
+    stateLabel: "start a new take",
     canRename: false,
     actions: [],
   };
@@ -207,7 +220,7 @@ function reelItem(entry: ReelEntry, isFront: boolean): PatternReelItem {
     name: title,
     detail: contour && contour !== title ? contour : undefined,
     instrumentIcon: instrumentIconFor(instrument),
-    instrumentLabel: displayInstrumentName(instrument),
+    instrumentLabel: instrumentLabel(instrument),
     rootLabel: `${key}${octave}`,
     spine: getStaticPrimaryColorByPitchClass(
       Math.max(0, CHROMATIC_NOTES.indexOf(key)),
@@ -218,6 +231,8 @@ function reelItem(entry: ReelEntry, isFront: boolean): PatternReelItem {
     barTape: ordered.map((note) => ({ color: noteColor(note, phrase), durationMs: note.duration })),
     tone: isDesk ? "take" : phrase.shelf as PatternStripTone,
     shelfTag: shelfTag(phrase, inPlace),
+    lamp: isDesk ? (inPlace ? "armed" : "live") : undefined,
+    stateLabel: stateLabel(phrase, inPlace, isDesk),
     recording: isDesk && phrasesStore.isTakeSounding,
     canRename: true,
     actions: actionsFor(phrase, title, inPlace),

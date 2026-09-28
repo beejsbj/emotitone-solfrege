@@ -142,6 +142,36 @@ describe("phrases store", () => {
     expect(store.shelves.recent.map((phrase) => phrase.id)).toEqual([played]);
   });
 
+  it("deletes and renames a reopened played-over copy itself, never its Kept source", async () => {
+    tap(store, "k1", 0, START);
+    store.keepTake();
+    const keptId = store.shelves.kept[0].id;
+    store.openPhrase(keptId);
+    await nextTick();
+    tap(store, "k2", 2, START + 1000);
+    const copyId = store.takeId;
+    store.startBlankTake();
+    store.openPhrase(copyId);
+    await nextTick();
+    expect(store.take.derivedFrom?.id).toBe(keptId);
+
+    store.renamePhrase(store.takeId, "My copy");
+    expect(store.findPhrase(copyId)?.name).toBe("My copy");
+    expect(store.findPhrase(keptId)?.name).toBeUndefined();
+
+    expect(store.deletePhrase(copyId)).toBe(true);
+    expect(store.findPhrase(copyId)).toBeUndefined();
+    expect(store.findPhrase(keptId)).toBeDefined();
+  });
+
+  it("discards the take you played into on a confirmed delete", () => {
+    playPhrase(store, "a", START);
+    const doomed = store.takeId;
+    expect(store.deletePhrase(doomed)).toBe(true);
+    expect(store.findPhrase(doomed)).toBeUndefined();
+    expect(store.takeNotes).toEqual([]);
+  });
+
   it("round-trips the book through its serializer", () => {
     playPhrase(store, "a", START);
     store.keepTake();

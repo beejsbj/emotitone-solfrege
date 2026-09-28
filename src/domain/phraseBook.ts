@@ -241,6 +241,17 @@ export function isTakeTouched(book: PhraseBook, held: ReadonlyMap<string, HeldNo
   return book.recorder.edited || takeIsLive(book, held);
 }
 
+/**
+ * The Kept/Library phrase the take is an untouched copy of, if it is one. Only
+ * a copy opened from Kept or Library stands in for its source; a Recent phrase
+ * that began as a copy still remembers its source but is its own phrase.
+ */
+export function untouchedCopySource(book: PhraseBook, touched: boolean): string | undefined {
+  const { origin } = book.recorder;
+  if (touched || (origin !== "kept" && origin !== "library")) return undefined;
+  return getTake(book).derivedFrom?.id;
+}
+
 export interface ReelEntry {
   /** null for the blank "new take" slot at the front. */
   phrase: Phrase | null;
@@ -266,9 +277,7 @@ export function arrangeReel(
   const { take, recent, kept, library: shelvedLibrary } = shelveBook(book, library);
   const origin = book.recorder.origin;
   const inPlace = !touched && take.notes.length > 0 && origin !== "fresh";
-  // Only an untouched copy stands in for its source. A Recent phrase that
-  // began as a copy still remembers its source, but it is drawn as itself.
-  const sourceId = origin === "kept" || origin === "library" ? take.derivedFrom?.id : undefined;
+  const sourceId = untouchedCopySource(book, touched);
   const desk: ReelEntry = {
     phrase: take,
     role: "desk",
@@ -325,8 +334,8 @@ export function phraseTitle(
   phrase: Pick<Phrase, "name" | "number" | "derivedFrom">,
 ): string {
   return phrase.name
-    || phrase.derivedFrom?.name
-    || (phrase.number ? `Take ${phrase.number}` : "New take");
+    || (phrase.number ? `Take ${phrase.number}` : phrase.derivedFrom?.name)
+    || "New take";
 }
 
 /**
@@ -346,7 +355,9 @@ export function backfillTakeNumbers(book: PhraseBook): void {
 
 /** Give a fresh take its number the moment it first gets a note. */
 function numberTake(book: PhraseBook, take: Phrase): void {
-  if (take.number || take.name || take.derivedFrom) return;
+  // Library songs and named phrases lend their name to a copy; a copy of an
+  // unnamed take gets its own number, so two strips never both say "Take 4".
+  if (take.number || take.name || (take.derivedFrom && take.derivedFrom.named !== false)) return;
   book.takeCounter = (book.takeCounter ?? 0) + 1;
   take.number = book.takeCounter;
 }
@@ -575,6 +586,8 @@ export function keepTake(
 
   take.shelf = "kept";
   take.keptAt = now;
+  // A reopened Recent phrase still carries its closedAt; kept now means now.
+  take.closedAt = undefined;
   openFreshTake(book, nextContext, now, newId);
   return take.id;
 }
@@ -630,7 +643,12 @@ export function openPhrase(
     context: cloneContext(source.context),
     duration: source.duration,
     createdAt: now,
-    derivedFrom: { id: source.id, name: displayName || phraseTitle(source), shelf: origin },
+    derivedFrom: {
+      id: source.id,
+      name: displayName || phraseTitle(source),
+      shelf: origin,
+      named: Boolean(displayName),
+    },
     source: source.source ? { ...source.source } : undefined,
   };
   book.phrases.push(fork);
@@ -743,6 +761,10 @@ export function followControls(
     take.context = cloneContext(live);
     return true;
   }
+  // A Recent phrase on the desk is your stored phrase itself (reopen is a
+  // move), so browsing and knob turns must not rewrite it. Only a disposable
+  // copy follows the controls; a note in a new context opens a new take.
+  if (book.recorder.origin === "recent") return false;
 
   const context = take.context;
   let notes = take.notes;

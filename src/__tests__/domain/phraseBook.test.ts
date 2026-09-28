@@ -11,6 +11,8 @@ import {
   getTake,
   importPhrases,
   isTakeTouched,
+  phraseStamp,
+  untouchedCopySource,
   keepPhrase,
   keepTake,
   MIN_FRESH_PHRASE_NOTES,
@@ -287,7 +289,7 @@ describe("phrase book: loading", () => {
     openPhrase(book, "library-arpeggio", library, clock, newId);
     const take = getTake(book);
     expect(take.id).not.toBe("library-arpeggio");
-    expect(take.derivedFrom).toEqual({ id: "library-arpeggio", name: "Arpeggio", shelf: "library" });
+    expect(take.derivedFrom).toEqual({ id: "library-arpeggio", name: "Arpeggio", shelf: "library", named: true });
     play([4]);
     expect(library[0].notes).toHaveLength(3);
     expect(getTake(book).notes).toHaveLength(4);
@@ -455,6 +457,15 @@ describe("phrase book: shelves and editing", () => {
     expect(phraseTitle(getTake(book))).toBe("Take 1");
     closeTake(book, clock, C_MAJOR, newId);
     expect(phraseTitle(getTake(book))).toBe("New take");
+    tap(4);
+    expect(phraseTitle(getTake(book))).toBe("Take 2");
+  });
+
+  it("gives a played copy of an unnamed take of yours its own number", () => {
+    play([0, 1, 2]);
+    const kept = keepTake(book, clock, C_MAJOR, newId)!;
+    openPhrase(book, kept, [], clock, newId);
+    expect(phraseTitle(getTake(book))).toBe("Take 1");
     tap(4);
     expect(phraseTitle(getTake(book))).toBe("Take 2");
   });
@@ -637,5 +648,43 @@ describe("phrase book: everything you play is kept", () => {
     const reel = arrangeReel(book, library, isTakeTouched(book, held));
     expect(reel.filter((entry) => entry.role === "desk")).toHaveLength(1);
     expect(reel.find((entry) => entry.phrase?.id === "library-arpeggio")?.role).toBe("shelf");
+  });
+});
+
+describe("phrase book: review fixes", () => {
+  it("never rewrites a Recent phrase you are only looking at", () => {
+    play([0, 2, 4]);
+    const stored = book.takeId;
+    closeTake(book, clock, C_MAJOR, newId);
+    openPhrase(book, stored, [], clock, newId);
+    const before = getTake(book).notes.map((note) => note.note);
+    expect(followControls(book, held, { ...C_MAJOR, key: "D", instrument: "kalimba" })).toBe(false);
+    expect(getTake(book).notes.map((note) => note.note)).toEqual(before);
+    expect(getTake(book).context.key).toBe("C");
+  });
+
+  it("orders a phrase finished with Return by when it was kept", () => {
+    play([0, 1, 2]);
+    const stored = book.takeId;
+    closeTake(book, clock, C_MAJOR, newId);
+    clock += 60_000;
+    openPhrase(book, stored, [], clock, newId);
+    keepTake(book, clock, C_MAJOR, newId);
+    const kept = book.phrases.find((phrase) => phrase.id === stored)!;
+    expect(kept.closedAt).toBeUndefined();
+    expect(phraseStamp(kept)).toBe(clock);
+  });
+
+  it("treats only a copy opened from Kept or Library as standing in for its source", () => {
+    const library = [libraryPhrase()];
+    openPhrase(book, "library-arpeggio", library, clock, newId);
+    expect(untouchedCopySource(book, false)).toBe("library-arpeggio");
+    tap(4);
+    const copy = book.takeId;
+    expect(untouchedCopySource(book, isTakeTouched(book, held))).toBeUndefined();
+    closeTake(book, clock, C_MAJOR, newId, undefined, "navigate");
+    openPhrase(book, copy, library, clock, newId);
+    expect(getTake(book).derivedFrom?.id).toBe("library-arpeggio");
+    expect(untouchedCopySource(book, false)).toBeUndefined();
   });
 });

@@ -29,6 +29,12 @@ export interface PhraseLineage {
   id: string;
   name: string;
   shelf: "kept" | "library";
+  /**
+   * false when the source was an unnamed take of yours ("Take 4"): a played
+   * copy then gets its own number instead of sharing that name. Absent
+   * (older storage) means true.
+   */
+  named?: boolean;
 }
 
 export interface Phrase {

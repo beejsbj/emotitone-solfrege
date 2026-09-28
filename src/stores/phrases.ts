@@ -18,6 +18,7 @@ import {
   getTake,
   importPhrases as importBookPhrases,
   isTakeTouched as isBookTakeTouched,
+  untouchedCopySource,
   keepPhrase as keepBookPhrase,
   keepTake as keepBookTake,
   openPhrase as openBookPhrase,
@@ -201,8 +202,8 @@ export const usePhrasesStore = defineStore(
      * Kept/Library source of an untouched copy, else the take itself.
      */
     function lookedAtSource(id: string): Phrase | undefined {
-      if (id !== book.value.takeId || isTakeTouched.value) return undefined;
-      const sourceId = take.value.derivedFrom?.id;
+      if (id !== book.value.takeId) return undefined;
+      const sourceId = untouchedCopySource(book.value, isTakeTouched.value);
       return sourceId ? findPhrase(sourceId) : undefined;
     }
 
@@ -234,7 +235,8 @@ export const usePhrasesStore = defineStore(
       }
       const target = lookedAtSource(id)?.id ?? id;
       const lookedAt = !isTakeTouched.value
-        && (target === book.value.takeId || target === take.value.derivedFrom?.id);
+        && (target === book.value.takeId
+          || target === untouchedCopySource(book.value, isTakeTouched.value));
       // Deleting what you're looking at clears the desk first.
       if (lookedAt) startBlankTake();
       return deleteBookPhrase(book.value, target);

@@ -71,10 +71,13 @@ Rules, each enforced by a test in `src/__tests__/domain/phraseBook.test.ts`:
 5. **Reopening Recent moves, it doesn't copy.** A recent phrase *was* a take;
    bringing it back makes it the take again, so the reel never shows the same
    phrase twice.
-6. **An untouched take follows the controls.** While a take has no live notes,
-   key, mode, octave, instrument, and Shape changes re-skin it (the existing
-   transposition behaviour, kept). Once you play into it, its context is fixed;
-   a note in a different context closes it and opens a fresh take.
+6. **An untouched copy follows the controls; your own phrases never do.**
+   While a Kept or Library copy has no live notes, key, mode, octave,
+   instrument, and Shape changes re-skin it (the existing transposition
+   behaviour, kept). A Recent phrase on the desk *is* your stored phrase (reopen
+   is a move), so knob turns and instrument fallbacks never rewrite it. Once you
+   play into a take, its context is fixed; a note in a different context closes
+   it and opens a fresh take.
 7. **Continuing a phrase seams, it doesn't gap.** The first live note played
    into a loaded or reopened take lands at the phrase's end (after its trailing
    silence), however long you waited before playing.
@@ -128,9 +131,11 @@ Patterns you sent with Return were quietly expiring.
   tagged with its age. There is no save button.
 - **Delete (tap, then confirm).** Every phrase of yours carries a delete
   button: the first tap arms it (it turns to a check), and the second deletes.
-  On your take at the front, it discards the take. On a phrase you're looking
-  at, it deletes that phrase (for an untouched copy, its source), and the reel
-  steps to the next newer phrase. Library phrases can't be deleted.
+  On your take at the front, it discards the take and leaves a blank take in
+  its place; nothing else loads. On a phrase you're looking at, it deletes that
+  phrase (for an untouched copy from Kept, its source), and the reel steps to
+  the next newer phrase. Library phrases can't be deleted. An armed delete is
+  cancelled if the desk changes under it (you play, or a new take opens).
 
 ## Visual direction
 
@@ -215,6 +220,11 @@ Warming quietly in the background without the keyboard lock is not built yet.
 
 ## Tradeoffs, named
 
+- **A note held while its take is discarded is dropped.** If a take closes
+  under a held key and leaves nothing behind (a fresh take under the noise
+  floor, or an unplayed copy closed by a note in a new context), that held note
+  has nowhere to land when it's released. It's rare, and a held key usually
+  makes the take "touched" first, but it is a named loss.
 - **Press-time boundaries vs release-time.** The old store decided boundaries
   on release and re-flowed successors when releases arrived out of order. This
   model decides at press, when the performer acts, and never re-flows. Cost: a

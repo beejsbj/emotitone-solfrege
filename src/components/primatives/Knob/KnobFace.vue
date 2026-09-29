@@ -15,7 +15,31 @@
   >
     <span v-if="visual === 'ring'" class="knob-face__dome" />
 
+    <!-- Analog Ring: the LED collar. Fifteen hand-cut chads around the 270°
+         sweep light like LEDs; the light chases chad to chad as value moves. -->
     <svg
+      v-if="visual === 'ring'"
+      class="knob-face__collar"
+      viewBox="0 0 100 100"
+      preserveAspectRatio="xMidYMid meet"
+    >
+      <rect
+        v-for="chad in collarChads"
+        :key="chad.index"
+        class="knob-face__chad"
+        :class="{ 'knob-face__chad--lit': chad.lit }"
+        :x="chad.x - COLLAR_CHAD_SIZE / 2"
+        :y="chad.y - COLLAR_CHAD_SIZE / 2"
+        :width="COLLAR_CHAD_SIZE"
+        :height="COLLAR_CHAD_SIZE"
+        rx="0.6"
+        :transform="`rotate(${chad.tilt} ${chad.x} ${chad.y})`"
+        :style="{ transitionDelay: chad.delay }"
+      />
+    </svg>
+
+    <svg
+      v-else
       class="knob-face__meter"
       viewBox="0 0 100 100"
       preserveAspectRatio="xMidYMid meet"
@@ -109,6 +133,53 @@ const props = withDefaults(
   },
 );
 
+const COLLAR_CHADS = 15;
+const COLLAR_START_DEGREES = -135;
+const COLLAR_SWEEP_DEGREES = 270;
+const COLLAR_RADIUS = 44;
+const COLLAR_CHAD_SIZE = 6.4;
+const COLLAR_CHASE_STEP_MS = 14;
+
+function isCollarChadLit(index: number): boolean {
+  switch (props.role) {
+    case "range":
+      return index < Math.round(Math.max(0, Math.min(1, props.value)) * COLLAR_CHADS);
+    case "boolean":
+    case "button":
+      return props.isActive;
+    case "options": {
+      const count = props.totalSegments;
+      if (count <= 0 || props.activeSegment < 0) return false;
+      if (count > COLLAR_CHADS) {
+        return index === Math.floor((props.activeSegment * COLLAR_CHADS) / count);
+      }
+      return Math.floor((index * count) / COLLAR_CHADS) === props.activeSegment;
+    }
+    default:
+      return false;
+  }
+}
+
+const collarChads = computed(() =>
+  Array.from({ length: COLLAR_CHADS }, (_, index) => {
+    const angle =
+      COLLAR_START_DEGREES + (index * COLLAR_SWEEP_DEGREES) / (COLLAR_CHADS - 1);
+    const radians = ((angle - 90) * Math.PI) / 180;
+    const x = 50 + Math.cos(radians) * COLLAR_RADIUS;
+    const y = 50 + Math.sin(radians) * COLLAR_RADIUS;
+
+    return {
+      index,
+      x: Number(x.toFixed(2)),
+      y: Number(y.toFixed(2)),
+      // A small fixed per-chad tilt so the collar reads as hand-cut paper.
+      tilt: angle + ((index * 37) % 11) - 5,
+      lit: isCollarChadLit(index),
+      delay: `${index * COLLAR_CHASE_STEP_MS}ms`,
+    };
+  }),
+);
+
 const backgroundRef = ref<SVGCircleElement | null>(null);
 const valueRef = ref<SVGCircleElement | null>(null);
 const oppositeValueRef = ref<SVGCircleElement | null>(null);
@@ -165,18 +236,20 @@ const cumulativeRotation = ref(0);
 
 useGSAP(({ gsap }) => {
   watch(
-    valueArc,
-    (newArc, previousArc) => {
-      if (!valueRef.value) return;
+    () => [valueArc.value, valueRef.value] as const,
+    ([newArc, element], previous) => {
+      if (!element) return;
+      const previousArc = previous?.[0];
+      const isNewMeter = element !== previous?.[1];
 
       const hasOppositeSegment =
         props.role === "options" && oppositeValueRef.value;
 
       if (props.role === "button" && props.isActive) {
-        gsap.set(valueRef.value, {
+        gsap.set(element, {
           drawSVG: `${newArc.start}% ${newArc.end}%`,
         });
-        gsap.to(valueRef.value, {
+        gsap.to(element, {
           rotation: 360,
           transformOrigin: "50% 50%",
           duration: BUTTON_ROTATION_DURATION,
@@ -185,12 +258,12 @@ useGSAP(({ gsap }) => {
         });
       } else {
         if (props.role === "button") {
-          gsap.killTweensOf(valueRef.value);
-          gsap.set(valueRef.value, { rotation: 0 });
+          gsap.killTweensOf(element);
+          gsap.set(element, { rotation: 0 });
         }
 
         if (props.role === "options") {
-          gsap.set(valueRef.value, {
+          gsap.set(element, {
             drawSVG: `${newArc.start}% ${newArc.end}%`,
           });
           if (hasOppositeSegment) {
@@ -198,12 +271,12 @@ useGSAP(({ gsap }) => {
               drawSVG: `${newArc.oppositeStart}% ${newArc.oppositeEnd}%`,
             });
           }
-        } else if (previousArc === undefined) {
-          gsap.set(valueRef.value, {
+        } else if (previousArc === undefined || isNewMeter) {
+          gsap.set(element, {
             drawSVG: `${newArc.start}% ${newArc.end}%`,
           });
         } else {
-          gsap.to(valueRef.value, {
+          gsap.to(element, {
             drawSVG: `${newArc.start}% ${newArc.end}%`,
             duration: VALUE_ANIMATION_DURATION,
             ease: "power2.out",
@@ -215,9 +288,9 @@ useGSAP(({ gsap }) => {
   );
 
   watch(
-    () => props.activeSegment,
-    (newSegment) => {
-      if (!valueRef.value || props.role !== "options" || !props.totalSegments) {
+    () => [props.activeSegment, valueRef.value] as const,
+    ([newSegment, element]) => {
+      if (!element || props.role !== "options" || !props.totalSegments) {
         return;
       }
 
@@ -240,8 +313,8 @@ useGSAP(({ gsap }) => {
       }
 
       const elements = oppositeValueRef.value
-        ? [valueRef.value, oppositeValueRef.value]
-        : valueRef.value;
+        ? [element, oppositeValueRef.value]
+        : element;
 
       gsap.to(elements, {
         rotation: cumulativeRotation.value,
@@ -286,7 +359,7 @@ useGSAP(({ gsap }) => {
 
 .knob-face__dome {
   position: absolute;
-  inset: 8%;
+  inset: 16%;
   z-index: -1;
   border: clamp(1px, 1.5cqi, 2px) solid
     color-mix(in srgb, currentColor 24%, #080808);
@@ -313,11 +386,6 @@ useGSAP(({ gsap }) => {
   stroke-linecap: butt;
 }
 
-.knob-face--ring .knob-face__track,
-.knob-face--ring .knob-face__value {
-  stroke-linecap: round;
-}
-
 .knob-face__track {
   opacity: 0.4;
 }
@@ -333,15 +401,28 @@ useGSAP(({ gsap }) => {
   opacity: 0;
 }
 
-.knob-face--ring .knob-face__meter {
-  padding: 5%;
-  box-sizing: border-box;
+.knob-face__collar {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
 }
 
-.knob-face--ring .knob-face__value {
-  filter:
-    drop-shadow(0 1.5cqi 0 rgb(255 255 255 / 14%))
-    drop-shadow(0 0 6cqi color-mix(in srgb, currentColor 42%, transparent));
+.knob-face__chad {
+  fill: var(--ink-5);
+  transition:
+    fill var(--dur-tap) var(--ease-stab),
+    filter var(--dur-tap) var(--ease-stab);
+}
+
+/* Lengths inside the collar are viewBox units, so the glow scales with the face. */
+.knob-face__chad--lit {
+  fill: currentColor;
+  filter: drop-shadow(0 0 2.5px color-mix(in srgb, currentColor 60%, transparent));
+}
+
+.knob-face--brass .knob-face__chad--lit {
+  filter: drop-shadow(0 0 3px color-mix(in srgb, currentColor 75%, transparent));
 }
 
 .knob-face--brass .knob-face__value {
@@ -361,9 +442,15 @@ useGSAP(({ gsap }) => {
 
 @media (prefers-reduced-motion: reduce) {
   .knob-face__meter,
-  .knob-face__value {
+  .knob-face__value,
+  .knob-face__chad {
     transition: none;
   }
+}
+
+@media (forced-colors: active) {
+  .knob-face__chad { fill: GrayText; }
+  .knob-face__chad--lit { fill: CanvasText; filter: none; }
 }
 
 </style>

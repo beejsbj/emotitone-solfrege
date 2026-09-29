@@ -381,6 +381,82 @@ describe("Knob public interface", () => {
     expect(booleanKnobSource).toContain("var(--shadow-glow-brass)");
   });
 
+  it("lights the Analog Ring LED collar by role while Digital Arc keeps its stroke", async () => {
+    const litCount = (wrapper: VueWrapper) =>
+      wrapper.findAll(".knob-face__chad--lit").length;
+
+    const range = render({ modelValue: 64, type: "range", visual: "ring" });
+    expect(range.findAll(".knob-face__chad")).toHaveLength(15);
+    expect(range.find(".knob-face__collar").exists()).toBe(true);
+    expect(range.find(".knob-face__meter").exists()).toBe(false);
+    expect(range.findAll(".knob-face circle")).toHaveLength(0);
+    expect(litCount(range)).toBe(10);
+    await range.setProps({ modelValue: 0 });
+    expect(litCount(range)).toBe(0);
+    await range.setProps({ modelValue: 100 });
+    expect(litCount(range)).toBe(15);
+
+    const booleanOn = render({ modelValue: true, type: "boolean", visual: "ring" });
+    expect(litCount(booleanOn)).toBe(15);
+    expect(booleanOn.find(".knob-boolean__ball").exists()).toBe(true);
+    const booleanOff = render({ modelValue: false, type: "boolean", visual: "ring" });
+    expect(litCount(booleanOff)).toBe(0);
+
+    const threeOptions = render({
+      modelValue: "TRI",
+      type: "options",
+      visual: "ring",
+      options: ["SIN", "TRI", "SAW"],
+    });
+    const lit = threeOptions
+      .findAll(".knob-face__chad")
+      .map((chad) => chad.classes().includes("knob-face__chad--lit"));
+    expect(lit.slice(0, 5).some(Boolean)).toBe(false);
+    expect(lit.slice(5, 10).every(Boolean)).toBe(true);
+    expect(lit.slice(10).some(Boolean)).toBe(false);
+
+    for (const [index, option] of PLAY_MODE_OPTIONS.entries()) {
+      const playMode = render({
+        modelValue: option.value,
+        type: "options",
+        visual: "ring",
+        options: PLAY_MODE_OPTIONS,
+      });
+      expect(litCount(playMode), `Style option ${index}`).toBeGreaterThan(0);
+    }
+
+    const arc = render({ modelValue: 64, type: "range", visual: "arc" });
+    expect(arc.find(".knob-face__chad").exists()).toBe(false);
+    expect(arc.find(".knob-face__meter").exists()).toBe(true);
+    expect(arc.findAll(".knob-face circle")).toHaveLength(2);
+
+    expect(knobFaceSource).toMatch(
+      /@media \(prefers-reduced-motion: reduce\) \{[^}]*\.knob-face__chad[^}]*transition: none;/,
+    );
+  });
+
+  it("drives lit collar chads from explicit and per-option colours", () => {
+    const explicit = render({
+      modelValue: 64,
+      visual: "ring",
+      tone: "brass",
+      themeColor: "hotpink",
+    });
+    expect(explicit.get(".knob-face").attributes("style")).toContain("hotpink");
+    expect(knobFaceSource).toMatch(/\.knob-face__chad--lit \{[^}]*fill: currentColor;/);
+
+    const option = render({
+      modelValue: "SQ",
+      visual: "ring",
+      options: [
+        { label: "Sine", value: "SIN" },
+        { label: "Square", value: "SQ", color: "#67bdd2" },
+      ],
+    });
+    expect(option.get(".knob-face").attributes("style")).toContain("#67bdd2");
+    expect(option.findAll(".knob-face__chad--lit").length).toBeGreaterThan(0);
+  });
+
   it("renders production role grammar through the public interface", () => {
     const range = render({
       modelValue: 3.456,
@@ -390,7 +466,7 @@ describe("Knob public interface", () => {
     expect(range.text()).toContain("3.46");
     expect(range.text()).toContain("s");
 
-    const boolean = render({ modelValue: true, type: "boolean" });
+    const boolean = render({ modelValue: true, type: "boolean", visual: "arc" });
     expect(boolean.get(".knob-face").classes()).toContain("knob-face--active");
     expect(boolean.find(".knob-boolean__ball").exists()).toBe(true);
     expect(boolean.findAll(".knob-face circle")).toHaveLength(2);
@@ -398,6 +474,7 @@ describe("Knob public interface", () => {
     const options = render({
       modelValue: "SQ",
       type: "options",
+      visual: "arc",
       options: [
         { label: "Sine", value: "SIN" },
         { label: "Square", value: "SQ", color: "tomato" },

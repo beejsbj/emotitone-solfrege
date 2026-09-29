@@ -1136,6 +1136,11 @@ onBeforeUnmount(() => {
   background: linear-gradient(transparent calc(50% - 1px), var(--ivory-4) calc(50% - 1px) calc(50% + 1px), transparent 0);
 }
 
+/* Syntax-highlight and inline-meta spans carry their own colour; the widgets keep theirs. */
+.code-strip:not(.code-strip--empty) .code-strip__editor:deep(.cm-editor:not(.cm-focused) .cm-line span:not(.cm-code-strip-event, .cm-code-strip-event *)) {
+  color: transparent;
+}
+
 .code-strip__editor:deep(.cm-code-strip-event) {
   display: inline-flex;
   flex: 0 0 auto;

@@ -13,6 +13,7 @@ export const TABS_EDITIONS: readonly TabsEdition[] = [
   { id: "sharp-ivory", geometry: "sharp", tone: "ivory" },
   { id: "rip-ivory", geometry: "rip", tone: "ivory" },
   { id: "tab-brass", geometry: "tab", tone: "brass" },
+  { id: "marquee-ivory", geometry: "marquee", tone: "ivory" },
 ] as const;
 
 const TABS_EDITION_STORAGE_KEY = "emotitone.tabs.edition";
@@ -35,7 +36,7 @@ function browserStorage(): EditionStorage | undefined {
   }
 }
 
-/** Selects one chip treatment for every unpinned Tabs instance on this page load. */
+/** Selects one edition for every unpinned Tabs instance on this page load. */
 export function beginTabsPageEdition(
   storage: EditionStorage | undefined = browserStorage(),
 ): TabsEdition {

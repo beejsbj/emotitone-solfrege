@@ -20,6 +20,7 @@
     :keyboard-resize-step="8"
     :haptic="haptic"
     :handle-pointer-disabled="patternReelGuardsHandle"
+    :handle-meter="{ value: drawerOpen ? rowCount : 0, max: MAX_KEYBOARD_ROW_COUNT }"
     @update:model-value="updateDrawerOpen"
     @content-resize="resizeKeyboard"
   >
@@ -150,6 +151,7 @@ import Drawer from "@/components/uniques/Drawer/index.vue";
 import HummingCaptureTransport from "@/components/humming/HummingCaptureTransport.vue";
 import PhraseShelf from "@/components/patterns/PhraseShelf.vue";
 import {
+  MAX_KEYBOARD_ROW_COUNT,
   defaultKeyboardHeight,
   maximumKeyboardHeight,
   minimumKeyboardHeight,

@@ -236,8 +236,8 @@ describe("PerformanceDeck guide fixtures", () => {
         { type: "rest" },
       ],
       barTape: [
-        { durationMs: 250 },
-        { durationMs: 125 },
+        { durationMs: 250, height: 4 * 12 + 0 },
+        { durationMs: 125, height: 4 * 12 + 4 },
       ],
     });
     expect(editedCurrent.barTape.map((segment: { color: string }) => segment.color)).toEqual([
@@ -273,8 +273,8 @@ describe("PerformanceDeck guide fixtures", () => {
         { type: "note", rawPitch: "A4" },
       ],
       barTape: [
-        { durationMs: 250 },
-        { durationMs: 125 },
+        { durationMs: 250, height: 4 * 12 + 6 },
+        { durationMs: 125, height: 4 * 12 + 9 },
       ],
     });
     expect(saved.barTape.map((segment: { color: string }) => segment.color)).toEqual([

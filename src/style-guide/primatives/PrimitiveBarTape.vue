@@ -2,13 +2,13 @@
   <AnatomyDisplay
     title="Bar Tape &middot; Musical Event Timeline"
     :features="features"
-    caption="Bar Tape compresses the ordered notes of a pattern into one duration-proportional color strip. The source owns timeline layout and minimum segment visibility; Music Color supplies the fills. The specimen uses real built-in pattern data."
+    caption="Bar Tape is a Piano Roll: a 6px band where each note of a pattern is a 2px dash at its pitch height, so the tape draws the melody's contour as well as its rhythm. The source owns timeline layout, pitch normalization, and minimum segment visibility; Music Color supplies the fills. The specimen uses real built-in pattern data."
   >
     <template #hero>
       <div class="hero-panel">
         <div class="hero-head">
           <span class="title">{{ patterns[0].name }}</span>
-          <span class="meta">{{ patterns[0].notes.length }} events &middot; duration weighted</span>
+          <span class="meta">{{ patterns[0].notes.length }} events &middot; duration &times; pitch</span>
         </div>
         <BarTape :segments="timelines[0]" />
       </div>
@@ -24,6 +24,9 @@
       <VariantCell caption="Hot Cross Buns &middot; short pulses and long notes" stage="ink3">
         <BarTape :segments="timelines[2]" />
       </VariantCell>
+      <VariantCell caption="Twinkle opening &middot; one repeated pitch lies flat" stage="ink3">
+        <BarTape :segments="timelines[0].slice(0, 2)" />
+      </VariantCell>
     </VariantGrid>
   </AnatomyDisplay>
 </template>
@@ -32,6 +35,7 @@
 import BarTape from "../../components/primatives/BarTape.vue";
 import type { BarTapeSegment } from "../../components/primatives/BarTape.vue";
 import { useMusicColor } from "../../composables/useMusicColor";
+import { chromaticPitchHeight } from "../../services/scalePitch";
 import { defaultPatterns } from "../../data/patterns";
 import type { Pattern } from "../../types/patterns";
 import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
@@ -50,17 +54,19 @@ const toTimeline = (pattern: Pattern): BarTapeSegment[] =>
       note.octave,
     ),
     durationMs: note.duration,
+    height: chromaticPitchHeight(note, pattern),
   }));
 
 const timelines = patterns.map(toTimeline);
 
 const features = [
   { label: "Meaning", value: "the pattern's musical events in chronological order" },
-  { label: "Density", value: "1px compressed timeline" },
+  { label: "Density", value: "6px Piano Roll band; each note is a 2px dash with 1px gaps" },
+  { label: "Height", value: "exact chromatic pitch, normalized between the pattern's lowest and highest note; one pitch lies flat on the floor" },
   { label: "Segments", value: "one span per performed note; repeated notes remain ordered events" },
   { label: "Width", value: "proportional to duration with a 50ms minimum for visibility" },
   { label: "Color", value: "static primary fill from the shared Music Color resolver" },
-  { label: "Surface", value: "borderless and flush; the consuming card owns clipping and framing" },
+  { label: "Surface", value: "borderless and flush; PatternStrip positions it at the top edge" },
   { label: "Interaction", value: "none; Bar Tape is compact musical feedback" },
   { label: "Production", value: "every PatternStrip top edge, including Current" },
 ];

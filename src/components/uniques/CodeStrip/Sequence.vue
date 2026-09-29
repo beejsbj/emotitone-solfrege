@@ -27,8 +27,10 @@
                 v-for="markIndex in durationMarks(token.duration)"
                 :key="markIndex"
                 class="code-strip__duration-mark"
-                :class="{ 'code-strip__duration-mark--beat': isBeatBoundary(markIndex) }"
-                :style="stemStyle(token, markIndex)"
+                :class="{
+                  'code-strip__duration-mark--beat': isBeatBoundary(markIndex),
+                  'code-strip__duration-mark--lit': isStemLit(token, markIndex),
+                }"
                 aria-hidden="true"
               ></span>
             </span>
@@ -71,8 +73,10 @@
                 v-for="markIndex in durationMarks(token.duration)"
                 :key="markIndex"
                 class="code-strip__duration-mark"
-                :class="{ 'code-strip__duration-mark--beat': isBeatBoundary(markIndex) }"
-                :style="stemStyle(token, markIndex)"
+                :class="{
+                  'code-strip__duration-mark--beat': isBeatBoundary(markIndex),
+                  'code-strip__duration-mark--lit': isStemLit(token, markIndex),
+                }"
                 aria-hidden="true"
               ></span>
             </span>
@@ -111,8 +115,10 @@
                 v-for="markIndex in durationMarks(token.duration)"
                 :key="markIndex"
                 class="code-strip__duration-mark"
-                :class="{ 'code-strip__duration-mark--beat': isBeatBoundary(markIndex) }"
-                :style="stemStyle(token, markIndex)"
+                :class="{
+                  'code-strip__duration-mark--beat': isBeatBoundary(markIndex),
+                  'code-strip__duration-mark--lit': isStemLit(token, markIndex),
+                }"
                 aria-hidden="true"
               ></span>
             </span>
@@ -245,13 +251,12 @@ const eventProgress = (token: CodeStripToken) => {
 };
 
 /**
- * Each stem is one segment of the event's time. It fills bottom-up while
- * playback crosses that segment, so the stems count the duration out.
+ * Each stem is one segment of the event's time. It lights the moment playback
+ * enters that segment; the Note itself carries the continuous fill.
  */
-const stemStyle = (token: CodeStripToken, markIndex: number) => {
+const isStemLit = (token: CodeStripToken, markIndex: number) => {
   const segments = "duration" in token ? durationMarks(token.duration) : 0;
-  const filled = eventProgress(token) * segments - (markIndex - 1);
-  return { "--code-strip-stem-fill": Math.min(1, Math.max(0, filled)) };
+  return eventProgress(token) * segments > markIndex - 1;
 };
 
 const isBeatBoundary = (markIndex: number) =>
@@ -429,12 +434,16 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
 }
 
 /* Stave stems: one per segment of the event's time, taller on the beat,
-   filling bottom-up in Ivory while playback crosses their segment. */
+   lighting Ivory the moment playback enters their segment. */
 .code-strip__duration-mark {
   justify-self: center;
   width: 2px;
   height: 9px;
-  background: linear-gradient(to top, var(--ivory) calc(var(--code-strip-stem-fill, 0) * 100%), var(--ink-5) 0);
+  background: var(--ink-5);
+}
+
+.code-strip__duration-mark--lit {
+  background: var(--ivory);
 }
 
 .code-strip__duration-mark--beat {
@@ -527,9 +536,11 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
 
 @media (forced-colors: active) {
   .code-strip__duration-mark {
-    background: linear-gradient(to top, CanvasText calc(var(--code-strip-stem-fill, 0) * 100%), GrayText 0);
+    background: GrayText;
     forced-color-adjust: none;
   }
+
+  .code-strip__duration-mark--lit { background: CanvasText; }
 
   .code-strip__bracket { background: CanvasText; }
   .code-strip__rest { border: 1px solid CanvasText; }

@@ -155,10 +155,10 @@ describe("CodeStrip event rendering", () => {
     expect(wrapper.findAll(".code-strip__duration-mark--beat")).toHaveLength(1);
   });
 
-  it("fills each Stave stem across its own segment of the event's time", () => {
-    const stemFills = (wrapper: ReturnType<typeof mount>) => wrapper
+  it("lights each Stave stem once playback enters its segment of the event's time", () => {
+    const stemsLit = (wrapper: ReturnType<typeof mount>) => wrapper
       .findAll(".code-strip__duration-mark")
-      .map((mark) => Number((mark.element as HTMLElement).style.getPropertyValue("--code-strip-stem-fill")));
+      .map((mark) => mark.classes("code-strip__duration-mark--lit"));
 
     const note = mount(CodeStripSequence, {
       props: {
@@ -167,8 +167,8 @@ describe("CodeStrip event rendering", () => {
         tokens: [{ type: "note", note: "do", text: "Do", duration: "@0.25", progress: .6 }],
       },
     });
-    // Four sixteenth segments at 60%: two passed, the third 40% through, the fourth ahead.
-    expect(stemFills(note).map((fill) => Number(fill.toFixed(2)))).toEqual([1, 1, .4, 0]);
+    // Four sixteenth segments at 60%: two passed and the third entered light; the fourth is ahead.
+    expect(stemsLit(note)).toEqual([true, true, true, false]);
 
     // A chord's time passes with its members: here their mean progress is 0.6.
     const chord = mount(CodeStripSequence, {
@@ -178,7 +178,7 @@ describe("CodeStrip event rendering", () => {
         tokens: [{ type: "chord", symbol: "C", members: chordMembers, duration: "@0.125" }],
       },
     });
-    expect(stemFills(chord).map((fill) => Number(fill.toFixed(2)))).toEqual([1, .2]);
+    expect(stemsLit(chord)).toEqual([true, true]);
   });
 
   it("visualizes an omitted base duration as one full bar", () => {

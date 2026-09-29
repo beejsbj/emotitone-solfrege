@@ -208,7 +208,7 @@ const features = [
   { label: "Chord", value: "symbol → fused · notes → clustered" },
   { label: "Rest", value: "slim gap in the staff · Ivory bottom-to-top fill · no duration tag" },
   { label: "Progress", value: "native Strudel source locations · Play resets to Ink · highlight reveals color/Ivory" },
-  { label: "Duration", value: "stacked text, Stave stems (one per meter segment, each filling as its segment passes), or hidden" },
+  { label: "Duration", value: "stacked text, Stave stems (one per meter segment, each lighting as playback enters its segment), or hidden" },
   { label: "Stave", value: "hairline staff · brackets as barlines · punctuation recedes while unfocused · Ivory selection" },
   { label: "Density", value: "dense, default, or spaced" },
   { label: "Document", value: "one CodeMirror · styled mini-notation ranges · focus reveals the same raw source" },

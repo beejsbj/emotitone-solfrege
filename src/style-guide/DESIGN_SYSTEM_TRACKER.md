@@ -202,8 +202,8 @@ Burooj on 2026-09-28: the labs reopen the design-system programme, "each lab lay
 
 | Step | Lab (definition) | Run prompt | Adoptions (one PR per pick) | State |
 | --- | --- | --- | --- | --- |
-| 1. Primitives | #102: Button, Sticker, Note, Knob Ring/Arc, Marks, Bar Tape, Tabs, and the drag value | — | #107 Bar Tape Piano Roll, #108 Tape and Stamp Sticker papers, #111 Tabs Marquee edition, #112 LED collar for the Analog Knob, #113 the Readout (DragValue reimagined), #114 Button becomes the Lit Keycap | Open: adoptions merging |
-| 2. Uniques | Code Strip, Joystick, Drawer, Harmonic Geometry. The Brand Logo is already decided | [`lab-prompts/02-uniques.md`](lab-prompts/02-uniques.md) | — | Not started; blocked by step 1 |
+| 1. Primitives | #102 (closed as a record): Button, Sticker, Note, Knob Ring/Arc, Marks, Bar Tape, Tabs, and the drag value | — | Merged: #107 Bar Tape Piano Roll, #108 Tape and Stamp Sticker papers, #111 Tabs Marquee edition, #112 LED collar for the Analog Knob, #113 the Readout (DragValue reimagined), #114 Button becomes the Lit Keycap. Note and Marks were left unchanged | Closed 2026-09-29 |
+| 2. Uniques | Code Strip, Joystick, Drawer, Harmonic Geometry. The Brand Logo is already decided | [`lab-prompts/02-uniques.md`](lab-prompts/02-uniques.md) | — | Next: run it |
 | 3. Compounds | Key, Chord, Keyboard, Beat Indicator, Control Bar, CodeStrip Bar, Pattern Strip/Reel, Overlay Panel Header | [`lab-prompts/03-compounds.md`](lab-prompts/03-compounds.md) | — | Not started; blocked by step 2 |
 | 4. Compositions | PerformanceDeck, Instrument Picker, Config Menu, Stage. The Loading Screen is already decided | [`lab-prompts/04-compositions.md`](lab-prompts/04-compositions.md) | — | Not started; blocked by step 3 |
 | 5. Tokens | Only where a reimagined layer above needs a new token or a changed collection; proposals, never silent retuning. Each lab above proposes its own token needs | — | — | Not started |

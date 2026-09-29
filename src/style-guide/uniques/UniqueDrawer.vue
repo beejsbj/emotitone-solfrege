@@ -8,6 +8,7 @@ import Keyboard from "@/components/compounds/Keyboard.vue";
 import ControlBar from "@/components/compounds/ControlBar.vue";
 import CodeStripBar from "@/components/compounds/CodeStripBar.vue";
 import {
+  MAX_KEYBOARD_ROW_COUNT,
   defaultKeyboardHeight,
   maximumKeyboardHeight,
   minimumKeyboardHeight,
@@ -52,7 +53,7 @@ const tokens: CodeStripToken[] = [
   <section class="drawer-specimen">
     <p class="drawer-specimen__role">One source · both edges</p>
     <p class="drawer-specimen__intro">
-      Ink surface, exposed icon/grip handle, and direct resize. Generic drawers
+      Ink surface, an exposed icon/grip handle cut as a lip (a trapezoid wide at the body, chamfered toward its edge), and direct resize. The Keyboard handle's pips count its complete rows. Generic drawers
       clip continuously; the keyboard keeps complete rows and taps closed.
     </p>
 
@@ -115,6 +116,7 @@ const tokens: CodeStripToken[] = [
           v-model="keyboardOpen" anchor="bottom" handle-align="center"
           accessible-name="Keyboard specimen"
           :handle-resize-description="`${rowCount} keyboard rows. Drag or use Up and Down Arrow keys to resize.`"
+          :handle-meter="{ value: keyboardOpen ? rowCount : 0, max: MAX_KEYBOARD_ROW_COUNT }"
           :initial-content-height="defaultKeyboardHeight(rowCount)"
           :min-content-height="minimumKeyboardHeight(1)"
           :max-content-height="maximumKeyboardHeight(8)"

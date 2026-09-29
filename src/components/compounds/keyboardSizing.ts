@@ -4,6 +4,8 @@ const OUTER_ROW_HEIGHT = 56;
 const MAIN_WEIGHT = MAIN_ROW_HEIGHT / OUTER_ROW_HEIGHT;
 const MIN_ROW_COUNT = 1;
 const MAX_ROW_COUNT = 8;
+/** The most complete rows the Keyboard can show; the deck handle's meter spans it. */
+export const MAX_KEYBOARD_ROW_COUNT = MAX_ROW_COUNT;
 export const KEYBOARD_CHORD_ROW_HEIGHT = 47;
 export const MIN_KEYBOARD_OUTER_ROW_HEIGHT = 44;
 export const MAX_KEYBOARD_OUTER_ROW_HEIGHT = 80;

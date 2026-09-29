@@ -32,8 +32,10 @@ describe("HummingCaptureTransport.vue", () => {
       /\.humming-capture-transport\s*{[^}]*position:\s*fixed;[^}]*z-index:\s*110;[^}]*top:[^}]*left:\s*50%;/,
     );
     expect(transportSource).toMatch(
-      /\.humming-capture-transport \.humming-capture-transport__primary\s*{[^}]*--button-size:\s*28px;[^}]*--button-rest-shadow:\s*var\(--shadow-key\);/,
+      /\.humming-capture-transport \.humming-capture-transport__primary\s*{[^}]*--button-size:\s*28px;/,
     );
+    // The Lit Keycap owns its own depth; the retired paper-offset override is gone.
+    expect(transportSource).not.toContain("--button-rest-shadow");
   });
 
   it("uses a check to accept and an x to cancel a recording", () => {

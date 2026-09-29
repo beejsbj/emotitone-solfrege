@@ -125,7 +125,7 @@ const emit = defineEmits<{
   min-width: 0;
   min-height: 40px;
   box-sizing: border-box;
-  /* Reserve room for Button's paper offset and focus ring. */
+  /* Reserve room for Button's lit lip and focus ring. */
   padding: var(--s-4) var(--s-5);
   border: 0;
   background-color: var(--instrument-bar-surface);

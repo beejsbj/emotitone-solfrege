@@ -131,14 +131,12 @@ function handleTakeSelection(event: Event) {
 
 .humming-capture-transport .humming-capture-transport__primary {
   --button-size: 28px;
-  --button-rest-shadow: var(--shadow-key);
   inline-size: 28px;
   block-size: 28px;
 }
 
 .humming-capture-transport .humming-capture-transport__cancel {
   --button-size: 22.4px;
-  --button-rest-shadow: var(--shadow-key);
   inline-size: 22.4px;
   block-size: 22.4px;
 }

@@ -1,0 +1,122 @@
+/*
+ * Guide-only Code Strip skins for the Uniques lab. Each skin restyles the real
+ * CodeMirror document from outside; tokens, source ranges, playback progress
+ * and Music Color stay in `components/uniques/CodeStrip`. Selectors repeat the
+ * root class to outrank the component's scoped `:deep` rules without
+ * !important. Adoption would move the chosen skin into the component.
+ */
+
+/* Every direction drops production's green selection wash for Ivory. */
+.ulab-strip:not(.ulab-strip--production) .code-strip .cm-selectionBackground,
+.ulab-strip:not(.ulab-strip--production) .code-strip .cm-content ::selection {
+  background: color-mix(in srgb, var(--ivory) 22%, transparent);
+}
+
+/* ── A · Stave: the strip is a line of music, not a line of code ──────── */
+.ulab-strip.ulab-strip--stave .code-strip .cm-line {
+  color: transparent;
+  background:
+    linear-gradient(transparent calc(50% - 1px), var(--ivory-4) calc(50% - 1px) calc(50% + 1px), transparent 0)
+    0 0 / 100% 100% no-repeat;
+}
+
+.ulab-strip.ulab-strip--stave .code-strip--empty .cm-line { color: var(--ivory-3); background: none; }
+
+/* Code punctuation recedes; brackets survive as barlines. */
+.ulab-strip.ulab-strip--stave .code-strip .code-strip__separator { visibility: hidden; }
+
+.ulab-strip.ulab-strip--stave .code-strip .code-strip__bracket {
+  inline-size: 2px;
+  block-size: var(--note-host-block-size);
+  overflow: hidden;
+  background: var(--ivory-2);
+  color: transparent;
+}
+
+/* Duration ticks become stems standing on the staff after each head. */
+.ulab-strip.ulab-strip--stave .code-strip .code-strip__event-line { align-items: center; }
+.ulab-strip.ulab-strip--stave .code-strip .code-strip__duration-bar { align-items: center; padding: 0; column-gap: 3px; }
+.ulab-strip.ulab-strip--stave .code-strip .code-strip__duration-mark { height: 8px; border-radius: 0; background: var(--ivory-4); }
+.ulab-strip.ulab-strip--stave .code-strip .code-strip__duration-mark--beat { height: 14px; background: var(--ivory-2); }
+
+/* A rest is a slim gap in the staff that fills with Ivory as it passes. */
+.ulab-strip.ulab-strip--stave .code-strip .code-strip__rest {
+  --code-strip-rest-inline-size: calc(var(--note-host-block-size) * .28);
+  background: var(--ink-2);
+  box-shadow: none;
+  clip-path: none;
+}
+
+.ulab-strip.ulab-strip--stave .code-strip .code-strip__rest::after,
+.ulab-strip.ulab-strip--stave .code-strip .code-strip__rest-mark { display: none; }
+
+/* ── B · Roll: space is time; each note trails its duration as a lane ─── */
+.ulab-strip.ulab-strip--roll .code-strip .code-strip__event-line { align-items: center; gap: 0; }
+
+.ulab-strip.ulab-strip--roll .code-strip .code-strip__duration-bar {
+  --code-strip-bar-cycle-span: calc(var(--note-host-block-size) * 6);
+  align-items: center;
+  column-gap: 1px;
+  min-height: 0;
+  padding: 0;
+  margin-inline-start: -2px;
+}
+
+.ulab-strip.ulab-strip--roll .code-strip .code-strip__duration-mark,
+.ulab-strip.ulab-strip--roll .code-strip .code-strip__duration-mark--beat {
+  height: calc(var(--note-host-block-size) * .22);
+  border-radius: 0;
+  background: var(--ink-5);
+  opacity: 1;
+  transition: background-color var(--dur-tap) var(--ease-stab);
+}
+
+.ulab-strip.ulab-strip--roll .code-strip .code-strip__duration-mark--beat { box-shadow: inset 2px 0 0 var(--ivory-4); }
+
+/* Sounded lanes light Ivory behind the playhead; the lane is the tape. */
+.ulab-strip.ulab-strip--roll .code-strip .cm-code-strip-event--active .code-strip__duration-mark { background: var(--ivory-3); }
+
+.ulab-strip.ulab-strip--roll .code-strip .code-strip__separator,
+.ulab-strip.ulab-strip--roll .code-strip .cm-line { color: var(--ivory-4); }
+
+/* ── C · Display Window: the strip is the instrument's recessed display ── */
+.ulab-strip.ulab-strip--window .code-strip-bar__strip {
+  align-self: center;
+  padding: 3px 4px;
+  background: var(--ink);
+  box-shadow: inset 0 2px 4px rgb(0 0 0 / 85%), inset 0 -1px 0 rgb(255 255 255 / 6%);
+}
+
+.ulab-strip.ulab-strip--window .code-strip .cm-line {
+  color: var(--ivory-3);
+  font-family: var(--font-mono);
+}
+
+/* Unplayed notes read as unlit segments; the fill lights them. */
+.ulab-strip.ulab-strip--window .code-strip .code-strip__note .note__surface::before { background: var(--ink); }
+
+.ulab-strip.ulab-strip--window .code-strip .code-strip__rest { background: var(--ink); box-shadow: none; }
+.ulab-strip.ulab-strip--window .code-strip .code-strip__rest::after { display: none; }
+
+.ulab-strip.ulab-strip--window .code-strip .code-strip__duration-mark { background: var(--ivory-4); }
+.ulab-strip.ulab-strip--window .code-strip .code-strip__duration-mark--beat { background: var(--ivory); box-shadow: 0 0 3px color-mix(in srgb, var(--ivory) 60%, transparent); }
+
+.ulab-strip.ulab-strip--window .code-strip .cm-content { caret-color: var(--ivory); }
+
+.ulab-strip.ulab-strip--window .code-strip--empty .cm-line:only-child {
+  color: var(--ivory-2);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ulab-strip .code-strip .code-strip__duration-mark { transition: none; }
+}
+
+@media (forced-colors: active) {
+  .ulab-strip.ulab-strip--stave .code-strip .cm-line { background: none; }
+  .ulab-strip.ulab-strip--stave .code-strip .code-strip__bracket { background: CanvasText; }
+  .ulab-strip.ulab-strip--window .code-strip-bar__strip { background: Canvas; box-shadow: none; border: 1px solid CanvasText; }
+  .ulab-strip .code-strip .code-strip__duration-mark { background: CanvasText; box-shadow: none; }
+}

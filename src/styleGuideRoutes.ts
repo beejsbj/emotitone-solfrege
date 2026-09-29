@@ -17,6 +17,7 @@ export const STYLE_GUIDE_PAGES = {
   "/style-guide/pattern-reel": "pattern-reel",
   "/style-guide/stage": "stage",
   "/style-guide/performance-deck": "performance-deck",
+  "/style-guide/lab/uniques": "lab-uniques",
 } as const;
 
 export type StyleGuideRoute = keyof typeof STYLE_GUIDE_PAGES;

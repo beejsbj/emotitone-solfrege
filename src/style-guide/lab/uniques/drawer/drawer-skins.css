@@ -1,0 +1,118 @@
+/*
+ * Guide-only Drawer skins for the Uniques lab. Each skin restyles the real
+ * Drawer's handle from outside; behaviour, sizing, haptics and keyboard
+ * resizing stay in `components/uniques/Drawer`. The doubled root class beats
+ * the Drawer's scoped selectors without !important. Adoption would move the
+ * chosen skin into the Drawer itself.
+ */
+
+/* ── A · Pull Lip: the handle is the drawer's own machined lip ─────────── */
+.ulab-drawer.ulab-drawer--lip .drawer__handle {
+  gap: 6px;
+  min-inline-size: 104px;
+  padding: 4px 22px;
+  justify-content: center;
+  clip-path: polygon(14px 0, calc(100% - 14px) 0, 100% 100%, 0 100%);
+}
+
+.ulab-drawer.ulab-drawer--lip .drawer--top .drawer__handle {
+  clip-path: polygon(0 0, 100% 0, calc(100% - 14px) 100%, 14px 100%);
+}
+
+/* Handles flush to a side keep their square outer corner. */
+.ulab-drawer.ulab-drawer--lip .drawer--top.drawer--handle-left .drawer__handle {
+  padding-inline-start: 10px;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 14px) 100%, 0 100%);
+}
+
+.ulab-drawer.ulab-drawer--lip .drawer--top.drawer--handle-right .drawer__handle {
+  padding-inline-end: 10px;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 14px 100%);
+}
+
+.ulab-drawer.ulab-drawer--lip .drawer__grip:first-child { display: none; }
+
+/* The finger slot: a recessed dark well cut into the lip. */
+.ulab-drawer.ulab-drawer--lip .drawer__grip:last-child {
+  order: -1;
+  flex: 0 0 24px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--instrument-control-dark-well);
+  box-shadow: inset 0 1.5px 2px rgb(0 0 0 / 80%), 0 1px 0 rgb(255 255 255 / 8%);
+  transition: box-shadow var(--dur-tap) var(--ease-stab);
+}
+
+.ulab-drawer.ulab-drawer--lip .drawer__handle:active .drawer__grip:last-child,
+.ulab-drawer.ulab-drawer--lip .drawer--dragging .drawer__grip:last-child {
+  box-shadow: inset 0 3px 3px rgb(0 0 0 / 90%), 0 1px 0 rgb(255 255 255 / 8%);
+}
+
+/* ── B · Travel Meter: the handle lights how far the drawer is open ─────── */
+.ulab-drawer.ulab-drawer--meter .drawer__handle { gap: 6px; padding-inline: 8px; }
+.ulab-drawer.ulab-drawer--meter .drawer__grip { display: none; }
+
+.ulab-drawer.ulab-drawer--meter .drawer__handle::after {
+  --ulab-pips: 6;
+  --ulab-lit: var(--ulab-fill, 0);
+  content: "";
+  order: 9;
+  flex: 0 0 calc(var(--ulab-pips) * 5px - 2px);
+  height: 5px;
+  background: linear-gradient(90deg, var(--ivory) 0 calc(var(--ulab-lit) * 100%), var(--ink-5) 0);
+  -webkit-mask: repeating-linear-gradient(90deg, #000 0 3px, transparent 3px 5px);
+  mask: repeating-linear-gradient(90deg, #000 0 3px, transparent 3px 5px);
+  transition: filter var(--dur-tap) var(--ease-stab);
+}
+
+/* The Keyboard's meter counts complete rows: one pip per row, up to eight. */
+.ulab-drawer.ulab-drawer--meter .drawer--bottom .drawer__handle::after {
+  --ulab-pips: 8;
+  --ulab-lit: calc(var(--ulab-rows, 0) / 8);
+}
+
+.ulab-drawer.ulab-drawer--meter .drawer--dragging .drawer__handle::after,
+.ulab-drawer.ulab-drawer--meter .drawer__handle:active::after {
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--ivory) 70%, transparent));
+}
+
+/* ── C · Tape Tag: the handle is a strip of Ivory tape stuck on the edge ── */
+.ulab-drawer.ulab-drawer--tape .drawer__handle {
+  gap: 5px;
+  padding: 3px 14px 2px;
+  background:
+    repeating-linear-gradient(96deg, transparent 0 3px, color-mix(in srgb, var(--ink) 7%, transparent) 3px 4px),
+    var(--ivory);
+  color: var(--ink);
+  clip-path: polygon(
+    0 8%, 3px 30%, 0 52%, 4px 74%, 1px 100%,
+    100% 96%, calc(100% - 3px) 72%, 100% 50%, calc(100% - 4px) 26%, calc(100% - 1px) 0
+  );
+  rotate: -2deg;
+}
+
+.ulab-drawer.ulab-drawer--tape .drawer--handle-right .drawer__handle { rotate: 1.5deg; }
+.ulab-drawer.ulab-drawer--tape .drawer--bottom .drawer__handle { rotate: -1deg; }
+.ulab-drawer.ulab-drawer--tape .drawer__grip { display: none; }
+
+/* Pressing tape flattens it against the chassis. */
+.ulab-drawer.ulab-drawer--tape .drawer__handle:active,
+.ulab-drawer.ulab-drawer--tape .drawer--dragging .drawer__handle { rotate: 0deg; }
+
+.ulab-drawer.ulab-drawer--tape .drawer__handle { transition: rotate var(--dur-tap) var(--ease-bounce); }
+
+@media (hover: hover) and (pointer: fine) {
+  .ulab-drawer.ulab-drawer--tape .drawer__handle:hover { color: var(--ink); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ulab-drawer .drawer__handle,
+  .ulab-drawer .drawer__handle::after,
+  .ulab-drawer .drawer__grip { transition: none; }
+}
+
+@media (forced-colors: active) {
+  .ulab-drawer.ulab-drawer .drawer__handle { clip-path: none; rotate: none; background: ButtonFace; color: ButtonText; }
+  .ulab-drawer.ulab-drawer--lip .drawer__grip:last-child { background: ButtonText; box-shadow: none; }
+  .ulab-drawer.ulab-drawer--meter .drawer__handle::after { background: linear-gradient(90deg, Highlight 0 calc(var(--ulab-lit) * 100%), GrayText 0); forced-color-adjust: none; }
+}

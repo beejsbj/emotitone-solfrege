@@ -72,6 +72,7 @@ export const GUIDE_LAYERS: GuideLayer[] = [
       { id: "joystick", name: "Joystick", density: "detailed", specimen: () => import("./uniques/UniqueJoystick.vue") },
       { id: "drawer", name: "Drawer", density: "detailed", specimen: () => import("./uniques/UniqueDrawer.vue") },
       { id: "harmonic-geometry", name: "Harmonic Geometry", density: "detailed", specimen: () => import("./uniques/UniqueHarmonicGeometry.vue") },
+      { id: "uniques-lab", name: "Uniques Lab", density: "detailed", focusedHref: "/style-guide/lab/uniques", summary: "Reimagined Joystick, Drawer, and Code Strip directions beside the accepted production units." },
     ],
   },
   {

@@ -27,7 +27,10 @@
                 v-for="markIndex in durationMarks(token.duration)"
                 :key="markIndex"
                 class="code-strip__duration-mark"
-                :class="{ 'code-strip__duration-mark--beat': isBeatBoundary(markIndex) }"
+                :class="{
+                  'code-strip__duration-mark--beat': isBeatBoundary(markIndex),
+                  'code-strip__duration-mark--lit': isStemLit(token, markIndex),
+                }"
                 aria-hidden="true"
               ></span>
             </span>
@@ -70,7 +73,10 @@
                 v-for="markIndex in durationMarks(token.duration)"
                 :key="markIndex"
                 class="code-strip__duration-mark"
-                :class="{ 'code-strip__duration-mark--beat': isBeatBoundary(markIndex) }"
+                :class="{
+                  'code-strip__duration-mark--beat': isBeatBoundary(markIndex),
+                  'code-strip__duration-mark--lit': isStemLit(token, markIndex),
+                }"
                 aria-hidden="true"
               ></span>
             </span>
@@ -109,7 +115,10 @@
                 v-for="markIndex in durationMarks(token.duration)"
                 :key="markIndex"
                 class="code-strip__duration-mark"
-                :class="{ 'code-strip__duration-mark--beat': isBeatBoundary(markIndex) }"
+                :class="{
+                  'code-strip__duration-mark--beat': isBeatBoundary(markIndex),
+                  'code-strip__duration-mark--lit': isStemLit(token, markIndex),
+                }"
                 aria-hidden="true"
               ></span>
             </span>
@@ -233,6 +242,23 @@ const durationMarks = (duration: string | undefined) => {
   return amount > 0 ? Math.max(1, Math.round(amount * meter.value.marksPerBar)) : 0;
 };
 
+/** A chord's time passes with its members; notes and rests carry their own. */
+const eventProgress = (token: CodeStripToken) => {
+  if (token.type !== "chord") return clampProgress("progress" in token ? token.progress : undefined);
+  const members = chordMembers(token);
+  if (!members.length) return clampProgress(token.progress);
+  return members.reduce((sum, member) => sum + clampProgress(member.progress), 0) / members.length;
+};
+
+/**
+ * Each stem is one segment of the event's time. It lights the moment playback
+ * enters that segment; the Note itself carries the continuous fill.
+ */
+const isStemLit = (token: CodeStripToken, markIndex: number) => {
+  const segments = "duration" in token ? durationMarks(token.duration) : 0;
+  return eventProgress(token) * segments > markIndex - 1;
+};
+
 const isBeatBoundary = (markIndex: number) =>
   (markIndex - 1) % meter.value.marksPerBeat === 0;
 
@@ -316,7 +342,7 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
 
 .code-strip__event-line {
   display: inline-flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 2px;
 }
 
@@ -341,8 +367,9 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
   will-change: transform;
 }
 
+/* Stave: a rest is a slim gap in the staff that fills with Ivory as it passes. */
 .code-strip__rest {
-  --code-strip-rest-inline-size: calc(var(--note-host-block-size) * .75);
+  --code-strip-rest-inline-size: calc(var(--note-host-block-size) * .28);
   position: relative;
   display: inline-grid;
   width: var(--code-strip-rest-inline-size);
@@ -350,19 +377,7 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
   overflow: hidden;
   place-items: center;
   isolation: isolate;
-  background: var(--ink);
-  box-shadow: var(--shadow-key);
-  clip-path: var(--clip-offcut);
-}
-
-.code-strip__rest::after {
-  content: "";
-  position: absolute;
-  z-index: 3;
-  inset: 0;
-  background: var(--paper-surface-sheen-monochrome);
-  mix-blend-mode: overlay;
-  pointer-events: none;
+  background: var(--ink-2);
 }
 
 .code-strip__rest-fill {
@@ -378,6 +393,7 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
 }
 
 .code-strip__rest-mark {
+  display: none;
   position: relative;
   z-index: 2;
   color: var(--ivory);
@@ -410,27 +426,28 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
   display: inline-grid;
   grid-auto-flow: column;
   grid-auto-columns: minmax(1px, 1fr);
-  align-items: end;
-  column-gap: 1px;
+  align-items: center;
+  column-gap: 3px;
   flex: 0 0 auto;
   width: max(5px, calc(var(--code-strip-duration-ratio) * var(--code-strip-bar-cycle-span)));
   min-height: 5px;
-  padding-bottom: 2px;
 }
 
+/* Stave stems: one per segment of the event's time, taller on the beat,
+   lighting Ivory the moment playback enters their segment. */
 .code-strip__duration-mark {
-  width: auto;
-  min-width: 1px;
-  height: 2px;
-  border-radius: 999px;
-  background: var(--ivory-4);
-  opacity: .78;
+  justify-self: center;
+  width: 2px;
+  height: 9px;
+  background: var(--ink-5);
+}
+
+.code-strip__duration-mark--lit {
+  background: var(--ivory);
 }
 
 .code-strip__duration-mark--beat {
-  height: 4px;
-  background: var(--ivory-2);
-  opacity: .95;
+  height: 15px;
 }
 
 .code-strip__duration-overflow {
@@ -442,16 +459,19 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
   white-space: nowrap;
 }
 
+/* Stave: brackets survive as barlines; separators recede into the staff. */
 .code-strip__bracket {
-  color: var(--ivory);
-  font-family: var(--font-display);
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1;
+  display: inline-block;
+  inline-size: 2px;
+  block-size: var(--note-host-block-size);
+  overflow: hidden;
+  background: var(--ivory-2);
+  color: transparent;
+  font-size: 0;
 }
 
 .code-strip__separator {
-  color: var(--ivory-4);
+  visibility: hidden;
   font-size: 10px;
 }
 
@@ -512,5 +532,17 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
   .code-strip__rest-fill {
     transition: none;
   }
+}
+
+@media (forced-colors: active) {
+  .code-strip__duration-mark {
+    background: GrayText;
+    forced-color-adjust: none;
+  }
+
+  .code-strip__duration-mark--lit { background: CanvasText; }
+
+  .code-strip__bracket { background: CanvasText; }
+  .code-strip__rest { border: 1px solid CanvasText; }
 }
 </style>

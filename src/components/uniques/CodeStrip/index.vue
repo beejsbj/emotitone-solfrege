@@ -1126,6 +1126,21 @@ onBeforeUnmount(() => {
   min-width: max-content;
 }
 
+/*
+ * Stave: while the strip reads as notation (unfocused, with events), one
+ * hairline staff runs through the line and raw mini-notation punctuation
+ * recedes. Focus hands back the plain source for editing.
+ */
+.code-strip:not(.code-strip--empty) .code-strip__editor:deep(.cm-editor:not(.cm-focused) .cm-line) {
+  color: transparent;
+  background: linear-gradient(transparent calc(50% - 1px), var(--ivory-4) calc(50% - 1px) calc(50% + 1px), transparent 0);
+}
+
+/* Syntax-highlight and inline-meta spans carry their own colour; the widgets keep theirs. */
+.code-strip:not(.code-strip--empty) .code-strip__editor:deep(.cm-editor:not(.cm-focused) .cm-line span:not(.cm-code-strip-event, .cm-code-strip-event *)) {
+  color: transparent;
+}
+
 .code-strip__editor:deep(.cm-code-strip-event) {
   display: inline-flex;
   flex: 0 0 auto;
@@ -1163,12 +1178,18 @@ onBeforeUnmount(() => {
 
 .code-strip__editor:deep(.cm-selectionBackground),
 .code-strip__editor:deep(.cm-content ::selection) {
-  background: hsl(152 80% 45% / .22) !important;
+  background: color-mix(in srgb, var(--ivory) 22%, transparent) !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .code-strip {
     transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .code-strip:not(.code-strip--empty) .code-strip__editor:deep(.cm-editor:not(.cm-focused) .cm-line) {
+    background: none;
   }
 }
 </style>

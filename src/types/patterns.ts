@@ -237,6 +237,10 @@ export interface ChordStep {
   /** Joystick character; absent means the scale-derived automatic chord. */
   alteration?: HarmonyAlteration;
   beats: number;
+  /** Rotates this many lowest tones up an octave (1 = first inversion, Em/G). */
+  inversion?: number;
+  /** Whole octaves to move the chord, for a bass line that steps rather than leaps. */
+  octaveShift?: number;
   /** Overrides the progression's texture for this chord only. */
   texture?: ChordTexture;
 }

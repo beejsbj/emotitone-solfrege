@@ -35,6 +35,9 @@ const EXPECTED_SYMBOLS: Record<string, string[]> = {
   "pattern-chords-sonata-cadence-1": ["C", "F", "G7", "C"],
   "pattern-chords-dorian-vamp-1": ["Dm7", "G7", "Dm7", "G7"],
   "pattern-chords-gothic-cathedral-1": ["Am", "Dm", "E", "F", "E7", "Am"],
+  "pattern-chords-interstellar-1": [
+    "Fmaj7", "Em", "Am", "Em7", "Fmaj7", "Em", "Am", "Em7",
+  ],
 };
 
 function symbolsOf(progression: (typeof CHORD_PROGRESSIONS)[number]) {
@@ -145,5 +148,24 @@ describe("chord library patterns", () => {
     // alberti: low, high, middle, high
     const alberti = byId("pattern-chords-sonata-cadence-1").notes.slice(0, 4);
     expect(alberti.map((note) => note.note)).toEqual(["C4", "G4", "E4", "G4"]);
+  });
+
+  it("voices inversions with the named bass tone lowest", () => {
+    const theme = defaultPatterns.find((pattern) => pattern.id === "pattern-chords-interstellar-1")!;
+    const barMs = (60000 / theme.bpm!) * 3;
+    const bassOf = (bar: number) => {
+      const bar_ = theme.notes.filter(
+        (note) => note.pressTime >= bar * barMs && note.pressTime < (bar + 1) * barMs,
+      );
+      const pitches = bar_.map((note) => note.note).map((name) => ({
+        name,
+        midi: Number(name.slice(-1)) * 12 + ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+          .indexOf(name.slice(0, -1)),
+      }));
+      return pitches.sort((a, b) => a.midi - b.midi)[0].name;
+    };
+
+    // Fmaj7 / Em over G / Am / Em7 over G: F, G, A, G
+    expect([0, 1, 2, 3].map(bassOf)).toEqual(["F3", "G3", "A3", "G3"]);
   });
 });

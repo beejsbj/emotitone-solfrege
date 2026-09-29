@@ -16,9 +16,16 @@ export interface ChordProgression {
 }
 
 /** A chord on scale degree `degree`, optionally bent by a Joystick character. */
-function chord(degree: number, beats: number, alteration?: HarmonyAlteration): ChordStep {
-  return alteration ? { degree, beats, alteration } : { degree, beats };
+function chord(
+  degree: number,
+  beats: number,
+  alteration?: HarmonyAlteration,
+  voicing: Pick<ChordStep, "inversion" | "octaveShift"> = {},
+): ChordStep {
+  return { degree, beats, ...(alteration ? { alteration } : {}), ...voicing };
 }
+
+const DOWN = { octaveShift: -1 };
 
 /**
  * Famous progressions expressed as degrees plus Joystick characters, so each one
@@ -256,6 +263,26 @@ export const CHORD_PROGRESSIONS: readonly ChordProgression[] = [
     chords: [
       chord(1, 4), chord(4, 4), chord(5, 4), chord(6, 4),
       chord(5, 4, "dominant7"), chord(1, 8),
+    ],
+  },
+  {
+    id: "pattern-chords-interstellar-1",
+    name: "Interstellar Main Theme (Fmaj7–Em/G–Am–Em7/G)",
+    key: "A",
+    mode: "minor",
+    // 6/8 at 96: one bar per chord is 3 quarter-note beats, and the arpeggio's
+    // eighth-note slots give the theme's six-tick organ pulse.
+    bpm: 96,
+    instrument: "gm_church_organ",
+    texture: "arpeggio",
+    octave: 3,
+    // VI7 – v6 – i – v65 over a tonic pedal. Inversions and an octave shift
+    // keep the bass stepping F–G–A–G. Chord skeleton only: no melody.
+    chords: [
+      chord(6, 3, "jazzy7", DOWN), chord(5, 3, undefined, { inversion: 1, octaveShift: -1 }),
+      chord(1, 3), chord(5, 3, "jazzy7", { inversion: 1, octaveShift: -1 }),
+      chord(6, 3, "jazzy7", DOWN), chord(5, 3, undefined, { inversion: 1, octaveShift: -1 }),
+      chord(1, 3), chord(5, 3, "jazzy7", { inversion: 1, octaveShift: -1 }),
     ],
   },
 ];

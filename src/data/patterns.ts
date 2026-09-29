@@ -1,5 +1,5 @@
 import type { ChordStep, ChordTexture, Pattern, PatternNote } from "@/types/patterns";
-import { buildHarmony, type HarmonyAlteration } from "@/domain/harmony";
+import { buildHarmony, type HarmonyAlteration, type HarmonyPitch } from "@/domain/harmony";
 import { CHORD_PROGRESSIONS } from "@/data/chordProgressions";
 import { DEFAULT_INSTRUMENT } from "@/data/instruments";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
@@ -294,6 +294,19 @@ function chordHits(
   });
 }
 
+/** Names a voicing's tones after raising its lowest `inversion` tones an octave, then shifting. */
+function voicedPitchNames(
+  pitches: HarmonyPitch[],
+  inversion: number,
+  octaveShift: number
+): string[] {
+  const turns = Math.min(inversion, pitches.length - 1);
+  return [
+    ...pitches.slice(turns).map((pitch) => `${pitch.pitchClass}${pitch.octave + octaveShift}`),
+    ...pitches.slice(0, turns).map((pitch) => `${pitch.pitchClass}${pitch.octave + 1 + octaveShift}`),
+  ];
+}
+
 function buildChordNotes(
   patternId: string,
   key: ChromaticNote,
@@ -317,7 +330,9 @@ function buildChordNotes(
     if (!chord) {
       throw new Error(`${patternId}: ${key} ${mode} has no degree ${step.degree}`);
     }
-    const pitches = chord.voicing.pitches.map((pitch) => pitch.name);
+    const pitches = voicedPitchNames(
+      chord.voicing.pitches, step.inversion ?? 0, step.octaveShift ?? 0
+    );
     chordHits(pitches, step.texture ?? texture, step.beats, beatMs).forEach((hit) =>
       hits.push({ ...hit, at: cursor + hit.at })
     );

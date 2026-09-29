@@ -72,24 +72,25 @@ describe("Knob public interface", () => {
   };
 
   it("shows formatted values above contact, updates immediately, and removes on release", async () => {
-    expect(knobSource).toContain('import DragValue from "../DragValue.vue"');
+    expect(knobSource).toContain('import Readout from "../Readout.vue"');
     const wrapper = render({ modelValue: -4.84, type: "range", formatValue: (v: number) => `${v} dB` });
-    expect(document.querySelector(".knob-drag-value")).toBeNull();
+    expect(document.querySelector(".knob-readout")).toBeNull();
     await wrapper.trigger("mousedown", { clientX: 150, clientY: 300 });
-    const follower = document.querySelector(".knob-drag-value")!;
+    const follower = document.querySelector(".knob-readout")!;
     expect(follower.textContent).toContain("-4.84 dB");
     expect((follower as HTMLElement).style.transform).toContain("translate3d(150px, 244px, 0)");
-    expect(follower.querySelector(".sticker--fill")).not.toBeNull();
-    expect(follower.querySelector(".sticker--color-ivory")).not.toBeNull();
-    const paper = follower.querySelector(".drag-value__paper")!;
-    expect(paper.classList).toContain("drag-value__paper--bounce-b");
+    expect(follower.querySelector(".readout__window--ivory")).not.toBeNull();
+    expect(follower.querySelector(".readout__lit")?.textContent).toBe("-4.84 dB");
+    expect(follower.querySelector(".readout__ghost")?.textContent).toBe(" 8 88 88");
+    const paper = follower.querySelector(".readout__window")!;
+    expect(paper.classList).toContain("readout__window--bounce-b");
     await wrapper.setProps({ modelValue: -3.2 });
     expect(follower.textContent).toContain("-3.2 dB");
-    expect(paper.classList).toContain("drag-value__paper--bounce-a");
+    expect(paper.classList).toContain("readout__window--bounce-a");
     await wrapper.setProps({ modelValue: -3.2 });
-    expect(paper.classList).toContain("drag-value__paper--bounce-a");
+    expect(paper.classList).toContain("readout__window--bounce-a");
     await documentEvent("mouseup", new MouseEvent("mouseup"));
-    expect(document.querySelector(".knob-drag-value")).toBeNull();
+    expect(document.querySelector(".knob-readout")).toBeNull();
   });
 
   it("caps displayed numeric precision at two places without changing formatter semantics", async () => {
@@ -110,21 +111,20 @@ describe("Knob public interface", () => {
     expect(wrapper.get(".knob-range-value__unit").text()).toBe("s");
 
     await wrapper.trigger("mousedown", { clientX: 150, clientY: 300 });
-    expect(document.querySelector(".knob-drag-value")?.textContent).toContain("0.3s");
+    expect(document.querySelector(".knob-readout")?.textContent).toContain("0.3s");
 
     await wrapper.setProps({ modelValue: 1.236 });
     expect(wrapper.get(".knob-range-value__number").text()).toBe("1.24");
-    expect(document.querySelector(".knob-drag-value")?.textContent).toContain("1.24s");
+    expect(document.querySelector(".knob-readout")?.textContent).toContain("1.24s");
     await documentEvent("mouseup", new MouseEvent("mouseup"));
   });
 
-  it("uses the brass Badge treatment for a brass Knob follower", async () => {
+  it("uses the Brass bezel for a brass Knob readout", async () => {
     const wrapper = render({ modelValue: 64, type: "range", tone: "brass" });
     await wrapper.trigger("mousedown", { clientX: 150, clientY: 300 });
-    const follower = document.querySelector(".knob-drag-value")!;
-    expect(follower.querySelector(".sticker--badge")).not.toBeNull();
-    expect(follower.querySelector(".sticker--color-brass-sheen")).not.toBeNull();
-    expect(follower.querySelector(".sticker--fill")).toBeNull();
+    const follower = document.querySelector(".knob-readout")!;
+    expect(follower.querySelector(".readout__window--brass")).not.toBeNull();
+    expect(follower.querySelector(".readout__window--ivory")).toBeNull();
     await documentEvent("mouseup", new MouseEvent("mouseup"));
   });
 
@@ -139,7 +139,7 @@ describe("Knob public interface", () => {
     Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
       configurable: true,
       get() {
-        return this.classList.contains("knob-drag-value")
+        return this.classList.contains("knob-readout")
           ? 48
           : widthDescriptor?.get?.call(this) ?? 0;
       },
@@ -147,7 +147,7 @@ describe("Knob public interface", () => {
     Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
       configurable: true,
       get() {
-        return this.classList.contains("knob-drag-value")
+        return this.classList.contains("knob-readout")
           ? 160
           : heightDescriptor?.get?.call(this) ?? 0;
       },
@@ -159,7 +159,7 @@ describe("Knob public interface", () => {
         options: [{ label: "Major Pentatonic", value: "major pentatonic" }],
       });
       await wrapper.trigger("mousedown", { clientX: 40, clientY: 32 });
-      const follower = document.querySelector<HTMLElement>(".knob-drag-value")!;
+      const follower = document.querySelector<HTMLElement>(".knob-readout")!;
       expect(follower.textContent).toContain("Major Pentatonic");
       expect(follower.style.maxInlineSize).toBe("48px");
       expect(follower.style.transform).toContain("scale(0.2)");
@@ -178,9 +178,9 @@ describe("Knob public interface", () => {
   it("shows full option labels and dismisses for a horizontal gesture", async () => {
     const wrapper = render({ modelValue: "minor", options: [{ label: "Harmonic minor", value: "minor" }] });
     await wrapper.trigger("mousedown", { clientX: 150, clientY: 300 });
-    expect(document.querySelector(".knob-drag-value")?.textContent).toContain("Harmonic minor");
+    expect(document.querySelector(".knob-readout")?.textContent).toContain("Harmonic minor");
     await documentEvent("mousemove", new MouseEvent("mousemove", { clientX: 190, clientY: 302 }));
-    expect(document.querySelector(".knob-drag-value")).toBeNull();
+    expect(document.querySelector(".knob-readout")).toBeNull();
     expect(wrapper.emitted("update:modelValue")).toBeUndefined();
   });
 
@@ -189,15 +189,15 @@ describe("Knob public interface", () => {
     const contact = { identifier: 4, clientX: 150, clientY: 300 };
     wrapper.element.dispatchEvent(touchEvent("touchstart", [contact]));
     await nextTick();
-    expect(document.querySelector(".knob-drag-value")).not.toBeNull();
+    expect(document.querySelector(".knob-readout")).not.toBeNull();
     await documentEvent("touchcancel", touchEvent("touchcancel", [], [contact]));
-    expect(document.querySelector(".knob-drag-value")).toBeNull();
+    expect(document.querySelector(".knob-readout")).toBeNull();
     expect(wrapper.emitted("update:modelValue")).toBeUndefined();
     await wrapper.trigger("mousedown", { clientX: 150, clientY: 300 });
     vi.spyOn(document, "removeEventListener");
     wrapper.unmount();
     wrappers = wrappers.filter((entry) => entry !== wrapper);
-    expect(document.querySelector(".knob-drag-value")).toBeNull();
+    expect(document.querySelector(".knob-readout")).toBeNull();
     expect(document.removeEventListener).toHaveBeenCalledWith("mousemove", expect.any(Function));
   });
 
@@ -232,21 +232,21 @@ describe("Knob public interface", () => {
       [knobFinger],
       [heldKey, secondKnobFinger],
     ));
-    expect(document.querySelector(".knob-drag-value")).not.toBeNull();
+    expect(document.querySelector(".knob-readout")).not.toBeNull();
 
     const movedKnobFinger = { ...knobFinger, clientY: 250 };
     await documentEvent("touchmove", touchEvent("touchmove", [movedKnobFinger]));
     expect(wrapper.emitted("update:modelValue")).toEqual([["b"]]);
 
     await documentEvent("touchend", touchEvent("touchend", [], [movedKnobFinger]));
-    expect(document.querySelector(".knob-drag-value")).toBeNull();
+    expect(document.querySelector(".knob-readout")).toBeNull();
   });
 
   it("removes a follower when made inert and keeps display-only activation inert", async () => {
     const wrapper = render({ modelValue: "a", options: ["a", "b"] });
     await wrapper.trigger("mousedown", { clientX: 150, clientY: 300 });
     await wrapper.setProps({ isDisplay: true });
-    expect(document.querySelector(".knob-drag-value")).toBeNull();
+    expect(document.querySelector(".knob-readout")).toBeNull();
     await wrapper.trigger("click");
     expect(wrapper.emitted("update:modelValue")).toBeUndefined();
   });

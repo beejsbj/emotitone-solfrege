@@ -21,12 +21,12 @@
         </div>
       </div>
     </div>
-    <DragValue
+    <Readout
       v-if="pointerId !== null || latchFeedbackVisible"
       :x="feedbackPosition.x"
       :y="feedbackPosition.y"
       :value="feedbackLabel"
-      :tone="latchFeedbackVisible ? 'ivory-badge' : 'brass'"
+      :tone="latchFeedbackVisible ? 'latched' : 'brass'"
     />
     <span class="joystick__label instrument-control__label" aria-hidden="true">{{ label }}</span>
     <span class="sr-only" aria-live="polite">{{ statusText }}</span>
@@ -35,7 +35,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch, type ComponentPublicInstance } from "vue";
-import DragValue from "@/components/primatives/DragValue.vue";
+import Readout from "@/components/primatives/Readout.vue";
 import "@/components/primatives/instrumentControl.css";
 import { useUIBeatScale } from "@/composables/useUIBeat";
 import type { HarmonyAlteration } from "@/domain/harmony";

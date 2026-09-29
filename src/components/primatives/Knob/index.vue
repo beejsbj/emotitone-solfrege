@@ -74,11 +74,11 @@
 
     </div>
 
-    <DragValue
-      v-if="showDragValue"
+    <Readout
+      v-if="showReadout"
       :x="interaction.current.value.x"
       :y="interaction.current.value.y"
-      :value="dragValue"
+      :value="readoutValue"
       :tone="tone"
     />
 
@@ -98,7 +98,7 @@ import "../instrumentControl.css";
 import useGSAP from "@/composables/useGSAP";
 import { useUIBeatScale } from "@/composables/useUIBeat";
 import { triggerUIHaptic } from "@/utils/hapticFeedback";
-import DragValue from "../DragValue.vue";
+import Readout from "../Readout.vue";
 import RangeKnob from "./RangeKnob.vue";
 import BooleanKnob from "./BooleanKnob.vue";
 import OptionsKnob from "./OptionsKnob.vue";
@@ -309,12 +309,12 @@ const actualLabel = computed(() => {
 });
 
 // The follower observes the gesture; value/sensitivity ownership stays here.
-const showDragValue = computed(() =>
+const showReadout = computed(() =>
   interaction.isHeld.value && !props.isDisabled && !props.isDisplay &&
   knobType.value !== "boolean" &&
   interaction.gestureState.value !== "horizontal_scroll"
 );
-const dragValue = computed(() => {
+const readoutValue = computed(() => {
   if (knobType.value === "range") {
     return formatKnobDisplayValue(props.formatValue(actualValue.value as number));
   }

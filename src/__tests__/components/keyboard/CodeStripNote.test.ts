@@ -155,6 +155,32 @@ describe("CodeStrip event rendering", () => {
     expect(wrapper.findAll(".code-strip__duration-mark--beat")).toHaveLength(1);
   });
 
+  it("fills each Stave stem across its own segment of the event's time", () => {
+    const stemFills = (wrapper: ReturnType<typeof mount>) => wrapper
+      .findAll(".code-strip__duration-mark")
+      .map((mark) => Number((mark.element as HTMLElement).style.getPropertyValue("--code-strip-stem-fill")));
+
+    const note = mount(CodeStripSequence, {
+      props: {
+        durationMode: "bar",
+        timeSignature: "4/4",
+        tokens: [{ type: "note", note: "do", text: "Do", duration: "@0.25", progress: .6 }],
+      },
+    });
+    // Four sixteenth segments at 60%: two passed, the third 40% through, the fourth ahead.
+    expect(stemFills(note).map((fill) => Number(fill.toFixed(2)))).toEqual([1, 1, .4, 0]);
+
+    // A chord's time passes with its members: here their mean progress is 0.6.
+    const chord = mount(CodeStripSequence, {
+      props: {
+        durationMode: "bar",
+        timeSignature: "4/4",
+        tokens: [{ type: "chord", symbol: "C", members: chordMembers, duration: "@0.125" }],
+      },
+    });
+    expect(stemFills(chord).map((fill) => Number(fill.toFixed(2)))).toEqual([1, .2]);
+  });
+
   it("visualizes an omitted base duration as one full bar", () => {
     const wrapper = mount(CodeStripSequence, {
       props: {

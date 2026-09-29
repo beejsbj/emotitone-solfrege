@@ -1,15 +1,17 @@
-# Compositions lab (step 4) — run prompt
+# Stage lab (step 4) — run prompt
 
 Temporary. Burooj runs this with `$emotitone-design-system` in its own session. Delete this file when the step closes.
 
+Burooj, 2026-09-29: "Harmonic geometry is not part of this pass … After uniques and compounds. We will have a dedicated pass for 'Stage' which is basically all of the canvas stuff." This step is that pass.
+
 ## This lab's units
-- **PerformanceDeck**: the bottom drawer composition (PatternReel, CodeStrip Bar, Control Bar, Keyboard).
-- **Instrument Picker** and **Config Menu**: the top-drawer compositions. Open question from the bible: is the panel behind the Tabs chip and Stickers chassis or something else?
-- **Stage**: the unified canvas (Hilbert scope, bodies, strings, flecks). Canvas studies should drive the real renderer seams.
-- **Leave alone:** the Loading Screen is decided (Count-In, #104).
+- **Stage**: the unified canvas (`UnifiedVisualEffects.vue` + `useUnifiedCanvas`): Hilbert Scope, Atmosphere, Pitch Strings, Note Flecks, and the Circle-of-Fifths support bodies.
+- **Harmonic Geometry**: the Merge/Web blob relationships (`useBlobFieldRenderer`) and their Jazz lettering (`useHarmonicGeometryRenderer`, `harmonicTypography.ts`).
 
 ## Known context
-- Compositions assemble the primitives, uniques, and compounds from steps 1–3. Reimagine how they sit together (layout, rhythm, density, how the brand zone meets the playing zone), not the parts again. Any part change belongs back in its own layer.
+- Everything here is canvas. Directions are canvas studies driven by the real renderer seams, mounted beside the real `/style-guide/stage` specimen.
+- Merge/Web material was accepted on 2026-09-24 and confirmed on a device on 2026-09-27. Two reimagined-lettering trials (interval-in-filament, Merge joins) were rolled back. Don't repeat them without a new idea.
+- Preserve lifecycle/replay, exact-pitch Music Color, Reduced Motion stillness, and the field-pixel budget recorded in the Plan's Blob relationships and Stage rows.
 
 ## How to run this lab
 

@@ -7,6 +7,7 @@ import type { GainExpressionPoint, PitchExpressionPoint } from "./expression";
 import type { ChromaticNote, MusicalMode, SolfegeData, Note } from "./music";
 import type { LiveArticulation } from "@/services/liveArticulation";
 import type { Shape } from "./instrument";
+import type { HarmonyAlteration } from "@/domain/harmony";
 
 /**
  * Pattern store state interface
@@ -221,4 +222,21 @@ export interface Pattern {
 
   //   ui related. when a pattern is selected then played notes go directly into the pattern, allowing me to edit.
   isSelected?: boolean;
+}
+
+/** How a library chord is played across its beats. */
+export type ChordTexture = "block" | "strum" | "arpeggio" | "pulse" | "alberti";
+
+/**
+ * One chord of a library progression: a scale degree of the pattern's key/mode,
+ * shaped by the same alteration the Joystick applies to the Keyboard chord row.
+ */
+export interface ChordStep {
+  /** 1-based scale degree the chord is built on. */
+  degree: number;
+  /** Joystick character; absent means the scale-derived automatic chord. */
+  alteration?: HarmonyAlteration;
+  beats: number;
+  /** Overrides the progression's texture for this chord only. */
+  texture?: ChordTexture;
 }

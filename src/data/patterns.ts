@@ -1,4 +1,6 @@
-import type { Pattern, PatternNote } from "@/types/patterns";
+import type { ChordStep, ChordTexture, Pattern, PatternNote } from "@/types/patterns";
+import { buildHarmony, type HarmonyAlteration } from "@/domain/harmony";
+import { CHORD_PROGRESSIONS } from "@/data/chordProgressions";
 import { DEFAULT_INSTRUMENT } from "@/data/instruments";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 import { CHROMATIC_NOTES } from "@/data/notes";
@@ -19,6 +21,11 @@ export interface DefaultPatternOptions {
   instrument: string;
   steps?: MelodyStep[];
   strudel?: string;
+  chords?: ChordStep[];
+  /** How `chords` are played; defaults to held block chords. */
+  texture?: ChordTexture;
+  /** Octave of the key's tonic that `chords` stack upward from. */
+  octave?: number;
 }
 
 function step(note: string, beats: number, bpm: number): MelodyStep {
@@ -136,6 +143,36 @@ export function mutatePatternMode(
   });
 }
 
+function patternNoteAt(
+  patternId: string,
+  index: number,
+  noteName: string,
+  key: ChromaticNote,
+  mode: MusicalMode,
+  pressTime: number,
+  duration: number
+): PatternNote {
+  const parsed = TonalNote.get(noteName);
+  const pitchClassIndex = parsed.chroma >= 0 ? parsed.chroma : 0;
+  const pc = CHROMATIC_NOTES[pitchClassIndex] ?? "C";
+  const octave = Number.isFinite(parsed.oct) ? (parsed.oct as number) : 4;
+  const { scaleIndex, isBorrowed } = getScaleIndex(pc, key, mode);
+
+  return {
+    id: `${patternId}-note-${index}`,
+    note: `${pc}${octave}`,
+    scaleDegree: isBorrowed ? 0 : scaleIndex + 1,
+    scaleIndex,
+    pitchClassIndex,
+    isBorrowed,
+    octave,
+    frequency: parsed.freq || undefined,
+    pressTime,
+    releaseTime: pressTime + duration,
+    duration,
+  };
+}
+
 function buildPatternNotes(
   patternId: string,
   key: ChromaticNote,
@@ -144,28 +181,9 @@ function buildPatternNotes(
 ): PatternNote[] {
   let cursor = 0;
   return steps.map((melodyStep, index) => {
-    const parsed = TonalNote.get(melodyStep.note);
-    const pitchClassIndex = parsed.chroma >= 0 ? parsed.chroma : 0;
-    const pc = CHROMATIC_NOTES[pitchClassIndex] ?? "C";
-    const octave = Number.isFinite(parsed.oct) ? (parsed.oct as number) : 4;
-    const canonicalNote = `${pc}${octave}`;
-    const { scaleIndex, isBorrowed } = getScaleIndex(pc, key, mode);
-    const scaleDegree = isBorrowed ? 0 : scaleIndex + 1;
-
-    const note: PatternNote = {
-      id: `${patternId}-note-${index + 1}`,
-      note: canonicalNote,
-      scaleDegree,
-      scaleIndex,
-      pitchClassIndex,
-      isBorrowed,
-      octave,
-      frequency: parsed.freq || undefined,
-      pressTime: cursor,
-      releaseTime: cursor + melodyStep.duration,
-      duration: melodyStep.duration,
-    };
-
+    const note = patternNoteAt(
+      patternId, index + 1, melodyStep.note, key, mode, cursor, melodyStep.duration
+    );
     cursor += melodyStep.duration;
     return note;
   });
@@ -197,27 +215,11 @@ function parseStrudelNotes(
       }
       const tokenDuration = Math.round(fraction * cycleMs);
       if (noteName !== "~" && noteName && noteName !== ",") {
-        const parsed = TonalNote.get(noteName);
-        const pitchClassIndex = parsed.chroma >= 0 ? parsed.chroma : 0;
-        const pc = CHROMATIC_NOTES[pitchClassIndex] ?? "C";
-        const octave = Number.isFinite(parsed.oct) ? (parsed.oct as number) : 4;
-        const canonicalNote = `${pc}${octave}`;
-        const { scaleIndex, isBorrowed } = getScaleIndex(pc, key, mode);
-        const scaleDegree = isBorrowed ? 0 : scaleIndex + 1;
-
-        allNotes.push({
-          id: `${patternId}-note-${allNotes.length + 1}`,
-          note: canonicalNote,
-          scaleDegree,
-          scaleIndex,
-          pitchClassIndex,
-          isBorrowed,
-          octave,
-          frequency: parsed.freq || undefined,
-          pressTime: cursor,
-          releaseTime: cursor + tokenDuration,
-          duration: tokenDuration,
-        });
+        allNotes.push(
+          patternNoteAt(
+            patternId, allNotes.length + 1, noteName, key, mode, cursor, tokenDuration
+          )
+        );
       }
       cursor += tokenDuration;
     });
@@ -228,6 +230,106 @@ function parseStrudelNotes(
     notes: allNotes.sort((a, b) => a.pressTime - b.pressTime),
     duration: phraseDuration,
   };
+}
+
+const STRUM_MS = 32;
+/** Share of a slot a chord tone sounds, leaving a seam before the next strike. */
+const CHORD_GATE = 0.94;
+const PULSE_GATE = 0.75;
+
+interface ChordHit {
+  note: string;
+  at: number;
+  length: number;
+}
+
+function chordHits(
+  pitches: string[],
+  texture: ChordTexture,
+  beats: number,
+  beatMs: number
+): ChordHit[] {
+  const total = Math.round(beats * beatMs);
+  const top = pitches.length - 1;
+
+  if (texture === "block") {
+    return pitches.map((note) => ({ note, at: 0, length: Math.round(total * CHORD_GATE) }));
+  }
+
+  if (texture === "strum") {
+    return pitches.map((note, index) => {
+      const at = Math.min(index * STRUM_MS, total - 1);
+      return { note, at, length: Math.max(1, Math.round(total * CHORD_GATE) - at) };
+    });
+  }
+
+  if (texture === "pulse") {
+    const strikes = Math.max(1, Math.round(beats));
+    const slot = total / strikes;
+    return Array.from({ length: strikes }, (_, strike) =>
+      pitches.map((note) => ({
+        note,
+        at: Math.round(strike * slot),
+        length: Math.round(slot * PULSE_GATE),
+      }))
+    ).flat();
+  }
+
+  // Eighth-note figures: broken chords that keep sounding into the next tone.
+  const slot = beatMs / 2;
+  const slots = Math.max(1, Math.round(beats * 2));
+  const up = pitches.map((_, index) => index);
+  const figure = texture === "arpeggio"
+    ? [...up, ...up.slice(1, -1).reverse()]
+    : top >= 2 ? [0, top, 1, top] : [0, top, 0, top];
+
+  return Array.from({ length: slots }, (_, index) => {
+    const at = Math.round(index * slot);
+    const ring = texture === "arpeggio" ? slot * 2 : slot * CHORD_GATE;
+    return {
+      note: pitches[figure[index % figure.length]],
+      at,
+      length: Math.max(1, Math.min(Math.round(ring), total - at)),
+    };
+  });
+}
+
+function buildChordNotes(
+  patternId: string,
+  key: ChromaticNote,
+  mode: MusicalMode,
+  bpm: number,
+  chords: ChordStep[],
+  texture: ChordTexture,
+  octave: number
+): { notes: PatternNote[]; duration: number } {
+  const beatMs = 60000 / bpm;
+  const banks = new Map<HarmonyAlteration, ReturnType<typeof buildHarmony>>();
+  const hits: ChordHit[] = [];
+  let cursor = 0;
+
+  chords.forEach((step) => {
+    const alteration = step.alteration ?? "auto";
+    if (!banks.has(alteration)) {
+      banks.set(alteration, buildHarmony({ tonic: key, scaleType: mode, octave, alteration }));
+    }
+    const chord = banks.get(alteration)![step.degree - 1];
+    if (!chord) {
+      throw new Error(`${patternId}: ${key} ${mode} has no degree ${step.degree}`);
+    }
+    const pitches = chord.voicing.pitches.map((pitch) => pitch.name);
+    chordHits(pitches, step.texture ?? texture, step.beats, beatMs).forEach((hit) =>
+      hits.push({ ...hit, at: cursor + hit.at })
+    );
+    cursor += Math.round(step.beats * beatMs);
+  });
+
+  const notes = hits
+    .sort((a, b) => a.at - b.at)
+    .map((hit, index) =>
+      patternNoteAt(patternId, index + 1, hit.note, key, mode, hit.at, hit.length)
+    );
+  return { notes, duration: cursor };
 }
 
 export function buildDefaultPattern(
@@ -244,6 +346,9 @@ export function buildDefaultPattern(
   let patternInstrument = instrument;
   let patternSteps: MelodyStep[] | undefined;
   let strudelNotation: string | undefined;
+  let chordSteps: ChordStep[] | undefined;
+  let chordTexture: ChordTexture = "block";
+  let chordOctave = 4;
 
   if (typeof idOrOptions === "object") {
     id = idOrOptions.id;
@@ -254,6 +359,9 @@ export function buildDefaultPattern(
     patternInstrument = idOrOptions.instrument;
     patternSteps = idOrOptions.steps;
     strudelNotation = idOrOptions.strudel;
+    chordSteps = idOrOptions.chords;
+    chordTexture = idOrOptions.texture ?? chordTexture;
+    chordOctave = idOrOptions.octave ?? chordOctave;
   } else {
     id = idOrOptions;
     patternName = name!;
@@ -264,7 +372,13 @@ export function buildDefaultPattern(
   const parsedStrudel = strudelNotation
     ? parseStrudelNotes(id, strudelNotation, patternBpm, patternKey, patternMode)
     : undefined;
-  const notes = parsedStrudel?.notes
+  const chorded = chordSteps
+    ? buildChordNotes(
+        id, patternKey, patternMode, patternBpm, chordSteps, chordTexture, chordOctave
+      )
+    : undefined;
+  const authored = parsedStrudel ?? chorded;
+  const notes = authored?.notes
     ?? buildPatternNotes(id, patternKey, patternMode, patternSteps ?? []);
   const firstNote = notes[0];
   const lastNote = notes[notes.length - 1];
@@ -273,7 +387,7 @@ export function buildDefaultPattern(
     id,
     name: patternName,
     notes,
-    duration: parsedStrudel?.duration
+    duration: authored?.duration
       ?? (lastNote ? lastNote.releaseTime - firstNote.pressTime : 0),
     noteCount: notes.length,
     key: patternKey,
@@ -597,4 +711,7 @@ E4@0.25 B3@0.375 B4@0.375`,
       step("G4", 1, 104), step("E4", 0.5, 104), step("D4", 0.5, 104), step("C4", 2, 104),
     ],
   }),
+  ...CHORD_PROGRESSIONS.map(({ chords, texture, octave, ...progression }) =>
+    buildDefaultPattern({ ...progression, chords, texture, octave })
+  ),
 ];

@@ -203,13 +203,16 @@ Burooj on 2026-09-28: the labs reopen the design-system programme, "each lab lay
 | Step | Lab (definition) | Run prompt | Adoptions (one PR per pick) | State |
 | --- | --- | --- | --- | --- |
 | 1. Primitives | #102 (closed as a record): Button, Sticker, Note, Knob Ring/Arc, Marks, Bar Tape, Tabs, and the drag value | — | Merged: #107 Bar Tape Piano Roll, #108 Tape and Stamp Sticker papers, #111 Tabs Marquee edition, #112 LED collar for the Analog Knob, #113 the Readout (DragValue reimagined), #114 Button becomes the Lit Keycap. Note and Marks were left unchanged | Closed 2026-09-29 |
-| 2. Uniques | Code Strip, Joystick, Drawer, Harmonic Geometry. The Brand Logo is already decided | [`lab-prompts/02-uniques.md`](lab-prompts/02-uniques.md) | — | Next: run it |
+| 2. Uniques | #118 (open): Code Strip, Joystick, Drawer. The Brand Logo is already decided; Harmonic Geometry moved to step 4 | [`lab-prompts/02-uniques.md`](lab-prompts/02-uniques.md) | — | Lab open, picks under iteration |
 | 3. Compounds | Key, Chord, Keyboard, Beat Indicator, Control Bar, CodeStrip Bar, Pattern Strip/Reel, Overlay Panel Header | [`lab-prompts/03-compounds.md`](lab-prompts/03-compounds.md) | — | Not started; blocked by step 2 |
-| 4. Compositions | PerformanceDeck, Instrument Picker, Config Menu, Stage. The Loading Screen is already decided | [`lab-prompts/04-compositions.md`](lab-prompts/04-compositions.md) | — | Not started; blocked by step 3 |
-| 5. Tokens | Only where a reimagined layer above needs a new token or a changed collection; proposals, never silent retuning. Each lab above proposes its own token needs | — | — | Not started |
-| 6. Final adoption audit | Re-run the full audit across tokens, guide registrations, imports, the five compositions and other runtime surfaces | — | — | After steps 1–5 land |
+| 4. Stage | All of the canvas: Stage (Hilbert Scope, Atmosphere, Pitch Strings, Note Flecks, support bodies) and Harmonic Geometry (Merge/Web and its lettering) | [`lab-prompts/04-stage.md`](lab-prompts/04-stage.md) | — | Not started; blocked by step 3 |
+| 5. Compositions | PerformanceDeck, Instrument Picker, Config Menu. The Loading Screen is already decided; Stage has its own step | [`lab-prompts/05-compositions.md`](lab-prompts/05-compositions.md) | — | Not started; blocked by step 4 |
+| 6. Tokens | Only where a reimagined layer above needs a new token or a changed collection; proposals, never silent retuning. Each lab above proposes its own token needs | — | — | Not started |
+| 7. Final adoption audit | Re-run the full audit across tokens, guide registrations, imports, the five compositions and other runtime surfaces | — | — | After steps 1–6 land |
 
 Each lab's run prompt is a temporary file in `src/style-guide/lab-prompts/`. Burooj starts a step by running `$emotitone-design-system` in a fresh session; the skill runs the first step whose state is not Closed and whose predecessors are all Closed. Steps are sequential. A step closes when its picks have landed; that Plan update marks it Closed and deletes its prompt file.
+
+Burooj, 2026-09-29: "Harmonic geometry is not part of this pass … After uniques and compounds. We will have a dedicated pass for 'Stage' which is basically all of the canvas stuff." Stage and Harmonic Geometry leave the Uniques and Compositions steps for their own step 4.
 
 Burooj, 2026-09-28: Badge stays as the Brass Sticker variant even though the Readout (#113) removes its last production consumer.
 

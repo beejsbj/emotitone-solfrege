@@ -57,11 +57,44 @@ onMounted(() => {
 });
 onBeforeUnmount(() => {
   if (frame != null) cancelAnimationFrame(frame);
+  relay?.disconnect();
+});
+
+/*
+ * Lab relay for Stave's timed stems. Sequence sets an event's progress on its
+ * Note, Rest or Chord members, not on its duration bar, so this copies it onto
+ * each stem as a 0–1 fill for the segment that stem denotes. Adoption would
+ * pass progress to the duration bar inside Sequence.vue instead.
+ */
+const root = ref<HTMLElement | null>(null);
+let relay: MutationObserver | undefined;
+function readProgress(line: Element) {
+  const own = line.querySelector<HTMLElement>(".code-strip__note, .code-strip__rest");
+  if (own) return parseFloat(own.style.getPropertyValue("--code-strip-progress")) || 0;
+  const members = [...line.querySelectorAll<HTMLElement>("[style*='--chord-member-progress']")]
+    .map((member) => parseFloat(member.style.getPropertyValue("--chord-member-progress")) || 0);
+  return members.length ? members.reduce((sum, value) => sum + value, 0) / members.length : 0;
+}
+function relayStems() {
+  root.value?.querySelectorAll(".code-strip__event-line").forEach((line) => {
+    const marks = line.querySelectorAll<HTMLElement>(".code-strip__duration-mark");
+    const filled = readProgress(line) * marks.length;
+    marks.forEach((mark, index) => {
+      const fill = String(Math.min(1, Math.max(0, filled - index)));
+      if (mark.style.getPropertyValue("--ulab-stem-fill") !== fill) mark.style.setProperty("--ulab-stem-fill", fill);
+    });
+  });
+}
+onMounted(() => {
+  if (props.skin !== "stave" || !root.value) return;
+  relayStems();
+  relay = new MutationObserver(relayStems);
+  relay.observe(root.value, { subtree: true, childList: true, attributes: true, attributeFilter: ["style"] });
 });
 </script>
 
 <template>
-  <div class="ulab-bench ulab-strip" :class="props.skin ? `ulab-strip--${props.skin}` : 'ulab-strip--production'">
+  <div ref="root" class="ulab-bench ulab-strip" :class="props.skin ? `ulab-strip--${props.skin}` : 'ulab-strip--production'">
     <LabCell
       :caption="onlyPlaying ? label : 'Playing · the phrase loops through notes, rests and a fused chord (Reduced Motion holds one frame)'"
       wide

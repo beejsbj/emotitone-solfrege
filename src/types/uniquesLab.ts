@@ -62,6 +62,8 @@ export interface LabUniqueUnit {
   directions: LabUniqueDirection[];
   /** The unit's place in the bible: which zone, chassis or applied paper. */
   reading: string;
+  /** Burooj's recorded response to the directions, once given. */
+  verdict?: string;
   /** Present when the lab deliberately leaves the unit alone. */
   leaveAlone?: string;
 }

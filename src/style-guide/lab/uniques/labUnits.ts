@@ -1,5 +1,4 @@
 import type { LabUniqueUnit } from "@/types/uniquesLab";
-import UniqueHarmonicGeometry from "../../uniques/UniqueHarmonicGeometry.vue";
 import CodeStripBench from "./code-strip/CodeStripBench.vue";
 import DrawerBench from "./drawer/DrawerBench.vue";
 import CompassFace from "./joystick/CompassFace.vue";
@@ -18,6 +17,7 @@ export const UNIQUE_LAB_UNITS: LabUniqueUnit[] = [
     name: "Joystick",
     source: "components/uniques/Joystick/index.vue",
     bench: JoystickBench,
+    verdict: "Burooj, 2026-09-29: none of the three is worth adopting. Production stays.",
     reading:
       "Playing zone · chassis. A thing you play with, so Brass is allowed. It ships in paired Analog and Digital editions; each direction says which edition it would replace. Known drift: the LED collar (#112) shrank the Analog Knob's well to a 16% inset while the Joystick's stays at 12%.",
     directions: [
@@ -73,6 +73,8 @@ export const UNIQUE_LAB_UNITS: LabUniqueUnit[] = [
     name: "Drawer",
     source: "components/uniques/Drawer/index.vue",
     bench: DrawerBench,
+    verdict:
+      "Burooj, 2026-09-29: take only A's trapezoid, not its finger slot. B's ticks are nice but only mean something on the Keyboard drawer, and only pinned to the top edge of the handle. Direction D is that iteration.",
     reading:
       "Playing zone · chassis. The Drawer body is flush Ink and stays that way; the reimaginable part is the exposed-edge handle, the only thing you touch. Each direction restyles the real handle, so dragging, continuous sizing, complete-row Keyboard sizing, haptics and Arrow-key resizing are untouched.",
     directions: [
@@ -118,6 +120,20 @@ export const UNIQUE_LAB_UNITS: LabUniqueUnit[] = [
           "It is paper acting as a control, and the bible calls handles chassis. Ivory tape is also the brightest element at the screen edge, which competes with Music Color when you play.",
         bible: { zone: "Playing zone", role: "Applied paper", fit: "caution", note: "Ivory only, so legal, but it recasts a chassis part as paper." },
       },
+      {
+        id: "lip-meter",
+        letter: "D",
+        name: "Lip + Row Meter",
+        paper: "bone",
+        skin: "lip-meter",
+        idea:
+          "Burooj's iteration on A and B. Every handle takes A's trapezoid and keeps production's grips, icon and label. Only the Keyboard handle carries B's pips, one per complete row, pinned along the trapezoid's top edge.",
+        better:
+          "The trapezoid makes the handle read as the drawer's own lip. The row count appears only where rows exist, so the top drawers stay quiet.",
+        risks:
+          "The Keyboard handle grows about 6px taller to seat the pips. The chamfer still costs width on the two top handles at 390px.",
+        bible: { zone: "Playing zone", role: "Chassis", fit: "fits", note: "Hardware silhouette; Ivory light only where it reports state." },
+      },
     ],
   },
   {
@@ -125,6 +141,8 @@ export const UNIQUE_LAB_UNITS: LabUniqueUnit[] = [
     name: "Code Strip",
     source: "components/uniques/CodeStrip/index.vue",
     bench: CodeStripBench,
+    verdict:
+      "Burooj, 2026-09-29: \"Love stave.\" Asked whether the duration marks should animate to show the time segments they denote; A's stems now fill segment by segment while the event sounds.",
     reading:
       "Playing zone · the editable Strudel document. Its Notes and Chords are applied paper in Music Color; the strip between them is chassis. Directions restyle the real CodeMirror document, so source-range editing, playback progress and exact-pitch identity are unchanged. Drift found on the way: production's text selection is a green hsl(152) wash, a colour the bible does not allow.",
     directions: [
@@ -135,7 +153,7 @@ export const UNIQUE_LAB_UNITS: LabUniqueUnit[] = [
         paper: "bone",
         skin: "stave",
         idea:
-          "The strip reads as a line of music, not a line of code: one hairline staff runs through it, the Notes sit on it, brackets become barlines, and code punctuation recedes. Duration ticks stand up as stems and a rest is a slim gap in the staff that fills with Ivory.",
+          "The strip reads as a line of music, not a line of code: one hairline staff runs through it, the Notes sit on it, brackets become barlines, and code punctuation recedes. Duration ticks stand up as stems, one per segment of the note's time, and each fills bottom-up as its segment passes; a rest is a slim gap in the staff that fills with Ivory.",
         better:
           "Production shows raw mini-notation (a backtick, angle brackets, commas) beside pasted-paper Notes, so it is neither code nor notation. The staff gives the strip one reading and makes rests and bar structure visible at 390px.",
         risks:
@@ -171,15 +189,5 @@ export const UNIQUE_LAB_UNITS: LabUniqueUnit[] = [
         bible: { zone: "Playing zone", role: "Chassis", fit: "caution", note: "A recessed well is hardware grammar, but it edges toward a housing." },
       },
     ],
-  },
-  {
-    id: "harmonic-geometry",
-    name: "Harmonic Geometry",
-    source: "composables/canvas/useBlobFieldRenderer.ts · useHarmonicGeometryRenderer.ts",
-    bench: UniqueHarmonicGeometry,
-    reading: "Playing zone · Stage canvas. Its only colour is Music Color.",
-    directions: [],
-    leaveAlone:
-      "Left alone. Burooj accepted the organic Merge and rooted Web material on 2026-09-24 and confirmed it on a real device on 2026-09-27, and two reimagined-lettering trials (the interval-in-filament and Merge-join treatments) were tried and rolled back. A third canvas study now would reopen a unit with a fresh, hard-won acceptance for little new information. Say so if you want it opened anyway; the renderer seams are ready for canvas studies.",
   },
 ];

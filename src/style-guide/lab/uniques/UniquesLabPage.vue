@@ -51,6 +51,7 @@ const compare = ref<HarmonyAlteration>("dominant7");
             {{ unit.leaveAlone ? "Left alone" : `${unit.directions.length} directions` }} · <code>{{ unit.source }}</code>
           </p>
           <p class="ulab-unit__reading">{{ unit.reading }}</p>
+          <p v-if="unit.verdict" class="ulab-unit__verdict">{{ unit.verdict }}</p>
         </header>
 
         <div v-if="unit.leaveAlone" class="focused-sheet ulab-sheet">
@@ -170,6 +171,15 @@ const compare = ref<HarmonyAlteration>("dominant7");
   max-width: 70ch;
   margin: var(--s-4) 0 0;
   color: var(--ivory);
+  font: var(--t-body-s-mono);
+}
+
+.ulab-unit__verdict {
+  max-width: 70ch;
+  margin: var(--s-4) 0 0;
+  padding: var(--s-3) var(--s-4);
+  background: var(--ivory);
+  color: var(--ink);
   font: var(--t-body-s-mono);
 }
 

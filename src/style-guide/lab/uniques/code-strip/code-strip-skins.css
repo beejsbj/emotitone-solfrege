@@ -36,8 +36,19 @@
 /* Duration ticks become stems standing on the staff after each head. */
 .ulab-strip.ulab-strip--stave .code-strip .code-strip__event-line { align-items: center; }
 .ulab-strip.ulab-strip--stave .code-strip .code-strip__duration-bar { align-items: center; padding: 0; column-gap: 3px; }
-.ulab-strip.ulab-strip--stave .code-strip .code-strip__duration-mark { height: 8px; border-radius: 0; background: var(--ivory-4); }
-.ulab-strip.ulab-strip--stave .code-strip .code-strip__duration-mark--beat { height: 14px; background: var(--ivory-2); }
+/* Each stem is one segment of the note's time and fills bottom-up as that
+   segment passes, so the stems count the duration out while it sounds. */
+.ulab-strip.ulab-strip--stave .code-strip .code-strip__duration-mark {
+  --ulab-stem-lit: var(--ivory);
+  justify-self: center;
+  width: 2px;
+  min-width: 2px;
+  height: 9px;
+  border-radius: 0;
+  background: linear-gradient(to top, var(--ulab-stem-lit) calc(var(--ulab-stem-fill, 0) * 100%), var(--ink-5) 0);
+  opacity: 1;
+}
+.ulab-strip.ulab-strip--stave .code-strip .code-strip__duration-mark--beat { height: 15px; }
 
 /* A rest is a slim gap in the staff that fills with Ivory as it passes. */
 .ulab-strip.ulab-strip--stave .code-strip .code-strip__rest {

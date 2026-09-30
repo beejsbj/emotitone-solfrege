@@ -57,6 +57,7 @@ export const GUIDE_LAYERS: GuideLayer[] = [
       { id: "control-bar", name: "Control Bar", density: "short", specimen: () => import("./compounds/CompoundControlBar.vue") },
       { id: "pattern-strip", name: "PatternStrip", density: "short", specimen: () => import("./compounds/CompoundPatternStrip.vue") },
       { id: "pattern-reel", name: "PatternReel", density: "detailed", specimen: () => import("./compounds/CompoundPatternReel.vue"), focusedHref: "/style-guide/pattern-reel" },
+      { id: "compounds-lab", name: "Compounds Lab", density: "detailed", focusedHref: "/style-guide/lab/compounds", summary: "Reimagined Key, Chord, Beat Indicator, PatternStrip/Reel and Overlay Panel Header directions beside the accepted production units." },
     ],
   },
   {

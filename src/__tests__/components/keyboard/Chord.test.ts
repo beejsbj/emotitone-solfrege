@@ -151,9 +151,11 @@ describe("Chord compound", () => {
     expect(memberStyles[1]).toContain("--chord-member-progress: 0.375");
     expect(memberStyles[2]).toContain("--chord-member-progress: 1");
     expect(memberStyles[3]).toContain("--chord-member-progress: 0");
-    expect(memberStyles[1]).toContain(
-      "--chord-member-surface: linear-gradient(90deg, color-mix(in srgb, member-pitch-primary-0 50%, member-pitch-primary-4) 0%, member-pitch-primary-4 50%, color-mix(in srgb, member-pitch-primary-4 50%, member-pitch-primary-7) 100%)",
-    );
+    expect(
+      (fused.findAll(".chord__fused-member")[1].element as HTMLElement).style
+        .getPropertyValue("--chord-member-surface"),
+    ).toBe("member-pitch-primary-4");
+    expect(memberStyles.join(" ")).not.toContain("gradient");
     expect(mocks.getKeyBackgroundByPitchClass).toHaveBeenCalledTimes(4);
 
     const clustered = mount(Chord, {
@@ -163,10 +165,11 @@ describe("Chord compound", () => {
       .toContain("--chord-member-progress: 0.375");
 
     expect(chordSource).toContain("background: var(--ink)");
-    expect(chordSource).toContain("transform: scaleY(var(--chord-member-progress))");
+    expect(chordSource).toContain("clip-path: inset(calc((1 - var(--chord-member-progress)) * 100%) -100% -20% -100%)");
     expect(chordSource).toContain("transform: scaleY(calc(1 - var(--chord-member-progress)))");
     expect(chordSource).toContain("transition: transform var(--dur-press) linear");
-    expect(chordSource).toContain("color-mix(in srgb");
+    expect(chordSource).not.toContain("color-mix(in srgb");
+    expect(chordSource).not.toContain("linear-gradient");
   });
 
   it("uses voicing order for fused bands and press order for clustered Notes", () => {
@@ -182,12 +185,17 @@ describe("Chord compound", () => {
       props: { members: voicing, display: "notes", symbol: "C/G" },
     });
 
-    expect(fused.findAll(".chord__fused-member").map((member) => member.attributes("style")))
-      .toEqual([
-        "--chord-member-surface: linear-gradient(90deg, member-pitch-primary-0 0%, member-pitch-primary-0 50%, color-mix(in srgb, member-pitch-primary-0 50%, member-pitch-primary-4) 100%); --chord-member-progress: 0.15;",
-        "--chord-member-surface: linear-gradient(90deg, color-mix(in srgb, member-pitch-primary-0 50%, member-pitch-primary-4) 0%, member-pitch-primary-4 50%, color-mix(in srgb, member-pitch-primary-4 50%, member-pitch-primary-7) 100%); --chord-member-progress: 0.9;",
-        "--chord-member-surface: linear-gradient(90deg, color-mix(in srgb, member-pitch-primary-4 50%, member-pitch-primary-7) 0%, member-pitch-primary-7 50%, member-pitch-primary-7 100%); --chord-member-progress: 0.45;",
-      ]);
+    const fusedMembers = fused.findAll(".chord__fused-member")
+      .map((member) => member.element as HTMLElement);
+    const fusedProp = (name: string) => fusedMembers
+      .map((member) => member.style.getPropertyValue(name));
+    expect(fusedProp("--chord-member-surface")).toEqual([
+      "member-pitch-primary-0",
+      "member-pitch-primary-4",
+      "member-pitch-primary-7",
+    ]);
+    expect(fusedProp("--chord-member-progress")).toEqual(["0.15", "0.9", "0.45"]);
+    expect(fusedProp("--chord-member-rotation")).toEqual(["-8deg", "0deg", "8deg"]);
     expect(clustered.findAllComponents(Note).map((note) => note.props("rawPitch"))).toEqual([
       "E4",
       "G4",
@@ -201,10 +209,61 @@ describe("Chord compound", () => {
       ]);
   });
 
-  it("consumes one shared paper material recipe without changing Note styling", () => {
+  it("re-fans bands and keeps independent progress when membership or order changes", async () => {
+    const wrapper = mount(Chord, {
+      props: { members: triad, display: "symbol", symbol: "C" },
+    });
+    const read = () => wrapper.findAll(".chord__fused-member").map((member) => {
+      const style = (member.element as HTMLElement).style;
+      return {
+        surface: style.getPropertyValue("--chord-member-surface"),
+        progress: style.getPropertyValue("--chord-member-progress"),
+        rotation: style.getPropertyValue("--chord-member-rotation"),
+        progressInBand: member.findAll(".chord__fused-progress > .chord__fused-band").length,
+      };
+    });
+
+    expect(read().map((member) => member.rotation)).toEqual(["-8deg", "0deg", "8deg"]);
+
+    const seventh: ChordMember = {
+      ...triad[0],
+      id: "b4",
+      rawPitch: "B4",
+      scaleIndex: 6,
+      pitchClassIndex: 11,
+      progress: .6,
+    };
+    await wrapper.setProps({ members: [triad[0], triad[1], triad[2], seventh] });
+    expect(read()).toEqual([
+      { surface: "member-pitch-primary-0", progress: "0.25", rotation: "-12deg", progressInBand: 1 },
+      { surface: "member-pitch-primary-4", progress: "0.5", rotation: "-4deg", progressInBand: 1 },
+      { surface: "member-pitch-primary-7", progress: "0.75", rotation: "4deg", progressInBand: 1 },
+      { surface: "member-pitch-primary-11", progress: "0.6", rotation: "12deg", progressInBand: 1 },
+    ]);
+
+    // Reorder and change one member's progress: tilt follows position, progress follows the member.
+    await wrapper.setProps({
+      members: [triad[2], { ...triad[0], progress: .1 }, seventh, triad[1]],
+    });
+    expect(read()).toEqual([
+      { surface: "member-pitch-primary-7", progress: "0.75", rotation: "-12deg", progressInBand: 1 },
+      { surface: "member-pitch-primary-0", progress: "0.1", rotation: "-4deg", progressInBand: 1 },
+      { surface: "member-pitch-primary-11", progress: "0.6", rotation: "4deg", progressInBand: 1 },
+      { surface: "member-pitch-primary-4", progress: "0.5", rotation: "12deg", progressInBand: 1 },
+    ]);
+
+    // Clustered Notes never take a fan tilt.
+    await wrapper.setProps({ display: "notes" });
+    expect(wrapper.find(".chord__fused-band").exists()).toBe(false);
+    expect(wrapper.findAll(".chord__cluster-member").every(
+      (member) => (member.element as HTMLElement).style.getPropertyValue("--chord-member-rotation") === "",
+    )).toBe(true);
+  });
+
+  it("keeps the fused face cut with the Keys' paper sheen over its flat bands", () => {
     expect(noteSource).toContain("background: var(--paper-surface-sheen)");
     expect(chordSource).toContain("background: var(--paper-surface-sheen)");
-    expect(chordSource).toContain("clip-path: var(--chord-clip)");
+    expect(chordSource).toContain("clip-path: var(--chord-geometry-override-clip, var(--chord-clip))");
     expect(chordSource).toContain("box-shadow: var(--shadow-key)");
     expect(chordSource).toContain("font-size: clamp(17px");
   });

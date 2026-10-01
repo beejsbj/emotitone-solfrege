@@ -247,6 +247,9 @@ describe("Keyboard production usage", () => {
       ".keyboard--contrast-forced :deep(.chord__fused)",
     );
     expect(keyboardSource).toContain(
+      ".keyboard--contrast-forced :deep(.chord__fused-band)",
+    );
+    expect(keyboardSource).toContain(
       ".keyboard--contrast-forced :deep(.chord__symbol)",
     );
     expect(keyboardSource).toMatch(
@@ -339,6 +342,20 @@ describe("Keyboard production usage", () => {
     expect(wrapper.findAllComponents(ChordKeyStub).every(
       (chord) => chord.props("geometry") === "tile",
     )).toBe(true);
+
+    const chords = wrapper.findAllComponents(ChordKeyStub);
+    const cuts = chords.map((chord) => (chord.element as HTMLElement).style
+      .getPropertyValue("--chord-geometry-override-clip"));
+
+    chords.forEach((chord, index) => {
+      const style = (chord.element as HTMLElement).style;
+      expect(cuts[index]).toMatch(/^var\(--keyboard-tile-cut-[123]\)$/);
+      expect(style.getPropertyValue("--keyboard-edition-rotation"))
+        .toMatch(/^var\(--keyboard-tile-rotation-[123]\)$/);
+      expect(style.getPropertyValue("--key-face-rotation"))
+        .toBe("calc(var(--keyboard-edition-rotation) * var(--keyboard-variation-amplitude))");
+      if (index > 0) expect(cuts[index]).not.toBe(cuts[index - 1]);
+    });
   });
 
   it("owns fluid primary typography at the Keyboard layer", () => {

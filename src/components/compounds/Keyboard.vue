@@ -28,7 +28,10 @@
       aria-label="Harmony chords"
       :data-chord-count="renderChords.length"
       :data-geometry-family="resolvedChordFamily"
-      :style="{ '--keyboard-chord-count': Math.max(renderChords.length, 1) }"
+      :style="{
+        '--keyboard-chord-count': Math.max(renderChords.length, 1),
+        '--keyboard-user-variation-amplitude': Math.max(0, resolvedVariationAmplitude),
+      }"
     >
       <ChordKey
         v-for="(chord, chordIndex) in renderChords"
@@ -39,6 +42,7 @@
         :symbol="chord.harmony.symbol"
         :accessible-name="chord.harmony.accessibleName"
         :geometry="resolvedChordFamily"
+        :style="chordKeyStyle(chord)"
         :pressed="chord.pressed || chordGesturePressedIds.has(chord.harmony.id)"
         managed-input
         :disabled="isInteractionLocked"
@@ -799,6 +803,14 @@ const editionVariations = computed(() => new Map(
   ),
 ));
 
+const chordEditionVariations = computed(() => new Map(
+  keyboardEditionRowVariations(
+    resolvedChordFamily.value,
+    resolvedEditionSeed.value,
+    renderChords.value.map((chord) => chord.harmony.id),
+  ),
+));
+
 watch(
   rowSignature,
   () => {
@@ -880,6 +892,19 @@ function keyStyle(key: KeyboardKeyView, octave: number) {
     "--note-geometry-override-clip": variation.cut,
     "--note-geometry-override-shadow": variation.shadow,
     zIndex: isKeyPhysicallyPressed(key) ? 10_001 : variation.layer,
+  };
+}
+
+function chordKeyStyle(chord: KeyboardChordView) {
+  const variation = chordEditionVariations.value.get(chord.harmony.id)!;
+
+  return {
+    "--keyboard-edition-rotation": variation.rotation,
+    "--key-face-rotation": "calc(var(--keyboard-edition-rotation) * var(--keyboard-variation-amplitude))",
+    "--chord-geometry-override-clip": variation.cut,
+    zIndex: chord.pressed || chordGesturePressedIds.value.has(chord.harmony.id)
+      ? 10_001
+      : variation.layer,
   };
 }
 
@@ -1544,6 +1569,7 @@ onBeforeUnmount(() => {
 }
 
 .keyboard__chord-row {
+  --keyboard-variation-amplitude: var(--keyboard-user-variation-amplitude, 1);
   display: grid;
   min-width: 0;
   min-height: 44px;
@@ -1610,7 +1636,8 @@ onBeforeUnmount(() => {
 }
 
 @container keyboard (max-width: 390px) {
-  .keyboard__row {
+  .keyboard__row,
+  .keyboard__chord-row {
     --keyboard-variation-amplitude: calc(var(--keyboard-user-variation-amplitude, 1) * .45);
   }
 
@@ -1661,6 +1688,7 @@ onBeforeUnmount(() => {
 }
 
 .keyboard--contrast-forced :deep(.chord__fused) {
+  --chord-member-seam: 1px solid CanvasText;
   border: 1px solid CanvasText;
   background: Canvas !important;
   box-shadow: none;
@@ -1671,11 +1699,11 @@ onBeforeUnmount(() => {
   display: none;
 }
 
-.keyboard--contrast-forced :deep(.chord__fused-member) {
+.keyboard--contrast-forced :deep(.chord__fused-band) {
   background: Canvas;
 }
 
-.keyboard--contrast-forced :deep(.chord__fused-progress) {
+.keyboard--contrast-forced :deep(.chord__fused-progress .chord__fused-band) {
   background: Highlight !important;
 }
 

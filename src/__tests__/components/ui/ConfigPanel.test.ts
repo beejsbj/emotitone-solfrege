@@ -497,6 +497,8 @@ describe("ConfigPanel.vue", () => {
     expect(
       wrapper.findAllComponents({ name: "Knob" }).filter((knob) => knob.props("tone") === "brass")
     ).toHaveLength(2);
+    expect(wrapper.get('.config-panel__looks-header h2.panel-heading--band').text()).toBe("Looks");
+    expect(wrapper.get('.config-panel__looks-header .panel-heading--tape').text()).toBe("Stage only");
   });
 
   it("keeps Config chrome on the workhorse Ink and Ivory palette", () => {
@@ -517,6 +519,11 @@ describe("ConfigPanel.vue", () => {
       .toBe("Config");
     expect(wrapper.get('[data-testid="overlay-panel-header"] .overlay-panel-header__context').text())
       .toBe("Global");
+    expect(wrapper.get('.overlay-panel-header__title').classes()).toContain("panel-heading--band");
+    expect(wrapper.get('.overlay-panel-header__context').classes()).toContain("panel-heading--tape");
+    expect(wrapper.get('h2.panel-heading--band').text()).toBe("Global");
+    expect(wrapper.get('.config-panel__eyebrow.panel-heading--tape').text()).toBe("Across EmotiTone");
+    expect(wrapper.get('.config-panel__group-label').classes()).toContain("panel-heading--tape");
     expect(wrapper.get('button[aria-label="Close settings"]').classes())
       .toContain("paper-button--sm");
   });

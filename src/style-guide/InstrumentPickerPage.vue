@@ -35,6 +35,7 @@
         </div>
 
         <dl class="focused-facts">
+          <div><dt>Headings</dt><dd>The panel title sits on a leaning Ivory highlight band; its current bank and group labels use embossed Ink tape, with readable counts beside them.</dd></div>
           <div><dt>Available</dt><dd>Ivory outline Sticker; the default library texture.</dd></div>
           <div><dt>Cold</dt><dd>The same outline Sticker dimmed, without inventing another surface.</dd></div>
           <div><dt>Current</dt><dd>Filled Ivory Sticker; selection is the strongest stable event.</dd></div>

@@ -5,6 +5,7 @@ import { getRegisteredSounds } from "@/services/superdoughAudio";
 import Button from "@/components/primatives/Button.vue";
 import Sticker from "@/components/primatives/Sticker";
 import OverlayPanelHeader from "@/components/OverlayPanelHeader.vue";
+import "./panelHeading.css";
 import TabbedOverlayPanel, {
   type TabbedOverlayTab,
 } from "./TabbedOverlayPanel.vue";
@@ -498,7 +499,7 @@ async function selectInstrument(name: string, close: () => void) {
               class="instrument-group"
             >
               <div class="instrument-group__heading">
-                <span>{{ group.label }}</span>
+                <span class="panel-heading panel-heading--tape">{{ group.label }}</span>
                 <span>{{ group.sounds.length }}</span>
               </div>
 
@@ -577,7 +578,6 @@ async function selectInstrument(name: string, close: () => void) {
   align-items: center;
   justify-content: space-between;
   gap: .75rem;
-  border-bottom: 1px solid var(--ivory-4);
   padding: 0 .125rem .5rem;
   color: var(--ivory-3);
   font-family: var(--font-mono);

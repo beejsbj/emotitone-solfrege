@@ -81,8 +81,8 @@
             <section class="config-panel__section" data-testid="global-public-controls">
               <header class="config-panel__section-header">
                 <div>
-                  <p class="config-panel__eyebrow">Across EmotiTone</p>
-                  <h2>Global</h2>
+                  <p class="config-panel__eyebrow panel-heading panel-heading--tape">Across EmotiTone</p>
+                  <h2 class="panel-heading panel-heading--band">Global</h2>
                   <p class="config-panel__section-copy">
                     Shared color and interface rhythm, independent of the Stage canvas.
                   </p>
@@ -105,7 +105,7 @@
                   :key="group.label"
                   class="config-panel__group"
                 >
-                  <p class="config-panel__group-label">{{ group.label }}</p>
+                  <p class="config-panel__group-label panel-heading panel-heading--tape">{{ group.label }}</p>
                   <p class="config-panel__group-copy">{{ group.description }}</p>
                   <div class="config-panel__knob-grid">
                     <Knob
@@ -165,8 +165,8 @@
             >
               <header class="config-panel__section-header">
                 <div>
-                  <p class="config-panel__eyebrow">Canvas</p>
-                  <h2>Stage</h2>
+                  <p class="config-panel__eyebrow panel-heading panel-heading--tape">Canvas</p>
+                  <h2 class="panel-heading panel-heading--band">Stage</h2>
                   <p class="config-panel__section-copy">
                     Control the complete visual canvas. Related layers share focused destinations.
                   </p>
@@ -204,8 +204,8 @@
             >
               <header class="config-panel__looks-header">
                 <div>
-                  <p class="config-panel__eyebrow">Stage only</p>
-                  <h2>Looks</h2>
+                  <p class="config-panel__eyebrow panel-heading panel-heading--tape">Stage only</p>
+                  <h2 class="panel-heading panel-heading--band">Looks</h2>
                   <p class="config-panel__section-copy">
                     Built-ins preserve body relationships and explanations; saved Looks restore what you saved.
                   </p>
@@ -256,7 +256,7 @@
               </div>
 
               <div class="config-panel__preset-group">
-                <p class="config-panel__group-label">Built In</p>
+                <p class="config-panel__group-label panel-heading panel-heading--tape">Built In</p>
                 <div class="config-panel__scene-grid">
                   <button
                     v-for="look in builtInLooks"
@@ -275,7 +275,7 @@
               </div>
 
               <div class="config-panel__preset-group">
-                <p class="config-panel__group-label">Saved Stage Looks</p>
+                <p class="config-panel__group-label panel-heading panel-heading--tape">Saved Stage Looks</p>
                 <div v-if="savedStageLooks.length === 0" class="config-panel__empty-state">
                   No saved Stage Looks yet.
                 </div>
@@ -322,8 +322,8 @@
             >
               <header class="config-panel__section-header">
                 <div>
-                  <p class="config-panel__eyebrow">Stage layers</p>
-                  <h2>{{ destination.label }}</h2>
+                  <p class="config-panel__eyebrow panel-heading panel-heading--tape">Stage layers</p>
+                  <h2 class="panel-heading panel-heading--band">{{ destination.label }}</h2>
                   <p class="config-panel__section-copy">{{ destination.description }}</p>
                 </div>
               </header>
@@ -359,7 +359,7 @@
                   class="config-panel__group"
                 >
                   <template v-if="destination.groups.length > 1">
-                    <p class="config-panel__group-label">{{ group.label }}</p>
+                    <p class="config-panel__group-label panel-heading panel-heading--tape">{{ group.label }}</p>
                     <p class="config-panel__group-copy">{{ group.description }}</p>
                   </template>
                   <div class="config-panel__knob-grid">
@@ -388,8 +388,8 @@
             <section class="config-panel__section" data-testid="deck-public-controls">
               <header class="config-panel__section-header">
                 <div>
-                  <p class="config-panel__eyebrow">Performance surface</p>
-                  <h2>Deck</h2>
+                  <p class="config-panel__eyebrow panel-heading panel-heading--tape">Performance surface</p>
+                  <h2 class="panel-heading panel-heading--band">Deck</h2>
                   <p class="config-panel__section-copy">
                     Shared notation and the useful Keyboard and Code Strip choices.
                   </p>
@@ -412,7 +412,7 @@
                   :key="group.label"
                   class="config-panel__group"
                 >
-                  <p class="config-panel__group-label">{{ group.label }}</p>
+                  <p class="config-panel__group-label panel-heading panel-heading--tape">{{ group.label }}</p>
                   <p class="config-panel__group-copy">{{ group.description }}</p>
                   <div class="config-panel__knob-grid">
                     <Knob
@@ -501,7 +501,7 @@
                 class="config-panel__midi-surface"
               >
                 <div class="space-y-2">
-                  <p class="config-panel__group-label">ROLI</p>
+                  <p class="config-panel__group-label panel-heading panel-heading--tape">ROLI</p>
 
                   <p class="config-panel__midi-copy">
                     Generate a live-sync LittleFoot script from the current
@@ -551,6 +551,7 @@
 import { computed, ref } from "vue";
 import MidiSettingsIcon from "@/components/primatives/MidiSettingsIcon.vue";
 import OverlayPanelHeader from "@/components/OverlayPanelHeader.vue";
+import "./panelHeading.css";
 import { storeToRefs, type Pinia } from "pinia";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
@@ -1012,8 +1013,6 @@ const formatTimestamp = (timestamp: string) => {
   align-items: center;
 }
 
-.config-panel__eyebrow,
-.config-panel__group-label,
 .config-panel__saved-time,
 .config-panel__labeled-action span {
   margin: 0;
@@ -1037,8 +1036,6 @@ const formatTimestamp = (timestamp: string) => {
   margin-block-end: clamp(var(--s-5), 4vw, var(--s-7));
 }
 
-.config-panel__eyebrow,
-.config-panel__group-label,
 .config-panel__saved-time,
 .config-panel__labeled-action span {
   color: var(--ivory);
@@ -1047,12 +1044,14 @@ const formatTimestamp = (timestamp: string) => {
   opacity: .52;
 }
 
-.config-panel__section-header h2 {
-  margin: var(--s-1) 0 0;
-  color: var(--ivory);
-  font: var(--t-display-m);
-  letter-spacing: var(--tracking-display);
-  text-transform: uppercase;
+.config-panel__eyebrow,
+.config-panel__group-label {
+  margin: 0;
+}
+
+.config-panel__section-header h2,
+.config-panel__looks-header h2 {
+  margin: var(--s-2) 0 0;
 }
 
 .config-panel__section-copy,
@@ -1136,14 +1135,6 @@ const formatTimestamp = (timestamp: string) => {
   gap: var(--s-4);
 }
 
-.config-panel__looks-header h2 {
-  margin: var(--s-1) 0 0;
-  color: var(--ivory);
-  font: var(--t-display-m);
-  letter-spacing: var(--tracking-display);
-  text-transform: uppercase;
-}
-
 .config-panel__looks-actions {
   align-items: flex-start;
   flex: none;
@@ -1162,11 +1153,6 @@ const formatTimestamp = (timestamp: string) => {
   font-family: var(--font-mono);
   text-transform: uppercase;
   letter-spacing: .12em;
-}
-
-.config-panel__group-label {
-  color: var(--ivory);
-  opacity: .64;
 }
 
 .config-panel__knob-grid {

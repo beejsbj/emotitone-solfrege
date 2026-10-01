@@ -1,0 +1,369 @@
+<script setup lang="ts">
+import { ref } from "vue";
+import Sticker from "@/components/primatives/Sticker";
+import type { StageLabMessage, StageLabPaper, StageLabState, StageLabUnit } from "@/types/stageLab";
+import FocusedPoster from "../../focused/FocusedPoster.vue";
+import "../../focused/focused-page.css";
+import { STAGE_LAB_STATES } from "./labConductor";
+import { STAGE_LAB_UNITS } from "./labUnits";
+import StageLabFrameCell from "./StageLabFrameCell.vue";
+
+/*
+ * Guide-only design lab for the Stage step of the reimagining pass. Each unit
+ * runs production and every direction side by side, each in its own frame,
+ * driven by the same scripted states and the same live keys. `?unit=<id>`
+ * narrows the page to one unit.
+ */
+const onlyUnit = new URLSearchParams(window.location.search).get("unit");
+const units = STAGE_LAB_UNITS.filter((unit) => !onlyUnit || unit.id === onlyUnit);
+
+const state = ref<StageLabState>("phrase");
+const mode = ref<"merge" | "web">("merge");
+const wide = ref(false);
+const KEYS = ["C4", "D4", "E4", "F4", "G4", "G#4", "A4", "B4", "C5"];
+const held = ref(new Set<string>());
+
+const broadcast = (message: StageLabMessage) => {
+  document.querySelectorAll<HTMLIFrameElement>("iframe[data-stage-lab-frame]").forEach((frame) => {
+    frame.contentWindow?.postMessage(message, window.location.origin);
+  });
+};
+
+const selectState = (next: StageLabState) => {
+  state.value = next;
+  broadcast({ type: "stage-lab:state", state: next });
+};
+const selectMode = (next: "merge" | "web") => {
+  mode.value = next;
+  broadcast({ type: "stage-lab:mode", mode: next });
+};
+const wake = () => broadcast({ type: "stage-lab:wake" });
+
+const press = (pitch: string, down: boolean) => {
+  if (down === held.value.has(pitch)) return;
+  // Playing over a looping phrase would fight it; the keys play into silence.
+  if (down && state.value === "phrase") selectState("silence");
+  const next = new Set(held.value);
+  if (down) next.add(pitch); else next.delete(pitch);
+  held.value = next;
+  broadcast({ type: "stage-lab:key", pitch, down });
+};
+
+// A frame that mounts late joins the current state and connection mode.
+const onFrameReady = (frame: HTMLIFrameElement) => {
+  frame.contentWindow?.postMessage({ type: "stage-lab:state", state: state.value } satisfies StageLabMessage, window.location.origin);
+  frame.contentWindow?.postMessage({ type: "stage-lab:mode", mode: mode.value } satisfies StageLabMessage, window.location.origin);
+};
+
+const frameParams = (unit: StageLabUnit, direction: string | null) => ({
+  stage: unit.id === "stage" && direction ? direction : "production",
+  geometry: unit.id === "geometry" && direction ? direction : "production",
+  state: state.value,
+  mode: mode.value,
+});
+// Frames keep their first src; later changes travel as messages, not reloads.
+const firstParams = new Map(units.flatMap((unit) => [
+  [`${unit.id}:production`, frameParams(unit, null)] as const,
+  ...unit.directions.map((d) => [`${unit.id}:${d.id}`, frameParams(unit, d.id)] as const),
+]));
+
+const stickerColor = (paper: StageLabPaper) => (paper === "cobalt" ? "ivory" : paper);
+</script>
+
+<template>
+  <main class="slab focused-page guide-paper--cobalt">
+    <FocusedPoster layer="compositions" unit-id="stage-lab" kicker="Design lab · guide only" title="Stage Lab">
+      <p>
+        Step 4 of the reimagining pass: the whole canvas. Each direction runs in its own phone-sized frame beside
+        the real production Stage, and every frame plays the same notes at the same moment. Stage directions
+        repaint Atmosphere, Strings, the Hilbert Scope and Flecks; Geometry directions repaint the bodies and
+        their Merge/Web relationships. The rest of each frame stays production, so every pick can be adopted alone.
+      </p>
+    </FocusedPoster>
+
+    <nav class="slab__nav" aria-label="Lab units">
+      <a v-for="unit in STAGE_LAB_UNITS" :key="unit.id" class="guide-chip" :href="`?unit=${unit.id}`">{{ unit.name }}</a>
+      <a v-if="onlyUnit" class="guide-chip" href="?">All units</a>
+    </nav>
+
+    <section class="slab-controls" aria-label="Lab controls">
+      <div class="slab-controls__row">
+        <button class="guide-chip slab-controls__wake" type="button" @click="wake">Start silent signal</button>
+        <button class="guide-chip" type="button" :aria-pressed="wide" @click="wide = !wide">
+          {{ wide ? "Desktop frames" : "Phone frames" }}
+        </button>
+        <span class="slab-controls__group" role="group" aria-label="Connections">
+          <button
+            v-for="option in (['merge', 'web'] as const)"
+            :key="option"
+            class="guide-chip"
+            type="button"
+            :aria-pressed="mode === option"
+            @click="selectMode(option)"
+          >{{ option === "merge" ? "Merge" : "Web" }}</button>
+        </span>
+      </div>
+      <div class="slab-controls__row" role="group" aria-label="Musical state">
+        <button
+          v-for="option in STAGE_LAB_STATES"
+          :key="option.id"
+          class="guide-chip"
+          type="button"
+          :aria-pressed="state === option.id"
+          @click="selectState(option.id)"
+        >{{ option.label }}</button>
+      </div>
+      <div class="slab-keys" role="group" aria-label="Play into every frame">
+        <button
+          v-for="pitch in KEYS"
+          :key="pitch"
+          class="slab-keys__key"
+          :class="{ 'slab-keys__key--sharp': pitch.includes('#') }"
+          type="button"
+          :aria-pressed="held.has(pitch)"
+          @pointerdown.prevent="press(pitch, true)"
+          @pointerup="press(pitch, false)"
+          @pointerleave="press(pitch, false)"
+          @pointercancel="press(pitch, false)"
+          @keydown.space.prevent="press(pitch, true)"
+          @keyup.space="press(pitch, false)"
+        >{{ pitch.replace("#", "♯") }}</button>
+      </div>
+    </section>
+
+    <div class="focused-page__body">
+      <section v-for="unit in units" :id="`lab-${unit.id}`" :key="unit.id" class="slab-unit">
+        <header class="slab-unit__head">
+          <h2 class="slab-unit__title">{{ unit.name }}</h2>
+          <p class="slab-unit__meta">{{ unit.directions.length }} directions · <code>{{ unit.source }}</code></p>
+          <p class="slab-unit__reading">{{ unit.reading }}</p>
+          <p class="slab-unit__aside"><strong>Left alone:</strong> {{ unit.leaveAlone }}</p>
+          <p v-if="unit.pick" class="slab-unit__aside"><strong>Lab pick:</strong> {{ unit.pick }}</p>
+          <p v-if="unit.verdict" class="slab-unit__verdict">{{ unit.verdict }}</p>
+        </header>
+
+        <section :id="`lab-${unit.id}-compare`" class="focused-sheet slab-sheet" aria-label="Production beside every direction">
+          <header class="focused-sheet__head">
+            <div>
+              <p class="focused-sheet__source">Production beside every direction · same notes, same moment</p>
+              <h3 class="focused-sheet__title">Side by side</h3>
+            </div>
+          </header>
+          <div class="slab-strip" :class="{ 'slab-strip--wide': wide }">
+            <StageLabFrameCell
+              :key="`${unit.id}-production-${wide}`"
+              letter="P"
+              caption="Production"
+              :params="firstParams.get(`${unit.id}:production`)!"
+              :wide="wide"
+              :join="onFrameReady"
+            />
+            <StageLabFrameCell
+              v-for="direction in unit.directions"
+              :key="`${unit.id}-${direction.id}-${wide}`"
+              :letter="direction.letter"
+              :caption="direction.name"
+              :params="firstParams.get(`${unit.id}:${direction.id}`)!"
+              :wide="wide"
+              :join="onFrameReady"
+            />
+          </div>
+        </section>
+
+        <div class="slab-unit__sheets">
+          <article
+            v-for="direction in unit.directions"
+            :id="`lab-${unit.id}-${direction.id}`"
+            :key="direction.id"
+            class="focused-sheet slab-sheet"
+            :class="`guide-paper--${direction.paper}`"
+          >
+            <header class="focused-sheet__head">
+              <div>
+                <p class="focused-sheet__source">Direction {{ direction.letter }} · lab/stage/painters</p>
+                <h3 class="focused-sheet__title">{{ direction.name }}</h3>
+              </div>
+              <Sticker variant="fill" :color="stickerColor(direction.paper)">{{ direction.letter }}</Sticker>
+            </header>
+            <p class="slab-bible" :class="`slab-bible--${direction.bible.fit}`">
+              <span class="slab-bible__chip">{{ direction.bible.zone }}</span>
+              <span class="slab-bible__chip">{{ direction.bible.role }}</span>
+              <span class="slab-bible__chip slab-bible__chip--fit">{{ direction.bible.fit === "fits" ? "Fits the bible" : "Caution" }}</span>
+              <span class="slab-bible__note">{{ direction.bible.note }}</span>
+            </p>
+            <p class="focused-sheet__prose">{{ direction.idea }}</p>
+            <dl class="slab-layers">
+              <div v-for="layer in direction.layers" :key="layer.name">
+                <dt>{{ layer.name }}</dt>
+                <dd>{{ layer.reading }}</dd>
+              </div>
+            </dl>
+            <dl class="focused-facts">
+              <div><dt>Better because</dt><dd>{{ direction.better }}</dd></div>
+              <div><dt>Risks</dt><dd>{{ direction.risks }}</dd></div>
+            </dl>
+          </article>
+        </div>
+      </section>
+    </div>
+  </main>
+</template>
+
+<style scoped>
+.slab__nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: var(--s-7) var(--s-6) 0;
+}
+
+/* Lab controls stay in reach while the frames scroll past. */
+.slab-controls {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: grid;
+  gap: var(--s-3);
+  max-width: 1240px;
+  margin: var(--s-6) auto 0;
+  padding: var(--s-4) var(--s-6);
+  background: var(--ink);
+}
+
+.slab-controls__row,
+.slab-controls__group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+}
+
+.slab-keys {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  gap: 3px;
+  touch-action: none;
+}
+
+.slab-keys__key {
+  min-height: 44px;
+  border: 0;
+  background: var(--ivory);
+  color: var(--ink);
+  font: 700 14px/1 var(--font-display);
+  user-select: none;
+  cursor: pointer;
+}
+
+.slab-keys__key--sharp { background: var(--ink-4); color: var(--ivory); }
+.slab-keys__key[aria-pressed="true"] { background: var(--ivory-3); }
+
+.slab-unit { display: grid; gap: var(--s-7); scroll-margin-top: var(--s-10); }
+
+.slab-unit__title {
+  margin: 0;
+  color: var(--ivory);
+  font: 700 clamp(44px, 9vw, 96px)/.9 var(--font-display);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+}
+
+.slab-unit__meta {
+  margin: var(--s-5) 0 0;
+  color: var(--ivory-3);
+  font: var(--t-body-s-mono);
+}
+
+.slab-unit__meta code { color: var(--ivory-2); font: inherit; }
+
+.slab-unit__reading,
+.slab-unit__aside {
+  max-width: 70ch;
+  margin: var(--s-4) 0 0;
+  color: var(--ivory);
+  font: var(--t-body-s-mono);
+}
+
+.slab-unit__aside { color: var(--ivory-2); }
+.slab-unit__aside strong { color: var(--ivory); }
+
+.slab-unit__verdict {
+  max-width: 70ch;
+  margin: var(--s-4) 0 0;
+  padding: var(--s-3) var(--s-4);
+  background: var(--ivory);
+  color: var(--ink);
+  font: var(--t-body-s-mono);
+}
+
+/* Phones swipe through the frames; wide screens see all four at once. */
+.slab-strip {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: min(78vw, 340px);
+  gap: var(--s-5);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding-bottom: var(--s-3);
+}
+
+.slab-strip--wide { grid-auto-columns: min(86vw, 560px); }
+
+@media (min-width: 1100px) {
+  .slab-strip { grid-auto-flow: row; grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: visible; }
+  .slab-strip--wide { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.slab-unit__sheets {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s-9);
+}
+
+@media (min-width: 1100px) {
+  .slab-unit__sheets { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+.slab-bible {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3);
+  margin: 0;
+}
+
+.slab-bible__chip {
+  padding: 4px 8px 3px;
+  background: var(--ink-4);
+  color: var(--ivory-2);
+  font: 700 12px/1 var(--font-display);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.slab-bible--fits .slab-bible__chip--fit { background: var(--ivory); color: var(--ink); }
+.slab-bible--caution .slab-bible__chip--fit { background: var(--brass); color: var(--brass-edge); }
+.slab-bible__note { color: var(--ivory-3); font: var(--t-caption); }
+
+.slab-layers {
+  display: grid;
+  gap: var(--s-4);
+  margin: 0;
+}
+
+.slab-layers div { display: grid; gap: var(--s-1); }
+
+.slab-layers dt {
+  color: var(--ivory);
+  font: 700 14px/1 var(--font-display);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.slab-layers dd {
+  margin: 0;
+  color: var(--ivory-2);
+  font: var(--t-body-s-mono);
+}
+</style>

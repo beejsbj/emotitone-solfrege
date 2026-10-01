@@ -269,7 +269,7 @@ const features = [
   { label: "Color", value: "each fused band uses only its own flat Music Color, without neighbour blending" },
   { label: "Progress", value: "Ink reveals music color bottom-to-top, controlled 0–1 per member" },
   { label: "Order", value: "fused bands use voicing order; clustered Notes use press order" },
-  { label: "Motion", value: "--dur-press (72ms) linear transform response; Reduced Motion freezes the guide loop" },
+  { label: "Motion", value: "--dur-press (72ms) linear progress reveal; Reduced Motion freezes the guide loop" },
   { label: "Boundary", value: "no store, interaction, audio, haptics, or playback clock" },
 ];
 </script>

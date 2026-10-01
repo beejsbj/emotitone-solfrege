@@ -30,7 +30,7 @@
       :data-geometry-family="resolvedChordFamily"
       :style="{
         '--keyboard-chord-count': Math.max(renderChords.length, 1),
-        '--keyboard-variation-amplitude': Math.max(0, resolvedVariationAmplitude),
+        '--keyboard-user-variation-amplitude': Math.max(0, resolvedVariationAmplitude),
       }"
     >
       <ChordKey
@@ -1569,6 +1569,7 @@ onBeforeUnmount(() => {
 }
 
 .keyboard__chord-row {
+  --keyboard-variation-amplitude: var(--keyboard-user-variation-amplitude, 1);
   display: grid;
   min-width: 0;
   min-height: 44px;
@@ -1635,7 +1636,8 @@ onBeforeUnmount(() => {
 }
 
 @container keyboard (max-width: 390px) {
-  .keyboard__row {
+  .keyboard__row,
+  .keyboard__chord-row {
     --keyboard-variation-amplitude: calc(var(--keyboard-user-variation-amplitude, 1) * .45);
   }
 
@@ -1698,7 +1700,7 @@ onBeforeUnmount(() => {
   background: Canvas;
 }
 
-.keyboard--contrast-forced :deep(.chord__fused-progress) {
+.keyboard--contrast-forced :deep(.chord__fused-progress .chord__fused-band) {
   background: Highlight !important;
 }
 

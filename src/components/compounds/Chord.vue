@@ -15,8 +15,9 @@
         class="chord__fused-member"
         :style="member.style"
       >
-        <span class="chord__fused-band">
-          <span class="chord__fused-progress"></span>
+        <span class="chord__fused-band"></span>
+        <span class="chord__fused-progress">
+          <span class="chord__fused-band"></span>
         </span>
       </span>
       <span class="chord__symbol">{{ symbol }}</span>
@@ -278,6 +279,7 @@ const resolvedAccessibleName = computed(() => {
 .chord__fused-member {
   position: relative;
   display: grid;
+  isolation: isolate;
   flex: 0 0 var(--chord-member-inline-size);
   place-items: center;
   width: var(--chord-member-inline-size);
@@ -303,15 +305,20 @@ const resolvedAccessibleName = computed(() => {
   pointer-events: none;
 }
 
+/* Reveal against the face height, so the slips' overscan cannot distort progress. */
 .chord__fused-progress {
   position: absolute;
   z-index: 0;
-  inset: 0;
+  inset-block: 0;
+  inset-inline: calc(var(--chord-block-size) * -.12);
+  clip-path: inset(calc((1 - var(--chord-member-progress)) * 100%) 0 0);
+  transition: clip-path var(--dur-press) linear;
+  will-change: clip-path;
+}
+
+.chord__fused-progress .chord__fused-band {
+  inset-inline: 0;
   background: var(--chord-member-surface);
-  transform: scaleY(var(--chord-member-progress));
-  transform-origin: bottom center;
-  transition: transform var(--dur-press) linear;
-  will-change: transform;
 }
 
 .chord__symbol {
@@ -370,8 +377,7 @@ const resolvedAccessibleName = computed(() => {
     forced-color-adjust: none;
   }
 
-
-  .chord__fused-progress {
+  .chord__fused-progress .chord__fused-band {
     background: Highlight;
   }
 

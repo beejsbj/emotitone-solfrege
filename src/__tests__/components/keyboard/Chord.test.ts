@@ -165,7 +165,7 @@ describe("Chord compound", () => {
       .toContain("--chord-member-progress: 0.375");
 
     expect(chordSource).toContain("background: var(--ink)");
-    expect(chordSource).toContain("transform: scaleY(var(--chord-member-progress))");
+    expect(chordSource).toContain("clip-path: inset(calc((1 - var(--chord-member-progress)) * 100%) 0 0)");
     expect(chordSource).toContain("transform: scaleY(calc(1 - var(--chord-member-progress)))");
     expect(chordSource).toContain("transition: transform var(--dur-press) linear");
     expect(chordSource).not.toContain("color-mix(in srgb");
@@ -219,7 +219,7 @@ describe("Chord compound", () => {
         surface: style.getPropertyValue("--chord-member-surface"),
         progress: style.getPropertyValue("--chord-member-progress"),
         rotation: style.getPropertyValue("--chord-member-rotation"),
-        progressInBand: member.findAll(".chord__fused-band > .chord__fused-progress").length,
+        progressInBand: member.findAll(".chord__fused-progress > .chord__fused-band").length,
       };
     });
 

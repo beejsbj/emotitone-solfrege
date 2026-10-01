@@ -245,7 +245,7 @@ const patterns = ref<GuidePattern[]>([
     instrumentLabel: "Music Box",
     rootLabel: "F♯4",
     spine: staticPitchColor(6, "dorian", "F#", 4),
-    barTape: tokenTimeline(afterRainTokens, "dorian", "F#", 4),
+    loopDial: tokenTimeline(afterRainTokens, "dorian", "F#", 4),
     canDelete: true,
     canCopy: true,
     canOpenStrudel: false,
@@ -264,7 +264,7 @@ const patterns = ref<GuidePattern[]>([
     instrumentLabel: "Rhodes",
     rootLabel: "D3",
     spine: staticPitchColor(2, "minor", "D", 3),
-    barTape: tokenTimeline(lateTrainTokens, "minor", "D", 3),
+    loopDial: tokenTimeline(lateTrainTokens, "minor", "D", 3),
     canDelete: true,
     canCopy: true,
     canOpenStrudel: false,
@@ -283,7 +283,7 @@ const patterns = ref<GuidePattern[]>([
     instrumentLabel: "Piano",
     rootLabel: "C4",
     spine: staticPitchColor(0, "major", "C", 4),
-    barTape: tokenTimeline(initialTokens, "major", "C", 4),
+    loopDial: tokenTimeline(initialTokens, "major", "C", 4),
     canDelete: false,
     canCopy: true,
     canOpenStrudel: false,
@@ -297,7 +297,7 @@ const patterns = ref<GuidePattern[]>([
     octave: 4,
   },
 ]);
-const currentBarTape = (patterns.value.find((pattern) => pattern.id === "current")?.barTape ?? [])
+const currentLoopDial = (patterns.value.find((pattern) => pattern.id === "current")?.loopDial ?? [])
   .map((segment) => ({ ...segment }));
 
 const drawerOpen = ref(true);
@@ -353,7 +353,7 @@ function resetCode() {
   codeStripTokens.value = cloneTokens(initialTokens);
   const current = patterns.value.find((pattern) => pattern.id === "current");
   if (current) {
-    current.barTape = currentBarTape.map((segment) => ({ ...segment }));
+    current.loopDial = currentLoopDial.map((segment) => ({ ...segment }));
     current.codeStripTokens = cloneTokens(initialTokens);
     current.canCopy = true;
     applyPatternContext(current, "C", "major", 120, 4);
@@ -378,7 +378,7 @@ function removeLastEvent() {
   if (current && selectedPatternId.value === current.id) {
     current.codeStripTokens = cloneTokens(codeStripTokens.value);
     current.canCopy = codeStripTokens.value.length > 0;
-    current.barTape = tokenTimeline(
+    current.loopDial = tokenTimeline(
       codeStripTokens.value,
       modeValue.value,
       keyValue.value,
@@ -400,7 +400,7 @@ function commitCode() {
       id: `take-${takeNumber}`,
       name: `Take ${takeNumber}`,
       codeStripTokens: cloneTokens(codeStripTokens.value),
-      barTape: tokenTimeline(
+      loopDial: tokenTimeline(
         codeStripTokens.value,
         modeValue.value,
         keyValue.value,
@@ -426,7 +426,7 @@ function commitCode() {
     patterns.value.splice(Math.max(0, patterns.value.length - 1), 0, savedTake);
   }
   if (current) {
-    current.barTape = [];
+    current.loopDial = [];
     current.codeStripTokens = [];
     current.canCopy = false;
     applyPatternContext(

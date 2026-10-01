@@ -96,7 +96,7 @@ function item(
     instrumentLabel: phrase.label,
     rootLabel: "C4",
     spine: getStaticPrimaryColorByPitchClass(0, "major", "C", 4),
-    barTape: phrase.degrees.map(([scaleIndex, durationMs]) => ({
+    loopDial: phrase.degrees.map(([scaleIndex, durationMs]) => ({
       color: getStaticPrimaryColorByScaleIndex(scaleIndex, "major", "C", 4),
       durationMs,
       height: chromaticPitchHeight({ scaleIndex, octave: 4 }, { key: "C", mode: "major" }),
@@ -120,7 +120,7 @@ const blank: PatternReelItem = {
   instrumentLabel: "Triangle",
   rootLabel: "",
   spine: "var(--ink-5)",
-  barTape: [],
+  loopDial: [],
   canRename: false,
   actions: [],
 };

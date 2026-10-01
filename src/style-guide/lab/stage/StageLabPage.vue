@@ -222,7 +222,7 @@ const stickerColor = (paper: StageLabPaper) => (paper === "cobalt" ? "ivory" : p
 /* Lab controls stay in reach while the frames scroll past. */
 .slab-controls {
   position: sticky;
-  top: 0;
+  top: calc(var(--guide-masthead-top, 0px) + var(--guide-masthead-height, 56px));
   z-index: 5;
   display: grid;
   gap: var(--s-3);
@@ -232,11 +232,21 @@ const stickerColor = (paper: StageLabPaper) => (paper === "cobalt" ? "ivory" : p
   background: var(--ink);
 }
 
+/* One line per row on a phone, swiped sideways, so the frames stay in view. */
 .slab-controls__row,
 .slab-controls__group {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--s-3);
+  flex-wrap: nowrap;
+  gap: var(--s-2);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.slab-controls .guide-chip {
+  flex: none;
+  min-height: 32px;
+  padding: 6px 10px 4px;
+  font-size: 14px;
 }
 
 .slab-keys {
@@ -247,7 +257,7 @@ const stickerColor = (paper: StageLabPaper) => (paper === "cobalt" ? "ivory" : p
 }
 
 .slab-keys__key {
-  min-height: 44px;
+  min-height: 40px;
   border: 0;
   background: var(--ivory);
   color: var(--ink);

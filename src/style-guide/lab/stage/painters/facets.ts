@@ -75,7 +75,7 @@ export function createFacetsPainter(): GeometryDirectionPainter {
       publishConnections(scene, mode === "merge" ? tree : scenePairs(scene, visible), mode);
       if (visible.length > 1 && mode === "merge") {
         // One pasted piece: wide two-tone bands the bodies overlap at both ends.
-        tree.forEach(([a, b]) => band(ctx, a, b, Math.min(a.scaledRadius, b.scaledRadius) * 1.1, 1));
+        tree.forEach(([a, b]) => band(ctx, a, b, Math.min(a.scaledRadius, b.scaledRadius) * 1.7, 1));
       } else if (visible.length > 1 && scene) {
         scene.boundaryEdges.forEach((edge) => {
           const from = byKey.get(edge.fromNoteId);

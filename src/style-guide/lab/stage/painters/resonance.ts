@@ -11,7 +11,8 @@ import type { GeometryDirectionPainter, LabFrame } from "./types";
  * next member's colour.
  */
 
-interface Ring { r: number; color: string }
+/** A ring remembers which member it belongs to; its colour follows that member's live Music Color. */
+interface Ring { r: number; member: number }
 interface Source { phase: number; rings: Ring[]; turn: number }
 
 const BASE_RATE = 0.85; // rings per second for the lowest sounding note
@@ -43,14 +44,14 @@ export function createResonancePainter(): GeometryDirectionPainter {
       source.phase += rate * dt;
       while (source.phase >= 1) {
         source.phase -= 1;
-        source.rings.push({ r: start, color: colors[source.turn++ % colors.length] });
+        source.rings.push({ r: start, member: source.turn++ % colors.length });
       }
     }
     source.rings = source.rings
       .map((ring) => ({ ...ring, r: ring.r + SPEED * dt }))
       .filter((ring) => ring.r < reach);
     source.rings.forEach((ring) => {
-      ctx.strokeStyle = ring.color;
+      ctx.strokeStyle = colors[ring.member % colors.length];
       ctx.globalAlpha = opacity * 0.9 * (1 - ring.r / reach) ** 1.2;
       ctx.beginPath(); ctx.arc(x, y, ring.r, 0, Math.PI * 2); ctx.stroke();
     });

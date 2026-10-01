@@ -196,7 +196,7 @@ export function useStageLabLoop(canvases: StageLabCanvases, options: StageLabLoo
 
   const frameBase = (ctx: CanvasRenderingContext2D, now: number): LabFrame => {
     const elapsed = (now - startedAt) / 1000;
-    const dt = Math.min(0.05, Math.max(0, (now - previous) / 1000));
+    const dt = Math.min(0.1, Math.max(0, (now - previous) / 1000));
     const notes = getNotes();
     if (notes[0]) lastLead = notes[0];
     return {

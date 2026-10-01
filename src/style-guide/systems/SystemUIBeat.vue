@@ -2,7 +2,7 @@
   <section class="ui-beat-system">
     <p class="ui-beat-system__role">One clock · every control on the beat</p>
     <p class="ui-beat-system__intro">
-      The Beat Indicator ring around Play, both Knob editions, Button,
+      The Beat Indicator crown above Play, both Knob editions, Button,
       Joystick, and the current-instrument Sticker all read the same scale binding. It reaches
       each actual control without replacing its gestures.
     </p>

@@ -1,16 +1,16 @@
 <template>
   <AnatomyDisplay
-    title="Beat Indicator &middot; Transport Ring"
+    title="Beat Indicator &middot; Chad Crown"
     :features="features"
-    caption="Beat Indicator wraps its transport control in a segmented ring that echoes Knob's Digital Arc: one butt-ended segment per beat over a hairline track, with the downbeat centred at twelve o'clock and reading clockwise. It appears only while the transport runs. UIBeat owns the clock; this compound owns no timer and never replaces the wrapped control's gestures."
+    caption="Beat Indicator crowns its transport control with a horizontal row of hand-cut LED chads, echoing Knob's Analog Ring collar: one per beat, read left to right, with a Brass downbeat that stays lit throughout the bar. It appears only while the transport runs. UIBeat owns the clock; this compound owns no timer and never replaces the wrapped control's gestures."
   >
     <template #hero>
       <div class="hero-stage">
-        <BeatIndicator aria-label="Live beat ring around Play">
+        <BeatIndicator aria-label="Live beat crown above Play">
           <Button
             size="lg"
             :tone="running ? 'ink' : 'ivory'"
-            :accessible-name="running ? 'Stop ring specimen' : 'Play ring specimen'"
+            :accessible-name="running ? 'Stop crown specimen' : 'Play crown specimen'"
             @click="toggle"
           >
             <Square v-if="running" />
@@ -18,18 +18,18 @@
           </Button>
         </BeatIndicator>
         <div class="hero-label">
-          {{ running ? "4/4 · 120 BPM" : "Stopped · ring hidden" }}
+          {{ running ? "4/4 · 120 BPM" : "Stopped · crown hidden" }}
         </div>
       </div>
     </template>
 
     <VariantGrid title="Live &mdash; one isolated clock">
       <VariantCell caption="Small &middot; ivory Play / ink Stop">
-        <BeatIndicator aria-label="Live small beat ring">
+        <BeatIndicator aria-label="Live small beat crown">
           <Button
             size="sm"
             :tone="running ? 'ink' : 'ivory'"
-            :accessible-name="running ? 'Stop small ring specimen' : 'Play small ring specimen'"
+            :accessible-name="running ? 'Stop small crown specimen' : 'Play small crown specimen'"
             @click="toggle"
           >
             <Square v-if="running" />
@@ -38,11 +38,11 @@
         </BeatIndicator>
       </VariantCell>
       <VariantCell caption="Even &middot; no brass downbeat">
-        <BeatIndicator :downbeat="false" aria-label="Live even beat ring">
+        <BeatIndicator :downbeat="false" aria-label="Live even beat crown">
           <Button
             size="sm"
             :tone="running ? 'ink' : 'ivory'"
-            :accessible-name="running ? 'Stop even ring specimen' : 'Play even ring specimen'"
+            :accessible-name="running ? 'Stop even crown specimen' : 'Play even crown specimen'"
             @click="toggle"
           >
             <Square v-if="running" />
@@ -52,30 +52,30 @@
       </VariantCell>
     </VariantGrid>
 
-    <VariantGrid title="Meter &mdash; still, one segment per beat">
+    <VariantGrid title="Meter &mdash; still, one chad per beat">
       <VariantCell caption="4/4">
-        <BeatIndicator static aria-label="Four beat ring">
+        <BeatIndicator static aria-label="Four beat crown">
           <Button size="sm" tone="ivory" accessible-name="Play 4/4 specimen">
             <Play />
           </Button>
         </BeatIndicator>
       </VariantCell>
       <VariantCell caption="3/4">
-        <BeatIndicator static :beats="3" aria-label="Three beat ring">
+        <BeatIndicator static :beats="3" aria-label="Three beat crown">
           <Button size="sm" tone="ivory" accessible-name="Play 3/4 specimen">
             <Play />
           </Button>
         </BeatIndicator>
       </VariantCell>
       <VariantCell caption="6/8">
-        <BeatIndicator static :beats="6" aria-label="Six beat ring">
+        <BeatIndicator static :beats="6" aria-label="Six beat crown">
           <Button size="sm" tone="ivory" accessible-name="Play 6/8 specimen">
             <Play />
           </Button>
         </BeatIndicator>
       </VariantCell>
       <VariantCell caption="Even &middot; no downbeat">
-        <BeatIndicator static :downbeat="false" aria-label="Even beat ring">
+        <BeatIndicator static :downbeat="false" aria-label="Even beat crown">
           <Button size="sm" tone="ivory" accessible-name="Play even specimen">
             <Play />
           </Button>
@@ -83,30 +83,30 @@
       </VariantCell>
     </VariantGrid>
 
-    <VariantGrid title="Wrap &mdash; still, the ring follows its control">
+    <VariantGrid title="Wrap &mdash; still, the crown sits above its control">
       <VariantCell caption="Small &middot; 32px Button">
-        <BeatIndicator static aria-label="Ring around small Button">
+        <BeatIndicator static aria-label="Crown above small Button">
           <Button size="sm" tone="ivory" accessible-name="Play small specimen">
             <Play />
           </Button>
         </BeatIndicator>
       </VariantCell>
       <VariantCell caption="Medium &middot; 40px Button">
-        <BeatIndicator static aria-label="Ring around medium Button">
+        <BeatIndicator static aria-label="Crown above medium Button">
           <Button size="md" tone="ivory" accessible-name="Play medium specimen">
             <Play />
           </Button>
         </BeatIndicator>
       </VariantCell>
       <VariantCell caption="Large &middot; 48px Button">
-        <BeatIndicator static aria-label="Ring around large Button">
+        <BeatIndicator static aria-label="Crown above large Button">
           <Button size="lg" tone="ivory" accessible-name="Play large specimen">
             <Play />
           </Button>
         </BeatIndicator>
       </VariantCell>
-      <VariantCell caption="One beat &middot; full ring">
-        <BeatIndicator static :beats="1" aria-label="Single beat ring">
+      <VariantCell caption="One beat &middot; one chad">
+        <BeatIndicator static :beats="1" aria-label="Single beat crown">
           <Button size="sm" tone="ivory" accessible-name="Play single beat specimen">
             <Play />
           </Button>
@@ -133,10 +133,10 @@ const { running, toggle } = useUIBeatFixture({
 
 const features = [
   { label: "Class", value: "compound; wraps one transport control in its slot" },
-  { label: "Ring", value: "one butt-ended 8-unit segment per beat over a 0.4 hairline track, after Knob's Digital Arc" },
-  { label: "Tone", value: "ivory segments with their own glow; metallic brass downbeat using the controls' shared fill, sheen, and edge light" },
+  { label: "Crown", value: "one hand-cut LED chad per beat, left to right above the key; fixed tilts after Knob's Analog Ring collar" },
+  { label: "Tone", value: "unlit Ink-5 chads; lit Ivory with its own glow; Brass downbeat using the shared fill and sheen" },
   { label: "Presence", value: "hidden while the transport is idle; fades in when it arms" },
-  { label: "Pulse", value: "lit segment kicks outward 1→1.12 (downbeat 1.18) at full opacity; brass stays opaque throughout the bar, inactive ivory stays at 0.2" },
+  { label: "Pulse", value: "current chad kicks 1→1.12 (downbeat 1.18); Brass stays lit throughout the bar, inactive chads return to Ink-5" },
   { label: "Clock", value: "UIBeat injection; no component-local timer" },
   { label: "Still", value: "static specimens always, and playback under Reduced Motion or Visuals off, hold the downbeat without motion" },
 ];

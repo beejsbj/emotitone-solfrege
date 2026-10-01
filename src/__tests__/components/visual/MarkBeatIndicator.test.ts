@@ -41,7 +41,11 @@ describe("Mark lineage", () => {
 
 });
 
-function mountWithClock(template: string, presentationEnabled: () => boolean = () => true) {
+function mountWithClock(
+  template: string,
+  presentationEnabled: () => boolean = () => true,
+  bindings: Record<string, unknown> = {},
+) {
   const clock = new UIBeatClock({
     observeEnvironment: false,
     reducedMotion: () => false,
@@ -51,6 +55,7 @@ function mountWithClock(template: string, presentationEnabled: () => boolean = (
     components: { BeatIndicator },
     setup() {
       provideUIBeat({ clock, presentationEnabled });
+      return bindings;
     },
     template,
   });
@@ -63,34 +68,43 @@ const armFourFour = (clock: UIBeatClock) => clock.arm({
   meter: { beatsPerBar: 4, beatUnit: 4 },
 });
 
-describe("Beat Indicator ring", () => {
-  it("draws one knob-style segment per beat over a full-circle track", () => {
+describe("Beat Indicator crown", () => {
+  it("renders ordered chads with deterministic tilts and a lit Brass downbeat", () => {
     const wrapper = mount(BeatIndicator, { props: { beats: 5 } });
-    const beats = wrapper.findAll(".beat-indicator__beat");
+    const crown = wrapper.get("div.beat-indicator__crown");
+    const beats = crown.findAll("span.beat-indicator__beat");
 
     expect(beats).toHaveLength(5);
     expect(beats.map((beat) => beat.attributes("data-beat"))).toEqual(["1", "2", "3", "4", "5"]);
     expect(beats[0].classes()).toContain("beat-indicator__beat--downbeat");
+    expect(beats[0].classes()).toContain("brass");
+    expect(beats[0].classes()).toContain("beat-indicator__beat--lit");
     expect(beats.slice(1).some((beat) => beat.classes().includes("beat-indicator__beat--downbeat")))
       .toBe(false);
-    beats.forEach((beat) => {
-      expect(beat.get(".beat-indicator__stroke").attributes("d").match(/A /g)).toHaveLength(1);
-      expect(beat.get(".beat-indicator__stroke").attributes("stroke-width")).toBe("8");
+    beats.slice(1).forEach((beat) => {
+      expect(beat.classes()).not.toContain("brass");
+      expect(beat.classes()).not.toContain("beat-indicator__beat--lit");
     });
-    const track = wrapper.get("circle.beat-indicator__track");
-    expect(track.attributes("stroke-width")).toBe("2");
-    expect(track.attributes("r")).toBe("46");
-    expect(beatIndicatorSource).toMatch(/\.beat-indicator__track\s*\{\s*opacity: 0\.4;/);
-    expect(beatIndicatorSource).toMatch(/stroke-linecap: butt;/);
-    expect(wrapper.find("svg.mark").exists()).toBe(false);
+    beats.forEach((beat, index) => {
+      expect((beat.element as HTMLElement).style.getPropertyValue("--beat-tilt"))
+        .toBe(`${((index * 37) % 11) - 5}deg`);
+      expect((beat.element as HTMLElement).style.opacity).toBe("");
+    });
+    wrapper.unmount();
   });
 
-  it("defaults to four segments, and closes a single beat into a full circle", () => {
-    expect(mount(BeatIndicator).findAll(".beat-indicator__beat")).toHaveLength(4);
+  it("defaults to four beats and supports a single Brass downbeat", () => {
+    const defaults = mount(BeatIndicator);
+    expect(defaults.findAll(".beat-indicator__beat")).toHaveLength(4);
+    expect(defaults.get(".beat-indicator__crown").attributes("aria-label"))
+      .toBe("Beat indicator");
 
-    const single = mount(BeatIndicator, { props: { beats: 1 } }).get(".beat-indicator__beat");
-    // Two half-circle arcs: SVG cannot draw a closed ring as one arc command.
-    expect(single.get(".beat-indicator__stroke").attributes("d").match(/A /g)).toHaveLength(2);
+    const single = mount(BeatIndicator, { props: { beats: 1 } });
+    expect(single.findAll("span.beat-indicator__beat")).toHaveLength(1);
+    expect(single.get(".beat-indicator__beat").classes())
+      .toEqual(expect.arrayContaining(["beat-indicator__beat--downbeat", "beat-indicator__beat--lit", "brass"]));
+    defaults.unmount();
+    single.unmount();
   });
 
   it("wraps its control without hiding it inside the decorative image", () => {
@@ -99,12 +113,15 @@ describe("Beat Indicator ring", () => {
       slots: { default: '<button type="button" aria-label="Play">Play</button>' },
     });
 
-    const ring = wrapper.get('[aria-label="Pattern beat"]');
-    expect(ring.element.tagName.toLowerCase()).toBe("svg");
-    expect(ring.attributes("role")).toBe("img");
-    expect(ring.find("button").exists()).toBe(false);
-    expect(wrapper.get(".beat-indicator__content").find('button[aria-label="Play"]').exists())
+    const crown = wrapper.get('div.beat-indicator__crown[aria-label="Pattern beat"]');
+    expect(crown.attributes("role")).toBe("img");
+    expect(crown.attributes("aria-hidden")).toBe("true");
+    expect(crown.find("button").exists()).toBe(false);
+    const content = wrapper.get("div.beat-indicator__content");
+    expect(content.find('button[aria-label="Play"]').exists())
       .toBe(true);
+    expect(content.get("button").element.closest('[role="img"]')).toBeNull();
+    wrapper.unmount();
   });
 
   it("stays hidden until the transport arms and hides again when it stops", async () => {
@@ -112,21 +129,20 @@ describe("Beat Indicator ring", () => {
     const root = () => wrapper.get(".beat-indicator");
 
     expect(root().attributes("data-beat-transport")).toBe("idle");
-    expect(wrapper.get("svg.beat-indicator__ring").attributes("aria-hidden")).toBe("true");
-    expect(beatIndicatorSource).toMatch(
-      /\[data-beat-transport="idle"\] \.beat-indicator__ring\s*\{\s*opacity: 0;/,
-    );
+    expect(wrapper.get(".beat-indicator__crown").attributes("aria-hidden")).toBe("true");
 
     const generation = armFourFour(clock);
     await nextTick();
     expect(root().attributes("data-beat-transport")).toBe("active");
-    expect(wrapper.get("svg.beat-indicator__ring").attributes("aria-hidden")).toBe("false");
+    expect(wrapper.get(".beat-indicator__crown").attributes("aria-hidden")).toBe("false");
     expect(root().attributes("data-ui-beat-state")).toBe("idle");
+    expect(wrapper.findAll(".beat-indicator__beat--lit").map((beat) => beat.attributes("data-beat")))
+      .toEqual(["1"]);
 
     clock.stop(generation);
     await nextTick();
     expect(root().attributes("data-beat-transport")).toBe("idle");
-    expect(wrapper.get("svg.beat-indicator__ring").attributes("aria-hidden")).toBe("true");
+    expect(wrapper.get(".beat-indicator__crown").attributes("aria-hidden")).toBe("true");
     wrapper.unmount();
     clock.destroy();
   });
@@ -138,18 +154,18 @@ describe("Beat Indicator ring", () => {
     const cells = wrapper.findAll(".beat-indicator__beat");
     clock.publish(generation, { rawPosition: 0.25, barPosition: 0.25 });
     expect(wrapper.get(".beat-indicator").attributes("data-ui-beat-state")).toBe("running");
-    expect(cells[0].attributes("style")).toContain("opacity: 1;");
+    expect(cells[0].classes()).toContain("beat-indicator__beat--lit");
     expect(cells[1].attributes("style")).toContain("scale(1.000)");
-    expect(cells[1].attributes("style")).toContain("opacity: 1");
+    expect(cells[1].classes()).toContain("beat-indicator__beat--lit");
 
     clock.publish(generation, { rawPosition: 0.285, barPosition: 0.285 });
-    expect(cells[0].attributes("style")).toContain("opacity: 1;");
+    expect(cells[0].classes()).toContain("beat-indicator__beat--lit");
     expect(cells[1].attributes("style")).toContain("scale(1.120)");
-    expect(cells[1].attributes("style")).toContain("opacity: 1");
+    expect(cells[1].classes()).toContain("beat-indicator__beat--lit");
 
-    // The settling tail keeps the active material opaque instead of muddying it.
+    // The settling tail keeps the current beat lit until the next boundary.
     clock.publish(generation, { rawPosition: 0.49, barPosition: 0.49 });
-    expect(cells[1].attributes("style")).toContain("opacity: 1");
+    expect(cells[1].classes()).toContain("beat-indicator__beat--lit");
 
     clock.publish(generation, { rawPosition: 0.035, barPosition: 0.035 });
     expect(cells[0].attributes("style")).toContain("scale(1.180)");
@@ -157,14 +173,77 @@ describe("Beat Indicator ring", () => {
     clock.stop(generation);
     expect(wrapper.get(".beat-indicator").attributes("data-ui-beat-state")).toBe("idle");
     expect(cells[0].attributes("style")).toContain("scale(1)");
-    expect(beatIndicatorSource).toMatch(
-      /\.beat-indicator__beat--downbeat\s*\{[^}]*opacity: 1 !important;[^}]*transform: none !important;/s,
-    );
+    expect(cells[0].classes()).toContain("beat-indicator__beat--lit");
+    expect(cells[1].classes()).not.toContain("beat-indicator__beat--lit");
     wrapper.unmount();
     clock.destroy();
   });
 
-  it("holds a still ring during playback while the provider's presentation gate is off", async () => {
+  it("advances left to right through a full bar while the Brass downbeat stays lit", () => {
+    const { clock, wrapper } = mountWithClock('<BeatIndicator :beats="4" />');
+    const generation = armFourFour(clock);
+    const cells = wrapper.findAll(".beat-indicator__beat");
+
+    // Deliberately assert without nextTick: UIBeat frames write to the DOM synchronously.
+    for (const [position, litBeats] of [
+      [0, ["1"]],
+      [0.25, ["1", "2"]],
+      [0.5, ["1", "3"]],
+      [0.75, ["1", "4"]],
+      [1, ["1"]],
+    ] as const) {
+      clock.publish(generation, { rawPosition: position, barPosition: position });
+      expect(wrapper.findAll(".beat-indicator__beat--lit").map((beat) => beat.attributes("data-beat")))
+        .toEqual(litBeats);
+      expect(cells[0].classes()).toEqual(expect.arrayContaining(["brass", "beat-indicator__beat--downbeat"]));
+      cells.forEach((beat) => expect((beat.element as HTMLElement).style.opacity).toBe(""));
+    }
+
+    clock.stop(generation);
+    expect(wrapper.findAll(".beat-indicator__beat--lit").map((beat) => beat.attributes("data-beat")))
+      .toEqual(["1"]);
+    wrapper.unmount();
+    clock.destroy();
+  });
+
+  it("recollects chads and reapplies downbeat changes during playback", async () => {
+    const beats = ref(4);
+    const downbeat = ref(true);
+    const { clock, wrapper } = mountWithClock(
+      '<BeatIndicator :beats="beats" :downbeat="downbeat" />',
+      () => true,
+      { beats, downbeat },
+    );
+    const generation = armFourFour(clock);
+    clock.publish(generation, { rawPosition: 0.75, barPosition: 0.75 });
+
+    beats.value = 3;
+    await nextTick();
+    await nextTick();
+    expect(wrapper.findAll(".beat-indicator__beat")).toHaveLength(3);
+    expect(wrapper.findAll(".beat-indicator__beat--lit").map((beat) => beat.attributes("data-beat")))
+      .toEqual(["1"]);
+
+    downbeat.value = false;
+    await nextTick();
+    clock.publish(generation, { rawPosition: 1.25, barPosition: 1.25 });
+    expect(wrapper.find(".beat-indicator__beat--downbeat").exists()).toBe(false);
+    expect(wrapper.find(".brass").exists()).toBe(false);
+    expect(wrapper.findAll(".beat-indicator__beat--lit").map((beat) => beat.attributes("data-beat")))
+      .toEqual(["2"]);
+
+    downbeat.value = true;
+    await nextTick();
+    expect(wrapper.findAll(".beat-indicator__beat--lit").map((beat) => beat.attributes("data-beat")))
+      .toEqual(["1", "2"]);
+    expect(wrapper.get(".beat-indicator__beat--downbeat").classes()).toContain("brass");
+
+    clock.stop(generation);
+    wrapper.unmount();
+    clock.destroy();
+  });
+
+  it("holds a still crown during playback while the provider's presentation gate is off", async () => {
     const presentationEnabled = ref(false);
     const { clock, wrapper } = mountWithClock(
       '<BeatIndicator :beats="4" />',
@@ -177,20 +256,89 @@ describe("Beat Indicator ring", () => {
     expect(clock.snapshot.status).toBe("running");
     expect(root().attributes("data-ui-beat-state")).toBe("idle");
     expect(root().attributes("data-beat-transport")).toBe("active");
-    expect(wrapper.findAll(".beat-indicator__beat")[0].attributes("style")).toContain("opacity: 1");
+    expect(wrapper.findAll(".beat-indicator__beat--lit").map((beat) => beat.attributes("data-beat")))
+      .toEqual(["1"]);
 
     presentationEnabled.value = true;
     await nextTick();
     clock.publish(generation, { rawPosition: 0.285, barPosition: 0.285 });
     expect(root().attributes("data-ui-beat-state")).toBe("running");
+    expect(wrapper.findAll(".beat-indicator__beat--lit").map((beat) => beat.attributes("data-beat")))
+      .toEqual(["1", "2"]);
+
+    presentationEnabled.value = false;
+    await nextTick();
+    expect(root().attributes("data-ui-beat-state")).toBe("idle");
+    expect(wrapper.findAll(".beat-indicator__beat--lit").map((beat) => beat.attributes("data-beat")))
+      .toEqual(["1"]);
+    wrapper.findAll(".beat-indicator__beat").forEach((beat) => {
+      expect((beat.element as HTMLElement).style.transform).toBe("scale(1)");
+      expect((beat.element as HTMLElement).style.opacity).toBe("");
+    });
     wrapper.unmount();
     clock.destroy();
   });
 
-  it("shows static specimens without a running transport", () => {
-    const wrapper = mount(BeatIndicator, { props: { static: true } });
+  it("keeps only the downbeat lit when the consumer is disabled", async () => {
+    const enabled = ref(true);
+    const { clock, wrapper } = mountWithClock(
+      '<BeatIndicator :enabled="enabled" />',
+      () => true,
+      { enabled },
+    );
+    const generation = armFourFour(clock);
+    clock.publish(generation, { rawPosition: 0.535, barPosition: 0.535 });
+    expect(wrapper.findAll(".beat-indicator__beat--lit").map((beat) => beat.attributes("data-beat")))
+      .toEqual(["1", "3"]);
+
+    enabled.value = false;
+    await nextTick();
+    clock.publish(generation, { rawPosition: 0.785, barPosition: 0.785 });
+    expect(wrapper.get(".beat-indicator").attributes("data-beat-transport")).toBe("active");
+    expect(wrapper.get(".beat-indicator").attributes("data-ui-beat-state")).toBe("idle");
+    expect(wrapper.findAll(".beat-indicator__beat--lit").map((beat) => beat.attributes("data-beat")))
+      .toEqual(["1"]);
+    wrapper.findAll(".beat-indicator__beat").forEach((beat) => {
+      expect((beat.element as HTMLElement).style.transform).toBe("scale(1)");
+      expect((beat.element as HTMLElement).style.opacity).toBe("");
+    });
+    wrapper.unmount();
+    clock.destroy();
+  });
+
+  it("shows static specimens without transport and keeps them still during playback", () => {
+    const { clock, wrapper } = mountWithClock('<BeatIndicator static />');
 
     expect(wrapper.get(".beat-indicator").attributes("data-beat-transport")).toBe("active");
-    expect(wrapper.findAll(".beat-indicator__beat")[0].attributes("style")).toContain("opacity: 1");
+    expect(wrapper.get(".beat-indicator__crown").attributes("aria-hidden")).toBe("false");
+    expect(wrapper.findAll(".beat-indicator__beat--lit").map((beat) => beat.attributes("data-beat")))
+      .toEqual(["1"]);
+
+    const generation = armFourFour(clock);
+    clock.publish(generation, { rawPosition: 0.285, barPosition: 0.285 });
+    expect(wrapper.get(".beat-indicator").attributes("data-ui-beat-state")).toBe("idle");
+    expect(wrapper.findAll(".beat-indicator__beat--lit").map((beat) => beat.attributes("data-beat")))
+      .toEqual(["1"]);
+    wrapper.findAll(".beat-indicator__beat").forEach((beat) => {
+      expect((beat.element as HTMLElement).style.transform).toBe("scale(1)");
+      expect((beat.element as HTMLElement).style.opacity).toBe("");
+    });
+    wrapper.unmount();
+    clock.destroy();
+  });
+
+  it("keeps unlit chads opaque Ink5 and neutralizes motion under Reduced Motion", () => {
+    // The DOM harness does not render scoped CSS or emulate media queries.
+    // These checks cover only the material and accessibility CSS contracts.
+    const beatRule = beatIndicatorSource.match(/\.beat-indicator__beat\s*\{([^}]*)\}/)?.[1];
+    expect(beatRule).toMatch(/background:\s*var\(--ink-5\)/);
+    expect(beatRule).not.toMatch(/opacity\s*:/);
+
+    const reducedMotion = beatIndicatorSource.match(
+      /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{([\s\S]*?)(?=@media|<\/style>)/,
+    )?.[1];
+    expect(reducedMotion).toMatch(/\.beat-indicator__beat\s*\{[^}]*transform:\s*none\s*!important/);
+    expect(reducedMotion).toMatch(/\.beat-indicator__beat\s*\{[^}]*transition:\s*none\s*!important/);
+    expect(reducedMotion).toMatch(/::after\s*\{[^}]*animation:\s*none\s*!important/);
   });
 });

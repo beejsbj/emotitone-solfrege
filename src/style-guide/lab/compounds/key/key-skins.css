@@ -1,0 +1,164 @@
+/*
+ * Guide-only Key skins for the Compounds lab. Each skin restyles the real
+ * melody Keys (`.keyboard__key`) from outside; ChordKeys are a separate unit
+ * and never match. Hit areas, focus, ARIA and press handling stay in Key.vue
+ * and Keyboard.vue. The bench's two root classes outrank the scoped Note and
+ * Key selectors without !important. Colour is only the Note's own Music Color
+ * (`--note-surface`) plus Ink and Ivory. The pressed inset shadow repeats
+ * Key.vue's own rgba value, for which no token exists.
+ */
+
+/* ── A · Misprint ─────────────────────────────────────────────────────────
+   Two plates, like the Let's Jazz poster. The Ink plate (a 2px keyline cut
+   to the Key's own silhouette) and the labels stay in register with the hit
+   area; the Music Color plate prints a few pixels off, up and to the right.
+   On the Ink stage the keyline only shows where it overprints the colour,
+   so the Key reads as colour escaping its black line. Pressing pulls the
+   colour into register; release springs it back off. */
+
+.key-bench.key-skin--misprint .keyboard__key {
+  --key-misprint-x: 3px;
+  --key-misprint-y: -3px;
+}
+
+.key-bench.key-skin--misprint .keyboard__key .note__surface {
+  overflow: visible;
+  contain: none;
+  background: transparent;
+  box-shadow: none;
+  clip-path: none;
+}
+
+/* The colour plate, with the production paper sheen folded in. */
+.key-bench.key-skin--misprint .keyboard__key .note__surface::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: var(--note-radius);
+  background-color: var(--note-surface);
+  background-image: var(--paper-surface-sheen);
+  background-blend-mode: overlay;
+  box-shadow: var(--note-shadow);
+  clip-path: var(--note-clip);
+  transform: translate(var(--key-misprint-x), var(--key-misprint-y));
+  transition: transform var(--dur-bounce) var(--ease-bounce);
+  pointer-events: none;
+}
+
+/* The Ink plate: overprints the colour, under the labels. */
+.key-bench.key-skin--misprint .keyboard__key .note__surface::after {
+  z-index: 0;
+  box-sizing: border-box;
+  border: 2px solid var(--ink);
+  border-radius: var(--note-radius);
+  background: none;
+  mix-blend-mode: normal;
+  clip-path: var(--note-clip);
+}
+
+.key-bench.key-skin--misprint .keyboard__key.key--pressed .note__surface::before {
+  box-shadow: var(--note-shadow), inset 0 2px 4px rgb(0 0 0 / 42%);
+  transform: translate(0, 0);
+  transition: transform var(--dur-tap) var(--ease-stab);
+}
+
+/* ── B · Label Scrap ──────────────────────────────────────────────────────
+   The primary label (the syllable on the main row, the raw pitch on outer
+   rows) is printed Ivory on a small tilted Ink scrap pasted onto the Key,
+   like the Brand Logo's T. Degree and raw pitch stay small on the face.
+   Keyboard's 24/18px size caps are untouched; the scrap pads around them. */
+
+.key-bench.key-skin--scrap .keyboard__key .note__label--rank-primary {
+  --key-scrap-cut: polygon(4% 8%, 97% 0, 100% 86%, 2% 100%);
+  max-width: none;
+  padding: 3px 5px 1px;
+  background: var(--ink);
+  color: var(--ivory);
+  clip-path: var(--key-scrap-cut);
+  transform: translate(-50%, -50%) rotate(calc(var(--key-scrap-tilt, -3deg) * var(--key-scrap-flip, 1)));
+}
+
+.key-bench.key-skin--scrap .keyboard__key:nth-child(3n + 2) .note__label--rank-primary {
+  --key-scrap-cut: polygon(0 4%, 95% 0, 100% 100%, 5% 94%);
+}
+
+.key-bench.key-skin--scrap .keyboard__key:nth-child(3n) .note__label--rank-primary {
+  --key-scrap-cut: polygon(3% 0, 100% 10%, 96% 96%, 0 100%);
+}
+
+/* Hand-pasted: each pitch class leans its own way; odd octaves mirror it. */
+.key-bench.key-skin--scrap .note[data-pitch-class-index="0"] { --key-scrap-tilt: -4deg; }
+.key-bench.key-skin--scrap .note[data-pitch-class-index="1"] { --key-scrap-tilt: 3deg; }
+.key-bench.key-skin--scrap .note[data-pitch-class-index="2"] { --key-scrap-tilt: 3deg; }
+.key-bench.key-skin--scrap .note[data-pitch-class-index="3"] { --key-scrap-tilt: -3deg; }
+.key-bench.key-skin--scrap .note[data-pitch-class-index="4"] { --key-scrap-tilt: -2deg; }
+.key-bench.key-skin--scrap .note[data-pitch-class-index="5"] { --key-scrap-tilt: 4deg; }
+.key-bench.key-skin--scrap .note[data-pitch-class-index="6"] { --key-scrap-tilt: 2deg; }
+.key-bench.key-skin--scrap .note[data-pitch-class-index="7"] { --key-scrap-tilt: -3deg; }
+.key-bench.key-skin--scrap .note[data-pitch-class-index="8"] { --key-scrap-tilt: -4deg; }
+.key-bench.key-skin--scrap .note[data-pitch-class-index="9"] { --key-scrap-tilt: 2deg; }
+.key-bench.key-skin--scrap .note[data-pitch-class-index="10"] { --key-scrap-tilt: 3deg; }
+.key-bench.key-skin--scrap .note[data-pitch-class-index="11"] { --key-scrap-tilt: -5deg; }
+
+.key-bench.key-skin--scrap .note:is([data-octave="1"], [data-octave="3"], [data-octave="5"], [data-octave="7"]) {
+  --key-scrap-flip: -1;
+}
+
+/* ── C · Torn Top ─────────────────────────────────────────────────────────
+   The Key's machined top becomes a torn edge seeded per pitch and octave
+   (see tornTop.ts). The torn paper shows its Ivory core: the Note's surface
+   is Ivory, clipped to the tear, and the Music Color layer sits 1–3px lower
+   along the same tear. Sides and bottom keep a machined lean. Sounding
+   light and focus follow the torn silhouette through `--note-clip`. */
+
+.key-bench.key-skin--deckle .keyboard__key .note {
+  --note-radius: 0px;
+  --note-clip: var(--key-tear-outer, var(--clip-tile));
+}
+
+.key-bench.key-skin--deckle .keyboard__key .note__surface {
+  background: var(--ivory);
+  box-shadow: none;
+}
+
+.key-bench.key-skin--deckle .keyboard__key .note__surface::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--note-surface);
+  box-shadow: var(--note-shadow);
+  clip-path: var(--key-tear-core, var(--clip-tile));
+  pointer-events: none;
+}
+
+.key-bench.key-skin--deckle .keyboard__key.key--pressed .note__surface::before {
+  box-shadow: var(--note-shadow), inset 0 2px 4px rgb(0 0 0 / 42%);
+}
+
+/* ── Reduced Motion: fully still. Presses change state without travel. ── */
+@media (prefers-reduced-motion: reduce) {
+  .key-bench.key-skin--misprint .keyboard__key .note__surface::before,
+  .key-bench.key-skin--misprint .keyboard__key.key--pressed .note__surface::before {
+    transition: none;
+  }
+}
+
+/* ── Forced Colors: drop the extra paper layers, keep system outlines. ─── */
+@media (forced-colors: active) {
+  .key-bench.key-skin--misprint .keyboard__key .note__surface {
+    clip-path: var(--note-clip);
+  }
+
+  .key-bench.key-skin--misprint .keyboard__key .note__surface::before,
+  .key-bench.key-skin--misprint .keyboard__key .note__surface::after,
+  .key-bench.key-skin--deckle .keyboard__key .note__surface::before {
+    display: none;
+  }
+
+  .key-bench.key-skin--scrap .keyboard__key .note__label--rank-primary {
+    background: CanvasText;
+    color: Canvas;
+  }
+}

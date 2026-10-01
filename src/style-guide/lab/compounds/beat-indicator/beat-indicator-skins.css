@@ -1,0 +1,36 @@
+/*
+ * Guide-only Beat Indicator skins for the Compounds lab. Each skin hides the
+ * real BeatIndicator's circular ring from outside and lets a guide face in
+ * this folder draw the beat instead; the real indicator still owns transport
+ * state, ARIA and the Button it wraps. The doubled root class outranks the
+ * components' scoped selectors without !important.
+ */
+
+.beat-indicator-skin--square.beat-indicator-skin--square .beat-indicator__ring,
+.beat-indicator-skin--lip.beat-indicator-skin--lip .beat-indicator__ring,
+.beat-indicator-skin--chads.beat-indicator-skin--chads .beat-indicator__ring {
+  visibility: hidden;
+}
+
+/* ── A · Square Collar: the indicator keeps its 6px air; the collar
+      overhangs the bar's block inset exactly as the ring does. ─────────── */
+
+/* ── B · Lip Counter: no wrapper, so the indicator gives up its air and the
+      key sits on the bar's own inset. While the transport runs, the real lip
+      steps aside for the counter drawn on its centreline. ───────────────── */
+.beat-indicator-skin--lip.beat-indicator-skin--lip .beat-indicator {
+  padding: 0;
+  margin-block: 0;
+}
+
+.beat-indicator-skin--lip.beat-indicator-skin--lip .beat-indicator[data-beat-transport="active"] .paper-button__lip {
+  visibility: hidden;
+}
+
+/* ── C · Step Chads: the key sits on the bar's inset and the indicator's
+      inline air moves to the key's right, where the chad column stands. ── */
+.beat-indicator-skin--chads.beat-indicator-skin--chads .beat-indicator {
+  padding-block: 0;
+  padding-inline: 0 calc(var(--beatlab-key, 32px) * 0.3);
+  margin-block: 0;
+}

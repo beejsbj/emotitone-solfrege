@@ -1,0 +1,183 @@
+/*
+ * Guide-only ChordKey skins for the Compounds lab. Each skin restyles the real
+ * fused Chord face from outside; members, voicing order, progress and Music
+ * Color stay in `components/compounds/Chord.vue`. Selectors double the bench
+ * class to outrank the component's scoped rules without !important.
+ *
+ * Flat member colour: production paints each member with a blended
+ * `--chord-member-surface` gradient (neighbour mix → own colour at 50% →
+ * neighbour mix). Stretching that same gradient 100× about its centre shows
+ * only the member's own colour, so no skin computes a colour of its own.
+ */
+
+/* ── A · Hard Bands: a leaning cut Key split into flat member bands ───── */
+
+.chord-bench.chord-bench.chord-skin--bands .chord__fused {
+  --chord-lab-cut: var(--keyboard-offcut-cut-1);
+  border-radius: 0;
+  clip-path: var(--chord-lab-cut);
+}
+
+/* Same authored cuts and tilts as today's offcut melody Keys, varied per key. */
+.chord-bench.chord-bench.chord-skin--bands .chord-key:nth-child(3n + 2) .chord__fused { --chord-lab-cut: var(--keyboard-offcut-cut-2); }
+.chord-bench.chord-bench.chord-skin--bands .chord-key:nth-child(3n) .chord__fused { --chord-lab-cut: var(--keyboard-offcut-cut-3); }
+.chord-bench.chord-bench.chord-skin--bands .chord-key { --key-face-rotation: var(--keyboard-offcut-rotation-1); }
+.chord-bench.chord-bench.chord-skin--bands .chord-key:nth-child(3n + 2) { --key-face-rotation: var(--keyboard-offcut-rotation-2); }
+.chord-bench.chord-bench.chord-skin--bands .chord-key:nth-child(3n) { --key-face-rotation: var(--keyboard-offcut-rotation-3); }
+
+.chord-bench.chord-bench.chord-skin--bands .chord__fused-progress {
+  background: var(--chord-member-surface) 50% 50% / 10000% 100% no-repeat;
+}
+
+/* Poster offset: a hard Ink shadow keeps Ivory legible across any seam. */
+.chord-bench.chord-bench.chord-skin--bands .chord__symbol {
+  text-shadow: 1px 1px 0 var(--ink), -.5px 0 0 var(--ink);
+}
+
+.chord-bench.chord-bench.chord-skin--bands .chord-key--pressed .chord__fused {
+  box-shadow: var(--shadow-key), inset 0 2px 0 rgba(0, 0, 0, .42);
+}
+
+/* ── B · Fanned Slips: members as cut slips fanned behind an Ink label ── */
+
+.chord-bench.chord-bench.chord-skin--fan .chord__fused {
+  --chord-lab-n: 3;
+  display: block;
+  min-height: calc(var(--chord-block-size) + 8px);
+  overflow: visible;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  clip-path: none;
+}
+
+.chord-bench.chord-bench.chord-skin--fan .chord__fused:has(> .chord__fused-member:nth-child(4)) { --chord-lab-n: 4; }
+.chord-bench.chord-bench.chord-skin--fan .chord__fused::after { display: none; }
+
+.chord-bench.chord-bench.chord-skin--fan .chord__fused-member {
+  --chord-lab-i: 0;
+  --chord-lab-o: calc(var(--chord-lab-i) - (var(--chord-lab-n) - 1) / 2);
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 23%;
+  width: 54%;
+  overflow: hidden;
+  background: var(--ink-3);
+  box-shadow: inset 2px 0 0 var(--ink), var(--shadow-key);
+  clip-path: var(--keyboard-tab-cut-1);
+  transform-origin: 50% 120%;
+  rotate: calc(var(--chord-lab-o) * 5deg);
+  translate: calc(var(--chord-lab-o) * 30%) 0;
+  transition:
+    rotate var(--dur-bounce) var(--ease-bounce),
+    translate var(--dur-bounce) var(--ease-bounce);
+}
+
+.chord-bench.chord-bench.chord-skin--fan .chord__fused-member:nth-child(2) { --chord-lab-i: 1; clip-path: var(--keyboard-tab-cut-2); }
+.chord-bench.chord-bench.chord-skin--fan .chord__fused-member:nth-child(3) { --chord-lab-i: 2; clip-path: var(--keyboard-tab-cut-3); }
+.chord-bench.chord-bench.chord-skin--fan .chord__fused-member:nth-child(4) { --chord-lab-i: 3; clip-path: var(--keyboard-tab-cut-1); }
+
+.chord-bench.chord-bench.chord-skin--fan .chord__fused-progress {
+  inset: 0 0 0 2px;
+  background: var(--chord-member-surface) 50% 50% / 10000% 100% no-repeat;
+}
+
+.chord-bench.chord-bench.chord-skin--fan .chord__fused-member::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--paper-surface-sheen);
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+
+/* Pressing squares the fan into one stack; release springs it back open. */
+.chord-bench.chord-bench.chord-skin--fan .chord-key--pressed .chord__fused-member {
+  rotate: 0deg;
+  translate: 0 0;
+  transition:
+    rotate var(--dur-tap) var(--ease-stab),
+    translate var(--dur-tap) var(--ease-stab);
+}
+
+.chord-bench.chord-bench.chord-skin--fan .chord__symbol {
+  inset: auto auto 4px 50%;
+  display: block;
+  padding: 3px 5px 2px;
+  translate: -50% 0;
+  background: var(--ink);
+  clip-path: var(--clip-tab);
+  font-size: clamp(11px, 26cqi, 13px);
+  line-height: 1;
+  text-shadow: none;
+}
+
+/* ── C · Root Plate: one plate in the root's colour, members as pips ──── */
+
+.chord-bench.chord-bench.chord-skin--root .chord__fused {
+  justify-content: center;
+  align-items: flex-end;
+  gap: 3px;
+  padding-block-end: 4px;
+}
+
+/* The root (lowest voicing: Keyboard voicings are close position from the root). */
+.chord-bench.chord-bench.chord-skin--root .chord__fused-member:first-child {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  background: var(--ink);
+}
+
+.chord-bench.chord-bench.chord-skin--root .chord__fused-progress {
+  background: var(--chord-member-surface) 50% 50% / 10000% 100% no-repeat;
+}
+
+.chord-bench.chord-bench.chord-skin--root .chord__fused-member:not(:first-child) {
+  z-index: 1;
+  flex: 0 0 6px;
+  width: 6px;
+  height: 6px;
+  background: var(--ink);
+  box-shadow: 0 0 0 1.5px var(--ink);
+}
+
+.chord-bench.chord-bench.chord-skin--root .chord__symbol {
+  padding-block-end: 9px;
+}
+
+/* ── Reduced Motion and Forced Colors ─────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .chord-bench.chord-bench.chord-skin--fan .chord__fused-member,
+  .chord-bench.chord-bench.chord-skin--fan .chord-key--pressed .chord__fused-member {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .chord-bench.chord-bench.chord-skin--bands .chord__fused-member + .chord__fused-member {
+    box-shadow: inset 1px 0 0 CanvasText;
+  }
+
+  .chord-bench.chord-bench.chord-skin--fan .chord__fused {
+    border: 0;
+  }
+
+  .chord-bench.chord-bench.chord-skin--fan .chord__fused-member {
+    background: Canvas;
+    box-shadow: inset 0 0 0 1px CanvasText;
+  }
+
+  .chord-bench.chord-bench.chord-skin--fan .chord__fused-member::after { display: none; }
+
+  .chord-bench.chord-bench.chord-skin--fan .chord__symbol {
+    background: Canvas;
+    outline: 1px solid CanvasText;
+  }
+
+  .chord-bench.chord-bench.chord-skin--root .chord__fused-member:not(:first-child) {
+    background: Canvas;
+    box-shadow: 0 0 0 1px CanvasText;
+  }
+}

@@ -1,0 +1,137 @@
+/*
+ * Guide-only PatternReel / PatternStrip skins for the Compounds lab. Each skin
+ * restyles the real strips from outside; the doubled root class beats their
+ * scoped selectors without !important. Behaviour, hit areas, ARIA, rename and
+ * reel choreography stay in components/compounds. Adoption would move the
+ * chosen skin into PatternStrip itself.
+ */
+
+/* ── A · Ransom Titles: every letter its own Ink or Ivory scrap ────────── */
+.pattern-reel-skin--ransom.pattern-reel-skin--ransom .pattern-strip__identity strong {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.pattern-reel-skin--ransom .reel-ransom {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 1px;
+  padding-block: 2px 3px;
+  font: 700 17px/1 var(--font-display);
+  letter-spacing: 0;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.pattern-reel-skin--ransom .reel-ransom__scrap {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  min-inline-size: .72em;
+  padding: 3px 3px 2px;
+  background: var(--ink-5);
+  color: var(--ivory);
+  clip-path: var(--scrap-cut);
+  font-size: calc(1em * var(--scrap-size, 1));
+  rotate: var(--scrap-tilt, 0deg);
+  translate: 0 var(--scrap-lift, 0px);
+}
+
+.pattern-reel-skin--ransom .reel-ransom__scrap--ivory {
+  background: var(--ivory);
+  color: var(--ink);
+}
+
+.pattern-reel-skin--ransom .reel-ransom__scrap--mono {
+  font-family: var(--font-mono);
+  font-size: calc(.8em * var(--scrap-size, 1));
+  font-weight: 700;
+}
+
+.pattern-reel-skin--ransom .reel-ransom__space { flex: none; inline-size: .3em; }
+.pattern-reel-skin--ransom .reel-ransom [hidden] { display: none; }
+
+@media (max-width: 520px) {
+  .pattern-reel-skin--ransom .reel-ransom { font-size: 15px; }
+}
+
+/* Forced Colors: the scraps step aside for the plain title. */
+@media (forced-colors: active) {
+  .pattern-reel-skin--ransom .reel-ransom { display: none; }
+
+  .pattern-reel-skin--ransom.pattern-reel-skin--ransom .pattern-strip__identity strong {
+    position: static;
+    width: auto;
+    height: auto;
+    clip-path: none;
+  }
+}
+
+/* ── B · Quiet Deck: only Current draws its tape until the deck unfolds ── */
+/* Collapsed predecessors are the reel's own inert slots; unwinding lifts inert. */
+.pattern-reel-skin--quiet.pattern-reel-skin--quiet .pattern-reel__slot .pattern-strip__tape {
+  transition: opacity var(--dur-ui) var(--ease-brush);
+}
+
+.pattern-reel-skin--quiet.pattern-reel-skin--quiet .pattern-reel__slot[inert] .pattern-strip__tape {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pattern-reel-skin--quiet.pattern-reel-skin--quiet .pattern-reel__slot .pattern-strip__tape {
+    transition: none;
+  }
+}
+
+/* ── C · Cassette Spines: an Ivory label with the Piano Roll in its window ─ */
+.pattern-reel-skin--spine.pattern-reel-skin--spine .pattern-strip__identity {
+  align-self: center;
+  min-height: 0;
+  padding: 5px 9px 15px;
+  background: var(--ivory);
+  color: var(--ink);
+  clip-path: var(--clip-tile);
+}
+
+.pattern-reel-skin--spine.pattern-reel-skin--spine .pattern-strip__identity strong {
+  color: var(--ink);
+  font-size: 16px;
+}
+
+.pattern-reel-skin--spine.pattern-reel-skin--spine .pattern-strip__identity small,
+.pattern-reel-skin--spine.pattern-reel-skin--spine .pattern-strip__shelf,
+.pattern-reel-skin--spine.pattern-reel-skin--spine .pattern-strip__detail {
+  color: var(--ink-5);
+}
+
+.pattern-reel-skin--spine.pattern-reel-skin--spine .pattern-strip__identity:focus-visible {
+  outline-color: var(--ivory);
+}
+
+/* The Bar Tape leaves the top edge and runs in the label's window. */
+.pattern-reel-skin--spine.pattern-reel-skin--spine .ulab-labelled .pattern-strip__tape {
+  inset: auto;
+  top: calc(var(--ulab-label-y) + var(--ulab-label-h) - 10px);
+  left: calc(var(--ulab-label-x) + 9px);
+  width: calc(var(--ulab-label-w) - 18px);
+}
+
+@media (max-width: 520px) {
+  .pattern-reel-skin--spine.pattern-reel-skin--spine .pattern-strip__identity strong { font-size: 15px; }
+}
+
+@media (forced-colors: active) {
+  .pattern-reel-skin--spine.pattern-reel-skin--spine .pattern-strip__identity {
+    border: 1px solid CanvasText;
+    background: Canvas;
+    color: CanvasText;
+    clip-path: none;
+  }
+
+  .pattern-reel-skin--spine.pattern-reel-skin--spine .pattern-strip__identity strong { color: CanvasText; }
+}

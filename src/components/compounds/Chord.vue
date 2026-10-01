@@ -276,6 +276,18 @@ const resolvedAccessibleName = computed(() => {
   clip-path: var(--chord-geometry-override-clip, var(--chord-clip));
 }
 
+/* The same paper sheen the melody Keys carry, laid over every band at once. */
+.chord__fused::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--paper-surface-sheen);
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+
 .chord__fused-member {
   position: relative;
   display: grid;
@@ -370,6 +382,10 @@ const resolvedAccessibleName = computed(() => {
     --chord-member-seam: 1px solid CanvasText;
     border: 1px solid CanvasText;
     box-shadow: none;
+  }
+
+  .chord__fused::after {
+    display: none;
   }
 
   .chord__fused-band {

@@ -1695,6 +1695,9 @@ onBeforeUnmount(() => {
   forced-color-adjust: none;
 }
 
+.keyboard--contrast-forced :deep(.chord__fused::after) {
+  display: none;
+}
 
 .keyboard--contrast-forced :deep(.chord__fused-band) {
   background: Canvas;

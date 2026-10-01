@@ -260,9 +260,9 @@ describe("Chord compound", () => {
     )).toBe(true);
   });
 
-  it("keeps the flat fused face cut while clustered Notes retain their material", () => {
+  it("keeps the fused face cut with the Keys' paper sheen over its flat bands", () => {
     expect(noteSource).toContain("background: var(--paper-surface-sheen)");
-    expect(chordSource).not.toContain(".chord__fused::after");
+    expect(chordSource).toContain("background: var(--paper-surface-sheen)");
     expect(chordSource).toContain("clip-path: var(--chord-geometry-override-clip, var(--chord-clip))");
     expect(chordSource).toContain("box-shadow: var(--shadow-key)");
     expect(chordSource).toContain("font-size: clamp(17px");

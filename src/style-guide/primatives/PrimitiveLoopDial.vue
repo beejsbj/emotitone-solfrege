@@ -2,7 +2,7 @@
   <AnatomyDisplay
     title="Loop Dial &middot; Musical Event Timeline"
     :features="features"
-    caption="Loop Dial is a phrase as one loop on a record. Notes sit at their onsets, laid counter-clockwise from twelve, so rests read as gaps; radius reads pitch. While its phrase sounds, the disc spins clockwise under a fixed Ivory masthead at twelve, so each note arrives under the line as it plays. The hero spins on the guide's isolated UIBeat clock; production follows the sounding bar position. Reduced Motion holds it still."
+    caption="Loop Dial reads a phrase as one loop, like a clock. Notes sit at their onsets clockwise from twelve, so rests read as gaps; radius reads pitch. While its phrase sounds, the Ivory masthead sweeps clockwise like a clock hand and crosses each note as it plays. The hero sweeps on the guide's isolated UIBeat clock; production follows the sounding bar position. Reduced Motion holds it at twelve."
   >
     <template #hero>
       <div class="hero-panel">
@@ -15,7 +15,7 @@
     </template>
 
     <VariantGrid title="Real pattern sequences">
-      <VariantCell caption="Twinkle &middot; at rest, loop start under the masthead" stage="ink3">
+      <VariantCell caption="Twinkle &middot; at rest, masthead at the loop's start" stage="ink3">
         <LoopDial :segments="loops[0].segments" :length-ms="loops[0].lengthMs" />
       </VariantCell>
       <VariantCell caption="Twinkle &middot; untimed segments laid end to end" stage="ink3">
@@ -53,7 +53,7 @@ import VariantCell from "../guide/VariantCell.vue";
 import VariantGrid from "../guide/VariantGrid.vue";
 import { useUIBeatFixture } from "../guide/useUIBeatFixture";
 
-// The guide's isolated clock: the hero spins without production playback.
+// The guide's isolated clock: the hero sweeps without production playback.
 useUIBeatFixture({ bpm: ref(120), meter: ref({ beatsPerBar: 4, beatUnit: 4 }) });
 const BAR_MS = 2000;
 
@@ -87,13 +87,13 @@ const loops = patterns.map((pattern, index) => {
 
 const features = [
   { label: "Meaning", value: "the phrase as one loop: each note at its onset, rests as gaps" },
-  { label: "Motion", value: "the live phrase's disc spins clockwise with the sounding bar position under a fixed masthead; others rest with loop start at twelve; Reduced Motion and Visuals off hold still" },
+  { label: "Motion", value: "the live phrase's masthead sweeps clockwise with the sounding bar position, crossing each note as it plays; others rest at twelve; Reduced Motion and Visuals off hold still" },
   { label: "Density", value: "34px Ink well; 2.5px butt-capped arcs with small gaps" },
   { label: "Radius", value: "exact chromatic pitch normalized from 7px to 14.5px; a single pitch shares the inner radius" },
   { label: "Segments", value: "one arc per performed note; repeated notes remain ordered events" },
   { label: "Arc length", value: "the note's share of the loop, with a 50ms minimum for visibility" },
   { label: "Color", value: "static primary stroke from the shared Music Color resolver" },
-  { label: "Surface", value: "borderless Ink well under a fixed Ivory masthead at twelve" },
+  { label: "Surface", value: "borderless Ink well; an Ivory masthead hand rests at twelve" },
   { label: "Interaction", value: "none; Loop Dial is compact musical feedback" },
   { label: "Production", value: "between identity and actions in every PatternStrip, including Current" },
 ];

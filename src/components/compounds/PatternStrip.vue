@@ -193,7 +193,7 @@ export interface PatternStripItem {
   loopLengthMs?: number;
   /** One bar in ms at the phrase's tempo, so the dial can follow playback. */
   loopBarMs?: number;
-  /** The transport plays this phrase: its Loop Dial spins with playback. */
+  /** The transport plays this phrase: its Loop Dial's masthead sweeps with playback. */
   loopLive?: boolean;
   copied?: boolean;
   canDelete?: boolean;

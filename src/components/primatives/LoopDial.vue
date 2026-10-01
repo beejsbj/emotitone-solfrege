@@ -10,7 +10,7 @@
     data-loop-dial-state="still"
   >
     <circle class="loop-dial__well" cx="17" cy="17" r="17" aria-hidden="true" />
-    <g ref="discRef" class="loop-dial__disc" aria-hidden="true">
+    <g class="loop-dial__disc" aria-hidden="true">
       <path
         v-for="(arc, segmentIndex) in arcs"
         :key="segmentIndex"
@@ -19,11 +19,9 @@
         :style="{ stroke: arc.color }"
       />
     </g>
-    <line
-      class="loop-dial__masthead"
-      x1="17" y1="0.5" x2="17" y2="11"
-      aria-hidden="true"
-    />
+    <g ref="handRef" class="loop-dial__hand" aria-hidden="true">
+      <line class="loop-dial__masthead" x1="17" y1="0.5" x2="17" y2="11" />
+    </g>
   </svg>
 </template>
 
@@ -45,12 +43,12 @@ export interface LoopDialSegment {
 }
 
 /*
- * A phrase is one loop on a record. Notes sit at their place in the loop,
- * laid counter-clockwise from twelve, so that while the phrase sounds the disc
- * spins clockwise and each note arrives under the fixed masthead at twelve as
- * it plays. Pitch reads outward, preserving the melody's contour in Music
- * Color. Only a live dial spins, and only while UIBeat presents an
- * authoritative bar position; otherwise it rests with its loop start at twelve.
+ * A phrase is one loop, read like a clock. Notes sit at their place in the
+ * loop, clockwise from twelve, and pitch reads outward, preserving the
+ * melody's contour in Music Color. While the phrase sounds, the masthead
+ * sweeps clockwise like a clock hand and crosses each note as it plays. Only
+ * a live dial sweeps, and only while UIBeat presents an authoritative bar
+ * position; otherwise the masthead rests at twelve, the loop's start.
  */
 const MINIMUM_VISIBLE_DURATION = 50;
 const ARC_GAP = .012;
@@ -61,7 +59,7 @@ const props = withDefaults(defineProps<{
   lengthMs?: number;
   /** One bar in ms at the phrase's own tempo; with `lengthMs`, gives the loop in bars. */
   barMs?: number;
-  /** This phrase is the one the transport plays, so the disc follows playback. */
+  /** This phrase is the one the transport plays, so the masthead follows playback. */
   live?: boolean;
   ariaLabel?: string;
 }>(), {
@@ -72,17 +70,16 @@ const props = withDefaults(defineProps<{
 });
 
 function arcPath(radius: number, from: number, to: number) {
-  // Counter-clockwise from twelve: the disc's clockwise spin brings the
-  // future to the masthead.
+  // Clockwise from twelve, the way the masthead sweeps.
   const point = (turn: number) => {
-    const angle = -turn * Math.PI * 2 - Math.PI / 2;
+    const angle = turn * Math.PI * 2 - Math.PI / 2;
     return `${(17 + radius * Math.cos(angle)).toFixed(2)} ${(17 + radius * Math.sin(angle)).toFixed(2)}`;
   };
   // A loop-long event needs two halves: SVG cannot draw a circle with coincident endpoints.
   if (to - from >= 1) {
-    return `M ${point(from)} A ${radius} ${radius} 0 0 0 ${point(from + .5)} A ${radius} ${radius} 0 0 0 ${point(to)}`;
+    return `M ${point(from)} A ${radius} ${radius} 0 0 1 ${point(from + .5)} A ${radius} ${radius} 0 0 1 ${point(to)}`;
   }
-  return `M ${point(from)} A ${radius} ${radius} 0 ${to - from > .5 ? 1 : 0} 0 ${point(to)}`;
+  return `M ${point(from)} A ${radius} ${radius} 0 ${to - from > .5 ? 1 : 0} 1 ${point(to)}`;
 }
 
 const timed = computed(() => Boolean(
@@ -126,15 +123,15 @@ const loopBars = computed(() => (
 ));
 
 const rootRef = ref<SVGSVGElement | null>(null);
-const discRef = ref<SVGGElement | null>(null);
+const handRef = ref<SVGGElement | null>(null);
 const { clock, presentationEnabled } = useUIBeat();
 let unsubscribe: (() => void) | undefined;
-let spinning = false;
+let sweeping = false;
 
 function rest() {
-  if (!spinning && discRef.value?.style.transform === "") return;
-  spinning = false;
-  if (discRef.value) discRef.value.style.transform = "";
+  if (!sweeping && handRef.value?.style.transform === "") return;
+  sweeping = false;
+  if (handRef.value) handRef.value.style.transform = "";
   rootRef.value?.setAttribute("data-loop-dial-state", "still");
 }
 
@@ -153,9 +150,9 @@ function applyFrame(snapshot: UIBeatSnapshot) {
   }
 
   const phase = ((snapshot.barPosition / bars) % 1 + 1) % 1;
-  spinning = true;
-  rootRef.value?.setAttribute("data-loop-dial-state", "spinning");
-  if (discRef.value) discRef.value.style.transform = `rotate(${(phase * 360).toFixed(2)}deg)`;
+  sweeping = true;
+  rootRef.value?.setAttribute("data-loop-dial-state", "sweeping");
+  if (handRef.value) handRef.value.style.transform = `rotate(${(phase * 360).toFixed(2)}deg)`;
 }
 
 function syncSubscription() {
@@ -186,7 +183,7 @@ onBeforeUnmount(() => unsubscribe?.());
   fill: var(--ink);
 }
 
-.loop-dial__disc {
+.loop-dial__hand {
   transform-box: view-box;
   transform-origin: 50% 50%;
 }
@@ -197,7 +194,7 @@ onBeforeUnmount(() => unsubscribe?.());
   stroke-linecap: butt;
 }
 
-/* The fixed playhead: where the loop starts at rest, "now" while it spins. */
+/* The playhead: at rest it marks the loop's start; live, it sweeps as "now". */
 .loop-dial__masthead {
   stroke: var(--ivory-3);
   stroke-width: 1.5;
@@ -209,7 +206,7 @@ onBeforeUnmount(() => unsubscribe?.());
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .loop-dial__disc {
+  .loop-dial__hand {
     transform: none !important;
   }
 }

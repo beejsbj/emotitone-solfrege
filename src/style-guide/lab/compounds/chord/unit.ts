@@ -6,6 +6,8 @@ export const chordUnit: LabCompoundUnit = {
   name: "Chord",
   source: "components/compounds/Chord.vue · ChordKey.vue",
   bench: ChordBench,
+  verdict:
+    "Burooj, 2026-10-01: \"I love hardbands and I love the fanned slips. The fanned slips don't need to be so tall. And I dont like the fanned slips having the text be inside a black box. Just have the text on the slips directly.\" Root Plate is dropped; the fan now keeps the row's height with a flatter spread, and the symbol sits on the slips.",
   reading:
     "Playing zone · applied paper. The Keyboard's permanent chord row plays fused ChordKeys: a rounded pill whose face blends its members' pitch colours edge to edge. It is the only rounded, blended thing on a keyboard of flat, leaning cut paper. Member order and each member's independent progress must survive every direction.",
   directions: [
@@ -30,26 +32,12 @@ export const chordUnit: LabCompoundUnit = {
       paper: "cobalt",
       skin: "fan",
       idea:
-        "A chord is its notes' paper stacked: each member is a cut slip in its pitch colour, fanned a few degrees behind an Ink symbol label. Pressing squares the fan up into one stack.",
+        "A chord is its notes' paper stacked: each member is a cut slip in its pitch colour, fanned a few degrees within the row's own height, with the symbol printed straight across the slips. Pressing squares the fan up into one stack.",
       better:
         "It shows a chord as notes played together, literally a collage of Keys, and the press has a physical answer that says 'these sound at once'.",
       risks:
         "The fan can overflow the chord row's height and overlaps hide most of each member's colour. Seven fanned chords in a row may be the busiest thing on the Keyboard.",
       bible: { zone: "Playing zone", role: "Applied paper", fit: "caution", note: "Collage grammar; must stay inside the row's accepted height." },
-    },
-    {
-      id: "root",
-      letter: "C",
-      name: "Root Plate",
-      paper: "bone",
-      skin: "root",
-      idea:
-        "The chord face is one flat plate in its root's Music Color, with the other members as a short row of pips along the bottom edge. The row reads as harmony built on a root, not as a blend.",
-      better:
-        "The chord row calms down: seven root colours instead of seven rainbows, so the melody Keys below carry the colour, while the pips still name every member.",
-      risks:
-        "Member colour shrinks to pips, so a Cmaj7 and a C look alike at a glance. Two chords with the same root become harder to tell apart.",
-      bible: { zone: "Playing zone", role: "Applied paper", fit: "fits", note: "Root Music Color only; pips answer each member's progress." },
     },
   ],
 };

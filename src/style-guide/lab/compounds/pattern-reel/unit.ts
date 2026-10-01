@@ -6,6 +6,8 @@ export const patternReelUnit: LabCompoundUnit = {
   name: "PatternStrip + PatternReel",
   source: "components/compounds/PatternStrip.vue · PatternReel.vue",
   bench: PatternReelBench,
+  verdict:
+    "Burooj, 2026-10-01: \"I do like the ransom titles. I think one thing we can experiment with is retiring the pattern strip's bar tape … to a circular sequencer that can sit to the left of the button and right of the texts, so between them. Since all strudel is technically a loop anyway.\" Quiet Deck and Cassette Spines are dropped.",
   reading:
     "Playing zone · chassis rows. Each phrase is a fixed 51.2px Ink PatternStrip with a root-colour spine and a 6px Piano Roll Bar Tape on its top edge. The collapsed deck peeks three predecessors above Current, so up to four contours stack over the Drawer lip. Burooj asked to try the retired Ransom cut letters on the pattern row, in Ink and Ivory only.",
   directions: [
@@ -24,32 +26,18 @@ export const patternReelUnit: LabCompoundUnit = {
       bible: { zone: "Playing zone", role: "Applied paper", fit: "fits", note: "Ink and Ivory scraps only, as Burooj specified." },
     },
     {
-      id: "quiet",
+      id: "loop",
       letter: "B",
-      name: "Quiet Deck",
-      paper: "bone",
-      skin: "quiet",
+      name: "Loop Dial",
+      paper: "cobalt",
+      skin: "loop",
       idea:
-        "Only Current shows its Piano Roll tape while the deck is collapsed. Predecessors peek as plain Ink edges with their titles, and their tapes appear as the deck unfolds.",
+        "The Bar Tape retires from the strip's top edge. A small circular sequencer sits between the title and the actions and lays the same events around one loop, clockwise from twelve o'clock: each arc as long as its duration, set further out the higher its pitch.",
       better:
-        "The collapsed stack stops drawing four coloured contours across the Drawer lip, so the busiest seam in the deck goes quiet until you reach for it.",
+        "All Strudel is a loop, and the dial says so: a phrase reads as a cycle you come back to, not a line that ends. Without the tape on every row, the collapsed deck stops stacking four contours over the Drawer lip.",
       risks:
-        "It contradicts the accepted 'uniform persistent tape on every row, no selection-dependent suppression' constraint, so adopting it reopens Bar Tape's contract. You lose the glanceable shape of previous takes.",
-      bible: { zone: "Playing zone", role: "Chassis", fit: "caution", note: "Removes colour at rest; reverses an accepted Bar Tape rule." },
-    },
-    {
-      id: "spine",
-      letter: "C",
-      name: "Cassette Spines",
-      paper: "mustard",
-      skin: "spine",
-      idea:
-        "Each strip reads as a cassette spine: an Ivory label tape stuck on the Ink row carries the title and has the Piano Roll printed along it. Peeking predecessors stack like tapes on a shelf.",
-      better:
-        "The phrase shelf becomes a tape shelf, a strong metaphor for takes, and the label is applied paper on hardware exactly as the bible describes.",
-      risks:
-        "Four stacked Ivory labels are the brightest thing at the bottom of the screen and compete with Music Color; the tape on Ivory needs a different contrast than on Ink.",
-      bible: { zone: "Playing zone", role: "Applied paper", fit: "caution", note: "Ivory paper is legal but bright; the Piano Roll stays Music Color." },
+        "It retires an accepted primitive's only consumer (Bar Tape's Piano Roll). At 34px the dial is small, and dense phrases make thin arcs. It takes width from the title, which matters with Ransom titles.",
+      bible: { zone: "Playing zone", role: "Chassis", fit: "fits", note: "Music Color arcs on an Ink well; the same data the tape draws." },
     },
   ],
 };

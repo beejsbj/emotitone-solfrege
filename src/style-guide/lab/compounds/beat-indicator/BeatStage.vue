@@ -7,16 +7,13 @@ import Button from "@/components/primatives/Button.vue";
 import type { CodeStripToken } from "@/components/uniques/CodeStrip/index.vue";
 import { useUIBeatFixture } from "@/style-guide/guide/useUIBeatFixture";
 import BeatStill from "./BeatStill.vue";
-import LipCounterFace from "./LipCounterFace.vue";
-import SquareCollarFace from "./SquareCollarFace.vue";
 import StepChadsFace from "./StepChadsFace.vue";
 
 /**
  * One isolated UIBeat clock and the real Play/Stop it drives: either the real
  * CodeStrip Bar (its own BeatIndicator around its own Button) or, for the
  * close-up, a real BeatIndicator around a real 48px Button. A direction's face
- * is teleported into the real DOM where it belongs (the indicator root, or the
- * Button's face for the lip) and reads the same clock; the skin hides the
+ * is teleported into the real indicator root and reads the same clock; the skin hides the
  * production ring from outside. Play/Stop stays live and toggles this clock.
  */
 const props = withDefaults(
@@ -48,7 +45,7 @@ const tokens: CodeStripToken[] = props.beats === 3
       { type: "note", note: "sol", text: "Sol", duration: "@0.25", progress: 0 },
     ];
 
-const face = computed(() => ({ square: SquareCollarFace, lip: LipCounterFace, chads: StepChadsFace })[props.skin ?? ""] ?? null);
+const placement = computed(() => ({ "chad-lip": "below", "chad-crown": "above" } as const)[props.skin ?? ""] ?? null);
 const keySize = props.layout === "key" ? 48 : 32;
 
 const root = ref<HTMLElement | null>(null);
@@ -56,9 +53,7 @@ const target = shallowRef<HTMLElement | null>(null);
 
 onMounted(() => {
   const indicator = root.value?.querySelector<HTMLElement>(".beat-indicator") ?? null;
-  target.value = props.skin === "lip"
-    ? indicator?.querySelector<HTMLElement>(".paper-button__face") ?? null
-    : indicator;
+  target.value = indicator;
 });
 </script>
 
@@ -83,8 +78,8 @@ onMounted(() => {
           <Play v-else />
         </Button>
       </BeatIndicator>
-      <Teleport v-if="face && target" :to="target">
-        <component :is="face" :beats="beats" :key-size="keySize" />
+      <Teleport v-if="placement && target" :to="target">
+        <StepChadsFace :beats="beats" :key-size="keySize" :placement="placement" />
       </Teleport>
     </component>
   </div>

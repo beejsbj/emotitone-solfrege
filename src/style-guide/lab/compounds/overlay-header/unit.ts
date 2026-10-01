@@ -6,50 +6,24 @@ export const overlayHeaderUnit: LabCompoundUnit = {
   name: "Overlay Panel Header",
   source: "components/OverlayPanelHeader.vue",
   bench: OverlayHeaderBench,
+  verdict:
+    "Burooj, 2026-10-01: \"Overlay header I accept highlight band. For main heading and label maker for sub headings.\" Display Header is dropped.",
   reading:
     "Playing zone · the header shared by the Instrument Picker and Config Menu in the top drawers: a mono title, the current tab as quiet context, optional status, and a 32px action rail. The bible leaves open whether the panel behind the Tabs chip is chassis or something else (§12).",
   directions: [
     {
-      id: "dymo",
+      id: "band-label",
       letter: "A",
-      name: "Label Maker",
-      paper: "pine",
-      skin: "dymo",
-      idea:
-        "The title is embossed onto a strip of Ink label tape, with raised Ivory letters and a slight tilt, stuck onto the panel like a label on studio gear. The context follows on a second, shorter strip.",
-      better:
-        "The header becomes a label on the instrument rather than a web heading, which answers the bible's open panel question: the panel is hardware and the header is applied to it.",
-      risks:
-        "Embossed tape is plastic, not paper, so it adds a third material. The raised-letter effect needs a fine highlight that may read as a soft shadow.",
-      bible: { zone: "Playing zone", role: "Applied paper", fit: "caution", note: "Ink and Ivory only; a new material for the applied layer." },
-    },
-    {
-      id: "band",
-      letter: "B",
-      name: "Highlight Band",
+      name: "Band + Label",
       paper: "plum",
-      skin: "band",
+      skin: "band-label",
       idea:
-        "The title is set in Lets Jazz display on the poster's tilted highlight band: an Ivory strip leaning behind Ink letters. The context sits beside it in mono.",
+        "Burooj's pairing of two directions. The main heading is Lets Jazz display in Ink on the poster's leaning Ivory highlight band; the subheading (the current tab) is embossed on Ink label tape stuck onto the panel.",
       better:
-        "It carries the Let's Jazz highlight band (§2) into the product at the one place that is a heading, giving the top menus the voice the Loading Screen already has.",
+        "The top menus get the poster voice exactly once, on the word that names the panel, and the label tape gives the smaller heading a hardware-label read instead of a second band.",
       risks:
-        "It reaches the poster voice into the playing zone, the bible's first open question (§12), so it is Burooj's call. An Ivory band is loud at the top of every menu.",
-      bible: { zone: "Both zones", role: "Applied paper", fit: "caution", note: "Poster grammar in Ivory, not brand paper; settles §12 by example." },
-    },
-    {
-      id: "display",
-      letter: "C",
-      name: "Display Header",
-      paper: "cobalt",
-      skin: "display",
-      idea:
-        "The title and context show in the Readout's segment display: lit Ivory characters over faint unlit segments in a recessed window. The action rail stays Lit Keycaps.",
-      better:
-        "The header joins the instrument's display family (Readout, Code Strip), so a top menu reads as the instrument telling you which page it's on.",
-      risks:
-        "Segment type is slower to read for words than for numbers, and it borrows a material the Readout owns for values.",
-      bible: { zone: "Playing zone", role: "Chassis", fit: "fits", note: "Readout's display grammar; Ivory light only." },
+        "It reaches the poster voice into the playing zone (bible §12), which this pick answers by example. The band is loud at the top of every menu, and embossed tape adds a plastic material beside paper.",
+      bible: { zone: "Both zones", role: "Applied paper", fit: "caution", note: "Ivory band and Ink tape only; settles §12 for headings." },
     },
   ],
 };

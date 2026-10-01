@@ -8,8 +8,9 @@
  *   phrase always wears the same cut. The real <strong> stays in the DOM,
  *   visually hidden. Scraps that would run under the actions are dropped for a
  *   single ellipsis scrap.
- * - Spine: publishes each strip's label box (the identity button) as
- *   --ulab-label-x/-y/-w/-h so the skin can move the Bar Tape onto it.
+ * - Loop: reads each strip's real Bar Tape segments (Music Color, duration
+ *   weight, pitch rise) and draws them as a circular sequencer between the
+ *   title and the actions; the skin hides the top-edge tape.
  * Adoption would render these inside PatternStrip instead.
  */
 
@@ -110,34 +111,77 @@ function fitRansom(row: HTMLElement) {
   }
 }
 
-function measureLabel(strip: HTMLElement) {
-  const label = strip.querySelector<HTMLElement>(".pattern-strip__identity");
-  if (!label) {
-    strip.classList.remove("ulab-labelled");
-    return;
+const SVG = "http://www.w3.org/2000/svg";
+
+/** Reads the real Bar Tape's segments: their Music Color, duration weight and pitch rise. */
+function tapeSegments(strip: HTMLElement) {
+  return [...strip.querySelectorAll<HTMLElement>(".bar-tape__segment")].map((segment) => ({
+    color: segment.style.backgroundColor,
+    weight: Number(segment.style.flexGrow) || 1,
+    rise: Number(segment.style.getPropertyValue("--bar-tape-rise")) || 0,
+  }));
+}
+
+function arcPath(radius: number, from: number, to: number) {
+  const point = (turn: number) => {
+    const angle = turn * Math.PI * 2 - Math.PI / 2;
+    return `${(17 + radius * Math.cos(angle)).toFixed(2)} ${(17 + radius * Math.sin(angle)).toFixed(2)}`;
+  };
+  const large = to - from > .5 ? 1 : 0;
+  return `M ${point(from)} A ${radius} ${radius} 0 ${large} 1 ${point(to)}`;
+}
+
+/** Draws (or redraws) one strip's loop dial between its title and its actions. */
+function renderLoop(strip: HTMLElement) {
+  const row = strip.querySelector<HTMLElement>(".pattern-strip__row");
+  if (!row) return;
+  const segments = tapeSegments(strip);
+  const key = JSON.stringify(segments);
+  let dial = row.querySelector<SVGSVGElement>(":scope > .reel-loop");
+  if (dial?.dataset.key === key) return;
+  dial?.remove();
+  dial = document.createElementNS(SVG, "svg");
+  dial.setAttribute("class", "reel-loop");
+  dial.setAttribute("viewBox", "0 0 34 34");
+  dial.setAttribute("aria-hidden", "true");
+  dial.dataset.key = key;
+  const well = document.createElementNS(SVG, "circle");
+  well.setAttribute("class", "reel-loop__well");
+  well.setAttribute("cx", "17");
+  well.setAttribute("cy", "17");
+  well.setAttribute("r", "17");
+  dial.append(well);
+  const total = segments.reduce((sum, segment) => sum + segment.weight, 0);
+  const gap = segments.length > 1 ? .012 : 0;
+  let turn = 0;
+  for (const segment of segments) {
+    const span = segment.weight / total;
+    const arc = document.createElementNS(SVG, "path");
+    arc.setAttribute("class", "reel-loop__arc");
+    // Pitch height reads outward, like the tape's rise reads upward.
+    arc.setAttribute("d", arcPath(7 + segment.rise * 7.5, turn + gap / 2, turn + Math.max(span - gap / 2, span * .5)));
+    arc.style.stroke = segment.color;
+    dial.append(arc);
+    turn += span;
   }
-  // offsetLeft/offsetWidth ignore the reel's slot scale, so the box is exact.
-  let left = 0;
-  let top = 0;
-  for (let node: HTMLElement | null = label; node && node !== strip; node = node.offsetParent as HTMLElement | null) {
-    left += node.offsetLeft;
-    top += node.offsetTop;
-  }
-  strip.style.setProperty("--ulab-label-x", `${left}px`);
-  strip.style.setProperty("--ulab-label-y", `${top}px`);
-  strip.style.setProperty("--ulab-label-w", `${label.offsetWidth}px`);
-  strip.style.setProperty("--ulab-label-h", `${label.offsetHeight}px`);
-  strip.classList.add("ulab-labelled");
+  const start = document.createElementNS(SVG, "line");
+  start.setAttribute("class", "reel-loop__start");
+  start.setAttribute("x1", "17");
+  start.setAttribute("y1", "0.5");
+  start.setAttribute("x2", "17");
+  start.setAttribute("y2", "4.5");
+  dial.append(start);
+  const actions = row.querySelector(":scope > .pattern-strip__actions");
+  row.insertBefore(dial, actions);
 }
 
 export function attachSkinRelay(root: HTMLElement, skin: string | null | undefined) {
-  if (skin !== "ransom" && skin !== "spine") return () => undefined;
+  if (skin !== "ransom" && skin !== "loop") return () => undefined;
 
   const resize = new ResizeObserver((entries) => {
     for (const entry of entries) {
       const target = entry.target as HTMLElement;
       if (target.classList.contains("reel-ransom")) fitRansom(target);
-      else if (target.classList.contains("pattern-strip")) measureLabel(target);
     }
   });
   const watched = new Set<Element>();
@@ -155,10 +199,7 @@ export function attachSkinRelay(root: HTMLElement, skin: string | null | undefin
         watch(row);
       });
     } else {
-      root.querySelectorAll<HTMLElement>(".pattern-strip").forEach((strip) => {
-        measureLabel(strip);
-        watch(strip);
-      });
+      root.querySelectorAll<HTMLElement>(".pattern-strip").forEach(renderLoop);
     }
     for (const element of watched) {
       if (!root.contains(element)) {
@@ -170,8 +211,8 @@ export function attachSkinRelay(root: HTMLElement, skin: string | null | undefin
 
   relay();
   const observer = new MutationObserver((records) => {
-    // Ignore our own scrap writes.
-    if (records.every((record) => (record.target as Element).closest?.(".reel-ransom"))) return;
+    // Ignore our own scrap and dial writes.
+    if (records.every((record) => (record.target as Element).closest?.(".reel-ransom, .reel-loop"))) return;
     relay();
   });
   observer.observe(root, { subtree: true, childList: true, characterData: true });
@@ -179,6 +220,6 @@ export function attachSkinRelay(root: HTMLElement, skin: string | null | undefin
   return () => {
     observer.disconnect();
     resize.disconnect();
-    root.querySelectorAll(".reel-ransom").forEach((row) => row.remove());
+    root.querySelectorAll(".reel-ransom, .reel-loop").forEach((node) => node.remove());
   };
 }

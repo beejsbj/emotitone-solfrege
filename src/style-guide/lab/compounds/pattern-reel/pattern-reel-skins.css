@@ -72,66 +72,28 @@
   }
 }
 
-/* ── B · Quiet Deck: only Current draws its tape until the deck unfolds ── */
-/* Collapsed predecessors are the reel's own inert slots; unwinding lifts inert. */
-.pattern-reel-skin--quiet.pattern-reel-skin--quiet .pattern-reel__slot .pattern-strip__tape {
-  transition: opacity var(--dur-ui) var(--ease-brush);
-}
+/* ── B · Loop Dial: the Bar Tape becomes a circular sequencer ───────────
+   The top-edge tape retires; a small dial between the title and the actions
+   lays the same events around one loop, clockwise from twelve o'clock, each
+   arc as long as its duration and set further out the higher its pitch. */
+.pattern-reel-skin--loop.pattern-reel-skin--loop .pattern-strip__tape { display: none; }
 
-.pattern-reel-skin--quiet.pattern-reel-skin--quiet .pattern-reel__slot[inert] .pattern-strip__tape {
-  opacity: 0;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pattern-reel-skin--quiet.pattern-reel-skin--quiet .pattern-reel__slot .pattern-strip__tape {
-    transition: none;
-  }
-}
-
-/* ── C · Cassette Spines: an Ivory label with the Piano Roll in its window ─ */
-.pattern-reel-skin--spine.pattern-reel-skin--spine .pattern-strip__identity {
+.pattern-reel-skin--loop .reel-loop {
+  flex: none;
+  inline-size: 34px;
+  block-size: 34px;
+  margin-inline: 6px 4px;
   align-self: center;
-  min-height: 0;
-  padding: 5px 9px 15px;
-  background: var(--ivory);
-  color: var(--ink);
-  clip-path: var(--clip-tile);
+  pointer-events: none;
 }
 
-.pattern-reel-skin--spine.pattern-reel-skin--spine .pattern-strip__identity strong {
-  color: var(--ink);
-  font-size: 16px;
-}
-
-.pattern-reel-skin--spine.pattern-reel-skin--spine .pattern-strip__identity small,
-.pattern-reel-skin--spine.pattern-reel-skin--spine .pattern-strip__shelf,
-.pattern-reel-skin--spine.pattern-reel-skin--spine .pattern-strip__detail {
-  color: var(--ink-5);
-}
-
-.pattern-reel-skin--spine.pattern-reel-skin--spine .pattern-strip__identity:focus-visible {
-  outline-color: var(--ivory);
-}
-
-/* The Bar Tape leaves the top edge and runs in the label's window. */
-.pattern-reel-skin--spine.pattern-reel-skin--spine .ulab-labelled .pattern-strip__tape {
-  inset: auto;
-  top: calc(var(--ulab-label-y) + var(--ulab-label-h) - 10px);
-  left: calc(var(--ulab-label-x) + 9px);
-  width: calc(var(--ulab-label-w) - 18px);
-}
-
-@media (max-width: 520px) {
-  .pattern-reel-skin--spine.pattern-reel-skin--spine .pattern-strip__identity strong { font-size: 15px; }
-}
+.pattern-reel-skin--loop .reel-loop__well { fill: var(--ink); }
+.pattern-reel-skin--loop .reel-loop__start { stroke: var(--ivory-3); stroke-width: 1.5; stroke-linecap: butt; }
+.pattern-reel-skin--loop .reel-loop__arc { fill: none; stroke-width: 2.5; stroke-linecap: butt; }
 
 @media (forced-colors: active) {
-  .pattern-reel-skin--spine.pattern-reel-skin--spine .pattern-strip__identity {
-    border: 1px solid CanvasText;
-    background: Canvas;
-    color: CanvasText;
-    clip-path: none;
-  }
-
-  .pattern-reel-skin--spine.pattern-reel-skin--spine .pattern-strip__identity strong { color: CanvasText; }
+  .pattern-reel-skin--loop .reel-loop { forced-color-adjust: none; }
+  .pattern-reel-skin--loop .reel-loop__well { fill: Canvas; stroke: CanvasText; stroke-width: 1; }
+  .pattern-reel-skin--loop .reel-loop__start,
+  .pattern-reel-skin--loop .reel-loop__arc { stroke: CanvasText !important; }
 }

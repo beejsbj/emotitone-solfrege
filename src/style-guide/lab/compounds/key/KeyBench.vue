@@ -5,7 +5,6 @@ import { defaultKeyboardHeight, fitKeyboardRows, KEYBOARD_CHORD_ROW_HEIGHT } fro
 import type { LabBenchProps } from "@/types/compoundsLab";
 import LabCell from "../LabCell.vue";
 import { cMajorRows } from "./keyLabFixtures";
-import { tornTopRules } from "./tornTop";
 import "./key-skins.css";
 
 /**
@@ -32,15 +31,10 @@ const loupes = [
   { id: "held", label: "Held · Mi beside Fa", rows: cMajorRows(1, { pressed: ["E4"], sounding: ["E4"] }, { only: ["Mi", "Fa"] }) },
 ];
 const mainRow = cMajorRows(1);
-
-const TORN_SCOPE = ".key-bench.key-skin--deckle .keyboard__key";
-const tornCss = props.skin === "deckle" ? tornTopRules(TORN_SCOPE) : "";
 </script>
 
 <template>
   <div class="ulab-bench key-bench" :class="props.skin ? `key-skin--${props.skin}` : 'key-skin--production'">
-    <component :is="'style'" v-if="tornCss">{{ tornCss }}</component>
-
     <LabCell
       v-if="!props.compact"
       caption="Resting · C major · chords + three melody rows · phone host (390px)"
@@ -75,7 +69,7 @@ const tornCss = props.skin === "deckle" ? tornTopRules(TORN_SCOPE) : "";
         </div>
       </LabCell>
 
-      <LabCell caption="Editions · the main row in each daily geometry family (chord row hidden)" wide>
+      <LabCell caption="Editions · the main row in each daily geometry family; Misprint would join this draw as a print treatment (chord row hidden)" wide>
         <div class="key-bench__editions">
           <div v-for="family in KEYBOARD_GEOMETRY_FAMILIES" :key="family" class="key-bench__edition" :data-family="family">
             <span class="key-bench__edition-name">{{ family }}</span>

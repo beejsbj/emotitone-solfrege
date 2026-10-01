@@ -1,59 +1,20 @@
 /*
- * Guide-only Overlay Panel Header skins for the Compounds lab. Each skin
- * restyles the real header from outside; its text, action rail (32px Lit
- * Keycaps), status and truncation stay in `components/OverlayPanelHeader.vue`.
- * Selectors repeat the skin class to outrank the component's scoped rules
- * without !important. Adoption would move the chosen skin into the component.
+ * Guide-only Overlay Panel Header skin for the Compounds lab. It restyles the
+ * real header from outside; its text, action rail (32px Lit Keycaps), status
+ * and truncation stay in `components/OverlayPanelHeader.vue`. Selectors repeat
+ * the skin class to outrank the component's scoped rules without !important.
+ * Adoption would move this into the component.
  */
 
-/* ── A · Label Maker: embossed Ink tape stuck onto the panel ─────────────── */
-.overlay-header-skin--dymo.overlay-header-skin--dymo .overlay-panel-header__identity {
-  gap: var(--s-3);
-  padding-inline-start: var(--s-1);
-}
-
-.overlay-header-skin--dymo.overlay-header-skin--dymo .overlay-panel-header__title,
-.overlay-header-skin--dymo.overlay-header-skin--dymo .overlay-panel-header__context {
-  /* Tape: one step lighter than the panel, a lit top edge and a dark lip. */
-  background: var(--ink-4);
-  box-shadow: inset 0 1px 0 var(--ink-5), inset 0 -1px 0 var(--ink-2);
-  border: 0;
-  border-radius: 1px;
-  color: var(--ivory-2);
-  font-family: var(--font-mono);
-  font-weight: 800;
-  line-height: 1;
-  opacity: 1;
-  /* Raised letters: a highlight above each stroke, a shadow under it. */
-  text-shadow: 0 -1px 0 var(--ivory-3), 0 1px 0 var(--ink);
-}
-
-.overlay-header-skin--dymo.overlay-header-skin--dymo .overlay-panel-header__title {
-  padding: 6px 12px 5px 11px;
-  color: var(--ivory);
-  font-size: 12px;
-  letter-spacing: .26em;
-  /* A scissor-cut end on the right, straight off the reel on the left. */
-  clip-path: polygon(0 0, 100% 0, calc(100% - 4px) 100%, 0 100%);
-  rotate: -1.6deg;
-}
-
-.overlay-header-skin--dymo.overlay-header-skin--dymo .overlay-panel-header__context {
-  padding: 4px 9px 3px 8px;
-  font-size: 9px;
-  letter-spacing: .2em;
-  clip-path: polygon(3px 0, 100% 0, 100% 100%, 0 100%);
-  rotate: 1.1deg;
-  translate: 0 1px;
-}
-
-/* ── B · Highlight Band: the poster's leaning band behind a display word ── */
-.overlay-header-skin--band.overlay-header-skin--band .overlay-panel-header__identity {
-  gap: var(--s-5);
+/* ── Band + Label: the main heading on the poster's highlight band, the
+      subheading on embossed Ink label tape stuck onto the panel. ────────── */
+.overlay-header-skin--band-label.overlay-header-skin--band-label .overlay-panel-header__identity {
+  gap: var(--s-4);
   padding-inline-start: var(--s-2);
 }
 
-.overlay-header-skin--band.overlay-header-skin--band .overlay-panel-header__title {
+/* Main heading: Lets Jazz display in Ink on a leaning Ivory band. */
+.overlay-header-skin--band-label.overlay-header-skin--band-label .overlay-panel-header__title {
   position: relative;
   isolation: isolate;
   padding: 3px 12px 1px;
@@ -64,7 +25,7 @@
 }
 
 /* The band is cut separately and laid a little steeper than the word. */
-.overlay-header-skin--band.overlay-header-skin--band .overlay-panel-header__title::before {
+.overlay-header-skin--band-label.overlay-header-skin--band-label .overlay-panel-header__title::before {
   content: "";
   position: absolute;
   z-index: -1;
@@ -74,72 +35,29 @@
   rotate: -1.5deg;
 }
 
-.overlay-header-skin--band.overlay-header-skin--band .overlay-panel-header__context {
+/* Subheading: raised Ivory letters on Ink label tape, a slight counter-tilt. */
+.overlay-header-skin--band-label.overlay-header-skin--band-label .overlay-panel-header__context {
+  padding: 4px 9px 3px 8px;
+  background: var(--ink-4);
+  box-shadow: inset 0 1px 0 var(--ink-5), inset 0 -1px 0 var(--ink-2);
   border: 0;
-  padding: 0;
+  border-radius: 1px;
   color: var(--ivory-2);
-  font-size: 9px;
+  font: 800 9px/1 var(--font-mono);
   letter-spacing: .2em;
   opacity: 1;
+  text-shadow: 0 -1px 0 var(--ivory-3), 0 1px 0 var(--ink);
+  clip-path: polygon(3px 0, 100% 0, 100% 100%, 0 100%);
+  rotate: 1.1deg;
+  translate: 0 1px;
 }
 
-/* ── C · Display Header: the Readout's segment window, recessed ───────────── */
-.overlay-header-skin--display.overlay-header-skin--display .overlay-panel-header__identity {
-  align-items: baseline;
-  align-self: center;
-  gap: 10px;
-  min-block-size: 0;
-  padding: 7px 10px 6px;
-  background: var(--ink);
-  border-radius: var(--r-xs);
-  /* Readout.vue's window recipe: Ink-4 bezel, sunken inner shadow. */
-  box-shadow: 0 0 0 3px var(--ink-4), inset 0 2px 5px rgb(0 0 0 / 80%);
-  margin-inline-start: 3px;
-}
-
-.overlay-header-skin--display.overlay-header-skin--display .overlay-panel-header__title,
-.overlay-header-skin--display.overlay-header-skin--display .overlay-panel-header__context {
-  position: relative;
-  isolation: isolate;
-  border: 0;
-  padding: 0;
-  color: var(--ivory);
-  font: 700 13px/1 var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: .08em;
-  text-shadow: 0 0 8px color-mix(in srgb, var(--ivory) 55%, transparent);
-  opacity: 1;
-}
-
-/* The context is the display's second, smaller field. */
-.overlay-header-skin--display.overlay-header-skin--display .overlay-panel-header__context {
-  font-size: 10px;
-  color: var(--ivory-2);
-  text-shadow: 0 0 6px color-mix(in srgb, var(--ivory) 35%, transparent);
-}
-
-/* Unlit segments: an "8" under every letter, relayed by the bench. */
-.overlay-header-skin--display.overlay-header-skin--display .overlay-panel-header__title::before,
-.overlay-header-skin--display.overlay-header-skin--display .overlay-panel-header__context::before {
-  content: attr(data-ghost) / "";
-  position: absolute;
-  z-index: -1;
-  inset: 0;
-  overflow: hidden;
-  color: color-mix(in srgb, var(--ivory) 9%, transparent);
-  text-shadow: none;
-  white-space: pre;
-  pointer-events: none;
-}
-
-/* ── Every direction ─────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   .overlay-header-bench.overlay-header-bench *,
   .overlay-header-bench.overlay-header-bench *::before { animation: none; transition: none; }
 }
 
 @media (forced-colors: active) {
-  .overlay-header-bench.overlay-header-bench .overlay-panel-header__identity,
   .overlay-header-bench.overlay-header-bench .overlay-panel-header__title,
   .overlay-header-bench.overlay-header-bench .overlay-panel-header__context {
     background: Canvas;
@@ -147,14 +65,9 @@
     box-shadow: none;
     text-shadow: none;
     clip-path: none;
+    border: 1px solid CanvasText;
     opacity: 1;
   }
 
-  .overlay-header-skin--dymo.overlay-header-skin--dymo .overlay-panel-header__title,
-  .overlay-header-skin--dymo.overlay-header-skin--dymo .overlay-panel-header__context,
-  .overlay-header-skin--band.overlay-header-skin--band .overlay-panel-header__title,
-  .overlay-header-skin--display.overlay-header-skin--display .overlay-panel-header__identity { border: 1px solid CanvasText; }
-
-  .overlay-header-bench.overlay-header-bench .overlay-panel-header__title::before,
-  .overlay-header-bench.overlay-header-bench .overlay-panel-header__context::before { display: none; }
+  .overlay-header-bench.overlay-header-bench .overlay-panel-header__title::before { display: none; }
 }

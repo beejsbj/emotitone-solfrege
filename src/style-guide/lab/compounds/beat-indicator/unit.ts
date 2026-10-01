@@ -6,49 +6,37 @@ export const beatIndicatorUnit: LabCompoundUnit = {
   name: "Beat Indicator",
   source: "components/compounds/BeatIndicator.vue",
   bench: BeatIndicatorBench,
+  verdict:
+    "Burooj, 2026-10-01: \"we can combine B and C. Making the step Chads be under or on top of the the play button. Instead of on the right.\" Square Collar is dropped; both placements are shown.",
   reading:
     "Playing zone · chassis light. A Digital Arc-style ring of one segment per beat around Play/Stop, shown only during playback, driven by the shared UIBeat clock; the downbeat is Brass. Since Button became the Lit Keycap (#114), a circular ring wraps a square keycap.",
   directions: [
     {
-      id: "square",
+      id: "chad-lip",
       letter: "A",
-      name: "Square Collar",
-      paper: "mustard",
-      skin: "square",
-      idea:
-        "The ring becomes a square collar traced around the keycap's own outline, one segment per beat running clockwise from top centre, the downbeat in Brass. Same light, same kick, the keycap's shape.",
-      better:
-        "It fixes the mismatch directly: the only round thing around a square key goes, and the collar reads as part of the key's housing light rather than a separate gauge.",
-      risks:
-        "Four beats split cleanly into four sides, but 3/4 and 6/8 put segment ends mid-side or around corners. It still overhangs the bar's block inset like the ring does.",
-      bible: { zone: "Playing zone", role: "Chassis", fit: "fits", note: "Light answers the beat; Brass only on the downbeat." },
-    },
-    {
-      id: "lip",
-      letter: "B",
-      name: "Lip Counter",
+      name: "Chad Lip",
       paper: "cobalt",
-      skin: "lip",
+      skin: "chad-lip",
       idea:
-        "No wrapper at all. The Lit Keycap's own lip (the lit arc under the cap) splits into one segment per beat and lights the current beat, Brass on the downbeat. The key counts time with the light it already has.",
+        "Lip Counter and Step Chads combined: no ring. While the transport runs, a row of hand-cut LED chads takes the place of the Lit Keycap's lip under Play, one per beat, read left to right, with a Brass downbeat.",
       better:
-        "It removes an element instead of reshaping it: no 44px ring overhanging the bar, no second light source competing with the keycap's lip, and it uses grammar Burooj already accepted.",
+        "Play stays a plain key with no 44px ring overhanging the bar, and the beat uses the Knob collar's chads, so the bar speaks one light language. The count sits where the key already shows its light.",
       risks:
-        "The lip is small, so the beat is less visible at a glance than a ring. Adoption would need Button to let a consumer drive its lip segments, which is a new Button seam.",
-      bible: { zone: "Playing zone", role: "Chassis", fit: "fits", note: "Reuses the accepted Lit Keycap light; no new material." },
+        "The row is small (about 5px chads at the 32px bar key), and it uses the bar's 12px block inset under the key. Adoption needs Button to let a consumer replace its lip while playing.",
+      bible: { zone: "Playing zone", role: "Chassis", fit: "fits", note: "LED collar chads; Brass downbeat; hidden while idle as today." },
     },
     {
-      id: "chads",
-      letter: "C",
-      name: "Step Chads",
+      id: "chad-crown",
+      letter: "B",
+      name: "Chad Crown",
       paper: "plum",
-      skin: "chads",
+      skin: "chad-crown",
       idea:
-        "The ring leaves the key: a short column of hand-cut LED chads, the Knob collar's grammar, stands beside Play and lights one chad per beat like a drum machine's step lights.",
+        "The same chad row sitting on top of Play instead of under it, so the keycap keeps its own lip and the beat reads above the key like a meter's lamps.",
       better:
-        "Play goes back to being just a key, and the beat gets the Knob family's LED chads, so the bar's two light languages become one. Counting down a column reads as a bar, not a clock.",
+        "The keycap's accepted lip is untouched, so adoption needs no Button change, and the count sits where the eye lands before the thumb covers the key.",
       risks:
-        "It takes about 10px of width from the Code Strip at 390px. A separate indicator is easier to ignore than light on the control you touch.",
+        "Two light rows on one key (chads above, lip below) can read busier than A. It uses the bar's block inset above the key instead.",
       bible: { zone: "Playing zone", role: "Chassis", fit: "fits", note: "LED collar chads; Brass downbeat; hidden while idle as today." },
     },
   ],

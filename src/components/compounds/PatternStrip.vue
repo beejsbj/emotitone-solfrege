@@ -503,10 +503,8 @@ const openLabel = computed(() => props.item.canOpenStrudel === false
   gap: var(--s-3);
 }
 
+/* The take is flat Ink like every strip; only its Brass edges mark it. */
 .pattern-strip--tone-take {
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--brass) 10%, transparent), transparent 55%),
-    var(--ink);
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--brass-hi) 38%, transparent),
     inset 0 -1px 0 color-mix(in srgb, var(--brass-lo) 30%, transparent),

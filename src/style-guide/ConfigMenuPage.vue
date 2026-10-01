@@ -18,6 +18,7 @@
           <li><span>02</span><p>Buttons own momentary icon actions.</p></li>
           <li><span>03</span><p>Ivory Stickers face Stage-only Looks inside Stage.</p></li>
           <li><span>04</span><p>Related Stage layers stay grouped in shallow destinations.</p></li>
+          <li><span>05</span><p>Panel and section titles share leaning Ivory highlight bands; context, eyebrows, and group labels use embossed Ink tape.</p></li>
         </ol>
       </section>
     </div>

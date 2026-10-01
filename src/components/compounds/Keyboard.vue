@@ -28,7 +28,10 @@
       aria-label="Harmony chords"
       :data-chord-count="renderChords.length"
       :data-geometry-family="resolvedChordFamily"
-      :style="{ '--keyboard-chord-count': Math.max(renderChords.length, 1) }"
+      :style="{
+        '--keyboard-chord-count': Math.max(renderChords.length, 1),
+        '--keyboard-variation-amplitude': Math.max(0, resolvedVariationAmplitude),
+      }"
     >
       <ChordKey
         v-for="(chord, chordIndex) in renderChords"
@@ -39,6 +42,7 @@
         :symbol="chord.harmony.symbol"
         :accessible-name="chord.harmony.accessibleName"
         :geometry="resolvedChordFamily"
+        :style="chordKeyStyle(chord)"
         :pressed="chord.pressed || chordGesturePressedIds.has(chord.harmony.id)"
         managed-input
         :disabled="isInteractionLocked"
@@ -799,6 +803,14 @@ const editionVariations = computed(() => new Map(
   ),
 ));
 
+const chordEditionVariations = computed(() => new Map(
+  keyboardEditionRowVariations(
+    resolvedChordFamily.value,
+    resolvedEditionSeed.value,
+    renderChords.value.map((chord) => chord.harmony.id),
+  ),
+));
+
 watch(
   rowSignature,
   () => {
@@ -880,6 +892,19 @@ function keyStyle(key: KeyboardKeyView, octave: number) {
     "--note-geometry-override-clip": variation.cut,
     "--note-geometry-override-shadow": variation.shadow,
     zIndex: isKeyPhysicallyPressed(key) ? 10_001 : variation.layer,
+  };
+}
+
+function chordKeyStyle(chord: KeyboardChordView) {
+  const variation = chordEditionVariations.value.get(chord.harmony.id)!;
+
+  return {
+    "--keyboard-edition-rotation": variation.rotation,
+    "--key-face-rotation": "calc(var(--keyboard-edition-rotation) * var(--keyboard-variation-amplitude))",
+    "--chord-geometry-override-clip": variation.cut,
+    zIndex: chord.pressed || chordGesturePressedIds.value.has(chord.harmony.id)
+      ? 10_001
+      : variation.layer,
   };
 }
 
@@ -1661,17 +1686,15 @@ onBeforeUnmount(() => {
 }
 
 .keyboard--contrast-forced :deep(.chord__fused) {
+  --chord-member-seam: 1px solid CanvasText;
   border: 1px solid CanvasText;
   background: Canvas !important;
   box-shadow: none;
   forced-color-adjust: none;
 }
 
-.keyboard--contrast-forced :deep(.chord__fused::after) {
-  display: none;
-}
 
-.keyboard--contrast-forced :deep(.chord__fused-member) {
+.keyboard--contrast-forced :deep(.chord__fused-band) {
   background: Canvas;
 }
 

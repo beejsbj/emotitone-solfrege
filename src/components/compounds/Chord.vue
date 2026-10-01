@@ -15,7 +15,9 @@
         class="chord__fused-member"
         :style="member.style"
       >
-        <span class="chord__fused-progress"></span>
+        <span class="chord__fused-band">
+          <span class="chord__fused-progress"></span>
+        </span>
       </span>
       <span class="chord__symbol">{{ symbol }}</span>
     </span>
@@ -153,23 +155,16 @@ const coloredMembers = computed(() =>
 
 const resolvedMembers = computed(() =>
   coloredMembers.value.map(({ source, colors }, index, members) => {
-    const previousColor = members[index - 1]?.colors.primaryColor ?? colors.primaryColor;
-    const nextColor = members[index + 1]?.colors.primaryColor ?? colors.primaryColor;
-    const leftEdge = index === 0
-      ? colors.primaryColor
-      : `color-mix(in srgb, ${previousColor} 50%, ${colors.primaryColor})`;
-    const rightEdge = index === members.length - 1
-      ? colors.primaryColor
-      : `color-mix(in srgb, ${colors.primaryColor} 50%, ${nextColor})`;
-    const fusedSurface = `linear-gradient(90deg, ${leftEdge} 0%, ${colors.primaryColor} 50%, ${rightEdge} 100%)`;
-
     return {
       source,
       style: {
         "--chord-member-surface": props.display === "symbol"
-          ? fusedSurface
+          ? colors.primaryColor
           : colors.background,
         "--chord-member-progress": clampProgress(source.progress),
+        ...(props.display === "symbol" ? {
+          "--chord-member-rotation": `${(index - (members.length - 1) / 2) * 3}deg`,
+        } : {}),
       },
     };
   }),
@@ -277,18 +272,7 @@ const resolvedAccessibleName = computed(() => {
   border-radius: var(--chord-radius);
   background: var(--ink);
   box-shadow: var(--shadow-key);
-  clip-path: var(--chord-clip);
-}
-
-.chord__fused::after {
-  content: "";
-  position: absolute;
-  z-index: 1;
-  inset: 0;
-  border-radius: inherit;
-  background: var(--paper-surface-sheen);
-  mix-blend-mode: overlay;
-  pointer-events: none;
+  clip-path: var(--chord-geometry-override-clip, var(--chord-clip));
 }
 
 .chord__fused-member {
@@ -298,8 +282,25 @@ const resolvedAccessibleName = computed(() => {
   place-items: center;
   width: var(--chord-member-inline-size);
   min-width: 0;
+}
+
+/* Overlapping slips lean below the face; the fused cut owns the outer edge. */
+.chord__fused-band {
+  position: absolute;
+  inset-block: -8%;
+  inset-inline: calc(var(--chord-block-size) * -.12);
   overflow: hidden;
   background: var(--ink);
+  transform: rotate(var(--chord-member-rotation));
+  transform-origin: 50% 220%;
+}
+
+.chord__fused-member + .chord__fused-member .chord__fused-band::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-inline-start: var(--chord-member-seam, 0px solid transparent);
+  pointer-events: none;
 }
 
 .chord__fused-progress {
@@ -327,7 +328,7 @@ const resolvedAccessibleName = computed(() => {
   line-height: .92;
   letter-spacing: .01em;
   text-align: center;
-  text-shadow: 0 1px 1px var(--ink);
+  text-shadow: 1px 1px 0 var(--ink), -.5px 0 0 var(--ink);
   white-space: nowrap;
 }
 
@@ -359,13 +360,16 @@ const resolvedAccessibleName = computed(() => {
 
 @media (forced-colors: active) {
   .chord__fused {
+    --chord-member-seam: 1px solid CanvasText;
     border: 1px solid CanvasText;
     box-shadow: none;
   }
 
-  .chord__fused-member {
+  .chord__fused-band {
     background: Canvas;
+    forced-color-adjust: none;
   }
+
 
   .chord__fused-progress {
     background: Highlight;

@@ -166,7 +166,7 @@ try {
     }`);
 
   await evaluate(`window.refreshTimes=()=>{const notes=ps.loggedNotes.__v_raw;if(!notes.length)return;const shift=Date.now()-50-notes.at(-1).releaseTime;for(const n of notes){n.pressTime+=shift;n.releaseTime+=shift}};
-    window.domStats=()=>({notes:document.querySelectorAll('.note').length,codeNotes:document.querySelectorAll('.code-strip-bar .note').length,widgets:document.querySelectorAll('.cm-code-strip-event').length,tapes:document.querySelectorAll('.bar-tape__segment').length,elements:document.querySelectorAll('*').length});`);
+    window.domStats=()=>({notes:document.querySelectorAll('.note').length,codeNotes:document.querySelectorAll('.code-strip-bar .note').length,widgets:document.querySelectorAll('.cm-code-strip-event').length,loopArcs:document.querySelectorAll('.loop-dial__arc').length,elements:document.querySelectorAll('*').length});`);
   await evaluate(`window.visibleCodeNote=note=>{
     const r=note.getBoundingClientRect(), s=note.closest('.cm-scroller').getBoundingClientRect();
     return Math.min(r.right,s.right,innerWidth)>Math.max(r.left,s.left,0) &&

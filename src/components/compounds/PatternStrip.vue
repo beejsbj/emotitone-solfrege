@@ -11,12 +11,6 @@
   >
     <span class="pattern-strip__spine" aria-hidden="true"></span>
 
-    <BarTape
-      class="pattern-strip__tape"
-      :segments="item.barTape"
-      :aria-label="`${item.name} note timeline`"
-    />
-
     <div class="pattern-strip__row">
       <form
         v-if="renaming"
@@ -77,6 +71,12 @@
           </small>
         </span>
       </component>
+
+      <LoopDial
+        class="pattern-strip__dial"
+        :segments="item.loopDial"
+        :aria-label="`${item.name} note timeline`"
+      />
 
       <div
         v-if="item.actions?.length"
@@ -161,9 +161,9 @@ import {
   ExternalLink,
   Trash2,
 } from "lucide-vue-next";
-import BarTape from "../primatives/BarTape.vue";
+import LoopDial from "../primatives/LoopDial.vue";
 import Button from "../primatives/Button.vue";
-import type { BarTapeSegment } from "../primatives/BarTape.vue";
+import type { LoopDialSegment } from "../primatives/LoopDial.vue";
 
 export type PatternStripActionKind = "keep" | "delete" | "copy" | "open" | "load";
 
@@ -185,7 +185,7 @@ export interface PatternStripItem {
   instrumentLabel: string;
   rootLabel: string;
   spine: string;
-  barTape: BarTapeSegment[];
+  loopDial: LoopDialSegment[];
   copied?: boolean;
   canDelete?: boolean;
   canCopy?: boolean;
@@ -568,10 +568,9 @@ const openLabel = computed(() => props.item.canOpenStrudel === false
   content: "· ";
 }
 
-.pattern-strip__tape {
-  position: absolute;
-  z-index: 3;
-  inset: 0 0 auto 4px;
+/* The loop sits between copy and controls without taking height from the row. */
+.pattern-strip__dial {
+  margin-inline: var(--s-3) var(--s-2);
 }
 
 @media (max-width: 520px) {

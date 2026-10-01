@@ -197,7 +197,7 @@ function blankItem(): PatternReelItem {
     instrumentLabel: instrumentLabel(instrument),
     rootLabel: "",
     spine: "var(--ink-5)",
-    barTape: [],
+    loopDial: [],
     stateLabel: "start a new take",
     canRename: false,
     actions: [],
@@ -232,7 +232,7 @@ function reelItem(entry: ReelEntry, isFront: boolean): PatternReelItem {
       key,
       octave,
     ),
-    barTape: ordered.map((note) => ({
+    loopDial: ordered.map((note) => ({
       color: noteColor(note, phrase),
       durationMs: note.duration,
       height: chromaticPitchHeight(note, { key, mode }),

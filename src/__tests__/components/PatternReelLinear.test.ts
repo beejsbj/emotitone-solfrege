@@ -13,7 +13,7 @@ function item(id: string, overrides: Partial<PatternReelItem> = {}): PatternReel
     instrumentLabel: "Piano",
     rootLabel: "C4",
     spine: "rgb(255, 0, 0)",
-    barTape: [{ color: "rgb(255, 0, 0)", durationMs: 100 }],
+    loopDial: [{ color: "rgb(255, 0, 0)", durationMs: 100 }],
     ...overrides,
   };
 }

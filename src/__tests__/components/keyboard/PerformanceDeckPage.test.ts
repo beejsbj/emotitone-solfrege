@@ -91,7 +91,7 @@ describe("PerformanceDeck guide fixtures", () => {
       mode: "dorian",
       bpm: 92,
       octave: 4,
-      barTape: [],
+      loopDial: [],
       codeStripTokens: [],
       canCopy: false,
     });
@@ -215,13 +215,13 @@ describe("PerformanceDeck guide fixtures", () => {
     expect(deck.props("codeStripTokens")).toEqual([]);
     expect(deck.props("patterns").at(-1)).toMatchObject({
       id: "current",
-      barTape: [],
+      loopDial: [],
       codeStripTokens: [],
       canCopy: false,
     });
   });
 
-  it("keeps Current and saved Bar Tape aligned with partial CodeStrip edits", async () => {
+  it("keeps Current and saved Loop Dial aligned with partial CodeStrip edits", async () => {
     const wrapper = mount(PerformanceDeckPage);
     const deck = wrapper.getComponent({ name: "PerformanceDeck" });
 
@@ -235,12 +235,12 @@ describe("PerformanceDeck guide fixtures", () => {
         { type: "note", rawPitch: "E4" },
         { type: "rest" },
       ],
-      barTape: [
+      loopDial: [
         { durationMs: 250, height: 4 * 12 + 0 },
         { durationMs: 125, height: 4 * 12 + 4 },
       ],
     });
-    expect(editedCurrent.barTape.map((segment: { color: string }) => segment.color)).toEqual([
+    expect(editedCurrent.loopDial.map((segment: { color: string }) => segment.color)).toEqual([
       staticNoteColorResolver.getKeyBackgroundByPitchClass(
         0,
         "major",
@@ -272,12 +272,12 @@ describe("PerformanceDeck guide fixtures", () => {
         { type: "note", rawPitch: "F#4" },
         { type: "note", rawPitch: "A4" },
       ],
-      barTape: [
+      loopDial: [
         { durationMs: 250, height: 4 * 12 + 6 },
         { durationMs: 125, height: 4 * 12 + 9 },
       ],
     });
-    expect(saved.barTape.map((segment: { color: string }) => segment.color)).toEqual([
+    expect(saved.loopDial.map((segment: { color: string }) => segment.color)).toEqual([
       staticNoteColorResolver.getKeyBackgroundByPitchClass(
         6,
         "dorian",

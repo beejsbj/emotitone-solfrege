@@ -1,8 +1,8 @@
 <template>
   <AnatomyDisplay
-    title="Bar Tape &middot; Musical Event Timeline"
+    title="Loop Dial &middot; Musical Event Timeline"
     :features="features"
-    caption="Bar Tape is a Piano Roll: a 6px band where each note of a pattern is a 2px dash at its pitch height, so the tape draws the melody's contour as well as its rhythm. The source owns timeline layout, pitch normalization, and minimum segment visibility; Music Color supplies the fills. The specimen uses real built-in pattern data."
+    caption="Loop Dial lays a phrase around one clockwise loop from twelve. Arc length reads duration and radius reads pitch, so the 34px Ink well carries the melody's contour and rhythm in Music Color. The source owns geometry, pitch normalization, and minimum event visibility; the specimen uses real built-in pattern data."
   >
     <template #hero>
       <div class="hero-panel">
@@ -10,30 +10,36 @@
           <span class="title">{{ patterns[0].name }}</span>
           <span class="meta">{{ patterns[0].notes.length }} events &middot; duration &times; pitch</span>
         </div>
-        <BarTape :segments="timelines[0]" />
+        <LoopDial :segments="timelines[0]" />
       </div>
     </template>
 
     <VariantGrid title="Real pattern sequences">
       <VariantCell caption="Twinkle &middot; repeated notes and held ending" stage="ink3">
-        <BarTape :segments="timelines[0]" />
+        <LoopDial :segments="timelines[0]" />
       </VariantCell>
       <VariantCell caption="Mary &middot; varied pitch order" stage="ink3">
-        <BarTape :segments="timelines[1]" />
+        <LoopDial :segments="timelines[1]" />
       </VariantCell>
       <VariantCell caption="Hot Cross Buns &middot; short pulses and long notes" stage="ink3">
-        <BarTape :segments="timelines[2]" />
+        <LoopDial :segments="timelines[2]" />
       </VariantCell>
-      <VariantCell caption="Twinkle opening &middot; one repeated pitch lies flat" stage="ink3">
-        <BarTape :segments="timelines[0].slice(0, 2)" />
+      <VariantCell caption="Twinkle opening &middot; one repeated pitch shares the inner radius" stage="ink3">
+        <LoopDial :segments="timelines[0].slice(0, 2)" />
+      </VariantCell>
+      <VariantCell caption="One held event &middot; a complete loop" stage="ink3">
+        <LoopDial :segments="timelines[0].slice(0, 1)" />
+      </VariantCell>
+      <VariantCell caption="Empty take &middot; Ink well and start tick" stage="ink3">
+        <LoopDial :segments="[]" aria-label="Empty take note timeline" />
       </VariantCell>
     </VariantGrid>
   </AnatomyDisplay>
 </template>
 
 <script setup lang="ts">
-import BarTape from "../../components/primatives/BarTape.vue";
-import type { BarTapeSegment } from "../../components/primatives/BarTape.vue";
+import LoopDial from "../../components/primatives/LoopDial.vue";
+import type { LoopDialSegment } from "../../components/primatives/LoopDial.vue";
 import { useMusicColor } from "../../composables/useMusicColor";
 import { chromaticPitchHeight } from "../../services/scalePitch";
 import { defaultPatterns } from "../../data/patterns";
@@ -45,7 +51,7 @@ import VariantGrid from "../guide/VariantGrid.vue";
 const { getStaticPrimaryColorByScaleIndex } = useMusicColor();
 const patterns = defaultPatterns.slice(0, 3);
 
-const toTimeline = (pattern: Pattern): BarTapeSegment[] =>
+const toTimeline = (pattern: Pattern): LoopDialSegment[] =>
   pattern.notes.map((note) => ({
     color: getStaticPrimaryColorByScaleIndex(
       note.scaleIndex,
@@ -61,31 +67,35 @@ const timelines = patterns.map(toTimeline);
 
 const features = [
   { label: "Meaning", value: "the pattern's musical events in chronological order" },
-  { label: "Density", value: "6px Piano Roll band; each note is a 2px dash with 1px gaps" },
-  { label: "Height", value: "exact chromatic pitch, normalized between the pattern's lowest and highest note; one pitch lies flat on the floor" },
-  { label: "Segments", value: "one span per performed note; repeated notes remain ordered events" },
-  { label: "Width", value: "proportional to duration with a 50ms minimum for visibility" },
-  { label: "Color", value: "static primary fill from the shared Music Color resolver" },
-  { label: "Surface", value: "borderless and flush; PatternStrip positions it at the top edge" },
-  { label: "Interaction", value: "none; Bar Tape is compact musical feedback" },
-  { label: "Production", value: "every PatternStrip top edge, including Current" },
+  { label: "Density", value: "34px Ink well; 2.5px butt-capped arcs with small gaps" },
+  { label: "Radius", value: "exact chromatic pitch normalized from 7px to 14.5px; a single pitch shares the inner radius" },
+  { label: "Segments", value: "one arc per performed note; repeated notes remain ordered events" },
+  { label: "Arc length", value: "proportional to duration with a 50ms minimum for visibility" },
+  { label: "Color", value: "static primary stroke from the shared Music Color resolver" },
+  { label: "Surface", value: "borderless Ink well with an Ivory start tick at twelve" },
+  { label: "Interaction", value: "none; Loop Dial is compact musical feedback" },
+  { label: "Production", value: "between identity and actions in every PatternStrip, including Current" },
 ];
 </script>
 
 <style scoped>
 .hero-panel {
+  display: flex;
   width: 100%;
-  overflow: hidden;
-  border: 1px solid var(--ink-5);
-  background: var(--ink-3);
+  min-width: 0;
+  align-items: center;
+  gap: var(--s-4);
+  padding: var(--s-4);
+  background: var(--ink);
 }
 
 .hero-head {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 12px 14px 10px;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--s-2);
 }
 
 .hero-head .title {

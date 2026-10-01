@@ -42,7 +42,9 @@ describe("CodeStripBar.vue", () => {
     expect(wrapper.get('button[aria-label="Play"]').exists()).toBe(true);
     expect(wrapper.get('button[aria-label="Delete last event"]').exists()).toBe(true);
     expect(wrapper.get('button[aria-label="Return"]').exists()).toBe(true);
-    expect(wrapper.get('[aria-label="Pattern beat"]').findAll(".beat-indicator__beat")).toHaveLength(4);
+    expect(wrapper.get('.beat-indicator__crown[aria-label="Pattern beat"]')
+      .findAll(".beat-indicator__beat")).toHaveLength(4);
+    expect(wrapper.get('button[aria-label="Play"] .paper-button__lip').exists()).toBe(true);
     expect(wrapper.get(".beat-indicator").find('button[aria-label="Play"]').exists()).toBe(true);
     expect(wrapper.get(".beat-indicator").find('button[aria-label="Delete last event"]').exists())
       .toBe(false);

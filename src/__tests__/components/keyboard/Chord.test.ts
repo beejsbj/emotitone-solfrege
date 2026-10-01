@@ -165,7 +165,7 @@ describe("Chord compound", () => {
       .toContain("--chord-member-progress: 0.375");
 
     expect(chordSource).toContain("background: var(--ink)");
-    expect(chordSource).toContain("clip-path: inset(calc((1 - var(--chord-member-progress)) * 100%) 0 0)");
+    expect(chordSource).toContain("clip-path: inset(calc((1 - var(--chord-member-progress)) * 100%) -100% -20% -100%)");
     expect(chordSource).toContain("transform: scaleY(calc(1 - var(--chord-member-progress)))");
     expect(chordSource).toContain("transition: transform var(--dur-press) linear");
     expect(chordSource).not.toContain("color-mix(in srgb");
@@ -195,7 +195,7 @@ describe("Chord compound", () => {
       "member-pitch-primary-7",
     ]);
     expect(fusedProp("--chord-member-progress")).toEqual(["0.15", "0.9", "0.45"]);
-    expect(fusedProp("--chord-member-rotation")).toEqual(["-3deg", "0deg", "3deg"]);
+    expect(fusedProp("--chord-member-rotation")).toEqual(["-8deg", "0deg", "8deg"]);
     expect(clustered.findAllComponents(Note).map((note) => note.props("rawPitch"))).toEqual([
       "E4",
       "G4",
@@ -223,7 +223,7 @@ describe("Chord compound", () => {
       };
     });
 
-    expect(read().map((member) => member.rotation)).toEqual(["-3deg", "0deg", "3deg"]);
+    expect(read().map((member) => member.rotation)).toEqual(["-8deg", "0deg", "8deg"]);
 
     const seventh: ChordMember = {
       ...triad[0],
@@ -235,10 +235,10 @@ describe("Chord compound", () => {
     };
     await wrapper.setProps({ members: [triad[0], triad[1], triad[2], seventh] });
     expect(read()).toEqual([
-      { surface: "member-pitch-primary-0", progress: "0.25", rotation: "-4.5deg", progressInBand: 1 },
-      { surface: "member-pitch-primary-4", progress: "0.5", rotation: "-1.5deg", progressInBand: 1 },
-      { surface: "member-pitch-primary-7", progress: "0.75", rotation: "1.5deg", progressInBand: 1 },
-      { surface: "member-pitch-primary-11", progress: "0.6", rotation: "4.5deg", progressInBand: 1 },
+      { surface: "member-pitch-primary-0", progress: "0.25", rotation: "-12deg", progressInBand: 1 },
+      { surface: "member-pitch-primary-4", progress: "0.5", rotation: "-4deg", progressInBand: 1 },
+      { surface: "member-pitch-primary-7", progress: "0.75", rotation: "4deg", progressInBand: 1 },
+      { surface: "member-pitch-primary-11", progress: "0.6", rotation: "12deg", progressInBand: 1 },
     ]);
 
     // Reorder and change one member's progress: tilt follows position, progress follows the member.
@@ -246,10 +246,10 @@ describe("Chord compound", () => {
       members: [triad[2], { ...triad[0], progress: .1 }, seventh, triad[1]],
     });
     expect(read()).toEqual([
-      { surface: "member-pitch-primary-7", progress: "0.75", rotation: "-4.5deg", progressInBand: 1 },
-      { surface: "member-pitch-primary-0", progress: "0.1", rotation: "-1.5deg", progressInBand: 1 },
-      { surface: "member-pitch-primary-11", progress: "0.6", rotation: "1.5deg", progressInBand: 1 },
-      { surface: "member-pitch-primary-4", progress: "0.5", rotation: "4.5deg", progressInBand: 1 },
+      { surface: "member-pitch-primary-7", progress: "0.75", rotation: "-12deg", progressInBand: 1 },
+      { surface: "member-pitch-primary-0", progress: "0.1", rotation: "-4deg", progressInBand: 1 },
+      { surface: "member-pitch-primary-11", progress: "0.6", rotation: "4deg", progressInBand: 1 },
+      { surface: "member-pitch-primary-4", progress: "0.5", rotation: "12deg", progressInBand: 1 },
     ]);
 
     // Clustered Notes never take a fan tilt.

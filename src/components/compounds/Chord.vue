@@ -164,7 +164,7 @@ const resolvedMembers = computed(() =>
           : colors.background,
         "--chord-member-progress": clampProgress(source.progress),
         ...(props.display === "symbol" ? {
-          "--chord-member-rotation": `${(index - (members.length - 1) / 2) * 3}deg`,
+          "--chord-member-rotation": `${(index - (members.length - 1) / 2) * 8}deg`,
         } : {}),
       },
     };
@@ -298,15 +298,35 @@ const resolvedAccessibleName = computed(() => {
   min-width: 0;
 }
 
-/* Overlapping slips lean below the face; the fused cut owns the outer edge. */
+/* Slips fanned 8deg apart, each pivoting on its own centre so it stays in
+   its column while the angles fan across the chord. Each slip runs on
+   under its right-hand neighbour (and the first past the key's left edge),
+   so the fan never opens a gap while every member keeps its own column;
+   the fused cut owns the outer edge. */
+.chord__fused-member {
+  --chord-band-overscan: calc(var(--chord-block-size) * -.3);
+}
+
 .chord__fused-band {
   position: absolute;
-  inset-block: -8%;
-  inset-inline: calc(var(--chord-block-size) * -.12);
+  inset-block: -12%;
+  inset-inline: 0 var(--chord-band-overscan);
   overflow: hidden;
-  background: var(--ink);
+  /* Unplayed time is the face's own Ink: an Ink layer per slip would paint
+     over the neighbour it is meant to overlap. */
+  background: transparent;
   transform: rotate(var(--chord-member-rotation));
-  transform-origin: 50% 220%;
+  transform-origin: 50% 50%;
+}
+
+.chord__fused-member:first-child > :is(.chord__fused-band, .chord__fused-progress) {
+  inset-inline-start: var(--chord-band-overscan);
+}
+
+/* Each later slip lays its cut edge over the last: a hard Ink line that
+   makes the lean of every seam read. */
+.chord__fused-member + .chord__fused-member .chord__fused-progress .chord__fused-band {
+  box-shadow: inset 1.5px 0 0 var(--ink);
 }
 
 .chord__fused-member + .chord__fused-member .chord__fused-band::after {
@@ -322,8 +342,9 @@ const resolvedAccessibleName = computed(() => {
   position: absolute;
   z-index: 0;
   inset-block: 0;
-  inset-inline: calc(var(--chord-block-size) * -.12);
-  clip-path: inset(calc((1 - var(--chord-member-progress)) * 100%) 0 0);
+  inset-inline: 0 var(--chord-band-overscan);
+  /* Clip only the progress edge: the slip leans freely past its column. */
+  clip-path: inset(calc((1 - var(--chord-member-progress)) * 100%) -100% -20% -100%);
   transition: clip-path var(--dur-press) linear;
   will-change: clip-path;
 }

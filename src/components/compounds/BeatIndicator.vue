@@ -269,6 +269,8 @@ onBeforeUnmount(() => unsubscribe?.());
     forced-color-adjust: none;
     background: GrayText;
     box-shadow: none;
+    /* System fills stay in the user's palette throughout a beat handoff. */
+    transition: none;
   }
 
   .beat-indicator__beat--lit { background: CanvasText; }

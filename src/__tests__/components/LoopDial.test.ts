@@ -1,5 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
+import { defineComponent, h } from "vue";
+import { provideUIBeat, UIBeatClock } from "@/composables/useUIBeat";
 import LoopDial from "@/components/primatives/LoopDial.vue";
 import loopDialSource from "@/components/primatives/LoopDial.vue?raw";
 
@@ -44,17 +46,18 @@ function readArcs(path: string): Arc[] {
   return arcs;
 }
 
+// The dial lays its loop counter-clockwise from twelve (its spin is clockwise).
 function turnFromTwelve(point: Point): number {
-  const turn = Math.atan2(point.x - 17, 17 - point.y) / (2 * Math.PI);
+  const turn = Math.atan2(17 - point.x, 17 - point.y) / (2 * Math.PI);
   return (turn + 1) % 1;
 }
 
-function clockwiseTurns(arc: Arc): number {
+function layoutTurns(arc: Arc): number {
   return (turnFromTwelve(arc.end) - turnFromTwelve(arc.start) + 1) % 1;
 }
 
 describe("LoopDial", () => {
-  it("renders an accessible 34-unit dial, circular well, and fixed start tick", () => {
+  it("renders an accessible 34-unit dial, circular well, and fixed masthead at twelve", () => {
     const wrapper = mount(LoopDial, { props: { segments: [] } });
 
     expect(wrapper.element.tagName.toLowerCase()).toBe("svg");
@@ -63,12 +66,14 @@ describe("LoopDial", () => {
     expect(wrapper.attributes("viewBox")).toBe("0 0 34 34");
     expect(wrapper.attributes("aria-label")).toBe("Pattern note timeline");
     expect(wrapper.get("circle").attributes()).toMatchObject({ cx: "17", cy: "17", r: "17" });
-    expect(wrapper.get("line.loop-dial__start").attributes()).toMatchObject({
-      x1: "17", y1: "0.5", x2: "17", y2: "4.5",
+    expect(wrapper.get("line.loop-dial__masthead").attributes()).toMatchObject({
+      x1: "17", y1: "0.5", x2: "17", y2: "11",
     });
+    // The masthead stays put outside the spinning disc.
+    expect(wrapper.find(".loop-dial__disc .loop-dial__masthead").exists()).toBe(false);
   });
 
-  it("keeps Music Color events in chronological order with clockwise duration-proportional arcs", () => {
+  it("keeps Music Color events in chronological order with counter-clockwise duration-proportional arcs", () => {
     const wrapper = mount(LoopDial, {
       props: {
         segments: [
@@ -94,11 +99,11 @@ describe("LoopDial", () => {
     const boundaries = [0, 2 / 9, 8 / 9, 1];
     const spans = [2 / 9, 2 / 3, 1 / 9];
     arcs.forEach((arc, index) => {
-      expect(arc.sweep).toBe(1);
+      expect(arc.sweep).toBe(0);
       expect(arc.large).toBe(index === 1 ? 1 : 0);
       expect(turnFromTwelve(arc.start)).toBeCloseTo(boundaries[index] + 0.006, 3);
       expect(turnFromTwelve(arc.end)).toBeCloseTo(boundaries[index + 1] - 0.006, 3);
-      expect(clockwiseTurns(arc)).toBeCloseTo(spans[index] - 0.012, 3);
+      expect(layoutTurns(arc)).toBeCloseTo(spans[index] - 0.012, 3);
     });
   });
 
@@ -114,8 +119,8 @@ describe("LoopDial", () => {
 
     const arcs = wrapper.findAll(".loop-dial__arc").map((path) => readArcs(path.attributes("d"))[0]);
     expect(arcs).toHaveLength(2);
-    expect(clockwiseTurns(arcs[0])).toBeCloseTo(0.25 - 0.012, 3);
-    expect(clockwiseTurns(arcs[1])).toBeCloseTo(0.75 - 0.012, 3);
+    expect(layoutTurns(arcs[0])).toBeCloseTo(0.25 - 0.012, 3);
+    expect(layoutTurns(arcs[1])).toBeCloseTo(0.75 - 0.012, 3);
     expect(turnFromTwelve(arcs[1].start)).toBeCloseTo(0.25 + 0.006, 3);
   });
 
@@ -134,17 +139,17 @@ describe("LoopDial", () => {
     const short = readArcs(paths[0].attributes("d"))[0];
     const long = readArcs(paths[1].attributes("d"))[0];
     expect(short.end).not.toEqual(short.start);
-    expect(short.sweep).toBe(1);
+    expect(short.sweep).toBe(0);
     expect(short.large).toBe(0);
-    expect(clockwiseTurns(short)).toBeGreaterThan(0);
+    expect(layoutTurns(short)).toBeGreaterThan(0);
     // The floored short event owns 50/50050 turns; half remains visible,
     // with one quarter removed at each endpoint. Allow two-decimal rounding.
-    expect(Math.abs(clockwiseTurns(short) - 25 / 50_050)).toBeLessThan(0.00015);
+    expect(Math.abs(layoutTurns(short) - 25 / 50_050)).toBeLessThan(0.00015);
     expect(Math.abs(turnFromTwelve(short.start) - 12.5 / 50_050)).toBeLessThan(0.00012);
     expect(Math.abs(turnFromTwelve(short.end) - 37.5 / 50_050)).toBeLessThan(0.00012);
     expect(long.large).toBe(1);
-    expect(long.sweep).toBe(1);
-    expect(clockwiseTurns(long)).toBeCloseTo(50_000 / 50_050 - 0.012, 3);
+    expect(long.sweep).toBe(0);
+    expect(layoutTurns(long)).toBeCloseTo(50_000 / 50_050 - 0.012, 3);
   });
 
   it("normalizes chromatic pitch height into radii without changing repeated pitches", () => {
@@ -194,8 +199,8 @@ describe("LoopDial", () => {
     expect(arcs[1].end).toEqual(arcs[0].start);
     arcs.forEach((arc) => {
       expect(arc.radius).toBe(7);
-      expect(arc.sweep).toBe(1);
-      expect(clockwiseTurns(arc)).toBeCloseTo(0.5, 3);
+      expect(arc.sweep).toBe(0);
+      expect(layoutTurns(arc)).toBeCloseTo(0.5, 3);
       expect(arc.end).not.toEqual(arc.start);
     });
   });
@@ -229,14 +234,14 @@ describe("LoopDial", () => {
     expect(paths.map((path) => (path.element as SVGElement).style.stroke)).toEqual(["blue", "green"]);
     const arcs = paths.map((path) => readArcs(path.attributes("d"))[0]);
     expect(arcs.map((arc) => arc.radius)).toEqual([14.5, 7]);
-    expect(clockwiseTurns(arcs[0])).toBeCloseTo(0.25 - 0.012, 3);
-    expect(clockwiseTurns(arcs[1])).toBeCloseTo(0.75 - 0.012, 3);
+    expect(layoutTurns(arcs[0])).toBeCloseTo(0.25 - 0.012, 3);
+    expect(layoutTurns(arcs[1])).toBeCloseTo(0.75 - 0.012, 3);
     expect(paths[0].attributes("d")).not.toBe(originalPath);
     expect(wrapper.attributes("aria-label")).toBe("Replaced note timeline");
 
     await wrapper.setProps({ segments: [] });
     expect(wrapper.findAll(".loop-dial__arc")).toHaveLength(0);
-    expect(wrapper.find(".loop-dial__start").exists()).toBe(true);
+    expect(wrapper.find(".loop-dial__masthead").exists()).toBe(true);
   });
 
   it("keeps the timeline still without SVG or CSS animation", () => {
@@ -246,5 +251,96 @@ describe("LoopDial", () => {
 
     expect(wrapper.find("animate, animateTransform, animateMotion").exists()).toBe(false);
     expect(loopDialSource).not.toMatch(/@keyframes|(?:animation|transition)(?:-[\w-]+)?\s*:/);
+  });
+
+  it("places timed notes at their onsets so rests read as gaps in the loop", () => {
+    const wrapper = mount(LoopDial, {
+      props: {
+        lengthMs: 2000,
+        segments: [
+          { color: "red", startMs: 0, durationMs: 500, height: 55 },
+          { color: "blue", startMs: 1000, durationMs: 500, height: 55 },
+        ],
+      },
+    });
+
+    const arcs = wrapper.findAll(".loop-dial__arc").map((path) => readArcs(path.attributes("d"))[0]);
+    expect(turnFromTwelve(arcs[0].start)).toBeCloseTo(0.006, 3);
+    expect(turnFromTwelve(arcs[0].end)).toBeCloseTo(0.25 - 0.006, 3);
+    // The second note waits for its onset: a quarter-turn rest precedes it.
+    expect(turnFromTwelve(arcs[1].start)).toBeCloseTo(0.5 + 0.006, 3);
+    expect(turnFromTwelve(arcs[1].end)).toBeCloseTo(0.75 - 0.006, 3);
+  });
+
+  function mountLive(props: Record<string, unknown>, presentationEnabled = () => true) {
+    const clock = new UIBeatClock({
+      observeEnvironment: false,
+      reducedMotion: () => false,
+      documentVisible: () => true,
+    });
+    const Host = defineComponent({
+      setup() {
+        provideUIBeat({ clock, presentationEnabled });
+        return () => h(LoopDial, props);
+      },
+    });
+    const generation = clock.arm({
+      mappingAvailable: true,
+      bpm: 120,
+      meter: { beatsPerBar: 4, beatUnit: 4 },
+    });
+    return { clock, generation, wrapper: mount(Host) };
+  }
+
+  const twoBarLoop = {
+    lengthMs: 4000,
+    barMs: 2000,
+    segments: [{ color: "red", startMs: 0, durationMs: 1000, height: 55 }],
+  };
+
+  it("spins a live dial with the sounding bar position under a fixed masthead", () => {
+    const { clock, generation, wrapper } = mountLive({ ...twoBarLoop, live: true });
+    const disc = () => wrapper.get(".loop-dial__disc").element as SVGGElement;
+
+    // Half a bar into a two-bar loop is a quarter turn.
+    clock.publish(generation, { rawPosition: 0.5, barPosition: 0.5 });
+    expect(wrapper.get("svg").attributes("data-loop-dial-state")).toBe("spinning");
+    expect(disc().style.transform).toBe("rotate(90.00deg)");
+
+    // The loop wraps: bar 2.5 of a two-bar loop is the same quarter turn.
+    clock.publish(generation, { rawPosition: 2.5, barPosition: 2.5 });
+    expect(disc().style.transform).toBe("rotate(90.00deg)");
+
+    clock.stop(generation);
+    expect(wrapper.get("svg").attributes("data-loop-dial-state")).toBe("still");
+    expect(disc().style.transform).toBe("");
+    wrapper.unmount();
+    clock.destroy();
+  });
+
+  it("keeps a dial still when it is not the live phrase or presentation is off", () => {
+    const idle = mountLive({ ...twoBarLoop, live: false });
+    idle.clock.publish(idle.generation, { rawPosition: 0.5, barPosition: 0.5 });
+    expect((idle.wrapper.get(".loop-dial__disc").element as SVGGElement).style.transform).toBe("");
+    idle.wrapper.unmount();
+    idle.clock.destroy();
+
+    const off = mountLive({ ...twoBarLoop, live: true }, () => false);
+    off.clock.publish(off.generation, { rawPosition: 0.5, barPosition: 0.5 });
+    expect((off.wrapper.get(".loop-dial__disc").element as SVGGElement).style.transform).toBe("");
+    expect(off.wrapper.get("svg").attributes("data-loop-dial-state")).toBe("still");
+    off.wrapper.unmount();
+    off.clock.destroy();
+  });
+
+  it("does not spin without timing it can trust", () => {
+    const { clock, generation, wrapper } = mountLive({
+      live: true,
+      segments: [{ color: "red", durationMs: 1000, height: 55 }],
+    });
+    clock.publish(generation, { rawPosition: 0.5, barPosition: 0.5 });
+    expect((wrapper.get(".loop-dial__disc").element as SVGGElement).style.transform).toBe("");
+    wrapper.unmount();
+    clock.destroy();
   });
 });

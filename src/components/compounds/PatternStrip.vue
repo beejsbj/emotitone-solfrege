@@ -75,6 +75,9 @@
       <LoopDial
         class="pattern-strip__dial"
         :segments="item.loopDial"
+        :length-ms="item.loopLengthMs"
+        :bar-ms="item.loopBarMs"
+        :live="item.loopLive"
         :aria-label="`${item.name} note timeline`"
       />
 
@@ -186,6 +189,12 @@ export interface PatternStripItem {
   rootLabel: string;
   spine: string;
   loopDial: LoopDialSegment[];
+  /** Whole loop in ms, rests and trailing silence included; places notes in time. */
+  loopLengthMs?: number;
+  /** One bar in ms at the phrase's tempo, so the dial can follow playback. */
+  loopBarMs?: number;
+  /** The transport plays this phrase: its Loop Dial spins with playback. */
+  loopLive?: boolean;
   copied?: boolean;
   canDelete?: boolean;
   canCopy?: boolean;

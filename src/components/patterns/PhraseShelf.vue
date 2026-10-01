@@ -37,6 +37,7 @@ import {
   type ReelEntry,
 } from "@/domain/phraseBook";
 import { logNotesToStrudel } from "@/services/StrudelNotation";
+import { recordedLoopTailMs } from "@/services/recordedTiming";
 import { chromaticPitchHeight } from "@/services/scalePitch";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
@@ -218,6 +219,10 @@ function reelItem(entry: ReelEntry, isFront: boolean): PatternReelItem {
   const title = source?.name || phraseTitle(phrase);
   const { key, mode, instrument, octave } = phrase.context;
   const ordered = [...phrase.notes].sort((left, right) => left.pressTime - right.pressTime);
+  // The same loop the generated code plays: one 4/4 bar per cycle at the
+  // phrase's tempo, notes at their onsets, authored trailing silence kept.
+  const lastEnd = Math.max(0, ...ordered.map((note) => note.pressTime + Math.max(1, note.duration)));
+  const loopLengthMs = phrase.duration > lastEnd ? phrase.duration : lastEnd + recordedLoopTailMs(phrase.context.bpm);
   return {
     id: phrase.id,
     presentationKey: entry.key,
@@ -234,9 +239,14 @@ function reelItem(entry: ReelEntry, isFront: boolean): PatternReelItem {
     ),
     loopDial: ordered.map((note) => ({
       color: noteColor(note, phrase),
+      startMs: note.pressTime,
       durationMs: note.duration,
       height: chromaticPitchHeight(note, { key, mode }),
     })),
+    loopLengthMs,
+    loopBarMs: phrase.context.bpm > 0 ? (60000 / phrase.context.bpm) * 4 : undefined,
+    // The desk holds the phrase the Code Strip plays.
+    loopLive: isDesk,
     tone: isDesk ? "take" : phrase.shelf as PatternStripTone,
     shelfTag: shelfTag(phrase, inPlace),
     lamp: isDesk ? (inPlace ? "armed" : "live") : undefined,

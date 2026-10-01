@@ -1,0 +1,48 @@
+{
+  "node": "v24.13.1",
+  "vue": "3.5.17",
+  "sourceRoot": "/home/admin/.t3/worktrees/emotitone-solfrege/architecture-catalog",
+  "scenario": "idle, 21 strings",
+  "productionDefaults": {
+    "stringsEnabled": true,
+    "rowCount": 3
+  },
+  "trial": {
+    "warmupFrames": 60,
+    "measuredFramesPerTrial": 100,
+    "trials": 7,
+    "alternatingOrder": true
+  },
+  "samplesMsPerFrame": {
+    "deepRef": [
+      12.51279684,
+      10.32240374,
+      8.163277679999991,
+      7.097349460000005,
+      11.388248149999999,
+      17.937749290000003,
+      14.257317109999985
+    ],
+    "shallowRef": [
+      1.4851113399999987,
+      1.0172291199999928,
+      0.4515610100000049,
+      1.462678420000002,
+      1.2125277499999993,
+      1.6122700299999997,
+      1.1215401199999906
+    ]
+  },
+  "medianMsPerFrame": {
+    "deepRef": 11.388248149999999,
+    "shallowRef": 1.2125277499999993
+  },
+  "oneFrameCounts": {
+    "snapshots": 21,
+    "frequencies": 21
+  },
+  "vertices": 2121,
+  "identicalVertices": true,
+  "limitations": "Node synthetic CPU probe only; no browser, GPU, real frame timing, reactive consumers, audio, or merged-tree validation. shallowRef is an experimental substitution, not proposed patch; dependency mocks exclude frequency and color computation cost.",
+  "nodeEnv": "production"
+}

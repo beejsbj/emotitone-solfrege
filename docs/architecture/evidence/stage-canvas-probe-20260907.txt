@@ -1,0 +1,6 @@
+Pinia source pattern: { store: false, hostSnapshot: true }
+After normal cleanup: { active: false, masterEdges: 1 }
+After cleanup before init resolves: {
+  error: "Cannot read properties of null (reading 'connect')",
+  masterEdges: 2
+}

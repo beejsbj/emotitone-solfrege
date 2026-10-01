@@ -370,9 +370,7 @@ const openLabel = computed(() => props.item.canOpenStrudel === false
   box-sizing: border-box;
   overflow: hidden;
   background: var(--ink);
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--ivory) 9%, transparent),
-    0 8px 20px color-mix(in srgb, var(--ink) 42%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ivory) 9%, transparent);
   color: var(--ivory);
 }
 
@@ -507,8 +505,7 @@ const openLabel = computed(() => props.item.canOpenStrudel === false
 .pattern-strip--tone-take {
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--brass-hi) 38%, transparent),
-    inset 0 -1px 0 color-mix(in srgb, var(--brass-lo) 30%, transparent),
-    0 8px 20px color-mix(in srgb, var(--ink) 42%, transparent);
+    inset 0 -1px 0 color-mix(in srgb, var(--brass-lo) 30%, transparent);
 }
 
 /* Where the phrase lives: one engraved word and, on the desk, a lamp. No box:

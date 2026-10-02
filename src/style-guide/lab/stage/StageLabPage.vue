@@ -78,15 +78,15 @@ const firstParams = new Map(units.flatMap((unit) => [
   ...unit.directions.map((d) => [`${unit.id}:${d.id}`, frameParams(unit, d.id)] as const),
 ]));
 
-// Compose starts from the lab's picks; each change of pick remounts its one frame.
+// Compose starts from the dot set Burooj saw working together; each change of pick remounts its one frame.
 const PICKS: StageLabSelection = {
-  atmosphere: "spotlight",
-  strings: "stave",
-  scope: "phosphor",
-  connections: "slurs",
-  blobs: "coin",
-  flecks: "stamp",
-  lettering: "lead-sheet",
+  atmosphere: "halftone-panel",
+  strings: "columns",
+  scope: "dots",
+  connections: "chord-shape",
+  blobs: "rings",
+  flecks: "pixels",
+  lettering: "production",
 };
 const composed = reactive<StageLabSelection>({ ...PICKS });
 const composeKey = computed(() => STAGE_LAB_UNIT_IDS.map((unit) => composed[unit]).join("|"));

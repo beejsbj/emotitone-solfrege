@@ -1,108 +1,123 @@
 import { resolveAmbientLevel } from "@/composables/canvas/stageRuntime";
-import { soundLevel, tracePolygon } from "./shared";
+import { soundLevel, tracePolygon, type Point } from "./shared";
 import type { AtmospherePainter, LabFrame } from "./types";
 
 /*
- * Atmosphere directions D–F. Each keeps the accepted clock: a slow breath in
- * silence handing over to the shared envelope once sound plays. All are flat:
- * hard edges, no gradients.
+ * Atmosphere: diffused light shapes. Burooj, 2026-10-02: "Spotlight and
+ * highlight bar are interesting. I wanna see a diffused version of them
+ * instead of a hard edge." Each keeps the accepted clock: a slow breath in
+ * silence handing over to the shared envelope once sound plays.
  */
+
+const LEAN = -0.105; // ≈ -6°, the poster's highlight-band lean
+const SOFT_SCALE = 1 / 12;
+const SOFT_BLUR = 2.2; // px at the reduced scale; ≈ 26px on the Stage
 
 const ground = (frame: LabFrame) => {
   frame.ctx.fillStyle = frame.tokens.ink;
   frame.ctx.fillRect(0, 0, frame.width, frame.height);
 };
 
-/** 0 in silence's breath trough, rising through the envelope. */
+/** 0 at silence's breath trough, rising through the envelope. */
 const lift = (frame: LabFrame) =>
   Math.max(0, (resolveAmbientLevel(frame.audio, frame.elapsed, frame.reducedMotion) - 0.66) / 0.34);
 
-/** The key's tonic as a note, so a ground colour can mean "home". */
-const tonicOf = (frame: LabFrame) => {
-  const key = frame.notes[0]?.key ?? "C";
-  const index = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"].indexOf(key);
-  return { pitchClassIndex: Math.max(0, index), octave: 3 };
-};
-
 /**
- * Atmosphere D · Spotlight. A jazz-club spot: one hard-edged cone from above
- * the Stage onto the scope, in the sounding pitch's deep colour. It opens with
- * the envelope; in silence a dim house light breathes in Ink.
+ * Paint shapes small, soften them, and scale them up: diffusion without a
+ * per-frame full-size blur.
  */
-export const spotlightAtmosphere: AtmospherePainter = {
-  paint(frame) {
-    ground(frame);
-    const { ctx, composition, tokens } = frame;
-    if (composition.suspended) return;
-    const { centerX: cx, centerY: cy, usable, hilbertRadius } = composition;
-    const sounding = soundLevel(frame) > 0.01;
-    const open = 0.55 + lift(frame) * 0.45;
-    const pool = Math.min(usable.width * 0.46, hilbertRadius * 0.95) * open;
-    const top = usable.y - 10;
-    ctx.save();
-    ctx.fillStyle = sounding ? frame.noteColor(frame.leadNote, { l: 0.5, c: 0.8 }) : tokens.ink3;
-    tracePolygon(ctx, [
-      { x: cx - pool * 0.18, y: top },
-      { x: cx + pool * 0.18, y: top },
-      { x: cx + pool, y: cy },
-      { x: cx - pool, y: cy },
-    ]);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, pool, pool * 0.28, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  },
-};
-
-/**
- * Atmosphere E · Tide Line. The Stage fills from the deck like a level: a flat
- * floor in the key's tonic colour (home), its crisp horizon rising with the
- * envelope and settling to a low tide in silence.
- */
-export const tideAtmosphere: AtmospherePainter = {
-  paint(frame) {
-    ground(frame);
-    const { ctx, composition } = frame;
-    if (composition.suspended) return;
-    const { usable } = composition;
-    const level = 0.08 + lift(frame) * 0.5;
-    const horizon = usable.y + usable.height * (1 - level);
-    ctx.save();
-    ctx.fillStyle = frame.noteColor(tonicOf(frame), { l: 0.55, c: 0.85 });
-    ctx.fillRect(usable.x, horizon, usable.width, usable.y + usable.height - horizon);
-    ctx.fillStyle = frame.noteColor(tonicOf(frame), { l: 0.7 });
-    ctx.fillRect(usable.x, horizon, usable.width, 1.5);
-    ctx.restore();
-  },
-};
-
-/**
- * Atmosphere F · Halftone. The production wash printed instead of glowed: a
- * fixed screen of ink dots in the sounding pitch's colour, largest under the
- * scope and shrinking outward, their size following the envelope.
- */
-export const halftoneAtmosphere: AtmospherePainter = {
-  paint(frame) {
-    ground(frame);
-    const { ctx, composition } = frame;
-    if (composition.suspended) return;
-    const { centerX: cx, centerY: cy, usable } = composition;
-    const pitch = 11;
-    const reach = Math.max(usable.width, usable.height) * 0.72;
-    const strength = 0.35 + lift(frame) * 0.65;
-    ctx.save();
-    ctx.fillStyle = frame.noteColor(frame.leadNote, { l: 0.55, c: 0.75 });
-    for (let row = 0, y = usable.y + pitch / 2; y < usable.y + usable.height; row++, y += pitch * 0.87) {
-      for (let x = usable.x + (row % 2 ? pitch / 2 : 0); x < usable.x + usable.width + pitch; x += pitch) {
-        const falloff = 1 - Math.hypot(x - cx, (y - cy) * 1.2) / reach;
-        const r = (pitch / 2) * 0.9 * falloff * strength;
-        if (r < 0.35) continue;
-        ctx.beginPath();
-        ctx.arc(x, y, r, 0, Math.PI * 2);
-        ctx.fill();
-      }
+function createSoftLayer() {
+  let canvas: HTMLCanvasElement | null = null;
+  let ctx: CanvasRenderingContext2D | null = null;
+  return (frame: LabFrame, draw: (soft: CanvasRenderingContext2D) => void) => {
+    const w = Math.max(2, Math.ceil(frame.width * SOFT_SCALE));
+    const h = Math.max(2, Math.ceil(frame.height * SOFT_SCALE));
+    if (!canvas) {
+      canvas = document.createElement("canvas");
+      ctx = canvas.getContext("2d");
     }
-    ctx.restore();
-  },
-};
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+    const soft = ctx!;
+    soft.setTransform(1, 0, 0, 1, 0, 0);
+    soft.clearRect(0, 0, w, h);
+    soft.filter = `blur(${SOFT_BLUR}px)`;
+    soft.setTransform(SOFT_SCALE, 0, 0, SOFT_SCALE, 0, 0);
+    draw(soft);
+    soft.filter = "none";
+    frame.ctx.save();
+    frame.ctx.imageSmoothingEnabled = true;
+    frame.ctx.imageSmoothingQuality = "high";
+    frame.ctx.drawImage(canvas, 0, 0, frame.width, frame.height);
+    frame.ctx.restore();
+  };
+}
+
+/**
+ * Atmosphere A · Diffused Band. The poster's tilted highlight band, now a
+ * soft-edged wash of light: Ink-3 in silence, the sounding pitch's deep
+ * colour once it plays, its height following the envelope.
+ */
+export function createDiffusedBand(): AtmospherePainter {
+  const soften = createSoftLayer();
+  return {
+    paint(frame) {
+      ground(frame);
+      const { composition, tokens, reducedMotion, elapsed } = frame;
+      if (composition.suspended) return;
+      const { usable, centerX: cx, centerY: cy } = composition;
+      const level = soundLevel(frame);
+      const breath = reducedMotion ? 0 : (Math.sin((elapsed * Math.PI * 2) / 10) + 1) / 2;
+      const size = Math.min(usable.width, usable.height);
+      const half = size * (level > 0.01 ? 0.15 + level * 0.09 : 0.14 + breath * 0.012);
+      const reach = usable.width * 0.62 + 60;
+      const lean = LEAN * reach;
+      const band: Point[] = [
+        { x: cx - reach, y: cy - half - lean },
+        { x: cx + reach, y: cy - half + lean },
+        { x: cx + reach, y: cy + half + lean },
+        { x: cx - reach, y: cy + half - lean },
+      ];
+      soften(frame, (soft) => {
+        soft.fillStyle = level > 0.01 ? frame.noteColor(frame.leadNote, { l: 0.55, c: 0.8 }) : tokens.ink3;
+        tracePolygon(soft, band);
+        soft.fill();
+      });
+    },
+  };
+}
+
+/**
+ * Atmosphere B · Diffused Spotlight. A jazz-club spot from above onto the
+ * scope, now a soft beam of light with a brighter pool where it lands, in the
+ * sounding pitch's colour. It opens with the envelope; silence is a dim house
+ * light in Ink.
+ */
+export function createDiffusedSpotlight(): AtmospherePainter {
+  const soften = createSoftLayer();
+  return {
+    paint(frame) {
+      ground(frame);
+      const { composition, tokens } = frame;
+      if (composition.suspended) return;
+      const { centerX: cx, centerY: cy, usable, hilbertRadius } = composition;
+      const sounding = soundLevel(frame) > 0.01;
+      const open = 0.55 + lift(frame) * 0.45;
+      const pool = Math.min(usable.width * 0.46, hilbertRadius * 0.95) * open;
+      const top = usable.y - 40;
+      soften(frame, (soft) => {
+        soft.fillStyle = sounding ? frame.noteColor(frame.leadNote, { l: 0.45, c: 0.8 }) : tokens.ink3;
+        tracePolygon(soft, [
+          { x: cx - pool * 0.18, y: top },
+          { x: cx + pool * 0.18, y: top },
+          { x: cx + pool, y: cy },
+          { x: cx - pool, y: cy },
+        ]);
+        soft.fill();
+        soft.fillStyle = sounding ? frame.noteColor(frame.leadNote, { l: 0.62, c: 0.85 }) : tokens.ink4;
+        soft.beginPath();
+        soft.ellipse(cx, cy, pool, pool * 0.3, 0, 0, Math.PI * 2);
+        soft.fill();
+      });
+    },
+  };
+}

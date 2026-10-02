@@ -1,7 +1,7 @@
 import { drawMarkOnCanvas, type MarkName } from "@/components/primatives/marks";
 import type { ActiveNote } from "@/types/music";
 import { hash, randomMark, scopePoints, seeded, soundLevel, stepped, stringOffset, tracePolygon, type Point } from "./shared";
-import type { AtmospherePainter, FlecksPainter, LabFrame, ScopePainter, StringsPainter } from "./types";
+import type { FlecksPainter, LabFrame, ScopePainter, StringsPainter } from "./types";
 
 /*
  * The paper family: music cuts flat Music Color paper on a stop-motion
@@ -10,7 +10,6 @@ import type { AtmospherePainter, FlecksPainter, LabFrame, ScopePainter, StringsP
  */
 
 const CUT_FPS = 12;
-const LEAN = -0.105; // ≈ -6°, the poster's highlight-band lean
 const OFFSET = 5;
 
 /** Scope B · Paper Cut: each step cuts the loop out as a flat sheet; the last three stack. */
@@ -73,36 +72,6 @@ export function createCutScope(): ScopePainter {
     clear() { cuts = []; lastStep = -1; },
   };
 }
-
-/** Atmosphere B · Highlight Band: one tilted flat band behind the scope. */
-export const bandAtmosphere: AtmospherePainter = {
-  paint(frame) {
-    const { ctx, width, height, tokens, composition, elapsed, reducedMotion } = frame;
-    ctx.fillStyle = tokens.ink;
-    ctx.fillRect(0, 0, width, height);
-    if (composition.suspended) return;
-    const { usable, centerX: cx, centerY: cy } = composition;
-    const level = soundLevel(frame);
-    const t = reducedMotion ? 0 : stepped(elapsed, CUT_FPS);
-    // Silence keeps the accepted slow breath; sound takes the height over.
-    const breath = reducedMotion ? 0 : (Math.sin((t * Math.PI * 2) / 10) + 1) / 2;
-    const size = Math.min(usable.width, usable.height);
-    const half = size * (level > 0.01 ? 0.15 + level * 0.09 : 0.14 + breath * 0.012);
-    const reach = usable.width * 0.62 + 40;
-    const lean = LEAN * reach;
-    ctx.save();
-    // Ink paper in silence; the sounding pitch's colour, deep and flat, once it plays.
-    ctx.fillStyle = level > 0.01 ? frame.noteColor(frame.leadNote, { l: 0.5, c: 0.72 }) : tokens.ink3;
-    tracePolygon(ctx, [
-      { x: cx - reach, y: cy - half - lean },
-      { x: cx + reach, y: cy - half + lean },
-      { x: cx + reach, y: cy + half + lean },
-      { x: cx - reach, y: cy + half - lean },
-    ]);
-    ctx.fill();
-    ctx.restore();
-  },
-};
 
 /** Strings B · Torn Strips: ragged paper strips that shudder on the stop-motion clock. */
 export const stripStrings: StringsPainter = {

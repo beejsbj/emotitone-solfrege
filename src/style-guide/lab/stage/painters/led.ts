@@ -87,31 +87,58 @@ class LedRaster {
   clear() { this.bufferCtx?.clearRect(0, 0, this.buffer?.width ?? 0, this.buffer?.height ?? 0); }
 }
 
-/** Atmosphere C · Unlit Panel: the dot grid itself; its backlight breathes and rises with sound. */
-export function createPanelAtmosphere(): AtmospherePainter {
+/**
+ * Atmosphere C · Halftone Panel. Unlit Panel and Halftone combined (Burooj,
+ * 2026-10-02: "couldn't they be combined"). The ground is the unlit LED grid;
+ * light is printed onto the same grid as halftone, dots swelling in the
+ * sounding pitch's colour around the scope and shrinking outward, their reach
+ * following the envelope. Shares the grid pitch with the other dot parts.
+ */
+export function createHalftonePanelAtmosphere(): AtmospherePainter {
   let pattern: CanvasPattern | null = null;
   let key = "";
   return {
     paint(frame) {
-      const { ctx, width, height, tokens } = frame;
+      const { ctx, width, height, tokens, composition } = frame;
       ctx.fillStyle = tokens.ink;
       ctx.fillRect(0, 0, width, height);
       const level = resolveAmbientLevel(frame.audio, frame.elapsed, frame.reducedMotion);
       const dpr = ctx.canvas.width / width;
       const cell = ledCell(frame);
-      // Two backlight steps only: hardware, not a gradient.
-      const fill = level > 0.86 ? tokens.ink4 : tokens.ink3;
-      const nextKey = `${cell}:${dpr}:${fill}`;
+      const nextKey = `${cell}:${dpr}:${tokens.ink3}`;
       if (nextKey !== key) {
         key = nextKey;
-        pattern = ctx.createPattern(dotTile(cell, dpr, fill, null), "repeat");
+        pattern = ctx.createPattern(dotTile(cell, dpr, tokens.ink3, null), "repeat");
       }
-      if (!pattern) return;
-      ctx.save();
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.fillStyle = pattern;
-      ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-      ctx.restore();
+      if (pattern) {
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.fillStyle = pattern;
+        ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        ctx.restore();
+      }
+      if (composition.suspended) return;
+      const { centerX: cx, centerY: cy, usable } = composition;
+      const strength = Math.max(0, (level - 0.6) / 0.4);
+      const reach = Math.max(usable.width, usable.height) * (0.35 + strength * 0.4);
+      const lit = frame.noteColor(frame.leadNote, { l: 0.6, c: 0.85 });
+      ctx.fillStyle = lit;
+      const cols = Math.ceil(width / cell);
+      const rows = Math.ceil((usable.y + usable.height) / cell);
+      for (let row = 0; row < rows; row++) {
+        const y = (row + 0.5) * cell;
+        for (let col = 0; col < cols; col++) {
+          const x = (col + 0.5) * cell;
+          const falloff = 1 - Math.hypot(x - cx, (y - cy) * 1.15) / reach;
+          if (falloff <= 0) continue;
+          // Halftone: light is dot size, from a pin-prick up to the full LED.
+          const r = cell * 0.36 * Math.min(1, falloff * (0.45 + strength * 0.75));
+          if (r < 0.5) continue;
+          ctx.beginPath();
+          ctx.arc(x, y, r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
     },
   };
 }

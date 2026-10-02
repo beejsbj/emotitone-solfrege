@@ -23,14 +23,15 @@ export interface StageLabBibleReading {
 export const STAGE_LAB_UNIT_IDS = ["atmosphere", "strings", "scope", "connections", "blobs", "flecks", "lettering"] as const;
 export type StageLabUnitId = (typeof STAGE_LAB_UNIT_IDS)[number];
 
+/** Directions still in the lab after Burooj's 2026-10-02 cut. Lettering kept none. */
 export const STAGE_LAB_DIRECTION_IDS = {
-  atmosphere: ["graticule", "band", "panel", "spotlight", "tide", "halftone"],
-  strings: ["exposure", "strips", "columns", "harp", "standing", "stave"],
-  scope: ["phosphor", "cut", "dots", "groove", "brush", "bars"],
-  connections: ["bands", "chord-shape", "interference", "ties", "slurs", "stitches"],
-  blobs: ["facets", "coin", "key", "rings"],
-  flecks: ["sparks", "chads", "pixels", "spray", "orbit", "stamp"],
-  lettering: ["tape", "readout", "lead-sheet", "neon", "roman"],
+  atmosphere: ["band", "spotlight", "halftone-panel"],
+  strings: ["strips", "columns"],
+  scope: ["phosphor", "cut", "brush", "dots"],
+  connections: ["chord-shape", "slurs"],
+  blobs: ["rings"],
+  flecks: ["pixels", "chads"],
+  lettering: [],
 } as const satisfies Record<StageLabUnitId, readonly string[]>;
 
 export type StageLabDirectionId<U extends StageLabUnitId = StageLabUnitId> =

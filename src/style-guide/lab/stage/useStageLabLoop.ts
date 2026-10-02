@@ -35,29 +35,14 @@ import type {
   ScopePainter,
   StringsPainter,
 } from "./painters/types";
-import { createPhosphorScope, createSparkFlecks, exposureStrings, graticuleAtmosphere } from "./painters/phosphor";
-import { bandAtmosphere, createChadFlecks, createCutScope, stripStrings } from "./painters/pasteUp";
-import { createColumnStrings, createDotScope, createPanelAtmosphere, createPixelFlecks } from "./painters/led";
-import { coinBlobs, facetsBlobs, keyBlobs, ringBlobs } from "./painters/blobs";
-import {
-  createBandConnections,
-  createSlurConnections,
-  createStitchConnections,
-  createTieConnections,
-} from "./painters/connections";
+import { createPhosphorScope } from "./painters/phosphor";
+import { createChadFlecks, createCutScope, stripStrings } from "./painters/pasteUp";
+import { createColumnStrings, createDotScope, createHalftonePanelAtmosphere, createPixelFlecks } from "./painters/led";
+import { ringBlobs } from "./painters/blobs";
+import { createSlurConnections } from "./painters/connections";
 import { createChordShapePainter } from "./painters/chordShape";
-import { createResonancePainter } from "./painters/resonance";
-import { halftoneAtmosphere, spotlightAtmosphere, tideAtmosphere } from "./painters/atmosphere";
-import { harpStrings, standingStrings, staveStrings } from "./painters/strings";
-import { createBarScope, createBrushScope, createGrooveScope } from "./painters/scope";
-import { createOrbitFlecks, createSprayFlecks, createStampFlecks } from "./painters/flecks";
-import {
-  createLeadSheetLettering,
-  createNeonLettering,
-  createReadoutLettering,
-  createRomanLettering,
-  createTapeLettering,
-} from "./painters/lettering";
+import { createBrushScope } from "./painters/scope";
+import { createDiffusedBand, createDiffusedSpotlight } from "./painters/atmosphere";
 
 /*
  * The lab's frame loop. It mirrors production `useUnifiedCanvas.renderFrame`
@@ -98,58 +83,33 @@ function readTokens(): LabTokens {
 }
 
 const ATMOSPHERE: Record<string, () => AtmospherePainter> = {
-  graticule: () => graticuleAtmosphere,
-  band: () => bandAtmosphere,
-  panel: createPanelAtmosphere,
-  spotlight: () => spotlightAtmosphere,
-  tide: () => tideAtmosphere,
-  halftone: () => halftoneAtmosphere,
+  band: createDiffusedBand,
+  spotlight: createDiffusedSpotlight,
+  "halftone-panel": createHalftonePanelAtmosphere,
 };
 const STRINGS: Record<string, () => StringsPainter> = {
-  exposure: () => exposureStrings,
   strips: () => stripStrings,
   columns: createColumnStrings,
-  harp: () => harpStrings,
-  standing: () => standingStrings,
-  stave: () => staveStrings,
 };
 const SCOPE: Record<string, () => ScopePainter> = {
   phosphor: createPhosphorScope,
   cut: createCutScope,
-  dots: createDotScope,
-  groove: createGrooveScope,
   brush: createBrushScope,
-  bars: createBarScope,
+  dots: createDotScope,
 };
 const BLOBS: Record<string, () => BlobsPainter> = {
-  facets: () => facetsBlobs,
-  coin: () => coinBlobs,
-  key: () => keyBlobs,
   rings: () => ringBlobs,
 };
 const CONNECTIONS: Record<string, () => ConnectionsPainter> = {
-  bands: createBandConnections,
   "chord-shape": createChordShapePainter,
-  interference: createResonancePainter,
-  ties: createTieConnections,
   slurs: createSlurConnections,
-  stitches: createStitchConnections,
 };
 const FLECKS: Record<string, () => FlecksPainter> = {
-  sparks: createSparkFlecks,
-  chads: createChadFlecks,
   pixels: createPixelFlecks,
-  spray: createSprayFlecks,
-  orbit: createOrbitFlecks,
-  stamp: createStampFlecks,
+  chads: createChadFlecks,
 };
-const LETTERING: Record<string, () => LetteringPainter> = {
-  tape: createTapeLettering,
-  readout: createReadoutLettering,
-  "lead-sheet": createLeadSheetLettering,
-  neon: createNeonLettering,
-  roman: createRomanLettering,
-};
+/** Lettering kept no lab direction (Burooj, 2026-10-02); production lettering stays. */
+const LETTERING: Record<string, () => LetteringPainter> = {};
 
 const choose = <T>(registry: Record<string, () => T>, choice: string): T | null =>
   choice === "production" ? null : registry[choice]?.() ?? null;

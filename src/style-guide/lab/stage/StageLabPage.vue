@@ -91,11 +91,13 @@ const muted = ref(new Set<StageLabUnitId>());
 const soloed = ref(new Set<StageLabUnitId>());
 const hidden = computed(() => STAGE_LAB_UNIT_IDS.filter((unit) =>
   soloed.value.size ? !soloed.value.has(unit) : muted.value.has(unit)));
-const toggle = (set: typeof muted, unit: StageLabUnitId) => {
-  const next = new Set(set.value);
+const toggled = (set: Set<StageLabUnitId>, unit: StageLabUnitId) => {
+  const next = new Set(set);
   if (next.has(unit)) next.delete(unit); else next.add(unit);
-  set.value = next;
+  return next;
 };
+const toggleMute = (unit: StageLabUnitId) => { muted.value = toggled(muted.value, unit); };
+const toggleSolo = (unit: StageLabUnitId) => { soloed.value = toggled(soloed.value, unit); };
 let composeFrame: HTMLIFrameElement | null = null;
 const sendHidden = () => composeFrame?.contentWindow?.postMessage(
   { type: "stage-lab:hidden", hidden: hidden.value } satisfies StageLabMessage, window.location.origin);
@@ -207,14 +209,14 @@ const stickerColor = (paper: StageLabPaper) => (paper === "cobalt" ? "ivory" : p
                   type="button"
                   :aria-pressed="muted.has(unit.id)"
                   :aria-label="`Mute ${unit.name}`"
-                  @click="toggle(muted, unit.id)"
+                  @click="toggleMute(unit.id)"
                 >M</button>
                 <button
                   class="slab-mixer slab-mixer--solo"
                   type="button"
                   :aria-pressed="soloed.has(unit.id)"
                   :aria-label="`Solo ${unit.name}`"
-                  @click="toggle(soloed, unit.id)"
+                  @click="toggleSolo(unit.id)"
                 >S</button>
                 <button
                   class="guide-chip"

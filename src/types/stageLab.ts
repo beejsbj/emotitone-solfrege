@@ -79,4 +79,6 @@ export type StageLabMessage =
   | { type: "stage-lab:state"; state: StageLabState }
   | { type: "stage-lab:key"; pitch: string; down: boolean }
   | { type: "stage-lab:mode"; mode: "merge" | "web" }
+  /** Mute/solo: parts listed here keep running but are not shown. */
+  | { type: "stage-lab:hidden"; hidden: StageLabUnitId[] }
   | { type: "stage-lab:wake" };

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 import Sticker from "@/components/primatives/Sticker";
 import {
   STAGE_LAB_UNIT_IDS,
@@ -8,6 +8,7 @@ import {
   type StageLabSelection,
   type StageLabState,
   type StageLabUnit,
+  type StageLabUnitId,
 } from "@/types/stageLab";
 import FocusedPoster from "../../focused/FocusedPoster.vue";
 import "../../focused/focused-page.css";
@@ -74,7 +75,7 @@ const firstParams = new Map(units.flatMap((unit) => [
   ...unit.directions.map((d) => [`${unit.id}:${d.id}`, frameParams(unit, d.id)] as const),
 ]));
 
-// Compose starts from the lab's picks; each change remounts its one frame.
+// Compose starts from the lab's picks; each change of pick remounts its one frame.
 const PICKS: StageLabSelection = {
   atmosphere: "graticule",
   strings: "exposure",
@@ -85,7 +86,37 @@ const PICKS: StageLabSelection = {
 };
 const composed = reactive<StageLabSelection>({ ...PICKS });
 const composeKey = computed(() => STAGE_LAB_UNIT_IDS.map((unit) => composed[unit]).join("|"));
-const composeParams = computed(() => ({ ...composed, state: state.value, mode: mode.value }));
+// Mixer rules: any solo shows only the soloed parts; otherwise every unmuted part shows.
+const muted = ref(new Set<StageLabUnitId>());
+const soloed = ref(new Set<StageLabUnitId>());
+const hidden = computed(() => STAGE_LAB_UNIT_IDS.filter((unit) =>
+  soloed.value.size ? !soloed.value.has(unit) : muted.value.has(unit)));
+const toggle = (set: typeof muted, unit: StageLabUnitId) => {
+  const next = new Set(set.value);
+  if (next.has(unit)) next.delete(unit); else next.add(unit);
+  set.value = next;
+};
+let composeFrame: HTMLIFrameElement | null = null;
+const sendHidden = () => composeFrame?.contentWindow?.postMessage(
+  { type: "stage-lab:hidden", hidden: hidden.value } satisfies StageLabMessage, window.location.origin);
+watch(hidden, sendHidden);
+const joinCompose = (frame: HTMLIFrameElement) => {
+  composeFrame = frame;
+  onFrameReady(frame);
+  sendHidden();
+};
+// Params are taken once per pick set; state, mode and mute/solo then travel as
+// messages, so toggling never reloads the frame.
+const composeParams = ref<Record<string, string>>({});
+watch(composeKey, () => {
+  composeParams.value = {
+    ...composed,
+    surface: "parts",
+    hide: hidden.value.join(","),
+    state: state.value,
+    mode: mode.value,
+  };
+}, { immediate: true });
 const choose = (unit: StageLabUnit, choice: string) => {
   (composed as Record<string, string>)[unit.id] = choice;
 };
@@ -164,9 +195,27 @@ const stickerColor = (paper: StageLabPaper) => (paper === "cobalt" ? "ivory" : p
         </header>
         <div class="slab-compose__body">
           <dl class="slab-compose__choices">
-            <div v-for="unit in STAGE_LAB_UNITS" :key="unit.id">
+            <div
+              v-for="unit in STAGE_LAB_UNITS"
+              :key="unit.id"
+              :class="{ 'slab-compose__part--hidden': hidden.includes(unit.id) }"
+            >
               <dt>{{ unit.name }}</dt>
               <dd role="group" :aria-label="unit.name">
+                <button
+                  class="slab-mixer"
+                  type="button"
+                  :aria-pressed="muted.has(unit.id)"
+                  :aria-label="`Mute ${unit.name}`"
+                  @click="toggle(muted, unit.id)"
+                >M</button>
+                <button
+                  class="slab-mixer slab-mixer--solo"
+                  type="button"
+                  :aria-pressed="soloed.has(unit.id)"
+                  :aria-label="`Solo ${unit.name}`"
+                  @click="toggle(soloed, unit.id)"
+                >S</button>
                 <button
                   class="guide-chip"
                   type="button"
@@ -191,7 +240,7 @@ const stickerColor = (paper: StageLabPaper) => (paper === "cobalt" ? "ivory" : p
             caption="Composed"
             :params="composeParams"
             :wide="wide"
-            :join="onFrameReady"
+            :join="joinCompose"
           />
         </div>
       </section>
@@ -424,6 +473,21 @@ const stickerColor = (paper: StageLabPaper) => (paper === "cobalt" ? "ivory" : p
 }
 
 .slab-compose__choices .guide-chip { min-height: 32px; padding: 6px 10px 4px; font-size: 14px; }
+
+/* Mixer keys: square hardware buttons, Ivory when engaged. Guide scaffold only. */
+.slab-mixer {
+  width: 32px;
+  min-height: 32px;
+  border: 0;
+  background: var(--ink-4);
+  color: var(--ivory-2);
+  font: 700 14px/1 var(--font-display);
+  cursor: pointer;
+}
+
+.slab-mixer[aria-pressed="true"] { background: var(--ivory); color: var(--ink); }
+.slab-mixer--solo { margin-right: var(--s-3); }
+.slab-compose__part--hidden dt { color: var(--ivory-4); }
 
 @media (min-width: 1100px) {
   .slab-unit__sheets { grid-template-columns: repeat(3, minmax(0, 1fr)); }

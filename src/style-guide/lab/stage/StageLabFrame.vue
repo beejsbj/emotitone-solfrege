@@ -9,6 +9,7 @@ import {
   type StageLabMessage,
   type StageLabSelection,
   type StageLabState,
+  type StageLabUnitId,
 } from "@/types/stageLab";
 import { createStageLabConductor, STAGE_LAB_STATES } from "./labConductor";
 import StageLabSurface from "./StageLabSurface.vue";
@@ -32,7 +33,11 @@ const selection = Object.fromEntries(STAGE_LAB_UNIT_IDS.map((unit) => [
 const initialState = pick<StageLabState>("state", STAGE_LAB_STATES.map((s) => s.id), "phrase");
 const mode = ref(pick<"merge" | "web">("mode", ["merge", "web"], "merge"));
 const deck = query.get("deck") !== "0";
-const isProduction = STAGE_LAB_UNIT_IDS.every((unit) => selection[unit] === "production");
+const hidden = ref((query.get("hide") ?? "").split(",").filter((unit): unit is StageLabUnitId =>
+  (STAGE_LAB_UNIT_IDS as readonly string[]).includes(unit)));
+// Compose always takes the per-part surface, so any part can be muted or soloed.
+const isProduction = query.get("surface") !== "parts"
+  && STAGE_LAB_UNIT_IDS.every((unit) => selection[unit] === "production");
 
 const conductor = createStageLabConductor(initialState);
 const mountPoint = ref<HTMLElement | null>(null);
@@ -52,6 +57,7 @@ const onMessage = (event: MessageEvent<StageLabMessage>) => {
   if (message?.type === "stage-lab:state") conductor.setState(message.state);
   else if (message?.type === "stage-lab:key") conductor.key(message.pitch, message.down);
   else if (message?.type === "stage-lab:mode") mode.value = message.mode;
+  else if (message?.type === "stage-lab:hidden") hidden.value = message.hidden;
   else if (message?.type === "stage-lab:wake") void wake();
 };
 
@@ -62,7 +68,7 @@ onMounted(() => {
     name: "StageLabFrameApp",
     setup() {
       if (!isProduction) {
-        return () => h(StageLabSurface, { selection, mode: mode.value, conductor });
+        return () => h(StageLabSurface, { selection, mode: mode.value, hidden: hidden.value, conductor });
       }
       const visualConfig = useVisualConfigStore();
       visualConfig.useEphemeralDefaults();

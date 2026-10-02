@@ -2,7 +2,7 @@
 import { ref, toRef, watch } from "vue";
 import { useStageHostLayout } from "@/composables/useStageHostLayout";
 import { useVisualConfigStore } from "@/stores/visualConfig";
-import type { StageLabSelection } from "@/types/stageLab";
+import type { StageLabSelection, StageLabUnitId } from "@/types/stageLab";
 import type { StageLabConductor } from "./labConductor";
 import { useStageLabLoop } from "./useStageLabLoop";
 
@@ -15,8 +15,11 @@ import { useStageLabLoop } from "./useStageLabLoop";
 const props = defineProps<{
   selection: StageLabSelection;
   mode: "merge" | "web";
+  /** Muted or un-soloed parts keep painting so they rejoin mid-motion; they are only not shown. */
+  hidden?: readonly StageLabUnitId[];
   conductor: StageLabConductor;
 }>();
+const shown = (unit: StageLabUnitId) => (props.hidden?.includes(unit) ? { visibility: "hidden" as const } : undefined);
 
 const canvases = {
   atmosphere: ref<HTMLCanvasElement | null>(null),
@@ -44,12 +47,12 @@ useStageLabLoop(canvases, {
 
 <template>
   <div class="stage-lab-surface" aria-hidden="true">
-    <canvas ref="atmosphere" />
-    <canvas ref="strings" />
-    <canvas ref="scope" />
-    <canvas ref="bodies" />
-    <canvas ref="flecks" />
-    <canvas ref="lettering" />
+    <canvas ref="atmosphere" :style="shown('atmosphere')" />
+    <canvas ref="strings" :style="shown('strings')" />
+    <canvas ref="scope" :style="shown('scope')" />
+    <canvas ref="bodies" :style="shown('bodies')" />
+    <canvas ref="flecks" :style="shown('flecks')" />
+    <canvas ref="lettering" :style="shown('lettering')" />
   </div>
 </template>
 

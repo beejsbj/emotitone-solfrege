@@ -64,8 +64,11 @@ const onFrameReady = (frame: HTMLIFrameElement) => {
   frame.contentWindow?.postMessage({ type: "stage-lab:mode", mode: mode.value } satisfies StageLabMessage, window.location.origin);
 };
 
+// A strip shows only its own part: every other part keeps running, unseen.
 const frameParams = (unit: StageLabUnit, direction: string | null) => ({
   [unit.id]: direction ?? "production",
+  surface: "parts",
+  hide: STAGE_LAB_UNIT_IDS.filter((other) => other !== unit.id).join(","),
   state: state.value,
   mode: mode.value,
 });
@@ -77,12 +80,13 @@ const firstParams = new Map(units.flatMap((unit) => [
 
 // Compose starts from the lab's picks; each change of pick remounts its one frame.
 const PICKS: StageLabSelection = {
-  atmosphere: "graticule",
-  strings: "exposure",
+  atmosphere: "spotlight",
+  strings: "stave",
   scope: "phosphor",
-  bodies: "chord-shape",
-  flecks: "chads",
-  lettering: "tape",
+  connections: "slurs",
+  blobs: "coin",
+  flecks: "stamp",
+  lettering: "lead-sheet",
 };
 const composed = reactive<StageLabSelection>({ ...PICKS });
 const composeKey = computed(() => STAGE_LAB_UNIT_IDS.map((unit) => composed[unit]).join("|"));
@@ -130,10 +134,9 @@ const stickerColor = (paper: StageLabPaper) => (paper === "cobalt" ? "ivory" : p
   <main class="slab focused-page guide-paper--cobalt">
     <FocusedPoster layer="compositions" unit-id="stage-lab" kicker="Design lab · guide only" title="Stage Lab">
       <p>
-        Step 4 of the reimagining pass: every part of the canvas, each with its own directions. Each strip runs the
-        real production Stage beside one part's directions; in those frames every other part stays production, so a
-        pick can be adopted alone. Every frame plays the same notes at the same moment. Compose puts any picks
-        together in one frame.
+        Step 4 of the reimagining pass: every part of the canvas on its own. Each strip shows only its part:
+        production first, then that part's directions, every frame playing the same notes at the same moment.
+        Compose puts any picks together in one frame, with mute and solo per part.
       </p>
     </FocusedPoster>
 
@@ -247,7 +250,10 @@ const stickerColor = (paper: StageLabPaper) => (paper === "cobalt" ? "ivory" : p
         </div>
       </section>
 
-      <section v-for="unit in units" :id="`lab-${unit.id}`" :key="unit.id" class="slab-unit">
+      <section v-for="(unit, index) in units" :id="`lab-${unit.id}`" :key="unit.id" class="slab-unit">
+        <p v-if="unit.group && units[index - 1]?.group !== unit.group" class="slab-group">
+          {{ unit.group }}: Blobs, Connections and Lettering are independent parts that work together
+        </p>
         <header class="slab-unit__head">
           <h2 class="slab-unit__title">{{ unit.name }}</h2>
           <p class="slab-unit__meta">{{ unit.directions.length }} directions · <code>{{ unit.source }}</code></p>
@@ -260,7 +266,7 @@ const stickerColor = (paper: StageLabPaper) => (paper === "cobalt" ? "ivory" : p
         <section :id="`lab-${unit.id}-compare`" class="focused-sheet slab-sheet" aria-label="Production beside every direction">
           <header class="focused-sheet__head">
             <div>
-              <p class="focused-sheet__source">Production beside every direction · everything else in each frame is production</p>
+              <p class="focused-sheet__source">Production beside every direction · only this part shows</p>
               <h3 class="focused-sheet__title">Side by side</h3>
             </div>
           </header>
@@ -377,6 +383,16 @@ const stickerColor = (paper: StageLabPaper) => (paper === "cobalt" ? "ivory" : p
 
 .slab-keys__key--sharp { background: var(--ink-4); color: var(--ivory); }
 .slab-keys__key[aria-pressed="true"] { background: var(--ivory-3); }
+
+.slab-group {
+  margin: 0;
+  padding: var(--s-3) var(--s-4);
+  background: var(--ivory);
+  color: var(--ink);
+  font: 700 18px/1.1 var(--font-display);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
 
 .slab-unit { display: grid; gap: var(--s-7); scroll-margin-top: var(--s-10); }
 

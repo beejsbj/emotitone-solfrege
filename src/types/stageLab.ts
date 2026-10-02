@@ -16,17 +16,21 @@ export interface StageLabBibleReading {
   note: string;
 }
 
-/** The Stage's parts, back to front. Bodies carry Merge/Web: production renders them as one material. */
-export const STAGE_LAB_UNIT_IDS = ["atmosphere", "strings", "scope", "bodies", "flecks", "lettering"] as const;
+/**
+ * The Stage's parts, back to front (canvas order). Blobs, Connections and
+ * Lettering are the Note Bodies group: independent parts that work together.
+ */
+export const STAGE_LAB_UNIT_IDS = ["atmosphere", "strings", "scope", "connections", "blobs", "flecks", "lettering"] as const;
 export type StageLabUnitId = (typeof STAGE_LAB_UNIT_IDS)[number];
 
 export const STAGE_LAB_DIRECTION_IDS = {
-  atmosphere: ["graticule", "band", "panel"],
-  strings: ["exposure", "strips", "columns"],
-  scope: ["phosphor", "cut", "dots"],
-  bodies: ["facets", "chord-shape", "resonance"],
-  flecks: ["sparks", "chads", "pixels"],
-  lettering: ["tape", "readout"],
+  atmosphere: ["graticule", "band", "panel", "spotlight", "tide", "halftone"],
+  strings: ["exposure", "strips", "columns", "harp", "standing", "stave"],
+  scope: ["phosphor", "cut", "dots", "groove", "brush", "bars"],
+  connections: ["bands", "chord-shape", "interference", "ties", "slurs", "stitches"],
+  blobs: ["facets", "coin", "key", "rings"],
+  flecks: ["sparks", "chads", "pixels", "spray", "orbit", "stamp"],
+  lettering: ["tape", "readout", "lead-sheet", "neon", "roman"],
 } as const satisfies Record<StageLabUnitId, readonly string[]>;
 
 export type StageLabDirectionId<U extends StageLabUnitId = StageLabUnitId> =
@@ -61,6 +65,8 @@ export interface StageLabDirection {
 export interface StageLabUnit {
   id: StageLabUnitId;
   name: string;
+  /** Parts that work together share a group heading (Note Bodies). */
+  group?: string;
   /** Production source shown on the baseline. */
   source: string;
   /** What production does today, and the unit's place in the bible. */

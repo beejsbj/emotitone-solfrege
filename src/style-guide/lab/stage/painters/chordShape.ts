@@ -1,10 +1,10 @@
 import { CHROMATIC_NOTES } from "@/data";
 import type { HarmonicGeometryScene, PreparedBlobFrame } from "@/types/canvas";
 import { bodyPitch, publishConnections, tracePolygon, type Point } from "./shared";
-import type { BodiesPainter, LabFrame } from "./types";
+import type { ConnectionsPainter, LabFrame } from "./types";
 
 /*
- * Geometry B · Chord Shape. The Circle of Fifths the bodies already orbit
+ * Connections B · Chord Shape. The Circle of Fifths the bodies already orbit
  * becomes a visible dial of twelve stations, and the chord is the polygon
  * its notes make on it. Every major triad is the same triangle turned; minor
  * is its mirror; augmented is equilateral. The shape is the lesson.
@@ -25,7 +25,7 @@ function twoTone(ctx: CanvasRenderingContext2D, a: PreparedBlobFrame, b: Prepare
   ctx.restore();
 }
 
-export function createChordShapePainter(): BodiesPainter {
+export function createChordShapePainter(): ConnectionsPainter {
   return {
     paint(frame: LabFrame, bodies, scene: HarmonicGeometryScene | null, mode) {
       const { ctx, composition, tokens } = frame;
@@ -99,17 +99,6 @@ export function createChordShapePainter(): BodiesPainter {
         if (mode === "web") diagonals.forEach(([a, b]) => twoTone(ctx, a, b, 1.25, 0.6));
       }
 
-      // Vertex jewels, cut clear of the lines by an Ink collar.
-      ordered.forEach((body) => {
-        const r = Math.max(6, body.scaledRadius * 0.3);
-        ctx.save();
-        ctx.globalAlpha = body.opacity;
-        ctx.fillStyle = tokens.ink;
-        ctx.beginPath(); ctx.arc(body.blob.x, body.blob.y, r + 3, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = body.primaryColor;
-        ctx.beginPath(); ctx.arc(body.blob.x, body.blob.y, r, 0, Math.PI * 2); ctx.fill();
-        ctx.restore();
-      });
     },
     clear() {},
   };

@@ -43,6 +43,8 @@ export interface LabFrame {
   noteColor: LabNoteColor;
   /** The scope's colour note: the first sounding note, else the last one seen. */
   leadNote: Pick<ActiveNote, "pitchClassIndex" | "octave">;
+  /** Where a note's production body is right now, for parts that answer at the body. */
+  bodyAt: (noteId: string) => { x: number; y: number; r: number } | null;
 }
 
 export interface AtmospherePainter {
@@ -65,8 +67,13 @@ export interface FlecksPainter {
   clear(): void;
 }
 
-/** Bodies and their Merge/Web material. Painters publish paths so lettering can place intervals. */
-export interface BodiesPainter {
+/** Note bodies only. Positions, lifecycle and colour come from production prepared frames. */
+export interface BlobsPainter {
+  paint(frame: LabFrame, bodies: readonly PreparedBlobFrame[]): void;
+}
+
+/** Merge/Web relationships only. Painters publish their paths so lettering can place intervals. */
+export interface ConnectionsPainter {
   paint(
     frame: LabFrame,
     bodies: readonly PreparedBlobFrame[],

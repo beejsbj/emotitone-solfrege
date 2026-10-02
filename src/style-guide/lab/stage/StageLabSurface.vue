@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, toRef, watch } from "vue";
+import { computed, ref, toRef, watch } from "vue";
 import { useStageHostLayout } from "@/composables/useStageHostLayout";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import type { StageLabSelection, StageLabUnitId } from "@/types/stageLab";
@@ -25,11 +25,12 @@ const canvases = {
   atmosphere: ref<HTMLCanvasElement | null>(null),
   strings: ref<HTMLCanvasElement | null>(null),
   scope: ref<HTMLCanvasElement | null>(null),
-  bodies: ref<HTMLCanvasElement | null>(null),
+  connections: ref<HTMLCanvasElement | null>(null),
+  blobs: ref<HTMLCanvasElement | null>(null),
   flecks: ref<HTMLCanvasElement | null>(null),
   lettering: ref<HTMLCanvasElement | null>(null),
 };
-const { atmosphere, strings, scope, bodies, flecks, lettering } = canvases;
+const { atmosphere, strings, scope, connections, blobs, flecks, lettering } = canvases;
 const visualConfig = useVisualConfigStore();
 visualConfig.useEphemeralDefaults();
 const mode = toRef(props, "mode");
@@ -39,6 +40,7 @@ const { usableRect, reducedMotion } = useStageHostLayout(atmosphere);
 useStageLabLoop(canvases, {
   selection: props.selection,
   mode,
+  hidden: computed(() => props.hidden ?? []),
   conductor: props.conductor,
   usableRect,
   reducedMotion,
@@ -50,7 +52,8 @@ useStageLabLoop(canvases, {
     <canvas ref="atmosphere" :style="shown('atmosphere')" />
     <canvas ref="strings" :style="shown('strings')" />
     <canvas ref="scope" :style="shown('scope')" />
-    <canvas ref="bodies" :style="shown('bodies')" />
+    <canvas ref="connections" :style="shown('connections')" />
+    <canvas ref="blobs" :style="shown('blobs')" />
     <canvas ref="flecks" :style="shown('flecks')" />
     <canvas ref="lettering" :style="shown('lettering')" />
   </div>

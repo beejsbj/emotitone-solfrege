@@ -25,7 +25,8 @@ import type { StageLabConductor } from "./labConductor";
 import { connectLabHilbert, type LabHilbertPair } from "./labHilbert";
 import type {
   AtmospherePainter,
-  BodiesPainter,
+  BlobsPainter,
+  ConnectionsPainter,
   FlecksPainter,
   LabFrame,
   LabNoteColor,
@@ -37,10 +38,26 @@ import type {
 import { createPhosphorScope, createSparkFlecks, exposureStrings, graticuleAtmosphere } from "./painters/phosphor";
 import { bandAtmosphere, createChadFlecks, createCutScope, stripStrings } from "./painters/pasteUp";
 import { createColumnStrings, createDotScope, createPanelAtmosphere, createPixelFlecks } from "./painters/led";
-import { createFacetsPainter } from "./painters/facets";
+import { coinBlobs, facetsBlobs, keyBlobs, ringBlobs } from "./painters/blobs";
+import {
+  createBandConnections,
+  createSlurConnections,
+  createStitchConnections,
+  createTieConnections,
+} from "./painters/connections";
 import { createChordShapePainter } from "./painters/chordShape";
 import { createResonancePainter } from "./painters/resonance";
-import { createReadoutLettering, createTapeLettering } from "./painters/lettering";
+import { halftoneAtmosphere, spotlightAtmosphere, tideAtmosphere } from "./painters/atmosphere";
+import { harpStrings, standingStrings, staveStrings } from "./painters/strings";
+import { createBarScope, createBrushScope, createGrooveScope } from "./painters/scope";
+import { createOrbitFlecks, createSprayFlecks, createStampFlecks } from "./painters/flecks";
+import {
+  createLeadSheetLettering,
+  createNeonLettering,
+  createReadoutLettering,
+  createRomanLettering,
+  createTapeLettering,
+} from "./painters/lettering";
 
 /*
  * The lab's frame loop. It mirrors production `useUnifiedCanvas.renderFrame`
@@ -55,6 +72,8 @@ export type StageLabCanvases = Record<StageLabUnitId, Ref<HTMLCanvasElement | nu
 export interface StageLabLoopOptions {
   selection: StageLabSelection;
   mode: Ref<"merge" | "web">;
+  /** Muted or un-soloed parts: still painted, not shown. Production's fused field reads it. */
+  hidden: Readonly<Ref<readonly StageLabUnitId[]>>;
   conductor: StageLabConductor;
   usableRect: Readonly<Ref<StageRect>>;
   reducedMotion: Readonly<Ref<boolean>>;
@@ -82,30 +101,54 @@ const ATMOSPHERE: Record<string, () => AtmospherePainter> = {
   graticule: () => graticuleAtmosphere,
   band: () => bandAtmosphere,
   panel: createPanelAtmosphere,
+  spotlight: () => spotlightAtmosphere,
+  tide: () => tideAtmosphere,
+  halftone: () => halftoneAtmosphere,
 };
 const STRINGS: Record<string, () => StringsPainter> = {
   exposure: () => exposureStrings,
   strips: () => stripStrings,
   columns: createColumnStrings,
+  harp: () => harpStrings,
+  standing: () => standingStrings,
+  stave: () => staveStrings,
 };
 const SCOPE: Record<string, () => ScopePainter> = {
   phosphor: createPhosphorScope,
   cut: createCutScope,
   dots: createDotScope,
+  groove: createGrooveScope,
+  brush: createBrushScope,
+  bars: createBarScope,
 };
-const BODIES: Record<string, () => BodiesPainter> = {
-  facets: createFacetsPainter,
+const BLOBS: Record<string, () => BlobsPainter> = {
+  facets: () => facetsBlobs,
+  coin: () => coinBlobs,
+  key: () => keyBlobs,
+  rings: () => ringBlobs,
+};
+const CONNECTIONS: Record<string, () => ConnectionsPainter> = {
+  bands: createBandConnections,
   "chord-shape": createChordShapePainter,
-  resonance: createResonancePainter,
+  interference: createResonancePainter,
+  ties: createTieConnections,
+  slurs: createSlurConnections,
+  stitches: createStitchConnections,
 };
 const FLECKS: Record<string, () => FlecksPainter> = {
   sparks: createSparkFlecks,
   chads: createChadFlecks,
   pixels: createPixelFlecks,
+  spray: createSprayFlecks,
+  orbit: createOrbitFlecks,
+  stamp: createStampFlecks,
 };
 const LETTERING: Record<string, () => LetteringPainter> = {
   tape: createTapeLettering,
   readout: createReadoutLettering,
+  "lead-sheet": createLeadSheetLettering,
+  neon: createNeonLettering,
+  roman: createRomanLettering,
 };
 
 const choose = <T>(registry: Record<string, () => T>, choice: string): T | null =>
@@ -144,7 +187,8 @@ export function useStageLabLoop(canvases: StageLabCanvases, options: StageLabLoo
     atmosphere: choose(ATMOSPHERE, selection.atmosphere),
     strings: choose(STRINGS, selection.strings),
     scope: choose(SCOPE, selection.scope),
-    bodies: choose(BODIES, selection.bodies),
+    connections: choose(CONNECTIONS, selection.connections),
+    blobs: choose(BLOBS, selection.blobs),
     flecks: choose(FLECKS, selection.flecks),
     lettering: choose(LETTERING, selection.lettering),
   };
@@ -229,6 +273,10 @@ export function useStageLabLoop(canvases: StageLabCanvases, options: StageLabLoo
       tokens: tokens ?? (tokens = readTokens()),
       noteColor,
       leadNote: lastLead,
+      bodyAt: (noteId) => {
+        const blob = blobs.activeBlobs.get(noteId);
+        return blob ? { x: blob.x, y: blob.y, r: blob.baseRadius * (blob.renderScale ?? 1) } : null;
+      },
     };
   };
 
@@ -264,12 +312,19 @@ export function useStageLabLoop(canvases: StageLabCanvases, options: StageLabLoo
     }
 
     blobs.reprojectBlobs(composition, blobConfig.value, reducedMotion);
-    blobs.prepareBlobs(ctx.bodies!, blobConfig.value, { reducedMotion, bounds: composition.usable, elapsed });
+    blobs.prepareBlobs(ctx.blobs!, blobConfig.value, { reducedMotion, bounds: composition.usable, elapsed });
     const scene = geometryLabels.buildScene(harmonic.snapshot.value, blobs.activeBlobs, blobConfig.value, width, height);
     const prepared = blobs.getPreparedBlobFrames();
-    if (painters.bodies) painters.bodies.paint(on("bodies"), prepared, scene, options.mode.value);
-    else if (!blobField.renderBlobField(ctx.bodies!, prepared, blobConfig.value, scene)) {
-      blobs.renderBlobs(ctx.bodies!, elapsed, blobConfig.value, musicStore, true);
+    // Production paints bodies and their Merge/Web as one field. It stands in
+    // for production Connections; production Blobs alone are the ordinary
+    // bodies, used whenever the field is not what shows them.
+    const hidden = options.hidden.value;
+    const fieldShowsBodies = !painters.connections && !hidden.includes("connections");
+    if (painters.connections) painters.connections.paint(on("connections"), prepared, scene, options.mode.value);
+    else blobField.renderBlobField(ctx.connections!, prepared, blobConfig.value, scene);
+    if (painters.blobs) painters.blobs.paint(on("blobs"), prepared);
+    else if (!fieldShowsBodies) {
+      blobs.renderBlobs(ctx.blobs!, elapsed, blobConfig.value, musicStore, true);
     }
 
     if (!reducedMotion) {
@@ -347,7 +402,7 @@ export function useStageLabLoop(canvases: StageLabCanvases, options: StageLabLoo
     blobs.clearAllBlobs();
     blobField.dispose();
     clearTransient();
-    painters.bodies?.clear();
+    painters.connections?.clear();
     harmonic.reset();
   });
 }

@@ -1,9 +1,9 @@
 import type { HarmonicGeometryScene, PreparedBlobFrame } from "@/types/canvas";
 import { publishConnections, scenePairs, spanningTree } from "./shared";
-import type { BodiesPainter, LabFrame } from "./types";
+import type { ConnectionsPainter, LabFrame } from "./types";
 
 /*
- * Geometry C · Resonance. A sounding note is a source that rings outward at
+ * Connections C · Interference. A sounding note is a source that rings outward at
  * a rate in proportion to its pitch. There are no connecting lines. In Web,
  * every note rings on its own and their crossings are the relationship: a
  * fifth makes a slow regular lattice (3:2), a dissonance crosses irregularly.
@@ -19,7 +19,7 @@ const BASE_RATE = 0.85; // rings per second for the lowest sounding note
 const SPEED = 64; // px per second
 const CHORD = "chord";
 
-export function createResonancePainter(): BodiesPainter {
+export function createResonancePainter(): ConnectionsPainter {
   const sources = new Map<string, Source>();
   const sourceFor = (key: string) => {
     let source = sources.get(key);
@@ -102,16 +102,6 @@ export function createResonancePainter(): BodiesPainter {
       }
       ctx.restore();
 
-      // Cores sit above the field, flat and opaque.
-      visible.forEach((body) => {
-        ctx.save();
-        ctx.globalAlpha = body.opacity;
-        ctx.fillStyle = body.primaryColor;
-        ctx.beginPath();
-        ctx.arc(body.blob.x, body.blob.y, core(body), 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      });
     },
     clear() { sources.clear(); },
   };

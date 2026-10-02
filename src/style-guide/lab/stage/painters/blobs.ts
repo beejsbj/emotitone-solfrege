@@ -64,26 +64,29 @@ export const coinBlobs: BlobsPainter = {
   paint(frame: LabFrame, bodies) {
     const { ctx, tokens } = frame;
     visibleOf(bodies).forEach((body) => {
-      const r = body.scaledRadius * 1.05;
+      const r = body.scaledRadius * 1.3;
       ctx.save();
       ctx.globalAlpha = body.opacity;
       ctx.fillStyle = tokens.ink;
-      tracePolygon(ctx, contourAt(body, 1.05), 3, 3);
+      tracePolygon(ctx, contourAt(body, 1.3), 3, 3);
       ctx.fill();
       ctx.fillStyle = body.primaryColor;
-      tracePolygon(ctx, contourAt(body, 1.05));
+      tracePolygon(ctx, contourAt(body, 1.3));
       ctx.fill();
       // A struck rim: one ring inset from the edge, in the coin's own ink.
       ctx.strokeStyle = tokens.ink;
       ctx.globalAlpha = body.opacity * 0.35;
       ctx.lineWidth = 1.5;
-      tracePolygon(ctx, contourAt(body, 0.86));
+      tracePolygon(ctx, contourAt(body, 1.08));
       ctx.stroke();
       ctx.globalAlpha = body.opacity;
-      ctx.fillStyle = tokens.ink;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.font = `700 ${Math.max(11, Math.round(r * 0.62))}px ${tokens.display}`;
+      ctx.font = `700 ${Math.max(13, Math.round(r * 0.66))}px ${tokens.display}`;
+      // Ivory struck over a hard Ink offset reads on every pitch colour.
+      ctx.fillStyle = tokens.ink;
+      ctx.fillText(body.blob.note.name, body.blob.x + 1.5, body.blob.y + 2.5);
+      ctx.fillStyle = tokens.ivory;
       ctx.fillText(body.blob.note.name, body.blob.x, body.blob.y + 1);
       ctx.restore();
     });

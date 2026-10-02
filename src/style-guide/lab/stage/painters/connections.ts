@@ -99,7 +99,7 @@ export function createTieConnections(): ConnectionsPainter {
         const speed = 4 + rough * 22;
         const steps = 32;
         ctx.save();
-        ctx.lineWidth = mode === "merge" ? 2.4 : 1.6;
+        ctx.lineWidth = mode === "merge" ? 3.5 : 2.4;
         ctx.globalAlpha = Math.min(a.opacity, b.opacity);
         [a, b].forEach((owner, half) => {
           ctx.strokeStyle = owner.primaryColor;

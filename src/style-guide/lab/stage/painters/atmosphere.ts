@@ -40,7 +40,7 @@ export const spotlightAtmosphere: AtmospherePainter = {
     const pool = Math.min(usable.width * 0.46, hilbertRadius * 0.95) * open;
     const top = usable.y - 10;
     ctx.save();
-    ctx.fillStyle = sounding ? frame.noteColor(frame.leadNote, { l: 0.34, c: 0.7 }) : tokens.ink3;
+    ctx.fillStyle = sounding ? frame.noteColor(frame.leadNote, { l: 0.5, c: 0.8 }) : tokens.ink3;
     tracePolygon(ctx, [
       { x: cx - pool * 0.18, y: top },
       { x: cx + pool * 0.18, y: top },
@@ -69,7 +69,7 @@ export const tideAtmosphere: AtmospherePainter = {
     const level = 0.08 + lift(frame) * 0.5;
     const horizon = usable.y + usable.height * (1 - level);
     ctx.save();
-    ctx.fillStyle = frame.noteColor(tonicOf(frame), { l: 0.42, c: 0.75 });
+    ctx.fillStyle = frame.noteColor(tonicOf(frame), { l: 0.55, c: 0.85 });
     ctx.fillRect(usable.x, horizon, usable.width, usable.y + usable.height - horizon);
     ctx.fillStyle = frame.noteColor(tonicOf(frame), { l: 0.7 });
     ctx.fillRect(usable.x, horizon, usable.width, 1.5);

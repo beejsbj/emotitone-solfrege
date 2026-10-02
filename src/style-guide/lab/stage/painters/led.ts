@@ -132,7 +132,7 @@ export function createHalftonePanelAtmosphere(): AtmospherePainter {
           const falloff = 1 - Math.hypot(x - cx, (y - cy) * 1.15) / reach;
           if (falloff <= 0) continue;
           // Halftone: light is dot size, from a pin-prick up to the full LED.
-          const r = cell * 0.36 * Math.min(1, falloff * (0.45 + strength * 0.75));
+          const r = cell * 0.36 * Math.min(1, falloff * (0.75 + strength * 0.75));
           if (r < 0.5) continue;
           ctx.beginPath();
           ctx.arc(x, y, r, 0, Math.PI * 2);

@@ -3,20 +3,21 @@ import { createApp, defineComponent, h, onBeforeUnmount, onMounted, ref, watch, 
 import { createPinia, disposePinia, type Pinia } from "pinia";
 import UnifiedVisualEffects from "@/components/UnifiedVisualEffects.vue";
 import { useVisualConfigStore } from "@/stores/visualConfig";
-import type {
-  StageLabGeometryDirection,
-  StageLabMessage,
-  StageLabStageDirection,
-  StageLabState,
+import {
+  STAGE_LAB_DIRECTION_IDS,
+  STAGE_LAB_UNIT_IDS,
+  type StageLabMessage,
+  type StageLabSelection,
+  type StageLabState,
 } from "@/types/stageLab";
 import { createStageLabConductor, STAGE_LAB_STATES } from "./labConductor";
 import StageLabSurface from "./StageLabSurface.vue";
 
 /*
- * One lab frame: a whole phone or desktop viewport inside an iframe. With
- * `stage` and `geometry` both production it mounts the real
- * `UnifiedVisualEffects` exactly as the Stage specimen does; otherwise it
- * mounts the direction surface. Either way the same conductor plays it, and
+ * One lab frame: a whole phone or desktop viewport inside an iframe. Each
+ * Stage part reads its own query parameter (`scope=phosphor`, `bodies=facets`,
+ * ...). With every part production it mounts the real `UnifiedVisualEffects`
+ * exactly as the Stage specimen does; otherwise it mounts the lab surface. Either way the same conductor plays it, and
  * the parent page drives every frame with the same messages.
  */
 const query = new URLSearchParams(window.location.search);
@@ -24,12 +25,14 @@ const pick = <T extends string>(name: string, options: readonly T[], fallback: T
   const value = query.get(name) as T | null;
   return value && options.includes(value) ? value : fallback;
 };
-const stage = pick<StageLabStageDirection>("stage", ["production", "phosphor", "paste-up", "led"], "production");
-const geometry = pick<StageLabGeometryDirection>("geometry", ["production", "facets", "chord-shape", "resonance"], "production");
+const selection = Object.fromEntries(STAGE_LAB_UNIT_IDS.map((unit) => [
+  unit,
+  pick<string>(unit, ["production", ...STAGE_LAB_DIRECTION_IDS[unit]], "production"),
+])) as StageLabSelection;
 const initialState = pick<StageLabState>("state", STAGE_LAB_STATES.map((s) => s.id), "phrase");
 const mode = ref(pick<"merge" | "web">("mode", ["merge", "web"], "merge"));
 const deck = query.get("deck") !== "0";
-const isProduction = stage === "production" && geometry === "production";
+const isProduction = STAGE_LAB_UNIT_IDS.every((unit) => selection[unit] === "production");
 
 const conductor = createStageLabConductor(initialState);
 const mountPoint = ref<HTMLElement | null>(null);
@@ -59,7 +62,7 @@ onMounted(() => {
     name: "StageLabFrameApp",
     setup() {
       if (!isProduction) {
-        return () => h(StageLabSurface, { stage, geometry, mode: mode.value, conductor });
+        return () => h(StageLabSurface, { selection, mode: mode.value, conductor });
       }
       const visualConfig = useVisualConfigStore();
       visualConfig.useEphemeralDefaults();

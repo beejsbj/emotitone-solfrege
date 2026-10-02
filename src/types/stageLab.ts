@@ -1,8 +1,8 @@
 /*
  * Guide-only contracts for the Stage design lab (reimagining pass, step 4).
- * Every direction runs in its own frame with a real viewport. Production
- * frames mount the real Stage source; direction frames paint from the same
- * production seams and are fed the same scripted states.
+ * Every part of the Stage is its own unit with its own directions. A frame
+ * takes one choice per unit; anything not chosen stays production, so any
+ * direction can be seen alone or combined with picks from other units.
  */
 
 export type StageLabPaper = "bone" | "tomato" | "mustard" | "plum" | "cobalt" | "pine";
@@ -10,13 +10,30 @@ export type StageLabPaper = "bone" | "tomato" | "mustard" | "plum" | "cobalt" | 
 /** How a direction reads against the design bible (`src/style-guide/WIP-bible.md`). */
 export interface StageLabBibleReading {
   zone: "Playing zone" | "Brand zone" | "Both zones";
-  /** What the Stage is under this direction: the chassis's display, or paper applied to it. */
+  /** What the part becomes: the chassis's display, paper applied to it, or light. */
   role: "Chassis display" | "Applied paper" | "Light";
   fit: "fits" | "caution";
   note: string;
 }
 
-export type StageLabUnitId = "stage" | "geometry";
+/** The Stage's parts, back to front. Bodies carry Merge/Web: production renders them as one material. */
+export const STAGE_LAB_UNIT_IDS = ["atmosphere", "strings", "scope", "bodies", "flecks", "lettering"] as const;
+export type StageLabUnitId = (typeof STAGE_LAB_UNIT_IDS)[number];
+
+export const STAGE_LAB_DIRECTION_IDS = {
+  atmosphere: ["graticule", "band", "panel"],
+  strings: ["exposure", "strips", "columns"],
+  scope: ["phosphor", "cut", "dots"],
+  bodies: ["facets", "chord-shape", "resonance"],
+  flecks: ["sparks", "chads", "pixels"],
+  lettering: ["tape", "readout"],
+} as const satisfies Record<StageLabUnitId, readonly string[]>;
+
+export type StageLabDirectionId<U extends StageLabUnitId = StageLabUnitId> =
+  (typeof STAGE_LAB_DIRECTION_IDS)[U][number];
+
+/** One choice per unit; `production` keeps the real renderer for that part. */
+export type StageLabSelection = { [U in StageLabUnitId]: StageLabDirectionId<U> | "production" };
 
 /** The scripted musical states every frame plays through. */
 export type StageLabState =
@@ -29,12 +46,6 @@ export type StageLabState =
   | "seventh"
   | "augmented";
 
-/** Stage-layer directions; `production` keeps the real renderer for that unit. */
-export type StageLabStageDirection = "production" | "phosphor" | "paste-up" | "led";
-
-/** Harmonic Geometry directions; `production` keeps the real bodies and Merge/Web. */
-export type StageLabGeometryDirection = "production" | "facets" | "chord-shape" | "resonance";
-
 export interface StageLabDirection {
   id: string;
   letter: string;
@@ -44,21 +55,19 @@ export interface StageLabDirection {
   idea: string;
   better: string;
   risks: string;
-  /** What each Stage layer or Geometry part becomes under this direction. */
-  layers: { name: string; reading: string }[];
   bible: StageLabBibleReading;
 }
 
 export interface StageLabUnit {
   id: StageLabUnitId;
   name: string;
-  /** Production sources shown on the baseline sheet. */
+  /** Production source shown on the baseline. */
   source: string;
-  /** The unit's place in the bible: which zone, chassis or applied paper. */
+  /** What production does today, and the unit's place in the bible. */
   reading: string;
   directions: StageLabDirection[];
-  /** What the lab deliberately leaves alone inside this unit, and why. */
-  leaveAlone: string;
+  /** What stays production inside this unit, and why. */
+  keeps: string;
   /** The lab's recommendation among the directions. */
   pick?: string;
   /** Burooj's recorded response, once given. */

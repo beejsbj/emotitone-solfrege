@@ -196,10 +196,15 @@ export function createStageLabConductor(initial: StageLabState): StageLabConduct
     pitches.forEach(attack);
   };
 
-  const runPhrase = (step = 0) => {
-    const { state, holdMs } = PHRASE[step % PHRASE.length];
-    holdState(state);
-    phraseTimer = window.setTimeout(() => runPhrase(step + 1), holdMs);
+  // The phrase runs on the wall clock, not on mount time, so frames that load
+  // at different moments still play the same step at the same moment.
+  const PHRASE_MS = PHRASE.reduce((sum, step) => sum + step.holdMs, 0);
+  const runPhrase = () => {
+    let at = Date.now() % PHRASE_MS;
+    let index = 0;
+    while (at >= PHRASE[index].holdMs) { at -= PHRASE[index].holdMs; index += 1; }
+    holdState(PHRASE[index].state);
+    phraseTimer = window.setTimeout(runPhrase, PHRASE[index].holdMs - at + 5);
   };
 
   const setState = (state: StageLabState) => {

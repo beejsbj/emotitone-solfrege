@@ -1,6 +1,6 @@
 import type { HarmonicGeometryScene, PreparedBlobFrame } from "@/types/canvas";
 import { publishConnections, scenePairs, spanningTree } from "./shared";
-import type { GeometryDirectionPainter, LabFrame } from "./types";
+import type { BodiesPainter, LabFrame } from "./types";
 
 /*
  * Geometry C · Resonance. A sounding note is a source that rings outward at
@@ -19,7 +19,7 @@ const BASE_RATE = 0.85; // rings per second for the lowest sounding note
 const SPEED = 64; // px per second
 const CHORD = "chord";
 
-export function createResonancePainter(): GeometryDirectionPainter {
+export function createResonancePainter(): BodiesPainter {
   const sources = new Map<string, Source>();
   const sourceFor = (key: string) => {
     let source = sources.get(key);
@@ -58,7 +58,7 @@ export function createResonancePainter(): GeometryDirectionPainter {
   };
 
   return {
-    bodies(frame: LabFrame, bodies, scene: HarmonicGeometryScene | null, mode) {
+    paint(frame: LabFrame, bodies, scene: HarmonicGeometryScene | null, mode) {
       const { ctx, dt, reducedMotion } = frame;
       const visible = bodies.filter((body) => body.opacity > 0.01);
       const sounding = visible.filter((body) => !body.blob.isFadingOut);

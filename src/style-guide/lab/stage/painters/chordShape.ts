@@ -1,7 +1,7 @@
 import { CHROMATIC_NOTES } from "@/data";
 import type { HarmonicGeometryScene, PreparedBlobFrame } from "@/types/canvas";
 import { bodyPitch, publishConnections, tracePolygon, type Point } from "./shared";
-import type { GeometryDirectionPainter, LabFrame } from "./types";
+import type { BodiesPainter, LabFrame } from "./types";
 
 /*
  * Geometry B · Chord Shape. The Circle of Fifths the bodies already orbit
@@ -25,9 +25,9 @@ function twoTone(ctx: CanvasRenderingContext2D, a: PreparedBlobFrame, b: Prepare
   ctx.restore();
 }
 
-export function createChordShapePainter(): GeometryDirectionPainter {
+export function createChordShapePainter(): BodiesPainter {
   return {
-    bodies(frame: LabFrame, bodies, scene: HarmonicGeometryScene | null, mode) {
+    paint(frame: LabFrame, bodies, scene: HarmonicGeometryScene | null, mode) {
       const { ctx, composition, tokens } = frame;
       const { centerX: cx, centerY: cy, orbitRadiusX: rx, orbitRadiusY: ry } = composition;
       const visible = bodies.filter((body) => body.opacity > 0.01);

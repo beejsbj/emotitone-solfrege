@@ -1,6 +1,6 @@
 import type { HarmonicGeometryScene, PreparedBlobFrame } from "@/types/canvas";
 import { hash, publishConnections, scenePairs, seeded, spanningTree, tracePolygon, type Point } from "./shared";
-import type { GeometryDirectionPainter, LabFrame } from "./types";
+import type { BodiesPainter, LabFrame } from "./types";
 
 /*
  * Geometry A · Cut Facets. Each note is cut paper, faceted like the Let's
@@ -63,9 +63,9 @@ function band(
   ctx.restore();
 }
 
-export function createFacetsPainter(): GeometryDirectionPainter {
+export function createFacetsPainter(): BodiesPainter {
   return {
-    bodies(frame: LabFrame, bodies, scene: HarmonicGeometryScene | null, mode) {
+    paint(frame: LabFrame, bodies, scene: HarmonicGeometryScene | null, mode) {
       const { ctx, tokens } = frame;
       const visible = bodies.filter((body) => body.opacity > 0.01 && body.contour.length > 3);
       const byKey = new Map(visible.map((body) => [body.key, body]));

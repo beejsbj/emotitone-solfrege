@@ -1,7 +1,14 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, reactive, ref } from "vue";
 import Sticker from "@/components/primatives/Sticker";
-import type { StageLabMessage, StageLabPaper, StageLabState, StageLabUnit } from "@/types/stageLab";
+import {
+  STAGE_LAB_UNIT_IDS,
+  type StageLabMessage,
+  type StageLabPaper,
+  type StageLabSelection,
+  type StageLabState,
+  type StageLabUnit,
+} from "@/types/stageLab";
 import FocusedPoster from "../../focused/FocusedPoster.vue";
 import "../../focused/focused-page.css";
 import { STAGE_LAB_STATES } from "./labConductor";
@@ -9,10 +16,11 @@ import { STAGE_LAB_UNITS } from "./labUnits";
 import StageLabFrameCell from "./StageLabFrameCell.vue";
 
 /*
- * Guide-only design lab for the Stage step of the reimagining pass. Each unit
- * runs production and every direction side by side, each in its own frame,
- * driven by the same scripted states and the same live keys. `?unit=<id>`
- * narrows the page to one unit.
+ * Guide-only design lab for the Stage step of the reimagining pass. Every
+ * Stage part is its own unit: its strip runs production beside each of its
+ * directions, each in its own frame with every other part production, all
+ * driven by the same scripted states and live keys. Compose mounts any
+ * combination of picks in one frame. `?unit=<id>` narrows the page.
  */
 const onlyUnit = new URLSearchParams(window.location.search).get("unit");
 const units = STAGE_LAB_UNITS.filter((unit) => !onlyUnit || unit.id === onlyUnit);
@@ -56,8 +64,7 @@ const onFrameReady = (frame: HTMLIFrameElement) => {
 };
 
 const frameParams = (unit: StageLabUnit, direction: string | null) => ({
-  stage: unit.id === "stage" && direction ? direction : "production",
-  geometry: unit.id === "geometry" && direction ? direction : "production",
+  [unit.id]: direction ?? "production",
   state: state.value,
   mode: mode.value,
 });
@@ -67,6 +74,22 @@ const firstParams = new Map(units.flatMap((unit) => [
   ...unit.directions.map((d) => [`${unit.id}:${d.id}`, frameParams(unit, d.id)] as const),
 ]));
 
+// Compose starts from the lab's picks; each change remounts its one frame.
+const PICKS: StageLabSelection = {
+  atmosphere: "graticule",
+  strings: "exposure",
+  scope: "phosphor",
+  bodies: "chord-shape",
+  flecks: "chads",
+  lettering: "tape",
+};
+const composed = reactive<StageLabSelection>({ ...PICKS });
+const composeKey = computed(() => STAGE_LAB_UNIT_IDS.map((unit) => composed[unit]).join("|"));
+const composeParams = computed(() => ({ ...composed, state: state.value, mode: mode.value }));
+const choose = (unit: StageLabUnit, choice: string) => {
+  (composed as Record<string, string>)[unit.id] = choice;
+};
+
 const stickerColor = (paper: StageLabPaper) => (paper === "cobalt" ? "ivory" : paper);
 </script>
 
@@ -74,10 +97,10 @@ const stickerColor = (paper: StageLabPaper) => (paper === "cobalt" ? "ivory" : p
   <main class="slab focused-page guide-paper--cobalt">
     <FocusedPoster layer="compositions" unit-id="stage-lab" kicker="Design lab · guide only" title="Stage Lab">
       <p>
-        Step 4 of the reimagining pass: the whole canvas. Each direction runs in its own phone-sized frame beside
-        the real production Stage, and every frame plays the same notes at the same moment. Stage directions
-        repaint Atmosphere, Strings, the Hilbert Scope and Flecks; Geometry directions repaint the bodies and
-        their Merge/Web relationships. The rest of each frame stays production, so every pick can be adopted alone.
+        Step 4 of the reimagining pass: every part of the canvas, each with its own directions. Each strip runs the
+        real production Stage beside one part's directions; in those frames every other part stays production, so a
+        pick can be adopted alone. Every frame plays the same notes at the same moment. Compose puts any picks
+        together in one frame.
       </p>
     </FocusedPoster>
 
@@ -132,12 +155,53 @@ const stickerColor = (paper: StageLabPaper) => (paper === "cobalt" ? "ivory" : p
     </section>
 
     <div class="focused-page__body">
+      <section v-if="!onlyUnit" id="lab-compose" class="focused-sheet slab-sheet slab-compose" aria-label="Compose a Stage from picks">
+        <header class="focused-sheet__head">
+          <div>
+            <p class="focused-sheet__source">Any direction from each part, together in one frame</p>
+            <h3 class="focused-sheet__title">Compose</h3>
+          </div>
+        </header>
+        <div class="slab-compose__body">
+          <dl class="slab-compose__choices">
+            <div v-for="unit in STAGE_LAB_UNITS" :key="unit.id">
+              <dt>{{ unit.name }}</dt>
+              <dd role="group" :aria-label="unit.name">
+                <button
+                  class="guide-chip"
+                  type="button"
+                  :aria-pressed="composed[unit.id] === 'production'"
+                  @click="choose(unit, 'production')"
+                >P</button>
+                <button
+                  v-for="direction in unit.directions"
+                  :key="direction.id"
+                  class="guide-chip"
+                  type="button"
+                  :title="direction.name"
+                  :aria-pressed="composed[unit.id] === direction.id"
+                  @click="choose(unit, direction.id)"
+                >{{ direction.letter }} · {{ direction.name }}</button>
+              </dd>
+            </div>
+          </dl>
+          <StageLabFrameCell
+            :key="`compose-${composeKey}-${wide}`"
+            letter="✦"
+            caption="Composed"
+            :params="composeParams"
+            :wide="wide"
+            :join="onFrameReady"
+          />
+        </div>
+      </section>
+
       <section v-for="unit in units" :id="`lab-${unit.id}`" :key="unit.id" class="slab-unit">
         <header class="slab-unit__head">
           <h2 class="slab-unit__title">{{ unit.name }}</h2>
           <p class="slab-unit__meta">{{ unit.directions.length }} directions · <code>{{ unit.source }}</code></p>
           <p class="slab-unit__reading">{{ unit.reading }}</p>
-          <p class="slab-unit__aside"><strong>Left alone:</strong> {{ unit.leaveAlone }}</p>
+          <p class="slab-unit__aside"><strong>Stays production:</strong> {{ unit.keeps }}</p>
           <p v-if="unit.pick" class="slab-unit__aside"><strong>Lab pick:</strong> {{ unit.pick }}</p>
           <p v-if="unit.verdict" class="slab-unit__verdict">{{ unit.verdict }}</p>
         </header>
@@ -145,7 +209,7 @@ const stickerColor = (paper: StageLabPaper) => (paper === "cobalt" ? "ivory" : p
         <section :id="`lab-${unit.id}-compare`" class="focused-sheet slab-sheet" aria-label="Production beside every direction">
           <header class="focused-sheet__head">
             <div>
-              <p class="focused-sheet__source">Production beside every direction · same notes, same moment</p>
+              <p class="focused-sheet__source">Production beside every direction · everything else in each frame is production</p>
               <h3 class="focused-sheet__title">Side by side</h3>
             </div>
           </header>
@@ -192,12 +256,6 @@ const stickerColor = (paper: StageLabPaper) => (paper === "cobalt" ? "ivory" : p
               <span class="slab-bible__note">{{ direction.bible.note }}</span>
             </p>
             <p class="focused-sheet__prose">{{ direction.idea }}</p>
-            <dl class="slab-layers">
-              <div v-for="layer in direction.layers" :key="layer.name">
-                <dt>{{ layer.name }}</dt>
-                <dd>{{ layer.reading }}</dd>
-              </div>
-            </dl>
             <dl class="focused-facts">
               <div><dt>Better because</dt><dd>{{ direction.better }}</dd></div>
               <div><dt>Risks</dt><dd>{{ direction.risks }}</dd></div>
@@ -271,6 +329,9 @@ const stickerColor = (paper: StageLabPaper) => (paper === "cobalt" ? "ivory" : p
 
 .slab-unit { display: grid; gap: var(--s-7); scroll-margin-top: var(--s-10); }
 
+/* Anchors land below the masthead and the sticky lab controls. */
+.slab-sheet { scroll-margin-top: calc(var(--guide-masthead-height, 56px) + 190px); }
+
 .slab-unit__title {
   margin: 0;
   color: var(--ivory);
@@ -331,6 +392,39 @@ const stickerColor = (paper: StageLabPaper) => (paper === "cobalt" ? "ivory" : p
   gap: var(--s-9);
 }
 
+.slab-compose__body {
+  display: grid;
+  gap: var(--s-6);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 900px) {
+  .slab-compose__body { grid-template-columns: minmax(0, 1fr) minmax(0, 340px); align-items: start; }
+}
+
+.slab-compose__choices {
+  display: grid;
+  gap: var(--s-4);
+  margin: 0;
+}
+
+.slab-compose__choices dt {
+  margin-bottom: var(--s-2);
+  color: var(--ivory);
+  font: 700 14px/1 var(--font-display);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.slab-compose__choices dd {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  margin: 0;
+}
+
+.slab-compose__choices .guide-chip { min-height: 32px; padding: 6px 10px 4px; font-size: 14px; }
+
 @media (min-width: 1100px) {
   .slab-unit__sheets { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
@@ -356,24 +450,4 @@ const stickerColor = (paper: StageLabPaper) => (paper === "cobalt" ? "ivory" : p
 .slab-bible--caution .slab-bible__chip--fit { background: var(--brass); color: var(--brass-edge); }
 .slab-bible__note { color: var(--ivory-3); font: var(--t-caption); }
 
-.slab-layers {
-  display: grid;
-  gap: var(--s-4);
-  margin: 0;
-}
-
-.slab-layers div { display: grid; gap: var(--s-1); }
-
-.slab-layers dt {
-  color: var(--ivory);
-  font: 700 14px/1 var(--font-display);
-  letter-spacing: .06em;
-  text-transform: uppercase;
-}
-
-.slab-layers dd {
-  margin: 0;
-  color: var(--ivory-2);
-  font: var(--t-body-s-mono);
-}
 </style>

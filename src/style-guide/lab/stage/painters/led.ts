@@ -2,82 +2,129 @@ import { drawMarkOnCanvas, type MarkName } from "@/components/primatives/marks";
 import { resolveAmbientLevel } from "@/composables/canvas/stageRuntime";
 import type { ActiveNote } from "@/types/music";
 import { randomMark, scopePoints, stringOffset } from "./shared";
-import type { LabFrame, StageDirectionPainter } from "./types";
+import type { AtmospherePainter, FlecksPainter, LabFrame, ScopePainter, StringsPainter } from "./types";
 
 /*
- * Direction C · LED Matrix. The digital reading: the Stage is a dot-matrix
- * panel. Unlit LEDs are the chassis; every layer only lights pixels, and a
- * pixel's light decays by itself. Bodies and lettering stay smooth above it.
+ * The digital family: the Stage as a dot-matrix panel. Every LED layer
+ * shares one grid pitch from the Stage size, so layers line up when they
+ * are combined. A layer draws into its own low-resolution buffer, which is
+ * scaled up and cut into dots; only lit pixels survive.
  */
 
-interface Pixel { x: number; y: number; age: number; mark: MarkName; color: string; size: number }
-
-const HOLD_S = 0.22;
 const DECAY_HALF_LIFE = 0.09;
 
-export function createLedPainter(): StageDirectionPainter {
-  let buffer: HTMLCanvasElement | null = null;
-  let bufferCtx: CanvasRenderingContext2D | null = null;
-  let mask: CanvasPattern | null = null;
-  let maskKey = "";
-  let cell = 8;
-  let pops: Pixel[] = [];
+export const ledCell = (frame: LabFrame) =>
+  Math.max(6, Math.min(10, Math.round(Math.min(frame.width, frame.composition.usable.height || frame.height) / 56)));
 
-  const ensure = (frame: LabFrame) => {
-    cell = Math.max(6, Math.min(10, Math.round(Math.min(frame.width, frame.composition.usable.height || frame.height) / 56)));
-    const cols = Math.ceil(frame.width / cell);
-    const rows = Math.ceil(frame.height / cell);
-    if (!buffer) {
-      buffer = document.createElement("canvas");
-      bufferCtx = buffer.getContext("2d");
-    }
-    if (buffer.width !== cols || buffer.height !== rows) {
-      buffer.width = cols;
-      buffer.height = rows;
-    }
-    const dpr = frame.ctx.canvas.width / frame.width;
-    const key = `${cell}:${dpr}:${frame.tokens.ink}`;
-    if (key !== maskKey) {
-      maskKey = key;
-      const size = Math.round(cell * dpr);
-      const tile = document.createElement("canvas");
-      tile.width = tile.height = size;
-      const tileCtx = tile.getContext("2d")!;
-      tileCtx.fillStyle = frame.tokens.ink;
-      tileCtx.fillRect(0, 0, size, size);
-      tileCtx.globalCompositeOperation = "destination-out";
-      tileCtx.beginPath();
-      tileCtx.arc(size / 2, size / 2, size * 0.36, 0, Math.PI * 2);
-      tileCtx.fill();
-      mask = frame.ctx.createPattern(tile, "repeat");
-    }
-    bufferCtx!.setTransform(1 / cell, 0, 0, 1 / cell, 0, 0);
-    return bufferCtx!;
-  };
+function dotTile(cell: number, dpr: number, fill: string, background: string | null) {
+  const size = Math.round(cell * dpr);
+  const tile = document.createElement("canvas");
+  tile.width = tile.height = size;
+  const ctx = tile.getContext("2d")!;
+  if (background) { ctx.fillStyle = background; ctx.fillRect(0, 0, size, size); }
+  ctx.fillStyle = fill;
+  ctx.beginPath();
+  ctx.arc(size / 2, size / 2, size * 0.36, 0, Math.PI * 2);
+  ctx.fill();
+  return tile;
+}
 
+/** One LED layer: a decaying low-resolution buffer presented as lit dots only. */
+class LedRaster {
+  private buffer: HTMLCanvasElement | null = null;
+  private bufferCtx: CanvasRenderingContext2D | null = null;
+  private mask: CanvasPattern | null = null;
+  private maskKey = "";
+  cell = 8;
+
+  begin(frame: LabFrame, decay: boolean) {
+    this.cell = ledCell(frame);
+    const cols = Math.ceil(frame.width / this.cell);
+    const rows = Math.ceil(frame.height / this.cell);
+    if (!this.buffer) {
+      this.buffer = document.createElement("canvas");
+      this.bufferCtx = this.buffer.getContext("2d");
+    }
+    if (this.buffer.width !== cols || this.buffer.height !== rows) {
+      this.buffer.width = cols;
+      this.buffer.height = rows;
+    }
+    const ctx = this.bufferCtx!;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (decay && !frame.reducedMotion) {
+      ctx.save();
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.fillStyle = `rgba(0,0,0,${1 - 0.5 ** (frame.dt / DECAY_HALF_LIFE)})`;
+      ctx.fillRect(0, 0, cols, rows);
+      ctx.restore();
+    } else {
+      ctx.clearRect(0, 0, cols, rows);
+    }
+    ctx.setTransform(1 / this.cell, 0, 0, 1 / this.cell, 0, 0);
+    return ctx;
+  }
+
+  present(frame: LabFrame) {
+    const { ctx } = frame;
+    const dpr = ctx.canvas.width / frame.width;
+    const key = `${this.cell}:${dpr}`;
+    if (key !== this.maskKey) {
+      this.maskKey = key;
+      this.mask = ctx.createPattern(dotTile(this.cell, dpr, "#000", null), "repeat");
+    }
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(this.buffer!, 0, 0, this.buffer!.width * this.cell * dpr, this.buffer!.height * this.cell * dpr);
+    if (this.mask) {
+      ctx.globalCompositeOperation = "destination-in";
+      ctx.fillStyle = this.mask;
+      ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    }
+    ctx.restore();
+  }
+
+  clear() { this.bufferCtx?.clearRect(0, 0, this.buffer?.width ?? 0, this.buffer?.height ?? 0); }
+}
+
+/** Atmosphere C · Unlit Panel: the dot grid itself; its backlight breathes and rises with sound. */
+export function createPanelAtmosphere(): AtmospherePainter {
+  let pattern: CanvasPattern | null = null;
+  let key = "";
   return {
-    atmosphere(frame) {
+    paint(frame) {
       const { ctx, width, height, tokens } = frame;
-      const led = ensure(frame);
       ctx.fillStyle = tokens.ink;
       ctx.fillRect(0, 0, width, height);
-      // Decay every lit pixel back toward the unlit LED.
-      led.save();
-      led.globalCompositeOperation = "source-over";
       const level = resolveAmbientLevel(frame.audio, frame.elapsed, frame.reducedMotion);
-      // The unlit panel is the atmosphere: its backlight breathes in silence and rises with sound.
-      led.globalAlpha = frame.reducedMotion ? 1 : 1 - 0.5 ** (frame.dt / DECAY_HALF_LIFE);
-      led.fillStyle = level > 0.86 ? tokens.ink4 : tokens.ink3;
-      led.fillRect(0, 0, width, height);
-      led.restore();
+      const dpr = ctx.canvas.width / width;
+      const cell = ledCell(frame);
+      // Two backlight steps only: hardware, not a gradient.
+      const fill = level > 0.86 ? tokens.ink4 : tokens.ink3;
+      const nextKey = `${cell}:${dpr}:${fill}`;
+      if (nextKey !== key) {
+        key = nextKey;
+        pattern = ctx.createPattern(dotTile(cell, dpr, fill, null), "repeat");
+      }
+      if (!pattern) return;
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = pattern;
+      ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      ctx.restore();
     },
+  };
+}
 
-    strings(frame, strings) {
-      const led = ensure(frame);
+/** Strings C · LED Columns: each string a column of dots, displaced a whole pixel at a time. */
+export function createColumnStrings(): StringsPainter {
+  const raster = new LedRaster();
+  return {
+    paint(frame, strings) {
+      const led = raster.begin(frame, false);
       const { composition, elapsed, reducedMotion } = frame;
       const h = composition.usable.height;
-      led.save();
-      led.lineWidth = cell * 0.9;
+      led.lineWidth = raster.cell * 0.9;
       led.lineCap = "square";
       strings.forEach((string) => {
         if (string.opacity <= 0.001) return;
@@ -85,22 +132,27 @@ export function createLedPainter(): StageDirectionPainter {
         led.strokeStyle = string.color;
         led.globalAlpha = sounding ? 1 : Math.min(1, string.opacity * 1.3);
         led.beginPath();
-        for (let y = 0; y <= h; y += cell) {
+        for (let y = 0; y <= h; y += raster.cell) {
           const x = string.x + (reducedMotion ? 0 : stringOffset(string, elapsed, y, h));
           if (y === 0) led.moveTo(x, y); else led.lineTo(x, y);
         }
         led.stroke();
       });
-      led.restore();
+      led.globalAlpha = 1;
+      raster.present(frame);
     },
+  };
+}
 
-    scope(frame) {
-      const led = ensure(frame);
+/** Scope C · Dot Trace: the loop rasterised onto the grid; decaying LEDs give it a trail. */
+export function createDotScope(): ScopePainter {
+  const raster = new LedRaster();
+  return {
+    paint(frame) {
+      const led = raster.begin(frame, true);
       const { composition, reducedMotion } = frame;
-      const hot = frame.noteColor(frame.leadNote, { l: 1.3, c: 0.85 });
-      led.save();
-      led.strokeStyle = hot;
-      led.lineWidth = cell * 1.05;
+      led.strokeStyle = frame.noteColor(frame.leadNote, { l: 1.3, c: 0.85 });
+      led.lineWidth = raster.cell * 1.05;
       led.lineJoin = "round";
       if (reducedMotion || !frame.wave) {
         if (frame.notes.length) {
@@ -116,22 +168,19 @@ export function createLedPainter(): StageDirectionPainter {
           led.stroke();
         }
       }
-      led.restore();
-
-      // Present the panel on the back canvas, beneath bodies and lettering: square pixels scaled up, then the LED mask turns each into a dot.
-      const { ctx, width, height } = frame;
-      const dpr = ctx.canvas.width / width;
-      ctx.save();
-      ctx.imageSmoothingEnabled = false;
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.drawImage(buffer!, 0, 0, buffer!.width * cell * dpr, buffer!.height * cell * dpr);
-      if (mask) {
-        ctx.fillStyle = mask;
-        ctx.fillRect(0, 0, width * dpr, height * dpr);
-      }
-      ctx.restore();
+      raster.present(frame);
     },
+    clear() { raster.clear(); },
+  };
+}
 
+interface Pop { x: number; y: number; age: number; mark: MarkName; color: string }
+
+/** Flecks C · Pixel Marks: a Mark glyph lights on the grid for a moment, then decays. */
+export function createPixelFlecks(): FlecksPainter {
+  const raster = new LedRaster();
+  let pops: Pop[] = [];
+  return {
     attack(frame, note: ActiveNote) {
       const { usable } = frame.composition;
       const color = frame.noteColor(note, { l: 1.25, c: 0.85 });
@@ -142,30 +191,24 @@ export function createLedPainter(): StageDirectionPainter {
           age: 0,
           mark: randomMark(),
           color,
-          size: 2.2,
         });
       }
       if (pops.length > 60) pops = pops.slice(-60);
     },
-
-    flecks(frame) {
-      const led = ensure(frame);
-      // A pop lights its glyph for a moment; the panel's own decay does the rest.
+    paint(frame) {
+      const led = raster.begin(frame, true);
       pops = pops.filter((pop) => {
         pop.age += frame.dt;
-        if (pop.age > HOLD_S) return false;
+        if (pop.age > 0.4) return false;
         led.save();
         led.fillStyle = pop.color;
         led.translate(pop.x, pop.y);
-        drawMarkOnCanvas(led, pop.mark, pop.size * cell);
+        drawMarkOnCanvas(led, pop.mark, 3.4 * raster.cell);
         led.restore();
         return true;
       });
+      raster.present(frame);
     },
-
-    clear() {
-      pops = [];
-      bufferCtx?.clearRect(0, 0, buffer?.width ?? 0, buffer?.height ?? 0);
-    },
+    clear() { pops = []; raster.clear(); },
   };
 }

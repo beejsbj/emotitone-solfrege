@@ -20,40 +20,40 @@ import {
 } from "@/services/musicColor";
 import { CHROMATIC_NOTES } from "@/data";
 import type { ActiveNote, ChromaticNote } from "@/types/music";
-import type { StageLabGeometryDirection, StageLabStageDirection } from "@/types/stageLab";
+import { STAGE_LAB_UNIT_IDS, type StageLabSelection, type StageLabUnitId } from "@/types/stageLab";
 import type { StageLabConductor } from "./labConductor";
 import { connectLabHilbert, type LabHilbertPair } from "./labHilbert";
 import type {
-  GeometryDirectionPainter,
+  AtmospherePainter,
+  BodiesPainter,
+  FlecksPainter,
   LabFrame,
   LabNoteColor,
   LabTokens,
-  StageDirectionPainter,
+  LetteringPainter,
+  ScopePainter,
+  StringsPainter,
 } from "./painters/types";
-import { createPhosphorPainter } from "./painters/phosphor";
-import { createPasteUpPainter } from "./painters/pasteUp";
-import { createLedPainter } from "./painters/led";
+import { createPhosphorScope, createSparkFlecks, exposureStrings, graticuleAtmosphere } from "./painters/phosphor";
+import { bandAtmosphere, createChadFlecks, createCutScope, stripStrings } from "./painters/pasteUp";
+import { createColumnStrings, createDotScope, createPanelAtmosphere, createPixelFlecks } from "./painters/led";
 import { createFacetsPainter } from "./painters/facets";
 import { createChordShapePainter } from "./painters/chordShape";
 import { createResonancePainter } from "./painters/resonance";
+import { createReadoutLettering, createTapeLettering } from "./painters/lettering";
 
 /*
  * The lab's frame loop. It mirrors production `useUnifiedCanvas.renderFrame`
- * layer order and inputs, but lets one unit's layers come from a direction
- * painter. Production renderers keep every layer the direction does not own,
- * on their own CSS-resolution canvases; direction layers paint at device
- * resolution (capped at 2×) on separate canvases stacked in the same order.
+ * layer order and inputs, but each Stage part can come from a direction
+ * painter instead of its production renderer. Every part owns one canvas in
+ * the same back-to-front order; production parts keep production's CSS
+ * resolution, direction parts paint at device resolution (capped at 2×).
  */
 
-export interface StageLabCanvases {
-  back: Ref<HTMLCanvasElement | null>;
-  middle: Ref<HTMLCanvasElement | null>;
-  front: Ref<HTMLCanvasElement | null>;
-}
+export type StageLabCanvases = Record<StageLabUnitId, Ref<HTMLCanvasElement | null>>;
 
 export interface StageLabLoopOptions {
-  stage: StageLabStageDirection;
-  geometry: StageLabGeometryDirection;
+  selection: StageLabSelection;
   mode: Ref<"merge" | "web">;
   conductor: StageLabConductor;
   usableRect: Readonly<Ref<StageRect>>;
@@ -78,20 +78,41 @@ function readTokens(): LabTokens {
   };
 }
 
-const STAGE_PAINTERS: Record<Exclude<StageLabStageDirection, "production">, () => StageDirectionPainter> = {
-  phosphor: createPhosphorPainter,
-  "paste-up": createPasteUpPainter,
-  led: createLedPainter,
+const ATMOSPHERE: Record<string, () => AtmospherePainter> = {
+  graticule: () => graticuleAtmosphere,
+  band: () => bandAtmosphere,
+  panel: createPanelAtmosphere,
 };
-
-const GEOMETRY_PAINTERS: Record<Exclude<StageLabGeometryDirection, "production">, () => GeometryDirectionPainter> = {
+const STRINGS: Record<string, () => StringsPainter> = {
+  exposure: () => exposureStrings,
+  strips: () => stripStrings,
+  columns: createColumnStrings,
+};
+const SCOPE: Record<string, () => ScopePainter> = {
+  phosphor: createPhosphorScope,
+  cut: createCutScope,
+  dots: createDotScope,
+};
+const BODIES: Record<string, () => BodiesPainter> = {
   facets: createFacetsPainter,
   "chord-shape": createChordShapePainter,
   resonance: createResonancePainter,
 };
+const FLECKS: Record<string, () => FlecksPainter> = {
+  sparks: createSparkFlecks,
+  chads: createChadFlecks,
+  pixels: createPixelFlecks,
+};
+const LETTERING: Record<string, () => LetteringPainter> = {
+  tape: createTapeLettering,
+  readout: createReadoutLettering,
+};
+
+const choose = <T>(registry: Record<string, () => T>, choice: string): T | null =>
+  choice === "production" ? null : registry[choice]?.() ?? null;
 
 export function useStageLabLoop(canvases: StageLabCanvases, options: StageLabLoopOptions) {
-  const { conductor } = options;
+  const { conductor, selection } = options;
   const musicStore = useMusicStore();
   const {
     blobConfig,
@@ -119,8 +140,14 @@ export function useStageLabLoop(canvases: StageLabCanvases, options: StageLabLoo
   const geometryLabels = useHarmonicGeometryRenderer();
   const particles = useParticleSystem();
 
-  const stagePainter = options.stage === "production" ? null : STAGE_PAINTERS[options.stage]();
-  const geometryPainter = options.geometry === "production" ? null : GEOMETRY_PAINTERS[options.geometry]();
+  const painters = {
+    atmosphere: choose(ATMOSPHERE, selection.atmosphere),
+    strings: choose(STRINGS, selection.strings),
+    scope: choose(SCOPE, selection.scope),
+    bodies: choose(BODIES, selection.bodies),
+    flecks: choose(FLECKS, selection.flecks),
+    lettering: choose(LETTERING, selection.lettering),
+  };
 
   let tokens: LabTokens | null = null;
   let labHilbert: LabHilbertPair | null = null;
@@ -145,30 +172,21 @@ export function useStageLabLoop(canvases: StageLabCanvases, options: StageLabLoo
       : sample);
   };
 
-  const dprFor = (owner: "production" | "direction") =>
-    owner === "production" ? 1 : Math.min(2, window.devicePixelRatio || 1);
-  const owners = () => ({
-    back: stagePainter ? "direction" : "production",
-    middle: geometryPainter ? "direction" : "production",
-    front: stagePainter ? "direction" : "production",
-  } as const);
-
   const sizeCanvases = () => {
     width = window.innerWidth;
     height = window.innerHeight;
-    const own = owners();
-    (["back", "middle", "front"] as const).forEach((layer) => {
-      const canvas = canvases[layer].value;
+    STAGE_LAB_UNIT_IDS.forEach((unit) => {
+      const canvas = canvases[unit].value;
       if (!canvas) return;
-      const dpr = dprFor(own[layer]);
+      const dpr = painters[unit] ? Math.min(2, window.devicePixelRatio || 1) : 1;
       canvas.width = Math.round(width * dpr);
       canvas.height = Math.round(height * dpr);
     });
     gradientCache.clear();
   };
 
-  const contextFor = (layer: "back" | "middle" | "front") => {
-    const canvas = canvases[layer].value;
+  const contextFor = (unit: StageLabUnitId) => {
+    const canvas = canvases[unit].value;
     const ctx = canvas?.getContext("2d") ?? null;
     if (!ctx || !canvas) return null;
     const dpr = canvas.width / Math.max(1, width);
@@ -195,16 +213,14 @@ export function useStageLabLoop(canvases: StageLabCanvases, options: StageLabLoo
   };
 
   const frameBase = (ctx: CanvasRenderingContext2D, now: number): LabFrame => {
-    const elapsed = (now - startedAt) / 1000;
-    const dt = Math.min(0.1, Math.max(0, (now - previous) / 1000));
     const notes = getNotes();
     if (notes[0]) lastLead = notes[0];
     return {
       ctx,
       width,
       height,
-      elapsed,
-      dt,
+      elapsed: (now - startedAt) / 1000,
+      dt: Math.min(0.1, Math.max(0, (now - previous) / 1000)),
       composition: getComposition(),
       audio: conductor.audio.sample(now),
       reducedMotion: options.reducedMotion.value,
@@ -218,61 +234,51 @@ export function useStageLabLoop(canvases: StageLabCanvases, options: StageLabLoo
 
   const render = (now: number) => {
     frameRequest = requestAnimationFrame(render);
-    const back = contextFor("back");
-    const middle = contextFor("middle");
-    const front = contextFor("front");
-    if (!back || !middle || !front) return;
-
-    const base = frameBase(back, now);
+    const ctx = Object.fromEntries(STAGE_LAB_UNIT_IDS.map((unit) => [unit, contextFor(unit)])) as
+      Record<StageLabUnitId, CanvasRenderingContext2D | null>;
+    if (STAGE_LAB_UNIT_IDS.some((unit) => !ctx[unit])) return;
+    const base = frameBase(ctx.atmosphere!, now);
     previous = now;
+    const on = (unit: StageLabUnitId): LabFrame => ({ ...base, ctx: ctx[unit]! });
     const { composition, audio, reducedMotion, notes, elapsed } = base;
     hydrate(notes);
 
-    // Back: atmosphere, strings, scope.
-    if (stagePainter) {
-      stagePainter.atmosphere(base);
-      if (!composition.suspended) {
-        strings.updateStringProperties(stringConfig.value, animationConfig.value, musicStore, audio, reducedMotion, notes);
-        stagePainter.strings(base, strings.strings.value);
-        stagePainter.scope(base);
-      }
-    } else {
-      if (ambientConfig.value.isEnabled) {
-        ambient.renderAmbientBackground(back, elapsed, ambientConfig.value, width, height, musicStore,
-          (key, create) => gradientCache.get(key) ?? gradientCache.set(key, create()).get(key)!,
-          audio, reducedMotion, notes);
-      }
-      if (!composition.suspended) {
-        if (stringConfig.value.isEnabled) {
-          strings.updateStringProperties(stringConfig.value, animationConfig.value, musicStore, audio, reducedMotion, notes);
-          strings.renderStrings(back, elapsed, composition.usable.height, reducedMotion);
-        }
-        if (hilbertScopeConfig.value.isEnabled) {
-          hilbert.renderHilbertScope(back, elapsed, hilbertScopeConfig.value, width, height, composition,
-            audio, reducedMotion, notes);
-        }
-      }
+    if (painters.atmosphere) painters.atmosphere.paint(on("atmosphere"));
+    else if (ambientConfig.value.isEnabled) {
+      ambient.renderAmbientBackground(ctx.atmosphere!, elapsed, ambientConfig.value, width, height, musicStore,
+        (key, create) => gradientCache.get(key) ?? gradientCache.set(key, create()).get(key)!,
+        audio, reducedMotion, notes);
     }
     if (composition.suspended) return;
 
-    // Middle: bodies and relationships, then production lettering.
-    blobs.reprojectBlobs(composition, blobConfig.value, reducedMotion);
-    blobs.prepareBlobs(middle, blobConfig.value, { reducedMotion, bounds: composition.usable, elapsed });
-    const scene = geometryLabels.buildScene(harmonic.snapshot.value, blobs.activeBlobs, blobConfig.value, width, height);
-    const prepared = blobs.getPreparedBlobFrames();
-    if (geometryPainter) {
-      geometryPainter.bodies({ ...base, ctx: middle }, prepared, scene, options.mode.value);
-    } else if (!blobField.renderBlobField(middle, prepared, blobConfig.value, scene)) {
-      blobs.renderBlobs(middle, elapsed, blobConfig.value, musicStore, true);
+    if (stringConfig.value.isEnabled) {
+      strings.updateStringProperties(stringConfig.value, animationConfig.value, musicStore, audio, reducedMotion, notes);
+      if (painters.strings) painters.strings.paint(on("strings"), strings.strings.value);
+      else strings.renderStrings(ctx.strings!, elapsed, composition.usable.height, reducedMotion);
     }
 
-    // Front: flecks, then lettering above everything, as in production.
-    if (stagePainter) {
-      if (!reducedMotion) stagePainter.flecks({ ...base, ctx: front });
-    } else if (particleConfig.value.isEnabled && !reducedMotion) {
-      particles.renderParticles(front, elapsed, particleConfig.value);
+    if (painters.scope) painters.scope.paint(on("scope"));
+    else if (hilbertScopeConfig.value.isEnabled) {
+      hilbert.renderHilbertScope(ctx.scope!, elapsed, hilbertScopeConfig.value, width, height, composition,
+        audio, reducedMotion, notes);
     }
-    geometryLabels.renderLabels(front, scene, blobConfig.value, { now, reducedMotion, bounds: composition.usable });
+
+    blobs.reprojectBlobs(composition, blobConfig.value, reducedMotion);
+    blobs.prepareBlobs(ctx.bodies!, blobConfig.value, { reducedMotion, bounds: composition.usable, elapsed });
+    const scene = geometryLabels.buildScene(harmonic.snapshot.value, blobs.activeBlobs, blobConfig.value, width, height);
+    const prepared = blobs.getPreparedBlobFrames();
+    if (painters.bodies) painters.bodies.paint(on("bodies"), prepared, scene, options.mode.value);
+    else if (!blobField.renderBlobField(ctx.bodies!, prepared, blobConfig.value, scene)) {
+      blobs.renderBlobs(ctx.bodies!, elapsed, blobConfig.value, musicStore, true);
+    }
+
+    if (!reducedMotion) {
+      if (painters.flecks) painters.flecks.paint(on("flecks"));
+      else if (particleConfig.value.isEnabled) particles.renderParticles(ctx.flecks!, elapsed, particleConfig.value);
+    }
+
+    if (painters.lettering) painters.lettering.paint(on("lettering"), scene, blobConfig.value);
+    else geometryLabels.renderLabels(ctx.lettering!, scene, blobConfig.value, { now, reducedMotion, bounds: composition.usable });
   };
 
   const onPlayed = (event: Event) => {
@@ -282,10 +288,10 @@ export function useStageLabLoop(canvases: StageLabCanvases, options: StageLabLoo
       note.noteId, note.key, note.mode, note.octave, note.noteName);
     blobs.reprojectBlobs(getComposition(), blobConfig.value, true);
     harmonic.notePlayed(note);
-    const ctx = canvases.front.value?.getContext("2d");
+    const ctx = canvases.flecks.value?.getContext("2d");
     if (options.reducedMotion.value || !ctx) return;
-    if (stagePainter) {
-      stagePainter.attack(frameBase(ctx, performance.now()), note);
+    if (painters.flecks) {
+      painters.flecks.attack(frameBase(ctx, performance.now()), note);
     } else {
       const count = Math.max(5, Math.floor(particleConfig.value.count / Math.max(1, getNotes().length - 1)));
       particles.createParticles(note.solfege, particleConfig.value, width, getComposition().usable.height,
@@ -305,11 +311,12 @@ export function useStageLabLoop(canvases: StageLabCanvases, options: StageLabLoo
     expiryTimers.add(timer);
   };
 
-  const stopReducedMotion = watch(options.reducedMotion, (still) => {
-    if (!still) return;
+  const clearTransient = () => {
     particles.clearAllParticles();
-    stagePainter?.clear();
-  });
+    painters.flecks?.clear();
+    painters.scope?.clear();
+  };
+  const stopReducedMotion = watch(options.reducedMotion, (still) => { if (still) clearTransient(); });
 
   onMounted(() => {
     sizeCanvases();
@@ -339,9 +346,8 @@ export function useStageLabLoop(canvases: StageLabCanvases, options: StageLabLoo
     conductor.audio.cleanup();
     blobs.clearAllBlobs();
     blobField.dispose();
-    particles.clearAllParticles();
-    stagePainter?.clear();
-    geometryPainter?.clear();
+    clearTransient();
+    painters.bodies?.clear();
     harmonic.reset();
   });
 }

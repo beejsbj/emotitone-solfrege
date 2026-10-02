@@ -1,6 +1,6 @@
 import type { ActiveNote } from "@/types/music";
 import type { HarmonicGeometryScene, PreparedBlobFrame } from "@/types/canvas";
-import type { VibratingStringConfig } from "@/types/visual";
+import type { BlobConfig, VibratingStringConfig } from "@/types/visual";
 import type { StageAudioFrame, StageComposition } from "@/composables/canvas/stageRuntime";
 
 /** Design tokens read from the guide root, so painters never hard-code chrome colour. */
@@ -24,9 +24,9 @@ export type LabNoteColor = (
   tune?: { l?: number; c?: number; alpha?: number },
 ) => string;
 
+/** One layer's frame. Each layer owns its own cleared canvas; painters draw in CSS pixels. */
 export interface LabFrame {
   ctx: CanvasRenderingContext2D;
-  /** Canvas size in CSS pixels; painters draw in CSS pixels. */
   width: number;
   height: number;
   /** Seconds since the loop started. */
@@ -41,28 +41,42 @@ export interface LabFrame {
   wave: { x: Float32Array; y: Float32Array } | null;
   tokens: LabTokens;
   noteColor: LabNoteColor;
-  /** The scope's colour note: the first sounding note, else the last one seen, else the tonic. */
+  /** The scope's colour note: the first sounding note, else the last one seen. */
   leadNote: Pick<ActiveNote, "pitchClassIndex" | "octave">;
 }
 
-/** A Stage direction replaces the four non-body layers. */
-export interface StageDirectionPainter {
-  atmosphere(frame: LabFrame): void;
-  /** Production owns which Strings exist and which sound; the painter owns how they look. */
-  strings(frame: LabFrame, strings: readonly VibratingStringConfig[]): void;
-  scope(frame: LabFrame): void;
-  attack(frame: LabFrame, note: ActiveNote): void;
-  flecks(frame: LabFrame): void;
+export interface AtmospherePainter {
+  paint(frame: LabFrame): void;
+}
+
+/** Production owns which Strings exist and which sound; the painter owns how they look. */
+export interface StringsPainter {
+  paint(frame: LabFrame, strings: readonly VibratingStringConfig[]): void;
+}
+
+export interface ScopePainter {
+  paint(frame: LabFrame): void;
   clear(): void;
 }
 
-/** A Geometry direction replaces body and relationship material; lettering stays production. */
-export interface GeometryDirectionPainter {
-  bodies(
+export interface FlecksPainter {
+  attack(frame: LabFrame, note: ActiveNote): void;
+  paint(frame: LabFrame): void;
+  clear(): void;
+}
+
+/** Bodies and their Merge/Web material. Painters publish paths so lettering can place intervals. */
+export interface BodiesPainter {
+  paint(
     frame: LabFrame,
     bodies: readonly PreparedBlobFrame[],
     scene: HarmonicGeometryScene | null,
     mode: "merge" | "web",
   ): void;
   clear(): void;
+}
+
+/** Lettering reads the same scene and label switches production lettering reads. */
+export interface LetteringPainter {
+  paint(frame: LabFrame, scene: HarmonicGeometryScene | null, config: BlobConfig): void;
 }

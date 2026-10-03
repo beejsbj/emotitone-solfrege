@@ -1,11 +1,17 @@
 <template>
-  <GuideShell :active-layer="activeLayer" :reserve-drawer-handles="page === 'instrument-picker' || page === 'config-menu'">
+  <StageLabFrame v-if="page === 'lab-stage-frame'" />
+  <GuideShell
+    v-else
+    :active-layer="activeLayer"
+    :reserve-drawer-handles="page === 'instrument-picker' || page === 'config-menu'"
+  >
     <TabsPage v-if="page === 'tabs'" />
     <InstrumentPickerPage v-else-if="page === 'instrument-picker'" />
     <ConfigMenuPage v-else-if="page === 'config-menu'" />
     <PatternReelPage v-else-if="page === 'pattern-reel'" />
     <StagePage v-else-if="page === 'stage'" />
     <PerformanceDeckPage v-else-if="page === 'performance-deck'" />
+    <StageLabPage v-else-if="page === 'lab-stage'" />
     <GuideLayerPage v-else-if="layer" :key="layer.id" :layer="layer" />
     <GuideIndex v-else />
   </GuideShell>
@@ -21,10 +27,10 @@ import GuideShell from "./shell/GuideShell.vue";
 import GuideIndex from "./shell/GuideIndex.vue";
 import GuideLayerPage from "./shell/GuideLayerPage.vue";
 
-type FocusedPage = "tabs" | "instrument-picker" | "config-menu" | "pattern-reel" | "stage" | "performance-deck";
+type FocusedPage = "tabs" | "instrument-picker" | "config-menu" | "pattern-reel" | "stage" | "performance-deck" | "lab-stage";
 
 const props = defineProps<{
-  page?: FocusedPage | GuideLayerId;
+  page?: FocusedPage | GuideLayerId | "lab-stage-frame";
 }>();
 
 const FOCUSED_PAGE_LAYERS: Record<FocusedPage, GuideLayerId> = {
@@ -34,13 +40,14 @@ const FOCUSED_PAGE_LAYERS: Record<FocusedPage, GuideLayerId> = {
   "config-menu": "compositions",
   stage: "compositions",
   "performance-deck": "compositions",
+  "lab-stage": "compositions",
 };
 
 const layer = computed(() => (props.page ? guideLayer(props.page as GuideLayerId) : undefined));
 const activeLayer = computed<GuideLayerId | undefined>(() => {
   if (!props.page) return undefined;
   if (layer.value) return layer.value.id;
-  return FOCUSED_PAGE_LAYERS[props.page as FocusedPage];
+  return FOCUSED_PAGE_LAYERS[props.page as FocusedPage] as GuideLayerId | undefined;
 });
 
 const TabsPage = defineAsyncComponent(() => import("./TabsPage.vue"));
@@ -49,6 +56,8 @@ const ConfigMenuPage = defineAsyncComponent(() => import("./ConfigMenuPage.vue")
 const PatternReelPage = defineAsyncComponent(() => import("./PatternReelPage.vue"));
 const StagePage = defineAsyncComponent(() => import("./StagePage.vue"));
 const PerformanceDeckPage = defineAsyncComponent(() => import("./PerformanceDeckPage.vue"));
+const StageLabPage = defineAsyncComponent(() => import("./lab/stage/StageLabPage.vue"));
+const StageLabFrame = defineAsyncComponent(() => import("./lab/stage/StageLabFrame.vue"));
 
 // Unit specimens load asynchronously, so retry the hash target briefly.
 const scrollToHash = async () => {

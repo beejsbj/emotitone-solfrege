@@ -35,14 +35,14 @@ import type {
   ScopePainter,
   StringsPainter,
 } from "./painters/types";
-import { createPhosphorScope } from "./painters/phosphor";
 import { createChadFlecks, createCutScope, stripStrings } from "./painters/pasteUp";
 import { createColumnStrings, createDotScope, createHalftonePanelAtmosphere, createPixelFlecks } from "./painters/led";
 import { ringBlobs } from "./painters/blobs";
 import { createSlurConnections } from "./painters/connections";
 import { createChordShapePainter } from "./painters/chordShape";
 import { createBrushScope } from "./painters/scope";
-import { createDiffusedBand, createDiffusedSpotlight } from "./painters/atmosphere";
+import { createCutBand, createCutSpotlight, createDiffusedBand, createDiffusedSpotlight } from "./painters/atmosphere";
+import { createDotPop, createLitPop, createPaperPop } from "./painters/pop";
 
 /*
  * The lab's frame loop. It mirrors production `useUnifiedCanvas.renderFrame`
@@ -60,6 +60,8 @@ export interface StageLabLoopOptions {
   /** Muted or un-soloed parts: still painted, not shown. Production's fused field reads it. */
   hidden: Readonly<Ref<readonly StageLabUnitId[]>>;
   conductor: StageLabConductor;
+  /** Smoothed paint cost per part in ms, written every frame for the lab's timing readout. */
+  timings: Record<StageLabUnitId, number>;
   usableRect: Readonly<Ref<StageRect>>;
   reducedMotion: Readonly<Ref<boolean>>;
 }
@@ -83,8 +85,10 @@ function readTokens(): LabTokens {
 }
 
 const ATMOSPHERE: Record<string, () => AtmospherePainter> = {
-  band: createDiffusedBand,
   spotlight: createDiffusedSpotlight,
+  band: createDiffusedBand,
+  "spotlight-cut": createCutSpotlight,
+  "band-cut": createCutBand,
   "halftone-panel": createHalftonePanelAtmosphere,
 };
 const STRINGS: Record<string, () => StringsPainter> = {
@@ -92,12 +96,14 @@ const STRINGS: Record<string, () => StringsPainter> = {
   columns: createColumnStrings,
 };
 const SCOPE: Record<string, () => ScopePainter> = {
-  phosphor: createPhosphorScope,
   cut: createCutScope,
   brush: createBrushScope,
   dots: createDotScope,
 };
 const BLOBS: Record<string, () => BlobsPainter> = {
+  pop: createLitPop,
+  "pop-cut": createPaperPop,
+  "pop-dots": createDotPop,
   rings: () => ringBlobs,
 };
 const CONNECTIONS: Record<string, () => ConnectionsPainter> = {
@@ -240,6 +246,20 @@ export function useStageLabLoop(canvases: StageLabCanvases, options: StageLabLoo
     };
   };
 
+  /** Paint cost per part this frame, smoothed once per frame for the lab's timing readout. */
+  const cost = Object.fromEntries(STAGE_LAB_UNIT_IDS.map((unit) => [unit, 0])) as Record<StageLabUnitId, number>;
+  const measure = (unit: StageLabUnitId, paint: () => void) => {
+    const start = performance.now();
+    paint();
+    cost[unit] += performance.now() - start;
+  };
+  const commitCost = () => {
+    STAGE_LAB_UNIT_IDS.forEach((unit) => {
+      options.timings[unit] = options.timings[unit] * 0.92 + cost[unit] * 0.08;
+      cost[unit] = 0;
+    });
+  };
+
   const render = (now: number) => {
     frameRequest = requestAnimationFrame(render);
     const ctx = Object.fromEntries(STAGE_LAB_UNIT_IDS.map((unit) => [unit, contextFor(unit)])) as
@@ -251,49 +271,64 @@ export function useStageLabLoop(canvases: StageLabCanvases, options: StageLabLoo
     const { composition, audio, reducedMotion, notes, elapsed } = base;
     hydrate(notes);
 
-    if (painters.atmosphere) painters.atmosphere.paint(on("atmosphere"));
-    else if (ambientConfig.value.isEnabled) {
-      ambient.renderAmbientBackground(ctx.atmosphere!, elapsed, ambientConfig.value, width, height, musicStore,
-        (key, create) => gradientCache.get(key) ?? gradientCache.set(key, create()).get(key)!,
-        audio, reducedMotion, notes);
-    }
-    if (composition.suspended) return;
+    measure("atmosphere", () => {
+      if (painters.atmosphere) painters.atmosphere.paint(on("atmosphere"));
+      else if (ambientConfig.value.isEnabled) {
+        ambient.renderAmbientBackground(ctx.atmosphere!, elapsed, ambientConfig.value, width, height, musicStore,
+          (key, create) => gradientCache.get(key) ?? gradientCache.set(key, create()).get(key)!,
+          audio, reducedMotion, notes);
+      }
+    });
+    if (composition.suspended) { commitCost(); return; }
 
-    if (stringConfig.value.isEnabled) {
+    measure("strings", () => {
+      if (!stringConfig.value.isEnabled) return;
       strings.updateStringProperties(stringConfig.value, animationConfig.value, musicStore, audio, reducedMotion, notes);
       if (painters.strings) painters.strings.paint(on("strings"), strings.strings.value);
       else strings.renderStrings(ctx.strings!, elapsed, composition.usable.height, reducedMotion);
-    }
+    });
 
-    if (painters.scope) painters.scope.paint(on("scope"));
-    else if (hilbertScopeConfig.value.isEnabled) {
-      hilbert.renderHilbertScope(ctx.scope!, elapsed, hilbertScopeConfig.value, width, height, composition,
-        audio, reducedMotion, notes);
-    }
+    measure("scope", () => {
+      if (painters.scope) painters.scope.paint(on("scope"));
+      else if (hilbertScopeConfig.value.isEnabled) {
+        hilbert.renderHilbertScope(ctx.scope!, elapsed, hilbertScopeConfig.value, width, height, composition,
+          audio, reducedMotion, notes);
+      }
+    });
 
-    blobs.reprojectBlobs(composition, blobConfig.value, reducedMotion);
-    blobs.prepareBlobs(ctx.blobs!, blobConfig.value, { reducedMotion, bounds: composition.usable, elapsed });
-    const scene = geometryLabels.buildScene(harmonic.snapshot.value, blobs.activeBlobs, blobConfig.value, width, height);
-    const prepared = blobs.getPreparedBlobFrames();
+    let scene: ReturnType<typeof geometryLabels.buildScene> = null;
+    let prepared: ReturnType<typeof blobs.getPreparedBlobFrames> = [];
     // Production paints bodies and their Merge/Web as one field. It stands in
     // for production Connections; production Blobs alone are the ordinary
     // bodies, used whenever the field is not what shows them.
     const hidden = options.hidden.value;
     const fieldShowsBodies = !painters.connections && !hidden.includes("connections");
-    if (painters.connections) painters.connections.paint(on("connections"), prepared, scene, options.mode.value);
-    else blobField.renderBlobField(ctx.connections!, prepared, blobConfig.value, scene);
-    if (painters.blobs) painters.blobs.paint(on("blobs"), prepared);
-    else if (!fieldShowsBodies) {
-      blobs.renderBlobs(ctx.blobs!, elapsed, blobConfig.value, musicStore, true);
-    }
+    measure("blobs", () => {
+      blobs.reprojectBlobs(composition, blobConfig.value, reducedMotion);
+      blobs.prepareBlobs(ctx.blobs!, blobConfig.value, { reducedMotion, bounds: composition.usable, elapsed });
+      scene = geometryLabels.buildScene(harmonic.snapshot.value, blobs.activeBlobs, blobConfig.value, width, height);
+      prepared = blobs.getPreparedBlobFrames();
+    });
+    measure("connections", () => {
+      if (painters.connections) painters.connections.paint(on("connections"), prepared, scene, options.mode.value);
+      else blobField.renderBlobField(ctx.connections!, prepared, blobConfig.value, scene);
+    });
+    measure("blobs", () => {
+      if (painters.blobs) painters.blobs.paint(on("blobs"), prepared);
+      else if (!fieldShowsBodies) blobs.renderBlobs(ctx.blobs!, elapsed, blobConfig.value, musicStore, true);
+    });
 
-    if (!reducedMotion) {
+    measure("flecks", () => {
+      if (reducedMotion) return;
       if (painters.flecks) painters.flecks.paint(on("flecks"));
       else if (particleConfig.value.isEnabled) particles.renderParticles(ctx.flecks!, elapsed, particleConfig.value);
-    }
+    });
 
-    if (painters.lettering) painters.lettering.paint(on("lettering"), scene, blobConfig.value);
-    else geometryLabels.renderLabels(ctx.lettering!, scene, blobConfig.value, { now, reducedMotion, bounds: composition.usable });
+    measure("lettering", () => {
+      if (painters.lettering) painters.lettering.paint(on("lettering"), scene, blobConfig.value);
+      else geometryLabels.renderLabels(ctx.lettering!, scene, blobConfig.value, { now, reducedMotion, bounds: composition.usable });
+    });
+    commitCost();
   };
 
   const onPlayed = (event: Event) => {
@@ -305,6 +340,7 @@ export function useStageLabLoop(canvases: StageLabCanvases, options: StageLabLoo
     harmonic.notePlayed(note);
     const ctx = canvases.flecks.value?.getContext("2d");
     if (options.reducedMotion.value || !ctx) return;
+    const start = performance.now();
     if (painters.flecks) {
       painters.flecks.attack(frameBase(ctx, performance.now()), note);
     } else {
@@ -312,6 +348,7 @@ export function useStageLabLoop(canvases: StageLabCanvases, options: StageLabLoo
       particles.createParticles(note.solfege, particleConfig.value, width, getComposition().usable.height,
         note.mode, note.key, count, { pitchClassIndex: note.pitchClassIndex, octave: note.octave });
     }
+    cost.flecks += performance.now() - start;
   };
 
   const onReleased = (event: Event) => {

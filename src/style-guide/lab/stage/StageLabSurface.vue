@@ -4,6 +4,7 @@ import { useStageHostLayout } from "@/composables/useStageHostLayout";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import type { StageLabSelection, StageLabUnitId } from "@/types/stageLab";
 import type { StageLabConductor } from "./labConductor";
+import { applyLook } from "./labFamilies";
 import { useStageLabLoop } from "./useStageLabLoop";
 
 /*
@@ -17,6 +18,10 @@ const props = defineProps<{
   mode: "merge" | "web";
   /** Muted or un-soloed parts keep painting so they rejoin mid-motion; they are only not shown. */
   hidden?: readonly StageLabUnitId[];
+  /** A Look: knob values over the production configuration. */
+  look?: string;
+  /** Written every frame with each part's smoothed paint cost in ms. */
+  timings: Record<StageLabUnitId, number>;
   conductor: StageLabConductor;
 }>();
 const shown = (unit: StageLabUnitId) => (props.hidden?.includes(unit) ? { visibility: "hidden" as const } : undefined);
@@ -33,6 +38,7 @@ const canvases = {
 const { atmosphere, strings, scope, connections, blobs, flecks, lettering } = canvases;
 const visualConfig = useVisualConfigStore();
 visualConfig.useEphemeralDefaults();
+applyLook(visualConfig.config as unknown as Record<string, Record<string, unknown>>, props.look);
 const mode = toRef(props, "mode");
 watch(mode, (value) => { visualConfig.config.blobs.connectionMode = value; }, { immediate: true });
 
@@ -42,6 +48,7 @@ useStageLabLoop(canvases, {
   mode,
   hidden: computed(() => props.hidden ?? []),
   conductor: props.conductor,
+  timings: props.timings,
   usableRect,
   reducedMotion,
 });

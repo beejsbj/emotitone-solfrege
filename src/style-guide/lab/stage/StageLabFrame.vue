@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { createApp, defineComponent, h, onBeforeUnmount, onMounted, ref, watch, type App } from "vue";
+import { computed, createApp, defineComponent, h, onBeforeUnmount, onMounted, reactive, ref, watch, type App } from "vue";
 import { createPinia, disposePinia, type Pinia } from "pinia";
 import UnifiedVisualEffects from "@/components/UnifiedVisualEffects.vue";
 import { useVisualConfigStore } from "@/stores/visualConfig";
@@ -13,6 +13,7 @@ import {
 } from "@/types/stageLab";
 import { createStageLabConductor, STAGE_LAB_STATES } from "./labConductor";
 import StageLabSurface from "./StageLabSurface.vue";
+import { applyLook, lookById } from "./labFamilies";
 
 /*
  * One lab frame: a whole phone or desktop viewport inside an iframe. Each
@@ -35,6 +36,11 @@ const mode = ref(pick<"merge" | "web">("mode", ["merge", "web"], "merge"));
 const deck = query.get("deck") !== "0";
 const hidden = ref((query.get("hide") ?? "").split(",").filter((unit): unit is StageLabUnitId =>
   (STAGE_LAB_UNIT_IDS as readonly string[]).includes(unit)));
+const look = lookById(query.get("look")).id;
+// Each part's smoothed paint cost, shown when the page turns timings on.
+const timings = reactive(Object.fromEntries(STAGE_LAB_UNIT_IDS.map((unit) => [unit, 0])) as Record<StageLabUnitId, number>);
+const showTimings = ref(query.get("timings") === "1");
+const totalCost = computed(() => STAGE_LAB_UNIT_IDS.reduce((sum, unit) => sum + timings[unit], 0));
 // Compose always takes the per-part surface, so any part can be muted or soloed.
 const isProduction = query.get("surface") !== "parts"
   && STAGE_LAB_UNIT_IDS.every((unit) => selection[unit] === "production");
@@ -58,6 +64,7 @@ const onMessage = (event: MessageEvent<StageLabMessage>) => {
   else if (message?.type === "stage-lab:key") conductor.key(message.pitch, message.down);
   else if (message?.type === "stage-lab:mode") mode.value = message.mode;
   else if (message?.type === "stage-lab:hidden") hidden.value = message.hidden;
+  else if (message?.type === "stage-lab:timings") showTimings.value = message.on;
   else if (message?.type === "stage-lab:wake") void wake();
 };
 
@@ -68,10 +75,11 @@ onMounted(() => {
     name: "StageLabFrameApp",
     setup() {
       if (!isProduction) {
-        return () => h(StageLabSurface, { selection, mode: mode.value, hidden: hidden.value, conductor });
+        return () => h(StageLabSurface, { selection, mode: mode.value, hidden: hidden.value, look, timings, conductor });
       }
       const visualConfig = useVisualConfigStore();
       visualConfig.useEphemeralDefaults();
+      applyLook(visualConfig.config as unknown as Record<string, Record<string, unknown>>, look);
       watch(mode, (value) => { visualConfig.config.blobs.connectionMode = value; }, { immediate: true });
       return () => h(UnifiedVisualEffects, {
         audioFeatures: conductor.audio,
@@ -106,6 +114,12 @@ onBeforeUnmount(() => {
         <span>PerformanceDeck stand-in</span>
       </section>
     </div>
+    <dl v-if="showTimings && !isProduction" class="stage-lab-frame__timings" aria-label="Paint cost per part">
+      <div v-for="unit in STAGE_LAB_UNIT_IDS" :key="unit">
+        <dt>{{ unit }}</dt><dd>{{ timings[unit].toFixed(2) }}</dd>
+      </div>
+      <div class="stage-lab-frame__total"><dt>ms / frame</dt><dd>{{ totalCost.toFixed(2) }}</dd></div>
+    </dl>
     <button v-if="!audioRunning" class="stage-lab-frame__wake" type="button" @click="wake">
       Tap to start the silent signal
     </button>
@@ -138,6 +152,25 @@ onBeforeUnmount(() => {
   font: var(--t-caption);
   text-transform: uppercase;
 }
+
+/* Specimen scaffold: measured paint cost, over the deck stand-in. */
+.stage-lab-frame__timings {
+  position: fixed;
+  left: var(--s-4);
+  bottom: var(--s-4);
+  z-index: 3;
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: var(--s-3);
+  background: var(--ink);
+  color: var(--ivory-2);
+  font: 500 11px/1.2 var(--font-mono);
+}
+
+.stage-lab-frame__timings div { display: flex; justify-content: space-between; gap: var(--s-4); }
+.stage-lab-frame__timings dd { margin: 0; font-variant-numeric: tabular-nums; }
+.stage-lab-frame__total { color: var(--ivory); }
 
 .stage-lab-frame__wake {
   position: fixed;

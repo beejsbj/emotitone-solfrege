@@ -23,13 +23,16 @@ export interface StageLabBibleReading {
 export const STAGE_LAB_UNIT_IDS = ["atmosphere", "strings", "scope", "connections", "blobs", "flecks", "lettering"] as const;
 export type StageLabUnitId = (typeof STAGE_LAB_UNIT_IDS)[number];
 
-/** Directions still in the lab after Burooj's 2026-10-02 cut. Lettering kept none. */
+/**
+ * Renderer directions after Burooj's 2026-10-02 cut and 2026-10-03 family
+ * pass. Knob-only variations (Phosphor, Smoke, Firm) are Looks, not here.
+ */
 export const STAGE_LAB_DIRECTION_IDS = {
-  atmosphere: ["band", "spotlight", "halftone-panel"],
+  atmosphere: ["spotlight", "band", "spotlight-cut", "band-cut", "halftone-panel"],
   strings: ["strips", "columns"],
-  scope: ["phosphor", "cut", "brush", "dots"],
+  scope: ["cut", "brush", "dots"],
   connections: ["chord-shape", "slurs"],
-  blobs: ["rings"],
+  blobs: ["pop", "pop-cut", "pop-dots", "rings"],
   flecks: ["pixels", "chads"],
   lettering: [],
 } as const satisfies Record<StageLabUnitId, readonly string[]>;
@@ -53,6 +56,8 @@ export type StageLabState =
 
 export interface StageLabDirection {
   id: string;
+  /** The family it belongs to: Lit (soft club light), Paper (hard cut), Dot (panel), or any. */
+  family: "lit" | "paper" | "dot" | "any";
   letter: string;
   name: string;
   paper: StageLabPaper;
@@ -88,4 +93,6 @@ export type StageLabMessage =
   | { type: "stage-lab:mode"; mode: "merge" | "web" }
   /** Mute/solo: parts listed here keep running but are not shown. */
   | { type: "stage-lab:hidden"; hidden: StageLabUnitId[] }
+  /** Show each part's measured paint cost in every frame. */
+  | { type: "stage-lab:timings"; on: boolean }
   | { type: "stage-lab:wake" };

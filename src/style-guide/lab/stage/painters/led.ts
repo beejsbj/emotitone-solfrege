@@ -30,7 +30,7 @@ function dotTile(cell: number, dpr: number, fill: string, background: string | n
 }
 
 /** One LED layer: a decaying low-resolution buffer presented as lit dots only. */
-class LedRaster {
+export class LedRaster {
   private buffer: HTMLCanvasElement | null = null;
   private bufferCtx: CanvasRenderingContext2D | null = null;
   private mask: CanvasPattern | null = null;

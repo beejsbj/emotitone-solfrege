@@ -14,6 +14,7 @@ import FocusedPoster from "../../focused/FocusedPoster.vue";
 import "../../focused/focused-page.css";
 import { STAGE_LAB_STATES } from "./labConductor";
 import { STAGE_LAB_UNITS } from "./labUnits";
+import { STAGE_LAB_LOOKS, STAGE_LAB_PRESETS, type StageLabPreset } from "./labFamilies";
 import StageLabFrameCell from "./StageLabFrameCell.vue";
 
 /*
@@ -47,6 +48,12 @@ const selectMode = (next: "merge" | "web") => {
   broadcast({ type: "stage-lab:mode", mode: next });
 };
 const wake = () => broadcast({ type: "stage-lab:wake" });
+// Measured paint cost per part, shown in every frame.
+const timings = ref(false);
+const toggleTimings = () => {
+  timings.value = !timings.value;
+  broadcast({ type: "stage-lab:timings", on: timings.value });
+};
 
 const press = (pitch: string, down: boolean) => {
   if (down === held.value.has(pitch)) return;
@@ -62,6 +69,7 @@ const press = (pitch: string, down: boolean) => {
 const onFrameReady = (frame: HTMLIFrameElement) => {
   frame.contentWindow?.postMessage({ type: "stage-lab:state", state: state.value } satisfies StageLabMessage, window.location.origin);
   frame.contentWindow?.postMessage({ type: "stage-lab:mode", mode: mode.value } satisfies StageLabMessage, window.location.origin);
+  frame.contentWindow?.postMessage({ type: "stage-lab:timings", on: timings.value } satisfies StageLabMessage, window.location.origin);
 };
 
 // A strip shows only its own part: every other part keeps running, unseen.
@@ -78,18 +86,17 @@ const firstParams = new Map(units.flatMap((unit) => [
   ...unit.directions.map((d) => [`${unit.id}:${d.id}`, frameParams(unit, d.id)] as const),
 ]));
 
-// Compose starts from the dot set Burooj saw working together; each change of pick remounts its one frame.
-const PICKS: StageLabSelection = {
-  atmosphere: "halftone-panel",
-  strings: "columns",
-  scope: "dots",
-  connections: "chord-shape",
-  blobs: "rings",
-  flecks: "pixels",
-  lettering: "production",
-};
+// Compose starts on the Lit family preset; each change of pick or Look remounts its one frame.
+const PICKS: StageLabSelection = { ...STAGE_LAB_PRESETS[0].selection };
 const composed = reactive<StageLabSelection>({ ...PICKS });
-const composeKey = computed(() => STAGE_LAB_UNIT_IDS.map((unit) => composed[unit]).join("|"));
+const composeLook = ref(STAGE_LAB_PRESETS[0].look);
+const composeKey = computed(() => [...STAGE_LAB_UNIT_IDS.map((unit) => composed[unit]), composeLook.value].join("|"));
+const activePreset = ref<string | null>(STAGE_LAB_PRESETS[0].id);
+const usePreset = (preset: StageLabPreset) => {
+  Object.assign(composed, preset.selection);
+  composeLook.value = preset.look;
+  activePreset.value = preset.id;
+};
 // Mixer rules: any solo shows only the soloed parts; otherwise every unmuted part shows.
 const muted = ref(new Set<StageLabUnitId>());
 const soloed = ref(new Set<StageLabUnitId>());
@@ -119,13 +126,22 @@ watch(composeKey, () => {
     ...composed,
     surface: "parts",
     hide: hidden.value.join(","),
+    look: composeLook.value,
     state: state.value,
     mode: mode.value,
   };
 }, { immediate: true });
 const choose = (unit: StageLabUnit, choice: string) => {
   (composed as Record<string, string>)[unit.id] = choice;
+  activePreset.value = null;
 };
+const chooseLook = (id: string) => {
+  composeLook.value = id;
+  activePreset.value = null;
+};
+const presetNote = computed(() => STAGE_LAB_PRESETS.find((preset) => preset.id === activePreset.value)?.note ?? "");
+const lookNote = computed(() => STAGE_LAB_LOOKS.find((look) => look.id === composeLook.value)?.note ?? "");
+const FAMILY_NAMES = { lit: "Lit", paper: "Paper", dot: "Dot", any: "Any family" } as const;
 
 const stickerColor = (paper: StageLabPaper) => (paper === "cobalt" ? "ivory" : paper);
 </script>
@@ -151,6 +167,7 @@ const stickerColor = (paper: StageLabPaper) => (paper === "cobalt" ? "ivory" : p
         <button class="guide-chip" type="button" :aria-pressed="wide" @click="wide = !wide">
           {{ wide ? "Desktop frames" : "Phone frames" }}
         </button>
+        <button class="guide-chip" type="button" :aria-pressed="timings" @click="toggleTimings">Timings</button>
         <span class="slab-controls__group" role="group" aria-label="Connections">
           <button
             v-for="option in (['merge', 'web'] as const)"
@@ -198,6 +215,33 @@ const stickerColor = (paper: StageLabPaper) => (paper === "cobalt" ? "ivory" : p
             <h3 class="focused-sheet__title">Compose</h3>
           </div>
         </header>
+        <div class="slab-compose__families">
+          <p class="slab-compose__label">Families</p>
+          <div class="slab-compose__presets" role="group" aria-label="Family presets">
+            <button
+              v-for="preset in STAGE_LAB_PRESETS"
+              :key="preset.id"
+              class="guide-chip"
+              :class="`slab-family--${preset.family}`"
+              type="button"
+              :aria-pressed="activePreset === preset.id"
+              @click="usePreset(preset)"
+            >{{ preset.name }}</button>
+          </div>
+          <p v-if="presetNote" class="slab-compose__note">{{ presetNote }}</p>
+          <p class="slab-compose__label">Look · knob presets on the production settings</p>
+          <div class="slab-compose__presets" role="group" aria-label="Looks">
+            <button
+              v-for="look in STAGE_LAB_LOOKS"
+              :key="look.id"
+              class="guide-chip"
+              type="button"
+              :aria-pressed="composeLook === look.id"
+              @click="chooseLook(look.id)"
+            >{{ look.name }}</button>
+          </div>
+          <p class="slab-compose__note">{{ lookNote }}</p>
+        </div>
         <div class="slab-compose__body">
           <dl class="slab-compose__choices">
             <div
@@ -307,6 +351,7 @@ const stickerColor = (paper: StageLabPaper) => (paper === "cobalt" ? "ivory" : p
               <Sticker variant="fill" :color="stickerColor(direction.paper)">{{ direction.letter }}</Sticker>
             </header>
             <p class="slab-bible" :class="`slab-bible--${direction.bible.fit}`">
+              <span class="slab-bible__chip slab-bible__chip--family">{{ FAMILY_NAMES[direction.family] }}</span>
               <span class="slab-bible__chip">{{ direction.bible.zone }}</span>
               <span class="slab-bible__chip">{{ direction.bible.role }}</span>
               <span class="slab-bible__chip slab-bible__chip--fit">{{ direction.bible.fit === "fits" ? "Fits the bible" : "Caution" }}</span>
@@ -459,6 +504,28 @@ const stickerColor = (paper: StageLabPaper) => (paper === "cobalt" ? "ivory" : p
   gap: var(--s-9);
 }
 
+.slab-compose__families { display: grid; gap: var(--s-3); }
+
+.slab-compose__label {
+  margin: 0;
+  color: var(--ivory);
+  font: 700 14px/1 var(--font-display);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.slab-compose__presets { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+.slab-compose__presets .guide-chip { min-height: 32px; padding: 6px 10px 4px; font-size: 14px; }
+
+.slab-compose__note {
+  max-width: 70ch;
+  margin: 0;
+  color: var(--ivory-3);
+  font: var(--t-caption);
+}
+
+.slab-bible__chip--family { background: var(--ivory-4); color: var(--ivory); }
+
 .slab-compose__body {
   display: grid;
   gap: var(--s-6);
@@ -466,7 +533,29 @@ const stickerColor = (paper: StageLabPaper) => (paper === "cobalt" ? "ivory" : p
 }
 
 @media (min-width: 900px) {
-  .slab-compose__body { grid-template-columns: minmax(0, 1fr) minmax(0, 340px); align-items: start; }
+  .slab-compose__families { display: grid; gap: var(--s-3); }
+
+.slab-compose__label {
+  margin: 0;
+  color: var(--ivory);
+  font: 700 14px/1 var(--font-display);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.slab-compose__presets { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+.slab-compose__presets .guide-chip { min-height: 32px; padding: 6px 10px 4px; font-size: 14px; }
+
+.slab-compose__note {
+  max-width: 70ch;
+  margin: 0;
+  color: var(--ivory-3);
+  font: var(--t-caption);
+}
+
+.slab-bible__chip--family { background: var(--ivory-4); color: var(--ivory); }
+
+.slab-compose__body { grid-template-columns: minmax(0, 1fr) minmax(0, 340px); align-items: start; }
 }
 
 .slab-compose__choices {

@@ -135,12 +135,18 @@ const choose = (unit: StageLabUnit, choice: string) => {
   (composed as Record<string, string>)[unit.id] = choice;
   activePreset.value = null;
 };
+// Looks stack: each chip toggles its knobs on or off; Canonical clears them all.
+const activeLooks = computed(() => composeLook.value.split(",").filter((id) => id && id !== "canonical"));
 const chooseLook = (id: string) => {
-  composeLook.value = id;
+  const next = id === "canonical"
+    ? []
+    : activeLooks.value.includes(id) ? activeLooks.value.filter((look) => look !== id) : [...activeLooks.value, id];
+  composeLook.value = next.length ? next.join(",") : "canonical";
   activePreset.value = null;
 };
 const presetNote = computed(() => STAGE_LAB_PRESETS.find((preset) => preset.id === activePreset.value)?.note ?? "");
-const lookNote = computed(() => STAGE_LAB_LOOKS.find((look) => look.id === composeLook.value)?.note ?? "");
+const lookNote = computed(() => (activeLooks.value.length ? activeLooks.value : ["canonical"])
+  .map((id) => STAGE_LAB_LOOKS.find((look) => look.id === id)?.note ?? "").join(" "));
 const FAMILY_NAMES = { lit: "Lit", paper: "Paper", dot: "Dot", any: "Any family" } as const;
 
 const stickerColor = (paper: StageLabPaper) => (paper === "cobalt" ? "ivory" : paper);
@@ -229,14 +235,14 @@ const stickerColor = (paper: StageLabPaper) => (paper === "cobalt" ? "ivory" : p
             >{{ preset.name }}</button>
           </div>
           <p v-if="presetNote" class="slab-compose__note">{{ presetNote }}</p>
-          <p class="slab-compose__label">Look · knob presets on the production settings</p>
+          <p class="slab-compose__label">Looks · knob presets on the production settings (they stack)</p>
           <div class="slab-compose__presets" role="group" aria-label="Looks">
             <button
               v-for="look in STAGE_LAB_LOOKS"
               :key="look.id"
               class="guide-chip"
               type="button"
-              :aria-pressed="composeLook === look.id"
+              :aria-pressed="look.id === 'canonical' ? !activeLooks.length : activeLooks.includes(look.id)"
               @click="chooseLook(look.id)"
             >{{ look.name }}</button>
           </div>

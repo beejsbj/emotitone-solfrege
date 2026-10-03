@@ -42,7 +42,8 @@ import { createSlurConnections } from "./painters/connections";
 import { createChordShapePainter } from "./painters/chordShape";
 import { createBrushScope } from "./painters/scope";
 import { createCutBand, createCutSpotlight, createDiffusedBand, createDiffusedSpotlight } from "./painters/atmosphere";
-import { createDotPop, createLitPop, createPaperPop } from "./painters/pop";
+import { createDotDisc, createPaperDisc } from "./painters/pop";
+import { createDotFieldConnections } from "./painters/dotField";
 
 /*
  * The lab's frame loop. It mirrors production `useUnifiedCanvas.renderFrame`
@@ -101,14 +102,14 @@ const SCOPE: Record<string, () => ScopePainter> = {
   dots: createDotScope,
 };
 const BLOBS: Record<string, () => BlobsPainter> = {
-  pop: createLitPop,
-  "pop-cut": createPaperPop,
-  "pop-dots": createDotPop,
+  "pop-cut": createPaperDisc,
+  "pop-dots": createDotDisc,
   rings: () => ringBlobs,
 };
 const CONNECTIONS: Record<string, () => ConnectionsPainter> = {
   "chord-shape": createChordShapePainter,
   slurs: createSlurConnections,
+  "dot-field": createDotFieldConnections,
 };
 const FLECKS: Record<string, () => FlecksPainter> = {
   pixels: createPixelFlecks,

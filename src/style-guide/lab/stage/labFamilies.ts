@@ -7,7 +7,9 @@ import type { StageLabSelection } from "@/types/stageLab";
  * "variations can be drastic, or can be due to knob changes." A drastic
  * variation is a different renderer (a lab direction). A knob variation is a
  * Look: production settings the Config Menu already exposes, tuned. Phosphor
- * is a Look on the production scope, not a renderer.
+ * is a Look on the production scope, not a renderer, and so is Pop: the
+ * reference blob is production's own field with the fog off and the motion
+ * tightened. Looks stack ("pop,phosphor").
  *
  * Lit is the original intent: classy, soft, jazz-club light on Ink, Ivory
  * and Brass; Pixar's Soul (the club scenes and the Great Before) is a named
@@ -46,10 +48,16 @@ export const STAGE_LAB_LOOKS: StageLabLook[] = [
     },
   },
   {
-    id: "firm",
-    name: "Firm Bodies",
-    note: "Production bodies and Merge/Web with blur and field softness at zero: the same flow with firm edges.",
-    knobs: { blobs: { blurRadius: 0, fieldSoftness: 0, glowIntensity: 3 } },
+    id: "pop",
+    name: "Pop",
+    note: "The reference disc on production's own field: firm edges (no fog), Merge still gooey, the field's halo on, no wobble; bodies pop in over 100ms with production's overshoot and shrink away over 200ms.",
+    knobs: {
+      blobs: {
+        blurRadius: 0, fieldSoftness: 12, fusionStrength: 0.5, glowEnabled: true, glowIntensity: 18,
+        vibrationAmplitude: 0, oscillationAmplitude: 0,
+        scaleInDuration: 0.1, scaleOutDuration: 0.2, fadeOutDuration: 0.2,
+      },
+    },
   },
 ];
 
@@ -59,6 +67,7 @@ export interface StageLabPreset {
   family: StageLabFamily;
   note: string;
   selection: StageLabSelection;
+  /** One Look or several, comma-separated, applied in order. */
   look: string;
 }
 
@@ -75,56 +84,59 @@ const base: StageLabSelection = {
 export const STAGE_LAB_PRESETS: StageLabPreset[] = [
   {
     id: "lit", name: "Lit", family: "lit",
-    note: "Diffused spotlight, the production scope and strings, Lit Pop bodies on the Chord Shape dial, production lettering and flecks.",
-    selection: { ...base, atmosphere: "spotlight", blobs: "pop" },
-    look: "canonical",
+    note: "Production's bodies and organic Merge/Web under the Pop Look (firm discs with a halo, gooey necks), the diffused spotlight, the production scope, strings and flecks.",
+    selection: { ...base, atmosphere: "spotlight", connections: "production" },
+    look: "pop",
   },
   {
     id: "lit-band", name: "Lit · Band + Phosphor", family: "lit",
-    note: "The diffused band instead of the spot, and the Phosphor Look on the production scope.",
-    selection: { ...base, atmosphere: "band", blobs: "pop" },
-    look: "phosphor",
+    note: "The diffused band instead of the spot, and the Phosphor Look stacked on Pop.",
+    selection: { ...base, atmosphere: "band", connections: "production" },
+    look: "pop,phosphor",
   },
   {
     id: "lit-smoke", name: "Lit · Smoke", family: "lit",
-    note: "Production soft bodies and gooey Merge/Web under the Smoke Look, with the diffused spot: the club at its haziest.",
+    note: "Production's soft, foggy bodies under the Smoke Look: the club at its haziest.",
     selection: { ...base, atmosphere: "spotlight", connections: "production" },
     look: "smoke",
   },
   {
     id: "paper", name: "Paper", family: "paper",
-    note: "Cut band, Paper Cut scope, Torn Strips, Paper Pop bodies, Chord Shape, Chads.",
+    note: "Cut band, Paper Cut scope, Torn Strips, Paper Discs, Chord Shape, Chads.",
     selection: { ...base, atmosphere: "band-cut", strings: "strips", scope: "cut", blobs: "pop-cut", flecks: "chads" },
-    look: "canonical",
+    look: "pop",
   },
   {
-    id: "paper-brush", name: "Paper · Spot + Brush", family: "paper",
-    note: "The cut spotlight and the Brush scope instead.",
-    selection: { ...base, atmosphere: "spotlight-cut", strings: "strips", scope: "brush", blobs: "pop-cut", flecks: "chads" },
-    look: "canonical",
+    id: "paper-brush", name: "Paper · Spot + Brush + Slurs", family: "paper",
+    note: "The cut spotlight, the Brush scope, and Slur Arcs as the connection (best in Web).",
+    selection: { ...base, atmosphere: "spotlight-cut", strings: "strips", scope: "brush", connections: "slurs", blobs: "pop-cut", flecks: "chads" },
+    look: "pop",
   },
   {
     id: "dot", name: "Dot", family: "dot",
-    note: "Halftone Panel, Dot Trace, LED Columns, Dot Pop bodies, Chord Shape, Pixel Marks.",
-    selection: { ...base, atmosphere: "halftone-panel", strings: "columns", scope: "dots", blobs: "pop-dots", flecks: "pixels" },
-    look: "canonical",
+    note: "Halftone Panel, Dot Trace, LED Columns, Dot Discs joined by the Dot Field, Pixel Marks.",
+    selection: { ...base, atmosphere: "halftone-panel", strings: "columns", scope: "dots", connections: "dot-field", blobs: "pop-dots", flecks: "pixels" },
+    look: "pop",
   },
   {
     id: "dot-crt", name: "Dot · CRT in panel", family: "dot",
     note: "The production scope under the Phosphor Look set into the dot panel, so the waveform keeps its detail on a phone.",
-    selection: { ...base, atmosphere: "halftone-panel", strings: "columns", blobs: "pop-dots", flecks: "pixels" },
-    look: "phosphor",
+    selection: { ...base, atmosphere: "halftone-panel", strings: "columns", connections: "dot-field", blobs: "pop-dots", flecks: "pixels" },
+    look: "pop,phosphor",
   },
 ];
 
-export const lookById = (id: string | null | undefined) =>
-  STAGE_LAB_LOOKS.find((look) => look.id === id) ?? STAGE_LAB_LOOKS[0];
+/** Known Look ids from a comma-separated list, in order; unknown ids are dropped. */
+export const lookIds = (value: string | null | undefined) =>
+  (value ?? "").split(",").filter((id) => STAGE_LAB_LOOKS.some((look) => look.id === id));
 
-/** Apply a Look's knobs over a production configuration object (ephemeral store state). */
-export function applyLook(config: Record<string, Record<string, unknown>>, lookId: string | null | undefined) {
-  const look = lookById(lookId);
-  Object.entries(look.knobs).forEach(([section, values]) => {
-    const target = config[section];
-    if (target) Object.assign(target, values);
+/** Apply one or more Looks' knobs over a production configuration object (ephemeral store state). */
+export function applyLook(config: Record<string, Record<string, unknown>>, value: string | null | undefined) {
+  lookIds(value).forEach((id) => {
+    const look = STAGE_LAB_LOOKS.find((candidate) => candidate.id === id)!;
+    Object.entries(look.knobs).forEach(([section, values]) => {
+      const target = config[section];
+      if (target) Object.assign(target, values);
+    });
   });
 }

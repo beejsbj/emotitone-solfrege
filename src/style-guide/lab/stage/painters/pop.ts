@@ -1,127 +1,63 @@
 import type { PreparedBlobFrame } from "@/types/canvas";
 import { LedRaster } from "./led";
-import { bodyPitch } from "./shared";
+import { stepped } from "./shared";
 import type { BlobsPainter, LabFrame } from "./types";
 
 /*
- * Blobs · Pop. The vibe of Burooj's reference (2026-10-03), not its
- * structure: a note's identity and its sounding are separate. A small core in
- * the pitch's colour sits in an Ink collar for as long as the body exists;
- * the sounding is a firm flat disc that pops out of the core on the attack
- * (fast, with the shared bounce), holds while the note sounds, and folds back
- * into the core on release. The orbit clips the disc, so it opens inward
- * toward the scope as a half-moon instead of spilling off a phone's edge.
- * Three materials: Lit (a faint glow), Paper (a hard Ink offset), Dot (lit
- * LEDs on the shared grid).
+ * Blobs · Disc. The reference blob's aesthetic and motion (Burooj,
+ * 2026-10-03: "It will be a full disk/blob. No core."): one full, firm, flat
+ * disc per note that pops in on the attack, holds dead still, and shrinks away
+ * on release without fading.
+ *
+ * The motion belongs to production: the Pop Look sets the body knobs
+ * (scale in 100ms with production's overshoot, scale and fade out in 200ms, no
+ * vibration), and these painters read the prepared radius. In Lit the disc is
+ * production's own field under that Look, halo included, so it has no painter
+ * here. Paper and Dot only decide the material.
  */
 
-type Material = "lit" | "paper" | "dot";
+const visibleOf = (bodies: readonly PreparedBlobFrame[]) => bodies.filter((body) => body.opacity > 0.02);
 
-const POP_S = 0.12;
-const DISC = 1.4; // disc radius as a multiple of the production body radius
-const CORE = 0.36;
-
-/** Overshoot then settle, like the system's elastic press. */
-const popIn = (t: number) => {
-  if (t >= 1) return 1;
-  const s = 1.9;
-  const u = t - 1;
-  return 1 + u * u * ((s + 1) * u + s);
-};
-
-/** How open the disc is: popping in on attack, folding back on release. */
-function openness(body: PreparedBlobFrame, reducedMotion: boolean) {
-  if (body.blob.isFadingOut) {
-    if (reducedMotion) return 0;
-    // The disc is gone before the core finishes fading.
-    return Math.max(0, (body.opacity - 0.45) / 0.55);
-  }
-  return reducedMotion ? 1 : popIn(Math.min(1, body.elapsed / POP_S));
-}
-
-/** Clip to the inside of the circle-of-fifths orbit. */
-function clipToOrbit(ctx: CanvasRenderingContext2D, frame: LabFrame) {
-  const { centerX, centerY, orbitRadiusX, orbitRadiusY } = frame.composition;
-  ctx.beginPath();
-  ctx.ellipse(centerX, centerY, orbitRadiusX, orbitRadiusY, 0, 0, Math.PI * 2);
-  ctx.clip();
-}
-
-function disc(ctx: CanvasRenderingContext2D, x: number, y: number, r: number) {
-  ctx.beginPath();
-  ctx.arc(x, y, Math.max(0, r), 0, Math.PI * 2);
-  ctx.fill();
-}
-
-function createPop(material: Material): BlobsPainter {
-  const raster = material === "dot" ? new LedRaster() : null;
+/** Paper: a flat disc over a hard Ink offset, its size advancing on the 12fps cut clock. */
+export function createPaperDisc(): BlobsPainter {
+  const held = new Map<string, { step: number; r: number }>();
   return {
     paint(frame: LabFrame, bodies) {
-      const { ctx, tokens, reducedMotion } = frame;
-      const visible = bodies.filter((body) => body.opacity > 0.01);
-      const led = raster?.begin(frame, true) ?? null;
-
+      const { ctx, tokens, elapsed, reducedMotion } = frame;
+      const step = reducedMotion ? 0 : Math.round(stepped(elapsed, 12) * 12);
+      const visible = visibleOf(bodies);
+      [...held.keys()].forEach((key) => { if (!visible.some((body) => body.key === key)) held.delete(key); });
       visible.forEach((body) => {
-        const { x, y } = body.blob;
-        const r = body.scaledRadius;
-        const open = openness(body, reducedMotion);
-        const discR = r * DISC * open;
-        const coreR = r * CORE;
-
-        if (led) {
-          led.save();
-          clipToOrbit(led, frame);
-          led.fillStyle = body.primaryColor;
-          led.globalAlpha = body.opacity;
-          disc(led, x, y, discR);
-          led.restore();
-          // The collar is a ring of unlit LEDs; the core is a brighter cluster.
-          led.save();
-          led.globalCompositeOperation = "destination-out";
-          led.lineWidth = raster!.cell * 0.9;
-          led.beginPath();
-          led.arc(x, y, coreR + raster!.cell * 0.6, 0, Math.PI * 2);
-          led.stroke();
-          led.restore();
-          led.fillStyle = frame.noteColor(bodyPitch(body), { l: 1.25 });
-          led.globalAlpha = body.opacity;
-          disc(led, x, y, coreR);
-          led.globalAlpha = 1;
-          return;
-        }
-
-        ctx.save();
-        ctx.globalAlpha = body.opacity;
-        if (discR > 0.5) {
-          ctx.save();
-          clipToOrbit(ctx, frame);
-          if (material === "paper") {
-            ctx.fillStyle = tokens.ink;
-            disc(ctx, x + 5, y + 5, discR);
-          } else {
-            ctx.shadowColor = body.primaryColor;
-            ctx.shadowBlur = 22;
-          }
-          ctx.fillStyle = body.primaryColor;
-          disc(ctx, x, y, discR);
-          ctx.restore();
-        }
-        if (material === "paper") {
-          ctx.fillStyle = tokens.ink;
-          disc(ctx, x + 3, y + 3, coreR + 3);
-        }
+        // Cut paper moves in steps: keep the radius until the next 12fps step.
+        const last = held.get(body.key);
+        const r = last && last.step === step ? last.r : body.scaledRadius;
+        held.set(body.key, { step, r });
+        if (r < 0.5) return;
         ctx.fillStyle = tokens.ink;
-        disc(ctx, x, y, coreR + 3.5);
+        ctx.beginPath(); ctx.arc(body.blob.x + 4, body.blob.y + 4, r, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = body.primaryColor;
-        disc(ctx, x, y, coreR);
-        ctx.restore();
+        ctx.beginPath(); ctx.arc(body.blob.x, body.blob.y, r, 0, Math.PI * 2); ctx.fill();
       });
-
-      if (raster) raster.present(frame);
     },
   };
 }
 
-export const createLitPop = () => createPop("lit");
-export const createPaperPop = () => createPop("paper");
-export const createDotPop = () => createPop("dot");
+/** Dot: the disc lights a cluster of LEDs; a ring of half-lit LEDs is its halo. */
+export function createDotDisc(): BlobsPainter {
+  const raster = new LedRaster();
+  return {
+    paint(frame: LabFrame, bodies) {
+      const led = raster.begin(frame, false);
+      visibleOf(bodies).forEach((body) => {
+        const r = body.scaledRadius;
+        if (r < 0.5) return;
+        led.fillStyle = body.primaryColor;
+        led.globalAlpha = 0.35;
+        led.beginPath(); led.arc(body.blob.x, body.blob.y, r * 1.3, 0, Math.PI * 2); led.fill();
+        led.globalAlpha = 1;
+        led.beginPath(); led.arc(body.blob.x, body.blob.y, r, 0, Math.PI * 2); led.fill();
+      });
+      raster.present(frame);
+    },
+  };
+}

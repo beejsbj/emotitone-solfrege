@@ -13,7 +13,7 @@ import {
 } from "@/types/stageLab";
 import { createStageLabConductor, STAGE_LAB_STATES } from "./labConductor";
 import StageLabSurface from "./StageLabSurface.vue";
-import { applyLook, lookById } from "./labFamilies";
+import { applyLook, lookIds } from "./labFamilies";
 
 /*
  * One lab frame: a whole phone or desktop viewport inside an iframe. Each
@@ -36,7 +36,7 @@ const mode = ref(pick<"merge" | "web">("mode", ["merge", "web"], "merge"));
 const deck = query.get("deck") !== "0";
 const hidden = ref((query.get("hide") ?? "").split(",").filter((unit): unit is StageLabUnitId =>
   (STAGE_LAB_UNIT_IDS as readonly string[]).includes(unit)));
-const look = lookById(query.get("look")).id;
+const look = lookIds(query.get("look")).join(",");
 // Each part's smoothed paint cost, shown when the page turns timings on.
 const timings = reactive(Object.fromEntries(STAGE_LAB_UNIT_IDS.map((unit) => [unit, 0])) as Record<StageLabUnitId, number>);
 const showTimings = ref(query.get("timings") === "1");

@@ -25,14 +25,15 @@ export type StageLabUnitId = (typeof STAGE_LAB_UNIT_IDS)[number];
 
 /**
  * Renderer directions after Burooj's 2026-10-02 cut and 2026-10-03 family
- * pass. Knob-only variations (Phosphor, Smoke, Firm) are Looks, not here.
+ * pass. Knob-only variations (Pop, Phosphor, Smoke) are Looks, not here;
+ * the Lit disc is production's field under the Pop Look.
  */
 export const STAGE_LAB_DIRECTION_IDS = {
   atmosphere: ["spotlight", "band", "spotlight-cut", "band-cut", "halftone-panel"],
   strings: ["strips", "columns"],
   scope: ["cut", "brush", "dots"],
-  connections: ["chord-shape", "slurs"],
-  blobs: ["pop", "pop-cut", "pop-dots", "rings"],
+  connections: ["chord-shape", "slurs", "dot-field"],
+  blobs: ["pop-cut", "pop-dots", "rings"],
   flecks: ["pixels", "chads"],
   lettering: [],
 } as const satisfies Record<StageLabUnitId, readonly string[]>;

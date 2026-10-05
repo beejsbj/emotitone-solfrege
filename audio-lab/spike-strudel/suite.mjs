@@ -1,3 +1,4 @@
+import {expressionTrial} from './expression.mjs';
 import {tempoTrial} from './tempo.mjs';
 import {heldTrial} from './held.mjs';
 import {getSuperdoughAudioController} from 'superdough';
@@ -41,7 +42,8 @@ async function semanticChecks(parts){
     return {id:p.phrase.id,C:c.map(h=>h.value.note),Dminor:d.map(h=>h.value.note),pinned:pin1.map(h=>h.value.note),
       pinUnchanged:JSON.stringify(pin1.map(h=>h.value.note))===JSON.stringify(pin2.map(h=>h.value.note)),
       locationsRetained:d.every(h=>h.context.locations?.length>0)};});
-  const expressionPhrase={...parts[0].phrase,notes:parts[0].phrase.notes.map((n,i)=>({...n,
+  const expressionPhrase={...parts[0].phrase,bars:4,duration:8000,notes:parts[0].phrase.notes.map((n,i)=>({...n,
+    pressTime:i*1000,releaseTime:i*1000+700,duration:700,
     articulation:{attack:.002+i*.001,decay:.01,sustain:.5,release:.02},
     pitchExpression:Array.from({length:25},(_,j)=>({timeMs:j*25,cents:30*Math.sin(j*Math.PI/2)})),
     gainExpression:Array.from({length:25},(_,j)=>({timeMs:j*25,gain:1+.2*Math.sin(j*Math.PI/2)}))}))};
@@ -100,7 +102,7 @@ export async function captureOrbits(){
     }));},close(){for(const c of captures){c.orbit.output.disconnect(c.node);c.node.disconnect();c.mute.disconnect();}}};
 }
 async function until(scheduler,cycle){while(scheduler.now()<cycle)await sleep(8);}
-function fullCode(parts,bpm,ids,options){return `stack(${ids.map(i=>`${sourceCode(parts[i].phrase,{bare:false,bpm})}.fast(${options[i]?.rate??1}).late(${options[i]?.offset??0}).orbit(${i+10}).withContext(c=>({...c,spikePhrase:'p${i}'}))`).join(',')})`;}
+function fullCode(parts,bpm,ids,options){return `stack(${ids.map(i=>`${sourceCode(parts[i].phrase,{bare:false,bpm}).replace(/\.scale\(\"[^\"]*\"\)/,`.scale("${options[i]?.pinned?parts[i].phrase.key:'C'}4:${options[i]?.pinned?parts[i].phrase.mode:'major'}")`)}.gain(0.12).fast(${options[i]?.rate??1}).late(${options[i]?.offset??0}).orbit(${i+10}).withContext(c=>({...c,spikePhrase:'p${i}'}))`).join(',')})`;}
 async function trial(parts,capture,strategy,bpm,repetition){
   const events=[],frames=[],swaps=[];
   const options=[{},{offset:.375,pinned:true},{rate:.5},{rate:2}];
@@ -173,11 +175,12 @@ async function trial(parts,capture,strategy,bpm,repetition){
 window.runStrudelSpike=async(smoke=false,skipCost=false)=>{
   console.log("SPIKE init");await initScope();console.log("SPIKE parse");const phrases=measuredPhrases();const parts=await Promise.all(phrases.map(p=>parsePhrase(p)));
   console.log("SPIKE semantics");const semantics=await semanticChecks(parts);console.log("SPIKE cost");const cost=skipCost?[]:await benchmark(parts);window.spikePartial={semantics,benchmark:cost};console.log("SPIKE capture");const capture=await captureOrbits();console.log("SPIKE trials");
-  const trials=[],tempos=[],held=[];window.spikePartial={semantics,benchmark:cost,trials,tempos,held};
+  const trials=[],tempos=[],held=[],expressions=[];window.spikePartial={semantics,benchmark:cost,trials,tempos,held,expressions};
   try{for(const bpm of smoke?[150]:[90,150])for(const strategy of smoke?['boundary']:['evaluate','direct','boundary','timer-boundary','mute-solo'])
     for(let repetition=0;repetition<(smoke?1:3);repetition++)trials.push(await trial(parts,capture,strategy,bpm,repetition));}
   finally{if(!smoke){for(const bpm of [90,150]){for(const mode of ['setCps','evaluate-setCps','cpm-only'])for(let repetition=0;repetition<3;repetition++)tempos.push(await tempoTrial(parts,capture,mode,bpm,repetition));
-    for(let repetition=0;repetition<3;repetition++)held.push(await heldTrial(parts,capture,bpm,repetition));}}capture.close();}
+    for(let repetition=0;repetition<3;repetition++)held.push(await heldTrial(parts,capture,bpm,repetition));
+    for(const rate of [1,2])expressions.push(await expressionTrial(parts,capture,bpm,rate));}}capture.close();}
   const summary=[...new Set(trials.map(t=>t.strategy))].map(strategy=>{
     const group=trials.filter(t=>t.strategy===strategy);const measures=group.flatMap(t=>t.perPhrase);
     const errs=group.flatMap(t=>t.events.filter(e=>e.cycle>.1&&e.cycle<2.5).map(e=>absoluteError(e.t,t.anchor+e.cycle/(t.bpm/240))));
@@ -193,6 +196,7 @@ window.runStrudelSpike=async(smoke=false,skipCost=false)=>{
     check('Shared tempo retiming keeps independent grids',tempos.filter(t=>t.mode==='setCps').every(t=>t.results.every(p=>!p.missing.length&&!p.unexpected.length&&!p.pcmMissing.length&&!p.pcmUnexpected.length))),
     check('Anchored UIBeat is continuous through tempo changes',tempos.filter(t=>t.mode==='setCps').every(t=>!t.uiBackwards)),
     check('Long held note survives joins and removals',held.every(t=>t.p0Onsets===1&&!t.sustainGaps.length)),
+    check('Recorded expression reaches real audio output',expressions.every(t=>t.controlsPreserved&&!t.missing.length&&!t.unexpected.length&&!t.outputErrors.length)),
     check('Pinned key remains unchanged',semantics.bends.every(p=>p.pinUnchanged)),
     check('Future-boundary haps and PCM have no losses or doubles',summary.filter(s=>s.strategy==='boundary'||s.strategy==='mute-solo').every(s=>!s.hapMissing&&!s.hapUnexpected&&!s.pcmMissing&&!s.pcmUnexpected)),
     check('Cached swaps preserve cycle position',summary.filter(s=>s.strategy==='boundary').every(s=>s.phaseResidualMax<1e-5)),
@@ -200,7 +204,7 @@ window.runStrudelSpike=async(smoke=false,skipCost=false)=>{
     check('Desk highlight selects just one phrase',trials.every(t=>t.highlights.every(h=>h.expected===h.actual))),
     check('UIBeat generation and cursor continuous at membership swaps',trials.every(t=>t.ui.generations.length===1&&!t.ui.frameBackwards)),
   ];
-  return {environment:{userAgent:navigator.userAgent,sampleRate:getAudioContext().sampleRate,baseLatency:getAudioContext().baseLatency,outputLatency:getAudioContext().outputLatency},semantics,benchmark:cost,summary,checks,trials,tempos,held};
+  return {environment:{userAgent:navigator.userAgent,sampleRate:getAudioContext().sampleRate,baseLatency:getAudioContext().baseLatency,outputLatency:getAudioContext().outputLatency},semantics,benchmark:cost,summary,checks,trials,tempos,held,expressions};
 };
 window.runStrudelSpikeCost=async()=>{
   await initScope();const parts=await Promise.all(measuredPhrases().map(p=>parsePhrase(p)));

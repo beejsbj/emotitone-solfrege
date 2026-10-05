@@ -15,7 +15,7 @@ export async function tempoTrial(parts,capture,mode,bpm,repetition){
   const before=s.now();const started=performance.now();let change;
   if(mode==='cpm-only'||mode==='evaluate-setCps'){
     if(mode==='evaluate-setCps')change=transport.setTempo(nextBpm);
-    const code=`stack(${parts.map((p,i)=>sourceCode(p.phrase,{bare:false,bpm:nextBpm})+`.fast(${settings[i].rate??1}).late(${settings[i].offset??0}).orbit(${i+10}).withContext(c=>({...c,spikePhrase:'p${i}'}))`).join(',')})`;
+    const code=`stack(${parts.map((p,i)=>sourceCode(p.phrase,{bare:false,bpm:nextBpm}).replace(/\.scale\(\"[^\"]*\"\)/,`.scale("${settings[i].pinned?p.phrase.key:'D'}4:${settings[i].pinned?p.phrase.mode:'minor'}")`)+`.gain(0.12)`+`.fast(${settings[i].rate??1}).late(${settings[i].offset??0}).orbit(${i+10}).withContext(c=>({...c,spikePhrase:'p${i}'}))`).join(',')})`;
     transport.mirror.setCode(code);await transport.mirror.evaluate();
   }else change=transport.setTempo(nextBpm);
   const after=s.now();const ms=performance.now()-started;

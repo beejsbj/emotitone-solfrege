@@ -6,7 +6,7 @@ import {resolve} from 'node:path';
 import {spawn,execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 const revision=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
-const hashes={};for(const path of ['node_modules/@strudel/core/cyclist.mjs','node_modules/@strudel/core/dist/index.mjs','node_modules/superdough/dist/index.mjs','audio-lab/spike-strudel/transport.mjs','audio-lab/spike-strudel/suite.mjs','audio-lab/spike-strudel/tempo.mjs','audio-lab/spike-strudel/held.mjs'])hashes[path]=createHash('sha256').update(await readFile(path)).digest('hex');
+const hashes={};for(const path of ['node_modules/@strudel/core/cyclist.mjs','node_modules/@strudel/core/dist/index.mjs','node_modules/superdough/dist/index.mjs','audio-lab/spike-strudel/transport.mjs','audio-lab/spike-strudel/suite.mjs','audio-lab/spike-strudel/tempo.mjs','audio-lab/spike-strudel/held.mjs','audio-lab/spike-strudel/expression.mjs'])hashes[path]=createHash('sha256').update(await readFile(path)).digest('hex');
 const directory=resolve('audio-lab/spike-strudel/.chrome');
 await mkdir(directory,{recursive:true});
 const vite=await createServer({configFile:false,root:process.cwd(),cacheDir:resolve('node_modules/.vite-spike-strudel'),

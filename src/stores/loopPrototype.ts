@@ -18,6 +18,7 @@ import {
 } from "@/data/patterns";
 import { cloneNote, resolveBpm } from "@/domain/phraseBook";
 import { attackNote, getAudioContext, releaseNote } from "@/services/superdoughAudio";
+import { uiBeatClock } from "@/composables/useUIBeat";
 import { useMusicStore } from "@/stores/music";
 import { usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
@@ -72,6 +73,9 @@ export const useLoopPrototypeStore = defineStore("loopPrototype", () => {
   let lastAudio = 0;
   let timer: ReturnType<typeof setInterval> | undefined;
   let voiceCounter = 0;
+  // The loop is a transport: while it runs it drives the app's UIBeat.
+  let beatGeneration: number | null = null;
+  let beatBpm = 0;
 
   const liveBpm = () => resolveBpm(visualConfigStore.config.codeStrip.bpm);
   const rate = () => liveBpm() / bpm.value;
@@ -138,11 +142,31 @@ export const useLoopPrototypeStore = defineStore("loopPrototype", () => {
     tick();
   }
 
+  /** Once per frame: publish the loop's bar position to UIBeat. */
+  function publishBeat() {
+    if (!running.value) return;
+    advance();
+    const tempo = liveBpm();
+    // The Code Strip's own Play takes the clock over; take it back once idle.
+    if (beatGeneration === null || uiBeatClock.snapshot.status === "idle") {
+      beatGeneration = uiBeatClock.arm({
+        mappingAvailable: true,
+        bpm: tempo,
+        meter: { beatsPerBar: 4, beatUnit: 4 },
+      });
+      beatBpm = tempo;
+    }
+    if (tempo !== beatBpm && uiBeatClock.retime(beatGeneration, tempo)) beatBpm = tempo;
+    uiBeatClock.publish(beatGeneration, { rawPosition: posMs, barPosition: posMs / barMs.value });
+  }
+
   function stop() {
     advance();
     running.value = false;
     clearInterval(timer);
     timer = undefined;
+    if (beatGeneration !== null) uiBeatClock.stop(beatGeneration);
+    beatGeneration = null;
   }
 
   function toggle() {
@@ -254,11 +278,11 @@ export const useLoopPrototypeStore = defineStore("loopPrototype", () => {
     posMs = 0;
   }
 
-  /** 0..1 around the Platter, for the hand. */
-  function phase(): number {
-    if (!lengthMs.value) return 0;
+  /** 0..1 through the loop, or through a layer of the given length. */
+  function phase(length = lengthMs.value): number {
+    if (!length) return 0;
     advance();
-    return mod(posMs, lengthMs.value) / lengthMs.value;
+    return mod(posMs, length) / length;
   }
 
   /** Where the open take's live notes would land if laid down now. */
@@ -294,6 +318,7 @@ export const useLoopPrototypeStore = defineStore("loopPrototype", () => {
     pendingNotes,
     describe,
     phase,
+    publishBeat,
     latencyMs,
     toggleMode,
     layDownTake,

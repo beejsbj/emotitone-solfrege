@@ -9,6 +9,7 @@ import { computed, onBeforeUnmount, onMounted } from "vue";
 import { Repeat, Square } from "lucide-vue-next";
 import Button from "@/components/primatives/Button.vue";
 import LoopDial from "@/components/primatives/LoopDial.vue";
+import LoopLayoutSwitcherPrototype from "@/components/patterns/LoopLayoutSwitcherPrototype.vue";
 import { useMusicColor } from "@/composables/useMusicColor";
 import { useLoopPrototypeStore } from "@/stores/loopPrototype";
 import { useMusicStore } from "@/stores/music";
@@ -87,6 +88,9 @@ function dialUp(id: string) {
 </script>
 
 <template>
+  <!-- PROTOTYPE: ?layout= flips where the mic and loop keys live. -->
+  <LoopLayoutSwitcherPrototype />
+
   <Teleport to="body">
     <div class="loop-mode-button">
       <Button

@@ -235,4 +235,26 @@ describe("active-note canvas color routing", () => {
     expect(ctx.fillRect).toHaveBeenCalledOnce();
     expect(ctx.drawImage).not.toHaveBeenCalled();
   });
+  it("widens the band above the default Strength and keeps its height below it", async () => {
+    // Without an offscreen 2D canvas the band paints crisply onto the Stage.
+    vi.spyOn(document, "createElement").mockReturnValueOnce(
+      { getContext: () => null } as unknown as HTMLElement,
+    );
+    const { useAmbientRenderer } = await import("@/composables/canvas/useAmbientRenderer");
+    const { renderAmbientBackground } = useAmbientRenderer();
+    const store = { currentMode: "major", currentKey: "C", getActiveNotes: () => [] };
+    const bandHeight = (opacityMajor: number) => {
+      const ctx = createMockCtx();
+      renderAmbientBackground(ctx, 0, { ...AMBIENT, opacityMajor }, 800, 600, store,
+        COMPOSITION, { envelope: 0, hasSignal: false }, true, []);
+      const top = vi.mocked(ctx.moveTo).mock.calls[0][1];
+      const bottom = vi.mocked(ctx.lineTo).mock.calls[2][1];
+      return bottom - top;
+    };
+
+    // Reduced Motion holds the half-height at 15% of the 600px short side.
+    expect(bandHeight(0.3)).toBeCloseTo(180, 6);
+    expect(bandHeight(0.1)).toBeCloseTo(180, 6);
+    expect(bandHeight(1)).toBeCloseTo(360, 6);
+  });
 });

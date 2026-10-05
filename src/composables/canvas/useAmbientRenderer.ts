@@ -34,6 +34,9 @@ const SOFT_BLUR = 2.2; // px at the reduced scale; ≈ 26px on the Stage
 // the default Atmosphere paints exactly what was accepted.
 const BAND_LIGHTNESS = 0.55;
 const BAND_CHROMA = 0.78;
+// Strength above the canonical default widens the band, up to twice its
+// accepted height at full Strength; below it, the pitch colour fades.
+const BAND_WIDEST = 2;
 
 type LeadNote = Pick<
   ActiveNote,
@@ -146,8 +149,9 @@ export function useAmbientRenderer() {
    * Render the Atmosphere.
    *
    * The config keeps its legacy "major/minor" field names so persisted
-   * configs stay compatible. The band reads the "major" trio as Strength
-   * (alpha), Brightness and Saturation against the canonical defaults; the
+   * configs stay compatible. The band reads the "major" trio against the
+   * canonical defaults: Strength fades the pitch colour below the default and
+   * widens the band above it; Brightness and Saturation scale the colour. The
    * "minor" trio no longer paints.
    */
   const renderAmbientBackground = (
@@ -179,12 +183,17 @@ export function useAmbientRenderer() {
     if (notes[0]) lead = notes[0];
 
     const { usable, centerX: cx, centerY: cy } = composition;
+    const defaults = DEFAULT_CONFIG.ambient;
     const band = resolveAtmosphereBand(audioFrame, elapsed, reducedMotion);
-    const half = Math.min(usable.width, usable.height) * band.halfHeight;
+    const widen = 1 + (BAND_WIDEST - 1) * clamp(
+      (ambientConfig.opacityMajor - defaults.opacityMajor) / (1 - defaults.opacityMajor),
+      0,
+      1,
+    );
+    const half = Math.min(usable.width, usable.height) * band.halfHeight * widen;
     const reach = usable.width * 0.62 + 60;
     const lean = LEAN * reach;
 
-    const defaults = DEFAULT_CONFIG.ambient;
     const color = band.sounding > 0 ? resolveLeadColor(musicStore) : null;
     const colorAlpha = band.sounding
       * clamp(knobRatio(ambientConfig.opacityMajor, defaults.opacityMajor), 0, 1);

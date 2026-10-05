@@ -16,6 +16,8 @@ import { useAmbientRenderer } from "./useAmbientRenderer";
 import { useHarmonicGeometryRenderer } from "./useHarmonicGeometryRenderer";
 import { useBlobFieldRenderer } from "./useBlobFieldRenderer";
 import { useHilbertScopeRenderer } from "./useHilbertScopeRenderer";
+// PROTOTYPE: loop radar (throwaway, PR #132).
+import { useLoopRadarRendererPrototype } from "./useLoopRadarRendererPrototype";
 import { performanceMonitor } from "@/utils/performanceMonitor";
 import {
   createStageAudioFeatures,
@@ -113,6 +115,7 @@ export function useUnifiedCanvas(
   const harmonicGeometryRenderer = useHarmonicGeometryRenderer();
   const blobFieldRenderer = useBlobFieldRenderer();
   const hilbertScopeRenderer = useHilbertScopeRenderer();
+  const loopRadar = useLoopRadarRendererPrototype(); // PROTOTYPE: loop radar
   const stageAudio = runtime?.audioFeatures ?? createStageAudioFeatures();
   const oneShotReleaseTimers = new Map<string, number>();
   const harmonicExpiryTimers = new Map<string, number>();
@@ -388,6 +391,9 @@ export function useUnifiedCanvas(
     }
 
     if (composition.suspended) return;
+
+    // PROTOTYPE: while a loop runs, the Atmosphere renders as the loop radar.
+    loopRadar.render(ctx, composition, reducedMotion);
 
     // Strings are pitch-bearing atmospheric texture behind the focal system.
     if (cachedConfigs.string.isEnabled) {

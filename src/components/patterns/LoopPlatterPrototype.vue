@@ -105,7 +105,7 @@ function dialUp(id: string) {
 
   <div v-if="loop.armed" class="loop-platter">
     <!-- One mini Loop Dial per layer, climbing the left edge as layers are added. -->
-    <div class="loop-platter__layers" data-stage-occluder>
+    <div class="loop-platter__layers">
       <button
         v-for="dial in dials"
         :key="dial.layer.id"
@@ -127,7 +127,7 @@ function dialUp(id: string) {
       </button>
     </div>
 
-    <div class="loop-platter__readout" data-stage-occluder>
+    <div class="loop-platter__readout">
       <span>{{ readout }}</span>
       <template v-if="loop.hasLoop">
         <button type="button" :aria-label="loop.running ? 'Stop loop' : 'Start loop'" @click="loop.toggle()">

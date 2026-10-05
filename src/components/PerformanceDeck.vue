@@ -57,6 +57,7 @@
           :is-playing="isPlaying"
           :play-disabled="playDisabled"
           :haptic="isProductionUsage"
+          :return-adds="loopPrototype?.armed"
           @toggle-playback="toggleSketchPlayback"
           @backspace="handleBackspace"
           @return="handleReturn"
@@ -249,6 +250,7 @@ const store = isProductionUsage ? useKeyboardDrawerStore() : undefined;
 const instrumentStore = isProductionUsage ? useInstrumentStore() : undefined;
 const musicStore = isProductionUsage ? useMusicStore() : undefined;
 const phrasesStore = isProductionUsage ? usePhrasesStore() : undefined;
+const loopPrototype = isProductionUsage ? useLoopPrototypeStore() : undefined;
 const visualConfigStore = isProductionUsage ? useVisualConfigStore() : undefined;
 const playback = isProductionUsage ? useCodeStripStrudel() : undefined;
 const humming = isProductionUsage ? useHummingCapture() : undefined;
@@ -354,7 +356,7 @@ function selectHummingTake(index: number) {
 function handleBackspace() {
   if (!phrasesStore) emit("backspace");
   // PROTOTYPE: with nothing on the desk, Backspace takes the last layer off.
-  else if (phrasesStore.takeNotes.length || !useLoopPrototypeStore().peelLayer()) {
+  else if (phrasesStore.takeNotes.length || !loopPrototype?.peelLayer()) {
     phrasesStore.undoLastNote();
   }
 }
@@ -366,7 +368,7 @@ function handleReturn() {
   }
 
   // PROTOTYPE: while a loop is on the Platter, Return lays the take down on it.
-  if (useLoopPrototypeStore().layDownTake()) return;
+  if (loopPrototype?.layDownTake()) return;
   phrasesStore.keepTake();
 }
 

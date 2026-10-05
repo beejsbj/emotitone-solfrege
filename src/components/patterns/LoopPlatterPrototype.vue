@@ -5,6 +5,9 @@
  * See src/stores/loopPrototype.ts for the question it answers.
  */
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { Repeat } from "lucide-vue-next";
+import Button from "@/components/primatives/Button.vue";
+import LoopDial from "@/components/primatives/LoopDial.vue";
 import { useMusicColor } from "@/composables/useMusicColor";
 import { useLoopPrototypeStore } from "@/stores/loopPrototype";
 import { useMusicStore } from "@/stores/music";
@@ -76,7 +79,13 @@ const bands = computed(() =>
       layer,
       radius: INNER + (index + 0.5) * bandWidth.value,
       arcs: arcs(notes, index),
-      color: notes.length ? colorOf(notes[0]) : "var(--ivory-3)",
+      // The layer's own mini Loop Dial, climbing the left edge.
+      dial: notes.map((note) => ({
+        color: colorOf(note),
+        startMs: note.pressTime,
+        durationMs: note.duration,
+        height: loop.describe(note).midi,
+      })),
     };
   }),
 );
@@ -90,21 +99,23 @@ const pending = computed(() => {
 
 const readout = computed(() => {
   if (loop.hasLoop) return `${loop.bars} bar${loop.bars === 1 ? "" : "s"} · ${loop.layers.length}`;
-  if (loop.armed) return "play · return";
-  return "loop";
+  return "play · add";
 });
 
 const spindleLabel = computed(() => {
-  if (!loop.hasLoop) return loop.armed ? "Cancel loop" : "Start a loop from the desk";
+  if (!loop.hasLoop) return "Add the desk to the loop";
   return loop.running ? "Stop loop" : "Start loop";
 });
 
 function pressSpindle() {
   if (loop.hasLoop) loop.toggle();
-  else loop.lift();
+  else loop.layDownTake();
 }
 
-// Tap a chad to mute; hold it to take the layer off.
+// A layer's dial: tap mutes, double-tap solos, hold takes the layer off.
+// The first tap mutes at once; a second tap undoes that and solos instead.
+const DOUBLE_TAP_MS = 320;
+let lastTap = { id: "", at: 0 };
 let holdTimer: ReturnType<typeof setTimeout> | undefined;
 let held = false;
 function chadDown(id: string) {
@@ -120,34 +131,64 @@ function chadCancel() {
 }
 function chadUp(id: string) {
   clearTimeout(holdTimer);
-  if (!held) loop.toggleMute(id);
+  if (held) return;
+  const now = performance.now();
+  const double = lastTap.id === id && now - lastTap.at < DOUBLE_TAP_MS;
+  lastTap = double ? { id: "", at: 0 } : { id, at: now };
+  loop.toggleMute(id);
+  if (double) loop.toggleSolo(id);
 }
 </script>
 
 <template>
-  <div class="loop-platter" :class="{ 'loop-platter--armed': loop.armed, 'loop-platter--running': loop.running }">
-    <div class="loop-platter__float" data-stage-occluder>
-      <div v-if="loop.hasLoop" class="loop-platter__chads">
-        <button
-          v-for="band in bands"
-          :key="band.layer.id"
-          type="button"
-          class="loop-platter__chad"
-          :class="{ 'loop-platter__chad--muted': band.layer.muted }"
-          :aria-pressed="!band.layer.muted"
-          :aria-label="`${band.layer.label}: tap to mute, hold to remove`"
-          @pointerdown="chadDown(band.layer.id)"
-          @pointerup="chadUp(band.layer.id)"
-          @pointerleave="chadCancel"
-        >
-          <span class="loop-platter__chad-face" :style="{ '--chad': band.color }" />
-        </button>
-      </div>
+  <Teleport to="body">
+    <div class="loop-mode-button">
+      <Button
+        class="loop-mode-button__button"
+        size="md"
+        :tone="loop.armed ? 'ivory' : 'brass'"
+        haptic
+        :accessible-name="loop.armed ? 'Leave loop mode' : 'Loop mode'"
+        :title="loop.armed ? 'Leave loop mode' : 'Loop mode'"
+        @click="loop.toggleMode()"
+      >
+        <Repeat />
+      </Button>
+    </div>
+  </Teleport>
 
+  <div
+    v-if="loop.armed"
+    class="loop-platter loop-platter--armed"
+    :class="{ 'loop-platter--running': loop.running }"
+  >
+    <!-- One mini Loop Dial per layer, climbing the left edge as layers are added. -->
+    <div class="loop-platter__layers" data-stage-occluder>
+      <button
+        v-for="band in bands"
+        :key="band.layer.id"
+        type="button"
+        class="loop-platter__layer"
+        :class="{
+          'loop-platter__layer--muted': loop.isSilent(band.layer),
+          'loop-platter__layer--solo': loop.soloId === band.layer.id,
+        }"
+        :aria-pressed="!loop.isSilent(band.layer)"
+        :aria-label="`${band.layer.label}: tap to mute, double-tap to solo, hold to remove`"
+        @pointerdown="chadDown(band.layer.id)"
+        @pointerup="chadUp(band.layer.id)"
+        @pointerleave="chadCancel"
+        @contextmenu.prevent
+      >
+        <LoopDial :segments="band.dial" :length-ms="loop.lengthMs" :aria-label="band.layer.label" />
+      </button>
+    </div>
+
+    <div class="loop-platter__float" data-stage-occluder>
       <div class="loop-platter__deck">
         <svg class="loop-platter__disc" :viewBox="`0 0 ${SIZE} ${SIZE}`" aria-hidden="true">
           <circle class="loop-platter__well" :cx="CENTER" :cy="CENTER" :r="CENTER" />
-          <g v-for="band in bands" :key="band.layer.id" :class="{ 'loop-platter__band--muted': band.layer.muted }">
+          <g v-for="band in bands" :key="band.layer.id" :class="{ 'loop-platter__band--muted': loop.isSilent(band.layer) }">
             <circle class="loop-platter__track" :cx="CENTER" :cy="CENTER" :r="band.radius" />
             <path
               v-for="(arc, index) in band.arcs"
@@ -209,7 +250,7 @@ function chadUp(id: string) {
   right: 10px;
   bottom: 8px;
   display: grid;
-  grid-template-columns: auto auto;
+  justify-items: end;
   align-items: end;
   gap: 4px 6px;
   pointer-events: auto;
@@ -219,7 +260,6 @@ function chadUp(id: string) {
 
 .loop-platter__deck {
   position: relative;
-  grid-column: 2;
   width: 132px;
   height: 132px;
   border-radius: 50%;
@@ -321,35 +361,36 @@ function chadUp(id: string) {
   filter: none;
 }
 
-.loop-platter__chads {
-  grid-column: 1;
+.loop-platter__layers {
+  position: absolute;
+  left: 6px;
+  bottom: 30px;
   display: flex;
-  flex-flow: column-reverse wrap-reverse;
-  max-height: 132px;
+  flex-direction: column-reverse;
+  gap: 2px;
+  pointer-events: auto;
+  touch-action: manipulation;
+  user-select: none;
 }
 
-.loop-platter__chad {
-  width: 40px;
-  height: 32px;
+.loop-platter__layer {
+  width: 44px;
+  height: 44px;
   display: grid;
   place-items: center;
+  border-radius: 50%;
+  -webkit-touch-callout: none;
 }
 
-.loop-platter__chad-face {
-  width: 22px;
-  height: 12px;
-  background: var(--chad);
-  transform: skewX(-14deg);
-  box-shadow: 0 0 0 1px var(--ink);
+.loop-platter__layer--solo {
+  box-shadow: 0 0 0 1.5px var(--ivory);
 }
 
-.loop-platter__chad--muted .loop-platter__chad-face {
-  background: var(--ink-3);
-  box-shadow: inset 0 0 0 1px var(--ivory-4);
+.loop-platter__layer--muted {
+  opacity: 0.3;
 }
 
 .loop-platter__readout {
-  grid-column: 1 / -1;
   justify-self: end;
   display: flex;
   align-items: center;
@@ -376,5 +417,23 @@ function chadUp(id: string) {
   .loop-platter__hand {
     transform: none !important;
   }
+}
+</style>
+
+<style>
+/* Sits beside the mic button, which is centred at the top of the screen. */
+.loop-mode-button {
+  position: fixed;
+  z-index: 110;
+  top: calc(env(safe-area-inset-top, 0px) + var(--s-5));
+  right: calc(50% + 14px + var(--s-4));
+  display: inline-flex;
+  pointer-events: auto;
+}
+
+.loop-mode-button .loop-mode-button__button {
+  --button-size: 28px;
+  inline-size: 28px;
+  block-size: 28px;
 }
 </style>

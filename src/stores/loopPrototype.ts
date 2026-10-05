@@ -57,10 +57,14 @@ export const useLoopPrototypeStore = defineStore("loopPrototype", () => {
   /** The tempo the loop was made at; live BPM plays it faster or slower. */
   const bpm = ref(120);
   const running = ref(false);
-  /** Empty Platter waiting for the first Return. */
+  /** Loop mode: the Platter is out and Return adds to it. */
   const armed = ref(false);
   /** Extra ms taken off live presses on top of the reported output latency. */
   const nudgeMs = ref(0);
+  /** The one layer that sounds alone, if any. */
+  const soloId = ref<string | null>(null);
+  const isSilent = (layer: LoopLayer) =>
+    soloId.value ? layer.id !== soloId.value : layer.muted;
 
   // Transport, in loop ms. Monotonic; never wrapped.
   let posMs = 0;
@@ -104,7 +108,7 @@ export const useLoopPrototypeStore = defineStore("loopPrototype", () => {
     const from = Math.max(scheduledToMs, posMs);
     const to = posMs + LOOKAHEAD_S * 1000 * speed;
     for (const layer of layers.value) {
-      if (layer.muted) continue;
+      if (isSilent(layer)) continue;
       for (const note of soundingNotes(layer)) {
         let lap = Math.ceil((from - note.pressTime) / layer.lengthMs);
         if (note.pressTime + lap * layer.lengthMs <= from) lap += 1;
@@ -200,13 +204,12 @@ export const useLoopPrototypeStore = defineStore("loopPrototype", () => {
         return { ...cloneNote(note), pressTime, duration, releaseTime: pressTime + duration };
       }),
     });
-    armed.value = false;
     start();
   }
 
   /** Return (or a tap on the empty Platter): lay the desk's phrase down. */
   function layDownTake(): boolean {
-    if (!armed.value && !hasLoop.value) return false;
+    if (!armed.value) return false;
     const take = phrasesStore.take;
     if (!take.notes.length) return true;
     addPhrase(take, liveOrigin());
@@ -214,17 +217,16 @@ export const useLoopPrototypeStore = defineStore("loopPrototype", () => {
     return true;
   }
 
-  /** Tap on the empty Platter: lift what's on the desk, else wait for Return. */
-  function lift() {
-    if (hasLoop.value) return;
-    if (phrasesStore.take.notes.length) {
-      armed.value = true;
-      layDownTake();
-    } else armed.value = !armed.value;
+  /** The loop button: bring the Platter out, or stop it and put it away. */
+  function toggleMode() {
+    armed.value = !armed.value;
+    if (armed.value) start();
+    else stop();
   }
 
   function removeLayer(id: string) {
     layers.value = layers.value.filter((layer) => layer.id !== id);
+    if (soloId.value === id) soloId.value = null;
     if (!layers.value.length) clear();
   }
 
@@ -240,12 +242,16 @@ export const useLoopPrototypeStore = defineStore("loopPrototype", () => {
     if (layer) layer.muted = !layer.muted;
   }
 
+  function toggleSolo(id: string) {
+    soloId.value = soloId.value === id ? null : id;
+  }
+
   function clear() {
+    soloId.value = null;
     stop();
     layers.value = [];
     lengthMs.value = 0;
     posMs = 0;
-    armed.value = false;
   }
 
   /** 0..1 around the Platter, for the hand. */
@@ -289,10 +295,13 @@ export const useLoopPrototypeStore = defineStore("loopPrototype", () => {
     describe,
     phase,
     latencyMs,
-    lift,
+    toggleMode,
     layDownTake,
     toggle,
     toggleMute,
+    toggleSolo,
+    soloId,
+    isSilent,
     removeLayer,
     peelLayer,
     clear,

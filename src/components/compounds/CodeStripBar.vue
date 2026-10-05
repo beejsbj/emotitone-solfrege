@@ -50,11 +50,13 @@
         size="sm"
         tone="ivory"
         :haptic="haptic"
-        accessible-name="Return"
-        title="Return"
+        :accessible-name="returnAdds ? 'Add to loop' : 'Return'"
+        :title="returnAdds ? 'Add to loop' : 'Return'"
         @click="emit('return')"
       >
-        <CornerDownLeft />
+        <!-- PROTOTYPE: in loop mode Return adds the desk to the loop. -->
+        <Plus v-if="returnAdds" />
+        <CornerDownLeft v-else />
       </Button>
     </div>
 
@@ -64,6 +66,7 @@
 <script setup lang="ts">
 import {
   CornerDownLeft,
+  Plus,
   Delete as BackspaceIcon,
   Play,
   Square,
@@ -83,6 +86,7 @@ const props = withDefaults(
     isPlaying?: boolean;
     playDisabled?: boolean;
     haptic?: boolean;
+    returnAdds?: boolean;
     tokens?: CodeStripToken[];
     source?: string;
     density?: CodeStripDensity;
@@ -95,6 +99,7 @@ const props = withDefaults(
     isPlaying: false,
     playDisabled: false,
     haptic: false,
+    returnAdds: false,
     tokens: undefined,
     source: undefined,
     density: "dense",

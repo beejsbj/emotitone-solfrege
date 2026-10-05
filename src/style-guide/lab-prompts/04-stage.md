@@ -5,7 +5,7 @@ Temporary. Burooj runs this with `$emotitone-design-system` in its own session. 
 Burooj, 2026-09-29: "Harmonic geometry is not part of this pass … After uniques and compounds. We will have a dedicated pass for 'Stage' which is basically all of the canvas stuff." This step is that pass.
 
 ## This lab's units
-- **Stage**: the unified canvas (`UnifiedVisualEffects.vue` + `useUnifiedCanvas`): Hilbert Scope, Atmosphere, Pitch Strings, Note Flecks, and the Circle-of-Fifths support bodies.
+- **Stage**: the unified canvas (`UnifiedVisualEffects.vue` + `useUnifiedCanvas`): Hilbert Scope, Atmosphere, Pitch Strings, and the Circle-of-Fifths support bodies.
 - **Harmonic Geometry**: the Merge/Web blob relationships (`useBlobFieldRenderer`) and their Jazz lettering (`useHarmonicGeometryRenderer`, `harmonicTypography.ts`).
 
 ## Known context

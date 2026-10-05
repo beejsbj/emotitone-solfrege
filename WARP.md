@@ -87,7 +87,7 @@ bun run test:audio-browser
 **Key Composables by Domain:**
 - **Audio/Music**: `useSolfegeInteraction.ts`
 - **Keyboard Interface**: `useKeyboardDrawer.ts` (drawer behavior and GSAP animations)
-- **Visual Effects**: `useUnifiedCanvas.ts`, `useParticleSystem.ts`, `useMusicColor.ts`
+- **Visual Effects**: `useUnifiedCanvas.ts`, `useMusicColor.ts`
 - **Utilities**: `useAppLoading.ts`, `useKeyboardControls.ts`
 
 ## Development Guidelines

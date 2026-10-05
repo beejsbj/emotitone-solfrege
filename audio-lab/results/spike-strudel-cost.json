@@ -1,0 +1,116 @@
+{
+  "recordedAt": "2026-10-05T21:22:50.411Z",
+  "revision": "f15fdd3af92cbb56ffea91efb6f04c855db7ed92",
+  "hashes": {
+    "node_modules/@strudel/core/cyclist.mjs": "a800e83a056accc89fedc1f790ce17df30bbd6975a3cd2105011d2a73c133a74",
+    "node_modules/@strudel/core/dist/index.mjs": "3364227254ec386b41d45c49f25aa1b7498b5337ed64bbeb014bd544ed8d2668",
+    "node_modules/superdough/dist/index.mjs": "0fd8d71a890902aff433f19201145f001f522634ebfe92b56f2252753945dc1d",
+    "audio-lab/spike-strudel/transport.mjs": "34ef2fce26e06d9cd919b945ce90319d0c8e7e842b63dd83eeaf953ed698dbe8",
+    "audio-lab/spike-strudel/suite.mjs": "f14edaf96642fad41941b401a30d2a6e3715c3b8309dfc87c98f7f3a47d6a76a",
+    "audio-lab/spike-strudel/tempo.mjs": "64409553ea03bdbaf54ffc3319bfe1dee5d393fdd6de76471589476d375cad5e",
+    "audio-lab/spike-strudel/held.mjs": "c9f924529b6d1c7c6880f82c08faedbdfa5275b80b4e2ca7ebb8311eb14677f1"
+  },
+  "warnings": [],
+  "environment": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.0.0 Safari/537.36",
+    "sampleRate": 44100
+  },
+  "benchmark": [
+    {
+      "count": 1,
+      "notes": 64,
+      "chars": 1463,
+      "trials": 12,
+      "transpileMs": {
+        "count": 12,
+        "mean": 613.1499999960264,
+        "max": 733.1999999880791,
+        "p95": 678.8999999761581
+      },
+      "evaluateAfterTranspileMs": {
+        "count": 12,
+        "mean": 622.1250000099341,
+        "max": 708.5,
+        "p95": 661.5
+      },
+      "totalMs": {
+        "count": 12,
+        "mean": 1235.2750000059605,
+        "max": 1385.300000011921,
+        "p95": 1303.3999999761581
+      },
+      "cachedStackMs": {
+        "count": 12,
+        "mean": 0.07499999801317851,
+        "max": 0.19999998807907104,
+        "p95": 0.10000002384185791
+      }
+    },
+    {
+      "count": 4,
+      "notes": 256,
+      "chars": 5837,
+      "trials": 12,
+      "transpileMs": {
+        "count": 12,
+        "mean": 2846.9750000089407,
+        "max": 3686,
+        "p95": 3523.900000035763
+      },
+      "evaluateAfterTranspileMs": {
+        "count": 12,
+        "mean": 3199.125,
+        "max": 3985.699999988079,
+        "p95": 3671.899999976158
+      },
+      "totalMs": {
+        "count": 12,
+        "mean": 6046.100000008941,
+        "max": 7276.100000023842,
+        "p95": 7222.5
+      },
+      "cachedStackMs": {
+        "count": 12,
+        "mean": 0.14999999602635702,
+        "max": 0.30000001192092896,
+        "p95": 0.20000004768371582
+      }
+    },
+    {
+      "count": 8,
+      "notes": 512,
+      "chars": 11669,
+      "trials": 12,
+      "transpileMs": {
+        "count": 12,
+        "mean": 6269.625000009934,
+        "max": 7438,
+        "p95": 7284.800000011921
+      },
+      "evaluateAfterTranspileMs": {
+        "count": 12,
+        "mean": 6357.824999993046,
+        "max": 7429,
+        "p95": 7356
+      },
+      "totalMs": {
+        "count": 12,
+        "mean": 12627.45000000298,
+        "max": 14640.800000011921,
+        "p95": 14482.5
+      },
+      "cachedStackMs": {
+        "count": 12,
+        "mean": 0.30833332737286884,
+        "max": 0.5,
+        "p95": 0.40000003576278687
+      }
+    }
+  ],
+  "checks": [
+    {
+      "name": "All 1/4/8-phrase cost cells completed",
+      "passed": true
+    }
+  ]
+}

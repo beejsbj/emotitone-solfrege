@@ -145,7 +145,6 @@ const configLabels = [
   ["home", "Scenes", "Home"],
   ["blobs", "Blobs", "Blobs"],
   ["ambient", "Ambient Glow", "Glow"],
-  ["particles", "Particles", "Dust"],
   ["strings", "Strings", "Lines"],
   ["animation", "Animation", "Anim"],
   ["frequencyMapping", "Frequency Mapping", "Freq"],

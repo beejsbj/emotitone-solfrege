@@ -570,13 +570,6 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
         readStageControls(currentEffective).atmosphereStrength,
       );
     }
-    if (rootConfig.particles.isEnabled !== currentEffective.particles.isEnabled) {
-      rootConfig = patchStageControl(
-        rootConfig,
-        "fleckAmount",
-        readStageControls(currentEffective).fleckAmount,
-      );
-    }
 
     const nextLook = createSeededStageVariation(seed, rootConfig, rootName);
     transientStageLook.value = nextLook;
@@ -601,7 +594,6 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     Object.assign(config.stage, defaults.stage);
     Object.assign(config.blobs, defaults.blobs);
     Object.assign(config.ambient, defaults.ambient);
-    Object.assign(config.particles, defaults.particles);
     Object.assign(config.strings, defaults.strings);
     Object.assign(config.animation, defaults.animation);
     Object.assign(config.frequencyMapping, defaults.frequencyMapping);

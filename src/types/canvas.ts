@@ -1,9 +1,8 @@
 /**
  * Canvas and Animation Types
- * Type definitions for canvas rendering, particles, and animation systems
+ * Type definitions for canvas rendering and animation systems
  */
 
-import type { MarkName } from "@/components/primatives/marks";
 import type {
   ActiveNote,
   ChromaticNote,
@@ -119,34 +118,6 @@ export interface HarmonicGeometryScene {
   interiorEdges: HarmonicIntervalEdge[];
   primaryLabel: HarmonicGeometryLabel | null;
   auxiliaryLabels: HarmonicGeometryLabel[];
-}
-
-/**
- * Particle object for particle system
- */
-export interface Particle {
-  /** X position on canvas */
-  x: number;
-  /** Y position on canvas */
-  y: number;
-  /** X velocity */
-  vx: number;
-  /** Y velocity */
-  vy: number;
-  /** Particle color */
-  color: string;
-  /** Mark rendered by this particle */
-  mark: MarkName;
-  /** Particle size */
-  size: number;
-  /** Current life remaining */
-  life: number;
-  /** Maximum lifetime */
-  maxLife: number;
-  /** Current rotation angle */
-  rotation: number;
-  /** Rotation speed per frame */
-  rotationSpeed: number;
 }
 
 /**

@@ -10,7 +10,6 @@ import type {
   SolfegeData,
 } from "@/types/music";
 import { useBlobRenderer } from "./useBlobRenderer";
-import { useParticleSystem } from "./useParticleSystem";
 import { useStringRenderer } from "./useStringRenderer";
 import { useAmbientRenderer } from "./useAmbientRenderer";
 import { useHarmonicGeometryRenderer } from "./useHarmonicGeometryRenderer";
@@ -38,7 +37,7 @@ import { createAudibleStageTimeline } from "@/services/audibleStageTimeline";
 
 /**
  * Unified Canvas Management System
- * Manages a single canvas for all visual effects: blobs, particles, strings, and ambient
+ * Manages a single canvas for all visual effects: blobs, strings, and ambient
  * Now modularized into separate rendering systems for better maintainability
  */
 
@@ -74,7 +73,6 @@ export function useUnifiedCanvas(
     stageConfig,
     blobConfig,
     ambientConfig,
-    particleConfig,
     stringConfig,
     animationConfig,
     hilbertScopeConfig,
@@ -100,14 +98,12 @@ export function useUnifiedCanvas(
   let cachedConfigs = {
     blob: blobConfig.value,
     ambient: ambientConfig.value,
-    particle: particleConfig.value,
     string: stringConfig.value,
     hilbertScope: hilbertScopeConfig.value,
   };
 
   // Rendering systems
   const blobRenderer = useBlobRenderer();
-  const particleSystem = useParticleSystem();
   const stringRenderer = useStringRenderer();
   const ambientRenderer = useAmbientRenderer();
   const harmonicGeometryRenderer = useHarmonicGeometryRenderer();
@@ -119,18 +115,8 @@ export function useUnifiedCanvas(
   let oneShotSequence = 0;
   let wasCompositionSuspended = false;
   const clearTransientStageState = () => {
-    particleSystem.clearAllParticles();
     hilbertScopeRenderer.clearHistory();
   };
-  const stopReducedMotionWatch = runtime
-    ? watch(
-        runtime.reducedMotion,
-        (reducedMotion) => {
-          if (reducedMotion) particleSystem.clearAllParticles();
-        },
-        { flush: "sync" },
-      )
-    : () => undefined;
   const stopStageEnabledWatch = watch(
     () => stageConfig.value.isEnabled,
     (isEnabled) => {
@@ -208,7 +194,6 @@ export function useUnifiedCanvas(
     cachedConfigs = {
       blob: blobConfig.value,
       ambient: ambientConfig.value,
-      particle: particleConfig.value,
       string: stringConfig.value,
       hilbertScope: hilbertScopeConfig.value,
     };
@@ -217,7 +202,7 @@ export function useUnifiedCanvas(
   /**
    * Reconcile sounding store and live-input notes with renderer-owned Blob
    * anchors. This restores notes that began while Stage or Note Bodies was
-   * disabled without replaying their audio, timers, or flecks.
+   * disabled without replaying their audio or timers.
    */
   const hydrateMissingBlobAnchors = (
     activeNotes: readonly ActiveNote[] = getStageActiveNotes(),
@@ -459,10 +444,6 @@ export function useUnifiedCanvas(
       );
     }
 
-    if (cachedConfigs.particle.isEnabled && !reducedMotion) {
-      particleSystem.renderParticles(ctx, elapsed, cachedConfigs.particle);
-    }
-
     harmonicGeometryRenderer.renderLabels(
       ctx,
       harmonicScene,
@@ -475,7 +456,6 @@ export function useUnifiedCanvas(
   const getActiveObjectCount = () => {
     return (
       blobRenderer.getActiveBlobCount() +
-      particleSystem.getActiveParticleCount() +
       stringRenderer.getActiveStringCount()
     );
   };
@@ -583,29 +563,6 @@ export function useUnifiedCanvas(
       }, Math.max(0, durationMs));
       oneShotReleaseTimers.set(harmonicNoteId, releaseTimer);
     }
-
-    // Create particles with reduced count for polyphonic scenarios
-    const activeNoteCount = getStageActiveNotes().length;
-    const particleCount = Math.max(
-      5,
-      Math.floor(particleConfig.value.count / Math.max(1, activeNoteCount - 1))
-    );
-
-    if (
-      !(runtime?.reducedMotion.value ?? false)
-      && !composition.suspended
-    ) {
-      particleSystem.createParticles(
-        note,
-        particleConfig.value,
-        canvasWidth.value,
-        composition.usable.height,
-        noteMode,
-        noteKey,
-        particleCount,
-        { pitchClassIndex, octave },
-      );
-    }
   };
 
   /**
@@ -673,7 +630,6 @@ export function useUnifiedCanvas(
     stopAnimation();
     audibleTimeline?.dispose();
     blobRenderer.clearAllBlobs();
-    particleSystem.clearAllParticles();
     stringRenderer.clearAllStrings();
     stringRenderer.removeEventListeners(); // Clean up string event listeners
     hilbertScopeRenderer.cleanup(); // Clean up Hilbert Scope
@@ -684,7 +640,6 @@ export function useUnifiedCanvas(
     harmonicExpiryTimers.forEach((timer) => window.clearTimeout(timer));
     oneShotReleaseTimers.clear();
     harmonicExpiryTimers.clear();
-    stopReducedMotionWatch();
     stopStageEnabledWatch();
     clearCaches();
     window.removeEventListener("resize", handleResize);
@@ -711,7 +666,6 @@ export function useUnifiedCanvas(
     // Effect management
     createBlob: blobRenderer.createBlob,
     removeBlob: blobRenderer.removeBlob,
-    createParticles: particleSystem.createParticles,
     handleNotePlayed,
     handleNoteReleased,
 

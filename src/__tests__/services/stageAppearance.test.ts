@@ -37,16 +37,15 @@ function changedPaths(before: unknown, after: unknown, prefix = ""): string[] {
 }
 
 describe("Stage appearance domain", () => {
-  it("publishes exactly the accepted 23 controls", () => {
+  it("publishes exactly the accepted 21 controls", () => {
     const controls = STAGE_CONTROL_DEFINITIONS;
-    expect(controls).toHaveLength(23);
-    expect(new Set(controls.map((control) => control.id)).size).toBe(23);
+    expect(controls).toHaveLength(21);
+    expect(new Set(controls.map((control) => control.id)).size).toBe(21);
     expect(STAGE_CONTROL_GROUPS.map((group) => group.label)).toEqual([
       "Scope",
       "Note Bodies",
       "Atmosphere",
       "Pitch Strings",
-      "Note Flecks",
       "Explanations",
     ]);
     expect(
@@ -68,7 +67,6 @@ describe("Stage appearance domain", () => {
     expect(disabled.blobs.isEnabled).toBe(false);
     expect(disabled.ambient.isEnabled).toBe(false);
     expect(disabled.strings.isEnabled).toBe(false);
-    expect(disabled.particles.isEnabled).toBe(false);
   });
 
   it("rehydrates activation-capable Strings from a legacy zero-Presence config", () => {
@@ -198,8 +196,6 @@ describe("Stage appearance domain", () => {
       atmosphereColorDepth: 0.6,
       stringPresence: 0.05,
       stringResponse: 0.5,
-      fleckAmount: 3,
-      fleckEnergy: expect.closeTo(0.35),
       showChords: true,
       showIntervals: true,
       showEmotion: false,
@@ -262,12 +258,14 @@ describe("Stage appearance domain", () => {
     const applied = applyStageLook(backing, {
       hilbertScope: { opacity: 0.31 },
       ...({
+        particles: { isEnabled: true, count: 40, speed: 12 },
         dynamicColors: { musicColorMode: "movable-relative" },
         keyboard: { mainOctave: 1 },
       } as any),
     });
 
     expect(applied.hilbertScope.opacity).toBe(0.31);
+    expect(applied).not.toHaveProperty("particles");
     expect(applied.dynamicColors).toEqual(backing.dynamicColors);
     expect(applied.uiBeat).toEqual(backing.uiBeat);
     expect(applied.keyboard).toEqual(backing.keyboard);
@@ -286,7 +284,6 @@ describe("Stage appearance domain", () => {
       expect(Object.keys(look.patch)).toEqual([
         "blobs",
         "ambient",
-        "particles",
         "strings",
         "hilbertScope",
       ]);
@@ -358,6 +355,22 @@ describe("Stage appearance domain", () => {
     const variedConfig = applyStageLook(root, first.patch);
     const rootControls = readStageControls(root);
     const variedControls = readStageControls(variedConfig);
+    // Recorded before retiring Note Flecks: surviving controls must keep
+    // their positions in the seeded sequence.
+    expect(variedControls).toMatchObject({
+      scopeSize: 0.6133515945952386,
+      scopeStrength: 0.8049318226799369,
+      scopeLineWeight: 1.6295479671936481,
+      scopeGlow: 0.2516808561515063,
+      scopeTrail: 0.18954596826806666,
+      bodySize: 0.18651783464103938,
+      bodyStrength: 0.7957633269019424,
+      bodyMotion: 0,
+      atmosphereStrength: 0.2852445224896073,
+      atmosphereColorDepth: 0.5603296324387192,
+      stringPresence: 0.05360007300972939,
+      stringResponse: 0.5091801548935473,
+    });
     const boundedControls = [
       ["scopeSize", .08],
       ["scopeStrength", .08],
@@ -371,7 +384,6 @@ describe("Stage appearance domain", () => {
       ["atmosphereColorDepth", .08],
       ["stringPresence", .1],
       ["stringResponse", .08],
-      ["fleckEnergy", .1],
     ] as const;
     for (const [control, spread] of boundedControls) {
       expect(Math.abs(variedControls[control] - rootControls[control]))
@@ -379,7 +391,6 @@ describe("Stage appearance domain", () => {
     }
     expect(variedConfig.blobs.isEnabled).toBe(root.blobs.isEnabled);
     expect(variedConfig.ambient.isEnabled).toBe(root.ambient.isEnabled);
-    expect(variedConfig.particles.isEnabled).toBe(root.particles.isEnabled);
     expect(variedConfig.strings.isEnabled).toBe(root.strings.isEnabled);
   });
 });

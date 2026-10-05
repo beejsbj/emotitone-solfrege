@@ -13,11 +13,12 @@ import type { StageLabSelection } from "@/types/stageLab";
  *
  * Lit is the original intent: classy, soft, jazz-club light on Ink, Ivory
  * and Brass; Pixar's Soul (the club scenes and the Great Before) is a named
- * influence. Paper is the cut-paper poster side with hard edges. The Dot
- * family was dropped on 2026-10-04.
+ * influence. The Dot family was dropped on 2026-10-04 and Paper on
+ * 2026-10-06 ("Kill paper. We are going with lit."; preserved on the
+ * design/lab-stage-paper branch). Lit is the Stage.
  */
 
-export type StageLabFamily = "lit" | "paper";
+export type StageLabFamily = "lit";
 
 type Knobs = Partial<Record<"hilbertScope" | "blobs" | "particles" | "ambient" | "strings", Record<string, number | boolean>>>;
 
@@ -75,7 +76,7 @@ const base: StageLabSelection = {
   atmosphere: "production",
   strings: "production",
   scope: "production",
-  connections: "chord-shape",
+  connections: "production",
   blobs: "production",
   flecks: "production",
   lettering: "production",
@@ -101,19 +102,9 @@ export const STAGE_LAB_PRESETS: StageLabPreset[] = [
     selection: { ...base, atmosphere: "band", connections: "production" },
     look: "smoke",
   },
-  {
-    id: "paper", name: "Paper", family: "paper",
-    note: "Cut band, Paper Cut scope, Torn Strips, Paper Discs, Chord Shape, Chads.",
-    selection: { ...base, atmosphere: "band-cut", strings: "strips", scope: "cut", blobs: "pop-cut", flecks: "chads" },
-    look: "pop",
-  },
 
-  {
-    id: "paper-brush", name: "Paper · Brush + Slurs", family: "paper",
-    note: "The Brush scope, and Slur Arcs as the connection (best in Web).",
-    selection: { ...base, atmosphere: "band-cut", strings: "strips", scope: "brush", connections: "slurs", blobs: "pop-cut", flecks: "chads" },
-    look: "pop",
-  },
+
+
 
 
 ];

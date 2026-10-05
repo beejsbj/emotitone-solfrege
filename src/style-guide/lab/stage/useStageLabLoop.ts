@@ -35,13 +35,8 @@ import type {
   ScopePainter,
   StringsPainter,
 } from "./painters/types";
-import { createChadFlecks, createCutScope, stripStrings } from "./painters/pasteUp";
 import { ringBlobs } from "./painters/blobs";
-import { createSlurConnections } from "./painters/connections";
-import { createChordShapePainter } from "./painters/chordShape";
-import { createBrushScope } from "./painters/scope";
-import { createCutBand, createDiffusedBand } from "./painters/atmosphere";
-import { createPaperDisc } from "./painters/pop";
+import { createDiffusedBand } from "./painters/atmosphere";
 import { completeIntervalPaths } from "./painters/shared";
 
 /*
@@ -86,26 +81,14 @@ function readTokens(): LabTokens {
 
 const ATMOSPHERE: Record<string, () => AtmospherePainter> = {
   band: createDiffusedBand,
-  "band-cut": createCutBand,
 };
-const STRINGS: Record<string, () => StringsPainter> = {
-  strips: () => stripStrings,
-};
-const SCOPE: Record<string, () => ScopePainter> = {
-  cut: createCutScope,
-  brush: createBrushScope,
-};
+const STRINGS: Record<string, () => StringsPainter> = {};
+const SCOPE: Record<string, () => ScopePainter> = {};
 const BLOBS: Record<string, () => BlobsPainter> = {
-  "pop-cut": createPaperDisc,
   rings: () => ringBlobs,
 };
-const CONNECTIONS: Record<string, () => ConnectionsPainter> = {
-  "chord-shape": createChordShapePainter,
-  slurs: createSlurConnections,
-};
-const FLECKS: Record<string, () => FlecksPainter> = {
-  chads: createChadFlecks,
-};
+const CONNECTIONS: Record<string, () => ConnectionsPainter> = {};
+const FLECKS: Record<string, () => FlecksPainter> = {};
 /** Lettering kept no lab direction (Burooj, 2026-10-02); production lettering stays. */
 const LETTERING: Record<string, () => LetteringPainter> = {};
 

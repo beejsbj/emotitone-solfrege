@@ -147,7 +147,7 @@ const chooseLook = (id: string) => {
 const presetNote = computed(() => STAGE_LAB_PRESETS.find((preset) => preset.id === activePreset.value)?.note ?? "");
 const lookNote = computed(() => (activeLooks.value.length ? activeLooks.value : ["canonical"])
   .map((id) => STAGE_LAB_LOOKS.find((look) => look.id === id)?.note ?? "").join(" "));
-const FAMILY_NAMES = { lit: "Lit", paper: "Paper", any: "Any family" } as const;
+const FAMILY_NAMES = { lit: "Lit", any: "Any family" } as const;
 
 const stickerColor = (paper: StageLabPaper) => (paper === "cobalt" ? "ivory" : paper);
 </script>

@@ -1,32 +1,22 @@
-import { soundLevel, stepped, tracePolygon, type Point } from "./shared";
+import { soundLevel, tracePolygon, type Point } from "./shared";
 import type { AtmospherePainter, LabFrame } from "./types";
 
 /*
- * Atmosphere: the poster's tilted band in two materials and two hues.
- * Burooj, 2026-10-03: "Diffused spotlight and band are both lit vibes. And
- * their non diffused are paper." 2026-10-05: "Drop spotlight. Band is just
- * better. Should atmosphere be the complimentary color", then after seeing
- * it: "I'm against complement." The band stays in the sounding pitch's own
- * hue. Lit paints it softened, Paper with a hard
- * edge on the stop-motion clock. It keeps the accepted clock: a slow breath
- * in silence handing over to the shared envelope once sound plays.
+ * Atmosphere · Diffused Band. The poster's tilted highlight band as a soft
+ * wash of light in the sounding pitch's own hue: Ink-3 in silence, deep pitch
+ * colour once it plays, its height following the envelope. It keeps the
+ * accepted clock: a slow breath in silence handing over to the shared
+ * envelope once sound plays.
+ *
+ * Burooj: "Diffused spotlight and band are both lit vibes" (2026-10-03);
+ * "Drop spotlight. Band is just better" and "I'm against complement"
+ * (2026-10-05); "Kill paper. We are going with lit" (2026-10-06). The cut
+ * band lives on design/lab-stage-paper.
  */
 
 const LEAN = -0.105; // ≈ -6°, the poster's highlight-band lean
-const CUT_FPS = 12;
 const SOFT_SCALE = 1 / 12;
 const SOFT_BLUR = 2.2; // px at the reduced scale; ≈ 26px on the Stage
-
-type Material = "lit" | "paper";
-
-const ground = (frame: LabFrame) => {
-  frame.ctx.fillStyle = frame.tokens.ink;
-  frame.ctx.fillRect(0, 0, frame.width, frame.height);
-};
-
-/** Paper moves on the stop-motion clock; light moves continuously. */
-const clock = (frame: LabFrame, material: Material) =>
-  frame.reducedMotion ? 0 : material === "paper" ? stepped(frame.elapsed, CUT_FPS) : frame.elapsed;
 
 /**
  * Paint shapes small, soften them, and scale them up: diffusion without a
@@ -58,43 +48,32 @@ function createSoftLayer() {
   };
 }
 
-/** Paint directly for paper, softened for light. */
-function createPainter(material: Material, draw: (ctx: CanvasRenderingContext2D, frame: LabFrame) => void): AtmospherePainter {
-  const soften = material === "lit" ? createSoftLayer() : null;
+export function createDiffusedBand(): AtmospherePainter {
+  const soften = createSoftLayer();
   return {
     paint(frame) {
-      ground(frame);
-      if (frame.composition.suspended) return;
-      if (soften) soften(frame, (soft) => draw(soft, frame));
-      else draw(frame.ctx, frame);
+      const { ctx, width, height, composition, tokens, reducedMotion, elapsed } = frame;
+      ctx.fillStyle = tokens.ink;
+      ctx.fillRect(0, 0, width, height);
+      if (composition.suspended) return;
+      const { usable, centerX: cx, centerY: cy } = composition;
+      const level = soundLevel(frame);
+      const breath = reducedMotion ? 0 : (Math.sin((elapsed * Math.PI * 2) / 10) + 1) / 2;
+      const size = Math.min(usable.width, usable.height);
+      const half = size * (level > 0.01 ? 0.15 + level * 0.09 : 0.14 + breath * 0.012);
+      const reach = usable.width * 0.62 + 60;
+      const lean = LEAN * reach;
+      const band: Point[] = [
+        { x: cx - reach, y: cy - half - lean },
+        { x: cx + reach, y: cy - half + lean },
+        { x: cx + reach, y: cy + half + lean },
+        { x: cx - reach, y: cy + half - lean },
+      ];
+      soften(frame, (soft) => {
+        soft.fillStyle = level > 0.01 ? frame.noteColor(frame.leadNote, { l: 0.55, c: 0.78 }) : tokens.ink3;
+        tracePolygon(soft, band);
+        soft.fill();
+      });
     },
   };
 }
-
-/** The poster's tilted highlight band: Ink-3 in silence, the sounding pitch's deep colour once it plays. */
-function bandShape(material: Material) {
-  return (ctx: CanvasRenderingContext2D, frame: LabFrame) => {
-    const { composition, tokens } = frame;
-    const { usable, centerX: cx, centerY: cy } = composition;
-    const level = soundLevel(frame);
-    const breath = (Math.sin((clock(frame, material) * Math.PI * 2) / 10) + 1) / 2;
-    const size = Math.min(usable.width, usable.height);
-    const half = size * (level > 0.01 ? 0.15 + level * 0.09 : 0.14 + breath * 0.012);
-    const reach = usable.width * 0.62 + 60;
-    const lean = LEAN * reach;
-    const band: Point[] = [
-      { x: cx - reach, y: cy - half - lean },
-      { x: cx + reach, y: cy - half + lean },
-      { x: cx + reach, y: cy + half + lean },
-      { x: cx - reach, y: cy + half - lean },
-    ];
-    ctx.fillStyle = level > 0.01
-      ? frame.noteColor(frame.leadNote, { l: material === "lit" ? 0.55 : 0.5, c: 0.78 })
-      : tokens.ink3;
-    tracePolygon(ctx, band);
-    ctx.fill();
-  };
-}
-
-export const createDiffusedBand = () => createPainter("lit", bandShape("lit"));
-export const createCutBand = () => createPainter("paper", bandShape("paper"));

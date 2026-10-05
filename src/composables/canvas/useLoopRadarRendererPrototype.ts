@@ -17,9 +17,13 @@
  * Definition never resolves into discs (that is the Note Bodies' vocabulary:
  * round, body-sized, filled, saturated, evenly soft). Above the default the
  * haze thins and stretches, and each note condenses into a streetlight seen
- * through fog: a pinpoint, whitened core with a comet tail drawn back along
- * the turn. Spark and tail flare as the front passes and shrink behind it, so
- * discreteness reads as motion in weather, not as objects.
+ * through fog: a pinpoint, whitened core with a comet tail curved back along
+ * its own hidden orbit, so the tails together imply the rings without any ring
+ * being drawn. Spark and tail flare as the front passes and shrink behind it,
+ * so discreteness reads as motion in weather, not as objects.
+ *
+ * As the front crosses an audible node it can hand a few Note Flecks to the
+ * Stage's particle system (`onCross`), gated by the caller.
  *
  * Silent layers stay as faint, unresponsive haze. Notes of the open take that
  * are not laid down yet are a barely-there tint.
@@ -64,7 +68,18 @@ interface Pool {
   durationMs: number;
   sprite: HTMLCanvasElement;
   silent: boolean;
+  /** Fraction of the loop the note sounds for; longer notes carry longer arcs. */
+  span: number;
+  chroma: number;
+  octave: number;
 }
+
+/** Called when the front crosses an audible node: position, pitch, heading. */
+export type LoopNodeCrossed = (x: number, y: number, chroma: number, octave: number, heading: number) => void;
+
+/** Curved tails are stamped as overlapping straight pieces. */
+const TAIL_STEP = 0.11;
+const TAIL_PIECES = 10;
 
 /** Deterministic 0..1 from a number, so pools do not jump between rebuilds. */
 function scatter(seed: number): number {
@@ -97,7 +112,11 @@ function sparkSprite(rgb: [number, number, number]): HTMLCanvasElement {
   return canvas;
 }
 
-/** A comet tail: brightest at the head (right edge), dissolving backward. */
+/**
+ * One piece of a comet tail: even along its length with linear ends that
+ * cross-fade into the next piece (a quarter overlap sums flat), and soft
+ * across, so a chain of them bends along an orbit with no seams or edge.
+ */
 function tailSprite(rgb: [number, number, number]): HTMLCanvasElement {
   const canvas = document.createElement("canvas");
   canvas.width = SPRITE;
@@ -106,8 +125,8 @@ function tailSprite(rgb: [number, number, number]): HTMLCanvasElement {
   const tint = mix(rgb, 0.3);
   const along = ctx.createLinearGradient(0, 0, SPRITE, 0);
   along.addColorStop(0, `rgba(${tint}, 0)`);
-  along.addColorStop(0.55, `rgba(${tint}, 0.18)`);
-  along.addColorStop(0.9, `rgba(${tint}, 0.6)`);
+  along.addColorStop(0.25, `rgba(${tint}, 0.6)`);
+  along.addColorStop(0.75, `rgba(${tint}, 0.6)`);
   along.addColorStop(1, `rgba(${tint}, 0)`);
   ctx.fillStyle = along;
   ctx.fillRect(0, 0, SPRITE, 16);
@@ -274,6 +293,9 @@ export function useLoopRadarRendererPrototype() {
         size: (0.8 + reach * 0.35) * (0.85 + Math.min(0.5, note.duration / lengthMs) * 0.8),
         durationMs: Math.max(30, note.duration),
         ...spriteOf(chroma, octave),
+        span: Math.min(1, note.duration / lengthMs),
+        chroma,
+        octave,
         silent,
       });
     }
@@ -296,6 +318,7 @@ export function useLoopRadarRendererPrototype() {
   let ghosts: Pool[] = [];
   let lengthMs = 0;
   let phase = 0;
+  let lastPhase = -1;
   let presence = 0;
   let lastNow = 0;
   let frame = 0;
@@ -331,6 +354,7 @@ export function useLoopRadarRendererPrototype() {
     ctx: CanvasRenderingContext2D,
     composition: StageComposition,
     reducedMotion: boolean,
+    onCross?: LoopNodeCrossed,
   ) {
     const now = performance.now();
     const dt = lastNow ? Math.min(0.1, (now - lastNow) / 1000) : 0;
@@ -366,6 +390,15 @@ export function useLoopRadarRendererPrototype() {
     const radius = Math.min(usable.width, usable.height) * 0.5;
     const hand = phase * TAU - Math.PI / 2;
     const knob = knobs.value;
+    // The slice of the loop the front swept since last frame, for bursts.
+    let swept = 0;
+    if (live && !reducedMotion && onCross && lastPhase >= 0 && presence > 0.5) {
+      swept = phase - lastPhase;
+      if (swept < 0) swept += 1;
+      if (swept > 0.2) swept = 0;
+    }
+    const sweptFrom = lastPhase;
+    lastPhase = live ? phase : -1;
     if (knob.gain <= 0) return;
 
     ctx.save();
@@ -431,21 +464,40 @@ export function useLoopRadarRendererPrototype() {
 
       if (knob.discrete > 0) {
         const lit = pool.silent ? 0.12 : 0.3 + swell * 0.7;
-        const tx = Math.cos(pool.angle);
-        const ty = Math.sin(pool.angle);
         const alpha = Math.min(1, knob.discrete * knob.gain * presence);
-        // The tail lies back along the turn, longest just after the front passes.
-        if (!pool.silent && swell > 0.02) {
-          const length = radius * (0.05 + swell * 0.26) * knob.discrete;
-          const thickness = (6 + swell * 6) * sparkScale;
-          ctx.setTransform(tx, ty, -ty, tx, x, y);
-          ctx.globalAlpha = alpha * swell;
-          ctx.drawImage(pool.tail, -length, -thickness / 2, length * 1.04, thickness);
+        // The tail curves back along the note's own orbit, longest for long
+        // notes and just after the front passes, a faint wisp at rest.
+        if (!pool.silent) {
+          const sweep = Math.min(1.7, (0.12 + swell * 0.42 + pool.span * 1.4) * knob.discrete);
+          const pieces = Math.min(TAIL_PIECES, 2 + Math.ceil(sweep / TAIL_STEP));
+          const step = sweep / pieces;
+          const orbit = Math.hypot(x - cx, y - cy);
+          const head = Math.atan2(y - cy, x - cx);
+          const length = (step * orbit) / 0.75;
+          const thickness = (7 + swell * 6) * sparkScale;
+          const strength = alpha * (0.3 + swell * 0.7);
+          for (let piece = 0; piece < pieces; piece += 1) {
+            const along = (piece + 0.5) / pieces;
+            const at = head - (piece + 0.5) * step;
+            const ux = Math.cos(at);
+            const uy = Math.sin(at);
+            // Tangent (clockwise) at this point on the orbit.
+            ctx.setTransform(-uy, ux, -ux, -uy, cx + ux * orbit, cy + uy * orbit);
+            ctx.globalAlpha = strength * Math.pow(1 - along, 1.4);
+            const width = thickness * (1 - 0.65 * along);
+            ctx.drawImage(pool.tail, -length / 2, -width / 2, length, width);
+          }
         }
         const spark = (16 + swell * 22) * sparkScale;
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.globalAlpha = alpha * lit;
         ctx.drawImage(pool.spark, x - spark / 2, y - spark / 2, spark, spark);
+      }
+
+      if (swept > 0 && !pool.silent) {
+        let since = pool.phase - sweptFrom;
+        if (since < 0) since += 1;
+        if (since < swept) onCross!(x, y, pool.chroma, pool.octave, pool.angle);
       }
     }
     ctx.setTransform(1, 0, 0, 1, 0, 0);

@@ -100,6 +100,46 @@ export function useParticleSystem() {
     }
   };
 
+  // PROTOTYPE: loop radar (throwaway, PR #132). A small burst of flecks
+  // released at one point, thrown along `heading`, never past `maxLive`.
+  const burstParticles = (
+    x: number,
+    y: number,
+    heading: number,
+    count: number,
+    maxLive: number,
+    particleConfig: ParticleConfig,
+    mode: MusicalMode,
+    key: ChromaticNote,
+    pitchClassIndex: number,
+    octave: number,
+  ) => {
+    if (!particleConfig.isEnabled) return;
+    const room = Math.min(count, maxLive - particles.length);
+    if (room <= 0) return;
+    const color = getFleckColorByPitchClass(pitchClassIndex, mode, key, octave);
+    const speed = 0.6 + particleConfig.speed * 0.25;
+    for (let i = 0; i < room; i++) {
+      const particle = getParticleFromPool();
+      const angle = heading + (Math.random() - 0.5) * 2.2;
+      const push = speed * (0.5 + Math.random() * 0.8);
+      particle.x = x;
+      particle.y = y;
+      particle.vx = Math.cos(angle) * push;
+      particle.vy = Math.sin(angle) * push;
+      particle.color = color;
+      particle.mark = MARK_NAMES[Math.floor(Math.random() * MARK_NAMES.length)] ?? "disk";
+      particle.size = particleConfig.sizeMin
+        + Math.random() * (particleConfig.sizeMax - particleConfig.sizeMin);
+      particle.life = 0;
+      particle.maxLife = (particleConfig.lifetimeMin
+        + Math.random() * (particleConfig.lifetimeMax - particleConfig.lifetimeMin)) * 0.6;
+      particle.rotation = Math.random() * Math.PI * 2;
+      particle.rotationSpeed = (Math.random() - 0.5) * 0.1;
+      particles.push(particle);
+    }
+  };
+
   /**
    * Render particles (optimized)
    */
@@ -174,6 +214,7 @@ export function useParticleSystem() {
 
     // Methods
     createParticles,
+    burstParticles, // PROTOTYPE: loop radar
     renderParticles,
     getActiveParticleCount,
     clearAllParticles,

@@ -2,7 +2,7 @@
 /**
  * PROTOTYPE — throwaway. Not for main.
  * The Looper's controls: one mini Loop Dial per playing pattern, climbing the
- * left edge, with Stop All on top. Loop mode is entered by holding Return.
+ * left edge, with Stop All on top. Play on the Code Strip bar is the loop.
  * The Looper's "clock" lives on the Stage.
  * See src/stores/loopPrototype.ts for the question it answers.
  */
@@ -137,7 +137,7 @@ function dialUp(id: string) {
         haptic
         accessible-name="Stop all loops"
         title="Stop all loops"
-        @click="loop.clear()"
+        @click="loop.stopAll()"
       >
         <Square />
       </Button>

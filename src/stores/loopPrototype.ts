@@ -20,7 +20,7 @@ import { cloneNote, resolveBpm } from "@/domain/phraseBook";
 import { attackNote, getAudioContext, releaseNote } from "@/services/superdoughAudio";
 import { uiBeatClock } from "@/composables/useUIBeat";
 import { useMusicStore } from "@/stores/music";
-import { usePhrasesStore } from "@/stores/phrases";
+import { setBeforeLivePress, usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import type { Shape } from "@/types/instrument";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
@@ -29,6 +29,8 @@ import type { Phrase } from "@/types/phrases";
 
 export interface LoopLayer {
   id: string;
+  /** The pattern this layer points at (a copy's Kept/Library source while untouched). */
+  sourceId: string;
   label: string;
   instrument: string;
   shape: Shape;
@@ -36,7 +38,7 @@ export interface LoopLayer {
   mode: MusicalMode;
   /** pressTime/duration are loop ms (at the loop's own BPM), wrapped into lengthMs. */
   notes: PatternNote[];
-  /** A whole multiple of the loop length. */
+  /** The pattern's own length in whole bars; it cycles on the shared bar grid. */
   lengthMs: number;
   muted: boolean;
 }
@@ -183,8 +185,17 @@ export const useLoopPrototypeStore = defineStore("loopPrototype", () => {
     return posMs - ((Date.now() - wallOrigin) + latencyMs()) * rate();
   }
 
-  /** Put a phrase on the Platter. The first one sets the loop's length. */
-  function addPhrase(phrase: Phrase, wallOrigin: number | null): void {
+  /** The longest playing pattern; the Stage's turn takes this long. */
+  function measure() {
+    lengthMs.value = Math.max(0, ...layers.value.map((layer) => layer.lengthMs));
+  }
+
+  /**
+   * Set a pattern playing. The first one sets tempo and bar one; each keeps
+   * its own length in whole bars. One played over the loop joins where it was
+   * played; one from the reel is pinned to bar one.
+   */
+  function addPhrase(phrase: Phrase, wallOrigin: number | null, sourceId: string): void {
     if (!phrase.notes.length) return;
     const first = !layers.value.length;
     if (first) bpm.value = resolveBpm(phrase.context.bpm);
@@ -196,24 +207,20 @@ export const useLoopPrototypeStore = defineStore("loopPrototype", () => {
     }));
     const sounding = Math.max(...scaled.map((entry) => entry.start + entry.duration));
     const content = wallOrigin === null ? Math.max(sounding, phrase.duration * scale) : sounding;
+    // A ringing last note may hang a quarter bar over without adding a bar.
+    const layerLength = Math.max(1, Math.ceil(content / barMs.value - 0.25)) * barMs.value;
 
     let origin = 0;
-    let layerLength: number;
     if (first) {
-      // A ringing last note may hang a quarter bar over without adding a bar.
-      lengthMs.value = Math.max(1, Math.ceil(content / barMs.value - 0.25)) * barMs.value;
-      layerLength = lengthMs.value;
       // A played phrase has been "looping" since its first note.
       posMs = wallOrigin === null ? 0 : Math.max(0, Date.now() - wallOrigin);
       scheduledToMs = posMs;
       lastAudio = getAudioContext().currentTime;
-    } else {
-      layerLength = lengthMs.value * Math.max(1, Math.ceil(content / lengthMs.value - 0.1));
-      if (wallOrigin !== null) origin = loopStartOf(wallOrigin);
-    }
+    } else if (wallOrigin !== null) origin = loopStartOf(wallOrigin);
 
     layers.value.push({
       id: `layer-${Date.now()}-${layers.value.length}`,
+      sourceId,
       label: phrase.name ?? (phrase.number ? `Take ${phrase.number}` : phrase.derivedFrom?.name ?? "Layer"),
       instrument: phrase.context.instrument,
       shape: { ...phrase.context.shape },
@@ -226,34 +233,58 @@ export const useLoopPrototypeStore = defineStore("loopPrototype", () => {
         return { ...cloneNote(note), pressTime, duration, releaseTime: pressTime + duration };
       }),
     });
+    measure();
     start();
   }
 
-  /** Return (or a tap on the empty Platter): lay the desk's phrase down. */
-  function layDownTake(): boolean {
-    if (!hasLoop.value) return false;
+  // ─── Play is the loop ──────────────────────────────────────────────────────
+  /** What the desk shows: an untouched copy stands for its source. */
+  const deskKey = computed(() => {
     const take = phrasesStore.take;
-    if (!take.notes.length) return true;
-    addPhrase(take, liveOrigin());
-    phrasesStore.startBlankTake();
-    return true;
+    return (!phrasesStore.isTakeTouched && take.derivedFrom?.id) || take.id;
+  });
+  const deskLayer = computed(() => layers.value.find((layer) => layer.sourceId === deskKey.value));
+  const isDeskPlaying = computed(() => Boolean(deskLayer.value));
+
+  /** The Play key: the desk's pattern joins what is playing, or leaves it. */
+  function togglePlay() {
+    if (deskLayer.value) removeLayer(deskLayer.value.id);
+    else addPhrase(phrasesStore.take, liveOrigin(), deskKey.value);
   }
 
-  /**
-   * Holding Return sets the desk's pattern playing. The first one makes the
-   * loop, and a loop existing is what loop mode is.
-   */
-  function holdReturn() {
-    const take = phrasesStore.take;
-    if (!take.notes.length) return;
-    addPhrase(take, liveOrigin());
+  // A playing pattern is read-only: playing over it starts a fresh take on top.
+  setBeforeLivePress(() => {
+    if (isDeskPlaying.value) phrasesStore.startBlankTake();
+  });
+
+  /** Latch (hold Play): what you play joins by itself after a bar of silence. */
+  const latched = ref(false);
+  let latchTimer: ReturnType<typeof setInterval> | undefined;
+  function latchCheck() {
+    const { recorder } = phrasesStore.book;
+    if (isDeskPlaying.value || liveOrigin() === null || phrasesStore.isTakeSounding) return;
+    if (recorder.lastReleaseWall === null) return;
+    if (Date.now() - recorder.lastReleaseWall < barMs.value / rate()) return;
+    addPhrase(phrasesStore.take, liveOrigin(), phrasesStore.take.id);
     phrasesStore.startBlankTake();
+  }
+  /** Stop All: nothing playing, and nothing joining by itself. */
+  function stopAll() {
+    if (latched.value) toggleLatch();
+    clear();
+  }
+
+  function toggleLatch() {
+    latched.value = !latched.value;
+    clearInterval(latchTimer);
+    if (latched.value) latchTimer = setInterval(latchCheck, 100);
   }
 
   function removeLayer(id: string) {
     layers.value = layers.value.filter((layer) => layer.id !== id);
     if (soloId.value === id) soloId.value = null;
     if (!layers.value.length) clear();
+    else measure();
   }
 
   function peelLayer(): boolean {
@@ -323,8 +354,11 @@ export const useLoopPrototypeStore = defineStore("loopPrototype", () => {
     phase,
     publishBeat,
     latencyMs,
-    holdReturn,
-    layDownTake,
+    togglePlay,
+    isDeskPlaying,
+    latched,
+    toggleLatch,
+    stopAll,
     toggle,
     toggleMute,
     toggleSolo,

@@ -11,9 +11,15 @@
           :tone="isPlaying ? 'ink' : 'ivory'"
           :haptic="haptic"
           :disabled="playDisabled"
+          :class="{ 'paper-button--loading code-strip-bar__play--latched': playLatched }"
           :accessible-name="isPlaying ? 'Stop' : 'Play'"
           :title="isPlaying ? 'Stop' : 'Play'"
-          @click="emit('togglePlayback')"
+          @pointerdown="playDown"
+          @pointerup="playCancel"
+          @pointerleave="playCancel"
+          @pointercancel="playCancel"
+          @contextmenu.prevent
+          @click="playClick"
         >
           <Square v-if="isPlaying" />
           <Play v-else />
@@ -50,18 +56,11 @@
         size="sm"
         tone="ivory"
         :haptic="haptic"
-        :accessible-name="returnAdds ? 'Add to loop' : 'Return'"
-        :title="returnAdds ? 'Add to loop' : 'Return'"
-        @pointerdown="returnDown"
-        @pointerup="returnCancel"
-        @pointerleave="returnCancel"
-        @pointercancel="returnCancel"
-        @contextmenu.prevent
-        @click="returnClick"
+        accessible-name="Return"
+        title="Return"
+        @click="emit('return')"
       >
-        <!-- PROTOTYPE: in loop mode Return adds the desk to the loop. -->
-        <Plus v-if="returnAdds" />
-        <CornerDownLeft v-else />
+        <CornerDownLeft />
       </Button>
     </div>
 
@@ -71,7 +70,6 @@
 <script setup lang="ts">
 import {
   CornerDownLeft,
-  Plus,
   Delete as BackspaceIcon,
   Play,
   Square,
@@ -91,7 +89,8 @@ const props = withDefaults(
     isPlaying?: boolean;
     playDisabled?: boolean;
     haptic?: boolean;
-    returnAdds?: boolean;
+    /** PROTOTYPE: latch is on (hold Play); the key runs its loading orbit. */
+    playLatched?: boolean;
     tokens?: CodeStripToken[];
     source?: string;
     density?: CodeStripDensity;
@@ -104,7 +103,7 @@ const props = withDefaults(
     isPlaying: false,
     playDisabled: false,
     haptic: false,
-    returnAdds: false,
+    playLatched: false,
     tokens: undefined,
     source: undefined,
     density: "dense",
@@ -121,33 +120,38 @@ const emit = defineEmits<{
   togglePlayback: [];
   backspace: [];
   return: [];
-  returnHold: [];
+  playHold: [];
 }>();
 
-// PROTOTYPE: holding Return is the Looper gesture; the click that ends a hold is swallowed.
-const RETURN_HOLD_MS = 450;
-let returnHoldTimer: ReturnType<typeof setTimeout> | undefined;
-let returnHeld = false;
-function returnDown() {
-  returnHeld = false;
-  clearTimeout(returnHoldTimer);
-  returnHoldTimer = setTimeout(() => {
-    returnHeld = true;
-    emit("returnHold");
-  }, RETURN_HOLD_MS);
+// PROTOTYPE: holding Play latches the Looper; the click that ends a hold is swallowed.
+const PLAY_HOLD_MS = 450;
+let playHoldTimer: ReturnType<typeof setTimeout> | undefined;
+let playHeld = false;
+function playDown() {
+  playHeld = false;
+  clearTimeout(playHoldTimer);
+  playHoldTimer = setTimeout(() => {
+    playHeld = true;
+    emit("playHold");
+  }, PLAY_HOLD_MS);
 }
-function returnCancel() {
-  clearTimeout(returnHoldTimer);
+function playCancel() {
+  clearTimeout(playHoldTimer);
 }
-function returnClick() {
-  clearTimeout(returnHoldTimer);
-  if (returnHeld) returnHeld = false;
-  else emit("return");
+function playClick() {
+  clearTimeout(playHoldTimer);
+  if (playHeld) playHeld = false;
+  else emit("togglePlayback");
 }
 
 </script>
 
 <style scoped>
+/* The latched Play key keeps its icon readable under the loading orbit. */
+.code-strip-bar__play--latched :deep(.paper-button__content) {
+  opacity: 1;
+}
+
 .code-strip-bar {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;

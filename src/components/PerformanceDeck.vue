@@ -57,11 +57,11 @@
           :is-playing="isPlaying"
           :play-disabled="playDisabled"
           :haptic="isProductionUsage"
-          :return-adds="loopPrototype?.armed"
+          :play-latched="loopPrototype?.latched"
           @toggle-playback="toggleSketchPlayback"
           @backspace="handleBackspace"
           @return="handleReturn"
-          @return-hold="loopPrototype?.holdReturn()"
+          @play-hold="loopPrototype?.toggleLatch()"
         />
         <HummingCaptureTransport
           v-if="isProductionUsage"
@@ -268,7 +268,10 @@ const patternControlSignals = reactive<Record<PatternControl, number>>({
 });
 
 const drawerOpen = computed(() => store?.drawer.isOpen ?? props.drawerOpen);
-const isPlaying = computed(() => playback?.isPlaying.value ?? props.isPlaying);
+// PROTOTYPE: in production, Play is the Looper, not the Code Strip's own transport.
+const isPlaying = computed(() => loopPrototype
+  ? loopPrototype.isDeskPlaying
+  : playback?.isPlaying.value ?? props.isPlaying);
 const hasPlayableCode = computed(() => playback?.hasPlayableCode.value
   ?? Boolean(
     props.codeStripTokens.length
@@ -278,7 +281,8 @@ const interactionLocked = computed(() =>
   instrumentStore?.isInteractionLocked ?? props.warming
 );
 const playDisabled = computed(() => isProductionUsage
-  ? !hasPlayableCode.value || (interactionLocked.value && !isPlaying.value)
+  // PROTOTYPE: always pressable, so Play can be held to latch on an empty desk.
+  ? false
   : props.playDisabled
     || !hasPlayableCode.value
     || (interactionLocked.value && !isPlaying.value)
@@ -322,6 +326,11 @@ function setPatternReelGuard(active: boolean) {
 }
 
 async function toggleSketchPlayback() {
+  // PROTOTYPE: Play is the loop.
+  if (loopPrototype) {
+    loopPrototype.togglePlay();
+    return;
+  }
   if (!playback) {
     if (playDisabled.value) return;
     emit("togglePlayback");
@@ -340,7 +349,7 @@ async function toggleSketchPlayback() {
 
 async function toggleHummingCapture() {
   if (!humming || !playback) return;
-  if (isPlaying.value && hummingStatus.value !== "recording") {
+  if (!loopPrototype && isPlaying.value && hummingStatus.value !== "recording") {
     await playback.stop();
   }
   await humming.toggle();
@@ -368,8 +377,6 @@ function handleReturn() {
     return;
   }
 
-  // PROTOTYPE: while a loop is on the Platter, Return lays the take down on it.
-  if (loopPrototype?.layDownTake()) return;
   phrasesStore.keepTake();
 }
 

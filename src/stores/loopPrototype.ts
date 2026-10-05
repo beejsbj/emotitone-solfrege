@@ -174,10 +174,19 @@ export const useLoopPrototypeStore = defineStore("loopPrototype", () => {
     else start();
   }
 
-  /** Where phrase time 0 of the open take sits on the loop, or null if it wasn't played live. */
+  // Note events are stamped on the audio clock's idea of wall time, which can
+  // sit apart from Date.now() on a real device. Measure the gap at each press
+  // (the smallest seen is the truest) and correct for it.
+  let stampSkew = 0;
+  let skewTakeId = "";
+  /** When the open take last went quiet, on our own clock; null while sounding. */
+  let quietSince: number | null = null;
+
+  /** Where phrase time 0 of the open take sits in wall time, or null if it wasn't played live. */
   function liveOrigin(): number | null {
     const { recorder } = phrasesStore.book;
-    return recorder.liveNoteIds.length && recorder.wallOrigin !== null ? recorder.wallOrigin : null;
+    if (!recorder.liveNoteIds.length || recorder.wallOrigin === null) return null;
+    return recorder.wallOrigin + (skewTakeId === phrasesStore.takeId ? stampSkew : 0);
   }
 
   function loopStartOf(wallOrigin: number): number {
@@ -253,18 +262,27 @@ export const useLoopPrototypeStore = defineStore("loopPrototype", () => {
   }
 
   // A playing pattern is read-only: playing over it starts a fresh take on top.
-  setBeforeLivePress(() => {
+  setBeforeLivePress((wallTime) => {
     if (isDeskPlaying.value) phrasesStore.startBlankTake();
+    const skew = Date.now() - wallTime;
+    if (skewTakeId !== phrasesStore.takeId) {
+      skewTakeId = phrasesStore.takeId;
+      stampSkew = skew;
+    } else stampSkew = Math.min(stampSkew, skew);
+    quietSince = null;
   });
 
   /** Latch (hold Play): what you play joins by itself after a bar of silence. */
   const latched = ref(false);
   let latchTimer: ReturnType<typeof setInterval> | undefined;
   function latchCheck() {
-    const { recorder } = phrasesStore.book;
-    if (isDeskPlaying.value || liveOrigin() === null || phrasesStore.isTakeSounding) return;
-    if (recorder.lastReleaseWall === null) return;
-    if (Date.now() - recorder.lastReleaseWall < barMs.value / rate()) return;
+    if (isDeskPlaying.value || liveOrigin() === null || phrasesStore.isTakeSounding) {
+      quietSince = null;
+      return;
+    }
+    quietSince ??= Date.now();
+    if (Date.now() - quietSince < barMs.value / rate()) return;
+    quietSince = null;
     addPhrase(phrasesStore.take, liveOrigin(), phrasesStore.take.id);
     phrasesStore.startBlankTake();
   }
@@ -332,6 +350,29 @@ export const useLoopPrototypeStore = defineStore("loopPrototype", () => {
     }));
   }
 
+  /** Live keys that are down right now, as growing notes at their place in the loop. */
+  const downNotes = new Map<string, { note: string; at: number }>();
+  window.addEventListener("note-played", (event) => {
+    const detail = (event as CustomEvent).detail;
+    if (!detail?.noteId || !detail.noteName || detail.record === false) return;
+    if (detail.source === "strudel-playback" || detail.source === "live-pitch") return;
+    downNotes.set(detail.noteId, { note: detail.noteName, at: Date.now() });
+  });
+  window.addEventListener("note-released", (event) => {
+    downNotes.delete((event as CustomEvent).detail?.noteId);
+  });
+  function heldNotes(): PatternNote[] {
+    if (!hasLoop.value || !downNotes.size) return [];
+    advance();
+    const now = Date.now();
+    const speed = rate();
+    return [...downNotes.values()].map(({ note, at }) => {
+      const duration = (now - at) * speed;
+      const pressTime = mod(posMs - duration - latencyMs() * speed, lengthMs.value);
+      return { id: note, note, pressTime, duration, releaseTime: pressTime + duration } as PatternNote;
+    });
+  }
+
   /** Pitch-class colour and height need the note as it sounds now. */
   function describe(note: PatternNote) {
     const parsed = TonalNote.get(note.note);
@@ -350,6 +391,8 @@ export const useLoopPrototypeStore = defineStore("loopPrototype", () => {
     nudgeMs,
     soundingNotes,
     pendingNotes,
+    heldNotes,
+    deskKey,
     describe,
     phase,
     publishBeat,

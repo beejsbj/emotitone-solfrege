@@ -44,6 +44,7 @@ import { useMusicStore } from "@/stores/music";
 import { useLoopPrototypeStore } from "@/stores/loopPrototype";
 import { usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
+import type { ChromaticNote } from "@/types/music";
 import type { LogNote, PatternNote } from "@/types/patterns";
 import type { Phrase } from "@/types/phrases";
 
@@ -224,6 +225,27 @@ function reelItem(entry: ReelEntry, isFront: boolean): PatternReelItem {
   // The same loop the generated code plays: one 4/4 bar per cycle at the
   // phrase's tempo, notes at their onsets, authored trailing silence kept.
   const lastEnd = Math.max(0, ...ordered.map((note) => note.pressTime + Math.max(1, note.duration)));
+  // PROTOTYPE: a pattern playing in the Looper shows exactly what its loop dial
+  // shows (same notes, length and place in the loop) and turns with it. A
+  // pattern that is not playing rests.
+  const layer = loopPrototype.layers.find((candidate) =>
+    candidate.sourceId === (isDesk ? loopPrototype.deskKey : phrase.id));
+  const playing = layer && {
+    loopDial: loopPrototype.soundingNotes(layer).map((note) => {
+      const { chroma, midi, octave: noteOctave } = loopPrototype.describe(note);
+      return {
+        color: getStaticPrimaryColorByPitchClass(
+          chroma, musicStore.currentMode, musicStore.currentKey as ChromaticNote, noteOctave,
+        ),
+        startMs: note.pressTime,
+        durationMs: note.duration,
+        height: midi,
+      };
+    }),
+    loopLengthMs: layer.lengthMs,
+    loopBarMs: 240_000 / loopPrototype.bpm,
+    loopLive: true,
+  };
   const loopLengthMs = phrase.duration > lastEnd ? phrase.duration : lastEnd + recordedLoopTailMs(phrase.context.bpm);
   return {
     id: phrase.id,
@@ -247,8 +269,8 @@ function reelItem(entry: ReelEntry, isFront: boolean): PatternReelItem {
     })),
     loopLengthMs,
     loopBarMs: phrase.context.bpm > 0 ? (60000 / phrase.context.bpm) * 4 : undefined,
-    // The desk holds the phrase the Code Strip plays.
-    loopLive: isDesk,
+    loopLive: false,
+    ...playing,
     tone: isDesk ? "take" : phrase.shelf as PatternStripTone,
     shelfTag: shelfTag(phrase, inPlace),
     lamp: isDesk ? (inPlace ? "armed" : "live") : undefined,

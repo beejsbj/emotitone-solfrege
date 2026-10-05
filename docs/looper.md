@@ -111,6 +111,11 @@ These are design-system units and go through that process, not this document:
   loop casts, with Strength, Definition and Spread. Haze at low Definition,
   comets curving along their orbits at high.
 - **Mic** rides the drawer's lip on the right; the left edge is the dials'.
+- **Pattern strip dial**: for a playing pattern it shows what its loop dial
+  shows (same notes, length and place) and turns with it; otherwise it rests.
+- **Code Strip**: when the pattern on the desk is playing, the strip follows
+  it with its highlight, as it does today for its own playback. This comes
+  from the single transport; the prototype cannot do it.
 
 ## Slices
 
@@ -130,5 +135,9 @@ Each is its own PR, in this order.
 - Does a 3-bar pattern drifting against a 4-bar one read as music or as a bug?
   Rule 2 allows it. The alternative is forcing lengths to nest, which pads
   odd-length tunes with silence.
-- Where a saved Loop's strip sits in the reel, and what its dial shows.
+- Where a saved Loop lives. Two candidates: a Kept strip in the home reel, or
+  (Burooj, 2026-10-05) **each Loop is its own reel**, reached by swiping left
+  and right from the home reel, holding only that Loop's patterns. The second
+  gives a Loop a place to be edited pattern by pattern; it needs a horizontal
+  gesture that does not fight the strips' own.
 - Whether the latch needs to be visible beyond the Play key's own state.

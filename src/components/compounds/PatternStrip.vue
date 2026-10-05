@@ -78,6 +78,7 @@
         :length-ms="item.loopLengthMs"
         :bar-ms="item.loopBarMs"
         :live="item.loopLive"
+        spin="disc"
         :aria-label="`${item.name} note timeline`"
       />
 

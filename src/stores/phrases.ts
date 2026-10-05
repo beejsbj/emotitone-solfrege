@@ -47,8 +47,8 @@ const MAX_EXPRESSION_POINTS = 8192;
 
 // PROTOTYPE (PR #132): the Looper decides, just before a live press is
 // recorded, whether it must land in a fresh take.
-let beforeLivePress: (() => void) | undefined;
-export function setBeforeLivePress(hook: (() => void) | undefined): void {
+let beforeLivePress: ((wallTime: number) => void) | undefined;
+export function setBeforeLivePress(hook: ((wallTime: number) => void) | undefined): void {
   beforeLivePress = hook;
 }
 
@@ -279,7 +279,7 @@ export const usePhrasesStore = defineStore(
       if (!isRecordable(event)) return;
       const detail = event.detail;
       if (!detail?.noteId) return;
-      beforeLivePress?.();
+      beforeLivePress?.(Number.isFinite(detail.timestamp) ? detail.timestamp : Date.now());
       const isBorrowed = detail.isBorrowed === true || detail.solfegeIndex < 0;
       const live = liveContext.value;
       pressNote(book.value, held, {

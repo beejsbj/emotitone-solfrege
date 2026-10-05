@@ -126,6 +126,11 @@ const STAGE_LOOK_FIELDS: Record<StageLookSection, readonly string[]> = {
     "vibrationAmplitude",
     "glowEnabled",
     "glowIntensity",
+    // Body timing belongs to a Look's character: Pop's 100ms pop-in and
+    // 200ms shrink-away are what make its bodies firm rather than foggy.
+    "scaleInDuration",
+    "scaleOutDuration",
+    "fadeOutDuration",
     "connectionMode",
     "fieldSoftness",
     "fusionStrength",

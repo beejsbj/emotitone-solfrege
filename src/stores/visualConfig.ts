@@ -16,6 +16,7 @@ import {
   type StageControlId,
   type StageLookPatch,
   type TransientStageLook,
+  STAGE_LOOK_BODY_TIMING_FIELDS,
 } from "@/services/stageAppearance";
 import {
   readDeckControls,
@@ -380,10 +381,20 @@ function migrateSavedStageLook(rawLook: unknown): SavedStageLook | null {
   }
 
   const now = new Date().toISOString();
+  const patch = sanitizeStageLookPatch(rawLook.patch);
+  // Looks saved before body timing joined the allowlist never stored it, and
+  // only a Look can change it now. Like a built-in, an omitted field resolves
+  // from the canonical defaults rather than whatever Look was kept before.
+  if (patch.blobs) {
+    const blobs = patch.blobs as Record<string, unknown>;
+    for (const field of STAGE_LOOK_BODY_TIMING_FIELDS) {
+      if (typeof blobs[field] !== "number") blobs[field] = DEFAULT_CONFIG.blobs[field];
+    }
+  }
   return {
     id: typeof rawLook.id === "string" ? rawLook.id : now,
     name: rawLook.name,
-    patch: sanitizeStageLookPatch(rawLook.patch),
+    patch,
     createdAt: typeof rawLook.createdAt === "string" ? rawLook.createdAt : now,
     updatedAt: typeof rawLook.updatedAt === "string" ? rawLook.updatedAt : now,
   };

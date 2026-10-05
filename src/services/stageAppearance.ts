@@ -115,6 +115,13 @@ export const STAGE_VARIATION_PREFERENCE_FIELDS = [
   "fieldSoftness",
 ] as const;
 
+/** Body timing joined the Look allowlist with Pop (#133). */
+export const STAGE_LOOK_BODY_TIMING_FIELDS = [
+  "scaleInDuration",
+  "scaleOutDuration",
+  "fadeOutDuration",
+] as const;
+
 const STAGE_LOOK_FIELDS: Record<StageLookSection, readonly string[]> = {
   blobs: [
     "isEnabled",
@@ -128,9 +135,7 @@ const STAGE_LOOK_FIELDS: Record<StageLookSection, readonly string[]> = {
     "glowIntensity",
     // Body timing belongs to a Look's character: Pop's 100ms pop-in and
     // 200ms shrink-away are what make its bodies firm rather than foggy.
-    "scaleInDuration",
-    "scaleOutDuration",
-    "fadeOutDuration",
+    ...STAGE_LOOK_BODY_TIMING_FIELDS,
     "connectionMode",
     "fieldSoftness",
     "fusionStrength",

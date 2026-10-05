@@ -36,12 +36,13 @@ export function measuredPhrases() {
   });
 }
 export function phonePhrases() {
-  return defaultPatterns.slice(0,4).map((p,i) => {
+  return [0,9,12,14].map((index,i) => {
+    const p=defaultPatterns[index];
     const barMs = 240000/p.bpm;
     const end = Math.max(...p.notes.map(n=>n.pressTime+n.duration));
-    // Include positive tail even when the final held note ends on a bar line.
-    const bars = Math.ceil((end + 1)/barMs);
-    return {...p,id:`p${i}`,bars,duration:bars*barMs,notes:p.notes.map(n=>({...n,key:p.key,mode:p.mode,
+    // A ribbon keeps the period integral even when notation adds its default tail.
+    const bars = Math.max(1,Math.ceil((end-1e-6)/barMs));
+    return {...p,id:`p${i}`,bars,clipToBars:true,duration:bars*barMs,notes:p.notes.map(n=>({...n,key:p.key,mode:p.mode,
       instrument:'sine',sessionId:'spike',solfege:{name:'spike'}}))};
   });
 }
@@ -61,7 +62,7 @@ export async function parsePhrase(phrase, absolute = false) {
   const code = sourceCode(phrase,{absolute});
   const result = await core.evaluate(code, transpiler);
   if (!core.isPattern(result.pattern)) throw new Error('Phrase compilation returned no pattern');
-  return {...result,code,phrase,absolute};
+  return {...result,pattern:phrase.clipToBars?result.pattern.ribbon(0,phrase.bars):result.pattern,code,phrase,absolute};
 }
 export function member(part, {offset=0,rate=1,pinned=false,key='C',mode='major',gain=.12} = {}) {
   let pattern = part.pattern;

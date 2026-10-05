@@ -38,7 +38,7 @@ document.querySelector('#start').onclick=async()=>{
     status.textContent='Preparing synths…';await initScope();parts=await Promise.all(phrases.map(p=>parsePhrase(p)));
     transport=createSpikeTransport(document.querySelector('#editor'),{bpm});
     transport.setDesk(parts.find(p=>p.phrase.id===desk.value));
-    await transport.set(core.stack(...parts.filter(p=>state.get(p.phrase.id).joined).map(p=>member(p,{...state.get(p.phrase.id),key,mode}))));
+    await transport.set(core.stack(...parts.filter(p=>{const s=state.get(p.phrase.id);return s.joined&&!s.muted&&(!solo||solo===p.phrase.id);}).map(p=>member(p,{...state.get(p.phrase.id),key,mode}))));
     status.textContent='Clock running. Join a phrase.';
   }catch(e){status.textContent=String(e);}
 };
@@ -48,3 +48,13 @@ document.querySelector('#key').onchange=async e=>{key=e.target.value;await rebui
 document.querySelector('#mode').onchange=async e=>{mode=e.target.value;await rebuild();};
 document.querySelector('#tempo').onchange=e=>{bpm=Number(e.target.value);if(transport){transport.setTempo(bpm);status.textContent=`Tempo ${bpm}; already queued notes finish at the old tempo.`;}};
 setInterval(()=>{document.querySelector('#position').textContent=transport?`Bar position ${Math.max(0,transport.barAtAudioTime(getAudioContext().currentTime)).toFixed(3)} · raw cycle ${transport.mirror.repl.scheduler.now().toFixed(3)}`:'Stopped';},100);
+
+window.getSpikePhoneDiagnostics = () => ({
+  events: transport?.events ?? [],
+  frames: transport?.frames ?? [],
+  errors: transport?.errors ?? [],
+  phrases: parts?.map(p => ({
+    id: p.phrase.id, name: p.phrase.name, bars: p.phrase.bars,
+    onsets: p.pattern.queryArc(0,12).filter(h => h.hasOnset()).map(h => Number(h.whole.begin)),
+  })),
+});

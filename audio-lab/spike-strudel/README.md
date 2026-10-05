@@ -5,7 +5,8 @@ This directory is isolated from `src/main.ts` and the production playback servic
 The Vite build has a separate HTML entry; Vercel maps `/spike/strudel-transport`
 to it. Locally open `/audio-lab/spike-strudel.html` after `bun run dev`.
 
-The phone page uses the first four built-in melodies from `src/data/patterns.ts`,
+The phone page uses Twinkle, Midnight Dorian, Highland Reel and Cyber Pulse
+from `src/data/patterns.ts`, with independent 3/4-bar periods,
 played on synths to avoid sample downloads. Start enables audio, Join/leave
 changes membership, Mute/solo gates members, Pin preserves the source scale,
 and rate/offset select relative speed and shared-bar displacement. Select Desk

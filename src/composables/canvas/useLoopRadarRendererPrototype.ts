@@ -207,7 +207,9 @@ export function useLoopRadarRendererPrototype() {
    * Every curve passes through 1 (or the shipped constant) at its default.
    */
   const knobs = computed(() => {
-    const { strength, definition, spread, sparks } = readLoopGlow(ambientConfig.value);
+    const { strength, definition, spread } = readLoopGlow(ambientConfig.value);
+    // Sparks were tried and dropped (2026-10-05). Their code below is dormant.
+    const sparks = 0 as number;
     // Strength: 0 absent, 0.5 as shipped; above that it eases off, because
     // additive pools wash to white long before the knob would end.
     const gain = strength < 0.5 ? strength * 2 : 1 + (strength - 0.5) * 1.1;

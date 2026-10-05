@@ -22,7 +22,6 @@ export type StageControlId =
   | "loopStrength"
   | "loopDefinition"
   | "loopSpread"
-  | "loopSparks"
   | "stringPresence"
   | "stringResponse"
   | "fleckAmount"
@@ -51,7 +50,6 @@ export interface StageControls {
   loopStrength: number;
   loopDefinition: number;
   loopSpread: number;
-  loopSparks: number;
   stringPresence: number;
   stringResponse: number;
   fleckAmount: number;
@@ -155,7 +153,6 @@ const STAGE_LOOK_FIELDS: Record<StageLookSection, readonly string[]> = {
     "loopStrength",
     "loopDefinition",
     "loopSpread",
-    "loopSparks",
   ],
   particles: ["isEnabled", "count", "speed", "gravity", "airResistance"],
   strings: [
@@ -264,7 +261,6 @@ export const STAGE_CONTROL_GROUPS: StageControlGroup[] = [
       { id: "loopStrength", label: "Strength", type: "range", min: 0, max: 1, step: 0.05, format: percent },
       { id: "loopDefinition", label: "Definition", type: "range", min: 0, max: 1, step: 0.05, format: percent },
       { id: "loopSpread", label: "Spread", type: "range", min: 0, max: 1, step: 0.05, format: percent },
-      { id: "loopSparks", label: "Sparks", type: "range", min: 0, max: 1, step: 0.05, format: percent },
     ],
   },
 ];
@@ -275,14 +271,13 @@ export const STAGE_CONTROL_DEFINITIONS: StageControlDefinition[] = [
 ];
 
 /** PROTOTYPE: the loop glow's look; these defaults are the look it shipped with. */
-export const LOOP_GLOW_DEFAULTS = { strength: 0.5, definition: 0.25, spread: 0.5, sparks: 0.4 } as const;
+export const LOOP_GLOW_DEFAULTS = { strength: 0.5, definition: 0.25, spread: 0.5 } as const;
 
 export function readLoopGlow(ambient: VisualEffectsConfig["ambient"]) {
   return {
     strength: clamp(ambient.loopStrength ?? LOOP_GLOW_DEFAULTS.strength),
     definition: clamp(ambient.loopDefinition ?? LOOP_GLOW_DEFAULTS.definition),
     spread: clamp(ambient.loopSpread ?? LOOP_GLOW_DEFAULTS.spread),
-    sparks: clamp(ambient.loopSparks ?? LOOP_GLOW_DEFAULTS.sparks),
   };
 }
 
@@ -468,7 +463,6 @@ export function readStageControls(config: VisualEffectsConfig): StageControls {
     loopStrength: readLoopGlow(config.ambient).strength,
     loopDefinition: readLoopGlow(config.ambient).definition,
     loopSpread: readLoopGlow(config.ambient).spread,
-    loopSparks: readLoopGlow(config.ambient).sparks,
     stringPresence: config.strings.isEnabled
       ? clamp(config.strings.baseOpacity / 0.12)
       : 0,
@@ -576,7 +570,6 @@ export function patchStageControl(
     case "loopStrength":
     case "loopDefinition":
     case "loopSpread":
-    case "loopSparks":
       next.ambient[control] = clamp(value);
       break;
     case "stringPresence": {

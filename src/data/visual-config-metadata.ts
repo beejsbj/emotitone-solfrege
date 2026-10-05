@@ -336,14 +336,6 @@ export const UNIFIED_CONFIG = {
       label: "Loop Glow Spread",
       format: (v: number) => `${(v * 100).toFixed(0)}%`,
     },
-    loopSparks: {
-      value: 0.4,
-      min: 0,
-      max: 1,
-      step: 0.05,
-      label: "Looper Sparks",
-      format: (v: number) => `${(v * 100).toFixed(0)}%`,
-    },
   },
 
   particles: {

@@ -64,13 +64,8 @@ export const STAGE_LAB_UNITS: StageLabUnit[] = [
     reading:
       "One body per sounding note on the Circle-of-Fifths orbit: a soft, blurred, glowing disc whose contour vibrates. Production fuses bodies with their Merge/Web; here the bodies stand alone.",
     keeps: "Lifecycle, replay, exact-pitch colour, orbit positions, contour vibration and release timing, from the production body renderer's prepared frames.",
-    verdict: "Burooj, 2026-10-02: \"All meh. Rings is best.\" 2026-10-03, on a reference from another app: \"I like it for the blob vibe… The feel without the blur… we only need the vibe of the blob not the surrounding structure.\" Then: \"It will be a full disk/blob. No core. The aesthetic and motion is what I like from the reference image.\" In Lit the reference disc is production's own field under the Pop Look (Compose); Paper and Dot discs are below. Motion is production's, tightened by the Pop Look's knobs.",
+    verdict: "Burooj, 2026-10-02: \"All meh. Rings is best.\" 2026-10-03, on a reference from another app: \"I like it for the blob vibe… The feel without the blur… we only need the vibe of the blob not the surrounding structure.\" Then: \"It will be a full disk/blob. No core. The aesthetic and motion is what I like from the reference image.\" In Lit the reference disc is production's own field under the Pop Look (Compose); Motion is production's, tightened by the Pop Look's knobs. 2026-10-06: \"Pop is just a look not new default.\" and \"Retire register rings.\" Lit keeps production's bodies; Pop ships as a Look.",
     directions: [
-      { id: "rings", letter: "A", name: "Register Rings", family: "any", paper: "plum",
-        idea: "A flat core with one ring per scientific octave (C4 has four), the outer ring riding the contour: high notes are many fine rings, low notes a few wide ones.",
-        better: "Register becomes visible, which colour lightness alone only hints at.",
-        risks: "Dense on high notes; the count needs learning.",
-        bible: fits("Light", "Music Color only; no blur.") },
     ],
   },
   {

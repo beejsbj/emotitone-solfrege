@@ -35,7 +35,6 @@ import type {
   ScopePainter,
   StringsPainter,
 } from "./painters/types";
-import { ringBlobs } from "./painters/blobs";
 import { createDiffusedBand } from "./painters/atmosphere";
 import { completeIntervalPaths } from "./painters/shared";
 
@@ -84,9 +83,7 @@ const ATMOSPHERE: Record<string, () => AtmospherePainter> = {
 };
 const STRINGS: Record<string, () => StringsPainter> = {};
 const SCOPE: Record<string, () => ScopePainter> = {};
-const BLOBS: Record<string, () => BlobsPainter> = {
-  rings: () => ringBlobs,
-};
+const BLOBS: Record<string, () => BlobsPainter> = {};
 const CONNECTIONS: Record<string, () => ConnectionsPainter> = {};
 const FLECKS: Record<string, () => FlecksPainter> = {};
 /** Lettering kept no lab direction (Burooj, 2026-10-02); production lettering stays. */

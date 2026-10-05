@@ -35,7 +35,7 @@ export const STAGE_LAB_DIRECTION_IDS = {
   strings: [],
   scope: [],
   connections: [],
-  blobs: ["rings"],
+  blobs: [],
   flecks: [],
   lettering: [],
 } as const satisfies Record<StageLabUnitId, readonly string[]>;

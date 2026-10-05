@@ -6,7 +6,7 @@
  * See src/stores/loopPrototype.ts for the question it answers.
  */
 import { computed, onBeforeUnmount, onMounted } from "vue";
-import { Repeat } from "lucide-vue-next";
+import { Repeat, Square } from "lucide-vue-next";
 import Button from "@/components/primatives/Button.vue";
 import LoopDial from "@/components/primatives/LoopDial.vue";
 import { useMusicColor } from "@/composables/useMusicColor";
@@ -91,6 +91,7 @@ function dialUp(id: string) {
     <div class="loop-mode-button">
       <Button
         class="loop-mode-button__button"
+        :class="{ 'paper-button--loading': loop.armed }"
         size="md"
         :tone="loop.armed ? 'ivory' : 'brass'"
         haptic
@@ -98,7 +99,9 @@ function dialUp(id: string) {
         :title="loop.armed ? 'Leave loop mode' : 'Loop mode'"
         @click="loop.toggleMode()"
       >
-        <Repeat />
+        <!-- Active: the Button's loading orbit runs and the icon becomes Stop. -->
+        <Square v-if="loop.armed" />
+        <Repeat v-else />
       </Button>
     </div>
   </Teleport>
@@ -233,6 +236,11 @@ function dialUp(id: string) {
   right: calc(50% + 14px + var(--s-4));
   display: inline-flex;
   pointer-events: auto;
+}
+
+/* The loading look without the loading lock: the button must stay pressable. */
+.loop-mode-button .paper-button--loading .paper-button__content {
+  opacity: 1;
 }
 
 .loop-mode-button .loop-mode-button__button {

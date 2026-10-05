@@ -35,7 +35,7 @@ try{
   await call('Runtime.enable');await call('Page.bringToFront');await call('Page.navigate',{url:`http://127.0.0.1:${vite.httpServer.address().port}/audio-lab/spike-strudel/suite.html`});
   let ready=false;for(let i=0;i<200;i++){const r=await call('Runtime.evaluate',{expression:'typeof window.runStrudelSpike === "function"',returnByValue:true});if(r.result.value){ready=true;break;}await new Promise(r=>setTimeout(r,100));}
   if(!ready)throw Error('Spike failed to initialize');
-  const r=await call('Runtime.evaluate',{expression:process.env.SPIKE_COST_ONLY?"window.runStrudelSpikeCost()":`window.runStrudelSpike(${!!process.env.SPIKE_SMOKE},${!!process.env.SPIKE_SKIP_COST})`,awaitPromise:true,returnByValue:true,timeout:900000});
+  const r=await call('Runtime.evaluate',{expression:process.env.SPIKE_COST_ONLY?"window.runStrudelSpikeCost()":`window.runStrudelSpike(${!!process.env.SPIKE_SMOKE},${!!process.env.SPIKE_SKIP_COST},${JSON.stringify(process.env.SPIKE_STRATEGY??null)})`,awaitPromise:true,returnByValue:true,timeout:900000});
   if(r.exceptionDetails){const partial=await call("Runtime.evaluate",{expression:"window.spikePartial",returnByValue:true});await writeFile((process.argv[2]||"audio-lab/results/spike-strudel-transport.json")+".partial.json",JSON.stringify({warnings,...partial.result.value,error:r.exceptionDetails},null,2)+"\n");throw Error(JSON.stringify(r.exceptionDetails));}
   const output=process.argv[2]||'audio-lab/results/spike-strudel-transport.json';
   const receipt={recordedAt:new Date().toISOString(),revision,hashes,warnings,...r.result.value};

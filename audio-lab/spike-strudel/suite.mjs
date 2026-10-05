@@ -119,7 +119,7 @@ async function trial(parts,capture,strategy,bpm,repetition){
   const segments=[{from:0,to:Infinity,ids:[0]}];
   function segment(from,ids){segments.at(-1).to=from;segments.push({from,to:Infinity,ids});}
   async function change(ids,requested){
-    const requestedAudio=getAudioContext().currentTime();
+    const requestedAudio=getAudioContext().currentTime;
     let before,after,ms,boundary;
     if(strategy==='evaluate'){
       before={audio:getAudioContext().currentTime,cycle:s.now(),lastEnd:s.lastEnd};const start=performance.now();
@@ -172,15 +172,16 @@ async function trial(parts,capture,strategy,bpm,repetition){
   console.log(`SPIKE ${strategy} ${bpm} #${repetition}: haps missing ${perPhrase.reduce((s,p)=>s+p.haps.missing.length,0)}, PCM missing ${perPhrase.reduce((s,p)=>s+p.pcm.missing.length,0)}`);
   return result;
 }
-window.runStrudelSpike=async(smoke=false,skipCost=false)=>{
+window.runStrudelSpike=async(smoke=false,skipCost=false,onlyStrategy)=>{
   console.log("SPIKE init");await initScope();console.log("SPIKE parse");const phrases=measuredPhrases();const parts=await Promise.all(phrases.map(p=>parsePhrase(p)));
   console.log("SPIKE semantics");const semantics=await semanticChecks(parts);console.log("SPIKE cost");const cost=skipCost?[]:await benchmark(parts);window.spikePartial={semantics,benchmark:cost};console.log("SPIKE capture");const capture=await captureOrbits();console.log("SPIKE trials");
   const trials=[],tempos=[],held=[],expressions=[];window.spikePartial={semantics,benchmark:cost,trials,tempos,held,expressions};
-  try{for(const bpm of smoke?[150]:[90,150])for(const strategy of smoke?['boundary']:['evaluate','direct','boundary','timer-boundary','mute-solo'])
-    for(let repetition=0;repetition<(smoke?1:3);repetition++)trials.push(await trial(parts,capture,strategy,bpm,repetition));}
-  finally{if(!smoke){for(const bpm of [90,150]){for(const mode of ['setCps','evaluate-setCps','cpm-only'])for(let repetition=0;repetition<3;repetition++)tempos.push(await tempoTrial(parts,capture,mode,bpm,repetition));
+  try{for(const bpm of smoke?[150]:[90,150])for(const strategy of smoke?[onlyStrategy??'boundary']:['evaluate','direct','boundary','timer-boundary','mute-solo'])
+    for(let repetition=0;repetition<(smoke?1:3);repetition++)trials.push(await trial(parts,capture,strategy,bpm,repetition));
+    if(!smoke){for(const bpm of [90,150]){for(const mode of ['setCps','evaluate-setCps','cpm-only'])for(let repetition=0;repetition<3;repetition++)tempos.push(await tempoTrial(parts,capture,mode,bpm,repetition));
     for(let repetition=0;repetition<3;repetition++)held.push(await heldTrial(parts,capture,bpm,repetition));
-    for(const rate of [1,2])expressions.push(await expressionTrial(parts,capture,bpm,rate));}}capture.close();}
+    for(const rate of [1,2])expressions.push(await expressionTrial(parts,capture,bpm,rate));}}
+  }finally{capture.close();}
   const summary=[...new Set(trials.map(t=>t.strategy))].map(strategy=>{
     const group=trials.filter(t=>t.strategy===strategy);const measures=group.flatMap(t=>t.perPhrase);
     const errs=group.flatMap(t=>t.events.filter(e=>e.cycle>.1&&e.cycle<2.5).map(e=>absoluteError(e.t,t.anchor+e.cycle/(t.bpm/240))));

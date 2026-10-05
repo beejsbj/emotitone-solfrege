@@ -42,6 +42,11 @@ export default defineConfig({
         categories: ["music", "education", "entertainment"],
       },
       workbox: {
+        // The spike is a separate document, including for an installed PWA.
+        navigateFallbackDenylist: [
+          /^\/spike\/strudel-transport(?:\/|$)/,
+          /^\/audio-lab\/spike-strudel\.html$/,
+        ],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         runtimeCaching: [

@@ -14,6 +14,13 @@
  * Three Stage knobs (Loop Glow: Strength, Definition, Spread) shape it; their
  * defaults reproduce the look this shipped with.
  *
+ * Definition never resolves into discs (that is the Note Bodies' vocabulary:
+ * round, body-sized, filled, saturated, evenly soft). Above the default the
+ * haze thins and stretches, and each note condenses into a streetlight seen
+ * through fog: a pinpoint, whitened core with a comet tail drawn back along
+ * the turn. Spark and tail flare as the front passes and shrink behind it, so
+ * discreteness reads as motion in weather, not as objects.
+ *
  * Silent layers stay as faint, unresponsive haze. Notes of the open take that
  * are not laid down yet are a barely-there tint.
  * See src/stores/loopPrototype.ts for the question the prototype answers.
@@ -52,6 +59,8 @@ interface Pool {
   jitter: number;
   /** Diameter, 0..1 of the radar radius. */
   size: number;
+  spark: HTMLCanvasElement;
+  tail: HTMLCanvasElement;
   durationMs: number;
   sprite: HTMLCanvasElement;
   silent: boolean;
@@ -61,6 +70,55 @@ interface Pool {
 function scatter(seed: number): number {
   const x = Math.sin(seed * 12.9898) * 43758.5453;
   return x - Math.floor(x);
+}
+
+function mix(rgb: [number, number, number], toIvory: number): string {
+  const ivory = [244, 239, 230];
+  return rgb.map((channel, index) => Math.round(channel + (ivory[index] - channel) * toIvory)).join(", ");
+}
+
+/** A pinpoint: whitened core, a quick falloff into the note's colour. */
+function sparkSprite(rgb: [number, number, number]): HTMLCanvasElement {
+  const canvas = document.createElement("canvas");
+  canvas.width = SPRITE;
+  canvas.height = SPRITE;
+  const ctx = canvas.getContext("2d")!;
+  const half = SPRITE / 2;
+  const core = mix(rgb, 0.6);
+  const tint = mix(rgb, 0.2);
+  const gradient = ctx.createRadialGradient(half, half, 0, half, half, half);
+  gradient.addColorStop(0, `rgba(${core}, 1)`);
+  gradient.addColorStop(0.1, `rgba(${core}, 0.85)`);
+  gradient.addColorStop(0.24, `rgba(${tint}, 0.3)`);
+  gradient.addColorStop(0.5, `rgba(${tint}, 0.07)`);
+  gradient.addColorStop(1, `rgba(${tint}, 0)`);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, SPRITE, SPRITE);
+  return canvas;
+}
+
+/** A comet tail: brightest at the head (right edge), dissolving backward. */
+function tailSprite(rgb: [number, number, number]): HTMLCanvasElement {
+  const canvas = document.createElement("canvas");
+  canvas.width = SPRITE;
+  canvas.height = 16;
+  const ctx = canvas.getContext("2d")!;
+  const tint = mix(rgb, 0.3);
+  const along = ctx.createLinearGradient(0, 0, SPRITE, 0);
+  along.addColorStop(0, `rgba(${tint}, 0)`);
+  along.addColorStop(0.55, `rgba(${tint}, 0.18)`);
+  along.addColorStop(0.9, `rgba(${tint}, 0.6)`);
+  along.addColorStop(1, `rgba(${tint}, 0)`);
+  ctx.fillStyle = along;
+  ctx.fillRect(0, 0, SPRITE, 16);
+  ctx.globalCompositeOperation = "destination-in";
+  const across = ctx.createLinearGradient(0, 0, 0, 16);
+  across.addColorStop(0, "rgba(0,0,0,0)");
+  across.addColorStop(0.5, "rgba(0,0,0,1)");
+  across.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = across;
+  ctx.fillRect(0, 0, SPRITE, 16);
+  return canvas;
 }
 
 function poolSprite(rgb: string): HTMLCanvasElement {
@@ -132,31 +190,35 @@ export function useLoopRadarRendererPrototype() {
     // Strength: 0 absent, 0.5 as shipped; above that it eases off, because
     // additive pools wash to white long before the knob would end.
     const gain = strength < 0.5 ? strength * 2 : 1 + (strength - 0.5) * 1.1;
-    // Definition: pools shrink geometrically from 1.38x (haze) to 0.38x
-    // (countable nodes), un-smear to round, and brighten to keep their energy.
-    const tightness = 1.38 * Math.pow(0.2755, definition);
-    const smear = Math.max(0, (1 - definition) / 0.75);
+    // Definition, low half: haze tightens from 1.38x to the shipped pools at
+    // 0.25. Above that the pools stay large but thin and stretch, and sparks
+    // with comet tails take over (weight `discrete`, 0 at the default).
+    const below = Math.min(definition, 0.25);
+    const discrete = Math.max(0, (definition - 0.25) / 0.75);
+    const tightness = 1.38 * Math.pow(0.2755, below) * (1 - 0.1 * discrete);
+    const smear = Math.max(0, (1 - below) / 0.75);
     // Spread: how far the light reaches, 0.55x gathered to 1.6x filling the Stage.
     const reach = spread < 0.5 ? 0.55 + spread * 0.9 : 1 + (spread - 0.5) * 1.2;
     return {
       gain,
       frontAlpha: strength < 0.5 ? strength : 0.5 + (strength - 0.5) * 0.6,
       size: tightness * Math.sqrt(reach),
-      stretch: 1 + 0.5 * smear,
+      stretch: 1 + 0.5 * smear + 0.8 * discrete,
       swellStretch: 0.5 * smear,
-      energy: 1 / tightness,
+      energy: (1.38 * Math.pow(0.2755, below)) ** -1 * (1 - 0.5 * discrete),
+      discrete,
       reach,
       jitter: 0.4 + spread * 1.2,
     };
   });
 
   // Music Color per (pitch class, octave) in the current key and mode.
-  const sprites = new Map<number, HTMLCanvasElement>();
+  const sprites = new Map<number, Pick<Pool, "sprite" | "spark" | "tail">>();
   let tintKey: ChromaticNote | null = null;
   let tintMode: MusicalMode | null = null;
   let tintConfig: unknown = null;
 
-  function spriteOf(chroma: number, octave: number): HTMLCanvasElement {
+  function spriteOf(chroma: number, octave: number): Pick<Pool, "sprite" | "spark" | "tail"> {
     const key = musicStore.currentKey as ChromaticNote;
     const mode = musicStore.currentMode as MusicalMode;
     const config = dynamicColorConfig.value;
@@ -177,9 +239,10 @@ export function useLoopRadarRendererPrototype() {
         config,
         "fixed-chromatic",
       )?.sample.primary.srgb;
-      sprite = poolSprite(srgb
-        ? `${Math.round(srgb.r * 255)}, ${Math.round(srgb.g * 255)}, ${Math.round(srgb.b * 255)}`
-        : IVORY);
+      const rgb: [number, number, number] = srgb
+        ? [Math.round(srgb.r * 255), Math.round(srgb.g * 255), Math.round(srgb.b * 255)]
+        : [244, 239, 230];
+      sprite = { sprite: poolSprite(rgb.join(", ")), spark: sparkSprite(rgb), tail: tailSprite(rgb) };
       sprites.set(id, sprite);
     }
     return sprite;
@@ -210,7 +273,7 @@ export function useLoopRadarRendererPrototype() {
         jitter: ((midi - low) / span - 0.5) * 0.3 + (scatter(note.pressTime + midi) - 0.5) * 0.14,
         size: (0.8 + reach * 0.35) * (0.85 + Math.min(0.5, note.duration / lengthMs) * 0.8),
         durationMs: Math.max(30, note.duration),
-        sprite: spriteOf(chroma, octave),
+        ...spriteOf(chroma, octave),
         silent,
       });
     }
@@ -340,6 +403,9 @@ export function useLoopRadarRendererPrototype() {
     fogCtx.clearRect(0, 0, fw, fh);
     fogCtx.setTransform(1 / SCALE, 0, 0, 1 / SCALE, -usable.x / SCALE, -usable.y / SCALE);
     fogCtx.globalCompositeOperation = "lighter";
+    // Additive, so sparks can go straight onto the Stage in the same pass.
+    ctx.globalCompositeOperation = "lighter";
+    const sparkScale = radius / 190;
     for (const pool of pools) {
       const swell = pool.silent ? 0 : push(pool, reducedMotion);
       // Pushed: the front shoves a pool outward and along as it passes.
@@ -362,7 +428,27 @@ export function useLoopRadarRendererPrototype() {
         (x - usable.x) / SCALE, (y - usable.y) / SCALE,
       );
       fogCtx.drawImage(pool.sprite, -size / 2, -size / 2, size, size);
+
+      if (knob.discrete > 0) {
+        const lit = pool.silent ? 0.12 : 0.3 + swell * 0.7;
+        const tx = Math.cos(pool.angle);
+        const ty = Math.sin(pool.angle);
+        const alpha = Math.min(1, knob.discrete * knob.gain * presence);
+        // The tail lies back along the turn, longest just after the front passes.
+        if (!pool.silent && swell > 0.02) {
+          const length = radius * (0.05 + swell * 0.26) * knob.discrete;
+          const thickness = (6 + swell * 6) * sparkScale;
+          ctx.setTransform(tx, ty, -ty, tx, x, y);
+          ctx.globalAlpha = alpha * swell;
+          ctx.drawImage(pool.tail, -length, -thickness / 2, length * 1.04, thickness);
+        }
+        const spark = (16 + swell * 22) * sparkScale;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.globalAlpha = alpha * lit;
+        ctx.drawImage(pool.spark, x - spark / 2, y - spark / 2, spark, spark);
+      }
     }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     fogCtx.setTransform(1 / SCALE, 0, 0, 1 / SCALE, -usable.x / SCALE, -usable.y / SCALE);
     for (const ghost of ghosts) {
       const size = ghost.size * radius * knob.size;

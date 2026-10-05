@@ -1,7 +1,7 @@
 # Strudel as the Looper's single transport — 2026-10-05
 
 **Verdict: yes with conditions.** Keep one Strudel scheduler, prepare phrases
-without blocking its running audio thread, and swap cached Pattern objects
+without blocking the scheduler’s main thread, and swap cached Pattern objects
 through `repl.setPattern`.
 The desktop experiment preserved the grid, sounding voices and note events.
 The Code Strip's existing editor-evaluation path is too expensive for a hot

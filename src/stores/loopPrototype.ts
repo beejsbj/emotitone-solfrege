@@ -9,7 +9,7 @@
  * audio clock that drives the live voice API directly, not Strudel.
  */
 import { defineStore } from "pinia";
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { Note as TonalNote } from "@tonaljs/tonal";
 import {
   getSemitoneShift,
@@ -17,7 +17,7 @@ import {
   transposePatternNotes,
 } from "@/data/patterns";
 import { cloneNote, resolveBpm } from "@/domain/phraseBook";
-import { attackNote, getAudioContext, releaseNote } from "@/services/superdoughAudio";
+import { announceScheduledNote, attackNote, getAudioContext, releaseNote } from "@/services/superdoughAudio";
 import { uiBeatClock } from "@/composables/useUIBeat";
 import { useMusicStore } from "@/stores/music";
 import { setBeforeLivePress, usePhrasesStore } from "@/stores/phrases";
@@ -41,6 +41,8 @@ export interface LoopLayer {
   /** The pattern's own length in whole bars; it cycles on the shared bar grid. */
   lengthMs: number;
   muted: boolean;
+  /** Latch: this is the take still being played; it grows as notes land. */
+  open?: boolean;
 }
 
 const TICK_MS = 25;
@@ -127,6 +129,8 @@ export const useLoopPrototypeStore = defineStore("loopPrototype", () => {
             attack: note.articulation?.attack,
             release: note.articulation?.release,
           }).then(() => releaseNote(voiceId, end)).catch(() => undefined);
+          // Note Bodies, Strings and the keys react to loop notes too.
+          announceScheduledNote(note.note, layer.instrument, start, end - start);
         }
       }
     }
@@ -252,12 +256,17 @@ export const useLoopPrototypeStore = defineStore("loopPrototype", () => {
     const take = phrasesStore.take;
     return (!phrasesStore.isTakeTouched && take.derivedFrom?.id) || take.id;
   });
-  const deskLayer = computed(() => layers.value.find((layer) => layer.sourceId === deskKey.value));
+  const deskLayer = computed(() =>
+    layers.value.find((layer) => layer.sourceId === deskKey.value && !layer.open));
+  const openLayer = () =>
+    layers.value.find((layer) => layer.open && layer.sourceId === phrasesStore.takeId);
   const isDeskPlaying = computed(() => Boolean(deskLayer.value));
 
   /** The Play key: the desk's pattern joins what is playing, or leaves it. */
   function togglePlay() {
-    if (deskLayer.value) removeLayer(deskLayer.value.id);
+    const growing = openLayer();
+    if (growing) growing.open = false;
+    else if (deskLayer.value) removeLayer(deskLayer.value.id);
     else addPhrase(phrasesStore.take, liveOrigin(), deskKey.value);
   }
 
@@ -272,8 +281,36 @@ export const useLoopPrototypeStore = defineStore("loopPrototype", () => {
     quietSince = null;
   });
 
-  /** Latch (hold Play): what you play joins by itself after a bar of silence. */
+  /**
+   * Latch (hold Play) works like a pedal's overdub: each note joins as it
+   * lands, so you hear it on the very next lap. After a bar of silence the
+   * take is closed and what you play next starts another pattern.
+   */
   const latched = ref(false);
+  function growOpenLayer() {
+    for (const layer of layers.value) {
+      if (layer.open && layer.sourceId !== phrasesStore.takeId) layer.open = false;
+    }
+    const take = phrasesStore.take;
+    const origin = liveOrigin();
+    const at = layers.value.findIndex((layer) => layer.open);
+    if (origin === null || !take.notes.length) {
+      if (at >= 0) removeLayer(layers.value[at].id);
+      return;
+    }
+    addPhrase(take, origin, take.id);
+    const grown = layers.value.pop()!;
+    grown.open = true;
+    if (at >= 0) {
+      grown.id = layers.value[at].id;
+      grown.muted = layers.value[at].muted;
+      layers.value.splice(at, 1, grown);
+    } else layers.value.push(grown);
+    measure();
+  }
+  watch(() => phrasesStore.lastLiveNoteId, () => {
+    if (latched.value) growOpenLayer();
+  });
   let latchTimer: ReturnType<typeof setInterval> | undefined;
   function latchCheck() {
     if (isDeskPlaying.value || liveOrigin() === null || phrasesStore.isTakeSounding) {
@@ -283,7 +320,9 @@ export const useLoopPrototypeStore = defineStore("loopPrototype", () => {
     quietSince ??= Date.now();
     if (Date.now() - quietSince < barMs.value / rate()) return;
     quietSince = null;
-    addPhrase(phrasesStore.take, liveOrigin(), phrasesStore.take.id);
+    const growing = openLayer();
+    if (growing) growing.open = false;
+    else addPhrase(phrasesStore.take, liveOrigin(), phrasesStore.take.id);
     phrasesStore.startBlankTake();
   }
   /** Stop All: nothing playing, and nothing joining by itself. */
@@ -296,6 +335,7 @@ export const useLoopPrototypeStore = defineStore("loopPrototype", () => {
     latched.value = !latched.value;
     clearInterval(latchTimer);
     if (latched.value) latchTimer = setInterval(latchCheck, 100);
+    else for (const layer of layers.value) layer.open = false;
   }
 
   function removeLayer(id: string) {

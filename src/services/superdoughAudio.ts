@@ -531,18 +531,14 @@ export function stopStrudelVisuals(): void {
   }
 }
 
-export async function emotitoneStrudelOutput(
+/** Tell the Stage and keys about one scheduled playback note. */
+function publishStrudelVisual(
   hap: unknown,
-  deadline: number,
+  t: number,
   hapDuration: number,
-  cps: number,
-  t: number
-): Promise<void> {
-  const context = getAudioContext();
-  const submittedAt = context.currentTime;
-  // Submit audio before preparing presentation events. Strudel passes the
-  // absolute audio-clock onset as t; its legacy deadline argument is unused.
-  const output = webaudioOutput(hap as never, deadline, hapDuration, cps, t);
+  context: ReturnType<typeof getAudioContext>,
+  submittedAt: number,
+): void {
   const visualPayload = buildStrudelVisualPayload(hap);
 
   if (visualPayload && typeof window !== "undefined" && t >= submittedAt) {
@@ -594,6 +590,30 @@ export async function emotitoneStrudelOutput(
       })
     );
   }
+}
+
+/**
+ * PROTOTYPE (PR #132): the Looper schedules its own voices, so it announces
+ * them here to make the Stage and keys react as they do to Strudel playback.
+ */
+export function announceScheduledNote(noteName: string, sound: string, t: number, durationSeconds: number): void {
+  const context = getAudioContext();
+  publishStrudelVisual({ value: { note: noteName, s: sound } }, t, durationSeconds, context, context.currentTime);
+}
+
+export async function emotitoneStrudelOutput(
+  hap: unknown,
+  deadline: number,
+  hapDuration: number,
+  cps: number,
+  t: number
+): Promise<void> {
+  const context = getAudioContext();
+  const submittedAt = context.currentTime;
+  // Submit audio before preparing presentation events. Strudel passes the
+  // absolute audio-clock onset as t; its legacy deadline argument is unused.
+  const output = webaudioOutput(hap as never, deadline, hapDuration, cps, t);
+  publishStrudelVisual(hap, t, hapDuration, context, submittedAt);
 
   await output;
 }

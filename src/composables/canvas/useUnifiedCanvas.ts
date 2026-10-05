@@ -358,20 +358,20 @@ export function useUnifiedCanvas(
     clearCanvas();
 
     // Render effects in order (back to front)
-    if (cachedConfigs.ambient.isEnabled) {
-      ambientRenderer.renderAmbientBackground(
-        ctx,
-        elapsed,
-        cachedConfigs.ambient,
-        canvasWidth.value,
-        canvasHeight.value,
-        musicStore,
-        composition,
-        audioFrame,
-        reducedMotion,
-        stageActiveNotes,
-      );
-    }
+    // Atmosphere reconciles pitch lifetime on every sampled frame; its own
+    // enable/suspension gates control painting only.
+    ambientRenderer.renderAmbientBackground(
+      ctx,
+      elapsed,
+      cachedConfigs.ambient,
+      canvasWidth.value,
+      canvasHeight.value,
+      musicStore,
+      composition,
+      audioFrame,
+      reducedMotion,
+      stageActiveNotes,
+    );
 
     if (composition.suspended) return;
 

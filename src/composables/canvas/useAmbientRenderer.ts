@@ -173,15 +173,7 @@ export function useAmbientRenderer() {
     reducedMotion = false,
     activeNotes?: readonly ActiveNote[],
   ) => {
-    if (!ctx) return;
-
-    const tokens = tokensByCanvas.get(ctx) ?? readTokens(ctx);
-    tokensByCanvas.set(ctx, tokens);
-
-    ctx.fillStyle = tokens.ink;
-    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-    if (composition.suspended) return;
-
+    // Pitch lifetime follows sampled audio even while the band cannot paint.
     const notes = activeNotes ?? (
       typeof musicStore?.getActiveNotes === "function"
         ? musicStore.getActiveNotes()
@@ -189,6 +181,15 @@ export function useAmbientRenderer() {
     );
     if (notes[0]) lead = notes[0];
     else if (audioFrame.envelope < LEAD_RELEASED_ENVELOPE) lead = null;
+
+    if (!ctx || !ambientConfig.isEnabled) return;
+
+    const tokens = tokensByCanvas.get(ctx) ?? readTokens(ctx);
+    tokensByCanvas.set(ctx, tokens);
+
+    ctx.fillStyle = tokens.ink;
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+    if (composition.suspended) return;
 
     const { usable, centerX: cx, centerY: cy } = composition;
     const defaults = DEFAULT_CONFIG.ambient;

@@ -257,6 +257,36 @@ describe("active-note canvas color routing", () => {
     expect(bandHeight(0.1)).toBeCloseTo(180, 6);
     expect(bandHeight(1)).toBeCloseTo(360, 6);
   });
+  it.each(["suspended", "disabled"] as const)(
+    "forgets the released pitch while Atmosphere is %s",
+    async (state) => {
+      const { useAmbientRenderer } = await import("@/composables/canvas/useAmbientRenderer");
+      const { renderAmbientBackground } = useAmbientRenderer();
+      const store = { currentMode: "major", currentKey: "C", getActiveNotes: () => [] };
+      const note = {
+        noteId: "e4", noteName: "E4", frequency: 329.63, octave: 4, keyboardOctave: 4,
+        solfegeIndex: 2, pitchClassIndex: 4, mode: "major", key: "C",
+      } as ActiveNote;
+
+      renderAmbientBackground(createMockCtx(), 0, AMBIENT, 800, 600, store,
+        COMPOSITION, { envelope: 0.6, hasSignal: true }, false, [note]);
+      expect(colorResolutionCalls.at(-1)?.args[0]).toBe("E");
+
+      const hidden = createMockCtx();
+      renderAmbientBackground(hidden, 1,
+        { ...AMBIENT, isEnabled: state !== "disabled" }, 800, 600, store,
+        { ...COMPOSITION, suspended: state === "suspended" },
+        { envelope: 0.0005, hasSignal: false }, false, []);
+      expect(hidden.drawImage).not.toHaveBeenCalled();
+      expect(hidden.fillRect).toHaveBeenCalledTimes(state === "suspended" ? 1 : 0);
+
+      colorResolutionCalls.length = 0;
+      renderAmbientBackground(createMockCtx(), 2, AMBIENT, 800, 600, store,
+        COMPOSITION, { envelope: 0.6, hasSignal: true }, false, []);
+      expect(colorResolutionCalls).toHaveLength(0);
+    },
+  );
+
   it("never invents or revives a pitch hue for unpitched sound", async () => {
     const { useAmbientRenderer } = await import("@/composables/canvas/useAmbientRenderer");
     const { renderAmbientBackground } = useAmbientRenderer();

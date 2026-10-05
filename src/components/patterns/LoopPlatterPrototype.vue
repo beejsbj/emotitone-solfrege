@@ -6,7 +6,7 @@
  * The Looper's "clock" lives on the Stage.
  * See src/stores/loopPrototype.ts for the question it answers.
  */
-import { computed, onBeforeUnmount, onMounted } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { Square } from "lucide-vue-next";
 import Button from "@/components/primatives/Button.vue";
 import LoopDial from "@/components/primatives/LoopDial.vue";
@@ -44,16 +44,34 @@ function setDisc(id: string, element: unknown) {
   else discs.delete(id);
 }
 
+// The mic key rides the Drawer's lip ("E, on the lip"); publish where that is.
+const lipRef = ref<HTMLElement>();
+let lipTop = -1;
+function trackLip() {
+  const top = Math.round(lipRef.value?.getBoundingClientRect().top ?? -1);
+  if (top === lipTop || top < 0) return;
+  lipTop = top;
+  document.documentElement.style.setProperty("--looper-lip-top", `${top}px`);
+}
+
 let frame = 0;
 function turn() {
   frame = requestAnimationFrame(turn);
+  trackLip();
   loop.publishBeat();
   for (const layer of loop.layers) {
     discs.get(layer.id)?.style.setProperty("--turn", `${(-loop.phase(layer.lengthMs) * 360).toFixed(2)}deg`);
   }
 }
-onMounted(turn);
-onBeforeUnmount(() => cancelAnimationFrame(frame));
+onMounted(() => {
+  document.documentElement.dataset.looperMic = "lip";
+  turn();
+});
+onBeforeUnmount(() => {
+  cancelAnimationFrame(frame);
+  delete document.documentElement.dataset.looperMic;
+  document.documentElement.style.removeProperty("--looper-lip-top");
+});
 
 const readout = computed(() =>
   loop.hasLoop ? `${loop.bars} bar${loop.bars === 1 ? "" : "s"} · ${loop.layers.length}` : "play · add",
@@ -88,9 +106,10 @@ function dialUp(id: string) {
 </script>
 
 <template>
-  <div v-if="loop.armed" class="loop-platter">
+  <!-- Always present: its top edge is the Drawer's lip, which the mic rides. -->
+  <div ref="lipRef" class="loop-platter">
     <!-- One mini Loop Dial per layer, climbing the left edge as layers are added. -->
-    <div class="loop-platter__layers">
+    <div v-if="loop.hasLoop" class="loop-platter__layers">
       <button
         v-for="dial in dials"
         :key="dial.layer.id"
@@ -124,7 +143,7 @@ function dialUp(id: string) {
       </Button>
     </div>
 
-    <div class="loop-platter__readout">
+    <div v-if="loop.hasLoop" class="loop-platter__readout">
       <span>{{ readout }}</span>
       <template v-if="loop.hasLoop">
         <button type="button" :aria-label="loop.running ? 'Stop loop' : 'Start loop'" @click="loop.toggle()">
@@ -149,7 +168,7 @@ function dialUp(id: string) {
 .loop-platter__layers {
   position: absolute;
   left: 6px;
-  bottom: 30px;
+  bottom: 86px;
   display: flex;
   flex-direction: column-reverse;
   gap: 2px;
@@ -228,3 +247,21 @@ function dialUp(id: string) {
 }
 </style>
 
+
+<style>
+/* PROTOTYPE: the mic key leaves the top centre and sits on the Drawer's lip, left. */
+html[data-looper-mic="lip"] .humming-capture-transport {
+  inset: auto;
+  transform: none;
+  top: calc(var(--looper-lip-top, 60vh) - 74px);
+  left: 14px;
+}
+
+html[data-looper-mic="lip"] .humming-capture-transport__feedback {
+  top: auto;
+  bottom: calc(100% + 12px);
+  left: 0;
+  transform: none;
+  justify-items: start;
+}
+</style>

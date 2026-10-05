@@ -58,8 +58,6 @@ export const useLoopPrototypeStore = defineStore("loopPrototype", () => {
   /** The tempo the loop was made at; live BPM plays it faster or slower. */
   const bpm = ref(120);
   const running = ref(false);
-  /** Loop mode: the Platter is out and Return adds to it. */
-  const armed = ref(false);
   /** Extra ms taken off live presses on top of the reported output latency. */
   const nudgeMs = ref(0);
   /** The one layer that sounds alone, if any. */
@@ -233,7 +231,7 @@ export const useLoopPrototypeStore = defineStore("loopPrototype", () => {
 
   /** Return (or a tap on the empty Platter): lay the desk's phrase down. */
   function layDownTake(): boolean {
-    if (!armed.value) return false;
+    if (!hasLoop.value) return false;
     const take = phrasesStore.take;
     if (!take.notes.length) return true;
     addPhrase(take, liveOrigin());
@@ -242,13 +240,14 @@ export const useLoopPrototypeStore = defineStore("loopPrototype", () => {
   }
 
   /**
-   * Holding Return: enter loop mode and set the desk playing. Held again with
-   * nothing to add and nothing playing, it leaves loop mode.
+   * Holding Return sets the desk's pattern playing. The first one makes the
+   * loop, and a loop existing is what loop mode is.
    */
   function holdReturn() {
-    if (!armed.value) armed.value = true;
-    else if (!phrasesStore.take.notes.length && !hasLoop.value) armed.value = false;
-    layDownTake();
+    const take = phrasesStore.take;
+    if (!take.notes.length) return;
+    addPhrase(take, liveOrigin());
+    phrasesStore.startBlankTake();
   }
 
   function removeLayer(id: string) {
@@ -279,8 +278,6 @@ export const useLoopPrototypeStore = defineStore("loopPrototype", () => {
     layers.value = [];
     lengthMs.value = 0;
     posMs = 0;
-    // No dials left means no loop mode.
-    armed.value = false;
   }
 
   /** 0..1 through the loop, or through a layer of the given length. */
@@ -316,7 +313,8 @@ export const useLoopPrototypeStore = defineStore("loopPrototype", () => {
     bpm,
     bars,
     running,
-    armed,
+    // Loop mode is simply "a loop exists".
+    armed: hasLoop,
     hasLoop,
     nudgeMs,
     soundingNotes,

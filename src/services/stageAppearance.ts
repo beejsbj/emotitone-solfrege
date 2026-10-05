@@ -19,6 +19,9 @@ export type StageControlId =
   | "connectionSoftness"
   | "atmosphereStrength"
   | "atmosphereColorDepth"
+  | "loopStrength"
+  | "loopDefinition"
+  | "loopSpread"
   | "stringPresence"
   | "stringResponse"
   | "fleckAmount"
@@ -44,6 +47,9 @@ export interface StageControls {
   connectionSoftness: number;
   atmosphereStrength: number;
   atmosphereColorDepth: number;
+  loopStrength: number;
+  loopDefinition: number;
+  loopSpread: number;
   stringPresence: number;
   stringResponse: number;
   fleckAmount: number;
@@ -143,6 +149,10 @@ const STAGE_LOOK_FIELDS: Record<StageLookSection, readonly string[]> = {
     "brightnessMinor",
     "saturationMajor",
     "saturationMinor",
+    // PROTOTYPE: Loop Glow knobs.
+    "loopStrength",
+    "loopDefinition",
+    "loopSpread",
   ],
   particles: ["isEnabled", "count", "speed", "gravity", "airResistance"],
   strings: [
@@ -218,6 +228,16 @@ export const STAGE_CONTROL_GROUPS: StageControlGroup[] = [
     ],
   },
   {
+    // PROTOTYPE: the loop's presence in the Atmosphere (PR #132).
+    label: "Loop Glow",
+    description: "The turning light a running loop casts into the Atmosphere.",
+    controls: [
+      { id: "loopStrength", label: "Strength", type: "range", min: 0, max: 1, step: 0.05, format: percent },
+      { id: "loopDefinition", label: "Definition", type: "range", min: 0, max: 1, step: 0.05, format: percent },
+      { id: "loopSpread", label: "Spread", type: "range", min: 0, max: 1, step: 0.05, format: percent },
+    ],
+  },
+  {
     label: "Pitch Strings",
     description: "Exact-pitch lines driven by the shared live envelope.",
     controls: [
@@ -249,6 +269,17 @@ export const STAGE_CONTROL_DEFINITIONS: StageControlDefinition[] = [
   STAGE_MASTER_CONTROL,
   ...STAGE_CONTROL_GROUPS.flatMap((group) => group.controls),
 ];
+
+/** PROTOTYPE: the loop glow's look; these defaults are the look it shipped with. */
+export const LOOP_GLOW_DEFAULTS = { strength: 0.5, definition: 0.25, spread: 0.5 } as const;
+
+export function readLoopGlow(ambient: VisualEffectsConfig["ambient"]) {
+  return {
+    strength: clamp(ambient.loopStrength ?? LOOP_GLOW_DEFAULTS.strength),
+    definition: clamp(ambient.loopDefinition ?? LOOP_GLOW_DEFAULTS.definition),
+    spread: clamp(ambient.loopSpread ?? LOOP_GLOW_DEFAULTS.spread),
+  };
+}
 
 function clamp(value: number, min = 0, max = 1) {
   return Math.max(min, Math.min(max, value));
@@ -429,6 +460,9 @@ export function readStageControls(config: VisualEffectsConfig): StageControls {
     atmosphereColorDepth: clamp(
       (config.ambient.saturationMajor + config.ambient.saturationMinor) / 1.75,
     ),
+    loopStrength: readLoopGlow(config.ambient).strength,
+    loopDefinition: readLoopGlow(config.ambient).definition,
+    loopSpread: readLoopGlow(config.ambient).spread,
     stringPresence: config.strings.isEnabled
       ? clamp(config.strings.baseOpacity / 0.12)
       : 0,
@@ -533,6 +567,11 @@ export function patchStageControl(
       next.ambient.saturationMinor = amount * 0.75;
       break;
     }
+    case "loopStrength":
+    case "loopDefinition":
+    case "loopSpread":
+      next.ambient[control] = clamp(value);
+      break;
     case "stringPresence": {
       const amount = clamp(value);
       // Presence describes only the idle field. Effective Stage resolution

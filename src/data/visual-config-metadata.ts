@@ -311,6 +311,31 @@ export const UNIFIED_CONFIG = {
       label: "Accent Saturation",
       format: (v: number) => `${(v * 100).toFixed(0)}%`,
     },
+    // PROTOTYPE: Loop Glow knobs (PR #132).
+    loopStrength: {
+      value: 0.5,
+      min: 0,
+      max: 1,
+      step: 0.05,
+      label: "Loop Glow Strength",
+      format: (v: number) => `${(v * 100).toFixed(0)}%`,
+    },
+    loopDefinition: {
+      value: 0.25,
+      min: 0,
+      max: 1,
+      step: 0.05,
+      label: "Loop Glow Definition",
+      format: (v: number) => `${(v * 100).toFixed(0)}%`,
+    },
+    loopSpread: {
+      value: 0.5,
+      min: 0,
+      max: 1,
+      step: 0.05,
+      label: "Loop Glow Spread",
+      format: (v: number) => `${(v * 100).toFixed(0)}%`,
+    },
   },
 
   particles: {

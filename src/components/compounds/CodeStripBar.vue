@@ -52,7 +52,12 @@
         :haptic="haptic"
         :accessible-name="returnAdds ? 'Add to loop' : 'Return'"
         :title="returnAdds ? 'Add to loop' : 'Return'"
-        @click="emit('return')"
+        @pointerdown="returnDown"
+        @pointerup="returnCancel"
+        @pointerleave="returnCancel"
+        @pointercancel="returnCancel"
+        @contextmenu.prevent
+        @click="returnClick"
       >
         <!-- PROTOTYPE: in loop mode Return adds the desk to the loop. -->
         <Plus v-if="returnAdds" />
@@ -116,7 +121,29 @@ const emit = defineEmits<{
   togglePlayback: [];
   backspace: [];
   return: [];
+  returnHold: [];
 }>();
+
+// PROTOTYPE: holding Return is the Looper gesture; the click that ends a hold is swallowed.
+const RETURN_HOLD_MS = 450;
+let returnHoldTimer: ReturnType<typeof setTimeout> | undefined;
+let returnHeld = false;
+function returnDown() {
+  returnHeld = false;
+  clearTimeout(returnHoldTimer);
+  returnHoldTimer = setTimeout(() => {
+    returnHeld = true;
+    emit("returnHold");
+  }, RETURN_HOLD_MS);
+}
+function returnCancel() {
+  clearTimeout(returnHoldTimer);
+}
+function returnClick() {
+  clearTimeout(returnHoldTimer);
+  if (returnHeld) returnHeld = false;
+  else emit("return");
+}
 
 </script>
 

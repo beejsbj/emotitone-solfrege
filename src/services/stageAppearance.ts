@@ -229,7 +229,7 @@ export const STAGE_CONTROL_GROUPS: StageControlGroup[] = [
   },
   {
     // PROTOTYPE: the loop's presence in the Atmosphere (PR #132).
-    label: "Loop Glow",
+    label: "Looper",
     description: "The turning light a running loop casts into the Atmosphere.",
     controls: [
       { id: "loopStrength", label: "Strength", type: "range", min: 0, max: 1, step: 0.05, format: percent },

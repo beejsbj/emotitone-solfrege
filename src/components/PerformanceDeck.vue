@@ -61,6 +61,7 @@
           @toggle-playback="toggleSketchPlayback"
           @backspace="handleBackspace"
           @return="handleReturn"
+          @return-hold="loopPrototype?.holdReturn()"
         />
         <HummingCaptureTransport
           v-if="isProductionUsage"

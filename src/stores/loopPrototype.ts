@@ -241,11 +241,14 @@ export const useLoopPrototypeStore = defineStore("loopPrototype", () => {
     return true;
   }
 
-  /** The loop button: bring the Platter out, or stop it and put it away. */
-  function toggleMode() {
-    armed.value = !armed.value;
-    if (armed.value) start();
-    else stop();
+  /**
+   * Holding Return: enter loop mode and set the desk playing. Held again with
+   * nothing to add and nothing playing, it leaves loop mode.
+   */
+  function holdReturn() {
+    if (!armed.value) armed.value = true;
+    else if (!phrasesStore.take.notes.length && !hasLoop.value) armed.value = false;
+    layDownTake();
   }
 
   function removeLayer(id: string) {
@@ -276,6 +279,8 @@ export const useLoopPrototypeStore = defineStore("loopPrototype", () => {
     layers.value = [];
     lengthMs.value = 0;
     posMs = 0;
+    // No dials left means no loop mode.
+    armed.value = false;
   }
 
   /** 0..1 through the loop, or through a layer of the given length. */
@@ -320,7 +325,7 @@ export const useLoopPrototypeStore = defineStore("loopPrototype", () => {
     phase,
     publishBeat,
     latencyMs,
-    toggleMode,
+    holdReturn,
     layDownTake,
     toggle,
     toggleMute,

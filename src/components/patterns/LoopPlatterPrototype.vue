@@ -1,15 +1,15 @@
 <script setup lang="ts">
 /**
  * PROTOTYPE — throwaway. Not for main.
- * Loop mode's controls: the loop button beside the mic, and one mini Loop Dial
- * per layer climbing the left edge. The loop's "clock" lives on the Stage.
+ * The Looper's controls: one mini Loop Dial per playing pattern, climbing the
+ * left edge, with Stop All on top. Loop mode is entered by holding Return.
+ * The Looper's "clock" lives on the Stage.
  * See src/stores/loopPrototype.ts for the question it answers.
  */
 import { computed, onBeforeUnmount, onMounted } from "vue";
-import { Repeat, Square } from "lucide-vue-next";
+import { Square } from "lucide-vue-next";
 import Button from "@/components/primatives/Button.vue";
 import LoopDial from "@/components/primatives/LoopDial.vue";
-import LoopLayoutSwitcherPrototype from "@/components/patterns/LoopLayoutSwitcherPrototype.vue";
 import { useMusicColor } from "@/composables/useMusicColor";
 import { useLoopPrototypeStore } from "@/stores/loopPrototype";
 import { useMusicStore } from "@/stores/music";
@@ -88,28 +88,6 @@ function dialUp(id: string) {
 </script>
 
 <template>
-  <!-- PROTOTYPE: ?layout= flips where the mic and loop keys live. -->
-  <LoopLayoutSwitcherPrototype />
-
-  <Teleport to="body">
-    <div class="loop-mode-button">
-      <Button
-        class="loop-mode-button__button"
-        :class="{ 'paper-button--loading': loop.armed }"
-        size="md"
-        :tone="loop.armed ? 'ivory' : 'brass'"
-        haptic
-        :accessible-name="loop.armed ? 'Leave loop mode' : 'Loop mode'"
-        :title="loop.armed ? 'Leave loop mode' : 'Loop mode'"
-        @click="loop.toggleMode()"
-      >
-        <!-- Active: the Button's loading orbit runs and the icon becomes Stop. -->
-        <Square v-if="loop.armed" />
-        <Repeat v-else />
-      </Button>
-    </div>
-  </Teleport>
-
   <div v-if="loop.armed" class="loop-platter">
     <!-- One mini Loop Dial per layer, climbing the left edge as layers are added. -->
     <div class="loop-platter__layers">
@@ -132,6 +110,18 @@ function dialUp(id: string) {
       >
         <LoopDial :segments="dial.segments" :length-ms="dial.layer.lengthMs" :aria-label="dial.layer.label" />
       </button>
+      <!-- Last in a reversed column: Stop All sits on top of the dials. -->
+      <Button
+        class="loop-platter__stop"
+        size="sm"
+        tone="ink"
+        haptic
+        accessible-name="Stop all loops"
+        title="Stop all loops"
+        @click="loop.clear()"
+      >
+        <Square />
+      </Button>
     </div>
 
     <div class="loop-platter__readout">
@@ -143,7 +133,6 @@ function dialUp(id: string) {
         <button type="button" aria-label="Earlier" @click="loop.nudgeMs += 10">−</button>
         <span class="loop-platter__nudge">{{ Math.round(loop.latencyMs()) }}ms</span>
         <button type="button" aria-label="Later" @click="loop.nudgeMs -= 10">+</button>
-        <button type="button" aria-label="Clear loop" @click="loop.clear()">×</button>
       </template>
     </div>
   </div>
@@ -184,8 +173,16 @@ function dialUp(id: string) {
   transform: rotate(var(--turn, 0deg));
 }
 
+/* The fixed hand is brass, with a sheen. */
 .loop-platter__layer :deep(.loop-dial__masthead) {
-  stroke: var(--ivory);
+  stroke: var(--brass-hi);
+  stroke-width: 2;
+  filter: drop-shadow(0 0 1.5px var(--brass)) drop-shadow(0 0 4px var(--brass));
+}
+
+.loop-platter__stop {
+  align-self: center;
+  margin-bottom: 4px;
 }
 
 .loop-platter__layer--solo {
@@ -231,25 +228,3 @@ function dialUp(id: string) {
 }
 </style>
 
-<style>
-/* Sits beside the mic button, which is centred at the top of the screen. */
-.loop-mode-button {
-  position: fixed;
-  z-index: 110;
-  top: calc(env(safe-area-inset-top, 0px) + var(--s-5));
-  right: calc(50% + 14px + var(--s-4));
-  display: inline-flex;
-  pointer-events: auto;
-}
-
-/* The loading look without the loading lock: the button must stay pressable. */
-.loop-mode-button .paper-button--loading .paper-button__content {
-  opacity: 1;
-}
-
-.loop-mode-button .loop-mode-button__button {
-  --button-size: 28px;
-  inline-size: 28px;
-  block-size: 28px;
-}
-</style>

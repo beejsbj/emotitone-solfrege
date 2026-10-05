@@ -300,6 +300,8 @@ export function useMusicColor(options: { animated?: boolean } = {}) {
     createGlassmorphBackground,
     getKeyBackground,
     getKeyBackgroundByPitchClass,
+    /** The hue-motion phase animated canvas layers sample, or null when still. */
+    sampleHuePhase: () => samplePhase(true),
     isFixedMusicColorMode: computed(
       () => dynamicColorConfig.value.musicColorMode === "fixed",
     ),

@@ -414,4 +414,24 @@ describe("Stage appearance domain", () => {
     expect(variedConfig.particles.isEnabled).toBe(root.particles.isEnabled);
     expect(variedConfig.strings.isEnabled).toBe(root.strings.isEnabled);
   });
+
+  it("reads Atmosphere from the fields the Diffused Band paints, so a value round-trips", () => {
+    const legacy = config();
+    legacy.ambient.opacityMajor = 0;
+    legacy.ambient.opacityMinor = 1;
+    legacy.ambient.saturationMajor = 0;
+    legacy.ambient.saturationMinor = 1;
+
+    const read = readStageControls(legacy);
+    expect(read.atmosphereStrength).toBe(0);
+    expect(read.atmosphereColorDepth).toBe(0);
+
+    const rewritten = patchStageControl(
+      patchStageControl(legacy, "atmosphereStrength", read.atmosphereStrength),
+      "atmosphereColorDepth",
+      read.atmosphereColorDepth,
+    );
+    expect(rewritten.ambient.opacityMajor).toBe(0);
+    expect(rewritten.ambient.saturationMajor).toBe(0);
+  });
 });

@@ -143,20 +143,35 @@ export function projectCircleOfFifths(
   };
 }
 
-export function resolveAmbientLevel(
+export interface AtmosphereBand {
+  /** Half the band's height as a share of the usable Stage's short side. */
+  halfHeight: number;
+  /** 0 in silence (Ink-3 band), 1 once sound fully owns it (pitch colour). */
+  sounding: number;
+}
+
+/**
+ * The Diffused Band's clock: a slow ten-second breath in silence, handing
+ * continuously over to the shared audio envelope once sound plays. The
+ * handover blends below a small envelope so a release never snaps the band
+ * back to silence. Reduced Motion holds the band's height still; only its
+ * colour follows what sounds.
+ */
+export function resolveAtmosphereBand(
   audio: StageAudioFrame,
   elapsedSeconds: number,
   reducedMotion: boolean,
-) {
-  if (reducedMotion) return 0.72;
+): AtmosphereBand {
+  const envelope = Math.max(0, Math.min(1, audio.envelope));
+  const sounding = Math.min(1, envelope / AMBIENT_RELEASE_BLEND_ENVELOPE);
+  if (reducedMotion) return { halfHeight: 0.15, sounding };
   const breath = (Math.sin(elapsedSeconds * Math.PI * 2 / 10 - Math.PI / 2) + 1) / 2;
-  const breathLevel = 0.68 + breath * 0.08;
-  const audioLevel = 0.72 + audio.envelope * 0.28;
-  if (audio.envelope >= AMBIENT_RELEASE_BLEND_ENVELOPE) {
-    return audioLevel;
-  }
-  const releaseBlend = audio.envelope / AMBIENT_RELEASE_BLEND_ENVELOPE;
-  return breathLevel + (audioLevel - breathLevel) * releaseBlend;
+  const silentHalf = 0.14 + breath * 0.012;
+  const soundHalf = 0.15 + envelope * 0.09;
+  return {
+    halfHeight: silentHalf + (soundHalf - silentHalf) * sounding,
+    sounding,
+  };
 }
 
 function modulo(value: number, divisor: number) {

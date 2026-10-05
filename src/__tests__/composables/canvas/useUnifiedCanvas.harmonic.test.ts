@@ -542,6 +542,28 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
     expect(mocks.clearHilbertHistory).toHaveBeenCalledOnce();
   });
 
+  it("delivers silent samples to Atmosphere while its painting is disabled", () => {
+    const audioFeatures = {
+      initialize: vi.fn(() => null),
+      sample: vi.fn(() => ({ envelope: 0.0005, hasSignal: false })),
+      cleanup: vi.fn(),
+    };
+    const canvas = useUnifiedCanvas(createCanvasRef(), {
+      usableRect: ref({ x: 0, y: 0, width: 800, height: 600 }),
+      reducedMotion: ref(false),
+      audioFeatures,
+      getActiveNotes: () => [],
+    });
+    canvas.initializeCanvas();
+    mocks.animationOptions?.onFrame(1_000, 1);
+
+    expect(mocks.renderAmbientBackground).toHaveBeenCalledOnce();
+    const frame = mocks.renderAmbientBackground.mock.calls[0];
+    expect(frame[2].isEnabled).toBe(false);
+    expect(frame[7]).toEqual({ envelope: 0.0005, hasSignal: false });
+    expect(frame[9]).toEqual([]);
+  });
+
   it("shares live pitch identity with Ambient and Hilbert", () => {
     const liveNote = {
       noteId: "live-pitch-1-1",

@@ -29,7 +29,7 @@ export type StageLabUnitId = (typeof STAGE_LAB_UNIT_IDS)[number];
  * the Lit disc is production's field under the Pop Look.
  */
 export const STAGE_LAB_DIRECTION_IDS = {
-  atmosphere: ["spotlight", "band", "spotlight-cut", "band-cut"],
+  atmosphere: ["band", "band-complement", "band-cut", "band-cut-complement"],
   strings: ["strips"],
   scope: ["cut", "brush"],
   connections: ["chord-shape", "slurs"],

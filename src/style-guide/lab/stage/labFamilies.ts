@@ -84,20 +84,26 @@ const base: StageLabSelection = {
 export const STAGE_LAB_PRESETS: StageLabPreset[] = [
   {
     id: "lit", name: "Lit", family: "lit",
-    note: "Production's bodies and organic Merge/Web under the Pop Look (firm discs with a halo, gooey necks), the diffused spotlight, the production scope, strings and flecks.",
-    selection: { ...base, atmosphere: "spotlight", connections: "production" },
+    note: "Production's bodies and organic Merge/Web under the Pop Look (firm discs with a halo, gooey necks), the diffused band, the production scope, strings and flecks.",
+    selection: { ...base, atmosphere: "band", connections: "production" },
     look: "pop",
   },
   {
-    id: "lit-band", name: "Lit · Band + Phosphor", family: "lit",
-    note: "The diffused band instead of the spot, and the Phosphor Look stacked on Pop.",
+    id: "lit-complement", name: "Lit · Complement", family: "lit",
+    note: "Lit with the band in the complementary accent instead of the note's own hue.",
+    selection: { ...base, atmosphere: "band-complement", connections: "production" },
+    look: "pop",
+  },
+  {
+    id: "lit-phosphor", name: "Lit · Phosphor", family: "lit",
+    note: "The Phosphor Look stacked on Pop.",
     selection: { ...base, atmosphere: "band", connections: "production" },
     look: "pop,phosphor",
   },
   {
     id: "lit-smoke", name: "Lit · Smoke", family: "lit",
     note: "Production's soft, foggy bodies under the Smoke Look: the club at its haziest.",
-    selection: { ...base, atmosphere: "spotlight", connections: "production" },
+    selection: { ...base, atmosphere: "band", connections: "production" },
     look: "smoke",
   },
   {
@@ -107,9 +113,15 @@ export const STAGE_LAB_PRESETS: StageLabPreset[] = [
     look: "pop",
   },
   {
-    id: "paper-brush", name: "Paper · Spot + Brush + Slurs", family: "paper",
-    note: "The cut spotlight, the Brush scope, and Slur Arcs as the connection (best in Web).",
-    selection: { ...base, atmosphere: "spotlight-cut", strings: "strips", scope: "brush", connections: "slurs", blobs: "pop-cut", flecks: "chads" },
+    id: "paper-complement", name: "Paper · Complement", family: "paper",
+    note: "Paper with the cut band in the complementary accent.",
+    selection: { ...base, atmosphere: "band-cut-complement", strings: "strips", scope: "cut", blobs: "pop-cut", flecks: "chads" },
+    look: "pop",
+  },
+  {
+    id: "paper-brush", name: "Paper · Brush + Slurs", family: "paper",
+    note: "The Brush scope, and Slur Arcs as the connection (best in Web).",
+    selection: { ...base, atmosphere: "band-cut", strings: "strips", scope: "brush", connections: "slurs", blobs: "pop-cut", flecks: "chads" },
     look: "pop",
   },
 

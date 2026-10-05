@@ -1,14 +1,15 @@
-import { resolveAmbientLevel } from "@/composables/canvas/stageRuntime";
 import { soundLevel, stepped, tracePolygon, type Point } from "./shared";
 import type { AtmospherePainter, LabFrame } from "./types";
 
 /*
- * Atmosphere: one spotlight and one tilted band, each in two materials.
+ * Atmosphere: the poster's tilted band in two materials and two hues.
  * Burooj, 2026-10-03: "Diffused spotlight and band are both lit vibes. And
- * their non diffused are paper. They both can be alternates." Each shape is
- * defined once; Lit paints it softened, Paper paints it with a hard edge on
- * the stop-motion clock. Both keep the accepted clock: a slow breath in
- * silence handing over to the shared envelope once sound plays.
+ * their non diffused are paper." 2026-10-05: "Drop spotlight. Band is just
+ * better. Should atmosphere be the complimentary color" — so the band comes
+ * in the sounding pitch's own hue and in its complementary accent (the same
+ * authority's hue turned 180°). Lit paints it softened, Paper with a hard
+ * edge on the stop-motion clock. It keeps the accepted clock: a slow breath
+ * in silence handing over to the shared envelope once sound plays.
  */
 
 const LEAN = -0.105; // ≈ -6°, the poster's highlight-band lean
@@ -17,15 +18,13 @@ const SOFT_SCALE = 1 / 12;
 const SOFT_BLUR = 2.2; // px at the reduced scale; ≈ 26px on the Stage
 
 type Material = "lit" | "paper";
+/** Same: the sounding pitch's hue. Complement: its accent, hue + 180° (the tritone's hue). */
+type Hue = "same" | "complement";
 
 const ground = (frame: LabFrame) => {
   frame.ctx.fillStyle = frame.tokens.ink;
   frame.ctx.fillRect(0, 0, frame.width, frame.height);
 };
-
-/** 0 at silence's breath trough, rising through the envelope. */
-const lift = (frame: LabFrame) =>
-  Math.max(0, (resolveAmbientLevel(frame.audio, frame.elapsed, frame.reducedMotion) - 0.66) / 0.34);
 
 /** Paper moves on the stop-motion clock; light moves continuously. */
 const clock = (frame: LabFrame, material: Material) =>
@@ -75,7 +74,7 @@ function createPainter(material: Material, draw: (ctx: CanvasRenderingContext2D,
 }
 
 /** The poster's tilted highlight band: Ink-3 in silence, the sounding pitch's deep colour once it plays. */
-function bandShape(material: Material) {
+function bandShape(material: Material, hue: Hue) {
   return (ctx: CanvasRenderingContext2D, frame: LabFrame) => {
     const { composition, tokens } = frame;
     const { usable, centerX: cx, centerY: cy } = composition;
@@ -91,42 +90,14 @@ function bandShape(material: Material) {
       { x: cx + reach, y: cy + half + lean },
       { x: cx - reach, y: cy + half - lean },
     ];
+    const color = hue === "complement" ? frame.noteAccent : frame.noteColor;
     ctx.fillStyle = level > 0.01
-      ? frame.noteColor(frame.leadNote, { l: material === "lit" ? 0.55 : 0.5, c: 0.78 })
+      ? color(frame.leadNote, { l: material === "lit" ? 0.55 : 0.5, c: 0.78 })
       : tokens.ink3;
     tracePolygon(ctx, band);
     ctx.fill();
   };
 }
 
-/** A club spot from above onto the scope, opening with the envelope; a dim Ink house light in silence. */
-function spotlightShape(material: Material) {
-  return (ctx: CanvasRenderingContext2D, frame: LabFrame) => {
-    const { composition, tokens } = frame;
-    const { centerX: cx, centerY: cy, usable, hilbertRadius } = composition;
-    const sounding = soundLevel(frame) > 0.01;
-    const open = 0.55 + lift(frame) * 0.45;
-    const pool = Math.min(usable.width * 0.46, hilbertRadius * 0.95) * open;
-    const top = usable.y - (material === "lit" ? 40 : 10);
-    ctx.fillStyle = sounding ? frame.noteColor(frame.leadNote, { l: material === "lit" ? 0.45 : 0.5, c: 0.8 }) : tokens.ink3;
-    tracePolygon(ctx, [
-      { x: cx - pool * 0.18, y: top },
-      { x: cx + pool * 0.18, y: top },
-      { x: cx + pool, y: cy },
-      { x: cx - pool, y: cy },
-    ]);
-    ctx.fill();
-    // Lit: the pool where the light lands burns brighter. Paper: one cut piece.
-    if (material === "lit") {
-      ctx.fillStyle = sounding ? frame.noteColor(frame.leadNote, { l: 0.62, c: 0.85 }) : tokens.ink4;
-    }
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, pool, pool * (material === "lit" ? 0.3 : 0.28), 0, 0, Math.PI * 2);
-    ctx.fill();
-  };
-}
-
-export const createDiffusedBand = () => createPainter("lit", bandShape("lit"));
-export const createDiffusedSpotlight = () => createPainter("lit", spotlightShape("lit"));
-export const createCutBand = () => createPainter("paper", bandShape("paper"));
-export const createCutSpotlight = () => createPainter("paper", spotlightShape("paper"));
+export const createDiffusedBand = (hue: Hue) => createPainter("lit", bandShape("lit", hue));
+export const createCutBand = (hue: Hue) => createPainter("paper", bandShape("paper", hue));

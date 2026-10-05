@@ -644,6 +644,14 @@ const STAGE_DETAIL_TABS = [
       STAGE_CONTROL_GROUPS[4],
     ],
   },
+  {
+    // PROTOTYPE: the Looper gets its own destination (PR #132).
+    value: "looper",
+    label: "Looper",
+    shortLabel: "Looper",
+    description: "Shape the turning light a running loop casts on the Stage.",
+    groups: [STAGE_CONTROL_GROUPS[6]],
+  },
 ];
 
 const DECK_TAB = {

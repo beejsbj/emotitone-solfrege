@@ -11,9 +11,15 @@
           :tone="isPlaying ? 'ink' : 'ivory'"
           :haptic="haptic"
           :disabled="playDisabled"
+          :class="{ 'paper-button--loading code-strip-bar__play--latched': playLatched }"
           :accessible-name="isPlaying ? 'Stop' : 'Play'"
           :title="isPlaying ? 'Stop' : 'Play'"
-          @click="emit('togglePlayback')"
+          @pointerdown="playDown"
+          @pointerup="playCancel"
+          @pointerleave="playCancel"
+          @pointercancel="playCancel"
+          @contextmenu.prevent
+          @click="playClick"
         >
           <Square v-if="isPlaying" />
           <Play v-else />
@@ -83,6 +89,8 @@ const props = withDefaults(
     isPlaying?: boolean;
     playDisabled?: boolean;
     haptic?: boolean;
+    /** PROTOTYPE: latch is on (hold Play); the key runs its loading orbit. */
+    playLatched?: boolean;
     tokens?: CodeStripToken[];
     source?: string;
     density?: CodeStripDensity;
@@ -95,6 +103,7 @@ const props = withDefaults(
     isPlaying: false,
     playDisabled: false,
     haptic: false,
+    playLatched: false,
     tokens: undefined,
     source: undefined,
     density: "dense",
@@ -111,11 +120,38 @@ const emit = defineEmits<{
   togglePlayback: [];
   backspace: [];
   return: [];
+  playHold: [];
 }>();
+
+// PROTOTYPE: holding Play latches the Looper; the click that ends a hold is swallowed.
+const PLAY_HOLD_MS = 450;
+let playHoldTimer: ReturnType<typeof setTimeout> | undefined;
+let playHeld = false;
+function playDown() {
+  playHeld = false;
+  clearTimeout(playHoldTimer);
+  playHoldTimer = setTimeout(() => {
+    playHeld = true;
+    emit("playHold");
+  }, PLAY_HOLD_MS);
+}
+function playCancel() {
+  clearTimeout(playHoldTimer);
+}
+function playClick() {
+  clearTimeout(playHoldTimer);
+  if (playHeld) playHeld = false;
+  else emit("togglePlayback");
+}
 
 </script>
 
 <style scoped>
+/* The latched Play key keeps its icon readable under the loading orbit. */
+.code-strip-bar__play--latched :deep(.paper-button__content) {
+  opacity: 1;
+}
+
 .code-strip-bar {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;

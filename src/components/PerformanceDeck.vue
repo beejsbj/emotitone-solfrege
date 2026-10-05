@@ -26,6 +26,8 @@
   >
     <template #icon><KeyboardIcon /></template>
     <template #persistent-leading>
+      <!-- PROTOTYPE: the loop Platter floats above the reel. -->
+      <LoopPlatterPrototype v-if="isProductionUsage" />
       <PhraseShelf
         v-if="isProductionUsage"
         data-stage-occluder
@@ -55,9 +57,11 @@
           :is-playing="isPlaying"
           :play-disabled="playDisabled"
           :haptic="isProductionUsage"
+          :play-latched="loopPrototype?.latched"
           @toggle-playback="toggleSketchPlayback"
           @backspace="handleBackspace"
           @return="handleReturn"
+          @play-hold="loopPrototype?.toggleLatch()"
         />
         <HummingCaptureTransport
           v-if="isProductionUsage"
@@ -149,6 +153,7 @@ import type {
 import type { CodeStripToken } from "@/components/uniques/CodeStrip/index.vue";
 import Drawer from "@/components/uniques/Drawer/index.vue";
 import HummingCaptureTransport from "@/components/humming/HummingCaptureTransport.vue";
+import LoopPlatterPrototype from "@/components/patterns/LoopPlatterPrototype.vue";
 import PhraseShelf from "@/components/patterns/PhraseShelf.vue";
 import {
   MAX_KEYBOARD_ROW_COUNT,
@@ -167,6 +172,7 @@ import type { HarmonyAlteration } from "@/domain/harmony";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
+import { useLoopPrototypeStore } from "@/stores/loopPrototype";
 import { usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
@@ -245,6 +251,7 @@ const store = isProductionUsage ? useKeyboardDrawerStore() : undefined;
 const instrumentStore = isProductionUsage ? useInstrumentStore() : undefined;
 const musicStore = isProductionUsage ? useMusicStore() : undefined;
 const phrasesStore = isProductionUsage ? usePhrasesStore() : undefined;
+const loopPrototype = isProductionUsage ? useLoopPrototypeStore() : undefined;
 const visualConfigStore = isProductionUsage ? useVisualConfigStore() : undefined;
 const playback = isProductionUsage ? useCodeStripStrudel() : undefined;
 const humming = isProductionUsage ? useHummingCapture() : undefined;
@@ -261,7 +268,10 @@ const patternControlSignals = reactive<Record<PatternControl, number>>({
 });
 
 const drawerOpen = computed(() => store?.drawer.isOpen ?? props.drawerOpen);
-const isPlaying = computed(() => playback?.isPlaying.value ?? props.isPlaying);
+// PROTOTYPE: in production, Play is the Looper, not the Code Strip's own transport.
+const isPlaying = computed(() => loopPrototype
+  ? loopPrototype.isDeskPlaying
+  : playback?.isPlaying.value ?? props.isPlaying);
 const hasPlayableCode = computed(() => playback?.hasPlayableCode.value
   ?? Boolean(
     props.codeStripTokens.length
@@ -271,7 +281,8 @@ const interactionLocked = computed(() =>
   instrumentStore?.isInteractionLocked ?? props.warming
 );
 const playDisabled = computed(() => isProductionUsage
-  ? !hasPlayableCode.value || (interactionLocked.value && !isPlaying.value)
+  // PROTOTYPE: always pressable, so Play can be held to latch on an empty desk.
+  ? false
   : props.playDisabled
     || !hasPlayableCode.value
     || (interactionLocked.value && !isPlaying.value)
@@ -315,6 +326,11 @@ function setPatternReelGuard(active: boolean) {
 }
 
 async function toggleSketchPlayback() {
+  // PROTOTYPE: Play is the loop.
+  if (loopPrototype) {
+    loopPrototype.togglePlay();
+    return;
+  }
   if (!playback) {
     if (playDisabled.value) return;
     emit("togglePlayback");
@@ -333,7 +349,7 @@ async function toggleSketchPlayback() {
 
 async function toggleHummingCapture() {
   if (!humming || !playback) return;
-  if (isPlaying.value && hummingStatus.value !== "recording") {
+  if (!loopPrototype && isPlaying.value && hummingStatus.value !== "recording") {
     await playback.stop();
   }
   await humming.toggle();
@@ -348,8 +364,11 @@ function selectHummingTake(index: number) {
 }
 
 function handleBackspace() {
-  if (phrasesStore) phrasesStore.undoLastNote();
-  else emit("backspace");
+  if (!phrasesStore) emit("backspace");
+  // PROTOTYPE: with nothing on the desk, Backspace takes the last layer off.
+  else if (phrasesStore.takeNotes.length || !loopPrototype?.peelLayer()) {
+    phrasesStore.undoLastNote();
+  }
 }
 
 function handleReturn() {

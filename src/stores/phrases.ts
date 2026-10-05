@@ -45,6 +45,13 @@ const STORAGE_KEY = "phrases";
 const NON_RECORDING_EVENT_SOURCES = new Set(["strudel-playback", "live-pitch"]);
 const MAX_EXPRESSION_POINTS = 8192;
 
+// PROTOTYPE (PR #132): the Looper decides, just before a live press is
+// recorded, whether it must land in a fresh take.
+let beforeLivePress: (() => void) | undefined;
+export function setBeforeLivePress(hook: (() => void) | undefined): void {
+  beforeLivePress = hook;
+}
+
 /** Built-in phrases. Static data: never stored, never edited. */
 export const libraryPhrases: readonly Phrase[] = Object.freeze(
   defaultPatterns.map((pattern) => phraseFromPattern(pattern, "library")),
@@ -272,6 +279,7 @@ export const usePhrasesStore = defineStore(
       if (!isRecordable(event)) return;
       const detail = event.detail;
       if (!detail?.noteId) return;
+      beforeLivePress?.();
       const isBorrowed = detail.isBorrowed === true || detail.solfegeIndex < 0;
       const live = liveContext.value;
       pressNote(book.value, held, {

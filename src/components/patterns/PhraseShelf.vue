@@ -41,6 +41,7 @@ import { recordedLoopTailMs } from "@/services/recordedTiming";
 import { chromaticPitchHeight } from "@/services/scalePitch";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
+import { useLoopPrototypeStore } from "@/stores/loopPrototype";
 import { usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import type { LogNote, PatternNote } from "@/types/patterns";
@@ -54,6 +55,7 @@ const emit = defineEmits<{
 }>();
 
 const phrasesStore = usePhrasesStore();
+const loopPrototype = useLoopPrototypeStore();
 const keyboardStore = useKeyboardDrawerStore();
 const musicStore = useMusicStore();
 const visualConfigStore = useVisualConfigStore();
@@ -293,6 +295,13 @@ function loadPhrase(id: string) {
     octave: keyboardStore.keyboardConfig.mainOctave,
   };
   if (!phrasesStore.openPhrase(id)) return;
+  // PROTOTYPE: a running loop owns key, mode and tempo; the phrase you scroll
+  // to is re-skinned into them instead of dragging the loop to its own.
+  if (loopPrototype.hasLoop) {
+    musicStore.setKey(before.key);
+    musicStore.setMode(before.mode);
+    visualConfigStore.updateConfig("codeStrip", { bpm: before.bpm });
+  }
   const changed: PatternControl[] = [];
   if (musicStore.currentKey !== before.key) changed.push("key");
   if (musicStore.currentMode !== before.mode) changed.push("mode");

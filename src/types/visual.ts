@@ -223,6 +223,12 @@ export interface AmbientConfig {
   saturationMajor: number;
   /** Legacy field retained for compatibility; now controls accent saturation */
   saturationMinor: number;
+  /** PROTOTYPE: how bright the turning glow of a running loop is (0..1). */
+  loopStrength?: number;
+  /** PROTOTYPE: haze (0) to distinct nodes of light (1) for a loop's notes. */
+  loopDefinition?: number;
+  /** PROTOTYPE: how far a loop's light reaches across the Stage (0..1). */
+  loopSpread?: number;
 }
 
 /**

@@ -92,8 +92,7 @@ export function useUnifiedCanvas(
   const canvasHeight = ref(window.innerHeight);
   let ctx: CanvasRenderingContext2D | null = null;
 
-  // Performance optimization: Cache gradients and colors
-  const gradientCache = new Map<string, CanvasGradient>();
+  // Performance optimization: Cache colors
   const colorCache = new Map<string, string>();
 
   // Cached configurations for performance
@@ -266,19 +265,6 @@ export function useUnifiedCanvas(
   };
 
   /**
-   * Get or create cached gradient
-   */
-  const getCachedGradient = (
-    key: string,
-    createFn: () => CanvasGradient
-  ): CanvasGradient => {
-    if (!gradientCache.has(key)) {
-      gradientCache.set(key, createFn());
-    }
-    return gradientCache.get(key)!;
-  };
-
-  /**
    * Clear canvas
    */
   const clearCanvas = () => {
@@ -380,7 +366,7 @@ export function useUnifiedCanvas(
         canvasWidth.value,
         canvasHeight.value,
         musicStore,
-        getCachedGradient,
+        composition,
         audioFrame,
         reducedMotion,
         stageActiveNotes,
@@ -655,7 +641,6 @@ export function useUnifiedCanvas(
    * Clear caches to prevent memory leaks
    */
   const clearCaches = () => {
-    gradientCache.clear();
     colorCache.clear();
   };
 

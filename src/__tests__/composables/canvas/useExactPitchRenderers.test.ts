@@ -45,8 +45,46 @@ vi.mock("@/composables/useMusicColor", () => ({
     getPrimaryColorForPitch: vi.fn(() => "#ff6b9d"),
     getFleckColor: vi.fn(() => "#e0a93a"),
     getFleckColorByPitchClass: vi.fn(() => "#e0a93a"),
+    sampleHuePhase: vi.fn(() => null),
   }),
 }));
+
+const AMBIENT = {
+  isEnabled: true,
+  opacityMajor: 0.3,
+  opacityMinor: 0.216,
+  brightnessMajor: 0.455,
+  brightnessMinor: 0.29,
+  saturationMajor: 0.6,
+  saturationMinor: 0.45,
+};
+
+const COMPOSITION = {
+  usable: { x: 0, y: 0, width: 800, height: 600 },
+  centerX: 400,
+  centerY: 300,
+  hilbertRadius: 100,
+  orbitRadiusX: 200,
+  orbitRadiusY: 150,
+  blobFitScale: 1,
+  suspended: false,
+};
+
+function createMockCtx() {
+  return {
+    fillRect: vi.fn(),
+    beginPath: vi.fn(),
+    moveTo: vi.fn(),
+    lineTo: vi.fn(),
+    closePath: vi.fn(),
+    fill: vi.fn(),
+    save: vi.fn(),
+    restore: vi.fn(),
+    drawImage: vi.fn(),
+    globalAlpha: 1,
+    fillStyle: "",
+  } as unknown as CanvasRenderingContext2D;
+}
 
 describe("active-note canvas color routing", () => {
   beforeEach(() => {
@@ -58,19 +96,7 @@ describe("active-note canvas color routing", () => {
     const { useAmbientRenderer } = await import("@/composables/canvas/useAmbientRenderer");
     const { renderAmbientBackground } = useAmbientRenderer();
 
-    const mockCtx = {
-      createLinearGradient: vi.fn(() => ({
-        addColorStop: vi.fn(),
-      })),
-      createRadialGradient: vi.fn(() => ({
-        addColorStop: vi.fn(),
-      })),
-      fillRect: vi.fn(),
-      save: vi.fn(),
-      restore: vi.fn(),
-      globalAlpha: 1,
-      fillStyle: "",
-    } as unknown as CanvasRenderingContext2D;
+    const mockCtx = createMockCtx();
 
     // Note with conflicting scale and pitch indices
     const exactPitchNote: ActiveNote = {
@@ -94,17 +120,15 @@ describe("active-note canvas color routing", () => {
       },
     };
 
-    const getCachedGradient = vi.fn((key, createFn) => createFn());
-
     renderAmbientBackground(
       mockCtx,
       0,
-      { isEnabled: true },
+      AMBIENT,
       800,
       600,
       { currentMode: "major", currentKey: "C", getActiveNotes: () => [] },
-      getCachedGradient,
-      { envelope: 0, hasSignal: false },
+      COMPOSITION,
+      { envelope: 0.5, hasSignal: true },
       false,
       [exactPitchNote]
     );
@@ -122,19 +146,7 @@ describe("active-note canvas color routing", () => {
     const { useAmbientRenderer } = await import("@/composables/canvas/useAmbientRenderer");
     const { renderAmbientBackground } = useAmbientRenderer();
 
-    const mockCtx = {
-      createLinearGradient: vi.fn(() => ({
-        addColorStop: vi.fn(),
-      })),
-      createRadialGradient: vi.fn(() => ({
-        addColorStop: vi.fn(),
-      })),
-      fillRect: vi.fn(),
-      save: vi.fn(),
-      restore: vi.fn(),
-      globalAlpha: 1,
-      fillStyle: "",
-    } as unknown as CanvasRenderingContext2D;
+    const mockCtx = createMockCtx();
 
     const scaleNote: ActiveNote = {
       noteId: "test-note",
@@ -157,17 +169,15 @@ describe("active-note canvas color routing", () => {
       },
     };
 
-    const getCachedGradient = vi.fn((key, createFn) => createFn());
-
     renderAmbientBackground(
       mockCtx,
       0,
-      { isEnabled: true },
+      AMBIENT,
       800,
       600,
       { currentMode: "major", currentKey: "C", getActiveNotes: () => [] },
-      getCachedGradient,
-      { envelope: 0, hasSignal: false },
+      COMPOSITION,
+      { envelope: 0.5, hasSignal: true },
       false,
       [scaleNote]
     );
@@ -177,5 +187,52 @@ describe("active-note canvas color routing", () => {
       (call) => call.function === "resolveMusicColorSampleByScaleIndex"
     );
     expect(scaleIndexCall).toBeDefined();
+  });
+  it("lights the band with the sounding pitch and keeps it through the release", async () => {
+    const { useAmbientRenderer } = await import("@/composables/canvas/useAmbientRenderer");
+    const { renderAmbientBackground } = useAmbientRenderer();
+    const store = { currentMode: "major", currentKey: "C", getActiveNotes: () => [] };
+    const note = {
+      noteId: "e4",
+      noteName: "E4",
+      frequency: 329.63,
+      octave: 4,
+      keyboardOctave: 4,
+      solfegeIndex: 2,
+      pitchClassIndex: 4,
+      mode: "major",
+      key: "C",
+    } as ActiveNote;
+
+    const silent = createMockCtx();
+    renderAmbientBackground(silent, 0, AMBIENT, 800, 600, store, COMPOSITION,
+      { envelope: 0, hasSignal: false }, false, []);
+    expect(silent.drawImage).toHaveBeenCalledOnce();
+    expect(colorResolutionCalls).toHaveLength(0);
+
+    const sounding = createMockCtx();
+    renderAmbientBackground(sounding, 1, AMBIENT, 800, 600, store, COMPOSITION,
+      { envelope: 0.6, hasSignal: true }, false, [note]);
+    expect(colorResolutionCalls.at(-1)?.args[0]).toBe("E");
+
+    colorResolutionCalls.length = 0;
+    const releasing = createMockCtx();
+    renderAmbientBackground(releasing, 2, AMBIENT, 800, 600, store, COMPOSITION,
+      { envelope: 0.04, hasSignal: false }, false, []);
+    expect(colorResolutionCalls.at(-1)?.args[0]).toBe("E");
+  });
+
+  it("paints only the Ink ground while the Stage is suspended", async () => {
+    const { useAmbientRenderer } = await import("@/composables/canvas/useAmbientRenderer");
+    const { renderAmbientBackground } = useAmbientRenderer();
+    const ctx = createMockCtx();
+
+    renderAmbientBackground(ctx, 0, AMBIENT, 800, 600,
+      { currentMode: "major", currentKey: "C", getActiveNotes: () => [] },
+      { ...COMPOSITION, suspended: true },
+      { envelope: 1, hasSignal: true }, false, []);
+
+    expect(ctx.fillRect).toHaveBeenCalledOnce();
+    expect(ctx.drawImage).not.toHaveBeenCalled();
   });
 });

@@ -26,6 +26,8 @@
   >
     <template #icon><KeyboardIcon /></template>
     <template #persistent-leading>
+      <!-- PROTOTYPE: the loop Platter floats above the reel. -->
+      <LoopPlatterPrototype v-if="isProductionUsage" />
       <PhraseShelf
         v-if="isProductionUsage"
         data-stage-occluder
@@ -149,6 +151,7 @@ import type {
 import type { CodeStripToken } from "@/components/uniques/CodeStrip/index.vue";
 import Drawer from "@/components/uniques/Drawer/index.vue";
 import HummingCaptureTransport from "@/components/humming/HummingCaptureTransport.vue";
+import LoopPlatterPrototype from "@/components/patterns/LoopPlatterPrototype.vue";
 import PhraseShelf from "@/components/patterns/PhraseShelf.vue";
 import {
   MAX_KEYBOARD_ROW_COUNT,
@@ -167,6 +170,7 @@ import type { HarmonyAlteration } from "@/domain/harmony";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
+import { useLoopPrototypeStore } from "@/stores/loopPrototype";
 import { usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
@@ -348,8 +352,11 @@ function selectHummingTake(index: number) {
 }
 
 function handleBackspace() {
-  if (phrasesStore) phrasesStore.undoLastNote();
-  else emit("backspace");
+  if (!phrasesStore) emit("backspace");
+  // PROTOTYPE: with nothing on the desk, Backspace takes the last layer off.
+  else if (phrasesStore.takeNotes.length || !useLoopPrototypeStore().peelLayer()) {
+    phrasesStore.undoLastNote();
+  }
 }
 
 function handleReturn() {
@@ -358,6 +365,8 @@ function handleReturn() {
     return;
   }
 
+  // PROTOTYPE: while a loop is on the Platter, Return lays the take down on it.
+  if (useLoopPrototypeStore().layDownTake()) return;
   phrasesStore.keepTake();
 }
 

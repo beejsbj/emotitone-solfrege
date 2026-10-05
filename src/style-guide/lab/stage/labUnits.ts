@@ -6,8 +6,9 @@ import type { StageLabDirection, StageLabUnit } from "@/types/stageLab";
  * first. Blobs, Connections and Lettering are the Note Bodies group:
  * independent parts that work together. Compose combines any picks.
  *
- * Directions left after Burooj's review on 2026-10-02; his words are on each
- * unit's verdict. Letters are reassigned to the survivors.
+ * Directions left after Burooj's reviews (2026-10-02 cut, 2026-10-04: "Drop
+ * dot family"); his words are on each unit's verdict. Letters are reassigned
+ * to the survivors.
  */
 
 const fits = (role: StageLabDirection["bible"]["role"], note: string): StageLabDirection["bible"] =>
@@ -46,11 +47,6 @@ export const STAGE_LAB_UNITS: StageLabUnit[] = [
         better: "The poster's highlight band, literally.",
         risks: "A big colour field behind everything.",
         bible: caution("Applied paper", "Music Color only, but the ground becomes pasted paper.") },
-      { id: "halftone-panel", letter: "E", name: "Halftone Panel", family: "dot", paper: "pine",
-        idea: "Unlit Panel and Halftone combined: the ground is the unlit LED grid, and light is printed onto the same grid as halftone, dots swelling in the sounding pitch's colour around the scope.",
-        better: "One dot language for ground and light, sharing a grid with every dot part.",
-        risks: "Full-Stage texture behind everything.",
-        bible: fits("Chassis display", "Hardware grid; light is dot size.") },
     ],
   },
   {
@@ -72,11 +68,6 @@ export const STAGE_LAB_UNITS: StageLabUnit[] = [
         better: "The poster's hand inside the instrument.",
         risks: "Busy frame to frame; thick strokes can block the bodies.",
         bible: caution("Applied paper", "Hand-made line in Music Color.") },
-      { id: "dots", letter: "C", name: "Dot Trace", family: "dot", paper: "pine",
-        idea: "The loop rasterised onto the dot grid; each lit dot decays on its own.",
-        better: "Pairs with the Halftone Panel ground.",
-        risks: "Coarse at phone pitch.",
-        bible: fits("Chassis display", "Only lit dots carry colour.") },
     ],
   },
   {
@@ -92,11 +83,6 @@ export const STAGE_LAB_UNITS: StageLabUnit[] = [
         better: "Strings become cut paper like the Keys.",
         risks: "Heavier idle strings; stepped motion.",
         bible: caution("Applied paper", "Cut grammar in Music Color.") },
-      { id: "columns", letter: "B", name: "LED Columns", family: "dot", paper: "pine",
-        idea: "Columns of lit dots on the shared grid, displaced a whole dot at a time.",
-        better: "Quantised like hardware; pairs with the dot parts.",
-        risks: "Small vibrations vanish below one dot.",
-        bible: fits("Chassis display", "Only lit dots carry colour.") },
     ],
   },
   {
@@ -114,12 +100,7 @@ export const STAGE_LAB_UNITS: StageLabUnit[] = [
         better: "The reference's aesthetic and motion with the poster's offset; no fog.",
         risks: "Flat discs on the orbit are heavier than production's soft bodies.",
         bible: fits("Applied paper", "Cut grammar in Music Color.") },
-      { id: "pop-dots", letter: "B", name: "Dot Disc", family: "dot", paper: "pine",
-        idea: "The reference blob on the panel: the disc lights a cluster of LEDs with a ring of half-lit LEDs as its halo.",
-        better: "The same pop in the panel's own material.",
-        risks: "Coarse at phone pitch.",
-        bible: fits("Chassis display", "Only lit dots carry colour.") },
-      { id: "rings", letter: "C", name: "Register Rings", family: "any", paper: "plum",
+      { id: "rings", letter: "B", name: "Register Rings", family: "any", paper: "plum",
         idea: "A flat core with one ring per scientific octave (C4 has four), the outer ring riding the contour: high notes are many fine rings, low notes a few wide ones.",
         better: "Register becomes visible, which colour lightness alone only hints at.",
         risks: "Dense on high notes; the count needs learning.",
@@ -135,7 +116,7 @@ export const STAGE_LAB_UNITS: StageLabUnit[] = [
       "How bodies relate. Production's organic Merge fuses bodies into one gooey body; Web joins every analyzed pair with rooted filaments. Production cannot draw them without the bodies (one field), so its frame here shows the fused field.",
     keeps: "Which pairs relate, Merge as one connected body and Web as the full graph, and publishing the drawn path so lettering lands on it.",
     verdict:
-      "Burooj, 2026-10-02: \"Chord shape is best. Slur arc is good too. But doesn't work in merge. Kill rest.\" Slur Arcs now has a Merge reading: one scalloped phrase of slurs around the chord's outside. 2026-10-03: \"Chord shape cannot be for all families. Like the production connection family organic merge would work well with the reference image aesthetic.\" Lit uses production's organic Merge/Web (under the Pop Look); Paper uses Chord Shape, with Slur Arcs as its Web alternate; Dot uses the Dot Field.",
+      "Burooj, 2026-10-02: \"Chord shape is best. Slur arc is good too. But doesn't work in merge. Kill rest.\" Slur Arcs now has a Merge reading: one scalloped phrase of slurs around the chord's outside. 2026-10-03: \"Chord shape cannot be for all families. Like the production connection family organic merge would work well with the reference image aesthetic.\" Lit uses production's organic Merge/Web (under the Pop Look); Paper uses Chord Shape, with Slur Arcs as its Web alternate. 2026-10-04: every connection in the lab now labels every chord interval in Merge too, not only its joins (production change filed as BJS-468).",
     directions: [
       { id: "chord-shape", letter: "A", name: "Chord Shape", family: "paper", paper: "cobalt",
         idea: "The Circle of Fifths becomes a dial of twelve stations and the chord is the polygon its notes make on it; Merge fills it with flat deep facets, Web adds the diagonals.",
@@ -147,11 +128,6 @@ export const STAGE_LAB_UNITS: StageLabUnit[] = [
         better: "Notation's own mark for notes that belong together.",
         risks: "Ivory arcs are bright; wide chords make tall arcs near the Stage edge.",
         bible: fits("Chassis display", "Notation ink, no brand colour.") },
-      { id: "dot-field", letter: "C", name: "Dot Field", family: "dot", paper: "pine",
-        idea: "The Dot family's own Merge and Web on the LED grid. Merge lights every dot inside the bodies' metaball field or an hourglass neck along the spanning tree, so separated bodies stay one shape; each dot takes the colour of the body that owns it most. Web is a dotted LED run per interval.",
-        better: "Relationships made of the same lit dots as the rest of the panel; no vector lines on a raster.",
-        risks: "Coarse necks at phone pitch; colours meet at a hard dot boundary.",
-        bible: fits("Chassis display", "Only lit dots carry colour.") },
     ],
   },
   {
@@ -171,14 +147,9 @@ export const STAGE_LAB_UNITS: StageLabUnit[] = [
     source: "composables/canvas/useParticleSystem.ts",
     reading: "On each attack, Marks from the whole family appear at random places across the Stage in the note's colour, drift a little and fade.",
     keeps: "Attack-driven only, the randomised whole Mark family, and nothing in flight under Reduced Motion.",
-    verdict: "Burooj, 2026-10-02: \"Flecks best is C. Then B. Kill rest.\" (C was Pixel Marks, B was Chads.) 2026-10-03: \"Flecks honestly are the most performance consuming.\" Turn on Timings to see each part's measured cost.",
+    verdict: "Burooj, 2026-10-02: \"Flecks best is C. Then B. Kill rest.\" (C was Pixel Marks, B was Chads; Pixel Marks left with the Dot family on 2026-10-04.) 2026-10-03: \"Flecks honestly are the most performance consuming.\" Turn on Timings to see each part's measured cost.",
     directions: [
-      { id: "pixels", letter: "A", name: "Pixel Marks", family: "dot", paper: "pine",
-        idea: "A Mark lights on the shared dot grid for a moment, then decays.",
-        better: "A pixel-font glyph per attack; pairs with the dot parts.",
-        risks: "Coarse; can read as noise.",
-        bible: fits("Chassis display", "Only lit dots carry colour.") },
-      { id: "chads", letter: "B", name: "Chads", family: "paper", paper: "tomato",
+      { id: "chads", letter: "A", name: "Chads", family: "paper", paper: "tomato",
         idea: "Cut Marks with an Ink offset pop from the scope, tumble and fall off behind the deck; they never fade.",
         better: "Physical and playful.",
         risks: "Falling paper crosses the lettering.",

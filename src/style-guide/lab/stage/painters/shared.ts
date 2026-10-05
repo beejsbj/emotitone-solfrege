@@ -148,3 +148,24 @@ export function scenePairs(scene: HarmonicGeometryScene | null, bodies: readonly
     .map((edge) => [byKey.get(edge.fromNoteId), byKey.get(edge.toNoteId)])
     .filter((pair): pair is [PreparedBlobFrame, PreparedBlobFrame] => Boolean(pair[0] && pair[1]));
 }
+
+/**
+ * Give every analyzed interval a path for the lettering. Merge draws only the
+ * joins that hold its one body together (n − 1 for n notes), so without this
+ * the lettering silently drops the rest — for C major on the circle of
+ * fifths, the major third. Missing pairs get a latent straight path between
+ * their bodies, which draws nothing and only anchors the label.
+ */
+export function completeIntervalPaths(scene: HarmonicGeometryScene | null, bodies: readonly PreparedBlobFrame[]) {
+  if (!scene) return;
+  const existing = scene.renderedConnections ?? [];
+  const has = (a: string, b: string) => existing.some((path) => path.notePair.includes(a) && path.notePair.includes(b));
+  const missing = scenePairs(scene, bodies).filter(([a, b]) => !has(a.key, b.key));
+  if (!missing.length) return;
+  const keepCentre = scene.mergeCenter;
+  const mode = scene.connectionMode === "web" ? "web" : "merge";
+  publishConnections(scene, missing, mode);
+  scene.renderedConnections = [...existing, ...(scene.renderedConnections ?? [])];
+  // The centre belongs to the drawn body, not to the latent paths.
+  scene.mergeCenter = keepCentre;
+}

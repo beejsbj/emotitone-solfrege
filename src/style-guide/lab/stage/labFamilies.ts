@@ -13,11 +13,11 @@ import type { StageLabSelection } from "@/types/stageLab";
  *
  * Lit is the original intent: classy, soft, jazz-club light on Ink, Ivory
  * and Brass; Pixar's Soul (the club scenes and the Great Before) is a named
- * influence. Paper is the cut-paper poster side with hard edges. Dot is the
- * hardware panel.
+ * influence. Paper is the cut-paper poster side with hard edges. The Dot
+ * family was dropped on 2026-10-04.
  */
 
-export type StageLabFamily = "lit" | "paper" | "dot";
+export type StageLabFamily = "lit" | "paper";
 
 type Knobs = Partial<Record<"hilbertScope" | "blobs" | "particles" | "ambient" | "strings", Record<string, number | boolean>>>;
 
@@ -112,18 +112,8 @@ export const STAGE_LAB_PRESETS: StageLabPreset[] = [
     selection: { ...base, atmosphere: "spotlight-cut", strings: "strips", scope: "brush", connections: "slurs", blobs: "pop-cut", flecks: "chads" },
     look: "pop",
   },
-  {
-    id: "dot", name: "Dot", family: "dot",
-    note: "Halftone Panel, Dot Trace, LED Columns, Dot Discs joined by the Dot Field, Pixel Marks.",
-    selection: { ...base, atmosphere: "halftone-panel", strings: "columns", scope: "dots", connections: "dot-field", blobs: "pop-dots", flecks: "pixels" },
-    look: "pop",
-  },
-  {
-    id: "dot-crt", name: "Dot · CRT in panel", family: "dot",
-    note: "The production scope under the Phosphor Look set into the dot panel, so the waveform keeps its detail on a phone.",
-    selection: { ...base, atmosphere: "halftone-panel", strings: "columns", connections: "dot-field", blobs: "pop-dots", flecks: "pixels" },
-    look: "pop,phosphor",
-  },
+
+
 ];
 
 /** Known Look ids from a comma-separated list, in order; unknown ids are dropped. */

@@ -24,17 +24,17 @@ export const STAGE_LAB_UNIT_IDS = ["atmosphere", "strings", "scope", "connection
 export type StageLabUnitId = (typeof STAGE_LAB_UNIT_IDS)[number];
 
 /**
- * Renderer directions after Burooj's 2026-10-02 cut and 2026-10-03 family
- * pass. Knob-only variations (Pop, Phosphor, Smoke) are Looks, not here;
+ * Renderer directions after Burooj's 2026-10-02 cut, the 2026-10-03 family
+ * pass, and dropping the Dot family on 2026-10-04. Knob-only variations (Pop, Phosphor, Smoke) are Looks, not here;
  * the Lit disc is production's field under the Pop Look.
  */
 export const STAGE_LAB_DIRECTION_IDS = {
-  atmosphere: ["spotlight", "band", "spotlight-cut", "band-cut", "halftone-panel"],
-  strings: ["strips", "columns"],
-  scope: ["cut", "brush", "dots"],
-  connections: ["chord-shape", "slurs", "dot-field"],
-  blobs: ["pop-cut", "pop-dots", "rings"],
-  flecks: ["pixels", "chads"],
+  atmosphere: ["spotlight", "band", "spotlight-cut", "band-cut"],
+  strings: ["strips"],
+  scope: ["cut", "brush"],
+  connections: ["chord-shape", "slurs"],
+  blobs: ["pop-cut", "rings"],
+  flecks: ["chads"],
   lettering: [],
 } as const satisfies Record<StageLabUnitId, readonly string[]>;
 
@@ -57,8 +57,8 @@ export type StageLabState =
 
 export interface StageLabDirection {
   id: string;
-  /** The family it belongs to: Lit (soft club light), Paper (hard cut), Dot (panel), or any. */
-  family: "lit" | "paper" | "dot" | "any";
+  /** The family it belongs to: Lit (soft club light), Paper (hard cut), or any. */
+  family: "lit" | "paper" | "any";
   letter: string;
   name: string;
   paper: StageLabPaper;

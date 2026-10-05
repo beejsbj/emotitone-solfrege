@@ -1,5 +1,4 @@
 import type { PreparedBlobFrame } from "@/types/canvas";
-import { LedRaster } from "./led";
 import { stepped } from "./shared";
 import type { BlobsPainter, LabFrame } from "./types";
 
@@ -13,7 +12,7 @@ import type { BlobsPainter, LabFrame } from "./types";
  * (scale in 100ms with production's overshoot, scale and fade out in 200ms, no
  * vibration), and these painters read the prepared radius. In Lit the disc is
  * production's own field under that Look, halo included, so it has no painter
- * here. Paper and Dot only decide the material.
+ * here. Paper only decides the material.
  */
 
 const visibleOf = (bodies: readonly PreparedBlobFrame[]) => bodies.filter((body) => body.opacity > 0.02);
@@ -38,26 +37,6 @@ export function createPaperDisc(): BlobsPainter {
         ctx.fillStyle = body.primaryColor;
         ctx.beginPath(); ctx.arc(body.blob.x, body.blob.y, r, 0, Math.PI * 2); ctx.fill();
       });
-    },
-  };
-}
-
-/** Dot: the disc lights a cluster of LEDs; a ring of half-lit LEDs is its halo. */
-export function createDotDisc(): BlobsPainter {
-  const raster = new LedRaster();
-  return {
-    paint(frame: LabFrame, bodies) {
-      const led = raster.begin(frame, false);
-      visibleOf(bodies).forEach((body) => {
-        const r = body.scaledRadius;
-        if (r < 0.5) return;
-        led.fillStyle = body.primaryColor;
-        led.globalAlpha = 0.35;
-        led.beginPath(); led.arc(body.blob.x, body.blob.y, r * 1.3, 0, Math.PI * 2); led.fill();
-        led.globalAlpha = 1;
-        led.beginPath(); led.arc(body.blob.x, body.blob.y, r, 0, Math.PI * 2); led.fill();
-      });
-      raster.present(frame);
     },
   };
 }

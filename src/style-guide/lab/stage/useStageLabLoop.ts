@@ -36,14 +36,13 @@ import type {
   StringsPainter,
 } from "./painters/types";
 import { createChadFlecks, createCutScope, stripStrings } from "./painters/pasteUp";
-import { createColumnStrings, createDotScope, createHalftonePanelAtmosphere, createPixelFlecks } from "./painters/led";
 import { ringBlobs } from "./painters/blobs";
 import { createSlurConnections } from "./painters/connections";
 import { createChordShapePainter } from "./painters/chordShape";
 import { createBrushScope } from "./painters/scope";
 import { createCutBand, createCutSpotlight, createDiffusedBand, createDiffusedSpotlight } from "./painters/atmosphere";
-import { createDotDisc, createPaperDisc } from "./painters/pop";
-import { createDotFieldConnections } from "./painters/dotField";
+import { createPaperDisc } from "./painters/pop";
+import { completeIntervalPaths } from "./painters/shared";
 
 /*
  * The lab's frame loop. It mirrors production `useUnifiedCanvas.renderFrame`
@@ -90,29 +89,23 @@ const ATMOSPHERE: Record<string, () => AtmospherePainter> = {
   band: createDiffusedBand,
   "spotlight-cut": createCutSpotlight,
   "band-cut": createCutBand,
-  "halftone-panel": createHalftonePanelAtmosphere,
 };
 const STRINGS: Record<string, () => StringsPainter> = {
   strips: () => stripStrings,
-  columns: createColumnStrings,
 };
 const SCOPE: Record<string, () => ScopePainter> = {
   cut: createCutScope,
   brush: createBrushScope,
-  dots: createDotScope,
 };
 const BLOBS: Record<string, () => BlobsPainter> = {
   "pop-cut": createPaperDisc,
-  "pop-dots": createDotDisc,
   rings: () => ringBlobs,
 };
 const CONNECTIONS: Record<string, () => ConnectionsPainter> = {
   "chord-shape": createChordShapePainter,
   slurs: createSlurConnections,
-  "dot-field": createDotFieldConnections,
 };
 const FLECKS: Record<string, () => FlecksPainter> = {
-  pixels: createPixelFlecks,
   chads: createChadFlecks,
 };
 /** Lettering kept no lab direction (Burooj, 2026-10-02); production lettering stays. */
@@ -313,6 +306,8 @@ export function useStageLabLoop(canvases: StageLabCanvases, options: StageLabLoo
     measure("connections", () => {
       if (painters.connections) painters.connections.paint(on("connections"), prepared, scene, options.mode.value);
       else blobField.renderBlobField(ctx.connections!, prepared, blobConfig.value, scene);
+      // Lab fix (proposed for production): Merge labels every interval, not only its joins.
+      completeIntervalPaths(scene, prepared);
     });
     measure("blobs", () => {
       if (painters.blobs) painters.blobs.paint(on("blobs"), prepared);

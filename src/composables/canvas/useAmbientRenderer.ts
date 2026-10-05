@@ -37,6 +37,9 @@ const BAND_CHROMA = 0.78;
 // Strength above the canonical default widens the band, up to twice its
 // accepted height at full Strength; below it, the pitch colour fades.
 const BAND_WIDEST = 2;
+// Once the envelope has decayed this far the release tail is over (its colour
+// would be ~1% visible), so the band forgets the pitch it was holding.
+const LEAD_RELEASED_ENVELOPE = 0.001;
 
 type LeadNote = Pick<
   ActiveNote,
@@ -79,15 +82,19 @@ export function useAmbientRenderer() {
   const tokensByCanvas = new WeakMap<object, AtmosphereTokens>();
   let softCanvas: HTMLCanvasElement | null = null;
   let softCtx: CanvasRenderingContext2D | null = null;
-  // The band keeps the last sounding pitch's colour through its release tail.
+  // The band keeps the last sounding pitch's colour through its release tail,
+  // and only that long: unpitched sound never invents or revives a hue.
   let lead: LeadNote | null = null;
 
-  const resolveLeadColor = (musicStore: any): MusicColorValue | null => {
-    const mode = (lead?.mode ?? musicStore?.currentMode ?? "major") as MusicalMode;
-    const key = (lead?.key ?? musicStore?.currentKey ?? "C") as ChromaticNote;
-    const octave = lead?.octave ?? 4;
+  const resolveLeadColor = (
+    lead: LeadNote,
+    musicStore: any,
+  ): MusicColorValue | null => {
+    const mode = (lead.mode ?? musicStore?.currentMode ?? "major") as MusicalMode;
+    const key = (lead.key ?? musicStore?.currentKey ?? "C") as ChromaticNote;
+    const octave = lead.octave ?? 4;
     const phase = sampleHuePhase();
-    if (typeof lead?.pitchClassIndex === "number") {
+    if (typeof lead.pitchClassIndex === "number") {
       return resolveMusicColorSampleByPitchClass(
         CHROMATIC_NOTES[normalizePitchClass(lead.pitchClassIndex)],
         mode,
@@ -99,7 +106,7 @@ export function useAmbientRenderer() {
       )?.sample.primary ?? null;
     }
     return resolveMusicColorSampleByScaleIndex(
-      lead?.solfegeIndex ?? 0,
+      lead.solfegeIndex ?? 0,
       mode,
       key,
       octave,
@@ -181,6 +188,7 @@ export function useAmbientRenderer() {
         : []
     );
     if (notes[0]) lead = notes[0];
+    else if (audioFrame.envelope < LEAD_RELEASED_ENVELOPE) lead = null;
 
     const { usable, centerX: cx, centerY: cy } = composition;
     const defaults = DEFAULT_CONFIG.ambient;
@@ -194,7 +202,8 @@ export function useAmbientRenderer() {
     const reach = usable.width * 0.62 + 60;
     const lean = LEAN * reach;
 
-    const color = band.sounding > 0 ? resolveLeadColor(musicStore) : null;
+    // Sound without a pitch grows the band but leaves it Ink-3.
+    const color = lead && band.sounding > 0 ? resolveLeadColor(lead, musicStore) : null;
     const colorAlpha = band.sounding
       * clamp(knobRatio(ambientConfig.opacityMajor, defaults.opacityMajor), 0, 1);
 

@@ -257,4 +257,27 @@ describe("active-note canvas color routing", () => {
     expect(bandHeight(0.1)).toBeCloseTo(180, 6);
     expect(bandHeight(1)).toBeCloseTo(360, 6);
   });
+  it("never invents or revives a pitch hue for unpitched sound", async () => {
+    const { useAmbientRenderer } = await import("@/composables/canvas/useAmbientRenderer");
+    const { renderAmbientBackground } = useAmbientRenderer();
+    const store = { currentMode: "major", currentKey: "C", getActiveNotes: () => [] };
+    const render = (envelope: number, notes: ActiveNote[]) => renderAmbientBackground(
+      createMockCtx(), 0, AMBIENT, 800, 600, store, COMPOSITION,
+      { envelope, hasSignal: envelope > 0 }, false, notes);
+    const note = {
+      noteId: "e4", noteName: "E4", frequency: 329.63, octave: 4, keyboardOctave: 4,
+      solfegeIndex: 2, pitchClassIndex: 4, mode: "major", key: "C",
+    } as ActiveNote;
+
+    render(0.6, []);
+    expect(colorResolutionCalls).toHaveLength(0);
+
+    render(0.6, [note]);
+    expect(colorResolutionCalls).toHaveLength(1);
+
+    render(0, []);
+    colorResolutionCalls.length = 0;
+    render(0.6, []);
+    expect(colorResolutionCalls).toHaveLength(0);
+  });
 });

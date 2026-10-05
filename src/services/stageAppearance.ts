@@ -433,12 +433,12 @@ export function readStageControls(config: VisualEffectsConfig): StageControls {
     connectionMode: config.blobs.connectionMode,
     connectionStrength,
     connectionSoftness,
+    // The Diffused Band paints from the "major" fields alone, so the controls
+    // read exactly what paints; the "minor" pair is compatibility data.
     atmosphereStrength: config.ambient.isEnabled
-      ? clamp((config.ambient.opacityMajor + config.ambient.opacityMinor) / 1.72)
+      ? clamp(config.ambient.opacityMajor)
       : 0,
-    atmosphereColorDepth: clamp(
-      (config.ambient.saturationMajor + config.ambient.saturationMinor) / 1.75,
-    ),
+    atmosphereColorDepth: clamp(config.ambient.saturationMajor),
     stringPresence: config.strings.isEnabled
       ? clamp(config.strings.baseOpacity / 0.12)
       : 0,

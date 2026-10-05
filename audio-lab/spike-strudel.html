@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Spike: Strudel Looper transport</title></head>
+<body>
+<h1>Strudel Looper spike</h1>
+<p>Throwaway audio experiment. Tap Start to enable audio. Changes enter at the next scheduler window, or at the next safe bar if selected. Synth voices play built-in melodies.</p>
+<button id="start">Start</button> <button id="stop">Stop all</button>
+<p><label>Tempo <select id="tempo"><option>90</option><option selected>120</option><option>150</option></select></label>
+<label>Key <select id="key"><option>C</option><option>D</option><option>F</option><option>G</option></select></label>
+<label>Mode <select id="mode"><option>major</option><option>minor</option><option>dorian</option></select></label>
+<label>Swap <select id="policy"><option value="direct">Next scheduler window</option><option value="bar">Next safe bar</option></select></label></p>
+<output id="position">Stopped</output><div id="phrases"></div>
+<h2>Desk phrase code (one highlighted phrase, whole stack sounding)</h2><select id="desk"></select><div id="editor"></div>
+<p id="status" role="status"></p>
+<script type="module" src="/audio-lab/spike-strudel/page.mjs"></script>
+</body></html>

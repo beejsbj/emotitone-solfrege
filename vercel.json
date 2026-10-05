@@ -4,6 +4,10 @@
   "framework": "vue",
   "rewrites": [
     {
+      "source": "/spike/strudel-transport",
+      "destination": "/audio-lab/spike-strudel.html"
+    },
+    {
       "source": "/api/pitch-analysis/analyze",
       "destination": "https://melograph-swart.vercel.app/api/analyze"
     },

@@ -114,5 +114,12 @@ export default defineConfig({
   },
   build: {
     target: "esnext",
+    // Throwaway transport spike: separate entry, no application bootstrap.
+    rollupOptions: {
+      input: {
+        app: resolve(__dirname, "index.html"),
+        spikeStrudel: resolve(__dirname, "audio-lab/spike-strudel.html"),
+      },
+    },
   },
 });

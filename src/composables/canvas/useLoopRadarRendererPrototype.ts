@@ -1,17 +1,18 @@
 /**
  * PROTOTYPE — throwaway. Not for main.
  *
- * The loop as Stage presence. While a loop runs, the Atmosphere turns into a
- * slow radar: an Ivory beam sweeps once per loop, clockwise from twelve, and
- * every layer's notes sit in the field as spots of Music Color light.
+ * The loop as weather. While a loop runs, the Atmosphere starts turning: a
+ * broad, edgeless front of light (with a shadow opposite it) rotates once per
+ * loop, clockwise from twelve, and every layer's notes hang in the fog as
+ * diffuse pools of Music Color that swell as the front pushes through them and
+ * sink back behind it. Nothing is drawn as a line, ring or point.
  *
- *   angle  = time in the loop
- *   radius = layer (oldest innermost), pitch rising outward inside its band
- *   light  = phosphor: a spot blooms as the beam crosses it, holds while the
- *            note sounds, then decays behind the beam to a resting ember
+ *   angle    = time in the loop
+ *   distance = layer (oldest nearest the centre), nudged outward by pitch
+ *   depth    = later layers sit further out, larger and softer
  *
- * Silent layers stay as dim embers that never bloom. Notes of the open take
- * that are not laid down yet ride the outermost band as hollow ghosts.
+ * Silent layers stay as faint, unresponsive haze. Notes of the open take that
+ * are not laid down yet are a barely-there tint.
  * See src/stores/loopPrototype.ts for the question the prototype answers.
  */
 import { computed } from "vue";
@@ -26,58 +27,88 @@ import type { StageComposition } from "./stageRuntime";
 
 const TAU = Math.PI * 2;
 const IVORY = "244, 239, 230";
-const INK = "#0A0908";
-const IVORY_CSS = `rgb(${IVORY})`;
-/** Beam trail behind the leading edge, as a fraction of a turn. */
-const TRAIL = 0.3;
-const BEAM_SCALE = 0.5;
-const SPRITE = 64;
-const INNER = 0.3;
-/** Ember a spot rests at between sweeps (audible / silent). */
-const FLOOR = 0.2;
-const SILENT = 0.26;
+const INK = "10, 9, 8";
+/** Fog is painted at 1/SCALE and upscaled: softness without a blur pass. */
+const SCALE = 6;
+const SPRITE = 48;
+/** Front: how far light leads and trails the turning point, in turns. */
+const LEAD = 0.07;
+const TRAIL = 0.38;
 const FADE_S = 0.9;
-const NO_DASH: number[] = [];
-const SILENT_DASH = [2, 5];
 
-interface Spot {
+interface Pool {
   cos: number;
   sin: number;
+  /** Tangent to the turn, so the pool smears along the weather's motion. */
   angle: number;
-  /** 0..1 of the radar radius. */
-  radius: number;
   phase: number;
+  /** Distance from the centre, 0..1 of the radar radius. */
+  distance: number;
+  /** Diameter, 0..1 of the radar radius. */
+  size: number;
   durationMs: number;
-  sweep: number;
-  css: string;
   sprite: HTMLCanvasElement;
   silent: boolean;
 }
 
-interface Ring {
-  radius: number;
-  silent: boolean;
+/** Deterministic 0..1 from a number, so pools do not jump between rebuilds. */
+function scatter(seed: number): number {
+  const x = Math.sin(seed * 12.9898) * 43758.5453;
+  return x - Math.floor(x);
 }
 
-interface Tint {
-  css: string;
-  sprite: HTMLCanvasElement;
-}
-
-function glowSprite(rgb: string): HTMLCanvasElement {
+function poolSprite(rgb: string): HTMLCanvasElement {
   const canvas = document.createElement("canvas");
   canvas.width = SPRITE;
   canvas.height = SPRITE;
   const ctx = canvas.getContext("2d")!;
   const half = SPRITE / 2;
   const gradient = ctx.createRadialGradient(half, half, 0, half, half, half);
+  // Roughly Gaussian, so neighbouring pools melt into one another.
   gradient.addColorStop(0, `rgba(${rgb}, 1)`);
-  gradient.addColorStop(0.2, `rgba(${rgb}, 0.55)`);
-  gradient.addColorStop(0.5, `rgba(${rgb}, 0.18)`);
-  gradient.addColorStop(0.75, `rgba(${rgb}, 0.05)`);
+  gradient.addColorStop(0.2, `rgba(${rgb}, 0.78)`);
+  gradient.addColorStop(0.42, `rgba(${rgb}, 0.38)`);
+  gradient.addColorStop(0.65, `rgba(${rgb}, 0.12)`);
+  gradient.addColorStop(0.85, `rgba(${rgb}, 0.03)`);
   gradient.addColorStop(1, `rgba(${rgb}, 0)`);
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, SPRITE, SPRITE);
+  return canvas;
+}
+
+/** The turning front, painted once: Ivory light ahead, Ink shadow opposite. */
+function frontSprite(size: number): HTMLCanvasElement {
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+  const half = size / 2;
+  const light = (alpha: number) => `rgba(${IVORY}, ${alpha})`;
+  const shade = (alpha: number) => `rgba(${INK}, ${alpha})`;
+  const conic = ctx.createConicGradient(0, half, half);
+  // Offsets run clockwise from the turning point; it moves toward +offset.
+  conic.addColorStop(0, light(0.13));
+  conic.addColorStop(LEAD * 0.5, light(0.06));
+  conic.addColorStop(LEAD, light(0));
+  conic.addColorStop(0.3, shade(0));
+  conic.addColorStop(0.5, shade(0.45));
+  conic.addColorStop(0.62, shade(0));
+  conic.addColorStop(1 - TRAIL, light(0));
+  conic.addColorStop(1 - TRAIL * 0.55, light(0.035));
+  conic.addColorStop(1 - TRAIL * 0.22, light(0.085));
+  conic.addColorStop(1, light(0.13));
+  ctx.fillStyle = conic;
+  ctx.fillRect(0, 0, size, size);
+  // Fade toward the hub and the far edge, so there is no point to find.
+  ctx.globalCompositeOperation = "destination-in";
+  const falloff = ctx.createRadialGradient(half, half, 0, half, half, half);
+  falloff.addColorStop(0, "rgba(0,0,0,0.15)");
+  falloff.addColorStop(0.22, "rgba(0,0,0,0.8)");
+  falloff.addColorStop(0.45, "rgba(0,0,0,1)");
+  falloff.addColorStop(0.8, "rgba(0,0,0,0.55)");
+  falloff.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = falloff;
+  ctx.fillRect(0, 0, size, size);
   return canvas;
 }
 
@@ -87,24 +118,24 @@ export function useLoopRadarRendererPrototype() {
   const { dynamicColorConfig } = useVisualConfig();
 
   // Music Color per (pitch class, octave) in the current key and mode.
-  const tints = new Map<number, Tint>();
+  const sprites = new Map<number, HTMLCanvasElement>();
   let tintKey: ChromaticNote | null = null;
   let tintMode: MusicalMode | null = null;
   let tintConfig: unknown = null;
 
-  function tintOf(chroma: number, octave: number): Tint {
+  function spriteOf(chroma: number, octave: number): HTMLCanvasElement {
     const key = musicStore.currentKey as ChromaticNote;
     const mode = musicStore.currentMode as MusicalMode;
     const config = dynamicColorConfig.value;
     if (key !== tintKey || mode !== tintMode || config !== tintConfig) {
-      tints.clear();
+      sprites.clear();
       tintKey = key;
       tintMode = mode;
       tintConfig = config;
     }
     const id = chroma * 16 + octave;
-    let tint = tints.get(id);
-    if (!tint) {
+    let sprite = sprites.get(id);
+    if (!sprite) {
       const srgb = resolveMusicColorSampleByPitchClass(
         CHROMATIC_NOTES[((chroma % 12) + 12) % 12],
         mode,
@@ -113,19 +144,15 @@ export function useLoopRadarRendererPrototype() {
         config,
         "fixed-chromatic",
       )?.sample.primary.srgb;
-      const rgb = srgb
+      sprite = poolSprite(srgb
         ? `${Math.round(srgb.r * 255)}, ${Math.round(srgb.g * 255)}, ${Math.round(srgb.b * 255)}`
-        : IVORY;
-      tint = { css: `rgb(${rgb})`, sprite: glowSprite(rgb) };
-      tints.set(id, tint);
+        : IVORY);
+      sprites.set(id, sprite);
     }
-    return tint;
+    return sprite;
   }
 
-  /** One band per layer plus the groove the open take lands in. */
-  const bandWidth = computed(() => (1 - INNER) / Math.max(2, loop.layers.length + 1));
-
-  function place(notes: PatternNote[], band: number, lengthMs: number, silent: boolean, into: Spot[]) {
+  function place(notes: PatternNote[], depth: number, depths: number, lengthMs: number, silent: boolean, into: Pool[]) {
     if (!notes.length) return;
     let low = Infinity;
     let high = -Infinity;
@@ -135,22 +162,22 @@ export function useLoopRadarRendererPrototype() {
       if (midi > high) high = midi;
     }
     const span = Math.max(1, high - low);
-    const base = INNER + band * bandWidth.value;
+    const reach = depths > 1 ? depth / (depths - 1) : 0.5;
     for (const note of notes) {
       const { chroma, midi, octave } = loop.describe(note);
       const phase = (((note.pressTime % lengthMs) + lengthMs) % lengthMs) / lengthMs;
       const angle = phase * TAU - Math.PI / 2;
-      const tint = tintOf(chroma, octave);
       into.push({
         cos: Math.cos(angle),
         sin: Math.sin(angle),
-        angle,
-        radius: base + bandWidth.value * (0.22 + 0.56 * ((midi - low) / span)),
+        angle: angle + Math.PI / 2,
         phase,
+        // Pitch and a fixed per-note scatter break up any ring the layer would draw.
+        distance: 0.36 + reach * 0.4 + ((midi - low) / span - 0.5) * 0.3
+          + (scatter(note.pressTime + midi) - 0.5) * 0.14,
+        size: (0.8 + reach * 0.35) * (0.85 + Math.min(0.5, note.duration / lengthMs) * 0.8),
         durationMs: Math.max(30, note.duration),
-        sweep: Math.min(TAU * 0.98, Math.max(0, (note.duration / lengthMs) * TAU)),
-        css: tint.css,
-        sprite: tint.sprite,
+        sprite: spriteOf(chroma, octave),
         silent,
       });
     }
@@ -159,81 +186,49 @@ export function useLoopRadarRendererPrototype() {
   // Rebuilt only when layers, mutes, solo, key, mode or colour config change.
   const field = computed(() => {
     void dynamicColorConfig.value;
-    const spots: Spot[] = [];
-    const rings: Ring[] = [];
+    const pools: Pool[] = [];
     const lengthMs = loop.lengthMs;
-    if (!lengthMs) return { spots, rings };
+    if (!lengthMs) return pools;
+    const depths = loop.layers.length;
     loop.layers.forEach((layer: LoopLayer, index) => {
-      const silent = loop.isSilent(layer);
-      rings.push({ radius: INNER + (index + 0.5) * bandWidth.value, silent });
-      place(loop.soundingNotes(layer), index, lengthMs, silent, spots);
+      place(loop.soundingNotes(layer), index, depths, lengthMs, loop.isSilent(layer), pools);
     });
-    return { spots, rings };
+    return pools;
   });
 
-  let spots: Spot[] = [];
-  let rings: Ring[] = [];
-  let ghosts: Spot[] = [];
+  let pools: Pool[] = [];
+  let ghosts: Pool[] = [];
   let lengthMs = 0;
-  let bars = 0;
   let phase = 0;
   let presence = 0;
   let lastNow = 0;
   let frame = 0;
 
-  // The beam: an Ivory conic trail with radial falloff, painted once per size.
-  let beam: HTMLCanvasElement | null = null;
-  let beamRadius = 0;
-
-  function beamSprite(radius: number): HTMLCanvasElement {
-    if (beam && Math.abs(beamRadius - radius) < 2) return beam;
-    beamRadius = radius;
-    const size = Math.max(2, Math.ceil(radius * 2 * BEAM_SCALE));
-    beam = beam ?? document.createElement("canvas");
-    beam.width = size;
-    beam.height = size;
-    const bctx = beam.getContext("2d")!;
-    const half = size / 2;
-    bctx.clearRect(0, 0, size, size);
-    const conic = bctx.createConicGradient(0, half, half);
-    conic.addColorStop(0, `rgba(${IVORY}, 0)`);
-    conic.addColorStop(1 - TRAIL, `rgba(${IVORY}, 0)`);
-    conic.addColorStop(1 - TRAIL * 0.6, `rgba(${IVORY}, 0.016)`);
-    conic.addColorStop(1 - TRAIL * 0.3, `rgba(${IVORY}, 0.04)`);
-    conic.addColorStop(1 - TRAIL * 0.08, `rgba(${IVORY}, 0.075)`);
-    conic.addColorStop(1, `rgba(${IVORY}, 0.11)`);
-    bctx.fillStyle = conic;
-    bctx.fillRect(0, 0, size, size);
-    bctx.globalCompositeOperation = "destination-in";
-    const falloff = bctx.createRadialGradient(half, half, 0, half, half, half);
-    falloff.addColorStop(0, "rgba(0,0,0,0.4)");
-    falloff.addColorStop(0.1, "rgba(0,0,0,1)");
-    falloff.addColorStop(0.45, "rgba(0,0,0,0.7)");
-    falloff.addColorStop(0.75, "rgba(0,0,0,0.25)");
-    falloff.addColorStop(1, "rgba(0,0,0,0)");
-    bctx.fillStyle = falloff;
-    bctx.fillRect(0, 0, size, size);
-    bctx.globalCompositeOperation = "source-over";
-    return beam;
-  }
-
-  let edge: CanvasGradient | null = null;
-  let edgeRadius = 0;
-  function edgeGradient(ctx: CanvasRenderingContext2D, radius: number) {
-    if (edge && edgeRadius === radius) return edge;
-    edgeRadius = radius;
-    edge = ctx.createLinearGradient(0, 0, radius, 0);
-    edge.addColorStop(0, `rgba(${IVORY}, 0.04)`);
-    edge.addColorStop(0.12, `rgba(${IVORY}, 0.24)`);
-    edge.addColorStop(0.62, `rgba(${IVORY}, 0.08)`);
-    edge.addColorStop(1, `rgba(${IVORY}, 0)`);
-    return edge;
-  }
+  let front: HTMLCanvasElement | null = null;
+  let frontReach = 0;
+  let fog: HTMLCanvasElement | null = null;
+  let fogCtx: CanvasRenderingContext2D | null = null;
 
   function refreshGhosts() {
     ghosts = [];
     const pending = loop.pendingNotes();
-    if (pending.length && lengthMs) place(pending, loop.layers.length, lengthMs, false, ghosts);
+    if (pending.length && lengthMs) {
+      const depths = loop.layers.length + 1;
+      place(pending, depths - 1, depths, lengthMs, true, ghosts);
+    }
+  }
+
+  /** How strongly the front is on a pool: swells just ahead, holds while sounding, sinks after. */
+  function push(pool: Pool, reducedMotion: boolean): number {
+    let since = phase - pool.phase;
+    if (since < 0) since += 1;
+    const sinceMs = since * lengthMs;
+    if (sinceMs < pool.durationMs) return 1;
+    if (reducedMotion) return 0;
+    const ahead = 1 - since;
+    const lead = ahead < LEAD ? 1 - ahead / LEAD : 0;
+    const decayMs = Math.min(2800, Math.max(600, lengthMs * 0.45));
+    return Math.max(lead * lead * 0.6, Math.exp(-(sinceMs - pool.durationMs) / decayMs));
   }
 
   function render(
@@ -256,149 +251,92 @@ export function useLoopRadarRendererPrototype() {
 
     // Keep the last field while fading out after the loop is cleared.
     if (loop.hasLoop) {
-      const built = field.value;
-      spots = built.spots;
-      rings = built.rings;
+      pools = field.value;
       lengthMs = loop.lengthMs;
-      bars = loop.bars;
       phase = loop.phase();
       if (++frame % 8 === 0) refreshGhosts();
     } else {
       ghosts = [];
     }
     if (!lengthMs) return;
+    if (!fogCtx) {
+      fog = document.createElement("canvas");
+      fogCtx = fog.getContext("2d");
+      if (!fogCtx) return;
+    }
 
     const { usable, centerX: cx } = composition;
-    // Sit a touch above centre: the drawer's edge pulls the eye downward.
-    const cy = composition.centerY - usable.height * 0.03;
-    const radius = Math.min(usable.width, usable.height) * 0.47;
-    const reach = radius * 1.45;
+    const cy = composition.centerY - usable.height * 0.04;
+    const radius = Math.min(usable.width, usable.height) * 0.5;
     const hand = phase * TAU - Math.PI / 2;
 
     ctx.save();
-    // The normal Atmosphere recedes so the radar can carry the field.
-    ctx.globalAlpha = 0.5 * presence;
-    ctx.fillStyle = INK;
-    ctx.fillRect(usable.x, usable.y, usable.width, usable.height);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
 
-    // Range rings: one hairline per layer, dashed when the layer is silent.
-    ctx.lineWidth = 1;
-    for (const ring of rings) {
-      ctx.globalAlpha = presence * (ring.silent ? 0.07 : 0.1);
-      ctx.strokeStyle = IVORY_CSS;
-      ctx.setLineDash(ring.silent ? SILENT_DASH : NO_DASH);
-      ctx.beginPath();
-      ctx.arc(cx, cy, ring.radius * radius, 0, TAU);
-      ctx.stroke();
-    }
-    ctx.setLineDash(NO_DASH);
-    ctx.globalAlpha = presence * 0.07;
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius * 1.04, 0, TAU);
-    ctx.stroke();
-
-    // Bar and beat ticks on the rim.
-    const beats = Math.max(1, bars) * 4;
-    for (let index = 0; index < beats; index += 1) {
-      const isBar = index % 4 === 0;
-      const angle = (index / beats) * TAU - Math.PI / 2;
-      const cos = Math.cos(angle);
-      const sin = Math.sin(angle);
-      const outer = radius * 1.04;
-      const inner = outer - (isBar ? 9 : 4);
-      ctx.globalAlpha = presence * (isBar ? 0.3 : 0.12);
-      ctx.beginPath();
-      ctx.moveTo(cx + cos * inner, cy + sin * inner);
-      ctx.lineTo(cx + cos * outer, cy + sin * outer);
-      ctx.stroke();
-    }
-
-    // The sweep. Reduced Motion keeps the field still: no beam.
+    // The front turns the whole Atmosphere. Reduced Motion keeps it still.
     if (!reducedMotion) {
-      const sprite = beamSprite(reach);
-      ctx.save();
+      const reach = Math.hypot(usable.width, usable.height) * 0.62;
+      if (!front || Math.abs(frontReach - reach) > 4) {
+        frontReach = reach;
+        front = frontSprite(Math.max(8, Math.ceil((reach * 2) / SCALE)));
+      }
       ctx.translate(cx, cy);
       ctx.rotate(hand);
       ctx.globalAlpha = presence;
-      ctx.drawImage(sprite, -reach, -reach, reach * 2, reach * 2);
-      ctx.strokeStyle = edgeGradient(ctx, reach);
-      ctx.lineWidth = 1.25;
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(reach, 0);
-      ctx.stroke();
-      ctx.restore();
+      ctx.drawImage(front, -reach, -reach, reach * 2, reach * 2);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
 
-    // Phosphor: blooms as the beam crosses, holds while sounding, decays behind.
-    const decayMs = Math.min(2600, Math.max(500, lengthMs * 0.4));
-    const glowBase = Math.max(18, radius * bandWidth.value * 1.25);
-    ctx.globalCompositeOperation = "lighter";
-    ctx.lineCap = "round";
-    for (const spot of spots) {
-      let since = phase - spot.phase;
-      if (since < 0) since += 1;
-      const sinceMs = since * lengthMs;
-      const sounding = sinceMs < spot.durationMs;
-      let glow: number;
-      let flash: number;
-      if (reducedMotion) {
-        glow = sounding ? 1 : 0;
-        flash = 0;
-      } else {
-        glow = sounding ? 1 : Math.exp(-(sinceMs - spot.durationMs) / decayMs);
-        flash = Math.exp(-sinceMs / 260);
-      }
-      if (spot.silent) {
-        glow = 0;
-        flash = 0;
-      }
-      const level = (spot.silent ? SILENT : FLOOR + (1 - FLOOR) * glow) * presence;
-      const x = cx + spot.cos * spot.radius * radius;
-      const y = cy + spot.sin * spot.radius * radius;
-
-      // Atmosphere: the soft light the spot throws into the field.
-      const size = glowBase * (0.9 + glow * 1.1 + flash * 1.6);
-      ctx.globalAlpha = Math.min(1, level * (0.45 + flash * 0.45));
-      ctx.drawImage(spot.sprite, x - size / 2, y - size / 2, size, size);
-
-      // The trace of the note's length along its ring.
-      if (spot.sweep > 0.02) {
-        ctx.globalAlpha = level * 0.55;
-        ctx.strokeStyle = spot.css;
-        ctx.lineWidth = 1.5 + glow * 1.5;
-        ctx.beginPath();
-        ctx.arc(cx, cy, spot.radius * radius, spot.angle, spot.angle + spot.sweep);
-        ctx.stroke();
-      }
-
-      // The core.
-      ctx.globalAlpha = Math.min(1, level * 1.2);
-      ctx.fillStyle = spot.css;
-      ctx.beginPath();
-      ctx.arc(x, y, 1.6 + glow * 1.6 + flash * 1.2, 0, TAU);
-      ctx.fill();
+    // Pools of colour, painted small into the fog and upscaled.
+    const fw = Math.max(2, Math.ceil(usable.width / SCALE));
+    const fh = Math.max(2, Math.ceil(usable.height / SCALE));
+    if (!fog) return;
+    if (fog.width !== fw || fog.height !== fh) {
+      fog.width = fw;
+      fog.height = fh;
     }
-    ctx.globalCompositeOperation = "source-over";
-
-    // The open take, not yet laid down: hollow ghosts on the outer groove.
-    ctx.lineWidth = 1.25;
+    fogCtx.setTransform(1, 0, 0, 1, 0, 0);
+    fogCtx.globalCompositeOperation = "source-over";
+    fogCtx.clearRect(0, 0, fw, fh);
+    fogCtx.setTransform(1 / SCALE, 0, 0, 1 / SCALE, -usable.x / SCALE, -usable.y / SCALE);
+    fogCtx.globalCompositeOperation = "lighter";
+    for (const pool of pools) {
+      const swell = pool.silent ? 0 : push(pool, reducedMotion);
+      // Pushed: the front shoves a pool outward and along as it passes.
+      const shove = reducedMotion ? 0 : swell * 0.07;
+      const distance = (pool.distance + shove) * radius;
+      const along = shove * 0.6 * radius;
+      const x = cx + pool.cos * distance - pool.sin * along;
+      const y = cy + pool.sin * distance + pool.cos * along;
+      const size = pool.size * radius * (1 + swell * 0.4);
+      fogCtx.globalAlpha = pool.silent ? 0.06 : 0.1 + swell * 0.36;
+      // Smeared along the turn: the front stretches what it pushes.
+      const stretch = 1.5 + swell * 0.5;
+      const cos = Math.cos(pool.angle) / SCALE;
+      const sin = Math.sin(pool.angle) / SCALE;
+      fogCtx.setTransform(
+        cos * stretch, sin * stretch, -sin, cos,
+        (x - usable.x) / SCALE, (y - usable.y) / SCALE,
+      );
+      fogCtx.drawImage(pool.sprite, -size / 2, -size / 2, size, size);
+    }
+    fogCtx.setTransform(1 / SCALE, 0, 0, 1 / SCALE, -usable.x / SCALE, -usable.y / SCALE);
     for (const ghost of ghosts) {
-      const x = cx + ghost.cos * ghost.radius * radius;
-      const y = cy + ghost.sin * ghost.radius * radius;
-      ctx.globalAlpha = presence * 0.55;
-      ctx.strokeStyle = ghost.css;
-      ctx.beginPath();
-      ctx.arc(x, y, 3.2, 0, TAU);
-      ctx.stroke();
+      const size = ghost.size * radius;
+      fogCtx.globalAlpha = 0.045;
+      fogCtx.drawImage(
+        ghost.sprite,
+        cx + ghost.cos * ghost.distance * radius - size / 2,
+        cy + ghost.sin * ghost.distance * radius - size / 2,
+        size,
+        size,
+      );
     }
 
-    // Hub.
-    ctx.globalAlpha = presence * 0.4;
-    ctx.fillStyle = IVORY_CSS;
-    ctx.beginPath();
-    ctx.arc(cx, cy, 1.5, 0, TAU);
-    ctx.fill();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = presence;
+    ctx.drawImage(fog, usable.x, usable.y, fw * SCALE, fh * SCALE);
     ctx.restore();
   }
 

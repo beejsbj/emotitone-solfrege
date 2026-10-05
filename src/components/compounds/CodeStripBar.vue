@@ -16,7 +16,6 @@
           :title="isPlaying ? 'Stop' : 'Play'"
           @pointerdown="playDown"
           @pointerup="playCancel"
-          @pointerleave="playCancel"
           @pointercancel="playCancel"
           @contextmenu.prevent
           @click="playClick"
@@ -135,8 +134,12 @@ function playDown() {
     emit("playHold");
   }, PLAY_HOLD_MS);
 }
+// The key moves under the finger when pressed, so leaving it does not cancel
+// the hold; only lifting does.
 function playCancel() {
   clearTimeout(playHoldTimer);
+  // If the lift lands off the key no click follows; don't swallow the next one.
+  setTimeout(() => { playHeld = false; }, 80);
 }
 function playClick() {
   clearTimeout(playHoldTimer);

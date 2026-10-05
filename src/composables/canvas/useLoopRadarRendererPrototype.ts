@@ -54,9 +54,9 @@ const ARC_STEP = 0.07;
 const ARC_PIECES = 48;
 /** The wash is coarser: fewer, wider fans that overlap into one field. */
 const WASH_STEP = 0.16;
-const WASH_PIECES = 12;
+const WASH_PIECES = 8;
 /** Fan width at its source, as a fraction of the sprite's height. */
-const FAN_SOURCE = 0.14;
+const FAN_SOURCE = 0.09;
 /** Shortest arc drawn, in radians, so a staccato note still has a place. */
 const MIN_ARC = 0.05;
 
@@ -156,10 +156,13 @@ function getFanMask(): HTMLCanvasElement {
     for (let x = 0; x < FAN; x += 1) {
       const u = (x + 0.5) / FAN;
       // Widens from a slit at the source to the full height far out.
-      const width = FAN_SOURCE + (1 - FAN_SOURCE) * Math.pow(u, 0.8);
+      // Stays inside the sprite (max 0.65 of its half-height) and is windowed
+      // to exactly zero at the edges, so overlapping fans never show a side.
+      const width = FAN_SOURCE + (0.65 - FAN_SOURCE) * Math.pow(u, 0.8);
       const rise = Math.min(1, u / 0.05);
       const fall = Math.exp(-2.6 * u) * Math.sqrt(Math.max(0, 1 - u));
-      const across = Math.exp(-3.6 * (v / width) * (v / width));
+      const window = (1 - v * v) * (1 - v * v);
+      const across = Math.exp(-2.4 * (v / width) * (v / width)) * window;
       image.data[(y * FAN + x) * 4 + 3] = Math.round(255 * rise * fall * across);
     }
   }
@@ -240,6 +243,10 @@ export function useLoopRadarRendererPrototype() {
       washGain,
       washReach: washReach * (0.75 + 0.25 * reach),
       line: Math.min(1, Math.max(0, (definition - 0.05) / 0.7)),
+      // Haze: at low Definition the fans widen far past their spacing, lean
+      // along the turn and pool closer in, so the light billows out as one
+      // field instead of reading as spokes. 1 at Definition 0, 0 by 0.75.
+      haze: Math.max(0, 1 - definition / 0.75),
       thickness: 1.45 - 0.6 * definition,
       reach,
       jitter: 0.4 + spread * 1.2,
@@ -471,21 +478,28 @@ export function useLoopRadarRendererPrototype() {
         ? Math.min(arc, since * TAU)
         : 0;
     // Outward emission: fans along the arc, brighter where the note has sounded.
-    const fans = Math.min(WASH_PIECES, Math.ceil(arc / WASH_STEP));
+    const haze = knob.haze;
+    // Wider fans need fewer of them: 1-4 per note in haze, up to 8 when crisp.
+    const fans = Math.min(WASH_PIECES - Math.round(4 * haze), Math.ceil(arc / (WASH_STEP + 0.34 * haze)));
     const fanStep = arc / fans;
     const rest = source.silent ? 0.045 : kind === 2 ? 0.05 : 0.11;
-    const chord = Math.max(fanStep, 0.12) * orbit;
-    const fanWidth = (chord * 1.5) / FAN_SOURCE;
-    const washScale = knob.gain * knob.washGain;
+    const chord = Math.max(fanStep, 0.12 + 0.2 * haze) * orbit;
+    const fanWidth = (chord * (1.5 + 3.5 * haze)) / FAN_SOURCE;
+    const reachLength = washLength * (1 - 0.3 * haze);
+    const curl = 0.35 * haze;
+    const washScale = knob.gain * knob.washGain * (1 - 0.3 * haze);
     for (let piece = 0; piece < fans; piece += 1) {
       const at = start + (piece + 0.5) * fanStep;
       const reached = (piece + 0.5) * fanStep <= progress || !sounding;
       const glow = rest + swell * (reached ? 0.42 : 0.14);
       const ux = Math.cos(at);
       const uy = Math.sin(at);
+      // The emission leans along the turn by `curl`, so haze billows round.
+      const dx = Math.cos(at + curl);
+      const dy = Math.sin(at + curl);
       fogCtx.setTransform(
-        (ux * washLength) / SCALE, (uy * washLength) / SCALE,
-        (-uy * fanWidth) / SCALE, (ux * fanWidth) / SCALE,
+        (dx * reachLength) / SCALE, (dy * reachLength) / SCALE,
+        (-dy * fanWidth) / SCALE, (dx * fanWidth) / SCALE,
         (cx + ux * orbit * 0.97 - fx) / SCALE, (cy + uy * orbit * 0.97 - fy) / SCALE,
       );
       fogCtx.globalAlpha = Math.min(1, glow * washScale);

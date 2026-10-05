@@ -25,6 +25,9 @@ SPIKE_SKIP_COST=1 bun run test:spike-strudel audio-lab/results/spike-strudel-tri
 SPIKE_COST_ONLY=1 bun run test:spike-strudel audio-lab/results/spike-strudel-cost.json
 # One development smoke cell:
 SPIKE_SMOKE=1 SPIKE_SKIP_COST=1 bun run test:spike-strudel audio-lab/results/spike-strudel-smoke.json
+# Built phone entry, controls, cleanup and installed-PWA navigation:
+bun run build
+node audio-lab/spike-strudel/phone-check.mjs
 ```
 
 Node and Chrome (`CHROME_BIN` override) are required. The runner uses the existing
@@ -41,6 +44,12 @@ period, offset and rate. PCM threshold crossings use amplitude 0.0005 after
 raw events, cycle snapshots and all match errors are retained in receipts.
 Known failing strategies are experimental controls, not passing assertions.
 The runner exits nonzero if the recommended path fails its checks.
+
+The final transport receipt covers 58 audio cases at 90/150 BPM: 30 membership,
+18 tempo, six held-note and four recorded-expression cases. It is compacted
+losslessly to keep the generated evidence out of the review diff; all events
+and draw frames are retained. The phone check uses the built bundle in a 390px
+desktop Chrome viewport; it does not emulate phone CPU or physical latency.
 
 The benchmark uses 64-note phrases with varying recorded articulation, 1/4/8
 members, three warmups and twelve measured trials per size. It reports

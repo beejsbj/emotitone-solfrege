@@ -25,13 +25,24 @@ try{
   const call=(method,params={})=>new Promise((resolve,reject)=>{pending.set(++id,{resolve,reject});socket.send(JSON.stringify({id,method,params}));});
   const evaluate=async expression=>{const r=await call('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(r.exceptionDetails)throw Error(JSON.stringify(r.exceptionDetails));return r.result.value;};
   const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-  const waitFor=async expression=>{for(let i=0;i<300;i++){if(await evaluate(expression))return;await sleep(100);}throw Error(`Timed out: ${expression}`);};
-  await call('Runtime.enable');await call('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+  const waitFor=async expression=>{for(let i=0;i<300;i++){if(await evaluate(expression))return;await sleep(100);}
+    console.error(await evaluate('({title:document.title,url:location.href,controlled:!!navigator.serviceWorker.controller,html:document.body.innerHTML.slice(0,2000)})'),warnings);
+    throw Error(`Timed out: ${expression}`);};
+  await call('Runtime.enable');await call('Page.enable');await call('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
   await call('Page.bringToFront');
   const url=`http://127.0.0.1:${server.httpServer.address().port}/spike/strudel-transport`;
   await call('Page.navigate',{url});await waitFor('typeof document.querySelector("#start")?.onclick === "function"');
   await evaluate('navigator.serviceWorker.register("/sw.js").then(()=>navigator.serviceWorker.ready).then(()=>true)');
-  await call('Page.reload',{ignoreCache:true});await waitFor('typeof document.querySelector("#start")?.onclick === "function"');
+  await waitFor('!!navigator.serviceWorker.controller');
+  // Wait for the new document, rather than accidentally reading the old page
+  // while the asynchronous reload is still beginning.
+  const loaded=new Promise(resolve=>socket.addEventListener('message',function onLoad({data}){
+    if(JSON.parse(data).method==='Page.loadEventFired'){socket.removeEventListener('message',onLoad);resolve();}
+  }));
+  // A forced reload bypasses the service worker. Use normal navigation to
+  // actually exercise Workbox's navigation fallback.
+  await call('Page.reload',{ignoreCache:false});await loaded;
+  await waitFor('typeof document.querySelector("#start")?.onclick === "function" && !!navigator.serviceWorker.controller');
   const pwa=await evaluate('({title:document.title,pathname:location.pathname,controlled:!!navigator.serviceWorker.controller})');
   await evaluate('window.phoneEvents=[];window.addEventListener("note-played",e=>window.phoneEvents.push(e.detail));document.querySelector("#start").click()');
   await waitFor('!!document.querySelector("#editor .cm-editor")');

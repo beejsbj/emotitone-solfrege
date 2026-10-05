@@ -1,7 +1,8 @@
 # Strudel as the Looper's single transport — 2026-10-05
 
-**Verdict: yes with conditions.** Keep one Strudel scheduler, compile phrases
-before they join, and swap cached Pattern objects through `repl.setPattern`.
+**Verdict: yes with conditions.** Keep one Strudel scheduler, prepare phrases
+without blocking its running audio thread, and swap cached Pattern objects
+through `repl.setPattern`.
 The desktop experiment preserved the grid, sounding voices and note events.
 The Code Strip's existing editor-evaluation path is too expensive for a hot
 swap. Phone timing remains an acceptance gate.
@@ -140,7 +141,8 @@ the absence of every shorter discontinuity or instrument-specific click.
 
 **Recommended swap approach:**
 
-1. Compile/prewarm before committing the membership change. Keep one active
+1. Compile/prewarm before playback, or prepare new material through a bounded
+   path that does not block the running scheduler. Keep one active
    scheduler. Normalize generated source to bar units; its member patterns must
    not retain independently captured `.cpm` multipliers.
 2. Build `next = stack(...cachedMembers)` outside editor evaluation. Tag each
@@ -204,9 +206,19 @@ parsed Pattern objects, including scale/rate/offset/identity transforms.
 Caching the transpiled JavaScript alone still reparses mini strings during
 execution. Cache Pattern objects plus metadata. Generate export/display code
 outside the hot swap. The observed full editor path lost audible attacks even
-with only the smaller timing fixtures. A cold compile, a long user recording,
-or a busy phone is therefore a preparation task, with failure handled before
-the running membership is replaced.
+with only the smaller timing fixtures. Moving a synchronous cold compile earlier
+in time **does not protect an already-running stack**: it still blocks scheduler
+queries. The successful joins use parts parsed before playback, as does the
+phone page. Cold joining a new recording without interrupting the other voices
+is **not established** by these receipts.
+
+The real build needs a bounded direct builder from recorded note data, or
+off-thread parsing into a serializable representation followed by cheap Pattern
+construction and a retained location map. Pattern objects contain functions;
+they cannot simply be transferred from a worker. Neither fresh-note construction
+nor worker parsing was implemented or timed here. The measured programmatic
+alternative composes **already-parsed** parts. This preparation requirement is
+part of the verdict, alongside the phone gate.
 
 These elapsed main-thread times include this host's scheduling and library
 implementation. They are not calibrated phone predictions. The raw cost cells
@@ -352,6 +364,11 @@ select a desk phrase, then try pin, mute/solo, offset, half/double time, key/mod
 and tempo. Swap offers an immediate query-window change or the next safe bar.
 The readout separates anchored bar position from Strudel's raw cycle cursor.
 Locally, run `bun run dev` and open `/audio-lab/spike-strudel.html`.
+
+[The preview](https://emotitone-solfrege-git-spike-strudel-s-9cb33b-beejsbjs-projects.vercel.app/spike/strudel-transport)
+deployed successfully for `02a99f60`. Unauthenticated requests redirect to
+Vercel login, so the remote rendered page was not inspected. The owner can open
+it after signing in; the equivalent built entry was checked locally below.
 
 The page is a separate Vite HTML entry with one explicit preview rewrite and
 lab-only exclusions from the PWA's application navigation fallback. It imports

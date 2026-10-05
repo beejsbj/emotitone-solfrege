@@ -168,7 +168,7 @@ function dialUp(id: string) {
 .loop-platter__layers {
   position: absolute;
   left: 6px;
-  bottom: 86px;
+  bottom: 30px;
   display: flex;
   flex-direction: column-reverse;
   gap: 2px;
@@ -249,19 +249,26 @@ function dialUp(id: string) {
 
 
 <style>
-/* PROTOTYPE: the mic key leaves the top centre and sits on the Drawer's lip, left. */
+/* PROTOTYPE: the mic key leaves the top centre and sits on the Drawer's lip, right;
+   the left edge belongs to the loop dials. */
 html[data-looper-mic="lip"] .humming-capture-transport {
   inset: auto;
   transform: none;
   top: calc(var(--looper-lip-top, 60vh) - 74px);
-  left: 14px;
+  right: 14px;
+}
+
+html[data-looper-mic="lip"] .humming-capture-transport__cancel-slot {
+  left: auto;
+  right: calc(100% + 12px);
 }
 
 html[data-looper-mic="lip"] .humming-capture-transport__feedback {
   top: auto;
   bottom: calc(100% + 12px);
-  left: 0;
+  left: auto;
+  right: 0;
   transform: none;
-  justify-items: start;
+  justify-items: end;
 }
 </style>

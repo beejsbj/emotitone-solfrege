@@ -229,6 +229,8 @@ export interface AmbientConfig {
   loopDefinition?: number;
   /** PROTOTYPE: how far a loop's light reaches across the Stage (0..1). */
   loopSpread?: number;
+  /** PROTOTYPE: tiny soft sparks thrown as the Looper's light crosses a note (0 = none). */
+  loopSparks?: number;
 }
 
 /**

@@ -116,13 +116,13 @@ export const STAGE_LAB_UNITS: StageLabUnit[] = [
       "How bodies relate. Production's organic Merge fuses bodies into one gooey body; Web joins every analyzed pair with rooted filaments. Production cannot draw them without the bodies (one field), so its frame here shows the fused field.",
     keeps: "Which pairs relate, Merge as one connected body and Web as the full graph, and publishing the drawn path so lettering lands on it.",
     verdict:
-      "Burooj, 2026-10-02: \"Chord shape is best. Slur arc is good too. But doesn't work in merge. Kill rest.\" Slur Arcs now has a Merge reading: one scalloped phrase of slurs around the chord's outside. 2026-10-03: \"Chord shape cannot be for all families. Like the production connection family organic merge would work well with the reference image aesthetic.\" Lit uses production's organic Merge/Web (under the Pop Look); Paper uses Chord Shape, with Slur Arcs as its Web alternate. 2026-10-04: every connection in the lab now labels every chord interval in Merge too, not only its joins (production change filed as BJS-468).",
+      "Burooj, 2026-10-02: \"Chord shape is best. Slur arc is good too. But doesn't work in merge. Kill rest.\" Slur Arcs now has a Merge reading: one scalloped phrase of slurs around the chord's outside. 2026-10-03: \"Chord shape cannot be for all families. Like the production connection family organic merge would work well with the reference image aesthetic.\" Lit uses production's organic Merge/Web (under the Pop Look); Paper uses Chord Shape, with Slur Arcs as its Web alternate. 2026-10-04: every connection in the lab now labels every chord interval in Merge too, not only its joins (production change filed as BJS-468). 2026-10-05, Chord Shape: \"Make the circle of fifth circle thingy invisible. So only the shape shows up. The note letter itself will show within the center of the blob.\" On Lit's firm Merge: \"Let it be one slab. That's fine.\"",
     directions: [
       { id: "chord-shape", letter: "A", name: "Chord Shape", family: "paper", paper: "cobalt",
-        idea: "The Circle of Fifths becomes a dial of twelve stations and the chord is the polygon its notes make on it; Merge fills it with flat deep facets, Web adds the diagonals.",
+        idea: "The chord is the polygon its notes make on the circle of fifths the bodies already orbit (the circle itself stays invisible), and each body carries its note letter at its centre. Merge fills the shape with flat deep facets; Web adds the diagonals.",
         better: "Chord quality becomes a silhouette: every major triad the same triangle turned.",
-        risks: "Diagrammatic; twelve small labels.",
-        bible: fits("Chassis display", "The dial is chassis; only sounding stations carry colour.") },
+        risks: "A letter on every body adds text beside the chord and interval lettering.",
+        bible: fits("Applied paper", "Flat facets in Music Color; Ivory letters.") },
       { id: "slurs", letter: "B", name: "Slur Arcs", family: "paper", paper: "bone",
         idea: "Relationships are engraved slurs, tapered Ivory crescents taller for wider intervals. Web slurs every analyzed pair; Merge runs one scalloped phrase of slurs around the chord's outside so the notes read as one enclosed body.",
         better: "Notation's own mark for notes that belong together.",

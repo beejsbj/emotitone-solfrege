@@ -312,6 +312,7 @@ export function useStageLabLoop(canvases: StageLabCanvases, options: StageLabLoo
     measure("blobs", () => {
       if (painters.blobs) painters.blobs.paint(on("blobs"), prepared);
       else if (!fieldShowsBodies) blobs.renderBlobs(ctx.blobs!, elapsed, blobConfig.value, musicStore, true);
+      painters.connections?.overlay?.(on("blobs"), prepared);
     });
 
     measure("flecks", () => {

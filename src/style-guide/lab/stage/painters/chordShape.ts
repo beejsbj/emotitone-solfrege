@@ -4,13 +4,20 @@ import { bodyPitch, publishConnections, tracePolygon, type Point } from "./share
 import type { ConnectionsPainter, LabFrame } from "./types";
 
 /*
- * Connections B · Chord Shape. The Circle of Fifths the bodies already orbit
- * becomes a visible dial of twelve stations, and the chord is the polygon
- * its notes make on it. Every major triad is the same triangle turned; minor
- * is its mirror; augmented is equilateral. The shape is the lesson.
+ * Connections · Chord Shape. The chord is the polygon its notes make on the
+ * circle of fifths the bodies already orbit. Every major triad is the same
+ * triangle turned; minor is its mirror; augmented is equilateral. The shape
+ * is the lesson.
+ *
+ * Burooj, 2026-10-05: "Make the circle of fifth circle thingy invisible. So
+ * only the shape shows up. The note letter itself will show within the
+ * center of the blob." The dial is gone; each body carries its note letter,
+ * drawn above the bodies by the overlay pass.
  */
 
-const FIFTHS = Array.from({ length: 12 }, (_, i) => CHROMATIC_NOTES[(i * 7) % 12]);
+/** The pitch's letter, from its exact sounding frequency: C, G, F♯. */
+const letterOf = (body: PreparedBlobFrame) =>
+  CHROMATIC_NOTES[bodyPitch(body).pitchClassIndex].replace("#", "♯");
 
 function twoTone(ctx: CanvasRenderingContext2D, a: PreparedBlobFrame, b: PreparedBlobFrame, width: number, alpha: number) {
   const mid = { x: (a.blob.x + b.blob.x) / 2, y: (a.blob.y + b.blob.y) / 2 };
@@ -28,34 +35,9 @@ function twoTone(ctx: CanvasRenderingContext2D, a: PreparedBlobFrame, b: Prepare
 export function createChordShapePainter(): ConnectionsPainter {
   return {
     paint(frame: LabFrame, bodies, scene: HarmonicGeometryScene | null, mode) {
-      const { ctx, composition, tokens } = frame;
-      const { centerX: cx, centerY: cy, orbitRadiusX: rx, orbitRadiusY: ry } = composition;
+      const { ctx, composition } = frame;
+      const { centerX: cx, centerY: cy } = composition;
       const visible = bodies.filter((body) => body.opacity > 0.01);
-      const soundingClasses = new Set(frame.notes.map((note) => ((note.pitchClassIndex ?? 0) % 12 + 12) % 12));
-
-      // The dial: chassis stations, lit only where a pitch sounds.
-      ctx.save();
-      ctx.font = `500 10px ${tokens.mono}`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      FIFTHS.forEach((pitch, k) => {
-        const angle = k * (Math.PI / 6) - Math.PI / 2;
-        const cos = Math.cos(angle);
-        const sin = Math.sin(angle);
-        const sounding = soundingClasses.has(CHROMATIC_NOTES.indexOf(pitch));
-        const inner = sounding ? 14 : 6;
-        ctx.strokeStyle = sounding
-          ? frame.noteColor({ pitchClassIndex: CHROMATIC_NOTES.indexOf(pitch), octave: 4 })
-          : tokens.ivory4;
-        ctx.lineWidth = sounding ? 2.5 : 1.25;
-        ctx.beginPath();
-        ctx.moveTo(cx + cos * (rx + 4), cy + sin * (ry + 4));
-        ctx.lineTo(cx + cos * (rx + 4 + inner), cy + sin * (ry + 4 + inner));
-        ctx.stroke();
-        ctx.fillStyle = sounding ? tokens.ivory2 : tokens.ivory4;
-        ctx.fillText(pitch.replace("#", "♯"), cx + cos * (rx + 30), cy + sin * (ry + 30));
-      });
-      ctx.restore();
 
       if (!visible.length) return;
       // Order by angle around the dial's centre: the polygon follows the circle.
@@ -99,6 +81,24 @@ export function createChordShapePainter(): ConnectionsPainter {
         if (mode === "web") diagonals.forEach(([a, b]) => twoTone(ctx, a, b, 1.25, 0.6));
       }
 
+    },
+    overlay(frame: LabFrame, bodies) {
+      const { ctx, tokens } = frame;
+      ctx.save();
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      bodies.forEach((body) => {
+        if (body.opacity <= 0.02 || body.scaledRadius < 6) return;
+        const letter = letterOf(body);
+        ctx.font = `700 ${Math.max(12, Math.round(body.scaledRadius * 0.95))}px ${tokens.display}`;
+        ctx.globalAlpha = body.opacity;
+        // Ivory over a hard Ink offset reads on every pitch colour.
+        ctx.fillStyle = tokens.ink;
+        ctx.fillText(letter, body.blob.x + 1.5, body.blob.y + 3);
+        ctx.fillStyle = tokens.ivory;
+        ctx.fillText(letter, body.blob.x, body.blob.y + 1.5);
+      });
+      ctx.restore();
     },
     clear() {},
   };

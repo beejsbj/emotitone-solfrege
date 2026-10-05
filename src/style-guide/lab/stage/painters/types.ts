@@ -80,6 +80,8 @@ export interface ConnectionsPainter {
     scene: HarmonicGeometryScene | null,
     mode: "merge" | "web",
   ): void;
+  /** Optional marks drawn above the bodies (e.g. a note letter at each body's centre). */
+  overlay?(frame: LabFrame, bodies: readonly PreparedBlobFrame[]): void;
   clear(): void;
 }
 

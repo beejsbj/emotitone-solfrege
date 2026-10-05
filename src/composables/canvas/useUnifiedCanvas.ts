@@ -17,7 +17,7 @@ import { useHarmonicGeometryRenderer } from "./useHarmonicGeometryRenderer";
 import { useBlobFieldRenderer } from "./useBlobFieldRenderer";
 import { useHilbertScopeRenderer } from "./useHilbertScopeRenderer";
 // PROTOTYPE: loop radar (throwaway, PR #132).
-import { useLoopRadarRendererPrototype, type LoopNodeCrossed } from "./useLoopRadarRendererPrototype";
+import { useLoopRadarRendererPrototype } from "./useLoopRadarRendererPrototype";
 import { performanceMonitor } from "@/utils/performanceMonitor";
 import {
   createStageAudioFeatures,
@@ -116,18 +116,6 @@ export function useUnifiedCanvas(
   const blobFieldRenderer = useBlobFieldRenderer();
   const hilbertScopeRenderer = useHilbertScopeRenderer();
   const loopRadar = useLoopRadarRendererPrototype(); // PROTOTYPE: loop radar
-  // PROTOTYPE: the loop's front throws a sparse burst of Flecks at each audible
-  // node it crosses. Fleck Amount gates it (0 = none); a handful per node, and
-  // never more than LOOP_FLECK_CAP live, because Flecks are costly on phones.
-  const LOOP_FLECK_CAP = 48;
-  const onLoopNodeCrossed: LoopNodeCrossed = (x, y, chroma, octave, heading) => {
-    const config = cachedConfigs.particle;
-    if (!config.isEnabled || config.count <= 0) return;
-    particleSystem.burstParticles(
-      x, y, heading, Math.min(5, 1 + Math.round(config.count / 8)), LOOP_FLECK_CAP, config,
-      musicStore.currentMode as MusicalMode, musicStore.currentKey as ChromaticNote, chroma, octave,
-    );
-  };
   const stageAudio = runtime?.audioFeatures ?? createStageAudioFeatures();
   const oneShotReleaseTimers = new Map<string, number>();
   const harmonicExpiryTimers = new Map<string, number>();
@@ -405,7 +393,7 @@ export function useUnifiedCanvas(
     if (composition.suspended) return;
 
     // PROTOTYPE: while a loop runs, the Atmosphere renders as the loop radar.
-    loopRadar.render(ctx, composition, reducedMotion, onLoopNodeCrossed);
+    loopRadar.render(ctx, composition, reducedMotion);
 
     // Strings are pitch-bearing atmospheric texture behind the focal system.
     if (cachedConfigs.string.isEnabled) {

@@ -22,8 +22,10 @@
  * being drawn. Spark and tail flare as the front passes and shrink behind it,
  * so discreteness reads as motion in weather, not as objects.
  *
- * As the front crosses an audible node it can hand a few Note Flecks to the
- * Stage's particle system (`onCross`), gated by the caller.
+ * Sparks: as the front crosses an audible note it sheds a few tiny soft motes
+ * of that note's light, carried a short way along the turn and drifting
+ * outward, gone within a fraction of a lap. Light, not marks: no glyphs, no
+ * gravity, no edges. They live in a fixed pool owned by this renderer.
  *
  * Silent layers stay as faint, unresponsive haze. Notes of the open take that
  * are not laid down yet are a barely-there tint.
@@ -74,8 +76,8 @@ interface Pool {
   octave: number;
 }
 
-/** Called when the front crosses an audible node: position, pitch, heading. */
-export type LoopNodeCrossed = (x: number, y: number, chroma: number, octave: number, heading: number) => void;
+/** Hard cap on live sparks; the pool is allocated once at this size. */
+const MAX_SPARKS = 64;
 
 /** Curved tails are stamped as overlapping straight pieces. */
 const TAIL_STEP = 0.11;
@@ -205,7 +207,7 @@ export function useLoopRadarRendererPrototype() {
    * Every curve passes through 1 (or the shipped constant) at its default.
    */
   const knobs = computed(() => {
-    const { strength, definition, spread } = readLoopGlow(ambientConfig.value);
+    const { strength, definition, spread, sparks } = readLoopGlow(ambientConfig.value);
     // Strength: 0 absent, 0.5 as shipped; above that it eases off, because
     // additive pools wash to white long before the knob would end.
     const gain = strength < 0.5 ? strength * 2 : 1 + (strength - 0.5) * 1.1;
@@ -226,6 +228,8 @@ export function useLoopRadarRendererPrototype() {
       swellStretch: 0.5 * smear,
       energy: (1.38 * Math.pow(0.2755, below)) ** -1 * (1 - 0.5 * discrete),
       discrete,
+      // Sparks: expected motes shed per crossing, 0 none, ~1.4 at 0.4, 4 at 1.
+      sparks: sparks <= 0 ? 0 : sparks * (2 + sparks * 2),
       reach,
       jitter: 0.4 + spread * 1.2,
     };
@@ -319,6 +323,72 @@ export function useLoopRadarRendererPrototype() {
   let lengthMs = 0;
   let phase = 0;
   let lastPhase = -1;
+
+  // Spark pool, struct-of-arrays, allocated once. Polar about the Looper centre.
+  const sparkAngle = new Float32Array(MAX_SPARKS);
+  const sparkOrbit = new Float32Array(MAX_SPARKS);
+  const sparkSpin = new Float32Array(MAX_SPARKS);
+  const sparkDrift = new Float32Array(MAX_SPARKS);
+  const sparkAge = new Float32Array(MAX_SPARKS);
+  const sparkLife = new Float32Array(MAX_SPARKS);
+  const sparkSize = new Float32Array(MAX_SPARKS);
+  const sparkImage: (HTMLCanvasElement | null)[] = new Array(MAX_SPARKS).fill(null);
+  let sparkCount = 0;
+
+  function shed(pool: Pool, x: number, y: number, cx: number, cy: number, radius: number, rate: number) {
+    let count = Math.floor(rate + Math.random());
+    const lapS = lengthMs / 1000;
+    while (count-- > 0 && sparkCount < MAX_SPARKS) {
+      const i = sparkCount++;
+      sparkAngle[i] = Math.atan2(y - cy, x - cx) + (Math.random() - 0.5) * 0.16;
+      sparkOrbit[i] = Math.hypot(x - cx, y - cy) + (Math.random() - 0.5) * radius * 0.04;
+      // Carried along the turn at a fraction of the front's own speed.
+      sparkSpin[i] = (TAU / lapS) * (0.25 + Math.random() * 0.45);
+      sparkDrift[i] = radius * (0.04 + Math.random() * 0.1);
+      // Trickle out over a moment rather than leaving as one clump.
+      sparkAge[i] = -Math.random() * 0.35;
+      sparkLife[i] = Math.min(2.4, Math.max(0.7, lapS * (0.12 + Math.random() * 0.14)));
+      sparkSize[i] = 0.6 + Math.random() * 0.8;
+      sparkImage[i] = pool.spark;
+    }
+  }
+
+  function renderSparks(ctx: CanvasRenderingContext2D, cx: number, cy: number, dt: number, scale: number, alpha: number) {
+    for (let i = 0; i < sparkCount; i += 1) {
+      sparkAge[i] += dt;
+      if (sparkAge[i] >= sparkLife[i]) {
+        // Swap-remove: move the last live spark into this slot.
+        const last = --sparkCount;
+        sparkAngle[i] = sparkAngle[last];
+        sparkOrbit[i] = sparkOrbit[last];
+        sparkSpin[i] = sparkSpin[last];
+        sparkDrift[i] = sparkDrift[last];
+        sparkAge[i] = sparkAge[last];
+        sparkLife[i] = sparkLife[last];
+        sparkSize[i] = sparkSize[last];
+        sparkImage[i] = sparkImage[last];
+        sparkImage[last] = null;
+        i -= 1;
+        continue;
+      }
+      if (sparkAge[i] < 0) continue;
+      const t = sparkAge[i] / sparkLife[i];
+      // Slows as it goes, like something knocked loose in still air.
+      const ease = 1 - (1 - t) * (1 - t);
+      const angle = sparkAngle[i] + sparkSpin[i] * sparkLife[i] * ease * 0.5;
+      const orbit = sparkOrbit[i] + sparkDrift[i] * ease;
+      const glow = t < 0.12 ? t / 0.12 : Math.pow(1 - (t - 0.12) / 0.88, 1.6);
+      const size = scale * sparkSize[i] * (1 - 0.35 * t);
+      ctx.globalAlpha = alpha * glow;
+      ctx.drawImage(
+        sparkImage[i]!,
+        cx + Math.cos(angle) * orbit - size / 2,
+        cy + Math.sin(angle) * orbit - size / 2,
+        size,
+        size,
+      );
+    }
+  }
   let presence = 0;
   let lastNow = 0;
   let frame = 0;
@@ -354,7 +424,6 @@ export function useLoopRadarRendererPrototype() {
     ctx: CanvasRenderingContext2D,
     composition: StageComposition,
     reducedMotion: boolean,
-    onCross?: LoopNodeCrossed,
   ) {
     const now = performance.now();
     const dt = lastNow ? Math.min(0.1, (now - lastNow) / 1000) : 0;
@@ -390,9 +459,10 @@ export function useLoopRadarRendererPrototype() {
     const radius = Math.min(usable.width, usable.height) * 0.5;
     const hand = phase * TAU - Math.PI / 2;
     const knob = knobs.value;
-    // The slice of the loop the front swept since last frame, for bursts.
+    // The slice of the loop the front swept since last frame, for sparks.
     let swept = 0;
-    if (live && !reducedMotion && onCross && lastPhase >= 0 && presence > 0.5) {
+    if (reducedMotion || knob.sparks <= 0) sparkCount = 0;
+    if (live && !reducedMotion && knob.sparks > 0 && lastPhase >= 0 && presence > 0.5) {
       swept = phase - lastPhase;
       if (swept < 0) swept += 1;
       if (swept > 0.2) swept = 0;
@@ -497,10 +567,16 @@ export function useLoopRadarRendererPrototype() {
       if (swept > 0 && !pool.silent) {
         let since = pool.phase - sweptFrom;
         if (since < 0) since += 1;
-        if (since < swept) onCross!(x, y, pool.chroma, pool.octave, pool.angle);
+        if (since < swept) shed(pool, x, y, cx, cy, radius, knob.sparks);
       }
     }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (sparkCount > 0) {
+      // In haze the motes are the only discrete light, so they run a touch
+      // larger and softer there; at high Definition they match the comets.
+      const moteSize = (radius / 190) * (14 + 6 * (1 - knob.discrete));
+      renderSparks(ctx, cx, cy, dt, moteSize, Math.min(1, presence * knob.gain * 0.9));
+    }
     fogCtx.setTransform(1 / SCALE, 0, 0, 1 / SCALE, -usable.x / SCALE, -usable.y / SCALE);
     for (const ghost of ghosts) {
       const size = ghost.size * radius * knob.size;

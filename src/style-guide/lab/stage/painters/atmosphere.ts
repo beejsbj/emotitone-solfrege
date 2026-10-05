@@ -5,9 +5,9 @@ import type { AtmospherePainter, LabFrame } from "./types";
  * Atmosphere: the poster's tilted band in two materials and two hues.
  * Burooj, 2026-10-03: "Diffused spotlight and band are both lit vibes. And
  * their non diffused are paper." 2026-10-05: "Drop spotlight. Band is just
- * better. Should atmosphere be the complimentary color" — so the band comes
- * in the sounding pitch's own hue and in its complementary accent (the same
- * authority's hue turned 180°). Lit paints it softened, Paper with a hard
+ * better. Should atmosphere be the complimentary color", then after seeing
+ * it: "I'm against complement." The band stays in the sounding pitch's own
+ * hue. Lit paints it softened, Paper with a hard
  * edge on the stop-motion clock. It keeps the accepted clock: a slow breath
  * in silence handing over to the shared envelope once sound plays.
  */
@@ -18,8 +18,6 @@ const SOFT_SCALE = 1 / 12;
 const SOFT_BLUR = 2.2; // px at the reduced scale; ≈ 26px on the Stage
 
 type Material = "lit" | "paper";
-/** Same: the sounding pitch's hue. Complement: its accent, hue + 180° (the tritone's hue). */
-type Hue = "same" | "complement";
 
 const ground = (frame: LabFrame) => {
   frame.ctx.fillStyle = frame.tokens.ink;
@@ -74,7 +72,7 @@ function createPainter(material: Material, draw: (ctx: CanvasRenderingContext2D,
 }
 
 /** The poster's tilted highlight band: Ink-3 in silence, the sounding pitch's deep colour once it plays. */
-function bandShape(material: Material, hue: Hue) {
+function bandShape(material: Material) {
   return (ctx: CanvasRenderingContext2D, frame: LabFrame) => {
     const { composition, tokens } = frame;
     const { usable, centerX: cx, centerY: cy } = composition;
@@ -90,14 +88,13 @@ function bandShape(material: Material, hue: Hue) {
       { x: cx + reach, y: cy + half + lean },
       { x: cx - reach, y: cy + half - lean },
     ];
-    const color = hue === "complement" ? frame.noteAccent : frame.noteColor;
     ctx.fillStyle = level > 0.01
-      ? color(frame.leadNote, { l: material === "lit" ? 0.55 : 0.5, c: 0.78 })
+      ? frame.noteColor(frame.leadNote, { l: material === "lit" ? 0.55 : 0.5, c: 0.78 })
       : tokens.ink3;
     tracePolygon(ctx, band);
     ctx.fill();
   };
 }
 
-export const createDiffusedBand = (hue: Hue) => createPainter("lit", bandShape("lit", hue));
-export const createCutBand = (hue: Hue) => createPainter("paper", bandShape("paper", hue));
+export const createDiffusedBand = () => createPainter("lit", bandShape("lit"));
+export const createCutBand = () => createPainter("paper", bandShape("paper"));

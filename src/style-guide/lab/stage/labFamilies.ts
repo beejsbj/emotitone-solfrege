@@ -88,12 +88,7 @@ export const STAGE_LAB_PRESETS: StageLabPreset[] = [
     selection: { ...base, atmosphere: "band", connections: "production" },
     look: "pop",
   },
-  {
-    id: "lit-complement", name: "Lit · Complement", family: "lit",
-    note: "Lit with the band in the complementary accent instead of the note's own hue.",
-    selection: { ...base, atmosphere: "band-complement", connections: "production" },
-    look: "pop",
-  },
+
   {
     id: "lit-phosphor", name: "Lit · Phosphor", family: "lit",
     note: "The Phosphor Look stacked on Pop.",
@@ -112,12 +107,7 @@ export const STAGE_LAB_PRESETS: StageLabPreset[] = [
     selection: { ...base, atmosphere: "band-cut", strings: "strips", scope: "cut", blobs: "pop-cut", flecks: "chads" },
     look: "pop",
   },
-  {
-    id: "paper-complement", name: "Paper · Complement", family: "paper",
-    note: "Paper with the cut band in the complementary accent.",
-    selection: { ...base, atmosphere: "band-cut-complement", strings: "strips", scope: "cut", blobs: "pop-cut", flecks: "chads" },
-    look: "pop",
-  },
+
   {
     id: "paper-brush", name: "Paper · Brush + Slurs", family: "paper",
     note: "The Brush scope, and Slur Arcs as the connection (best in Web).",

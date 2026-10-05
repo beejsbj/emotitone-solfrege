@@ -41,8 +41,6 @@ export interface LabFrame {
   wave: { x: Float32Array; y: Float32Array } | null;
   tokens: LabTokens;
   noteColor: LabNoteColor;
-  /** The note's complementary accent from the same authority (its hue turned 180°). */
-  noteAccent: LabNoteColor;
   /** The scope's colour note: the first sounding note, else the last one seen. */
   leadNote: Pick<ActiveNote, "pitchClassIndex" | "octave">;
   /** Where a note's production body is right now, for parts that answer at the body. */

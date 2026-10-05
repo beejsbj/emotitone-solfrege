@@ -85,10 +85,8 @@ function readTokens(): LabTokens {
 }
 
 const ATMOSPHERE: Record<string, () => AtmospherePainter> = {
-  band: () => createDiffusedBand("same"),
-  "band-complement": () => createDiffusedBand("complement"),
-  "band-cut": () => createCutBand("same"),
-  "band-cut-complement": () => createCutBand("complement"),
+  band: createDiffusedBand,
+  "band-cut": createCutBand,
 };
 const STRINGS: Record<string, () => StringsPainter> = {
   strips: () => stripStrings,
@@ -164,19 +162,17 @@ export function useStageLabLoop(canvases: StageLabCanvases, options: StageLabLoo
   const gradientCache = new Map<string, CanvasGradient>();
   const expiryTimers = new Set<number>();
 
-  const colorOf = (role: "primary" | "accent"): LabNoteColor => (note, tune) => {
+  const noteColor: LabNoteColor = (note, tune) => {
     const pitch = CHROMATIC_NOTES[((note.pitchClassIndex ?? 0) % 12 + 12) % 12] as ChromaticNote;
     const sample = resolveMusicColorSampleByPitchClass(
       pitch, "major", "C", note.octave ?? 4, dynamicColorConfig.value, "fixed-chromatic",
       dynamicColorConfig.value.hueMotionEnabled && !options.reducedMotion.value ? colorClock.phaseCycles.value : null,
-    )?.sample[role];
+    )?.sample.primary;
     if (!sample) return "transparent";
     return musicColorValueToCss(tune
       ? tuneMusicColorValue(sample, { lightnessMultiplier: tune.l, chromaMultiplier: tune.c, alpha: tune.alpha })
       : sample);
   };
-  const noteColor = colorOf("primary");
-  const noteAccent = colorOf("accent");
 
   const sizeCanvases = () => {
     width = window.innerWidth;
@@ -234,7 +230,6 @@ export function useStageLabLoop(canvases: StageLabCanvases, options: StageLabLoo
       wave: labHilbert && conductor.isAudioRunning() && !options.reducedMotion.value ? labHilbert.read() : null,
       tokens: tokens ?? (tokens = readTokens()),
       noteColor,
-      noteAccent,
       leadNote: lastLead,
       bodyAt: (noteId) => {
         const blob = blobs.activeBlobs.get(noteId);

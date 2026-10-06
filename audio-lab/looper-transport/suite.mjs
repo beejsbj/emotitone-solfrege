@@ -11,6 +11,14 @@ import { captureOrbits, expectedNotes, match, phrases, sleep, stats, until } fro
 const browserErrors = [];
 window.addEventListener('error', e => browserErrors.push({ type: 'error', message: e.message, stack: e.error?.stack }));
 window.addEventListener('unhandledrejection', e => browserErrors.push({ type: 'unhandledrejection', message: String(e.reason), stack: e.reason?.stack }));
+// Cyclist logs this when its tick ran after the window it should have queried
+// (main-thread starvation); every onset in that window is dropped for all members.
+const schedulerSkips = [];
+const consoleLog = console.log.bind(console);
+console.log = (...args) => {
+  if (args[0] === 'skip query: too late') schedulerSkips.push({ audioTime: getAudioContext().currentTime, wallMs: performance.now() });
+  consoleLog(...args);
+};
 const check = (name, passed, detail) => ({ name, passed, ...(detail === undefined ? {} : { detail }) });
 const settings = [{}, { offsetBars: .375, pinned: true }, { rate: .5 }, { rate: 2 }];
 const cleanSnapshot = snapshot => ({ ...snapshot, members: snapshot.members.map(cleanMember), effectiveMembers: snapshot.effectiveMembers.map(cleanMember) });
@@ -74,6 +82,7 @@ async function trial(capture, inputs, strategy, bpm, repetition, expressionRate 
   const events = [], draws = [], frames = [], swaps = [], changes = [], stage = [], errors = [], toggles = [], segments = [], anchors = [];
   let coldPreparation;
   const context = getAudioContext();
+  const skipsBefore = schedulerSkips.length;
   const beat = new UIBeatClock({ observeEnvironment: false, documentVisible: () => true, reducedMotion: () => false });
   const clock = createLiveAudioClock(getAudioContext);
   let service, editor, port, capturing = false, disposed = false;
@@ -252,7 +261,7 @@ async function trial(capture, inputs, strategy, bpm, repetition, expressionRate 
     const result = { strategy, bpm, repetition, ...(expression ? { expression } : {}), ...(held ? { held } : {}),
       ...(coldPreparation ? { coldPreparation } : {}),
       window: { startBar: start, endBar: end, startAudioTime: timeAt(start), endAudioTime: timeAt(end) },
-      singleton, anchors, segments, changes, swaps, perPhrase, ui, output, cleanup, snapshotBeforeStop,
+      schedulerSkips: schedulerSkips.slice(skipsBefore), singleton, anchors, segments, changes, swaps, perPhrase, ui, output, cleanup, snapshotBeforeStop,
       leadMs: stats(events.map(e => e.leadMs)), events, stage, draws, frames, toggles, pcm };
     window.looperPartial.trials.push(result);
     console.log(`LOOPER ${strategy} ${bpm} #${repetition}${expression ? ` ${expressionRate}x` : ''}: haps ${perPhrase.reduce((sum, p) => sum + p.haps.missing.length, 0)} missing, PCM ${perPhrase.reduce((sum, p) => sum + p.pcm.missing.length, 0)} missing`);
@@ -313,7 +322,8 @@ window.runLooperTransport = async ({ smoke = false, only = null, repeats = 3, co
       phaseResidualMax: Math.max(0, ...group.flatMap(t => t.swaps.filter(s => !s.autostart).map(s => Math.abs(s.phaseResidual)))),
       swapMs: stats(group.flatMap(t => t.swaps.filter(s => !s.autostart).map(s => s.ms))),
       changeDelayMs: stats(group.flatMap(t => t.changes.filter(c => c.changeDelayMs !== undefined).map(c => c.changeDelayMs))),
-      uiBackwards: group.reduce((s, t) => s + t.ui.backwards, 0) };
+      uiBackwards: group.reduce((s, t) => s + t.ui.backwards, 0),
+      schedulerSkipsInWindow: group.reduce((s, t) => s + t.schedulerSkips.filter(k => k.audioTime >= t.window.startAudioTime - .3 && k.audioTime < t.window.endAudioTime).length, 0) };
   });
   const checks = [check('Fresh 64/256/512-note service builds completed', window.looperPartial.benchmark.length === 3)];
   if (!costOnly) {

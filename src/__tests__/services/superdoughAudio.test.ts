@@ -68,7 +68,8 @@ vi.mock("@strudel/soundfonts", () => ({
   prewarmSoundfont: hoisted.mockPrewarmSoundfont,
 }));
 
-vi.mock("@/services/music", () => ({
+vi.mock("@/services/music", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/services/music")>(),
   CHROMATIC_NOTES: ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"],
   musicTheory: {
     getCurrentScaleNotes: vi.fn(() => ["C", "D", "E", "F", "G", "A", "B"]),
@@ -457,6 +458,20 @@ describe("superdoughAudio live note handling", () => {
       "Font unavailable"
     );
     expect(audio.isPrewarmed("gm_celesta")).toBe(false);
+  });
+
+  it("presents queued Looper pitches in their shared scale and retains member identity", async () => {
+    vi.useFakeTimers();
+    const dispatchEvent = vi.spyOn(window, "dispatchEvent");
+    const audio = await import("@/services/superdoughAudio");
+    await audio.emotitoneStrudelOutput({ value: { note: "C4", s: "sine" },
+      context: { phraseId: "pinned", noteId: "captured", looperKey: "D", looperMode: "minor" } }, 0, .1, .5, 12.1);
+    const played = dispatchEvent.mock.calls.map(([event]) => event).find(event => event.type === "note-played") as CustomEvent;
+    expect(played.detail).toMatchObject({ key: "D", mode: "minor", solfegeIndex: 6, isBorrowed: false,
+      phraseId: "pinned", sourceNoteId: "captured", noteName: "C4" });
+    await vi.advanceTimersByTimeAsync(200);
+    expect(audio.getActiveStrudelStageNotes()).toHaveLength(0);
+    vi.useRealTimers();
   });
 
   it("emits exact borrowed-pitch lifecycle events during Strudel playback", async () => {

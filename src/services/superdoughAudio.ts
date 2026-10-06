@@ -11,7 +11,7 @@ import { superdough, registerSynthSounds, samples, loadBuffer, getSound, soundMa
 import { webaudioOutput } from "@strudel/webaudio";
 // @ts-ignore
 import { prewarmSoundfont, registerSoundfonts } from "@strudel/soundfonts";
-import { musicTheory, CHROMATIC_NOTES } from "@/services/music";
+import { musicTheory, MusicTheoryService, CHROMATIC_NOTES } from "@/services/music";
 import type {
   ActiveNote,
   ChromaticNote,
@@ -383,15 +383,6 @@ function normalizeChromaticNote(noteName: string): ChromaticNote | null {
   return null;
 }
 
-function resolveSolfegeIndex(noteName: string): number | null {
-  const chromaticNote = normalizeChromaticNote(noteName);
-  if (!chromaticNote) {
-    return null;
-  }
-
-  return musicTheory.getCurrentScaleNotes().indexOf(chromaticNote);
-}
-
 function borrowedPitchSolfege(noteName: ChromaticNote): SolfegeData {
   return {
     name: noteName,
@@ -431,6 +422,24 @@ function extractHapFrequency(hap: unknown, noteName: string): number {
   return TonalNote.get(noteName).freq || 0;
 }
 
+// A queued Looper handoff can submit old and new contexts in the same tick.
+// Carry the shared scale per hap; pinned pitches are presented relative to it.
+const looperVisualScales = new Map<string, MusicTheoryService>();
+function visualTheoryForHap(hap: unknown): MusicTheoryService {
+  const context = (hap as { context?: { looperKey?: ChromaticNote; looperMode?: MusicalMode } })?.context;
+  if (!context?.looperKey || !context.looperMode) return musicTheory;
+  const id = `${context.looperKey}:${context.looperMode}`;
+  let theory = looperVisualScales.get(id);
+  if (!theory) {
+    theory = new MusicTheoryService();
+    theory.setCurrentKey(context.looperKey);
+    theory.setCurrentMode(context.looperMode);
+    if (looperVisualScales.size >= 32) looperVisualScales.delete(looperVisualScales.keys().next().value!);
+    looperVisualScales.set(id, theory);
+  }
+  return theory;
+}
+
 function buildStrudelVisualPayload(hap: unknown) {
   try {
     const noteValue = extractHapNoteName(hap);
@@ -443,7 +452,9 @@ function buildStrudelVisualPayload(hap: unknown) {
       return null;
     }
 
-    const solfegeIndex = resolveSolfegeIndex(noteValue);
+    const theory = visualTheoryForHap(hap);
+    const chromatic = normalizeChromaticNote(noteValue);
+    const solfegeIndex = chromatic ? theory.getCurrentScaleNotes().indexOf(chromatic) : null;
     const chromaticNote = normalizeChromaticNote(noteValue);
     if (solfegeIndex === null || !chromaticNote) {
       return null;
@@ -456,13 +467,13 @@ function buildStrudelVisualPayload(hap: unknown) {
 
     const note = solfegeIndex === -1
       ? borrowedPitchSolfege(chromaticNote)
-      : musicTheory.getCurrentScale().solfege[solfegeIndex];
+      : theory.getCurrentScale().solfege[solfegeIndex];
     if (!note) {
       return null;
     }
 
     const tonicIndex = CHROMATIC_NOTES.indexOf(
-      musicTheory.getCurrentKey() as ChromaticNote,
+      theory.getCurrentKey() as ChromaticNote,
     );
     const keyboardOctave = solfegeIndex === -1 || tonicIndex === -1
       ? parsedNote.oct
@@ -477,8 +488,8 @@ function buildStrudelVisualPayload(hap: unknown) {
       octave: parsedNote.oct,
       keyboardOctave,
       frequency: extractHapFrequency(hap, noteValue),
-      mode: musicTheory.getCurrentMode(),
-      key: musicTheory.getCurrentKey() as ChromaticNote,
+      mode: theory.getCurrentMode(),
+      key: theory.getCurrentKey() as ChromaticNote,
       instrument:
         typeof (hap as { value?: { s?: unknown } })?.value?.s === "string"
           ? String((hap as { value?: { s?: unknown } }).value?.s)
@@ -590,6 +601,9 @@ export async function emotitoneStrudelOutput(
           durationMs,
           audibleAt,
           source: STRUDEL_PLAYBACK_SOURCE,
+          ...((hap as { context?: { phraseId?: string; noteId?: string } })?.context?.phraseId
+            ? { phraseId: (hap as { context: { phraseId: string } }).context.phraseId,
+                sourceNoteId: (hap as { context: { noteId?: string } }).context.noteId } : {}),
         },
       })
     );

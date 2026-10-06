@@ -16,6 +16,7 @@ export const STYLE_GUIDE_PAGES = {
   "/style-guide/config-menu": "config-menu",
   "/style-guide/pattern-reel": "pattern-reel",
   "/style-guide/stage": "stage",
+  "/style-guide/looper": "looper",
   "/style-guide/performance-deck": "performance-deck",
 } as const;
 

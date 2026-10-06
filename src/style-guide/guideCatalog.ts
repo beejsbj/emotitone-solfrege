@@ -84,8 +84,9 @@ export const GUIDE_LAYERS: GuideLayer[] = [
     units: [
       { id: "performance-deck", name: "PerformanceDeck", density: "detailed", focusedHref: "/style-guide/performance-deck", summary: "Bottom drawer, pattern reel, code strip bar, control bar, and keyboard as one deck." },
       { id: "stage", name: "Stage", density: "detailed", focusedHref: "/style-guide/stage", summary: "The unified canvas: Hilbert scope, blobs, strings, atmosphere, flecks, and lettering." },
+      { id: "stage-looper", name: "Stage · Looper", density: "detailed", focusedHref: "/style-guide/looper", summary: "A Stage part, shown solo: the turning light a running loop casts, with Strength, Definition and Spread." },
       { id: "instrument-picker", name: "Instrument Picker", density: "detailed", focusedHref: "/style-guide/instrument-picker", summary: "Sounds and Shape in the top drawer, chosen with Ivory stickers." },
-      { id: "config-menu", name: "Config Menu", density: "detailed", focusedHref: "/style-guide/config-menu", summary: "Eight shallow destinations of Ivory knobs and Brass masters." },
+      { id: "config-menu", name: "Config Menu", density: "detailed", focusedHref: "/style-guide/config-menu", summary: "Nine shallow destinations of Ivory knobs and Brass masters." },
       { id: "loading-screen", name: "Loading Screen", density: "short", specimen: () => import("./compositions/CompositionLoadingScreen.vue") },
     ],
   },

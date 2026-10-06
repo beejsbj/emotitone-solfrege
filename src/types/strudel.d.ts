@@ -42,20 +42,43 @@ declare module "@strudel/webaudio" {
 }
 
 declare module "@strudel/core" {
-  export interface Hap {
-    whole?: { begin: number; end: number };
-    part: { begin: number; end: number };
+  /** fraction.js instance as extended by Strudel. */
+  export interface StrudelFraction {
+    valueOf(): number;
+    add(other: StrudelFraction | number): StrudelFraction;
+    sub(other: StrudelFraction | number): StrudelFraction;
+    mul(other: StrudelFraction | number): StrudelFraction;
+    div(other: StrudelFraction | number): StrudelFraction;
+    equals(other: StrudelFraction | number): boolean;
+    lt(other: StrudelFraction | number): boolean;
+    lte(other: StrudelFraction | number): boolean;
+    gt(other: StrudelFraction | number): boolean;
+    gte(other: StrudelFraction | number): boolean;
+    min(other: StrudelFraction): StrudelFraction;
+    max(other: StrudelFraction): StrudelFraction;
+  }
+  export function Fraction(value: number | StrudelFraction): StrudelFraction;
+  export class TimeSpan {
+    constructor(begin: StrudelFraction, end: StrudelFraction);
+    begin: StrudelFraction;
+    end: StrudelFraction;
+  }
+  export class Hap {
+    constructor(whole: TimeSpan | undefined, part: TimeSpan, value: Record<string, string | number>, context?: Record<string, unknown>);
+    whole?: TimeSpan;
+    part: TimeSpan;
     value: Record<string, string | number>;
     context: Record<string, unknown>;
     withValue(fn: (value: Record<string, string | number>) => Record<string, string | number>): Hap;
     hasOnset(): boolean;
     duration: number;
   }
-  export interface Pattern {
+  export class Pattern {
+    constructor(query: (state: { span: TimeSpan }) => Hap[]);
     queryArc(begin: number, end: number): Hap[];
-    fast(rate: number): Pattern;
-    slow(rate: number): Pattern;
-    late(bars: number): Pattern;
+    fast(rate: number | StrudelFraction): Pattern;
+    slow(rate: number | StrudelFraction): Pattern;
+    late(bars: number | StrudelFraction): Pattern;
     ribbon(offset: number, length: number): Pattern;
     scale(scale: string | Pattern): Pattern;
     sound(sound: string | Pattern): Pattern;
@@ -63,9 +86,9 @@ declare module "@strudel/core" {
     fmap(fn: (value: Record<string, string | number>) => Record<string, string | number>): Pattern;
     withHap(fn: (hap: Hap) => Hap): Pattern;
     filterHaps(fn: (hap: Hap) => boolean): Pattern;
+    splitQueries(): Pattern;
   }
   export function pure(value: unknown): Pattern;
-  export function timeCat(...slots: [number, Pattern][]): Pattern;
   export function stack(...patterns: Pattern[]): Pattern;
   export const silence: Pattern;
   export function evaluate(code: string, transpiler?: unknown): Promise<{ pattern: Pattern }>;

@@ -1,4 +1,4 @@
-import { pure, timeCat, stack, silence, type Pattern } from '@strudel/core';
+import { Fraction, Hap, Pattern, TimeSpan, pure, silence, type StrudelFraction } from '@strudel/core';
 import '@strudel/tonal';
 import { Note } from '@tonaljs/tonal';
 import { resolveLiveSoundName } from '@/services/liveInstrumentNames';
@@ -8,40 +8,99 @@ import type { Phrase } from '@/types/phrases';
 import type { CachedLooperPhrase, LooperMember } from '@/types/looperTransport';
 import type { ChromaticNote, MusicalMode } from '@/types/music';
 
-/** Bound each timeCat to eight entries. This also bounds traversal of silent arcs. */
-function* sequenceSteps(slots: WeightedSlot[], plan: RecordedPatternPlan, phraseId: string): Generator<void, Pattern> {
-  let parts: [number, Pattern][] = [];
-  const modifiers = Object.fromEntries(Object.entries(plan.modifiers)
-    .map(([key, value]) => [key === 'lpf' ? 'cutoff' : key === 'lpq' ? 'resonance' : key, value]));
-  for (const slot of slots) {
-    let pattern = silence;
+/** One note of a cached member, positioned in bars within one period. */
+interface LooperEvent {
+  begin: StrudelFraction;
+  end: StrudelFraction;
+  beginBars: number;
+  value: Record<string, string | number>;
+  noteId: string;
+}
+
+/**
+ * Lay the plan's slots out as absolute note events, exactly as the exported
+ * `<...>` source places them: top-level weights are bars, and each brace lane
+ * divides its block in proportion to its own weights (lanes share one total).
+ * Export weights are decimals at a known precision, so positions are summed as
+ * integers and become exact rationals once per note: Fraction(float) runs a
+ * Farey search that would cost milliseconds per phrase.
+ */
+function* layoutSlots(slots: WeightedSlot[], begin: StrudelFraction, span: StrudelFraction | null,
+  value: (slot: WeightedSlot) => Record<string, string | number>, out: LooperEvent[]): Generator<void, StrudelFraction> {
+  const scale = 10 ** Math.max(...slots.map(slot => slot.precision));
+  const units = slots.map(slot => Math.round(slot.weight * scale));
+  const total = units.reduce((sum, weight) => sum + weight, 0);
+  // At top level a weight is a bar; inside a lane it is a share of the block.
+  const at = (cursor: number) => span ? begin.add(span.mul(cursor).div(total)) : Fraction(cursor).div(scale);
+  let cursor = 0, start = at(0);
+  for (let index = 0; index < slots.length; index++) {
+    const slot = slots[index];
+    cursor += units[index];
+    const end = at(cursor);
     if (slot.note) {
-      pattern = pure({ [plan.relative ? 'n' : 'note']: slot.note.pitch, ...slot.note.controls, ...modifiers })
-        .withContext(context => ({ ...context, phraseId, noteId: slot.note!.id }));
+      out.push({ begin: start, end, beginBars: start.valueOf(), value: value(slot), noteId: slot.note.id });
     } else if (slot.lanes) {
-      const lanes: Pattern[] = [];
-      for (const lane of slot.lanes) lanes.push(yield* sequenceSteps(lane, plan, phraseId));
-      pattern = stack(...lanes);
+      for (const lane of slot.lanes) yield* layoutSlots(lane, start, end.sub(start), value, out);
     }
-    parts.push([slot.weight, pattern]);
+    start = end;
     yield;
   }
-  while (parts.length > 8) {
-    const groups: [number, Pattern][] = [];
-    for (let index = 0; index < parts.length; index += 8) {
-      const group = parts.slice(index, index + 8);
-      groups.push([group.reduce((sum, [weight]) => sum + weight, 0), timeCat(...group)]);
-      yield;
-    }
-    parts = groups;
-  }
-  return timeCat(...parts);
+  return start;
 }
-function* patternSteps(plan: RecordedPatternPlan, phraseId: string): Generator<void, Pattern> {
+
+/**
+ * A Pattern over a fixed event table repeating every `period` bars. Queries
+ * binary-search the table, so cost depends on the notes in the arc rather than
+ * the phrase length, and no Fraction is built from a float on the hot path.
+ */
+function eventPattern(events: LooperEvent[], period: StrudelFraction, phraseId: string): Pattern {
+  if (!events.length) return silence;
+  events.sort((a, b) => a.beginBars - b.beginBars);
+  const begins = events.map(event => event.beginBars);
+  const periodBars = period.valueOf();
+  const longest = Math.max(...events.map(event => event.end.valueOf() - event.beginBars));
+  const firstAtOrAfter = (bars: number) => {
+    let low = 0, high = begins.length;
+    while (low < high) { const mid = (low + high) >> 1; if (begins[mid] < bars) low = mid + 1; else high = mid; }
+    return low;
+  };
+  // Strudel's own primitives fragment haps at cycle (bar) boundaries; split
+  // queries the same way so Drawer and scheduler see the identical hap stream.
+  return new Pattern(state => {
+    const { begin, end } = state.span;
+    const point = begin.equals(end);
+    const from = begin.valueOf(), to = end.valueOf();
+    const haps: Hap[] = [];
+    for (let cycle = Math.floor(from / periodBars) - 1; cycle <= Math.floor(to / periodBars); cycle++) {
+      const shift = period.mul(cycle), shiftBars = cycle * periodBars;
+      // Float bounds only narrow the candidates; exact Fractions decide overlap.
+      for (let i = firstAtOrAfter(from - shiftBars - longest - 1e-9); i < events.length && begins[i] <= to - shiftBars + 1e-9; i++) {
+        const event = events[i];
+        const wholeBegin = event.begin.add(shift), wholeEnd = event.end.add(shift);
+        const overlaps = point ? wholeBegin.lte(begin) && wholeEnd.gt(begin) : wholeBegin.lt(end) && wholeEnd.gt(begin);
+        if (!overlaps) continue;
+        const part = point ? new TimeSpan(begin, begin)
+          : new TimeSpan(wholeBegin.max(begin), wholeEnd.min(end));
+        haps.push(new Hap(new TimeSpan(wholeBegin, wholeEnd), part, { ...event.value }, { phraseId, noteId: event.noteId }));
+      }
+    }
+    return haps;
+  }).splitQueries();
+}
+
+function* patternSteps(plan: RecordedPatternPlan, phraseId: string, periodBars?: number): Generator<void, Pattern> {
   if (!plan.slots.length) return silence;
-  const sequence = yield* sequenceSteps(plan.slots, plan, phraseId);
-  // <> uses weights in bars; timeCat alone normalizes them to one bar.
-  return sequence.slow(plan.lengthBars).sound(pure(plan.config.sound));
+  const modifiers = Object.fromEntries(Object.entries(plan.modifiers)
+    .map(([key, value]) => [key === 'lpf' ? 'cutoff' : key === 'lpq' ? 'resonance' : key, value]));
+  const noteField = plan.relative ? 'n' : 'note';
+  const value = (slot: WeightedSlot) => ({ [noteField]: slot.note!.pitch, ...slot.note!.controls, ...modifiers, s: plan.config.sound });
+  const events: LooperEvent[] = [];
+  const total = yield* layoutSlots(plan.slots, Fraction(0), null, value, events);
+  // A whole-bar member period may be shorter than the rounded weights by a
+  // rounding unit; clip that sliver so no gate crosses into the next period.
+  const period = periodBars === undefined ? total : Fraction(periodBars);
+  for (const event of events) if (event.end.gt(period)) event.end = period;
+  return eventPattern(events.filter(event => event.begin.lt(period)), period, phraseId);
 }
 function complete<T>(steps: Generator<void, T>): T {
   let step = steps.next();
@@ -70,14 +129,10 @@ function* phraseSteps(phrase: Phrase): Generator<void, CachedLooperPhrase> {
   const plan = yield* recordedPatternPlanSteps(notes, { sourceBpm: context.bpm, notationType: 'relative',
     scaleKey: context.key, scaleMode: context.mode, scaleOctave: context.octave,
     sound: resolveLiveSoundName(context.instrument), shape: context.shape, patternDurationMs: lengthBars * barMs, precision: 6 });
-  // A gate ending exactly at the bar must not add the export's default extra beat.
-  if (plan.slots.length) {
-    const sounding = plan.slots.slice(0, -1).reduce((s, slot) => s + slot.weight, 0);
-    plan.slots[plan.slots.length - 1].weight = Math.max(0, lengthBars - sounding);
-    if (plan.slots[plan.slots.length - 1].weight === 0) plan.slots.pop();
-    plan.lengthBars = lengthBars;
-  }
-  const base = yield* patternSteps(plan, phrase.id);
+  // The member's period is its whole-bar length, not the export's trailing
+  // weight: a gate ending exactly at a bar must not add the default extra beat.
+  plan.lengthBars = lengthBars;
+  const base = yield* patternSteps(plan, phrase.id, lengthBars);
   const pitches = new Map<string, number>();
   if (!plan.relative) for (const note of notes) {
     pitches.set(note.note, approximateRecordedDegree(note, plan.config, notes[0]));
@@ -142,7 +197,8 @@ export function memberPattern(member: LooperMember, key: ChromaticNote, mode: Mu
     // Recorded fallback distinction is note-specific; map haps instead of changing the cache.
     pattern = stretchPattern(pattern, captured, totalRate);
   }
-  return pattern.fast(rate).late(offsetBars).withContext(context => ({ ...context, looperKey: key, looperMode: mode }));
+  // Convert once: Strudel would otherwise build these Fractions from floats on every query.
+  return pattern.fast(Fraction(rate)).late(Fraction(offsetBars)).withContext(context => ({ ...context, looperKey: key, looperMode: mode }));
 }
 
 function stretchPattern(pattern: Pattern, articulation: Map<string, Phrase['notes'][number]['articulation']>, rate: number): Pattern {

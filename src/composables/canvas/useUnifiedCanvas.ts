@@ -16,6 +16,11 @@ import { useAmbientRenderer } from "./useAmbientRenderer";
 import { useHarmonicGeometryRenderer } from "./useHarmonicGeometryRenderer";
 import { useBlobFieldRenderer } from "./useBlobFieldRenderer";
 import { useHilbertScopeRenderer } from "./useHilbertScopeRenderer";
+import { useLooperRenderer } from "./useLooperRenderer";
+import {
+  NULL_LOOPER_STAGE_SOURCE,
+  type LooperStageSource,
+} from "./looperStageSource";
 import { performanceMonitor } from "@/utils/performanceMonitor";
 import {
   createStageAudioFeatures,
@@ -51,6 +56,8 @@ interface StageRuntimeInputs {
   getActiveNotes?: () => readonly ActiveNote[];
   /** Note lifecycle target shared by the canvas and pitch String renderer. */
   eventTarget?: EventTarget;
+  /** What a running loop shows the Stage; omission means no Looper. */
+  looperSource?: LooperStageSource;
 }
 
 export function useUnifiedCanvas(
@@ -78,6 +85,7 @@ export function useUnifiedCanvas(
     stringConfig,
     animationConfig,
     hilbertScopeConfig,
+    looperConfig,
   } = useVisualConfig();
   const {
     snapshot: harmonicAnalysisSnapshot,
@@ -102,6 +110,7 @@ export function useUnifiedCanvas(
     particle: particleConfig.value,
     string: stringConfig.value,
     hilbertScope: hilbertScopeConfig.value,
+    looper: looperConfig.value,
   };
 
   // Rendering systems
@@ -112,6 +121,8 @@ export function useUnifiedCanvas(
   const harmonicGeometryRenderer = useHarmonicGeometryRenderer();
   const blobFieldRenderer = useBlobFieldRenderer();
   const hilbertScopeRenderer = useHilbertScopeRenderer();
+  const looperRenderer = useLooperRenderer();
+  const looperSource = runtime?.looperSource ?? NULL_LOOPER_STAGE_SOURCE;
   const stageAudio = runtime?.audioFeatures ?? createStageAudioFeatures();
   const oneShotReleaseTimers = new Map<string, number>();
   const harmonicExpiryTimers = new Map<string, number>();
@@ -210,6 +221,7 @@ export function useUnifiedCanvas(
       particle: particleConfig.value,
       string: stringConfig.value,
       hilbertScope: hilbertScopeConfig.value,
+      looper: looperConfig.value,
     };
   };
 
@@ -374,6 +386,18 @@ export function useUnifiedCanvas(
     );
 
     if (composition.suspended) return;
+
+    // The Looper's light turns over the Atmosphere, behind every musical body.
+    looperRenderer.renderLooper(
+      ctx,
+      cachedConfigs.looper,
+      composition,
+      looperSource,
+      musicStore.currentKey as ChromaticNote,
+      musicStore.currentMode as MusicalMode,
+      reducedMotion,
+      timestamp,
+    );
 
     // Strings are pitch-bearing atmospheric texture behind the focal system.
     if (cachedConfigs.string.isEnabled) {
@@ -664,6 +688,7 @@ export function useUnifiedCanvas(
     hilbertScopeRenderer.cleanup(); // Clean up Hilbert Scope
     stageAudio.cleanup();
     blobFieldRenderer.dispose();
+    looperRenderer.dispose();
     resetHarmonicAnalysis();
     oneShotReleaseTimers.forEach((timer) => window.clearTimeout(timer));
     harmonicExpiryTimers.forEach((timer) => window.clearTimeout(timer));

@@ -3,7 +3,7 @@
     <LoadingSplash />
 
     <div v-if="!isLoading" class="relative isolate">
-      <UnifiedVisualEffects class="z-0" />
+      <UnifiedVisualEffects class="z-0" :looper-source="looper.stageSource" />
     </div>
 
     <ConfigPanel v-if="!isLoading" />
@@ -24,12 +24,15 @@ import PerformanceDeck from "@/components/PerformanceDeck.vue";
 import InstrumentSelector from "@/components/InstrumentSelector.vue";
 import LoadingSplash from "@/components/LoadingSplash.vue";
 import UnifiedVisualEffects from "@/components/UnifiedVisualEffects.vue";
+import { useLooperStore } from "@/stores/looper";
 import { useMusicStore } from "@/stores/music";
 import { usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 
 useMusicStore();
 usePhrasesStore();
+// Play is the loop; the Stage reads the running loop through its seam.
+const looper = useLooperStore();
 const visualConfigStore = useVisualConfigStore();
 provideUIBeat({
   clock: uiBeatClock,

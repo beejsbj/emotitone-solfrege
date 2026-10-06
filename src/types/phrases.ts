@@ -10,6 +10,7 @@ import type { Shape } from "./instrument";
 import type { ChromaticNote, MusicalMode } from "./music";
 import type { PatternNote, PatternSource } from "./patterns";
 import type { LiveArticulation } from "@/services/liveArticulation";
+import type { Loop } from "./looper";
 
 export type PhraseShelf = "take" | "recent" | "kept" | "library";
 export type StoredPhraseShelf = Exclude<PhraseShelf, "library">;
@@ -79,6 +80,8 @@ export interface TakeRecorder {
 
 export interface PhraseBook {
   phrases: Phrase[];
+  /** Saved playing sets: pointers to stored or library phrases. */
+  loops: Loop[];
   takeId: string;
   recorder: TakeRecorder;
   /** Renames of library phrases, by library id. */
@@ -129,4 +132,9 @@ export interface PhraseBookConfig {
   recentRetentionMs: number;
   /** Most phrases Recent holds; oldest fall off first. */
   recentLimit: number;
+  /**
+   * Phrases something else still points at (the Looper's playing set). They
+   * are never pruned, and a closing take among them is kept in Recent.
+   */
+  protectedIds?: ReadonlySet<string>;
 }

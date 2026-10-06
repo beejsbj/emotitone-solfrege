@@ -41,6 +41,9 @@ const mocks = vi.hoisted(() => ({
   isPlaying: { value: false },
 }));
 
+vi.mock("@/stores/looper", () => ({
+  useLooperStore: () => ({ ownsPlayback: false, deskFollow: () => null }),
+}));
 vi.mock("@/stores/phrases", () => ({
   usePhrasesStore: mocks.usePhrasesStore,
 }));

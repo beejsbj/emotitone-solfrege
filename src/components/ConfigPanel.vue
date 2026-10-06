@@ -421,8 +421,12 @@
                       :data-testid="`deck-control-${control.id}`"
                       :model-value="deckControls[control.id]"
                       :type="control.type"
+                      :min="control.min"
+                      :max="control.max"
+                      :step="control.step"
                       :options="control.options"
                       :label="control.label"
+                      :format-value="control.format"
                       :is-disabled="(control.id === 'showRests' || control.id === 'durationMode') && !deckControls.codeStrip"
                       @update:modelValue="handleDeckControl(control.id, $event)"
                     />
@@ -558,7 +562,7 @@ import { useMusicStore } from "@/stores/music";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { BUILT_IN_STAGE_LOOKS } from "@/data/visual-config-presets";
 import {
-  STAGE_CONTROL_GROUPS,
+  stageControlGroup,
   type StageControlId,
 } from "@/services/stageAppearance";
 import {
@@ -617,21 +621,21 @@ const STAGE_DETAIL_TABS = [
     label: "Scope",
     shortLabel: "Scope",
     description: "Shape the primary musical body and raw-waveform surface.",
-    groups: [STAGE_CONTROL_GROUPS[0]],
+    groups: [stageControlGroup("Scope")],
   },
   {
     value: "bodies",
     label: "Note Bodies",
     shortLabel: "Bodies",
     description: "Tune the Circle-of-Fifths bodies and how simultaneous notes join.",
-    groups: [STAGE_CONTROL_GROUPS[1]],
+    groups: [stageControlGroup("Note Bodies")],
   },
   {
     value: "relations",
     label: "Relations",
     shortLabel: "Relations",
     description: "Choose what the Stage explains about simultaneous notes.",
-    groups: [STAGE_CONTROL_GROUPS[5]],
+    groups: [stageControlGroup("Explanations")],
   },
   {
     value: "layers",
@@ -639,10 +643,17 @@ const STAGE_DETAIL_TABS = [
     shortLabel: "Layers",
     description: "Balance atmosphere, pitch strings, and note-event flecks.",
     groups: [
-      STAGE_CONTROL_GROUPS[2],
-      STAGE_CONTROL_GROUPS[3],
-      STAGE_CONTROL_GROUPS[4],
+      stageControlGroup("Atmosphere"),
+      stageControlGroup("Pitch Strings"),
+      stageControlGroup("Note Flecks"),
     ],
+  },
+  {
+    value: "looper",
+    label: "Looper",
+    shortLabel: "Looper",
+    description: "Shape the turning light a running loop casts on the Stage.",
+    groups: [stageControlGroup("Looper")],
   },
 ];
 
@@ -745,6 +756,10 @@ const isStageControlDisabled = (control: StageControlId) => {
     && stageControls.value.atmosphereStrength <= 0.01
   ) return true;
   if (control === "fleckEnergy" && stageControls.value.fleckAmount <= 0) return true;
+  if (
+    (control === "looperDefinition" || control === "looperSpread")
+    && stageControls.value.looperStrength <= 0
+  ) return true;
   return false;
 };
 
@@ -760,7 +775,6 @@ const handleDeckControl = (
   control: DeckControlId,
   value: string | number | boolean,
 ) => {
-  if (typeof value === "number") return;
   updateDeckControl(control, value);
 };
 

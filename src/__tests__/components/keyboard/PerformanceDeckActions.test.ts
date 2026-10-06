@@ -9,6 +9,9 @@ const mocks = vi.hoisted(() => ({
   keepTake: vi.fn(),
   toggle: vi.fn(),
   stop: vi.fn(),
+  togglePlay: vi.fn(),
+  toggleLatch: vi.fn(),
+  looper: { isDeskPlaying: false, latched: false },
   toggleHumming: vi.fn(),
   cancelHumming: vi.fn(),
   selectHummingTake: vi.fn(),
@@ -53,6 +56,19 @@ vi.mock("@/stores/keyboardDrawer", () => ({
     closeDrawer: mocks.closeDrawer,
     toggleDrawer: mocks.toggleDrawer,
   }),
+}));
+
+vi.mock("@/stores/looper", () => ({
+  useLooperStore: () => ({
+    get isDeskPlaying() { return mocks.looper.isDeskPlaying; },
+    get latched() { return mocks.looper.latched; },
+    togglePlay: mocks.togglePlay,
+    toggleLatch: mocks.toggleLatch,
+  }),
+}));
+
+vi.mock("@/components/patterns/LooperDialColumn.vue", () => ({
+  default: { name: "LooperDialColumn", template: '<div data-testid="looper-dials" />' },
 }));
 
 vi.mock("@/utils/hapticFeedback", () => ({
@@ -114,8 +130,8 @@ vi.mock("@/composables/useHummingCapture", () => ({
 vi.mock("@/components/compounds/CodeStripBar.vue", () => ({
   default: {
     name: "CodeStripBar",
-    props: ["isPlaying", "playDisabled"],
-    emits: ["togglePlayback", "backspace", "return"],
+    props: ["isPlaying", "playDisabled", "playLatched"],
+    emits: ["togglePlayback", "backspace", "return", "playHold"],
     template: '<div data-testid="code-strip-bar" />',
   },
 }));
@@ -174,6 +190,8 @@ describe("PerformanceDeck CodeStrip Bar", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.isPlaying.value = false;
+    mocks.looper.isDeskPlaying = false;
+    mocks.looper.latched = false;
     mocks.hasPlayableCode.value = true;
     mocks.instrumentStore.isInteractionLocked = false;
     mocks.instrumentStore.warmingInstrument = null;
@@ -183,8 +201,8 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     mocks.keyboardConfig.hapticFeedback = true;
   });
 
-  it("stops Strudel before starting humming and wires take selection", async () => {
-    mocks.isPlaying.value = true;
+  it("keeps a running loop playing while humming and wires take selection", async () => {
+    mocks.looper.isDeskPlaying = true;
     const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
@@ -201,17 +219,15 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     actions.vm.$emit("selectTake", 1);
     await wrapper.vm.$nextTick();
 
-    expect(mocks.stop).toHaveBeenCalledTimes(1);
+    expect(mocks.stop).not.toHaveBeenCalled();
+    expect(mocks.togglePlay).not.toHaveBeenCalled();
     expect(mocks.toggleHumming).toHaveBeenCalledTimes(1);
     expect(mocks.cancelHumming).toHaveBeenCalledTimes(1);
-    expect(mocks.stop.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.toggleHumming.mock.invocationCallOrder[0],
-    );
     expect(mocks.selectHummingTake).toHaveBeenCalledWith(1);
     wrapper.unmount();
   });
 
-  it.each(["requesting", "recording", "preparing", "analyzing"])("cancels %s humming before starting Strudel playback", async (status) => {
+  it.each(["requesting", "recording", "preparing", "analyzing"])("cancels %s humming before Play joins the loop", async (status) => {
     mocks.hummingStatus.value = status;
     const wrapper = mount(PerformanceDeck, {
       global: {
@@ -225,12 +241,36 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     });
 
     wrapper.getComponent({ name: "CodeStripBar" }).vm.$emit("togglePlayback");
-    await vi.waitFor(() => expect(mocks.toggle).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(mocks.togglePlay).toHaveBeenCalledTimes(1));
 
+    expect(mocks.toggle).not.toHaveBeenCalled();
     expect(mocks.cancelHumming).toHaveBeenCalledTimes(1);
     expect(mocks.cancelHumming.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.toggle.mock.invocationCallOrder[0],
+      mocks.togglePlay.mock.invocationCallOrder[0],
     );
+    wrapper.unmount();
+  });
+
+  it("makes Play the loop: tap toggles the desk, hold latches, the key shows both", async () => {
+    mocks.looper.isDeskPlaying = true;
+    mocks.looper.latched = true;
+    const wrapper = mount(PerformanceDeck, {
+      global: { stubs: { PhraseShelf: true, Keyboard: true, HummingCaptureTransport: true } },
+    });
+    const bar = wrapper.getComponent({ name: "CodeStripBar" });
+
+    expect(bar.props("isPlaying")).toBe(true);
+    expect(bar.props("playLatched")).toBe(true);
+    expect(bar.props("playDisabled")).toBe(false);
+    expect(wrapper.find('[data-testid="looper-dials"]').exists()).toBe(true);
+    bar.vm.$emit("togglePlayback");
+    bar.vm.$emit("playHold");
+    await wrapper.vm.$nextTick();
+
+    expect(mocks.togglePlay).toHaveBeenCalledTimes(1);
+    expect(mocks.toggleLatch).toHaveBeenCalledTimes(1);
+    // The Code Strip's own evaluate-and-play path is retired in production.
+    expect(mocks.toggle).not.toHaveBeenCalled();
     wrapper.unmount();
   });
 
@@ -251,7 +291,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     actions.vm.$emit("return");
     await wrapper.vm.$nextTick();
 
-    expect(mocks.toggle).toHaveBeenCalledTimes(1);
+    expect(mocks.togglePlay).toHaveBeenCalledTimes(1);
     expect(mocks.undoLastNote).toHaveBeenCalledTimes(1);
     expect(mocks.keepTake).toHaveBeenCalledTimes(1);
     wrapper.unmount();
@@ -297,46 +337,6 @@ describe("PerformanceDeck CodeStrip Bar", () => {
       .attributes("data-stage-occluder")).toBe("");
     expect(wrapper.get('[data-testid="code-strip-bar"]')
       .attributes("data-stage-occluder")).toBeUndefined();
-    wrapper.unmount();
-  });
-
-  it("does not start playback when CodeStrip has no playable document", async () => {
-    mocks.hasPlayableCode.value = false;
-    const wrapper = mount(PerformanceDeck, {
-      global: {
-        stubs: {
-          PhraseShelf: true,
-          Keyboard: true,
-          CodeStripBar: true,
-        },
-      },
-    });
-
-    wrapper.getComponent({ name: "CodeStripBar" }).vm.$emit("togglePlayback");
-    await wrapper.vm.$nextTick();
-
-    expect(mocks.toggle).not.toHaveBeenCalled();
-    wrapper.unmount();
-  });
-
-  it("disables and ignores pattern playback while samples are warming", async () => {
-    mocks.instrumentStore.isInteractionLocked = true;
-    const wrapper = mount(PerformanceDeck, {
-      global: {
-        stubs: {
-          PhraseShelf: true,
-          Keyboard: true,
-          CodeStripBar: true,
-        },
-      },
-    });
-    const actions = wrapper.getComponent({ name: "CodeStripBar" });
-
-    expect(actions.props("playDisabled")).toBe(true);
-    actions.vm.$emit("togglePlayback");
-    await wrapper.vm.$nextTick();
-
-    expect(mocks.toggle).not.toHaveBeenCalled();
     wrapper.unmount();
   });
 

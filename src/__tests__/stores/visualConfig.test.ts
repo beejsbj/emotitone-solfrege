@@ -99,6 +99,29 @@ describe('Visual Config Store', () => {
       expect(missingStore.config.codeStrip.durationMode).toBe('bar')
     })
 
+    it('loads a config stored before the Looper with its accepted look, and repairs bad knobs', () => {
+      const { looper: _looper, ...beforeLooper } = JSON.parse(JSON.stringify(DEFAULT_CONFIG))
+      beforeLooper.ambient.opacityMajor = 0.4
+      localStorage.setItem('emotitone-visual-config', JSON.stringify({ config: beforeLooper }))
+
+      const older = createFreshStore()
+      expect(older.config.ambient.opacityMajor).toBe(0.4)
+      expect(older.config.looper).toEqual({ isEnabled: true, strength: 0.5, definition: 0.25, spread: 0.5 })
+
+      localStorage.setItem('emotitone-visual-config', JSON.stringify({
+        config: { looper: { isEnabled: 'yes', strength: 3, definition: 'haze', spread: -1 } },
+      }))
+      const repaired = createFreshStore()
+      expect(repaired.config.looper).toEqual({ isEnabled: true, strength: 1, definition: 0.25, spread: 0 })
+    })
+
+    it('resets the Looper with the Stage', () => {
+      visualConfigStore.updateStageControl('looperDefinition', 0.9)
+      expect(visualConfigStore.config.looper.definition).toBe(0.9)
+      visualConfigStore.resetStage()
+      expect(visualConfigStore.config.looper).toEqual(DEFAULT_CONFIG.looper)
+    })
+
     it('should migrate legacy color keys from localStorage on initialization', () => {
       const storedConfig = {
         config: {

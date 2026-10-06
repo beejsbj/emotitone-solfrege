@@ -23,6 +23,9 @@ export type StageControlId =
   | "stringResponse"
   | "fleckAmount"
   | "fleckEnergy"
+  | "looperStrength"
+  | "looperDefinition"
+  | "looperSpread"
   | "showChords"
   | "showIntervals"
   | "showEmotion"
@@ -48,6 +51,9 @@ export interface StageControls {
   stringResponse: number;
   fleckAmount: number;
   fleckEnergy: number;
+  looperStrength: number;
+  looperDefinition: number;
+  looperSpread: number;
   showChords: boolean;
   showIntervals: boolean;
   showEmotion: boolean;
@@ -97,7 +103,8 @@ type StageLookSection =
   | "ambient"
   | "particles"
   | "strings"
-  | "hilbertScope";
+  | "hilbertScope"
+  | "looper";
 
 export const STAGE_LOOK_PREFERENCE_FIELDS = [
   "connectionMode",
@@ -173,6 +180,7 @@ const STAGE_LOOK_FIELDS: Record<StageLookSection, readonly string[]> = {
     "history",
     "thickness",
   ],
+  looper: ["isEnabled", "strength", "definition", "spread"],
 };
 
 const percent = (value: number) => `${Math.round(value * 100)}%`;
@@ -253,7 +261,23 @@ export const STAGE_CONTROL_GROUPS: StageControlGroup[] = [
       { id: "labelStrength", label: "Label Strength", type: "range", min: 0, max: 1, step: 0.05, format: percent },
     ],
   },
+  {
+    label: "Looper",
+    description: "The turning light a running loop casts: haze at low Definition, comets at high.",
+    controls: [
+      { id: "looperStrength", label: "Strength", type: "range", min: 0, max: 1, step: 0.05, format: percent },
+      { id: "looperDefinition", label: "Definition", type: "range", min: 0, max: 1, step: 0.05, format: percent },
+      { id: "looperSpread", label: "Spread", type: "range", min: 0, max: 1, step: 0.05, format: percent },
+    ],
+  },
 ];
+
+/** A control group by its label, so consumers never depend on group order. */
+export function stageControlGroup(label: string): StageControlGroup {
+  const group = STAGE_CONTROL_GROUPS.find((candidate) => candidate.label === label);
+  if (!group) throw new Error(`Unknown Stage control group: ${label}`);
+  return group;
+}
 
 export const STAGE_CONTROL_DEFINITIONS: StageControlDefinition[] = [
   STAGE_MASTER_CONTROL,
@@ -277,6 +301,7 @@ function cloneConfig(config: VisualEffectsConfig): VisualEffectsConfig {
     particles: { ...config.particles },
     strings: { ...config.strings },
     hilbertScope: { ...config.hilbertScope },
+    looper: { ...config.looper },
   };
 }
 
@@ -390,6 +415,7 @@ export function resolveStageConfig(
     effective.ambient.isEnabled = false;
     effective.particles.isEnabled = false;
     effective.strings.isEnabled = false;
+    effective.looper.isEnabled = false;
   }
 
   return effective;
@@ -447,6 +473,9 @@ export function readStageControls(config: VisualEffectsConfig): StageControls {
       ? clamp(config.particles.count, 0, 40)
       : 0,
     fleckEnergy: clamp(config.particles.speed / 12),
+    looperStrength: config.looper.isEnabled ? clamp(config.looper.strength) : 0,
+    looperDefinition: clamp(config.looper.definition),
+    looperSpread: clamp(config.looper.spread),
     showChords: config.blobs.showChordLabel,
     showIntervals: config.blobs.showIntervalLabels,
     showEmotion: config.blobs.showEmotionLabel,
@@ -573,6 +602,18 @@ export function patchStageControl(
       next.particles.airResistance = 0.97 + amount * 0.025;
       break;
     }
+    case "looperStrength": {
+      const amount = clamp(value);
+      next.looper.isEnabled = amount > 0;
+      next.looper.strength = amount;
+      break;
+    }
+    case "looperDefinition":
+      next.looper.definition = clamp(value);
+      break;
+    case "looperSpread":
+      next.looper.spread = clamp(value);
+      break;
     case "showChords":
       next.blobs.showChordLabel = Boolean(rawValue);
       break;
@@ -693,6 +734,9 @@ function applyNumericVariation(
   vary("stringResponse", controls.stringResponse, 0.08);
   vary("fleckAmount", controls.fleckAmount, 0.18, 0, 40);
   vary("fleckEnergy", controls.fleckEnergy, 0.1);
+  vary("looperStrength", controls.looperStrength, 0.08);
+  vary("looperDefinition", controls.looperDefinition, 0.1);
+  vary("looperSpread", controls.looperSpread, 0.08);
 
   return varied;
 }

@@ -26,6 +26,8 @@
   >
     <template #icon><KeyboardIcon /></template>
     <template #persistent-leading>
+      <!-- The Looper's dial column floats above the reel. -->
+      <LooperDialColumn v-if="isProductionUsage" />
       <PhraseShelf
         v-if="isProductionUsage"
         data-stage-occluder
@@ -55,7 +57,9 @@
           :is-playing="isPlaying"
           :play-disabled="playDisabled"
           :haptic="isProductionUsage"
+          :play-latched="looper?.latched ?? false"
           @toggle-playback="toggleSketchPlayback"
+          @play-hold="looper?.toggleLatch()"
           @backspace="handleBackspace"
           @return="handleReturn"
         />
@@ -149,6 +153,7 @@ import type {
 import type { CodeStripToken } from "@/components/uniques/CodeStrip/index.vue";
 import Drawer from "@/components/uniques/Drawer/index.vue";
 import HummingCaptureTransport from "@/components/humming/HummingCaptureTransport.vue";
+import LooperDialColumn from "@/components/patterns/LooperDialColumn.vue";
 import PhraseShelf from "@/components/patterns/PhraseShelf.vue";
 import {
   MAX_KEYBOARD_ROW_COUNT,
@@ -166,6 +171,7 @@ import { displayInstrumentName } from "@/data/instruments";
 import type { HarmonyAlteration } from "@/domain/harmony";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
+import { useLooperStore } from "@/stores/looper";
 import { useMusicStore } from "@/stores/music";
 import { usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
@@ -246,6 +252,8 @@ const instrumentStore = isProductionUsage ? useInstrumentStore() : undefined;
 const musicStore = isProductionUsage ? useMusicStore() : undefined;
 const phrasesStore = isProductionUsage ? usePhrasesStore() : undefined;
 const visualConfigStore = isProductionUsage ? useVisualConfigStore() : undefined;
+// Play is the loop: in production the Code Strip's own playback path is retired.
+const looper = isProductionUsage ? useLooperStore() : undefined;
 const playback = isProductionUsage ? useCodeStripStrudel() : undefined;
 const humming = isProductionUsage ? useHummingCapture() : undefined;
 
@@ -261,7 +269,7 @@ const patternControlSignals = reactive<Record<PatternControl, number>>({
 });
 
 const drawerOpen = computed(() => store?.drawer.isOpen ?? props.drawerOpen);
-const isPlaying = computed(() => playback?.isPlaying.value ?? props.isPlaying);
+const isPlaying = computed(() => looper ? looper.isDeskPlaying : props.isPlaying);
 const hasPlayableCode = computed(() => playback?.hasPlayableCode.value
   ?? Boolean(
     props.codeStripTokens.length
@@ -271,7 +279,8 @@ const interactionLocked = computed(() =>
   instrumentStore?.isInteractionLocked ?? props.warming
 );
 const playDisabled = computed(() => isProductionUsage
-  ? !hasPlayableCode.value || (interactionLocked.value && !isPlaying.value)
+  // Always pressable, so Play can be held to latch on an empty desk.
+  ? false
   : props.playDisabled
     || !hasPlayableCode.value
     || (interactionLocked.value && !isPlaying.value)
@@ -315,28 +324,20 @@ function setPatternReelGuard(active: boolean) {
 }
 
 async function toggleSketchPlayback() {
-  if (!playback) {
+  if (!looper) {
     if (playDisabled.value) return;
     emit("togglePlayback");
     return;
   }
-  if (isPlaying.value) {
-    await playback.toggle();
-    return;
-  }
-  if (!hasPlayableCode.value || interactionLocked.value) return;
-  if (["requesting", "recording", "preparing", "analyzing"].includes(hummingStatus.value)) {
+  if (!isPlaying.value && ["requesting", "recording", "preparing", "analyzing"].includes(hummingStatus.value)) {
     await humming?.cancel();
   }
-  await playback.toggle();
+  looper.togglePlay();
 }
 
 async function toggleHummingCapture() {
-  if (!humming || !playback) return;
-  if (isPlaying.value && hummingStatus.value !== "recording") {
-    await playback.stop();
-  }
-  await humming.toggle();
+  // Humming over a running loop is allowed; the loop keeps playing.
+  await humming?.toggle();
 }
 
 async function cancelHummingCapture() {

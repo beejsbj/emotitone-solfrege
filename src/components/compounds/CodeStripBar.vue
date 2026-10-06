@@ -11,9 +11,15 @@
           :tone="isPlaying ? 'ink' : 'ivory'"
           :haptic="haptic"
           :disabled="playDisabled"
+          :class="{ 'paper-button--loading code-strip-bar__play--latched': playLatched }"
+          :data-latched="playLatched || undefined"
           :accessible-name="isPlaying ? 'Stop' : 'Play'"
           :title="isPlaying ? 'Stop' : 'Play'"
-          @click="emit('togglePlayback')"
+          @pointerdown="playDown"
+          @pointerup="playLift"
+          @pointercancel="playLift"
+          @contextmenu.prevent
+          @click="playClick"
         >
           <Square v-if="isPlaying" />
           <Play v-else />
@@ -83,6 +89,8 @@ const props = withDefaults(
     isPlaying?: boolean;
     playDisabled?: boolean;
     haptic?: boolean;
+    /** The Looper's latch is on (hold Play): the key runs its loading orbit but stays pressable. */
+    playLatched?: boolean;
     tokens?: CodeStripToken[];
     source?: string;
     density?: CodeStripDensity;
@@ -95,6 +103,7 @@ const props = withDefaults(
     isPlaying: false,
     playDisabled: false,
     haptic: false,
+    playLatched: false,
     tokens: undefined,
     source: undefined,
     density: "dense",
@@ -111,11 +120,43 @@ const emit = defineEmits<{
   togglePlayback: [];
   backspace: [];
   return: [];
+  playHold: [];
 }>();
+
+// Holding Play latches the Looper; the click that ends a hold is swallowed.
+const PLAY_HOLD_MS = 450;
+let playHoldTimer: ReturnType<typeof setTimeout> | undefined;
+let playHeld = false;
+function playDown() {
+  if (props.playDisabled) return;
+  playHeld = false;
+  clearTimeout(playHoldTimer);
+  playHoldTimer = setTimeout(() => {
+    playHeld = true;
+    emit("playHold");
+  }, PLAY_HOLD_MS);
+}
+// The key moves under the finger when pressed, so leaving it does not cancel
+// the hold; only lifting does.
+function playLift() {
+  clearTimeout(playHoldTimer);
+  // If the lift lands off the key no click follows; don't swallow the next one.
+  setTimeout(() => { playHeld = false; }, 80);
+}
+function playClick() {
+  clearTimeout(playHoldTimer);
+  if (playHeld) playHeld = false;
+  else emit("togglePlayback");
+}
 
 </script>
 
 <style scoped>
+/* The latched Play key keeps its icon readable under the loading orbit. */
+.code-strip-bar__play--latched :deep(.paper-button__content) {
+  opacity: 1;
+}
+
 .code-strip-bar {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;

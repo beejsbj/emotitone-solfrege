@@ -21,6 +21,9 @@ const patternsStore = vi.hoisted(() => ({
 
 const useMidiControls = vi.hoisted(() => vi.fn())
 
+vi.mock('@/stores/looper', () => ({
+  useLooperStore: () => ({ stageSource: undefined }),
+}));
 vi.mock('@/components/LoadingSplash.vue', () => ({
   default: { template: '<div data-testid="loading-splash">Loading...</div>' },
 }))

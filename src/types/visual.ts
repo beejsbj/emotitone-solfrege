@@ -327,6 +327,21 @@ export interface HilbertScopeConfig {
   thickness: number;
 }
 
+/**
+ * The Looper, a Stage part: the turning light a running loop casts. Each
+ * knob is 0..1; the canonical 0.5 / 0.25 / 0.5 is the look Burooj accepted.
+ */
+export interface LooperConfig {
+  /** Whether the part paints; Strength 0 turns it off. */
+  isEnabled: boolean;
+  /** How bright the light is: 0 absent, 0.5 as accepted. */
+  strength: number;
+  /** Haze (0) through drawn arcs to comets curving along their orbits (1). */
+  definition: number;
+  /** How far the light reaches across the Stage. */
+  spread: number;
+}
+
 /** Public master for the canvas-owned Stage composition. */
 export interface StageConfig {
   /** Whether the Stage composition is presented. */
@@ -415,6 +430,11 @@ export interface CodeStripConfig {
   durationMode: CodeStripDurationMode;
   /** Whether to show rest tokens */
   showRests: boolean;
+  /**
+   * Looper timing, per device: extra ms a press is heard late, on top of the
+   * browser's reported output latency (which the transport already removes).
+   */
+  looperCalibrationMs: number;
 }
 
 /**
@@ -479,6 +499,8 @@ export interface VisualEffectsConfig {
   dynamicColors: DynamicColorConfig;
   /** Hilbert Scope configuration */
   hilbertScope: HilbertScopeConfig;
+  /** The Looper's Stage part */
+  looper: LooperConfig;
   /** Shared transport-synchronized UI presentation configuration */
   uiBeat: UIBeatConfig;
   /** Pattern recording configuration */

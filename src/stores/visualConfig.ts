@@ -287,6 +287,21 @@ function migrateLegacySectionKeys(
     delete mergedSection.colorMode;
   }
 
+  if (sectionName === "looper") {
+    // A Look or an import may carry anything; the knobs are 0..1 numbers.
+    for (const field of ["strength", "definition", "spread"] as const) {
+      mergedSection[field] = clampNumber(
+        mergedSection[field],
+        DEFAULT_CONFIG.looper[field],
+        0,
+        1,
+      );
+    }
+    if (typeof mergedSection.isEnabled !== "boolean") {
+      mergedSection.isEnabled = DEFAULT_CONFIG.looper.isEnabled;
+    }
+  }
+
   if (sectionName === "codeStrip") {
     const durationMode = mergedSection.durationMode;
     if (durationMode !== "stacked" && durationMode !== "bar" && durationMode !== "hidden") {
@@ -589,6 +604,14 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
       );
     }
 
+    if (rootConfig.looper.isEnabled !== currentEffective.looper.isEnabled) {
+      rootConfig = patchStageControl(
+        rootConfig,
+        "looperStrength",
+        readStageControls(currentEffective).looperStrength,
+      );
+    }
+
     const nextLook = createSeededStageVariation(seed, rootConfig, rootName);
     transientStageLook.value = nextLook;
     return transientStageLook.value;
@@ -617,6 +640,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     Object.assign(config.animation, defaults.animation);
     Object.assign(config.frequencyMapping, defaults.frequencyMapping);
     Object.assign(config.hilbertScope, defaults.hilbertScope);
+    Object.assign(config.looper, defaults.looper);
   };
 
   const updateGlobalControl = (
@@ -634,7 +658,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
 
   const updateDeckControl = (
     control: DeckControlId,
-    value: string | boolean,
+    value: string | boolean | number,
   ) => {
     applyDeckControl(config, control, value);
   };

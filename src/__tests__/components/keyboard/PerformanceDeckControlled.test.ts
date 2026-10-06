@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   useLiveListening: vi.fn(),
 }));
 
+vi.mock("@/stores/looper", () => ({ useLooperStore: () => ({}) }));
 vi.mock("@/stores/keyboardDrawer", () => ({
   useKeyboardDrawerStore: mocks.useKeyboardDrawerStore,
 }));

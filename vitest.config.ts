@@ -8,7 +8,7 @@ const nodeTests = [
   'src/audio/**/*.test.ts',
   'audio-lab/reference/**/*.test.ts',
   'audio-lab/validate.test.ts',
-  'src/__tests__/services/{recordedTiming,livePitch,liveResampler,liveArticulation,livePerformance,playStyles,inputVoiceGroups,audioDiagnostics,musicColorCore,keySurfaceColor,pitchAnalysis,music,StrudelNotation}.test.ts',
+  'src/__tests__/services/{recordedTiming,livePitch,liveResampler,liveArticulation,livePerformance,playStyles,inputVoiceGroups,audioDiagnostics,musicColorCore,keySurfaceColor,pitchAnalysis,music,StrudelNotation,looperPatternBuilder,looperTempoMap,looperTransport}.test.ts',
   'src/__tests__/data/**/*.test.ts',
 ]
 

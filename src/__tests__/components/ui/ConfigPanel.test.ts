@@ -64,6 +64,9 @@ const visualConfigStore = reactive({
     stringResponse: 0.25,
     fleckAmount: 10,
     fleckEnergy: 0.3,
+    looperStrength: 0.5,
+    looperDefinition: 0.25,
+    looperSpread: 0.5,
     showChords: false,
     showIntervals: false,
     showEmotion: false,
@@ -218,6 +221,7 @@ describe("ConfigPanel.vue", () => {
     visualConfigStore.stageControls.bodiesVisible = true;
     visualConfigStore.stageControls.atmosphereStrength = 0.3;
     visualConfigStore.stageControls.fleckAmount = 3;
+    visualConfigStore.stageControls.looperStrength = 0.5;
     visualConfigStore.stageControls.showChords = false;
     visualConfigStore.stageControls.showIntervals = false;
     visualConfigStore.stageControls.showEmotion = false;
@@ -264,6 +268,7 @@ describe("ConfigPanel.vue", () => {
       "bodies",
       "relations",
       "layers",
+      "looper",
       "deck",
       "midi",
     ]);
@@ -286,9 +291,9 @@ describe("ConfigPanel.vue", () => {
       field: "connectionMode",
       values: ["web"],
     });
-    expect(STAGE_CONTROL_DEFINITIONS).toHaveLength(23);
+    expect(STAGE_CONTROL_DEFINITIONS).toHaveLength(26);
     expect(GLOBAL_CONTROL_GROUPS.flatMap((group) => group.controls)).toHaveLength(4);
-    expect(DECK_CONTROL_GROUPS.flatMap((group) => group.controls)).toHaveLength(8);
+    expect(DECK_CONTROL_GROUPS.flatMap((group) => group.controls)).toHaveLength(9);
   });
 
   it("keeps Stage general and allocates every detail control exactly once", async () => {
@@ -306,6 +311,7 @@ describe("ConfigPanel.vue", () => {
       ["bodies", 7],
       ["relations", 4],
       ["layers", 6],
+      ["looper", 3],
     ] as const;
     const allocatedControlIds: string[] = [];
 
@@ -323,8 +329,8 @@ describe("ConfigPanel.vue", () => {
       ));
     }
 
-    expect(allocatedControlIds).toHaveLength(22);
-    expect(new Set(allocatedControlIds).size).toBe(22);
+    expect(allocatedControlIds).toHaveLength(25);
+    expect(new Set(allocatedControlIds).size).toBe(25);
     expect(allocatedControlIds.toSorted()).toEqual(
       STAGE_CONTROL_DEFINITIONS
         .filter((control) => control.id !== "stageEnabled")
@@ -476,6 +482,16 @@ describe("ConfigPanel.vue", () => {
       .toBe(true);
     expect(wrapper.getComponent('[data-testid="stage-control-stringResponse"]').props("isDisabled"))
       .toBe(false);
+
+    visualConfigStore.stageControls.looperStrength = 0;
+    panel.vm.$emit("update:modelValue", "looper");
+    await nextTick();
+    expect(wrapper.getComponent('[data-testid="stage-control-looperStrength"]').props("isDisabled"))
+      .toBe(false);
+    expect(wrapper.getComponent('[data-testid="stage-control-looperDefinition"]').props("isDisabled"))
+      .toBe(true);
+    expect(wrapper.getComponent('[data-testid="stage-control-looperSpread"]').props("isDisabled"))
+      .toBe(true);
   });
 
   it("reserves brass Knobs for Visuals, UI Rhythm, and the Stage master", async () => {

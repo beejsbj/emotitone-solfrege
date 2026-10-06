@@ -111,7 +111,7 @@ function complete<T>(steps: Generator<void, T>): T {
 export function patternFromPlan(plan: RecordedPatternPlan, phraseId: string): Pattern {
   return complete(patternSteps(plan, phraseId));
 }
-function* phraseSteps(phrase: Phrase): Generator<void, CachedLooperPhrase> {
+function* phraseSteps(phrase: Phrase, lengthOverride?: number): Generator<void, CachedLooperPhrase> {
   const context = { ...phrase.context, shape: { ...phrase.context.shape } };
   const capturedNotes: Phrase['notes'] = [];
   for (const note of phrase.notes) {
@@ -124,7 +124,11 @@ function* phraseSteps(phrase: Phrase): Generator<void, CachedLooperPhrase> {
   const barMs = 240000 / context.bpm;
   const origin = Math.min(...capturedNotes.map(n => n.pressTime));
   const end = Math.max(0, ...capturedNotes.map(n => n.pressTime - origin + Math.max(1, n.duration)));
-  const lengthBars = Math.max(1, Math.ceil(Math.max(phrase.duration, end) / barMs));
+  // The Looper's domain decides membership length (with its ringing-note
+  // grace); a gate past that boundary is clipped by the whole-bar period.
+  const lengthBars = lengthOverride !== undefined && Number.isInteger(lengthOverride) && lengthOverride >= 1
+    ? lengthOverride
+    : Math.max(1, Math.ceil(Math.max(phrase.duration, end) / barMs));
   const notes = capturedNotes.map(note => ({ ...note, key: context.key, mode: context.mode }));
   const plan = yield* recordedPatternPlanSteps(notes, { sourceBpm: context.bpm, notationType: 'relative',
     scaleKey: context.key, scaleMode: context.mode, scaleOctave: context.octave,
@@ -145,8 +149,8 @@ function* phraseSteps(phrase: Phrase): Generator<void, CachedLooperPhrase> {
   return { phraseId: phrase.id, base, degrees, plan, lengthBars, context, notes: capturedNotes };
 }
 /** Synchronous offline/prewarm path. Use prepareLooperPhrase when audio is running. */
-export function buildLooperPhrase(phrase: Phrase): CachedLooperPhrase {
-  return complete(phraseSteps(phrase));
+export function buildLooperPhrase(phrase: Phrase, options: { lengthBars?: number } = {}): CachedLooperPhrase {
+  return complete(phraseSteps(phrase, options.lengthBars));
 }
 /** Fresh recordings yield between small groups so preparation does not starve Cyclist.
  * sliceMs is an elapsed budget, not a promise about OS pauses or one expression curve.
@@ -155,11 +159,13 @@ export async function prepareLooperPhrase(phrase: Phrase, options: {
   sliceMs?: number;
   yieldToScheduler?: () => Promise<void>;
   onSlice?: (elapsedMs: number) => void;
+  /** Whole-bar membership length, normally the domain's `phraseLengthBars`. */
+  lengthBars?: number;
 } = {}): Promise<CachedLooperPhrase> {
   const budget = options.sliceMs ?? 2;
   if (!Number.isFinite(budget) || budget <= 0) throw new RangeError('Slice budget must be positive');
   const yieldToScheduler = options.yieldToScheduler ?? (() => new Promise(resolve => setTimeout(resolve, 0)));
-  const steps = phraseSteps(phrase);
+  const steps = phraseSteps(phrase, options.lengthBars);
   for (;;) {
     const start = performance.now();
     let step = steps.next();

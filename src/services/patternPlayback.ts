@@ -145,6 +145,11 @@ export function getPatternPlaybackDiagnostics() {
   return { activeTransports: activeEditor ? 1 : 0 };
 }
 
+/** The one editor, if the Code Strip has mounted it. The Looper attaches here. */
+export function getActivePatternEditor(): PatternEditor | undefined {
+  return activeEditor;
+}
+
 /** Slice 4 attaches the Looper to this editor instead of creating a transport. */
 export function getLooperPlaybackPort(instance: PatternEditor): LooperPlaybackPort {
   const port = looperPorts.get(instance);

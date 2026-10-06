@@ -99,6 +99,7 @@ export function createPhraseBook(
   const take = emptyTake(context, now, newId);
   return {
     phrases: [take],
+    loops: [],
     takeId: take.id,
     recorder: freshRecorder("fresh"),
     libraryNames: {},
@@ -129,6 +130,7 @@ export function ensureSingleTake(
   now: number,
   newId: NewId = createId,
 ): void {
+  book.loops ??= [];
   const takes = book.phrases.filter((phrase) => phrase.shelf === "take");
   const chosen = takes.find((phrase) => phrase.id === book.takeId) ?? takes[0];
   for (const extra of takes) {
@@ -690,9 +692,23 @@ export function keepPhrase(
   return copy.id;
 }
 
-export function deletePhrase(book: PhraseBook, id: string): boolean {
+/**
+ * Saved Loop pointers are protected even without a caller-supplied set.
+ * Force detaches saved memberships; it never overrides supplied protection.
+ * For force, leave the live playing set first and supply its remaining ids
+ * (not the saved Loop ids this function will detach).
+ */
+export function deletePhrase(
+  book: PhraseBook,
+  id: string,
+  protectedIds: ReadonlySet<string> = new Set(),
+  force = false,
+): boolean {
   const target = book.phrases.find((phrase) => phrase.id === id);
-  if (!target || target.shelf === "take") return false;
+  if (!target || target.shelf === "take" || protectedIds.has(id)) return false;
+  const loops = book.loops.filter((loop) => loop.members.some((member) => member.phraseId === id));
+  if (loops.length && !force) return false;
+  for (const loop of loops) loop.members = loop.members.filter((member) => member.phraseId !== id);
   book.phrases = book.phrases.filter((phrase) => phrase !== target);
   return true;
 }
@@ -820,13 +836,16 @@ export function pruneRecent(
   book: PhraseBook,
   now: number,
   config: PhraseBookConfig = DEFAULT_PHRASE_BOOK_CONFIG,
+  protectedIds: ReadonlySet<string> = new Set(),
 ): void {
+  const savedIds = new Set(book.loops.flatMap((loop) => loop.members.map((member) => member.phraseId)));
   const cutoff = now - config.recentRetentionMs;
   const recent = book.phrases
     .filter((phrase) => phrase.shelf === "recent")
     .sort((left, right) => (right.closedAt ?? right.createdAt) - (left.closedAt ?? left.createdAt));
   const expired = new Set(recent.filter((phrase, index) =>
-    (phrase.closedAt ?? phrase.createdAt) < cutoff || index >= config.recentLimit
+    !protectedIds.has(phrase.id) && !savedIds.has(phrase.id)
+    && ((phrase.closedAt ?? phrase.createdAt) < cutoff || index >= config.recentLimit)
   ));
   if (expired.size) book.phrases = book.phrases.filter((phrase) => !expired.has(phrase));
 }

@@ -436,15 +436,16 @@ export function useLooperRenderer() {
     if (!notes.length || period <= 0) return;
     let low = Infinity;
     let high = -Infinity;
-    for (const note of notes) {
-      const { midi } = pitchOf(note.note);
+    for (let i = 0; i < notes.length; i += 1) {
+      const { midi } = pitchOf(notes[i].note);
       if (midi < low) low = midi;
       if (midi > high) high = midi;
     }
     const range = Math.max(1, high - low);
     const reach = depths > 1 ? depth / (depths - 1) : 0.5;
     const cycle = period * copies;
-    for (const note of notes) {
+    for (let i = 0; i < notes.length; i += 1) {
+      const note = notes[i];
       const { chroma, midi, octave } = pitchOf(note.note);
       const tint = tintOf(chroma, octave, key, mode);
       const onset = ((note.pressTime % period) + period) % period;

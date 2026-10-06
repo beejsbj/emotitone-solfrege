@@ -42,6 +42,34 @@ declare module "@strudel/webaudio" {
 }
 
 declare module "@strudel/core" {
+  export interface Hap {
+    whole?: { begin: number; end: number };
+    part: { begin: number; end: number };
+    value: Record<string, string | number>;
+    context: Record<string, unknown>;
+    withValue(fn: (value: Record<string, string | number>) => Record<string, string | number>): Hap;
+    hasOnset(): boolean;
+    duration: number;
+  }
+  export interface Pattern {
+    queryArc(begin: number, end: number): Hap[];
+    fast(rate: number): Pattern;
+    slow(rate: number): Pattern;
+    late(bars: number): Pattern;
+    ribbon(offset: number, length: number): Pattern;
+    scale(scale: string | Pattern): Pattern;
+    sound(sound: string | Pattern): Pattern;
+    withContext(fn: (context: Record<string, unknown>) => Record<string, unknown>): Pattern;
+    fmap(fn: (value: Record<string, string | number>) => Record<string, string | number>): Pattern;
+    withHap(fn: (hap: Hap) => Hap): Pattern;
+    filterHaps(fn: (hap: Hap) => boolean): Pattern;
+  }
+  export function pure(value: unknown): Pattern;
+  export function timeCat(...slots: [number, Pattern][]): Pattern;
+  export function stack(...patterns: Pattern[]): Pattern;
+  export const silence: Pattern;
+  export function evaluate(code: string, transpiler?: unknown): Promise<{ pattern: Pattern }>;
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   export function evalScope(...modules: Promise<any>[]): Promise<void>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

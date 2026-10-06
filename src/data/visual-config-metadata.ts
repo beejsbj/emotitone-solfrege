@@ -665,6 +665,43 @@ export const UNIFIED_CONFIG = {
     },
   },
 
+  looper: {
+    _meta: {
+      label: "Looper",
+      icon: "◔",
+      description: "The turning light a running loop casts on the Stage",
+    },
+    isEnabled: {
+      value: true,
+      label: "Looper",
+      hidden: true,
+    },
+    strength: {
+      value: 0.5,
+      min: 0,
+      max: 1,
+      step: 0.05,
+      label: "Strength",
+      format: (v: number) => `${(v * 100).toFixed(0)}%`,
+    },
+    definition: {
+      value: 0.25,
+      min: 0,
+      max: 1,
+      step: 0.05,
+      label: "Definition",
+      format: (v: number) => `${(v * 100).toFixed(0)}%`,
+    },
+    spread: {
+      value: 0.5,
+      min: 0,
+      max: 1,
+      step: 0.05,
+      label: "Spread",
+      format: (v: number) => `${(v * 100).toFixed(0)}%`,
+    },
+  },
+
   uiBeat: {
     _meta: {
       label: "UI Rhythm",

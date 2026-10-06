@@ -237,15 +237,25 @@ export const useLooperStore = defineStore("looper", () => {
     }
   }
 
+  /**
+   * The transport keeps its members across stop/start, so a stopped loop is
+   * disposed outright; the next Play builds a fresh one on the same editor.
+   */
   async function stopTransport(): Promise<void> {
     joined.clear();
-    if (!transport || !running.value) {
+    const stale = transport;
+    transport = null;
+    transportEditor = undefined;
+    unsubscribeStop?.();
+    unsubscribeStop = undefined;
+    if (!stale) {
+      running.value = false;
       ownsPlayback.value = false;
       return;
     }
     stopping = true;
     try {
-      await transport.stop();
+      await stale.dispose();
     } finally {
       stopping = false;
       running.value = false;

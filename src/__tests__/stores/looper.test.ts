@@ -33,7 +33,7 @@ const fake = vi.hoisted(() => {
     solo: async (id: string | null) => { state.calls.push(["solo", id]); },
     start: async () => { state.calls.push(["start"]); state.startedAt = Date.now(); },
     stop: async () => { state.calls.push(["stop"]); state.startedAt = null; state.joins.clear(); },
-    dispose: async () => undefined,
+    dispose: async () => { state.calls.push(["stop"]); state.startedAt = null; state.joins.clear(); },
     position: () => state.startedAt === null ? 0 : (Date.now() - state.startedAt) / 2000,
     eventPosition: (epochMs: number) => (epochMs - state.startedAt!) / 2000,
     setCalibrationMs: (ms: number) => { state.calls.push(["calibration", ms]); },

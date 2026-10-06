@@ -920,7 +920,8 @@ async function initializeStrudelMirror() {
 watch(
   () => productionWiring?.instrumentStore.isInteractionLocked ?? false,
   (isLocked) => {
-    if (isLocked && mirror.value) {
+    // A running loop keeps playing while a scrolled-to instrument warms up.
+    if (isLocked && mirror.value && !looperOwnsPlayback()) {
       void stopMirrorForWarmup(mirror.value);
     }
   },
@@ -986,11 +987,14 @@ watch(
 watch(
   () => Boolean(looperDeskFollow.value),
   (following) => {
-    const view = getMirrorView(mirror.value);
-    if (isControlled.value || !view) return;
-    setCodeStripPlaying(view, following);
+    if (isControlled.value) return;
     followPlaybackActive = following;
     if (!following) stopFollow();
+    // Membership can change inside an editor update (a desk load); dispatch after it.
+    queueMicrotask(() => {
+      const view = getMirrorView(mirror.value);
+      if (view && Boolean(looperDeskFollow.value) === following) setCodeStripPlaying(view, following);
+    });
   },
 );
 

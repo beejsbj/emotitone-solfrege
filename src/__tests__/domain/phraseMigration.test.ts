@@ -62,6 +62,11 @@ const options = {
 };
 
 describe("legacy pattern migration", () => {
+  it("migrates legacy patterns into a book with no saved Loops", () => {
+    const book = migrateLegacyPatterns({ savedPatterns: [pattern({})] }, options)!;
+    expect(book.loops).toEqual([]);
+  });
+
   it("returns null when there is nothing to migrate", () => {
     expect(migrateLegacyPatterns(null, options)).toBeNull();
     expect(migrateLegacyPatterns({ loggedNotes: [], savedPatterns: [] }, options)).toBeNull();

@@ -532,7 +532,9 @@ function retireTake(
   reason: CloseReason,
 ): void {
   const take = getTake(book);
-  if (closingShelf(take, book.recorder, reason) === "recent") {
+  // A take the Looper is playing stays findable even if it would be a stray tap.
+  if (closingShelf(take, book.recorder, reason) === "recent"
+    || (take.notes.length > 0 && config.protectedIds?.has(take.id))) {
     // A Recent phrase that was only looked at goes back to its own place, so
     // scrolling through Recent never reshuffles it.
     const untouchedReopen = book.recorder.origin === "recent" && !book.recorder.edited;
@@ -836,7 +838,7 @@ export function pruneRecent(
   book: PhraseBook,
   now: number,
   config: PhraseBookConfig = DEFAULT_PHRASE_BOOK_CONFIG,
-  protectedIds: ReadonlySet<string> = new Set(),
+  protectedIds: ReadonlySet<string> = config.protectedIds ?? new Set(),
 ): void {
   const savedIds = new Set(book.loops.flatMap((loop) => loop.members.map((member) => member.phraseId)));
   const cutoff = now - config.recentRetentionMs;

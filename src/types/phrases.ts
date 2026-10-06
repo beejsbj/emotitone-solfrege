@@ -132,4 +132,9 @@ export interface PhraseBookConfig {
   recentRetentionMs: number;
   /** Most phrases Recent holds; oldest fall off first. */
   recentLimit: number;
+  /**
+   * Phrases something else still points at (the Looper's playing set). They
+   * are never pruned, and a closing take among them is kept in Recent.
+   */
+  protectedIds?: ReadonlySet<string>;
 }

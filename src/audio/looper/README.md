@@ -41,7 +41,10 @@ already submitted to Superdough; it ends scheduling and clears Stage visuals.
 
 `recordedPatternPlan` shares export's micro-gap cleanup, overlap lanes, boundary
 rounding, clip, envelope fallback, filters and expression approximations. Direct
-construction attaches `phraseId` and `noteId` to each hap. Member periods round
+construction lays the plan out as an exact event table (integer weight units,
+one rational per note; no Fraction from a float) and wraps it in a `Pattern`
+whose query binary-searches the table and splits at bar boundaries, as Strudel's
+own primitives do. Each hap carries `phraseId` and `noteId`. Member periods round
 to whole bars, padding with silence; their rate precedes their shared-bar offset.
 Export keeps its existing fractional periods and default trailing beat.
 

@@ -112,6 +112,35 @@ describe("CodeStripBar.vue", () => {
     expect(codeStripBarSource).not.toContain("ui-beat");
   });
 
+  it("holds Play to latch without a toggle, and keeps the latched key pressable", async () => {
+    vi.useFakeTimers();
+    try {
+      wrapper = render({ playLatched: true });
+      const play = wrapper.get('button[aria-label="Play"]');
+      expect(play.classes()).toContain("paper-button--loading");
+      expect(play.attributes("data-latched")).toBe("true");
+      expect(play.attributes("disabled")).toBeUndefined();
+
+      await play.trigger("pointerdown");
+      vi.advanceTimersByTime(460);
+      await play.trigger("pointerup");
+      await play.trigger("click");
+      expect(wrapper.emitted("playHold")).toHaveLength(1);
+      expect(wrapper.emitted("togglePlayback")).toBeUndefined();
+
+      // A quick tap after the hold is an ordinary Play.
+      vi.advanceTimersByTime(100);
+      await play.trigger("pointerdown");
+      vi.advanceTimersByTime(120);
+      await play.trigger("pointerup");
+      await play.trigger("click");
+      expect(wrapper.emitted("togglePlayback")).toHaveLength(1);
+      expect(wrapper.emitted("playHold")).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("emits the existing actions", async () => {
     wrapper = render();
 

@@ -49,7 +49,9 @@ import {
 } from "@/services/superdoughAudio";
 import { logNotesToStrudel } from "@/services/StrudelNotation";
 import { useInstrumentStore } from "@/stores/instrument";
+import { useLooperStore } from "@/stores/looper";
 import { usePhrasesStore } from "@/stores/phrases";
+import { mapLooperHighlight } from "./looperHighlight";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import type { LogNote } from "@/types/patterns";
 import { buildRecordedCodeStripTokens } from "./recordingTokens";
@@ -106,6 +108,7 @@ function createProductionWiring() {
   return {
     instrumentStore: useInstrumentStore(),
     phrasesStore: usePhrasesStore(),
+    looperStore: useLooperStore(),
     visualConfigStore: useVisualConfigStore(),
     playback: useCodeStripStrudel(),
   };
@@ -152,6 +155,11 @@ const {
   setError,
   isPlaying,
 } = productionWiring?.playback ?? controlledPlayback;
+
+// Play is the loop: while the Looper owns the scheduler, the strip shows the
+// desk's member of the stack and never evaluates or arms UIBeat itself.
+const looperOwnsPlayback = () => productionWiring?.looperStore.ownsPlayback ?? false;
+const looperDeskFollow = computed(() => productionWiring?.looperStore.deskFollow() ?? null);
 
 const editorRoot = ref<HTMLElement | null>(null);
 const initError = ref<string | null>(null);
@@ -301,7 +309,7 @@ const hostClasses = computed(() => [
   { "code-strip--scrollable": props.scrollable },
   { "code-strip--unframed": !props.framed },
   { "code-strip--empty": isEmptyDocument.value },
-  { "code-strip--playing": isPlaying.value },
+  { "code-strip--playing": isPlaying.value || Boolean(looperDeskFollow.value) },
 ]);
 
 function getMirrorView(instance: StrudelMirrorInstance | null) {
@@ -735,6 +743,8 @@ async function initializeStrudelMirror() {
       void nextTick(followActivePlayback);
     },
     onToggle: (started: boolean) => {
+      // The Looper drives the shared scheduler; desk follow is gated below.
+      if (looperOwnsPlayback()) return;
       if (started && productionWiring?.instrumentStore.isInteractionLocked) {
         void stopMirrorForWarmup(instance);
         return;
@@ -759,6 +769,24 @@ async function initializeStrudelMirror() {
   }));
   mirror.value = instance;
 
+  // While the Looper plays, light only the desk member's notes (identity
+  // first, then its local time); nothing else in the stack touches the strip.
+  const highlightable = instance as StrudelMirrorInstance & {
+    highlight?: (haps: unknown[], time: number) => void;
+  };
+  const stockHighlight = highlightable.highlight?.bind(instance) ?? (() => undefined);
+  highlightable.highlight = (haps, time) => {
+    if (!looperOwnsPlayback()) {
+      stockHighlight(haps, time);
+      return;
+    }
+    const follow = looperDeskFollow.value;
+    const view = getMirrorView(instance);
+    if (!follow || !view) return;
+    const mapped = mapLooperHighlight(view.state.doc, haps as Parameters<typeof mapLooperHighlight>[1], time, follow);
+    stockHighlight(mapped.haps, mapped.atTime);
+  };
+
   // StrudelMirror routes editor shortcuts and native stop events through its
   // public stop method. Wrap that single transport boundary so every explicit
   // stop invalidates work that was queued before it.
@@ -776,6 +804,8 @@ async function initializeStrudelMirror() {
     const queuedAtEpoch = evaluationEpoch;
     const preservePhase = preserveUIBeatPhaseForNextEvaluation;
     preserveUIBeatPhaseForNextEvaluation = false;
+    // The Looper owns the scheduler; evaluating would arm UIBeat and stop it.
+    if (looperOwnsPlayback()) return Promise.resolve(false);
     const task = evaluationQueue.then(async () => {
       if (
         queuedAtEpoch !== evaluationEpoch
@@ -949,6 +979,18 @@ watch(
     pendingPreserveUIBeat = canPreserveUIBeatPhase(instance);
     syncPresentation();
     queueTempoEvaluation();
+  },
+);
+
+// The strip plays along only while the desk's pattern is a sounding member.
+watch(
+  () => Boolean(looperDeskFollow.value),
+  (following) => {
+    const view = getMirrorView(mirror.value);
+    if (isControlled.value || !view) return;
+    setCodeStripPlaying(view, following);
+    followPlaybackActive = following;
+    if (!following) stopFollow();
   },
 );
 

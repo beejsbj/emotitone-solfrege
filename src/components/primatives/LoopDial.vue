@@ -10,7 +10,7 @@
     data-loop-dial-state="still"
   >
     <circle class="loop-dial__well" cx="17" cy="17" r="17" aria-hidden="true" />
-    <g class="loop-dial__disc" aria-hidden="true">
+    <g ref="discRef" class="loop-dial__disc" aria-hidden="true">
       <path
         v-for="(arc, segmentIndex) in arcs"
         :key="segmentIndex"
@@ -61,8 +61,17 @@ const props = withDefaults(defineProps<{
   barMs?: number;
   /** This phrase is the one the transport plays, so the masthead follows playback. */
   live?: boolean;
+  /** What turns while live: the hand over still notes, or the notes under a fixed hand. */
+  spin?: "hand" | "disc";
+  /** Bar on the UIBeat clock where this loop's time 0 sits (a Looper member's offset). */
+  originBars?: number;
+  /** Playback rate against the bar clock (a Looper member's half/double time). */
+  rate?: number;
   ariaLabel?: string;
 }>(), {
+  spin: "hand",
+  originBars: 0,
+  rate: 1,
   lengthMs: undefined,
   barMs: undefined,
   live: false,
@@ -124,14 +133,16 @@ const loopBars = computed(() => (
 
 const rootRef = ref<SVGSVGElement | null>(null);
 const handRef = ref<SVGGElement | null>(null);
+const discRef = ref<SVGGElement | null>(null);
 const { clock, presentationEnabled } = useUIBeat();
 let unsubscribe: (() => void) | undefined;
 let sweeping = false;
 
 function rest() {
-  if (!sweeping && handRef.value?.style.transform === "") return;
+  if (!sweeping && !handRef.value?.style.transform && !discRef.value?.style.transform) return;
   sweeping = false;
   if (handRef.value) handRef.value.style.transform = "";
+  if (discRef.value) discRef.value.style.transform = "";
   rootRef.value?.setAttribute("data-loop-dial-state", "still");
 }
 
@@ -149,10 +160,18 @@ function applyFrame(snapshot: UIBeatSnapshot) {
     return;
   }
 
-  const phase = ((snapshot.barPosition / bars) % 1 + 1) % 1;
+  const local = (snapshot.barPosition - props.originBars) * props.rate;
+  const phase = ((local / bars) % 1 + 1) % 1;
   sweeping = true;
   rootRef.value?.setAttribute("data-loop-dial-state", "sweeping");
-  if (handRef.value) handRef.value.style.transform = `rotate(${(phase * 360).toFixed(2)}deg)`;
+  // The disc turns backwards under a fixed hand, so the note at twelve is the one sounding.
+  if (props.spin === "disc") {
+    if (handRef.value) handRef.value.style.transform = "";
+    if (discRef.value) discRef.value.style.transform = `rotate(${(-phase * 360).toFixed(2)}deg)`;
+  } else {
+    if (discRef.value) discRef.value.style.transform = "";
+    if (handRef.value) handRef.value.style.transform = `rotate(${(phase * 360).toFixed(2)}deg)`;
+  }
 }
 
 function syncSubscription() {
@@ -167,7 +186,8 @@ function syncSubscription() {
 
 onMounted(syncSubscription);
 watch(() => props.live, syncSubscription, { flush: "post" });
-watch(loopBars, () => applyFrame(clock.snapshot), { flush: "post" });
+watch([loopBars, () => props.spin, () => props.originBars, () => props.rate],
+  () => applyFrame(clock.snapshot), { flush: "post" });
 onBeforeUnmount(() => unsubscribe?.());
 </script>
 
@@ -183,7 +203,8 @@ onBeforeUnmount(() => unsubscribe?.());
   fill: var(--ink);
 }
 
-.loop-dial__hand {
+.loop-dial__hand,
+.loop-dial__disc {
   transform-box: view-box;
   transform-origin: 50% 50%;
 }
@@ -206,7 +227,8 @@ onBeforeUnmount(() => unsubscribe?.());
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .loop-dial__hand {
+  .loop-dial__hand,
+  .loop-dial__disc {
     transform: none !important;
   }
 }

@@ -299,6 +299,28 @@ describe("LoopDial", () => {
     segments: [{ color: "red", startMs: 0, durationMs: 1000, height: 55 }],
   };
 
+  it("turns a Looper member's disc under the fixed hand, from its own offset and rate", () => {
+    // A two-bar member placed 0.5 bar into the loop, at double time.
+    const { clock, generation, wrapper } = mountLive({
+      ...twoBarLoop, live: true, spin: "disc", originBars: 0.5, rate: 2,
+    });
+    const hand = () => wrapper.get(".loop-dial__hand").element as SVGGElement;
+    const disc = () => wrapper.get(".loop-dial__disc").element as SVGGElement;
+
+    // At its offset the member is at its own top: nothing turns.
+    clock.publish(generation, { rawPosition: 0.5, barPosition: 0.5 });
+    expect(disc().style.transform).toBe("rotate(0.00deg)");
+    // A quarter bar later it is half a bar in (double time): a quarter turn, backwards.
+    clock.publish(generation, { rawPosition: 0.75, barPosition: 0.75 });
+    expect(disc().style.transform).toBe("rotate(-90.00deg)");
+    expect(hand().style.transform).toBe("");
+
+    clock.stop(generation);
+    expect(disc().style.transform).toBe("");
+    wrapper.unmount();
+    clock.destroy();
+  });
+
   it("sweeps a live dial's masthead clockwise with the sounding bar position", () => {
     const { clock, generation, wrapper } = mountLive({ ...twoBarLoop, live: true });
     const hand = () => wrapper.get(".loop-dial__hand").element as SVGGElement;

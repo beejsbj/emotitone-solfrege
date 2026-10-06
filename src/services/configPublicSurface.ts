@@ -18,7 +18,8 @@ export type DeckControlId =
   | "touchFeedback"
   | "codeStrip"
   | "durationMode"
-  | "showRests";
+  | "showRests"
+  | "loopTiming";
 
 export type ColorIntensity = "muted" | "balanced" | "vivid";
 export type ColorMotion = "off" | "gentle" | "lively";
@@ -41,6 +42,7 @@ export interface DeckControls {
   codeStrip: boolean;
   durationMode: VisualEffectsConfig["codeStrip"]["durationMode"];
   showRests: boolean;
+  loopTiming: number;
 }
 
 type ConfigOption = {
@@ -51,8 +53,12 @@ type ConfigOption = {
 export interface PublicConfigControlDefinition<Id extends string> {
   id: Id;
   label: string;
-  type: "boolean" | "options";
+  type: "boolean" | "options" | "range";
   options?: ConfigOption[];
+  min?: number;
+  max?: number;
+  step?: number;
+  format?: (value: number) => string;
 }
 
 export interface PublicConfigControlGroup<Id extends string> {
@@ -189,6 +195,21 @@ export const DECK_CONTROL_GROUPS: PublicConfigControlGroup<DeckControlId>[] = [
       },
     ],
   },
+  {
+    label: "Looper",
+    description: "If notes you play over a loop land late, turn this up until they sit where you played them.",
+    controls: [
+      {
+        id: "loopTiming",
+        label: "Loop Timing",
+        type: "range",
+        min: -100,
+        max: 200,
+        step: 5,
+        format: (value) => `${value} ms`,
+      },
+    ],
+  },
 ];
 
 const INTENSITY_CHROMA: Record<ColorIntensity, number> = {
@@ -260,6 +281,7 @@ export function readDeckControls(config: VisualEffectsConfig): DeckControls {
     codeStrip: config.codeStrip.enabled,
     durationMode: config.codeStrip.durationMode,
     showRests: config.codeStrip.showRests,
+    loopTiming: config.codeStrip.looperCalibrationMs ?? 0,
   };
 }
 
@@ -296,7 +318,7 @@ export function updateGlobalControl(
 export function updateDeckControl(
   config: VisualEffectsConfig,
   control: DeckControlId,
-  value: string | boolean,
+  value: string | boolean | number,
 ) {
   switch (control) {
     case "notation":
@@ -331,6 +353,11 @@ export function updateDeckControl(
       break;
     case "showRests":
       if (typeof value === "boolean") config.codeStrip.showRests = value;
+      break;
+    case "loopTiming":
+      if (typeof value === "number" && Number.isFinite(value)) {
+        config.codeStrip.looperCalibrationMs = Math.max(-100, Math.min(200, Math.round(value)));
+      }
       break;
   }
 }

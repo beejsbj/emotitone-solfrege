@@ -293,7 +293,7 @@ describe("ConfigPanel.vue", () => {
     });
     expect(STAGE_CONTROL_DEFINITIONS).toHaveLength(26);
     expect(GLOBAL_CONTROL_GROUPS.flatMap((group) => group.controls)).toHaveLength(4);
-    expect(DECK_CONTROL_GROUPS.flatMap((group) => group.controls)).toHaveLength(8);
+    expect(DECK_CONTROL_GROUPS.flatMap((group) => group.controls)).toHaveLength(9);
   });
 
   it("keeps Stage general and allocates every detail control exactly once", async () => {

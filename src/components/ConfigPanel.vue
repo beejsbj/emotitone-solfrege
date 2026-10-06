@@ -421,8 +421,12 @@
                       :data-testid="`deck-control-${control.id}`"
                       :model-value="deckControls[control.id]"
                       :type="control.type"
+                      :min="control.min"
+                      :max="control.max"
+                      :step="control.step"
                       :options="control.options"
                       :label="control.label"
+                      :format-value="control.format"
                       :is-disabled="(control.id === 'showRests' || control.id === 'durationMode') && !deckControls.codeStrip"
                       @update:modelValue="handleDeckControl(control.id, $event)"
                     />
@@ -771,7 +775,6 @@ const handleDeckControl = (
   control: DeckControlId,
   value: string | number | boolean,
 ) => {
-  if (typeof value === "number") return;
   updateDeckControl(control, value);
 };
 

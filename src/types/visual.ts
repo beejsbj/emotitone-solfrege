@@ -430,6 +430,11 @@ export interface CodeStripConfig {
   durationMode: CodeStripDurationMode;
   /** Whether to show rest tokens */
   showRests: boolean;
+  /**
+   * Looper timing, per device: extra ms a press is heard late, on top of the
+   * browser's reported output latency (which the transport already removes).
+   */
+  looperCalibrationMs: number;
 }
 
 /**

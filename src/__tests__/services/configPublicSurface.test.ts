@@ -15,7 +15,7 @@ function freshConfig(): VisualEffectsConfig {
 }
 
 describe("Config public surface", () => {
-  it("publishes four Global and eight Deck controls", () => {
+  it("publishes four Global and nine Deck controls", () => {
     expect(GLOBAL_CONTROL_GROUPS.flatMap((group) => group.controls).map((control) => control.id))
       .toEqual(["musicColorMapping", "colorIntensity", "colorMotion", "uiRhythm"]);
     expect(DECK_CONTROL_GROUPS.flatMap((group) => group.controls).map((control) => control.id))
@@ -28,7 +28,19 @@ describe("Config public surface", () => {
         "codeStrip",
         "durationMode",
         "showRests",
+        "loopTiming",
       ]);
+  });
+
+  it("keeps the Looper's per-device timing as a bounded whole-ms Deck control", () => {
+    const config = freshConfig();
+    expect(readDeckControls(config).loopTiming).toBe(0);
+    updateDeckControl(config, "loopTiming", 42.4);
+    expect(config.codeStrip.looperCalibrationMs).toBe(42);
+    updateDeckControl(config, "loopTiming", 900);
+    expect(readDeckControls(config).loopTiming).toBe(200);
+    updateDeckControl(config, "loopTiming", "late");
+    expect(config.codeStrip.looperCalibrationMs).toBe(200);
   });
 
   it("maps Music Color onto three opinionated controls without touching hidden calibration", () => {

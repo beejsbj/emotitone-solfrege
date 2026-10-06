@@ -901,6 +901,14 @@ export const UNIFIED_CONFIG = {
       value: true,
       label: "Show Rests",
     },
+    looperCalibrationMs: {
+      value: 0,
+      min: -100,
+      max: 200,
+      step: 5,
+      label: "Loop Timing",
+      format: (v: number) => `${v} ms`,
+    },
   },
 };
 

@@ -658,7 +658,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
 
   const updateDeckControl = (
     control: DeckControlId,
-    value: string | boolean,
+    value: string | boolean | number,
   ) => {
     applyDeckControl(config, control, value);
   };

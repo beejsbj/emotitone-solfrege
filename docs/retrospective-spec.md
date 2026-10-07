@@ -1,0 +1,718 @@
+# Spec: an instrument that teaches through its cues
+
+Status: proposed, 2026-10-07. Sources: retrospective #1 (2026-09-23, PRs #27–#93), retrospective #2 (2026-10-06, PRs #86–#135 and the open PRs), and Burooj's answers of 2026-10-07. Each retrospective had independent Opus and Fable reviews per track; Sol, Luna and Opus verified the load-bearing claims against the code. The appendix maps every finding, direction and idea from both retrospectives to a user story here or to an explicit out-of-scope reason.
+
+## Problem Statement
+
+EmotiTone is meant to be an instrument that teaches. Burooj, 2026-10-07: "It's an instrument that teaches through its moats and cues." This spec reads that as **moods and cues**: the instrument teaches through the feel of each degree and through the signals it gives (names, syllables, colours, positions, sounds). It does not teach through lessons or quizzes.
+
+That makes every cue a promise, and several are false today:
+
+- **Wrong names.** In F major the fourth degree is called A#, not Bb. The Stage labels the minor third C→Eb as an augmented second. The chord row and the Stage name the same chord two ways ("C" and "CM/E").
+- **Missing or conflicting syllables.** Borrowed notes get letter names, not syllables. Three syllable tables disagree: the raised fourth is Fi on the keys and Se in phrase contours.
+- **Inputs that drop or corrupt notes.** A hummed take is thrown away because of one off-key note. MIDI notes outside the scale make no sound. Switching a loaded melody to pentatonic changes its notes, and the Looper is about to reuse that remap for bending.
+- **Controls that don't do what they show.** The number row ignores the Joystick. The Visuals switch does nothing. The Scope Size knob does nothing above its default.
+
+The instrument also does not work for everyone who could play it:
+
+- Keyboard users can't change tabs or turn a range knob, even though a lab wrote the Tabs fix (#102) and the adoption PR dropped it (#111).
+- Several redesigned labels, focus rings and LED marks fall below contrast minimums.
+- Most controls are 32px touch targets.
+- On a phone, the Stage renders blurry because the canvas ignores device pixel ratio, and motion runs twice as fast at 120 Hz.
+- On an iPhone, audio can stay silent after a call. The default piano holds about 276 MiB of sample data, and nothing has been measured on a real device.
+
+Saving is fragile:
+
+- Changed defaults never reach returning players, because the whole config is saved on first use and there is no schema version.
+- The phrase book and the other saved stores have no versions either.
+- A full localStorage fails silently, which breaks #103's own promise that nothing played is lost.
+
+Behind these sit how the work is checked and recorded:
+
+- There is no CI and ESLint cannot run, so "green" is self-reported and depends on host load.
+- The design records grew to 96 KB (tracker) and 314 KB (log) and became a merge bottleneck.
+- The rules of the design pass told adoptions to *preserve* accessibility behaviour, so they preserved known defects.
+- The root agent docs still describe a Tone.js sequencer that no longer exists.
+- The repo is public with no licence, while it ships AGPL code (Strudel, superdough), five transcriptions of copyrighted songs, and a commercial font whose licence nobody has checked.
+
+The craft underneath is strong: the harmony domain, the worklet engine, voice-group ownership, the Music Color core, the phrase book, finger expression, and the Looper transport receipts. This spec is about making the cues true, the instrument reachable, the data safe and the checks real, while the Looper ("Play is the loop") goes ahead.
+
+## Solution
+
+From the player's side:
+
+**Cues.**
+- Every name, syllable, interval, chord symbol and colour the instrument shows is correct in every key and mode.
+- Borrowed notes speak chromatic solfège.
+- Humming and MIDI accept the notes people actually play.
+- Changing mode or bending a loop keeps the melody's shape.
+
+**Reach.**
+- The instrument works from a keyboard and a screen reader.
+- It reads at contrast, takes thumbs at 44px, and runs sharp and calm on a phone.
+- It keeps sounding after an interruption, fits in phone memory, and idles when silent.
+
+**Saving.**
+- New defaults reach returning players without overwriting choices they made.
+- Every saved format is versioned, a full shelf says so, and nothing is lost silently.
+
+**Teaching through moods and cues.**
+- The emotion text the app already has becomes visible.
+- Tension and resolution show on the Stage.
+- Chords show their function.
+- A drone on Do and a count-in come from the loop clock.
+- Live arpeggios stay on the loop's grid.
+
+**Checking and recording.** For Burooj and the agents working on the repo:
+- Checks run in CI: types, tests, lint, colour law, layering, axe and screenshots on the style-guide routes, and scheduled audio invariants.
+- The design records shrink to a bible, a one-line-per-unit table and the PR bodies.
+- The docs describe the app that exists.
+- The repo carries a licence that matches its obligations.
+
+### Decisions recorded on 2026-10-07
+
+1. **Licence: AGPL-3.0-or-later** for the repository (Claude's selection, as Burooj asked).
+   - Strudel and superdough are AGPL-3.0-or-later, and the app ships a patched superdough to users over the network. The combined work must therefore be offered under AGPL terms, and §13 requires offering the source to people who use it online.
+   - The Hilbert scope's GPLv3 lineage (#64) can be combined with AGPLv3.
+   - A permissive licence on the repo would misstate what anyone may do with the app as served.
+   - Third-party notices and an in-app Source/Credits link come with it.
+   - This is a reasoned engineering choice, not legal advice. The font and the song transcriptions are separate questions that no code licence covers (see W10).
+2. **Product stance: an instrument that teaches through moods and cues.** No curriculum, quizzes or scoring in this spec; teaching happens through the instrument's own signals. Sing-back and call-and-response stay as deferred ideas (Out of Scope).
+3. **Strudel stays the single musical clock.** Burooj decided this on 2026-10-05, and #140's receipts back it.
+   - **Why this works:** the worry in retrospective #2 was the transpiler's 1.2 s compile per phrase. #140 removed that by building Patterns straight from note data (1.6 ms for 64 notes), with zero lost attacks across 1,768.
+   - **Conditions:** never run the transpiler while playing; the phone gate must pass before "Play is the loop" ships; live play styles must share the loop's tempo grid; superdough becomes owned source; the AGPL licence above.
+   - **Fallback:** a worklet-scheduled transport only if the phone gate fails.
+4. **The Code Strip is a readout of what plays** (default; reversible; Burooj to confirm). It shows and exports the loop. Playing patterns are built from note data, not from the text, so editing the text cannot drive a playing loop without drifting from what sounds. Editing code produces an authored pattern that is compiled outside playback.
+5. **Editions: one canonical edition per unit** (default; reversible; Burooj to confirm).
+   - **What editions are today:** several parts pick a different look on each app load. Tabs rotate through seven treatments, Knob alternates Ring and Arc, Joystick alternates Analog and Digital, and the Keyboard reshuffles key shapes daily.
+   - **Why change it:** the adopted Tabs Marquee shows on only one load in seven, and it is the only Tabs edition with a 44px target and a visible focus ring. The rotations combine into about 140 looks nobody can QA, implemented three times.
+   - **Decision:** each unit gets one default look. The other editions become Looks a player can pick and pin, the way Stage Looks work. Cut-paper randomness that doesn't change function (Sticker silhouettes, small tilts) stays.
+
+## Test seams
+
+Use the fewest seams, as high as possible. Five carry this spec. Four already exist in some form; one is a new browser harness.
+
+1. **Musical identity (extends the existing pure harmony domain).** One pure module answers: given tonic, mode and a pitch or degree, what is its spelling, syllable, interval from the tonic, borrowed status, and the chord symbol of a set of pitches? Keys, chord row, Stage labels, phrase contours, humming import, MIDI and Looper bending all consume it. Tested as pure functions, like the harmony and phrase-book tests.
+2. **Performance (extends the existing voice-group lifecycle).** One performer takes note and chord intents (press, release, release-all-for-owner) from every input adapter. Tested by driving adapters with synthetic events and asserting intents and voice lifetimes.
+3. **Persistence codecs.** Each saved store has a versioned encode/decode/migrate codec. Tested with captured real payloads. Prior art: the instrument persistence and phrase migration tests.
+4. **Style-guide routes in a real browser (the one new harness).** Playwright over the guide routes at 390×844, with editions pinned by query. It runs axe, keyboard walks and screenshot comparison. The guide already mounts the real production sources, so this checks production components. The Stage canvas stays out of pixel diffs.
+5. **Stage scene (later).** A pure scene built per frame from notes, audio frame, settings and time, which renderers only draw. Tested by scene snapshots. The existing pixel tests stay for the field renderer.
+
+CI is the enforcement layer over all five.
+
+## User Stories
+
+### Verification and enforcement
+
+1. As Burooj, I want every PR to run type-check, tests and lint automatically, so that "green" means the same thing on every machine and no agent self-reports it.
+2. As a coding agent, I want ESLint to run on the repo, so that lint stops being reported as "broken on main" in PR after PR.
+3. As Burooj, I want CI and Vercel to skip the host verification lock while bjslab keeps it, so that cloud runs aren't queued behind local agents and the shared host stays protected.
+4. As a coding agent, I want the suite to have a wall-time budget per project, so that slow tests show up as budget failures rather than as load-dependent timeouts.
+5. As Burooj, I want timing-sensitive component tests to stop failing when the host is busy, so that a red run means a regression.
+6. As Burooj, I want the browser audio invariants run on a schedule and fail loudly, so that an audio regression is a failed check, not a missing receipt. The invariants are: repeat survives a 650 ms stall, settlement under 1 s, exact release silence, one AudioContext, one transport, zero browser warnings, and the Looper transport's zero-loss join/leave.
+7. As a maintainer, I want new raw benchmark captures kept out of commits while their summaries stay, so that diffs show code rather than hundreds of thousands of lines of JSON.
+8. As Burooj, I want axe run over every style-guide route at phone size, so that accessibility regressions fail CI.
+9. As Burooj, I want reviewed screenshots of each guide route at 390px with editions pinned, so that visual acceptance is a snapshot in git, not a prose receipt or a folder outside the repo.
+10. As a coding agent, I want lint to stop primitives and compounds importing stores, so that layering is enforced instead of audited.
+11. As Burooj, I want a check that fails when brand colours, raw hex/rgb/hsl or new easing curves appear in playing-zone components, so that the colour and motion law holds without vigilance.
+12. As a maintainer, I want a check that lists components, modules and tokens with no consumer, so that dead code stops accumulating.
+13. As Burooj, I want a second-model review on every PR that touches audio, music theory or persistence, so that a second mind finds defects before main, as it did in #134.
+14. As a coding agent, I want tests that observe behaviour rather than match source text, so that refactors don't break tests and real bugs do.
+15. As Burooj, I want golden-PCM tests that render the worklet core offline, so that DSP regressions are caught without a browser.
+
+### Licence, content, records and docs
+
+16. As a coding agent, I want the root agent docs to describe the current app (Strudel, superdough and the worklet, the phrase book, the Looper, the Stage, the design system and the verify launcher), so that I don't build on Tone.js and files that no longer exist.
+17. As a coding agent, I want the repository router to orient product, audio and music-theory work as well as design work, so that non-design sessions start oriented.
+18. As Burooj, I want stale docs removed or corrected (the Warp doc, the one-line README, the "exploration" status on the pattern-system doc), so that the records agree with main.
+19. As a visitor to the public repo, I want a licence file that matches the code's obligations, so that I know my rights and Strudel's licence is honoured.
+20. As a player, I want a Source and Credits link inside the app, so that the AGPL network clause is met and the people the instrument stands on are credited.
+21. As Burooj, I want the Let's Jazz font's licence checked for web embedding and public redistribution, so that the identity doesn't rest on a licence breach.
+22. As Burooj, I want the default library free of transcriptions of copyrighted works, so that the public app doesn't ship someone else's melodies.
+23. As Burooj, I want stale PRs closed with their still-valid intent filed as issues, so that the open list reflects real work and the board matches the repo.
+24. As Burooj, I want the Hilbert scope's GPL attribution merged, so that the credit owed is on main.
+25. As a hummer, I want to be told before my voice recording is sent to the analysis service, so that nothing about my voice leaves the device without my knowing.
+
+### Musical identity: the cues are true
+
+26. As a learner in F major, I want the fourth degree called Bb, so that the names I learn are the names musicians use.
+27. As a learner, I want the Stage to label a minor third as a minor third in every key, so that interval labels teach the right thing.
+28. As a learner, I want chord symbols in conventional form (C/E, Cm, B°, Bø7), so that the chord row and the Stage read like a lead sheet.
+29. As a learner, I want one chord namer for the keys and the Stage, so that one chord is never named two ways on one screen.
+30. As a learner using the Joystick, I want borrowed notes named with chromatic syllables (Di, Ri, Fi, Si, Li ascending; Ra, Me, Se, Le, Te descending), so that the moment I meet a borrowed tone teaches its function.
+31. As a learner, I want one syllable table used everywhere (keys, chord members, phrase contours, Stage), so that Lydian's raised fourth isn't Fi in one place and Se in another.
+32. As a learner, I want chord-row members shown in solfège, so that the chord row teaches Do-Mi-Sol rather than letter names.
+33. As a learner taught la-based minor, I want to choose la-based or do-based minor, so that syllables match how I learned (default do-based, and documented as such).
+34. As a learner, I want a loaded melody switched to another mode to keep its contour by pitch, so that Twinkle doesn't change notes when the scale gets smaller.
+35. As a Looper player, I want bending a playing pattern to a new mode to follow the same rule as the mode switch, so that loops and patterns agree.
+36. As a learner, I want library tunes stored with their canonical syllables (Hot Cross Buns is Mi-Re-Do), so that examples teach correctly.
+37. As a QWERTY player, I want the number row to play the chords the Joystick is showing, so that physical and on-screen chords match.
+38. As a QWERTY player, I want a modifier on the number row to play inversions, so that I can voice chords from the keyboard.
+39. As a learner, I want the Joystick to offer the key's own diatonic sevenths (G7 and Bø7 in C major), so that I hear the key's harmony before borrowed colour.
+40. As a learner, I want chords labelled with Roman numerals beside their names, so that function (I, IV, V) is visible.
+41. As a MIDI pianist, I want notes outside the scale to sound and carry chromatic syllables, so that playing F# in C major isn't silent.
+42. As a hummer, I want an off-key note marked as borrowed, or snapped within a cents tolerance, instead of failing the take, so that humming works with a real voice.
+43. As a hummer, I want the live pitch to hold steady near a semitone boundary and ignore octave jumps, so that the Stage doesn't flicker.
+44. As a hummer on a 120 Hz phone, I want pitch stability judged in time, not animation frames, so that behaviour doesn't depend on display rate.
+45. As a player, I want the option to snap a take (hummed or played) to the loop grid with a chosen strength, so that it lines up with the loop.
+46. As a hummer, I want recordings bounded with a visible limit, so that memory and upload size stay safe.
+47. As a hummer, I want note loudness taken from my voice rather than the detector's confidence, so that dynamics mean something.
+48. As a player, I want the Visuals switch to turn the Stage off, so that I can practise on a quiet screen and save battery.
+
+### Performance input
+
+49. As a player, I want every input (touch, glissando, QWERTY, number row, MIDI and Joystick) to go through one press/release path, so that behaviour can't drift between them.
+50. As a QWERTY player, I want key shortcuts to work whenever the instrument is on screen, not only while the production Keyboard is mounted.
+51. As a macOS player, I want notes released when a key-up never arrives (Cmd held), so that notes don't stick.
+52. As a screen-reader user, I want each key to announce its keyboard shortcut, so that I can learn the layout.
+53. As a QWERTY player in a seven-note mode, I want unused keys to continue into the next octave, so that the row has no dead keys.
+54. As a fast glissando player, I want hit-testing done from the key grid, not by measuring every key on every pointer sample, so that long swipes stay smooth on phones.
+55. As Burooj, I want the Keyboard split into a pure view, a production container, glissando geometry, roving focus and chord hold, so that each part can be changed and tested alone.
+
+### Accessibility and touch
+
+56. As a keyboard-only user, I want arrow, Home and End keys to move between tabs, so that I can reach the Instrument and Config panels.
+57. As a keyboard or screen-reader user, I want BPM, Octave and every range knob to be focusable sliders with announced values and arrow-key control.
+58. As a screen-reader user dragging a control, I want its value announced on the control itself, not only shown in the hidden Readout.
+59. As a low-vision player, I want note labels coloured by their fill's lightness, so that labels read on bright and dark notes alike.
+60. As a low-vision player, I want inactive tab labels, unlit collar and crown marks, and focus rings on Ivory and Brass caps to meet contrast minimums, so that the redesigned parts stay legible.
+61. As a phone player, I want every control to take a 44px touch even when it looks 32px, so that I don't miss taps.
+62. As a phone player, I want Play/Stop to keep its touch size during playback.
+63. As an iOS user, I want text inputs at 16px or larger and banner text legible, so that focusing search doesn't zoom the page.
+64. As a reduced-motion user, I want one reduced-motion behaviour across all controls, including the knob's hold animation, so that nothing still moves.
+65. As a reduced-motion user, I want the beat shown as a still step or a haptic pulse, so that I can still follow it.
+66. As a Forced Colors user, I want the guide-only motion and contrast simulation props removed from production components, so that there is one accessibility truth.
+67. As a player, I want a touch-size setting (compact or comfortable), so that I can choose density.
+68. As a learner, I want the Stage to announce single notes to assistive technology, not only chords.
+
+### Mobile runtime
+
+69. As a phone player, I want the Stage drawn at device pixel ratio (capped), so that lettering and scope lines are sharp.
+70. As a 120 Hz phone player, I want Stage motion to run at the same speed as at 60 Hz, with one clock for frame and lifecycle time.
+71. As a phone player, I want the Stage loop to idle when silent, hidden or switched off, so that the battery lasts.
+72. As a phone player, I want visual quality to drop automatically when frames run slow, so that audio and touch stay responsive.
+73. As an iPhone player, I want audio to come back after a call or Siri (the "interrupted" state), so that the instrument doesn't go silent.
+74. As an iPhone player with the ringer switch off, I want the instrument still to sound.
+75. As a phone player, I want the audio context suspended when idle, so that the audio thread doesn't drain the battery.
+76. As a phone player, I want the default piano to fit phone memory, measured on a real iPhone, so that the tab isn't killed.
+77. As a phone player, I want less code loaded up front, so that first play comes sooner.
+78. As a player, I want app updates offered in-app rather than through a blocking browser confirm.
+79. As a phone player, I want a firmer haptic on the tonic and the downbeat, so that the instrument's feel carries structure.
+
+### Persistence
+
+80. As a returning player, I want new defaults to reach me for settings I never changed.
+81. As a returning player, I want settings I did change kept across updates.
+82. As a player, I want to be told when the instrument can't save, so that no take is lost silently.
+83. As a player who records long bends, I want the phrase book to have a byte budget, including Kept phrases and expression curves, with a visible "shelf full" state.
+84. As Burooj, I want every saved format to carry a version and a tested migration, so that format changes are deliberate.
+85. As Burooj, I want a backup of saved data kept before any migration rewrites it, so that a bad migration can be undone.
+86. As Burooj, I want migrations tested against real saved data from my own devices, not only synthetic JSON.
+87. As Burooj, I want the play-along latency calibration saved per device, so that it survives a reload.
+
+### Stage model and Music Color
+
+88. As Burooj, I want the Scope Size knob to change the scope across its whole range.
+89. As Burooj, I want one Stage scene built per frame from notes, audio and settings, with renderers that only draw it, so that specimens are honest and lifecycle bugs can't appear one layer at a time.
+90. As Burooj, I want Music Color passed to renderers as numbers and memoised, so that the Stage stops round-tripping colour through pixels and strings every frame.
+91. As Burooj, I want the complementary-hue accent removed from the colour authority, since Flecks are retired and complements are rejected.
+92. As Burooj, I want dead Stage code removed (the legacy body renderer fallback, the overwritten circle-of-fifths placement, historical size constants, a migration inside the render loop), so that sizes are designed rather than inherited.
+93. As a learner, I want Config split into what helps me learn (notation, mapping, labels) and how the Stage looks (Looks, plus an Advanced disclosure for the detailed knobs), so that settings read as an instrument's, not a tuning panel's.
+94. As a learner, I want a tap-to-explain legend for what position, lightness and room colour mean on the Stage.
+95. As a learner, I want the emotion of what I'm playing surfaced: the interval descriptions the app already has, and an emotion label whose default is reconsidered.
+96. As Burooj, I want to decide whether colour follows the scale wheel or the circle of fifths, so that colour neighbours and position neighbours agree.
+
+### Moods and cues
+
+97. As a learner, I want unstable degrees (Ti, Fa, borrowed notes) to look more charged than stable ones, so that tension is visible (exact treatment is Burooj's taste).
+98. As a learner, I want a visible resolution when Ti goes to Do or Fa goes to Mi, so that I see tension release.
+99. As a learner, I want simple ratios shown as aligned pulses (a fifth pulsing 3:2 when vibration phase is locked), so that consonance is visible.
+100. As a learner, I want chord-function hints (tonic, subdominant and dominant grouping, and a subtle "likely next" glow), so that I learn how chords move.
+101. As a learner, I want a drone on Do I can switch on, built as a pinned one-bar loop, so that I hear every note against home.
+102. As a player, I want a count-in and an optional click on the loop clock, so that I come in on time.
+103. As a learner, I want chord-to-chord voicings that keep common tones, so that the chord row teaches voice leading.
+104. As a learner, I want Curwen hand signs available as note marks, so that syllables carry their gesture.
+105. As a learner, I want the chord-progression library (#122) reviewed and offered as a path through the Joystick's harmony.
+106. As a hummer, I want the instrument to suggest the key of what I hummed, so that movable-do starts from my own key.
+107. As a hummer, I want a cents readout while I hum, so that I can see my intonation.
+108. As a learner, I want a trail between successive notes on the Stage, so that melodic motion is visible.
+109. As a learner, I want defined key and note states for target, correct, off and hint, so that future cues share one visual language within the playing zone.
+
+### Audio stack and the Looper
+
+110. As a Looper player, I want joining and leaving to keep phase with no lost notes on my phone, proven by the phone gate before "Play is the loop" ships.
+111. As a Looper player, I want live Repeat and Arp locked to the loop's bar grid, so that they don't drift against the loop.
+112. As a Looper player, I want mute and solo to take effect within an agreed time, so that a tap feels immediate.
+113. As a player who plays along, I want a one-time latency calibration, so that recorded notes land where I heard them.
+114. As a MIDI or ROLI player, I want velocity, pitch bend, sustain pedal and per-note expression to reach the voice.
+115. As a player, I want bends wide enough to reach the neighbouring semitone (a Me↔Mi blue note).
+116. As a player of square or saw synths, I want the same stall protection and expression as other sounds.
+117. As Burooj, I want one engine for live play styles, so that a rhythm change lands once.
+118. As Burooj, I want superdough owned as source and pinned exactly, with its generic fixes offered upstream, so that a lockfile refresh can't silently drop the patch.
+119. As Burooj, I want the Strudel packages on one version line.
+120. As Burooj, I want the Code Strip to follow and show the loop that's playing, with its text as the loop's export, so that code and sound never disagree.
+121. As Burooj, I want an in-app audio diagnostics view (backend, memory, scheduler skips), so that phone problems are visible without a console.
+122. As a coding agent, I want note events typed in one place, so that five listeners stop parsing a loose event payload.
+
+### Design process and visual drift
+
+123. As Burooj, I want adoptions to fix the accessibility defects their lab found, so that a written fix is never dropped again.
+124. As Burooj, I want each lab to run axe and a keyboard pass beside the taste comparison.
+125. As Burooj, I want one canonical edition per unit, with the others as Looks I can pick and pin (and a query parameter for review), so that the adopted design is what people see.
+126. As a maintainer, I want one edition helper and one collar recipe instead of copies, so that editions and collars behave consistently.
+127. As Burooj, I want the remaining colour drift fixed (Tomato MIDI error LED, Bone lit cap, raw colours in error banners and the Code Strip frame, brand papers admitted by the Sticker type, the Brass Tabs edition on applied paper), so that the playing zone is Ink, Ivory, Brass and Music Color only.
+128. As Burooj, I want Brass sheen to answer sound (sweep on hit, still at rest), so that the bible's "no perpetual decorative motion" holds.
+129. As Burooj, I want the beat shown with hierarchy rather than on every control at once, so that the beat display reads as the beat.
+130. As Burooj, I want the Compositions lab to start from the whole 390px playing screen and be allowed to send changes back to parts, so that the whole is judged before parts are frozen.
+131. As Burooj, I want the design log frozen at a dated line and the tracker cut to one line per unit, with the PR body as the receipt, so that records stop being a merge bottleneck.
+132. As a coding agent, I want the design skill cut to its durable rules, so that a session doesn't read 96 KB before touching a button.
+133. As a maintainer, I want the "primatives" directory renamed "primitives".
+134. As Burooj, I want the guide's Tabs page to show the embedded panel production uses, not the retired glass chrome.
+135. As a maintainer, I want the design-route list defined once.
+136. As Burooj, I want Tailwind either mapped to the tokens or retired.
+137. As a maintainer, I want Knob on pointer events like Tabs and Keyboard.
+
+## Implementation Decisions
+
+### W1 Verification and enforcement
+
+- GitHub Actions runs type-check, the Vitest suite and ESLint on every PR. The ESLint fix is the invalid typescript-eslint rule name plus the lint script's legacy flags for flat config.
+- The verify launcher stays the default on bjslab. CI and Vercel skip it through an environment flag rather than through a second code path in every script. It is proportionate to the incident on the shared host, not to cloud runners.
+- The suite gets a per-project wall-time budget (target: Node project under 15 s, DOM project under 45 s on CI hardware), measured from the Vitest JSON report. Timing-sensitive component tests get explicit timeouts or are made faster; they are not deleted.
+- **Scheduled browser audio job** (nightly and on demand) asserts the invariants in story 6, plus the Looper transport receipts. Raw captures become build artifacts. New raw captures are gitignored; the small derived summaries stay committed. History is not rewritten.
+- **Lint and checks:**
+  - Import boundary: primitives and compounds may not import stores or production services.
+  - Colour and motion law: no brand tokens outside the brand zone's units and the guide; no raw colour literals or easing curves outside the token file.
+  - An orphan report for components, modules and tokens. Today it would flag the live-listening composable, the instrument-category data and the audio-diagnostics service, plus the orphan design tokens.
+- **The new browser seam:** a Playwright harness over the style-guide routes at 390×844 and 1280×900, with editions pinned by query parameter. It runs axe with no serious or critical violations allowed, a scripted keyboard walk per route, and `toHaveScreenshot` with reviewed baselines. The Stage canvas and animated beat surfaces are masked or excluded from pixel diffs.
+- **Golden-PCM tests** render the worklet core offline for representative instruments and compare against stored short fixtures within a tolerance.
+- **Second-model review policy:** PRs touching audio, music theory or persistence get an independent model review before merge, recorded in the PR. Design adoptions keep Burooj's own review.
+- **Prose receipts stop being the acceptance mechanism.** A PR body states what ran and what didn't; CI is the authority.
+
+### W2 Musical identity
+
+- **The module.** A musical-identity module joins the pure domain, beside the harmony module.
+  - **Internal note identity:** degree plus chromatic offset relative to the tonic.
+  - **What it derives:**
+    - spelling, from the key signature via Tonal;
+    - the syllable, from the interval to the tonic through one table that includes both the ascending and descending chromatic syllables;
+    - interval names and borrowed status;
+    - chord symbols, through one formatter (major as bare letter, m, °, ø, inversions as slash chords) for the keys, the Stage and screen-reader text.
+
+  Sharps-only pitch classes may stay as internal lookup keys, but never reach a label.
+- **Minor syllables.** The syllable table is parameterised by a minor convention: do-based by default, la-based selectable. The choice lives in learn settings.
+- **Mode remap.** Remapping a melody to another mode is by pitch. When the two scales have the same number of degrees, map by degree. Otherwise:
+  - snap each note to the nearest tone of the target scale;
+  - ties go to the lower pitch, as #140 already does;
+  - a note with no near target becomes borrowed, keeping its pitch and taking its chromatic syllable.
+
+  The pattern mode switch, phrase-book follow, and Looper bending all call this one function. If Looper slices merge first, a follow-up replaces their local bending policy with it.
+- **Stored formats are not changed by this workstream.** Identity is derived at read time from what is already stored (pitch plus context). Moving stored notes to a degree-first format is a separate, migration-gated decision (W6).
+- **Library tunes** are corrected where their syllables are wrong (Hot Cross Buns becomes Mi-Re-Do).
+- **The number row** reads the Joystick alteration from shared state (see W3) rather than rebuilding chords without it.
+- **The Joystick's character set** gains a diatonic-sevenths option; the current jazz character remains. Roman numerals are derived from the degree and the chord quality.
+- **MIDI** plays out-of-scale notes and labels them through the identity module.
+- **Humming.**
+  - Import never throws on an out-of-key pitch. Notes within ±40 cents of a scale tone snap to it; others become borrowed.
+  - The live pitch gate confirms a new semitone only past about 60 cents of hysteresis, over a time window rather than a frame count, and suppresses single-frame octave jumps.
+  - Velocity comes from the voice's RMS, not the detector's confidence.
+  - Recording length is capped (default 60 s) with a visible countdown.
+  - Import offers snap-to-grid with strength.
+  - The key of a hum is estimated by a key-finding profile over its pitch histogram, showing the top two readings to choose from.
+- **The Visuals switch** reads the store through reactive refs, so toggling mounts and unmounts the Stage and stops its loop.
+
+### W3 Performance input
+
+- **One performer.** One service exposes press, release and release-all-for-owner for notes and chords. It owns voice groups, touch registration, logging and note events.
+  - **Its inputs are adapters:** pointer and glissando, QWERTY, number row, MIDI, the Joystick-modified chord row, and the Looper's latch.
+  - **Its owners:** every physical contact or note gets an owner, using the existing voice-group lifecycle.
+  - **Where state lives:** the Joystick alteration moves from a component-local value into a store the performer reads.
+  - **When it releases:** window blur, page hide, and a missing key-up for longer than its key-repeat window (the macOS Cmd case) all release the owning group.
+  - **What it doesn't own:** expression (bends, tremolo) stays owned per note in the worklet core, as #92 built it. The performer forwards expression intents and doesn't duplicate them.
+  - **Dead code it replaces:** the unused keyboard custom events, the write-only note-id map, and the unused letter lookup are deleted.
+- **QWERTY shortcuts are registered by the performance surface**, not by the Keyboard component, so they work whenever the instrument is on screen.
+- **Each key's aria-keyshortcuts is filled in**, and unused QWERTY keys continue the scale into the next octave.
+- **The Keyboard compound becomes a pure view.** It is fed by:
+  - a production container composable (the store wiring that is in the component today);
+  - pure glissando geometry, which maps pointer segments to key intents and hit-tests by grid arithmetic from one cached rect;
+  - roving focus;
+  - chord hold and snapshots.
+
+  Chord edition styling moves to the chord key. The guide's motion and contrast simulation moves into guide-only wrappers.
+- **Stale PRs:**
+  - #35 (held-note ownership) and #40 (MIDI session owner) are closed. Their behaviour lists become the acceptance tests for this workstream's MIDI adapter and MIDI session.
+  - #33 and #34 are closed. Their intent is carried by #140's shared recorded plan (verify it removed the duplicated overlap grouping) and by W6's field rules.
+
+### W4 Accessibility and touch
+
+- **Tabs** gets roving-tabindex keyboard handling (arrows, Home, End), ported from lab #102. The test that asserts the broken state is rewritten to assert keyboard reachability.
+- **Range Knobs** get slider semantics: role, tabindex, value now/min/max/text, arrows and Page keys, and Home/End. Option Knobs keep theirs. The Readout stays decorative; the value is announced through aria-valuetext on the control.
+- **Note label colour** is chosen from the fill's OKLCH lightness via the Music Color authority (ink below a threshold, ivory above), not from whether the note is an accidental.
+- **Contrast floor:** text that is inactive but enabled moves to the 4.5:1 token. LED and crown marks meet 3:1 against their surround. Focus rings use a dual ring (inner Ink, outer Ivory) that reaches 3:1 on every cap material.
+- **Touch size:** a hit-size token (44px) is applied as an invisible hit area on Buttons and other small controls, separate from the visual size. Play/Stop keeps the invariant hit box while its face scales. A compact/comfortable setting changes visual density but never goes below the hit minimum.
+- **Inputs** use at least 16px text on iOS, and banners use readable sizes and tokens.
+- **Reduced motion** has one owner composable plus a motion-scale token. Every control, including the knob's hold animation, reads it. Under reduced motion the beat is shown as a discrete step without animation, or as a haptic pulse where supported.
+- **The Stage's live region** announces single notes as well as chords, at a rate limit.
+
+### W5 Mobile runtime
+
+- **The Stage canvas** backs its drawing at CSS size × min(devicePixelRatio, 2), with the transform set once. The scope's history and swap canvases follow the same rule.
+- **All Stage motion uses elapsed time** (dt) from the frame clock. Lifecycle timestamps use the same clock rather than wall time.
+- **The render loop idles** when there are no notes and no audio energy, when the page is hidden, and when Visuals are off.
+- **Adaptive quality.** The performance monitor's "poor" tier lowers the field resolution, drops blur filters, and turns off non-essential layers. The cost of the body-subtree mutation observer and of canvas filter support on iOS Safari are measured, and fallbacks are added where filters are unsupported.
+- **Audio context:**
+  - It resumes from any non-running state, including iOS "interrupted", on the next user gesture or visibility return.
+  - The audio session is set to playback where the API exists.
+  - The context suspends after a period of silence with nothing playing or held, and resumes on the next input.
+- **Memory (measure first):** the piano's real-device memory is measured on an iPhone. Then the two copies of its samples are reduced, by one or more of:
+  - one PCM owner (worklet-held samples with the Superdough copy released when no authored pattern needs it);
+  - compact sample storage in the worklet;
+  - a phone-specific smaller default bank.
+
+  The sample copy into the worklet moves off the interaction path (chunked transfer).
+- **Bundle:** the main bundle is split. The style guide, the soundfont catalog, the Config panel and the instrument picker load on demand. The startup sample download that #95 brought back (when a sampled instrument is persisted) is deferred until after first input.
+- **Updates and haptics:** the service-worker update prompt becomes an in-app Sticker. Haptics gain a tonic/downbeat accent.
+
+### W6 Persistence
+
+The rewriting migrations in this workstream are partly irreversible, so they land only with Burooj's explicit sign-off.
+
+- **Versioned codecs.** Every persisted store gets a codec with a version, encode, decode, and a migration table. The stores are visual config, phrase book, instrument, keyboard drawer and the Looper's saved Loops.
+- **Visual config saves sparse overrides** (only values that differ from defaults). Effective config is defaults plus overrides.
+  - A one-time reconciliation treats stored values equal to a known previous default as untouched, so later defaults reach returning players.
+  - BPM, octave and drawer rows move out of the visual config into their own small stores.
+- **Visible save failures.** The persistence plugin's write errors go to an explicit handler that shows a Sticker ("Can't save, storage full") and keeps the in-memory state.
+- **Phrase book budget.** It gets a byte budget measured on the encoded payload, covering Kept phrases and expression curves.
+  - Curves are decimated at save to a bounded point count per second.
+  - Over budget, the reel shows "Shelf full" and offers the oldest Recent phrases for release. Kept phrases are never silently dropped.
+  - Moving the phrase book to IndexedDB is the follow-up if the budget proves too small. It is not in this slice.
+- **Migration safety.** Before any migration rewrites a store, the previous payload is copied to a dated backup key and kept for one version. Migrations are tested against captured payloads from Burooj's own devices, plus synthetic edge cases.
+- **Latency calibration** (#140 has it in memory only) is persisted per device.
+- **A degree-first stored note format is not adopted here.** If it is ever proposed, it is its own migration with its own sign-off.
+
+### W7 Stage model and Music Color
+
+- **Scope Size:** one radius rule (size ratio × half the short edge, clamped). The two historical scale constants and the test that locks in the saturation are replaced.
+- **The Stage scene.** One pure scene builder per frame receives notes, the audio frame, settings, key/mode and time. It returns bodies, strings, scope, ambient band and lettering with numeric colours. Renderers draw only that scene and import no stores.
+  - Note ingestion has one path (the timeline), replacing the mix of events and polling.
+  - Specimens drive the same builder without a second app.
+  - This is the largest refactor in the spec. It lands after W2 and W4.
+- **Colour plumbing.** The Music Color authority returns numeric colour to renderers. Colours are memoised per (degree, octave, phase bucket). The one-pixel colour readback and the string alpha edits are removed.
+- **The complementary accent** is removed from the colour authority and its types. Open #136 is the place for it.
+- **Dead Stage code is deleted:** the legacy body fallback, the circle-of-fifths placement overwritten after every attack, and the migration inside the render loop. That migration moves to the store's codec.
+- **Config is regrouped into Learn and Look.**
+  - **Learn:** notation, syllable convention, mapping, labels, emotion.
+  - **Look:** Stage Looks, plus an Advanced disclosure that holds the detailed knobs.
+  - The projection layer from #63/#80 is kept.
+- **The legend.** A tap-to-explain overlay in the playing zone (Ink/Ivory) says what position, lightness and room colour mean.
+- **Emotion.** The interval descriptions are surfaced as a cue (in the legend and on chord hold). The default for the emotion label is revisited with Burooj.
+- **One wheel.** Whether colour hue follows the scale wheel or the circle of fifths is Burooj's decision. Until he decides, nothing changes.
+
+### W8 Design process and visual drift
+
+- **Skill rule change:** an adoption must fix every accessibility or behaviour defect its lab recorded in the unit it reopens. "Preserve behaviour" no longer covers known defects. The Plan stops recording 32px targets as an invariant.
+- **Labs run checks.** Each lab mounts its directions under axe and a keyboard walk and reports the results beside the visual comparison.
+- **Editions:** one canonical edition per unit (decision 5).
+  - Other editions become Looks, chosen and pinned in Config.
+  - A query parameter pins any edition for review and snapshots.
+  - One edition helper replaces the three copies.
+  - The Keyboard's daily key-shape deck becomes a Look as well.
+  - The collar/chad geometry has one owner, and the Beat Indicator consumes it.
+- **Colour drift fixes:**
+  - The MIDI error LED uses an Ink/Ivory/Brass treatment, not Tomato.
+  - The Ivory cap's lit state uses an Ivory token, not Bone.
+  - Raw colours in the instrument picker banner and the Code Strip frame become tokens.
+  - The Sticker paper type for playing-zone consumers admits only Ink, Ivory and Music Color.
+  - The Brass edition of Tabs is removed or moved to the brand zone.
+- **Motion:**
+  - Brass sheen plays on interaction or sound and rests otherwise.
+  - UIBeat defaults off for ordinary Buttons. It stays on for Play, the Beat Indicator, Loop Dials and the selected instrument, which gives the beat a hierarchy.
+- **Compositions (step 5) runs top-down** from the whole 390px playing screen, and its prompt allows a change to flow back to a part. It starts after decision 5 is confirmed.
+- **Records:**
+  - The design log is frozen at a dated line; new entries stop.
+  - The tracker becomes one line per unit: unit, layer, source, specimen route, consumers, open defects.
+  - The bible remains the only prose law.
+  - The PR body is the receipt.
+  - The design skill shrinks to its durable rules (real-source specimens, exact evidence names, one unit per session, defect-fixing adoptions) and is marked permanent or retired, as Burooj chooses.
+- **Housekeeping:**
+  - The directory rename to "primitives" lands as its own mechanical PR.
+  - The guide's Tabs page uses the embedded panel.
+  - The design-route list is defined once.
+  - Tailwind is either mapped to the tokens or removed with its remaining utilities.
+  - Knob moves to pointer events.
+
+### W9 Audio stack and the Looper
+
+- **Strudel is the single musical clock** (decision 3). The conditions that apply to Looper slices #139–#142 and onward:
+  - Members are built from note data; the transpiler and mini parser never run while playing.
+  - **The phone gate** reruns the #140 receipts on iOS Safari and Android Chrome with sampled and soundfont instruments before slice 4 ships. It counts scheduler skips under touch load.
+  - **One tempo authority.** One {bar origin, bpm} is owned by the transport. Live Repeat and Arp read it, quantised to the next subdivision by default, instead of anchoring their phase at the press.
+  - **Mute/solo acceptance** is under 150 ms from tap to audible change on the phone. If immediate swaps can't meet it, mute uses a per-member gain owned by the output path.
+  - **Latency calibration** is a one-time, per-device tap-along that is persisted (W6).
+- **One live rhythm engine.** The main-thread play-style engine is retired where the worklet can carry the sound. Square and saw move into the worklet (its band-limited oscillators already exist), so they get stall protection and expression. Sounds that can't move into the worklet are triggered by the worklet's plan events, so there is one grid.
+- **Expression:**
+  - MIDI velocity reaches the voice gain, channel pitch bend maps to the owner-keyed bend, CC64 sustains, and MPE per-note channels are supported.
+  - The bend range rises to ±2 semitones, with the current ±50 cents as the default for touch.
+- **Superdough:**
+  - The patch becomes owned source: a workspace package built from source, or a source alias with the audio-worklet bundler plugin. The version is pinned exactly.
+  - Generic fixes are offered upstream: polyphony parsing, eviction of failed loads, finite-voice fades.
+  - The Strudel packages move to one version line.
+- **The Code Strip is the loop's readout** (decision 4). It follows the playing member with its highlight, and its text is the loop's export. Editing creates an authored pattern compiled outside playback. The Strudel export keeps its documented approximation of expression.
+- **Typed note events and diagnostics.** Note events are defined once as a typed event contract, which removes the two builders of the same event. An audio diagnostics panel shows the backend, PCM held, worklet state and Cyclist skips.
+
+### W10 Licence, content and docs
+
+- **Licence.** Add a LICENSE file for AGPL-3.0-or-later and a NOTICE listing:
+  - Strudel/superdough (AGPL-3.0-or-later);
+  - Tonal and other permissive dependencies;
+  - the Hilbert scope's sources (merge #64);
+  - the font.
+
+  The app gets a Source and Credits entry in the brand zone, linking to the exact deployed commit.
+- **Font.** The Let's Jazz licence is checked for web embedding and public redistribution. If the licence does not allow it, the font files leave the public tree and a licensed delivery replaces them. Scrubbing git history is a separate decision for Burooj.
+- **Transcriptions.** The five Epic: The Musical transcriptions leave the default library. Their history stays.
+- **Humming notice.** Humming shows a one-line notice the first time ("Your recording is sent to the pitch-analysis service and not kept"), worded to match what that service actually does, which is to be verified.
+- **Docs:**
+  - The root agent doc is rewritten for the current architecture.
+  - The Warp doc is deleted, or reduced to a pointer.
+  - The README gets a short description.
+  - The repository router gains product, audio and music-theory routing plus the verification rules.
+  - The pattern-system doc's status is updated.
+- **Stale PRs:** #33, #34, #35 and #40 are closed with comments linking to this spec. #64 is merged. #67 is re-validated against main, then merged or closed. #122 is reviewed. The matching Linear issues (BJS-413/414/415 and the MIDI session) are updated.
+
+### Sequencing
+
+1. **Phase 0, hygiene (days):**
+   - W1: CI, ESLint, the test budget and timeouts.
+   - W10: licence, transcriptions, docs, stale PRs, font check.
+   - The one-line fixes: the Visuals switch, the number row's alteration, Scope Size.
+   - Removing the colour accent with #136.
+2. **Phase 1, the cues are true (before Looper slice 4 ships bending):** W2. Then W3's performer, with the alteration moved into a store.
+3. **Phase 2, reach:** W4, the W5 items that need no device (DPR, dt, idle, iOS resume and session, bundle split), and W8's colour drift and edition decision.
+4. **Phase 3, saving (Burooj signs off on each migration):** W6.
+5. **Phase 4, structure:** the Keyboard decomposition, the Stage scene, the W9 rhythm-engine consolidation and superdough ownership, then the phone gate and W5's memory work on real devices.
+6. **Phase 5, moods and cues:** the cue stories (97–109), and the Compositions lab top-down.
+
+The Looper slices continue in parallel under W9's conditions.
+
+**Execution routing:**
+- Mechanical work goes to Sol 6.1, once its Codex credit returns on 2026-10-10.
+- Visual and design work goes to Opus.
+- Judgment reviews go to Opus and Fable.
+- Burooj reviews and merges design adoptions and #136 himself.
+
+## Testing Decisions
+
+- **What makes a good test here:** it observes behaviour at the highest available seam (the five above) and fails when the behaviour breaks. It is mutation-checked when it replaces an older test, as #94 did. It never asserts source text, a variable's spelling or a mock's canned answer. Missing prerequisites fail rather than pass vacuously.
+- **Musical identity:** table and property tests across all 12 tonics × every mode.
+  - Heptatonic spellings use each letter once.
+  - Interval names agree with semitone and letter distance.
+  - Syllables round-trip.
+  - Chord symbols match a fixture lead sheet.
+  - Mode remaps preserve contour, including fewer-degree targets and borrowed fallbacks.
+  - Humming import never throws on any pitch.
+
+  Prior art: the harmony domain tests and the phrase-book invariant tests.
+- **Performance:** adapters are driven with synthetic pointer, key, MIDI and Joystick events. Tests assert performer intents, voice-group lifetimes, release on blur/hide/missing key-up, and the number row's equality with the on-screen chord row under every alteration. Prior art: the voice-group lifecycle tests and the deterministic glissando tests.
+- **Persistence:** each codec is round-tripped with captured real payloads and migration fixtures. Tests cover sparse-override reconciliation against known old defaults, an over-budget phrase book showing "Shelf full", and a simulated quota error surfacing to the UI. Prior art: the instrument persistence and phrase migration tests.
+- **Browser seam:** Playwright, axe and keyboard walks, plus reviewed screenshots at 390px with editions pinned, the Stage masked. Prior art: the audio lab's headless Chrome harness and the style guide's real-source specimens.
+- **Stage:** scene snapshot tests for the pure scene builder. Dt tests run at 60 Hz and 120 Hz and assert equal motion per second. A DPR test asserts the backing store size. Prior art: the stage runtime tests and the canvas pixel tests (kept).
+- **Audio:** golden-PCM tests of the worklet core rendered offline. The existing parity suite and the Looper transport receipts run on schedule. The phone gate runs the same receipts on devices. Prior art: the core and bridge unit tests, the parity suite, and #140's receipts.
+- **Accessibility units:** keyboard tests for Tabs and range Knobs in the DOM project. Contrast tests compute ratios from the real tokens and from the Music Color authority's output for label colours.
+
+## Out of Scope
+
+- **A curriculum:** quizzes, scored exercises, progress tracking, and sing-back scoring. The product stance is to teach through moods and cues. Call-and-response from the phrase book stays an idea for later.
+- **Running the Looper on a transport other than Strudel.** It is the fallback only if the phone gate fails.
+- **A WebGL renderer for the Stage field.** Revisit only if the DPR fix makes the CPU field look coarse.
+- **Rewriting git history** to remove committed receipts, the purged evidence pack, the transcriptions or the font. Each would be a separate, explicit decision.
+- **A headless accessibility component library** (such as Reka UI). In-place fixes are smaller. It remains the fallback if the Tabs and Knob work grows.
+- **A degree-first stored note format.** Identity is derived at read time. Any format change is its own migration decision.
+- **Two free tempos at once in the Looper.** This is per the Looper brief.
+- **Editions tied to content** (a pattern carrying its own paper edition), **spectral-centroid colour on the scope**, and **visual lab directions inside the product** (beyond the review query parameter). These are ideas noted, not planned.
+- **Desktop-specific layouts.** The app remains mobile-first.
+
+## Further Notes
+
+- **Readings to confirm with Burooj:**
+  - "moats and cues" is read as **moods and cues**.
+  - Decisions 4 (the Code Strip as readout) and 5 (one canonical edition per unit) are reversible defaults this spec adopts so work can proceed.
+  - The colour-wheel question (story 96) and the emotion-label default (story 95) are his.
+- **What "editions" means.** Several parts pick a different look on each load (Tabs, Knob, Joystick, Keyboard keys). Decision 5 says each unit gets one default look, and the others become Looks you choose.
+- **Strudel is not in question.** Retrospective #2 asked whether the Code Strip's text is an instrument you edit or a readout of what plays. Strudel as the clock was never in doubt, and #140's receipts make it a strong choice.
+- **In-flight work this spec touches:**
+  - #136 (Flecks; also remove the accent there).
+  - #138–#142 (Looper; W9 conditions, W2 bending).
+  - #122 (progressions; story 105).
+  - #137 and #132 stay unmerged as research and prototype.
+- **Process notes carried from both retrospectives:**
+  - Keep PRs singular. #27 was 23k lines over 194 files and sat open for 102 days.
+  - Don't stack design units on unmerged lower layers.
+  - Declare a programme closed only when nothing is about to reopen it.
+- **Risks:**
+  - The bundle split and the scene refactor touch many files; land them behind tests from W1 first.
+  - The persistence migrations are the irreversible part of this spec.
+  - The phone gate may fail on low-end Android because of main-thread starvation; the worklet-scheduled fallback in W9 is the plan for that.
+
+## Appendix: traceability
+
+Every finding, direction and idea from the two retrospectives, the verifiers, and the health and process reports, mapped to a story (S#), a workstream decision (W#) or Out of Scope (OoS). "Done" means already fixed on main.
+
+### Retrospective #1 (2026-09-23)
+
+| Source | Item | Disposition |
+| --- | --- | --- |
+| Process facts | No human review on 53 PRs | S13 |
+| Process facts | Root docs describe Tone.js and missing files; README "Boop" | S16, S18 |
+| Process facts | Dead components (AudioInitializer, AppHeader, FloatingDropdown, Sequencer controls, StickyBottom) | Done (#96, #106) |
+| Process facts | Remaining orphans: live-listening composable, instrument categories, audio diagnostics | S12 |
+| Process facts | Mixed Strudel versions | S119 |
+| Process facts | Superdough patch edits minified output; pinned to 1.3.0 under a caret range | S118 |
+| Process facts | Evidence paths referenced but never committed; 380k lines of receipts | S7, S9 |
+| Process facts | Ledger-only commits (22%), ledgers touched by 32 PRs | S131 |
+| Process facts | Large PRs (median ~1.75k lines; #27 23k) | Further Notes |
+| Process facts | Card and Brand Cover churn | S130 (top-down), Further Notes |
+| Health | ESLint config broken | S2 |
+| Health | Red suite (11 failures, 8 collection errors) | Done (#94); S5 for the timeout flake |
+| Health | Main bundle 3 MB; dynamic plus static import warning | S77 |
+| Health | Strudel soundfonts uses eval | W9 (owned source review), noted |
+| Health | Largest files (Keyboard, ConfigPanel, MIDI controls, blob field, patterns) | S55, S93, S49, S89 |
+| Audio, Opus | Per-note purge and whole-store persistence; quota silent | Purge done (#103); S82, S83 |
+| Audio, Opus | Two renderers; play-style logic twice; square/saw on fallback | S116, S117 |
+| Audio, Opus | Strudel Cyclist drops windows when late | S110 (phone gate counts skips) |
+| Audio, Opus | makeVoiceRoom per-admission scan | W9 (owned source review) |
+| Audio, Opus | Memory 138+138 MiB plus reservations; main-thread clone; no suspend | S75, S76 |
+| Audio, Opus | Superdough patch: fork or upstream | S118 |
+| Audio, Opus | Evidence apparatus versus regression harness; no CI | S1, S6, S7 |
+| Audio, Opus | iOS "interrupted"; no audio session | S73, S74 |
+| Audio, Opus | Allocation on the audio thread per pulse | W9 (noted for the consolidation) |
+| Audio, Opus | Epoch anchor drifts over long sessions | S70 (one clock), S113 |
+| Audio, Opus | Direction: fix UI cost first, stay native | Superseded: purge removed (#103); Strudel chosen |
+| Audio, Opus | Direction: worklet as only renderer | OoS unless phone gate fails |
+| Audio, Opus | Ideas: velocity and sustain; phase-locked arps; latency calibration; drone and count-in; diagnostics panel | S114, S111, S113, S101, S102, S121 |
+| Audio, Fable | Two rhythm engines | S117 |
+| Audio, Fable | Layered fix cycle #76→#90 | S117, S118 |
+| Audio, Fable | Patch pinned by caret | S118 |
+| Audio, Fable | Scheduled CI assertions (pulses through stall, settlement, release, one context, one transport, no warnings) | S6 |
+| Audio, Fable | Mobile memory | S76 |
+| Audio, Fable | UIBeat beats only for generated text | S120, W9 (single UIBeat generation from the transport) |
+| Audio, Fable | Note event built twice; loosely typed event detail; no velocity | S122, S114 |
+| Audio, Fable | Directions: worklet as transport; fork superdough; golden PCM | OoS unless phone gate fails; S118; S15 |
+| Audio, Fable | Ideas: velocity/touch force; latency calibration; quantise on record; count-in in worklet; mono/Int16 piano | S114, S113, S45, S102, S76 |
+| Design, Opus | Paperwork outgrew checking | S131, S132 |
+| Design, Opus | Tabs and range Knob keyboard access | S56, S57 |
+| Design, Opus | Note label contrast | S59 |
+| Design, Opus | Instrument picker 10px input, 8–9px banners | S63 |
+| Design, Opus | 32px buttons; Play/Stop shrinks | S61, S62 |
+| Design, Opus | Layering nominal at top; guide-only props in production | S55, S66, S10 |
+| Design, Opus | Taxonomy and folders disagree | S132 |
+| Design, Opus | Orphan audit missed components and 57 tokens; static note palette; glass token; Tailwind ring colour; Tailwind unmapped | S12, S136 |
+| Design, Opus | Guide Tabs page shows retired glass | S134 |
+| Design, Opus | Source-text tests; no browser tooling | S14, S8, S9 |
+| Design, Opus | Formalised before fitted (Pattern Card); Badge shim | S130; Badge noted, no action |
+| Design, Opus | Three edition rotators; duplicated route list; Knob mouse/touch events; "primatives"; #27 too big | S126, S135, S137, S133, Further Notes |
+| Design, Opus | Directions: enforce in code; build in context; headless a11y library | S10–S12, S8; S130; OoS (fallback) |
+| Design, Opus | Ideas: label colour from lightness; Curwen signs; editions tied to content; touch-size setting; haptic vocabulary; in-app update prompt | S59, S104, OoS, S67, S79, S78 |
+| Design, Fable | Governance cost (21% ledger-only commits) | S131, S132 |
+| Design, Fable | Keyboard fused with its host | S55 |
+| Design, Fable | Accessibility gaps; reduced motion has no owner; knob hold ignores reduced motion | S56, S57, S61, S64 |
+| Design, Fable | Second token set and font-face in global styles | Done (#96) |
+| Design, Fable | Raw easing in Loading Screen; rgba in Note; brass sheen string copied five times | S11, S59, S128 |
+| Design, Fable | Tailwind configured but unused by primitives | S136 |
+| Design, Fable | Card churn | S130 |
+| Design, Fable | Four randomisers, no user control | S125, S126 |
+| Design, Fable | Directions: style guide as executable record; fewer, thicker units; skill to a page | S9; S132; S132 |
+| Design, Fable | Ideas: semantic feedback states; layering lint; edition pinning; hit-size token; Tailwind decision | S109, S10, S125, S61, S136 |
+| Stage, Fable | Persisted config freezes defaults | S80, S81 |
+| Stage, Fable | Scope Size saturates and a test locks it in | S88 |
+| Stage, Fable | No DPR | S69 |
+| Stage, Fable | Frame-rate motion; two clocks | S70 |
+| Stage, Fable | Renderers reach stores; colour readback; no memo | S89, S90 |
+| Stage, Fable | Config is a tuning panel; #72 evidence left 36 MiB in the pack | S93; OoS (history rewrite) |
+| Stage, Fable | Blob fix loop; legacy fallback | S92, S89 |
+| Stage, Fable | Colour decorative; Ti and Do hue-adjacent; two wheels disagree; emotion label off | S97, S96, S95 |
+| Stage, Fable | Directions: pick one wheel; two-tier settings; scene model then WebGL | S96; S93; S89, OoS (WebGL) |
+| Stage, Fable | Ideas: tension as chroma; voice-leading trails; spectral centroid on scope; battery tier; pause when hidden; numeric colours and cache | S97, S108, OoS, S72, S71, S90 |
+| Stage, Fable | Body-subtree mutation observer cost unmeasured | W5 (measured) |
+| Stage, Opus | Persistence; BPM, octave and drawer in the same object | S80, W6 (split stores) |
+| Stage, Opus | Two note-ingestion paths; store reach-ins; dead placement; specimens need a second app | S89, S92 |
+| Stage, Opus | Orchestrator test fails to import | Done (fixed by #94) |
+| Stage, Opus | Per-frame CPU cost (metaballs, readbacks, ambient re-resolve, grain); loop never idles; empty "poor" tier | S90, S71, S72; grain and gradient cache done (#134) |
+| Stage, Opus | Visuals switch broken | S48 |
+| Stage, Opus | iOS canvas filter support | W5 (measured, fallback) |
+| Stage, Opus | Fix loops; sizing encodes history; migration in the render loop; "preserve" lists push toward multipliers | S88, S92, S131 |
+| Stage, Opus | Hue motion sweeps into a neighbour's cell; flecks use the complement; emotion label off; single notes not announced | W7 (revisit hue motion with Look), S91, S95, S68 |
+| Stage, Opus | Directions: scene model; WebGL metaballs; fewer layers, more meaning | S89; OoS; S97–S99 |
+| Stage, Opus | Ideas: phase-locked vibration; resolution events; tension in chroma; same-hue flecks; adaptive quality and idle; legend | S99, S98, S97, moot (Flecks retired), S71, S72, S94 |
+| Interaction, Opus | Sharp spelling; wrong intervals; raw Tonal chord names | S26–S29 |
+| Interaction, Opus | Chromatic syllables missing; fallback to Do; borrowed letter names; MIDI drops out-of-scale; live humming ignores; final humming throws | S30, S31, S41, S42 |
+| Interaction, Opus | Mode change by degree index; Hot Cross Buns | S34, S36 |
+| Interaction, Opus | Number row ignores the Joystick | S37 |
+| Interaction, Opus | Four input paths; dead events; unused letter lookup; empty aria-keyshortcuts; macOS Cmd key-up | S49, S52, S51 |
+| Interaction, Opus | Keyboard god component; daily key-shape edition costs muscle memory | S55, S125 |
+| Interaction, Opus | Pitch gate margin, frame count, octave jumps; no quantise | S43, S44, S45 |
+| Interaction, Opus | Directions: interval-from-tonic model; humming as lesson start with key-finding; Joystick as harmony teacher | W2 (derived identity); S106; S39, S40 |
+| Interaction, Opus | Ideas: call-and-response; resolution drills; drone; chord-function hints; progress; la/do minor | OoS; S98; S101; S100; OoS; S33 |
+| Interaction, Fable | Humming throws; velocity from confidence; frames not time; 45 s cap removed | S42, S47, S44, S46 |
+| Interaction, Fable | Three lifecycles drifting; QWERTY needs the production Keyboard | S49, S50 |
+| Interaction, Fable | Spelling and chord-symbol formatting | S26, S28 |
+| Interaction, Fable | Solfège stops at the melody row; do-based minor undocumented | S32, S30, S33 |
+| Interaction, Fable | Keyboard god component; per-key bounding-rect reads | S55, S54 |
+| Interaction, Fable | Mode mutation lossy and cumulative | S34 |
+| Interaction, Fable | Copyrighted transcriptions | S22 |
+| Interaction, Fable | Dead live-listening composable | S12 |
+| Interaction, Fable | Directions: one input bus; degree-first pattern model; humming as sing-back scorer | S49; OoS (format), W2 (derived); OoS |
+| Interaction, Fable | Ideas: Roman numerals with solfège members; voice-led voicings; number-row inversions; quiz; cents meter; ascending chromatic syllables; scale continues across unused QWERTY keys | S40, S32; S103; S38; OoS; S107; S30; S53 |
+| Synthesis | Licence, AGPL | S19, S20 |
+
+### Retrospective #2 (2026-10-06)
+
+| Source | Item | Disposition |
+| --- | --- | --- |
+| Design, Fable | Lab found accessibility defects; adoption kept them; rule exception needed | S123 |
+| Design, Fable | Readout hidden from assistive technology | S58 |
+| Design, Fable | Marquee inactive labels 2.17:1; Note labels fixed white | S60, S59 |
+| Design, Fable | Ledgers grew after the freeze advice; quoting chat verbatim | S131 |
+| Design, Fable | Bar Tape lived under three days; programme closed then reopened; Compounds lab skipped screenshots | S130, S124, Further Notes |
+| Design, Fable | Drift: Tomato LED, Bone cap, perpetual brass sheen, Code Strip colours, picker hex, brand papers in the Sticker type | S127, S128 |
+| Design, Fable | Edition module ×3, collar recipe ×2, seeded random ×2; chord editions in Keyboard | S126, S55 |
+| Design, Fable | Skill marked temporary but extended | S132 |
+| Design, Fable | Directions: Log→PR and Plan→bible; lab inside product; accessibility as a lab step | S131; OoS (query pin only, S125); S124 |
+| Design, Fable | Ideas: zone type and stylelint; one edition helper; per-pitch label colour; axe per guide page; sheen as sounding response | S11, S127; S126; S59; S8; S128 |
+| Design, Opus | Lab's Tabs fix dropped; test asserts the bug; range Knobs | S56, S57 |
+| Design, Opus | Focus ring invisible on Ivory/Brass; unlit chads 1.5:1; 32px recorded as invariant | S60, S123 |
+| Design, Opus | Bottom-up churn; Compositions prompt forbids touching parts | S130 |
+| Design, Opus | Editions as a lottery; Marquee only 44px edition; Brass Tabs edition on paper | S125, S127 |
+| Design, Opus | Complement accent still computed; small colour leftovers; Knob HSL greys; no test | S91, S127, S11 |
+| Design, Opus | Records growth; screenshots outside the repo | S131, S9 |
+| Design, Opus | Beat everywhere; Crown faint | S129, S60 |
+| Design, Opus | Directions: top-down screen; one edition per unit; executable checks | S130; Decision 5, S125; S8, S9, S11 |
+| Design, Opus | Ideas: label from lightness; guide as test harness; axe in labs; beat cue under reduced motion; announce dragged value | S59; Seam 4; S124; S65; S58 |
+| Product, Fable | Teaching bugs untouched; no pedagogy | W2, S97–S109 |
+| Product, Fable | Product work stopped 09-28; #122 unreviewed | Sequencing; S105 |
+| Product, Fable | No CI; lint script flags; Vercel builds but never tests | S1, S2 |
+| Product, Fable | Verify launcher disproportionate and wraps the Vercel build | S3 |
+| Product, Fable | New persisted keys without versions; quota swallowed; count-based cap | S84, S82, S83 |
+| Product, Fable | Keyboard grew with expression | S55 |
+| Product, Fable | #92 reach: no expression on fallback; MIDI parses only on/off; export approximates | S116, S114, W9 |
+| Product, Fable | Stale PRs: close four, merge #64 and #67 | S23, S24 |
+| Product, Fable | #95 adds a sample download to boot | W5 (deferred to first input) |
+| Product, Fable | Directions: correctness-first; decide instrument or teacher; Strudel with direct Patterns and export-only notation | Sequencing; Decision 2; Decisions 3 and 4 |
+| Product, Fable | Ideas: sing-back from the phrase book; drone as a pinned member; byte cap with "shelf full"; degree-plus-accidental identity; suite wall-time budget | OoS; S101; S83; W2; S4 |
+| Product, Opus | Third syllable table (Se vs Fi); follow uses the degree remap; Looper bending planned on it; no tracker issue | S31, S34, S35, S23 |
+| Product, Opus | Green depends on host; 0 vs 36 failures reported the same day; lock serialises agents | S1, S3, S5 |
+| Product, Opus | Stale PRs conflict; MIDI lacks velocity and bend; overlap grouping duplicated; BJS-414 still In Review | S23, S114, W3 (verify #140 removed it) |
+| Product, Opus | Kept phrases exempt from cap; curves up to 8,192 points | S83 |
+| Product, Opus | Records drift: pattern-system status; #103 merged as big-bang with synthetic migration tests; root doc; router routes design only | S18, S86, S16, S17 |
+| Product, Opus | Directions: data-first transport; one tempo grid including live play styles; name the pivot | OoS unless phone gate fails; S111; Decision 2 |
+| Product, Opus | Ideas: AGPL licence; MPE; ±50 cent bend too narrow; emotion content unrendered; #122 as a path; mute latency criterion | S19, S20; S114; S115; S95; S105; S112 |
+| Verification run | One timeout under host load; build waits on the lock for 10 minutes | S5, S3 |
+
+### Raised in this spec
+
+| Item | Disposition |
+| --- | --- |
+| Let's Jazz font files in a public repo; licence unverified | S21 |
+| Voice audio sent to the analysis service without notice | S25 |
+| #140 mode bending is degree-based and should share the identity module | S35 |
+| #140 latency calibration not persisted | S87 |

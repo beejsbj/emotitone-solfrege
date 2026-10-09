@@ -7,6 +7,9 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { lockDirectoryFor, onlyZombies, runLocked, BYPASS_LOCK_ENV } from './verify.mjs'
 
+// These tests exercise the lock itself; an inherited bypass (CI sets it) would skip it.
+delete process.env[BYPASS_LOCK_ENV]
+
 const moduleUrl = pathToFileURL(join(import.meta.dirname, 'verify.mjs')).href
 
 function fixture() {

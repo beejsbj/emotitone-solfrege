@@ -529,6 +529,17 @@ const quantizeRangeValue = (value: number) => {
   return Math.max(props.min, Math.min(props.max, newValue));
 };
 
+// Keyboard steps move along the min-anchored grid in the direction of travel,
+// so a max that sits between steps does not make the first step down skip one.
+const stepRangeValue = (value: number, steps: number) => {
+  if (!(props.step > 0)) return quantizeRangeValue(value + steps);
+  const position = (value - props.min) / props.step;
+  const index = steps > 0
+    ? Math.floor(position + 1e-9) + steps
+    : Math.ceil(position - 1e-9) + steps;
+  return quantizeRangeValue(props.min + index * props.step);
+};
+
 const handleRangeMovement = (deltaY: number, timeDelta: number) => {
   // Enhanced range movement with controlled sensitivity
   const range = props.max - props.min;
@@ -739,17 +750,17 @@ const handleKeydown = (event: KeyboardEvent) => {
     switch (event.key) {
       case "ArrowUp":
       case "ArrowRight":
-        nextValue = quantizeRangeValue(value + props.step);
+        nextValue = stepRangeValue(value, 1);
         break;
       case "ArrowDown":
       case "ArrowLeft":
-        nextValue = quantizeRangeValue(value - props.step);
+        nextValue = stepRangeValue(value, -1);
         break;
       case "PageUp":
-        nextValue = quantizeRangeValue(value + 10 * props.step);
+        nextValue = stepRangeValue(value, 10);
         break;
       case "PageDown":
-        nextValue = quantizeRangeValue(value - 10 * props.step);
+        nextValue = stepRangeValue(value, -10);
         break;
       case "Home":
         nextValue = props.min;
@@ -870,7 +881,7 @@ useGSAP(({ gsap }: { gsap: any }) => {
 
 .knob-wrapper[role="slider"]:focus-visible {
   outline: 2px solid var(--ivory);
-  outline-offset: 3px;
+  outline-offset: -2px; /* inset: parent bars clip overflow */
 }
 
 @media (forced-colors: active) {

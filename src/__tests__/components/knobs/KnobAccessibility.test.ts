@@ -129,6 +129,16 @@ describe("range Knob accessibility", () => {
     expect(knob.emitted("update:modelValue")).toEqual([[1.04], [-0.2]]);
   });
 
+  it("steps down from an off-grid max to the nearest grid value, not past it", async () => {
+    const { knob, value } = renderRange({ min: -0.2, max: 1.04, modelValue: 1.04 });
+    await knob.trigger("keydown", { key: "ArrowDown" });
+    expect(value.value).toBeCloseTo(1.0);
+    await knob.trigger("keydown", { key: "ArrowUp" });
+    expect(value.value).toBe(1.04);
+    await knob.trigger("keydown", { key: "PageDown" });
+    expect(value.value).toBeCloseTo(0.1);
+  });
+
   it.each(["isDisabled", "isDisplay"])("keeps %s range knobs out of keyboard interaction", async (flag) => {
     const { knob, value } = renderRange({ [flag]: true });
     expect(knob.attributes("tabindex")).toBe("-1");

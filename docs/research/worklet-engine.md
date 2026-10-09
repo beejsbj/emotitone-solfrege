@@ -327,7 +327,10 @@ carries `noteId`, `memberId`, `sourceNoteId`, `pitch`, `frame`, `bar`, the
 articulation, and the key, mode and solfège (or the table-generation id) the
 note was built under. The Stage and keys cues read these, not the current
 store, because a queued key change or a stalled main thread can leave the store
-ahead of the sound. Events are batched per quantum through the existing FIFO bridge.
+ahead of the sound. Events are batched per quantum through the FIFO bridge. Today's bridge
+allocates (it builds response objects and replaces its array on every flush),
+so production needs recyclable or transferable event batches, not a new object
+per flush.
 
 - **The Stage and keys** keep using `audibleAt` (render time plus output
   latency) as they do now. In the prototype an event reached the main thread
@@ -510,7 +513,9 @@ and PCM capture, as #140 and the spike do.
    Shape render identically (golden comparison).
 5. **No zipper noise.** Knob changes glide over about 15 ms.
 6. **No allocation.** Rendering 60 s with 16 voices and all effects in Node
-   performs no allocations in the render path. Count them with an allocation
+   performs no allocations in the render path, event delivery included. Run it
+   with a dense attack/release transport (sixteen looping members), not only
+   already-started voices. Count them with an allocation
    hook (a Node `--trace-gc`/allocation-sampling run or an instrumented pool),
    because a flat post-GC heap only rules out leaks, not per-quantum garbage.
 7. **Graph ownership.** The app owns the context, master gain and buses
@@ -725,6 +730,11 @@ the AGPL code. The open question is only the unlicensed GM fonts (finding 3).
   worklet's `sampleRate` is fixed when the processor is constructed, and so
   are the transport's frame-based anchors. Tie this to BJS-507: recreate the
   processor, carry the transport state over in bars, and test it in the gate.
+  The new processor starts with no instruments, and the one-copy contract
+  already transferred each PCM buffer away. So reload or recover every
+  required bank, await its acknowledgement, and only then restore playback.
+  The gate exercises this with an actively playing sampled or soundfont
+  member.
 - **Idle suspend.** BJS-507's 30 s idle suspend must treat a running
   transport as not idle, even while every member is muted or resting.
 - **Tempo change mid-gate (minor).** A note's gate length is computed in

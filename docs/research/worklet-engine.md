@@ -258,7 +258,8 @@ by the UI. The core already sequences Repeat/Arp pulses there.
     `recordedTiming.ts` and `StrudelNotation.ts` do today);
   - `notes[]`, each with `begin` and `duration` in bars at rate 1, `pitch`
     already bent to the Looper's key and mode (or pinned), `instrumentId`,
-    `noteId`, the immutable key, mode and solfège it was built under (or a
+    `sourceNoteId` (the table holds no `noteId`: the scheduler allocates a
+    unique voice `noteId` for each occurrence it schedules), the immutable key, mode and solfège it was built under (or a
     table-generation id that resolves to them), and in production its
     articulation and expression curves. The member also carries its Shape
     (cutoff, resonance, room, delay), the values `filterModifiers()` and
@@ -355,8 +356,10 @@ per flush.
   transport share one frame counter. To phase-lock them (S111), quantise the
   first pulse to the transport's next subdivision instead of the press frame.
 - **Recording.** Every live attack already comes back with its exact frame.
-  The recorder can store the transport bar of each note directly, minus the
-  per-device calibration (S113). This replaces wall-clock stamps mapped through
+  The recorder keeps each note's exact frame and converts it to a transport bar
+  only once the tempo map is authoritative (a late tempo receipt can change the
+  conversion for notes between B and `appliedFrame`), minus the per-device
+  calibration (S113). Both late-tempo tests include a recording case. This replaces wall-clock stamps mapped through
   output latency.
 
 ### Preparation and allocation
@@ -488,9 +491,10 @@ and PCM capture, as #140 and the spike do.
    measured against captured output, not the render clock.
 6. **Changes while playing.** Tempo, key, mode, octave and instrument changes
    apply at the next quantum or bar with no lost or doubled attacks. A change
-   that needs a cold sampled or soundfont instrument waits for the bank's
+   that needs a cold sampled or soundfont instrument, including the first
+   Play of a persisted reel whose bank boot has not prepared, waits for the bank's
    acknowledgement before its activation boundary is chosen, and keeps the old
-   table and instrument if the load fails. Test a cold swap and a cold join
+   table and instrument if the load fails. Test a cold swap, a cold join and Play on a cold non-default reel
    while playback continues (`LiveAudioCore.start()` drops a voice whose
    instrument is absent today).
 7. **Stall survival.** A 1,000 ms main-thread stall loses no attacks (the

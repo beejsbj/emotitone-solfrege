@@ -26,6 +26,7 @@ import {
   type DeckControlId,
   type GlobalControlId,
 } from "@/services/configPublicSurface";
+import { persistentStorage } from "@/services/safeStorage";
 import type {
   BlobConnectionMode,
   HarmonicGeometryMode,
@@ -480,8 +481,9 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
         visualsEnabled: visualsEnabled.value,
         lastSaved: new Date().toISOString(),
       };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToStore));
-      lastSaved.value = dataToStore.lastSaved;
+      if (persistentStorage.write(STORAGE_KEY, JSON.stringify(dataToStore))) {
+        lastSaved.value = dataToStore.lastSaved;
+      }
     } catch (error) {
       console.error("Failed to save visual config to localStorage:", error);
     }
@@ -643,9 +645,9 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
   const persistSavedStageLooks = () => {
     if (!persistenceEnabled.value || typeof localStorage === "undefined") return;
     try {
-      localStorage.setItem(SAVED_STAGE_LOOKS_KEY, JSON.stringify(savedStageLooks.value));
+      persistentStorage.write(SAVED_STAGE_LOOKS_KEY, JSON.stringify(savedStageLooks.value));
     } catch (error) {
-      console.error("Failed to save Stage Looks to localStorage:", error);
+      console.error("Failed to serialize Stage Looks:", error);
     }
   };
 
@@ -732,12 +734,9 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     if (!persistenceEnabled.value) return savedConfig;
 
     try {
-      localStorage.setItem(
-        SAVED_CONFIGS_KEY,
-        JSON.stringify(savedConfigs.value)
-      );
+      persistentStorage.write(SAVED_CONFIGS_KEY, JSON.stringify(savedConfigs.value));
     } catch (error) {
-      console.error("Failed to save config to localStorage:", error);
+      console.error("Failed to serialize saved configs:", error);
     }
 
     return savedConfig;
@@ -760,12 +759,9 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
       if (!persistenceEnabled.value) return;
 
       try {
-        localStorage.setItem(
-          SAVED_CONFIGS_KEY,
-          JSON.stringify(savedConfigs.value)
-        );
+        persistentStorage.write(SAVED_CONFIGS_KEY, JSON.stringify(savedConfigs.value));
       } catch (error) {
-        console.error("Failed to update saved configs in localStorage:", error);
+        console.error("Failed to serialize saved configs:", error);
       }
     }
   };

@@ -1,6 +1,7 @@
 <template>
   <div id="app" class="min-h-screen">
     <LoadingSplash />
+    <SaveFailureNotice />
 
     <div v-if="!isLoading" class="relative isolate">
       <UnifiedVisualEffects class="z-0" />
@@ -23,6 +24,7 @@ import ConfigPanel from "@/components/ConfigPanel.vue";
 import PerformanceDeck from "@/components/PerformanceDeck.vue";
 import InstrumentSelector from "@/components/InstrumentSelector.vue";
 import LoadingSplash from "@/components/LoadingSplash.vue";
+import SaveFailureNotice from "@/components/ui/SaveFailureNotice.vue";
 import UnifiedVisualEffects from "@/components/UnifiedVisualEffects.vue";
 import { useMusicStore } from "@/stores/music";
 import { usePhrasesStore } from "@/stores/phrases";

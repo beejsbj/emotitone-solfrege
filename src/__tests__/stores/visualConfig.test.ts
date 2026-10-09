@@ -5,6 +5,7 @@ import { useVisualConfigStore } from '@/stores/visualConfig'
 import { DEFAULT_CONFIG } from '@/data/visual-config-metadata'
 import { readStageControls, stageLookFromConfig } from '@/services/stageAppearance'
 import { createTestPinia } from '../helpers/test-utils'
+import { resetSaveFailure, saveFailureNotice } from '@/services/safeStorage'
 import type { VisualEffectsConfig } from '@/types/visual'
 
 // localStorage is now mocked in test setup
@@ -21,6 +22,7 @@ describe('Visual Config Store', () => {
   beforeEach(() => {
     const mockLocalStorage = (window as any).localStorage
     vi.restoreAllMocks()
+    resetSaveFailure()
     const storage = new Map<string, string>()
     mockLocalStorage.getItem.mockReset()
     mockLocalStorage.setItem.mockReset()
@@ -819,18 +821,21 @@ describe('Visual Config Store', () => {
       vi.useRealTimers()
     })
 
-    it('should handle localStorage save errors', () => {
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    it('keeps the config in memory and tells the player when saving fails', () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
       const mockLocalStorage = (window as any).localStorage
       mockLocalStorage.setItem.mockImplementation(() => {
-        throw new Error('Storage full')
+        throw new DOMException('full', 'QuotaExceededError')
       })
-      
+
+      visualConfigStore.updateConfig('blobs', { isEnabled: false })
       visualConfigStore.saveToStorage()
-      
-      expect(consoleSpy).toHaveBeenCalledWith('Failed to save visual config to localStorage:', expect.any(Error))
-      
-      consoleSpy.mockRestore()
+      visualConfigStore.saveConfigAs('Kept In Memory')
+
+      expect(saveFailureNotice.value?.message).toBe("Can't save — storage full")
+      expect(visualConfigStore.config.blobs.isEnabled).toBe(false)
+      expect(visualConfigStore.lastSaved).toBeNull()
+      expect(visualConfigStore.savedConfigs.map((c) => c.name)).toContain('Kept In Memory')
     })
 
     it('should save saved configs to localStorage', () => {
@@ -1344,8 +1349,9 @@ describe('Visual Config Store', () => {
       
       const savedConfig = visualConfigStore.saveConfigAs('Test Config')
       
-      expect(consoleSpy).toHaveBeenCalledWith('Failed to save config to localStorage:', expect.any(Error))
+      expect(saveFailureNotice.value?.message).toBe("Can't save")
       expect(savedConfig).toBeDefined() // Should still return config object
+      expect(visualConfigStore.savedConfigs).toContainEqual(savedConfig)
       
       consoleSpy.mockRestore()
     })
@@ -1361,7 +1367,8 @@ describe('Visual Config Store', () => {
       
       visualConfigStore.deleteSavedConfig(savedConfig.id)
       
-      expect(consoleSpy).toHaveBeenCalledWith('Failed to update saved configs in localStorage:', expect.any(Error))
+      expect(saveFailureNotice.value?.message).toBe("Can't save")
+      expect(visualConfigStore.savedConfigs).toEqual([])
       
       consoleSpy.mockRestore()
     })

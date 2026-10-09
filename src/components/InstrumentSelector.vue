@@ -3,15 +3,20 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useInstrumentStore } from "@/stores/instrument";
 import { getRegisteredSounds } from "@/services/superdoughAudio";
 import Button from "@/components/primatives/Button.vue";
-import Sticker from "@/components/primatives/Sticker.vue";
+import Sticker from "@/components/primatives/Sticker";
 import OverlayPanelHeader from "@/components/OverlayPanelHeader.vue";
+import "./panelHeading.css";
 import TabbedOverlayPanel, {
   type TabbedOverlayTab,
 } from "./TabbedOverlayPanel.vue";
 import TopDrawer from "./TopDrawer.vue";
-import { Search, X } from "lucide-vue-next";
+import { RotateCcw, Search, X } from "lucide-vue-next";
 import { instrumentIconFor } from "@/components/primatives/instrumentIcon";
+import Knob from "@/components/primatives/Knob/index.vue";
 import { displayInstrumentName } from "@/data/instruments";
+import { categoriseInstrument as categorise } from "@/data/instrumentCatalog";
+import { SHAPE_KNOB_RANGES } from "@/services/shape";
+import type { InstrumentCategory as Category } from "@/types/instrument";
 
 const drawerContentHeight = ref<number>();
 const topDrawerRef = ref<
@@ -50,27 +55,14 @@ const instrumentIcon = computed(() => instrumentIconFor(currentInstrumentId.valu
 const allSounds = ref<string[]>([]);
 const query = ref("");
 
-type Category =
-  | "synths"
-  | "keyboards"
-  | "mallets"
-  | "strings"
-  | "organs"
-  | "winds"
-  | "drums"
-  | "gm"
-  | "other";
-
 const CATEGORY_ORDER: Category[] = [
+  "synths",
   "keyboards",
   "mallets",
   "strings",
   "organs",
   "winds",
-  "synths",
-  "drums",
   "gm",
-  "other",
 ];
 
 const CATEGORY_LABELS: Record<Category, string> = {
@@ -80,9 +72,7 @@ const CATEGORY_LABELS: Record<Category, string> = {
   strings: "Strings",
   organs: "Organs",
   winds: "Winds",
-  drums: "Drums & Percussion",
   gm: "GM Soundfonts",
-  other: "Other",
 };
 
 const CATEGORY_SHORT_LABELS: Record<Category, string> = {
@@ -92,219 +82,8 @@ const CATEGORY_SHORT_LABELS: Record<Category, string> = {
   strings: "Strings",
   organs: "Organs",
   winds: "Winds",
-  drums: "Drums",
   gm: "GM",
-  other: "Other",
 };
-
-const KEYBOARD_SOUNDS = new Set([
-  "piano",
-  "steinway",
-  "kawai",
-  "fmpiano",
-  "clavisynth",
-  "gm_piano",
-  "gm_epiano1",
-  "gm_epiano2",
-  "gm_harpsichord",
-  "gm_clavinet",
-  "gm_music_box",
-  "gm_celesta",
-]);
-const MALLET_SOUNDS = new Set([
-  "marimba",
-  "vibraphone",
-  "vibraphone_bowed",
-  "vibraphone_soft",
-  "kalimba",
-  "kalimba2",
-  "kalimba3",
-  "kalimba4",
-  "kalimba5",
-  "glockenspiel",
-  "tubularbells",
-  "tubularbells2",
-  "xylophone_hard_ff",
-  "xylophone_hard_pp",
-  "xylophone_medium_ff",
-  "xylophone_medium_pp",
-  "xylophone_soft_ff",
-  "xylophone_soft_pp",
-  "gm_glockenspiel",
-  "gm_xylophone",
-  "gm_vibraphone",
-  "gm_marimba",
-  "gm_tubular_bells",
-  "gm_steel_drums",
-  "gm_kalimba",
-]);
-const STRING_SOUNDS = new Set([
-  "harp",
-  "folkharp",
-  "gm_orchestral_harp",
-  "gm_pizzicato_strings",
-  "gm_tremolo_strings",
-  "gm_string_ensemble_1",
-  "gm_string_ensemble_2",
-  "gm_synth_strings_1",
-  "gm_synth_strings_2",
-  "gm_violin",
-  "gm_viola",
-  "gm_cello",
-  "gm_contrabass",
-  "gm_fiddle",
-]);
-const ORGAN_SOUNDS = new Set([
-  "organ_full",
-  "organ_4inch",
-  "organ_8inch",
-  "pipeorgan_loud",
-  "pipeorgan_quiet",
-  "pipeorgan_loud_pedal",
-  "pipeorgan_quiet_pedal",
-  "gm_church_organ",
-  "gm_percussive_organ",
-  "gm_rock_organ",
-  "gm_reed_organ",
-  "gm_drawbar_organ",
-  "organ",
-]);
-const WIND_SOUNDS = new Set([
-  "sax",
-  "sax_stacc",
-  "sax_vib",
-  "saxello",
-  "saxello_stacc",
-  "saxello_vib",
-  "recorder_alto_stacc",
-  "recorder_alto_sus",
-  "recorder_alto_vib",
-  "recorder_bass_stacc",
-  "recorder_bass_sus",
-  "recorder_bass_vib",
-  "recorder_soprano_stacc",
-  "recorder_soprano_sus",
-  "recorder_tenor_stacc",
-  "recorder_tenor_sus",
-  "recorder_tenor_vib",
-  "ocarina",
-  "ocarina_small",
-  "ocarina_small_stacc",
-  "ocarina_vib",
-  "harmonica",
-  "harmonica_soft",
-  "harmonica_vib",
-  "super64",
-  "super64_acc",
-  "super64_vib",
-  "gm_flute",
-  "gm_clarinet",
-  "gm_oboe",
-  "gm_bassoon",
-  "gm_piccolo",
-  "gm_recorder",
-  "gm_pan_flute",
-  "gm_blown_bottle",
-  "gm_shakuhachi",
-  "gm_whistle",
-  "gm_ocarina",
-  "gm_english_horn",
-  "gm_alto_sax",
-  "gm_tenor_sax",
-  "gm_soprano_sax",
-  "gm_baritone_sax",
-  "gm_shanai",
-  "gm_sitar",
-  "gm_koto",
-  "gm_shamisen",
-  "gm_dulcimer",
-  "gm_banjo",
-]);
-const SYNTH_SOUNDS = new Set([
-  "triangle",
-  "sine",
-  "square",
-  "sawtooth",
-  "pulse",
-  "supersaw",
-  "tri",
-  "sin",
-  "sqr",
-  "saw",
-  "brown",
-  "white",
-  "pink",
-  "bytebeat",
-  "crackle",
-  "sbd",
-  "zzfx",
-  "user",
-  "z_noise",
-  "z_sine",
-  "z_square",
-  "z_sawtooth",
-  "z_triangle",
-  "z_tan",
-  "gm_lead_1_square",
-  "gm_lead_2_sawtooth",
-  "gm_lead_3_calliope",
-  "gm_lead_4_chiff",
-  "gm_lead_5_charang",
-  "gm_lead_6_voice",
-  "gm_lead_7_fifths",
-  "gm_lead_8_bass_lead",
-  "gm_pad_new_age",
-  "gm_pad_warm",
-  "gm_pad_poly",
-  "gm_pad_choir",
-  "gm_pad_bowed",
-  "gm_pad_metallic",
-  "gm_pad_halo",
-  "gm_pad_sweep",
-  "gm_fx_rain",
-  "gm_fx_soundtrack",
-  "gm_fx_crystal",
-  "gm_fx_atmosphere",
-  "gm_fx_brightness",
-  "gm_fx_goblins",
-  "gm_fx_echoes",
-  "gm_fx_sci_fi",
-  "gm_synth_bass_1",
-  "gm_synth_bass_2",
-  "gm_synth_brass_1",
-  "gm_synth_brass_2",
-  "gm_synth_drum",
-  "gm_synth_choir",
-]);
-
-function categorise(name: string): Category {
-  if (KEYBOARD_SOUNDS.has(name)) return "keyboards";
-  if (MALLET_SOUNDS.has(name)) return "mallets";
-  if (STRING_SOUNDS.has(name)) return "strings";
-  if (ORGAN_SOUNDS.has(name)) return "organs";
-  if (WIND_SOUNDS.has(name)) return "winds";
-  if (SYNTH_SOUNDS.has(name)) return "synths";
-  if (
-    /^(gm_drum|gm_taiko|gm_melodic_tom|gm_reverse_cymbal|gm_gunshot|gm_helicopter|gm_applause|gm_bird_tweet|gm_telephone|gm_seashore|gm_orchestra_hit|gm_brass_section|gm_voice_oohs|gm_choir_aahs|bd|sd|hh|cp|cr|cb|mt|ht|lt|misc|kick|snare|clap|hat|bass|tom|perc|rim|cym|cow|tamb|bong|conga|mrid|agogo|anv|brak|bongo|clave|cong|darb|frame|gong|guiro|mark|ocean|ratch|shak|siren|slap|sleigh|slit|sus_c|tamb|timpa|trian|vibra|wine|wood)/.test(
-      name
-    )
-  ) {
-    return "drums";
-  }
-  if (name.startsWith("gm_")) return "gm";
-  if (
-    name.startsWith("AJK") ||
-    name.startsWith("Akai") ||
-    name.startsWith("Roland") ||
-    name.includes("_bd") ||
-    name.includes("_sd") ||
-    name.includes("_hh")
-  ) {
-    return "drums";
-  }
-
-  return "other";
-}
 
 const filteredSounds = computed(() => {
   const normalizedQuery = query.value.trim().toLowerCase();
@@ -320,6 +99,7 @@ function groupSounds(sounds: string[]) {
 
   for (const sound of sounds) {
     const category = categorise(sound);
+    if (!category) continue;
     if (!map[category]) {
       map[category] = [];
     }
@@ -329,7 +109,28 @@ function groupSounds(sounds: string[]) {
   return map;
 }
 
-const activeTab = ref<Category>(categorise(currentInstrumentId.value));
+const activeTab = ref<Category | "shape">(categorise(currentInstrumentId.value) ?? "synths");
+const shapeHelp = ref("Shape the current sound. Reset restores its natural envelope and removes effects.");
+const shapeKnobs = [
+  { key: "cutoff", label: "Cutoff", ...SHAPE_KNOB_RANGES.cutoff, step: 100,
+    help: "Cutoff: lower it to soften the brightness. Fully up leaves the filter off.",
+    format: (v: number) => v >= 12000 ? "Off" : v >= 1000 ? `${(v / 1000).toFixed(1)}k` : `${v}Hz` },
+  { key: "resonance", label: "Resonance", ...SHAPE_KNOB_RANGES.resonance, step: 0.5,
+    help: "Resonance: emphasize the filter edge for a ringing tone. Lower Cutoff to hear it.",
+    format: (v: number) => v.toFixed(1) },
+  { key: "attack", label: "Attack", ...SHAPE_KNOB_RANGES.attack, step: 0.001,
+    help: "Attack: how gently a note fades in. Higher values soften its beginning.",
+    format: (v: number) => `${Math.round(v * 1000)}ms` },
+  { key: "release", label: "Release", ...SHAPE_KNOB_RANGES.release, step: 0.01,
+    help: "Release: how long a note fades after you let go. It cannot extend a sample beyond its recording.",
+    format: (v: number) => `${v.toFixed(2)}s` },
+  { key: "room", label: "Reverb", ...SHAPE_KNOB_RANGES.room, step: 0.01,
+    help: "Reverb: add a sense of space around the sound. Zero is dry.",
+    format: (v: number) => `${Math.round(v * 100)}%` },
+  { key: "delay", label: "Echo", ...SHAPE_KNOB_RANGES.delay, step: 0.01,
+    help: "Echo: add fading repeats, a quarter-second apart. Zero is off.",
+    format: (v: number) => `${Math.round(v * 100)}%` },
+] as const;
 const hasSearchQuery = computed(() => query.value.trim().length > 0);
 const allGrouped = computed(() => groupSounds(allSounds.value));
 const grouped = computed(() => groupSounds(filteredSounds.value));
@@ -344,19 +145,20 @@ const categoryTabs = computed(() =>
   )
 );
 
-const bankTabs = computed<TabbedOverlayTab[]>(() =>
-  categoryTabs.value.map((tab) => ({
+const bankTabs = computed<TabbedOverlayTab[]>(() => [
+  { value: "shape", label: "Shape", shortLabel: "Shape", tone: "brass" },
+  ...categoryTabs.value.map((tab) => ({
     value: tab.key,
     label: tab.label,
     shortLabel: tab.shortLabel,
   })),
-);
+]);
 
 function syncActiveTabToInstrument(instrumentId: string) {
   const preferredCategory = categorise(instrumentId);
-  activeTab.value = allGrouped.value[preferredCategory]?.length
+  activeTab.value = (preferredCategory && allGrouped.value[preferredCategory]?.length)
     ? preferredCategory
-    : categoryTabs.value[0]?.key ?? preferredCategory;
+    : categoryTabs.value[0]?.key ?? "synths";
 }
 
 onMounted(async () => {
@@ -366,17 +168,17 @@ onMounted(async () => {
     // The global loading flow already reports degraded initialization. Keep
     // the chooser usable for whatever sounds were registered successfully.
   }
-  allSounds.value = getRegisteredSounds().sort();
-  syncActiveTabToInstrument(currentInstrumentId.value);
+  allSounds.value = getRegisteredSounds()
+    .filter((sound) => categorise(sound) !== null)
+    .sort();
+  if (activeTab.value !== "shape") syncActiveTabToInstrument(currentInstrumentId.value);
 });
 
-watch(currentInstrumentId, syncActiveTabToInstrument);
+watch(currentInstrumentId, (instrumentId) => {
+  if (activeTab.value !== "shape") syncActiveTabToInstrument(instrumentId);
+});
 
-const activeTabMeta = computed(() => ({
-  value: activeTab.value,
-  label: CATEGORY_LABELS[activeTab.value],
-  shortLabel: CATEGORY_SHORT_LABELS[activeTab.value],
-}));
+const activeTabMeta = computed(() => bankTabs.value.find((tab) => tab.value === activeTab.value));
 
 function orderedGroupsFor(tabValue: string) {
   if (hasSearchQuery.value) {
@@ -406,6 +208,7 @@ function orderedGroupsFor(tabValue: string) {
 }
 
 const visibleSoundCount = computed(() => {
+  if (activeTab.value === "shape") return undefined;
   if (hasSearchQuery.value) {
     return filteredSounds.value.length;
   }
@@ -414,11 +217,12 @@ const visibleSoundCount = computed(() => {
 });
 
 const bankLabel = computed(() => {
+  if (activeTab.value === "shape") return `Shape · ${displayInstrumentName(currentInstrumentId.value)}`;
   if (hasSearchQuery.value) {
     return "Search";
   }
 
-  return activeTabMeta.value.label;
+  return activeTabMeta.value?.label;
 });
 
 const warmupStatusMessage = computed(() => {
@@ -566,6 +370,17 @@ async function selectInstrument(name: string, close: () => void) {
             :status="visibleSoundCount"
           >
             <Button
+              v-if="activeTab === 'shape'"
+              size="sm"
+              tone="ink"
+              data-testid="shape-reset"
+              title="Reset sound shaping"
+              accessible-name="Reset sound shaping"
+              @click="instrumentStore.resetSynthControls"
+            >
+              <RotateCcw :size="13" />
+            </Button>
+            <Button
               size="sm"
               title="Close sounds"
               accessible-name="Close sounds"
@@ -577,17 +392,17 @@ async function selectInstrument(name: string, close: () => void) {
         </template>
 
         <template #toolbar>
-          <div class="flex items-center gap-2">
+          <div v-if="activeTab !== 'shape'" class="flex items-center gap-2">
             <label
               class="flex flex-1 items-center gap-2 border-b border-[var(--ink-5)] px-0.5 pb-2 pt-0.5 text-[var(--ivory-3)] transition-colors focus-within:border-[var(--ivory-2)] focus-within:text-[var(--ivory)]"
             >
-              <Search :size="14" class="text-neutral-500" />
+              <Search :size="14" class="text-[var(--ivory-3)]" />
               <input
                 v-model="query"
                 data-testid="instrument-search"
                 type="text"
                 placeholder="search sounds"
-                class="w-full bg-transparent text-[10px] text-white placeholder:text-neutral-600 focus:outline-none"
+                class="w-full bg-transparent text-[10px] text-[var(--ivory)] placeholder:text-[var(--ivory-4)] focus:outline-none"
                 autocomplete="off"
                 autocorrect="off"
                 spellcheck="false"
@@ -595,7 +410,7 @@ async function selectInstrument(name: string, close: () => void) {
             </label>
 
             <span
-              class="hidden h-8 shrink-0 items-center border border-[#3b3b3b] bg-[#141414] px-2 text-[8px] font-mono uppercase tracking-[0.14em] text-[#dfdfdf] [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)] sm:inline-flex"
+              class="hidden h-8 shrink-0 items-center border border-[var(--ink-5)] bg-[var(--ink-2)] px-2 text-[8px] font-mono uppercase tracking-[0.14em] text-[var(--ivory-2)] [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)] sm:inline-flex"
             >
               {{ displayInstrumentName(currentInstrumentId) }}
             </span>
@@ -609,14 +424,14 @@ async function selectInstrument(name: string, close: () => void) {
             data-testid="instrument-warmup-banner"
             role="status"
             aria-live="polite"
-            class="flex items-center justify-between gap-3 border border-[#5d5d5d] bg-[#1b1b1b] px-3 py-2 text-[9px] uppercase tracking-[0.18em] text-[#e6e6e6] [clip-path:polygon(0_8px,8px_0,100%_0,100%_calc(100%-8px),calc(100%-8px)_100%,0_100%)]"
+            class="flex items-center justify-between gap-3 border border-[var(--ivory-4)] bg-[var(--ink-3)] px-3 py-2 text-[9px] uppercase tracking-[0.18em] text-[var(--ivory)] [clip-path:polygon(0_8px,8px_0,100%_0,100%_calc(100%-8px),calc(100%-8px)_100%,0_100%)]"
           >
             <span class="truncate">
               {{ warmupStatusMessage }}
             </span>
             <span class="relative h-3 w-3 shrink-0" aria-hidden="true">
-              <span class="absolute inset-0 rounded-full border border-white/20" />
-              <span class="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-r-white border-t-neutral-400 motion-reduce:animate-none" />
+              <span class="absolute inset-0 rounded-full border border-[color-mix(in_srgb,var(--ivory)_20%,transparent)]" />
+              <span class="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-r-[var(--ivory)] border-t-[var(--ivory-3)] motion-reduce:animate-none" />
             </span>
           </div>
 
@@ -629,23 +444,50 @@ async function selectInstrument(name: string, close: () => void) {
             {{ warmupErrorMessage }}
           </div>
 
+          <section v-if="panelTab === 'shape'" class="sound-shape" data-testid="sound-shape" aria-label="Sound shaping">
+            <div class="sound-shape__grid">
+              <div
+                v-for="control in shapeKnobs"
+                :key="control.key"
+                class="sound-shape__knob-cell"
+                :title="control.help"
+                @mouseenter="shapeHelp = control.help"
+                @focusin="shapeHelp = control.help"
+              >
+                <Knob
+                  :model-value="instrumentStore.synthControls[control.key]"
+                  type="range"
+                  :min="control.min"
+                  :max="control.max"
+                  :step="control.step"
+                  :label="control.label"
+                  tone="brass"
+                  :data-testid="`shape-knob-${control.key}`"
+                  :format-value="control.format"
+                  @update:model-value="(v) => instrumentStore.setSynthControl(control.key, Number(v))"
+                />
+              </div>
+            </div>
+            <p class="sound-shape__help" aria-live="polite">{{ shapeHelp }}</p>
+          </section>
+
           <div
-            v-if="!allSounds.length"
-            class="border border-dashed border-[#3a3a3a] bg-[#121212] px-4 py-5 text-center text-[10px] italic text-neutral-500 [clip-path:polygon(0_10px,10px_0,100%_0,100%_calc(100%-10px),calc(100%-10px)_100%,0_100%)]"
+            v-else-if="!allSounds.length"
+            class="border border-dashed border-[var(--ink-5)] bg-[var(--ink-2)] px-4 py-5 text-center text-[10px] italic text-[var(--ivory-3)] [clip-path:polygon(0_10px,10px_0,100%_0,100%_calc(100%-10px),calc(100%-10px)_100%,0_100%)]"
           >
             loading sounds…
           </div>
 
           <div
             v-else-if="!filteredSounds.length"
-            class="border border-dashed border-[#3a3a3a] bg-[#121212] px-4 py-5 text-center text-[10px] italic text-neutral-500 [clip-path:polygon(0_10px,10px_0,100%_0,100%_calc(100%-10px),calc(100%-10px)_100%,0_100%)]"
+            class="border border-dashed border-[var(--ink-5)] bg-[var(--ink-2)] px-4 py-5 text-center text-[10px] italic text-[var(--ivory-3)] [clip-path:polygon(0_10px,10px_0,100%_0,100%_calc(100%-10px),calc(100%-10px)_100%,0_100%)]"
           >
             no matches for "{{ query }}"
           </div>
 
           <div
             v-else-if="!orderedGroupsFor(panelTab).length"
-            class="border border-dashed border-[#3a3a3a] bg-[#121212] px-4 py-5 text-center text-[10px] italic text-neutral-500 [clip-path:polygon(0_10px,10px_0,100%_0,100%_calc(100%-10px),calc(100%-10px)_100%,0_100%)]"
+            class="border border-dashed border-[var(--ink-5)] bg-[var(--ink-2)] px-4 py-5 text-center text-[10px] italic text-[var(--ivory-3)] [clip-path:polygon(0_10px,10px_0,100%_0,100%_calc(100%-10px),calc(100%-10px)_100%,0_100%)]"
           >
             no sounds in this bank yet.
           </div>
@@ -657,10 +499,8 @@ async function selectInstrument(name: string, close: () => void) {
               class="instrument-group"
             >
               <div class="instrument-group__heading">
-                <span>{{ group.label }}</span>
-                <div>
-                  {{ group.sounds.length }}
-                </div>
+                <span class="panel-heading panel-heading--tape">{{ group.label }}</span>
+                <span>{{ group.sounds.length }}</span>
               </div>
 
               <div class="instrument-group__choices">
@@ -707,12 +547,37 @@ async function selectInstrument(name: string, close: () => void) {
   margin-top: 1.5rem;
 }
 
+.sound-shape {
+  padding-block: 0.375rem;
+}
+
+.sound-shape__grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.375rem;
+  align-items: center;
+  justify-items: center;
+}
+
+.sound-shape__knob-cell {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.sound-shape__help {
+  min-height: 2.8em;
+  margin: .75rem 0 0;
+  color: var(--ivory-3);
+  font: var(--t-body-mono);
+  font-size: 10px;
+}
+
 .instrument-group__heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: .75rem;
-  border-bottom: 1px solid var(--ivory-4);
   padding: 0 .125rem .5rem;
   color: var(--ivory-3);
   font-family: var(--font-mono);
@@ -768,6 +633,7 @@ async function selectInstrument(name: string, close: () => void) {
 }
 
 @media (max-width: 460px) {
+  .sound-shape__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .instrument-group__choices { gap: .5625rem .5rem; }
   .instrument-choice__sticker { font-size: 12px; }
 }

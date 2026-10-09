@@ -66,16 +66,6 @@
 
             <Button
               size="sm"
-              data-testid="config-save-as"
-              title="Save configuration"
-              accessible-name="Save configuration"
-              @click="promptSaveConfig"
-            >
-              <Save :size="14" />
-            </Button>
-
-            <Button
-              size="sm"
               title="Close settings"
               accessible-name="Close settings"
               @click="close"
@@ -87,201 +77,358 @@
 
         <template #default="{ activeValue: panelTab }">
           <div class="space-y-3">
-            <TabsContent value="home" :active-value="panelTab">
-            <section class="config-panel__scene-grid" aria-label="Visual scenes">
-              <button
-                v-for="preset in builtInPresets"
-                :key="preset.id"
-                type="button"
-                class="config-panel__sticker-action"
-                :data-testid="`preset-apply-${preset.id}`"
-                :aria-label="`Apply ${preset.name} scene`"
-                @click="applyBuiltInPreset(preset.id)"
-              >
-                <Sticker variant="outline" color="ivory">{{ preset.name }}</Sticker>
-                <span class="config-panel__sticker-copy">{{ preset.description }}</span>
-              </button>
+          <TabsContent value="global" :active-value="panelTab">
+            <section class="config-panel__section" data-testid="global-public-controls">
+              <header class="config-panel__section-header">
+                <div>
+                  <p class="config-panel__eyebrow panel-heading panel-heading--tape">Across EmotiTone</p>
+                  <h2 class="panel-heading panel-heading--band">Global</h2>
+                  <p class="config-panel__section-copy">
+                    Shared color and interface rhythm, independent of the Stage canvas.
+                  </p>
+                </div>
+
+                <Button
+                  size="sm"
+                  data-testid="global-reset"
+                  title="Reset Global"
+                  accessible-name="Reset Global"
+                  @click="resetGlobal"
+                >
+                  <RotateCcw :size="14" />
+                </Button>
+              </header>
+
+              <div class="config-panel__groups">
+                <div
+                  v-for="group in GLOBAL_CONTROL_GROUPS"
+                  :key="group.label"
+                  class="config-panel__group"
+                >
+                  <p class="config-panel__group-label panel-heading panel-heading--tape">{{ group.label }}</p>
+                  <p class="config-panel__group-copy">{{ group.description }}</p>
+                  <div class="config-panel__knob-grid">
+                    <Knob
+                      v-for="control in group.controls"
+                      :key="control.id"
+                      :data-testid="`global-control-${control.id}`"
+                      :model-value="globalControls[control.id]"
+                      :type="control.type"
+                      :options="control.options"
+                      :label="control.label"
+                      :tone="control.id === 'uiRhythm' ? 'brass' : 'ivory'"
+                      :class="{ 'config-panel__boolean-knob': control.id === 'uiRhythm' }"
+                      @update:modelValue="handleGlobalControl(control.id, $event)"
+                    />
+                  </div>
+                </div>
+
+                <details v-if="savedConfigs.length > 0" class="config-panel__legacy-configs">
+                  <summary>Legacy full configurations</summary>
+                  <p class="config-panel__group-copy">
+                    Kept for compatibility. Loading one can change every part of Config.
+                  </p>
+                  <article
+                    v-for="savedConfig in savedConfigs"
+                    :key="savedConfig.id"
+                    class="config-panel__saved-preset"
+                  >
+                    <button
+                      type="button"
+                      class="config-panel__saved-load"
+                      :data-testid="`saved-load-${savedConfig.id}`"
+                      :aria-label="`Load legacy configuration ${savedConfig.name}`"
+                      @click="loadSavedConfig(savedConfig.id)"
+                    >
+                      <Sticker variant="outline" color="ivory">{{ savedConfig.name }}</Sticker>
+                      <span class="config-panel__saved-time">{{ formatTimestamp(savedConfig.updatedAt) }}</span>
+                    </button>
+                    <Button
+                      size="sm"
+                      :data-testid="`saved-delete-${savedConfig.id}`"
+                      :title="`Delete ${savedConfig.name}`"
+                      :accessible-name="`Delete ${savedConfig.name}`"
+                      @click="deleteSavedConfig(savedConfig.id)"
+                    ><Trash2 :size="14" /></Button>
+                  </article>
+                </details>
+              </div>
             </section>
           </TabsContent>
 
-          <TabsContent
-            v-for="tab in sectionTabs"
-            :key="tab.name"
-            :value="tab.name"
-            :active-value="panelTab"
-          >
+          <TabsContent value="stage" :active-value="panelTab">
+            <div class="config-panel__stage-stack">
             <section
               class="config-panel__section"
-              :class="{
-                'config-panel__section--disabled':
-                  !visualsEnabled || !isSectionInteractable(tab.name),
-              }"
+              :class="{ 'config-panel__section--disabled': !visualsEnabled }"
+              data-testid="stage-public-controls"
             >
               <header class="config-panel__section-header">
                 <div>
-                  <p class="config-panel__eyebrow">Active section</p>
-                  <h2>{{ tab.label }}</h2>
+                  <p class="config-panel__eyebrow panel-heading panel-heading--tape">Canvas</p>
+                  <h2 class="panel-heading panel-heading--band">Stage</h2>
+                  <p class="config-panel__section-copy">
+                    Control the complete visual canvas. Related layers share focused destinations.
+                  </p>
                 </div>
 
                 <div class="config-panel__section-controls">
                   <Knob
-                    v-if="getSectionEnableKey(tab.name) !== null"
                     type="boolean"
-                    :model-value="isSectionEnabled(tab.name)"
-                    label="Section"
+                    :model-value="stageControls.stageEnabled"
+                    label="Stage"
                     tone="brass"
                     class="config-panel__boolean-knob"
-                    :data-testid="`section-toggle-${tab.name}`"
-                    :title="isSectionEnabled(tab.name) ? `Disable ${tab.label}` : `Enable ${tab.label}`"
-                    :aria-label="isSectionEnabled(tab.name) ? `Disable ${tab.label}` : `Enable ${tab.label}`"
-                    @update:modelValue="setSectionEnabled(tab.name, Boolean($event))"
+                    data-testid="stage-toggle"
+                    :is-disabled="!visualsEnabled"
+                    @update:modelValue="updateStageControl('stageEnabled', Boolean($event))"
                   />
                   <Button
                     size="sm"
-                    :data-testid="`section-reset-${tab.name}`"
-                    :title="`Reset ${tab.label}`"
-                    :accessible-name="`Reset ${tab.label}`"
-                    @click="resetSectionToDefaults(tab.name)"
+                    data-testid="stage-reset"
+                    title="Reset Stage"
+                    accessible-name="Reset Stage"
+                    :disabled="!visualsEnabled"
+                    @click="resetStage"
                   >
                     <RotateCcw :size="14" />
                   </Button>
                 </div>
               </header>
+            </section>
+
+            <section
+              class="config-panel__presets config-panel__section"
+              :class="{ 'config-panel__section--disabled': stageLooksDisabled }"
+              data-testid="stage-looks"
+            >
+              <header class="config-panel__looks-header">
+                <div>
+                  <p class="config-panel__eyebrow panel-heading panel-heading--tape">Stage only</p>
+                  <h2 class="panel-heading panel-heading--band">Looks</h2>
+                  <p class="config-panel__section-copy">
+                    Built-ins preserve body relationships and explanations; saved Looks restore what you saved.
+                  </p>
+                </div>
+
+                <div class="config-panel__looks-actions">
+                  <Button
+                    size="sm"
+                    data-testid="stage-look-shuffle"
+                    title="Shuffle a new Stage Look"
+                    accessible-name="Shuffle a new Stage Look"
+                    :disabled="stageLooksDisabled"
+                    @click="shuffleStageLook()"
+                  ><ShuffleIcon :size="14" /></Button>
+                  <Button
+                    size="sm"
+                    data-testid="stage-look-save"
+                    title="Save current Stage Look"
+                    accessible-name="Save current Stage Look"
+                    :disabled="stageLooksDisabled"
+                    @click="promptSaveStageLook"
+                  ><Save :size="14" /></Button>
+                </div>
+              </header>
+
+              <div v-if="transientStageLook" class="config-panel__look-preview">
+                <p class="config-panel__look-status" role="status">
+                  Previewing {{ transientStageLook.name }}. Edits stay temporary until kept.
+                </p>
+                <div class="config-panel__look-preview-actions">
+                  <Button
+                    size="sm"
+                    :disabled="stageLooksDisabled"
+                    data-testid="stage-look-keep"
+                    title="Keep this Stage Look"
+                    accessible-name="Keep this Stage Look"
+                    @click="keepStageLook"
+                  ><Check :size="14" /></Button>
+                  <Button
+                    size="sm"
+                    :disabled="stageLooksDisabled"
+                    data-testid="stage-look-discard"
+                    title="Discard this Stage Look"
+                    accessible-name="Discard this Stage Look"
+                    @click="clearStageLook"
+                  ><RotateCcw :size="14" /></Button>
+                </div>
+              </div>
+
+              <div class="config-panel__preset-group">
+                <p class="config-panel__group-label panel-heading panel-heading--tape">Built In</p>
+                <div class="config-panel__scene-grid">
+                  <button
+                    v-for="look in builtInLooks"
+                    :key="look.id"
+                    type="button"
+                    class="config-panel__sticker-action"
+                    :disabled="stageLooksDisabled"
+                    :data-testid="`preset-apply-${look.id}`"
+                    :aria-label="`Preview ${look.name} Stage Look`"
+                    @click="applyBuiltInStageLook(look.id)"
+                  >
+                    <Sticker variant="outline" color="ivory">{{ look.name }}</Sticker>
+                    <span class="config-panel__sticker-copy">{{ look.description }}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="config-panel__preset-group">
+                <p class="config-panel__group-label panel-heading panel-heading--tape">Saved Stage Looks</p>
+                <div v-if="savedStageLooks.length === 0" class="config-panel__empty-state">
+                  No saved Stage Looks yet.
+                </div>
+                <article
+                  v-for="look in savedStageLooks"
+                  :key="look.id"
+                  class="config-panel__saved-preset"
+                >
+                  <button
+                    type="button"
+                    class="config-panel__saved-load"
+                    :disabled="stageLooksDisabled"
+                    :data-testid="`stage-look-load-${look.id}`"
+                    :aria-label="`Preview ${look.name}`"
+                    @click="loadSavedStageLook(look.id)"
+                  >
+                    <Sticker variant="outline" color="ivory">{{ look.name }}</Sticker>
+                    <span class="config-panel__saved-time">{{ formatTimestamp(look.updatedAt) }}</span>
+                  </button>
+                  <Button
+                    size="sm"
+                    :data-testid="`stage-look-delete-${look.id}`"
+                    :title="`Delete ${look.name}`"
+                    :accessible-name="`Delete ${look.name}`"
+                    @click="deleteSavedStageLook(look.id)"
+                  ><Trash2 :size="14" /></Button>
+                </article>
+              </div>
+
+            </section>
+            </div>
+          </TabsContent>
+
+          <TabsContent
+            v-for="destination in STAGE_DETAIL_TABS"
+            :key="destination.value"
+            :value="destination.value"
+            :active-value="panelTab"
+          >
+            <section
+              class="config-panel__section"
+              :class="{ 'config-panel__section--disabled': !visualsEnabled || !stageControls.stageEnabled }"
+              :data-testid="`stage-destination-${destination.value}`"
+            >
+              <header class="config-panel__section-header">
+                <div>
+                  <p class="config-panel__eyebrow panel-heading panel-heading--tape">Stage layers</p>
+                  <h2 class="panel-heading panel-heading--band">{{ destination.label }}</h2>
+                  <p class="config-panel__section-copy">{{ destination.description }}</p>
+                </div>
+              </header>
+
+              <div v-if="transientStageLook" class="config-panel__look-preview">
+                <p class="config-panel__look-status" role="status">
+                  Previewing {{ transientStageLook.name }}. Edits stay temporary until kept.
+                </p>
+                <div class="config-panel__look-preview-actions">
+                  <Button
+                    size="sm"
+                    :disabled="stageLooksDisabled"
+                    :data-testid="`stage-look-keep-${destination.value}`"
+                    title="Keep this Stage Look"
+                    accessible-name="Keep this Stage Look"
+                    @click="keepStageLook"
+                  ><Check :size="14" /></Button>
+                  <Button
+                    size="sm"
+                    :disabled="stageLooksDisabled"
+                    :data-testid="`stage-look-discard-${destination.value}`"
+                    title="Discard this Stage Look"
+                    accessible-name="Discard this Stage Look"
+                    @click="clearStageLook"
+                  ><RotateCcw :size="14" /></Button>
+                </div>
+              </div>
 
               <div class="config-panel__groups">
                 <div
-                  v-for="group in getRenderableFieldGroups(tab.name)"
-                  :key="`${tab.name}-${group.label || 'settings'}`"
+                  v-for="group in destination.groups"
+                  :key="group.label"
                   class="config-panel__group"
                 >
-                  <p
-                    v-if="group.label"
-                    class="config-panel__group-label"
-                  >
-                    {{ group.label }}
-                  </p>
-
-                  <div
-                    class="config-panel__knob-grid"
-                  >
-                    <template
-                      v-for="field in group.fields"
-                      :key="`${tab.name}-${field.key}`"
-                    >
-                      <Knob
-                        v-if="typeof field.value === 'boolean'"
-                        :model-value="field.value"
-                        type="boolean"
-                        :label="formatLabel(tab.name, field.key)"
-                        :is-disabled="!visualsEnabled || !isSectionInteractable(tab.name)"
-                        @update:modelValue="
-                          (newValue) => updateValue(tab.name, field.key, newValue)
-                        "
-                      />
-
-                      <Knob
-                        v-else-if="
-                          typeof field.value === 'string' &&
-                          hasOptions(tab.name, field.key)
-                        "
-                        :model-value="field.value"
-                        type="options"
-                        :options="getFieldOptions(tab.name, field.key)"
-                        :label="formatLabel(tab.name, field.key)"
-                        :is-disabled="!visualsEnabled || !isSectionInteractable(tab.name)"
-                        @update:modelValue="
-                          (newValue) => updateValue(tab.name, field.key, newValue)
-                        "
-                      />
-
-                      <Knob
-                        v-else-if="typeof field.value === 'number'"
-                        :model-value="field.value"
-                        type="range"
-                        :min="getNumberMin(tab.name, field.key)"
-                        :max="getNumberMax(tab.name, field.key)"
-                        :step="getNumberStep(tab.name, field.key)"
-                        :label="formatLabel(tab.name, field.key)"
-                        :format-value="
-                          (val: number) => formatValue(tab.name, field.key, val)
-                        "
-                        :is-disabled="!visualsEnabled || !isSectionInteractable(tab.name)"
-                        @update:modelValue="
-                          (newValue) => updateValue(tab.name, field.key, newValue)
-                        "
-                      />
-                    </template>
+                  <template v-if="destination.groups.length > 1">
+                    <p class="config-panel__group-label panel-heading panel-heading--tape">{{ group.label }}</p>
+                    <p class="config-panel__group-copy">{{ group.description }}</p>
+                  </template>
+                  <div class="config-panel__knob-grid">
+                    <Knob
+                      v-for="control in group.controls"
+                      :key="control.id"
+                      :data-testid="`stage-control-${control.id}`"
+                      :model-value="stageControls[control.id]"
+                      :type="control.type"
+                      :min="control.min"
+                      :max="control.max"
+                      :step="control.step"
+                      :options="control.options"
+                      :label="control.label"
+                      :format-value="control.format"
+                      :is-disabled="isStageControlDisabled(control.id)"
+                      @update:modelValue="updateStageControl(control.id, $event)"
+                    />
                   </div>
                 </div>
               </div>
             </section>
           </TabsContent>
 
-          <TabsContent value="presets" :active-value="panelTab">
-            <section class="config-panel__presets">
-              <div class="config-panel__preset-group">
-                <p class="config-panel__group-label">Built In</p>
-
-                <div class="config-panel__scene-grid">
-                  <button
-                    v-for="preset in builtInPresets"
-                    :key="`library-${preset.id}`"
-                    type="button"
-                    class="config-panel__sticker-action"
-                    :data-testid="`library-apply-${preset.id}`"
-                    :aria-label="`Apply ${preset.name} preset`"
-                    @click="applyBuiltInPreset(preset.id)"
-                  >
-                    <Sticker variant="outline" color="ivory">{{ preset.name }}</Sticker>
-                    <span class="config-panel__sticker-copy">{{ preset.description }}</span>
-                  </button>
+          <TabsContent value="deck" :active-value="panelTab">
+            <section class="config-panel__section" data-testid="deck-public-controls">
+              <header class="config-panel__section-header">
+                <div>
+                  <p class="config-panel__eyebrow panel-heading panel-heading--tape">Performance surface</p>
+                  <h2 class="panel-heading panel-heading--band">Deck</h2>
+                  <p class="config-panel__section-copy">
+                    Shared notation and the useful Keyboard and Code Strip choices.
+                  </p>
                 </div>
-              </div>
 
-              <div class="config-panel__preset-group">
-                <p class="config-panel__group-label">Saved</p>
+                <Button
+                  size="sm"
+                  data-testid="deck-reset"
+                  title="Reset Deck"
+                  accessible-name="Reset Deck"
+                  @click="resetDeck"
+                >
+                  <RotateCcw :size="14" />
+                </Button>
+              </header>
 
+              <div class="config-panel__groups">
                 <div
-                  v-if="savedConfigs.length === 0"
-                  class="config-panel__empty-state"
+                  v-for="group in DECK_CONTROL_GROUPS"
+                  :key="group.label"
+                  class="config-panel__group"
                 >
-                  No saved configs yet.
+                  <p class="config-panel__group-label panel-heading panel-heading--tape">{{ group.label }}</p>
+                  <p class="config-panel__group-copy">{{ group.description }}</p>
+                  <div class="config-panel__knob-grid">
+                    <Knob
+                      v-for="control in group.controls"
+                      :key="control.id"
+                      :data-testid="`deck-control-${control.id}`"
+                      :model-value="deckControls[control.id]"
+                      :type="control.type"
+                      :options="control.options"
+                      :label="control.label"
+                      :is-disabled="(control.id === 'showRests' || control.id === 'durationMode') && !deckControls.codeStrip"
+                      @update:modelValue="handleDeckControl(control.id, $event)"
+                    />
+                  </div>
                 </div>
-
-                <article
-                  v-for="savedConfig in savedConfigs"
-                  :key="savedConfig.id"
-                  class="config-panel__saved-preset"
-                >
-                  <button
-                    type="button"
-                    class="config-panel__saved-load"
-                    :data-testid="`saved-load-${savedConfig.id}`"
-                    :aria-label="`Load ${savedConfig.name}`"
-                    @click="loadSavedConfig(savedConfig.id)"
-                  >
-                    <Sticker variant="outline" color="ivory">
-                      {{ savedConfig.name }}
-                    </Sticker>
-                    <span
-                      class="config-panel__saved-time"
-                    >
-                      {{ formatTimestamp(savedConfig.updatedAt) }}
-                    </span>
-                  </button>
-
-                  <Button
-                    size="sm"
-                    :data-testid="`saved-delete-${savedConfig.id}`"
-                    :title="`Delete ${savedConfig.name}`"
-                    :accessible-name="`Delete ${savedConfig.name}`"
-                    @click="deleteSavedConfig(savedConfig.id)"
-                  >
-                    <Trash2 :size="14" />
-                  </Button>
-                </article>
               </div>
-
             </section>
           </TabsContent>
 
@@ -354,7 +501,7 @@
                 class="config-panel__midi-surface"
               >
                 <div class="space-y-2">
-                  <p class="config-panel__group-label">ROLI</p>
+                  <p class="config-panel__group-label panel-heading panel-heading--tape">ROLI</p>
 
                   <p class="config-panel__midi-copy">
                     Generate a live-sync LittleFoot script from the current
@@ -404,18 +551,27 @@
 import { computed, ref } from "vue";
 import MidiSettingsIcon from "@/components/primatives/MidiSettingsIcon.vue";
 import OverlayPanelHeader from "@/components/OverlayPanelHeader.vue";
+import "./panelHeading.css";
 import { storeToRefs, type Pinia } from "pinia";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
 import { useVisualConfigStore } from "@/stores/visualConfig";
-import { CONFIG_SECTIONS, UNIFIED_CONFIG } from "@/data/visual-config-metadata";
-import { BUILT_IN_VISUAL_PRESETS } from "@/data/visual-config-presets";
+import { BUILT_IN_STAGE_LOOKS } from "@/data/visual-config-presets";
+import {
+  STAGE_CONTROL_GROUPS,
+  type StageControlId,
+} from "@/services/stageAppearance";
+import {
+  DECK_CONTROL_GROUPS,
+  GLOBAL_CONTROL_GROUPS,
+  type DeckControlId,
+  type GlobalControlId,
+} from "@/services/configPublicSurface";
 import type { ChromaticNote } from "@/types";
-import type { VisualEffectsConfig } from "@/types/visual";
 import { TabsContent } from "@/components/ui";
 import Button from "@/components/primatives/Button.vue";
 import Knob from "@/components/primatives/Knob/index.vue";
-import Sticker from "@/components/primatives/Sticker.vue";
+import Sticker from "@/components/primatives/Sticker";
 import MidiPermissionIcon from "./MidiPermissionIcon.vue";
 import TabbedOverlayPanel from "./TabbedOverlayPanel.vue";
 import TopDrawer from "./TopDrawer.vue";
@@ -428,6 +584,8 @@ import {
   Trash2,
   ClipboardCopy,
   FileDown,
+  Shuffle as ShuffleIcon,
+  Check,
 } from "lucide-vue-next";
 import { generateRoliPianoScript } from "@/services/roliPianoExport";
 import {
@@ -441,183 +599,167 @@ const props = defineProps<{
   visualConfigPinia?: Pinia;
 }>();
 
-type ConfigSectionKey = keyof VisualEffectsConfig;
-type SectionField = {
-  key: string;
-  value: string | number | boolean;
-  group: string;
+const GLOBAL_TAB = {
+  value: "global",
+  label: "Global",
+  shortLabel: "Global",
 };
 
-const SECTION_SHORT_LABELS: Record<ConfigSectionKey, string> = {
-  blobs: "Blobs",
-  ambient: "Glow",
-  particles: "Dust",
-  strings: "Lines",
-  animation: "Anim",
-  frequencyMapping: "Freq",
-  dynamicColors: "Color",
-  hilbertScope: "Scope",
-  uiBeat: "Beat",
-  patterns: "Notes",
-  keyboard: "Keys",
-  codeStrip: "Code Strip",
+const STAGE_TAB = {
+  value: "stage",
+  label: "Stage",
+  shortLabel: "Stage",
 };
 
-const HOME_TAB = {
-  value: "home",
-  label: "Scenes",
-  shortLabel: "Home",
-};
+const STAGE_DETAIL_TABS = [
+  {
+    value: "scope",
+    label: "Scope",
+    shortLabel: "Scope",
+    description: "Shape the primary musical body and raw-waveform surface.",
+    groups: [STAGE_CONTROL_GROUPS[0]],
+  },
+  {
+    value: "bodies",
+    label: "Note Bodies",
+    shortLabel: "Bodies",
+    description: "Tune the Circle-of-Fifths bodies and how simultaneous notes join.",
+    groups: [STAGE_CONTROL_GROUPS[1]],
+  },
+  {
+    value: "relations",
+    label: "Relations",
+    shortLabel: "Relations",
+    description: "Choose what the Stage explains about simultaneous notes.",
+    groups: [STAGE_CONTROL_GROUPS[4]],
+  },
+  {
+    value: "layers",
+    label: "Layers",
+    shortLabel: "Layers",
+    description: "Balance atmosphere and pitch strings.",
+    groups: [
+      STAGE_CONTROL_GROUPS[2],
+      STAGE_CONTROL_GROUPS[3],
+    ],
+  },
+];
 
-const PRESET_TAB = {
-  value: "presets",
-  label: "Presets",
-  shortLabel: "Presets",
+const DECK_TAB = {
+  value: "deck",
+  label: "Deck",
+  shortLabel: "Deck",
 };
 
 const MIDI_TAB = {
   value: "midi",
-  label: "MIDI & ROLI",
+  label: "MIDI",
   shortLabel: "MIDI",
   icon: MidiPermissionIcon,
 };
 
-const SECTION_ORDER: ConfigSectionKey[] = [
-  "blobs",
-  "ambient",
-  "particles",
-  "strings",
-  "animation",
-  "frequencyMapping",
-  "dynamicColors",
-  "hilbertScope",
-  "uiBeat",
-  "patterns",
-  "keyboard",
-  "codeStrip",
-];
-
 const visualConfigStore = useVisualConfigStore(props.visualConfigPinia);
 const keyboardDrawerStore = useKeyboardDrawerStore();
 const musicStore = useMusicStore();
-const activeTab = ref("home");
-
-const { config, visualsEnabled, savedConfigs } = storeToRefs(visualConfigStore);
+const activeTab = ref("global");
 
 const {
-  updateValue,
+  config,
+  visualsEnabled,
+  savedConfigs,
+  savedStageLooks,
+  transientStageLook,
+  stageControls,
+  globalControls,
+  deckControls,
+} = storeToRefs(visualConfigStore);
+
+const {
   resetToDefaults,
-  resetSection,
   exportConfig: storeExportConfig,
   setVisualsEnabled,
-  saveConfigAs,
   loadSavedConfig,
   deleteSavedConfig,
-  loadConfigSnapshot,
+  updateStageControl,
+  applyBuiltInStageLook,
+  shuffleStageLook,
+  keepStageLook,
+  clearStageLook,
+  resetStage,
+  saveStageLookAs,
+  loadSavedStageLook,
+  deleteSavedStageLook,
+  updateGlobalControl,
+  resetGlobal,
+  updateDeckControl,
+  resetDeck,
 } = visualConfigStore;
 
-const builtInPresets = BUILT_IN_VISUAL_PRESETS;
-
-const sectionTabs = computed(() =>
-  SECTION_ORDER.map((sectionName) => {
-    const meta = CONFIG_SECTIONS[sectionName];
-
-    return {
-      name: sectionName,
-      label: meta?.label ?? sectionName,
-      shortLabel: SECTION_SHORT_LABELS[sectionName],
-    };
-  })
-);
+const builtInLooks = BUILT_IN_STAGE_LOOKS;
 
 const allTabs = computed(() => [
-  HOME_TAB,
-  ...sectionTabs.value.map((tab) => ({
-    value: tab.name,
-    label: tab.label,
-    shortLabel: tab.shortLabel,
-  })),
+  GLOBAL_TAB,
+  STAGE_TAB,
+  ...STAGE_DETAIL_TABS,
+  DECK_TAB,
   MIDI_TAB,
-  PRESET_TAB,
 ]);
 
 const activeTabLabel = computed(
   () => allTabs.value.find((tab) => tab.value === activeTab.value)?.label ?? ""
 );
 
-const getSectionConfig = (sectionName: ConfigSectionKey) =>
-  config.value[sectionName] as Record<string, string | number | boolean>;
+const stageLooksDisabled = computed(
+  () => !visualsEnabled.value || !stageControls.value.stageEnabled,
+);
 
-const getSectionEnableKey = (sectionName: ConfigSectionKey) => {
-  const section = getSectionConfig(sectionName);
+const BODY_DEPENDENT_CONTROLS = new Set<StageControlId>([
+  "bodySize",
+  "bodyStrength",
+  "bodyMotion",
+  "connectionMode",
+  "connectionStrength",
+  "connectionSoftness",
+  "showChords",
+  "showIntervals",
+  "showEmotion",
+  "labelStrength",
+]);
 
-  if ("isEnabled" in section) {
-    return "isEnabled";
-  }
-
-  if ("enabled" in section) {
-    return "enabled";
-  }
-
-  return null;
+const isStageControlDisabled = (control: StageControlId) => {
+  if (!visualsEnabled.value || !stageControls.value.stageEnabled) return true;
+  if (
+    control !== "bodiesVisible"
+    && BODY_DEPENDENT_CONTROLS.has(control)
+    && !stageControls.value.bodiesVisible
+  ) return true;
+  if (
+    control === "labelStrength"
+    && !stageControls.value.showChords
+    && !stageControls.value.showIntervals
+    && !stageControls.value.showEmotion
+  ) return true;
+  if (
+    control === "atmosphereColorDepth"
+    && stageControls.value.atmosphereStrength <= 0.01
+  ) return true;
+  return false;
 };
 
-const isSectionEnabled = (sectionName: ConfigSectionKey) => {
-  const enableKey = getSectionEnableKey(sectionName);
-  if (!enableKey) return true;
-
-  return Boolean(getSectionConfig(sectionName)[enableKey]);
+const handleGlobalControl = (
+  control: GlobalControlId,
+  value: string | number | boolean,
+) => {
+  if (typeof value === "number") return;
+  updateGlobalControl(control, value);
 };
 
-const isSectionInteractable = (sectionName: ConfigSectionKey) => {
-  const enableKey = getSectionEnableKey(sectionName);
-  if (!enableKey) return true;
-
-  return Boolean(getSectionConfig(sectionName)[enableKey]);
-};
-
-const setSectionEnabled = (sectionName: ConfigSectionKey, enabled: boolean) => {
-  const enableKey = getSectionEnableKey(sectionName);
-  if (!enableKey) return;
-
-  updateValue(sectionName, enableKey, enabled);
-};
-
-const getRenderableFields = (sectionName: ConfigSectionKey): SectionField[] => {
-  const section = getSectionConfig(sectionName);
-  const enableKey = getSectionEnableKey(sectionName);
-
-  return Object.entries(section)
-    .filter(([key]) => {
-      if (key === enableKey) return false;
-
-      const metadata = (UNIFIED_CONFIG[sectionName] as Record<string, any>)[key];
-      if (metadata?.hidden) return false;
-      const visibility = metadata?.visibleWhen;
-      return !visibility || visibility.values.includes(section[visibility.field]);
-    })
-    .map(([key, value]) => ({
-      key,
-      value,
-      group:
-        (UNIFIED_CONFIG[sectionName] as Record<string, any>)[key]?.group ?? "",
-    }));
-};
-
-const getRenderableFieldGroups = (sectionName: ConfigSectionKey) => {
-  const groups = new Map<string, SectionField[]>();
-
-  getRenderableFields(sectionName).forEach((field) => {
-    const fields = groups.get(field.group) ?? [];
-    fields.push(field);
-    groups.set(field.group, fields);
-  });
-
-  return [...groups].map(([label, fields]) => ({ label, fields }));
-};
-
-const resetSectionToDefaults = (sectionName: ConfigSectionKey) => {
-  resetSection(sectionName);
+const handleDeckControl = (
+  control: DeckControlId,
+  value: string | number | boolean,
+) => {
+  if (typeof value === "number") return;
+  updateDeckControl(control, value);
 };
 
 const connectedInputs = computed(() => keyboardDrawerStore.midi.connectedInputs);
@@ -773,78 +915,6 @@ const roliSyncMessage = computed(() => {
   return "When a LUMI/ROLI MIDI output is connected, the app will mirror notes and push palette changes automatically after the script is loaded.";
 });
 
-const getFieldMetadata = (sectionName: ConfigSectionKey, fieldName: string) => {
-  const section = UNIFIED_CONFIG[sectionName];
-  if (
-    section &&
-    typeof section === "object" &&
-    fieldName in section &&
-    fieldName !== "_meta"
-  ) {
-    return (section as Record<string, any>)[fieldName];
-  }
-
-  return null;
-};
-
-const formatLabel = (sectionName: ConfigSectionKey, key: string) => {
-  const metadata = getFieldMetadata(sectionName, key);
-  if (metadata?.label) {
-    return metadata.label;
-  }
-
-  return key
-    .replace(/([A-Z])/g, " $1")
-    .replace(/^./, (value) => value.toUpperCase());
-};
-
-const formatValue = (
-  sectionName: ConfigSectionKey,
-  key: string,
-  value: number
-) => {
-  const metadata = getFieldMetadata(sectionName, key);
-
-  if (metadata?.format && typeof metadata.format === "function") {
-    try {
-      return metadata.format(value);
-    } catch (error) {
-      console.error(`Error formatting ${sectionName}.${key}:`, error);
-    }
-  }
-
-  return value.toString();
-};
-
-const getNumberMin = (sectionName: ConfigSectionKey, key: string) =>
-  getFieldMetadata(sectionName, key)?.min ?? 0;
-
-const getNumberMax = (sectionName: ConfigSectionKey, key: string) =>
-  getFieldMetadata(sectionName, key)?.max ?? 100;
-
-const getNumberStep = (sectionName: ConfigSectionKey, key: string) =>
-  getFieldMetadata(sectionName, key)?.step ?? 0.1;
-
-const hasOptions = (sectionName: ConfigSectionKey, key: string) => {
-  const metadata = getFieldMetadata(sectionName, key);
-
-  return (
-    metadata?.options &&
-    Array.isArray(metadata.options) &&
-    metadata.options.length > 0
-  );
-};
-
-const getFieldOptions = (sectionName: ConfigSectionKey, key: string) =>
-  getFieldMetadata(sectionName, key)?.options || [];
-
-const applyBuiltInPreset = (presetId: string) => {
-  const preset = builtInPresets.find((item) => item.id === presetId);
-  if (!preset) return;
-
-  loadConfigSnapshot(preset.config);
-};
-
 const exportConfig = async () => {
   const configJson = storeExportConfig();
 
@@ -900,16 +970,16 @@ const downloadRoliPianoScript = () => {
   );
 };
 
-const promptSaveConfig = () => {
+const promptSaveStageLook = () => {
   const name =
     typeof window !== "undefined" && typeof window.prompt === "function"
-      ? window.prompt("Enter a name for this configuration:")
+      ? window.prompt("Enter a name for this Stage Look:")
       : null;
 
   if (!name?.trim()) return;
 
-  saveConfigAs(name.trim());
-  notify(`Configuration "${name.trim()}" saved.`);
+  saveStageLookAs(name.trim());
+  notify(`Stage Look "${name.trim()}" saved.`);
 };
 
 const notify = (message: string) => {
@@ -931,14 +1001,16 @@ const formatTimestamp = (timestamp: string) => {
 <style scoped>
 .config-panel__section-header,
 .config-panel__section-controls,
+.config-panel__looks-header,
+.config-panel__looks-actions,
+.config-panel__look-preview,
+.config-panel__look-preview-actions,
 .config-panel__midi-actions,
 .config-panel__saved-preset {
   display: flex;
   align-items: center;
 }
 
-.config-panel__eyebrow,
-.config-panel__group-label,
 .config-panel__saved-time,
 .config-panel__labeled-action span {
   margin: 0;
@@ -962,8 +1034,6 @@ const formatTimestamp = (timestamp: string) => {
   margin-block-end: clamp(var(--s-5), 4vw, var(--s-7));
 }
 
-.config-panel__eyebrow,
-.config-panel__group-label,
 .config-panel__saved-time,
 .config-panel__labeled-action span {
   color: var(--ivory);
@@ -972,12 +1042,57 @@ const formatTimestamp = (timestamp: string) => {
   opacity: .52;
 }
 
-.config-panel__section-header h2 {
-  margin: var(--s-1) 0 0;
+.config-panel__eyebrow,
+.config-panel__group-label {
+  margin: 0;
+}
+
+.config-panel__section-header h2,
+.config-panel__looks-header h2 {
+  margin: var(--s-2) 0 0;
+}
+
+.config-panel__section-copy,
+.config-panel__group-copy,
+.config-panel__look-status,
+.config-panel__legacy-configs {
+  margin: 0;
   color: var(--ivory);
-  font: var(--t-display-m);
-  letter-spacing: var(--tracking-display);
-  text-transform: uppercase;
+  font: var(--t-body-mono);
+  font-size: 10px;
+  line-height: 1.55;
+  opacity: .58;
+}
+
+.config-panel__section-copy {
+  max-inline-size: 54ch;
+  margin-block-start: var(--s-2);
+}
+
+.config-panel__look-preview {
+  justify-content: space-between;
+  gap: var(--s-3);
+  border-inline-start: 3px solid var(--brass);
+  padding: var(--s-3) var(--s-4);
+  background: var(--ink);
+}
+
+.config-panel__section > .config-panel__look-preview {
+  margin-block: calc(-1 * var(--s-3)) var(--s-6);
+}
+
+.config-panel__presets > .config-panel__look-preview {
+  margin-block: calc(-1 * var(--s-3));
+}
+
+.config-panel__look-status {
+  flex: 1;
+  opacity: .82;
+}
+
+.config-panel__look-preview-actions {
+  flex: none;
+  gap: var(--s-2);
 }
 
 .config-panel__section-controls {
@@ -987,7 +1102,8 @@ const formatTimestamp = (timestamp: string) => {
 }
 
 .config-panel__groups,
-.config-panel__presets {
+.config-panel__presets,
+.config-panel__stage-stack {
   display: grid;
   gap: clamp(var(--s-7), 5vw, var(--s-9));
 }
@@ -1007,9 +1123,34 @@ const formatTimestamp = (timestamp: string) => {
   gap: var(--s-4);
 }
 
-.config-panel__group-label {
+.config-panel__group-copy {
+  max-inline-size: 56ch;
+  margin-block-start: calc(-1 * var(--s-2));
+}
+
+.config-panel__looks-header {
+  justify-content: space-between;
+  gap: var(--s-4);
+}
+
+.config-panel__looks-actions {
+  align-items: flex-start;
+  flex: none;
+  gap: var(--s-2);
+}
+
+.config-panel__legacy-configs {
+  display: grid;
+  gap: var(--s-3);
+  opacity: .72;
+}
+
+.config-panel__legacy-configs summary {
+  cursor: pointer;
   color: var(--ivory);
-  opacity: .64;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: .12em;
 }
 
 .config-panel__knob-grid {
@@ -1057,6 +1198,17 @@ const formatTimestamp = (timestamp: string) => {
   box-shadow: none;
 }
 
+.config-panel__sticker-action:disabled,
+.config-panel__saved-load:disabled {
+  cursor: default;
+  opacity: .38;
+}
+
+.config-panel__sticker-action:disabled:active :deep(.sticker),
+.config-panel__saved-load:disabled:active :deep(.sticker) {
+  transform: none;
+}
+
 .config-panel__sticker-action:focus-visible,
 .config-panel__saved-load:focus-visible {
   outline: 2px solid var(--ivory);
@@ -1080,7 +1232,7 @@ const formatTimestamp = (timestamp: string) => {
 }
 
 .config-panel__empty-state {
-  border-inline-start: 3px solid rgb(244 239 230 / 22%);
+  border-inline-start: 3px solid color-mix(in srgb, var(--ivory) 22%, transparent);
   padding: var(--s-4);
   color: var(--ivory);
   font: var(--t-body-mono);
@@ -1127,7 +1279,7 @@ const formatTimestamp = (timestamp: string) => {
   block-size: 2.5rem;
   flex: none;
   place-items: center;
-  border: 1px solid rgb(244 239 230 / 22%);
+  border: 1px solid color-mix(in srgb, var(--ivory) 22%, transparent);
   border-radius: 50%;
   background: var(--ink);
   color: var(--ivory);
@@ -1136,12 +1288,12 @@ const formatTimestamp = (timestamp: string) => {
 .config-panel__midi-mark--quiet { opacity: .48; }
 .config-panel__midi-mark--active {
   border-color: var(--ivory);
-  box-shadow: 0 0 12px rgb(244 239 230 / 14%);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--ivory) 14%, transparent);
 }
 
 .config-panel__midi-port {
   padding: var(--s-3);
-  border: 1px solid rgb(244 239 230 / 12%);
+  border: 1px solid color-mix(in srgb, var(--ivory) 12%, transparent);
 }
 
 .config-panel__midi-kicker,

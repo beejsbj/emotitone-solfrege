@@ -1,9 +1,8 @@
 /**
  * Canvas and Animation Types
- * Type definitions for canvas rendering, particles, and animation systems
+ * Type definitions for canvas rendering and animation systems
  */
 
-import type { MarkName } from "@/components/primatives/marks";
 import type {
   ActiveNote,
   ChromaticNote,
@@ -89,9 +88,28 @@ export interface HarmonicGeometryLabel {
   y: number;
   lines: string[];
   size: "sm" | "md" | "lg";
+  roles?: Array<"chord" | "emotion" | "interval">;
+  angle?: number;
+  notePair?: [string, string];
+}
+
+/** Exact prepared material join, published by the field renderer for lettering. */
+export interface HarmonicConnectionPath {
+  material?: "web" | "merge";
+  notePair: [string, string];
+  points: Array<{ x: number; y: number }>;
+  colors: [string, string];
+  opacity: number;
 }
 
 export interface HarmonicGeometryScene {
+  /** Analysis identity, retained even when the chord headline is hidden. */
+  chordSymbol?: string;
+  /** Centre of visible Merge material, projected inside the body if necessary. */
+  mergeCenter?: { x: number; y: number };
+  connectionMode?: "off" | "web" | "merge";
+  renderedConnections?: HarmonicConnectionPath[];
+  viewport?: { width: number; height: number };
   points: HarmonicGeometryPoint[];
   orderedPoints: HarmonicGeometryPoint[];
   centroid: { x: number; y: number };
@@ -100,34 +118,6 @@ export interface HarmonicGeometryScene {
   interiorEdges: HarmonicIntervalEdge[];
   primaryLabel: HarmonicGeometryLabel | null;
   auxiliaryLabels: HarmonicGeometryLabel[];
-}
-
-/**
- * Particle object for particle system
- */
-export interface Particle {
-  /** X position on canvas */
-  x: number;
-  /** Y position on canvas */
-  y: number;
-  /** X velocity */
-  vx: number;
-  /** Y velocity */
-  vy: number;
-  /** Particle color */
-  color: string;
-  /** Mark rendered by this particle */
-  mark: MarkName;
-  /** Particle size */
-  size: number;
-  /** Current life remaining */
-  life: number;
-  /** Maximum lifetime */
-  maxLife: number;
-  /** Current rotation angle */
-  rotation: number;
-  /** Rotation speed per frame */
-  rotationSpeed: number;
 }
 
 /**

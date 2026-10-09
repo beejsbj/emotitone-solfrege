@@ -6,8 +6,9 @@ import type { PatternNote } from "@/types/patterns";
 import type { KeyboardConfig, CodeStripConfig } from "@/types/visual";
 import type { CodeStripNote, CodeStripToken } from "./types";
 import { Note as TonalNote } from "@tonaljs/tonal";
+import { prepareRecordedNotes, recordedLoopTailMs } from "@/services/recordedTiming";
 
-const OVERLAP_EPSILON_MS = 1;
+const OVERLAP_EPSILON_MS = 0;
 const NOTE_NAMES: CodeStripNote[] = ["do", "re", "mi", "fa", "sol", "la", "ti"];
 
 interface IndexedNote {
@@ -60,7 +61,7 @@ export function buildRecordedCodeStripTokens(input: RecordedCodeStripInput): Cod
     return [];
   }
 
-  const schedule = buildSchedule(input.notes);
+  const schedule = buildSchedule(prepareRecordedNotes(input.notes));
   const tokens: CodeStripToken[] = [];
 
   for (const event of schedule) {
@@ -132,6 +133,7 @@ export function buildRecordedCodeStripTokens(input: RecordedCodeStripInput): Cod
     });
   }
 
+  tokens.push({ type: "rest", duration: formatDuration(recordedLoopTailMs(input.sourceBpm), input.barMs) });
   return tokens;
 }
 

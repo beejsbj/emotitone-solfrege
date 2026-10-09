@@ -4,10 +4,10 @@ import App from "./App.vue";
 import "./style.css";
 import "./emotitone-design-system.css";
 import piniaPluginPersistedstate from "pinia-plugin-persistedstate";
-import { tooltipPlugin } from "./directives/tooltip";
 import { beginKnobPageEdition } from "./components/primatives/Knob/edition";
 import { beginTabsPageEdition } from "./components/primatives/TabsEdition";
 import { registerSW } from 'virtual:pwa-register';
+import { currentPathname, isStyleGuideRoute } from "./styleGuideRoutes";
 
 async function clearDevServiceWorkers() {
   if (!("serviceWorker" in navigator)) {
@@ -26,16 +26,15 @@ async function clearDevServiceWorkers() {
 const app = createApp(App);
 const pinia = createPinia();
 
-const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
-const isDesignRoute = [
-  "/style-guide",
-  "/style-guide/tabs",
-  "/style-guide/instrument-picker",
-  "/style-guide/config-menu",
-  "/style-guide/pattern-reel",
+const pathname = currentPathname();
+// Every guide URL App.vue routes to the style guide comes from the same
+// module, so browsing the guide never runs production-only bootstrap such as
+// the knob edition.
+const isDesignRoute = isStyleGuideRoute(pathname);
+const isPersistenceFreeDesignRoute = [
   "/style-guide/performance-deck",
+  "/style-guide/stage",
 ].includes(pathname);
-const isPersistenceFreeDesignRoute = pathname === "/style-guide/performance-deck";
 if (!isPersistenceFreeDesignRoute) {
   beginTabsPageEdition();
 }
@@ -44,8 +43,11 @@ if (!isDesignRoute || pathname === "/style-guide/config-menu") {
 }
 
 app.use(pinia);
-pinia.use(piniaPluginPersistedstate);
-app.use(tooltipPlugin);
+// The picker specimen drives the real instrument store; keep its knob edits
+// out of the app's saved instrument and Shapes.
+if (pathname !== "/style-guide/instrument-picker") {
+  pinia.use(piniaPluginPersistedstate);
+}
 
 if (import.meta.env.DEV) {
   void clearDevServiceWorkers();

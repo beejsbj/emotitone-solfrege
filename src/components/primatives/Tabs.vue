@@ -14,8 +14,9 @@
     @wheel="handleRailWheel"
   >
     <div ref="trackEl" class="tabs__track">
-      <span class="tabs__streak" aria-hidden="true" />
+      <span v-if="!isMarquee" class="tabs__streak" aria-hidden="true" />
       <span
+        v-if="!isMarquee"
         class="tabs__chip"
         :class="{ 'tabs__chip--smearing': smearing, brass: resolvedTone === 'brass' }"
         :style="chipStyle"
@@ -26,9 +27,13 @@
         :key="tab.value"
         type="button"
         class="tabs__button"
-        :class="{ 'tabs__button--active': tab.value === activeValue }"
+        :class="{
+          'tabs__button--active': tab.value === activeValue,
+          'tabs__button--brass': isMarquee && (tab.tone ?? railTone) === 'brass',
+        }"
         :disabled="tab.disabled"
         :data-testid="tab.testId"
+        :data-tone="tab.tone"
         :tabindex="tab.value === activeValue ? 0 : -1"
         role="tab"
         :aria-label="tab.icon ? tab.label : undefined"
@@ -43,6 +48,14 @@
         </span>
         <span v-else class="tabs__label">
           {{ tab.value === activeValue ? tab.label : tab.shortLabel ?? tab.label }}
+        </span>
+        <span v-if="isMarquee" class="tabs__bulbs" aria-hidden="true">
+          <span
+            v-for="bulb in MARQUEE_BULBS"
+            :key="bulb"
+            class="tabs__bulb"
+            :style="{ transitionDelay: bulbDelay(bulb - 1) }"
+          />
         </span>
       </button>
     </div>
@@ -68,9 +81,11 @@ export interface TabItem {
   icon?: Component;
   disabled?: boolean;
   testId?: string;
+  /** Optional material for one destination; geometry still follows the rail. */
+  tone?: TabsTone;
 }
 
-export type TabsGeometry = "tab" | "offcut" | "tile" | "sharp" | "rip";
+export type TabsGeometry = "tab" | "offcut" | "tile" | "sharp" | "rip" | "marquee";
 export type TabsDensity = "comfortable" | "compact";
 export type TabsTone = "ivory" | "brass";
 export type TabsLayout = "equal" | "scroll";
@@ -127,9 +142,34 @@ const hasPinnedEdition = computed(() => props.geometry !== undefined || props.to
 const resolvedGeometry = computed(() =>
   props.geometry ?? (hasPinnedEdition.value ? "tab" : pageEdition.geometry),
 );
-const resolvedTone = computed(() =>
+const railTone = computed<TabsTone>(() =>
   props.tone ?? (hasPinnedEdition.value ? "ivory" : pageEdition.tone),
 );
+const resolvedTone = computed(() =>
+  props.tabs.find((tab) => tab.value === activeValue.value)?.tone ?? railTone.value,
+);
+
+/*
+ * Marquee: no chip. Every destination carries a row of bulbs; only the chosen
+ * one is lit, and on change they light one after another in the direction of
+ * travel. Per-destination tone lights that destination's bulbs in Brass.
+ */
+const MARQUEE_BULBS = 7;
+const MARQUEE_BULB_STEP_MS = 34;
+const isMarquee = computed(() => resolvedGeometry.value === "marquee");
+const chaseDirection = ref<1 | -1>(1);
+
+watch(activeValue, (next, previous) => {
+  const nextIndex = props.tabs.findIndex((tab) => tab.value === next);
+  const previousIndex = props.tabs.findIndex((tab) => tab.value === previous);
+  if (nextIndex < 0 || previousIndex < 0 || nextIndex === previousIndex) return;
+  chaseDirection.value = nextIndex > previousIndex ? 1 : -1;
+});
+
+const bulbDelay = (bulb: number) => {
+  const step = chaseDirection.value === 1 ? bulb : MARQUEE_BULBS - 1 - bulb;
+  return `${step * MARQUEE_BULB_STEP_MS}ms`;
+};
 
 const classes = computed(() => [
   `tabs--geometry-${resolvedGeometry.value}`,
@@ -333,7 +373,7 @@ onBeforeUnmount(() => {
 .tabs {
   position: relative;
   width: 100%;
-  border: 1px solid rgb(244 239 230 / 18%);
+  border: 1px solid color-mix(in srgb, var(--ivory) 18%, transparent);
   background: var(--ink);
   overflow: hidden;
 }
@@ -455,6 +495,11 @@ onBeforeUnmount(() => {
   min-width: 58px;
 }
 
+.tabs__button[data-tone="brass"]:not(.tabs__button--active) {
+  color: var(--brass-hi);
+  mix-blend-mode: normal;
+}
+
 .tabs__label,
 .tabs__label--icon {
   display: inline-flex;
@@ -495,8 +540,98 @@ onBeforeUnmount(() => {
   opacity: .38;
 }
 
+/* Marquee geometry: an unboxed rail of lit names. */
+.tabs--geometry-marquee {
+  border: 0;
+  background: var(--ink-2);
+}
+
+.tabs--geometry-marquee .tabs__track {
+  padding: 4px;
+}
+
+.tabs--geometry-marquee .tabs__button {
+  --light: var(--ivory);
+  --glow: color-mix(in srgb, var(--ivory) 55%, transparent);
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 10px 12px 8px;
+  color: var(--ivory-4);
+  mix-blend-mode: normal;
+}
+
+.tabs--geometry-marquee .tabs__button--brass {
+  --light: var(--brass-hi);
+  --glow: color-mix(in srgb, var(--brass-hi) 70%, transparent);
+}
+
+.tabs--geometry-marquee .tabs__button.tabs__button--brass:not(.tabs__button--active) {
+  color: color-mix(in srgb, var(--brass) 55%, var(--ink));
+}
+
+.tabs--geometry-marquee .tabs__button:not(:disabled):not(.tabs__button--active):hover {
+  color: var(--ivory-3);
+}
+
+.tabs--geometry-marquee .tabs__button--active {
+  color: var(--light);
+}
+
+.tabs--geometry-marquee .tabs__button:focus-visible {
+  outline: 2px solid var(--ivory);
+  outline-offset: -2px;
+}
+
+.tabs--geometry-marquee .tabs__label {
+  transition:
+    color var(--dur-ui) var(--ease-brush),
+    text-shadow var(--dur-ui) var(--ease-brush);
+}
+
+.tabs--geometry-marquee .tabs__button--active .tabs__label {
+  text-shadow: 0 0 10px var(--glow);
+}
+
+.tabs__bulbs {
+  display: flex;
+  gap: 4px;
+}
+
+.tabs__bulb {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--ink-5);
+  transition:
+    background-color var(--dur-tap) var(--ease-stab),
+    box-shadow var(--dur-tap) var(--ease-stab);
+}
+
+.tabs__button--active .tabs__bulb {
+  background: var(--light);
+  box-shadow: 0 0 5px var(--glow);
+}
+
+.tabs--geometry-marquee.tabs--density-compact .tabs__button {
+  min-height: 34px;
+  gap: 5px;
+  padding: 7px 9px 6px;
+}
+
+.tabs--geometry-marquee.tabs--density-compact .tabs__bulb {
+  width: 3px;
+  height: 3px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tabs__chip {
+    transition: none;
+  }
+
+  .tabs--geometry-marquee .tabs__label,
+  .tabs__bulb {
     transition: none;
   }
 
@@ -533,6 +668,29 @@ onBeforeUnmount(() => {
 
   .tabs__button--active {
     color: HighlightText;
+  }
+
+  .tabs--geometry-marquee .tabs__button--active {
+    background: Highlight;
+    color: HighlightText;
+  }
+
+  .tabs--geometry-marquee .tabs__button.tabs__button--brass:not(.tabs__button--active) {
+    color: ButtonText;
+  }
+
+  .tabs--geometry-marquee .tabs__button--active .tabs__label {
+    text-shadow: none;
+  }
+
+  .tabs__bulb,
+  .tabs__button--active .tabs__bulb {
+    background: CanvasText;
+    box-shadow: none;
+  }
+
+  .tabs__button--active .tabs__bulb {
+    background: HighlightText;
   }
 }
 </style>

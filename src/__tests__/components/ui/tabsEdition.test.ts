@@ -18,6 +18,22 @@ function memoryStorage(initialValue: string | null = null) {
 }
 
 describe("Tabs page edition", () => {
+  it("rotates the six chip editions and the Marquee variant in a fixed order", () => {
+    expect(TABS_EDITIONS.map((edition) => edition.id)).toEqual([
+      "tab-ivory",
+      "offcut-ivory",
+      "tile-ivory",
+      "sharp-ivory",
+      "rip-ivory",
+      "tab-brass",
+      "marquee-ivory",
+    ]);
+    expect(nextTabsEdition("tab-brass")).toEqual({
+      id: "marquee-ivory", geometry: "marquee", tone: "ivory",
+    });
+    expect(nextTabsEdition("marquee-ivory")).toEqual(TABS_EDITIONS[0]);
+  });
+
   it("cycles through every accepted guide variant across app loads", () => {
     const storage = memoryStorage();
     const received = TABS_EDITIONS.map(() => beginTabsPageEdition(storage).id);

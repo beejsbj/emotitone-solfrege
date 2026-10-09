@@ -1,10 +1,10 @@
 {
-  "buildCommand": "bun install && bun run build",
+  "buildCommand": "bun install && EMOTITONE_VERIFY_BYPASS_LOCK=1 bun run build",
   "outputDirectory": "dist",
   "framework": "vue",
   "rewrites": [
     {
-      "source": "/api/melograph/analyze",
+      "source": "/api/pitch-analysis/analyze",
       "destination": "https://melograph-swart.vercel.app/api/analyze"
     },
     {

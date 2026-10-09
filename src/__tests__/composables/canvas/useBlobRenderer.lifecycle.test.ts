@@ -3,11 +3,16 @@ import { createPinia, setActivePinia } from "pinia";
 import { MAJOR_SOLFEGE } from "@/data";
 import { DEFAULT_CONFIG } from "@/data/visual-config-metadata";
 import { useBlobRenderer } from "@/composables/canvas/useBlobRenderer";
+import { resolveStageComposition } from "@/composables/canvas/stageRuntime";
 import { mockCanvasContext } from "@/__tests__/helpers/test-utils";
 
 vi.mock("@/composables/useMusicColor", () => ({
   useMusicColor: () => ({
     getPrimaryColorForPitch: vi.fn(
+      (_scaleIndex: number, pitchClassIndex: number | undefined) =>
+        `pitch-${pitchClassIndex ?? "scale"}`,
+    ),
+    getStaticPrimaryColorForPitch: vi.fn(
       (_scaleIndex: number, pitchClassIndex: number | undefined) =>
         `pitch-${pitchClassIndex ?? "scale"}`,
     ),
@@ -147,5 +152,255 @@ describe("useBlobRenderer lifecycle", () => {
 
     expect(renderer.activeBlobs.get("d-sharp-4")?.pitchClassIndex).toBe(3);
     expect(renderer.getPreparedBlobFrames()[0]?.primaryColor).toBe("pitch-3");
+  });
+
+  it("reprojects held and releasing bodies without resetting their lifecycle", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_000);
+    const renderer = useBlobRenderer();
+    createTestBlob(renderer);
+    const blob = renderer.activeBlobs.get("c4")!;
+    renderer.startBlobFadeOutById("c4");
+    const lifecycle = {
+      startTime: blob.startTime,
+      fadeOutStartTime: blob.fadeOutStartTime,
+      vibrationPhase: blob.vibrationPhase,
+    };
+
+    renderer.reprojectBlobs({
+      usable: { x: 0, y: 0, width: 400, height: 240 },
+      centerX: 200,
+      centerY: 120,
+      hilbertRadius: 30,
+      orbitRadiusX: 120,
+      orbitRadiusY: 65,
+      blobFitScale: 0.5,
+      suspended: false,
+    }, DEFAULT_CONFIG.blobs, true);
+
+    expect(blob.x).toBe(200);
+    expect(blob.y).toBe(55);
+    expect(blob).toMatchObject(lifecycle);
+    expect(blob.isFadingOut).toBe(true);
+  });
+
+  it("applies Body Size changes to already-held notes", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_000);
+    const renderer = useBlobRenderer();
+    createTestBlob(renderer);
+    const blob = renderer.activeBlobs.get("c4")!;
+    expect(blob.baseRadius).toBe(120);
+
+    renderer.reprojectBlobs({
+      usable: { x: 0, y: 0, width: 400, height: 240 },
+      centerX: 200,
+      centerY: 120,
+      hilbertRadius: 30,
+      orbitRadiusX: 120,
+      orbitRadiusY: 65,
+      blobFitScale: 1,
+      suspended: false,
+    }, {
+      ...DEFAULT_CONFIG.blobs,
+      minSize: 50,
+      baseSizeRatio: 0.25,
+    }, true);
+
+    expect(blob.baseRadius).toBe(60);
+  });
+
+  it("applies responsive Body Size to the prepared radius without replacing lifecycle state", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_000);
+    const renderer = useBlobRenderer();
+    createTestBlob(renderer);
+    const blob = renderer.activeBlobs.get("c4")!;
+    renderer.startBlobFadeOutById("c4");
+    const lifecycle = {
+      startTime: blob.startTime,
+      fadeOutStartTime: blob.fadeOutStartTime,
+      vibrationPhase: blob.vibrationPhase,
+    };
+    const radii: number[] = [];
+
+    for (const ratio of [0.05, 0.1, 0.15]) {
+      const composition = resolveStageComposition(
+        { x: 0, y: 0, width: 800, height: 375 },
+        75,
+        0.6,
+        ratio / 0.1,
+      );
+      renderer.reprojectBlobs(composition, {
+        ...DEFAULT_CONFIG.blobs,
+        baseSizeRatio: ratio,
+      }, true);
+      renderer.prepareBlobs(context, {
+        ...DEFAULT_CONFIG.blobs,
+        baseSizeRatio: ratio,
+        oscillationAmplitude: 0,
+      }, {
+        reducedMotion: true,
+        bounds: composition.usable,
+      });
+      radii.push(renderer.getPreparedBlobFrames()[0]!.scaledRadius);
+      expect(blob).toMatchObject(lifecycle);
+      expect(blob.isFadingOut).toBe(true);
+    }
+
+    expect(radii[0]).toBeCloseTo(radii[1]! * 0.5, 6);
+    expect(radii[2]).toBeCloseTo(radii[1]! * 1.5, 6);
+  });
+
+  it("applies Body Strength changes to held and releasing bodies", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_000);
+    const renderer = useBlobRenderer();
+    createTestBlob(renderer);
+    const blob = renderer.activeBlobs.get("c4")!;
+    const startTime = blob.startTime;
+    vi.mocked(Date.now).mockReturnValue(2_000);
+
+    renderer.prepareBlobs(context, {
+      ...DEFAULT_CONFIG.blobs,
+      opacity: 0.3,
+      oscillationAmplitude: 0,
+    });
+    expect(blob.opacity).toBe(0.3);
+    expect(blob.renderOpacity).toBeCloseTo(0.3, 6);
+    expect(renderer.getPreparedBlobFrames()[0]?.opacity).toBeCloseTo(0.3, 6);
+    expect(blob.startTime).toBe(startTime);
+
+    renderer.prepareBlobs(context, {
+      ...DEFAULT_CONFIG.blobs,
+      opacity: 0,
+      oscillationAmplitude: 0,
+    });
+    expect(renderer.activeBlobs.get("c4")).toBe(blob);
+    expect(renderer.getPreparedBlobFrames()).toHaveLength(0);
+
+    vi.mocked(Date.now).mockReturnValue(2_100);
+    renderer.startBlobFadeOutById("c4");
+    const fadeOutStartTime = blob.fadeOutStartTime;
+    vi.mocked(Date.now).mockReturnValue(2_600);
+    const releasingConfig = {
+      ...DEFAULT_CONFIG.blobs,
+      opacity: 0.8,
+      fadeOutDuration: 2,
+      scaleOutDuration: 2,
+      oscillationAmplitude: 0,
+    };
+    const fadeMultiplier = Math.cos(Math.PI / 8);
+
+    renderer.prepareBlobs(context, releasingConfig);
+    expect(blob.renderOpacity).toBeCloseTo(0.8 * fadeMultiplier, 6);
+
+    renderer.prepareBlobs(context, { ...releasingConfig, opacity: 0.4 });
+    expect(blob.opacity).toBe(0.4);
+    expect(blob.renderOpacity).toBeCloseTo(0.4 * fadeMultiplier, 6);
+    expect(blob.startTime).toBe(startTime);
+    expect(blob.fadeOutStartTime).toBe(fadeOutStartTime);
+
+    renderer.prepareBlobs(
+      context,
+      { ...releasingConfig, opacity: 0.65 },
+      { reducedMotion: true },
+    );
+    expect(blob.renderOpacity).toBeCloseTo(0.65, 6);
+    expect(blob.fadeOutStartTime).toBe(fadeOutStartTime);
+  });
+
+  it("vibrates with pitch-scaled harmonic motion matching strings", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_000);
+    const renderer = useBlobRenderer();
+    // Low note: C2 (65.41 Hz)
+    renderer.createBlob(
+      MAJOR_SOLFEGE[0],
+      65.41,
+      0,
+      0,
+      800,
+      600,
+      DEFAULT_CONFIG.blobs,
+      "low-c2",
+      "C",
+      "major",
+      2
+    );
+    // High note: C5 (523.25 Hz)
+    renderer.createBlob(
+      MAJOR_SOLFEGE[0],
+      523.25,
+      0,
+      0,
+      800,
+      600,
+      DEFAULT_CONFIG.blobs,
+      "high-c5",
+      "C",
+      "major",
+      5
+    );
+
+    vi.mocked(Date.now).mockReturnValue(1_500);
+    const motionConfig = {
+      ...DEFAULT_CONFIG.blobs,
+      vibrationAmplitude: 10,
+    };
+    renderer.prepareBlobs(context, motionConfig, { elapsed: 1.5 });
+
+    const frames = renderer.getPreparedBlobFrames();
+    const lowFrame = frames.find((f) => f.key === "low-c2")!;
+    const highFrame = frames.find((f) => f.key === "high-c5")!;
+
+    expect(lowFrame).toBeDefined();
+    expect(highFrame).toBeDefined();
+
+    const highPitchPeriod = 100 / highFrame.blob.frequency;
+    renderer.prepareBlobs(context, motionConfig, {
+      elapsed: 1.5 + highPitchPeriod,
+    });
+    const laterFrames = renderer.getPreparedBlobFrames();
+    const laterLowFrame = laterFrames.find((f) => f.key === "low-c2")!;
+    const laterHighFrame = laterFrames.find((f) => f.key === "high-c5")!;
+    const contourDifference = (
+      first: typeof lowFrame,
+      second: typeof lowFrame,
+    ) => first.contour.reduce((sum, point, index) => {
+      const laterPoint = second.contour[index]!;
+      return sum + Math.hypot(
+        point.x - laterPoint.x,
+        point.y - laterPoint.y,
+      );
+    }, 0) / first.contour.length;
+
+    // One period of the high note returns its contour to the same shape while
+    // the low note has advanced by only one eighth of its own period.
+    expect(contourDifference(highFrame, laterHighFrame)).toBeCloseTo(0, 6);
+    expect(contourDifference(lowFrame, laterLowFrame)).toBeGreaterThan(0.1);
+
+    // Both contours should be closed (first and last points match)
+    const lowContour = lowFrame.contour;
+    expect(lowContour[0].x).toBeCloseTo(lowContour[lowContour.length - 1].x, 6);
+    expect(lowContour[0].y).toBeCloseTo(lowContour[lowContour.length - 1].y, 6);
+
+    // Reduced motion keeps contour at exact scaledRadius
+    renderer.prepareBlobs(context, DEFAULT_CONFIG.blobs, {
+      reducedMotion: true,
+      elapsed: 1.5,
+    });
+    const stillLowFrame = renderer.getPreparedBlobFrames().find((f) => f.key === "low-c2")!;
+    const stillRadius = stillLowFrame.scaledRadius;
+    for (const pt of stillLowFrame.contour) {
+      const dist = Math.hypot(pt.x - stillLowFrame.blob.x, pt.y - stillLowFrame.blob.y);
+      expect(dist).toBeCloseTo(stillRadius, 4);
+    }
+
+    // Default config (motion at 0) keeps contour at exact scaledRadius without reducedMotion
+    renderer.prepareBlobs(context, DEFAULT_CONFIG.blobs, {
+      reducedMotion: false,
+      elapsed: 1.5,
+    });
+    const defaultLowFrame = renderer.getPreparedBlobFrames().find((f) => f.key === "low-c2")!;
+    for (const pt of defaultLowFrame.contour) {
+      const dist = Math.hypot(pt.x - defaultLowFrame.blob.x, pt.y - defaultLowFrame.blob.y);
+      expect(dist).toBeCloseTo(defaultLowFrame.scaledRadius, 4);
+    }
   });
 });

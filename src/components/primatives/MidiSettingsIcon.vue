@@ -18,10 +18,12 @@ withDefaults(defineProps<{
 </template>
 
 <style scoped>
-.midi-settings-icon { --midi-led: #5e5e5e; }
-.midi-settings-icon--connected { --midi-led: #d7d7d7; --midi-glow: rgb(215 215 215 / 45%); }
-.midi-settings-icon--connecting { --midi-led: #bdbdbd; --midi-glow: rgb(189 189 189 / 55%); }
-.midi-settings-icon--error { --midi-led: #8a8a8a; --midi-glow: rgb(138 138 138 / 45%); }
+/* The gear's centre is a status LED: dim Ivory when off, Ivory while connecting,
+   Brass when a controller is live (the instrument-metal "on"), Tomato on error. */
+.midi-settings-icon { --midi-led: var(--ivory-4); }
+.midi-settings-icon--connecting { --midi-led: var(--ivory-2); --midi-glow: color-mix(in srgb, var(--ivory-2) 55%, transparent); }
+.midi-settings-icon--connected { --midi-led: var(--brass); --midi-glow: color-mix(in srgb, var(--brass) 45%, transparent); }
+.midi-settings-icon--error { --midi-led: var(--tomato); --midi-glow: color-mix(in srgb, var(--tomato) 45%, transparent); }
 .midi-settings-icon:not(.midi-settings-icon--idle) { filter: drop-shadow(0 0 5px var(--midi-glow)); }
 .midi-settings-icon :deep(circle) { fill: var(--midi-led); stroke: var(--midi-led); }
 @media (forced-colors: active) {

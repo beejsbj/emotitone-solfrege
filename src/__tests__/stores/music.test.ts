@@ -5,25 +5,30 @@ vi.unmock("@/services/music");
 vi.unmock("@/data");
 
 import { useMusicStore } from "@/stores/music";
-import { usePatternsStore } from "@/stores/patterns";
+import { usePhrasesStore } from "@/stores/phrases";
 import { useInstrumentStore } from "@/stores/instrument";
+import { DEFAULT_INSTRUMENT } from "@/data/instruments";
 
 const superdoughMocks = vi.hoisted(() => ({
   attackNote: vi.fn().mockResolvedValue(undefined),
   releaseNote: vi.fn(),
+  stopNote: vi.fn(),
   releaseAll: vi.fn(),
   playNoteWithDuration: vi.fn().mockResolvedValue(undefined),
+  audioContext: { state: "running", get currentTime() { return performance.now() / 1000; } },
 }));
 
 vi.mock("@/services/superdoughAudio", () => ({
+  setLiveSynthControls: vi.fn(),
   attackNote: superdoughMocks.attackNote,
   releaseNote: superdoughMocks.releaseNote,
+  stopNote: superdoughMocks.stopNote,
   releaseAll: superdoughMocks.releaseAll,
   playNoteWithDuration: superdoughMocks.playNoteWithDuration,
   initSuperdoughAudio: vi.fn().mockResolvedValue(undefined),
   isPrewarmed: vi.fn().mockReturnValue(true),
   prewarmSoundSamples: vi.fn().mockResolvedValue(undefined),
-  getAudioContext: vi.fn(),
+  getAudioContext: vi.fn(() => superdoughMocks.audioContext),
   emotitoneStrudelOutput: vi.fn(),
   stopStrudelVisuals: vi.fn(),
 }));
@@ -34,6 +39,7 @@ describe("music store", () => {
     superdoughMocks.attackNote.mockClear();
     superdoughMocks.attackNote.mockResolvedValue(undefined);
     superdoughMocks.releaseNote.mockClear();
+    superdoughMocks.stopNote.mockClear();
     superdoughMocks.releaseAll.mockClear();
     superdoughMocks.playNoteWithDuration.mockClear();
     if (typeof localStorage?.clear === "function") {
@@ -50,6 +56,7 @@ describe("music store", () => {
     expect(musicStore.currentModeDefinition.label).toBe("Harmonic Minor");
     expect(musicStore.currentKeyDisplay).toBe("D Harmonic Minor");
     expect(musicStore.currentScale.degreeCount).toBe(7);
+    expect(musicStore.currentScaleNotes).toEqual(["D", "E", "F", "G", "A", "A#", "C#"]);
     expect(musicStore.currentScale.solfege.map((note) => note.name)).toEqual([
       "Do",
       "Re",
@@ -121,7 +128,7 @@ describe("music store", () => {
 
   it("attacks borrowed chord tones through the exact-pitch seam without scale flooring", async () => {
     const musicStore = useMusicStore();
-    const patternsStore = usePatternsStore();
+    const patternsStore = usePhrasesStore();
     const dispatchEventSpy = vi.spyOn(window, "dispatchEvent");
 
     musicStore.setKey("C");
@@ -132,7 +139,7 @@ describe("music store", () => {
     expect(superdoughMocks.attackNote).toHaveBeenCalledWith(
       noteId,
       "D#4",
-      "piano",
+      DEFAULT_INSTRUMENT,
     );
     expect(musicStore.getActiveNotes()[0]).toMatchObject({
       noteName: "D#4",
@@ -151,13 +158,13 @@ describe("music store", () => {
       .map(([event]) => event)
       .find((event) => event.type === "note-released") as CustomEvent;
     patternsStore.handleNoteReleased(releasedEvent);
-    expect(patternsStore.loggedNotes[0]).toMatchObject({
+    expect(patternsStore.takeNotes[0]).toMatchObject({
       note: "D#4",
       scaleDegree: 0,
       scaleIndex: -1,
       pitchClassIndex: 3,
       isBorrowed: true,
-      solfege: { name: "D#", number: 0 },
+      // Solfège display data is no longer stored on each recorded note.
     });
     patternsStore.removeEventListeners();
   });
@@ -202,17 +209,19 @@ describe("music store", () => {
     expect(superdoughMocks.attackNote).toHaveBeenCalledWith(
       noteId,
       "F5",
-      "piano"
+      DEFAULT_INSTRUMENT,
     );
     expect(musicStore.getActiveNotes()).toHaveLength(1);
     expect(musicStore.getActiveNotes()[0].solfege.name).toBe("Ti");
     expect(musicStore.getActiveNotes()[0].mode).toBe("chromatic");
     expect(musicStore.getActiveNotes()[0].key).toBe("F#");
+    expect(musicStore.getActiveNotes()[0].pitchClassIndex).toBe(5);
     const notePlayedEvent = dispatchEventSpy.mock.calls.find(
       ([event]) => event.type === "note-played"
     )?.[0] as CustomEvent;
     expect(notePlayedEvent.detail.mode).toBe("chromatic");
     expect(notePlayedEvent.detail.key).toBe("F#");
+    expect(notePlayedEvent.detail.pitchClassIndex).toBe(5);
 
     await musicStore.releaseNote(noteId!);
     expect(superdoughMocks.releaseNote).toHaveBeenCalledWith(noteId);
@@ -237,7 +246,7 @@ describe("music store", () => {
     expect(musicStore.getActiveNotes()).toHaveLength(0);
   });
 
-  it("releases an attack that finishes after instrument selection changes", async () => {
+  it("cancels an attack that finishes after instrument selection changes", async () => {
     const instrumentStore = useInstrumentStore();
     const musicStore = useMusicStore();
     let finishAttack!: () => void;
@@ -253,13 +262,13 @@ describe("music store", () => {
     const noteId = await pendingAttack;
 
     expect(noteId).toBeNull();
-    expect(superdoughMocks.releaseNote).toHaveBeenCalledWith(
+    expect(superdoughMocks.stopNote).toHaveBeenCalledWith(
       expect.stringMatching(/^C4_0_4_/)
     );
     expect(musicStore.getActiveNotes()).toHaveLength(0);
   });
 
-  it("releases an exact attack that finishes after instrument selection changes", async () => {
+  it("cancels an exact attack that finishes after instrument selection changes", async () => {
     const instrumentStore = useInstrumentStore();
     const musicStore = useMusicStore();
     const dispatchEventSpy = vi.spyOn(window, "dispatchEvent");
@@ -277,7 +286,7 @@ describe("music store", () => {
     const noteId = await pendingAttack;
 
     expect(noteId).toBeNull();
-    expect(superdoughMocks.releaseNote).toHaveBeenCalledWith(
+    expect(superdoughMocks.stopNote).toHaveBeenCalledWith(
       expect.stringMatching(/^exact_D#4_/)
     );
     expect(musicStore.getActiveNotes()).toHaveLength(0);
@@ -303,7 +312,7 @@ describe("music store", () => {
     const noteId = await pendingAttack;
 
     expect(noteId).toBeNull();
-    expect(superdoughMocks.releaseNote).toHaveBeenCalledWith(
+    expect(superdoughMocks.stopNote).toHaveBeenCalledWith(
       expect.stringMatching(/^exact_D#4_/)
     );
     expect(musicStore.getActiveNotes()).toHaveLength(0);
@@ -329,7 +338,7 @@ describe("music store", () => {
     const noteId = await pendingAttack;
 
     expect(noteId).toBeNull();
-    expect(superdoughMocks.releaseNote).toHaveBeenCalledWith(
+    expect(superdoughMocks.stopNote).toHaveBeenCalledWith(
       expect.stringMatching(/^C4_0_4_/)
     );
     expect(musicStore.getActiveNotes()).toHaveLength(0);
@@ -349,7 +358,7 @@ describe("music store", () => {
     expect(superdoughMocks.playNoteWithDuration).toHaveBeenCalledWith(
       "F#4",
       250,
-      "piano"
+      DEFAULT_INSTRUMENT,
     );
     const notePlayedEvent = dispatchEventSpy.mock.calls.find(
       ([event]) => event.type === "note-played"
@@ -363,6 +372,13 @@ describe("music store", () => {
     const dispatchEventSpy = vi.spyOn(window, "dispatchEvent");
 
     await musicStore.playNote(0);
+
+    expect(superdoughMocks.playNoteWithDuration).toHaveBeenCalledWith(
+      "C4",
+      2000,
+      DEFAULT_INSTRUMENT,
+    );
+    expect(superdoughMocks.attackNote).not.toHaveBeenCalled();
 
     const notePlayedEvent = dispatchEventSpy.mock.calls.find(
       ([event]) => event.type === "note-played"

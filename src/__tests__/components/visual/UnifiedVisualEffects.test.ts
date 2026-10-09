@@ -21,7 +21,10 @@ const unifiedCanvasMocks = vi.hoisted(() => ({
   cleanup: vi.fn(),
 }))
 
-const useUnifiedCanvas = vi.hoisted(() => vi.fn(() => unifiedCanvasMocks))
+const useUnifiedCanvas = vi.hoisted(() => vi.fn((_canvas: unknown, runtime?: { eventTarget?: EventTarget }) => ({
+  ...unifiedCanvasMocks,
+  noteEventTarget: runtime?.eventTarget ?? window,
+})))
 
 vi.mock('@/stores/music', () => ({
   useMusicStore: () => ({
@@ -140,6 +143,61 @@ describe('UnifiedVisualEffects.vue', () => {
       500,
     )
     expect(unifiedCanvasMocks.handleNoteReleased).toHaveBeenCalledWith('C4', 'note-1', 'C4')
+  })
+
+  it('listens to the canvas presentation target for production note events', () => {
+    const presentationTarget = new EventTarget()
+    useUnifiedCanvas.mockReturnValueOnce({ ...unifiedCanvasMocks, noteEventTarget: presentationTarget })
+    wrapper = createTestWrapper(UnifiedVisualEffects)
+    presentationTarget.dispatchEvent(new CustomEvent('note-played', {
+      detail: { note: { name: 'Do' }, frequency: 261.63, noteId: 'audible-note' },
+    }))
+    expect(unifiedCanvasMocks.handleNotePlayed).toHaveBeenCalledOnce()
+    wrapper.unmount()
+    wrapper = null
+    presentationTarget.dispatchEvent(new CustomEvent('note-played', {
+      detail: { note: { name: 'Do' }, frequency: 261.63 },
+    }))
+    expect(unifiedCanvasMocks.handleNotePlayed).toHaveBeenCalledOnce()
+  })
+
+  it('keeps controlled note events off the production window target', async () => {
+    const controlledTarget = new EventTarget()
+    const windowAddSpy = vi.spyOn(window, 'addEventListener')
+
+    wrapper = createTestWrapper(UnifiedVisualEffects, {
+      props: { eventTarget: controlledTarget, activeNotes: [] },
+    })
+    await nextTick()
+
+    controlledTarget.dispatchEvent(new CustomEvent('note-played', {
+      detail: {
+        note: { name: 'Do', number: 1 },
+        frequency: 261.63,
+        noteId: 'controlled-note',
+        octave: 4,
+        noteName: 'C4',
+      },
+    }))
+
+    expect(unifiedCanvasMocks.handleNotePlayed).toHaveBeenCalledWith(
+      { name: 'Do', number: 1 },
+      261.63,
+      'controlled-note',
+      4,
+      'C4',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    )
+    expect(windowAddSpy).not.toHaveBeenCalledWith('note-played', expect.any(Function))
+    expect(useUnifiedCanvas).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        getActiveNotes: expect.any(Function),
+      }),
+    )
   })
 
   it('uses the solfege blob key for legacy id-less releases', async () => {

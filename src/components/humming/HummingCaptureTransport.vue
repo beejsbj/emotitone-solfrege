@@ -4,7 +4,7 @@
       <Button
         class="humming-capture-transport__primary"
         size="md"
-        :tone="status === 'recording' ? 'ivory' : 'brass'"
+        :tone="canAccept ? 'ivory' : 'brass'"
         :haptic="haptic"
         :loading="loading"
         :disabled="loading"
@@ -12,7 +12,7 @@
         :title="buttonTitle"
         @click="emit('toggle')"
       >
-        <Check v-if="status === 'recording'" />
+        <Check v-if="canAccept" />
         <Mic v-else />
       </Button>
 
@@ -34,7 +34,11 @@
         v-if="status === 'error' || takeLabels.length > 1"
         class="humming-capture-transport__feedback"
       >
-        <p v-if="status === 'error'" class="humming-capture-transport__error" role="alert">
+        <p
+          v-if="status === 'error'"
+          class="humming-capture-transport__error"
+          role="alert"
+        >
           {{ statusMessage }}
         </p>
         <select
@@ -91,18 +95,18 @@ const props = withDefaults(defineProps<{
 const loading = computed(() =>
   ["requesting", "preparing", "analyzing"].includes(props.status),
 );
+const canAccept = computed(() => props.status === "recording");
 const canCancel = computed(() =>
   ["requesting", "recording", "preparing", "analyzing"].includes(props.status),
 );
 const buttonLabel = computed(() => {
-  if (props.status === "recording") return "Accept humming capture";
+  if (canAccept.value) return "Accept humming capture";
   if (props.status === "error") return "Retry humming capture";
   if (props.status === "requesting") return "Requesting microphone";
   if (["preparing", "analyzing"].includes(props.status)) return "Analyzing humming";
   return "Start humming capture";
 });
 const buttonTitle = computed(() => props.error ?? buttonLabel.value);
-
 const emit = defineEmits<{
   toggle: [];
   cancel: [];
@@ -127,14 +131,12 @@ function handleTakeSelection(event: Event) {
 
 .humming-capture-transport .humming-capture-transport__primary {
   --button-size: 28px;
-  --button-rest-shadow: var(--shadow-key);
   inline-size: 28px;
   block-size: 28px;
 }
 
 .humming-capture-transport .humming-capture-transport__cancel {
   --button-size: 22.4px;
-  --button-rest-shadow: var(--shadow-key);
   inline-size: 22.4px;
   block-size: 22.4px;
 }

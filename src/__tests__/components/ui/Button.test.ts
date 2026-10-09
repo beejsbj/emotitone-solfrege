@@ -52,7 +52,8 @@ describe("Button", () => {
     });
     expect(wrapper.attributes("aria-busy")).toBe("true");
     expect(wrapper.attributes("disabled")).toBeDefined();
-    expect(wrapper.find(".paper-button__loader").exists()).toBe(true);
+    expect(wrapper.classes()).toContain("paper-button--loading");
+    expect(wrapper.find(".paper-button__lip").exists()).toBe(true);
     expect(wrapper.get(".paper-button__face").attributes("data-ui-beat-scale")).toBeUndefined();
   });
 
@@ -114,7 +115,8 @@ describe("Button", () => {
     expect(button.attributes("data-ui-beat-scale")).toBeUndefined();
     expect(button.attributes("style") ?? "").not.toContain("scale");
     expect(buttonSource).toContain('ref="beatTargetRef" class="paper-button__face"');
-    expect(buttonSource).toContain(":active .paper-button__face");
+    expect(buttonSource).toContain(":active .paper-button__cap");
+    expect(buttonSource).not.toContain(":active .paper-button__face");
 
     presentationEnabled.value = false;
     await nextTick();
@@ -122,6 +124,21 @@ describe("Button", () => {
     expect(face.attributes("style") ?? "").not.toContain("scale");
     wrapper.unmount();
     clock.destroy();
+  });
+
+  it("lights the lip on every hit and rotates it while loading", async () => {
+    const wrapper = mount(Button, { props: { accessibleName: "Play" } });
+    await wrapper.trigger("pointerdown");
+    expect(wrapper.classes()).toContain("paper-button--hit-a");
+    await wrapper.trigger("pointerdown");
+    expect(wrapper.classes()).toContain("paper-button--hit-b");
+    await wrapper.trigger("click", { detail: 0 });
+    expect(wrapper.classes()).toContain("paper-button--hit-a");
+    await wrapper.setProps({ disabled: true });
+    await wrapper.trigger("pointerdown");
+    expect(wrapper.classes()).toContain("paper-button--hit-a");
+    expect(buttonSource).toContain(".paper-button--loading .paper-button__lip { animation: paper-button-orbit");
+    expect(buttonSource).toMatch(/@media \(prefers-reduced-motion: reduce\) \{[\s\S]*\.paper-button__lip,/);
   });
 
   it("shares the promoted Boolean Knob rebound with non-brass buttons", () => {

@@ -1,0 +1,83 @@
+{
+  "scope": "Two-millisecond grouping is descriptive, not browser task identity. Worklet arrival trace runs before bridge callback; lab lifecycle observer runs afterward.",
+  "rows": [
+    {
+      "backend": "native2000",
+      "scenario": "220 BPM 3-key repeat through 300ms stall",
+      "lifecycleEvents": 324,
+      "uniqueEvents": 324,
+      "musicalSpanMs": 3736.363636363535,
+      "deliverySpanMs": 3790.5,
+      "deliveryGroups": 118,
+      "groupMedian": 3,
+      "groupMax": 6,
+      "deliveryGapMedianMs": 0.8999998569488525,
+      "deliveryGapP95Ms": 3.6000001430511475,
+      "callbackCosts": null,
+      "maxQueueLagBeforeCallbackMs": null,
+      "longTaskSumMs": 5654,
+      "longTaskCount": 28
+    },
+    {
+      "backend": "native2000",
+      "scenario": "220 BPM 3-key repeat through 650ms stall",
+      "lifecycleEvents": 300,
+      "uniqueEvents": 300,
+      "musicalSpanMs": 3463.636363636624,
+      "deliverySpanMs": 3544.2000000476837,
+      "deliveryGroups": 109,
+      "groupMedian": 3,
+      "groupMax": 5,
+      "deliveryGapMedianMs": 0.9000000953674316,
+      "deliveryGapP95Ms": 2.5,
+      "callbackCosts": null,
+      "maxQueueLagBeforeCallbackMs": null,
+      "longTaskSumMs": 5452,
+      "longTaskCount": 21
+    },
+    {
+      "backend": "worklet",
+      "scenario": "220 BPM 3-key repeat through 300ms stall",
+      "lifecycleEvents": 298,
+      "uniqueEvents": 298,
+      "musicalSpanMs": 3410.4308390022666,
+      "deliverySpanMs": 21262.89999985695,
+      "deliveryGroups": 298,
+      "groupMedian": 1,
+      "groupMax": 1,
+      "deliveryGapMedianMs": 20.200000047683716,
+      "deliveryGapP95Ms": 328.60000014305115,
+      "callbackCosts": {
+        "sumMs": 231.1999990940094,
+        "medianMs": 0.7999999523162842,
+        "p95Ms": 1.2000000476837158,
+        "maxMs": 4.5
+      },
+      "maxQueueLagBeforeCallbackMs": 17966.069160997733,
+      "longTaskSumMs": 16614,
+      "longTaskCount": 78
+    },
+    {
+      "backend": "worklet",
+      "scenario": "220 BPM 3-key repeat through 650ms stall",
+      "lifecycleEvents": 326,
+      "uniqueEvents": 326,
+      "musicalSpanMs": 3729.7052154195,
+      "deliverySpanMs": 23945.800000190735,
+      "deliveryGroups": 326,
+      "groupMedian": 1,
+      "groupMax": 1,
+      "deliveryGapMedianMs": 18.299999952316284,
+      "deliveryGapP95Ms": 359.2999999523163,
+      "callbackCosts": {
+        "sumMs": 250.20000505447388,
+        "medianMs": 0.7000000476837158,
+        "p95Ms": 1.2000000476837158,
+        "maxMs": 4.300000190734863
+      },
+      "maxQueueLagBeforeCallbackMs": 20409.194784675867,
+      "longTaskSumMs": 19209,
+      "longTaskCount": 82
+    }
+  ]
+}

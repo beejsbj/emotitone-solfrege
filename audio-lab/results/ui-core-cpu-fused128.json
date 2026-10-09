@@ -1,0 +1,43 @@
+{
+  "sourceHashesAfter": {
+    "src/services/superdoughAudio.ts": "76c0cac0a5ed5164379915bdf7f60f5df0468ef4503149c9fdcdfbdb5997c505",
+    "src/stores/music.ts": "040b024b7b402ae2b20cff2041d262dd0aed9b0e0e4efeb8125463eddef114f3",
+    "src/components/compounds/Keyboard.vue": "efb2242abbdcd77a59e81d7881f86908ff31d7316be298846c214a6e94874aeb",
+    "src/services/livePlayback.ts": "f85285f593af3e0344de59f44511f621f0d1bace71d572ba88b364f2944aa3c3",
+    "src/services/preparedLiveInstrument.ts": "948418e7f27cca47bf8bf1e4a34acd49de77b906de2c6ffcaebad243d006bc96",
+    "src/audio/live/core.ts": "e57103121b21c7f8b111d0cd541d9d73e81eaa537c52719ce649f3166a7e664d",
+    "src/audio/live/processor.ts": "dd9ea66430b4deb98cb02a15f1002759f69c049b267008be7d28b77efa013f38",
+    "src/audio/live/resampler.ts": "7d906724a1ac997af9a839d22a159615307fb362cc5a29085faa685e2ae6cf12"
+  },
+  "sourcesStable": true,
+  "scope": "Actual Chrome V8 CPU benchmark of production LiveAudioCore.render; not AudioWorklet deadline or PCM continuity proof",
+  "revision": "db4d16b7011792902b49658f047368a16bd43659",
+  "sourceHashesBefore": {
+    "src/services/superdoughAudio.ts": "76c0cac0a5ed5164379915bdf7f60f5df0468ef4503149c9fdcdfbdb5997c505",
+    "src/stores/music.ts": "040b024b7b402ae2b20cff2041d262dd0aed9b0e0e4efeb8125463eddef114f3",
+    "src/components/compounds/Keyboard.vue": "efb2242abbdcd77a59e81d7881f86908ff31d7316be298846c214a6e94874aeb",
+    "src/services/livePlayback.ts": "f85285f593af3e0344de59f44511f621f0d1bace71d572ba88b364f2944aa3c3",
+    "src/services/preparedLiveInstrument.ts": "948418e7f27cca47bf8bf1e4a34acd49de77b906de2c6ffcaebad243d006bc96",
+    "src/audio/live/core.ts": "e57103121b21c7f8b111d0cd541d9d73e81eaa537c52719ce649f3166a7e664d",
+    "src/audio/live/processor.ts": "dd9ea66430b4deb98cb02a15f1002759f69c049b267008be7d28b77efa013f38",
+    "src/audio/live/resampler.ts": "7d906724a1ac997af9a839d22a159615307fb362cc5a29085faa685e2ae6cf12"
+  },
+  "cases": [
+    {
+      "stereo": false,
+      "voices": 128,
+      "quantumMs": 2.6666666666666665,
+      "p50": 2.600000023841858,
+      "p95": 10.200000047683716,
+      "max": 22.299999952316284
+    },
+    {
+      "stereo": true,
+      "voices": 128,
+      "quantumMs": 2.6666666666666665,
+      "p50": 2.700000047683716,
+      "p95": 5.200000047683716,
+      "max": 11.600000023841858
+    }
+  ]
+}

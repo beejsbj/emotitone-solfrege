@@ -7,6 +7,11 @@ import {
   CONFIG_SECTIONS,
   UNIFIED_CONFIG,
 } from "@/data/visual-config-metadata";
+import {
+  DECK_CONTROL_GROUPS,
+  GLOBAL_CONTROL_GROUPS,
+} from "@/services/configPublicSurface";
+import { STAGE_CONTROL_DEFINITIONS } from "@/services/stageAppearance";
 
 const keyboardDrawerStore = reactive({
   midi: {
@@ -25,6 +30,7 @@ const keyboardDrawerStore = reactive({
 
 const visualConfigStore = reactive({
   config: {
+    stage: { isEnabled: true },
     keyboard: {
       isEnabled: true,
       mainOctave: 4,
@@ -36,6 +42,47 @@ const visualConfigStore = reactive({
   },
   visualsEnabled: true,
   savedConfigs: [] as Array<{ id: string; name: string; updatedAt: string }>,
+  savedStageLooks: [] as Array<{ id: string; name: string; updatedAt: string }>,
+  transientStageLook: null as null | { name: string },
+  stageControls: {
+    stageEnabled: true,
+    scopeSize: 0.6,
+    scopeStrength: 0.7,
+    scopeLineWeight: 1.5,
+    scopeGlow: 0.2,
+    scopeTrail: 0.2,
+    bodiesVisible: true,
+    bodySize: 0.1,
+    bodyStrength: 0.5,
+    bodyMotion: 0.5,
+    connectionMode: "merge",
+    connectionStrength: 0.4,
+    connectionSoftness: 0.25,
+    atmosphereStrength: 0.6,
+    atmosphereColorDepth: 0.8,
+    stringPresence: 0.9,
+    stringResponse: 0.25,
+    showChords: false,
+    showIntervals: false,
+    showEmotion: false,
+    labelStrength: 0.5,
+  },
+  globalControls: {
+    musicColorMapping: "movable-ordinal",
+    colorIntensity: "balanced",
+    colorMotion: "gentle",
+    uiRhythm: true,
+  },
+  deckControls: {
+    notation: "solfege",
+    keyboardLabels: true,
+    keyboardSpacing: "balanced",
+    noteSurface: "colored",
+    touchFeedback: true,
+    codeStrip: true,
+    durationMode: "bar",
+    showRests: true,
+  },
   updateValue: vi.fn(),
   resetToDefaults: vi.fn(),
   resetSection: vi.fn(),
@@ -45,6 +92,19 @@ const visualConfigStore = reactive({
   loadSavedConfig: vi.fn(),
   deleteSavedConfig: vi.fn(),
   loadConfigSnapshot: vi.fn(),
+  updateStageControl: vi.fn(),
+  applyBuiltInStageLook: vi.fn(),
+  shuffleStageLook: vi.fn(),
+  keepStageLook: vi.fn(),
+  clearStageLook: vi.fn(),
+  resetStage: vi.fn(),
+  saveStageLookAs: vi.fn(),
+  loadSavedStageLook: vi.fn(),
+  deleteSavedStageLook: vi.fn(),
+  updateGlobalControl: vi.fn(),
+  resetGlobal: vi.fn(),
+  updateDeckControl: vi.fn(),
+  resetDeck: vi.fn(),
 });
 
 const musicStore = reactive({
@@ -104,7 +164,13 @@ vi.mock("@/components/primatives/Knob/index.vue", () => ({
     name: "Knob",
     props: {
       tone: { type: String, default: "ivory" },
+      modelValue: { type: [String, Number, Boolean], default: undefined },
+      type: { type: String, default: undefined },
+      label: { type: String, default: undefined },
+      options: { type: Array, default: undefined },
+      isDisabled: { type: Boolean, default: false },
     },
+    emits: ["update:modelValue"],
     template: '<div data-testid="mock-knob" :data-tone="tone"></div>',
   },
 }));
@@ -122,6 +188,8 @@ vi.mock("lucide-vue-next", () => ({
   Trash2: { template: '<svg data-testid="trash-icon"></svg>' },
   ClipboardCopy: { template: '<svg data-testid="clipboard-copy-icon"></svg>' },
   FileDown: { template: '<svg data-testid="file-down-icon"></svg>' },
+  Shuffle: { template: '<svg data-testid="shuffle-icon"></svg>' },
+  Check: { template: '<svg data-testid="check-icon"></svg>' },
 }));
 
 function resetMidiState() {
@@ -143,6 +211,14 @@ describe("ConfigPanel.vue", () => {
 
     visualConfigStore.visualsEnabled = true;
     visualConfigStore.savedConfigs = [];
+    visualConfigStore.transientStageLook = null;
+    visualConfigStore.stageControls.stageEnabled = true;
+    visualConfigStore.stageControls.bodiesVisible = true;
+    visualConfigStore.stageControls.atmosphereStrength = 0.3;
+    visualConfigStore.stageControls.showChords = false;
+    visualConfigStore.stageControls.showIntervals = false;
+    visualConfigStore.stageControls.showEmotion = false;
+    visualConfigStore.deckControls.codeStrip = true;
     musicStore.currentKey = "C";
     musicStore.currentMode = "major";
   });
@@ -152,79 +228,271 @@ describe("ConfigPanel.vue", () => {
     wrapper = null;
   });
 
-  it("assigns repeated section-toggle emissions without inverting twice", async () => {
-    visualConfigStore.config.keyboard.isEnabled = true;
-    visualConfigStore.updateValue.mockImplementation((section, key, value) => {
-      if (section === "keyboard" && key === "isEnabled") {
-        visualConfigStore.config.keyboard.isEnabled = value;
-      }
-    });
+  it("routes consolidated controls through their public Config actions", async () => {
     wrapper = createTestWrapper(ConfigPanel);
-    wrapper.getComponent({ name: "TabbedOverlayPanel" }).vm.$emit("update:modelValue", "keyboard");
+
+    wrapper.getComponent('[data-testid="global-control-colorIntensity"]')
+      .vm.$emit("update:modelValue", "vivid");
+    expect(visualConfigStore.updateGlobalControl)
+      .toHaveBeenCalledWith("colorIntensity", "vivid");
+
+    wrapper.getComponent({ name: "TabbedOverlayPanel" }).vm.$emit("update:modelValue", "deck");
     await nextTick();
-    const section = wrapper.findComponent('[data-testid="section-toggle-keyboard"]');
-    section.vm.$emit("update:modelValue", false);
-    await nextTick();
-    section.vm.$emit("update:modelValue", false);
-    await nextTick();
-    expect(visualConfigStore.config.keyboard.isEnabled).toBe(false);
-    expect(visualConfigStore.updateValue).toHaveBeenLastCalledWith("keyboard", "isEnabled", false);
+
+    wrapper.getComponent('[data-testid="deck-control-notation"]')
+      .vm.$emit("update:modelValue", "pitch");
+    expect(visualConfigStore.updateDeckControl).toHaveBeenCalledWith("notation", "pitch");
+
+    wrapper.getComponent('[data-testid="deck-control-durationMode"]')
+      .vm.$emit("update:modelValue", "bar");
+    expect(visualConfigStore.updateDeckControl).toHaveBeenCalledWith("durationMode", "bar");
   });
 
-  it("keeps relationships and labels inside the grouped Blobs section", () => {
+  it("promotes each Stage group into a focused destination", () => {
     wrapper = createTestWrapper(ConfigPanel);
     const tabs = wrapper
       .getComponent({ name: "TabbedOverlayPanel" })
       .props("tabs") as Array<{ value: string }>;
 
-    expect(tabs.map((tab) => tab.value)).toContain("blobs");
-    expect(tabs.map((tab) => tab.value)).toContain("uiBeat");
-    expect(tabs.map((tab) => tab.value)).not.toContain("beatingShapes");
-    expect(tabs.map((tab) => tab.value)).not.toContain("floatingPopup");
+    expect(tabs.map((tab) => tab.value)).toEqual([
+      "global",
+      "stage",
+      "scope",
+      "bodies",
+      "relations",
+      "layers",
+      "deck",
+      "midi",
+    ]);
+    expect(wrapper.find("[data-tab]").attributes("data-tab")).toBe("global");
+    expect(tabs.map((tab) => tab.value)).not.toContain("looks");
+    expect(tabs.map((tab) => tab.value)).not.toContain("patterns");
+    expect(tabs.map((tab) => tab.value)).not.toContain("keyboard");
+    expect(tabs.map((tab) => tab.value)).not.toContain("codeStrip");
+    expect(tabs.map((tab) => tab.value)).not.toContain("uiBeat");
+    expect(tabs.map((tab) => tab.value)).not.toContain("dynamicColors");
     expect(CONFIG_SECTIONS).not.toHaveProperty("floatingPopup");
     expect(CONFIG_SECTIONS).not.toHaveProperty("beatingShapes");
     expect(Object.keys(UNIFIED_CONFIG.uiBeat).filter((key) => key !== "_meta"))
       .toEqual(["isEnabled"]);
-    expect(UNIFIED_CONFIG.blobs.connectionMode.group).toBe("Relationships");
+    expect(UNIFIED_CONFIG.blobs.connectionMode.group).toBe("Note Bodies");
+    expect(UNIFIED_CONFIG.blobs.connectionMode.options).toEqual(["merge", "web"]);
     expect(UNIFIED_CONFIG.blobs.analysisHoldTime.group).toBe("Analysis");
     expect(UNIFIED_CONFIG.blobs.showChordLabel.group).toBe("Labels");
     expect(UNIFIED_CONFIG.blobs.webOpacity.visibleWhen).toEqual({
       field: "connectionMode",
       values: ["web"],
     });
+    expect(STAGE_CONTROL_DEFINITIONS).toHaveLength(21);
+    expect(GLOBAL_CONTROL_GROUPS.flatMap((group) => group.controls)).toHaveLength(4);
+    expect(DECK_CONTROL_GROUPS.flatMap((group) => group.controls)).toHaveLength(8);
   });
 
-  it("keeps drag-owned keyboard row count out of generated settings", () => {
-    expect(UNIFIED_CONFIG.keyboard.rowCount.hidden).toBe(true);
-    expect(configPanelSource).toContain("if (metadata?.hidden) return false");
-  });
-
-  it("uses ivory Sticker faces for scene actions without Badge or brass", () => {
+  it("keeps Stage general and allocates every detail control exactly once", async () => {
     wrapper = createTestWrapper(ConfigPanel);
+    const panel = wrapper.getComponent({ name: "TabbedOverlayPanel" });
 
-    const scene = wrapper.get('[data-testid="preset-apply-soft-glass"]');
+    panel.vm.$emit("update:modelValue", "stage");
+    await nextTick();
+    expect(wrapper.find('[data-testid="stage-public-controls"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="stage-looks"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="stage-control-scopeSize"]').exists()).toBe(false);
+
+    const allocation = [
+      ["scope", 5],
+      ["bodies", 7],
+      ["relations", 4],
+      ["layers", 4],
+    ] as const;
+    const allocatedControlIds: string[] = [];
+
+    for (const [destination, expectedCount] of allocation) {
+      panel.vm.$emit("update:modelValue", destination);
+      await nextTick();
+
+      expect(
+        wrapper.find(`[data-testid="stage-destination-${destination}"]`).exists(),
+      ).toBe(true);
+      const controls = wrapper.findAll('[data-testid^="stage-control-"]');
+      expect(controls).toHaveLength(expectedCount);
+      allocatedControlIds.push(...controls.map((control) =>
+        control.attributes("data-testid").replace("stage-control-", "")
+      ));
+    }
+
+    expect(allocatedControlIds).toHaveLength(20);
+    expect(new Set(allocatedControlIds).size).toBe(20);
+    expect(allocatedControlIds.toSorted()).toEqual(
+      STAGE_CONTROL_DEFINITIONS
+        .filter((control) => control.id !== "stageEnabled")
+        .map((control) => control.id)
+        .toSorted(),
+    );
+  });
+
+  it("keeps operational and renderer calibration fields out of Deck", () => {
+    expect(UNIFIED_CONFIG.keyboard.rowCount.hidden).toBe(true);
+    const publicDeckIds = DECK_CONTROL_GROUPS
+      .flatMap((group) => group.controls)
+      .map((control) => control.id);
+
+    expect(publicDeckIds).not.toContain("rowCount");
+    expect(publicDeckIds).not.toContain("mainOctave");
+    expect(publicDeckIds).not.toContain("keyBrightness");
+    expect(publicDeckIds).not.toContain("keySaturation");
+    expect(publicDeckIds).not.toContain("bpm");
+    expect(publicDeckIds).not.toContain("opacity");
+  });
+
+  it("uses ivory Sticker faces for Stage Looks without Badge or brass", async () => {
+    wrapper = createTestWrapper(ConfigPanel);
+    wrapper.getComponent({ name: "TabbedOverlayPanel" }).vm.$emit("update:modelValue", "stage");
+    await nextTick();
+
+    expect(wrapper.findAll('[data-testid^="preset-apply-"]')).toHaveLength(7);
+    expect(wrapper.get('[data-testid="preset-apply-still"]').text()).toContain("Still");
+    const scene = wrapper.get('[data-testid="preset-apply-soft"]');
     expect(scene.element.tagName).toBe("BUTTON");
     expect(scene.find(".sticker--outline.sticker--color-ivory").exists()).toBe(true);
+    expect(wrapper.find('[data-testid="stage-public-controls"]').exists()).toBe(true);
     expect(wrapper.find(".sticker--badge").exists()).toBe(false);
     expect(wrapper.find('[class*="sticker--color-brass"]').exists()).toBe(false);
   });
 
-  it("reserves brass Knobs for global and section enable controls", async () => {
+  it("keeps Deck controls available when the global Visuals presentation is off", async () => {
+    visualConfigStore.visualsEnabled = false;
+    wrapper = createTestWrapper(ConfigPanel);
+    wrapper.getComponent({ name: "TabbedOverlayPanel" }).vm.$emit("update:modelValue", "deck");
+    await nextTick();
+
+    const notation = wrapper.getComponent('[data-testid="deck-control-notation"]');
+    const rests = wrapper.getComponent('[data-testid="deck-control-showRests"]');
+    const durations = wrapper.getComponent('[data-testid="deck-control-durationMode"]');
+    expect(notation.props("isDisabled")).toBe(false);
+    expect(rests.props("isDisabled")).toBe(false);
+    expect(durations.props("isDisabled")).toBe(false);
+
+    visualConfigStore.deckControls.codeStrip = false;
+    await nextTick();
+    expect(rests.props("isDisabled")).toBe(true);
+    expect(durations.props("isDisabled")).toBe(true);
+  });
+
+  it("retires reload Looks and keeps transient actions visible across Stage tabs", async () => {
+    visualConfigStore.transientStageLook = { name: "Soft · Variation TEST" };
+    wrapper = createTestWrapper(ConfigPanel);
+    const panel = wrapper.getComponent({ name: "TabbedOverlayPanel" });
+
+    panel.vm.$emit("update:modelValue", "stage");
+    await nextTick();
+    expect(wrapper.find('[data-testid="new-look-on-launch"]').exists()).toBe(false);
+    const mainKeep = wrapper.getComponent('[data-testid="stage-look-keep"]');
+    const mainDiscard = wrapper.getComponent('[data-testid="stage-look-discard"]');
+    expect(mainKeep.props("disabled")).toBe(false);
+    expect(mainDiscard.props("disabled")).toBe(false);
+
+    visualConfigStore.stageControls.stageEnabled = false;
+    await nextTick();
+    expect(mainKeep.props("disabled")).toBe(true);
+    expect(mainDiscard.props("disabled")).toBe(true);
+
+    visualConfigStore.stageControls.stageEnabled = true;
+    visualConfigStore.visualsEnabled = false;
+    await nextTick();
+    expect(mainKeep.props("disabled")).toBe(true);
+    expect(mainDiscard.props("disabled")).toBe(true);
+
+    visualConfigStore.visualsEnabled = true;
+
+    panel.vm.$emit("update:modelValue", "bodies");
+    await nextTick();
+    const keep = wrapper.getComponent('[data-testid="stage-look-keep-bodies"]');
+    const discard = wrapper.getComponent('[data-testid="stage-look-discard-bodies"]');
+    expect(keep.props("disabled")).toBe(false);
+    expect(discard.props("disabled")).toBe(false);
+    expect(wrapper.text()).toContain("Soft · Variation TEST");
+
+    visualConfigStore.stageControls.stageEnabled = false;
+    await nextTick();
+    expect(keep.props("disabled")).toBe(true);
+    expect(discard.props("disabled")).toBe(true);
+
+    visualConfigStore.stageControls.stageEnabled = true;
+    visualConfigStore.visualsEnabled = false;
+    await nextTick();
+    expect(keep.props("disabled")).toBe(true);
+    expect(discard.props("disabled")).toBe(true);
+  });
+
+  it("disables Stage controls with the feature they depend on", async () => {
+    wrapper = createTestWrapper(ConfigPanel);
+    const panel = wrapper.getComponent({ name: "TabbedOverlayPanel" });
+
+    visualConfigStore.stageControls.bodiesVisible = false;
+    panel.vm.$emit("update:modelValue", "bodies");
+    await nextTick();
+    expect(wrapper.getComponent('[data-testid="stage-control-bodiesVisible"]').props("isDisabled"))
+      .toBe(false);
+    for (const control of [
+      "bodySize",
+      "bodyStrength",
+      "bodyMotion",
+      "connectionMode",
+      "connectionStrength",
+      "connectionSoftness",
+    ]) {
+      expect(wrapper.getComponent(`[data-testid="stage-control-${control}"]`).props("isDisabled"))
+        .toBe(true);
+    }
+
+    panel.vm.$emit("update:modelValue", "relations");
+    await nextTick();
+    for (const control of ["showChords", "showIntervals", "showEmotion", "labelStrength"]) {
+      expect(wrapper.getComponent(`[data-testid="stage-control-${control}"]`).props("isDisabled"))
+        .toBe(true);
+    }
+
+    visualConfigStore.stageControls.bodiesVisible = true;
+    await nextTick();
+    expect(wrapper.getComponent('[data-testid="stage-control-showChords"]').props("isDisabled"))
+      .toBe(false);
+    expect(wrapper.getComponent('[data-testid="stage-control-labelStrength"]').props("isDisabled"))
+      .toBe(true);
+    visualConfigStore.stageControls.showIntervals = true;
+    await nextTick();
+    expect(wrapper.getComponent('[data-testid="stage-control-labelStrength"]').props("isDisabled"))
+      .toBe(false);
+
+    visualConfigStore.stageControls.atmosphereStrength = 0;
+    panel.vm.$emit("update:modelValue", "layers");
+    await nextTick();
+    expect(wrapper.getComponent('[data-testid="stage-control-atmosphereColorDepth"]').props("isDisabled"))
+      .toBe(true);
+    expect(wrapper.getComponent('[data-testid="stage-control-stringResponse"]').props("isDisabled"))
+      .toBe(false);
+  });
+
+  it("reserves brass Knobs for Visuals, UI Rhythm, and the Stage master", async () => {
     wrapper = createTestWrapper(ConfigPanel);
 
     expect(
       wrapper.getComponent('[data-testid="config-panel-global-toggle"]').props("tone")
     ).toBe("brass");
+    expect(
+      wrapper.getComponent('[data-testid="global-control-uiRhythm"]').props("tone")
+    ).toBe("brass");
 
-    wrapper.getComponent({ name: "TabbedOverlayPanel" }).vm.$emit("update:modelValue", "keyboard");
+    wrapper.getComponent({ name: "TabbedOverlayPanel" }).vm.$emit("update:modelValue", "stage");
     await nextTick();
 
     expect(
-      wrapper.getComponent('[data-testid="section-toggle-keyboard"]').props("tone")
+      wrapper.getComponent('[data-testid="stage-toggle"]').props("tone")
     ).toBe("brass");
     expect(
       wrapper.findAllComponents({ name: "Knob" }).filter((knob) => knob.props("tone") === "brass")
     ).toHaveLength(2);
+    expect(wrapper.get('.config-panel__looks-header h2.panel-heading--band').text()).toBe("Looks");
+    expect(wrapper.get('.config-panel__looks-header .panel-heading--tape').text()).toBe("Stage only");
   });
 
   it("keeps Config chrome on the workhorse Ink and Ivory palette", () => {
@@ -244,7 +512,12 @@ describe("ConfigPanel.vue", () => {
     expect(wrapper.get('[data-testid="overlay-panel-header"] .overlay-panel-header__title').text())
       .toBe("Config");
     expect(wrapper.get('[data-testid="overlay-panel-header"] .overlay-panel-header__context').text())
-      .toBe("Scenes");
+      .toBe("Global");
+    expect(wrapper.get('.overlay-panel-header__title').classes()).toContain("panel-heading--band");
+    expect(wrapper.get('.overlay-panel-header__context').classes()).toContain("panel-heading--tape");
+    expect(wrapper.get('h2.panel-heading--band').text()).toBe("Global");
+    expect(wrapper.get('.config-panel__eyebrow.panel-heading--tape').text()).toBe("Across EmotiTone");
+    expect(wrapper.get('.config-panel__group-label').classes()).toContain("panel-heading--tape");
     expect(wrapper.get('button[aria-label="Close settings"]').classes())
       .toContain("paper-button--sm");
   });

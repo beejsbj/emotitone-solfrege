@@ -6,22 +6,29 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port 5175",
-    "build": "vue-tsc && vite build",
+    "build": "node scripts/verify.mjs build",
     "preview": "vite preview",
-    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore",
-    "type-check": "vue-tsc --noEmit",
-    "test": "vitest",
-    "test:ui": "vitest --ui",
-    "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage",
-    "test:e2e": "vitest run src/__tests__/e2e/",
-    "test:e2e:ui": "vitest --ui src/__tests__/e2e/",
-    "test:e2e:watch": "vitest src/__tests__/e2e/"
+    "lint": "eslint .",
+    "type-check": "node scripts/verify.mjs type-check",
+    "test": "node scripts/verify.mjs test run",
+    "test:ui": "node scripts/verify.mjs test --ui",
+    "test:run": "node scripts/verify.mjs test run",
+    "test:audio-browser": "node audio-lab/run.mjs",
+    "test:coverage": "node scripts/verify.mjs test run --coverage",
+    "test:watch": "node scripts/verify.mjs test watch",
+    "test:node": "node scripts/verify.mjs test run --project=node",
+    "test:dom": "node scripts/verify.mjs test run --project=dom",
+    "test:verify": "node --test scripts/verify.test.mjs",
+    "bench:persistence": "node scripts/verify.mjs test run --config vitest.bench.config.ts"
   },
   "dependencies": {
     "@strudel/codemirror": "^1.3.0",
+    "@strudel/core": "1.2.6",
+    "@strudel/mini": "1.2.6",
     "@strudel/soundfonts": "^1.3.0",
-    "@strudel/web": "^1.3.0",
+    "@strudel/tonal": "1.2.6",
+    "@strudel/transpiler": "1.2.6",
+    "@strudel/webaudio": "1.3.0",
     "@tonaljs/tonal": "^4.10.0",
     "gsap": "^3.12.5",
     "lucide-vue-next": "^0.523.0",
@@ -29,10 +36,10 @@
     "pinia-plugin-persistedstate": "^4.4.0",
     "pitchy": "4.1.0",
     "superdough": "^1.3.0",
-    "vue": "^3.4.0",
-    "vue-sonner": "^2.0.1"
+    "vue": "^3.4.0"
   },
   "devDependencies": {
+    "@napi-rs/canvas": "^1.0.9",
     "@types/jsdom": "^21.1.7",
     "@typescript-eslint/eslint-plugin": "^6.10.0",
     "@typescript-eslint/parser": "^6.10.0",
@@ -43,6 +50,7 @@
     "autoprefixer": "^10.4.16",
     "eslint": "^8.57.0",
     "eslint-plugin-vue": "^9.17.0",
+    "globals": "^13.24.0",
     "happy-dom": "^18.0.1",
     "jsdom": "^26.1.0",
     "postcss": "^8.4.32",
@@ -51,11 +59,13 @@
     "vite": "^4.5.0",
     "vite-plugin-pwa": "^1.0.2",
     "vitest": "^3.2.4",
+    "vue-eslint-parser": "^9.4.3",
     "vue-tsc": "^1.8.25",
     "workbox-window": "^7.3.0"
   },
   "patchedDependencies": {
     "superdough@1.3.0": "patches/superdough@1.3.0.patch",
-    "@strudel/soundfonts@1.3.0": "patches/@strudel%2Fsoundfonts@1.3.0.patch"
+    "@strudel/soundfonts@1.3.0": "patches/@strudel%2Fsoundfonts@1.3.0.patch",
+    "@codemirror/view@6.40.0": "patches/@codemirror%2Fview@6.40.0.patch"
   }
 }

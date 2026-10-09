@@ -1,0 +1,21 @@
+Loading real application and default piano sample bank…
+Browserslist: browsers data (caniuse-lite) is 15 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+
+
+
+
+
+
+
+
+
+file:///tmp/emotitone-stack-native-td1adqci/audio-lab/ui-run.mjs:104
+  if (!ready) throw new Error(`Application never became ready: ${warnings.slice(-8).join('\n')}`);
+                    ^
+
+Error: Application never became ready: 
+    at file:///tmp/emotitone-stack-native-td1adqci/audio-lab/ui-run.mjs:104:21
+
+Node.js v24.13.1

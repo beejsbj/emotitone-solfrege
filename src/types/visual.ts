@@ -49,7 +49,6 @@ export interface ConfigSectionMeta {
  */
 export interface NoteColorRelationships {
   primary: string;
-  accent: string;
 }
 
 export type MusicColorMode =
@@ -72,10 +71,10 @@ export interface DynamicColorConfig {
 
 /** Blob relationship presentations. */
 export type HarmonicGeometryMode = "merge" | "web";
-export type BlobConnectionMode = "off" | HarmonicGeometryMode;
+export type BlobConnectionMode = HarmonicGeometryMode;
 
 export interface BlobRelationshipConfig {
-  /** Whether relationships are absent, merged, or shown as a harmonic web */
+  /** Whether simultaneous bodies merge or form a harmonic web */
   connectionMode: BlobConnectionMode;
   /** How long released analysis remains available, in milliseconds */
   analysisHoldTime: number;
@@ -226,30 +225,6 @@ export interface AmbientConfig {
 }
 
 /**
- * Particle system configuration
- */
-export interface ParticleConfig {
-  /** Whether particle effects are enabled */
-  isEnabled: boolean;
-  /** Number of particles to generate */
-  count: number;
-  /** Minimum particle size */
-  sizeMin: number;
-  /** Maximum particle size */
-  sizeMax: number;
-  /** Minimum particle lifetime in milliseconds */
-  lifetimeMin: number;
-  /** Maximum particle lifetime in milliseconds */
-  lifetimeMax: number;
-  /** Particle movement speed */
-  speed: number;
-  /** Gravity effect on particles */
-  gravity: number;
-  /** Air resistance factor (0-1) */
-  airResistance: number;
-}
-
-/**
  * String visual effect configuration
  */
 export interface StringConfig {
@@ -327,6 +302,12 @@ export interface HilbertScopeConfig {
   thickness: number;
 }
 
+/** Public master for the canvas-owned Stage composition. */
+export interface StageConfig {
+  /** Whether the Stage composition is presented. */
+  isEnabled: boolean;
+}
+
 /**
  * Shared UIBeat presentation configuration
  */
@@ -394,6 +375,8 @@ export interface KeyboardConfig {
 /**
  * CodeStrip presentation configuration
  */
+export type CodeStripDurationMode = "stacked" | "bar" | "hidden";
+
 export interface CodeStripConfig {
   /** Whether the CodeStrip-backed Strudel mirror is enabled */
   enabled: boolean;
@@ -403,6 +386,8 @@ export interface CodeStripConfig {
   bpm: number;
   /** Display notation mode for note tokens */
   notation: "solfege" | "note" | "degree";
+  /** Visual treatment for recorded event durations */
+  durationMode: CodeStripDurationMode;
   /** Whether to show rest tokens */
   showRests: boolean;
 }
@@ -451,12 +436,12 @@ export type ExtractConfigValues<T> = {
  * Main visual effects configuration interface
  */
 export interface VisualEffectsConfig {
+  /** Canvas-owned Stage composition configuration */
+  stage: StageConfig;
   /** Blob effect configuration */
   blobs: BlobConfig;
   /** Ambient lighting configuration */
   ambient: AmbientConfig;
-  /** Particle system configuration */
-  particles: ParticleConfig;
   /** String effect configuration */
   strings: StringConfig;
   /** Animation configuration */

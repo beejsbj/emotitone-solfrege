@@ -28,7 +28,10 @@
       aria-label="Harmony chords"
       :data-chord-count="renderChords.length"
       :data-geometry-family="resolvedChordFamily"
-      :style="{ '--keyboard-chord-count': Math.max(renderChords.length, 1) }"
+      :style="{
+        '--keyboard-chord-count': Math.max(renderChords.length, 1),
+        '--keyboard-user-variation-amplitude': Math.max(0, resolvedVariationAmplitude),
+      }"
     >
       <ChordKey
         v-for="(chord, chordIndex) in renderChords"
@@ -39,7 +42,9 @@
         :symbol="chord.harmony.symbol"
         :accessible-name="chord.harmony.accessibleName"
         :geometry="resolvedChordFamily"
-        :pressed="chord.pressed"
+        :style="chordKeyStyle(chord)"
+        :pressed="chord.pressed || chordGesturePressedIds.has(chord.harmony.id)"
+        managed-input
         :disabled="isInteractionLocked"
         :tabindex="chord.harmony.id === rememberedChordFocusId ? 0 : -1"
         :data-chord-id="chord.harmony.id"
@@ -264,9 +269,13 @@ const props = withDefaults(
 const emit = defineEmits<{
   press: [intent: KeyboardIntent];
   release: [intent: KeyboardIntent];
+  pitchBend: [intent: KeyboardIntent & { cents: number }];
+  gainChange: [intent: KeyboardIntent & { gain: number }];
   focusChange: [keyId: string];
   chordPress: [intent: KeyboardChordIntent];
   chordRelease: [intent: KeyboardChordIntent];
+  chordPitchBend: [intent: KeyboardChordIntent & { cents: number }];
+  chordGainChange: [intent: KeyboardChordIntent & { gain: number }];
 }>();
 
 function chordMembers(
@@ -428,6 +437,22 @@ function createProductionWiring() {
     `melody:${intent.inputId}:${intent.keyId}`;
   const melodyVoiceOwnerId = (keyId: string) => `melody-key:${keyId}`;
   const heldInputsByKey = new Map<string, Set<string>>();
+  interface Expression {
+    controller?: string;
+    voiceIds: string[];
+    cents: number;
+    gain: number;
+  }
+  const melodyExpression = new Map<string, Expression>();
+  const chordExpression = new Map<string, Expression>();
+  const setPitchBend = (voiceId: string, cents: number, sampleTime?: number) => {
+    if (sampleTime === undefined) musicStore.setNotePitchBend(voiceId, cents);
+    else musicStore.setNotePitchBend(voiceId, cents, sampleTime);
+  };
+  const setGain = (voiceId: string, gain: number, sampleTime?: number) => {
+    if (sampleTime === undefined) musicStore.setNoteGain(voiceId, gain);
+    else musicStore.setNoteGain(voiceId, gain, sampleTime);
+  };
   const chordPressId = (intent: KeyboardChordIntent) =>
     `chord:${intent.inputId}:${intent.chordId}`;
 
@@ -441,29 +466,74 @@ function createProductionWiring() {
     const shouldAttack = heldInputs.size === 0;
     heldInputs.add(pressId);
     heldInputsByKey.set(intent.keyId, heldInputs);
+    if (shouldAttack) {
+      const expression: Expression = {
+        controller: pressId,
+        voiceIds: [],
+        cents: 0,
+        gain: 1,
+      };
+      melodyExpression.set(intent.keyId, expression);
+      void voiceGroups.attack(melodyVoiceOwnerId(intent.keyId), [
+        (isCancelled) => musicStore.attackNoteWithOctave(
+          intent.scaleIndex,
+          intent.octave,
+          isCancelled,
+        ),
+      ]).then((ids) => {
+        if (melodyExpression.get(intent.keyId) !== expression) return;
+        expression.voiceIds = ids;
+        ids.forEach((id) => {
+          if (expression.cents) musicStore.setNotePitchBend(id, expression.cents);
+          if (expression.gain !== 1) musicStore.setNoteGain(id, expression.gain);
+        });
+      });
+    }
+    // Submit audio before reactive feedback and haptics can occupy this turn.
     store.addTouch(pressId, intent.keyId);
     if (intent.source === "pointer" && config.value.hapticFeedback) {
       triggerNoteHaptic();
     }
-    if (!shouldAttack) return;
-
-    void voiceGroups.attack(melodyVoiceOwnerId(intent.keyId), [
-      (isCancelled) => musicStore.attackNoteWithOctave(
-        intent.scaleIndex,
-        intent.octave,
-        isCancelled,
-      ),
-    ]);
   }
 
   function release(intent: KeyboardIntent) {
     const pressId = inputPressId(intent);
     store.removeTouch(pressId);
     const heldInputs = heldInputsByKey.get(intent.keyId);
-    if (!heldInputs?.delete(pressId) || heldInputs.size > 0) return;
+    if (!heldInputs?.delete(pressId)) return;
+    const expression = melodyExpression.get(intent.keyId);
+    if (heldInputs.size > 0) {
+      // Multiple contacts on one key share a voice. The oldest remaining
+      // contact takes control when the first lifts; other keys stay independent.
+      if (expression?.controller === pressId) {
+        const nextController = heldInputs.values().next().value!;
+        expression.controller = nextController;
+        expression.cents = 0;
+        expression.gain = 1;
+        expression.voiceIds.forEach((id) => musicStore.setNotePitchBend(id, 0));
+        expression.voiceIds.forEach((id) => musicStore.setNoteGain(id, 1));
+        resetPointerExpressionForInput(nextController);
+      }
+      return;
+    }
 
+    melodyExpression.delete(intent.keyId);
     heldInputsByKey.delete(intent.keyId);
     voiceGroups.release(melodyVoiceOwnerId(intent.keyId));
+  }
+
+  function pitchBend(intent: KeyboardIntent, cents: number, sampleTime?: number) {
+    const expression = melodyExpression.get(intent.keyId);
+    if (!expression || expression.controller !== inputPressId(intent)) return;
+    expression.cents = cents;
+    expression.voiceIds.forEach((id) => setPitchBend(id, cents, sampleTime));
+  }
+
+  function gainChange(intent: KeyboardIntent, gain: number, sampleTime?: number) {
+    const expression = melodyExpression.get(intent.keyId);
+    if (!expression || expression.controller !== inputPressId(intent)) return;
+    expression.gain = gain;
+    expression.voiceIds.forEach((id) => setGain(id, gain, sampleTime));
   }
 
   function pressChord(intent: KeyboardChordIntent) {
@@ -476,28 +546,54 @@ function createProductionWiring() {
       key: currentMusicKey.value,
       notePitches: intent.chord.voicing.pitches.map((pitch) => pitch.name),
     });
-    store.addTouch(ownerId, `chord:${intent.chordId}`);
-    if (intent.source === "pointer" && config.value.hapticFeedback) {
-      triggerNoteHaptic();
-    }
+    const expression: Expression = { voiceIds: [], cents: 0, gain: 1 };
+    chordExpression.set(ownerId, expression);
     // The chord object is the setting snapshot captured at attack time.
     void voiceGroups.attack(
       ownerId,
       intent.chord.voicing.pitches.map((pitch) =>
         (isCancelled) => musicStore.attackExactPitch(pitch.name, isCancelled),
       ),
-    );
+    ).then((ids) => {
+      if (chordExpression.get(ownerId) !== expression) return;
+      expression.voiceIds = ids;
+      ids.forEach((id) => {
+        if (expression.cents) musicStore.setNotePitchBend(id, expression.cents);
+        if (expression.gain !== 1) musicStore.setNoteGain(id, expression.gain);
+      });
+    });
+    store.addTouch(ownerId, `chord:${intent.chordId}`);
+    if (intent.source === "pointer" && config.value.hapticFeedback) {
+      triggerNoteHaptic();
+    }
   }
 
   function releaseChord(intent: KeyboardChordIntent) {
     const ownerId = chordPressId(intent);
     activeChordSnapshots.delete(ownerId);
+    chordExpression.delete(ownerId);
     store.removeTouch(ownerId);
     voiceGroups.release(ownerId);
   }
 
+  function chordPitchBend(intent: KeyboardChordIntent, cents: number, sampleTime?: number) {
+    const expression = chordExpression.get(chordPressId(intent));
+    if (!expression) return;
+    expression.cents = cents;
+    expression.voiceIds.forEach((id) => setPitchBend(id, cents, sampleTime));
+  }
+
+  function chordGainChange(intent: KeyboardChordIntent, gain: number, sampleTime?: number) {
+    const expression = chordExpression.get(chordPressId(intent));
+    if (!expression) return;
+    expression.gain = gain;
+    expression.voiceIds.forEach((id) => setGain(id, gain, sampleTime));
+  }
+
   function clear() {
     heldInputsByKey.clear();
+    melodyExpression.clear();
+    chordExpression.clear();
     activeChordSnapshots.clear();
     voiceGroups.releaseAll();
     store.clearAllTouches();
@@ -514,8 +610,12 @@ function createProductionWiring() {
     isInteractionLocked: computed(() => instrumentStore.isInteractionLocked),
     press,
     release,
+    pitchBend,
+    gainChange,
     pressChord,
     releaseChord,
+    chordPitchBend,
+    chordGainChange,
     clear,
   };
 }
@@ -607,7 +707,75 @@ const activeChordFocusInputs = new Map<string, KeyboardChordIntent>();
 const chordPointerSnapshotId = (inputId: string, chordId: string) =>
   `${inputId}:${chordId}`;
 const activePointerInputs = reactive(new Map<number, KeyboardIntent | null>());
+const activeChordGestureInputs = reactive(new Map<number, KeyboardChordIntent>());
+const chordGesturePressedIds = computed(() => new Set(
+  Array.from(activeChordGestureInputs.values(), (intent) => intent.chordId),
+));
 const pointerPositions = new Map<number, { x: number; y: number }>();
+const pointerSampleTimes = new Map<number, number>();
+interface PointerExpressionOrigin {
+  x: number;
+  y: number;
+  cents: number;
+  gain: number;
+}
+const pointerExpressionOrigins = new Map<number, PointerExpressionOrigin>();
+
+function resetPointerExpressionForInput(pressId: string) {
+  for (const [pointerId, intent] of activePointerInputs) {
+    if (!intent || `melody:${intent.inputId}:${intent.keyId}` !== pressId) continue;
+    const position = pointerPositions.get(pointerId);
+    if (!position) return;
+    pointerExpressionOrigins.set(pointerId, {
+      x: position.x,
+      y: position.y,
+      cents: 0,
+      gain: 1,
+    });
+    return;
+  }
+}
+
+function expressionForOrigin(origin: PointerExpressionOrigin, event: PointerEvent) {
+  const dx = event.clientX - origin.x;
+  const cents = Math.round(
+    Math.sign(dx) * Math.min(50, Math.max(0, Math.abs(dx) - 3) * 2.5),
+  );
+  const upward = origin.y - event.clientY;
+  const gain = Math.round(
+    Math.min(1.75, Math.max(.25, 1 + (Math.sign(upward) * Math.max(0, Math.abs(upward) - 3) * .025)))
+      * 1000,
+  ) / 1000;
+  return { cents, gain };
+}
+
+function updatePointerExpression(pointerId: number, event: PointerEvent, sampleTime?: number) {
+  const intent = activePointerInputs.get(pointerId);
+  const chordIntent = activeChordGestureInputs.get(pointerId);
+  const origin = pointerExpressionOrigins.get(pointerId);
+  if ((!intent && !chordIntent) || !origin) return;
+  const { cents, gain } = expressionForOrigin(origin, event);
+  if (origin.cents !== cents) {
+    origin.cents = cents;
+    if (intent) {
+      productionWiring?.pitchBend(intent, cents, sampleTime);
+      emit("pitchBend", { ...intent, event, cents });
+    } else if (chordIntent) {
+      productionWiring?.chordPitchBend(chordIntent, cents, sampleTime);
+      emit("chordPitchBend", { ...chordIntent, event, cents });
+    }
+  }
+  if (origin.gain !== gain) {
+    origin.gain = gain;
+    if (intent) {
+      productionWiring?.gainChange(intent, gain, sampleTime);
+      emit("gainChange", { ...intent, event, gain });
+    } else if (chordIntent) {
+      productionWiring?.chordGainChange(chordIntent, gain, sampleTime);
+      emit("chordGainChange", { ...chordIntent, event, gain });
+    }
+  }
+}
 
 const allKeys = computed(() => renderRows.value.flatMap((row) => row.keys));
 const defaultFocusId = computed(
@@ -632,6 +800,14 @@ const editionVariations = computed(() => new Map(
       resolvedEditionSeed.value,
       row.keys.map((key) => key.id),
     ),
+  ),
+));
+
+const chordEditionVariations = computed(() => new Map(
+  keyboardEditionRowVariations(
+    resolvedChordFamily.value,
+    resolvedEditionSeed.value,
+    renderChords.value.map((chord) => chord.harmony.id),
   ),
 ));
 
@@ -716,6 +892,19 @@ function keyStyle(key: KeyboardKeyView, octave: number) {
     "--note-geometry-override-clip": variation.cut,
     "--note-geometry-override-shadow": variation.shadow,
     zIndex: isKeyPhysicallyPressed(key) ? 10_001 : variation.layer,
+  };
+}
+
+function chordKeyStyle(chord: KeyboardChordView) {
+  const variation = chordEditionVariations.value.get(chord.harmony.id)!;
+
+  return {
+    "--keyboard-edition-rotation": variation.rotation,
+    "--key-face-rotation": "calc(var(--keyboard-edition-rotation) * var(--keyboard-variation-amplitude))",
+    "--chord-geometry-override-clip": variation.cut,
+    zIndex: chord.pressed || chordGesturePressedIds.value.has(chord.harmony.id)
+      ? 10_001
+      : variation.layer,
   };
 }
 
@@ -974,6 +1163,29 @@ function keyIntentAtPoint(event: PointerEvent): KeyboardIntent | null {
   return keyIntentForId(element.dataset.keyId, event);
 }
 
+function chordIntentAtPoint(event: PointerEvent): KeyboardChordIntent | null {
+  const root = keyboardRef.value;
+  if (!root) return null;
+  const hit = typeof document.elementFromPoint === "function"
+    ? document.elementFromPoint(event.clientX, event.clientY)
+    : event.target;
+  const element = hit instanceof Element
+    ? hit.closest<HTMLElement>("[data-chord-id]")
+    : null;
+  if (!element || !root.contains(element)) return null;
+  const chord = renderChords.value.find(
+    (candidate) => candidate.harmony.id === element.dataset.chordId,
+  )?.attackHarmony;
+  if (!chord) return null;
+  return {
+    inputId: pointerInputId(event),
+    event,
+    chordId: chord.id,
+    chord,
+    source: "pointer",
+  };
+}
+
 function segmentEntryTime(
   start: { x: number; y: number },
   end: { x: number; y: number },
@@ -1055,11 +1267,45 @@ function pointerSamples(event: PointerEvent) {
   return samples;
 }
 
+function expressionSamples(event: PointerEvent) {
+  const samples = pointerSamples(event);
+  if (samples.length === 1) {
+    const sampleTime = performance.now();
+    pointerSampleTimes.set(event.pointerId, sampleTime);
+    return [{ sample: samples[0], sampleTime }];
+  }
+  // Coalesced hardware timestamps can precede the last dispatched move. Fit
+  // the batch between that move and now, retaining its spacing when possible
+  // and compressing it when the raw span would put expression in the future.
+  const firstTime = samples[0].timeStamp;
+  const lastTime = samples[samples.length - 1].timeStamp;
+  const previous = pointerSampleTimes.get(event.pointerId) ?? -Infinity;
+  const end = Math.max(performance.now(), lastTime, previous);
+  const span = Math.max(0, lastTime - firstTime);
+  const available = Number.isFinite(previous) ? Math.max(0, end - previous - .001) : span;
+  const scale = span > 0 ? Math.min(1, available / span) : 1;
+  let latest = previous;
+  return samples.map((sample) => {
+    const projected = end - Math.max(0, lastTime - sample.timeStamp) * scale;
+    const sampleTime = Math.max(latest + .001, projected);
+    latest = sampleTime;
+    pointerSampleTimes.set(event.pointerId, sampleTime);
+    return { sample, sampleTime };
+  });
+}
+
 function movePointerThroughSamples(event: PointerEvent) {
-  for (const sample of pointerSamples(event)) {
+  for (const { sample, sampleTime } of expressionSamples(event)) {
     const start = pointerPositions.get(event.pointerId)
       ?? { x: sample.clientX, y: sample.clientY };
     movePointerAlongSegment(event.pointerId, start, sample);
+    updatePointerExpression(event.pointerId, sample, sampleTime);
+  }
+}
+
+function moveChordPointerThroughSamples(event: PointerEvent) {
+  for (const { sample, sampleTime } of expressionSamples(event)) {
+    updatePointerExpression(event.pointerId, sample, sampleTime);
   }
 }
 
@@ -1077,6 +1323,15 @@ function movePointerInput(pointerId: number, next: KeyboardIntent | null, event:
 
   if (current) dispatchIntent("release", { ...current, event });
   activePointerInputs.set(pointerId, next);
+  pointerExpressionOrigins.delete(pointerId);
+  if (next && "clientX" in event) {
+    pointerExpressionOrigins.set(pointerId, {
+      x: (event as PointerEvent).clientX,
+      y: (event as PointerEvent).clientY,
+      cents: 0,
+      gain: 1,
+    });
+  }
   if (next) dispatchIntent("press", next);
 }
 
@@ -1084,41 +1339,70 @@ function handlePointerDown(event: PointerEvent) {
   if (isInteractionLocked.value) return;
   if (event.isPrimary === false && event.pointerType === "mouse") return;
   if (["mouse", "pen"].includes(event.pointerType) && event.button !== 0) return;
-  if (activePointerInputs.has(event.pointerId)) return;
+  if (
+    activePointerInputs.has(event.pointerId)
+    || activeChordGestureInputs.has(event.pointerId)
+  ) return;
 
-  const intent = keyIntentAtPoint(event);
-  if (!intent) return;
+  const chordIntent = chordIntentAtPoint(event);
+  const intent = chordIntent ? null : keyIntentAtPoint(event);
+  if (!intent && !chordIntent) return;
 
+  // Touch and pen gestures suppress compatibility events. Mouse presses retain
+  // the button's native focus behavior; managedInput already owns its lifecycle.
   if (event.pointerType !== "mouse") event.preventDefault();
   keyboardRef.value?.setPointerCapture?.(event.pointerId);
-  activePointerInputs.set(event.pointerId, intent);
+  pointerExpressionOrigins.set(event.pointerId, {
+    x: event.clientX, y: event.clientY, cents: 0, gain: 1,
+  });
   pointerPositions.set(event.pointerId, {
     x: event.clientX,
     y: event.clientY,
   });
-  dispatchIntent("press", intent);
+  pointerSampleTimes.set(event.pointerId, performance.now());
+  if (chordIntent) {
+    activeChordGestureInputs.set(event.pointerId, chordIntent);
+    dispatchChordIntent("press", chordIntent);
+  } else if (intent) {
+    activePointerInputs.set(event.pointerId, intent);
+    dispatchIntent("press", intent);
+  }
 }
 
 function handlePointerMove(event: PointerEvent) {
-  if (!activePointerInputs.has(event.pointerId)) return;
+  if (!activePointerInputs.has(event.pointerId) && !activeChordGestureInputs.has(event.pointerId)) return;
   event.preventDefault();
-  movePointerThroughSamples(event);
+  if (activeChordGestureInputs.has(event.pointerId)) {
+    moveChordPointerThroughSamples(event);
+  } else {
+    movePointerThroughSamples(event);
+  }
 }
 
 function finishPointerInput(event: PointerEvent) {
-  if (!activePointerInputs.has(event.pointerId)) return;
+  if (!activePointerInputs.has(event.pointerId) && !activeChordGestureInputs.has(event.pointerId)) return;
   event.preventDefault();
+  const chordIntent = activeChordGestureInputs.get(event.pointerId);
+  if (chordIntent) {
+    dispatchChordIntent("release", { ...chordIntent, event });
+    activeChordGestureInputs.delete(event.pointerId);
+  }
   movePointerInput(event.pointerId, null, event);
   activePointerInputs.delete(event.pointerId);
   pointerPositions.delete(event.pointerId);
+  pointerSampleTimes.delete(event.pointerId);
+  pointerExpressionOrigins.delete(event.pointerId);
 }
 
 function handlePointerUp(event: PointerEvent) {
-  if (!activePointerInputs.has(event.pointerId)) return;
+  if (!activePointerInputs.has(event.pointerId) && !activeChordGestureInputs.has(event.pointerId)) return;
   event.preventDefault();
   // A row resize can move a different key beneath a stationary finger. Only
   // pointer movement, never layout movement, may create a final glissando step.
-  if (pointerMovedSinceLastSample(event)) movePointerThroughSamples(event);
+  if (activePointerInputs.has(event.pointerId) && pointerMovedSinceLastSample(event)) {
+    movePointerThroughSamples(event);
+  }
+  if (activeChordGestureInputs.has(event.pointerId)) moveChordPointerThroughSamples(event);
   finishPointerInput(event);
 }
 
@@ -1131,7 +1415,13 @@ function releasePointerInputs(event: Event) {
     if (intent) dispatchIntent("release", { ...intent, event });
   }
   activePointerInputs.clear();
+  for (const intent of activeChordGestureInputs.values()) {
+    dispatchChordIntent("release", { ...intent, event });
+  }
+  activeChordGestureInputs.clear();
   pointerPositions.clear();
+  pointerSampleTimes.clear();
+  pointerExpressionOrigins.clear();
 }
 
 function handleKeyDown(event: KeyboardEvent, rowIndex: number, keyIndex: number) {
@@ -1198,6 +1488,7 @@ function releaseMissingMelodyInputs(event: Event) {
     if (!intent || renderedIds.has(intent.keyId)) continue;
     dispatchIntent("release", { ...intent, event });
     activePointerInputs.set(pointerId, null);
+    pointerExpressionOrigins.delete(pointerId);
   }
 }
 
@@ -1278,6 +1569,7 @@ onBeforeUnmount(() => {
 }
 
 .keyboard__chord-row {
+  --keyboard-variation-amplitude: var(--keyboard-user-variation-amplitude, 1);
   display: grid;
   min-width: 0;
   min-height: 44px;
@@ -1344,7 +1636,8 @@ onBeforeUnmount(() => {
 }
 
 @container keyboard (max-width: 390px) {
-  .keyboard__row {
+  .keyboard__row,
+  .keyboard__chord-row {
     --keyboard-variation-amplitude: calc(var(--keyboard-user-variation-amplitude, 1) * .45);
   }
 
@@ -1395,6 +1688,7 @@ onBeforeUnmount(() => {
 }
 
 .keyboard--contrast-forced :deep(.chord__fused) {
+  --chord-member-seam: 1px solid CanvasText;
   border: 1px solid CanvasText;
   background: Canvas !important;
   box-shadow: none;
@@ -1405,11 +1699,11 @@ onBeforeUnmount(() => {
   display: none;
 }
 
-.keyboard--contrast-forced :deep(.chord__fused-member) {
+.keyboard--contrast-forced :deep(.chord__fused-band) {
   background: Canvas;
 }
 
-.keyboard--contrast-forced :deep(.chord__fused-progress) {
+.keyboard--contrast-forced :deep(.chord__fused-progress .chord__fused-band) {
   background: Highlight !important;
 }
 

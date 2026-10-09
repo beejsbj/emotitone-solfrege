@@ -4,7 +4,7 @@ import Note from "@/components/primatives/Note.vue";
 import { staticNoteColorResolver } from "@/components/primatives/noteColorContext";
 import Sequence from "@/components/uniques/CodeStrip/Sequence.vue";
 import PerformanceDeckPage from "@/style-guide/PerformanceDeckPage.vue";
-import styleGuideSource from "@/style-guide/StyleGuide.vue?raw";
+import { guideLayer } from "@/style-guide/guideCatalog";
 
 vi.mock("@/components/PerformanceDeck.vue", () => ({
   default: {
@@ -18,6 +18,7 @@ vi.mock("@/components/PerformanceDeck.vue", () => ({
       "modeValue",
       "bpm",
       "octave",
+      "playMode",
       "rowCount",
       "keyboardRows",
     ],
@@ -41,6 +42,7 @@ vi.mock("@/components/PerformanceDeck.vue", () => ({
       "update:modeValue",
       "update:bpm",
       "update:octave",
+      "update:playMode",
       "update:harmonyValue",
     ],
     template: '<div data-testid="performance-deck" />',
@@ -48,12 +50,10 @@ vi.mock("@/components/PerformanceDeck.vue", () => ({
 }));
 
 describe("PerformanceDeck guide fixtures", () => {
-  it("registers PerformanceDeck in the Compositions sink section", () => {
-    const compositions = styleGuideSource.indexOf('id="compositions-heading"');
-    const performanceDeck = styleGuideSource.indexOf('id="composition-performance-deck"');
+  it("registers PerformanceDeck in the Compositions layer with its focused page", () => {
+    const deck = guideLayer("compositions")?.units.find((unit) => unit.id === "performance-deck");
 
-    expect(compositions).toBeGreaterThan(-1);
-    expect(performanceDeck).toBeGreaterThan(compositions);
+    expect(deck?.focusedHref).toBe("/style-guide/performance-deck");
   });
 
   it("models Return as a saved take plus an entering empty Current Take", async () => {
@@ -91,7 +91,7 @@ describe("PerformanceDeck guide fixtures", () => {
       mode: "dorian",
       bpm: 92,
       octave: 4,
-      barTape: [],
+      loopDial: [],
       codeStripTokens: [],
       canCopy: false,
     });
@@ -215,13 +215,13 @@ describe("PerformanceDeck guide fixtures", () => {
     expect(deck.props("codeStripTokens")).toEqual([]);
     expect(deck.props("patterns").at(-1)).toMatchObject({
       id: "current",
-      barTape: [],
+      loopDial: [],
       codeStripTokens: [],
       canCopy: false,
     });
   });
 
-  it("keeps Current and saved Bar Tape aligned with partial CodeStrip edits", async () => {
+  it("keeps Current and saved Loop Dial aligned with partial CodeStrip edits", async () => {
     const wrapper = mount(PerformanceDeckPage);
     const deck = wrapper.getComponent({ name: "PerformanceDeck" });
 
@@ -235,12 +235,12 @@ describe("PerformanceDeck guide fixtures", () => {
         { type: "note", rawPitch: "E4" },
         { type: "rest" },
       ],
-      barTape: [
-        { durationMs: 250 },
-        { durationMs: 125 },
+      loopDial: [
+        { durationMs: 250, height: 4 * 12 + 0 },
+        { durationMs: 125, height: 4 * 12 + 4 },
       ],
     });
-    expect(editedCurrent.barTape.map((segment: { color: string }) => segment.color)).toEqual([
+    expect(editedCurrent.loopDial.map((segment: { color: string }) => segment.color)).toEqual([
       staticNoteColorResolver.getKeyBackgroundByPitchClass(
         0,
         "major",
@@ -272,12 +272,12 @@ describe("PerformanceDeck guide fixtures", () => {
         { type: "note", rawPitch: "F#4" },
         { type: "note", rawPitch: "A4" },
       ],
-      barTape: [
-        { durationMs: 250 },
-        { durationMs: 125 },
+      loopDial: [
+        { durationMs: 250, height: 4 * 12 + 6 },
+        { durationMs: 125, height: 4 * 12 + 9 },
       ],
     });
-    expect(saved.barTape.map((segment: { color: string }) => segment.color)).toEqual([
+    expect(saved.loopDial.map((segment: { color: string }) => segment.color)).toEqual([
       staticNoteColorResolver.getKeyBackgroundByPitchClass(
         6,
         "dorian",

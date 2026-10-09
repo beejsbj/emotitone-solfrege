@@ -3,6 +3,8 @@
  * Types for managing app loading states, splash screens, and initialization progress
  */
 
+import type { AudioFailureKind } from "@/services/audioFailures";
+
 /**
  * Different phases of app loading
  */
@@ -22,6 +24,10 @@ export interface LoadingState {
   progress: number;     // 0-100
   message: string;
   error?: string;
+  /** Set with error: what kind of failure it was, so the screen offers the right way on. */
+  failure?: AudioFailureKind;
+  /** The failure was the load running out of time: its start is still pending and cached. */
+  timedOut?: boolean;
   isComplete: boolean;
 }
 
@@ -67,4 +73,19 @@ export interface LoadingEvent {
   progress: number;
   message: string;
   timestamp: number;
+}
+
+/**
+ * One row of the Loading Screen's stage list. Required stages are the four
+ * counted beats; an optional stage (MIDI input) is the "and" and never holds
+ * the Play gate.
+ */
+export interface LoadingStage {
+  label: string;
+  complete: boolean;
+  active: boolean;
+  icon?: "midi";
+  detail?: string;
+  stamp?: string;
+  optional?: boolean;
 }

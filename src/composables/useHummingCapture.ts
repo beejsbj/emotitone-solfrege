@@ -1,18 +1,19 @@
-import { computed, onBeforeUnmount, readonly, ref } from "vue";
+import { computed, onBeforeUnmount, readonly, ref, watch } from "vue";
 import { createHummingStageBridge } from "@/services/hummingStage";
 import {
-  analyzeWithMelograph,
-  audioBlobToMelographWav,
-  melographAnalysisToPatternCandidates,
-} from "@/services/melograph";
+  analyzePitchRecording,
+  preparePitchAnalysisAudio,
+  pitchAnalysisToPatternCandidates,
+} from "@/services/pitchAnalysis";
 import {
   startMicrophoneCapture,
   type MicrophoneCapture,
-} from "@/services/melographLivePitch";
+} from "@/services/microphoneCapture";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useMusicStore } from "@/stores/music";
-import { usePatternsStore } from "@/stores/patterns";
+import { usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
+import type { Shape } from "@/types/instrument";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 
 export type HummingCaptureStatus =
@@ -23,12 +24,10 @@ export type HummingCaptureStatus =
   | "analyzing"
   | "error";
 
-const MAX_CAPTURE_MS = 45_000;
-
 export function useHummingCapture() {
   const musicStore = useMusicStore();
   const instrumentStore = useInstrumentStore();
-  const patternsStore = usePatternsStore();
+  const phrasesStore = usePhrasesStore();
   const visualConfigStore = useVisualConfigStore();
   const status = ref<HummingCaptureStatus>("idle");
   const error = ref<string | null>(null);
@@ -38,17 +37,28 @@ export function useHummingCapture() {
   const importedNoteCount = ref(0);
 
   let session: MicrophoneCapture | null = null;
+  let pendingRecording: Promise<Blob> | null = null;
   let stageBridge: ReturnType<typeof createHummingStageBridge> | null = null;
-  let timeoutId: number | null = null;
   let requestController: AbortController | null = null;
   let generation = 0;
-  let loggedNoteIdsAtCaptureStart = new Set<string>();
   let captureContext: {
     key: ChromaticNote;
     mode: MusicalMode;
     instrument: string;
     bpm: number;
+    shape: Shape;
   } | null = null;
+
+  // Live presentation follows the controls; analysis retains the take's starting context.
+  const stopContextWatch = watch(
+    () => [musicStore.currentKey, musicStore.currentMode, instrumentStore.currentInstrument],
+    () => stageBridge?.updateContext({
+      key: musicStore.currentKey as ChromaticNote,
+      mode: musicStore.currentMode as MusicalMode,
+      instrument: instrumentStore.currentInstrument,
+    }),
+    { flush: "sync" },
+  );
 
   const isBusy = computed(() =>
     ["requesting", "preparing", "analyzing"].includes(status.value),
@@ -59,7 +69,7 @@ export function useHummingCapture() {
     if (status.value === "requesting") return "Requesting microphone access";
     if (status.value === "recording") return "Listening to your humming";
     if (status.value === "preparing") return "Preparing the recording";
-    if (status.value === "analyzing") return "Melograph is analyzing the phrase";
+    if (status.value === "analyzing") return "Analyzing the phrase";
     if (status.value === "error") return error.value ?? "Humming capture failed";
     if (importedNoteCount.value) {
       const takes = takePatternIds.value.length;
@@ -77,14 +87,12 @@ export function useHummingCapture() {
     takeLabels.value = [];
     selectedTakeIndex.value = 0;
     status.value = "requesting";
-    loggedNoteIdsAtCaptureStart = new Set(
-      patternsStore.loggedNotes.map((note) => note.id),
-    );
     captureContext = {
       key: musicStore.currentKey as ChromaticNote,
       mode: musicStore.currentMode as MusicalMode,
       instrument: instrumentStore.currentInstrument,
       bpm: visualConfigStore.config.codeStrip.bpm,
+      shape: { ...instrumentStore.shape },
     };
     stageBridge = createHummingStageBridge(captureContext);
 
@@ -103,53 +111,47 @@ export function useHummingCapture() {
       }
       session = nextSession;
       status.value = "recording";
-      timeoutId = window.setTimeout(() => void stop(), MAX_CAPTURE_MS);
     } catch (caught) {
       if (generation === activeGeneration) fail(caught);
     }
   }
 
   async function stop() {
-    if (status.value !== "recording" || !session || !captureContext) return;
-    const activeGeneration = generation;
+    if (!isRecording.value || !session || !captureContext) return;
     const activeSession = session;
+    const activeGeneration = generation;
     const activeContext = captureContext;
     session = null;
-    clearCaptureTimeout();
     stageBridge?.stop();
     stageBridge = null;
     status.value = "preparing";
 
     try {
-      const recording = await activeSession.stop();
+      pendingRecording = activeSession.stop();
+      const recording = await pendingRecording;
       if (generation !== activeGeneration) return;
-      const wav = await audioBlobToMelographWav(recording);
+      pendingRecording = null;
+      const wav = await preparePitchAnalysisAudio(recording);
       if (generation !== activeGeneration) return;
 
       status.value = "analyzing";
       requestController = new AbortController();
-      const analysis = await analyzeWithMelograph(wav, {
+      const analysis = await analyzePitchRecording(wav, {
         signal: requestController.signal,
       });
       if (generation !== activeGeneration) return;
 
-      const candidates = melographAnalysisToPatternCandidates(
+      const candidates = pitchAnalysisToPatternCandidates(
         analysis,
         activeContext,
       );
       if (!candidates.length) {
-        throw new Error("Melograph could not find a stable note in that capture.");
+        throw new Error("Pitch analysis could not find a stable note in that capture.");
       }
 
-      const importedIds = patternsStore.importPatternCandidates(
-        candidates,
-        activeContext,
-        {
-          workingNotes: patternsStore.loggedNotes.filter(
-            (note) => !loggedNoteIdsAtCaptureStart.has(note.id),
-          ),
-        },
-      );
+      // Notes played during the capture are already in the take; opening
+      // the first capture sends that take to Recent rather than dropping it.
+      const importedIds = phrasesStore.importPhrases(candidates, activeContext);
       takePatternIds.value = importedIds;
       takeLabels.value = candidates.map((candidate) => {
         const takeNumber = candidate.source?.takeNumber;
@@ -181,38 +183,36 @@ export function useHummingCapture() {
     const patternId = takePatternIds.value[index];
     if (!patternId) return;
     selectedTakeIndex.value = index;
-    patternsStore.loadPatternAsBase(patternId, { discardWorkingNotes: true });
+    phrasesStore.openPhrase(patternId);
   }
 
   async function cancel() {
-    generation += 1;
-    clearCaptureTimeout();
+    const activeGeneration = ++generation;
     requestController?.abort();
     requestController = null;
     stageBridge?.stop();
     stageBridge = null;
     const activeSession = session;
     session = null;
+    const activeRecording = pendingRecording;
     await activeSession?.cancel();
-    if (status.value !== "error") status.value = "idle";
+    // Recorder completion includes monitor shutdown and release of the audio lease.
+    await activeRecording?.catch(() => undefined);
+    if (pendingRecording === activeRecording) pendingRecording = null;
+    if (generation === activeGeneration && status.value !== "error") status.value = "idle";
   }
 
   function fail(caught: unknown) {
-    clearCaptureTimeout();
     stageBridge?.stop();
     stageBridge = null;
     session = null;
+    pendingRecording = null;
     error.value = friendlyCaptureError(caught);
     status.value = "error";
   }
 
-  function clearCaptureTimeout() {
-    if (timeoutId == null) return;
-    window.clearTimeout(timeoutId);
-    timeoutId = null;
-  }
-
   onBeforeUnmount(() => {
+    stopContextWatch();
     void cancel();
   });
 

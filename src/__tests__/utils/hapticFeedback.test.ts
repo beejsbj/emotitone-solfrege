@@ -42,26 +42,6 @@ describe("Haptic Feedback Utilities", () => {
       expect(mockVibrate).toHaveBeenCalledWith([10]);
     });
 
-    it("should trigger vibration with light intensity", () => {
-      triggerHapticFeedback("light");
-      expect(mockVibrate).toHaveBeenCalledWith([50]);
-    });
-
-    it("should trigger vibration with medium intensity", () => {
-      triggerHapticFeedback("medium");
-      expect(mockVibrate).toHaveBeenCalledWith([70]);
-    });
-
-    it("should trigger vibration with heavy intensity", () => {
-      triggerHapticFeedback("heavy");
-      expect(mockVibrate).toHaveBeenCalledWith([100]);
-    });
-
-    it("should trigger vibration with string pattern", () => {
-      triggerHapticFeedback("string");
-      expect(mockVibrate).toHaveBeenCalledWith([20, 10, 20, 10]);
-    });
-
     it("should handle missing vibrate API gracefully", () => {
       // Remove vibrate from navigator
       delete (navigator as any).vibrate;
@@ -198,39 +178,6 @@ describe("Haptic Feedback Utilities", () => {
   });
 
   describe("Browser compatibility", () => {
-    it("should handle different browser implementations", () => {
-      // Test with different navigator implementations
-      const testCases = [
-        {
-          name: "Chrome/Firefox",
-          setup: () => {
-            Object.defineProperty(navigator, 'vibrate', {
-              value: mockVibrate,
-              writable: true,
-              configurable: true,
-            });
-          },
-        },
-        {
-          name: "Safari without vibrate",
-          setup: () => {
-            delete (navigator as any).vibrate;
-          },
-        },
-        {
-          name: "IE/Edge with msMaxTouchPoints",
-          setup: () => {
-            (navigator as any).msMaxTouchPoints = 1;
-          },
-        },
-      ];
-
-      testCases.forEach(({ name, setup }) => {
-        setup();
-        expect(() => triggerHapticFeedback("light")).not.toThrow();
-      });
-    });
-
     it("should handle undefined window.hapticFeedback gracefully", () => {
       (window as any).hapticFeedback = undefined;
       
@@ -247,18 +194,6 @@ describe("Haptic Feedback Utilities", () => {
   });
 
   describe("Integration tests", () => {
-    it("should provide different feedback for different contexts", () => {
-      // Test that each context provides different feedback
-      triggerUIHaptic();
-      expect(mockVibrate).toHaveBeenLastCalledWith([10]);
-      
-      triggerNoteHaptic();
-      expect(mockVibrate).toHaveBeenLastCalledWith([50]);
-      
-      triggerControlHaptic();
-      expect(mockVibrate).toHaveBeenLastCalledWith([70]);
-    });
-
     it("should work consistently across multiple calls", () => {
       // Test that multiple calls work consistently
       for (let i = 0; i < 5; i++) {

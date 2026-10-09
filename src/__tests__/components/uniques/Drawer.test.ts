@@ -49,6 +49,24 @@ async function drag(w: ReturnType<typeof mount>, delta: number) {
 }
 
 describe("Drawer continuous height contract", () => {
+  it("paints the lip as a layer and shows the meter only when a host asks for one", async () => {
+    const plain = await create();
+    const handle = plain.get(".drawer__handle");
+    expect(handle.find(".drawer__lip").exists()).toBe(true);
+    expect(handle.find(".drawer__meter").exists()).toBe(false);
+    expect(handle.classes()).not.toContain("drawer__handle--metered");
+
+    const metered = await create({ handleMeter: { value: 3, max: 8 } });
+    const meter = metered.get(".drawer__meter");
+    expect(metered.get(".drawer__handle").classes()).toContain("drawer__handle--metered");
+    expect(meter.attributes("aria-hidden")).toBe("true");
+    expect(meter.attributes("style")).toContain("--drawer-meter-max: 8");
+    expect(meter.attributes("style")).toContain("--drawer-meter-lit: 3");
+
+    await metered.setProps({ handleMeter: { value: 12, max: 8 } });
+    expect(metered.get(".drawer__meter").attributes("style")).toContain("--drawer-meter-lit: 8");
+  });
+
   it("offers one opt-in haptic for a handle tap, not its post-drag click", async () => {
     const w = await create({ haptic: true });
 

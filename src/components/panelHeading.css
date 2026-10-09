@@ -1,0 +1,59 @@
+/* Applied paper on the panel chassis: one heading grammar for overlays and sections. */
+.panel-heading.panel-heading--band {
+  display: table;
+  position: relative;
+  isolation: isolate;
+  max-inline-size: 100%;
+  padding: 3px var(--s-5) 1px;
+  color: var(--ink);
+  font: 700 23px/1 var(--font-display);
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  rotate: -2deg;
+}
+
+/* Cut separately, the Ivory band leans a little steeper than its word. */
+.panel-heading.panel-heading--band::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 1px 0 0;
+  background: var(--ivory);
+  clip-path: polygon(7px 0, 100% 0, calc(100% - 7px) 100%, 0 100%);
+  rotate: -1.5deg;
+}
+
+/* Raised mono letters and a scissor-cut end read as label-maker tape. */
+.panel-heading.panel-heading--tape {
+  display: inline-block;
+  justify-self: start;
+  max-inline-size: 100%;
+  padding: var(--s-2) 9px 3px var(--s-4);
+  background: var(--ink-4);
+  box-shadow: inset 0 1px 0 var(--ink-5), inset 0 -1px 0 var(--ink-2);
+  border-radius: 1px;
+  color: var(--ivory-2);
+  font: 800 9px/1 var(--font-mono);
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  text-shadow: 0 -1px 0 var(--ivory-3), 0 1px 0 var(--ink);
+  clip-path: polygon(3px 0, 100% 0, 100% 100%, 0 100%);
+  rotate: 1.1deg;
+  translate: 0 1px;
+}
+
+@media (forced-colors: active) {
+  .panel-heading.panel-heading--band,
+  .panel-heading.panel-heading--tape {
+    background: Canvas;
+    color: CanvasText;
+    border: 1px solid CanvasText;
+    box-shadow: none;
+    text-shadow: none;
+    clip-path: none;
+    rotate: none;
+    translate: none;
+  }
+
+  .panel-heading.panel-heading--band::before { display: none; }
+}

@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  readonly VITE_MELOGRAPH_ANALYZE_URL?: string;
+  readonly VITE_PITCH_ANALYSIS_URL?: string;
 }
 
 declare module "*.vue" {

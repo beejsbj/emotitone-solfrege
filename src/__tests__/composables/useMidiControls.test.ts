@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  createMidiNoteOwnerScheduler,
   createMidiNoteReferenceCounter,
   hasActiveTouchPress,
   midiNoteNumberToName,
@@ -18,6 +19,161 @@ vi.mock("@/services/superdoughAudio", () => ({
 }));
 
 describe("useMidiControls helpers", () => {
+  it("cancels a replaced future worklet plan without emitting its note-on", () => {
+    const send = vi.fn();
+    const replace = vi.fn();
+    const scheduler = createMidiNoteOwnerScheduler(send, replace, () => 0);
+    scheduler.attack("planned", 60, 100);
+    scheduler.release("planned", 60, 200);
+    scheduler.cancel("planned", 60);
+    expect(replace).toHaveBeenLastCalledWith([]);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("canceling a sounding worklet owner preserves another owner of its pitch", () => {
+    let time = 0;
+    const send = vi.fn();
+    const scheduler = createMidiNoteOwnerScheduler(send, vi.fn(), () => time);
+    scheduler.attack("a", 60, 10);
+    scheduler.attack("b", 60, 10);
+    time = 20;
+    scheduler.cancel("a", 60);
+    expect(send).not.toHaveBeenCalled();
+    scheduler.cancel("b", 60);
+    expect(send).toHaveBeenCalledExactlyOnceWith({ midiNote: 60, phase: "release" });
+  });
+  it("projects a dense chord batch once, before sending its immediate transitions", () => {
+    const operations: string[] = [];
+    const replaceScheduled = vi.fn((_transitions: unknown[]) => operations.push("replace"));
+    const scheduler = createMidiNoteOwnerScheduler(
+      ({ phase }) => operations.push(`send:${phase}`), replaceScheduled, () => 0,
+    );
+    scheduler.beginBatch();
+    scheduler.attack("held", 48);
+    for (const pitch of [60, 64, 67, 72]) {
+      scheduler.attack(`chord-${pitch}`, pitch, 20);
+      scheduler.release(`chord-${pitch}`, pitch, 120);
+    }
+    expect(operations).toEqual([]);
+    scheduler.endBatch();
+    expect(replaceScheduled).toHaveBeenCalledOnce();
+    expect(replaceScheduled.mock.calls[0][0]).toHaveLength(8);
+    expect(operations).toEqual(["replace", "send:attack"]);
+  });
+
+  it("keeps overlapping scheduled owners sounding until the last release", () => {
+    let clock = 0;
+    const sendNow = vi.fn();
+    const replaceScheduled = vi.fn();
+    const scheduler = createMidiNoteOwnerScheduler(sendNow, replaceScheduled, () => clock);
+
+    scheduler.attack("held-chord", 60, 30);
+    scheduler.release("held-chord", 60, 100);
+    scheduler.attack("melody", 60, 65);
+    scheduler.release("melody", 60, 300);
+
+    expect(replaceScheduled).toHaveBeenLastCalledWith([
+      { midiNote: 60, phase: "attack", timestamp: 30 },
+      { midiNote: 60, phase: "release", timestamp: 300 },
+    ]);
+    expect(sendNow).not.toHaveBeenCalled();
+
+    clock = 301;
+    scheduler.attack("next", 62);
+    expect(sendNow).toHaveBeenCalledWith({ midiNote: 62, phase: "attack" });
+  });
+
+  it("shares pitch ownership between immediate and scheduled MIDI voices", () => {
+    let clock = 0;
+    const sendNow = vi.fn();
+    const replaceScheduled = vi.fn();
+    const scheduler = createMidiNoteOwnerScheduler(sendNow, replaceScheduled, () => clock);
+
+    scheduler.attack("mirrored-strudel", 60);
+    scheduler.attack("styled", 60, 30);
+    scheduler.release("styled", 60, 100);
+
+    expect(sendNow).toHaveBeenCalledTimes(1);
+    expect(sendNow).toHaveBeenCalledWith({ midiNote: 60, phase: "attack" });
+    expect(replaceScheduled).not.toHaveBeenCalled();
+
+    clock = 150;
+    scheduler.release("mirrored-strudel", 60);
+    expect(sendNow).toHaveBeenLastCalledWith({ midiNote: 60, phase: "release" });
+  });
+
+  it("does not release a scheduled pitch when an immediate owner ends first", () => {
+    let clock = 0;
+    const sendNow = vi.fn();
+    const replaceScheduled = vi.fn();
+    const scheduler = createMidiNoteOwnerScheduler(sendNow, replaceScheduled, () => clock);
+
+    scheduler.attack("styled", 60, 30);
+    scheduler.release("styled", 60, 100);
+    clock = 50;
+    scheduler.attack("mirrored-strudel", 60);
+    scheduler.release("mirrored-strudel", 60);
+
+    expect(sendNow).not.toHaveBeenCalled();
+    expect(replaceScheduled).toHaveBeenLastCalledWith([
+      { midiNote: 60, phase: "release", timestamp: 100 },
+    ]);
+  });
+
+  it("rebuilds the future queue before sending a newly due transition", () => {
+    let clock = 0;
+    const operations: string[] = [];
+    const scheduler = createMidiNoteOwnerScheduler(
+      ({ phase }) => operations.push(`send:${phase}`),
+      () => operations.push("replace"),
+      () => clock,
+    );
+
+    scheduler.attack("voice", 60, 30);
+    scheduler.release("voice", 60, 230);
+    operations.length = 0;
+    clock = 100;
+    scheduler.release("voice", 60, 99);
+
+    expect(operations).toEqual(["replace", "send:release"]);
+  });
+
+  it("keeps due attacks queued across clock drift within one output batch", () => {
+    let clock = 30;
+    const sendNow = vi.fn();
+    const replaceScheduled = vi.fn();
+    const scheduler = createMidiNoteOwnerScheduler(sendNow, replaceScheduled, () => clock);
+
+    scheduler.beginBatch();
+    scheduler.attack("voice", 60, 30);
+    clock = 30.1;
+    scheduler.release("voice", 60, 230);
+    scheduler.endBatch();
+
+    expect(sendNow).not.toHaveBeenCalled();
+    expect(replaceScheduled).toHaveBeenLastCalledWith([
+      { midiNote: 60, phase: "attack", timestamp: 30 },
+      { midiNote: 60, phase: "release", timestamp: 230 },
+    ]);
+  });
+
+  it("pairs an attack canceled at its deadline despite within-batch clock drift", () => {
+    let clock = 30;
+    const replaceScheduled = vi.fn();
+    const scheduler = createMidiNoteOwnerScheduler(vi.fn(), replaceScheduled, () => clock);
+
+    scheduler.beginBatch();
+    scheduler.attack("voice", 60, 30);
+    clock = 30.1;
+    scheduler.release("voice", 60, 30);
+    scheduler.endBatch();
+
+    expect(replaceScheduled).toHaveBeenLastCalledWith([
+      { midiNote: 60, phase: "attack", timestamp: 30 },
+      { midiNote: 60, phase: "release", timestamp: 30 },
+    ]);
+  });
+
   it("keeps a mirrored unison sounding until its final owner releases", () => {
     const noteOn = vi.fn();
     const noteOff = vi.fn();

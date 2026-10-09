@@ -27,6 +27,8 @@ const props = withDefaults(defineProps<{
   closeOnOutside?: boolean;
   fitContentOnOpen?: boolean;
   naturalContentHeight?: number;
+  /** Lit pips along the handle's top edge, e.g. the Keyboard's complete rows. */
+  handleMeter?: { value: number; max: number };
 }>(), {
   modelValue: undefined,
   defaultOpen: false,
@@ -432,7 +434,10 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
     <button
       type="button"
       class="drawer__handle"
-      :class="{ 'drawer__handle--pointer-disabled': handlePointerDisabled }"
+      :class="{
+        'drawer__handle--pointer-disabled': handlePointerDisabled,
+        'drawer__handle--metered': handleMeter,
+      }"
       :data-testid="handleTestId"
       :aria-label="accessibleName"
       :aria-expanded="expanded"
@@ -446,6 +451,16 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
       @pointercancel="pointerEnd"
       @lostpointercapture="pointerEnd"
     >
+      <span class="drawer__lip" aria-hidden="true" />
+      <span
+        v-if="handleMeter"
+        class="drawer__meter"
+        aria-hidden="true"
+        :style="{
+          '--drawer-meter-max': Math.max(1, handleMeter.max),
+          '--drawer-meter-lit': Math.min(Math.max(0, handleMeter.value), handleMeter.max),
+        }"
+      />
       <span class="drawer__grip" aria-hidden="true" />
       <span v-if="$slots.icon" class="drawer__icon" aria-hidden="true"><slot name="icon" /></span>
       <span v-if="handleLabel" class="drawer__label">{{ handleLabel }}</span>
@@ -513,10 +528,12 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
   gap: 4px;
   max-width: min(240px, 65%);
   min-height: var(--drawer-handle-height);
-  padding: 4px;
+  justify-content: center;
+  min-inline-size: 88px;
+  padding: 4px 18px;
   border: 0;
   border-radius: 0;
-  background: var(--ink-3);
+  background: none;
   color: var(--ivory);
   cursor: ns-resize;
   touch-action: none;
@@ -524,6 +541,50 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
   -webkit-user-select: none;
 }
 .drawer__handle::before { content: ""; position: absolute; inset: -6px 0; }
+/*
+ * The lip: the handle paints as a trapezoid continuous with the drawer, wide
+ * where it meets the body and chamfered toward its exposed edge. It is a
+ * layer, not a clip on the handle, so the full rectangular hit area and the
+ * -6px touch extension stay intact. Side-aligned handles keep a square outer corner.
+ */
+.drawer__lip {
+  --drawer-lip-chamfer: 14px;
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: var(--ink-3);
+  clip-path: polygon(var(--drawer-lip-chamfer) 0, calc(100% - var(--drawer-lip-chamfer)) 0, 100% 100%, 0 100%);
+  pointer-events: none;
+}
+.drawer--top .drawer__lip {
+  clip-path: polygon(0 0, 100% 0, calc(100% - var(--drawer-lip-chamfer)) 100%, var(--drawer-lip-chamfer) 100%);
+}
+.drawer--top.drawer--handle-left .drawer__handle { padding-inline-start: 6px; }
+.drawer--top.drawer--handle-left .drawer__lip {
+  clip-path: polygon(0 0, 100% 0, calc(100% - var(--drawer-lip-chamfer)) 100%, 0 100%);
+}
+.drawer--top.drawer--handle-right .drawer__handle { padding-inline-end: 6px; }
+.drawer--top.drawer--handle-right .drawer__lip {
+  clip-path: polygon(0 0, 100% 0, 100% 100%, var(--drawer-lip-chamfer) 100%);
+}
+/* Meter pips sit along the lip's top edge, lit Ivory up to the value. */
+.drawer__handle--metered { padding-top: 9px; }
+.drawer__meter {
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  inline-size: calc(var(--drawer-meter-max) * 5px - 2px);
+  block-size: 3px;
+  translate: -50% 0;
+  background: linear-gradient(90deg, var(--ivory) 0 calc(var(--drawer-meter-lit) / var(--drawer-meter-max) * 100%), var(--ink-5) 0);
+  -webkit-mask: repeating-linear-gradient(90deg, #000 0 3px, transparent 3px 5px);
+  mask: repeating-linear-gradient(90deg, #000 0 3px, transparent 3px 5px);
+  transition: filter var(--dur-tap) var(--ease-stab);
+}
+.drawer--dragging .drawer__meter,
+.drawer__handle:active .drawer__meter {
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--ivory) 70%, transparent));
+}
 .drawer__handle--pointer-disabled { pointer-events: none; }
 .drawer--top .drawer__handle { top: 100%; }
 .drawer--bottom .drawer__handle { bottom: 100%; }
@@ -551,11 +612,18 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
 }
 @media (prefers-reduced-motion: reduce) {
   .drawer--ready { transition: none; }
+  .drawer__meter { transition: none; }
 }
 @media (forced-colors: active) {
   .drawer { background: Canvas; color: CanvasText; }
   .drawer__handle { background: ButtonFace; color: ButtonText; border: 1px solid ButtonText; }
   .drawer__grip { background: ButtonText; }
+  .drawer__lip { display: none; }
+  .drawer__meter {
+    background: linear-gradient(90deg, Highlight 0 calc(var(--drawer-meter-lit) / var(--drawer-meter-max) * 100%), GrayText 0);
+    forced-color-adjust: none;
+    filter: none;
+  }
   .drawer__handle:focus-visible { outline-color: Highlight; }
 }
 </style>

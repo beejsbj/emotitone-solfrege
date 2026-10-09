@@ -1,0 +1,8 @@
+Checking focused four-condition receipt.
+PASS: hue-on pooled keydown medians: 16 notes 117.3ms; 512 notes 159.3ms (1.36×). Criterion: >100ms and >2×.
+16 notes; hue true; recording false: keydown 117.3ms, queue 87.8ms, longest task 225ms, rendered notes 16
+512 notes; hue true; recording false: keydown 159.3ms, queue 116.8ms, longest task 387ms, rendered notes 122
+512 notes; hue false; recording true: keydown 326.0ms, queue 308.6ms, longest task 458ms, rendered notes 128
+512 notes; hue true; recording true: keydown 299.7ms, queue 287.7ms, longest task 405ms, rendered notes 128
+PASS: overall input-growth, <=500ms append LongTask, animation behavior, and zero browser warnings/errors.
+Trusted CDP input; fixed 90ms fixture duration / 125ms cadence; no CPU profiler. Host noise affects absolute times.

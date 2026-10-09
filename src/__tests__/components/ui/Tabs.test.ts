@@ -3,7 +3,7 @@ import { mount } from "@vue/test-utils";
 import { markRaw } from "vue";
 import Tabs from "@/components/primatives/Tabs.vue";
 import tabsSource from "@/components/primatives/Tabs.vue?raw";
-import tabsPageSource from "@/style-guide/TabsPage.vue?raw";
+import TabsPage from "@/style-guide/TabsPage.vue";
 
 const TestIcon = markRaw({ template: "<svg />" });
 
@@ -20,6 +20,20 @@ const tabs = [
 ];
 
 describe("Tabs", () => {
+  it("uses a destination's brass material without pinning the rail geometry or other tabs", async () => {
+    const wrapper = mount(Tabs, { props: {
+      tabs: [{ label: "Shape", value: "shape", tone: "brass" }, ...tabs],
+      modelValue: "keys", geometry: "offcut", tone: "ivory",
+    } });
+    expect(wrapper.classes()).toContain("tabs--tone-ivory");
+    await wrapper.setProps({ modelValue: "shape" });
+    expect(wrapper.classes()).toContain("tabs--tone-brass");
+    expect(wrapper.classes()).toContain("tabs--geometry-offcut");
+    expect(wrapper.get('.tabs__chip').classes()).toContain("brass");
+    await wrapper.setProps({ modelValue: "keys" });
+    expect(wrapper.classes()).toContain("tabs--tone-ivory");
+    wrapper.unmount();
+  });
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
@@ -50,9 +64,16 @@ describe("Tabs", () => {
     expect(wrapper.emitted("update:modelValue")).toBeUndefined();
   });
 
-  it("keeps the guide stress rail aligned with production's fifteen destinations", () => {
-    expect(tabsPageSource).toContain("Fifteen destinations.");
-    expect(tabsPageSource).not.toContain("floatingPopup");
+  it("renders fourteen stress-case destinations and excludes retired floatingPopup", () => {
+    const wrapper = mount(TabsPage);
+    const stress = wrapper.get('[aria-label="Configuration stress-case tabs"]');
+    const destinations = stress.findAll('[data-testid^="tabs-page-config-"]');
+
+    expect(destinations).toHaveLength(14);
+    expect(destinations.map((tab) => tab.attributes("data-testid"))).not.toContain(
+      "tabs-page-config-floatingPopup",
+    );
+    wrapper.unmount();
   });
 
   it("reveals the active destination again after the viewport resizes", async () => {
@@ -185,6 +206,66 @@ describe("Tabs", () => {
     rail.dispatchEvent(boundaryWheel);
     expect(rail.scrollLeft).toBe(500);
     expect(boundaryWheel.defaultPrevented).toBe(false);
+  });
+
+  it("renders Marquee as a lit bulb row instead of a chip", () => {
+    const wrapper = mount(Tabs, {
+      props: { tabs, modelValue: "keys", geometry: "marquee" },
+    });
+
+    expect(wrapper.classes()).toContain("tabs--geometry-marquee");
+    expect(wrapper.find(".tabs__chip").exists()).toBe(false);
+    expect(wrapper.find(".tabs__streak").exists()).toBe(false);
+    const buttons = wrapper.findAll(".tabs__button");
+    for (const button of buttons) {
+      expect(button.findAll(".tabs__bulbs .tabs__bulb")).toHaveLength(7);
+      expect(button.get(".tabs__bulbs").attributes("aria-hidden")).toBe("true");
+    }
+    expect(wrapper.get('[data-testid="tab-keys"]').classes()).toContain("tabs__button--active");
+    expect(wrapper.get('[data-testid="tab-keys"]').attributes("aria-selected")).toBe("true");
+    wrapper.unmount();
+  });
+
+  it("chases Marquee bulbs in the direction of travel", async () => {
+    const wrapper = mount(Tabs, {
+      props: {
+        tabs: [...tabs.slice(0, 2), { label: "Presets", value: "presets", testId: "tab-presets" }],
+        modelValue: "keys",
+        geometry: "marquee",
+      },
+    });
+    const delays = (testId: string) => wrapper
+      .get(`[data-testid="${testId}"]`)
+      .findAll(".tabs__bulb")
+      .map((bulb) => (bulb.element as HTMLElement).style.transitionDelay);
+
+    await wrapper.setProps({ modelValue: "presets" });
+    expect(delays("tab-presets")).toEqual(["0ms", "34ms", "68ms", "102ms", "136ms", "170ms", "204ms"]);
+
+    await wrapper.setProps({ modelValue: "mallets" });
+    expect(delays("tab-mallets")).toEqual(["204ms", "170ms", "136ms", "102ms", "68ms", "34ms", "0ms"]);
+    wrapper.unmount();
+  });
+
+  it("lights a Brass destination's Marquee bulbs without toning the rest of the rail", () => {
+    const wrapper = mount(Tabs, {
+      props: {
+        tabs: [{ label: "Shape", value: "shape", tone: "brass", testId: "tab-shape" }, ...tabs],
+        modelValue: "keys",
+        geometry: "marquee",
+      },
+    });
+
+    expect(wrapper.get('[data-testid="tab-shape"]').classes()).toContain("tabs__button--brass");
+    expect(wrapper.get('[data-testid="tab-keys"]').classes()).not.toContain("tabs__button--brass");
+    wrapper.unmount();
+  });
+
+  it("keeps chip geometries free of Marquee bulbs", () => {
+    const wrapper = mount(Tabs, { props: { tabs, modelValue: "keys", geometry: "tab" } });
+    expect(wrapper.find(".tabs__bulb").exists()).toBe(false);
+    expect(wrapper.find(".tabs__chip").exists()).toBe(true);
+    wrapper.unmount();
   });
 
   it("stops both the brass chip and its sheen under Reduced Motion", () => {

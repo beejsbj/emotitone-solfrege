@@ -3,11 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Joystick from "@/components/uniques/Joystick/index.vue";
 import { JOYSTICK_OPTIONS, directionFromVector } from "@/components/uniques/Joystick/joystickOptions";
 import { uiBeatClock } from "@/composables/useUIBeat";
-import dragValueSource from "@/components/primatives/DragValue.vue?raw";
+import readoutSource from "@/components/primatives/Readout.vue?raw";
 import joystickSource from "@/components/uniques/Joystick/index.vue?raw";
 import specimen from "@/style-guide/uniques/UniqueJoystick.vue?raw";
 import uiBeatSpecimen from "@/style-guide/systems/SystemUIBeat.vue?raw";
-import guide from "@/style-guide/StyleGuide.vue?raw";
+import guide from "@/style-guide/guideCatalog.ts?raw";
+import { guideLayer } from "@/style-guide/guideCatalog";
 const { triggerUIHaptic, triggerLatchHaptic } = vi.hoisted(() => ({
   triggerUIHaptic: vi.fn(),
   triggerLatchHaptic: vi.fn(),
@@ -67,9 +68,7 @@ describe("Joystick unique", () => {
     expect(triggerUIHaptic).toHaveBeenCalled();
     expect(triggerLatchHaptic).toHaveBeenCalledOnce();
     expect(wrapper.attributes("data-latch-feedback")).toBe("true");
-    expect(document.querySelector(".drag-value__paper")?.classList).toContain("sticker--badge");
-    expect(document.querySelector(".drag-value__paper")?.classList).not.toContain("sticker--fill");
-    expect(document.querySelector(".drag-value__paper")?.classList).toContain("sticker--color-ivory");
+    expect(document.querySelector(".readout__window")?.classList).toContain("readout__window--latched");
   });
   it("shares Knob geometry, centered ring detents, brass sheen, and floating drag feedback", async () => {
     const { wrapper, plate } = setup();
@@ -81,35 +80,33 @@ describe("Joystick unique", () => {
     expect(wrapper.get(".joystick__label").classes()).toContain("instrument-control__label");
     expect(joystickSource).toContain("--instrument-control-visible-diameter");
     expect(joystickSource).toContain("--instrument-control-dark-well");
-    expect(joystickSource).toContain("animation: brass-sheen 6.5s");
+    expect(joystickSource).toContain("animation: brass-sheen var(--dur-sheen) var(--ease-sheen)");
     expect(joystickSource).toContain("point.x * 44");
-    expect(joystickSource).toContain('import DragValue from "@/components/primatives/DragValue.vue"');
+    expect(joystickSource).toContain('import Readout from "@/components/primatives/Readout.vue"');
 
     await pointer(plate.element, "pointerdown", 50, 50);
     await pointer(document, "pointermove", 80, 50);
 
-    const follower = document.querySelector(".knob-drag-value");
+    const follower = document.querySelector(".knob-readout");
     expect(follower?.textContent).toContain("Jazzy");
 
     await pointer(document, "pointerup", 80, 50);
-    expect(document.querySelector(".drag-value__paper")?.classList)
-      .toContain("sticker--color-ivory");
-    expect(document.querySelector(".drag-value__paper")?.classList)
-      .toContain("sticker--badge");
+    expect(document.querySelector(".readout__window")?.classList)
+      .toContain("readout__window--latched");
     wrapper.unmount();
   });
-  it("shares the tactile bounce tokens across the stick and DragValue paper", () => {
+  it("shares the tactile bounce tokens across the stick and the Readout", () => {
     expect(joystickSource).toContain("scale var(--dur-bounce) var(--ease-bounce)");
     expect(joystickSource).toContain("scale var(--dur-tap) var(--ease-stab)");
     expect(joystickSource).toContain("translate: -50% -50%; scale: 1");
     expect(joystickSource).toContain(
       "@media (prefers-reduced-motion: reduce) { .joystick__stick, .joystick[data-active] .joystick__stick { scale: 1; transition: none; }",
     );
-    expect(dragValueSource).toContain(
-      "animation: drag-value-arrive-a var(--dur-bounce) var(--ease-bounce)",
+    expect(readoutSource).toContain(
+      "animation: readout-arrive-a var(--dur-bounce) var(--ease-bounce)",
     );
-    expect(dragValueSource).toMatch(
-      /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*\.drag-value__paper \{ animation: none; \}/,
+    expect(readoutSource).toMatch(
+      /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*\.readout__lit \{ animation: none; \}/,
     );
   });
   it("lets UIBeat scale the actual face without changing pointer gain or stick-owned interaction scale", async () => {
@@ -267,7 +264,8 @@ describe("Joystick unique", () => {
     expect(wrapper.classes()).toContain("joystick--analog");
     await wrapper.setProps({ visual: "digital" });
     expect(wrapper.classes()).toContain("joystick--digital");
-    expect(guide).toContain('id="unique-joystick"');
+    expect(guideLayer("uniques")?.units.map((unit) => unit.id)).toContain("joystick");
+    expect(guide).toContain('import("./uniques/UniqueJoystick.vue")');
     expect(guide).not.toContain("PrimitiveJoystick");
     expect(specimen).toContain('visual="analog"');
     expect(specimen).toContain('visual="digital"');

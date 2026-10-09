@@ -3,9 +3,17 @@ import { createPinia, setActivePinia } from "pinia";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
 
+const audioContext = vi.hoisted(() => ({
+  state: "running",
+  get currentTime() { return performance.now() / 1000; },
+}));
+
 vi.mock("@/services/superdoughAudio", () => ({
+  setLiveSynthControls: vi.fn(),
   attackNote: vi.fn().mockResolvedValue(undefined),
   releaseNote: vi.fn(),
+  stopNote: vi.fn(),
+  getAudioContext: vi.fn(() => audioContext),
   releaseAll: vi.fn(),
   playNoteWithDuration: vi.fn().mockResolvedValue(undefined),
 }));

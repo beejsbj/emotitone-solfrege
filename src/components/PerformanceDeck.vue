@@ -1,6 +1,7 @@
 <template>
   <Drawer
     class="performance-deck-drawer"
+    data-stage-occlusion-host
     :model-value="drawerOpen"
     fixed
     anchor="bottom"
@@ -19,13 +20,15 @@
     :keyboard-resize-step="8"
     :haptic="haptic"
     :handle-pointer-disabled="patternReelGuardsHandle"
+    :handle-meter="{ value: drawerOpen ? rowCount : 0, max: MAX_KEYBOARD_ROW_COUNT }"
     @update:model-value="updateDrawerOpen"
     @content-resize="resizeKeyboard"
   >
     <template #icon><KeyboardIcon /></template>
     <template #persistent-leading>
-      <PatternList
+      <PhraseShelf
         v-if="isProductionUsage"
+        data-stage-occluder
         @context-change="bumpPatternControls"
         @interaction-change="setPatternReelGuard"
       />
@@ -73,6 +76,7 @@
           :mode-value="modeValue"
           :bpm="bpm"
           :octave="octave"
+          :play-mode="playMode"
           :harmony-value="isProductionUsage ? harmonyLatched : harmonyValue"
           :change-signals="patternControlSignals"
           :haptic="isProductionUsage"
@@ -80,6 +84,7 @@
           @update:mode-value="updateMode"
           @update:bpm="updateBpm"
           @update:octave="updateOctave"
+          @update:play-mode="updatePlayMode"
           @update:harmony-value="updateHarmonyLatch"
           @harmony-effective="updateHarmonyEffective"
         />
@@ -144,8 +149,9 @@ import type {
 import type { CodeStripToken } from "@/components/uniques/CodeStrip/index.vue";
 import Drawer from "@/components/uniques/Drawer/index.vue";
 import HummingCaptureTransport from "@/components/humming/HummingCaptureTransport.vue";
-import PatternList from "@/components/patterns/PatternList.vue";
+import PhraseShelf from "@/components/patterns/PhraseShelf.vue";
 import {
+  MAX_KEYBOARD_ROW_COUNT,
   defaultKeyboardHeight,
   maximumKeyboardHeight,
   minimumKeyboardHeight,
@@ -161,7 +167,7 @@ import type { HarmonyAlteration } from "@/domain/harmony";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
-import { usePatternsStore } from "@/stores/patterns";
+import { usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 import { triggerUIHaptic } from "@/utils/hapticFeedback";
@@ -180,6 +186,7 @@ const props = withDefaults(defineProps<{
   modeValue?: MusicalMode;
   bpm?: number;
   octave?: number;
+  playMode?: string;
   rowCount?: number;
   keyboardRows?: KeyboardRowView[];
   harmonyValue?: HarmonyAlteration;
@@ -200,6 +207,7 @@ const props = withDefaults(defineProps<{
   modeValue: "major",
   bpm: 120,
   octave: 4,
+  playMode: "together",
   rowCount: 3,
   keyboardRows: () => [],
   harmonyValue: "auto",
@@ -214,6 +222,7 @@ const emit = defineEmits<{
   "update:modeValue": [value: MusicalMode];
   "update:bpm": [value: number];
   "update:octave": [value: number];
+  "update:playMode": [value: string];
   "update:harmonyValue": [value: HarmonyAlteration];
   harmonyEffective: [value: HarmonyAlteration];
   rowCountChange: [value: number];
@@ -235,7 +244,7 @@ const isProductionUsage = props.usage === "production";
 const store = isProductionUsage ? useKeyboardDrawerStore() : undefined;
 const instrumentStore = isProductionUsage ? useInstrumentStore() : undefined;
 const musicStore = isProductionUsage ? useMusicStore() : undefined;
-const patternsStore = isProductionUsage ? usePatternsStore() : undefined;
+const phrasesStore = isProductionUsage ? usePhrasesStore() : undefined;
 const visualConfigStore = isProductionUsage ? useVisualConfigStore() : undefined;
 const playback = isProductionUsage ? useCodeStripStrudel() : undefined;
 const humming = isProductionUsage ? useHummingCapture() : undefined;
@@ -271,6 +280,7 @@ const keyValue = computed(() => (musicStore?.currentKey ?? props.keyValue) as Ch
 const modeValue = computed(() => musicStore?.currentMode ?? props.modeValue);
 const bpm = computed(() => visualConfigStore?.config.codeStrip.bpm ?? props.bpm);
 const octave = computed(() => store?.keyboardConfig.mainOctave ?? props.octave);
+const playMode = computed(() => musicStore?.playMode ?? props.playMode);
 const rowCount = computed(() =>
   store?.visibleOctaves?.length ?? store?.keyboardConfig.rowCount ?? props.rowCount
 );
@@ -338,17 +348,17 @@ function selectHummingTake(index: number) {
 }
 
 function handleBackspace() {
-  if (patternsStore) patternsStore.removeLastFromCurrentSketch();
+  if (phrasesStore) phrasesStore.undoLastNote();
   else emit("backspace");
 }
 
 function handleReturn() {
-  if (!patternsStore) {
+  if (!phrasesStore) {
     emit("return");
     return;
   }
 
-  patternsStore.sendCurrentPattern();
+  phrasesStore.keepTake();
 }
 
 function updateKey(value: string) {
@@ -369,6 +379,11 @@ function updateBpm(value: number) {
 function updateOctave(value: number) {
   if (store) store.setMainOctave(value);
   else emit("update:octave", value);
+}
+
+function updatePlayMode(value: string) {
+  if (musicStore) musicStore.setPlayMode(value);
+  else emit("update:playMode", value);
 }
 
 function updateHarmonyLatch(value: HarmonyAlteration) {

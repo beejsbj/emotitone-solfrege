@@ -19,14 +19,44 @@ import { useMusicStore } from "@/stores/music";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import useGSAP from "../useGSAP";
-import type { ChromaticNote, MusicalMode } from "@/types/music";
+import type { ActiveNote, ChromaticNote, MusicalMode } from "@/types/music";
+import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
+import type { StageAudioFrame } from "./stageRuntime";
+import { Note as TonalNote } from "@tonaljs/tonal";
+
+function resolvePitchClassIndex(note: {
+  pitchClassIndex?: number;
+  noteName?: string;
+}) {
+  if (typeof note.pitchClassIndex === "number") return note.pitchClassIndex;
+  if (!note.noteName) return undefined;
+
+  const candidates = [note.noteName, TonalNote.enharmonic(note.noteName)];
+  for (const candidate of candidates) {
+    const pitchClass = TonalNote.get(candidate).pc;
+    const pitchClassIndex = CHROMATIC_NOTES.indexOf(pitchClass as ChromaticNote);
+    if (pitchClassIndex >= 0) return pitchClassIndex;
+  }
+  return undefined;
+}
 
 export function useStringRenderer() {
-  const { getPrimaryColor, getPrimaryColorByScaleIndex } = useMusicColor({ animated: true });
+  const {
+    getPrimaryColorForPitch,
+    getStaticPrimaryColorForPitch,
+    getPrimaryColorByScaleIndex,
+  } = useMusicColor({ animated: true });
   const { gsap } = useGSAP();
   const musicStore = useMusicStore();
   const keyboardDrawerStore = useKeyboardDrawerStore();
   const visualConfigStore = useVisualConfigStore();
+  let noteEventTarget: EventTarget | null = null;
+  const temporalCycles = new Map<VibratingStringConfig, {
+    cycles: number;
+    elapsed: number;
+    frequency: number;
+    hasFrequencyChange: boolean;
+  }>();
 
   // String state
   const strings = ref<VibratingStringConfig[]>([]);
@@ -42,9 +72,14 @@ export function useStringRenderer() {
       {
         solfegeIndex: number;
         frequency: number;
+        /** Keyboard row coordinate used to select the rendered String. */
         octave: number;
+        /** Sounding scientific octave used by Music Color. */
+        scientificOctave: number;
         mode: MusicalMode;
         key: ChromaticNote;
+        pitchClassIndex?: number;
+        pitchBendCents?: number;
         endTime: number | null;
       }
     >()
@@ -62,11 +97,17 @@ export function useStringRenderer() {
     _canvasHeight: number,
     solfegeData: any[]
   ) => {
-    if (!stringConfig.isEnabled) return;
-
-    // Cache canvas size for reactive updates
+    // Cache initialization inputs even while Stage suppresses Strings. That
+    // lets a later Stage/Presence enablement create the collection without a
+    // canvas resize or remount.
     lastCanvasWidth = canvasWidth;
     lastCanvasHeight = _canvasHeight;
+    temporalCycles.clear();
+
+    if (!stringConfig.isEnabled) {
+      strings.value = [];
+      return;
+    }
 
     // Get visible octaves from keyboard drawer store
     const visibleOctaves = keyboardDrawerStore.visibleOctaves;
@@ -129,7 +170,7 @@ export function useStringRenderer() {
   const reinitializeStrings = () => {
     if (lastCanvasWidth > 0 && lastCanvasHeight > 0) {
       initializeStrings(
-        visualConfigStore.config.strings,
+        visualConfigStore.effectiveConfig.strings,
         lastCanvasWidth,
         lastCanvasHeight,
         musicStore.solfegeData
@@ -140,7 +181,8 @@ export function useStringRenderer() {
   // Watch for changes that should trigger reinitialization
   watch(
     [
-      () => visualConfigStore.config.strings.octaveOffset,
+      () => visualConfigStore.effectiveConfig.strings.isEnabled,
+      () => visualConfigStore.effectiveConfig.strings.octaveOffset,
       () => keyboardDrawerStore.keyboardConfig.mainOctave,
       () => keyboardDrawerStore.keyboardConfig.rowCount,
       () => musicStore.currentKey,
@@ -166,6 +208,9 @@ export function useStringRenderer() {
       noteId,
       mode,
       key,
+      pitchClassIndex,
+      noteName,
+      pitchBendCents,
     } = event.detail;
     const activationOctave = keyboardOctave ?? octave;
 
@@ -204,8 +249,11 @@ export function useStringRenderer() {
           solfegeIndex,
           frequency,
           octave: activationOctave,
+          scientificOctave: typeof octave === "number" ? octave : activationOctave,
           mode: (mode ?? musicStore.currentMode) as MusicalMode,
           key: (key ?? musicStore.currentKey) as ChromaticNote,
+          pitchClassIndex: resolvePitchClassIndex({ pitchClassIndex, noteName }),
+          pitchBendCents: isPitchBendCents(pitchBendCents) ? pitchBendCents : undefined,
           endTime,
         },
       );
@@ -215,6 +263,13 @@ export function useStringRenderer() {
   const handleNoteReleased = (event: CustomEvent) => {
     const noteId = event.detail?.noteId;
     if (noteId) eventActivatedStrings.value.delete(noteId);
+  };
+
+  const handleNoteExpression = (event: CustomEvent) => {
+    const { noteId, cents } = event.detail ?? {};
+    if (!noteId || typeof cents !== "number" || !Number.isFinite(cents) || Math.abs(cents) > 50) return;
+    const activation = eventActivatedStrings.value.get(noteId);
+    if (activation) activation.pitchBendCents = cents;
   };
 
   /**
@@ -238,28 +293,41 @@ export function useStringRenderer() {
   const updateStringProperties = (
     stringConfig: StringConfig,
     animationConfig: AnimationConfig,
-    musicStore: any
+    musicStore: any,
+    audioFrame: StageAudioFrame = { envelope: 1, hasSignal: true },
+    reducedMotion = false,
+    suppliedActiveNotes?: readonly ActiveNote[],
   ) => {
     // Clean up expired event activations
     cleanupExpiredActivations();
+    const activeNotes = suppliedActiveNotes ?? musicStore.getActiveNotes();
 
     strings.value.forEach((string) => {
       const solfege = musicStore.solfegeData[string.noteIndex];
       if (!solfege) return;
 
       // Check if this string's note is currently active for its specific octave (from direct input)
-      const activeNotes = musicStore.getActiveNotes();
-      const matchingActiveNote = activeNotes.find(
-        (activeNote: any) =>
-          activeNote.solfegeIndex === string.noteIndex &&
-          (activeNote.keyboardOctave ?? activeNote.octave) === string.octave
+      const stringPitchClass = resolveStringPitchClass(
+        string.noteIndex,
+        musicStore.currentMode,
+        musicStore.currentKey,
       );
+      const matchingActiveNote = activeNotes.find((activeNote: any) => {
+        const activePitchClass = resolvePitchClassIndex(activeNote);
+        const pitchMatches = typeof activePitchClass === "number"
+          ? activePitchClass === stringPitchClass
+          : activeNote.solfegeIndex === string.noteIndex;
+        return pitchMatches
+          && (activeNote.keyboardOctave ?? activeNote.octave) === string.octave;
+      });
       const isStringActiveFromInput = Boolean(matchingActiveNote);
 
       // Check if this string is activated by sequencer events (for the specific octave)
       const eventActivation = Array.from(eventActivatedStrings.value.values()).find(
         (activation) =>
-          activation.solfegeIndex === string.noteIndex
+          (typeof activation.pitchClassIndex === "number"
+            ? activation.pitchClassIndex === stringPitchClass
+            : activation.solfegeIndex === string.noteIndex)
           && activation.octave === string.octave,
       );
       const isStringActiveFromEvent =
@@ -272,27 +340,47 @@ export function useStringRenderer() {
       // Update string properties based on active notes
       if (isStringActive) {
         string.isActive = true;
-        string.amplitude = gsap.utils.interpolate(
-          string.amplitude,
-          stringConfig.maxAmplitude,
-          stringConfig.interpolationSpeed
-        );
-        string.opacity = gsap.utils.interpolate(
-          string.opacity,
-          stringConfig.activeOpacity,
-          stringConfig.opacityInterpolationSpeed
-        );
+        const targetAmplitude = reducedMotion
+          ? 0
+          : stringConfig.maxAmplitude * audioFrame.envelope;
+        string.amplitude = reducedMotion
+          ? 0
+          : gsap.utils.interpolate(
+              string.amplitude,
+              targetAmplitude,
+              stringConfig.interpolationSpeed
+            );
+        string.opacity = reducedMotion
+          ? stringConfig.activeOpacity
+          : gsap.utils.interpolate(
+              string.opacity,
+              stringConfig.activeOpacity,
+              stringConfig.opacityInterpolationSpeed
+            );
         const noteMode = (matchingActiveNote?.mode ??
           eventActivation?.mode ??
           musicStore.currentMode) as MusicalMode;
         const noteKey = (matchingActiveNote?.key ??
           eventActivation?.key ??
           musicStore.currentKey) as ChromaticNote;
-        string.color = getPrimaryColor(
-          solfege.name,
+        const noteSolfegeIndex = matchingActiveNote?.solfegeIndex
+          ?? eventActivation?.solfegeIndex
+          ?? string.noteIndex;
+        const pitchClassIndex = (matchingActiveNote
+          ? resolvePitchClassIndex(matchingActiveNote)
+          : undefined)
+          ?? eventActivation?.pitchClassIndex;
+        const scientificOctave = matchingActiveNote?.octave
+          ?? eventActivation?.scientificOctave
+          ?? string.octave;
+        string.color = (reducedMotion
+          ? getStaticPrimaryColorForPitch
+          : getPrimaryColorForPitch)(
+          noteSolfegeIndex,
+          pitchClassIndex,
           noteMode,
-          string.octave,
-          noteKey
+          noteKey,
+          scientificOctave,
         );
 
         // Determine frequency for visual vibration
@@ -300,12 +388,12 @@ export function useStringRenderer() {
 
         if (isStringActiveFromInput) {
           // Use the frequency from the matching octave note
-          visualFrequency =
-            matchingActiveNote?.frequency ||
+          visualFrequency = matchingActiveNote?.frequency ||
             musicStore.getNoteFrequency(string.noteIndex, string.octave);
+          visualFrequency = bendFrequency(visualFrequency, matchingActiveNote?.pitchBendCents);
         } else if (eventActivation) {
           // Use frequency from event activation (sequencer)
-          visualFrequency = eventActivation.frequency;
+          visualFrequency = bendFrequency(eventActivation.frequency, eventActivation.pitchBendCents);
         } else {
           // Fallback
           visualFrequency = musicStore.getNoteFrequency(
@@ -314,29 +402,33 @@ export function useStringRenderer() {
           );
         }
 
-        string.frequency = createVisualFrequency(
+        setStringVisualFrequency(string, createVisualFrequency(
           visualFrequency,
           animationConfig.visualFrequencyDivisor
-        );
+        ));
       } else {
         string.isActive = false;
-        string.amplitude = gsap.utils.interpolate(
-          string.amplitude,
-          0,
-          stringConfig.dampingFactor
-        );
-        string.opacity = gsap.utils.interpolate(
-          string.opacity,
-          stringConfig.baseOpacity,
-          0.05
-        );
+        string.amplitude = reducedMotion
+          ? 0
+          : gsap.utils.interpolate(
+              string.amplitude,
+              0,
+              stringConfig.dampingFactor
+            );
+        string.opacity = reducedMotion
+          ? stringConfig.baseOpacity
+          : gsap.utils.interpolate(
+              string.opacity,
+              stringConfig.baseOpacity,
+              0.05
+            );
 
         // Keep a subtle base frequency when inactive
         const noteFrequency = musicStore.getNoteFrequency(
           string.noteIndex,
           string.octave
         );
-        string.frequency = createVisualFrequency(noteFrequency, 200);
+        setStringVisualFrequency(string, createVisualFrequency(noteFrequency, 200));
       }
     });
   };
@@ -347,10 +439,10 @@ export function useStringRenderer() {
   const renderStrings = (
     ctx: CanvasRenderingContext2D,
     elapsed: number,
-    canvasHeight: number
+    canvasHeight: number,
+    reducedMotion = false,
   ) => {
     if (!ctx) return;
-
     strings.value.forEach((string) => {
       if (!ctx) return;
 
@@ -367,7 +459,7 @@ export function useStringRenderer() {
 
         // Create harmonic vibration
         const totalVibration = createHarmonicVibration(
-          elapsed,
+          reducedMotion ? 0 : resolveHarmonicElapsed(string, elapsed),
           string.frequency,
           string.amplitude,
           y,
@@ -414,28 +506,37 @@ export function useStringRenderer() {
   const clearAllStrings = () => {
     strings.value = [];
     eventActivatedStrings.value.clear();
+    temporalCycles.clear();
   };
 
   /**
    * Add event listeners for sequencer integration
    */
-  const addEventListeners = () => {
-    window.addEventListener("note-played", handleNotePlayed as EventListener);
-    window.addEventListener("note-released", handleNoteReleased as EventListener);
+  const addEventListeners = (target: EventTarget = window) => {
+    removeEventListeners();
+    noteEventTarget = target;
+    noteEventTarget.addEventListener("note-played", handleNotePlayed as EventListener);
+    noteEventTarget.addEventListener("note-released", handleNoteReleased as EventListener);
+    noteEventTarget.addEventListener("note-expression", handleNoteExpression as EventListener);
   };
 
   /**
    * Remove event listeners
    */
   const removeEventListeners = () => {
-    window.removeEventListener(
+    noteEventTarget?.removeEventListener(
       "note-played",
       handleNotePlayed as EventListener
     );
-    window.removeEventListener(
+    noteEventTarget?.removeEventListener(
       "note-released",
       handleNoteReleased as EventListener
     );
+    noteEventTarget?.removeEventListener(
+      "note-expression",
+      handleNoteExpression as EventListener
+    );
+    noteEventTarget = null;
   };
 
   return {
@@ -454,5 +555,62 @@ export function useStringRenderer() {
     removeEventListeners,
     handleNotePlayed,
     handleNoteReleased,
+    handleNoteExpression,
   };
+
+  function setStringVisualFrequency(string: VibratingStringConfig, frequency: number) {
+    string.frequency = frequency;
+  }
+
+  function resolveHarmonicElapsed(string: VibratingStringConfig, elapsed: number) {
+    const state = temporalCycles.get(string);
+    if (!state) {
+      temporalCycles.set(string, {
+        cycles: elapsed * string.frequency,
+        elapsed,
+        frequency: string.frequency,
+        hasFrequencyChange: false,
+      });
+      return elapsed;
+    }
+    const elapsedSinceLastRender = elapsed - state.elapsed;
+    if (state.frequency !== string.frequency) {
+      // A frequency update is applied after the previous frame, so advance the
+      // newly bent frequency from that frame while retaining the old cycle count.
+      state.cycles += elapsedSinceLastRender * string.frequency;
+      state.frequency = string.frequency;
+      state.hasFrequencyChange = true;
+    } else if (state.hasFrequencyChange) {
+      state.cycles += elapsedSinceLastRender * string.frequency;
+    } else {
+      state.cycles = elapsed * string.frequency;
+    }
+    state.elapsed = elapsed;
+    // createHarmonicVibration's public contract is elapsed × frequency. Passing
+    // this equivalent elapsed retains its static harmonic phases while the
+    // integrated cycle count makes every harmonic continuous across pitch bends.
+    return state.hasFrequencyChange && string.frequency !== 0
+      ? state.cycles / string.frequency
+      : elapsed;
+  }
+}
+
+function bendFrequency(frequency: number, cents: unknown) {
+  return isPitchBendCents(cents)
+    ? frequency * 2 ** (cents / 1200)
+    : frequency;
+}
+
+function isPitchBendCents(cents: unknown): cents is number {
+  return typeof cents === "number" && Number.isFinite(cents) && Math.abs(cents) <= 50;
+}
+
+function resolveStringPitchClass(
+  degreeIndex: number,
+  mode: MusicalMode,
+  key: ChromaticNote,
+) {
+  const scale = getScaleForMode(mode);
+  const tonic = CHROMATIC_NOTES.indexOf(key);
+  return (tonic + (scale.intervals[degreeIndex] ?? 0) + 12) % 12;
 }

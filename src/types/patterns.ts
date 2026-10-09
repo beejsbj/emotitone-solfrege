@@ -3,7 +3,10 @@
  * Type definitions for logging and analyzing musical patterns
  */
 
+import type { GainExpressionPoint, PitchExpressionPoint } from "./expression";
 import type { ChromaticNote, MusicalMode, SolfegeData, Note } from "./music";
+import type { LiveArticulation } from "@/services/liveArticulation";
+import type { Shape } from "./instrument";
 
 /**
  * Pattern store state interface
@@ -67,8 +70,17 @@ export interface LogNote {
   instrument: string;
   /** Source tempo used to interpret this note's Strudel duration context */
   bpm?: number;
+  /** Shape at input onset; absent (legacy) means the neutral Shape. */
+  shape?: Shape;
   /** Velocity/volume (0-1) */
   velocity?: number;
+  /** Measured finger pitch curve; portable Strudel currently approximates its vibrato. */
+  pitchExpression?: PitchExpressionPoint[];
+  /** Measured note-relative gain curve; portable Strudel currently approximates its tremolo. */
+  gainExpression?: GainExpressionPoint[];
+
+  /** Captured live envelope; absent on legacy and authored notes. */
+  articulation?: LiveArticulation;
 
   /* Timing Information */
   /** Timestamp when note was pressed (Date.now()) */
@@ -117,6 +129,13 @@ export interface PatternNote {
 
   /** Velocity/volume (0-1) */
   velocity?: number;
+  /** Measured finger pitch curve; portable Strudel currently approximates its vibrato. */
+  pitchExpression?: PitchExpressionPoint[];
+  /** Measured note-relative gain curve; portable Strudel currently approximates its tremolo. */
+  gainExpression?: GainExpressionPoint[];
+
+  /** Captured live envelope; absent on legacy and authored notes. */
+  articulation?: LiveArticulation;
 
   /* Timing Information */
   /** Timestamp when note was pressed (Date.now()) */
@@ -127,14 +146,24 @@ export interface PatternNote {
   duration: number;
 }
 
-export interface MelographPatternSource {
+export interface PitchAnalysisPatternSource {
+  kind: "pitch-analysis";
+  schemaVersion: number;
+  tracker: string;
+  takeNumber: number;
+}
+
+/** Compatibility for patterns persisted before pitch analysis became provider-neutral. */
+export interface LegacyPitchAnalysisPatternSource {
   kind: "melograph";
   schemaVersion: number;
   tracker: string;
   takeNumber: number;
 }
 
-export type PatternSource = MelographPatternSource;
+export type PatternSource =
+  | PitchAnalysisPatternSource
+  | LegacyPitchAnalysisPatternSource;
 
 export interface Pattern {
   //  Unique pattern identifier /
@@ -170,6 +199,8 @@ export interface Pattern {
   mode: MusicalMode;
   //  Primary instrument for this pattern /
   instrument: string;
+  //  Shape (Shape-tab sound context) this pattern was played with; absent means neutral /
+  shape?: Shape;
 
   //  Visual color associated with this pattern (from color system) /
   color?: string;

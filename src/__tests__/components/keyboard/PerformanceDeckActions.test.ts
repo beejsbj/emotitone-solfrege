@@ -5,8 +5,8 @@ import performanceDeckSource from "@/components/PerformanceDeck.vue?raw";
 import Drawer from "@/components/uniques/Drawer/index.vue";
 
 const mocks = vi.hoisted(() => ({
-  removeLastFromCurrentSketch: vi.fn(),
-  sendCurrentPattern: vi.fn(),
+  undoLastNote: vi.fn(),
+  keepTake: vi.fn(),
   toggle: vi.fn(),
   stop: vi.fn(),
   toggleHumming: vi.fn(),
@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   animateDrawer: vi.fn(),
   setKey: vi.fn(),
   setMode: vi.fn(),
+  setPlayMode: vi.fn(),
   updateConfig: vi.fn(),
   setMainOctave: vi.fn(),
   setRowCount: vi.fn(),
@@ -62,8 +63,10 @@ vi.mock("@/stores/music", () => ({
   useMusicStore: () => ({
     currentKey: "C",
     currentMode: "major",
+    playMode: "together",
     setKey: mocks.setKey,
     setMode: mocks.setMode,
+    setPlayMode: mocks.setPlayMode,
   }),
 }));
 
@@ -78,10 +81,10 @@ vi.mock("@/stores/visualConfig", () => ({
   }),
 }));
 
-vi.mock("@/stores/patterns", () => ({
-  usePatternsStore: () => ({
-    removeLastFromCurrentSketch: mocks.removeLastFromCurrentSketch,
-    sendCurrentPattern: mocks.sendCurrentPattern,
+vi.mock("@/stores/phrases", () => ({
+  usePhrasesStore: () => ({
+    undoLastNote: mocks.undoLastNote,
+    keepTake: mocks.keepTake,
   }),
 }));
 
@@ -120,7 +123,13 @@ vi.mock("@/components/compounds/CodeStripBar.vue", () => ({
 vi.mock("@/components/humming/HummingCaptureTransport.vue", () => ({
   default: {
     name: "HummingCaptureTransport",
-    props: ["status", "error", "statusMessage", "takeLabels", "selectedTakeIndex"],
+    props: [
+      "status",
+      "error",
+      "statusMessage",
+      "takeLabels",
+      "selectedTakeIndex",
+    ],
     emits: ["toggle", "cancel", "selectTake"],
     template: '<div data-testid="humming-capture-transport" />',
   },
@@ -134,10 +143,10 @@ vi.mock("@/components/compounds/Keyboard.vue", () => ({
   },
 }));
 
-vi.mock("@/components/patterns/PatternList.vue", () => ({
+vi.mock("@/components/patterns/PhraseShelf.vue", () => ({
   default: {
-    name: "PatternList",
-    emits: ["contextChange"],
+    name: "PhraseShelf",
+    emits: ["contextChange", "interactionChange"],
     template: '<div data-testid="pattern-list" />',
   },
 }));
@@ -145,12 +154,13 @@ vi.mock("@/components/patterns/PatternList.vue", () => ({
 vi.mock("@/components/compounds/ControlBar.vue", () => ({
   default: {
     name: "ControlBar",
-    props: ["changeSignals", "haptic"],
+    props: ["changeSignals", "haptic", "playMode"],
     emits: [
       "update:keyValue",
       "update:modeValue",
       "update:bpm",
       "update:octave",
+      "update:playMode",
       "update:rows",
       "update:harmonyValue",
       "harmonyEffective",
@@ -178,7 +188,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
-          PatternList: true,
+          PhraseShelf: true,
           Keyboard: true,
           CodeStripBar: true,
         },
@@ -201,12 +211,12 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     wrapper.unmount();
   });
 
-  it("cancels active humming before starting Strudel playback", async () => {
-    mocks.hummingStatus.value = "recording";
+  it.each(["requesting", "recording", "preparing", "analyzing"])("cancels %s humming before starting Strudel playback", async (status) => {
+    mocks.hummingStatus.value = status;
     const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
-          PatternList: true,
+          PhraseShelf: true,
           Keyboard: true,
           CodeStripBar: true,
           HummingCaptureTransport: true,
@@ -228,7 +238,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
-          PatternList: true,
+          PhraseShelf: true,
           Keyboard: true,
           CodeStripBar: true,
         },
@@ -242,8 +252,8 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     await wrapper.vm.$nextTick();
 
     expect(mocks.toggle).toHaveBeenCalledTimes(1);
-    expect(mocks.removeLastFromCurrentSketch).toHaveBeenCalledTimes(1);
-    expect(mocks.sendCurrentPattern).toHaveBeenCalledTimes(1);
+    expect(mocks.undoLastNote).toHaveBeenCalledTimes(1);
+    expect(mocks.keepTake).toHaveBeenCalledTimes(1);
     wrapper.unmount();
   });
 
@@ -257,7 +267,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
         },
       },
     });
-    const patternList = wrapper.getComponent({ name: "PatternList" });
+    const patternList = wrapper.getComponent({ name: "PhraseShelf" });
     const controlBar = wrapper.getComponent({ name: "ControlBar" });
 
     patternList.vm.$emit("contextChange", ["key", "octave"]);
@@ -272,12 +282,30 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     wrapper.unmount();
   });
 
+  it("starts the usable Stage above the Pattern Reel", () => {
+    const wrapper = mount(PerformanceDeck, {
+      global: {
+        stubs: {
+          Keyboard: true,
+        },
+      },
+    });
+
+    expect(wrapper.getComponent(Drawer)
+      .attributes("data-stage-occlusion-host")).toBe("");
+    expect(wrapper.get('[data-testid="pattern-list"]')
+      .attributes("data-stage-occluder")).toBe("");
+    expect(wrapper.get('[data-testid="code-strip-bar"]')
+      .attributes("data-stage-occluder")).toBeUndefined();
+    wrapper.unmount();
+  });
+
   it("does not start playback when CodeStrip has no playable document", async () => {
     mocks.hasPlayableCode.value = false;
     const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
-          PatternList: true,
+          PhraseShelf: true,
           Keyboard: true,
           CodeStripBar: true,
         },
@@ -296,7 +324,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
-          PatternList: true,
+          PhraseShelf: true,
           Keyboard: true,
           CodeStripBar: true,
         },
@@ -312,11 +340,11 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     wrapper.unmount();
   });
 
-  it("preserves the five remaining Control Bar mutations in the production composition", async () => {
+  it("preserves all Control Bar mutations in the production composition", async () => {
     const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
-          PatternList: true,
+          PhraseShelf: true,
           Keyboard: true,
           CodeStripBar: true,
         },
@@ -328,6 +356,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     controls.vm.$emit("update:modeValue", "dorian");
     controls.vm.$emit("update:bpm", 96);
     controls.vm.$emit("update:octave", 5);
+    controls.vm.$emit("update:playMode", "arp-up:16");
     controls.vm.$emit("update:harmonyValue", "jazzy7");
     controls.vm.$emit("harmonyEffective", "sus4");
     await wrapper.vm.$nextTick();
@@ -336,6 +365,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     expect(mocks.setMode).toHaveBeenCalledWith("dorian");
     expect(mocks.updateConfig).toHaveBeenCalledWith("codeStrip", { bpm: 96 });
     expect(mocks.setMainOctave).toHaveBeenCalledWith(5);
+    expect(mocks.setPlayMode).toHaveBeenCalledWith("arp-up:16");
     expect(mocks.setRowCount).not.toHaveBeenCalled();
     expect(wrapper.getComponent({ name: "Keyboard" }).props("harmonyAlteration"))
       .toBe("sus4");
@@ -346,7 +376,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
-          PatternList: true,
+          PhraseShelf: true,
           Keyboard: true,
           CodeStripBar: true,
         },
@@ -372,7 +402,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
-          PatternList: true,
+          PhraseShelf: true,
           Keyboard: true,
           CodeStripBar: true,
         },
@@ -399,7 +429,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
-          PatternList: true,
+          PhraseShelf: true,
           Keyboard: true,
           CodeStripBar: true,
         },

@@ -1,0 +1,201 @@
+{
+  "profile": "audio-lab/results/native-comparison/worklet-backlog.cpuprofile.gz",
+  "sampledMs": 28427.5,
+  "note": "Inclusive categories overlap; this sampled window does not identify an individual LongTask owner or satisfy the unprofiled timing gate.",
+  "inclusiveMs": {
+    "editorDispatch": 699.6,
+    "selectionReads": 2333.7,
+    "notation": 37.2,
+    "recordingTokens": 43.4,
+    "persistence": 385.9,
+    "serialization": 20.8,
+    "vueDeepTraversal": 984.9,
+    "stageDrawing": 2968.7,
+    "blobDrawing": 1512.4,
+    "hilbertDrawing": 366.4,
+    "ambientDrawing": 226.4,
+    "nativeProgram": 14530.8
+  },
+  "topSelfFrames": [
+    {
+      "selfMs": 14530.8,
+      "functionName": "(program)",
+      "url": "",
+      "line": 0
+    },
+    {
+      "selfMs": 2331.5,
+      "functionName": "eq",
+      "url": "http://127.0.0.1:44049/@fs/tmp/emotitone-ui-audio-HuzjdL/vite-cache/deps/chunk-CPUIJGWT.js",
+      "line": 905
+    },
+    {
+      "selfMs": 942.2,
+      "functionName": "get",
+      "url": "http://127.0.0.1:44049/@fs/tmp/emotitone-ui-audio-HuzjdL/vite-cache/deps/chunk-VII5LKZG.js",
+      "line": 1171
+    },
+    {
+      "selfMs": 607.6,
+      "functionName": "traverse",
+      "url": "http://127.0.0.1:44049/@fs/tmp/emotitone-ui-audio-HuzjdL/vite-cache/deps/chunk-VII5LKZG.js",
+      "line": 2068
+    },
+    {
+      "selfMs": 430,
+      "functionName": "burn",
+      "url": "",
+      "line": 18
+    },
+    {
+      "selfMs": 375.7,
+      "functionName": "blurVertical",
+      "url": "http://127.0.0.1:44049/src/composables/canvas/useBlobFieldRenderer.ts",
+      "line": 70
+    },
+    {
+      "selfMs": 359.2,
+      "functionName": "renderBlobField",
+      "url": "http://127.0.0.1:44049/src/composables/canvas/useBlobFieldRenderer.ts",
+      "line": 698
+    },
+    {
+      "selfMs": 346.6,
+      "functionName": "setProperty",
+      "url": "",
+      "line": 0
+    },
+    {
+      "selfMs": 339,
+      "functionName": "drawImage",
+      "url": "",
+      "line": 0
+    },
+    {
+      "selfMs": 331.2,
+      "functionName": "mapOklchToSrgb",
+      "url": "http://127.0.0.1:44049/src/services/musicColorCore.ts",
+      "line": 165
+    },
+    {
+      "selfMs": 300.8,
+      "functionName": "blurHorizontal",
+      "url": "http://127.0.0.1:44049/src/composables/canvas/useBlobFieldRenderer.ts",
+      "line": 51
+    },
+    {
+      "selfMs": 240,
+      "functionName": "now",
+      "url": "",
+      "line": 0
+    },
+    {
+      "selfMs": 224.8,
+      "functionName": "set",
+      "url": "http://127.0.0.1:44049/@fs/tmp/emotitone-ui-audio-HuzjdL/vite-cache/deps/chunk-VII5LKZG.js",
+      "line": 1229
+    },
+    {
+      "selfMs": 209,
+      "functionName": "serializePatternsState",
+      "url": "http://127.0.0.1:44049/src/services/patternPersistence.ts",
+      "line": 2
+    },
+    {
+      "selfMs": 179.2,
+      "functionName": "updateProps",
+      "url": "http://127.0.0.1:44049/@fs/tmp/emotitone-ui-audio-HuzjdL/vite-cache/deps/chunk-VII5LKZG.js",
+      "line": 6239
+    },
+    {
+      "selfMs": 171.6,
+      "functionName": "renderSubtleTexture",
+      "url": "http://127.0.0.1:44049/src/composables/canvas/useAmbientRenderer.ts",
+      "line": 44
+    },
+    {
+      "selfMs": 166.1,
+      "functionName": "eq",
+      "url": "http://127.0.0.1:44049/src/components/uniques/CodeStrip/strudelExtension.ts",
+      "line": 259
+    },
+    {
+      "selfMs": 163.9,
+      "functionName": "setStyle",
+      "url": "http://127.0.0.1:44049/@fs/tmp/emotitone-ui-audio-HuzjdL/vite-cache/deps/chunk-VII5LKZG.js",
+      "line": 11176
+    },
+    {
+      "selfMs": 161.6,
+      "functionName": "(garbage collector)",
+      "url": "",
+      "line": 0
+    },
+    {
+      "selfMs": 141.8,
+      "functionName": "querySelectorAll",
+      "url": "",
+      "line": 0
+    },
+    {
+      "selfMs": 117.4,
+      "functionName": "getImageData",
+      "url": "",
+      "line": 0
+    },
+    {
+      "selfMs": 116.8,
+      "functionName": "validateProps",
+      "url": "http://127.0.0.1:44049/@fs/tmp/emotitone-ui-audio-HuzjdL/vite-cache/deps/chunk-VII5LKZG.js",
+      "line": 6525
+    },
+    {
+      "selfMs": 116.4,
+      "functionName": "(anonymous)",
+      "url": "http://127.0.0.1:44049/src/composables/canvas/useStringRenderer.ts",
+      "line": 272
+    },
+    {
+      "selfMs": 108.8,
+      "functionName": "note",
+      "url": "http://127.0.0.1:44049/@fs/tmp/emotitone-ui-audio-HuzjdL/vite-cache/deps/chunk-IXUA5BTY.js",
+      "line": 200
+    },
+    {
+      "selfMs": 107.1,
+      "functionName": "setItem",
+      "url": "",
+      "line": 0
+    },
+    {
+      "selfMs": 100.5,
+      "functionName": "toRaw",
+      "url": "http://127.0.0.1:44049/@fs/tmp/emotitone-ui-audio-HuzjdL/vite-cache/deps/chunk-VII5LKZG.js",
+      "line": 1639
+    },
+    {
+      "selfMs": 97.6,
+      "functionName": "(anonymous)",
+      "url": "http://127.0.0.1:44049/src/composables/canvas/useBlobFieldRenderer.ts",
+      "line": 617
+    },
+    {
+      "selfMs": 80.7,
+      "functionName": "wrappedAction",
+      "url": "http://127.0.0.1:44049/@fs/tmp/emotitone-ui-audio-HuzjdL/vite-cache/deps/pinia.js",
+      "line": 1242
+    },
+    {
+      "selfMs": 78.4,
+      "functionName": "finish",
+      "url": "",
+      "line": 136
+    },
+    {
+      "selfMs": 76.7,
+      "functionName": "normalizeClass",
+      "url": "http://127.0.0.1:44049/@fs/tmp/emotitone-ui-audio-HuzjdL/vite-cache/deps/chunk-VII5LKZG.js",
+      "line": 150
+    }
+  ]
+}

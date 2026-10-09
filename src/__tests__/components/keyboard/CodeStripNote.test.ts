@@ -155,6 +155,87 @@ describe("CodeStrip event rendering", () => {
     expect(wrapper.findAll(".code-strip__duration-mark--beat")).toHaveLength(1);
   });
 
+  it("lights each Stave stem once playback enters its segment of the event's time", () => {
+    const stemsLit = (wrapper: ReturnType<typeof mount>) => wrapper
+      .findAll(".code-strip__duration-mark")
+      .map((mark) => mark.classes("code-strip__duration-mark--lit"));
+
+    const note = mount(CodeStripSequence, {
+      props: {
+        durationMode: "bar",
+        timeSignature: "4/4",
+        tokens: [{ type: "note", note: "do", text: "Do", duration: "@0.25", progress: .6 }],
+      },
+    });
+    // Four sixteenth segments at 60%: two passed and the third entered light; the fourth is ahead.
+    expect(stemsLit(note)).toEqual([true, true, true, false]);
+
+    // A chord's time passes with its members: here their mean progress is 0.6.
+    const chord = mount(CodeStripSequence, {
+      props: {
+        durationMode: "bar",
+        timeSignature: "4/4",
+        tokens: [{ type: "chord", symbol: "C", members: chordMembers, duration: "@0.125" }],
+      },
+    });
+    expect(stemsLit(chord)).toEqual([true, true]);
+  });
+
+  it("visualizes an omitted base duration as one full bar", () => {
+    const wrapper = mount(CodeStripSequence, {
+      props: {
+        durationMode: "bar",
+        timeSignature: "4/4",
+        tokens: [{ type: "note", note: "do", text: "Do" }],
+      },
+    });
+
+    const bar = wrapper.get(".code-strip__duration-bar");
+    expect(bar.attributes("style")).toContain("--code-strip-duration-ratio: 1");
+    expect(bar.attributes("aria-label")).toBe("Duration proportion: 1");
+    expect(wrapper.findAll(".code-strip__duration-mark")).toHaveLength(16);
+    expect(wrapper.findAll(".code-strip__duration-mark--beat")).toHaveLength(4);
+    expect(wrapper.find(".code-strip__duration-overflow").exists()).toBe(false);
+  });
+
+  it("does not reinterpret an explicit zero duration as the implicit base", () => {
+    const wrapper = mount(CodeStripSequence, {
+      props: {
+        durationMode: "bar",
+        tokens: [{ type: "note", note: "do", text: "Do", duration: "@0" }],
+      },
+    });
+
+    expect(wrapper.get(".code-strip__duration-bar").attributes("style"))
+      .toContain("--code-strip-duration-ratio: 0");
+    expect(wrapper.findAll(".code-strip__duration-mark")).toHaveLength(0);
+  });
+
+  it("keeps durations beyond one bar bounded and visibly distinct", () => {
+    const wrapper = mount(CodeStripSequence, {
+      props: {
+        durationMode: "bar",
+        tokens: [
+          { type: "note", note: "do", text: "Do", duration: "@1.5" },
+          { type: "note", note: "re", text: "Re", duration: "@2" },
+        ],
+      },
+    });
+
+    const bars = wrapper.findAll(".code-strip__duration-bar");
+    expect(bars.map((bar) => bar.attributes("style"))).toEqual([
+      "--code-strip-duration-ratio: 1;",
+      "--code-strip-duration-ratio: 1;",
+    ]);
+    expect(bars.map((bar) => bar.attributes("aria-label"))).toEqual([
+      "Duration proportion: 1.5",
+      "Duration proportion: 2",
+    ]);
+    expect(wrapper.findAll(".code-strip__duration-overflow").map((cue) => cue.text()))
+      .toEqual(["×1.5", "×2"]);
+    expect(wrapper.findAll(".code-strip__duration-mark")).toHaveLength(32);
+  });
+
   it("exposes density without changing notation anatomy", async () => {
     const wrapper = mount(CodeStripSequence, {
       props: {

@@ -1,0 +1,104 @@
+{
+  "method": "Only the unchanged audio-lab/run.mjs validator expressions were evaluated against stored data, then against data with scenarios removed. No compiler, browser, or runtime suite was launched.",
+  "fixture": "audio-lab/results/current.json",
+  "baseline": [
+    {
+      "name": "direct and Superdough 5/10ms attacks produce all notes",
+      "passed": true
+    },
+    {
+      "name": "all idle sequences produce all notes",
+      "passed": true
+    },
+    {
+      "name": "render-thread sequences survive 300ms main-thread stalls",
+      "passed": true
+    },
+    {
+      "name": "worklet queued cancellation produces silence",
+      "passed": true
+    },
+    {
+      "name": "worklet release becomes silent without a large sample discontinuity",
+      "passed": true
+    },
+    {
+      "name": "worklet bounds voices and releases all",
+      "passed": true
+    },
+    {
+      "name": "finished Superdough voices leave the registry",
+      "passed": true
+    },
+    {
+      "name": "Superdough has a finite default voice budget",
+      "passed": true
+    },
+    {
+      "name": "production engine and scheduled voices match rendered attacks during input changes and stress",
+      "passed": true
+    },
+    {
+      "name": "500 overlapping sample voices exercise the budget and clean up",
+      "passed": true
+    },
+    {
+      "name": "ongoing production sixteenth-note intervals stay within 1ms of the audio grid",
+      "passed": true
+    }
+  ],
+  "missingScenarioCounts": {
+    "attacks": 0,
+    "sequences": 0,
+    "production": [
+      "stable-stall"
+    ]
+  },
+  "altered": [
+    {
+      "name": "direct and Superdough 5/10ms attacks produce all notes",
+      "passed": true
+    },
+    {
+      "name": "all idle sequences produce all notes",
+      "passed": true
+    },
+    {
+      "name": "render-thread sequences survive 300ms main-thread stalls",
+      "passed": true
+    },
+    {
+      "name": "worklet queued cancellation produces silence",
+      "passed": true
+    },
+    {
+      "name": "worklet release becomes silent without a large sample discontinuity",
+      "passed": true
+    },
+    {
+      "name": "worklet bounds voices and releases all",
+      "passed": true
+    },
+    {
+      "name": "finished Superdough voices leave the registry",
+      "passed": true
+    },
+    {
+      "name": "Superdough has a finite default voice budget",
+      "passed": true
+    },
+    {
+      "name": "production engine and scheduled voices match rendered attacks during input changes and stress",
+      "passed": true
+    },
+    {
+      "name": "500 overlapping sample voices exercise the budget and clean up",
+      "passed": true
+    },
+    {
+      "name": "ongoing production sixteenth-note intervals stay within 1ms of the audio grid",
+      "passed": true
+    }
+  ],
+  "sourceRevision": "a3cc6c8"
+}

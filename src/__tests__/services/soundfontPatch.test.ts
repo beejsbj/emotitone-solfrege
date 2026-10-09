@@ -56,6 +56,27 @@ describe("patched Strudel soundfont loading", () => {
     vi.unstubAllGlobals();
   });
 
+  it.each(["@strudel/soundfonts", "@strudel/soundfonts/fontloader.mjs"])("%s exposes decoded zones without playback nodes and shares the warm cache", async (moduleName) => {
+    const font = `prepared_${crypto.randomUUID().replaceAll("-", "")}`;
+    const fetchMock = vi.fn().mockResolvedValue({ text: async () => presetSource(font) });
+    vi.stubGlobal("fetch", fetchMock);
+    const buffer = { duration: 1, sampleRate: 48000 };
+    const decode = vi.fn((_data: ArrayBuffer, resolve: (value: object) => void) => resolve(buffer));
+    const context = createAudioContext(decode);
+    const fonts = await vi.importActual<any>(moduleName);
+    await fonts.prewarmSoundfont(font, context);
+    const zones = await fonts.getPreparedSoundfont(font, context);
+    expect(zones).toEqual([{ buffer, originalPitch: 6000, coarseTune: 0, fineTune: 0,
+      keyRangeLow: 0, keyRangeHigh: 127, loopStart: 0, loopEnd: 0, sampleRate: 44100 }]);
+    expect(zones[0].buffer).toBe(buffer);
+    await fonts.getPreparedSoundfont(font, context);
+    expect(context.createBufferSource).not.toHaveBeenCalled();
+    const source = await fonts.getFontBufferSource(font, { note: 60 }, context);
+    expect(source.buffer).toBe(buffer);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(decode).toHaveBeenCalledTimes(1);
+  });
+
   it("warms every zone and retries a transient preset fetch", async () => {
     const font = `test_font_fetch_${crypto.randomUUID().replaceAll("-", "")}`;
     const fetchMock = vi

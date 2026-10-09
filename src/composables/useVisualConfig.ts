@@ -1,4 +1,4 @@
-import { computed, reactive } from "vue";
+import { computed } from "vue";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import {
   DEFAULT_CONFIG,
@@ -8,7 +8,6 @@ import {
 import type {
   BlobConfig,
   AmbientConfig,
-  ParticleConfig,
   StringConfig,
   AnimationConfig,
   FrequencyMappingConfig,
@@ -17,6 +16,7 @@ import type {
   BlobRelationshipConfig,
   BlobConnectionMode,
   HilbertScopeConfig,
+  StageConfig,
   UIBeatConfig,
   PatternConfig,
   CodeStripConfig,
@@ -32,7 +32,6 @@ import type {
 export type {
   BlobConfig,
   AmbientConfig,
-  ParticleConfig,
   StringConfig,
   AnimationConfig,
   FrequencyMappingConfig,
@@ -41,6 +40,7 @@ export type {
   BlobRelationshipConfig,
   BlobConnectionMode,
   HilbertScopeConfig,
+  StageConfig,
   UIBeatConfig,
   CodeStripConfig,
   VisualEffectsConfig,
@@ -55,14 +55,14 @@ export function useVisualConfig() {
   const store = useVisualConfigStore();
 
   // Individual config sections as computed refs for convenience
-  const blobConfig = computed(() => store.config.blobs);
-  const ambientConfig = computed(() => store.config.ambient);
-  const particleConfig = computed(() => store.config.particles);
-  const stringConfig = computed(() => store.config.strings);
-  const animationConfig = computed(() => store.config.animation);
-  const frequencyMappingConfig = computed(() => store.config.frequencyMapping);
+  const stageConfig = computed(() => store.effectiveConfig.stage);
+  const blobConfig = computed(() => store.effectiveConfig.blobs);
+  const ambientConfig = computed(() => store.effectiveConfig.ambient);
+  const stringConfig = computed(() => store.effectiveConfig.strings);
+  const animationConfig = computed(() => store.effectiveConfig.animation);
+  const frequencyMappingConfig = computed(() => store.effectiveConfig.frequencyMapping);
   const dynamicColorConfig = computed(() => store.config.dynamicColors);
-  const hilbertScopeConfig = computed(() => store.config.hilbertScope);
+  const hilbertScopeConfig = computed(() => store.effectiveConfig.hilbertScope);
   const uiBeatConfig = computed(() => store.config.uiBeat);
   const patternsConfig = computed(() => store.config.patterns);
   const keyboardConfig = computed(() => store.config.keyboard);
@@ -71,12 +71,13 @@ export function useVisualConfig() {
   return {
     // Configuration state
     config: store.config,
+    effectiveConfig: store.effectiveConfig,
     visualsEnabled: store.visualsEnabled,
 
     // Individual sections
+    stageConfig,
     blobConfig,
     ambientConfig,
-    particleConfig,
     stringConfig,
     animationConfig,
     frequencyMappingConfig,

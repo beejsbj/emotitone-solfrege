@@ -131,6 +131,10 @@ export type ChromaticNote =
  * Interface for tracking active notes in the music store
  */
 export interface ActiveNote {
+  /** Estimated audible onset on performance.now's clock, for presentation only. */
+  audibleAt?: number;
+  /** Live per-note pitch expression, in cents. The base frequency remains unchanged. */
+  pitchBendCents?: number;
   /** Index of the solfege note in the scale; -1 marks an exact borrowed pitch. */
   solfegeIndex: number;
   /** Absolute chromatic identity, retained when the pitch is outside the scale. */
@@ -179,7 +183,9 @@ export interface HarmonicAnalysisSnapshot {
   displayedNotes: readonly ActiveNote[];
   /** Pairwise interval relationships for the displayed notes */
   intervalEdges: readonly HarmonicIntervalEdge[];
-  /** Detected chord label when available */
+  /** Detected musical identity, independent of headline visibility. */
+  chordSymbol?: string | null;
+  /** Detected chord label when available and enabled */
   chordLabel: string | null;
   /** Optional emotional summary for the displayed notes */
   emotionalDescription: string;

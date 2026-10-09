@@ -2,7 +2,7 @@
   <AnatomyDisplay
     title="Chord &middot; Musical Compound"
     :features="features"
-    caption="Chord has two coherent displays: one paper-cut fused surface for a chord symbol, or a zero-gap cluster of complete Note primitives. Both reveal their unchanged music colors upward from Ink."
+    caption="Chord has two coherent displays: flat member bands with a fanned tilt inside one cut face for a chord symbol, or a zero-gap cluster of complete Note primitives. Both reveal their unchanged music colors upward from Ink."
   >
     <template #hero>
       <Chord
@@ -16,7 +16,7 @@
     </template>
 
     <VariantGrid title="Display">
-      <VariantCell caption="Symbol · fused paper surface" stage="ink3">
+      <VariantCell caption="Symbol · hard bands with a fanned tilt" stage="ink3">
         <Chord
           :members="progress(cMajorSeven, [.86, .86, .86, .86])"
           display="symbol"
@@ -264,12 +264,12 @@ onBeforeUnmount(() => {
 
 const features = [
   { label: "Display", value: "symbol means one fused surface; notes means a zero-gap Note cluster" },
-  { label: "Material", value: "shared Note paper sheen, cut geometry, and key-depth shadow" },
-  { label: "Geometry", value: "standard, tile, offcut, tab, or pill on the whole chord family" },
-  { label: "Color", value: "runtime music color remains unchanged for octave meaning" },
+  { label: "Material", value: "flat fused bands, hard Ink symbol offset; clustered Notes keep their paper material" },
+  { label: "Geometry", value: "whole-face geometry; Keyboard supplies its daily chord-family cut and rotation" },
+  { label: "Color", value: "each fused band uses only its own flat Music Color, without neighbour blending" },
   { label: "Progress", value: "Ink reveals music color bottom-to-top, controlled 0–1 per member" },
   { label: "Order", value: "fused bands use voicing order; clustered Notes use press order" },
-  { label: "Motion", value: "72ms linear transform response; Reduced Motion freezes the guide loop" },
+  { label: "Motion", value: "--dur-press (72ms) linear progress reveal; Reduced Motion freezes the guide loop" },
   { label: "Boundary", value: "no store, interaction, audio, haptics, or playback clock" },
 ];
 </script>

@@ -9,9 +9,15 @@
  */
 
 import type { LogNote } from "@/types/patterns";
+import type { Shape } from "@/types/instrument";
 import type { MusicalMode } from "@/types/music";
 import { Note as TonalNote } from "@tonaljs/tonal";
 import { getScaleForMode, normalizeScaleIndex } from "@/data";
+import { prepareRecordedNotes, recordedLoopTailMs, type PreparedRecordedNote } from "./recordedTiming";
+import { approximateVibrato, type VibratoApproximation } from "./vibratoApproximation";
+import { approximateTremolo, type TremoloApproximation } from "./tremoloApproximation";
+import type { LiveArticulation } from "./liveArticulation";
+import { resolveLiveEnvelope } from "./shape";
 
 export interface StrudelConfig {
   /** Playback tempo in BPM. Used by the live runtime, not @ duration sizing. @default 120 */
@@ -32,6 +38,14 @@ export interface StrudelConfig {
   scaleMode?: MusicalMode;
   /** Optional scale octave override for relative notation. */
   scaleOctave?: number;
+  /**
+   * The Shape the pattern was played with: filter and effects modifiers, and
+   * the envelope fallback for notes without recorded articulation. Recorded
+   * per-note articulation always wins. Absent means neutral.
+   */
+  shape?: Shape;
+  /** Optional full phrase duration, including silence after the final note. */
+  patternDurationMs?: number;
 }
 
 const DEFAULT_CONFIG: StrudelConfig = {
@@ -45,7 +59,9 @@ const DEFAULT_CONFIG: StrudelConfig = {
 
 export const DEFAULT_SOURCE_BPM = DEFAULT_CONFIG.sourceBpm;
 
-const OVERLAP_EPSILON_MS = 1;
+const OVERLAP_EPSILON_MS = 0;
+type RecordedControl = 'clip' | keyof LiveArticulation;
+const RECORDED_CONTROLS: RecordedControl[] = ['clip', 'attack', 'decay', 'sustain', 'release'];
 
 /** Length of one bar in milliseconds. */
 function barLengthMs(config: StrudelConfig): number {
@@ -54,8 +70,25 @@ function barLengthMs(config: StrudelConfig): number {
 
 /** Converts a duration in ms to a Strudel @x string. Returns "" when @x === 1. */
 function toAt(ms: number, barMs: number, precision: number): string {
-  const x = parseFloat((ms / barMs).toFixed(precision));
+  const x = Math.max(10 ** -precision, parseFloat((ms / barMs).toFixed(precision)));
   return x === 1 ? "" : `@${x}`;
+}
+
+/** Coalesce adjacent rests in one sequence; brace lanes stay independent. */
+export function mergeStrudelRests(tokens: string[], precision = 4): string[] {
+  const merged: string[] = [];
+  let restWeight = 0;
+  const flush = () => {
+    if (restWeight > 0) merged.push(`~${toAt(restWeight, 1, precision)}`);
+    restWeight = 0;
+  };
+  for (const token of tokens) {
+    const rest = token.match(/^~(?:@(\d+(?:\.\d+)?))?$/);
+    if (rest) restWeight += rest[1] === undefined ? 1 : Number(rest[1]);
+    else { flush(); merged.push(token); }
+  }
+  flush();
+  return merged;
 }
 
 /**
@@ -66,12 +99,18 @@ function toAt(ms: number, barMs: number, precision: number): string {
  * The first note's pressTime is treated as t=0.
  */
 export class StrudelNotation {
-  private notes: LogNote[];
+  private notes: PreparedRecordedNote<LogNote>[];
+  private controlFields: RecordedControl[] = [];
   private config: StrudelConfig;
   private renderRelative = false;
+  private renderVibrato = false;
+  private renderTremolo = false;
+  private vibratoByNote = new Map<LogNote, VibratoApproximation>();
+  private tremoloByNote = new Map<LogNote, TremoloApproximation>();
+  private fallbackEnvelope: LiveArticulation = resolveLiveEnvelope(DEFAULT_CONFIG.sound);
 
   constructor(notes: LogNote[], config?: Partial<StrudelConfig>) {
-    this.notes = [...notes].sort(
+    this.notes = prepareRecordedNotes(notes).sort(
       (a, b) =>
         a.pressTime - b.pressTime ||
         a.octave - b.octave ||
@@ -86,6 +125,23 @@ export class StrudelNotation {
 
     this.renderRelative = this.config.notationType === "relative" &&
       this.notes.every((note) => this.relativeNoteValue(note) != null);
+    this.fallbackEnvelope = resolveLiveEnvelope(this.config.sound, this.config.shape);
+    // Uniform recorded articulation becomes a global modifier; only varying
+    // controls need a per-note column alongside the expression columns.
+    const values = new Map(RECORDED_CONTROLS.map(control =>
+      [control, this.notes.map(note => this.noteControl(note, control))] as const));
+    this.controlFields = RECORDED_CONTROLS.filter(control =>
+      new Set(values.get(control)).size > 1);
+    this.vibratoByNote.clear();
+    this.tremoloByNote.clear();
+    for (const note of this.notes) {
+      const vibrato = approximateVibrato(note.pitchExpression);
+      if (vibrato) this.vibratoByNote.set(note, vibrato);
+      const tremolo = approximateTremolo(note.gainExpression);
+      if (tremolo) this.tremoloByNote.set(note, tremolo);
+    }
+    this.renderVibrato = this.vibratoByNote.size > 0;
+    this.renderTremolo = this.tremoloByNote.size > 0;
     const barMs = barLengthMs(this.config);
     const origin = this.notes[0].pressTime;
     const tokens: string[] = [];
@@ -124,19 +180,32 @@ export class StrudelNotation {
       index = nextIndex;
     }
 
-    const inner = `[ ${tokens.join(" ")} ]`;
+    // Preserve a loaded phrase's authored trailing rest. A fresh take's
+    // duration ends at its last note, so it still gets one beat of padding.
+    const authoredTail = (this.config.patternDurationMs ?? cursor) - cursor;
+    const trailingSilence = Number.isFinite(authoredTail) && authoredTail > 0
+      ? authoredTail : recordedLoopTailMs(this.config.sourceBpm);
+    tokens.push(`~${toAt(trailingSilence, barMs, this.config.precision)}`);
+    // Direct @ weights in <> are cycle lengths. A surrounding [] would
+    // normalize the entire take into one cycle, regardless of its duration.
+    const inner = mergeStrudelRests(tokens, this.config.precision).join(" ");
+    // Each mapped column is present on every note. Globals cover only the
+    // unmapped controls so they cannot overwrite recorded per-note values.
+    const controls = RECORDED_CONTROLS.filter(control => !this.controlFields.includes(control))
+      .map(control => `.${control}(${values.get(control)![0]})`).join('');
+    const filters = this.filterModifiers();
+    const effects = this.effectModifiers();
     const cpmExpression = `${this.config.bpm} / ${this.config.beatsPerBar}`;
-
     if (this.renderRelative) {
       const first = this.notes[0];
       const scaleOctave =
         this.config.scaleOctave ??
         (Number.isFinite(first?.octave) ? first.octave : 4);
       const scale = `${this.config.scaleKey ?? first?.key ?? "C"}${scaleOctave}:${this.config.scaleMode ?? first?.mode ?? "major"}`;
-      return `\`<\n${inner}\n>\`.as("n").scale("${scale}").sound("${this.config.sound}").cpm(${cpmExpression})`;
+      return `\`<\n${inner}\n>\`.as(${this.asFields("n")}).scale("${scale}").sound("${this.config.sound}")${filters}${controls}${effects}.cpm(${cpmExpression})`;
     }
 
-    return `\`<\n${inner}\n>\`.as("note").sound("${this.config.sound}").cpm(${cpmExpression})`;
+    return `\`<\n${inner}\n>\`.as(${this.asFields("note")}).sound("${this.config.sound}")${filters}${controls}${effects}.cpm(${cpmExpression})`;
   }
 
   private renderStandaloneNote(note: LogNote, barMs: number) {
@@ -154,6 +223,12 @@ export class StrudelNotation {
     blockEnd: number,
     barMs: number
   ) {
+    if (notes.every(note => this.noteStart(note, origin) === blockStart &&
+      this.noteEnd(note, origin) === blockEnd)) {
+      return `{${notes.map(note => this.noteValue(note)).join(", ")}}${toAt(
+        blockEnd - blockStart, barMs, this.config.precision,
+      )}`;
+    }
     const lanes = this.buildLanes(notes, origin);
     const laneStrings = lanes.map((lane) =>
       this.renderLane(lane, origin, blockStart, blockEnd, barMs)
@@ -197,51 +272,85 @@ export class StrudelNotation {
     blockEnd: number,
     barMs: number
   ) {
-    if (lane.length === 1) {
-      const note = lane[0];
-      const startsWithBlock =
-        this.noteStart(note, origin) - blockStart <= OVERLAP_EPSILON_MS;
-      const endsWithBlock =
-        blockEnd - this.noteEnd(note, origin) <= OVERLAP_EPSILON_MS;
-
-      if (startsWithBlock && endsWithBlock) {
-        return this.noteValue(note);
-      }
-    }
-
+    // Every lane must carry the same total weight. Omitting a full-span
+    // note's weight makes it 1 while padded lanes may total e.g. 0.25;
+    // {} then repeats those shorter lanes, inventing extra attacks.
+    // Round shared boundaries, not individual durations: independent rounding
+    // can give lanes different totals and create an extra attack at the end.
+    const precision = Math.max(6, this.config.precision);
+    const units = 10 ** precision;
+    const boundary = (time: number) => Math.round((time - blockStart) / barMs * units);
+    const format = (ticks: number) => toAt(ticks, units, precision);
     const tokens: string[] = [];
-    let cursor = blockStart;
+    let cursor = 0;
 
     for (const note of lane) {
-      const start = this.noteStart(note, origin);
-      const end = this.noteEnd(note, origin);
+      const start = boundary(this.noteStart(note, origin));
+      const end = boundary(this.noteEnd(note, origin));
       const gap = start - cursor;
 
-      if (gap > OVERLAP_EPSILON_MS) {
-        tokens.push(`~${toAt(gap, barMs, this.config.precision)}`);
-      }
+      if (gap > 0) tokens.push(`~${format(gap)}`);
 
-      tokens.push(
-        `${this.noteValue(note)}${toAt(
-          this.noteDuration(note),
-          barMs,
-          this.config.precision
-        )}`
-      );
+      tokens.push(`${this.noteValue(note)}${format(end - start)}`);
       cursor = end;
     }
 
-    const trailingGap = blockEnd - cursor;
-    if (trailingGap > OVERLAP_EPSILON_MS) {
-      tokens.push(`~${toAt(trailingGap, barMs, this.config.precision)}`);
-    }
+    const trailingGap = boundary(blockEnd) - cursor;
+    if (trailingGap > 0) tokens.push(`~${format(trailingGap)}`);
 
-    return tokens.join(" ");
+    return mergeStrudelRests(tokens, precision).join(" ");
   }
 
-  private noteValue(note: LogNote) {
-    if (!this.renderRelative) return note.note;
-    return String(this.relativeNoteValue(note));
+  private filterModifiers(): string {
+    const { cutoff, resonance } = this.config.shape ?? {};
+    let modifiers = "";
+    if (cutoff !== undefined && cutoff < 12000) modifiers += `.lpf(${Math.round(cutoff)})`;
+    if (resonance !== undefined && resonance > 0) modifiers += `.lpq(${Number(resonance.toFixed(1))})`;
+    return modifiers;
+  }
+
+  private effectModifiers(): string {
+    const { room, delay } = this.config.shape ?? {};
+    let modifiers = "";
+    if (room !== undefined && room > 0) modifiers += `.room(${Number(room.toFixed(3))})`;
+    if (delay !== undefined && delay > 0) {
+      modifiers += `.delay(${Number(delay.toFixed(3))}).delaytime(0.25).delayfeedback(0.3)`;
+    }
+    return modifiers;
+  }
+
+  private noteValue(note: PreparedRecordedNote<LogNote>) {
+    const value = !this.renderRelative ? note.note : String(this.relativeNoteValue(note));
+
+    const vibrato = this.vibratoByNote.get(note);
+    const tremolo = this.tremoloByNote.get(note);
+    const fields = [value, ...this.controlFields.map(control => String(this.noteControl(note, control)))];
+    if (this.renderVibrato) fields.push(String(vibrato?.vib ?? 0), String(vibrato?.vibmod ?? 0));
+    // Omit trailing fields when this note has no tremolo. A zero tremolo value
+    // still creates an LFO AudioWorkletNode in Superdough on every playback.
+    if (tremolo) fields.push(String(tremolo.tremolo), String(tremolo.tremolodepth));
+    return fields.join(":");
+  }
+
+  private asFields(noteField: "note" | "n") {
+    const fields: string[] = [noteField, ...this.controlFields];
+    if (this.renderVibrato) fields.push("vib", "vibmod");
+    if (this.renderTremolo) fields.push("tremolo", "tremolodepth");
+    if (!this.renderVibrato && !this.renderTremolo) return `"${fields.join(":")}"`;
+    // Double-quoted strings inside arrays are mini-patterns after transpilation.
+    // Literal keys must use single quotes so as() receives strings, not Patterns.
+    return `[${fields.map((field) => `'${field}'`).join(", ")}]`;
+  }
+
+  private noteControl(note: PreparedRecordedNote<LogNote>, control: RecordedControl): number {
+    if (control === 'clip') {
+      const ratio = (note.gateDuration ?? this.noteDuration(note)) / this.noteDuration(note);
+      return Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
+    }
+    const value = note.articulation?.[control];
+    return typeof value === 'number' && Number.isFinite(value) && value >= 0 &&
+      (control !== 'sustain' || value <= 1)
+      ? value : this.fallbackEnvelope[control];
   }
 
   private relativeNoteValue(note: LogNote) {

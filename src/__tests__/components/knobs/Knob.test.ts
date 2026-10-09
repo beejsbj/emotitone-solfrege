@@ -11,6 +11,7 @@ import knobFaceSource from "@/components/primatives/Knob/KnobFace.vue?raw";
 import booleanKnobSource from "@/components/primatives/Knob/BooleanKnob.vue?raw";
 import motionGuideSource from "@/style-guide/tokens/TokenMotion.vue?raw";
 import { MODE_OPTIONS } from "@/data/musicData";
+import { PLAY_MODE_OPTIONS } from "@/services/playStyles";
 import { uiBeatClock } from "@/composables/useUIBeat";
 
 const instrumentControlSource = readFileSync(
@@ -48,14 +49,12 @@ describe("Knob public interface", () => {
     wrappers = [];
     document.body.innerHTML = "";
     uiBeatClock.stop();
+    vi.restoreAllMocks();
   });
 
-  // Global setup mocks document events. Exercise the actual registered handlers.
   const documentEvent = async (type: string, event: Event) => {
-    const registration = vi.mocked(document.addEventListener).mock.calls
-      .filter(([name]) => name === type).at(-1);
-    expect(registration).toBeDefined();
-    (registration![1] as EventListener)(event);
+    expect(event.type).toBe(type);
+    document.dispatchEvent(event);
     await nextTick();
   };
 
@@ -73,24 +72,25 @@ describe("Knob public interface", () => {
   };
 
   it("shows formatted values above contact, updates immediately, and removes on release", async () => {
-    expect(knobSource).toContain('import DragValue from "../DragValue.vue"');
+    expect(knobSource).toContain('import Readout from "../Readout.vue"');
     const wrapper = render({ modelValue: -4.84, type: "range", formatValue: (v: number) => `${v} dB` });
-    expect(document.querySelector(".knob-drag-value")).toBeNull();
+    expect(document.querySelector(".knob-readout")).toBeNull();
     await wrapper.trigger("mousedown", { clientX: 150, clientY: 300 });
-    const follower = document.querySelector(".knob-drag-value")!;
+    const follower = document.querySelector(".knob-readout")!;
     expect(follower.textContent).toContain("-4.84 dB");
     expect((follower as HTMLElement).style.transform).toContain("translate3d(150px, 244px, 0)");
-    expect(follower.querySelector(".sticker--fill")).not.toBeNull();
-    expect(follower.querySelector(".sticker--color-ivory")).not.toBeNull();
-    const paper = follower.querySelector(".drag-value__paper")!;
-    expect(paper.classList).toContain("drag-value__paper--bounce-b");
+    expect(follower.querySelector(".readout__window--ivory")).not.toBeNull();
+    expect(follower.querySelector(".readout__lit")?.textContent).toBe("-4.84 dB");
+    expect(follower.querySelector(".readout__ghost")?.textContent).toBe(" 8 88 88");
+    const paper = follower.querySelector(".readout__window")!;
+    expect(paper.classList).toContain("readout__window--bounce-b");
     await wrapper.setProps({ modelValue: -3.2 });
     expect(follower.textContent).toContain("-3.2 dB");
-    expect(paper.classList).toContain("drag-value__paper--bounce-a");
+    expect(paper.classList).toContain("readout__window--bounce-a");
     await wrapper.setProps({ modelValue: -3.2 });
-    expect(paper.classList).toContain("drag-value__paper--bounce-a");
+    expect(paper.classList).toContain("readout__window--bounce-a");
     await documentEvent("mouseup", new MouseEvent("mouseup"));
-    expect(document.querySelector(".knob-drag-value")).toBeNull();
+    expect(document.querySelector(".knob-readout")).toBeNull();
   });
 
   it("caps displayed numeric precision at two places without changing formatter semantics", async () => {
@@ -111,21 +111,20 @@ describe("Knob public interface", () => {
     expect(wrapper.get(".knob-range-value__unit").text()).toBe("s");
 
     await wrapper.trigger("mousedown", { clientX: 150, clientY: 300 });
-    expect(document.querySelector(".knob-drag-value")?.textContent).toContain("0.3s");
+    expect(document.querySelector(".knob-readout")?.textContent).toContain("0.3s");
 
     await wrapper.setProps({ modelValue: 1.236 });
     expect(wrapper.get(".knob-range-value__number").text()).toBe("1.24");
-    expect(document.querySelector(".knob-drag-value")?.textContent).toContain("1.24s");
+    expect(document.querySelector(".knob-readout")?.textContent).toContain("1.24s");
     await documentEvent("mouseup", new MouseEvent("mouseup"));
   });
 
-  it("uses the brass Badge treatment for a brass Knob follower", async () => {
+  it("uses the Brass bezel for a brass Knob readout", async () => {
     const wrapper = render({ modelValue: 64, type: "range", tone: "brass" });
     await wrapper.trigger("mousedown", { clientX: 150, clientY: 300 });
-    const follower = document.querySelector(".knob-drag-value")!;
-    expect(follower.querySelector(".sticker--badge")).not.toBeNull();
-    expect(follower.querySelector(".sticker--color-brass-sheen")).not.toBeNull();
-    expect(follower.querySelector(".sticker--fill")).toBeNull();
+    const follower = document.querySelector(".knob-readout")!;
+    expect(follower.querySelector(".readout__window--brass")).not.toBeNull();
+    expect(follower.querySelector(".readout__window--ivory")).toBeNull();
     await documentEvent("mouseup", new MouseEvent("mouseup"));
   });
 
@@ -140,7 +139,7 @@ describe("Knob public interface", () => {
     Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
       configurable: true,
       get() {
-        return this.classList.contains("knob-drag-value")
+        return this.classList.contains("knob-readout")
           ? 48
           : widthDescriptor?.get?.call(this) ?? 0;
       },
@@ -148,7 +147,7 @@ describe("Knob public interface", () => {
     Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
       configurable: true,
       get() {
-        return this.classList.contains("knob-drag-value")
+        return this.classList.contains("knob-readout")
           ? 160
           : heightDescriptor?.get?.call(this) ?? 0;
       },
@@ -160,7 +159,7 @@ describe("Knob public interface", () => {
         options: [{ label: "Major Pentatonic", value: "major pentatonic" }],
       });
       await wrapper.trigger("mousedown", { clientX: 40, clientY: 32 });
-      const follower = document.querySelector<HTMLElement>(".knob-drag-value")!;
+      const follower = document.querySelector<HTMLElement>(".knob-readout")!;
       expect(follower.textContent).toContain("Major Pentatonic");
       expect(follower.style.maxInlineSize).toBe("48px");
       expect(follower.style.transform).toContain("scale(0.2)");
@@ -179,9 +178,9 @@ describe("Knob public interface", () => {
   it("shows full option labels and dismisses for a horizontal gesture", async () => {
     const wrapper = render({ modelValue: "minor", options: [{ label: "Harmonic minor", value: "minor" }] });
     await wrapper.trigger("mousedown", { clientX: 150, clientY: 300 });
-    expect(document.querySelector(".knob-drag-value")?.textContent).toContain("Harmonic minor");
+    expect(document.querySelector(".knob-readout")?.textContent).toContain("Harmonic minor");
     await documentEvent("mousemove", new MouseEvent("mousemove", { clientX: 190, clientY: 302 }));
-    expect(document.querySelector(".knob-drag-value")).toBeNull();
+    expect(document.querySelector(".knob-readout")).toBeNull();
     expect(wrapper.emitted("update:modelValue")).toBeUndefined();
   });
 
@@ -190,14 +189,15 @@ describe("Knob public interface", () => {
     const contact = { identifier: 4, clientX: 150, clientY: 300 };
     wrapper.element.dispatchEvent(touchEvent("touchstart", [contact]));
     await nextTick();
-    expect(document.querySelector(".knob-drag-value")).not.toBeNull();
+    expect(document.querySelector(".knob-readout")).not.toBeNull();
     await documentEvent("touchcancel", touchEvent("touchcancel", [], [contact]));
-    expect(document.querySelector(".knob-drag-value")).toBeNull();
+    expect(document.querySelector(".knob-readout")).toBeNull();
     expect(wrapper.emitted("update:modelValue")).toBeUndefined();
     await wrapper.trigger("mousedown", { clientX: 150, clientY: 300 });
+    vi.spyOn(document, "removeEventListener");
     wrapper.unmount();
     wrappers = wrappers.filter((entry) => entry !== wrapper);
-    expect(document.querySelector(".knob-drag-value")).toBeNull();
+    expect(document.querySelector(".knob-readout")).toBeNull();
     expect(document.removeEventListener).toHaveBeenCalledWith("mousemove", expect.any(Function));
   });
 
@@ -232,21 +232,21 @@ describe("Knob public interface", () => {
       [knobFinger],
       [heldKey, secondKnobFinger],
     ));
-    expect(document.querySelector(".knob-drag-value")).not.toBeNull();
+    expect(document.querySelector(".knob-readout")).not.toBeNull();
 
     const movedKnobFinger = { ...knobFinger, clientY: 250 };
     await documentEvent("touchmove", touchEvent("touchmove", [movedKnobFinger]));
     expect(wrapper.emitted("update:modelValue")).toEqual([["b"]]);
 
     await documentEvent("touchend", touchEvent("touchend", [], [movedKnobFinger]));
-    expect(document.querySelector(".knob-drag-value")).toBeNull();
+    expect(document.querySelector(".knob-readout")).toBeNull();
   });
 
   it("removes a follower when made inert and keeps display-only activation inert", async () => {
     const wrapper = render({ modelValue: "a", options: ["a", "b"] });
     await wrapper.trigger("mousedown", { clientX: 150, clientY: 300 });
     await wrapper.setProps({ isDisplay: true });
-    expect(document.querySelector(".knob-drag-value")).toBeNull();
+    expect(document.querySelector(".knob-readout")).toBeNull();
     await wrapper.trigger("click");
     expect(wrapper.emitted("update:modelValue")).toBeUndefined();
   });
@@ -381,6 +381,82 @@ describe("Knob public interface", () => {
     expect(booleanKnobSource).toContain("var(--shadow-glow-brass)");
   });
 
+  it("lights the Analog Ring LED collar by role while Digital Arc keeps its stroke", async () => {
+    const litCount = (wrapper: VueWrapper) =>
+      wrapper.findAll(".knob-face__chad--lit").length;
+
+    const range = render({ modelValue: 64, type: "range", visual: "ring" });
+    expect(range.findAll(".knob-face__chad")).toHaveLength(15);
+    expect(range.find(".knob-face__collar").exists()).toBe(true);
+    expect(range.find(".knob-face__meter").exists()).toBe(false);
+    expect(range.findAll(".knob-face circle")).toHaveLength(0);
+    expect(litCount(range)).toBe(10);
+    await range.setProps({ modelValue: 0 });
+    expect(litCount(range)).toBe(0);
+    await range.setProps({ modelValue: 100 });
+    expect(litCount(range)).toBe(15);
+
+    const booleanOn = render({ modelValue: true, type: "boolean", visual: "ring" });
+    expect(litCount(booleanOn)).toBe(15);
+    expect(booleanOn.find(".knob-boolean__ball").exists()).toBe(true);
+    const booleanOff = render({ modelValue: false, type: "boolean", visual: "ring" });
+    expect(litCount(booleanOff)).toBe(0);
+
+    const threeOptions = render({
+      modelValue: "TRI",
+      type: "options",
+      visual: "ring",
+      options: ["SIN", "TRI", "SAW"],
+    });
+    const lit = threeOptions
+      .findAll(".knob-face__chad")
+      .map((chad) => chad.classes().includes("knob-face__chad--lit"));
+    expect(lit.slice(0, 5).some(Boolean)).toBe(false);
+    expect(lit.slice(5, 10).every(Boolean)).toBe(true);
+    expect(lit.slice(10).some(Boolean)).toBe(false);
+
+    for (const [index, option] of PLAY_MODE_OPTIONS.entries()) {
+      const playMode = render({
+        modelValue: option.value,
+        type: "options",
+        visual: "ring",
+        options: PLAY_MODE_OPTIONS,
+      });
+      expect(litCount(playMode), `Style option ${index}`).toBeGreaterThan(0);
+    }
+
+    const arc = render({ modelValue: 64, type: "range", visual: "arc" });
+    expect(arc.find(".knob-face__chad").exists()).toBe(false);
+    expect(arc.find(".knob-face__meter").exists()).toBe(true);
+    expect(arc.findAll(".knob-face circle")).toHaveLength(2);
+
+    expect(knobFaceSource).toMatch(
+      /@media \(prefers-reduced-motion: reduce\) \{[^}]*\.knob-face__chad[^}]*transition: none;/,
+    );
+  });
+
+  it("drives lit collar chads from explicit and per-option colours", () => {
+    const explicit = render({
+      modelValue: 64,
+      visual: "ring",
+      tone: "brass",
+      themeColor: "hotpink",
+    });
+    expect(explicit.get(".knob-face").attributes("style")).toContain("hotpink");
+    expect(knobFaceSource).toMatch(/\.knob-face__chad--lit \{[^}]*fill: currentColor;/);
+
+    const option = render({
+      modelValue: "SQ",
+      visual: "ring",
+      options: [
+        { label: "Sine", value: "SIN" },
+        { label: "Square", value: "SQ", color: "#67bdd2" },
+      ],
+    });
+    expect(option.get(".knob-face").attributes("style")).toContain("#67bdd2");
+    expect(option.findAll(".knob-face__chad--lit").length).toBeGreaterThan(0);
+  });
+
   it("renders production role grammar through the public interface", () => {
     const range = render({
       modelValue: 3.456,
@@ -390,7 +466,7 @@ describe("Knob public interface", () => {
     expect(range.text()).toContain("3.46");
     expect(range.text()).toContain("s");
 
-    const boolean = render({ modelValue: true, type: "boolean" });
+    const boolean = render({ modelValue: true, type: "boolean", visual: "arc" });
     expect(boolean.get(".knob-face").classes()).toContain("knob-face--active");
     expect(boolean.find(".knob-boolean__ball").exists()).toBe(true);
     expect(boolean.findAll(".knob-face circle")).toHaveLength(2);
@@ -398,6 +474,7 @@ describe("Knob public interface", () => {
     const options = render({
       modelValue: "SQ",
       type: "options",
+      visual: "arc",
       options: [
         { label: "Sine", value: "SIN" },
         { label: "Square", value: "SQ", color: "tomato" },
@@ -462,6 +539,60 @@ describe("Knob public interface", () => {
     expect(boolean.attributes("type")).toBe("button");
     expect(boolean.attributes("aria-pressed")).toBe("true");
     expect(boolean.attributes("aria-label")).toBe("Visuals");
+  });
+
+  it("exposes option Knobs as keyboard-operable indexed controls", async () => {
+    const options = render({
+      modelValue: "together",
+      type: "options",
+      options: PLAY_MODE_OPTIONS,
+      label: "Style",
+    });
+
+    expect(options.attributes("role")).toBe("slider");
+    expect(options.attributes("tabindex")).toBe("0");
+    expect(options.attributes("aria-label")).toBe("Style");
+    expect(options.attributes("aria-valuenow")).toBe("0");
+    expect(options.attributes("aria-valuetext")).toBe("Together");
+
+    await options.trigger("keydown", { key: "ArrowLeft" });
+    expect(options.emitted("update:modelValue")).toBeUndefined();
+
+    await options.trigger("keydown", { key: "ArrowRight" });
+    await options.setProps({ modelValue: "strum-up" });
+    expect(options.attributes("aria-valuenow")).toBe("1");
+    expect(options.attributes("aria-valuetext")).toBe("Strum ↑");
+
+    await options.trigger("keydown", { key: "End" });
+    await options.setProps({ modelValue: PLAY_MODE_OPTIONS.at(-1)!.value });
+    expect(options.attributes("aria-valuenow")).toBe(String(PLAY_MODE_OPTIONS.length - 1));
+    expect(options.attributes("aria-valuetext")).toBe(PLAY_MODE_OPTIONS.at(-1)!.label);
+    const updatesAtEnd = options.emitted("update:modelValue")?.length;
+    await options.trigger("keydown", { key: "ArrowRight" });
+    expect(options.emitted("update:modelValue")).toHaveLength(updatesAtEnd!);
+
+    await options.trigger("keydown", { key: "Home" });
+
+    expect(options.emitted("update:modelValue")).toEqual([
+      ["strum-up"],
+      [PLAY_MODE_OPTIONS.at(-1)!.value],
+      ["together"],
+    ]);
+  });
+
+  it("removes disabled option Knobs from keyboard interaction", async () => {
+    const options = render({
+      modelValue: "together",
+      type: "options",
+      options: PLAY_MODE_OPTIONS,
+      label: "Style",
+      isDisabled: true,
+    });
+
+    expect(options.attributes("tabindex")).toBe("-1");
+    expect(options.attributes("aria-disabled")).toBe("true");
+    await options.trigger("keydown", { key: "ArrowRight" });
+    expect(options.emitted("update:modelValue")).toBeUndefined();
   });
 
   it("keeps explicit theme and per-option colors ahead of semantic tone", () => {
@@ -583,11 +714,8 @@ describe("Knob public interface", () => {
     document.dispatchEvent(mouseAt("mousemove", 130, 102));
     document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
 
-    // happy-dom does not deliver this component-attached mousedown into the
-    // native document listener path. Keep the setter observable so the gap is
-    // explicit; live-browser QA owns the positive scrollLeft handoff proof.
-    expect(setScrollLeft).not.toHaveBeenCalled();
-    expect(scrollLeft).toBe(40);
+    expect(setScrollLeft).toHaveBeenCalledWith(10);
+    expect(scrollLeft).toBe(10);
     expect(knob.emitted("update:modelValue")).toBeUndefined();
     expect(triggerUIHaptic).not.toHaveBeenCalled();
   });

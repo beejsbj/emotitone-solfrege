@@ -12,12 +12,6 @@
     <div v-if="!isLoading" class="pointer-events-none relative z-50 min-h-screen flex flex-col">
       <PerformanceDeck />
     </div>
-
-    <TooltipRenderer
-      :tooltip-state="globalTooltip.tooltipState.value"
-      :rotation="globalTooltip.rotation.value"
-      :translation="globalTooltip.translation.value"
-    />
   </div>
 </template>
 
@@ -29,15 +23,13 @@ import ConfigPanel from "@/components/ConfigPanel.vue";
 import PerformanceDeck from "@/components/PerformanceDeck.vue";
 import InstrumentSelector from "@/components/InstrumentSelector.vue";
 import LoadingSplash from "@/components/LoadingSplash.vue";
-import TooltipRenderer from "@/components/TooltipRenderer.vue";
 import UnifiedVisualEffects from "@/components/UnifiedVisualEffects.vue";
-import { globalTooltip } from "@/directives/tooltip";
 import { useMusicStore } from "@/stores/music";
-import { usePatternsStore } from "@/stores/patterns";
+import { usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 
 useMusicStore();
-usePatternsStore();
+usePhrasesStore();
 const visualConfigStore = useVisualConfigStore();
 provideUIBeat({
   clock: uiBeatClock,

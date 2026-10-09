@@ -1,24 +1,24 @@
 <template>
   <section class="code-strip-bar" aria-label="Pattern controls">
     <div class="code-strip-bar__left">
-      <Button
-        class="code-strip-bar__play"
-        size="sm"
-        :tone="isPlaying ? 'ink' : 'ivory'"
-        :haptic="haptic"
-        :disabled="playDisabled"
-        :accessible-name="isPlaying ? 'Stop' : 'Play'"
-        :title="isPlaying ? 'Stop' : 'Play'"
-        @click="emit('togglePlayback')"
-      >
-        <Square v-if="isPlaying" />
-        <Play v-else />
-      </Button>
       <BeatIndicator
         class="code-strip-bar__beat"
-        size="sm"
         aria-label="Pattern beat"
-      />
+      >
+        <Button
+          class="code-strip-bar__play"
+          size="sm"
+          :tone="isPlaying ? 'ink' : 'ivory'"
+          :haptic="haptic"
+          :disabled="playDisabled"
+          :accessible-name="isPlaying ? 'Stop' : 'Play'"
+          :title="isPlaying ? 'Stop' : 'Play'"
+          @click="emit('togglePlayback')"
+        >
+          <Square v-if="isPlaying" />
+          <Play v-else />
+        </Button>
+      </BeatIndicator>
     </div>
 
     <div class="code-strip-bar__strip">
@@ -98,7 +98,7 @@ const props = withDefaults(
     tokens: undefined,
     source: undefined,
     density: "dense",
-    durationMode: "stacked",
+    durationMode: "bar",
     timeSignature: "4/4",
     ariaLabel: "Editable Strudel pattern",
   },
@@ -125,7 +125,7 @@ const emit = defineEmits<{
   min-width: 0;
   min-height: 40px;
   box-sizing: border-box;
-  /* Reserve room for Button's paper offset and focus ring. */
+  /* Reserve room for Button's lit lip and focus ring. */
   padding: var(--s-4) var(--s-5);
   border: 0;
   background-color: var(--instrument-bar-surface);
@@ -150,6 +150,9 @@ const emit = defineEmits<{
 
 .code-strip-bar__beat {
   flex: 0 0 auto;
+  /* Centre the 32px key in the 40px editor row. Its crown uses the block
+     inset above it, so the opaque rail keeps its 56px footprint. */
+  margin-block: var(--s-2);
 }
 
 </style>

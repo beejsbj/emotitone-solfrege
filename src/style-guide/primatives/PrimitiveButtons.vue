@@ -2,7 +2,7 @@
   <AnatomyDisplay
     title="Button &middot; Momentary Primitive"
     :features="features"
-    caption="One icon-only momentary primitive: the punched-out circular paper chad. The guide owns only staging and visible labels; every control shown is the production Button source."
+    caption="One icon-only momentary primitive: the Lit Keycap. A switch cap on visible walls with real travel, backlit from inside: a lit lip at rest, a full ring and lit face on every hit that close back down into the lip, and the lip rotating while loading. Every control shown is the production Button source."
   >
     <template #hero>
       <div class="button-specimen__hero">
@@ -13,13 +13,13 @@
     </template>
 
     <VariantGrid title="Everyday materials">
-      <VariantCell caption="Ink paper &middot; everyday default">
+      <VariantCell caption="Ink keycap &middot; everyday default">
         <Button accessible-name="Ink paper" title="Ink paper"><Circle :size="16" /></Button>
       </VariantCell>
-      <VariantCell caption="Ink paper &middot; brass icon study">
+      <VariantCell caption="Ink keycap &middot; brass icon study">
         <Button class="button-icon--brass" accessible-name="Ink paper with brass icon" title="Ink paper with brass icon"><Asterisk /></Button>
       </VariantCell>
-      <VariantCell caption="Ivory paper &middot; high contrast">
+      <VariantCell caption="Ivory keycap &middot; high contrast">
         <Button tone="ivory" accessible-name="Ivory paper" title="Ivory paper"><Plus :size="16" /></Button>
       </VariantCell>
     </VariantGrid>
@@ -47,7 +47,7 @@
           <Button size="lg" accessible-name="Large" title="Large"><Play :size="19" /></Button>
         </div>
       </VariantCell>
-      <VariantCell caption="Loading &middot; tone-matched perimeter">
+      <VariantCell caption="Loading &middot; the lit lip rotates">
         <Button loading accessible-name="Loading" title="Loading"><RefreshCw :size="16" /></Button>
       </VariantCell>
       <VariantCell caption="Disabled &middot; dim and still">
@@ -55,23 +55,6 @@
       </VariantCell>
     </VariantGrid>
 
-    <VariantGrid title="Circle-native geometry tokens &middot; outer silhouette">
-      <VariantCell caption="Tile disc &middot; clip-disc-tile + rot-tile-1">
-        <Button class="button-geometry--tile" size="lg" tone="ivory" accessible-name="Tile geometry study" title="Tile geometry study"><Plus /></Button>
-      </VariantCell>
-      <VariantCell caption="Offcut disc &middot; clip-disc-offcut + rot-tile-3">
-        <Button class="button-geometry--offcut" size="lg" tone="ivory" accessible-name="Offcut geometry study" title="Offcut geometry study"><Plus /></Button>
-      </VariantCell>
-      <VariantCell caption="Tab disc &middot; clip-disc-tab + rot-tile-4">
-        <Button class="button-geometry--tab" size="lg" tone="ivory" accessible-name="Tab geometry study" title="Tab geometry study"><Plus /></Button>
-      </VariantCell>
-      <VariantCell caption="Paper-rip disc &middot; clip-disc-paper-rip + rot-sticker">
-        <Button class="button-geometry--rip" size="lg" tone="ivory" accessible-name="Paper rip geometry study" title="Paper rip geometry study"><Plus /></Button>
-      </VariantCell>
-      <VariantCell caption="Rounded-stock disc &middot; clip-disc-rounded-stock + rot-tile-5">
-        <Button class="button-geometry--rounded" size="lg" tone="ivory" accessible-name="Rounded stock geometry study" title="Rounded stock geometry study"><Plus /></Button>
-      </VariantCell>
-    </VariantGrid>
 
     <VariantGrid title="Production relationships">
       <VariantCell caption="Momentary action &middot; consumer label">
@@ -101,14 +84,15 @@ import VariantCell from "../guide/VariantCell.vue";
 import VariantGrid from "../guide/VariantGrid.vue";
 
 const features = [
-  { label: "Metaphor", value: "punched-out circular paper chad · filled, not an aperture" },
+  { label: "Metaphor", value: "Lit Keycap · a switch cap on the chassis, backlit from inside" },
   { label: "Role", value: "icon-only momentary action · never persistent state" },
-  { label: "Shape", value: "circular default · foundational disc clips can shape the outer silhouette" },
-  { label: "Depth", value: "2px hard paper offset · no faux ring · collapses on press" },
+  { label: "Shape", value: "rounded-square cap on visible side walls · hit box stays the native square" },
+  { label: "Travel", value: "the cap bottoms out on press · non-brass elastic release · brass direct" },
+  { label: "Light", value: "lit lip past a dark seam at rest · hit opens a full ring and lights the face, then closes down" },
   { label: "Material", value: "ink / ivory everyday · four canonical brass finishes" },
-  { label: "Icon", value: "50% of face · exact centered SVG box" },
+  { label: "Icon", value: "44% of the key · exact centered SVG box" },
   { label: "Sizes", value: "32 / 40 / 48px · contextual --button-size override" },
-  { label: "States", value: "hover contrast · non-brass elastic rebound · brass snap · loading perimeter · disabled stillness" },
+  { label: "States", value: "loading rotates the lip · disabled dims and drops the light · Reduced Motion holds still" },
   { label: "Source", value: "components/primatives/Button.vue" },
 ];
 </script>
@@ -142,33 +126,4 @@ const features = [
   --button-ink: var(--brass);
 }
 
-.button-geometry--tile {
-  --button-radius: 0;
-  --button-clip: var(--clip-disc-tile);
-  --button-rest-rotation: var(--rot-tile-1);
-}
-
-.button-geometry--offcut {
-  --button-radius: 0;
-  --button-clip: var(--clip-disc-offcut);
-  --button-rest-rotation: var(--rot-tile-3);
-}
-
-.button-geometry--tab {
-  --button-radius: 0;
-  --button-clip: var(--clip-disc-tab);
-  --button-rest-rotation: var(--rot-tile-4);
-}
-
-.button-geometry--rip {
-  --button-radius: 0;
-  --button-clip: var(--clip-disc-paper-rip);
-  --button-rest-rotation: var(--rot-sticker);
-}
-
-.button-geometry--rounded {
-  --button-radius: 0;
-  --button-clip: var(--clip-disc-rounded-stock);
-  --button-rest-rotation: var(--rot-tile-5);
-}
 </style>

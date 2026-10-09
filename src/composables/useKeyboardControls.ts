@@ -6,9 +6,11 @@
 import { ref, computed, onMounted, onUnmounted, watch, type Ref } from "vue";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useMusicStore } from "@/stores/music";
-import { usePatternsStore } from "@/stores/patterns";
+import { usePhrasesStore } from "@/stores/phrases";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { createVoiceGroupLifecycle } from "@/services/inputVoiceGroups";
+import { buildHarmony } from "@/domain/harmony";
+import type { ChromaticNote } from "@/types/music";
 
 /**
  * Keyboard mapping interface
@@ -21,26 +23,28 @@ interface KeyboardMapping {
   };
 }
 
+/**
+ * The number row triggers chords (one per scale degree) rather than
+ * individual notes. The remaining letter rows keep single-note behaviour.
+ */
+const CHORD_ROW_KEYS = [
+  { code: "Digit1", label: "1" },
+  { code: "Digit2", label: "2" },
+  { code: "Digit3", label: "3" },
+  { code: "Digit4", label: "4" },
+  { code: "Digit5", label: "5" },
+  { code: "Digit6", label: "6" },
+  { code: "Digit7", label: "7" },
+  { code: "Digit8", label: "8" },
+  { code: "Digit9", label: "9" },
+  { code: "Digit0", label: "0" },
+  { code: "Minus", label: "-" },
+  { code: "Equal", label: "=" },
+] as const;
+
 const KEY_ROWS = [
   {
     octaveOffset: 1,
-    keys: [
-      { code: "Digit1", label: "1" },
-      { code: "Digit2", label: "2" },
-      { code: "Digit3", label: "3" },
-      { code: "Digit4", label: "4" },
-      { code: "Digit5", label: "5" },
-      { code: "Digit6", label: "6" },
-      { code: "Digit7", label: "7" },
-      { code: "Digit8", label: "8" },
-      { code: "Digit9", label: "9" },
-      { code: "Digit0", label: "0" },
-      { code: "Minus", label: "-" },
-      { code: "Equal", label: "=" },
-    ],
-  },
-  {
-    octaveOffset: 0,
     keys: [
       { code: "KeyQ", label: "Q" },
       { code: "KeyW", label: "W" },
@@ -57,7 +61,7 @@ const KEY_ROWS = [
     ],
   },
   {
-    octaveOffset: -1,
+    octaveOffset: 0,
     keys: [
       { code: "KeyA", label: "A" },
       { code: "KeyS", label: "S" },
@@ -75,20 +79,44 @@ const KEY_ROWS = [
   },
 ] as const;
 
+// The physical bottom row has ten printable keys, so it covers the first ten
+// degrees below the main A row. The 12-key rows above it retain complete
+// chromatic coverage.
+const BOTTOM_KEY_ROW = [
+  { code: "KeyZ", label: "Z" },
+  { code: "KeyX", label: "X" },
+  { code: "KeyC", label: "C" },
+  { code: "KeyV", label: "V" },
+  { code: "KeyB", label: "B" },
+  { code: "KeyN", label: "N" },
+  { code: "KeyM", label: "M" },
+  { code: "Comma", label: "," },
+  { code: "Period", label: "." },
+  { code: "Slash", label: "/" },
+] as const;
+
 /**
  * Composable for handling keyboard controls for solfege notes
  */
 export function useKeyboardControls(mainOctave: Ref<number>) {
   const instrumentStore = useInstrumentStore();
   const musicStore = useMusicStore();
-  const patternsStore = usePatternsStore();
+  const phrasesStore = usePhrasesStore();
   const keyboardDrawerStore = useKeyboardDrawerStore();
   const voiceGroups = createVoiceGroupLifecycle((noteId) => musicStore.releaseNote(noteId));
 
+  // --- chord row (number keys) ---
+  const chordKeyMapping = new Map<string, number>(
+    CHORD_ROW_KEYS.map((key, index) => [key.code, index]),
+  );
+  const chordKeyLabels = new Map<string, string>(
+    CHORD_ROW_KEYS.map((key) => [key.code, key.label]),
+  );
+
   // Track which keys are currently pressed to prevent key repeat
   const pressedKeys = ref<Set<string>>(new Set());
-  // Keys depressed while input is locked must see a physical keyup before
-  // they may attack. Otherwise OS key-repeat can start a note after unlock.
+  // Ignored mapped keys must see a physical keyup before they may attack.
+  // Otherwise OS key-repeat can start a note after a lock or modifier clears.
   const blockedKeys = ref<Set<string>>(new Set());
 
   // Track keyboard-triggered notes separately from mouse-triggered notes
@@ -96,24 +124,58 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
 
   const getKeyboardMapping = (): KeyboardMapping => {
     const degreeCount = musicStore.currentScale.degreeCount;
+    const visibleOctaves = keyboardDrawerStore.visibleOctaves;
     const mapping: KeyboardMapping = {};
 
-    KEY_ROWS.forEach((row) => {
-      const octave = mainOctave.value + row.octaveOffset;
-      if (octave < 1 || octave > 8) {
+    const addKeyRow = (
+      keys: readonly { code: string; label: string }[],
+      octave: number,
+    ) => {
+      if (
+        octave < 1
+        || octave > 8
+        || !visibleOctaves.includes(octave)
+      ) {
         return;
       }
 
-      row.keys.slice(0, degreeCount).forEach((key, index) => {
+      keys.slice(0, degreeCount).forEach((key, index) => {
         mapping[key.code] = {
           solfegeIndex: index,
           octave,
           label: key.label,
         };
       });
+    };
+
+    KEY_ROWS.forEach((row) => {
+      addKeyRow(row.keys, mainOctave.value + row.octaveOffset);
     });
+    addKeyRow(BOTTOM_KEY_ROW, mainOctave.value - 1);
 
     return mapping;
+  };
+
+  /**
+   * Build the current set of harmony chords to map onto the number row.
+   * Returns an array of HarmonyChord objects (one per scale degree).
+   */
+  const getCurrentChords = () =>
+    buildHarmony({
+      tonic: musicStore.currentKey as ChromaticNote,
+      scaleType: musicStore.currentMode,
+      octave: mainOctave.value,
+    });
+
+  /**
+   * Map a key code to a chord mapping entry (chord index + label),
+   * or undefined if the code is not a chord key.
+   */
+  const getChordForCode = (code: string) => {
+    const index = chordKeyMapping.get(code);
+    if (index === undefined) return undefined;
+    const label = chordKeyLabels.get(code);
+    return { index, label: label ?? code };
   };
 
   /**
@@ -161,16 +223,26 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
     }
 
     const key = event.code;
+    const isChordKey = chordKeyMapping.has(key);
 
     if (event.key === "Backspace" || event.key === "Delete") {
       event.preventDefault();
-      patternsStore.removeLastFromCurrentSketch();
+      phrasesStore.undoLastNote();
       return;
     }
 
-    // Get current keyboard mapping
-    const keyboardMapping = getKeyboardMapping();
-    if (key in keyboardMapping) {
+    // Get current keyboard mapping (skip for chord keys)
+    const keyboardMapping = isChordKey ? null : getKeyboardMapping();
+    const isMappedNoteKey = keyboardMapping !== null && key in keyboardMapping;
+
+    if (event.ctrlKey || event.metaKey || event.altKey) {
+      if ((isChordKey || isMappedNoteKey) && !pressedKeys.value.has(key)) {
+        blockedKeys.value.add(key);
+      }
+      return;
+    }
+
+    if (isChordKey || isMappedNoteKey) {
       if (blockedKeys.value.has(key)) {
         event.preventDefault();
         return;
@@ -190,32 +262,65 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
       event.preventDefault();
       pressedKeys.value.add(key);
 
-      const { solfegeIndex, octave, label } =
-        keyboardMapping[key as keyof typeof keyboardMapping];
+      if (isChordKey) {
+        // --- chord attack ---
+        const chordEntry = getChordForCode(key)!;
+        const chords = getCurrentChords();
+        const chord = chords[chordEntry.index];
+        if (!chord) return;
 
-      const ownerId = getKeyboardPressId(key);
-      keyboardDrawerStore.addTouch(ownerId, getNoteKey(solfegeIndex, octave));
-      window.dispatchEvent(
-        new CustomEvent("keyboard-note-pressed", {
-          detail: { solfegeIndex, octave, key: label },
-        })
-      );
-      void voiceGroups.attack(ownerId, [
-        (isCancelled) => musicStore.attackNoteWithOctave(
-          solfegeIndex,
-          octave,
-          isCancelled,
-        ),
-      ]).then(([noteId]) => {
-        if (
-          noteId
-          && pressedKeys.value.has(key)
-          && !blockedKeys.value.has(key)
-          && !instrumentStore.isInteractionLocked
-        ) {
-          keyboardNoteIds.value.set(key, noteId);
-        }
-      });
+        const ownerId = getKeyboardPressId(key);
+        void voiceGroups.attack(
+          ownerId,
+          chord.voicing.pitches.map((pitch) =>
+            (isCancelled) => musicStore.attackExactPitch(pitch.name, isCancelled),
+          ),
+        ).then((noteIds) => {
+          if (
+            pressedKeys.value.has(key)
+            && !blockedKeys.value.has(key)
+            && !instrumentStore.isInteractionLocked
+          ) {
+            for (const noteId of noteIds) {
+              if (noteId) keyboardNoteIds.value.set(`${key}:${noteId}`, noteId);
+            }
+          }
+        });
+        keyboardDrawerStore.addTouch(ownerId, `chord:degree-${chordEntry.index + 1}`);
+        window.dispatchEvent(
+          new CustomEvent("keyboard-chord-pressed", {
+            detail: { chordIndex: chordEntry.index, symbol: chord.symbol, key: chordEntry.label },
+          })
+        );
+      } else {
+        // --- single note attack ---
+        const { solfegeIndex, octave, label } =
+          keyboardMapping![key as keyof typeof keyboardMapping];
+
+        const ownerId = getKeyboardPressId(key);
+        void voiceGroups.attack(ownerId, [
+          (isCancelled) => musicStore.attackNoteWithOctave(
+            solfegeIndex,
+            octave,
+            isCancelled,
+          ),
+        ]).then(([noteId]) => {
+          if (
+            noteId
+            && pressedKeys.value.has(key)
+            && !blockedKeys.value.has(key)
+            && !instrumentStore.isInteractionLocked
+          ) {
+            keyboardNoteIds.value.set(key, noteId);
+          }
+        });
+        keyboardDrawerStore.addTouch(ownerId, getNoteKey(solfegeIndex, octave));
+        window.dispatchEvent(
+          new CustomEvent("keyboard-note-pressed", {
+            detail: { solfegeIndex, octave, key: label },
+          })
+        );
+      }
     }
   };
 
@@ -242,7 +347,7 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
   };
 
   const keyboardMappingLabel = (code: string): string => {
-    return getKeyboardMapping()[code]?.label ?? code;
+    return getKeyboardMapping()[code]?.label ?? chordKeyLabels.get(code) ?? code;
   };
 
   // Handle window blur to release all keyboard notes (safety mechanism)
@@ -313,3 +418,4 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
     cleanupKeyboardListeners,
   };
 }
+

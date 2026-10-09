@@ -1,6 +1,31 @@
 import { defineStore } from "pinia";
-import { ref, reactive, watch } from "vue";
+import { computed, ref, reactive, watch } from "vue";
 import { DEFAULT_CONFIG } from "@/data/visual-config-metadata";
+import { BUILT_IN_STAGE_LOOKS } from "@/data/visual-config-presets";
+import {
+  applyStageLook,
+  createSeededStageVariation,
+  diffStageLook,
+  patchStageControl,
+  preserveStageLookPreferences,
+  preserveStageVariationPreferences,
+  readStageControls,
+  resolveStageConfig,
+  sanitizeStageLookPatch,
+  stageLookFromConfig,
+  type StageControlId,
+  type StageLookPatch,
+  type TransientStageLook,
+  STAGE_LOOK_BODY_TIMING_FIELDS,
+} from "@/services/stageAppearance";
+import {
+  readDeckControls,
+  readGlobalControls,
+  updateDeckControl as applyDeckControl,
+  updateGlobalControl as applyGlobalControl,
+  type DeckControlId,
+  type GlobalControlId,
+} from "@/services/configPublicSurface";
 import type {
   BlobConnectionMode,
   HarmonicGeometryMode,
@@ -9,11 +34,20 @@ import type {
 
 const STORAGE_KEY = "emotitone-visual-config";
 const SAVED_CONFIGS_KEY = "emotitone-saved-configs";
+const SAVED_STAGE_LOOKS_KEY = "emotitone-saved-stage-looks";
 
 export interface SavedConfig {
   id: string;
   name: string;
   config: VisualEffectsConfig;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SavedStageLook {
+  id: string;
+  name: string;
+  patch: StageLookPatch;
   createdAt: string;
   updatedAt: string;
 }
@@ -81,7 +115,7 @@ function normalizeLegacyGeometryMode(value: unknown): HarmonicGeometryMode {
 }
 
 function isBlobConnectionMode(value: unknown): value is BlobConnectionMode {
-  return value === "off" || value === "merge" || value === "web";
+  return value === "merge" || value === "web";
 }
 
 function clampNumber(value: unknown, fallback: number, min: number, max: number) {
@@ -161,10 +195,22 @@ function migrateLegacyBlobRelationships(
   mergedBlobs: Record<string, unknown>
 ) {
   const legacyHarmonic = rawConfig.floatingPopup;
+  const retiredOff = incomingBlobs.connectionMode === "off" || (
+    !("connectionMode" in incomingBlobs) &&
+    isRecord(legacyHarmonic) &&
+    legacyHarmonic.isEnabled === false
+  );
+  const preserveDisconnectedState = () => {
+    if (!retiredOff) return;
+    mergedBlobs.connectionMode = DEFAULT_CONFIG.blobs.connectionMode;
+    mergedBlobs.fusionStrength = 0;
+    mergedBlobs.webOpacity = 0;
+  };
   if (!isRecord(legacyHarmonic)) {
     if (!isBlobConnectionMode(mergedBlobs.connectionMode)) {
-      mergedBlobs.connectionMode = "off";
+      mergedBlobs.connectionMode = DEFAULT_CONFIG.blobs.connectionMode;
     }
+    preserveDisconnectedState();
     return;
   }
 
@@ -178,7 +224,7 @@ function migrateLegacyBlobRelationships(
     mergedBlobs.connectionMode =
       legacyHarmonic.isEnabled === true
         ? normalizeLegacyGeometryMode(legacyHarmonic.geometryMode)
-        : "off";
+        : DEFAULT_CONFIG.blobs.connectionMode;
   }
 
   if (!("analysisHoldTime" in incomingBlobs)) {
@@ -213,8 +259,9 @@ function migrateLegacyBlobRelationships(
   }
 
   if (!isBlobConnectionMode(mergedBlobs.connectionMode)) {
-    mergedBlobs.connectionMode = "off";
+    mergedBlobs.connectionMode = DEFAULT_CONFIG.blobs.connectionMode;
   }
+  preserveDisconnectedState();
 }
 
 function migrateLegacySectionKeys(
@@ -238,6 +285,13 @@ function migrateLegacySectionKeys(
       mergedSection.surfaceStyle = "colored";
     }
     delete mergedSection.colorMode;
+  }
+
+  if (sectionName === "codeStrip") {
+    const durationMode = mergedSection.durationMode;
+    if (durationMode !== "stacked" && durationMode !== "bar" && durationMode !== "hidden") {
+      mergedSection.durationMode = DEFAULT_CONFIG.codeStrip.durationMode;
+    }
   }
 
 }
@@ -313,10 +367,44 @@ function migrateSavedConfig(rawSavedConfig: unknown): SavedConfig | null {
     return null;
   }
 
-  return {
+  const migrated = {
     ...(rawSavedConfig as Omit<SavedConfig, "config">),
     config: migrateVisualConfig((rawSavedConfig as { config?: unknown }).config),
   } as SavedConfig;
+  delete (migrated as SavedConfig & { stagePreferences?: unknown }).stagePreferences;
+  return migrated;
+}
+
+function migrateSavedStageLook(rawLook: unknown): SavedStageLook | null {
+  if (!isRecord(rawLook) || typeof rawLook.name !== "string") {
+    return null;
+  }
+
+  const now = new Date().toISOString();
+  const patch = sanitizeStageLookPatch(rawLook.patch);
+  // Looks saved before body timing joined the allowlist never stored it, and
+  // only a Look can change it now. Like a built-in, an omitted field resolves
+  // from the canonical defaults rather than whatever Look was kept before.
+  if (patch.blobs) {
+    const blobs = patch.blobs as Record<string, unknown>;
+    for (const field of STAGE_LOOK_BODY_TIMING_FIELDS) {
+      if (typeof blobs[field] !== "number") blobs[field] = DEFAULT_CONFIG.blobs[field];
+    }
+  }
+  return {
+    id: typeof rawLook.id === "string" ? rawLook.id : now,
+    name: rawLook.name,
+    patch,
+    createdAt: typeof rawLook.createdAt === "string" ? rawLook.createdAt : now,
+    updatedAt: typeof rawLook.updatedAt === "string" ? rawLook.updatedAt : now,
+  };
+}
+
+function createStageLookSeed() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 export const useVisualConfigStore = defineStore("visualConfig", () => {
@@ -324,14 +412,26 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
   const config = reactive<VisualEffectsConfig>(cloneDefaultConfig());
   const visualsEnabled = ref(true);
   const savedConfigs = ref<SavedConfig[]>([]);
+  const savedStageLooks = ref<SavedStageLook[]>([]);
+  const transientStageLook = ref<TransientStageLook | null>(null);
   const isLoading = ref(false);
   const lastSaved = ref<string | null>(null);
   const persistenceEnabled = ref(true);
+  const effectiveConfig = computed(() =>
+    resolveStageConfig(config, transientStageLook.value?.patch)
+  );
+  const stageControls = computed(() => readStageControls(effectiveConfig.value));
+  const globalControls = computed(() => readGlobalControls(config));
+  const deckControls = computed(() => readDeckControls(config));
 
   // Load configuration from localStorage on initialization
   const loadFromStorage = () => {
+    let isFreshInstall = false;
+
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
+      isFreshInstall = stored === null;
+      transientStageLook.value = null;
       if (stored) {
         const parsedConfig = JSON.parse(stored);
         Object.assign(config, migrateVisualConfig(parsedConfig.config || parsedConfig));
@@ -347,15 +447,32 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
               .filter((savedConfig): savedConfig is SavedConfig => savedConfig != null)
           : [];
       }
+
+      const storedStageLooks = localStorage.getItem(SAVED_STAGE_LOOKS_KEY);
+      if (storedStageLooks) {
+        const parsedStageLooks = JSON.parse(storedStageLooks);
+        savedStageLooks.value = Array.isArray(parsedStageLooks)
+          ? parsedStageLooks
+              .map(migrateSavedStageLook)
+              .filter((look): look is SavedStageLook => look != null)
+          : [];
+      }
+
     } catch (error) {
       console.error("Failed to load visual config from localStorage:", error);
-      resetToDefaults();
+      Object.assign(config, cloneDefaultConfig());
+      visualsEnabled.value = true;
+      transientStageLook.value = null;
+      savedConfigs.value = [];
+      savedStageLooks.value = [];
     }
+
+    return isFreshInstall;
   };
 
   // Save configuration to localStorage
   const saveToStorage = () => {
-    if (!persistenceEnabled.value) return;
+    if (!persistenceEnabled.value || typeof localStorage === "undefined") return;
 
     try {
       const dataToStore = {
@@ -388,8 +505,188 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     }
   };
 
+  const assignStageLookToBacking = (patch: StageLookPatch) => {
+    const sanitized = sanitizeStageLookPatch(patch);
+    for (const section of Object.keys(sanitized) as Array<keyof StageLookPatch>) {
+      Object.assign(config[section], sanitized[section]);
+    }
+  };
+
+  const updateStageControl = (
+    control: StageControlId,
+    value: string | number | boolean,
+  ) => {
+    if (control === "stageEnabled") {
+      const next = patchStageControl(config, control, value);
+      config.stage.isEnabled = next.stage.isEnabled;
+      return;
+    }
+
+    if (transientStageLook.value) {
+      const nextEffective = patchStageControl(effectiveConfig.value, control, value);
+      transientStageLook.value = {
+        ...transientStageLook.value,
+        name: transientStageLook.value.name.endsWith(" · Edited")
+          ? transientStageLook.value.name
+          : `${transientStageLook.value.name} · Edited`,
+        patch: diffStageLook(config, nextEffective),
+      };
+      return;
+    }
+
+    const next = patchStageControl(config, control, value);
+    assignStageLookToBacking(diffStageLook(config, next));
+  };
+
+  const previewStageLook = (name: string, patch: StageLookPatch, seed = name) => {
+    transientStageLook.value = {
+      seed,
+      name,
+      patch: sanitizeStageLookPatch(patch),
+    };
+  };
+
+  const applyBuiltInStageLook = (lookId: string) => {
+    const look = BUILT_IN_STAGE_LOOKS.find((candidate) => candidate.id === lookId);
+    if (!look) return false;
+    previewStageLook(
+      look.name,
+      preserveStageLookPreferences(look.patch, effectiveConfig.value),
+      `look-${look.id}`,
+    );
+    return true;
+  };
+
+  const shuffleStageLook = (seed = createStageLookSeed()) => {
+    const existingRoot = transientStageLook.value?.variationRoot;
+    const rootName = existingRoot?.name ?? transientStageLook.value?.name ?? "Current";
+    const rootPatch = existingRoot?.patch ?? stageLookFromConfig(effectiveConfig.value);
+    const currentEffective = effectiveConfig.value;
+    let rootConfig = applyStageLook(
+      config,
+      preserveStageVariationPreferences(rootPatch, currentEffective),
+    );
+    rootConfig = patchStageControl(
+      rootConfig,
+      "bodiesVisible",
+      currentEffective.blobs.isEnabled,
+    );
+
+    // Numeric appearance keeps orbiting the same Look instead of random-walking,
+    // but an explicit layer off/on edit becomes part of that root.
+    if (rootConfig.ambient.isEnabled !== currentEffective.ambient.isEnabled) {
+      rootConfig = patchStageControl(
+        rootConfig,
+        "atmosphereStrength",
+        readStageControls(currentEffective).atmosphereStrength,
+      );
+    }
+
+    const nextLook = createSeededStageVariation(seed, rootConfig, rootName);
+    transientStageLook.value = nextLook;
+    return transientStageLook.value;
+  };
+
+  const keepStageLook = () => {
+    if (!transientStageLook.value) return false;
+    assignStageLookToBacking(transientStageLook.value.patch);
+    transientStageLook.value = null;
+    saveToStorage();
+    return true;
+  };
+
+  const clearStageLook = () => {
+    transientStageLook.value = null;
+  };
+
+  const resetStage = () => {
+    const defaults = cloneDefaultConfig();
+    transientStageLook.value = null;
+    Object.assign(config.stage, defaults.stage);
+    Object.assign(config.blobs, defaults.blobs);
+    Object.assign(config.ambient, defaults.ambient);
+    Object.assign(config.strings, defaults.strings);
+    Object.assign(config.animation, defaults.animation);
+    Object.assign(config.frequencyMapping, defaults.frequencyMapping);
+    Object.assign(config.hilbertScope, defaults.hilbertScope);
+  };
+
+  const updateGlobalControl = (
+    control: GlobalControlId,
+    value: string | boolean,
+  ) => {
+    applyGlobalControl(config, control, value);
+  };
+
+  const resetGlobal = () => {
+    const defaults = cloneDefaultConfig();
+    Object.assign(config.dynamicColors, defaults.dynamicColors);
+    Object.assign(config.uiBeat, defaults.uiBeat);
+  };
+
+  const updateDeckControl = (
+    control: DeckControlId,
+    value: string | boolean,
+  ) => {
+    applyDeckControl(config, control, value);
+  };
+
+  const resetDeck = () => {
+    const defaults = cloneDefaultConfig();
+    const { mainOctave, rowCount } = config.keyboard;
+    const { bpm } = config.codeStrip;
+
+    Object.assign(config.keyboard, defaults.keyboard, { mainOctave, rowCount });
+    Object.assign(config.codeStrip, defaults.codeStrip, { bpm });
+  };
+
+  const persistSavedStageLooks = () => {
+    if (!persistenceEnabled.value || typeof localStorage === "undefined") return;
+    try {
+      localStorage.setItem(SAVED_STAGE_LOOKS_KEY, JSON.stringify(savedStageLooks.value));
+    } catch (error) {
+      console.error("Failed to save Stage Looks to localStorage:", error);
+    }
+  };
+
+  const saveStageLookAs = (name: string): SavedStageLook => {
+    const now = new Date().toISOString();
+    // Save the composed appearance before the Stage master applies its
+    // temporary runtime suppression to supporting layers.
+    const composedAppearance = applyStageLook(
+      config,
+      transientStageLook.value?.patch,
+    );
+    const savedLook: SavedStageLook = {
+      id: Date.now().toString(),
+      name,
+      patch: stageLookFromConfig(composedAppearance),
+      createdAt: now,
+      updatedAt: now,
+    };
+    savedStageLooks.value.push(savedLook);
+    persistSavedStageLooks();
+    return savedLook;
+  };
+
+  const loadSavedStageLook = (lookId: string) => {
+    const look = savedStageLooks.value.find((candidate) => candidate.id === lookId);
+    if (!look) return false;
+    previewStageLook(look.name, look.patch, `saved-${look.id}`);
+    return true;
+  };
+
+  const deleteSavedStageLook = (lookId: string) => {
+    const index = savedStageLooks.value.findIndex((candidate) => candidate.id === lookId);
+    if (index < 0) return false;
+    savedStageLooks.value.splice(index, 1);
+    persistSavedStageLooks();
+    return true;
+  };
+
   const applyRuntimeConfig = (nextConfig: unknown) => {
     const rowCount = config.keyboard.rowCount;
+    transientStageLook.value = null;
     Object.assign(config, migrateVisualConfig(nextConfig));
     // Drawer allocation is the runtime authority for row count. Loading or
     // resetting visual presets must not resize the keyboard behind its handle.
@@ -530,6 +827,8 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     applyRuntimeConfig(cloneDefaultConfig());
     visualsEnabled.value = true;
     savedConfigs.value = [];
+    savedStageLooks.value = [];
+    transientStageLook.value = null;
     lastSaved.value = null;
   };
 
@@ -546,29 +845,39 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     { deep: true }
   );
 
-  // Watch specifically for pattern config changes and sync to pattern service
-  watch(
-    () => config.patterns,
-    (newPatternsConfig) => {
-      // Pattern config sync removed (pattern service deprecated)
-    },
-    { deep: true, immediate: true }
-  );
-
   // Initialize on store creation
   loadFromStorage();
 
   return {
     // State
     config,
+    effectiveConfig,
+    stageControls,
+    globalControls,
+    deckControls,
     visualsEnabled,
     savedConfigs,
+    savedStageLooks,
+    transientStageLook,
     isLoading,
     lastSaved,
 
     // Actions
     updateConfig,
     updateValue,
+    updateStageControl,
+    applyBuiltInStageLook,
+    shuffleStageLook,
+    keepStageLook,
+    clearStageLook,
+    resetStage,
+    updateGlobalControl,
+    resetGlobal,
+    updateDeckControl,
+    resetDeck,
+    saveStageLookAs,
+    loadSavedStageLook,
+    deleteSavedStageLook,
     resetToDefaults,
     resetSection,
     saveConfigAs,

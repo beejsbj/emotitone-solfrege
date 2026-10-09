@@ -8,10 +8,11 @@ const mocks = vi.hoisted(() => ({
   useKeyboardDrawerStore: vi.fn(),
   useInstrumentStore: vi.fn(),
   useMusicStore: vi.fn(),
-  usePatternsStore: vi.fn(),
+  usePhrasesStore: vi.fn(),
   useVisualConfigStore: vi.fn(),
   useCodeStripStrudel: vi.fn(),
   useHummingCapture: vi.fn(),
+  useLiveListening: vi.fn(),
 }));
 
 vi.mock("@/stores/keyboardDrawer", () => ({
@@ -21,7 +22,7 @@ vi.mock("@/stores/instrument", () => ({
   useInstrumentStore: mocks.useInstrumentStore,
 }));
 vi.mock("@/stores/music", () => ({ useMusicStore: mocks.useMusicStore }));
-vi.mock("@/stores/patterns", () => ({ usePatternsStore: mocks.usePatternsStore }));
+vi.mock("@/stores/phrases", () => ({ usePhrasesStore: mocks.usePhrasesStore }));
 vi.mock("@/stores/visualConfig", () => ({
   useVisualConfigStore: mocks.useVisualConfigStore,
 }));
@@ -33,6 +34,9 @@ vi.mock("@/composables/useCodeStripStrudel", () => ({
 }));
 vi.mock("@/composables/useHummingCapture", () => ({
   useHummingCapture: mocks.useHummingCapture,
+}));
+vi.mock("@/composables/useLiveListening", () => ({
+  useLiveListening: mocks.useLiveListening,
 }));
 vi.mock("@/components/uniques/CodeStrip/index.vue", () => ({
   default: { name: "CodeStrip", template: '<div data-testid="code-strip" />' },
@@ -49,8 +53,8 @@ vi.mock("@/components/compounds/Keyboard.vue", () => ({
 vi.mock("@/components/compounds/PatternReel.vue", () => ({
   default: { name: "PatternReel", template: '<div data-testid="pattern-reel" />' },
 }));
-vi.mock("@/components/patterns/PatternList.vue", () => ({
-  default: { name: "PatternList", template: '<div data-testid="pattern-list" />' },
+vi.mock("@/components/patterns/PhraseShelf.vue", () => ({
+  default: { name: "PhraseShelf", template: '<div data-testid="pattern-list" />' },
 }));
 vi.mock("@/components/humming/HummingCaptureTransport.vue", () => ({
   default: { name: "HummingCaptureTransport", template: '<div data-testid="humming" />' },
@@ -70,12 +74,13 @@ const CodeStripBarStub = defineComponent({
 });
 const ControlBarStub = defineComponent({
   name: "ControlBar",
-  props: ["keyValue", "modeValue", "bpm", "octave", "harmonyValue", "haptic"],
+  props: ["keyValue", "modeValue", "bpm", "octave", "playMode", "harmonyValue", "haptic"],
   emits: [
     "update:keyValue",
     "update:modeValue",
     "update:bpm",
     "update:octave",
+    "update:playMode",
     "update:harmonyValue",
     "harmonyEffective",
   ],
@@ -95,8 +100,8 @@ const KeyboardStub = defineComponent({
   emits: ["press", "release", "chordPress", "chordRelease"],
   template: '<div data-testid="keyboard" />',
 });
-const PatternListStub = defineComponent({
-  name: "PatternList",
+const PhraseShelfStub = defineComponent({
+  name: "PhraseShelf",
   template: '<div data-testid="pattern-list" />',
 });
 const HummingStub = defineComponent({
@@ -118,7 +123,7 @@ describe("PerformanceDeck controlled usage", () => {
           CodeStripBar: CodeStripBarStub,
           ControlBar: ControlBarStub,
           Keyboard: KeyboardStub,
-          PatternList: PatternListStub,
+          PhraseShelf: PhraseShelfStub,
           HummingCaptureTransport: HummingStub,
         },
       },
@@ -148,11 +153,12 @@ describe("PerformanceDeck controlled usage", () => {
           instrumentLabel: "Piano",
           rootLabel: "C4",
           spine: "red",
-          barTape: [{ color: "red", durationMs: 250 }],
+          loopDial: [{ color: "red", durationMs: 250, height: 48 }],
         }],
         selectedPatternId: "current",
         patternEntrySignal: 3,
         warming: true,
+        playMode: "repeat:16",
         codeStripTokens: [{ type: "note", note: "do", text: "Do" }],
         keyboardRows: [{
           octave: 4,
@@ -171,7 +177,7 @@ describe("PerformanceDeck controlled usage", () => {
           CodeStripBar: CodeStripBarStub,
           ControlBar: ControlBarStub,
           Keyboard: KeyboardStub,
-          PatternList: PatternListStub,
+          PhraseShelf: PhraseShelfStub,
           HummingCaptureTransport: HummingStub,
         },
       },
@@ -180,10 +186,11 @@ describe("PerformanceDeck controlled usage", () => {
     expect(mocks.useKeyboardDrawerStore).not.toHaveBeenCalled();
     expect(mocks.useInstrumentStore).not.toHaveBeenCalled();
     expect(mocks.useMusicStore).not.toHaveBeenCalled();
-    expect(mocks.usePatternsStore).not.toHaveBeenCalled();
+    expect(mocks.usePhrasesStore).not.toHaveBeenCalled();
     expect(mocks.useVisualConfigStore).not.toHaveBeenCalled();
     expect(mocks.useCodeStripStrudel).not.toHaveBeenCalled();
     expect(mocks.useHummingCapture).not.toHaveBeenCalled();
+    expect(mocks.useLiveListening).not.toHaveBeenCalled();
     expect(wrapper.find('[data-testid="pattern-list"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="humming"]').exists()).toBe(false);
     expect(wrapper.get('[data-testid="pattern-reel"]').exists()).toBe(true);
@@ -198,17 +205,20 @@ describe("PerformanceDeck controlled usage", () => {
     expect(wrapper.getComponent(KeyboardStub).props("usage")).toBe("controlled");
     expect(wrapper.getComponent(KeyboardStub).props("interactionLocked")).toBe(true);
     expect(wrapper.getComponent(ControlBarStub).props("haptic")).toBe(false);
+    expect(wrapper.getComponent(ControlBarStub).props("playMode")).toBe("repeat:16");
 
     await wrapper.setProps({ warming: false });
     wrapper.getComponent(CodeStripBarStub).vm.$emit("togglePlayback");
     wrapper.getComponent(PatternReelStub).vm.$emit("commit", "current", "tap");
     wrapper.getComponent(PatternReelStub).vm.$emit("interactionChange", true);
     wrapper.getComponent(ControlBarStub).vm.$emit("update:bpm", 96);
+    wrapper.getComponent(ControlBarStub).vm.$emit("update:playMode", "arp-up:8");
     await wrapper.vm.$nextTick();
 
     expect(wrapper.emitted("togglePlayback")).toHaveLength(1);
     expect(wrapper.emitted("patternCommit")?.[0]).toEqual(["current", "tap"]);
     expect(wrapper.emitted("update:bpm")?.[0]).toEqual([96]);
+    expect(wrapper.emitted("update:playMode")?.[0]).toEqual(["arp-up:8"]);
     expect(drawer.props("handlePointerDisabled")).toBe(true);
     wrapper.unmount();
   });
@@ -225,7 +235,7 @@ describe("PerformanceDeck controlled usage", () => {
           CodeStripBar: CodeStripBarStub,
           ControlBar: ControlBarStub,
           Keyboard: KeyboardStub,
-          PatternList: PatternListStub,
+          PhraseShelf: PhraseShelfStub,
           HummingCaptureTransport: HummingStub,
         },
       },

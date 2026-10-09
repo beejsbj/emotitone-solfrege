@@ -60,10 +60,3 @@ declare module "@strudel/tonal" {
 declare module "@strudel/soundfonts" {
   export function registerSoundfonts(): Promise<void>;
 }
-
-declare module "@strudel/web" {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  export function initStrudel(options?: any): Promise<any>;
-  export function evaluate(code: string, autoplay?: boolean): Promise<void>;
-  export function hush(): void;
-}

@@ -32,7 +32,7 @@
     translateY(calc(var(--key-face-hover-y) + var(--key-face-press-y)))
     rotate(var(--key-face-rotation, 0deg))
     scale(var(--key-face-press-scale));
-  transition: transform 90ms ease-in-out;
+  transition: transform var(--dur-tap) ease-in-out;
   will-change: transform;
 }
 

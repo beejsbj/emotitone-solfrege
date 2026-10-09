@@ -2,14 +2,14 @@
   <AnatomyDisplay
     title="CodeStrip Bar &middot; Instrument Compound"
     :features="features"
-    caption="One continuous opaque instrument rail, with inset controls and room between actions: ivory Play, ink Stop and Backspace, an unframed dense CodeStrip, and ivory Return."
+    caption="One continuous opaque instrument rail, with inset controls and room between actions: a Chad Crown above ivory Play / ink Stop, ink Backspace, an unframed dense CodeStrip, and ivory Return."
   >
     <template #hero>
       <div class="code-strip-bar-specimen">
         <CodeStripBar
           :tokens="tokens"
           :is-playing="isPlaying"
-          @toggle-playback="isPlaying = !isPlaying"
+          @toggle-playback="toggle"
           @backspace="lastAction = 'Deleted last event'"
           @return="lastAction = 'Returned to a new line'"
         />
@@ -20,14 +20,14 @@
     <VariantGrid title="Responsive bar">
       <VariantCell caption="320px host &middot; stopped" stage="ink3">
         <div class="code-strip-bar-specimen__narrow">
-          <CodeStripBar :tokens="shortTokens" />
+          <CodeStripBarFixture :tokens="shortTokens" />
         </div>
       </VariantCell>
-      <VariantCell caption="Playing &middot; Play becomes Stop" stage="ink3">
-        <CodeStripBar :tokens="tokens" is-playing />
+      <VariantCell caption="Playing &middot; Stop; isolated running clock" stage="ink3">
+        <CodeStripBarFixture :tokens="tokens" playing />
       </VariantCell>
       <VariantCell caption="Empty &middot; recording prompt" stage="ink3">
-        <CodeStripBar :tokens="[]" />
+        <CodeStripBarFixture :tokens="[]" />
       </VariantCell>
     </VariantGrid>
   </AnatomyDisplay>
@@ -36,12 +36,18 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import CodeStripBar from "@/components/compounds/CodeStripBar.vue";
+import CodeStripBarFixture from "./CodeStripBarFixture.vue";
 import type { CodeStripToken } from "@/components/uniques/CodeStrip/index.vue";
 import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
 import VariantCell from "../guide/VariantCell.vue";
 import VariantGrid from "../guide/VariantGrid.vue";
+import { useUIBeatFixture } from "../guide/useUIBeatFixture";
 
-const isPlaying = ref(false);
+const { running: isPlaying, toggle } = useUIBeatFixture({
+  bpm: ref(120),
+  meter: ref({ beatsPerBar: 4, beatUnit: 4 }),
+  autoplay: false,
+});
 const lastAction = ref("Choose an action");
 
 const tokens: CodeStripToken[] = [
@@ -59,6 +65,7 @@ const features = [
   { label: "Rhythm", value: "8px around the flexible strip; 6px between Backspace and Return" },
   { label: "CodeStrip", value: "dense, zero-inset, unframed, and transparent inside this bar only; empty state stays compact" },
   { label: "Actions", value: "32px icon-only Button primitives; accessible names remain" },
+  { label: "Beat", value: "Beat Indicator crowns Play/Stop with four LED chads during playback; the crown fits the block inset within the 56px rail and Button keeps its own lip" },
   { label: "Material", value: "ivory Play; ink Stop and Backspace; ivory Return with Ink icon" },
   { label: "Backspace", value: "removes the last recorded event; never presented as editor Undo" },
   { label: "Return", value: "typewriter carriage return for commit-and-clear; never presented as Send" },

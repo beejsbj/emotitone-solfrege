@@ -15,7 +15,10 @@
         class="chord__fused-member"
         :style="member.style"
       >
-        <span class="chord__fused-progress"></span>
+        <span class="chord__fused-band"></span>
+        <span class="chord__fused-progress">
+          <span class="chord__fused-band"></span>
+        </span>
       </span>
       <span class="chord__symbol">{{ symbol }}</span>
     </span>
@@ -153,23 +156,16 @@ const coloredMembers = computed(() =>
 
 const resolvedMembers = computed(() =>
   coloredMembers.value.map(({ source, colors }, index, members) => {
-    const previousColor = members[index - 1]?.colors.primaryColor ?? colors.primaryColor;
-    const nextColor = members[index + 1]?.colors.primaryColor ?? colors.primaryColor;
-    const leftEdge = index === 0
-      ? colors.primaryColor
-      : `color-mix(in srgb, ${previousColor} 50%, ${colors.primaryColor})`;
-    const rightEdge = index === members.length - 1
-      ? colors.primaryColor
-      : `color-mix(in srgb, ${colors.primaryColor} 50%, ${nextColor})`;
-    const fusedSurface = `linear-gradient(90deg, ${leftEdge} 0%, ${colors.primaryColor} 50%, ${rightEdge} 100%)`;
-
     return {
       source,
       style: {
         "--chord-member-surface": props.display === "symbol"
-          ? fusedSurface
+          ? colors.primaryColor
           : colors.background,
         "--chord-member-progress": clampProgress(source.progress),
+        ...(props.display === "symbol" ? {
+          "--chord-member-rotation": `${(index - (members.length - 1) / 2) * 8}deg`,
+        } : {}),
       },
     };
   }),
@@ -277,9 +273,10 @@ const resolvedAccessibleName = computed(() => {
   border-radius: var(--chord-radius);
   background: var(--ink);
   box-shadow: var(--shadow-key);
-  clip-path: var(--chord-clip);
+  clip-path: var(--chord-geometry-override-clip, var(--chord-clip));
 }
 
+/* The same paper sheen the melody Keys carry, laid over every band at once. */
 .chord__fused::after {
   content: "";
   position: absolute;
@@ -294,23 +291,67 @@ const resolvedAccessibleName = computed(() => {
 .chord__fused-member {
   position: relative;
   display: grid;
+  isolation: isolate;
   flex: 0 0 var(--chord-member-inline-size);
   place-items: center;
   width: var(--chord-member-inline-size);
   min-width: 0;
-  overflow: hidden;
-  background: var(--ink);
 }
 
+/* Slips fanned 8deg apart, each pivoting on its own centre so it stays in
+   its column while the angles fan across the chord. Each slip runs on
+   under its right-hand neighbour (and the first past the key's left edge),
+   so the fan never opens a gap while every member keeps its own column;
+   the fused cut owns the outer edge. */
+.chord__fused-member {
+  --chord-band-overscan: calc(var(--chord-block-size) * -.3);
+}
+
+.chord__fused-band {
+  position: absolute;
+  inset-block: -12%;
+  inset-inline: 0 var(--chord-band-overscan);
+  overflow: hidden;
+  /* Unplayed time is the face's own Ink: an Ink layer per slip would paint
+     over the neighbour it is meant to overlap. */
+  background: transparent;
+  transform: rotate(var(--chord-member-rotation));
+  transform-origin: 50% 50%;
+}
+
+.chord__fused-member:first-child > :is(.chord__fused-band, .chord__fused-progress) {
+  inset-inline-start: var(--chord-band-overscan);
+}
+
+/* Each later slip lays its cut edge over the last: a hard Ink line that
+   makes the lean of every seam read. */
+.chord__fused-member + .chord__fused-member .chord__fused-progress .chord__fused-band {
+  box-shadow: inset 1.5px 0 0 var(--ink);
+}
+
+.chord__fused-member + .chord__fused-member .chord__fused-band::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-inline-start: var(--chord-member-seam, 0px solid transparent);
+  pointer-events: none;
+}
+
+/* Reveal against the face height, so the slips' overscan cannot distort progress. */
 .chord__fused-progress {
   position: absolute;
   z-index: 0;
-  inset: 0;
+  inset-block: 0;
+  inset-inline: 0 var(--chord-band-overscan);
+  /* Clip only the progress edge: the slip leans freely past its column. */
+  clip-path: inset(calc((1 - var(--chord-member-progress)) * 100%) -100% -20% -100%);
+  transition: clip-path var(--dur-press) linear;
+  will-change: clip-path;
+}
+
+.chord__fused-progress .chord__fused-band {
+  inset-inline: 0;
   background: var(--chord-member-surface);
-  transform: scaleY(var(--chord-member-progress));
-  transform-origin: bottom center;
-  transition: transform 72ms linear;
-  will-change: transform;
 }
 
 .chord__symbol {
@@ -327,7 +368,7 @@ const resolvedAccessibleName = computed(() => {
   line-height: .92;
   letter-spacing: .01em;
   text-align: center;
-  text-shadow: 0 1px 1px var(--ink);
+  text-shadow: 1px 1px 0 var(--ink), -.5px 0 0 var(--ink);
   white-space: nowrap;
 }
 
@@ -345,7 +386,7 @@ const resolvedAccessibleName = computed(() => {
   background: var(--ink);
   transform: scaleY(calc(1 - var(--chord-member-progress)));
   transform-origin: top center;
-  transition: transform 72ms linear;
+  transition: transform var(--dur-press) linear;
   will-change: transform;
   pointer-events: none;
 }
@@ -359,15 +400,21 @@ const resolvedAccessibleName = computed(() => {
 
 @media (forced-colors: active) {
   .chord__fused {
+    --chord-member-seam: 1px solid CanvasText;
     border: 1px solid CanvasText;
     box-shadow: none;
   }
 
-  .chord__fused-member {
-    background: Canvas;
+  .chord__fused::after {
+    display: none;
   }
 
-  .chord__fused-progress {
+  .chord__fused-band {
+    background: Canvas;
+    forced-color-adjust: none;
+  }
+
+  .chord__fused-progress .chord__fused-band {
     background: Highlight;
   }
 

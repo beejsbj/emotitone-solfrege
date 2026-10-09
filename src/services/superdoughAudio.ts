@@ -1,46 +1,42 @@
 /**
  * superdoughAudio.ts
- * Live note playback via superdough — replaces Tone.js PolySynth/Sampler
- * for keyboard key presses only.  Sequencer files are untouched.
+ * Instrument catalog/preparation and the Superdough playback adapter.
+ * audioRuntime owns the shared graph; patternPlayback owns the sole pattern
+ * transport; livePlayback selects the prepared live renderer.
  */
 
 // superdough has no bundled TypeScript declarations
 // @ts-ignore
-import { superdough, initAudio, registerSynthSounds, samples, getAudioContext as _getAudioContext, getSuperdoughAudioController, loadBuffer, getSound, soundMap, hasVoice, stopVoice, releaseVoice, releaseAllVoices } from "superdough";
-import { initStrudel, evaluate as evaluateStrudel, hush as hushStrudel } from "@strudel/web";
+import { superdough, registerSynthSounds, samples, loadBuffer, getSound, soundMap, hasVoice, stopVoice, cancelVoice, releaseVoice, releaseAllVoices } from "superdough";
 import { webaudioOutput } from "@strudel/webaudio";
 // @ts-ignore
 import { prewarmSoundfont, registerSoundfonts } from "@strudel/soundfonts";
 import { musicTheory, CHROMATIC_NOTES } from "@/services/music";
-import type { ChromaticNote, SolfegeData } from "@/types/music";
+import type {
+  ActiveNote,
+  ChromaticNote,
+  MusicalMode,
+  SolfegeData,
+} from "@/types/music";
 import { Note as TonalNote } from "@tonaljs/tonal";
+import { DEFAULT_INSTRUMENT, isSynthSound } from "@/data/instruments";
+import { prepareLivePlayback } from "@/services/livePlayback";
+import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
+import { resolveLiveEnvelope } from "@/services/shape";
+import type { Shape } from "@/types/instrument";
+import { audioTimeToOutputTime, LIVE_AUDIO_SCHEDULING_LEAD_MS } from "@/services/liveAudioTiming";
+import { getAudioContext, getMasterGain, initializeAudio, LIVE_ORBIT } from "@/services/audioRuntime";
+import { setLivePlaybackShaping } from "@/services/livePlayback";
+import { LIVE_DELAY_FEEDBACK, LIVE_DELAY_TIME_SECONDS } from "@/audio/liveShaping";
+import { SampleLoadError } from "@/services/audioFailures";
 
-/** Re-export so other modules can get the superdough AudioContext without importing Tone. */
-export function getAudioContext(): AudioContext {
-  // @ts-ignore
-  return _getAudioContext() as AudioContext;
-}
-
-// ---------------------------------------------------------------------------
-// Legacy Tone.js alias → superdough sound name
-// Only non-identity mappings needed; all other instrument keys pass through.
-// ---------------------------------------------------------------------------
+/** Compatibility facade: the playback graph is owned by audioRuntime. */
+export { getAudioContext };
 
 /** Oscillator-based sounds that have no sample bank — skip pre-warm for these. */
 const SYNTH_SOUNDS = new Set([
   "triangle", "sawtooth", "square", "sine", "buzz", "supersaw",
 ]);
-
-const LEGACY_ALIASES: Record<string, string> = {
-  synth: "triangle",
-  amSynth: "sawtooth",
-  fmSynth: "square",
-  membraneSynth: "sine",
-  metalSynth: "square",
-  organ: "organ_full",
-  pipeorgan: "pipeorgan_quiet",
-  recorder: "recorder_tenor_sus",
-};
 
 // ---------------------------------------------------------------------------
 // Module-level init state so we only set up once
@@ -48,9 +44,67 @@ const LEGACY_ALIASES: Record<string, string> = {
 
 let _initialized = false;
 let _initPromise: Promise<void> | null = null;
+
+/**
+ * The startup step currently in flight, so a caller that gives up waiting can
+ * say what actually hung: the sample download, or the audio engine itself
+ * (graph initialisation and preparing the default synth).
+ */
+export type AudioStartupStage = "idle" | "samples" | "engine" | "ready";
+let _startupStage: AudioStartupStage = "idle";
+
+export function getAudioStartupStage(): AudioStartupStage {
+  return _startupStage;
+}
 const _prewarmedSounds = new Set<string>();
-let _strudelInitialized = false;
-let _strudelInitPromise: Promise<void> | null = null;
+type LiveSynthControls = {
+  cutoff?: number;
+  resonance?: number;
+  attack?: number;
+  release?: number;
+  room?: number;
+  delay?: number;
+  overrides?: { attack?: boolean; release?: boolean };
+};
+
+let _liveSynthControls: LiveSynthControls | null = null;
+
+export function setLiveSynthControls(
+  controls: LiveSynthControls | null
+): void {
+  _liveSynthControls = controls ? {
+    ...controls,
+    ...(controls.overrides ? { overrides: { ...controls.overrides } } : {}),
+  } : null;
+  // Prepared instruments bypass attackNote; mirror the same rules to the worklet.
+  const current = _liveSynthControls;
+  setLivePlaybackShaping({
+    cutoff: current?.cutoff ?? 12000,
+    resonance: current?.resonance ?? 0,
+    room: current?.room ?? 0,
+    delay: current?.delay ?? 0,
+    envelope: {
+      attack: current?.overrides?.attack ? current.attack : undefined,
+      release: current?.overrides?.release ? current.release : undefined,
+    },
+  });
+}
+
+/**
+ * Envelope stages the live Shape controls set for this sound. Callers without
+ * an override contract keep the legacy rule: controls shape synths only.
+ */
+function liveEnvelopeShape(sound: string): Pick<Shape, "attack" | "release"> {
+  const controls = _liveSynthControls;
+  const hasOverrideContract = controls?.overrides !== undefined;
+  const isSynth = isSynthSound(sound);
+  const stage = (name: "attack" | "release") =>
+    controls?.[name] !== undefined && (hasOverrideContract ? controls.overrides?.[name] : isSynth)
+      ? controls[name]!
+      : null;
+  return { attack: stage("attack"), release: stage("release") };
+}
+
 const STRUDEL_PLAYBACK_SOURCE = "strudel-playback";
 const LIVE_NOTE_PLACEHOLDER_DURATION_SECONDS = 0.25;
 const _activeStrudelVisuals = new Map<
@@ -63,34 +117,47 @@ const _activeStrudelVisuals = new Map<
     keyboardOctave: number;
     solfegeIndex: number;
     pitchClassIndex: number;
-    mode: string;
+    mode: MusicalMode;
     key: ChromaticNote;
     instrument: string;
     releaseTimeout: number;
+    audibleAt: number;
   }
 >();
 let _strudelVisualCounter = 0;
+
+export function getActiveStrudelStageNotes(): readonly ActiveNote[] {
+  return Array.from(_activeStrudelVisuals, ([noteId, active]) => ({
+    noteId,
+    noteName: active.noteName,
+    solfege: active.note,
+    frequency: active.frequency,
+    octave: active.octave,
+    keyboardOctave: active.keyboardOctave,
+    solfegeIndex: active.solfegeIndex,
+    pitchClassIndex: active.pitchClassIndex,
+    mode: active.mode,
+    key: active.key,
+    audibleAt: active.audibleAt,
+  }));
+}
 
 // Sample packs with user-friendly labels for progress reporting
 const SAMPLE_PACKS = [
   { key: "piano", label: "Piano" },
   { key: "vcsl", label: "Orchestra" },
-  { key: "tidal-drum-machines", label: "Drum Machines" },
-  { key: "EmuSP12", label: "EmuSP12" },
-  { key: "Dirt-Samples", label: "Dirt Samples" },
-  { key: "mridangam", label: "Mridangam" },
 ] as const;
 
 /**
  * Core pre-warm logic — assumes superdough is already initialised.
  * Do NOT call initSuperdoughAudio() here; it would deadlock when invoked
- * from inside the init flow (e.g. _prewarmPianoSamples called by initSuperdoughAudio).
+ * from inside the init flow (e.g. _prewarmDefaultInstrument called by initSuperdoughAudio).
  */
 async function _prewarmSoundCore(
   soundName: string,
   tolerateBufferFailures = false
 ): Promise<void> {
-  const resolved = LEGACY_ALIASES[soundName] ?? soundName;
+  const resolved = resolveLiveSoundName(soundName);
   let sound;
   try {
     // Resolve the registered sound before treating synth names as ready. This
@@ -116,6 +183,7 @@ async function _prewarmSoundCore(
 
     try {
       await prewarmSoundfont(font, getAudioContext());
+      await prepareLivePlayback(getAudioContext(), getSuperdoughMasterGain(), resolved);
       _prewarmedSounds.add(resolved);
     } catch (error) {
       if (!tolerateBufferFailures) throw error;
@@ -124,6 +192,7 @@ async function _prewarmSoundCore(
   }
 
   if (SYNTH_SOUNDS.has(resolved) || !sound?.data?.samples) {
+    await prepareLivePlayback(getAudioContext(), getSuperdoughMasterGain(), resolved);
     _prewarmedSounds.add(resolved); // no samples needed → already "ready"
     return;
   }
@@ -149,6 +218,7 @@ async function _prewarmSoundCore(
     return;
   }
 
+  await prepareLivePlayback(getAudioContext(), getSuperdoughMasterGain(), resolved);
   _prewarmedSounds.add(resolved);
 }
 
@@ -171,7 +241,7 @@ export async function prewarmSoundSamples(soundName: string): Promise<void> {
  * in the buffer cache; oscillator and other no-sample sounds are always ready.
  */
 export function isPrewarmed(soundName: string): boolean {
-  const resolved = LEGACY_ALIASES[soundName] ?? soundName;
+  const resolved = resolveLiveSoundName(soundName);
   if (_prewarmedSounds.has(resolved)) {
     return true;
   }
@@ -195,26 +265,9 @@ export function getReadySounds(): string[] {
   return getRegisteredSounds().filter((soundName) => isPrewarmed(soundName));
 }
 
-async function _prewarmPianoSamples(): Promise<void> {
+async function _prewarmDefaultInstrument(): Promise<void> {
   // Called from within initSuperdoughAudio — skip the init guard to avoid deadlock.
-  return _prewarmSoundCore("piano", true);
-}
-
-async function initSharedStrudelRuntime(): Promise<void> {
-  if (_strudelInitialized) return;
-  if (_strudelInitPromise) return _strudelInitPromise;
-
-  _strudelInitPromise = (async () => {
-    await initStrudel({
-      defaultOutput: emotitoneStrudelOutput,
-    });
-    _strudelInitialized = true;
-  })().catch((error) => {
-    _strudelInitPromise = null;
-    throw error;
-  });
-
-  return _strudelInitPromise;
+  return _prewarmSoundCore(DEFAULT_INSTRUMENT, true);
 }
 
 /**
@@ -232,6 +285,7 @@ export async function initSuperdoughAudio(
 
   _initPromise = (async () => {
     try {
+      _startupStage = "samples";
       // Register built-in WebAudio oscillator sounds (sine, triangle, etc.)
       registerSynthSounds();
       progressCallback?.(3, "Synth sounds registered");
@@ -250,31 +304,35 @@ export async function initSuperdoughAudio(
         progressCallback?.(pct, `${label} loaded (${done}/${total})`);
       };
 
-      await Promise.all([
-        ...SAMPLE_PACKS.map(({ key, label }) =>
-          Promise.resolve(samples(`${BASE}${key}.json`)).then(() => reportPack(label))
-        ),
-        Promise.resolve(registerSoundfonts()).then(() => reportPack("Soundfonts")),
-      ]);
+      try {
+        await Promise.all([
+          ...SAMPLE_PACKS.map(({ key, label }) =>
+            Promise.resolve(samples(`${BASE}${key}.json`)).then(() => reportPack(label))
+          ),
+          Promise.resolve(registerSoundfonts()).then(() => reportPack("Soundfonts")),
+        ]);
+      } catch (error) {
+        // Tagged so the loading screen can offer the synths, which need no download.
+        throw new SampleLoadError(error instanceof Error ? error.message : String(error), { cause: error });
+      }
 
-      // Create the Strudel playback runtime up front so Play and live notes
-      // share one scheduler/output stack instead of booting separately.
-      progressCallback?.(78, "Preparing Strudel runtime…");
-      await initSharedStrudelRuntime();
-
-      // Resume / set up the AudioContext and load worklets for live note triggering
+      // The editor creates the single pattern transport through patternPlayback.
+      // Instrument startup only initializes the shared audio graph.
+      _startupStage = "engine";
       progressCallback?.(79, "Starting audio context…");
-      await initAudio();
+      await initializeAudio();
 
       // Only the default instrument is decoded eagerly. Other registered
       // instruments warm on selection so startup stays bounded on mobile.
-      progressCallback?.(80, "Warming up piano…");
-      await _prewarmPianoSamples();
-      progressCallback?.(98, "Piano ready");
+      progressCallback?.(80, `Preparing ${DEFAULT_INSTRUMENT}…`);
+      await _prewarmDefaultInstrument();
+      progressCallback?.(98, `${DEFAULT_INSTRUMENT} ready`);
 
       progressCallback?.(100, "Audio engine ready");
       _initialized = true;
+      _startupStage = "ready";
     } catch (err) {
+      _startupStage = "idle";
       console.error("[superdoughAudio] init error:", err);
       // Reset so callers can retry after a user gesture
       _initPromise = null;
@@ -283,6 +341,32 @@ export async function initSuperdoughAudio(
   })();
 
   return _initPromise;
+}
+
+/**
+ * Degraded start for when the sample packs cannot load: registers the built-in
+ * oscillator synths, starts the shared audio graph and prepares the default
+ * synth, then marks the engine initialised so notes stop retrying the sample
+ * download. Sampled instruments stay unavailable until a reload. A full load
+ * still in flight (a slow network) keeps running and adds its samples later.
+ */
+export async function initSynthOnlyAudio(): Promise<void> {
+  if (_initialized) return;
+  // Never queue behind an engine start that is still pending: if it hung, the
+  // synths would hang with it. That is an engine fault, not a sample one.
+  if (_startupStage === "engine") throw new Error("The audio engine is still starting");
+  const resumeStage = _startupStage;
+  _startupStage = "engine";
+  try {
+    registerSynthSounds();
+    await initializeAudio();
+    await _prewarmSoundCore(DEFAULT_INSTRUMENT, true);
+  } catch (error) {
+    _startupStage = resumeStage;
+    throw error;
+  }
+  _initialized = true;
+  _startupStage = "ready";
 }
 
 function normalizeChromaticNote(noteName: string): ChromaticNote | null {
@@ -405,7 +489,7 @@ function buildStrudelVisualPayload(hap: unknown) {
   }
 }
 
-function releaseStrudelVisual(noteId: string) {
+function releaseStrudelVisual(noteId: string, audibleAt = audioTimeToOutputTime(getAudioContext(), getAudioContext().currentTime)) {
   const active = _activeStrudelVisuals.get(noteId);
   if (!active || typeof window === "undefined") {
     return;
@@ -429,6 +513,7 @@ function releaseStrudelVisual(noteId: string) {
         instrument: active.instrument,
         instrumentConfig: null,
         source: STRUDEL_PLAYBACK_SOURCE,
+        audibleAt,
       },
     })
   );
@@ -453,14 +538,23 @@ export async function emotitoneStrudelOutput(
   cps: number,
   t: number
 ): Promise<void> {
+  const context = getAudioContext();
+  const submittedAt = context.currentTime;
+  // Submit audio before preparing presentation events. Strudel passes the
+  // absolute audio-clock onset as t; its legacy deadline argument is unused.
+  const output = webaudioOutput(hap as never, deadline, hapDuration, cps, t);
   const visualPayload = buildStrudelVisualPayload(hap);
 
-  if (visualPayload && typeof window !== "undefined") {
+  if (visualPayload && typeof window !== "undefined" && t >= submittedAt) {
     const noteId = `strudel_${++_strudelVisualCounter}`;
-    const durationMs = Math.max(40, Math.round(hapDuration * 1000));
+    // The scheduler supplies the clipped gate. Presentation must not invent a
+    // longer hold for short notes; release tails are separate from key-down.
+    const durationMs = Math.max(0, hapDuration * 1000);
+    const audibleAt = audioTimeToOutputTime(context, t);
+    const releaseAt = audioTimeToOutputTime(context, t + durationMs / 1000);
     const releaseTimeout = window.setTimeout(() => {
-      releaseStrudelVisual(noteId);
-    }, durationMs);
+      releaseStrudelVisual(noteId, releaseAt);
+    }, Math.max(0, (t - submittedAt) * 1000) + durationMs);
 
     _activeStrudelVisuals.set(noteId, {
       note: visualPayload.note,
@@ -474,6 +568,7 @@ export async function emotitoneStrudelOutput(
       key: visualPayload.key,
       instrument: visualPayload.instrument,
       releaseTimeout,
+      audibleAt,
     });
 
     window.dispatchEvent(
@@ -493,13 +588,14 @@ export async function emotitoneStrudelOutput(
           instrument: visualPayload.instrument,
           instrumentConfig: null,
           durationMs,
+          audibleAt,
           source: STRUDEL_PLAYBACK_SOURCE,
         },
       })
     );
   }
 
-  await webaudioOutput(hap as never, deadline, hapDuration, cps, t);
+  await output;
 }
 
 // ---------------------------------------------------------------------------
@@ -529,9 +625,18 @@ function nowPlusOffset(offsetSeconds = 0.01): number {
 export async function attackNote(
   noteId: string,
   noteName: string,
-  instrument: string
-): Promise<void> {
-  await initSuperdoughAudio();
+  instrument: string,
+  options?: {
+    atTime?: number;
+    attack?: number;
+    release?: number;
+    cutoff?: number;
+    resonance?: number;
+  },
+): Promise<number> {
+  // The ready path must submit audio before yielding to unrelated microtasks.
+  // Initialization and resume remain asynchronous only when actually needed.
+  if (!_initialized) await initSuperdoughAudio();
 
   // Ensure the AudioContext is running before scheduling.
   // On first note the context may still be "suspended" from loading-screen init;
@@ -541,35 +646,77 @@ export async function attackNote(
     await ac.resume();
   }
 
-  const sound = LEGACY_ALIASES[instrument] ?? instrument;
+  const sound = resolveLiveSoundName(instrument);
+  const envelope = resolveLiveEnvelope(sound, liveEnvelopeShape(sound));
   const duration = LIVE_NOTE_PLACEHOLDER_DURATION_SECONDS;
+  const wasReady = isPrewarmed(sound);
 
   // Defensively clear stale voices if a note id is ever re-used.
   if (hasVoice(noteId)) {
     stopVoice(noteId, ac.currentTime);
   }
 
-  await superdough(
-    {
-      s: sound,
-      note: noteName,
-      gain: 0.8,
-      attack: 0.01,
-      release: 1.5,
-      voiceId: noteId,
-      sustainUntilRelease: true,
-    },
-    nowPlusOffset(),
+  // Keep a small preparation margin even for explicit "now" attacks. The
+  // patched engine preserves overdue live presses, but this margin normally
+  // lets the complete graph reach the render thread before its intended onset.
+  const requestedAt = Math.max(options?.atTime ?? 0, nowPlusOffset(LIVE_AUDIO_SCHEDULING_LEAD_MS / 1000));
+  const attack = options?.attack ?? envelope.attack;
+  const release = options?.release ?? envelope.release;
+  const cutoff = options?.cutoff ?? _liveSynthControls?.cutoff;
+  const resonance = options?.resonance ?? _liveSynthControls?.resonance;
+
+  const payload: Record<string, unknown> = {
+    s: sound,
+    note: noteName,
+    gain: 0.8,
+    attack,
+    decay: envelope.decay,
+    sustain: envelope.sustain,
+    release,
+    voiceId: noteId,
+    sustainUntilRelease: true,
+    orbit: LIVE_ORBIT,
+  };
+
+  if (cutoff !== undefined && cutoff < 12000) {
+    payload.cutoff = cutoff;
+  }
+  if (resonance !== undefined && resonance > 0) {
+    payload.resonance = resonance;
+  }
+  if ((_liveSynthControls?.room ?? 0) > 0) {
+    payload.room = _liveSynthControls?.room;
+  }
+  if ((_liveSynthControls?.delay ?? 0) > 0) {
+    payload.delay = _liveSynthControls?.delay;
+    payload.delaytime = LIVE_DELAY_TIME_SECONDS;
+    payload.delayfeedback = LIVE_DELAY_FEEDBACK;
+  }
+
+  const armedAt = await superdough(
+    payload,
+    requestedAt,
     duration,
     1 // cps
   );
+
+  // The engine reports a later onset if the audio clock overtook entry. Cold
+  // sources can also start late while loading; preserve that separate fallback.
+  const onset = Number.isFinite(armedAt) ? Math.max(requestedAt, armedAt) : requestedAt;
+  return wasReady ? onset : Math.max(onset, ac.currentTime);
 }
 
 /**
  * Start the release phase for a live note if it is still active.
  */
-export function releaseNote(noteId: string): void {
-  releaseVoice(noteId);
+export function releaseNote(noteId: string, atTime?: number): void {
+  if (atTime === undefined) releaseVoice(noteId);
+  else releaseVoice(noteId, atTime);
+}
+
+/** Cancel a queued onset without letting it sound during its release tail. */
+export function stopNote(noteId: string): void {
+  cancelVoice(noteId);
 }
 
 /**
@@ -591,8 +738,9 @@ export async function playNoteWithDuration(
     await ac.resume();
   }
 
-  const sound = LEGACY_ALIASES[instrument] ?? instrument;
+  const sound = resolveLiveSoundName(instrument);
   const durationSeconds = durationMs / 1000;
+  const { attack, release } = resolveLiveEnvelope(sound, liveEnvelopeShape(sound));
 
   await superdough(
     {
@@ -600,8 +748,25 @@ export async function playNoteWithDuration(
       note: noteName,
       duration: durationSeconds,
       gain: 0.8,
-      attack: 0.01,
-      release: Math.min(durationSeconds * 0.5, 1),
+      attack,
+      release,
+      orbit: LIVE_ORBIT,
+      ...((_liveSynthControls?.cutoff ?? 12000) < 12000
+        ? { cutoff: _liveSynthControls?.cutoff }
+        : {}),
+      ...((_liveSynthControls?.resonance ?? 0) > 0
+        ? { resonance: _liveSynthControls?.resonance }
+        : {}),
+      ...((_liveSynthControls?.room ?? 0) > 0
+        ? { room: _liveSynthControls?.room }
+        : {}),
+      ...((_liveSynthControls?.delay ?? 0) > 0
+        ? {
+            delay: _liveSynthControls?.delay,
+            delaytime: LIVE_DELAY_TIME_SECONDS,
+            delayfeedback: LIVE_DELAY_FEEDBACK,
+          }
+        : {}),
     },
     nowPlusOffset(),
     durationSeconds,
@@ -622,12 +787,7 @@ export function releaseAll(): void {
  * while superdough continues routing to the speakers normally.
  */
 export function getSuperdoughMasterGain(): GainNode | null {
-  try {
-    // @ts-ignore — getSuperdoughAudioController has no TS declarations
-    return (getSuperdoughAudioController() as any)?.output?.destinationGain ?? null;
-  } catch {
-    return null;
-  }
+  return getMasterGain();
 }
 
 /**
@@ -643,23 +803,4 @@ export function getRegisteredSounds(): string[] {
   } catch {
     return [];
   }
-}
-
-export async function playStrudelCode(code: string): Promise<void> {
-  await initSuperdoughAudio();
-  await initSharedStrudelRuntime();
-  stopStrudelVisuals();
-
-  const ac = getAudioContext();
-  if (ac.state !== "running") {
-    await ac.resume();
-  }
-
-  await evaluateStrudel(code);
-}
-
-export function stopStrudelPlayback(): void {
-  stopStrudelVisuals();
-  if (!_strudelInitialized) return;
-  hushStrudel();
 }

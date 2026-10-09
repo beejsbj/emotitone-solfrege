@@ -2,7 +2,7 @@
   <AnatomyDisplay
     title="Code Strip &middot; Notation Unique"
     :features="features"
-    caption="CodeStrip is the styled Strudel CodeMirror document itself. It composes Note and Chord, owns Rest, duration presentation, density, punctuation, and uses Strudel's source-location highlight for temporal fill."
+    caption="CodeStrip is the styled Strudel CodeMirror document itself, read as a Stave: one hairline staff runs through it, Notes and Chords sit on it, brackets become barlines, and code punctuation recedes until focus hands back the plain source. Duration stems count each event's time out as it sounds; a rest is a slim gap in the staff that fills with Ivory."
   >
     <template #hero>
       <CodeStrip :tokens="animatedTokens" />
@@ -20,7 +20,7 @@
       </VariantCell>
     </VariantGrid>
 
-    <VariantGrid id="code-strip-duration" title="Duration &mdash; Text, split meter bars, or hidden">
+    <VariantGrid id="code-strip-duration" title="Duration &mdash; Text, Stave stems, or hidden">
       <VariantCell caption="Stacked &middot; textual" stage="ink3">
         <CodeStrip duration-mode="stacked" :tokens="durationSequence" />
       </VariantCell>
@@ -30,12 +30,15 @@
       <VariantCell caption="Bar &middot; 3/4 split proportional bar &middot; Rest included" stage="ink3">
         <CodeStrip duration-mode="bar" time-signature="3/4" :tokens="durationSequence" />
       </VariantCell>
+      <VariantCell caption="Bar &middot; implicit base 1 and bounded &times; overflow" stage="ink3">
+        <CodeStrip duration-mode="bar" time-signature="4/4" :tokens="durationEdgeSequence" />
+      </VariantCell>
       <VariantCell caption="Hidden &middot; rhythm unstamped" stage="ink3">
         <CodeStrip duration-mode="hidden" :tokens="durationSequence" />
       </VariantCell>
     </VariantGrid>
 
-    <VariantGrid id="code-strip-rest" title="Rest &mdash; Ink to Ivory, no duration tag">
+    <VariantGrid id="code-strip-rest" title="Rest &mdash; a slim gap in the staff, Ink to Ivory">
       <VariantCell caption="Empty &middot; 0%" stage="ink3">
         <CodeStrip :show-chevron="false" :tokens="restTokens(0)" />
       </VariantCell>
@@ -127,6 +130,12 @@ const durationSequence: CodeStripToken[] = [
   { type: "note", note: "la", text: "La", duration: "@0.25", progress: 0 },
 ];
 
+const durationEdgeSequence: CodeStripToken[] = [
+  { type: "note", note: "do", text: "Do", progress: 1 },
+  { type: "chord", symbol: "Cmaj7", members: chordMembers(.55), duration: "@1.5" },
+  { type: "rest", duration: "@2", progress: .3 },
+];
+
 const restTokens = (progress: number): CodeStripToken[] => [
   { type: "rest", duration: "@0.5", progress },
 ];
@@ -197,9 +206,10 @@ const features = [
   { label: "Composition", value: "Note primitive + accepted Chord compound + CodeStrip-local Rest" },
   { label: "Glyph", value: "3:4 Note proportion · 27.2–33.6px host scale" },
   { label: "Chord", value: "symbol → fused · notes → clustered" },
-  { label: "Rest", value: "Ink paper surface · Ivory bottom-to-top fill · no duration tag" },
+  { label: "Rest", value: "slim gap in the staff · Ivory bottom-to-top fill · no duration tag" },
   { label: "Progress", value: "native Strudel source locations · Play resets to Ink · highlight reveals color/Ivory" },
-  { label: "Duration", value: "stacked text, split proportional meter bars, or hidden" },
+  { label: "Duration", value: "stacked text, Stave stems (one per meter segment, each lighting as playback enters its segment), or hidden" },
+  { label: "Stave", value: "hairline staff · brackets as barlines · punctuation recedes while unfocused · Ivory selection" },
   { label: "Density", value: "dense, default, or spaced" },
   { label: "Document", value: "one CodeMirror · styled mini-notation ranges · focus reveals the same raw source" },
   { label: "Boundary", value: "no parallel renderer · no independent playback clock · no hidden Strudel line" },

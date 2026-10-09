@@ -1,0 +1,18 @@
+{
+  "material": {
+    "beatFill": "linear-gradient(160deg, rgb(214, 160, 62) 0%, rgb(224, 170, 66) 22%, rgb(239, 191, 80) 42%, rgb(245, 210, 120) 50%, rgb(235, 185, 71) 60%, rgb(214, 160, 62) 82%, rgb(227, 172, 66) 100%)",
+    "joystickFill": "linear-gradient(160deg, rgb(214, 160, 62) 0%, rgb(224, 170, 66) 22%, rgb(239, 191, 80) 42%, rgb(245, 210, 120) 50%, rgb(235, 185, 71) 60%, rgb(214, 160, 62) 82%, rgb(227, 172, 66) 100%)",
+    "beatSheen": "linear-gradient(110deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0) 40%, rgba(255, 228, 166, 0.3) 47%, rgba(255, 238, 194, 0.5) 50%, rgba(255, 228, 166, 0.3) 53%, rgba(0, 0, 0, 0) 60%, rgba(0, 0, 0, 0) 100%)",
+    "joystickSheen": "linear-gradient(110deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0) 40%, rgba(255, 228, 166, 0.3) 47%, rgba(255, 238, 194, 0.5) 50%, rgba(255, 228, 166, 0.3) 53%, rgba(0, 0, 0, 0) 60%, rgba(0, 0, 0, 0) 100%)",
+    "opacity": "1"
+  },
+  "reduced": {
+    "animation": "none",
+    "opacity": "1"
+  },
+  "forced": {
+    "metal": "none",
+    "stroke": "rgba(5, 0, 73, 0.8)",
+    "visibility": "visible"
+  }
+}

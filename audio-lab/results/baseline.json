@@ -1,0 +1,500 @@
+{
+  "recordedAt": "2026-09-13T20:10:04.609Z",
+  "revision": "e65aee6835d0811c0c6e50bed3f75e5f843327f2",
+  "superdoughSha256": "e39f0c386d077da5890c2f129299f0cdcd2bff67b00be6905e53ece53e48fc2b",
+  "environment": {
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.0.0 Safari/537.36",
+    "sampleRate": 48000,
+    "baseLatency": 0.010020833333333333,
+    "outputLatency": 0.032,
+    "scope": "Headless browser render graph PCM; no hardware, input delivery or acoustic latency measurement",
+    "sample": "Identical preloaded 40ms 440Hz mono PCM; gain .8; linear attack 1ms unless labeled 10ms; no effects"
+  },
+  "attacks": [
+    {
+      "engine": "direct",
+      "stress": false,
+      "leadMs": 0,
+      "expected": 16,
+      "detected": 15,
+      "missing": 1,
+      "duplicatesOrUnexpected": 0,
+      "onsetErrorMs": {
+        "p50": 0.104,
+        "p95": 0.104,
+        "max": 0.104
+      },
+      "peak": 0.24,
+      "inputToRenderedOnsetMs": {
+        "p50": 0.104,
+        "p95": 0.104,
+        "max": 0.104
+      },
+      "preparationMs": {
+        "p50": 0.2,
+        "p95": 3
+      }
+    },
+    {
+      "engine": "direct",
+      "stress": false,
+      "leadMs": 5,
+      "expected": 16,
+      "detected": 16,
+      "missing": 0,
+      "duplicatesOrUnexpected": 0,
+      "onsetErrorMs": {
+        "p50": 0.104,
+        "p95": 5.688,
+        "max": 5.688
+      },
+      "peak": 0.24,
+      "inputToRenderedOnsetMs": {
+        "p50": 5.104,
+        "p95": 10.688,
+        "max": 10.688
+      },
+      "preparationMs": {
+        "p50": 0.2,
+        "p95": 0.9
+      }
+    },
+    {
+      "engine": "direct",
+      "stress": false,
+      "leadMs": 10,
+      "expected": 16,
+      "detected": 16,
+      "missing": 0,
+      "duplicatesOrUnexpected": 0,
+      "onsetErrorMs": {
+        "p50": 0.104,
+        "p95": 0.104,
+        "max": 0.104
+      },
+      "peak": 0.24,
+      "inputToRenderedOnsetMs": {
+        "p50": 10.104,
+        "p95": 10.104,
+        "max": 10.104
+      },
+      "preparationMs": {
+        "p50": 0.2,
+        "p95": 2
+      }
+    },
+    {
+      "engine": "direct",
+      "stress": true,
+      "leadMs": 0,
+      "expected": 16,
+      "detected": 16,
+      "missing": 0,
+      "duplicatesOrUnexpected": 0,
+      "onsetErrorMs": {
+        "p50": 0.104,
+        "p95": 8.021,
+        "max": 8.021
+      },
+      "peak": 0.24,
+      "inputToRenderedOnsetMs": {
+        "p50": 0.104,
+        "p95": 8.021,
+        "max": 8.021
+      },
+      "preparationMs": {
+        "p50": 0.1,
+        "p95": 0.2
+      }
+    },
+    {
+      "engine": "direct",
+      "stress": true,
+      "leadMs": 5,
+      "expected": 16,
+      "detected": 16,
+      "missing": 0,
+      "duplicatesOrUnexpected": 0,
+      "onsetErrorMs": {
+        "p50": 0.104,
+        "p95": 0.104,
+        "max": 0.104
+      },
+      "peak": 0.24,
+      "inputToRenderedOnsetMs": {
+        "p50": 5.104,
+        "p95": 5.104,
+        "max": 5.104
+      },
+      "preparationMs": {
+        "p50": 0.2,
+        "p95": 0.3
+      }
+    },
+    {
+      "engine": "direct",
+      "stress": true,
+      "leadMs": 10,
+      "expected": 16,
+      "detected": 16,
+      "missing": 0,
+      "duplicatesOrUnexpected": 0,
+      "onsetErrorMs": {
+        "p50": 0.104,
+        "p95": 0.104,
+        "max": 0.104
+      },
+      "peak": 0.24,
+      "inputToRenderedOnsetMs": {
+        "p50": 10.104,
+        "p95": 10.104,
+        "max": 10.104
+      },
+      "preparationMs": {
+        "p50": 0.1,
+        "p95": 0.3
+      }
+    },
+    {
+      "engine": "superdough",
+      "stress": false,
+      "leadMs": 0,
+      "expected": 16,
+      "detected": 16,
+      "missing": 0,
+      "duplicatesOrUnexpected": 0,
+      "onsetErrorMs": {
+        "p50": 0.104,
+        "p95": 10.687,
+        "max": 10.687
+      },
+      "peak": 0.24,
+      "inputToRenderedOnsetMs": {
+        "p50": 0.104,
+        "p95": 10.687,
+        "max": 10.687
+      },
+      "preparationMs": {
+        "p50": 0.5,
+        "p95": 0.8
+      }
+    },
+    {
+      "engine": "superdough",
+      "stress": false,
+      "leadMs": 5,
+      "expected": 16,
+      "detected": 16,
+      "missing": 0,
+      "duplicatesOrUnexpected": 0,
+      "onsetErrorMs": {
+        "p50": 0.104,
+        "p95": 5.688,
+        "max": 5.688
+      },
+      "peak": 0.24,
+      "inputToRenderedOnsetMs": {
+        "p50": 5.104,
+        "p95": 10.688,
+        "max": 10.688
+      },
+      "preparationMs": {
+        "p50": 0.7,
+        "p95": 0.8
+      }
+    },
+    {
+      "engine": "superdough",
+      "stress": false,
+      "leadMs": 10,
+      "expected": 16,
+      "detected": 16,
+      "missing": 0,
+      "duplicatesOrUnexpected": 0,
+      "onsetErrorMs": {
+        "p50": 0.104,
+        "p95": 0.104,
+        "max": 0.104
+      },
+      "peak": 0.24,
+      "inputToRenderedOnsetMs": {
+        "p50": 10.104,
+        "p95": 10.104,
+        "max": 10.104
+      },
+      "preparationMs": {
+        "p50": 0.4,
+        "p95": 0.5
+      }
+    },
+    {
+      "engine": "superdough",
+      "stress": true,
+      "leadMs": 0,
+      "expected": 16,
+      "detected": 16,
+      "missing": 0,
+      "duplicatesOrUnexpected": 0,
+      "onsetErrorMs": {
+        "p50": 0.104,
+        "p95": 10.687,
+        "max": 10.687
+      },
+      "peak": 0.24,
+      "inputToRenderedOnsetMs": {
+        "p50": 0.104,
+        "p95": 10.687,
+        "max": 10.687
+      },
+      "preparationMs": {
+        "p50": 0.4,
+        "p95": 1.5
+      }
+    },
+    {
+      "engine": "superdough",
+      "stress": true,
+      "leadMs": 5,
+      "expected": 16,
+      "detected": 16,
+      "missing": 0,
+      "duplicatesOrUnexpected": 0,
+      "onsetErrorMs": {
+        "p50": 0.104,
+        "p95": 3.021,
+        "max": 3.021
+      },
+      "peak": 0.24,
+      "inputToRenderedOnsetMs": {
+        "p50": 5.104,
+        "p95": 8.021,
+        "max": 8.021
+      },
+      "preparationMs": {
+        "p50": 0.3,
+        "p95": 0.6
+      }
+    },
+    {
+      "engine": "superdough",
+      "stress": true,
+      "leadMs": 10,
+      "expected": 16,
+      "detected": 16,
+      "missing": 0,
+      "duplicatesOrUnexpected": 0,
+      "onsetErrorMs": {
+        "p50": 0.104,
+        "p95": 0.104,
+        "max": 0.104
+      },
+      "peak": 0.24,
+      "inputToRenderedOnsetMs": {
+        "p50": 10.104,
+        "p95": 10.104,
+        "max": 10.104
+      },
+      "preparationMs": {
+        "p50": 0.4,
+        "p95": 0.6
+      }
+    }
+  ],
+  "sequences": [
+    {
+      "engine": "direct",
+      "stress": false,
+      "scheduledHorizonMs": 150,
+      "stallObservedMs": 0,
+      "skippedByScheduler": 0,
+      "expected": 12,
+      "detected": 12,
+      "missing": 0,
+      "duplicatesOrUnexpected": 0,
+      "onsetErrorMs": {
+        "p50": 0.104,
+        "p95": 0.104,
+        "max": 0.104
+      },
+      "peak": 0.24
+    },
+    {
+      "engine": "direct",
+      "stress": true,
+      "scheduledHorizonMs": 150,
+      "stallObservedMs": 300,
+      "skippedByScheduler": 1,
+      "expected": 12,
+      "detected": 11,
+      "missing": 1,
+      "duplicatesOrUnexpected": 0,
+      "onsetErrorMs": {
+        "p50": 0.104,
+        "p95": 0.104,
+        "max": 0.104
+      },
+      "peak": 0.24
+    },
+    {
+      "engine": "superdough",
+      "stress": false,
+      "scheduledHorizonMs": 150,
+      "stallObservedMs": 0,
+      "skippedByScheduler": 0,
+      "expected": 12,
+      "detected": 12,
+      "missing": 0,
+      "duplicatesOrUnexpected": 0,
+      "onsetErrorMs": {
+        "p50": 0.104,
+        "p95": 0.104,
+        "max": 0.104
+      },
+      "peak": 0.24
+    },
+    {
+      "engine": "superdough",
+      "stress": true,
+      "scheduledHorizonMs": 150,
+      "stallObservedMs": 300,
+      "skippedByScheduler": 2,
+      "expected": 12,
+      "detected": 10,
+      "missing": 2,
+      "duplicatesOrUnexpected": 0,
+      "onsetErrorMs": {
+        "p50": 0.104,
+        "p95": 0.104,
+        "max": 0.104
+      },
+      "peak": 0.24
+    },
+    {
+      "engine": "worklet-repeat",
+      "stress": false,
+      "scheduledHorizonMs": null,
+      "stallObservedMs": 0,
+      "skippedByScheduler": 0,
+      "expected": 12,
+      "detected": 12,
+      "missing": 0,
+      "duplicatesOrUnexpected": 0,
+      "onsetErrorMs": {
+        "p50": 0.104,
+        "p95": 0.104,
+        "max": 0.104
+      },
+      "peak": 0.24
+    },
+    {
+      "engine": "worklet-repeat",
+      "stress": true,
+      "scheduledHorizonMs": null,
+      "stallObservedMs": 300,
+      "skippedByScheduler": 0,
+      "expected": 12,
+      "detected": 12,
+      "missing": 0,
+      "duplicatesOrUnexpected": 0,
+      "onsetErrorMs": {
+        "p50": 0.104,
+        "p95": 0.104,
+        "max": 0.104
+      },
+      "peak": 0.24
+    },
+    {
+      "engine": "worklet-arp",
+      "stress": false,
+      "scheduledHorizonMs": null,
+      "stallObservedMs": 0,
+      "skippedByScheduler": 0,
+      "expected": 12,
+      "detected": 12,
+      "missing": 0,
+      "duplicatesOrUnexpected": 0,
+      "onsetErrorMs": {
+        "p50": 0.083,
+        "p95": 0.104,
+        "max": 0.104
+      },
+      "peak": 0.24
+    },
+    {
+      "engine": "worklet-arp",
+      "stress": true,
+      "scheduledHorizonMs": null,
+      "stallObservedMs": 300,
+      "skippedByScheduler": 0,
+      "expected": 12,
+      "detected": 12,
+      "missing": 0,
+      "duplicatesOrUnexpected": 0,
+      "onsetErrorMs": {
+        "p50": 0.083,
+        "p95": 0.104,
+        "max": 0.104
+      },
+      "peak": 0.24
+    }
+  ],
+  "originalAttackEnvelope": {
+    "expected": 8,
+    "detected": 8,
+    "missing": 0,
+    "duplicatesOrUnexpected": 0,
+    "onsetErrorMs": {
+      "p50": 0.292,
+      "p95": 0.292,
+      "max": 0.292
+    }
+  },
+  "prototypeLifecycle": {
+    "cancelledOnsets": 0,
+    "releaseTailPeakAfter15ms": 0,
+    "releaseLargestAdjacentSampleStep": 0.014,
+    "denseStats": {
+      "type": "stats",
+      "active": 16,
+      "peak": 16,
+      "triggered": 1121
+    },
+    "releasedStats": {
+      "type": "stats",
+      "active": 0,
+      "peak": 16,
+      "triggered": 1121
+    }
+  },
+  "cleanup": {
+    "totalTriggered": 129,
+    "voicesStillRegisteredAfterNaturalEndAndRelease": 129,
+    "maxPolyphony": "NaN"
+  },
+  "checks": [
+    {
+      "name": "direct and Superdough 5/10ms attacks produce all notes",
+      "passed": true
+    },
+    {
+      "name": "all idle sequences produce all notes",
+      "passed": true
+    },
+    {
+      "name": "render-thread sequences survive 300ms main-thread stalls",
+      "passed": true
+    },
+    {
+      "name": "worklet queued cancellation produces silence",
+      "passed": true
+    },
+    {
+      "name": "worklet release becomes silent without a large sample discontinuity",
+      "passed": true
+    },
+    {
+      "name": "worklet bounds voices and releases all",
+      "passed": true
+    }
+  ]
+}

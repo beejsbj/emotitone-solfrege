@@ -25,7 +25,6 @@ export type {
   VisualEffectConfig,
   BlobConfig,
   AmbientConfig,
-  ParticleConfig,
   StringConfig,
   AnimationConfig,
   FrequencyMappingConfig,
@@ -44,7 +43,6 @@ export type {
   HarmonicGeometryPoint,
   HarmonicGeometryLabel,
   HarmonicGeometryScene,
-  Particle,
   CanvasProperties,
   AnimationFrame,
   RenderContext,
@@ -75,6 +73,7 @@ export type {
   OscillatorConfig,
   InstrumentEvent,
   AudioContextInfo,
+  Shape,
 } from "./instrument";
 
 // App Loading and Initialization Types

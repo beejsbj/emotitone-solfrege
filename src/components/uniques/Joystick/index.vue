@@ -21,12 +21,12 @@
         </div>
       </div>
     </div>
-    <DragValue
+    <Readout
       v-if="pointerId !== null || latchFeedbackVisible"
       :x="feedbackPosition.x"
       :y="feedbackPosition.y"
       :value="feedbackLabel"
-      :tone="latchFeedbackVisible ? 'ivory-badge' : 'brass'"
+      :tone="latchFeedbackVisible ? 'latched' : 'brass'"
     />
     <span class="joystick__label instrument-control__label" aria-hidden="true">{{ label }}</span>
     <span class="sr-only" aria-live="polite">{{ statusText }}</span>
@@ -35,7 +35,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch, type ComponentPublicInstance } from "vue";
-import DragValue from "@/components/primatives/DragValue.vue";
+import Readout from "@/components/primatives/Readout.vue";
 import "@/components/primatives/instrumentControl.css";
 import { useUIBeatScale } from "@/composables/useUIBeat";
 import type { HarmonyAlteration } from "@/domain/harmony";
@@ -275,13 +275,13 @@ onBeforeUnmount(() => {
 .joystick__beat-face { display: grid; place-items: center; inline-size: 100%; block-size: 100%; pointer-events: none; }
 .joystick__plate { position: relative; inline-size: var(--instrument-control-visible-diameter); aspect-ratio: 1; overflow: hidden; border-radius: 50%; background: var(--brass-fill); box-shadow: 0 2px 0 var(--brass-edge); isolation: isolate; }
 .joystick__plate::before { content: ''; position: absolute; z-index: 1; inset: 12%; border-radius: inherit; background: var(--instrument-control-dark-well); box-shadow: var(--instrument-control-dark-well-shadow); pointer-events: none; }
-.joystick__plate::after { content: ''; position: absolute; z-index: 2; inset: 0; border-radius: inherit; background: var(--brass-sheen); background-position: -60% 0; background-size: 220% 100%; background-repeat: no-repeat; mix-blend-mode: screen; -webkit-mask: radial-gradient(circle, transparent 0 37.5%, #000 38%); mask: radial-gradient(circle, transparent 0 37.5%, #000 38%); pointer-events: none; animation: brass-sheen 6.5s cubic-bezier(.55,.05,.45,.95) infinite; }
+.joystick__plate::after { content: ''; position: absolute; z-index: 2; inset: 0; border-radius: inherit; background: var(--brass-sheen); background-position: -60% 0; background-size: 220% 100%; background-repeat: no-repeat; mix-blend-mode: screen; -webkit-mask: radial-gradient(circle, transparent 0 37.5%, #000 38%); mask: radial-gradient(circle, transparent 0 37.5%, #000 38%); pointer-events: none; animation: brass-sheen var(--dur-sheen) var(--ease-sheen) infinite; }
 .joystick__plate:focus-within { outline: 2px solid var(--ivory); outline-offset: 3px; }
 .joystick[data-dragging] .joystick__face { cursor: grabbing; }
 .joystick__detent { position: absolute; z-index: 3; inline-size: 4%; aspect-ratio: 1; border-radius: 50%; background: var(--brass-edge); transform: translate(-50%, -50%); pointer-events: none; }
 .joystick__detent--effective { background: var(--ivory); box-shadow: 0 0 4px var(--brass-hi); }
 .joystick__stick { position: absolute; z-index: 4; inline-size: 29%; aspect-ratio: 1; overflow: hidden; border-radius: 50%; background: var(--brass-fill); box-shadow: inset 0 -2px 2px var(--brass-lo), 0 3px 4px var(--brass-edge); translate: -50% -50%; scale: 1; pointer-events: none; transition: left var(--dur-tap) var(--ease-stab), top var(--dur-tap) var(--ease-stab), scale var(--dur-bounce) var(--ease-bounce); }
-.joystick__stick::after { content: ''; position: absolute; inset: -10% -30%; background: var(--brass-sheen); background-position: -60% 0; background-size: 220% 100%; background-repeat: no-repeat; mix-blend-mode: screen; animation: brass-sheen 6.5s cubic-bezier(.55,.05,.45,.95) infinite; }
+.joystick__stick::after { content: ''; position: absolute; inset: -10% -30%; background: var(--brass-sheen); background-position: -60% 0; background-size: 220% 100%; background-repeat: no-repeat; mix-blend-mode: screen; animation: brass-sheen var(--dur-sheen) var(--ease-sheen) infinite; }
 .joystick[data-active] .joystick__stick { scale: .9; transition: left 0s, top 0s, scale var(--dur-tap) var(--ease-stab); }
 .joystick--digital .joystick__plate { background: var(--ink); box-shadow: inset 0 0 0 2px var(--brass); }
 .joystick--digital .joystick__plate::before { inset: 22%; border-radius: 0; background: linear-gradient(transparent 48%, var(--brass-edge) 48% 52%, transparent 52%), linear-gradient(90deg, transparent 48%, var(--brass-edge) 48% 52%, transparent 52%); box-shadow: none; }

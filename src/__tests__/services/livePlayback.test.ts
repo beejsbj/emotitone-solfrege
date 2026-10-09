@@ -1,0 +1,275 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+const mocks = vi.hoisted(() => ({ create: vi.fn(), prepare: vi.fn(), releasePrepared: vi.fn(), preparationDiagnostics: vi.fn(),
+  chains: [] as { input: object; apply: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn> }[] }))
+vi.mock('@/audio/live/bridge', () => ({ createLiveWorklet: mocks.create }))
+vi.mock('@/audio/liveShaping', () => ({ createLiveShapingChain: vi.fn(() => {
+  const chain = { input: {}, apply: vi.fn(), dispose: vi.fn() }
+  mocks.chains.push(chain)
+  return chain
+}) }))
+vi.mock('@/services/audioRuntime', () => ({ getLiveOrbit: vi.fn() }))
+vi.mock('@/services/preparedLiveInstrument', () => ({ prepareLiveInstrument: mocks.prepare,
+  releasePreparedLiveInstrument: mocks.releasePrepared, getPreparedLiveInstrumentDiagnostics: mocks.preparationDiagnostics }))
+
+const bank = (instrumentId: string) => ({ kind: 'oscillator', instrumentId, waveform: 'sine',
+  gain: .3, attack: 0, decay: 0, sustain: 1, release: .01 })
+const context = () => ({ audioWorklet: {}, state: 'running' }) as AudioContext
+const destination = {} as AudioNode
+async function setup() {
+  const engine = { prepare: vi.fn().mockResolvedValue(undefined), forget: vi.fn(), press: vi.fn(),
+    release: vi.fn(), clear: vi.fn(), configure: vi.fn(), shape: vi.fn(), dispose: vi.fn() }
+  mocks.create.mockResolvedValue(engine)
+  mocks.prepare.mockImplementation(async (_context, name) => bank(name))
+  mocks.preparationDiagnostics.mockReturnValue({ cachedPreparationPcmBytes: 0, preparingPcmBytes: 0, preparationPcmBudgetBytes: 192 * 1024 * 1024 })
+  return { engine, manager: await import('@/services/livePlayback'), context: context() }
+}
+beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); mocks.chains.length = 0; vi.stubGlobal('AudioWorkletNode', vi.fn()) })
+afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs() })
+
+describe('live playback instrument manager', () => {
+  it('deduplicates preparation, waits for acknowledgement and reports zero-lead readiness', async () => {
+    const { manager, engine, context } = await setup()
+    let acknowledge!: () => void
+    engine.prepare.mockImplementation(() => new Promise<void>(resolve => { acknowledge = resolve }))
+    const first = manager.prepareLivePlayback(context, destination, 'piano')
+    const second = manager.prepareLivePlayback(context, destination, 'piano')
+    await vi.waitFor(() => expect(engine.prepare).toHaveBeenCalledOnce())
+    expect(manager.getLivePlayback('piano')).toBeUndefined()
+    acknowledge(); await Promise.all([first, second])
+    expect(mocks.prepare).toHaveBeenCalledOnce()
+    expect(manager.needsLivePlaybackPreparation('piano')).toBe(false)
+    expect(manager.getLivePlaybackDiagnostics('piano')).toMatchObject({ backend: 'audio-worklet', preparationLeadMs: 0 })
+  })
+
+  it('serializes concurrent installations and enforces the four-bank LRU', async () => {
+    const { manager, engine, context } = await setup()
+    let simultaneous = 0, maximum = 0
+    engine.prepare.mockImplementation(async () => {
+      maximum = Math.max(maximum, ++simultaneous)
+      await Promise.resolve()
+      simultaneous--
+    })
+    await Promise.all(['a', 'b', 'c', 'd', 'e', 'f'].map(name => manager.prepareLivePlayback(context, destination, name)))
+    expect(maximum).toBe(1)
+    expect(manager.getLivePlaybackDiagnostics('f').installedBanks, JSON.stringify(manager.getLivePlaybackDiagnostics('f'))).toBe(4)
+    expect(engine.forget.mock.calls).toEqual([['a'], ['b']])
+    manager.getLivePlayback('c')
+    await manager.prepareLivePlayback(context, destination, 'g')
+    expect(engine.forget).toHaveBeenLastCalledWith('d')
+  })
+
+  it('serializes preparation through acknowledgement and then drops only its owned cache reference', async () => {
+    const { manager, engine, context } = await setup()
+    let acknowledge!: () => void
+    const instrument = { ...bank('piano'), kind: 'sample-bank', zoneSelection: 'nearest-root', zones: [{
+      id: 'sample', rootMidi: 60, sampleRate: 48000, channels: [new Float32Array(16)], mipmaps: [[new Float32Array(8)]],
+    }] }
+    mocks.prepare.mockResolvedValueOnce(instrument)
+    mocks.preparationDiagnostics.mockReturnValue({ cachedPreparationPcmBytes: 32, preparingPcmBytes: 0, preparationPcmBudgetBytes: 192 * 1024 * 1024 })
+    engine.prepare.mockImplementationOnce(() => new Promise<void>(resolve => { acknowledge = resolve }))
+    const first = manager.prepareLivePlayback(context, destination, 'piano')
+    const next = manager.prepareLivePlayback(context, destination, 'sine')
+    await vi.waitFor(() => expect(engine.prepare).toHaveBeenCalledOnce())
+    expect(mocks.prepare).toHaveBeenCalledOnce()
+    expect(mocks.releasePrepared).not.toHaveBeenCalled()
+    expect(manager.getLivePlaybackDiagnostics('piano')).toMatchObject({
+      installedPcmBytes: 0, installingPcmBytes: 96, cachedPreparationPcmBytes: 32, preparingPcmBytes: 0, additionalPcmBytes: 128,
+    })
+    acknowledge()
+    await Promise.all([first, next])
+    expect(mocks.releasePrepared).toHaveBeenCalledWith(context, 'piano', instrument)
+    expect(mocks.releasePrepared).toHaveBeenCalledTimes(2)
+    expect(instrument.zones[0].channels[0].byteLength).toBe(64)
+    expect(manager.getLivePlaybackDiagnostics('piano').installingPcmBytes).toBe(0)
+  })
+
+  it('releases prepared pyramids when held banks prevent installation', async () => {
+    const { manager, context } = await setup()
+    for (const name of ['a', 'b', 'c', 'd']) {
+      await manager.prepareLivePlayback(context, destination, name)
+      manager.getLivePlayback(name)!.press(name, [{ instrumentId: name, pitch: 60 }])
+    }
+    mocks.releasePrepared.mockClear()
+    await manager.prepareLivePlayback(context, destination, 'e')
+    expect(manager.getLivePlayback('e')).toBeUndefined()
+    expect(mocks.releasePrepared).toHaveBeenCalledWith(context, 'e', expect.objectContaining({ instrumentId: 'e' }))
+  })
+
+  it('pins held banks until release and temporarily falls back when all four are held', async () => {
+    const { manager, engine, context } = await setup()
+    for (const name of ['a', 'b', 'c', 'd']) {
+      await manager.prepareLivePlayback(context, destination, name)
+      manager.getLivePlayback(name)!.press(name, [{ pitch: 60, instrumentId: name }])
+    }
+    await manager.prepareLivePlayback(context, destination, 'e')
+    expect(manager.getLivePlayback('e')).toBeUndefined()
+    expect(engine.forget).not.toHaveBeenCalled()
+    expect(manager.needsLivePlaybackPreparation('e')).toBe(true)
+    manager.getLivePlayback('a')!.release('a')
+    await manager.prepareLivePlayback(context, destination, 'e')
+    expect(engine.forget).toHaveBeenCalledWith('a')
+    expect(manager.getLivePlayback('e')).toBeDefined()
+  })
+
+  it('includes resampling pyramids in the192MiB installed PCM budget', async () => {
+    const { manager, engine, context } = await setup()
+    const original = new Float32Array(10 * 1024 * 1024)
+    const lowerRate = new Float32Array(5 * 1024 * 1024)
+    mocks.prepare.mockImplementation(async (_context, instrumentId) => ({
+      ...bank(instrumentId), kind: 'sample-bank', zoneSelection: 'nearest-root',
+      zones: [{ id: 'z', rootMidi: 60, sampleRate: 48000, channels: [original], mipmaps: [[lowerRate]] }],
+    }))
+    for (const name of ['a', 'b', 'c', 'd']) await manager.prepareLivePlayback(context, destination, name)
+    expect(engine.forget).toHaveBeenCalledWith('a')
+    expect(manager.getLivePlaybackDiagnostics('d')).toMatchObject({ installedBanks: 3, installedPcmBytes: 180 * 1024 * 1024 })
+  })
+
+  it('counts retiring banks until acknowledgement and prevents new attacks from using them', async () => {
+    const { manager, engine, context } = await setup()
+    for (const name of ['a', 'b', 'c', 'd']) await manager.prepareLivePlayback(context, destination, name)
+    let retired!: () => void
+    engine.forget.mockImplementation(() => new Promise<void>(resolve => { retired = resolve }))
+    const installing = manager.prepareLivePlayback(context, destination, 'e')
+    await vi.waitFor(() => expect(engine.forget).toHaveBeenCalledWith('a'))
+    expect(manager.getLivePlaybackDiagnostics('e').installedBanks).toBe(4)
+    expect(manager.getLivePlayback('a')).toBeUndefined()
+    expect(engine.prepare).toHaveBeenCalledTimes(4)
+    retired(); await installing
+    expect(engine.prepare).toHaveBeenCalledTimes(5)
+    expect(manager.getLivePlaybackDiagnostics('e').installedBanks).toBe(4)
+  })
+
+  it('avoids retrying unsupported instruments or unavailable worklets on every note', async () => {
+    const { manager, context } = await setup()
+    mocks.prepare.mockResolvedValue({ kind: 'unsupported', instrumentId: 'noise', reason: 'Unsupported source' })
+    await manager.prepareLivePlayback(context, destination, 'noise')
+    expect(manager.needsLivePlaybackPreparation('noise')).toBe(false)
+    expect(manager.getLivePlaybackDiagnostics('noise')).toMatchObject({ backend: 'superdough', reason: 'Unsupported source' })
+    vi.stubGlobal('AudioWorkletNode', undefined)
+    expect(manager.needsLivePlaybackPreparation('piano')).toBe(false)
+  })
+
+  it('retries temporary catalog failure without invalidating an already playing bank', async () => {
+    const { manager, context, engine } = await setup()
+    await manager.prepareLivePlayback(context, destination, 'sine')
+    mocks.prepare.mockResolvedValueOnce({ kind: 'retryable', instrumentId: 'piano', reason: 'offline' })
+    await manager.prepareLivePlayback(context, destination, 'piano')
+    expect(manager.getLivePlayback('piano')).toBeUndefined()
+    expect(manager.needsLivePlaybackPreparation('piano')).toBe(true)
+    expect(manager.getLivePlaybackDiagnostics('piano').reason).toBe('offline')
+    expect(engine.dispose).not.toHaveBeenCalled()
+    expect(manager.getLivePlayback('sine')).toBeDefined()
+    await manager.prepareLivePlayback(context, destination, 'piano')
+    expect(manager.getLivePlayback('piano')).toBeDefined()
+    expect(manager.getLivePlaybackDiagnostics('piano').reason).toBeNull()
+  })
+
+  it('invalidates failed processors and forwards lifecycle acknowledgements', async () => {
+    const { manager, context, engine } = await setup()
+    const listener = { onEvent: vi.fn(), onPlan: vi.fn(), onError: vi.fn(), onOwnerEnded: vi.fn() }
+    const unsubscribe = manager.subscribeLivePlayback(listener)
+    await manager.prepareLivePlayback(context, destination, 'piano')
+    const callbacks = mocks.create.mock.calls[0][2]
+    callbacks.onOwnerEnded('finger')
+    expect(listener.onOwnerEnded).toHaveBeenCalledWith('finger')
+    callbacks.onError(new Error('render failed'))
+    expect(manager.getLivePlayback('piano')).toBeUndefined()
+    expect(engine.dispose).toHaveBeenCalledOnce()
+    expect(listener.onError).toHaveBeenCalledOnce()
+    unsubscribe()
+  })
+
+  it('discards installation results from a replaced audio context', async () => {
+    const { manager, context: oldContext } = await setup()
+    let resolveOld!: (value: any) => void
+    mocks.prepare.mockImplementationOnce(() => new Promise(resolve => { resolveOld = resolve }))
+    const old = manager.prepareLivePlayback(oldContext, destination, 'old')
+    await vi.waitFor(() => expect(resolveOld).toBeTypeOf('function'))
+    await manager.prepareLivePlayback(context(), destination, 'new')
+    resolveOld(bank('old')); await old
+    expect(manager.getLivePlayback('old')).toBeUndefined()
+    expect(manager.getLivePlayback('new'), JSON.stringify(manager.getLivePlaybackDiagnostics('new'))).toBeDefined()
+  })
+})
+
+describe('live Shape controls on the worklet backend', () => {
+  const shaped = { cutoff: 800, resonance: 4, room: .5, delay: .3, envelope: { attack: .2, release: undefined } }
+
+  it('routes the worklet through its shaping chain with the latest controls', async () => {
+    const { manager, engine, context } = await setup()
+    manager.setLivePlaybackShaping(shaped)
+    await manager.prepareLivePlayback(context, destination, 'piano')
+    const [chain] = mocks.chains
+    expect(mocks.create).toHaveBeenCalledWith(context, chain.input, expect.anything())
+    expect(chain.apply).toHaveBeenLastCalledWith(shaped)
+    expect(engine.shape).toHaveBeenLastCalledWith(shaped.envelope)
+  })
+
+  it('applies later edits to the chain and the worklet envelope', async () => {
+    const { manager, engine, context } = await setup()
+    await manager.prepareLivePlayback(context, destination, 'piano')
+    manager.setLivePlaybackShaping(shaped)
+    expect(mocks.chains[0].apply).toHaveBeenLastCalledWith(shaped)
+    expect(engine.shape).toHaveBeenLastCalledWith(shaped.envelope)
+  })
+
+  it('keeps edits made while the worklet is still being created', async () => {
+    const { manager, engine, context } = await setup()
+    let finish!: (value: typeof engine) => void
+    mocks.create.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    const pending = manager.prepareLivePlayback(context, destination, 'piano')
+    await vi.waitFor(() => expect(finish).toBeTypeOf('function'))
+    manager.setLivePlaybackShaping(shaped)
+    finish(engine); await pending
+    expect(mocks.chains[0].apply).toHaveBeenLastCalledWith(shaped)
+    expect(engine.shape).toHaveBeenLastCalledWith(shaped.envelope)
+  })
+
+  it('disposes the chain together with its worklet', async () => {
+    const { manager, engine, context } = await setup()
+    await manager.prepareLivePlayback(context, destination, 'piano')
+    manager.getLivePlayback('piano')!.dispose()
+    expect(engine.dispose).toHaveBeenCalledOnce()
+    expect(mocks.chains[0].dispose).toHaveBeenCalledOnce()
+  })
+})
+
+describe('production renderer selection', () => {
+  it.each([
+    ['square', 'square'], ['sawtooth', 'sawtooth'], ['amSynth', 'sawtooth'],
+    ['fmSynth', 'square'], ['metalSynth', 'square'],
+  ])('routes unsupported %s through %s to fallback without disturbing a held worklet bank', async (name, resolved) => {
+    const { manager, context, engine } = await setup()
+    await manager.prepareLivePlayback(context, destination, 'sine')
+    const held = manager.getLivePlayback('sine')!
+    held.press('finger', [{ pitch: 96, instrumentId: 'sine' }])
+    const unsupported = { kind: 'unsupported', instrumentId: resolved, reason: 'Native oscillator required for timbre fidelity' }
+    mocks.prepare.mockResolvedValueOnce(unsupported)
+
+    await manager.prepareLivePlayback(context, destination, name)
+
+    expect(mocks.prepare).toHaveBeenLastCalledWith(context, resolved)
+    expect(manager.getLivePlayback(name)).toBeUndefined()
+    expect(manager.getLivePlayback(resolved)).toBeUndefined()
+    expect(manager.needsLivePlaybackPreparation(name)).toBe(false)
+    expect(manager.needsLivePlaybackPreparation(resolved)).toBe(false)
+    expect(manager.getLivePlaybackDiagnostics(name)).toMatchObject({
+      backend: 'superdough', reason: unsupported.reason, installedBanks: 1, installingPcmBytes: 0,
+    })
+    expect(engine.prepare).toHaveBeenCalledTimes(1)
+    expect(engine.forget).not.toHaveBeenCalled()
+    expect(engine.dispose).not.toHaveBeenCalled()
+    expect(manager.getLivePlayback('sine')).toBe(held)
+    held.release('finger')
+    expect(engine.release).toHaveBeenCalledWith('finger')
+  })
+
+  it('keeps the worklet when an obsolete native backend environment variable is present', async () => {
+    vi.stubEnv('VITE_LIVE_AUDIO_BACKEND', 'native')
+    const { manager, context } = await setup()
+    await manager.prepareLivePlayback(context, destination, 'piano')
+    expect(mocks.create).toHaveBeenCalledOnce()
+    expect(manager.getLivePlaybackDiagnostics('piano').backend).toBe('audio-worklet')
+  })
+})

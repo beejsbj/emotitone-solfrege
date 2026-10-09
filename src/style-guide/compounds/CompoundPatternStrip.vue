@@ -2,7 +2,7 @@
   <AnatomyDisplay
     title="PatternStrip &middot; Compound"
     :features="features"
-    caption="One sleek Ink row owns pattern identity and actions. Every strip carries the same 1px compressed Bar Tape along its top edge, including Current."
+    caption="One sleek Ink row owns pattern identity and actions. Every strip carries the same 34px Loop Dial between identity and actions, including Current."
   >
     <template #hero>
       <div class="pattern-strip-specimen">
@@ -28,7 +28,7 @@
     </template>
 
     <VariantGrid title="States">
-      <VariantCell caption="Background · 1px top Bar Tape" stage="ink3">
+      <VariantCell caption="Background · 34px Loop Dial" stage="ink3">
         <PatternStrip
           :item="backgroundPattern"
           @select="lastAction = 'Select background state'"
@@ -38,7 +38,7 @@
           @rename="rename(backgroundPattern, $event)"
         />
       </VariantCell>
-      <VariantCell caption="Current · same 1px top Bar Tape" stage="ink3">
+      <VariantCell caption="Current · same 34px Loop Dial" stage="ink3">
         <PatternStrip
           :item="currentPattern"
           active
@@ -69,6 +69,7 @@ import PatternStrip from "../../components/compounds/PatternStrip.vue";
 import type { PatternStripItem } from "../../components/compounds/PatternStrip.vue";
 import { instrumentIconFor } from "../../components/primatives/instrumentIcon";
 import { useMusicColor } from "../../composables/useMusicColor";
+import { chromaticPitchHeight } from "../../services/scalePitch";
 import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
 import VariantCell from "../guide/VariantCell.vue";
 import VariantGrid from "../guide/VariantGrid.vue";
@@ -85,9 +86,10 @@ const backgroundPattern = reactive<PatternStripItem>({
   instrumentLabel: "Rhodes",
   rootLabel: "F#4",
   spine: getStaticPrimaryColorByPitchClass(6, "dorian", "F#", 4),
-  barTape: [0, 2, 4, 1, 5].map((scaleIndex, index) => ({
+  loopDial: [0, 2, 4, 1, 5].map((scaleIndex, index) => ({
     color: getStaticPrimaryColorByScaleIndex(scaleIndex, "dorian", "F#", 4),
     durationMs: [250, 125, 375, 250, 500][index],
+    height: chromaticPitchHeight({ scaleIndex, octave: 4 }, { key: "F#", mode: "dorian" }),
   })),
   canDelete: true,
   canRename: true,
@@ -100,9 +102,10 @@ const currentPattern = reactive<PatternStripItem>({
   instrumentLabel: "Piano",
   rootLabel: "C4",
   spine: getStaticPrimaryColorByPitchClass(0, "major", "C", 4),
-  barTape: [{
+  loopDial: [{
     color: getStaticPrimaryColorByScaleIndex(0, "major", "C", 4),
     durationMs: 460,
+    height: chromaticPitchHeight({ scaleIndex: 0, octave: 4 }, { key: "C", mode: "major" }),
   }],
   canDelete: false,
   canRename: false,
@@ -123,10 +126,10 @@ function rename(pattern: PatternStripItem, name: string) {
 }
 
 const features = [
-  { label: "Children", value: "identity, shared instrument-family icon + label, Bar Tape, three small Buttons" },
+  { label: "Children", value: "identity, shared instrument-family icon + label, Loop Dial, three small Buttons" },
   { label: "Surface", value: "51.2px Ink row; no Card shell, notch, metadata, or CodeStrip" },
   { label: "Spine", value: "4px Music Color from root key plus root octave" },
-  { label: "Tape", value: "persistent 1px top edge on every strip, including Current" },
+  { label: "Loop", value: "34px dial between identity and actions, including Current; arc length reads duration and radius reads pitch" },
   { label: "Rename", value: "double-tap selected title or press F2; inline Enter/blur commit" },
   { label: "Actions", value: "two-tap Delete, Copy feedback, Open in Strudel" },
   { label: "Source", value: "components/compounds/PatternStrip.vue" },

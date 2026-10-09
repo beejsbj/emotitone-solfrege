@@ -13,12 +13,11 @@ export type {
 <script setup lang="ts">
 import { EditorState, StateEffect } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { StrudelMirror } from "@strudel/codemirror";
-import * as StrudelCore from "@strudel/core";
-import * as StrudelMini from "@strudel/mini";
-import * as StrudelTonal from "@strudel/tonal";
-import * as StrudelWebAudio from "@strudel/webaudio";
-import { transpiler } from "@strudel/transpiler";
+import {
+  createPatternEditor,
+  disposePatternEditor,
+  type PatternEditor as StrudelMirrorInstance,
+} from "@/services/patternPlayback";
 import {
   computed,
   getCurrentInstance,
@@ -32,54 +31,42 @@ import {
 } from "vue";
 import { toStrudelSound } from "@/composables/useStrudel";
 import { useCodeStripStrudel } from "@/composables/useCodeStripStrudel";
-import { staticNoteColorResolver } from "@/components/primatives/noteColorContext";
+import {
+  createNoteColorResolver,
+  createStaticNoteColorResolver,
+  staticNoteColorResolver,
+} from "@/components/primatives/noteColorContext";
+import { useMusicColorClock } from "@/composables/useMusicColorClock";
+import { CodeStripViewport } from "./viewport";
+import { createNativeCodeStripReveal } from "./nativeReveal";
 import {
   generatedStrudelBarPosition,
   uiBeatClock,
 } from "@/composables/useUIBeat";
 import {
-  emotitoneStrudelOutput,
   getAudioContext,
-  initSuperdoughAudio,
   stopStrudelVisuals,
 } from "@/services/superdoughAudio";
 import { logNotesToStrudel } from "@/services/StrudelNotation";
 import { useInstrumentStore } from "@/stores/instrument";
-import { usePatternsStore } from "@/stores/patterns";
+import { usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import type { LogNote } from "@/types/patterns";
 import { buildRecordedCodeStripTokens } from "./recordingTokens";
 import {
   applySpecimenPlayback,
-  codeStripStrudelExtension,
   codeStripStrudelExtensionWithPresentation,
   parseCodeStripEvents,
   serializeCodeStripTokens,
   setCodeStripPlaying,
   updateCodeStripPresentation,
+  type CodeStripPresentation,
 } from "./strudelExtension";
 import type {
   CodeStripDensity,
   CodeStripDurationMode,
   CodeStripToken,
 } from "./types";
-
-interface StrudelMirrorInstance {
-  setCode: (code: string) => void;
-  evaluate: () => Promise<void | boolean>;
-  stop: () => Promise<void> | void;
-  clear?: () => void;
-  updateSettings?: (settings: Record<string, unknown>) => void;
-  code?: string;
-  editor?: unknown;
-  view?: unknown;
-  repl?: {
-    scheduler?: {
-      cps?: number;
-      setCps?: (cps: number) => void;
-    };
-  };
-}
 
 const props = withDefaults(
   defineProps<{
@@ -100,7 +87,7 @@ const props = withDefaults(
     tokens: undefined,
     source: undefined,
     density: "default",
-    durationMode: "stacked",
+    durationMode: "bar",
     timeSignature: "4/4",
     wrapped: false,
     scrollable: true,
@@ -118,7 +105,7 @@ const isControlled = computed(() => isControlledUsage);
 function createProductionWiring() {
   return {
     instrumentStore: useInstrumentStore(),
-    patternsStore: usePatternsStore(),
+    phrasesStore: usePhrasesStore(),
     visualConfigStore: useVisualConfigStore(),
     playback: useCodeStripStrudel(),
   };
@@ -138,6 +125,25 @@ const controlledPlayback: PlaybackWiring = {
 };
 const productionWiring = isControlledUsage ? undefined : createProductionWiring();
 const appContext = getCurrentInstance()?.appContext;
+const viewport = new CodeStripViewport();
+const stillColorResolver = productionWiring
+  ? createStaticNoteColorResolver(() => productionWiring.visualConfigStore.config.dynamicColors)
+  : staticNoteColorResolver;
+// Share the production Music Color clock, but subscribe only while the editor
+// has a visible glyph. The viewport owner gates each glyph's phase reads too.
+const colorClock = productionWiring ? useMusicColorClock(
+  () => viewport.visibleCount.value > 0 &&
+    productionWiring.visualConfigStore.config.dynamicColors.hueMotionEnabled,
+  () => productionWiring.visualConfigStore.config.dynamicColors.animationSpeed,
+  productionWiring.visualConfigStore.config,
+) : null;
+const colorResolver = productionWiring && colorClock
+  ? createNoteColorResolver(
+    () => productionWiring.visualConfigStore.config.dynamicColors,
+    () => productionWiring.visualConfigStore.config.dynamicColors.hueMotionEnabled &&
+      !colorClock.reducedMotion.value ? colorClock.phaseCycles.value : null,
+  )
+  : stillColorResolver;
 const {
   attachEditor,
   detachEditor,
@@ -156,6 +162,9 @@ const visibleCode = ref("");
 // visible EditorView document immediately before evaluation below.
 const mirror = shallowRef<StrudelMirrorInstance | null>(null);
 let controlledView: EditorView | null = null;
+const nativeReveal = createNativeCodeStripReveal(activeView);
+const recordingFollowMeasureKey = {};
+let recordingFollowGeneration = 0;
 let attachedController: Parameters<typeof detachEditor>[0] | undefined;
 let followLoopFrame: number | null = null;
 let followTargetScrollLeft = 0;
@@ -164,9 +173,12 @@ let followLastFrameTime: number | null = null;
 let followPlaybackActive = false;
 let presentationSyncQueued = false;
 let presentationSyncCancelled = false;
+let pendingGeneratedCode: string | undefined;
+let pendingPreserveUIBeat = false;
 interface ActiveUIBeatRun {
   generation: number;
   mappingAvailable: boolean;
+  phaseSourceKey: string | null;
   bpm: number;
   beatsPerBar: number;
   preservePhase: boolean;
@@ -197,6 +209,7 @@ const controlledCodeStripConfig = {
   opacity: 1,
   bpm: 120,
   notation: "solfege",
+  durationMode: "bar",
   showRests: true,
 } as const;
 const controlledKeyboardConfig = {
@@ -214,18 +227,21 @@ const controlledSketchMeta = {
 const codeStripConfig = computed(() =>
   productionWiring?.visualConfigStore.config.codeStrip ?? controlledCodeStripConfig
 );
+const resolvedDurationMode = computed(() =>
+  isControlled.value ? props.durationMode : codeStripConfig.value.durationMode
+);
 const keyboardConfig = computed(() =>
   productionWiring?.visualConfigStore.config.keyboard ?? controlledKeyboardConfig
 );
 const sketchMeta = computed(() =>
-  productionWiring?.patternsStore.currentSketchMeta ?? controlledSketchMeta
+  productionWiring?.phrasesStore.takeContext ?? controlledSketchMeta
 );
 const barMs = computed(() => (60000 / sketchMeta.value.bpm) * 4);
 const recordedTokens = computed(() => {
-  const patternsStore = productionWiring?.patternsStore;
-  if (!patternsStore) return [];
+  const phrasesStore = productionWiring?.phrasesStore;
+  if (!phrasesStore) return [];
   return buildRecordedCodeStripTokens({
-    notes: patternsStore.isStripCleared ? [] : patternsStore.currentSketchNotes,
+    notes: phrasesStore.takeNotes,
     mode: sketchMeta.value.mode,
     musicKey: sketchMeta.value.key,
     notation: codeStripConfig.value.notation,
@@ -248,20 +264,31 @@ const generatedCode = computed(() => {
       : EMPTY_EDITOR_CODE;
   }
 
-  const patternsStore = productionWiring!.patternsStore;
-  if (patternsStore.isStripCleared || !patternsStore.currentSketchNotes.length) {
+  const phrasesStore = productionWiring!.phrasesStore;
+  if (!phrasesStore.takeNotes.length) {
     return EMPTY_EDITOR_CODE;
   }
 
-  return logNotesToStrudel(patternsStore.currentSketchNotes as LogNote[], {
+  const sound = toStrudelSound(sketchMeta.value.instrument ?? "triangle");
+  return logNotesToStrudel(phrasesStore.takeNotes as LogNote[], {
     bpm: codeStripConfig.value.bpm,
     sourceBpm: sketchMeta.value.bpm,
     notationType: codeStripConfig.value.notation === "note" ? "absolute" : "relative",
     scaleKey: sketchMeta.value.key,
     scaleMode: sketchMeta.value.mode,
     scaleOctave: keyboardConfig.value.mainOctave,
-    sound: toStrudelSound(sketchMeta.value.instrument ?? "sine"),
+    patternDurationMs: phrasesStore.takeDuration,
+    sound,
+    // The pattern's own Shape, not the live knobs.
+    shape: phrasesStore.takeContext.shape,
   }).replace(/\s+/g, " ").trim();
+});
+const generatedPhaseSourceKey = computed(() => {
+  const code = generatedCode.value.trim();
+  const tempoSuffix = `.cpm(${codeStripConfig.value.bpm} / ${GENERATED_BEATS_PER_BAR})`;
+  // Only the canonical generated playback-tempo suffix is phase-neutral.
+  // Notes, durations, scale, instrument and any other source must still match.
+  return code.endsWith(tempoSuffix) ? code.slice(0, -tempoSuffix.length) : null;
 });
 const isEmptyDocument = computed(
   () => (visibleCode.value || generatedCode.value).trim() === EMPTY_EDITOR_CODE,
@@ -299,6 +326,7 @@ function armUIBeatForEvaluation(
     currentDocument !== EMPTY_EDITOR_CODE &&
     currentDocument === generatedCode.value.trim();
   const bpm = codeStripConfig.value.bpm;
+  const phaseSourceKey = mappingAvailable ? generatedPhaseSourceKey.value : null;
   const currentRun = activeUIBeatRun;
   const currentSnapshot = uiBeatClock.snapshot;
   const canPreservePhase =
@@ -306,6 +334,8 @@ function armUIBeatForEvaluation(
     mappingAvailable &&
     currentRun?.ready === true &&
     currentRun.mappingAvailable &&
+    phaseSourceKey !== null &&
+    currentRun.phaseSourceKey === phaseSourceKey &&
     currentSnapshot.generation === currentRun.generation &&
     currentSnapshot.status === "running" &&
     currentSnapshot.barPosition !== null &&
@@ -323,6 +353,7 @@ function armUIBeatForEvaluation(
     return {
       generation: currentRun.generation,
       mappingAvailable,
+      phaseSourceKey,
       bpm,
       beatsPerBar: GENERATED_BEATS_PER_BAR,
       preservePhase: true,
@@ -343,6 +374,7 @@ function armUIBeatForEvaluation(
   activeUIBeatRun = {
     generation,
     mappingAvailable,
+    phaseSourceKey,
     bpm,
     beatsPerBar: GENERATED_BEATS_PER_BAR,
     preservePhase: false,
@@ -420,30 +452,6 @@ function releaseUIBeatAudioContext() {
   uiBeatAudioContext = null;
 }
 
-function replaceControlledCode(code: string) {
-  visibleCode.value = code;
-  if (!controlledView || controlledView.state.doc.toString() === code) return;
-  controlledView.dispatch({
-    changes: { from: 0, to: controlledView.state.doc.length, insert: code },
-  });
-}
-
-function syncMirrorCode(code: string, preserveUIBeat = false) {
-  visibleCode.value = code;
-  const instance = mirror.value;
-  if (!instance) return;
-  if (getMirrorCode(instance) !== code) {
-    if (!preserveUIBeat) stopUIBeatRun();
-    preserveUIBeatDuringCodeSync = preserveUIBeat;
-    try {
-      instance.setCode(code);
-    } finally {
-      preserveUIBeatDuringCodeSync = false;
-    }
-  }
-  syncCode(code);
-}
-
 function reconcileMirrorRuntimeCode(instance: StrudelMirrorInstance) {
   const code = getMirrorCode(instance);
   visibleCode.value = code;
@@ -457,6 +465,8 @@ function canPreserveUIBeatPhase(instance: StrudelMirrorInstance) {
   return Boolean(
     run?.ready === true &&
     run.mappingAvailable &&
+    run.phaseSourceKey !== null &&
+    run.phaseSourceKey === generatedPhaseSourceKey.value &&
     snapshot.generation === run.generation &&
     snapshot.status === "running" &&
     snapshot.barPosition !== null &&
@@ -498,14 +508,25 @@ function queueTempoEvaluation() {
 }
 
 function revealLatestRecordedEvent() {
+  nativeReveal.cancel();
+  const generation = ++recordingFollowGeneration;
   const view = getMirrorView(mirror.value);
-  if (!view) return;
+  if (!view || presentationSyncCancelled) return;
+  const doc = view.state.doc;
+  const isCurrent = () => !presentationSyncCancelled && activeView() === view &&
+    view.state.doc === doc && generation === recordingFollowGeneration;
   const events = parseCodeStripEvents(view.state.doc);
   const latest = events[events.length - 1];
   if (!latest) return;
 
+  const targetPosition = Math.max(latest.from, latest.to - 1);
   view.requestMeasure({
-    read(measuredView) {
+    key: recordingFollowMeasureKey,
+    read(measuredView): { revealPosition: number } | { scroller: HTMLElement; target: number } | null {
+      if (!isCurrent()) return null;
+      if (measuredView.visibleRanges && !measuredView.visibleRanges.some(
+        range => range.from <= targetPosition && range.to >= targetPosition,
+      )) return { revealPosition: targetPosition };
       const scroller = measuredView.scrollDOM;
       const coordinates = measuredView.coordsAtPos(latest.to);
       if (!coordinates) return null;
@@ -517,19 +538,26 @@ function revealLatestRecordedEvent() {
       };
     },
     write(measurement) {
-      if (!measurement) return;
+      if (!measurement || !isCurrent()) return;
+      if ("revealPosition" in measurement) {
+        // Long-line gaps do not have glyph coordinates. Let CodeMirror render
+        // the remote event; ordinary rendered appends retain smooth follow.
+        stopFollowScroll();
+        nativeReveal.schedule(view, measurement.revealPosition);
+        return;
+      }
       startFollowScroll(measurement.scroller, measurement.target);
     },
   });
 }
 
-function applyPresentation() {
+function applyPresentation(code?: string, preserveUIBeat = false) {
   const view = activeView();
   if (!view) return;
 
-  updateCodeStripPresentation(view, {
+  const presentation: CodeStripPresentation = {
     tokens: presentationTokens.value,
-    durationMode: props.durationMode,
+    durationMode: resolvedDurationMode.value,
     density: props.density,
     timeSignature: props.timeSignature,
     showRests: codeStripConfig.value.showRests,
@@ -542,8 +570,25 @@ function applyPresentation() {
     keyBrightness: keyboardConfig.value.keyBrightness,
     keySaturation: keyboardConfig.value.keySaturation,
     appContext,
-    colorResolver: isControlled.value ? staticNoteColorResolver : undefined,
-  });
+    colorResolver,
+    stillColorResolver,
+    viewport,
+  };
+  if (code !== undefined) {
+    if (!isControlled.value && view.state.doc.toString() !== code && !preserveUIBeat) {
+      stopUIBeatRun();
+    }
+    preserveUIBeatDuringCodeSync = preserveUIBeat;
+    try {
+      updateCodeStripPresentation(view, presentation, code);
+    } finally {
+      preserveUIBeatDuringCodeSync = false;
+    }
+    visibleCode.value = code;
+    if (!isControlled.value) syncCode(code);
+  } else {
+    updateCodeStripPresentation(view, presentation);
+  }
 
   if (isControlled.value) applySpecimenPlayback(view, presentationTokens.value);
 }
@@ -554,12 +599,24 @@ function syncPresentation() {
   queueMicrotask(() => {
     presentationSyncQueued = false;
     if (presentationSyncCancelled) return;
-    applyPresentation();
+    const code = pendingGeneratedCode;
+    const instance = mirror.value;
+    const preserveUIBeat = pendingPreserveUIBeat && code === generatedCode.value &&
+      instance !== null && canPreserveUIBeatPhase(instance);
+    pendingGeneratedCode = undefined;
+    pendingPreserveUIBeat = false;
+    applyPresentation(code, preserveUIBeat);
   });
 }
 
 function stopFollow() {
+  nativeReveal.cancel();
+  recordingFollowGeneration++;
   followPlaybackActive = false;
+  stopFollowScroll();
+}
+
+function stopFollowScroll() {
   followTargetScrollLeft = 0;
   followScroller = null;
   followLastFrameTime = null;
@@ -596,7 +653,7 @@ function startFollowScroll(scroller: HTMLElement, target: number) {
     if (!nextScroller) return;
 
     const delta = followTargetScrollLeft - nextScroller.scrollLeft;
-    if (Math.abs(delta) < 0.5) {
+    if (!viewport.allowsMotion || Math.abs(delta) < 0.5) {
       nextScroller.scrollLeft = followTargetScrollLeft;
       followLastFrameTime = null;
       return;
@@ -607,7 +664,16 @@ function startFollowScroll(scroller: HTMLElement, target: number) {
       : Math.max(0, timestamp - followLastFrameTime);
     followLastFrameTime = timestamp;
     const blend = 1 - Math.exp(-elapsed / FOLLOW_TIME_CONSTANT_MS);
+    const previousScrollLeft = nextScroller.scrollLeft;
     nextScroller.scrollLeft += delta * blend;
+    // Browsers may quantize scrollLeft to device pixels or clamp it after
+    // CodeMirror changes a line gap. Finish instead of retaining a RAF that
+    // keeps pulling subsequent manual scrolling back toward an old target.
+    if (nextScroller.scrollLeft === previousScrollLeft) {
+      nextScroller.scrollLeft = followTargetScrollLeft;
+      followLastFrameTime = null;
+      return;
+    }
     followLoopFrame = requestAnimationFrame(step);
   };
 
@@ -648,6 +714,7 @@ function initializeControlledView() {
         EditorView.editable.of(false),
         codeStripStrudelExtensionWithPresentation({
           colorResolver: staticNoteColorResolver,
+          viewport,
         }),
       ],
     }),
@@ -660,25 +727,9 @@ async function initializeStrudelMirror() {
   if (!editorRoot.value) return;
   visibleCode.value = generatedCode.value;
 
-  const instance = markRaw(new StrudelMirror({
+  const instance = markRaw(createPatternEditor({
     root: editorRoot.value,
     initialCode: generatedCode.value,
-    bgFill: false,
-    transpiler,
-    defaultOutput: emotitoneStrudelOutput,
-    getTime: () => getAudioContext().currentTime,
-    solo: true,
-    prebake: async () => {
-      await Promise.all([
-        initSuperdoughAudio(),
-        StrudelCore.evalScope(
-          Promise.resolve(StrudelCore),
-          Promise.resolve(StrudelMini),
-          Promise.resolve(StrudelTonal),
-          Promise.resolve(StrudelWebAudio),
-        ),
-      ]);
-    },
     onDraw: (_haps: unknown[], time: number) => {
       publishUIBeatFrame(instance, time);
       void nextTick(followActivePlayback);
@@ -705,7 +756,7 @@ async function initializeStrudelMirror() {
         failedRun.error = error;
       }
     },
-  }) as StrudelMirrorInstance);
+  }));
   mirror.value = instance;
 
   // StrudelMirror routes editor shortcuts and native stop events through its
@@ -808,7 +859,7 @@ async function initializeStrudelMirror() {
             syncCode(visibleCode.value);
           }
         }),
-        codeStripStrudelExtension,
+        codeStripStrudelExtensionWithPresentation({ colorResolver, stillColorResolver, viewport }),
       ]),
     });
     syncPresentation();
@@ -817,9 +868,12 @@ async function initializeStrudelMirror() {
   attachedController = {
     getCode: () => getMirrorCode(instance),
     setCode: (code: string) => {
+      // An explicit load wins over a previously queued recording publication.
+      pendingGeneratedCode = undefined;
+      pendingPreserveUIBeat = false;
       if (getMirrorCode(instance) === code) return;
       stopUIBeatRun();
-      instance.setCode(code);
+      applyPresentation(code);
     },
     evaluate: () => evaluateMirror(instance),
     stop: () => {
@@ -859,15 +913,14 @@ onMounted(async () => {
 });
 
 watch(generatedCode, (code) => {
-  if (isControlled.value) replaceControlledCode(code);
-  else syncMirrorCode(code);
+  pendingGeneratedCode = code;
   syncPresentation();
 });
 
 watch(
   [
     presentationTokens,
-    () => props.durationMode,
+    resolvedDurationMode,
     () => props.density,
     () => props.timeSignature,
     () => codeStripConfig.value.notation,
@@ -877,24 +930,31 @@ watch(
     () => keyboardConfig.value.keySaturation,
   ],
   syncPresentation,
-  { deep: true },
+  { deep: isControlledUsage },
 );
 
 watch(
-  [() => sketchMeta.value.bpm, () => codeStripConfig.value.bpm],
+  [
+    () => sketchMeta.value.bpm,
+    () => codeStripConfig.value.bpm,
+    () => sketchMeta.value.instrument,
+    () => sketchMeta.value.key,
+    () => sketchMeta.value.mode,
+    () => keyboardConfig.value.mainOctave,
+  ],
   () => {
     const instance = mirror.value;
     if (isControlled.value || !instance || !isPlaying.value) return;
-    syncMirrorCode(generatedCode.value, canPreserveUIBeatPhase(instance));
+    pendingGeneratedCode = generatedCode.value;
+    pendingPreserveUIBeat = canPreserveUIBeatPhase(instance);
+    syncPresentation();
     queueTempoEvaluation();
   },
-  { flush: "sync" },
 );
 
 watch(
   () => {
-    const notes = productionWiring?.patternsStore.currentWorkingNotes ?? [];
-    return notes[notes.length - 1]?.id;
+    return productionWiring?.phrasesStore.lastLiveNoteId;
   },
   async () => {
     if (isControlled.value) return;
@@ -904,7 +964,7 @@ watch(
 );
 
 watch(
-  () => productionWiring?.patternsStore.loadedBaseNotes.length ?? 0,
+  () => productionWiring?.phrasesStore.takeId,
   async () => {
     if (isControlled.value) return;
     await nextTick();
@@ -914,6 +974,7 @@ watch(
 );
 
 onBeforeUnmount(() => {
+  viewport.destroy();
   presentationSyncCancelled = true;
   presentationSyncQueued = false;
   stopFollow();
@@ -926,9 +987,9 @@ onBeforeUnmount(() => {
   stopUIBeatRun();
   releaseUIBeatAudioContext();
   try {
-    stopStrudelVisuals();
-    void instance.stop();
-    instance.clear?.();
+    void disposePatternEditor(instance).catch((error) => {
+      console.error("[CodeStrip] Strudel transport stop failed:", error);
+    });
   } catch (error) {
     console.error("[CodeStrip] Strudel mirror teardown error:", error);
   } finally {
@@ -955,6 +1016,14 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.code-strip__editor:deep([data-code-strip-visible="false"] .code-strip__note .note__surface::before),
+.code-strip__editor:deep([data-code-strip-visible="false"] .chord__cluster-member .note__surface::before),
+.code-strip__editor:deep([data-code-strip-visible="false"] .chord__fused-progress),
+.code-strip__editor:deep([data-code-strip-visible="false"] .code-strip__rest-fill) {
+  transition: none;
+  will-change: auto;
+}
+
 .code-strip {
   --strip-border: hsla(152, 100%, 50%, 0.16);
   display: flex;
@@ -1057,6 +1126,21 @@ onBeforeUnmount(() => {
   min-width: max-content;
 }
 
+/*
+ * Stave: while the strip reads as notation (unfocused, with events), one
+ * hairline staff runs through the line and raw mini-notation punctuation
+ * recedes. Focus hands back the plain source for editing.
+ */
+.code-strip:not(.code-strip--empty) .code-strip__editor:deep(.cm-editor:not(.cm-focused) .cm-line) {
+  color: transparent;
+  background: linear-gradient(transparent calc(50% - 1px), var(--ivory-4) calc(50% - 1px) calc(50% + 1px), transparent 0);
+}
+
+/* Syntax-highlight and inline-meta spans carry their own colour; the widgets keep theirs. */
+.code-strip:not(.code-strip--empty) .code-strip__editor:deep(.cm-editor:not(.cm-focused) .cm-line span:not(.cm-code-strip-event, .cm-code-strip-event *)) {
+  color: transparent;
+}
+
 .code-strip__editor:deep(.cm-code-strip-event) {
   display: inline-flex;
   flex: 0 0 auto;
@@ -1094,12 +1178,18 @@ onBeforeUnmount(() => {
 
 .code-strip__editor:deep(.cm-selectionBackground),
 .code-strip__editor:deep(.cm-content ::selection) {
-  background: hsl(152 80% 45% / .22) !important;
+  background: color-mix(in srgb, var(--ivory) 22%, transparent) !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .code-strip {
     transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .code-strip:not(.code-strip--empty) .code-strip__editor:deep(.cm-editor:not(.cm-focused) .cm-line) {
+    background: none;
   }
 }
 </style>

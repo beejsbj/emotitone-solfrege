@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { createTestWrapper } from "../../helpers/test-utils";
 import CodeStripBar from "@/components/compounds/CodeStripBar.vue";
 import Button from "@/components/primatives/Button.vue";
+import patternPlaybackSource from "@/services/patternPlayback.ts?raw";
 import codeStripSource from "@/components/uniques/CodeStrip/index.vue?raw";
 import codeStripBarSource from "@/components/compounds/CodeStripBar.vue?raw";
 import controlBarSource from "@/components/compounds/ControlBar.vue?raw";
@@ -16,7 +17,7 @@ const designSystemSource = readFileSync(
 vi.mock("@/components/uniques/CodeStrip/index.vue", () => ({
   default: {
     name: "CodeStrip",
-    props: ["density", "framed"],
+    props: ["density", "durationMode", "framed"],
     template: '<div data-testid="code-strip" />',
   },
 }));
@@ -41,11 +42,13 @@ describe("CodeStripBar.vue", () => {
     expect(wrapper.get('button[aria-label="Play"]').exists()).toBe(true);
     expect(wrapper.get('button[aria-label="Delete last event"]').exists()).toBe(true);
     expect(wrapper.get('button[aria-label="Return"]').exists()).toBe(true);
-    const beats = wrapper.get('[aria-label="Pattern beat"]').findAll(".beat-indicator__beat");
-    expect(beats).toHaveLength(4);
-    expect(beats.map((beat) => beat.attributes("data-mark")))
-      .toEqual(["square", "square", "square", "square"]);
-    expect(codeStripBarSource).not.toContain(":marks=");
+    expect(wrapper.get('.beat-indicator__crown[aria-label="Pattern beat"]')
+      .findAll(".beat-indicator__beat")).toHaveLength(4);
+    expect(wrapper.get('button[aria-label="Play"] .paper-button__lip').exists()).toBe(true);
+    expect(wrapper.get(".beat-indicator").find('button[aria-label="Play"]').exists()).toBe(true);
+    expect(wrapper.get(".beat-indicator").find('button[aria-label="Delete last event"]').exists())
+      .toBe(false);
+    expect(codeStripBarSource).not.toContain(":beats=");
     expect(wrapper.get("[data-testid='code-strip']").exists()).toBe(true);
     expect(codeStripBarSource).not.toContain("humming-capture-transport");
     expect(codeStripBarSource).not.toContain("Hummed take");
@@ -56,6 +59,7 @@ describe("CodeStripBar.vue", () => {
     const strip = wrapper.getComponent({ name: "CodeStrip" });
 
     expect(strip.props("density")).toBe("dense");
+    expect(strip.props("durationMode")).toBe("bar");
     expect(strip.props("framed")).toBe(false);
     expect(codeStripSource).toMatch(
       /\.code-strip--dense[\s\S]*?\.cm-content\)[\s\S]*?padding:\s*0;/,
@@ -63,7 +67,7 @@ describe("CodeStripBar.vue", () => {
     expect(codeStripSource).toMatch(
       /\.code-strip--unframed\s*{[\s\S]*?border:\s*0;[\s\S]*?background:\s*transparent;/,
     );
-    expect(codeStripSource).toContain("bgFill: false");
+    expect(patternPlaybackSource).toContain("bgFill: false");
     expect(codeStripSource).toMatch(
       /\.code-strip--unframed[\s\S]*?\.cm-activeLine\)[\s\S]*?background-color:\s*transparent\s*!important;/,
     );

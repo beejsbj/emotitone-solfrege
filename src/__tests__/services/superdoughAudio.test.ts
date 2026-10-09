@@ -22,6 +22,7 @@ const hoisted = vi.hoisted(() => {
     mockGetSound: vi.fn(() => ({ data: {} })),
     mockHasVoice: vi.fn().mockReturnValue(false),
     mockStopVoice: vi.fn(),
+    mockCancelVoice: vi.fn(),
     mockReleaseVoice: vi.fn(),
     mockReleaseAllVoices: vi.fn(),
     mockInitStrudel: vi.fn().mockResolvedValue(undefined),
@@ -47,6 +48,7 @@ vi.mock("superdough", () => ({
   },
   hasVoice: hoisted.mockHasVoice,
   stopVoice: hoisted.mockStopVoice,
+  cancelVoice: hoisted.mockCancelVoice,
   releaseVoice: hoisted.mockReleaseVoice,
   releaseAllVoices: hoisted.mockReleaseAllVoices,
 }));
@@ -98,6 +100,108 @@ describe("superdoughAudio live note handling", () => {
     hoisted.mockGetSound.mockReturnValue({ data: {} });
     hoisted.mockLoadBuffer.mockResolvedValue(undefined);
     hoisted.mockPrewarmSoundfont.mockResolvedValue(undefined);
+    hoisted.mockSamples.mockResolvedValue(undefined);
+    hoisted.mockInitAudio.mockReset().mockResolvedValue(undefined);
+  });
+
+  it("initializes the canonical audio graph once without bootstrapping a hidden Strudel REPL", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    await Promise.all([audio.initSuperdoughAudio(), audio.initSuperdoughAudio()]);
+    await audio.initSuperdoughAudio();
+
+    expect(hoisted.mockInitAudio).toHaveBeenCalledOnce();
+    expect(hoisted.mockInitStrudel).not.toHaveBeenCalled();
+  });
+
+  it("tags only sample-pack failures as SampleLoadError, never a graph failure after the samples load", async () => {
+    const { SampleLoadError } = await import("@/services/audioFailures");
+    const audio = await import("@/services/superdoughAudio");
+
+    hoisted.mockSamples.mockRejectedValueOnce(new Error("error loading piano.json"));
+    await expect(audio.initSuperdoughAudio()).rejects.toBeInstanceOf(SampleLoadError);
+
+    hoisted.mockInitAudio.mockRejectedValueOnce(new Error("AudioWorklet failed"));
+    const graph = await audio.initSuperdoughAudio().catch((error: unknown) => error);
+    expect(graph).toBeInstanceOf(Error);
+    expect(graph).not.toBeInstanceOf(SampleLoadError);
+  });
+
+  it("reports which startup step is pending, and synth-only refuses rather than awaiting a hung engine", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    expect(audio.getAudioStartupStage()).toBe("idle");
+
+    const pendingPacks: Array<() => void> = [];
+    const finishSamples = () => pendingPacks.forEach((resolve) => resolve());
+    hoisted.mockSamples.mockImplementation(() => new Promise<void>((resolve) => { pendingPacks.push(resolve); }));
+    hoisted.mockInitAudio.mockImplementationOnce(() => new Promise(() => {})); // the engine hangs
+    void audio.initSuperdoughAudio();
+    await Promise.resolve();
+    expect(audio.getAudioStartupStage()).toBe("samples");
+
+    finishSamples();
+    await vi.waitFor(() => expect(audio.getAudioStartupStage()).toBe("engine"));
+
+    const synthOnly = audio.initSynthOnlyAudio();
+    await expect(synthOnly).rejects.toThrow("still starting");
+    expect(hoisted.mockInitAudio).toHaveBeenCalledOnce(); // no second, queued engine start
+  });
+
+  it("marks startup ready once the synth-only start succeeds while samples are still pending", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    hoisted.mockSamples.mockImplementation(() => new Promise(() => {})); // the download hangs
+    void audio.initSuperdoughAudio();
+    await Promise.resolve();
+    expect(audio.getAudioStartupStage()).toBe("samples");
+
+    await audio.initSynthOnlyAudio();
+    expect(audio.getAudioStartupStage()).toBe("ready");
+    expect(audio.isPrewarmed("triangle")).toBe(true);
+  });
+
+  it("starts basic synths without the sample packs after a failed load, so notes stop retrying the download", async () => {
+    hoisted.mockSamples.mockRejectedValue(new Error("error loading piano.json"));
+    const audio = await import("@/services/superdoughAudio");
+    await expect(audio.initSuperdoughAudio()).rejects.toThrow("piano.json");
+    const packFetches = hoisted.mockSamples.mock.calls.length;
+
+    await audio.initSynthOnlyAudio();
+    expect(hoisted.mockRegisterSynthSounds).toHaveBeenCalled();
+    expect(hoisted.mockInitAudio).toHaveBeenCalledOnce();
+    expect(audio.isPrewarmed("triangle")).toBe(true);
+
+    await audio.attackNote("basic-1", "C4", "triangle");
+    expect(hoisted.mockSuperdough).toHaveBeenCalledOnce();
+    expect(hoisted.mockSamples).toHaveBeenCalledTimes(packFetches);
+  });
+
+  it("schedules rhythmic attacks and releases on the audio clock and cancels queued voices", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    await audio.attackNote("pulse-1", "C4", "synth", { atTime: 12.05, release: 0.03 });
+    expect(hoisted.mockSuperdough).toHaveBeenCalledWith(
+      expect.objectContaining({ voiceId: "pulse-1", release: 0.03 }),
+      12.05,
+      0.25,
+      1,
+    );
+    audio.releaseNote("pulse-1", 12.25);
+    expect(hoisted.mockReleaseVoice).toHaveBeenCalledWith("pulse-1", 12.25);
+    audio.stopNote("pulse-1");
+    expect(hoisted.mockCancelVoice).toHaveBeenCalledWith("pulse-1");
+    expect(hoisted.mockStopVoice).not.toHaveBeenCalled();
+  });
+
+  it("moves an immediate explicit attack just ahead of the audio clock", async () => {
+    const audio = await import("@/services/superdoughAudio");
+
+    await expect(
+      audio.attackNote("pulse-1", "C4", "synth", { atTime: 12, release: 0.03 }),
+    ).resolves.toBe(12.005);
+    expect(hoisted.mockSuperdough).toHaveBeenCalledWith(
+      expect.objectContaining({ voiceId: "pulse-1" }),
+      12.005,
+      0.25,
+      1,
+    );
   });
 
   it("attacks a live note as a held voice with voice ownership", async () => {
@@ -110,16 +214,144 @@ describe("superdoughAudio live note handling", () => {
         s: "triangle",
         note: "C4",
         gain: 0.8,
-        attack: 0.01,
-        release: 1.5,
+        attack: 0.003,
+        release: 0.12,
+        decay: 0.001,
+        sustain: 1,
         voiceId: "note-1",
         sustainUntilRelease: true,
+        orbit: 2,
       }),
-      12.01,
+      12.005,
       0.25,
       1,
     );
     expect(hoisted.mockReleaseVoice).not.toHaveBeenCalled();
+  });
+
+  it("keeps native sample articulation on reset while applying shared shaping", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    audio.setLiveSynthControls({
+      cutoff: 2400,
+      resonance: 3,
+      attack: 0.003,
+      release: 0.12,
+      room: 0.4,
+      delay: 0.6,
+      overrides: { attack: false, release: false },
+    });
+
+    await audio.attackNote("sample-1", "C4", "piano");
+
+    expect(hoisted.mockSuperdough).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attack: 0.001,
+        release: 0.2,
+        cutoff: 2400,
+        resonance: 3,
+        room: 0.4,
+        delay: 0.6,
+        delaytime: 0.25,
+        delayfeedback: 0.3,
+        orbit: 2,
+      }),
+      expect.any(Number), 0.25, 1,
+    );
+  });
+
+  it("keeps GM pad articulation when envelope overrides are not active", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    audio.setLiveSynthControls({
+      attack: 0.003,
+      release: 0.12,
+      overrides: { attack: false, release: false },
+    });
+
+    await audio.attackNote("pad-1", "C4", "gm_pad_1");
+
+    expect(hoisted.mockSuperdough).toHaveBeenCalledWith(
+      expect.objectContaining({ attack: 0.01, release: 0.4 }),
+      expect.any(Number), 0.25, 1,
+    );
+  });
+
+  it("applies an explicit sample envelope override and uses the same effect payload for preview", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    audio.setLiveSynthControls({
+      attack: 0.003,
+      release: 0.12,
+      room: 0.25,
+      delay: 0.5,
+      overrides: { attack: true, release: true },
+    });
+
+    await audio.attackNote("sample-2", "C4", "piano");
+    expect(hoisted.mockSuperdough).toHaveBeenCalledWith(
+      expect.objectContaining({ attack: 0.003, release: 0.12, room: 0.25, delay: 0.5 }),
+      expect.any(Number), 0.25, 1,
+    );
+
+    hoisted.mockSuperdough.mockClear();
+    await audio.playNoteWithDuration("C4", 500, "piano");
+    expect(hoisted.mockSuperdough).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attack: 0.003,
+        release: 0.12,
+        room: 0.25,
+        delay: 0.5,
+        delaytime: 0.25,
+        delayfeedback: 0.3,
+        orbit: 2,
+      }),
+      expect.any(Number), 0.5, 1,
+    );
+  });
+
+  it("submits a ready note synchronously and preserves explicit articulation", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    await audio.initSuperdoughAudio();
+    hoisted.mockSuperdough.mockClear();
+    const pending = audio.attackNote("ready", "C4", "piano", { attack: 0.004, release: 0.06 });
+    expect(hoisted.mockSuperdough).toHaveBeenCalledWith(
+      expect.objectContaining({ voiceId: "ready", attack: 0.004, release: 0.06 }),
+      12.005, 0.25, 1,
+    );
+    await pending;
+  });
+
+  it("retains context resumption before scheduling an otherwise ready instrument", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    await audio.initSuperdoughAudio();
+    hoisted.mockAudioContext.state = "suspended";
+    hoisted.mockSuperdough.mockClear();
+    let resumed!: () => void;
+    hoisted.mockAudioContext.resume.mockImplementationOnce(() => new Promise<void>((resolve) => { resumed = resolve; }));
+    const pending = audio.attackNote("resume", "C4", "piano");
+    expect(hoisted.mockSuperdough).not.toHaveBeenCalled();
+    hoisted.mockAudioContext.state = "running";
+    resumed();
+    await pending;
+    expect(hoisted.mockSuperdough).toHaveBeenCalledWith(
+      expect.objectContaining({ voiceId: "resume", attack: 0.001, release: 0.2 }),
+      12.005, 0.25, 1,
+    );
+  });
+
+  it("reports a late audible onset when an unprepared sound crosses its deadline", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    hoisted.mockGetSound.mockReturnValue({ data: { type: "soundfont" } });
+    hoisted.mockSuperdough.mockImplementationOnce(async () => {
+      hoisted.mockAudioContext.currentTime = 12.1;
+    });
+
+    await expect(audio.attackNote("note-1", "C4", "gm_piano", { atTime: 12.05 })).resolves.toBe(12.1);
+  });
+
+  it("reports the engine's clamped onset even for a prepared voice", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    await audio.initSuperdoughAudio();
+    hoisted.mockSuperdough.mockResolvedValueOnce(12.012);
+    await expect(audio.attackNote("overtaken", "C4", "piano")).resolves.toBe(12.012);
   });
 
   it("stops a stale live voice before reusing the same note id", async () => {
@@ -193,27 +425,24 @@ describe("superdoughAudio live note handling", () => {
     expect(audio.isPrewarmed("gm_celesta")).toBe(true);
   });
 
-  it("decodes only the default piano during startup", async () => {
-    hoisted.mockGetSound.mockImplementation((name: string) =>
-      name === "piano"
-        ? { data: { samples: ["https://example.test/piano.wav"] } }
-        : {
-            data: {
-              type: "soundfont",
-              fonts: [`${name}_font`],
-            },
-          }
-    );
+  it("prepares only the default oscillator during startup, decoding no sample banks", async () => {
+    hoisted.mockGetSound.mockImplementation((name: string) => {
+      if (name === "triangle") return { data: { type: "synth" } };
+      if (name === "piano") {
+        return { data: { samples: ["https://example.test/piano.wav"] } };
+      }
+      return { data: { type: "soundfont", fonts: [`${name}_font`] } };
+    });
     const audio = await import("@/services/superdoughAudio");
+    const { DEFAULT_INSTRUMENT } = await import("@/data/instruments");
 
     await audio.initSuperdoughAudio();
 
-    expect(hoisted.mockLoadBuffer).toHaveBeenCalledTimes(1);
-    expect(hoisted.mockLoadBuffer).toHaveBeenCalledWith(
-      "https://example.test/piano.wav",
-      hoisted.mockAudioContext
-    );
+    expect(DEFAULT_INSTRUMENT).toBe("triangle");
+    expect(audio.isPrewarmed("triangle")).toBe(true);
+    expect(hoisted.mockLoadBuffer).not.toHaveBeenCalled();
     expect(hoisted.mockPrewarmSoundfont).not.toHaveBeenCalled();
+    expect(audio.isPrewarmed("piano")).toBe(false);
   });
 
   it("leaves a soundfont cold when its preset fails to warm", async () => {
@@ -240,7 +469,7 @@ describe("superdoughAudio live note handling", () => {
       12,
       0.25,
       1,
-      0,
+      12.1,
     );
 
     const played = dispatchEvent.mock.calls
@@ -259,11 +488,28 @@ describe("superdoughAudio live note handling", () => {
       isBorrowed: true,
       source: "strudel-playback",
     });
+    expect(audio.getActiveStrudelStageNotes()).toEqual([
+      expect.objectContaining({
+        noteId: played.detail.noteId,
+        noteName: "D#4",
+        solfege: expect.objectContaining({ name: "D#" }),
+        frequency: 311.13,
+        octave: 4,
+        keyboardOctave: 4,
+        solfegeIndex: -1,
+        pitchClassIndex: 3,
+        mode: "major",
+        key: "C",
+      }),
+    ]);
 
     await vi.advanceTimersByTimeAsync(250);
+    expect(audio.getActiveStrudelStageNotes()).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(100);
     const released = dispatchEvent.mock.calls
       .map(([event]) => event)
       .find((event) => event.type === "note-released") as CustomEvent;
+    expect(released.detail.audibleAt - played.detail.audibleAt).toBeCloseTo(250);
     expect(released.detail).toMatchObject({
       note: "D#",
       noteName: "D#4",
@@ -272,8 +518,35 @@ describe("superdoughAudio live note handling", () => {
       isBorrowed: true,
       source: "strudel-playback",
     });
+    expect(audio.getActiveStrudelStageNotes()).toEqual([]);
 
     vi.useRealTimers();
+  });
+
+  it("presents a short clipped gate without stretching its note-off to 40 ms", async () => {
+    vi.useFakeTimers();
+    try {
+      const dispatchEvent = vi.spyOn(window, "dispatchEvent");
+      const audio = await import("@/services/superdoughAudio");
+      await audio.emotitoneStrudelOutput({ value: { note: "C4", s: "piano", clip: 0.02 } }, 0, 0.005, 1, 12);
+      await vi.advanceTimersByTimeAsync(5);
+      expect(audio.getActiveStrudelStageNotes()).toEqual([]);
+      const events = dispatchEvent.mock.calls.map(([event]) => event as CustomEvent);
+      const played = events.find(event => event.type === "note-played")!;
+      const released = events.find(event => event.type === "note-released")!;
+      expect(released.detail.audibleAt - played.detail.audibleAt).toBeCloseTo(5);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not present a pattern event whose audio deadline was already missed", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    const dispatchEvent = vi.spyOn(window, "dispatchEvent");
+    await audio.emotitoneStrudelOutput({ value: { note: "C4", s: "piano" } }, 0, 0.1, 1, 11);
+    expect(hoisted.mockWebaudioOutput).toHaveBeenCalled();
+    expect(dispatchEvent.mock.calls.some(([event]) => event.type === "note-played")).toBe(false);
+    expect(audio.getActiveStrudelStageNotes()).toEqual([]);
   });
 
   it("surfaces explicit warmup failures and leaves the sound cold", async () => {

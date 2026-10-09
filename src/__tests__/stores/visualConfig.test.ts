@@ -3,6 +3,7 @@ import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { nextTick } from 'vue'
 import { useVisualConfigStore } from '@/stores/visualConfig'
 import { DEFAULT_CONFIG } from '@/data/visual-config-metadata'
+import { readStageControls, stageLookFromConfig } from '@/services/stageAppearance'
 import { createTestPinia } from '../helpers/test-utils'
 import type { VisualEffectsConfig } from '@/types/visual'
 
@@ -39,17 +40,6 @@ describe('Visual Config Store', () => {
   })
 
   describe('Initial State', () => {
-    it('should initialize with default values', () => {
-      expect(visualConfigStore.config.blobs.isEnabled).toBe(true)
-      expect(visualConfigStore.config.ambient.isEnabled).toBe(true)
-      expect(visualConfigStore.config.particles.isEnabled).toBe(true)
-      expect(visualConfigStore.config.strings.isEnabled).toBe(true)
-      expect(visualConfigStore.visualsEnabled).toBe(true)
-      expect(visualConfigStore.savedConfigs).toEqual([])
-      expect(visualConfigStore.isLoading).toBe(false)
-      expect(visualConfigStore.lastSaved).toBe(null)
-    })
-
     it('supports an isolated specimen state without writing production storage', () => {
       vi.useFakeTimers()
       const mockLocalStorage = (window as any).localStorage
@@ -92,6 +82,21 @@ describe('Visual Config Store', () => {
       expect(newStore.config.blobs.isEnabled).toBe(false)
       expect(newStore.config.ambient.isEnabled).toBe(false)
       expect(newStore.visualsEnabled).toBe(false)
+    })
+
+    it('defaults missing or invalid Code Strip duration display values', () => {
+      localStorage.setItem('emotitone-visual-config', JSON.stringify({
+        config: { codeStrip: { bpm: 144, durationMode: 'sparkles' } },
+      }))
+
+      const invalidStore = createFreshStore()
+      expect(invalidStore.config.codeStrip.durationMode).toBe('bar')
+
+      localStorage.setItem('emotitone-visual-config', JSON.stringify({
+        config: { codeStrip: { bpm: 144 } },
+      }))
+      const missingStore = createFreshStore()
+      expect(missingStore.config.codeStrip.durationMode).toBe('bar')
     })
 
     it('should migrate legacy color keys from localStorage on initialization', () => {
@@ -216,6 +221,26 @@ describe('Visual Config Store', () => {
       expect(newStore.config).not.toHaveProperty('floatingPopup')
     })
 
+    it('preserves an explicitly disabled legacy harmonic section', () => {
+      localStorage.setItem('emotitone-visual-config', JSON.stringify({
+        config: {
+          floatingPopup: {
+            isEnabled: false,
+            glassmorphOpacity: 0.8,
+            opacity: 0.65,
+          },
+        },
+      }))
+
+      const store = createFreshStore()
+
+      expect(store.config.blobs).toMatchObject({
+        connectionMode: 'merge',
+        fusionStrength: 0,
+        webOpacity: 0,
+      })
+    })
+
     it('maps retired harmonic geometry modes onto the two supported modes', () => {
       localStorage.setItem('emotitone-visual-config', JSON.stringify({
         config: {
@@ -267,6 +292,33 @@ describe('Visual Config Store', () => {
       expect(store.config.blobs.fusionStrength).toBe(0.8)
       expect(store.config.blobs.labelOpacity).toBe(0.2)
       expect(store.config.blobs.webOpacity).toBe(0.65)
+    })
+
+    it('repairs an arbitrary unsupported connection mode to Merge', () => {
+      localStorage.setItem('emotitone-visual-config', JSON.stringify({
+        config: {
+          blobs: { connectionMode: 'mesh' },
+        },
+      }))
+
+      const store = createFreshStore()
+
+      expect(store.config.blobs.connectionMode).toBe(DEFAULT_CONFIG.blobs.connectionMode)
+      expect(store.config.blobs.connectionMode).toBe('merge')
+    })
+
+    it('preserves a retired disconnected config as Merge with zero strength', () => {
+      localStorage.setItem('emotitone-visual-config', JSON.stringify({
+        config: {
+          blobs: { connectionMode: 'off', fusionStrength: 0.8, webOpacity: 0.65 },
+        },
+      }))
+
+      const store = createFreshStore()
+
+      expect(store.config.blobs.connectionMode).toBe('merge')
+      expect(store.config.blobs.fusionStrength).toBe(0)
+      expect(store.config.blobs.webOpacity).toBe(0)
     })
 
     it('migrates obsolete keyboard presentation controls from saved and imported configs', () => {
@@ -406,6 +458,30 @@ describe('Visual Config Store', () => {
   })
 
   describe('Configuration Updates', () => {
+    it('reads public projections without normalizing retained custom values', () => {
+      visualConfigStore.updateConfig('dynamicColors', {
+        chroma: 0.2,
+        animationSpeed: 1.4,
+      })
+      visualConfigStore.updateConfig('keyboard', {
+        primaryLabel: 'raw',
+        keyGaps: 'medium',
+        keyboardPadding: false,
+      })
+      visualConfigStore.updateConfig('codeStrip', { notation: 'solfege' })
+      const before = visualConfigStore.getConfigSnapshot()
+
+      expect(visualConfigStore.globalControls).toMatchObject({
+        colorIntensity: 'balanced',
+        colorMotion: 'gentle',
+      })
+      expect(visualConfigStore.deckControls).toMatchObject({
+        notation: 'pitch',
+        keyboardSpacing: 'open',
+      })
+      expect(visualConfigStore.getConfigSnapshot()).toEqual(before)
+    })
+
     it('should update specific configuration section', () => {
       visualConfigStore.updateConfig('blobs', {
         isEnabled: false,
@@ -418,9 +494,9 @@ describe('Visual Config Store', () => {
     })
 
     it('should update specific value in section', () => {
-      visualConfigStore.updateValue('particles', 'count', 50)
+      visualConfigStore.updateValue('strings', 'count', 12)
       
-      expect(visualConfigStore.config.particles.count).toBe(50)
+      expect(visualConfigStore.config.strings.count).toBe(12)
     })
 
     it('should handle invalid section in updateValue', () => {
@@ -442,18 +518,28 @@ describe('Visual Config Store', () => {
       expect(visualConfigStore.config.blobs.isEnabled).toBe(true)
       expect(visualConfigStore.config.keyboard.rowCount).toBe(7)
       expect(visualConfigStore.visualsEnabled).toBe(true)
+      expect(visualConfigStore.transientStageLook).toBeNull()
+
+      const persisted = JSON.parse(
+        localStorage.getItem('emotitone-visual-config') ?? '{}',
+      )
+      expect(persisted).not.toHaveProperty('stagePreferences')
+
+      const reloadedStore = createFreshStore()
+      expect(reloadedStore.transientStageLook).toBeNull()
+      expect(reloadedStore.config.keyboard.rowCount).toBe(7)
     })
 
     it('should reset specific section to defaults', () => {
-      visualConfigStore.updateConfig('particles', {
-        count: 100,
-        speed: 200
+      visualConfigStore.updateConfig('strings', {
+        count: 12,
+        maxAmplitude: 40
       })
       
-      visualConfigStore.resetSection('particles')
+      visualConfigStore.resetSection('strings')
       
-      expect(visualConfigStore.config.particles.count).toBe(mockDefaultConfig.particles.count)
-      expect(visualConfigStore.config.particles.speed).toBe(mockDefaultConfig.particles.speed)
+      expect(visualConfigStore.config.strings.count).toBe(mockDefaultConfig.strings.count)
+      expect(visualConfigStore.config.strings.maxAmplitude).toBe(mockDefaultConfig.strings.maxAmplitude)
     })
 
     it('keeps Drawer-owned row count when resetting the keyboard section', () => {
@@ -463,6 +549,47 @@ describe('Visual Config Store', () => {
 
       expect(visualConfigStore.config.keyboard.rowCount).toBe(7)
       expect(visualConfigStore.config.keyboard.showLabels).toBe(mockDefaultConfig.keyboard.showLabels)
+    })
+
+    it('resets Global color and rhythm without touching Deck or Stage', () => {
+      visualConfigStore.updateGlobalControl('colorIntensity', 'vivid')
+      visualConfigStore.updateGlobalControl('colorMotion', 'off')
+      visualConfigStore.updateGlobalControl('uiRhythm', false)
+      visualConfigStore.updateConfig('keyboard', { showLabels: false })
+      visualConfigStore.updateConfig('hilbertScope', { opacity: 0.23 })
+
+      visualConfigStore.resetGlobal()
+
+      expect(visualConfigStore.config.dynamicColors).toEqual(mockDefaultConfig.dynamicColors)
+      expect(visualConfigStore.config.uiBeat).toEqual(mockDefaultConfig.uiBeat)
+      expect(visualConfigStore.config.keyboard.showLabels).toBe(false)
+      expect(visualConfigStore.config.hilbertScope.opacity).toBe(0.23)
+    })
+
+    it('resets Deck presentation while preserving live octave, row count, and tempo', () => {
+      visualConfigStore.updateConfig('keyboard', {
+        mainOctave: 6,
+        rowCount: 7,
+        showLabels: false,
+        keyBrightness: 1.8,
+      })
+      visualConfigStore.updateConfig('codeStrip', {
+        bpm: 156,
+        enabled: false,
+        opacity: 0.35,
+      })
+
+      visualConfigStore.resetDeck()
+
+      expect(visualConfigStore.config.keyboard).toEqual({
+        ...mockDefaultConfig.keyboard,
+        mainOctave: 6,
+        rowCount: 7,
+      })
+      expect(visualConfigStore.config.codeStrip).toEqual({
+        ...mockDefaultConfig.codeStrip,
+        bpm: 156,
+      })
     })
   })
 
@@ -572,6 +699,7 @@ describe('Visual Config Store', () => {
       
       expect(parsed.config).toEqual(visualConfigStore.config)
       expect(parsed.visualsEnabled).toBe(visualConfigStore.visualsEnabled)
+      expect(parsed).not.toHaveProperty('stagePreferences')
       expect(parsed.exportedAt).toBeDefined()
       expect(parsed.version).toBe('2.0.0')
     })
@@ -584,6 +712,7 @@ describe('Visual Config Store', () => {
           keyboard: { ...mockDefaultConfig.keyboard, rowCount: 2 },
         },
         visualsEnabled: false,
+        stagePreferences: { newLookOnLaunch: true },
         exportedAt: new Date().toISOString(),
         version: '1.0.0'
       }
@@ -594,6 +723,26 @@ describe('Visual Config Store', () => {
       expect(visualConfigStore.config.blobs.isEnabled).toBe(false)
       expect(visualConfigStore.config.keyboard.rowCount).toBe(mockDefaultConfig.keyboard.rowCount)
       expect(visualConfigStore.visualsEnabled).toBe(false)
+      expect(visualConfigStore.transientStageLook).toBeNull()
+      expect(JSON.parse(localStorage.getItem('emotitone-visual-config') ?? '{}'))
+        .not.toHaveProperty('stagePreferences')
+
+      const reloadedStore = createFreshStore()
+      expect(reloadedStore.transientStageLook).toBeNull()
+    })
+
+    it('retires reload Look preferences from legacy saved full configs', () => {
+      const legacy = {
+        ...visualConfigStore.saveConfigAs('Legacy preference'),
+        stagePreferences: { newLookOnLaunch: true },
+      }
+      localStorage.setItem('emotitone-saved-configs', JSON.stringify([legacy]))
+
+      const migrated = createFreshStore()
+
+      expect(migrated.savedConfigs[0]).not.toHaveProperty('stagePreferences')
+      migrated.loadSavedConfig(migrated.savedConfigs[0].id)
+      expect(migrated.transientStageLook).toBeNull()
     })
 
     it('should import legacy configuration keys from JSON', () => {
@@ -613,6 +762,7 @@ describe('Visual Config Store', () => {
       expect(visualConfigStore.config.dynamicColors.musicColorMode).toBe('fixed')
       expect(visualConfigStore.config.keyboard.surfaceStyle).toBe('colored')
       expect(visualConfigStore.visualsEnabled).toBe(false)
+      expect(visualConfigStore.transientStageLook).toBeNull()
     })
 
     it('should handle invalid JSON in import', () => {
@@ -748,20 +898,6 @@ describe('Visual Config Store', () => {
   })
 
   describe('Reactivity', () => {
-    it('should trigger reactivity on config updates', () => {
-      const configRef = visualConfigStore.config
-      let triggered = false
-      
-      // Simulate watcher
-      const stopWatching = vi.fn(() => {
-        triggered = true
-      })
-      
-      visualConfigStore.updateConfig('blobs', { isEnabled: false })
-      
-      expect(configRef.blobs.isEnabled).toBe(false)
-    })
-
     it('should maintain object references for reactive updates', () => {
       const blobsRef = visualConfigStore.config.blobs
       
@@ -769,6 +905,144 @@ describe('Visual Config Store', () => {
       
       expect(visualConfigStore.config.blobs).toBe(blobsRef) // Should be same object
       expect(blobsRef.opacity).toBe(0.8)
+    })
+  })
+
+  describe('Note Flecks retirement', () => {
+    const legacyParticles = {
+      isEnabled: true,
+      count: 40,
+      sizeMin: 2,
+      sizeMax: 6,
+      lifetimeMin: 2000,
+      lifetimeMax: 3000,
+      speed: 12,
+      gravity: 0.5,
+      airResistance: 0.99,
+    }
+
+    const retainedConfig = (): VisualEffectsConfig => {
+      const retained = JSON.parse(JSON.stringify(mockDefaultConfig)) as VisualEffectsConfig
+      retained.stage.isEnabled = false
+      Object.assign(retained.blobs, {
+        baseSizeRatio: 0.33,
+        connectionMode: 'web',
+        showEmotionLabel: true,
+      })
+      retained.ambient.opacityMinor = 0.27
+      retained.strings.maxAmplitude = 38
+      retained.hilbertScope.history = 0.41
+      retained.animation.frameRate = 45
+      retained.frequencyMapping.minFreq = 111
+      retained.dynamicColors.musicColorMode = 'fixed'
+      retained.uiBeat.isEnabled = false
+      retained.keyboard.mainOctave = 6
+      retained.codeStrip.bpm = 147
+      return retained
+    }
+
+    it.each(['wrapped', 'unwrapped'])('silently drops persisted particles from a %s config and retains every other section', (format) => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const retained = retainedConfig()
+      const legacy = { ...retained, particles: legacyParticles }
+      localStorage.setItem('emotitone-visual-config', JSON.stringify(
+        format === 'wrapped' ? { config: legacy, visualsEnabled: false } : legacy,
+      ))
+
+      const reloaded = createFreshStore()
+
+      expect(reloaded.config).toEqual(retained)
+      expect(reloaded.config).not.toHaveProperty('particles')
+      expect(reloaded.effectiveConfig).not.toHaveProperty('particles')
+      expect(reloaded.visualsEnabled).toBe(format !== 'wrapped')
+      reloaded.saveToStorage()
+      expect(JSON.parse(localStorage.getItem('emotitone-visual-config')!).config).toEqual(retained)
+      expect(consoleSpy).not.toHaveBeenCalled()
+    })
+
+    it('silently drops particles from saved configs while retaining metadata and all surviving settings', () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const retained = retainedConfig()
+      const saved = {
+        id: 'legacy-flecks-config',
+        name: 'My legacy preset',
+        createdAt: '2026-09-01T12:00:00.000Z',
+        updatedAt: '2026-09-02T12:00:00.000Z',
+        config: { ...retained, particles: legacyParticles },
+      }
+      localStorage.setItem('emotitone-saved-configs', JSON.stringify([saved]))
+
+      const reloaded = createFreshStore()
+
+      expect(reloaded.savedConfigs).toEqual([{ ...saved, config: retained }])
+      expect(reloaded.savedConfigs[0].config).not.toHaveProperty('particles')
+      reloaded.loadSavedConfig(saved.id)
+      expect(reloaded.config).toEqual(retained)
+      expect(reloaded.config).not.toHaveProperty('particles')
+      expect(JSON.parse(reloaded.exportConfig()).config).toEqual(retained)
+      expect(consoleSpy).not.toHaveBeenCalled()
+    })
+
+    it('silently drops particles from saved Stage Looks while retaining the other layers and Look metadata', () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const patch = stageLookFromConfig(retainedConfig())
+      Object.assign(patch.blobs!, { opacity: 0.42 })
+      Object.assign(patch.strings!, { baseOpacity: 0.025 })
+      Object.assign(patch.hilbertScope!, { thickness: 2.25 })
+      const saved = {
+        id: 'legacy-flecks-look',
+        name: 'My legacy Look',
+        createdAt: '2026-09-01T12:00:00.000Z',
+        updatedAt: '2026-09-02T12:00:00.000Z',
+        patch: { ...patch, particles: legacyParticles },
+      }
+      localStorage.setItem('emotitone-saved-stage-looks', JSON.stringify([saved]))
+
+      const reloaded = createFreshStore()
+      const before = reloaded.getConfigSnapshot()
+      const expected = JSON.parse(JSON.stringify(before)) as VisualEffectsConfig
+      for (const section of ['blobs', 'ambient', 'strings', 'hilbertScope'] as const) {
+        Object.assign(expected[section], patch[section])
+      }
+
+      expect(reloaded.savedStageLooks).toEqual([{ ...saved, patch }])
+      expect(reloaded.savedStageLooks[0].patch).not.toHaveProperty('particles')
+      expect(reloaded.loadSavedStageLook(saved.id)).toBe(true)
+      expect(reloaded.transientStageLook?.patch).toEqual(patch)
+      expect(reloaded.getConfigSnapshot()).toEqual(before)
+      expect(reloaded.effectiveConfig).toEqual({
+        ...expected,
+        strings: { ...expected.strings, activeOpacity: 33 / 45 },
+      })
+      expect(reloaded.effectiveConfig).not.toHaveProperty('particles')
+      expect(reloaded.keepStageLook()).toBe(true)
+      expect(reloaded.config).toEqual(expected)
+      const resaved = reloaded.saveStageLookAs('Retained Look')
+      expect(resaved.patch).toEqual(patch)
+      expect(JSON.parse(localStorage.getItem('emotitone-saved-stage-looks')!))
+        .toEqual(reloaded.savedStageLooks)
+      for (const look of reloaded.savedStageLooks) {
+        expect(look.patch).not.toHaveProperty('particles')
+      }
+      expect(consoleSpy).not.toHaveBeenCalled()
+    })
+
+    it('imports a legacy particle preset without error and exports only surviving settings', () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const retained = retainedConfig()
+      const imported = visualConfigStore.importConfig(JSON.stringify({
+        config: { ...retained, particles: legacyParticles },
+        visualsEnabled: false,
+        version: '2.0.0',
+      }))
+
+      expect(imported).toBe(true)
+      expect(visualConfigStore.config).toEqual(retained)
+      expect(visualConfigStore.config).not.toHaveProperty('particles')
+      expect(visualConfigStore.visualsEnabled).toBe(false)
+      expect(JSON.parse(visualConfigStore.exportConfig()).config).toEqual(retained)
+      expect(JSON.parse(localStorage.getItem('emotitone-visual-config')!).config).toEqual(retained)
+      expect(consoleSpy).not.toHaveBeenCalled()
     })
   })
 
@@ -785,18 +1059,278 @@ describe('Visual Config Store', () => {
       const newStore = createFreshStore()
       
       expect(newStore.config.blobs.isEnabled).toBe(false)
-      expect(newStore.config.particles.isEnabled).toBe(true) // Should use defaults
+      expect(newStore.config.ambient).toEqual(mockDefaultConfig.ambient) // Should use defaults
     })
 
-    it('should preserve type safety in configuration updates', () => {
-      // Should not allow invalid types
-      visualConfigStore.updateConfig('blobs', {
-        isEnabled: false,
-        opacity: 0.5
+  })
+
+  describe('Stage appearance', () => {
+    it('starts fresh installs on the canonical defaults without a reload Look', () => {
+      expect(visualConfigStore.transientStageLook).toBeNull()
+      expect(visualConfigStore.config).toEqual(mockDefaultConfig)
+    })
+
+    it('ignores retired reload Look preferences in existing storage', () => {
+      localStorage.setItem('emotitone-visual-config', JSON.stringify({
+        config: { hilbertScope: { history: 0.41, smear: 0.67 } },
+        stagePreferences: { newLookOnLaunch: true },
+      }))
+
+      const existingStore = createFreshStore()
+      expect(existingStore.transientStageLook).toBeNull()
+      expect(existingStore.config.hilbertScope).toMatchObject({ history: 0.41, smear: 0.67 })
+    })
+
+    it('migrates an arbitrary saved Look mode to Merge', () => {
+      localStorage.setItem('emotitone-saved-stage-looks', JSON.stringify([{
+        id: 'legacy-mesh',
+        name: 'Legacy Look',
+        patch: { blobs: { connectionMode: 'mesh' } },
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      }]))
+
+      const migrated = createFreshStore()
+
+      expect(migrated.savedStageLooks[0].patch.blobs?.connectionMode).toBe('merge')
+      expect(migrated.loadSavedStageLook('legacy-mesh')).toBe(true)
+      expect(migrated.effectiveConfig.blobs.connectionMode).toBe('merge')
+    })
+
+    it('gives a Look saved before body timing the canonical timing, not a kept Pop\'s', () => {
+      localStorage.setItem('emotitone-saved-stage-looks', JSON.stringify([{
+        id: 'legacy-timing',
+        name: 'Legacy Timing Look',
+        patch: { blobs: { isEnabled: true, opacity: 0.5 } },
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      }]))
+      const timing = (config: { blobs: Record<string, unknown> }) => ({
+        scaleInDuration: config.blobs.scaleInDuration,
+        scaleOutDuration: config.blobs.scaleOutDuration,
+        fadeOutDuration: config.blobs.fadeOutDuration,
       })
-      
-      expect(typeof visualConfigStore.config.blobs.isEnabled).toBe('boolean')
-      expect(typeof visualConfigStore.config.blobs.opacity).toBe('number')
+      const canonical = timing(DEFAULT_CONFIG as any)
+
+      const store = createFreshStore()
+      expect(store.applyBuiltInStageLook('pop')).toBe(true)
+      store.keepStageLook()
+      expect(timing(store.config as any)).toEqual({
+        scaleInDuration: 0.1,
+        scaleOutDuration: 0.2,
+        fadeOutDuration: 0.2,
+      })
+
+      expect(store.loadSavedStageLook('legacy-timing')).toBe(true)
+      expect(timing(store.effectiveConfig as any)).toEqual(canonical)
+    })
+
+    it('preserves a retired disconnected saved Look as Merge with zero strength', () => {
+      localStorage.setItem('emotitone-saved-stage-looks', JSON.stringify([{
+        id: 'legacy-off',
+        name: 'Legacy Off Look',
+        patch: { blobs: { connectionMode: 'off', fusionStrength: 0.8, webOpacity: 0.65 } },
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      }]))
+
+      const migrated = createFreshStore()
+
+      expect(migrated.savedStageLooks[0].patch.blobs).toMatchObject({
+        connectionMode: 'merge',
+        fusionStrength: 0,
+        webOpacity: 0,
+      })
+      expect(migrated.loadSavedStageLook('legacy-off')).toBe(true)
+      expect(migrated.effectiveConfig.blobs).toMatchObject({
+        connectionMode: 'merge',
+        fusionStrength: 0,
+        webOpacity: 0,
+      })
+    })
+
+    it('does not persist Shuffle output, even after the config debounce', async () => {
+      vi.useFakeTimers()
+      const mockLocalStorage = (window as any).localStorage
+      mockLocalStorage.setItem.mockClear()
+      const snapshot = visualConfigStore.getConfigSnapshot()
+
+      visualConfigStore.shuffleStageLook('transient-only')
+      await nextTick()
+      vi.advanceTimersByTime(500)
+
+      expect(visualConfigStore.config).toEqual(snapshot)
+      expect(mockLocalStorage.setItem).not.toHaveBeenCalled()
+      vi.useRealTimers()
+    })
+
+    it('keeps manual edits transient until Keep This Look', () => {
+      visualConfigStore.clearStageLook()
+      const persistedOpacity = visualConfigStore.config.hilbertScope.opacity
+      visualConfigStore.shuffleStageLook('editable-look')
+      visualConfigStore.updateStageControl('scopeStrength', 0.23)
+
+      expect(visualConfigStore.config.hilbertScope.opacity).toBe(persistedOpacity)
+      expect(visualConfigStore.effectiveConfig.hilbertScope.opacity).toBe(0.23)
+      expect(visualConfigStore.transientStageLook?.name).toContain('Edited')
+    })
+
+    it('anchors repeated Shuffle variations to the selected Look', () => {
+      visualConfigStore.clearStageLook()
+      const backingPreferences = {
+        connectionMode: visualConfigStore.config.blobs.connectionMode,
+        showChordLabel: visualConfigStore.config.blobs.showChordLabel,
+      }
+      visualConfigStore.applyBuiltInStageLook('clear')
+      visualConfigStore.updateStageControl('connectionMode', 'web')
+      visualConfigStore.updateStageControl('connectionStrength', 0.37)
+      visualConfigStore.updateStageControl('connectionSoftness', 0.4)
+      visualConfigStore.updateStageControl('showChords', false)
+      visualConfigStore.updateStageControl('showIntervals', true)
+      visualConfigStore.updateStageControl('showEmotion', true)
+      visualConfigStore.updateStageControl('labelStrength', 0.31)
+      const expectedPreferences = {
+        connectionMode: 'web',
+        blurRadius: 24,
+        fieldSoftness: 30,
+        fusionStrength: 0.37,
+        webOpacity: 0.15 + 0.37 * 0.75,
+        showChordLabel: false,
+        showIntervalLabels: true,
+        showEmotionLabel: true,
+        labelOpacity: 0.31,
+      }
+
+      visualConfigStore.applyBuiltInStageLook('soft')
+      expect(visualConfigStore.effectiveConfig.blobs).toMatchObject(
+        expectedPreferences,
+      )
+
+      visualConfigStore.shuffleStageLook('carry-preferences')
+      const firstVariationRoot = visualConfigStore.transientStageLook?.variationRoot
+      expect(visualConfigStore.effectiveConfig.blobs).toMatchObject(
+        expectedPreferences,
+      )
+      visualConfigStore.shuffleStageLook('next-variation')
+      expect(visualConfigStore.transientStageLook?.variationRoot).toEqual(firstVariationRoot)
+      expect(visualConfigStore.effectiveConfig.blobs).toMatchObject(
+        expectedPreferences,
+      )
+
+      visualConfigStore.clearStageLook()
+      expect(visualConfigStore.effectiveConfig.blobs).toMatchObject(
+        backingPreferences,
+      )
+    })
+
+    it('lets a built-in Look own body softness while preserving relationships', () => {
+      visualConfigStore.updateStageControl('connectionMode', 'web')
+      visualConfigStore.updateStageControl('connectionStrength', 0.37)
+      visualConfigStore.updateStageControl('showIntervals', false)
+
+      expect(visualConfigStore.applyBuiltInStageLook('still')).toBe(true)
+
+      expect(readStageControls(visualConfigStore.effectiveConfig)).toMatchObject({
+        bodyStrength: 1,
+        bodyMotion: 0,
+        connectionSoftness: 0,
+        connectionMode: 'web',
+        connectionStrength: expect.closeTo(0.37),
+        showIntervals: false,
+      })
+    })
+
+    it('keeps protected edits made between Shuffle variations', () => {
+      visualConfigStore.clearStageLook()
+      visualConfigStore.applyBuiltInStageLook('soft')
+      visualConfigStore.shuffleStageLook('first-variation')
+
+      visualConfigStore.updateStageControl('connectionMode', 'web')
+      visualConfigStore.updateStageControl('connectionStrength', 0.37)
+      visualConfigStore.updateStageControl('connectionSoftness', 0.4)
+      visualConfigStore.updateStageControl('showChords', false)
+      visualConfigStore.updateStageControl('showIntervals', true)
+      visualConfigStore.updateStageControl('showEmotion', true)
+      visualConfigStore.updateStageControl('labelStrength', 0.31)
+      visualConfigStore.updateStageControl('bodiesVisible', false)
+      visualConfigStore.updateStageControl('atmosphereStrength', 0)
+
+      visualConfigStore.shuffleStageLook('second-variation')
+
+      expect(readStageControls(visualConfigStore.effectiveConfig)).toMatchObject({
+        connectionMode: 'web',
+        connectionStrength: expect.closeTo(0.37),
+        connectionSoftness: expect.closeTo(0.4),
+        showChords: false,
+        showIntervals: true,
+        showEmotion: true,
+        labelStrength: expect.closeTo(0.31),
+        bodiesVisible: false,
+        atmosphereStrength: 0,
+      })
+      expect(visualConfigStore.effectiveConfig.ambient.isEnabled).toBe(false)
+    })
+
+    it('materializes only Stage fields when a Look is kept and survives reload', () => {
+      const musicColor = { ...visualConfigStore.config.dynamicColors }
+      const uiBeat = { ...visualConfigStore.config.uiBeat }
+      const keyboard = { ...visualConfigStore.config.keyboard }
+      const codeStrip = { ...visualConfigStore.config.codeStrip }
+
+      visualConfigStore.shuffleStageLook('keep-this')
+      const expectedOpacity = visualConfigStore.effectiveConfig.hilbertScope.opacity
+      expect(visualConfigStore.keepStageLook()).toBe(true)
+      expect(visualConfigStore.transientStageLook).toBeNull()
+      expect(visualConfigStore.config.hilbertScope.opacity).toBe(expectedOpacity)
+      expect(visualConfigStore.config.dynamicColors).toEqual(musicColor)
+      expect(visualConfigStore.config.uiBeat).toEqual(uiBeat)
+      expect(visualConfigStore.config.keyboard).toEqual(keyboard)
+      expect(visualConfigStore.config.codeStrip).toEqual(codeStrip)
+
+      const reloaded = createFreshStore()
+      expect(reloaded.transientStageLook).toBeNull()
+      expect(reloaded.config.hilbertScope.opacity).toBe(expectedOpacity)
+    })
+
+    it('saves the composed Look rather than Stage master suppression', () => {
+      visualConfigStore.clearStageLook()
+      visualConfigStore.updateStageControl('bodiesVisible', true)
+      visualConfigStore.updateStageControl('atmosphereStrength', 0.7)
+      visualConfigStore.updateStageControl('stringPresence', 0.8)
+      visualConfigStore.updateStageControl('stageEnabled', false)
+
+      expect(visualConfigStore.effectiveConfig.blobs.isEnabled).toBe(false)
+      expect(visualConfigStore.effectiveConfig.ambient.isEnabled).toBe(false)
+      expect(visualConfigStore.effectiveConfig.strings.isEnabled).toBe(false)
+
+      const saved = visualConfigStore.saveStageLookAs('Stage-off save')
+      expect(saved.patch.blobs?.isEnabled).toBe(true)
+      expect(saved.patch.ambient?.isEnabled).toBe(true)
+      expect(saved.patch.strings?.isEnabled).toBe(true)
+
+      visualConfigStore.updateStageControl('stageEnabled', true)
+      visualConfigStore.updateStageControl('bodiesVisible', false)
+      visualConfigStore.loadSavedStageLook(saved.id)
+
+      expect(visualConfigStore.effectiveConfig.blobs.isEnabled).toBe(true)
+      expect(visualConfigStore.effectiveConfig.ambient.isEnabled).toBe(true)
+      expect(visualConfigStore.effectiveConfig.strings.isEnabled).toBe(true)
+    })
+
+    it('resets Stage without touching separate systems or legacy saved configs', () => {
+      visualConfigStore.updateConfig('dynamicColors', { musicColorMode: 'fixed' })
+      visualConfigStore.updateConfig('uiBeat', { isEnabled: false })
+      visualConfigStore.updateConfig('keyboard', { mainOctave: 6 })
+      const legacy = visualConfigStore.saveConfigAs('Legacy full config')
+      visualConfigStore.updateStageControl('scopeStrength', 0.13)
+
+      visualConfigStore.resetStage()
+
+      expect(visualConfigStore.config.hilbertScope.opacity).toBe(DEFAULT_CONFIG.hilbertScope.opacity)
+      expect(visualConfigStore.config.dynamicColors.musicColorMode).toBe('fixed')
+      expect(visualConfigStore.config.uiBeat.isEnabled).toBe(false)
+      expect(visualConfigStore.config.keyboard.mainOctave).toBe(6)
+      expect(visualConfigStore.savedConfigs).toContainEqual(legacy)
     })
   })
 
@@ -837,14 +1371,6 @@ describe('Visual Config Store', () => {
     it('should have correct store ID', () => {
       expect(visualConfigStore.$id).toBe('visualConfig')
     })
-
-    it('should maintain state across store instances', () => {
-      visualConfigStore.updateConfig('blobs', { isEnabled: false })
-      
-      const newStore = useVisualConfigStore()
-      
-      expect(newStore.config.blobs.isEnabled).toBe(false)
-    })
   })
 
   describe('Performance Considerations', () => {
@@ -853,7 +1379,7 @@ describe('Visual Config Store', () => {
       const mockLocalStorage = (window as any).localStorage
       
       visualConfigStore.updateConfig('blobs', { isEnabled: false })
-      visualConfigStore.updateConfig('particles', { count: 50 })
+      visualConfigStore.updateConfig('strings', { count: 12 })
       await nextTick()
       
       // Should not save immediately

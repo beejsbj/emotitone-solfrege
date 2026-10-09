@@ -14,6 +14,18 @@ import type {
  * Each section contains its metadata and field definitions in one place
  */
 export const UNIFIED_CONFIG = {
+  stage: {
+    _meta: {
+      label: "Stage",
+      icon: "◉",
+      description: "The Hilbert-centred musical canvas",
+    },
+    isEnabled: {
+      value: true,
+      label: "Stage",
+      hidden: true,
+    },
+  },
   blobs: {
     _meta: {
       label: "Blobs",
@@ -25,10 +37,10 @@ export const UNIFIED_CONFIG = {
       label: "Enable Blobs",
     },
     baseSizeRatio: {
-      value: 0.1,
-      min: 0.1,
-      max: 1,
-      step: 0.05,
+      value: 0.2,
+      min: 0.05,
+      max: 0.5,
+      step: 0.01,
       label: "Base Size Ratio",
       format: (v: number) => `${(v * 100).toFixed(0)}%`,
       group: "Appearance",
@@ -52,7 +64,7 @@ export const UNIFIED_CONFIG = {
       group: "Appearance",
     },
     opacity: {
-      value: 0.5,
+      value: 0.75,
       min: 0,
       max: 1,
       step: 0.05,
@@ -63,8 +75,8 @@ export const UNIFIED_CONFIG = {
     blurRadius: {
       value: 10,
       min: 0,
-      max: 100,
-      step: 5,
+      max: 40,
+      step: 2,
       label: "Blur Radius",
       format: (v: number) => `${v}px`,
       group: "Appearance",
@@ -83,7 +95,7 @@ export const UNIFIED_CONFIG = {
       group: "Appearance",
     },
     oscillationAmplitude: {
-      value: 1,
+      value: 0,
       min: 0,
       max: 1,
       step: 0.02,
@@ -119,7 +131,7 @@ export const UNIFIED_CONFIG = {
       group: "Motion",
     },
     driftSpeed: {
-      value: 10,
+      value: 0,
       min: 0,
       max: 100,
       step: 2,
@@ -128,7 +140,7 @@ export const UNIFIED_CONFIG = {
       group: "Motion",
     },
     vibrationFrequencyDivisor: {
-      value: 10,
+      value: 100,
       min: 10,
       max: 500,
       step: 5,
@@ -144,7 +156,7 @@ export const UNIFIED_CONFIG = {
       group: "Motion",
     },
     vibrationAmplitude: {
-      value: 10,
+      value: 0,
       min: 0,
       max: 50,
       step: 1,
@@ -162,37 +174,37 @@ export const UNIFIED_CONFIG = {
       group: "Motion",
     },
     connectionMode: {
-      value: "off",
-      options: ["off", "merge", "web"],
+      value: "merge",
+      options: ["merge", "web"],
       label: "Connections",
-      group: "Relationships",
+      group: "Note Bodies",
     },
     fieldSoftness: {
-      value: 12,
+      value: 12.5,
       min: 0,
       max: 50,
-      step: 2,
+      step: 2.5,
       label: "Field Softness",
       format: (v: number) => `${v}px`,
-      group: "Relationships",
+      group: "Note Bodies",
     },
     fusionStrength: {
-      value: 0.4,
+      value: 0.2,
       min: 0,
       max: 1,
       step: 0.05,
       label: "Fusion Strength",
       format: (v: number) => `${(v * 100).toFixed(0)}%`,
-      group: "Relationships",
+      group: "Note Bodies",
     },
     webOpacity: {
-      value: 0.5,
+      value: 0.3,
       min: 0,
       max: 1,
       step: 0.1,
       label: "Web Opacity",
       format: (v: number) => `${(v * 100).toFixed(0)}%`,
-      group: "Relationships",
+      group: "Note Bodies",
       visibleWhen: {
         field: "connectionMode",
         values: ["web"],
@@ -216,12 +228,12 @@ export const UNIFIED_CONFIG = {
       group: "Analysis",
     },
     showChordLabel: {
-      value: false,
+      value: true,
       label: "Show Chord Label",
       group: "Labels",
     },
     showIntervalLabels: {
-      value: false,
+      value: true,
       label: "Show Interval Labels",
       group: "Labels",
     },
@@ -252,7 +264,7 @@ export const UNIFIED_CONFIG = {
       label: "Enable Ambient",
     },
     opacityMajor: {
-      value: 0.6,
+      value: 0.3,
       min: 0,
       max: 1,
       step: 0.05,
@@ -260,7 +272,7 @@ export const UNIFIED_CONFIG = {
       format: (v: number) => `${(v * 100).toFixed(0)}%`,
     },
     opacityMinor: {
-      value: 0.4,
+      value: 0.216,
       min: 0,
       max: 1,
       step: 0.05,
@@ -268,7 +280,7 @@ export const UNIFIED_CONFIG = {
       format: (v: number) => `${(v * 100).toFixed(0)}%`,
     },
     brightnessMajor: {
-      value: 0.5,
+      value: 0.455,
       min: 0,
       max: 1,
       step: 0.05,
@@ -276,7 +288,7 @@ export const UNIFIED_CONFIG = {
       format: (v: number) => `${(v * 100).toFixed(0)}%`,
     },
     brightnessMinor: {
-      value: 0.3,
+      value: 0.29,
       min: 0,
       max: 1,
       step: 0.05,
@@ -284,7 +296,7 @@ export const UNIFIED_CONFIG = {
       format: (v: number) => `${(v * 100).toFixed(0)}%`,
     },
     saturationMajor: {
-      value: 0.8,
+      value: 0.6,
       min: 0,
       max: 1,
       step: 0.05,
@@ -292,84 +304,12 @@ export const UNIFIED_CONFIG = {
       format: (v: number) => `${(v * 100).toFixed(0)}%`,
     },
     saturationMinor: {
-      value: 0.6,
+      value: 0.45,
       min: 0,
       max: 1,
       step: 0.05,
       label: "Accent Saturation",
       format: (v: number) => `${(v * 100).toFixed(0)}%`,
-    },
-  },
-
-  particles: {
-    _meta: {
-      label: "Particles",
-      icon: "✨",
-      description: "Particle system for note events",
-    },
-    isEnabled: {
-      value: true,
-      label: "Enable Particles",
-    },
-    count: {
-      value: 10,
-      min: 0,
-      max: 100,
-      step: 5,
-      label: "Particle Count",
-    },
-    sizeMin: {
-      value: 2,
-      min: 1,
-      max: 20,
-      step: 1,
-      label: "Min Size",
-      format: (v: number) => `${v}px`,
-    },
-    sizeMax: {
-      value: 6,
-      min: 1,
-      max: 20,
-      step: 1,
-      label: "Max Size",
-      format: (v: number) => `${v}px`,
-    },
-    lifetimeMin: {
-      value: 2000,
-      min: 500,
-      max: 10000,
-      step: 250,
-      label: "Min Lifetime",
-      format: (v: number) => `${v}ms`,
-    },
-    lifetimeMax: {
-      value: 3000,
-      min: 500,
-      max: 10000,
-      step: 250,
-      label: "Max Lifetime",
-      format: (v: number) => `${v}ms`,
-    },
-    speed: {
-      value: 4,
-      min: 0,
-      max: 20,
-      step: 0.5,
-      label: "Speed",
-    },
-    gravity: {
-      value: 0,
-      min: -2,
-      max: 2,
-      step: 0.1,
-      label: "Gravity",
-    },
-    airResistance: {
-      value: 0.99,
-      min: 0.9,
-      max: 1,
-      step: 0.01,
-      label: "Air Resistance",
     },
   },
 
@@ -391,7 +331,7 @@ export const UNIFIED_CONFIG = {
       label: "String Count",
     },
     baseOpacity: {
-      value: 0.05,
+      value: 0.006,
       min: 0,
       max: 1,
       step: 0.05,
@@ -399,7 +339,7 @@ export const UNIFIED_CONFIG = {
       format: (v: number) => `${(v * 100).toFixed(0)}%`,
     },
     activeOpacity: {
-      value: 0.9,
+      value: 0.5,
       min: 0,
       max: 1,
       step: 0.05,
@@ -407,7 +347,7 @@ export const UNIFIED_CONFIG = {
       format: (v: number) => `${(v * 100).toFixed(0)}%`,
     },
     maxAmplitude: {
-      value: 15,
+      value: 27.5,
       min: 1,
       max: 100,
       step: 1,
@@ -415,21 +355,21 @@ export const UNIFIED_CONFIG = {
       format: (v: number) => `${v}px`,
     },
     dampingFactor: {
-      value: 0.08,
+      value: 0.09,
       min: 0.01,
       max: 0.5,
       step: 0.01,
       label: "Damping Factor",
     },
     interpolationSpeed: {
-      value: 0.15,
+      value: 0.175,
       min: 0.01,
       max: 1,
       step: 0.01,
       label: "Interpolation Speed",
     },
     opacityInterpolationSpeed: {
-      value: 0.1,
+      value: 0.125,
       min: 0.01,
       max: 1,
       step: 0.01,
@@ -515,7 +455,7 @@ export const UNIFIED_CONFIG = {
 
   dynamicColors: {
     _meta: {
-      label: "Dynamic Colors",
+      label: "Music Color",
       icon: "🌈",
       description: "Dynamic color generation system",
     },
@@ -577,7 +517,7 @@ export const UNIFIED_CONFIG = {
       label: "Enable Hilbert Scope",
     },
     sizeRatio: {
-      value: 0.6,
+      value: 0.65,
       min: 0,
       max: 1.5,
       step: 0.05,
@@ -585,7 +525,7 @@ export const UNIFIED_CONFIG = {
       format: (v: number) => `${(v * 100).toFixed(0)}%`,
     },
     opacity: {
-      value: 0.7,
+      value: 0.75,
       min: 0,
       max: 1,
       step: 0.05,
@@ -621,7 +561,7 @@ export const UNIFIED_CONFIG = {
       label: "Enable Glow",
     },
     glowIntensity: {
-      value: 10,
+      value: 12.5,
       min: 0,
       max: 50,
       step: 5,
@@ -636,7 +576,7 @@ export const UNIFIED_CONFIG = {
       format: (v: number) => `${(v * 100).toFixed(0)}%`,
     },
     history: {
-      value: 0.2,
+      value: 0.19,
       min: 0,
       max: 0.95,
       step: 0.05,
@@ -655,13 +595,13 @@ export const UNIFIED_CONFIG = {
 
   uiBeat: {
     _meta: {
-      label: "UI Beat",
+      label: "UI Rhythm",
       icon: "♩",
       description: "Let interface accents follow the sounding transport",
     },
     isEnabled: {
       value: true,
-      label: "Enable UI Beat",
+      label: "Enable UI Rhythm",
     },
   },
 
@@ -842,6 +782,11 @@ export const UNIFIED_CONFIG = {
       value: "solfege",
       options: ["solfege", "note", "degree"],
       label: "Notation Mode",
+    },
+    durationMode: {
+      value: "bar" as const,
+      options: ["stacked", "bar", "hidden"],
+      label: "Duration Display",
     },
     showRests: {
       value: true,

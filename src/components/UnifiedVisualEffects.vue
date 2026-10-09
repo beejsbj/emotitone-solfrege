@@ -1,5 +1,5 @@
 <template>
-  <div v-if="visualsEnabled" class="unified-visual-effects">
+  <div v-show="visualsEnabled" class="unified-visual-effects">
     <canvas
       ref="canvasRef"
       :width="canvasWidth"
@@ -15,7 +15,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from "vue";
+import { ref, onMounted, onUnmounted, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useMusicStore } from "@/stores/music";
 import { useVisualConfigStore } from "@/stores/visualConfig";
@@ -107,7 +107,13 @@ function onNoteReleased(event: CustomEvent) {
   }
 }
 
-// Note: Mode changes and visual enable/disable are handled automatically by component lifecycle
+// Self-contained Visuals gate: the layer is hidden (not unmounted, so the canvas
+// context stays valid) and its loop stops while the switch is off. The host may
+// also unmount this component (MainApp does), which cleans up the same way.
+watch(visualsEnabled, (enabled) => {
+  if (enabled) startAnimation();
+  else stopAnimation();
+});
 
 onMounted(() => {
   // Initialize the unified canvas system

@@ -93,8 +93,15 @@ describe("number-row chords follow the Joystick alteration", () => {
     await Promise.resolve();
   }
 
-  for (const alteration of HARMONY_ALTERATIONS) {
-    it(`sounds the on-screen chord pitches for every degree under "${alteration}"`, async () => {
+  const KEY_MODES = [
+    { key: "C", mode: "major" },
+    { key: "F#", mode: "dorian" },
+  ];
+
+  for (const { key, mode } of KEY_MODES) for (const alteration of HARMONY_ALTERATIONS) {
+    it(`sounds the on-screen chord pitches for every degree in ${key} ${mode} under "${alteration}"`, async () => {
+      mocks.musicStore.currentKey = key;
+      mocks.musicStore.currentMode = mode;
       const wrapper = mount(Keyboard, {
         props: { harmonyAlteration: alteration },
         global: { stubs: { Key: KeyStub, ChordKey: ChordKeyStub } },

@@ -3,7 +3,8 @@
     <LoadingSplash />
 
     <div v-if="!isLoading" class="relative isolate">
-      <UnifiedVisualEffects class="z-0" />
+      <!-- Unmounted (not hidden) when Visuals is off, so its animation loop ends. -->
+      <UnifiedVisualEffects v-if="visualConfigStore.visualsEnabled" class="z-0" />
     </div>
 
     <ConfigPanel v-if="!isLoading" />

@@ -26,12 +26,6 @@
 </template>
 
 <script setup lang="ts">
-import { useMusicStore } from "@/stores/music";
-
-// BJS-481 proof: a store import and a brand token in a primitive. Never merge.
-const proofStore = useMusicStore();
-const proofBrand = "var(--tomato)";
-void [proofStore, proofBrand];
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useUIBeat, type UIBeatSnapshot } from "@/composables/useUIBeat";
 

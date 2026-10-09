@@ -35,6 +35,17 @@ The record of decisions is `docs/retrospective-spec.md` (PR #143; until it merge
 - `EMOTITONE_VERIFY_BYPASS_LOCK=1` skips the verify lock and is for CI and Vercel only (isolated machines; CI and `vercel.json` set it). Never set it on bjslab or another shared host.
 - Write tests that observe behaviour at the highest seam and fail when the behaviour breaks. See [testing.md](docs/testing.md) for commands, limits and test-quality guidance.
 
+## Design-law lint
+
+`bun run lint` (ESLint, then Stylelint) enforces two rules from `src/style-guide/WIP-bible.md`. The zone map, forbidden imports and allowlists are data in `lint/designZones.mjs`; the rules read it, so that is the file to review.
+
+- **Import boundary.** Files in `src/components/primatives/` and `src/components/compounds/` may not import `@/stores/**`, `@/audio/**` or a production service (every file in `src/services/` except the pure ones listed in `PURE_SERVICES`: colour, music-theory and display derivations). Type-only imports (`import type`) are allowed. Take props or use a composable instead. A new service is forbidden there until it is classified.
+- **Colour law.** In the playing zone (`src/components/**` and `src/composables/**` plus `App.vue` and `MainApp.vue`, minus `BRAND_ZONE`: Brand Logo, Loading Screen, Loading Splash, Source Credits; the style guide and the token sources are never checked) there are no brand-paper tokens (`--tomato`, `--mustard`, `--plum`, `--cobalt`, `--pine`, `--bone`, or those as tone names) and no raw hex / `rgb()` / `hsl()` / `oklch()` literals. Colour is Music Color from the numeric OKLCH adapter (`musicColorCore.ts`) or Ink / Ivory / Brass tokens; `transparent`, `currentColor` and gradient `mask` stops are fine. ESLint checks script and template (`lint/eslintPluginDesignLaw.mjs`), Stylelint with `postcss-html` checks CSS and Vue `<style>` blocks (`stylelint.config.mjs`).
+
+Violations that predate the lint are listed per file and per rule in `ALLOWLIST`, with the count at the time. Only those files may keep those kinds of violation; any other file, or any other rule in a listed file, fails CI.
+
+**Shrinking the allowlist.** Fix the file (Phase 2 and 4 of the retrospective spec), delete its entry in `lint/designZones.mjs`, and run `bun run lint`. `DESIGN_LAW_NO_ALLOWLIST=1 bun run lint` ignores the allowlist and reports everything that remains. `src/__tests__/lint/designLaw.test.ts` fails if an entry is stale or a violation is unlisted, so fixing a file and keeping its entry is caught. Do not add entries for new work: fix the code, or ask for a design decision. To add a surface to the brand zone, change `BRAND_ZONE` deliberately and say why in the PR.
+
 ## Historical Documentation & Plans Archive
 
 Archived design evidence, historical research, early audit notes, and completed plans (e.g. modes expansion, Tone.js-era refactor PRP, stack review triage, and original notes) are preserved on the `archive/docs-and-plans` branch.

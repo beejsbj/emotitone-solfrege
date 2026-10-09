@@ -6,7 +6,6 @@ import SaveFailureNotice from "@/components/ui/SaveFailureNotice.vue";
 import {
   createSafeStorage,
   dismissSaveFailure,
-  ONE_OFF_NOTICE_MS,
   persistedStatePlugin,
   resetSaveFailure,
   saveFailureNotice,
@@ -192,7 +191,7 @@ describe("persisted writes that fail", () => {
     expect(saveFailureNotice.value?.message).toBe(FULL);
   });
 
-  it("lets a failed explicit save fall away on its own so it cannot hide later failures", () => {
+  it("keeps a failed explicit save up until it is dismissed, with no timer to expire it", () => {
     vi.useFakeTimers();
     try {
       const storage = createSafeStorage(() => ({
@@ -204,16 +203,55 @@ describe("persisted writes that fail", () => {
       }) as unknown as Storage);
 
       storage.write("emotitone-saved-looks", "x", { oneOff: true });
+      vi.advanceTimersByTime(10 * 60 * 1000);
       expect(saveFailureNotice.value?.message).toBe(FULL);
 
-      vi.advanceTimersByTime(ONE_OFF_NOTICE_MS + 1);
+      dismissSaveFailure();
       expect(saveFailureNotice.value).toBeNull();
 
+      // Dismissed, then a different failure is news again.
       storage.setItem("emotitone-phrases", "y");
       expect(saveFailureNotice.value?.message).toBe(FULL);
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("clears a failed explicit save when a retry of the same key succeeds", () => {
+    let full = true;
+    const backing = new Map<string, string>();
+    const storage = createSafeStorage(() => ({
+      getItem: (key: string) => backing.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        if (full) throw quotaError();
+        backing.set(key, value);
+      },
+      removeItem: () => {},
+    }) as unknown as Storage);
+
+    storage.write("emotitone-saved-looks", "x", { oneOff: true });
+    expect(saveFailureNotice.value?.message).toBe(FULL);
+
+    full = false;
+    expect(storage.write("emotitone-saved-looks", "x", { oneOff: true })).toBe(true);
+    expect(saveFailureNotice.value).toBeNull();
+  });
+
+  it("names why an attempt failed, and null when it stored", () => {
+    let error: unknown = quotaError();
+    const storage = createSafeStorage(() => ({
+      getItem: () => null,
+      setItem: () => {
+        if (error) throw error;
+      },
+      removeItem: () => {},
+    }) as unknown as Storage);
+
+    expect(storage.attempt("k", "v")).toBe("quota");
+    error = new Error("nope");
+    expect(storage.attempt("k", "v")).toBe("unknown");
+    error = null;
+    expect(storage.attempt("k", "v")).toBeNull();
   });
 
   it("logs once per burst, not on every failed write", async () => {

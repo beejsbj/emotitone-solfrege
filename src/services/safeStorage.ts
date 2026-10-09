@@ -21,26 +21,20 @@ interface FailureBurst {
   dismissed: boolean;
 }
 
-/** How long a one-off failure (an explicit save) stays up when nothing keeps failing. */
-export const ONE_OFF_NOTICE_MS = 6000;
-
 // A burst runs from the first failed write until nothing is still failing.
-// Two sorts of failure keep it open:
-//  - an autosaved key (Pinia stores, the visual config) stays failing until
-//    that same key writes successfully; tracking keys, not "any success", keeps
-//    a small key that still fits from clearing the notice while a large one
-//    keeps failing;
-//  - a one-off failure (an explicit save such as a Stage Look) can't recover
-//    by itself, since nothing rewrites it, so it only keeps the notice up for
-//    a few seconds instead of for the whole session.
+// A failure is tied to the key that failed and ends when that same key writes
+// successfully, so a small key that still fits can't clear the notice while a
+// large one keeps failing. Two kinds are tracked separately:
+//  - autosaved keys (Pinia stores, the visual config) fail again and again, so
+//    a dismissal covers the keys already failing and anything new re-raises;
+//  - one-off keys (an explicit save such as a Stage Look) fail once, in
+//    answer to a tap; a retry of that key ends it, and a repeat failure after a
+//    dismissal is news again.
 const burst = ref<FailureBurst | null>(null);
 const failedKeys = new Set<string>();
-// Keys that were already failing when the player dismissed the notice. A
-// failure of any other key, or of a key that has since recovered, is news and
-// shows the notice again.
+const oneOffKeys = new Set<string>();
+// Autosaved keys already failing when the player dismissed the notice.
 const dismissedKeys = new Set<string>();
-let oneOffPending = false;
-let oneOffTimer: ReturnType<typeof setTimeout> | undefined;
 
 /** The failure the player should currently see, or null. */
 export const saveFailureNotice = computed(() => {
@@ -53,39 +47,23 @@ export const saveFailureNotice = computed(() => {
 export const hasSaveFailure = computed(() => burst.value !== null);
 
 function closeIfSettled(): void {
-  if (failedKeys.size === 0 && !oneOffPending) {
+  if (failedKeys.size === 0 && oneOffKeys.size === 0) {
     burst.value = null;
     dismissedKeys.clear();
   }
 }
 
-function clearOneOff(): void {
-  oneOffPending = false;
-  if (oneOffTimer !== undefined) clearTimeout(oneOffTimer);
-  oneOffTimer = undefined;
-}
-
 /**
  * The single handler for persistence failures. Shows the notice when a burst
  * opens, and shows it again if the player dismissed it and something new then
- * fails. `key` ties the failure to an autosaved write so that key's next
- * success ends it; `oneOff` marks a failure that nothing will retry.
+ * fails. `key` ties the failure to a write so that key's next success ends
+ * it; `oneOff` marks an explicit save that nothing retries on its own.
  */
-export function reportSaveFailure(
-  kind: SaveFailureKind,
-  key?: string,
-  oneOff = false,
-): void {
+export function reportSaveFailure(kind: SaveFailureKind, key: string, oneOff = false): void {
   let isNews: boolean;
-  if (oneOff || key === undefined) {
+  if (oneOff) {
     isNews = true;
-    oneOffPending = true;
-    if (oneOffTimer !== undefined) clearTimeout(oneOffTimer);
-    oneOffTimer = setTimeout(() => {
-      oneOffTimer = undefined;
-      oneOffPending = false;
-      closeIfSettled();
-    }, ONE_OFF_NOTICE_MS);
+    oneOffKeys.add(key);
   } else {
     isNews = !dismissedKeys.has(key);
     failedKeys.add(key);
@@ -104,16 +82,17 @@ export function reportSaveFailure(
   };
 }
 
-/** An autosaved write of `key` succeeded; ends the burst once nothing else is failing. */
+/** A write of `key` succeeded; ends the burst once nothing else is failing. */
 export function reportSaveSuccess(key: string): void {
   failedKeys.delete(key);
+  oneOffKeys.delete(key);
   dismissedKeys.delete(key);
   closeIfSettled();
 }
 
 export function dismissSaveFailure(): void {
   if (!burst.value) return;
-  clearOneOff();
+  oneOffKeys.clear();
   dismissedKeys.clear();
   failedKeys.forEach((key) => dismissedKeys.add(key));
   burst.value = { ...burst.value, dismissed: true };
@@ -122,8 +101,8 @@ export function dismissSaveFailure(): void {
 
 /** Test seam: forget any open burst. */
 export function resetSaveFailure(): void {
-  clearOneOff();
   failedKeys.clear();
+  oneOffKeys.clear();
   dismissedKeys.clear();
   burst.value = null;
 }
@@ -152,6 +131,8 @@ export interface SafeStorage extends Pick<Storage, "getItem" | "setItem" | "remo
    * `{ oneOff: true }` for an explicit save that nothing will retry.
    */
   write(key: string, value: string, options?: { oneOff?: boolean }): boolean;
+  /** Like write, but names why it failed (null when the value was stored). */
+  attempt(key: string, value: string, options?: { oneOff?: boolean }): SaveFailureKind | null;
 }
 
 /**
@@ -168,20 +149,28 @@ export function createSafeStorage(
     }
   },
 ): SafeStorage {
-  const write = (key: string, value: string, options?: { oneOff?: boolean }): boolean => {
+  const attempt = (
+    key: string,
+    value: string,
+    options?: { oneOff?: boolean },
+  ): SaveFailureKind | null => {
     try {
       const storage = backend();
       if (!storage) throw new Error("Storage is unavailable");
       storage.setItem(key, value);
       reportSaveSuccess(key);
-      return true;
+      return null;
     } catch (error) {
       // Log once per burst; the notice is the player-facing signal.
       if (!hasSaveFailure.value) console.error(`Failed to save "${key}" to storage:`, error);
-      reportSaveFailure(isQuotaExceeded(error) ? "quota" : "unknown", key, options?.oneOff);
-      return false;
+      const kind: SaveFailureKind = isQuotaExceeded(error) ? "quota" : "unknown";
+      reportSaveFailure(kind, key, options?.oneOff);
+      return kind;
     }
   };
+
+  const write = (key: string, value: string, options?: { oneOff?: boolean }): boolean =>
+    attempt(key, value, options) === null;
 
   return {
     getItem: (key) => backend()?.getItem(key) ?? null,
@@ -196,6 +185,7 @@ export function createSafeStorage(
       }
     },
     write,
+    attempt,
   };
 }
 

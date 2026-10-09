@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { lockDirectoryFor, onlyZombies } from './verify.mjs'
+import { lockDirectoryFor, onlyZombies, runLocked, BYPASS_LOCK_ENV } from './verify.mjs'
 
 const moduleUrl = pathToFileURL(join(import.meta.dirname, 'verify.mjs')).href
 
@@ -139,4 +139,26 @@ test('a group or pid whose only members are unreaped zombies counts as gone', ()
   assert.equal(onlyZombies(50, false, table), true)
   assert.equal(onlyZombies(51, false, table), false)
   assert.equal(onlyZombies(40, true, null), false, 'an unreadable table is not proof of exit')
+})
+
+test('the bypass flag runs steps without taking or waiting on the lock, and still propagates failure', async () => {
+  const f = fixture()
+  try {
+    const lock = lockDirectoryFor(f.dir)
+    // A live owner holds the lock; a locked run would wait until its short deadline and fail.
+    mkdirSync(lock)
+    writeFileSync(join(lock, 'owner.json'), JSON.stringify({ token: 'held', pid: process.pid, phase: 'idle' }))
+    const step = (id, code) => ({ command: process.execPath, args: [f.child, f.log, id, '10', String(code)] })
+    const env = { ...process.env, [BYPASS_LOCK_ENV]: '1' }
+
+    assert.equal(await runLocked({ lockDir: lock, steps: [step('bypassed', 0)], env, waitMs: 300 }), 0)
+    assert.equal(await runLocked({ lockDir: lock, steps: [step('bad', 7), step('never', 0)], env, waitMs: 300 }), 7)
+    assert.deepEqual(readFileSync(f.log, 'utf8').trim().split('\n'),
+      ['start bypassed', 'end bypassed', 'start bad', 'end bad'])
+    assert.equal(existsSync(join(lock, 'owner.json')), true, 'the held lock is left untouched')
+
+    const locked = { ...process.env }
+    delete locked[BYPASS_LOCK_ENV]
+    await assert.rejects(runLocked({ lockDir: lock, steps: [step('locked', 0)], env: locked, waitMs: 200 }), /Timed out/)
+  } finally { f.clean() }
 })

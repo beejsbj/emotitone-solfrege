@@ -4,6 +4,7 @@ import MidiPermissionIcon from "@/components/MidiPermissionIcon.vue";
 import Mark from "@/components/primatives/Mark.vue";
 import Sticker from "@/components/primatives/Sticker";
 import BrandLogo from "@/components/uniques/BrandLogo.vue";
+import SourceCredits from "@/components/uniques/SourceCredits.vue";
 import type { LoadingStage } from "@/types/loading";
 
 /**
@@ -344,6 +345,8 @@ const midiPaper = computed(() => (midi.value?.stamp === "SET" ? "plum" : "ink-4"
           <span v-for="beat in 4" :key="beat" class="count-gate-slot__beat" :style="{ '--beat-index': beat - 1 }" />
           <span class="count-gate-slot__copy">waiting for the downbeat</span>
         </div>
+
+        <SourceCredits class="loading-screen__credits" />
       </footer>
     </div>
 
@@ -638,6 +641,8 @@ const midiPaper = computed(() => (midi.value?.stamp === "SET" ? "plum" : "ink-4"
 
 /* ── Foot: status and the gate ──────────────────── */
 .loading-screen__foot { display: grid; gap: clamp(10px, 1.6cqh, 16px); }
+
+.loading-screen__credits { grid-column: 1 / -1; }
 
 .loading-screen__readout {
   display: grid;

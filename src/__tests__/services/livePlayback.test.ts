@@ -28,6 +28,48 @@ beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); mocks.chains.length = 
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs() })
 
 describe('live playback instrument manager', () => {
+  it('rebuilds a changed-rate worklet before a resumed input can use it', async () => {
+    const { manager, engine, context } = await setup()
+    Object.assign(context, { sampleRate: 48000, state: 'running' })
+    await manager.prepareLivePlayback(context, destination, 'piano')
+    const stale = manager.getLivePlayback('piano')!
+    const next = { ...engine, prepare: vi.fn().mockResolvedValue(undefined), press: vi.fn(), dispose: vi.fn() }
+    mocks.create.mockResolvedValueOnce(next)
+    Object.assign(context, { state: 'interrupted', resume: vi.fn(async () => {
+      Object.assign(context, { state: 'running', sampleRate: 44100 })
+    }) })
+    const { resumeAudioContext } = await import('@/services/audioLifecycle')
+    await resumeAudioContext(context)
+    expect(engine.dispose).toHaveBeenCalledOnce()
+    expect(mocks.create).toHaveBeenCalledTimes(2)
+    expect(next.prepare).toHaveBeenCalledWith(expect.objectContaining({ instrumentId: 'piano' }))
+    stale.press('stale', [{ instrumentId: 'piano', pitch: 60 }])
+    expect(engine.press).not.toHaveBeenCalled()
+    manager.getLivePlayback('piano')!.press('new', [{ instrumentId: 'piano', pitch: 60 }])
+    expect(next.press).toHaveBeenCalledOnce()
+    expect(resumeAudioContext(context)).toBeUndefined()
+    expect(mocks.create).toHaveBeenCalledTimes(2)
+  })
+
+  it('drains old-rate preparation before installing the rebuilt generation', async () => {
+    const { manager, context } = await setup()
+    Object.assign(context, { sampleRate: 48000 })
+    let finish!: () => void
+    mocks.prepare.mockImplementationOnce(() => new Promise(resolve => { finish = () => resolve(bank('piano')) }))
+    const original = manager.prepareLivePlayback(context, destination, 'piano')
+    await vi.waitFor(() => expect(mocks.prepare).toHaveBeenCalledOnce())
+    Object.assign(context, { sampleRate: 44100 })
+    const { resumeAudioContext } = await import('@/services/audioLifecycle')
+    const recovering = resumeAudioContext(context)
+    await Promise.resolve()
+    expect(mocks.prepare).toHaveBeenCalledOnce()
+    finish()
+    await Promise.all([original, recovering])
+    expect(mocks.prepare).toHaveBeenCalledTimes(2)
+    expect(mocks.create).toHaveBeenCalledOnce()
+    expect(manager.getLivePlayback('piano')).toBeDefined()
+  })
+
   it('deduplicates preparation, waits for acknowledgement and reports zero-lead readiness', async () => {
     const { manager, engine, context } = await setup()
     let acknowledge!: () => void

@@ -523,6 +523,34 @@ describe("superdoughAudio live note handling", () => {
     vi.useRealTimers();
   });
 
+  it("names the phrase note a sounding hap came from on its played and released events", async () => {
+    vi.useFakeTimers();
+    try {
+      const dispatchEvent = vi.spyOn(window, "dispatchEvent");
+      const audio = await import("@/services/superdoughAudio");
+      const { setSoundingNotationSpans } = await import("@/services/notationSpans");
+      setSoundingNotationSpans([{ noteId: "phrase-note-7", from: 3, to: 5 }]);
+
+      await audio.emotitoneStrudelOutput(
+        { value: { note: "C4", s: "piano" }, context: { locations: [{ start: 3, end: 5 }] } },
+        0, 0.25, 1, 12.1,
+      );
+      await vi.advanceTimersByTimeAsync(400);
+
+      const events = dispatchEvent.mock.calls.map(([event]) => event as CustomEvent);
+      const played = events.find(event => event.type === "note-played")!;
+      const released = events.find(event => event.type === "note-released")!;
+      expect(played.detail.sourceNoteId).toBe("phrase-note-7");
+      expect(released.detail).toMatchObject({
+        noteId: played.detail.noteId,
+        sourceNoteId: "phrase-note-7",
+      });
+      setSoundingNotationSpans(null);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("presents a short clipped gate without stretching its note-off to 40 ms", async () => {
     vi.useFakeTimers();
     try {

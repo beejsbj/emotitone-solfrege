@@ -45,7 +45,7 @@ His account of how it got here (2026-10-09):
 - **The Looper** is the natural extension.
 - **Throughout:** keep the UX simple while allowing more, and stay very mobile-focused.
 
-This spec reads the moats as four things. This is Claude's reading; Burooj corrects it.
+The moats are four things (Claude's reading, confirmed by Burooj on 2026-10-09):
 
 1. **Feeling first.** Every interval has an emotional voice: the written interval descriptions and Music Color.
 2. **Sketch speed.** Everything played is kept, there is no record button and no DAW, and humming is a sketch too.
@@ -165,7 +165,12 @@ From the player's side:
      - AGPL obligations.
      - A main-thread scheduler on weak phones.
      - Maintaining a patched superdough.
-4. **The Code Strip leaves the Strudel code editor** (Burooj, 2026-10-09: "No one's really gonna edit the code editor. It doesn't even look editable.").
+   - **Reopened (2026-10-09).** Burooj asked whether to drop Strudel, and perhaps superdough, in favour of the worklet engine. Both retrospectives raised that direction. The Looper (#140) went the other way, deepening both dependencies.
+     - **The worklet would need:** a scheduler (porting #140's join/leave/offset/tempo/mute/solo semantics, with its receipts as acceptance tests), a filter, reverb and delay (the only effects the Shape knobs emit), the existing square/saw oscillators, and its own loader for the same sample and soundfont data.
+     - **"Open in Strudel" survives either way,** because the notation generator writes the code text itself.
+     - **To decide:** first the Phase 0 phone gate on #140, then a short worklet-transport spike measured against the same receipts, and decide before #142 merges.
+
+4. **The Code Strip leaves the Strudel code editor and becomes the HighlightStrip** (Burooj, 2026-10-09: "No one's really gonna edit the code editor. It doesn't even look editable.").
    - **What stays:**
      - Strudel as the engine and transport.
      - Its sound library, the larger instrument library that was a reason it was added.
@@ -176,7 +181,7 @@ From the player's side:
      - The pinned CodeMirror patch.
      - The native-reveal and deferred-scroll workarounds.
      - The selection reads that showed up in the stall profile.
-   - **The replacement** is the app's own read-only text view. The notation generator records which text span each note produced, and the highlight lights spans by note id. This works for Looper members too, which are built without the transpiler and so carry no source locations.
+   - **The replacement** is the HighlightStrip, the app's own read-only text view. The notation generator records which text span each note produced, and the highlight lights spans by note id. This works for Looper members too, which are built without the transpiler and so carry no source locations.
    - The text keeps the original reason for the strip: playing types the notation as you go.
    - **Costs:**
      - Editing is gone. Burooj judges no one uses it.
@@ -719,7 +724,7 @@ This sequencing changes the plan proposed on 2026-10-06 in one place:
 ## Further Notes
 
 - **Confirmed by Burooj on 2026-10-09:**
-  - "Moats" means moats; the four-moat list is Claude's reading for him to correct.
+  - "Moats" means moats, and the four-moat list is correct.
   - Decision 4: leave the code editor; keep the highlight and "Open in Strudel".
   - Decision 5: Shuffle is the default, families are consistent across parts, and Keys stay as they are.
   - #136 merges before anything.

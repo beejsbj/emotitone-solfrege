@@ -24,13 +24,35 @@ All of it is reversible. Each item is a small PR.
    - Freeze the design log at a dated line.
    - Add the rule that adoptions fix the defects their lab found.
    - Stop recording 32px targets as an invariant.
-6. **One question for Burooj.** Confirm the "moats and cues" reading in one line. The stance goes into the bible and router (S138) only after that. Sources: retrospective #1 (2026-09-23, PRs #27–#93), retrospective #2 (2026-10-06, PRs #86–#135 and the open PRs), and Burooj's answers of 2026-10-07. Each retrospective had independent Opus and Fable reviews per track; Sol, Luna and Opus verified the load-bearing claims against the code. The appendix maps every finding, direction and idea from both retrospectives to a user story here or to an explicit out-of-scope reason.
+6. **The stance into the bible and router** (S138): the moats, the cues, and the origin story.
+7. **The design law as lint, starting now.** Two rules arrive with committed allowlists of today's violations, so they pass on day one and fail only on new violations. The allowlists shrink as Phases 2 and 4 fix the drift.
+   - No brand-paper tokens or raw colour values in playing-zone components.
+   - No store imports in primitives and compounds.
+
+   ESLint covers script; Stylelint (with Vue support) covers style blocks. What lint can hold: colours, imports, raw values, banned properties such as perpetual `infinite` animation outside named exceptions, and required props. What stays in the bible: taste, composition, and whether something feels like hardware.
+
+#136 (retiring Flecks) merges before any of this. Removing the colour accent follows as its own small PR. Sources: retrospective #1 (2026-09-23, PRs #27–#93), retrospective #2 (2026-10-06, PRs #86–#135 and the open PRs), and Burooj's answers of 2026-10-07. Each retrospective had independent Opus and Fable reviews per track; Sol, Luna and Opus verified the load-bearing claims against the code. The appendix maps every finding, direction and idea from both retrospectives to a user story here or to an explicit out-of-scope reason.
 
 ## Problem Statement
 
-EmotiTone is meant to be an instrument that teaches. Burooj, 2026-10-07: "It's an instrument that teaches through its moats and cues." This spec reads that as **moods and cues**: the instrument teaches through the feel of each degree and through the signals it gives (names, syllables, colours, positions, sounds). It does not teach through lessons or quizzes.
+EmotiTone is an instrument that teaches. Burooj, 2026-10-07: "It's an instrument that teaches through its moats and cues", and on 2026-10-09: "I meant moats itself." The instrument teaches through what only it does (its moats) and through the signals it gives (its cues). It does not teach through lessons or quizzes.
 
-That reading is unconfirmed. The word could also be "modes" or "notes". Read literally, "moats" would mean its defensible core: emotional colour and expressive keys. All four readings put the teaching inside the instrument's own signals, which is what the stories below depend on. Only stories 97–109 lean on "moods" specifically.
+His account of how it got here (2026-10-09):
+
+- **Where it started.** It began as a feeling- and intuition-building app, using solfège and LLM-written text describing each interval.
+- **The sketching need.** It also met his own need to sketch ideas. A separate repo of his for quickly sketching melodies merged into it, because every other tool was a full, bloated DAW.
+- **Strudel.** Strudel arrived to simplify patterns, playback and samples, and brought its own headaches.
+- **The Looper** is the natural extension.
+- **Throughout:** keep the UX simple while allowing more, and stay very mobile-focused.
+
+This spec reads the moats as four things. This is Claude's reading; Burooj corrects it.
+
+1. **Feeling first.** Every interval has an emotional voice: the written interval descriptions and Music Color.
+2. **Sketch speed.** Everything played is kept, there is no record button and no DAW, and humming is a sketch too.
+3. **Loops as play.** Play is the loop.
+4. **A pocket instrument.** One-handed on a phone, with Strudel's sound library behind it and its code one tap away.
+
+Read this way, the most striking finding is that the founding moat is the least visible. The interval descriptions are never rendered, and the emotion label is off by default.
 
 That makes every cue a promise, and several are false today:
 
@@ -113,9 +135,12 @@ From the player's side:
      - App-store packaging may be harder.
    - **Comes with it:** third-party notices and an in-app Source/Credits link.
    - This is a reasoned engineering choice, not legal advice. The font and the song transcriptions are separate questions no code licence covers (see W10).
-2. **Product stance: an instrument that teaches through its cues.** Teaching happens through the instrument's own signals.
+2. **Product stance: an instrument that teaches through its moats and cues** (Burooj, confirmed 2026-10-09). Teaching happens through what only this instrument does and through its signals. The four moats are listed in the Problem Statement.
+   - **Priorities that follow from the moats:**
+     - The feeling-first moat moves the interval descriptions and the emotion label (S95) up to Phase 1.
+     - The sketch-speed moat makes safe saving (W6) and humming that never throws away a take (S42, S141) protect the core, not polish it.
    - Structured practice (quizzes, scoring, sing-back, call-and-response) is deferred, not ruled out.
-   - Once Burooj confirms the reading, the stance is written into the design bible and the repository router (S138). Until then it lives only in this spec.
+   - The stance, the moats and the origin story are written into the design bible and the repository router (S138).
    - **Cost:** learners who want structured practice get none for now.
 3. **Strudel stays the single musical clock.**
    - **The question.** Two reviewers did propose alternatives:
@@ -140,26 +165,41 @@ From the player's side:
      - AGPL obligations.
      - A main-thread scheduler on weak phones.
      - Maintaining a patched superdough.
-4. **The Code Strip is a readout of what plays.** This is a reversible default; Burooj to confirm.
-   - It shows and exports the loop.
-   - Playing patterns are built from note data, not from the text, so text edits cannot drive a playing loop without drifting from what sounds.
-   - Editing code produces an authored pattern that is compiled outside playback.
-   - **Cost:** it gives up "edit the code and hear it change" while playing, and narrows today's editable mirror.
-5. **Editions: one canonical edition per unit.** This is a reversible default; Burooj to confirm.
-   - **What editions are:** several parts pick a different look on each app load.
-     - Tabs rotate through seven treatments.
-     - Knob alternates Ring and Arc.
-     - Joystick alternates Analog and Digital.
-     - The Keyboard reshuffles its key shapes daily.
-   - **Why change:**
-     - The adopted Tabs Marquee shows on one load in seven.
+4. **The Code Strip leaves the Strudel code editor** (Burooj, 2026-10-09: "No one's really gonna edit the code editor. It doesn't even look editable.").
+   - **What stays:**
+     - Strudel as the engine and transport.
+     - Its sound library, the larger instrument library that was a reason it was added.
+     - The highlight animation.
+     - An "Open in Strudel" action that hands the current code to strudel.cc.
+   - **What goes:**
+     - The CodeMirror editor and the Strudel CodeMirror extensions.
+     - The pinned CodeMirror patch.
+     - The native-reveal and deferred-scroll workarounds.
+     - The selection reads that showed up in the stall profile.
+   - **The replacement** is the app's own read-only text view. The notation generator records which text span each note produced, and the highlight lights spans by note id. This works for Looper members too, which are built without the transpiler and so carry no source locations.
+   - The text keeps the original reason for the strip: playing types the notation as you go.
+   - **Costs:**
+     - Editing is gone. Burooj judges no one uses it.
+     - Highlight and follow-scroll are reimplemented.
+     - "Open in Strudel" depends on strudel.cc's URL format.
+     - Library patterns are all note data today, so nothing authored-only is lost. A future code-only pattern would need the transpiler outside playback.
+5. **Editions: consistent families, with Shuffle as the default** (Burooj, 2026-10-09: "shuffle look is default. App starts with that. Makes sense to have consistency between various parts. Some things like keys make sense the way they are.").
+   - **The new model:**
+     - Editions are grouped into families that span parts. Each family sets one edition for Tabs, Knob, Joystick and the other rotating parts together.
+     - Shuffle is the default Look: each load picks one family for the whole instrument, not an independent roll per part.
+     - Players can pin any family.
+     - Keys keep their own key-shape variation as it is.
+   - **What this does to the QA load:** it shrinks from about 140 independent combinations to the number of families.
+   - **Costs:**
+     - Since any family can appear by default, every edition must meet the accessibility floor: a 44px target, a visible focus ring, and contrast. Today only Tabs Marquee does, so the other Tabs editions need that work before Shuffle can include them.
+     - A family that fails the floor stays out of Shuffle until fixed.
+   - **Why:**
+     - Today each part rolls its own edition independently, so the adopted Tabs Marquee shows on one load in seven.
      - Marquee is the only Tabs edition with a 44px target and a visible focus ring.
-     - Together the rotations make about 140 combinations nobody can QA, and the rotation code exists in three copies.
-   - **Decision:**
-     - Each unit gets one default look.
-     - The other editions become Looks a player can pick and pin, the way Stage Looks work.
-     - Cut-paper randomness that doesn't change function (Sticker silhouettes, small tilts) stays.
-   - **Cost:** the app loses "each load is a different pressing" by default, a living quality Burooj chose deliberately. A Shuffle Look, which players can pick and pin, keeps per-load rotation available; it is never the default.
+     - The independent rolls make about 140 combinations nobody can QA.
+     - The rotation code exists in three copies.
+   - Cut-paper randomness that doesn't change function (Sticker silhouettes, small tilts) stays.
+   - The earlier proposal (one canonical edition per unit, Shuffle never the default) is superseded.
 
 ## Test seams
 
@@ -297,7 +337,7 @@ CI is the enforcement layer over all five. The audio checks (golden PCM, the par
 95. As a learner, I want the emotion of what I'm playing surfaced: the interval descriptions the app already has, and an emotion label whose default is reconsidered.
 96. As Burooj, I want to decide whether colour follows the scale wheel or the circle of fifths, so that colour neighbours and position neighbours agree.
 
-### Moods and cues
+### Cues
 
 97. (Proposed, Burooj's taste.) As a learner, I want unstable degrees (Ti, Fa, borrowed notes) to look more charged than stable ones, so that tension is visible.
 98. As a learner, I want a visible resolution when Ti goes to Do or Fa goes to Mi, so that I see tension release.
@@ -333,7 +373,7 @@ CI is the enforcement layer over all five. The audio checks (golden PCM, the par
 
 123. As Burooj, I want adoptions to fix the accessibility defects their lab found, so that a written fix is never dropped again.
 124. As Burooj, I want each lab to run axe and a keyboard pass beside the taste comparison.
-125. As Burooj, I want one canonical edition per unit, with the others as Looks I can pick and pin (and a query parameter for review), so that the adopted design is what people see.
+125. As Burooj, I want editions grouped into families that Shuffle picks one of per load (the default) and that players can pin, with a query parameter for review, so that parts stay consistent with each other and every look can be QA'd.
 126. As a maintainer, I want one edition helper and one collar recipe instead of copies, so that editions and collars behave consistently.
 127. As Burooj, I want the remaining colour drift fixed (Tomato MIDI error LED, Bone lit cap, raw colours in error banners and the Code Strip frame, brand papers admitted by the Sticker type, the Brass Tabs edition on applied paper), so that the playing zone is Ink, Ivory, Brass and Music Color only.
 128. As Burooj, I want Brass sheen to answer sound (sweep on hit, still at rest), so that the bible's "no perpetual decorative motion" holds.
@@ -515,11 +555,14 @@ Burooj signs off once on the codec design and on the backup-and-restore rule. Af
 
 - **Skill rule change:** an adoption must fix every accessibility or behaviour defect its lab recorded in the unit it reopens. "Preserve behaviour" no longer covers known defects. The Plan stops recording 32px targets as an invariant.
 - **Labs run checks.** Each lab mounts its directions under axe and a keyboard walk and reports the results beside the visual comparison.
-- **Editions:** one canonical edition per unit (decision 5).
-  - Other editions become Looks, chosen and pinned in Config.
-  - A query parameter pins any edition for review and snapshots.
+- **Editions (decision 5):**
+  - Families of editions span parts.
+  - Shuffle is the default Look and picks one family per load.
+  - Families can be pinned in Config.
+  - A query parameter pins any family for review and snapshots.
+  - Every edition meets the accessibility floor before it joins Shuffle.
   - One edition helper replaces the three copies, and one seeded-random helper replaces the two copies in the keyboard deck and the Stage Looks.
-  - The Keyboard's daily key-shape deck becomes a Look as well.
+  - The Keyboard's key-shape variation stays as it is (Burooj, 2026-10-09).
   - The collar/chad geometry has one owner, and the Beat Indicator consumes it.
 - **Colour drift fixes:**
   - The MIDI error LED uses an Ink/Ivory/Brass treatment, not Tomato.
@@ -563,7 +606,11 @@ Burooj signs off once on the codec design and on the backup-and-restore rule. Af
   - The patch becomes owned source: a workspace package built from source, or a source alias with the audio-worklet bundler plugin. The version is pinned exactly.
   - Generic fixes are offered upstream: polyphony parsing, eviction of failed loads, finite-voice fades.
   - The Strudel packages move to one version line.
-- **The Code Strip is the loop's readout** (decision 4). It follows the playing member with its highlight, and its text is the loop's export. Editing creates an authored pattern compiled outside playback. The Strudel export keeps its documented approximation of expression.
+- **The Code Strip is the app's own read-only view** (decision 4). The CodeMirror editor and the Strudel CodeMirror extensions are removed, along with the pinned CodeMirror patch and the reveal workarounds.
+  - The notation generator emits text plus a span for each note id.
+  - The highlight lights spans from the transport's note events, so a Looper member highlights the same way as a lone pattern.
+  - "Open in Strudel" hands the current code to strudel.cc.
+  - The Strudel export keeps its documented approximation of expression.
 - **Typed note events and diagnostics.** Note events are defined once as a typed event contract, which removes the two builders of the same event. An audio diagnostics panel shows the backend, PCM held, worklet state and Cyclist skips.
 - **UIBeat from the transport.** UIBeat and the Stage read their phase from the transport, so live Repeat/Arp, edited patterns and loops all pulse the UI (S139). #140 already keeps a single UIBeat generation for Looper members; this extends that to every playing source.
 - **One audio-clock anchor.** The anchor from epoch time to the audio clock is refreshed periodically (and on resume), not only when the context changes state, so long sessions don't drift (S143).
@@ -610,7 +657,7 @@ Burooj signs off once on the codec design and on the backup-and-restore rule. Af
    - Freezing the design log and the defect-fixing rule.
    - The "moats" question.
    - Removing the colour accent rides along with #136.
-2. **Phase 1, the cues are true (before Looper slice 4 ships bending):** W2. Also the W1 items not in Phase 0: the test budget, the colour-law check, and the orphan report.
+2. **Phase 1, the cues are true (before Looper slice 4 ships bending):** W2, plus surfacing the interval descriptions (S95), the feeling-first moat. Also the W1 items not in Phase 0: the test budget, the colour-law check, and the orphan report.
 3. **Phase 2, reach:**
    - W4.
    - The W5 items that need no device: DPR, dt, idle, iOS resume and session, bundle split.
@@ -623,7 +670,7 @@ Burooj signs off once on the codec design and on the backup-and-restore rule. Af
    - The Stage scene.
    - The W9 rhythm-engine consolidation, UIBeat from the transport, the anchor fix and superdough ownership.
    - On devices: the frame budget and W5's memory work. These use what the Phase 0 phone gate measured.
-6. **Phase 5, moods and cues:** the cue stories (97–109), and the Compositions lab top-down.
+6. **Phase 5, cues:** the cue stories (97–109), and the Compositions lab top-down.
 
 The Looper slices continue in parallel under W9's conditions. No further slice merges before the Phase 0 phone gate.
 
@@ -659,7 +706,7 @@ This sequencing changes the plan proposed on 2026-10-06 in one place:
 
 ## Out of Scope
 
-- **A curriculum:** quizzes, scored exercises, progress tracking, and sing-back scoring. The product stance is to teach through moods and cues. Call-and-response from the phrase book stays an idea for later.
+- **A curriculum:** quizzes, scored exercises, progress tracking, and sing-back scoring. The product stance is to teach through the instrument's moats and cues. Call-and-response from the phrase book stays an idea for later.
 - **Running the Looper on a transport other than Strudel.** It is the fallback only if the phone gate fails.
 - **A WebGL renderer for the Stage field.** Revisit only if the DPR fix makes the CPU field look coarse.
 - **Rewriting git history** to remove committed receipts, the purged evidence pack, the transcriptions or the font. Each would be a separate, explicit decision.
@@ -671,12 +718,15 @@ This sequencing changes the plan proposed on 2026-10-06 in one place:
 
 ## Further Notes
 
-- **Readings to confirm with Burooj:**
-  - "moats and cues" is read as **moods and cues**.
-  - Decisions 4 (the Code Strip as readout) and 5 (one canonical edition per unit) are reversible defaults this spec adopts so work can proceed.
+- **Confirmed by Burooj on 2026-10-09:**
+  - "Moats" means moats; the four-moat list is Claude's reading for him to correct.
+  - Decision 4: leave the code editor; keep the highlight and "Open in Strudel".
+  - Decision 5: Shuffle is the default, families are consistent across parts, and Keys stay as they are.
+  - #136 merges before anything.
+- **Still his to decide:**
   - The colour-wheel question (story 96) and the emotion-label default (story 95) are his.
-- **What "editions" means.** Several parts pick a different look on each load (Tabs, Knob, Joystick, Keyboard keys). Decision 5 says each unit gets one default look, and the others become Looks you choose.
-- **Strudel.** Two reviewers proposed worklet-based transports, and the 2026-10-06 summary asked Burooj to choose. Decision 3 records the answer: Strudel stays, the alternatives become the fallback, and the phone gate is the condition. Separately, the Code Strip question was whether its text is something you edit to change the music, or a readout of what plays (Decision 4).
+- **What "editions" means.** Several parts pick a different look on each load (Tabs, Knob, Joystick, Keyboard keys). Decision 5 groups them into families, which Shuffle picks between by default.
+- **Strudel.** Two reviewers proposed worklet-based transports, and the 2026-10-06 summary asked Burooj to choose. Decision 3 records the answer: Strudel stays, the alternatives become the fallback, and the phone gate is the condition. Separately, Burooj chose to leave the Strudel code editor (Decision 4).
 - **What the 2026-10-06 plan left out, which this spec restores:**
   - Device work: DPR, frame-rate-independent motion, idle and adaptive quality, iOS audio, memory, bundle size.
   - Ownership of superdough and the single live rhythm engine.

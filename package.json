@@ -1,6 +1,7 @@
 {
   "name": "emotitone-solfege",
   "version": "1.0.0",
+  "license": "AGPL-3.0-or-later",
   "description": "An interactive music theory web app that teaches solfege through emotional experiences",
   "packageManager": "bun@1.2.17",
   "type": "module",

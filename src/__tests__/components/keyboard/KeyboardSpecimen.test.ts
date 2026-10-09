@@ -16,6 +16,8 @@ describe("Keyboard style-guide specimen", () => {
     expect(specimenSource).toContain("inert · no input yet");
   });
 
+  // Mounting two full Keyboards and re-rendering them three times takes about
+  // 1s idle but blew the 5s default on loaded hosts. 20s still bounds a real hang.
   it("wires specimen controls to live Keyboard props and rendered row count", async () => {
     const wrapper = mount(CompoundKeyboard);
 
@@ -57,5 +59,5 @@ describe("Keyboard style-guide specimen", () => {
     expect(keyboards.length).toBeGreaterThanOrEqual(2);
 
     wrapper.unmount();
-  });
+  }, 20_000);
 });

@@ -27,6 +27,8 @@ Watch/UI sessions hold the lock until closed. A waiting command reports the lock
 
 The default compiler heap is 1536 MiB of V8 old-space. This is **not a total RSS cap**. A legitimately larger project can use `EMOTITONE_TYPECHECK_HEAP_MB=<positive integer>` on a host with sufficient headroom. Compiler failure under this budget is visible; the launcher never silently skips checking. Vitest defaults to two workers, trading some elapsed time for lower peak memory. A dedicated CI host can explicitly override that worker count.
 
+Isolated machines have nothing to serialise against. GitHub Actions (`.github/workflows/ci.yml`) and Vercel (`vercel.json`) set `EMOTITONE_VERIFY_BYPASS_LOCK=1`, which runs the same steps in order without taking the lock or needing Git. Leave it unset on bjslab and other shared hosts.
+
 Direct `vue-tsc`, `vitest`, `bunx`, and separate Git clones bypass this repository lock. `bun test` invokes Bun's own runner; use `bun run test` for this project's Vitest suite. Browser audio measurements have their own runner; schedule them separately from CPU-heavy verification. This code coordinates cooperating project commands, not every process on the host.
 
 ## What each test proves

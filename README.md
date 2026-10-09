@@ -6,7 +6,7 @@ It is built around four things only this instrument does:
 
 - **Feeling first.** Every interval has an emotional voice: a written description and a colour from Music Color.
 - **Sketch speed.** Everything you play is kept. There is no record button and no DAW; humming is a sketch too.
-- **Loops as play.** Playing is looping.
+- **Loops as play.** Playing is the loop (the Looper is in progress).
 - **A pocket instrument.** It plays one-handed on a phone, with a large sound library behind it and its code one tap away.
 
 It began as a feeling-building app for solfège, then absorbed its author's own tool for sketching melodies quickly. You can play with touch, a computer keyboard, MIDI, or by humming. A canvas behind the keys draws what you play.
@@ -27,7 +27,7 @@ Use the package scripts rather than calling the compilers directly; they share a
 
 ## For contributors and agents
 
-Start with [AGENTS.md](AGENTS.md) and [CLAUDE.md](CLAUDE.md). The decision record is `docs/retrospective-spec.md`, and the visual direction is `src/style-guide/WIP-bible.md`. The app is moving from Strudel and superdough to its own AudioWorklet engine; the spec explains why.
+Start with [AGENTS.md](AGENTS.md) and [CLAUDE.md](CLAUDE.md). The decision record is `docs/retrospective-spec.md` (open PR #143), and the visual direction is `src/style-guide/WIP-bible.md`. The app is moving from Strudel and superdough to its own AudioWorklet engine; the spec explains why.
 
 ## Licence
 

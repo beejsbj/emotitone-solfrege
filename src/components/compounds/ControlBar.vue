@@ -4,7 +4,7 @@
       <Knob
         :model-value="keyValue"
         type="options"
-        :options="CHROMATIC_NOTES"
+        :options="keyOptions"
         label="Key"
         :haptic="haptic"
         :change-signal="changeSignals.key"
@@ -78,7 +78,10 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from "vue";
 import { CHROMATIC_NOTES, MODE_OPTIONS } from "@/data/musicData";
+import { spellTonic } from "@/domain/musicalIdentity";
+import type { MusicalMode } from "@/types/music";
 import Knob from "@/components/primatives/Knob/index.vue";
 import Joystick from "@/components/uniques/Joystick/index.vue";
 import type { HarmonyAlteration } from "@/domain/harmony";
@@ -87,7 +90,7 @@ import { PLAY_MODE_OPTIONS } from "@/services/playStyles";
 
 type ControlBarChangeSignals = Partial<Record<"key" | "mode" | "bpm" | "octave", number>>;
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     keyValue?: string;
     modeValue?: string;
@@ -120,6 +123,13 @@ const emit = defineEmits<{
   "update:harmonyValue": [value: HarmonyAlteration];
   harmonyEffective: [value: HarmonyAlteration];
 }>();
+
+// Stored keys stay sharps-only; the readout spells each tonic for the mode
+// (A# major reads Bb, A# minor reads Bb, D# minor keeps D#).
+const keyOptions = computed(() => CHROMATIC_NOTES.map((value) => ({
+  label: spellTonic({ tonic: value, mode: props.modeValue as MusicalMode }),
+  value,
+})));
 
 </script>
 

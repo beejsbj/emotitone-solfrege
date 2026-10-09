@@ -6,82 +6,31 @@ import vueParser from "vue-eslint-parser";
 import globals from "globals";
 import designLaw from "./lint/eslintPluginDesignLaw.mjs";
 import {
-  ALLOWLIST,
-  IMPORT_BOUNDARY_SCOPE,
-  playingZoneGlobs,
-  PLAYING_ZONE_IGNORE,
   BRAND_ZONE,
-  PURE_SERVICES,
+  IMPORT_BOUNDARY_SCOPE,
+  PLAYING_ZONE_IGNORE,
+  SOURCE_EXTENSIONS,
+  playingZoneGlobs,
 } from "./lint/designZones.mjs";
 
-// Design law (BJS-481). Zones, forbidden imports and allowlists are data in
-// lint/designZones.mjs; AGENTS.md explains how to shrink the allowlists.
-const STORE_IMPORT_PATTERNS = ["@/stores", "@/stores/**", "**/stores", "**/stores/**"];
-const SERVICE_IMPORT_PATTERNS = [
-  "@/services/**",
-  "**/services/**",
-  "@/audio/**", // the worklet engine and its shaping/voice policy
-  "**/audio/**",
-  // Pure services stay importable; gitignore-style negation re-includes them.
-  ...PURE_SERVICES.flatMap((name) => [`!@/services/${name}`, `!**/services/${name}`]),
-];
-
-/** Patterns for primitives/compounds, minus the kinds a file is allowlisted for. */
-function boundaryRule({ stores, services }) {
-  const patterns = [];
-  if (stores) {
-    patterns.push({
-      group: STORE_IMPORT_PATTERNS,
-      allowTypeImports: true,
-      message:
-        "Primitives and compounds are presentational: take props or use a composable, do not import a store (lint/designZones.mjs).",
-    });
-  }
-  if (services) {
-    patterns.push({
-      group: SERVICE_IMPORT_PATTERNS,
-      allowTypeImports: true,
-      message:
-        "Primitives and compounds may not import production services (audio, playback, persistence, microphone, MIDI). Pure services are listed in lint/designZones.mjs.",
-    });
-  }
-  return patterns.length ? ["error", { patterns }] : "off";
-}
-
-const boundaryAllowFiles = (rule) => ALLOWLIST[rule] ?? [];
-const boundaryExemptions = new Map(); // file -> { stores, services } still enforced
-for (const file of [...boundaryAllowFiles("no-store-imports"), ...boundaryAllowFiles("no-production-service-imports")]) {
-  boundaryExemptions.set(file, {
-    stores: !boundaryAllowFiles("no-store-imports").includes(file),
-    services: !boundaryAllowFiles("no-production-service-imports").includes(file),
-  });
-}
-const boundaryGroups = new Map(); // "stores,services" -> files
-for (const [file, enforced] of boundaryExemptions) {
-  const key = `${enforced.stores},${enforced.services}`;
-  boundaryGroups.set(key, [...(boundaryGroups.get(key) ?? []), file]);
-}
-
+// Design law (BJS-481). Zones are data in lint/designZones.mjs; the debt that
+// predates the rules is counted per file in lint/designLawBaseline.json (a file may
+// not gain violations, and the count only goes down). AGENTS.md explains both.
 const designLawConfigs = [
   {
     // Import boundary: primitives and compounds do not import stores or production services.
     files: IMPORT_BOUNDARY_SCOPE,
-    rules: { "@typescript-eslint/no-restricted-imports": boundaryRule({ stores: true, services: true }) },
+    ignores: PLAYING_ZONE_IGNORE,
+    plugins: { "design-law": designLaw },
+    rules: { "design-law/no-store-imports": "error", "design-law/no-production-service-imports": "error" },
   },
-  ...[...boundaryGroups].map(([key, files]) => {
-    const [stores, services] = key.split(",").map((v) => v === "true");
-    return { files, rules: { "@typescript-eslint/no-restricted-imports": boundaryRule({ stores, services }) } };
-  }),
   {
     // Colour law: brand papers and raw colour literals stay out of the playing zone.
-    files: playingZoneGlobs("{vue,ts}"),
+    files: playingZoneGlobs(SOURCE_EXTENSIONS),
     ignores: [...PLAYING_ZONE_IGNORE, ...BRAND_ZONE],
     plugins: { "design-law": designLaw },
     rules: { "design-law/no-brand-colour": "error", "design-law/no-raw-colour": "error" },
   },
-  ...["no-brand-colour", "no-raw-colour"]
-    .filter((rule) => ALLOWLIST[rule].length)
-    .map((rule) => ({ files: ALLOWLIST[rule], rules: { [`design-law/${rule}`]: "off" } })),
 ];
 
 export default [

@@ -1,29 +1,28 @@
 // @vitest-environment node
-import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { FlatESLint } from "eslint/use-at-your-own-risk";
 import stylelint from "stylelint";
-// @ts-expect-error plain ESM config module, no types
-import { RECORDED_ALLOWLIST } from "../../../lint/designZones.mjs";
+// @ts-expect-error plain ESM modules, no types
+import { collectCounts } from "../../../lint/designLawCounts.mjs";
 
 /**
  * The design-law lint (BJS-481) is behaviour of the real ESLint and Stylelint
- * configs: lint a file at a path in a zone and see what CI would say.
+ * configs: lint a file at a path in a zone and see what CI would say. Existing
+ * debt is the committed baseline (lint/designLawBaseline.json).
  */
 const root = resolve(__dirname, "../../..");
-const allowlist = RECORDED_ALLOWLIST as Record<string, string[]>;
+const read = (file: string) => readFileSync(resolve(root, file), "utf8");
+const baseline = JSON.parse(read("lint/designLawBaseline.json")) as Record<string, Record<string, number>>;
 
 const eslint = new FlatESLint({ cwd: root, overrideConfigFile: resolve(root, "eslint.config.js") });
 
-async function eslintRules(filePath: string, code: string): Promise<string[]> {
+async function eslintProblems(filePath: string, code: string) {
   const [result] = await eslint.lintText(code, { filePath: resolve(root, filePath) });
-  return result.messages
-    .filter((m) => m.severity === 2)
-    .map((m) => m.ruleId ?? "parse-error");
+  return result.messages.filter((m) => m.severity === 2).map((m) => ({ rule: m.ruleId ?? "parse-error", message: m.message }));
 }
+const eslintRules = async (filePath: string, code: string) => (await eslintProblems(filePath, code)).map((p) => p.rule);
 
 async function styleProblems(codeFilename: string, code: string): Promise<string[]> {
   const result = await stylelint.lint({
@@ -31,36 +30,64 @@ async function styleProblems(codeFilename: string, code: string): Promise<string
     codeFilename: resolve(root, codeFilename),
     configFile: resolve(root, "stylelint.config.mjs"),
   });
-  return result.results.flatMap((r) => r.warnings.map((w) => w.text));
+  return result.results.flatMap((r) => [
+    ...r.warnings.map((w) => w.text),
+    ...r.parseErrors.map((e) => `parse error: ${e.text}`),
+  ]);
 }
 
 const vue = (script: string, template = "<div />", style = "") =>
   `<script setup lang="ts">\n${script}\n</script>\n\n<template>\n${template}\n</template>\n${style}`;
+const style = (css: string) => `<style scoped>\n.x {\n${css}\n}\n</style>\n`;
 
-const STORE = "@typescript-eslint/no-restricted-imports";
+const STORES = "design-law/no-store-imports";
+const SERVICES = "design-law/no-production-service-imports";
+const BRAND = "design-law/no-brand-colour";
+const RAW = "design-law/no-raw-colour";
 
 describe("import boundary: primitives and compounds", () => {
   const primitive = "src/components/primatives/FreshPrimitive.vue";
   const compound = "src/components/compounds/FreshCompound.vue";
 
   it("rejects a store import, absolute or relative", async () => {
-    expect(await eslintRules(primitive, vue('import { useMusicStore } from "@/stores/music";\nuseMusicStore();'))).toContain(STORE);
-    expect(await eslintRules(compound, vue('import { useMusicStore } from "../../stores/music";\nuseMusicStore();'))).toContain(STORE);
+    expect(await eslintRules(primitive, vue('import { useMusicStore } from "@/stores/music";\nuseMusicStore();'))).toContain(STORES);
+    expect(await eslintRules(compound, vue('import { useMusicStore } from "../../stores/music";\nuseMusicStore();'))).toContain(STORES);
   });
 
   it("rejects a production service and the audio engine", async () => {
-    expect(await eslintRules(primitive, vue('import { stageAudio } from "@/services/stageAudio";\nstageAudio;'))).toContain(STORE);
-    expect(await eslintRules(compound, vue('import { x } from "@/audio/liveRenderer";\nx;'))).toContain(STORE);
+    expect(await eslintRules(primitive, vue('import { stageAudio } from "@/services/stageAudio";\nstageAudio;'))).toContain(SERVICES);
+    expect(await eslintRules(compound, vue('import { x } from "@/audio/liveRenderer";\nx;'))).toContain(SERVICES);
+    expect(await eslintRules(compound, vue('import { x } from "../../services/liveAudio";\nx;'))).toContain(SERVICES);
   });
 
-  it("allows type-only imports, pure services and composables", async () => {
+  it("rejects dynamic import(), require() and re-exports of the same targets (bypass 1)", async () => {
+    for (const [code, rule] of [
+      ['export const x = import("@/stores/music");', STORES],
+      ['export const x = import("../../stores/music");', STORES],
+      ['export const x = import("../../../src/stores/music");', STORES],
+      ['export const x = import("@/services/inputVoiceGroups");', SERVICES],
+      ['export const x = import("../../audio/live/types");', SERVICES],
+      ["export const load = (n: string) => import(`@/stores/${n}`);", STORES],
+      ['export { useMusicStore } from "@/stores/music";', STORES],
+      ['export * from "../../services/liveAudio";', SERVICES],
+      ['const x = require("@/stores/music");\nexport { x };', STORES],
+    ] as const) {
+      expect(await eslintRules("src/components/primatives/fresh.ts", code), code).toContain(rule);
+    }
+    expect(await eslintRules(compound, vue('const load = () => import("@/stores/music");\nload;'))).toContain(STORES);
+  });
+
+  it("allows type-only imports, pure services, composables and ordinary dynamic imports", async () => {
     const code = vue(
       [
         'import type { MusicState } from "@/stores/music";',
+        'import { type Foo } from "../../services/stageAudio";',
         'import { getChromaticNoteForScaleIndex } from "@/services/musicColor";',
         'import { useUIBeatScale } from "@/composables/useUIBeat";',
+        'export type { Bar } from "@/stores/music";',
+        'const lazy = () => import("gsap");',
         "const s: MusicState | null = null;",
-        "[s, getChromaticNoteForScaleIndex, useUIBeatScale];",
+        "[s, getChromaticNoteForScaleIndex, useUIBeatScale, lazy];",
       ].join("\n"),
     );
     expect(await eslintRules(primitive, code)).toEqual([]);
@@ -70,11 +97,48 @@ describe("import boundary: primitives and compounds", () => {
     const code = vue('import { useMusicStore } from "@/stores/music";\nuseMusicStore();');
     expect(await eslintRules("src/components/FreshPanel.vue", code)).toEqual([]);
   });
+});
 
-  it("holds an allowlisted file to the kinds it is not allowlisted for", async () => {
-    const [file] = allowlist["no-store-imports"];
-    expect(allowlist["no-production-service-imports"]).toContain(file);
-    expect(await eslintRules(file, vue('import { useMusicStore } from "@/stores/music";\nuseMusicStore();'))).toEqual([]);
+describe("baseline: a file with debt may not gain more (bypass 2)", () => {
+  it("passes a file with exactly its recorded debt", async () => {
+    for (const file of ["src/components/primatives/Note.vue", "src/components/compounds/Keyboard.vue", "src/composables/canvas/harmonicTypography.ts"]) {
+      expect(await eslintRules(file, read(file)), file).toEqual([]);
+    }
+    expect(await styleProblems("src/components/primatives/Readout.vue", read("src/components/primatives/Readout.vue"))).toEqual([]);
+  });
+
+  it("fails when a listed file gains a raw colour or a brand paper in script", async () => {
+    const note = read("src/components/primatives/Note.vue");
+    const grown = note.replace("</script>", 'const newForbiddenColour = "#123456";\nvoid newForbiddenColour;\n</script>');
+    expect(await eslintRules("src/components/primatives/Note.vue", grown)).toContain(RAW);
+    const mark = read("src/components/primatives/Mark.vue");
+    expect(await eslintRules("src/components/primatives/Mark.vue", mark.replace("</script>", 'const t = "cobalt";\nvoid t;\n</script>'))).toContain(BRAND);
+  });
+
+  it("fails when a listed file gains another store or service import", async () => {
+    const keyboard = read("src/components/compounds/Keyboard.vue");
+    const path = "src/components/compounds/Keyboard.vue";
+    expect(await eslintRules(path, keyboard.replace("</script>", 'const more = () => import("@/stores/phrases");\nvoid more;\n</script>'))).toContain(STORES);
+    expect(await eslintRules(path, keyboard.replace("</script>", 'import("@/services/liveAudio");\n</script>'))).toContain(SERVICES);
+  });
+
+  it("fails when a listed file gains a style violation", async () => {
+    const readout = read("src/components/primatives/Readout.vue");
+    const grown = readout.replace("</style>", ".more { background: rgba(10, 20, 30, .5); }\n</style>");
+    expect((await styleProblems("src/components/primatives/Readout.vue", grown)).join()).toMatch(/must not gain more/);
+    const mark = read("src/components/primatives/Mark.vue").replace("</style>", ".more { color: var(--cobalt); }\n</style>");
+    expect((await styleProblems("src/components/primatives/Mark.vue", mark)).join()).toMatch(/must not gain more/);
+  });
+
+  it("fails when debt is paid down but the baseline still records it, so counts only go down", async () => {
+    const stale = await eslintProblems("src/components/primatives/Note.vue", vue("export {};"));
+    expect(stale.map((p) => p.rule)).toContain(RAW);
+    expect(stale.map((p) => p.message).join()).toMatch(/lower it with "bun run lint:baseline"/i);
+    expect((await styleProblems("src/components/primatives/Readout.vue", vue("export {};", "<div />", style("color: var(--ink);")))).join()).toMatch(/Lower it with/);
+  });
+
+  it("is exactly today's debt: nothing stale, nothing unlisted", { timeout: 180_000 }, () => {
+    expect(collectCounts()).toEqual(baseline);
   });
 });
 
@@ -82,9 +146,9 @@ describe("colour law in script and template", () => {
   const playing = "src/components/compounds/FreshCompound.vue";
 
   it("rejects brand papers as tone names, custom properties and template attributes", async () => {
-    expect(await eslintRules(playing, vue('const tone = "tomato";\ntone;'))).toContain("design-law/no-brand-colour");
-    expect(await eslintRules(playing, vue('const c = "color-mix(in srgb, var(--bone) 40%, transparent)";\nc;'))).toContain("design-law/no-brand-colour");
-    expect(await eslintRules(playing, vue("", '<Sticker color="mustard" />'))).toContain("design-law/no-brand-colour");
+    expect(await eslintRules(playing, vue('const tone = "tomato";\ntone;'))).toContain(BRAND);
+    expect(await eslintRules(playing, vue('const c = "color-mix(in srgb, var(--bone) 40%, transparent)";\nc;'))).toContain(BRAND);
+    expect(await eslintRules(playing, vue("", '<Sticker color="mustard" />'))).toContain(BRAND);
   });
 
   it("rejects raw hex, rgb, hsl and oklch literals in script, templates and template literals", async () => {
@@ -95,8 +159,24 @@ describe("colour law in script and template", () => {
       vue('const c = "oklch(70% 0.1 20)";\nc;'),
       vue("", '<div class="border-[#76544f] p-2" />'),
     ]) {
-      expect(await eslintRules(playing, code)).toContain("design-law/no-raw-colour");
+      expect(await eslintRules(playing, code)).toContain(RAW);
     }
+  });
+
+  it("covers every runtime source extension, not just .vue and .ts (bypass 3)", async () => {
+    const code = 'export const colour = "#123456";\nexport const tone = "tomato";';
+    for (const path of [
+      "src/composables/useFresh.js",
+      "src/components/primatives/Fresh.js",
+      "src/components/compounds/fresh.mjs",
+      "src/composables/canvas/useFresh.ts",
+    ]) {
+      const rules = await eslintRules(path, code);
+      expect(rules, path).toContain(RAW);
+      expect(rules, path).toContain(BRAND);
+    }
+    expect(await eslintRules("src/components/fresh.cjs", 'module.exports = { colour: "#123456", tone: "tomato" };')).toEqual([RAW, BRAND]);
+    expect(await eslintRules("src/components/primatives/fresh.js", 'import { s } from "@/stores/music";\nexport default s;')).toContain(STORES);
   });
 
   it("allows tokens, transparent, currentColor and ordinary strings", async () => {
@@ -106,9 +186,8 @@ describe("colour law in script and template", () => {
     expect(await eslintRules(playing, code)).toEqual([]);
   });
 
-  it("applies to composables but not to the brand zone, services or the style guide", async () => {
+  it("does not apply to the brand zone, services or the style guide", async () => {
     const code = vue('const c = "#d8362a" + "var(--tomato)";\nc;');
-    expect(await eslintRules("src/composables/useFresh.ts", 'export const c = "#d8362a";')).toContain("design-law/no-raw-colour");
     for (const path of [
       "src/components/uniques/BrandLogo.vue",
       "src/components/compositions/LoadingScreen.vue",
@@ -118,41 +197,50 @@ describe("colour law in script and template", () => {
       expect(await eslintRules(path, path.endsWith(".ts") ? 'export const c = "#d8362a";' : code)).toEqual([]);
     }
   });
-
-  it("exempts an allowlisted file from that rule only", async () => {
-    const file = allowlist["no-brand-colour"][0];
-    expect(await eslintRules(file, vue('const tone = "tomato";\ntone;'))).toEqual([]);
-    expect(await eslintRules(file, vue('const c = "#d8362a";\nc;'))).toContain("design-law/no-raw-colour");
-  });
 });
 
 describe("colour law in styles", () => {
   const playing = "src/components/compounds/FreshCompound.vue";
-  const style = (css: string) => `<style scoped>\n.x {\n${css}\n}\n</style>\n`;
+  const inVue = (css: string) => vue("", "<div />", style(css));
 
   it("rejects brand tokens and raw colour in a Vue style block", async () => {
-    expect((await styleProblems(playing, vue("", "<div />", style("color: var(--tomato);")))).join()).toMatch(/Brand paper/);
-    expect((await styleProblems(playing, vue("", "<div />", style("--rim: color-mix(in srgb, var(--plum) 30%, transparent);")))).join()).toMatch(/Brand paper/);
-    expect((await styleProblems(playing, vue("", "<div />", style("box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5);")))).join()).toMatch(/Raw colour/);
-    expect((await styleProblems(playing, vue("", "<div />", style("background: #1a1a1a;")))).join()).toMatch(/Raw colour/);
+    expect((await styleProblems(playing, inVue("color: var(--tomato);"))).join()).toMatch(/Brand paper/);
+    expect((await styleProblems(playing, inVue("--rim: color-mix(in srgb, var(--plum) 30%, transparent);"))).join()).toMatch(/Brand paper/);
+    expect((await styleProblems(playing, inVue("box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5);"))).join()).toMatch(/Raw colour/);
+    expect((await styleProblems(playing, inVue("background: #1a1a1a;"))).join()).toMatch(/Raw colour/);
   });
 
-  it("rejects the same in a plain CSS file", async () => {
-    expect((await styleProblems("src/components/primatives/fresh.css", ".x { color: var(--cobalt); }"))).toHaveLength(1);
-    expect((await styleProblems("src/components/primatives/fresh.css", ".x { color: hsl(10 20% 30%); }"))).toHaveLength(1);
+  it("rejects bare CSS named colours, brand tones included (bypass 4)", async () => {
+    expect((await styleProblems(playing, inVue("color: tomato; --accent: plum;"))).join()).toMatch(/Brand paper "tomato"[\s\S]*Brand paper "plum"|Brand paper "plum"[\s\S]*Brand paper "tomato"/);
+    expect((await styleProblems(playing, inVue("background: rebeccapurple;"))).join()).toMatch(/Raw colour "rebeccapurple"/);
+    expect((await styleProblems(playing, inVue("border: 1px solid white;"))).join()).toMatch(/Raw colour "white"/);
+    expect((await styleProblems(playing, inVue("--glow: color-mix(in srgb, mustard 40%, transparent);"))).join()).toMatch(/Brand paper "mustard"/);
+    expect((await styleProblems("src/components/primatives/fresh.css", ".x { color: bone; }")).join()).toMatch(/Brand paper "bone"/);
   });
 
-  it("allows tokens, transparent, currentColor and gradient masks", async () => {
-    const css = style(
-      [
-        "color: var(--ivory);",
-        "background: var(--brass-sheen), transparent;",
-        "border-color: currentColor;",
-        "-webkit-mask: linear-gradient(#000 0 0) content-box;",
-        "mask: repeating-linear-gradient(90deg, #000 0 3px, transparent 3px 5px);",
-      ].join("\n"),
-    );
-    expect(await styleProblems(playing, vue("", "<div />", css))).toEqual([]);
+  it("allows transparent, currentColor, inherit, tokens, masks and non-colour words", async () => {
+    const css = [
+      "color: var(--ivory);",
+      "background: var(--brass-sheen), transparent;",
+      "border-color: currentColor;",
+      "outline-color: inherit;",
+      "font-family: 'Lets Jazz', sans-serif;",
+      "animation: tan-spin 1s linear infinite;",
+      "transition: color .2s ease;",
+      "-webkit-mask: linear-gradient(#000 0 0) content-box;",
+      "mask: repeating-linear-gradient(90deg, #000 0 3px, transparent 3px 5px);",
+    ].join("\n");
+    expect(await styleProblems(playing, inVue(css))).toEqual([]);
+  });
+
+  it("parses plain CSS as CSS and Vue as Vue, even where baseline entries mix them (bypass 5)", async () => {
+    const control = "src/components/primatives/instrumentControl.css";
+    const css = read(control);
+    expect(await styleProblems(control, css)).toEqual([]);
+    expect((await styleProblems(control, `${css}\n.more { color: var(--tomato); }\n`)).join()).toMatch(/Brand paper/);
+    expect((await styleProblems("src/components/primatives/fresh.css", ".x { color: var(--tomato); }")).join()).toMatch(/Brand paper/);
+    const chord = "src/components/compounds/ChordKey.vue";
+    expect((await styleProblems(chord, read(chord).replace("</style>", ".more { color: var(--tomato); }\n</style>"))).join()).toMatch(/Brand paper/);
   });
 
   it("leaves the brand zone, the style guide and token sources alone", async () => {
@@ -160,58 +248,5 @@ describe("colour law in styles", () => {
     expect(await styleProblems("src/components/uniques/BrandLogo.vue", vue("", "<div />", css))).toEqual([]);
     expect(await styleProblems("src/style-guide/FreshPage.vue", vue("", "<div />", css))).toEqual([]);
     expect(await styleProblems("src/emotitone-design-system.css", ":root { --tomato: #d8362a; }")).toEqual([]);
-  });
-
-  it("exempts an allowlisted file from that rule only", async () => {
-    const file = allowlist["style/no-brand-colour"].find((f) => !allowlist["style/no-raw-colour"].includes(f));
-    expect(file, "some file is allowlisted for brand colour but not raw colour").toBeTruthy();
-    expect(await styleProblems(file!, vue("", "<div />", style("color: var(--tomato);")))).toEqual([]);
-    expect((await styleProblems(file!, vue("", "<div />", style("color: #d8362a;")))).join()).toMatch(/Raw colour/);
-  });
-});
-
-describe("the allowlist is exactly today's debt", () => {
-  const run = (bin: string, args: string[]) => {
-    try {
-      return execFileSync(resolve(root, "node_modules/.bin", bin), args, {
-        cwd: root,
-        env: { ...process.env, DESIGN_LAW_NO_ALLOWLIST: "1" },
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "pipe"],
-        maxBuffer: 64 * 1024 * 1024,
-      });
-    } catch (error) {
-      return (error as { stdout: string }).stdout;
-    }
-  };
-
-  it("lists no file that is gone and none that is already fixed or missing", { timeout: 120_000 }, () => {
-    const found: Record<string, Set<string>> = Object.fromEntries(Object.keys(allowlist).map((k) => [k, new Set<string>()]));
-    const rel = (p: string) => p.replace(`${root}/`, "");
-
-    const eslintReport = JSON.parse(run("eslint", ["src/components", "src/composables", "src/App.vue", "src/MainApp.vue", "-f", "json"]));
-    for (const file of eslintReport) {
-      for (const m of file.messages) {
-        if (m.ruleId === "design-law/no-brand-colour") found["no-brand-colour"].add(rel(file.filePath));
-        if (m.ruleId === "design-law/no-raw-colour") found["no-raw-colour"].add(rel(file.filePath));
-        if (m.ruleId === STORE) {
-          found[/stores/.test(m.message) ? "no-store-imports" : "no-production-service-imports"].add(rel(file.filePath));
-        }
-      }
-    }
-    // Stylelint writes JSON to stderr on failure, so ask for a file.
-    const reportFile = resolve(mkdtempSync(resolve(tmpdir(), "design-law-")), "stylelint.json");
-    run("stylelint", ["src/**/*.{vue,css}", "-f", "json", "--output-file", reportFile]);
-    const styleReport = JSON.parse(readFileSync(reportFile, "utf8"));
-    for (const file of styleReport) {
-      for (const w of file.warnings) {
-        found[w.text.startsWith("Brand paper") ? "style/no-brand-colour" : "style/no-raw-colour"].add(rel(file.source));
-      }
-    }
-
-    for (const [rule, files] of Object.entries(allowlist)) {
-      for (const file of files) expect(existsSync(resolve(root, file)), `${rule}: ${file} no longer exists`).toBe(true);
-      expect([...found[rule]].sort(), `${rule}: allowlist differs from the violations that remain`).toEqual([...files].sort());
-    }
   });
 });

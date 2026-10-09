@@ -1,0 +1,44 @@
+{
+  "no-store-imports": {
+    "src/components/compounds/Keyboard.vue": 3
+  },
+  "no-production-service-imports": {
+    "src/components/compounds/Keyboard.vue": 1
+  },
+  "no-brand-colour": {
+    "src/components/primatives/Mark.vue": 4,
+    "src/components/primatives/Sticker.vue": 5
+  },
+  "no-raw-colour": {
+    "src/components/InstrumentSelector.vue": 1,
+    "src/components/primatives/Knob/BooleanKnob.vue": 3,
+    "src/components/primatives/Knob/index.vue": 1,
+    "src/components/primatives/Knob/OptionsKnob.vue": 1,
+    "src/components/primatives/Knob/RangeKnob.vue": 1,
+    "src/components/primatives/Note.vue": 9,
+    "src/composables/canvas/harmonicTypography.ts": 2,
+    "src/composables/canvas/useAmbientRenderer.ts": 2,
+    "src/composables/canvas/useBlobFieldRenderer.ts": 1,
+    "src/composables/canvas/useHilbertScopeRenderer.ts": 1,
+    "src/composables/useMusicColor.ts": 1
+  },
+  "style/no-brand-colour": {
+    "src/components/primatives/Button.vue": 1,
+    "src/components/primatives/Mark.vue": 4,
+    "src/components/primatives/MidiSettingsIcon.vue": 2,
+    "src/components/primatives/Sticker.vue": 10
+  },
+  "style/no-raw-colour": {
+    "src/components/compounds/ChordKey.vue": 1,
+    "src/components/compounds/Key.vue": 1,
+    "src/components/primatives/Button.vue": 4,
+    "src/components/primatives/instrumentControl.css": 2,
+    "src/components/primatives/Knob/BooleanKnob.vue": 1,
+    "src/components/primatives/Knob/KnobFace.vue": 1,
+    "src/components/primatives/Note.vue": 1,
+    "src/components/primatives/Readout.vue": 1,
+    "src/components/primatives/Sticker.vue": 1,
+    "src/components/primatives/Tabs.vue": 1,
+    "src/components/uniques/CodeStrip/index.vue": 4
+  }
+}

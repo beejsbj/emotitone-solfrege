@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { nextTick } from 'vue'
+import { nextTick, ref, type Ref } from 'vue'
 import { createTestWrapper } from '../../helpers/test-utils'
 import UnifiedVisualEffects from '@/components/UnifiedVisualEffects.vue'
 
+// A real setup store exposes `visualsEnabled` as a ref; the component must read
+// it reactively, so the stand-in is a ref too.
 const visualConfigStore = vi.hoisted(() => ({
-  visualsEnabled: true,
+  visualsEnabled: null as unknown as Ref<boolean>,
 }))
 
 const unifiedCanvasMocks = vi.hoisted(() => ({
@@ -45,7 +47,7 @@ describe('UnifiedVisualEffects.vue', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    visualConfigStore.visualsEnabled = true
+    visualConfigStore.visualsEnabled = ref(true)
   })
 
   afterEach(() => {
@@ -65,7 +67,7 @@ describe('UnifiedVisualEffects.vue', () => {
   })
 
   it('does not render the visual layer when visuals are disabled', () => {
-    visualConfigStore.visualsEnabled = false
+    visualConfigStore.visualsEnabled.value = false
 
     wrapper = createTestWrapper(UnifiedVisualEffects)
 
@@ -88,7 +90,7 @@ describe('UnifiedVisualEffects.vue', () => {
   })
 
   it('skips animation startup when visuals are disabled', async () => {
-    visualConfigStore.visualsEnabled = false
+    visualConfigStore.visualsEnabled.value = false
 
     wrapper = createTestWrapper(UnifiedVisualEffects)
     await nextTick()

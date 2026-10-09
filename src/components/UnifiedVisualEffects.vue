@@ -15,7 +15,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from "vue";
+import { ref, onMounted, onUnmounted } from "vue";
+import { storeToRefs } from "pinia";
 import { useMusicStore } from "@/stores/music";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { useUnifiedCanvas } from "@/composables/canvas/useUnifiedCanvas";
@@ -42,8 +43,9 @@ const visualConfigStore = useVisualConfigStore();
 const canvasRef = ref<HTMLCanvasElement | null>(null);
 const { usableRect, reducedMotion } = useStageHostLayout(canvasRef);
 
-// Get visualsEnabled from store
-const { visualsEnabled } = visualConfigStore;
+// Read through a ref: destructuring a setup-store ref copies its value once
+// and freezes it, so the Visuals switch would stop reaching this component.
+const { visualsEnabled } = storeToRefs(visualConfigStore);
 
 // Use the unified canvas system
 const {
@@ -112,7 +114,7 @@ onMounted(() => {
   initializeCanvas();
 
   // Start the animation loop only if visuals are enabled
-  if (visualsEnabled) {
+  if (visualsEnabled.value) {
     startAnimation();
   }
 

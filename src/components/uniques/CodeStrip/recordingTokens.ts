@@ -223,6 +223,7 @@ function noteToken(
 
   return {
     type: "note",
+    noteId: note.id,
     note: codeStripNote,
     text,
     glyph,

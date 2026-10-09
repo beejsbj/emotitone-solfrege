@@ -31,6 +31,7 @@
                   'code-strip__duration-mark--beat': isBeatBoundary(markIndex),
                   'code-strip__duration-mark--lit': isStemLit(token, markIndex),
                 }"
+                :style="markStartStyle(token.duration, markIndex)"
                 aria-hidden="true"
               ></span>
             </span>
@@ -77,6 +78,7 @@
                   'code-strip__duration-mark--beat': isBeatBoundary(markIndex),
                   'code-strip__duration-mark--lit': isStemLit(token, markIndex),
                 }"
+                :style="markStartStyle(token.duration, markIndex)"
                 aria-hidden="true"
               ></span>
             </span>
@@ -119,6 +121,7 @@
                   'code-strip__duration-mark--beat': isBeatBoundary(markIndex),
                   'code-strip__duration-mark--lit': isStemLit(token, markIndex),
                 }"
+                :style="markStartStyle(token.duration, markIndex)"
                 aria-hidden="true"
               ></span>
             </span>
@@ -259,6 +262,11 @@ const isStemLit = (token: CodeStripToken, markIndex: number) => {
   return eventProgress(token) * segments > markIndex - 1;
 };
 
+/** Where a stem's segment starts within its event, 0 to 1. */
+const markStartStyle = (duration: string | undefined, markIndex: number) => ({
+  "--code-strip-mark-start": (markIndex - 1) / Math.max(1, durationMarks(duration)),
+});
+
 const isBeatBoundary = (markIndex: number) =>
   (markIndex - 1) % meter.value.marksPerBeat === 0;
 
@@ -363,8 +371,17 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
   background: var(--ink);
   transform: scaleY(calc(1 - var(--code-strip-progress)));
   transform-origin: top center;
-  transition: transform var(--dur-press) linear;
+  /* A sounding note fills over its own length; any other change is a press. */
+  transition: transform var(--code-strip-fill-duration, var(--dur-press)) linear;
   will-change: transform;
+}
+
+.code-strip__event-line :deep(.chord__fused-progress) {
+  transition-duration: var(--code-strip-fill-duration, var(--dur-press));
+}
+
+.code-strip__event-line :deep(.chord__cluster-member .note__surface::before) {
+  transition-duration: var(--code-strip-fill-duration, var(--dur-press));
 }
 
 /* Stave: a rest is a slim gap in the staff that fills with Ivory as it passes. */
@@ -388,7 +405,7 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
   background: var(--ivory);
   transform: scaleY(var(--code-strip-progress));
   transform-origin: bottom center;
-  transition: transform var(--dur-press) linear;
+  transition: transform var(--code-strip-fill-duration, var(--dur-press)) linear;
   will-change: transform;
 }
 
@@ -444,6 +461,9 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
 
 .code-strip__duration-mark--lit {
   background: var(--ivory);
+  /* A stem lights when the sounding note reaches its segment. */
+  transition: background-color 0s linear;
+  transition-delay: calc(var(--code-strip-mark-start, 0) * var(--code-strip-fill-duration, 0ms));
 }
 
 .code-strip__duration-mark--beat {
@@ -529,7 +549,10 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
 
 @media (prefers-reduced-motion: reduce) {
   .code-strip__note :deep(.note__surface::before),
-  .code-strip__rest-fill {
+  .code-strip__event-line :deep(.chord__fused-progress),
+  .code-strip__event-line :deep(.chord__cluster-member .note__surface::before),
+  .code-strip__rest-fill,
+  .code-strip__duration-mark--lit {
     transition: none;
   }
 }

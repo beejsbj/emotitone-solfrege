@@ -10,6 +10,8 @@ export type CodeStripDurationMode = ConfiguredCodeStripDurationMode;
 
 export interface CodeStripNoteToken {
   type: "note";
+  /** The phrase note this event plays; note events light it by this id. */
+  noteId?: string;
   note: CodeStripNote;
   text: string;
   glyph?: CodeStripGlyph;

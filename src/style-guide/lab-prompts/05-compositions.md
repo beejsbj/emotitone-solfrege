@@ -12,7 +12,7 @@ Temporary. Burooj runs this with `$emotitone-design-system` in its own session. 
 
 ## How to run this lab
 
-You are running one **layer lab** in EmotiTone's reimagining pass. Use the `emotitone-design-system` skill. The Plan (`src/style-guide/DESIGN_SYSTEM_TRACKER.md`, section "Reimagining pass") is the source of truth; `src/style-guide/DESIGN_LOG.md` is append-only. Read the design bible `src/style-guide/WIP-bible.md` before designing anything.
+You are running one **layer lab** in EmotiTone's reimagining pass. Use the `emotitone-design-system` skill. The Plan (`src/style-guide/DESIGN_SYSTEM_TRACKER.md`, section "Reimagining pass") is the source of truth; `src/style-guide/DESIGN_LOG.md` is frozen (2026-10-09; PR bodies are the receipt). Read the design bible `src/style-guide/WIP-bible.md` before designing anything.
 
 **Gate:** only start if every earlier step in the Plan's reimagining-pass table is marked Closed. If one is still open, stop and tell Burooj which step blocks this one.
 
@@ -29,7 +29,7 @@ Genuine reimagining, not polish: 2–3 **genuinely different directions** per un
 ### Build
 - Branch from the latest `origin/main` (e.g. `design/lab-compositions`). **No production changes** in the lab PR. Nothing stacks on the lab, and the lab stacks on nothing.
 - Register the lab at `/style-guide/lab/compositions` following the Primitives lab pattern (`src/style-guide/lab/primitives/` on the `design/lab-primitives` branch, PR #102): a registry of units → directions (idea in two lines, "better because", risks, and a bible reading: zone, chassis/applied paper, fits/caution), a bench per unit that mounts production and every direction through the **same real states**, `?unit=<id>` to isolate one unit, and a **side-by-side strip** of production plus every direction when Burooj needs to feel them together.
-- Keep every real behaviour: states, touch targets, keyboard and ARIA, Reduced Motion, Forced Colors. When a unit's behaviour is deep (like Knob), keep the real component mounted and swap only its face.
+- Keep every real behaviour: states, touch targets, keyboard and ARIA, Reduced Motion, Forced Colors. Record every accessibility or behaviour defect you find in a unit's real behaviour; its adoption must fix each one, not preserve it. When a unit's behaviour is deep (like Knob), keep the real component mounted and swap only its face.
 - Reuse accepted lower-layer decisions: Lit Keycap Buttons, the LED-collar Analog Knob, the Readout, Marquee Tabs, Loop Dial (Compounds lab #124; Bar Tape retired), and Tape/Stamp Sticker papers are the current primitives once their PRs land.
 
 ### Verify
@@ -42,6 +42,6 @@ Genuine reimagining, not polish: 2–3 **genuinely different directions** per un
 - Per unit: its directions, each idea in two lines, what it beats, its risks, and your pick. Then **stop and wait for Burooj's picks.** Iterate on his feedback inside the lab until he approves.
 
 ### After Burooj picks
-- **One adoption PR per pick**, each based on `main`, never containing lab files. Each changes the production source, updates the real guide specimen, reopens and recloses the unit's four gates in the Plan, and appends one Log receipt quoting Burooj's acceptance. Verify, capture real consumers, open it, and link it.
-- Adoptions all append to the Log, so after each merge rebase the others and re-verify before merging the next.
+- **One adoption PR per pick**, each based on `main`, never containing lab files. Each changes the production source, updates the real guide specimen, reopens and recloses the unit's four gates in the Plan, and carries the receipt in its PR body, quoting Burooj's acceptance (the Log is frozen: append nothing to `DESIGN_LOG.md`). It also fixes every accessibility or behaviour defect the lab recorded in that unit. Verify, capture real consumers, open it, and link it.
+- Adoptions still share the Plan, so after each merge rebase the others and re-verify before merging the next.
 - When every pick has landed, close the lab PR as a record, mark this step Closed in the Plan, and delete this prompt file in that same Plan update.

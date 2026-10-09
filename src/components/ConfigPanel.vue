@@ -631,17 +631,16 @@ const STAGE_DETAIL_TABS = [
     label: "Relations",
     shortLabel: "Relations",
     description: "Choose what the Stage explains about simultaneous notes.",
-    groups: [STAGE_CONTROL_GROUPS[5]],
+    groups: [STAGE_CONTROL_GROUPS[4]],
   },
   {
     value: "layers",
     label: "Layers",
     shortLabel: "Layers",
-    description: "Balance atmosphere, pitch strings, and note-event flecks.",
+    description: "Balance atmosphere and pitch strings.",
     groups: [
       STAGE_CONTROL_GROUPS[2],
       STAGE_CONTROL_GROUPS[3],
-      STAGE_CONTROL_GROUPS[4],
     ],
   },
 ];
@@ -744,7 +743,6 @@ const isStageControlDisabled = (control: StageControlId) => {
     control === "atmosphereColorDepth"
     && stageControls.value.atmosphereStrength <= 0.01
   ) return true;
-  if (control === "fleckEnergy" && stageControls.value.fleckAmount <= 0) return true;
   return false;
 };
 

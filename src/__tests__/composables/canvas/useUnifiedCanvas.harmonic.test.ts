@@ -43,9 +43,6 @@ const mocks = vi.hoisted(() => {
     startBlobFadeOutById: vi.fn(),
     buildScene: vi.fn(() => null),
     renderBlobField: vi.fn(() => false),
-    createParticles: vi.fn(),
-    renderParticles: vi.fn(),
-    clearAllParticles: vi.fn(),
     clearAllBlobs: vi.fn(),
     clearHilbertHistory: vi.fn(),
     renderAmbientBackground: vi.fn(),
@@ -81,7 +78,6 @@ vi.mock("@/composables/useVisualConfig", () => ({
     stageConfig: mocks.stageConfig,
     blobConfig: mocks.blobConfig,
     ambientConfig: mocks.ambientConfig,
-    particleConfig: { value: { isEnabled: false, count: 0 } },
     stringConfig: { value: { isEnabled: false } },
     animationConfig: { value: {} },
     hilbertScopeConfig: mocks.hilbertScopeConfig,
@@ -138,15 +134,6 @@ vi.mock("@/composables/canvas/useBlobRenderer", () => ({
     getActiveBlobCount: vi.fn(() => 0),
     clearAllBlobs: mocks.clearAllBlobs,
     removeBlob: vi.fn(),
-  }),
-}));
-
-vi.mock("@/composables/canvas/useParticleSystem", () => ({
-  useParticleSystem: () => ({
-    createParticles: mocks.createParticles,
-    renderParticles: mocks.renderParticles,
-    getActiveParticleCount: vi.fn(() => 0),
-    clearAllParticles: mocks.clearAllParticles,
   }),
 }));
 
@@ -393,7 +380,6 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
       "C#4",
     );
     expect(mocks.recordHarmonicNote).not.toHaveBeenCalled();
-    expect(mocks.createParticles).not.toHaveBeenCalled();
   });
 
   it("rehydrates an unchanged live pitch that is absent from the music store", () => {
@@ -436,7 +422,6 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
       "C#4",
     );
     expect(mocks.recordHarmonicNote).not.toHaveBeenCalled();
-    expect(mocks.createParticles).not.toHaveBeenCalled();
   });
 
   it("rehydrates an active Strudel note that began while bodies were hidden", () => {
@@ -477,31 +462,6 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
       "C#4",
     );
     expect(mocks.recordHarmonicNote).not.toHaveBeenCalled();
-    expect(mocks.createParticles).not.toHaveBeenCalled();
-  });
-
-  it("clears in-flight flecks immediately when Reduced Motion turns on", () => {
-    const reducedMotion = ref(false);
-    const canvas = useUnifiedCanvas(createCanvasRef(), {
-      usableRect: ref({ x: 0, y: 0, width: 800, height: 600 }),
-      reducedMotion,
-    });
-    canvas.initializeCanvas();
-
-    canvas.handleNotePlayed(note, 261.63, "first", 4, "C4", "major", "C", 0);
-    expect(mocks.createParticles).toHaveBeenCalledTimes(1);
-
-    reducedMotion.value = true;
-    reducedMotion.value = false;
-    expect(mocks.clearAllParticles).toHaveBeenCalledTimes(1);
-
-    reducedMotion.value = true;
-    canvas.handleNotePlayed(note, 293.66, "hidden", 4, "D4", "major", "C", 2);
-    expect(mocks.createParticles).toHaveBeenCalledTimes(1);
-
-    reducedMotion.value = false;
-    canvas.handleNotePlayed(note, 329.63, "resumed", 4, "E4", "major", "C", 4);
-    expect(mocks.createParticles).toHaveBeenCalledTimes(2);
   });
 
   it("clears only transient Stage layers when Stage is disabled", () => {
@@ -510,7 +470,6 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
 
     mocks.stageConfig.value.isEnabled = false;
 
-    expect(mocks.clearAllParticles).toHaveBeenCalledOnce();
     expect(mocks.clearHilbertHistory).toHaveBeenCalledOnce();
     expect(mocks.clearAllBlobs).not.toHaveBeenCalled();
   });
@@ -523,7 +482,6 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
     });
     canvas.initializeCanvas();
     mocks.animationOptions?.onFrame(1_000, 1);
-    mocks.clearAllParticles.mockClear();
     mocks.clearHilbertHistory.mockClear();
 
     usableRect.value = { x: 0, y: 0, width: 800, height: 80 };
@@ -531,14 +489,11 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
     canvas.handleNotePlayed(note, 293.66, "suspended", 4, "D4", "major", "C", 2);
     mocks.animationOptions?.onFrame(1_032, 1.032);
 
-    expect(mocks.clearAllParticles).toHaveBeenCalledOnce();
     expect(mocks.clearHilbertHistory).toHaveBeenCalledOnce();
     expect(mocks.clearAllBlobs).not.toHaveBeenCalled();
-    expect(mocks.createParticles).not.toHaveBeenCalled();
 
     usableRect.value = { x: 0, y: 0, width: 800, height: 600 };
     mocks.animationOptions?.onFrame(1_048, 1.048);
-    expect(mocks.clearAllParticles).toHaveBeenCalledOnce();
     expect(mocks.clearHilbertHistory).toHaveBeenCalledOnce();
   });
 

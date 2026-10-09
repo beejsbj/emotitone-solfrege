@@ -76,7 +76,7 @@
         <header class="focused-sheet__head">
           <div>
             <p class="focused-sheet__source">Production stress case · same source</p>
-            <h2 class="focused-sheet__title">Fifteen destinations</h2>
+            <h2 class="focused-sheet__title">Fourteen destinations</h2>
           </div>
           <Sticker variant="fill" color="ivory">Live recipe</Sticker>
         </header>
@@ -145,7 +145,6 @@ const configLabels = [
   ["home", "Scenes", "Home"],
   ["blobs", "Blobs", "Blobs"],
   ["ambient", "Ambient Glow", "Glow"],
-  ["particles", "Particles", "Dust"],
   ["strings", "Strings", "Lines"],
   ["animation", "Animation", "Anim"],
   ["frequencyMapping", "Frequency Mapping", "Freq"],

@@ -226,30 +226,6 @@ export interface AmbientConfig {
 }
 
 /**
- * Particle system configuration
- */
-export interface ParticleConfig {
-  /** Whether particle effects are enabled */
-  isEnabled: boolean;
-  /** Number of particles to generate */
-  count: number;
-  /** Minimum particle size */
-  sizeMin: number;
-  /** Maximum particle size */
-  sizeMax: number;
-  /** Minimum particle lifetime in milliseconds */
-  lifetimeMin: number;
-  /** Maximum particle lifetime in milliseconds */
-  lifetimeMax: number;
-  /** Particle movement speed */
-  speed: number;
-  /** Gravity effect on particles */
-  gravity: number;
-  /** Air resistance factor (0-1) */
-  airResistance: number;
-}
-
-/**
  * String visual effect configuration
  */
 export interface StringConfig {
@@ -467,8 +443,6 @@ export interface VisualEffectsConfig {
   blobs: BlobConfig;
   /** Ambient lighting configuration */
   ambient: AmbientConfig;
-  /** Particle system configuration */
-  particles: ParticleConfig;
   /** String effect configuration */
   strings: StringConfig;
   /** Animation configuration */

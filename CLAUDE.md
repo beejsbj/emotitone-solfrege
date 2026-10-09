@@ -83,7 +83,7 @@ bun run build
 
 **Visual System**
 
-- Canvas-based unified visual effects (particles, ambient, strings)
+- Canvas-based unified visual effects (blobs, ambient, strings, Hilbert Scope)
 - GSAP animations for smooth transitions
 - Responsive design with mobile optimization
 - Color system tied to musical intervals and emotions
@@ -99,7 +99,6 @@ bun run build
 **Visual Effects**
 
 - `useUnifiedCanvas.ts`: Canvas rendering coordination
-- `useParticleSystem.ts`: Particle animations for note events
 - `useMusicColor.ts`: Color mapping for musical elements
 
 **Utilities**
@@ -269,7 +268,7 @@ Each phase includes detailed implementation steps, verification criteria, and co
                      │
 ┌─── VISUAL SYSTEM (Multi-modal) ───────────────┐
 │ Canvas Animations (reactive to music)        │
-│ ├─ Strings, blobs, particles, ambiance      │
+│ ├─ Strings, blobs, scope, ambiance         │
 │ └─ Beat/rhythm reactive effects              │
 │                                              │
 │ Floating Popup (theory descriptions)         │

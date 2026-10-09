@@ -162,26 +162,6 @@ export function useMusicColor(options: { animated?: boolean } = {}) {
     key: ChromaticNote = "C",
   ) => getNoteColors(noteName, mode, octave, false, key).primary;
 
-  const getFleckColor = (
-    noteName: string,
-    mode: MusicalMode = "major",
-    octave = 3,
-    key: ChromaticNote = "C",
-  ) => getNoteColors(noteName, mode, octave, true, key).accent;
-
-  const getFleckColorByPitchClass = (
-    pitchClassIndex: number,
-    mode: MusicalMode = "major",
-    key: ChromaticNote = "C",
-    octave = 3,
-  ) => getNoteColorsByPitchClass(
-    pitchClassIndex,
-    mode,
-    key,
-    octave,
-    true,
-  ).accent;
-
   const withAlpha = withMusicColorAlpha;
 
   const createGlassmorphBackground = (color: string, opacity = 0.4) => {
@@ -294,8 +274,6 @@ export function useMusicColor(options: { animated?: boolean } = {}) {
     getStaticPrimaryColorByScaleIndex,
     getStaticPrimaryColorByPitchClass,
     getStaticPrimaryColorForPitch,
-    getFleckColor,
-    getFleckColorByPitchClass,
     withAlpha,
     createGlassmorphBackground,
     getKeyBackground,

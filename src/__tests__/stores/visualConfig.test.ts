@@ -3,7 +3,7 @@ import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { nextTick } from 'vue'
 import { useVisualConfigStore } from '@/stores/visualConfig'
 import { DEFAULT_CONFIG } from '@/data/visual-config-metadata'
-import { readStageControls } from '@/services/stageAppearance'
+import { readStageControls, stageLookFromConfig } from '@/services/stageAppearance'
 import { createTestPinia } from '../helpers/test-utils'
 import type { VisualEffectsConfig } from '@/types/visual'
 
@@ -494,9 +494,9 @@ describe('Visual Config Store', () => {
     })
 
     it('should update specific value in section', () => {
-      visualConfigStore.updateValue('particles', 'count', 50)
+      visualConfigStore.updateValue('strings', 'count', 12)
       
-      expect(visualConfigStore.config.particles.count).toBe(50)
+      expect(visualConfigStore.config.strings.count).toBe(12)
     })
 
     it('should handle invalid section in updateValue', () => {
@@ -531,15 +531,15 @@ describe('Visual Config Store', () => {
     })
 
     it('should reset specific section to defaults', () => {
-      visualConfigStore.updateConfig('particles', {
-        count: 100,
-        speed: 200
+      visualConfigStore.updateConfig('strings', {
+        count: 12,
+        maxAmplitude: 40
       })
       
-      visualConfigStore.resetSection('particles')
+      visualConfigStore.resetSection('strings')
       
-      expect(visualConfigStore.config.particles.count).toBe(mockDefaultConfig.particles.count)
-      expect(visualConfigStore.config.particles.speed).toBe(mockDefaultConfig.particles.speed)
+      expect(visualConfigStore.config.strings.count).toBe(mockDefaultConfig.strings.count)
+      expect(visualConfigStore.config.strings.maxAmplitude).toBe(mockDefaultConfig.strings.maxAmplitude)
     })
 
     it('keeps Drawer-owned row count when resetting the keyboard section', () => {
@@ -908,6 +908,144 @@ describe('Visual Config Store', () => {
     })
   })
 
+  describe('Note Flecks retirement', () => {
+    const legacyParticles = {
+      isEnabled: true,
+      count: 40,
+      sizeMin: 2,
+      sizeMax: 6,
+      lifetimeMin: 2000,
+      lifetimeMax: 3000,
+      speed: 12,
+      gravity: 0.5,
+      airResistance: 0.99,
+    }
+
+    const retainedConfig = (): VisualEffectsConfig => {
+      const retained = JSON.parse(JSON.stringify(mockDefaultConfig)) as VisualEffectsConfig
+      retained.stage.isEnabled = false
+      Object.assign(retained.blobs, {
+        baseSizeRatio: 0.33,
+        connectionMode: 'web',
+        showEmotionLabel: true,
+      })
+      retained.ambient.opacityMinor = 0.27
+      retained.strings.maxAmplitude = 38
+      retained.hilbertScope.history = 0.41
+      retained.animation.frameRate = 45
+      retained.frequencyMapping.minFreq = 111
+      retained.dynamicColors.musicColorMode = 'fixed'
+      retained.uiBeat.isEnabled = false
+      retained.keyboard.mainOctave = 6
+      retained.codeStrip.bpm = 147
+      return retained
+    }
+
+    it.each(['wrapped', 'unwrapped'])('silently drops persisted particles from a %s config and retains every other section', (format) => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const retained = retainedConfig()
+      const legacy = { ...retained, particles: legacyParticles }
+      localStorage.setItem('emotitone-visual-config', JSON.stringify(
+        format === 'wrapped' ? { config: legacy, visualsEnabled: false } : legacy,
+      ))
+
+      const reloaded = createFreshStore()
+
+      expect(reloaded.config).toEqual(retained)
+      expect(reloaded.config).not.toHaveProperty('particles')
+      expect(reloaded.effectiveConfig).not.toHaveProperty('particles')
+      expect(reloaded.visualsEnabled).toBe(format !== 'wrapped')
+      reloaded.saveToStorage()
+      expect(JSON.parse(localStorage.getItem('emotitone-visual-config')!).config).toEqual(retained)
+      expect(consoleSpy).not.toHaveBeenCalled()
+    })
+
+    it('silently drops particles from saved configs while retaining metadata and all surviving settings', () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const retained = retainedConfig()
+      const saved = {
+        id: 'legacy-flecks-config',
+        name: 'My legacy preset',
+        createdAt: '2026-09-01T12:00:00.000Z',
+        updatedAt: '2026-09-02T12:00:00.000Z',
+        config: { ...retained, particles: legacyParticles },
+      }
+      localStorage.setItem('emotitone-saved-configs', JSON.stringify([saved]))
+
+      const reloaded = createFreshStore()
+
+      expect(reloaded.savedConfigs).toEqual([{ ...saved, config: retained }])
+      expect(reloaded.savedConfigs[0].config).not.toHaveProperty('particles')
+      reloaded.loadSavedConfig(saved.id)
+      expect(reloaded.config).toEqual(retained)
+      expect(reloaded.config).not.toHaveProperty('particles')
+      expect(JSON.parse(reloaded.exportConfig()).config).toEqual(retained)
+      expect(consoleSpy).not.toHaveBeenCalled()
+    })
+
+    it('silently drops particles from saved Stage Looks while retaining the other layers and Look metadata', () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const patch = stageLookFromConfig(retainedConfig())
+      Object.assign(patch.blobs!, { opacity: 0.42 })
+      Object.assign(patch.strings!, { baseOpacity: 0.025 })
+      Object.assign(patch.hilbertScope!, { thickness: 2.25 })
+      const saved = {
+        id: 'legacy-flecks-look',
+        name: 'My legacy Look',
+        createdAt: '2026-09-01T12:00:00.000Z',
+        updatedAt: '2026-09-02T12:00:00.000Z',
+        patch: { ...patch, particles: legacyParticles },
+      }
+      localStorage.setItem('emotitone-saved-stage-looks', JSON.stringify([saved]))
+
+      const reloaded = createFreshStore()
+      const before = reloaded.getConfigSnapshot()
+      const expected = JSON.parse(JSON.stringify(before)) as VisualEffectsConfig
+      for (const section of ['blobs', 'ambient', 'strings', 'hilbertScope'] as const) {
+        Object.assign(expected[section], patch[section])
+      }
+
+      expect(reloaded.savedStageLooks).toEqual([{ ...saved, patch }])
+      expect(reloaded.savedStageLooks[0].patch).not.toHaveProperty('particles')
+      expect(reloaded.loadSavedStageLook(saved.id)).toBe(true)
+      expect(reloaded.transientStageLook?.patch).toEqual(patch)
+      expect(reloaded.getConfigSnapshot()).toEqual(before)
+      expect(reloaded.effectiveConfig).toEqual({
+        ...expected,
+        strings: { ...expected.strings, activeOpacity: 33 / 45 },
+      })
+      expect(reloaded.effectiveConfig).not.toHaveProperty('particles')
+      expect(reloaded.keepStageLook()).toBe(true)
+      expect(reloaded.config).toEqual(expected)
+      const resaved = reloaded.saveStageLookAs('Retained Look')
+      expect(resaved.patch).toEqual(patch)
+      expect(JSON.parse(localStorage.getItem('emotitone-saved-stage-looks')!))
+        .toEqual(reloaded.savedStageLooks)
+      for (const look of reloaded.savedStageLooks) {
+        expect(look.patch).not.toHaveProperty('particles')
+      }
+      expect(consoleSpy).not.toHaveBeenCalled()
+    })
+
+    it('imports a legacy particle preset without error and exports only surviving settings', () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const retained = retainedConfig()
+      const imported = visualConfigStore.importConfig(JSON.stringify({
+        config: { ...retained, particles: legacyParticles },
+        visualsEnabled: false,
+        version: '2.0.0',
+      }))
+
+      expect(imported).toBe(true)
+      expect(visualConfigStore.config).toEqual(retained)
+      expect(visualConfigStore.config).not.toHaveProperty('particles')
+      expect(visualConfigStore.visualsEnabled).toBe(false)
+      expect(JSON.parse(visualConfigStore.exportConfig()).config).toEqual(retained)
+      expect(JSON.parse(localStorage.getItem('emotitone-visual-config')!).config).toEqual(retained)
+      expect(consoleSpy).not.toHaveBeenCalled()
+    })
+  })
+
   describe('Configuration Validation', () => {
     it('should handle missing configuration sections gracefully', () => {
       const partialConfig = {
@@ -921,7 +1059,7 @@ describe('Visual Config Store', () => {
       const newStore = createFreshStore()
       
       expect(newStore.config.blobs.isEnabled).toBe(false)
-      expect(newStore.config.particles.isEnabled).toBe(true) // Should use defaults
+      expect(newStore.config.ambient).toEqual(mockDefaultConfig.ambient) // Should use defaults
     })
 
   })
@@ -1116,7 +1254,6 @@ describe('Visual Config Store', () => {
       visualConfigStore.updateStageControl('labelStrength', 0.31)
       visualConfigStore.updateStageControl('bodiesVisible', false)
       visualConfigStore.updateStageControl('atmosphereStrength', 0)
-      visualConfigStore.updateStageControl('fleckAmount', 0)
 
       visualConfigStore.shuffleStageLook('second-variation')
 
@@ -1130,10 +1267,8 @@ describe('Visual Config Store', () => {
         labelStrength: expect.closeTo(0.31),
         bodiesVisible: false,
         atmosphereStrength: 0,
-        fleckAmount: 0,
       })
       expect(visualConfigStore.effectiveConfig.ambient.isEnabled).toBe(false)
-      expect(visualConfigStore.effectiveConfig.particles.isEnabled).toBe(false)
     })
 
     it('materializes only Stage fields when a Look is kept and survives reload', () => {
@@ -1162,19 +1297,16 @@ describe('Visual Config Store', () => {
       visualConfigStore.updateStageControl('bodiesVisible', true)
       visualConfigStore.updateStageControl('atmosphereStrength', 0.7)
       visualConfigStore.updateStageControl('stringPresence', 0.8)
-      visualConfigStore.updateStageControl('fleckAmount', 12)
       visualConfigStore.updateStageControl('stageEnabled', false)
 
       expect(visualConfigStore.effectiveConfig.blobs.isEnabled).toBe(false)
       expect(visualConfigStore.effectiveConfig.ambient.isEnabled).toBe(false)
       expect(visualConfigStore.effectiveConfig.strings.isEnabled).toBe(false)
-      expect(visualConfigStore.effectiveConfig.particles.isEnabled).toBe(false)
 
       const saved = visualConfigStore.saveStageLookAs('Stage-off save')
       expect(saved.patch.blobs?.isEnabled).toBe(true)
       expect(saved.patch.ambient?.isEnabled).toBe(true)
       expect(saved.patch.strings?.isEnabled).toBe(true)
-      expect(saved.patch.particles?.isEnabled).toBe(true)
 
       visualConfigStore.updateStageControl('stageEnabled', true)
       visualConfigStore.updateStageControl('bodiesVisible', false)
@@ -1183,7 +1315,6 @@ describe('Visual Config Store', () => {
       expect(visualConfigStore.effectiveConfig.blobs.isEnabled).toBe(true)
       expect(visualConfigStore.effectiveConfig.ambient.isEnabled).toBe(true)
       expect(visualConfigStore.effectiveConfig.strings.isEnabled).toBe(true)
-      expect(visualConfigStore.effectiveConfig.particles.isEnabled).toBe(true)
     })
 
     it('resets Stage without touching separate systems or legacy saved configs', () => {
@@ -1248,7 +1379,7 @@ describe('Visual Config Store', () => {
       const mockLocalStorage = (window as any).localStorage
       
       visualConfigStore.updateConfig('blobs', { isEnabled: false })
-      visualConfigStore.updateConfig('particles', { count: 50 })
+      visualConfigStore.updateConfig('strings', { count: 12 })
       await nextTick()
       
       // Should not save immediately

@@ -50,7 +50,6 @@ export const BUILT_IN_STAGE_LOOKS: StageLook[] = [
         opacityMajor: 0.28,
         opacityMinor: 0.2,
       },
-      particles: { isEnabled: false, count: 0 },
       strings: {
         isEnabled: true,
         baseOpacity: 0.12,
@@ -110,7 +109,6 @@ export const BUILT_IN_STAGE_LOOKS: StageLook[] = [
         saturationMajor: 0.78,
         saturationMinor: 0.58,
       },
-      particles: { isEnabled: true, count: 6, speed: 2, gravity: 0.1 },
       strings: {
         isEnabled: true,
         baseOpacity: 0.08,
@@ -150,7 +148,6 @@ export const BUILT_IN_STAGE_LOOKS: StageLook[] = [
         opacityMajor: 0.44,
         opacityMinor: 0.28,
       },
-      particles: { isEnabled: true, count: 12, speed: 5 },
       strings: {
         isEnabled: true,
         baseOpacity: 0.05,

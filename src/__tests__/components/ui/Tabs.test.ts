@@ -64,12 +64,12 @@ describe("Tabs", () => {
     expect(wrapper.emitted("update:modelValue")).toBeUndefined();
   });
 
-  it("renders the accepted fifteen destinations and excludes retired floatingPopup", () => {
+  it("renders fourteen stress-case destinations and excludes retired floatingPopup", () => {
     const wrapper = mount(TabsPage);
     const stress = wrapper.get('[aria-label="Configuration stress-case tabs"]');
     const destinations = stress.findAll('[data-testid^="tabs-page-config-"]');
 
-    expect(destinations).toHaveLength(15);
+    expect(destinations).toHaveLength(14);
     expect(destinations.map((tab) => tab.attributes("data-testid"))).not.toContain(
       "tabs-page-config-floatingPopup",
     );

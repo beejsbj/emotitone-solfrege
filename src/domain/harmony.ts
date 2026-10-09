@@ -1,4 +1,13 @@
 import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
+import {
+  nameChord,
+  spellPitch,
+  spellPitchClass,
+  spokenPitchName,
+  withOctave,
+  type ChordQuality,
+  type MusicalContext,
+} from "@/domain/musicalIdentity";
 import type { ChromaticNote, MusicalMode, Scale } from "@/types/music";
 
 /**
@@ -42,7 +51,10 @@ export type HarmonyPolicy =
 
 export interface HarmonyPitch {
   midi: number;
+  /** Sharps-only scientific pitch: the internal attack and lookup key. */
   name: string;
+  /** Spelled scientific pitch for labels, from the chord root (e.g. "Bb4"). */
+  label: string;
   pitchClass: ChromaticNote;
   pitchClassIndex: number;
   octave: number;
@@ -59,7 +71,11 @@ export interface HarmonyVoicing {
 export interface HarmonyChord {
   id: string;
   degreeIndex: number;
+  /** Sharps-only internal root. */
   root: ChromaticNote;
+  /** Root spelled in the key, e.g. "Bb". */
+  rootSpelling: string;
+  /** Lead-sheet symbol from the musical-identity formatter. */
   symbol: string;
   accessibleName: string;
   quality: HarmonyChordQuality;
@@ -76,11 +92,11 @@ export interface HarmonyRequest {
   alteration?: HarmonyAlteration;
 }
 
+type NamedChordQuality = Exclude<HarmonyChordQuality, "dyad" | "octave">;
+
 interface ChordTemplate {
-  quality: HarmonyChordQuality;
+  quality: NamedChordQuality;
   intervals: readonly number[];
-  suffix: string;
-  spoken: string;
 }
 
 /**
@@ -88,36 +104,21 @@ interface ChordTemplate {
  * Conventional thirds lead, followed by symmetric triads and suspensions.
  */
 export const SCALE_CONTAINED_TEMPLATE_RANKING: readonly ChordTemplate[] = [
-  { quality: "major", intervals: [0, 4, 7], suffix: "", spoken: "major" },
-  { quality: "minor", intervals: [0, 3, 7], suffix: "m", spoken: "minor" },
-  { quality: "diminished", intervals: [0, 3, 6], suffix: "dim", spoken: "diminished" },
-  { quality: "augmented", intervals: [0, 4, 8], suffix: "aug", spoken: "augmented" },
-  { quality: "sus2", intervals: [0, 2, 7], suffix: "sus2", spoken: "suspended second" },
-  { quality: "sus4", intervals: [0, 5, 7], suffix: "sus4", spoken: "suspended fourth" },
+  { quality: "major", intervals: [0, 4, 7] },
+  { quality: "minor", intervals: [0, 3, 7] },
+  { quality: "diminished", intervals: [0, 3, 6] },
+  { quality: "augmented", intervals: [0, 4, 8] },
+  { quality: "sus2", intervals: [0, 2, 7] },
+  { quality: "sus4", intervals: [0, 5, 7] },
 ];
 
 const ALTERATION_TEMPLATES: Record<
   Exclude<HarmonyAlteration, "auto" | "flip" | "dark" | "jazzy7" | "sweet" | "lush9">,
   ChordTemplate
 > = {
-  augmented: {
-    quality: "augmented",
-    intervals: [0, 4, 8],
-    suffix: "aug",
-    spoken: "augmented",
-  },
-  dominant7: {
-    quality: "dominant7",
-    intervals: [0, 4, 7, 10],
-    suffix: "7",
-    spoken: "dominant seventh",
-  },
-  sus4: {
-    quality: "sus4",
-    intervals: [0, 5, 7],
-    suffix: "sus4",
-    spoken: "suspended fourth",
-  },
+  augmented: { quality: "augmented", intervals: [0, 4, 8] },
+  dominant7: { quality: "dominant7", intervals: [0, 4, 7, 10] },
+  sus4: { quality: "sus4", intervals: [0, 5, 7] },
 };
 
 const DYAD_INTERVAL_RANKING = [7, 5, 4, 3, 2, 10, 9, 1, 6, 8, 11] as const;
@@ -130,17 +131,24 @@ function tonicMidi(tonic: ChromaticNote, octave: number) {
   return (octave + 1) * 12 + CHROMATIC_NOTES.indexOf(tonic);
 }
 
-function pitchFromMidi(midi: number, scale: Scale, tonic: ChromaticNote): HarmonyPitch {
+function pitchFromMidi(
+  midi: number,
+  scale: Scale,
+  tonic: ChromaticNote,
+  spelling: string | null,
+): HarmonyPitch {
   const pitchClassIndex = modulo(midi, 12);
   const pitchClass = CHROMATIC_NOTES[pitchClassIndex];
   const octave = Math.floor(midi / 12) - 1;
   const tonicIndex = CHROMATIC_NOTES.indexOf(tonic);
   const relativePitchClass = modulo(pitchClassIndex - tonicIndex, 12);
   const scaleIndex = scale.intervals.indexOf(relativePitchClass);
+  const context = { tonic, mode: scale.mode };
 
   return {
     midi,
     name: `${pitchClass}${octave}`,
+    label: spelling ? withOctave(spelling, midi) : spellPitch(midi, context)!,
     pitchClass,
     pitchClassIndex,
     octave,
@@ -148,7 +156,7 @@ function pitchFromMidi(midi: number, scale: Scale, tonic: ChromaticNote): Harmon
   };
 }
 
-function templateForQuality(quality: HarmonyChordQuality): ChordTemplate | null {
+function templateForQuality(quality: NamedChordQuality): ChordTemplate | null {
   return SCALE_CONTAINED_TEMPLATE_RANKING.find((template) => template.quality === quality)
     ?? null;
 }
@@ -164,11 +172,16 @@ function isMajorQuality(quality: HarmonyChordQuality) {
   return ["major", "major6", "major7", "major9", "augmented"].includes(quality);
 }
 
+/**
+ * `spellings` are the members' spelled pitch classes in interval order (from
+ * the chord root); without them each pitch is spelled in the key.
+ */
 function voicingForIntervals(
   rootMidi: number,
   intervals: readonly number[],
   scale: Scale,
   tonic: ChromaticNote,
+  spellings: readonly string[] = [],
 ) {
   let playableRootMidi = rootMidi;
   const lowestInterval = Math.min(...intervals);
@@ -184,8 +197,8 @@ function voicingForIntervals(
   return {
     kind: "close-position" as const,
     rootMidi: playableRootMidi,
-    pitches: intervals.map((interval) =>
-      pitchFromMidi(playableRootMidi + interval, scale, tonic)
+    pitches: intervals.map((interval, index) =>
+      pitchFromMidi(playableRootMidi + interval, scale, tonic, spellings[index] ?? null)
     ),
   };
 }
@@ -200,18 +213,28 @@ function chordFromTemplate(
   tonic: ChromaticNote,
 ): HarmonyChord {
   const root = CHROMATIC_NOTES[modulo(rootMidi, 12)];
-  const symbol = `${root}${template.suffix}`;
+  const identity = nameChord(rootMidi, template.quality satisfies ChordQuality, {
+    tonic,
+    mode: scale.mode,
+  });
 
   return {
     id: `degree-${degreeIndex + 1}`,
     degreeIndex,
     root,
-    symbol,
-    accessibleName: `${root} ${template.spoken} chord`,
+    rootSpelling: identity.root,
+    symbol: identity.symbol,
+    accessibleName: `${identity.spoken} chord`,
     quality: template.quality,
     policy,
     alteration,
-    voicing: voicingForIntervals(rootMidi, template.intervals, scale, tonic),
+    voicing: voicingForIntervals(
+      rootMidi,
+      template.intervals,
+      scale,
+      tonic,
+      identity.members,
+    ),
   };
 }
 
@@ -229,12 +252,25 @@ function diatonicChord(
   });
   const rootMidi = midi[0];
   const intervals = midi.map((memberMidi) => memberMidi - rootMidi);
-  const template = qualityFromIntervals(intervals) ?? {
-    quality: "dyad" as const,
-    intervals,
-    suffix: "",
-    spoken: "scale chord",
-  };
+  const template = qualityFromIntervals(intervals);
+
+  if (!template) {
+    // Unreachable for stacked thirds in today's modes; kept truthful anyway.
+    const context = { tonic, mode: scale.mode };
+    const rootSpelling = spellPitchClass(rootMidi, context)!;
+    return {
+      id: `degree-${degreeIndex + 1}`,
+      degreeIndex,
+      root: CHROMATIC_NOTES[modulo(rootMidi, 12)],
+      rootSpelling,
+      symbol: rootSpelling,
+      accessibleName: `${spokenPitchName(rootSpelling)} scale chord`,
+      quality: "dyad",
+      policy: "diatonic-thirds",
+      alteration: "auto",
+      voicing: voicingForIntervals(rootMidi, intervals, scale, tonic),
+    };
+  }
 
   return chordFromTemplate(
     degreeIndex,
@@ -281,15 +317,19 @@ function scaleContainedChord(
     relativeScaleIntervals.has(interval),
   );
   const root = CHROMATIC_NOTES[modulo(rootMidi, 12)];
+  // Both members of a fallback dyad or octave are scale tones: key spelling.
+  const context: MusicalContext = { tonic, mode: scale.mode };
+  const rootSpelling = spellPitchClass(rootMidi, context)!;
 
   if (dyadInterval !== undefined) {
-    const upper = CHROMATIC_NOTES[modulo(rootMidi + dyadInterval, 12)];
+    const upper = spellPitchClass(rootMidi + dyadInterval, context)!;
     return {
       id: `degree-${degreeIndex + 1}`,
       degreeIndex,
       root,
-      symbol: `${root}–${upper}`,
-      accessibleName: `${root} and ${upper} dyad`,
+      rootSpelling,
+      symbol: `${rootSpelling}–${upper}`,
+      accessibleName: `${spokenPitchName(rootSpelling)} and ${spokenPitchName(upper)} dyad`,
       quality: "dyad",
       policy: "scale-contained-ranked",
       alteration: "auto",
@@ -301,8 +341,9 @@ function scaleContainedChord(
     id: `degree-${degreeIndex + 1}`,
     degreeIndex,
     root,
-    symbol: `${root} oct`,
-    accessibleName: `${root} octave`,
+    rootSpelling,
+    symbol: `${rootSpelling} oct`,
+    accessibleName: `${spokenPitchName(rootSpelling)} octave`,
     quality: "octave",
     policy: "scale-contained-ranked",
     alteration: "auto",
@@ -328,19 +369,19 @@ function explicitTemplate(
 
   if (alteration === "jazzy7") {
     return isMajorQuality(baseQuality)
-      ? { quality: "major7", intervals: [0, 4, 7, 11], suffix: "maj7", spoken: "major seventh" }
-      : { quality: "minor7", intervals: [0, 3, 7, 10], suffix: "m7", spoken: "minor seventh" };
+      ? { quality: "major7", intervals: [0, 4, 7, 11] }
+      : { quality: "minor7", intervals: [0, 3, 7, 10] };
   }
 
   if (alteration === "sweet") {
     return isMajorQuality(baseQuality)
-      ? { quality: "major6", intervals: [0, 4, 7, 9], suffix: "6", spoken: "major sixth" }
+      ? { quality: "major6", intervals: [0, 4, 7, 9] }
       : templateForQuality("sus2")!;
   }
 
   return isMajorQuality(baseQuality)
-    ? { quality: "major9", intervals: [0, 4, 7, 11, 14], suffix: "maj9", spoken: "major ninth" }
-    : { quality: "minor9", intervals: [0, 3, 7, 10, 14], suffix: "m9", spoken: "minor ninth" };
+    ? { quality: "major9", intervals: [0, 4, 7, 11, 14] }
+    : { quality: "minor9", intervals: [0, 3, 7, 10, 14] };
 }
 
 function alterChord(

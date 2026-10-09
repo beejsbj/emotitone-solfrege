@@ -288,7 +288,7 @@ function chordMembers(
 ): ChordMember[] {
   return chord.voicing.pitches.map((pitch, voicingOrder) => ({
     id: `${chord.id}:${pitch.name}:${voicingOrder}`,
-    rawPitch: pitch.name,
+    rawPitch: pitch.label,
     primary: "raw",
     visibleLabels: ["raw"],
     scaleIndex: pitch.scaleIndex ?? chord.degreeIndex,

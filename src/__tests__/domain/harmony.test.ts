@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { buildHarmony, SCALE_CONTAINED_TEMPLATE_RANKING } from "@/domain/harmony";
+import { buildHarmony, HARMONY_ALTERATIONS, SCALE_CONTAINED_TEMPLATE_RANKING } from "@/domain/harmony";
+import { identifyChord } from "@/domain/musicalIdentity";
+import { CHROMATIC_NOTES, MODE_ORDER } from "@/data";
 import type { MusicalMode } from "@/types/music";
 
 describe("harmony domain", () => {
@@ -16,7 +18,7 @@ describe("harmony domain", () => {
     const chords = buildHarmony({ tonic: "C", scaleType: "major", octave: 4 });
 
     expect(chords.map((chord) => chord.symbol)).toEqual([
-      "C", "Dm", "Em", "F", "G", "Am", "Bdim",
+      "C", "Dm", "Em", "F", "G", "Am", "B°",
     ]);
     expect(chords[5].voicing.pitches.map((pitch) => pitch.name)).toEqual([
       "A4", "C5", "E5",
@@ -113,5 +115,63 @@ describe("harmony domain", () => {
     expect(chords[6].voicing.pitches.map((pitch) => pitch.name)).toEqual([
       "B7", "D8", "F#8", "A8", "C#9",
     ]);
+  });
+
+  it("spells the F-major chord row by key: Bb, not A#", () => {
+    const chords = buildHarmony({ tonic: "F", scaleType: "major" });
+
+    expect(chords.map((chord) => chord.symbol)).toEqual([
+      "F", "Gm", "Am", "Bb", "C", "Dm", "E°",
+    ]);
+    expect(chords[3].voicing.pitches.map((pitch) => pitch.label)).toEqual([
+      "Bb4", "D5", "F5",
+    ]);
+    // The attack key stays sharps-only and unchanged.
+    expect(chords[3].voicing.pitches[0].name).toBe("A#4");
+    expect(chords[3].accessibleName).toBe("B flat major chord");
+  });
+
+  it("spells the Eb-major chord row from a stored D# tonic", () => {
+    const chords = buildHarmony({ tonic: "D#", scaleType: "major" });
+
+    expect(chords.map((chord) => chord.symbol)).toEqual([
+      "Eb", "Fm", "Gm", "Ab", "Bb", "Cm", "D°",
+    ]);
+    expect(buildHarmony({ tonic: "D#", scaleType: "major", alteration: "jazzy7" })
+      .map((chord) => chord.symbol)).toEqual([
+      "Ebmaj7", "Fm7", "Gm7", "Abmaj7", "Bbmaj7", "Cm7", "Dm7",
+    ]);
+  });
+
+  it("spells borrowed alteration members from the chord root", () => {
+    const [dark] = buildHarmony({ tonic: "C", scaleType: "major", alteration: "dark" });
+    expect(dark.symbol).toBe("Cm");
+    expect(dark.voicing.pitches.map((pitch) => pitch.label)).toEqual(["C4", "Eb4", "G4"]);
+
+    const flipped = buildHarmony({ tonic: "C", scaleType: "major", alteration: "flip" })[2];
+    expect(flipped.symbol).toBe("E");
+    expect(flipped.voicing.pitches.map((pitch) => pitch.label)).toEqual(["E4", "G#4", "B4"]);
+  });
+
+  it("names every chord-row chord as the Stage would name its sounding pitches", () => {
+    // One chord namer: a chord is never named two ways on one screen.
+    for (const tonic of CHROMATIC_NOTES) {
+      for (const scaleType of MODE_ORDER) {
+        for (const alteration of HARMONY_ALTERATIONS) {
+          for (const chord of buildHarmony({ tonic, scaleType, alteration })) {
+            if (chord.quality === "dyad" || chord.quality === "octave") continue;
+            const stage = identifyChord(
+              chord.voicing.pitches.map((pitch) => pitch.name),
+              { tonic, mode: scaleType },
+            );
+            expect(
+              stage?.symbol,
+              `${tonic} ${scaleType} ${alteration} degree ${chord.degreeIndex + 1}`,
+            ).toBe(chord.symbol);
+            expect(stage?.pitchSpellings).toEqual(chord.voicing.pitches.map((pitch) => pitch.label));
+          }
+        }
+      }
+    }
   });
 });

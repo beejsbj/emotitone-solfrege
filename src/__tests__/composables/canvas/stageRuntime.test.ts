@@ -28,33 +28,42 @@ describe("Stage runtime", () => {
     },
   );
 
-  it("preserves the fitted range shape after doubling presentation size", () => {
-    const sizeControl = UNIFIED_CONFIG.hilbertScope.sizeRatio;
-    const smallerSize = resolveStageComposition(
-      { x: 0, y: 0, width: 900, height: 420 },
-      75,
-      sizeControl.value / 2,
-    );
-    const defaultSize = resolveStageComposition(
-      { x: 0, y: 0, width: 900, height: 420 },
-      75,
-      sizeControl.value,
-    );
-    const maximumSize = resolveStageComposition(
-      { x: 0, y: 0, width: 900, height: 420 },
-      75,
-      sizeControl.max,
-    );
+  it.each([
+    [900, 420],
+    [390, 180],
+    [390, 400],
+    [390, 640],
+  ])(
+    "grows the Scope radius monotonically across the whole Size range at %i×%i",
+    (width, height) => {
+      const sizeControl = UNIFIED_CONFIG.hilbertScope.sizeRatio;
+      const usable = { x: 0, y: 0, width, height };
+      const sizes: number[] = [];
+      for (let size = 0.15; size <= 1.5 + 1e-9; size += 0.05) {
+        sizes.push(Number(size.toFixed(2)));
+      }
+      const radii = sizes.map(
+        (size) => resolveStageComposition(usable, 75, size).hilbertRadius,
+      );
 
-    expect(smallerSize.hilbertRadius).toBeCloseTo(
-      defaultSize.hilbertRadius / 2,
-      6,
-    );
-    expect(maximumSize.hilbertRadius).toBeCloseTo(
-      defaultSize.hilbertRadius,
-      6,
-    );
-  });
+      for (let index = 1; index < radii.length; index += 1) {
+        expect(radii[index]).toBeGreaterThan(radii[index - 1]!);
+      }
+      // Size is a straight scale on the accepted default, in both directions.
+      const defaultRadius = resolveStageComposition(
+        usable,
+        75,
+        sizeControl.value,
+      ).hilbertRadius;
+      sizes.forEach((size, index) => {
+        expect(radii[index]).toBeCloseTo(
+          (defaultRadius * size) / sizeControl.value,
+          6,
+        );
+      });
+      expect(radii.at(-1)).toBeGreaterThan(defaultRadius);
+    },
+  );
 
   it.each([150, 180, 240, 375, 600, 800])(
     "keeps blob size and orbit independent of Scope Size at a %ipx edge",
@@ -117,7 +126,7 @@ describe("Stage runtime", () => {
     );
 
     expect(radii[0]).toBeLessThan(radii[1]!);
-    expect(radii[1]).toBeLessThanOrEqual(radii[2]!);
+    expect(radii[1]).toBeLessThan(radii[2]!);
   });
 
   it("preserves disabled and undersized Stage behavior", () => {

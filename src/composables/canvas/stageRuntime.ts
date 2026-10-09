@@ -108,10 +108,11 @@ export function resolveStageComposition(
   const blobFitScale = fittedExtent / desiredBodyExtent;
   // Double the entire fitted range without feeding that enlargement back into
   // body fitting. The enlarged scope may cross the support orbit.
-  const hilbertRadius = HILBERT_PRESENTATION_SCALE * Math.min(
-    desiredHilbertRadius,
-    defaultHilbertRadius,
-  );
+  // The configured Size scales this radius across its whole range; no cap at
+  // the default, which once made every Size above it identical. The scope may
+  // outgrow the usable region at the top of the range: the Stage canvas
+  // clips it at the viewport edge.
+  const hilbertRadius = HILBERT_PRESENTATION_SCALE * desiredHilbertRadius;
 
   return {
     usable: { ...usable, width, height },

@@ -144,6 +144,8 @@ onBeforeUnmount(() => cancelAnimationFrame(frame));
 </script>
 
 <style scoped>
+/* BJS-481 proof: brand paper and raw colour in a primitive style. Never merge. */
+.readout-proof { color: var(--tomato); background: #d8362a; }
 .readout {
   position: fixed;
   inset: 0 auto auto 0;

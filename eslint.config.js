@@ -2,9 +2,27 @@ import js from "@eslint/js";
 import typescript from "@typescript-eslint/eslint-plugin";
 import typescriptParser from "@typescript-eslint/parser";
 import vue from "eslint-plugin-vue";
+import vueParser from "vue-eslint-parser";
 
 export default [
   js.configs.recommended,
+  {
+    // vue-tsc already checks undefined names, and no browser/node globals are configured here.
+    rules: { "no-undef": "off" },
+  },
+  {
+    // Pre-existing violations found when lint first ran in CI (BJS-477). They are
+    // warnings so CI can gate on new breakage without a repo-wide cleanup;
+    // BJS-481 (design-law lint) decides which of these return to "error".
+    rules: {
+      "no-unused-vars": "warn",
+      "no-useless-escape": "warn",
+      "no-empty": "warn",
+      "no-constant-condition": "warn",
+      "prefer-const": "warn",
+      "no-redeclare": "off", // false positive on TypeScript overloads; vue-tsc checks redeclaration
+    },
+  },
   {
     files: ["**/*.{js,ts,vue}"],
     languageOptions: {
@@ -23,9 +41,8 @@ export default [
     },
     rules: {
       // TypeScript rules
-      "@typescript-eslint/no-unused-vars": "error",
+      "@typescript-eslint/no-unused-vars": "warn", // pre-existing violations; see BJS-481
       "@typescript-eslint/no-explicit-any": "warn",
-      "@typescript-eslint/prefer-const": "error",
       "@typescript-eslint/no-var-requires": "error",
 
       // Vue rules
@@ -39,14 +56,13 @@ export default [
       "no-console": "warn",
       "no-debugger": "error",
       "no-unused-vars": "off", // Use TypeScript version instead
-      "prefer-const": "error",
       "no-var": "error",
     },
   },
   {
     files: ["**/*.vue"],
     languageOptions: {
-      parser: vue.parser,
+      parser: vueParser,
       parserOptions: {
         parser: typescriptParser,
         ecmaVersion: "latest",

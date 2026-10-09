@@ -8,7 +8,7 @@
     "dev": "vite --port 5175",
     "build": "node scripts/verify.mjs build",
     "preview": "vite preview",
-    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore",
+    "lint": "eslint .",
     "type-check": "node scripts/verify.mjs type-check",
     "test": "node scripts/verify.mjs test run",
     "test:ui": "node scripts/verify.mjs test --ui",

@@ -142,7 +142,28 @@ From the player's side:
    - Structured practice (quizzes, scoring, sing-back, call-and-response) is deferred, not ruled out.
    - The stance, the moats and the origin story are written into the design bible and the repository router (S138).
    - **Cost:** learners who want structured practice get none for now.
-3. **Strudel stays the single musical clock.**
+3. **Superseded on 2026-10-09: move off Strudel and superdough to the worklet engine** (Burooj: "let's do it and move away from strudel/superdough").
+   - **What changes:**
+     - The worklet engine becomes the only engine: one scheduler on the audio clock, its own filter, reverb and delay, square and saw, and its own loader for the same sample and soundfont data.
+     - #140's transport semantics and test results become the acceptance tests for the worklet transport.
+     - #137 and #140 are kept as research, not merged.
+     - The HighlightStrip and "Open in Strudel" stay, because the app writes the code text itself.
+   - **What it buys:**
+     - One engine and one clock.
+     - No superdough patch.
+     - No main-thread scheduler to stall on phones.
+     - Roughly half the piano's memory.
+     - A smaller bundle.
+     - For future versions, no AGPL obligation from Strudel.
+   - **What it costs:**
+     - Rewriting #140's transport.
+     - Building the three effects.
+     - A risk of sound differences.
+     - Time against the Looper's momentum.
+   - **The licence (Decision 1) stays AGPL** while Strudel code ships, and is revisited once it is gone. The Hilbert scope's GPL lineage still applies.
+   - The original Decision 3 follows, for the record.
+
+   **Original:** Strudel stays the single musical clock.
    - **The question.** Two reviewers did propose alternatives:
      - Retrospective #1 (Fable): make the worklet the app's transport, with Strudel following it.
      - Retrospective #2 (Opus): build a data-first transport scheduled on the worklet's audio clock, with Strudel only for export and display.
@@ -596,6 +617,19 @@ Burooj signs off once on the codec design and on the backup-and-restore rule. Af
   - Knob moves to pointer events.
 
 ### W9 Audio stack and the Looper
+
+**Superseded in part on 2026-10-09** (see Decision 3). The bullets below that keep Strudel or superdough (the conditions, owned superdough source, one Strudel version line) no longer apply. These still apply:
+
+- One tempo authority read by live play styles and loops.
+- Mute and solo under 150 ms on the phone.
+- Persisted latency calibration.
+- MIDI expression and the wider bend range.
+- Typed note events and the diagnostics view.
+- UIBeat from the transport.
+- The one audio-clock anchor.
+
+The engine track is ticketed separately.
+
 
 - **Strudel is the single musical clock** (decision 3). The conditions that apply to Looper slices #139–#142 and onward:
   - Members are built from note data; the transpiler and mini parser never run while playing.

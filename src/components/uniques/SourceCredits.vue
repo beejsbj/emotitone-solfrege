@@ -21,8 +21,10 @@ const href = sourceUrl(props.commit ?? import.meta.env.VITE_COMMIT_SHA);
 
 <style scoped>
 .source-credits {
+  display: inline-flex;
+  align-items: center;
   justify-self: start;
-  padding: 10px 0;
+  min-height: 44px;
   color: var(--ivory-3);
   font: 700 10px/1.2 var(--font-mono);
   letter-spacing: var(--tracking-label);

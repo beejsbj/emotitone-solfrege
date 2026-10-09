@@ -3,7 +3,7 @@ import { manageAudioLifecycle } from "@/services/audioLifecycle";
 
 const mocks = vi.hoisted(() => ({ options: undefined as undefined | {
   onToggle(started: boolean): void; beforeStart(): Promise<void>;
-}, context: { state: "interrupted", resume: vi.fn(), suspend: vi.fn() } }));
+}, context: Object.assign(new EventTarget(), { state: "interrupted", resume: vi.fn(), suspend: vi.fn() }) }));
 vi.mock("@strudel/core", () => ({ evalScope: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("@strudel/mini", () => ({}));
 vi.mock("@strudel/tonal", () => ({}));
@@ -23,8 +23,14 @@ afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
 it("resumes interrupted native playback and protects silent transport bars until stop", async () => {
   vi.useFakeTimers();
   vi.spyOn(performance, "now").mockImplementation(() => Date.now());
-  mocks.context.resume.mockImplementation(async () => { mocks.context.state = "running"; });
-  mocks.context.suspend.mockImplementation(async () => { mocks.context.state = "suspended"; });
+  mocks.context.resume.mockImplementation(async () => {
+    mocks.context.state = "running";
+    mocks.context.dispatchEvent(new Event("statechange"));
+  });
+  mocks.context.suspend.mockImplementation(async () => {
+    mocks.context.state = "suspended";
+    mocks.context.dispatchEvent(new Event("statechange"));
+  });
   const stop = manageAudioLifecycle(mocks.context as unknown as AudioContext, { isSounding: () => false });
   const onToggle = vi.fn();
   const editor = createPatternEditor({ root: document.createElement("div"), initialCode: "", onDraw: vi.fn(), onToggle, onEvalError: vi.fn() });

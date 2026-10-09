@@ -105,7 +105,7 @@ describe("useHarmonicAnalysis", () => {
 
   it.each([
     [["C4", "F4", "G4"], "Csus4"],
-    [["C4", "E4", "G#4"], "Caug"],
+    [["C4", "E4", "G#4"], "C+"],
   ])("retains %s entrance metadata through real analysis and every headline/emotion visibility mode", async (names, symbol) => {
     const { snapshot, notePlayed } = createAnalysis();
     const notes = (names as string[]).map((name, index) => createActiveNote(`note-${index}`, name, name));
@@ -152,7 +152,7 @@ describe("useHarmonicAnalysis", () => {
     expect(snapshot.value.isVisible).toBe(true);
     expect(snapshot.value.displayedNotes).toHaveLength(2);
     expect(snapshot.value.intervalEdges).toHaveLength(1);
-    expect(snapshot.value.intervalEdges[0].interval).toBe("3M");
+    expect(snapshot.value.intervalEdges[0].interval).toBe("M3");
     expect(snapshot.value.emotionalDescription).toBe("Grounded & Radiant");
 
     noteReleased(c4.noteId);
@@ -266,11 +266,11 @@ describe("useHarmonicAnalysis", () => {
   });
 
   it.each([
-    [["C4", "E4", "G4"], "CM"],
-    [["G4", "C4", "E4"], "CM"],
-    [["E4", "G4", "C4"], "CM"],
-    [["F3", "A3", "C4"], "FM"],
-    [["G3", "B3", "D4"], "GM"],
+    [["C4", "E4", "G4"], "C"],
+    [["G4", "C4", "E4"], "C"],
+    [["E4", "G4", "C4"], "C"],
+    [["F3", "A3", "C4"], "F"],
+    [["G3", "B3", "D4"], "G"],
     [["A3", "C4", "E4"], "Am"],
   ])("detects a root-position triad independent of press order: %s", (noteNames, expectedLabel) => {
     const { snapshot, notePlayed } = createAnalysis();
@@ -284,14 +284,14 @@ describe("useHarmonicAnalysis", () => {
   });
 
   it.each([
-    [["A3", "C4", "F4"], "FM/A"],
-    [["C4", "F4", "A4"], "FM/C"],
+    [["A3", "C4", "F4"], "F/A"],
+    [["C4", "F4", "A4"], "F/C"],
     [["C3", "E4", "A4"], "Am/C"],
     [["A4", "C3", "E4"], "Am/C"],
-    [["E4", "A4", "C#10"], "AM/E"],
-    [["C#10", "A4", "E4"], "AM/E"],
-    [["E4", "A4", "C#-2"], "AM/C#"],
-    [["C#10", "A4", "E-2"], "AM/E"],
+    [["E4", "A4", "C#10"], "A/E"],
+    [["C#10", "A4", "E4"], "A/E"],
+    [["E4", "A4", "C#-2"], "A/C#"],
+    [["C#10", "A4", "E-2"], "A/E"],
   ])("detects the expected bass-qualified triad: %s", (noteNames, expectedLabel) => {
     const { snapshot, notePlayed } = createAnalysis();
 
@@ -314,7 +314,7 @@ describe("useHarmonicAnalysis", () => {
       notePlayed(createActiveNote(`note-${index}`, noteName, noteName))
     );
 
-    expect(snapshot.value.chordLabel).toBe("CM/E");
+    expect(snapshot.value.chordLabel).toBe("C/E");
   });
 
   it("detects second inversion with G below C and E", () => {
@@ -324,7 +324,7 @@ describe("useHarmonicAnalysis", () => {
     notePlayed(createActiveNote("c4", "C4", "C"));
     notePlayed(createActiveNote("e4", "E4", "E"));
 
-    expect(snapshot.value.chordLabel).toBe("CM/G");
+    expect(snapshot.value.chordLabel).toBe("C/G");
   });
 
   it("keeps ordinary seventh-chord detection ahead of an alternate slash spelling", () => {
@@ -409,5 +409,66 @@ describe("useHarmonicAnalysis", () => {
     ]);
     expect(snapshot.value.intervalEdges).toHaveLength(1);
     expect(snapshot.value.isVisible).toBe(true);
+  });
+
+  describe("spelling by key", () => {
+    const playIn = (
+      notes: Array<[string, string]>,
+      key: ActiveNote["key"],
+      mode: ActiveNote["mode"] = "major",
+    ) => {
+      const analysis = createAnalysis();
+      notes.forEach(([noteId, noteName]) =>
+        analysis.notePlayed({ ...createActiveNote(noteId, noteName, noteName), key, mode })
+      );
+      return analysis.snapshot;
+    };
+
+    it("reads C to a stored D# as a minor third, not 2A", () => {
+      const snapshot = playIn([["c", "C4"], ["eb", "D#4"]], "C");
+
+      expect(snapshot.value.intervalEdges[0]).toMatchObject({
+        interval: "m3",
+        spokenInterval: "minor third",
+      });
+      expect(snapshot.value.noteSpellings).toEqual({ c: "C4", eb: "Eb4" });
+    });
+
+    it("labels F major's IV as Bb with conventional intervals", () => {
+      const snapshot = playIn([["d", "D4"], ["f", "F4"], ["bb", "A#4"]], "F");
+
+      expect(snapshot.value.chordLabel).toBe("Bb/D");
+      expect(snapshot.value.chordSpoken).toBe("B flat major over D");
+      expect(snapshot.value.noteSpellings).toEqual({ d: "D4", f: "F4", bb: "Bb4" });
+      expect(snapshot.value.intervalEdges.map((edge) => edge.interval))
+        .toEqual(["m3", "m6", "P4"]);
+    });
+
+    it("labels Eb major from a stored D# key by flats", () => {
+      const snapshot = playIn(
+        [["eb", "D#4"], ["g", "G4"], ["bb", "A#4"], ["d", "D5"]],
+        "D#",
+      );
+
+      expect(snapshot.value.chordLabel).toBe("Ebmaj7");
+      expect(Object.values(snapshot.value.noteSpellings ?? {}))
+        .toEqual(["Eb4", "G4", "Bb4", "D5"]);
+      expect(snapshot.value.intervalEdges.map((edge) => edge.interval))
+        .toEqual(["M3", "P5", "M7", "m3", "P5", "M3"]);
+    });
+
+    it("spells chord members from the root and keeps the emotion reading", () => {
+      const snapshot = playIn(
+        [["b", "B3"], ["d", "D4"], ["f", "F4"], ["a", "A4"]],
+        "C",
+      );
+
+      expect(snapshot.value.chordLabel).toBe("Bø7");
+      // Classified through Tonal's name, not the lead-sheet symbol.
+      expect(snapshot.value.emotionalDescription).toBe("Uneasy and searching");
+      const e = playIn([["e", "E4"], ["gs", "G#4"], ["b", "B4"]], "C");
+      expect(e.value.chordLabel).toBe("E");
+      expect(e.value.noteSpellings).toEqual({ e: "E4", gs: "G#4", b: "B4" });
+    });
   });
 });

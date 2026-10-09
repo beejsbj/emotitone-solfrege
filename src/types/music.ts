@@ -169,8 +169,10 @@ export interface HarmonicIntervalEdge {
   fromIndex: number;
   /** Destination index in the displayed-note list */
   toIndex: number;
-  /** Tonal.js interval label */
+  /** Harmonic interval label spelled for the key, lower note first (e.g. "m3"). */
   interval: string;
+  /** Screen-reader name of the interval (e.g. "minor third"). */
+  spokenInterval?: string;
 }
 
 /**
@@ -183,8 +185,12 @@ export interface HarmonicAnalysisSnapshot {
   displayedNotes: readonly ActiveNote[];
   /** Pairwise interval relationships for the displayed notes */
   intervalEdges: readonly HarmonicIntervalEdge[];
-  /** Detected musical identity, independent of headline visibility. */
+  /** Displayed notes spelled for the key (e.g. "Bb4"), by note id. */
+  noteSpellings?: Readonly<Record<string, string>>;
+  /** Detected lead-sheet chord symbol, independent of headline visibility. */
   chordSymbol?: string | null;
+  /** Screen-reader name of the detected chord (e.g. "B flat major over D"). */
+  chordSpoken?: string | null;
   /** Detected chord label when available and enabled */
   chordLabel: string | null;
   /** Optional emotional summary for the displayed notes */

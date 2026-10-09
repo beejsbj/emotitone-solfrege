@@ -5,6 +5,7 @@
     :class="classes"
     role="tablist"
     :aria-label="ariaLabel"
+    @keydown="handleTabKeydown"
     @pointerdown="handleRailPointerDown"
     @pointermove="handleRailPointerMove"
     @pointerup="handleRailPointerEnd"
@@ -34,11 +35,12 @@
         :disabled="tab.disabled"
         :data-testid="tab.testId"
         :data-tone="tab.tone"
+        :data-tab-value="tab.value"
         :tabindex="tab.value === activeValue ? 0 : -1"
         role="tab"
         :aria-label="tab.icon ? tab.label : undefined"
         :aria-selected="tab.value === activeValue"
-        @click="selectTab(tab, $event)"
+        @click="selectTab(tab, $event.detail === 0 ? 'keyboard' : 'pointer')"
       >
         <span v-if="tab.icon" class="tabs__label tabs__label--icon">
           <component :is="tab.icon" class="tabs__icon" />
@@ -331,15 +333,48 @@ const triggerSmear = () => {
   }, 220);
 };
 
-const selectTab = (tab: TabItem, event: MouseEvent) => {
+const selectTab = (tab: TabItem, source: TabsSelectionSource) => {
   if (tab.disabled || tab.value === activeValue.value) return;
   if (props.modelValue === undefined) internalValue.value = tab.value;
-  emit("update:modelValue", tab.value, event.detail === 0 ? "keyboard" : "pointer");
+  emit("update:modelValue", tab.value, source);
   triggerSmear();
   void nextTick(() => {
     measureChip();
     revealActiveTab();
   });
+};
+
+const handleTabKeydown = (event: KeyboardEvent) => {
+  const buttons = Array.from(
+    trackEl.value?.querySelectorAll<HTMLButtonElement>('.tabs__button:not(:disabled)') ?? [],
+  );
+  const focused = event.target instanceof Element
+    ? event.target.closest<HTMLButtonElement>('[role="tab"]')
+    : null;
+  const index = focused ? buttons.indexOf(focused) : -1;
+  if (index < 0) return;
+
+  const vertical = scrollEl.value?.getAttribute("aria-orientation") === "vertical";
+  let nextIndex: number;
+  if (event.key === (vertical ? "ArrowDown" : "ArrowRight")) {
+    nextIndex = (index + 1) % buttons.length;
+  } else if (event.key === (vertical ? "ArrowUp" : "ArrowLeft")) {
+    nextIndex = (index - 1 + buttons.length) % buttons.length;
+  } else if (event.key === "Home") {
+    nextIndex = 0;
+  } else if (event.key === "End") {
+    nextIndex = buttons.length - 1;
+  } else {
+    return;
+  }
+  const next = buttons[nextIndex];
+  if (!next) return;
+
+  const tab = props.tabs.find((tab) => tab.value === next.dataset.tabValue);
+  if (!tab) return;
+  event.preventDefault();
+  selectTab(tab, "keyboard");
+  void nextTick(() => next.focus());
 };
 
 watch(

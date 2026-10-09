@@ -63,6 +63,7 @@ vi.mock("@/services/hummingStage", () => ({
 
 vi.mock("@/services/superdoughAudio", () => ({
   getActiveStrudelStageNotes: () => mocks.strudelStageNotes,
+  getAudioContext: () => null,
 }));
 
 vi.mock("@/services/stageAudio", () => ({
@@ -123,6 +124,7 @@ vi.mock("@/composables/useAnimationLifecycle", () => ({
 
 vi.mock("@/composables/canvas/useBlobRenderer", () => ({
   useBlobRenderer: () => ({
+    hasPendingAnimation: () => mocks.activeBlobs.size > 0,
     activeBlobs: mocks.activeBlobs,
     createBlob: mocks.createBlob,
     startBlobFadeOut: mocks.startBlobFadeOut,
@@ -139,6 +141,7 @@ vi.mock("@/composables/canvas/useBlobRenderer", () => ({
 
 vi.mock("@/composables/canvas/useStringRenderer", () => ({
   useStringRenderer: () => ({
+    hasPendingAnimation: () => false,
     initializeStrings: vi.fn(),
     addEventListeners: vi.fn((target: EventTarget) => { mocks.stringEventTarget = target; }),
     removeEventListeners: vi.fn(),
@@ -171,7 +174,8 @@ vi.mock("@/composables/canvas/useBlobFieldRenderer", () => ({
 
 vi.mock("@/composables/canvas/useHilbertScopeRenderer", () => ({
   useHilbertScopeRenderer: () => ({
-    initializeHilbertScope: vi.fn(),
+    hasPendingAnimation: () => false,
+    initializeHilbertScope: vi.fn(async () => {}),
     resizeHilbertScope: vi.fn(),
     renderHilbertScope: mocks.renderHilbertScope,
     clearHistory: mocks.clearHilbertHistory,
@@ -200,6 +204,7 @@ const note = {
 
 function createCanvasRef() {
   const canvas = {
+    getBoundingClientRect: () => ({ width: window.innerWidth, height: window.innerHeight }),
     width: 800,
     height: 600,
     getContext: vi.fn(() => mockCanvasContext),
@@ -543,7 +548,7 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
     expect(mocks.renderAmbientBackground.mock.calls.at(-1)?.at(-1)).toEqual([
       liveNote,
     ]);
-    expect(mocks.renderHilbertScope.mock.calls.at(-1)?.at(-1)).toEqual([
+    expect(mocks.renderHilbertScope.mock.calls.at(-1)?.at(-2)).toEqual([
       liveNote,
     ]);
   });

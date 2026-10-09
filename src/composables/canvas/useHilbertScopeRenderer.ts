@@ -1,3 +1,4 @@
+import { frameBlend, sizeStageCanvas, stageCanvasSize, stagePixelRatio } from "./stageCanvas";
 /**
  * Hilbert Scope Rendering System
  * Creates a circular, oscillating visualization that responds to audio amplitude and timbre
@@ -164,13 +165,17 @@ interface HilbertScopeState {
   layoutCenterY: number | null;
 }
 
-export function useHilbertScopeRenderer() {
+export function useHilbertScopeRenderer(animationActive?: () => boolean) {
+  let lifetime = 0;
+  let trailStrength = 0;
+  let fadeOutDuration: number | null = null;
+  const emptyWaveform = new Float32Array(0);
   // Core processors
   const hilbertProcessor = new HilbertProcessor();
   const sigmoid = sigmoidFactory(7);
   
   // Color system and music store
-  const musicColor = useMusicColor({ animated: true });
+  const musicColor = useMusicColor({ animated: true, animationActive });
   const musicStore = useMusicStore();
 
   // State
@@ -202,6 +207,7 @@ export function useHilbertScopeRenderer() {
     waveformSource?: AudioNode | null,
   ) => {
     if (state.isInitialized) return;
+    const initializingLifetime = lifetime;
 
     if (waveformSource) {
       await hilbertProcessor.connect(
@@ -210,6 +216,8 @@ export function useHilbertScopeRenderer() {
       );
     }
 
+    if (initializingLifetime !== lifetime) return;
+
     // Initialize position (center, top half)
     state.x = canvasWidth / 2;
     state.y = canvasHeight / 2;
@@ -217,14 +225,13 @@ export function useHilbertScopeRenderer() {
     // Create dedicated history and swap canvases so the scope can preserve
     // its own colored trail even though the main canvas is cleared every frame.
     state.historyCanvas = document.createElement("canvas");
-    state.historyCanvas.width = canvasWidth;
-    state.historyCanvas.height = canvasHeight;
     state.historyContext = state.historyCanvas.getContext("2d");
 
     state.swapCanvas = document.createElement("canvas");
-    state.swapCanvas.width = canvasWidth;
-    state.swapCanvas.height = canvasHeight;
     state.swapContext = state.swapCanvas.getContext("2d");
+
+    sizeStageCanvas(state.historyCanvas, state.historyContext, canvasWidth, canvasHeight);
+    sizeStageCanvas(state.swapCanvas, state.swapContext, canvasWidth, canvasHeight);
 
     // Calculate initial radius
     state.targetRadius = Math.min(canvasWidth, canvasHeight) * config.sizeRatio / 2;
@@ -248,6 +255,7 @@ export function useHilbertScopeRenderer() {
 
   /** Clear renderer-owned persistence without discarding musical state. */
   const clearHistory = () => {
+    trailStrength = 0;
     if (state.historyCanvas && state.historyContext) {
       state.historyContext.clearRect(
         0,
@@ -279,6 +287,7 @@ export function useHilbertScopeRenderer() {
     audioFrame: StageAudioFrame = { envelope: 0, hasSignal: false },
     reducedMotion = false,
     activeNotes: readonly ActiveNote[] = musicStore.getActiveNotes(),
+    deltaSeconds = 1 / 60,
   ) => {
     if (!state.isInitialized || !state.isActive || !config.isEnabled) return;
     if (
@@ -292,14 +301,23 @@ export function useHilbertScopeRenderer() {
 
     // Get audio data
     const [xVals, yVals] = reducedMotion
-      ? [new Float32Array(0), new Float32Array(0)]
+      ? [emptyWaveform, emptyWaveform]
       : hilbertProcessor.getValues();
     const amplitude = reducedMotion ? 0 : audioFrame.envelope;
     // Handle fade animations
     if (reducedMotion) {
       state.fadeInProgress = 1;
     } else if (state.fadeInProgress < 1) {
-      state.fadeInProgress = Math.min(1, state.fadeInProgress + (1 / config.scaleInDuration) / 60);
+      state.fadeInProgress = Math.min(1, state.fadeInProgress + deltaSeconds / Math.max(0.001, config.scaleInDuration));
+    }
+
+    if (fadeOutDuration !== null) {
+      state.fadeOutProgress = Math.min(1, state.fadeOutProgress + deltaSeconds / fadeOutDuration);
+      if (state.fadeOutProgress >= 1) {
+        state.isActive = false;
+        clearHistory();
+        return;
+      }
     }
 
     const targetX = composition?.centerX ?? canvasWidth / 2;
@@ -308,9 +326,9 @@ export function useHilbertScopeRenderer() {
     const shiftY = targetY - (state.layoutCenterY ?? targetY);
     if (!reducedMotion && (shiftX || shiftY) && state.historyCanvas) {
       state.swapContext.clearRect(0, 0, canvasWidth, canvasHeight);
-      state.swapContext.drawImage(state.historyCanvas, shiftX, shiftY);
+      state.swapContext.drawImage(state.historyCanvas, shiftX, shiftY, canvasWidth, canvasHeight);
       state.historyContext.clearRect(0, 0, canvasWidth, canvasHeight);
-      state.historyContext.drawImage(state.swapCanvas, 0, 0);
+      state.historyContext.drawImage(state.swapCanvas, 0, 0, canvasWidth, canvasHeight);
     }
     state.layoutCenterX = targetX;
     state.layoutCenterY = targetY;
@@ -322,7 +340,7 @@ export function useHilbertScopeRenderer() {
     // Smooth radius transitions, including live Size control changes.
     state.currentRadius = reducedMotion
       ? state.targetRadius
-      : state.currentRadius + (state.targetRadius - state.currentRadius) * 0.1;
+      : state.currentRadius + (state.targetRadius - state.currentRadius) * frameBlend(0.1, deltaSeconds);
 
     if (reducedMotion) {
       // Reduced Motion is a fully still presentation, not a frozen waveform.
@@ -330,22 +348,23 @@ export function useHilbertScopeRenderer() {
       clearHistory();
     } else {
       // Maintain an offscreen trail buffer instead of sampling the main canvas.
-      const persistence = mathClamp(config.history, 0, 0.99);
+      const persistence = Math.pow(mathClamp(config.history, 0, 0.99), deltaSeconds * 60);
+      trailStrength *= persistence;
 
       state.swapContext.clearRect(0, 0, canvasWidth, canvasHeight);
       if (persistence > 0) {
         state.swapContext.globalAlpha = persistence;
-        state.swapContext.drawImage(state.historyCanvas, 0, 0);
+        state.swapContext.drawImage(state.historyCanvas, 0, 0, canvasWidth, canvasHeight);
         state.swapContext.globalAlpha = 1;
 
         if (config.smear > 0) {
-          const smearScale = 1 + config.smear * 0.012;
+          const smearScale = Math.pow(1 + config.smear * 0.012, deltaSeconds * 60);
           const smearWidth = canvasWidth * smearScale;
           const smearHeight = canvasHeight * smearScale;
           const smearX = (canvasWidth - smearWidth) / 2;
           const smearY = (canvasHeight - smearHeight) / 2;
 
-          state.swapContext.globalAlpha = persistence * config.smear * 0.25;
+          state.swapContext.globalAlpha = persistence * frameBlend(config.smear * 0.25, deltaSeconds);
           state.swapContext.drawImage(
             state.historyCanvas,
             smearX,
@@ -358,7 +377,7 @@ export function useHilbertScopeRenderer() {
       }
 
       state.historyContext.clearRect(0, 0, canvasWidth, canvasHeight);
-      state.historyContext.drawImage(state.swapCanvas, 0, 0);
+      state.historyContext.drawImage(state.swapCanvas, 0, 0, canvasWidth, canvasHeight);
     }
 
     let resolvedColor: string | null = null;
@@ -410,7 +429,7 @@ export function useHilbertScopeRenderer() {
       targetContext.globalAlpha = drawAlpha;
 
       if (config.glowEnabled) {
-        targetContext.shadowBlur = config.glowIntensity;
+        targetContext.shadowBlur = config.glowIntensity * stageCanvasSize(state.historyCanvas!).dpr;
         targetContext.shadowColor = strokeColor;
       }
 
@@ -443,6 +462,7 @@ export function useHilbertScopeRenderer() {
 
     if (!reducedMotion && (amplitude > 0.01 || activeNotes.length > 0)) {
       drawCurve(state.historyContext);
+      trailStrength = 1;
     } else if (reducedMotion) {
       ctx.save();
       ctx.globalAlpha = config.opacity * 0.45;
@@ -454,10 +474,11 @@ export function useHilbertScopeRenderer() {
       ctx.restore();
     }
 
+    if (trailStrength < 1 / 255) clearHistory();
     if (!reducedMotion) {
       ctx.save();
       ctx.globalAlpha = 1;
-      ctx.drawImage(state.historyCanvas, 0, 0);
+      ctx.drawImage(state.historyCanvas, 0, 0, canvasWidth, canvasHeight);
       ctx.restore();
     }
   };
@@ -470,20 +491,20 @@ export function useHilbertScopeRenderer() {
     height: number,
     config: HilbertScopeConfig,
     composition?: StageComposition,
+    dpr = stagePixelRatio(),
   ) => {
     if (!state.isInitialized) return;
 
     if (state.historyCanvas) {
-      state.historyCanvas.width = width;
-      state.historyCanvas.height = height;
+      sizeStageCanvas(state.historyCanvas, state.historyContext, width, height, dpr);
     }
 
     // Update swap canvas size
     if (state.swapCanvas) {
-      state.swapCanvas.width = width;
-      state.swapCanvas.height = height;
+      sizeStageCanvas(state.swapCanvas, state.swapContext, width, height, dpr);
     }
 
+    trailStrength = 0;
     // Update position to maintain relative position
     state.x = width / 2;
     state.y = composition?.centerY ?? height / 2;
@@ -499,22 +520,18 @@ export function useHilbertScopeRenderer() {
    */
   const startFadeOut = (config: HilbertScopeConfig) => {
     state.fadeOutProgress = 0;
-    const fadeOutInterval = setInterval(() => {
-      state.fadeOutProgress += (1 / config.scaleOutDuration) / 60;
-      if (state.fadeOutProgress >= 1) {
-        state.fadeOutProgress = 1;
-        state.isActive = false;
-        clearInterval(fadeOutInterval);
-      }
-    }, 1000 / 60);
+    fadeOutDuration = Math.max(0.001, config.scaleOutDuration);
   };
 
   /**
    * Cleanup resources
    */
   const cleanup = () => {
+    lifetime++;
     hilbertProcessor.disconnect();
 
+    trailStrength = 0;
+    fadeOutDuration = null;
     state.isInitialized = false;
     state.isActive = false;
     state.historyCanvas = null;
@@ -527,6 +544,7 @@ export function useHilbertScopeRenderer() {
   };
 
   return {
+    hasPendingAnimation: () => trailStrength >= 1 / 255 || (fadeOutDuration !== null && state.isActive),
     initializeHilbertScope,
     renderHilbertScope,
     resizeHilbertScope,

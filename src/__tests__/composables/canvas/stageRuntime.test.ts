@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   projectCircleOfFifths,
-  resolveAmbientLevel,
+  resolveAtmosphereBand,
   resolveStageComposition,
 } from "@/composables/canvas/stageRuntime";
 import { UNIFIED_CONFIG } from "@/data/visual-config-metadata";
@@ -213,51 +213,32 @@ describe("Stage runtime", () => {
     expect(composition.orbitRadiusY + fittedExtent).toBeLessThanOrEqual(70);
   });
 
-  it("cycles the silent Ambient breath every ten elapsed seconds", () => {
+  it("breathes the silent Atmosphere band every ten elapsed seconds", () => {
     const silence = { envelope: 0, hasSignal: false };
-    expect(resolveAmbientLevel(silence, 0, false)).toBeCloseTo(0.68, 6);
-    expect(resolveAmbientLevel(silence, 2.5, false)).toBeCloseTo(0.72, 6);
-    expect(resolveAmbientLevel(silence, 5, false)).toBeCloseTo(0.76, 6);
-    expect(resolveAmbientLevel(silence, 10, false)).toBeCloseTo(0.68, 6);
-    expect(resolveAmbientLevel(silence, 0, true)).toBe(
-      resolveAmbientLevel(silence, 5, true),
-    );
-    expect(resolveAmbientLevel({ envelope: 1, hasSignal: true }, 0, true)).toBe(0.72);
-    expect(resolveAmbientLevel({ envelope: 0.5, hasSignal: true }, 0, false)).toBe(0.86);
+    expect(resolveAtmosphereBand(silence, 0, false)).toEqual({ halfHeight: 0.14, sounding: 0 });
+    expect(resolveAtmosphereBand(silence, 5, false).halfHeight).toBeCloseTo(0.152, 6);
+    expect(resolveAtmosphereBand(silence, 10, false).halfHeight).toBeCloseTo(0.14, 6);
+    expect(resolveAtmosphereBand({ envelope: 1, hasSignal: true }, 3, false))
+      .toEqual({ halfHeight: 0.24, sounding: 1 });
   });
 
-  it("hands the released audio envelope continuously back to the silent breath", () => {
-    const releaseThreshold = 0.08;
-    const audioLevelAtThreshold = 0.72 + releaseThreshold * 0.28;
+  it("hands the released envelope continuously back to the silent breath", () => {
+    const threshold = 0.08;
+    const at = (envelope: number, hasSignal = false) =>
+      resolveAtmosphereBand({ envelope, hasSignal }, 0, false);
 
-    expect(resolveAmbientLevel(
-      { envelope: 0.5, hasSignal: false },
-      0,
-      false,
-    )).toBeCloseTo(0.86, 6);
-    expect(resolveAmbientLevel(
-      { envelope: releaseThreshold, hasSignal: false },
-      0,
-      false,
-    )).toBeCloseTo(audioLevelAtThreshold, 6);
-    expect(resolveAmbientLevel(
-      { envelope: releaseThreshold - 0.000001, hasSignal: false },
-      0,
-      false,
-    )).toBeCloseTo(audioLevelAtThreshold, 5);
-    expect(resolveAmbientLevel(
-      { envelope: 0.04579, hasSignal: true },
-      2.272,
-      false,
-    )).toBeCloseTo(resolveAmbientLevel(
-      { envelope: 0.04579, hasSignal: false },
-      2.272,
-      false,
-    ), 8);
-    expect(resolveAmbientLevel(
-      { envelope: 0, hasSignal: false },
-      0,
-      false,
-    )).toBeCloseTo(0.68, 6);
+    expect(at(threshold).sounding).toBe(1);
+    expect(at(threshold).halfHeight).toBeCloseTo(0.15 + threshold * 0.09, 6);
+    expect(at(threshold - 0.000001).halfHeight).toBeCloseTo(at(threshold).halfHeight, 5);
+    expect(at(threshold / 2).sounding).toBeCloseTo(0.5, 6);
+    expect(at(0.04579, true)).toEqual(at(0.04579, false));
+    expect(at(0)).toEqual({ halfHeight: 0.14, sounding: 0 });
+  });
+
+  it("holds the band's height still under Reduced Motion while colour follows sound", () => {
+    expect(resolveAtmosphereBand({ envelope: 0, hasSignal: false }, 0, true))
+      .toEqual({ halfHeight: 0.15, sounding: 0 });
+    expect(resolveAtmosphereBand({ envelope: 1, hasSignal: true }, 5, true))
+      .toEqual({ halfHeight: 0.15, sounding: 1 });
   });
 });

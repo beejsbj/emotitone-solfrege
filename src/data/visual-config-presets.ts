@@ -23,8 +23,9 @@ function defineBuiltInStageLook(look: StageLook): StageLook {
 }
 
 /**
- * Curated Stage-only Looks. The public library is deliberately small: four
- * distinct built-ins plus the separate collection of user-saved Looks.
+ * Curated Stage-only Looks. The public library is deliberately small: seven
+ * distinct built-ins plus the separate collection of user-saved Looks. Pop,
+ * Phosphor and Smoke came from the reimagining pass's Stage lab (#131).
  */
 export const BUILT_IN_STAGE_LOOKS: StageLook[] = [
   defineBuiltInStageLook({
@@ -161,6 +162,55 @@ export const BUILT_IN_STAGE_LOOKS: StageLook[] = [
         history: 0.82,
         smear: 0.6,
         thickness: 5,
+      },
+    },
+  }),
+  defineBuiltInStageLook({
+    id: "pop",
+    name: "Pop",
+    description: "Firm bodies with a halo that pop in and shrink away; Merge stays gooey.",
+    patch: {
+      blobs: {
+        isEnabled: true,
+        blurRadius: 0,
+        fieldSoftness: 12,
+        glowEnabled: true,
+        glowIntensity: 18,
+        oscillationAmplitude: 0,
+        vibrationAmplitude: 0,
+        scaleInDuration: 0.1,
+        scaleOutDuration: 0.2,
+        fadeOutDuration: 0.2,
+      },
+    },
+  }),
+  defineBuiltInStageLook({
+    id: "phosphor",
+    name: "Phosphor",
+    description: "The Scope as a crisp beam with a long, clean trail.",
+    patch: {
+      hilbertScope: {
+        opacity: 1,
+        glowEnabled: true,
+        glowIntensity: 4,
+        history: 0.85,
+        smear: 0,
+        thickness: 1,
+      },
+    },
+  }),
+  defineBuiltInStageLook({
+    id: "smoke",
+    name: "Smoke",
+    description: "Club haze: a thick, smeared, glowing Scope and softer bodies.",
+    patch: {
+      blobs: { isEnabled: true, blurRadius: 18, glowEnabled: true, glowIntensity: 14 },
+      hilbertScope: {
+        glowEnabled: true,
+        glowIntensity: 30,
+        history: 0.6,
+        smear: 0.6,
+        thickness: 2.4,
       },
     },
   }),

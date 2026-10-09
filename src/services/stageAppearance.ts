@@ -110,6 +110,13 @@ export const STAGE_VARIATION_PREFERENCE_FIELDS = [
   "fieldSoftness",
 ] as const;
 
+/** Body timing joined the Look allowlist with Pop (#133). */
+export const STAGE_LOOK_BODY_TIMING_FIELDS = [
+  "scaleInDuration",
+  "scaleOutDuration",
+  "fadeOutDuration",
+] as const;
+
 const STAGE_LOOK_FIELDS: Record<StageLookSection, readonly string[]> = {
   blobs: [
     "isEnabled",
@@ -121,6 +128,9 @@ const STAGE_LOOK_FIELDS: Record<StageLookSection, readonly string[]> = {
     "vibrationAmplitude",
     "glowEnabled",
     "glowIntensity",
+    // Body timing belongs to a Look's character: Pop's 100ms pop-in and
+    // 200ms shrink-away are what make its bodies firm rather than foggy.
+    ...STAGE_LOOK_BODY_TIMING_FIELDS,
     "connectionMode",
     "fieldSoftness",
     "fusionStrength",
@@ -407,12 +417,12 @@ export function readStageControls(config: VisualEffectsConfig): StageControls {
     connectionMode: config.blobs.connectionMode,
     connectionStrength,
     connectionSoftness,
+    // The Diffused Band paints from the "major" fields alone, so the controls
+    // read exactly what paints; the "minor" pair is compatibility data.
     atmosphereStrength: config.ambient.isEnabled
-      ? clamp((config.ambient.opacityMajor + config.ambient.opacityMinor) / 1.72)
+      ? clamp(config.ambient.opacityMajor)
       : 0,
-    atmosphereColorDepth: clamp(
-      (config.ambient.saturationMajor + config.ambient.saturationMinor) / 1.75,
-    ),
+    atmosphereColorDepth: clamp(config.ambient.saturationMajor),
     stringPresence: config.strings.isEnabled
       ? clamp(config.strings.baseOpacity / 0.12)
       : 0,

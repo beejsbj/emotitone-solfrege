@@ -272,12 +272,15 @@ describe("Stage appearance domain", () => {
     expect(applied.codeStrip).toEqual(backing.codeStrip);
   });
 
-  it("defines four complete built-ins while preserving learner preferences", () => {
+  it("defines seven complete built-ins while preserving learner preferences", () => {
     expect(BUILT_IN_STAGE_LOOKS.map((look) => look.name)).toEqual([
       "Clear",
       "Still",
       "Soft",
       "Luminous",
+      "Pop",
+      "Phosphor",
+      "Smoke",
     ]);
 
     for (const look of BUILT_IN_STAGE_LOOKS) {
@@ -306,6 +309,9 @@ describe("Stage appearance domain", () => {
       still: 0,
       soft: 0.6,
       luminous: 0.3,
+      pop: 0.12,
+      phosphor: 0.25,
+      smoke: 0.35,
     });
 
     const still = BUILT_IN_STAGE_LOOKS.find((look) => look.id === "still");
@@ -320,6 +326,32 @@ describe("Stage appearance domain", () => {
       blurRadius: 0,
       fieldSoftness: 0,
     });
+  });
+
+  it("carries body timing in a Look so Pop pops in and shrinks away", () => {
+    const pop = BUILT_IN_STAGE_LOOKS.find((look) => look.id === "pop");
+    const popConfig = applyStageLook(config(), pop?.patch);
+    // Firm, haloed bodies whose Merge stays gooey: fog off, rounding on.
+    expect(popConfig.blobs).toMatchObject({
+      blurRadius: 0,
+      fieldSoftness: 12,
+      glowEnabled: true,
+      glowIntensity: 18,
+      vibrationAmplitude: 0,
+      oscillationAmplitude: 0,
+      scaleInDuration: 0.1,
+      scaleOutDuration: 0.2,
+      fadeOutDuration: 0.2,
+    });
+
+    // Any other Look restores the default body timing.
+    const clear = BUILT_IN_STAGE_LOOKS.find((look) => look.id === "clear");
+    const restored = applyStageLook(popConfig, clear?.patch);
+    expect(restored.blobs.scaleInDuration).toBe(DEFAULT_CONFIG.blobs.scaleInDuration);
+    expect(restored.blobs.fadeOutDuration).toBe(DEFAULT_CONFIG.blobs.fadeOutDuration);
+
+    const phosphor = applyStageLook(config(), BUILT_IN_STAGE_LOOKS.find((look) => look.id === "phosphor")?.patch);
+    expect(phosphor.hilbertScope).toMatchObject({ history: 0.85, smear: 0, glowIntensity: 4, thickness: 1 });
   });
 
   it("creates deterministic small variations around one explicit root", () => {
@@ -392,5 +424,25 @@ describe("Stage appearance domain", () => {
     expect(variedConfig.blobs.isEnabled).toBe(root.blobs.isEnabled);
     expect(variedConfig.ambient.isEnabled).toBe(root.ambient.isEnabled);
     expect(variedConfig.strings.isEnabled).toBe(root.strings.isEnabled);
+  });
+
+  it("reads Atmosphere from the fields the Diffused Band paints, so a value round-trips", () => {
+    const legacy = config();
+    legacy.ambient.opacityMajor = 0;
+    legacy.ambient.opacityMinor = 1;
+    legacy.ambient.saturationMajor = 0;
+    legacy.ambient.saturationMinor = 1;
+
+    const read = readStageControls(legacy);
+    expect(read.atmosphereStrength).toBe(0);
+    expect(read.atmosphereColorDepth).toBe(0);
+
+    const rewritten = patchStageControl(
+      patchStageControl(legacy, "atmosphereStrength", read.atmosphereStrength),
+      "atmosphereColorDepth",
+      read.atmosphereColorDepth,
+    );
+    expect(rewritten.ambient.opacityMajor).toBe(0);
+    expect(rewritten.ambient.saturationMajor).toBe(0);
   });
 });

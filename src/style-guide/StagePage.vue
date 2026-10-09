@@ -18,7 +18,7 @@
         <p>
           The production Stage source, driven through ephemeral configuration, a silent synthetic
           waveform, and controlled envelope values. Hilbert owns raw waveform form; exact pitch
-          selects Strings; Blobs support the usable centre; Ambient breathes below them.
+          selects Strings; Blobs support the usable centre; the Atmosphere band breathes below them.
         </p>
       </FocusedPoster>
     </div>
@@ -160,8 +160,8 @@ const activeReading = computed(() => {
   }
   if (signal.value === "silence") {
     return {
-      title: "Ambient idle breath",
-      copy: "No notes or signal. Recurring motion belongs only to the low autonomous breath.",
+      title: "Atmosphere idle breath",
+      copy: "No notes or signal. The Ink-3 band's slow breath is the only recurring motion.",
     };
   }
   if (signal.value === "borrowed") {
@@ -172,7 +172,7 @@ const activeReading = computed(() => {
   }
   return {
     title: "C4 · E4 · G4",
-    copy: "One shared synthetic envelope drives the selected exact-pitch Strings and Ambient response.",
+    copy: "One shared synthetic envelope drives the selected exact-pitch Strings and lights the Atmosphere band in the sounding pitch.",
   };
 });
 

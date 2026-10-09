@@ -1097,6 +1097,34 @@ describe('Visual Config Store', () => {
       expect(migrated.effectiveConfig.blobs.connectionMode).toBe('merge')
     })
 
+    it('gives a Look saved before body timing the canonical timing, not a kept Pop\'s', () => {
+      localStorage.setItem('emotitone-saved-stage-looks', JSON.stringify([{
+        id: 'legacy-timing',
+        name: 'Legacy Timing Look',
+        patch: { blobs: { isEnabled: true, opacity: 0.5 } },
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      }]))
+      const timing = (config: { blobs: Record<string, unknown> }) => ({
+        scaleInDuration: config.blobs.scaleInDuration,
+        scaleOutDuration: config.blobs.scaleOutDuration,
+        fadeOutDuration: config.blobs.fadeOutDuration,
+      })
+      const canonical = timing(DEFAULT_CONFIG as any)
+
+      const store = createFreshStore()
+      expect(store.applyBuiltInStageLook('pop')).toBe(true)
+      store.keepStageLook()
+      expect(timing(store.config as any)).toEqual({
+        scaleInDuration: 0.1,
+        scaleOutDuration: 0.2,
+        fadeOutDuration: 0.2,
+      })
+
+      expect(store.loadSavedStageLook('legacy-timing')).toBe(true)
+      expect(timing(store.effectiveConfig as any)).toEqual(canonical)
+    })
+
     it('preserves a retired disconnected saved Look as Merge with zero strength', () => {
       localStorage.setItem('emotitone-saved-stage-looks', JSON.stringify([{
         id: 'legacy-off',

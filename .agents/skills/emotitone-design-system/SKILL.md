@@ -14,7 +14,7 @@ This skill is temporary. Retire it after the Plan records the visual pass and fi
 Resolve the repository root and verify that the work belongs to `emotitone-solfrege`. Read:
 
 1. `src/style-guide/DESIGN_SYSTEM_TRACKER.md` completely — the current Plan, dependencies, collision points, and next gates.
-2. `src/style-guide/DESIGN_LOG.md` only when the current unit needs an acceptance, implementation, or verification receipt.
+2. `src/style-guide/DESIGN_LOG.md` is frozen as of 2026-10-09: read it for history, never append; receipts go in the PR body.
 
 Inspect live Git state. Recompute the current branch, mainline, dirty files, worktrees, tests, and active sessions. When editing, create a focused branch from the current mainline, normally the latest `origin/main`; do not infer branch state from the Plan or Log.
 
@@ -48,7 +48,7 @@ Before acting, state a compact unit brief:
 - behavior and unrelated-file preservation boundary;
 - observable completion condition.
 
-Adjacent units may run concurrently when their files and lineage do not overlap. Follow the Plan's lane ordering and collision table. A shared lower-layer dependency gets one owner and merges before dependent units close; central tokens, guide registration, Plan, and Log are serialized integration files.
+Adjacent units may run concurrently when their files and lineage do not overlap. Follow the Plan's lane ordering and collision table. A shared lower-layer dependency gets one owner and merges before dependent units close; central tokens, guide registration, and the Plan are serialized integration files.
 
 ## The lineage gate
 
@@ -83,7 +83,7 @@ Compare three surfaces before questioning Burooj:
 
 Autonomously reconcile omissions, source drift, taxonomy, and preservation constraints. Ask only where plausible visual outcomes remain and Burooj's taste changes the result. Keep questions visual and concrete, and show the actual surfaces whenever possible.
 
-Record liked ideas as constraints. Update the Plan after each settled batch: replace resolved frontier questions with current truth and expose the next unresolved gate. Keep transcript, commit, and verification history in the Log or Git. Agent recommendations become definition truth only after Burooj explicitly accepts the shared-understanding summary.
+Record liked ideas as constraints. Update the Plan after each settled batch: replace resolved frontier questions with current truth and expose the next unresolved gate. Keep transcript, commit, and verification history in PR bodies or Git; the Log is frozen. Agent recommendations become definition truth only after Burooj explicitly accepts the shared-understanding summary.
 
 No component implementation begins before that acceptance. When one request covers definition through adoption, queue later modes behind their gates and continue when each gate is met.
 
@@ -93,9 +93,9 @@ Require an acceptance receipt and characterize current production behavior befor
 
 The authoritative source component is also the component production uses. The guide imports and drives that source through inert or controlled inputs. A thin provisional adapter is allowed only when an undefined downstream unit requires it; name it in the Plan and keep that downstream definition unaccepted.
 
-Change only accepted presentation and the ownership required for lineage. Preserve interaction, audio, routing, state, persistence, APIs, accessibility behavior, haptics, and motion unless the definition expressly governs them.
+Change only accepted presentation and the ownership required for lineage. Preserve interaction, audio, routing, state, persistence, APIs, accessibility behavior, haptics, and motion unless the definition expressly governs them. A defect the unit's lab recorded is not behaviour to preserve: an adoption fixes every accessibility or behaviour defect its lab recorded in the unit it reopens.
 
-When a functional defect or idea appears, describe it accurately, leave a durable pointer outside this visual slice, and continue without making it an acceptance condition.
+When any other functional defect or idea appears, describe it accurately, leave a durable pointer outside this visual slice, and continue without making it an acceptance condition.
 
 Specimens use real sources, realistic values, and real states. Gallery markup never becomes production anatomy by accident.
 
@@ -113,17 +113,17 @@ Before closure, run a fresh read-only lineage audit—normally with one bounded 
 - higher layers compose lower sources instead of copying CSS or markup;
 - production and the guide cross the same public component seam;
 - specimen scaffold and demo state stay out of production;
-- behavior changes have separate authorization and evidence;
+- behavior changes have separate authorization and evidence, except fixes to defects the unit's lab recorded, which the adoption must carry;
 - provisional adapters and duplicated recipes remain visible in the Plan.
 
-Fix findings in a separate atomic slice. Then update the Plan's four gates independently and append one concise Log receipt. If Cockpit/Linear is active, leave the corresponding `BJS-35` receipt without changing lifecycle beyond the evidence.
+Fix findings in a separate atomic slice. Then update the Plan's four gates independently and put the receipt in the PR body (Summary, Verification, Linear link). The Log is frozen as of 2026-10-09: append nothing to `DESIGN_LOG.md`. If Cockpit/Linear is active, leave the corresponding `BJS-35` receipt without changing lifecycle beyond the evidence.
 
 End with exact branch, commits, pushed status, checks, visual evidence, residual risk, and next unit. Do not push unless Burooj explicitly authorizes it.
 
 ## Boundaries
 
-- Use this Plan and Log; add no third design-system ledger.
-- Keep standalone functionality, bugs, broad accessibility redesign, audio, routing, and state architecture in separate work.
+- Use this Plan; the Log is frozen (2026-10-09), so add no rows to it and no third design-system ledger.
+- Keep standalone functionality, bugs, broad accessibility redesign (a defect the unit's lab recorded is fixed in the adoption, not parked), audio, routing, and state architecture in separate work.
 - Reopen a closed unit only for a concrete contradiction or Burooj's request.
 - Respect dirty worktrees and adjacent sessions; coordinate every shared-file edit.
 - Use at most one bounded scout before definition and one bounded lineage auditor after implementation. Orchestration must shorten the loop.

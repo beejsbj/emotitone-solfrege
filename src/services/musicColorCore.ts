@@ -90,7 +90,6 @@ export interface MusicColorValue {
 
 export interface MusicColorSample {
   primary: MusicColorValue;
-  accent: MusicColorValue;
 }
 
 function isFiniteInteger(value: number): boolean {
@@ -375,13 +374,7 @@ export function sampleMusicColor(
     h: normalizeHue(hue),
     alpha: 1,
   };
-  const accent: OklchColor = {
-    ...primary,
-    h: normalizeHue(primary.h + 180),
-  };
-
   return {
     primary: valueForOklch(primary),
-    accent: valueForOklch(accent),
   };
 }

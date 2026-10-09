@@ -5,7 +5,7 @@ For any `implementing-design-system` work that reviews, defines, tightens, promo
 The visual pass has two durable repository records:
 
 - `src/style-guide/DESIGN_SYSTEM_TRACKER.md` — current design truth and next gate.
-- `src/style-guide/DESIGN_LOG.md` — chronological acceptance and implementation receipts.
+- `src/style-guide/DESIGN_LOG.md` — chronological acceptance and implementation receipts; frozen 2026-10-09, do not append (PR bodies are the receipt).
 
 Do not use `design-lab` for this pass. Keep standalone functionality and bug fixes outside the visual-system slice. Respect the dirty tree and coordinate with adjacent unit sessions before touching shared lineage or files.
 

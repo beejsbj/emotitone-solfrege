@@ -163,7 +163,28 @@ async function waitForGroup(child, interruptedAt) {
   }
 }
 
+/**
+ * Set EMOTITONE_VERIFY_BYPASS_LOCK=1 to skip the shared-host lock. CI and Vercel
+ * run on isolated machines with nothing to serialise against; they set it.
+ * bjslab leaves it unset and keeps the lock.
+ */
+export const BYPASS_LOCK_ENV = 'EMOTITONE_VERIFY_BYPASS_LOCK'
+
+async function runUnlocked({ steps, cwd, env }) {
+  for (const { command, args = [] } of steps) {
+    const result = await new Promise((resolveResult, reject) => {
+      const child = spawn(command, args, { cwd, env, stdio: 'inherit' })
+      child.once('error', reject)
+      child.once('close', (code, signal) => resolveResult({ code, signal }))
+    })
+    if (result.signal) return 128 + (constants.signals[result.signal] ?? 1)
+    if (result.code !== 0) return result.code ?? 1
+  }
+  return 0
+}
+
 export async function runLocked({ lockDir, steps, cwd = repoRoot, env = process.env, waitMs = WAIT_MS }) {
+  if (env[BYPASS_LOCK_ENV] === '1') return runUnlocked({ steps, cwd, env })
   const owner = { token: createHash('sha256').update(randomUUID()).digest('hex').slice(0, 16), pid: process.pid, phase: 'idle' }
   let interrupted = null
   let interruptedAt = 0
@@ -237,7 +258,9 @@ async function main() {
   const steps = kind === 'type-check' ? [{ ...typecheck, args: [...typecheck.args, ...args] }]
     : kind === 'build' ? [typecheck, { command: process.execPath, args: [installed('vite/bin/vite.js'), 'build', ...args] }]
       : [{ command: process.execPath, args: [installed('vitest/vitest.mjs'), ...args] }]
-  process.exitCode = await runLocked({ lockDir: lockDirectoryFor(repoRoot), steps })
+  // Resolving the lock directory needs git; a bypassed run must not.
+  const bypass = process.env[BYPASS_LOCK_ENV] === '1'
+  process.exitCode = await runLocked({ lockDir: bypass ? '' : lockDirectoryFor(repoRoot), steps })
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

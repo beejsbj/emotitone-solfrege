@@ -129,7 +129,6 @@ describe("musicColorCore", () => {
     expect(sampleMusicColor(resolved, null).primary.oklch.h).toBeCloseTo(15);
     expect(sampleMusicColor(resolved, 0.25).primary.oklch.h).toBeCloseTo(30);
     expect(sampleMusicColor(resolved, 0.75).primary.oklch.h).toBeCloseTo(0);
-    expect(sampleMusicColor(resolved, 0.25).accent.oklch.h).toBeCloseTo(210);
   });
 
   it("returns deterministic bounded sRGB while preserving alpha", () => {

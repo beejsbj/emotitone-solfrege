@@ -93,7 +93,7 @@ const props = withDefaults(
     scrollable: true,
     showChevron: true,
     framed: true,
-    ariaLabel: "Editable Strudel pattern",
+    ariaLabel: "Pattern code, read-only",
   },
 );
 
@@ -852,6 +852,10 @@ async function initializeStrudelMirror() {
   if (view) {
     view.dispatch({
       effects: StateEffect.appendConfig.of([
+        // No one edits the Code Strip (spec Decision 4): the app writes the
+        // code, and hand edits would stop matching the sound.
+        EditorState.readOnly.of(true),
+        EditorView.editable.of(false),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
             if (!preserveUIBeatDuringCodeSync) stopUIBeatRun();

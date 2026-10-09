@@ -3,12 +3,26 @@ import typescript from "@typescript-eslint/eslint-plugin";
 import typescriptParser from "@typescript-eslint/parser";
 import vue from "eslint-plugin-vue";
 import vueParser from "vue-eslint-parser";
+import globals from "globals";
 
 export default [
   js.configs.recommended,
   {
-    // vue-tsc already checks undefined names, and no browser/node globals are configured here.
+    // vue-tsc already checks undefined names in TypeScript and Vue files.
+    files: ["**/*.{ts,vue}"],
     rules: { "no-undef": "off" },
+  },
+  {
+    // Plain JS/MJS (scripts/, audio-lab/) is outside tsconfig, so keep no-undef there.
+    files: ["**/*.{js,mjs,cjs}"],
+    languageOptions: {
+      globals: { ...globals.node, ...globals.browser, ...globals.es2021 },
+    },
+  },
+  {
+    // AudioWorkletGlobalScope globals.
+    files: ["audio-lab/processors.js"],
+    languageOptions: { globals: { sampleRate: "readonly", currentFrame: "readonly", currentTime: "readonly" } },
   },
   {
     // Pre-existing violations found when lint first ran in CI (BJS-477). They are
@@ -73,6 +87,7 @@ export default [
   {
     ignores: [
       "dist/**",
+      "coverage/**",
       "node_modules/**",
       "*.config.js",
       "*.config.ts",

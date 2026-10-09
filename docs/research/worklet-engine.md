@@ -29,8 +29,9 @@ orchestrator.
 
 1. **Reverb and delay should stay native nodes, fed by the worklet.** BJS-486
    says "Worklet renders lpf, reverb and delay". superdough's reverb is a
-   `ConvolverNode` over a generated 2-second stereo noise impulse
-   (`reverb.mjs`, `reverbGen.mjs`; defaults: decay 2 s, fade-in 0.1 s, low-pass
+   `ConvolverNode` over a generated stereo noise impulse that is 1.5 times the
+   decay time long (`reverb.mjs`, `reverbGen.mjs`; defaults: decay 2 s, so a
+   3 s buffer, fade-in 0.1 s, low-pass
    sweep 15 kHz to 1 kHz). Its delay is a `DelayNode` with a feedback gain
    (`feedbackdelay.mjs`). A 2-second convolution written in JavaScript inside
    the worklet would be the most expensive thing on a phone's render thread.
@@ -68,11 +69,14 @@ orchestrator.
    BJS-488 starts: keep fetching from the upstream host as today, or self-host a clean
    set (FluidR3 first, then GeneralUserGS), which changes how about 100
    instruments sound.
-4. **supersaw and pulse have no owner.** The catalog offers ten synths:
-   triangle, square, sawtooth, sine, the aliases tri/sqr/saw/sin, supersaw and
-   pulse. BJS-487 covers square and saw. supersaw and pulse exist only as superdough's
-   own worklet oscillators, and route to superdough for live playing too. Add
-   them to BJS-487, or drop them from the catalog. That is a product call.
+4. **supersaw, pulse and the z_* synths have no owner.** The catalog offers
+   fourteen synths: triangle, square, sawtooth, sine, the aliases
+   tri/sqr/saw/sin, supersaw, pulse, and the four zzfx synths `z_sine`,
+   `z_square`, `z_sawtooth` and `z_triangle`. BJS-487 covers square and saw.
+   supersaw and pulse exist only as superdough's own worklet oscillators; the
+   z_* four are rendered by superdough's zzfx path. All of them route to
+   superdough for live playing too. Add them to BJS-487 (or a sibling), or drop
+   them from the catalog. That is a product call.
 5. **Pattern playback today transpiles editable text.** Play evaluates
    whatever is in the Code Strip editor, hand edits included
    (`useCodeStripStrudel.play` → `StrudelMirror.evaluate`). BJS-485 plays from
@@ -143,7 +147,7 @@ applied.
 | --- | --- | --- |
 | `superdough(payload, t, dur, cps)` | Renders every pattern note and the live fallback. Payload fields the app emits: `s`, `note`/`n`, `gain` 0.8, `attack`, `decay`, `sustain`, `release`, `clip`, `cutoff`, `resonance`, `room`, `delay`, `delaytime` 0.25, `delayfeedback` 0.3, `vib`, `vibmod`, `tremolo`, `tremolodepth`, `orbit` 2 (live), and the patch's `voiceId`/`sustainUntilRelease`. | Worklet voices. Envelope and gain already exist. `clip` becomes the gate length in the table. Recorded pitch and gain curves can replay through the existing per-owner bend and gain paths (within the bend range), more exactly than the `vib`/`tremolo` approximations. Filter and sends are covered in the next rows. |
 | `hasVoice`, `stopVoice`, `cancelVoice`, `releaseVoice`, `releaseAllVoices` (patch exports) | Held live voices on the fallback path. | The worklet's existing `press`/`release`/`clear` owners. They retire with the fallback. |
-| `registerSynthSounds`, synth `square`/`sawtooth` (native `OscillatorNode`), `supersaw`, `pulse` | The ten selectable synths. square/saw go to superdough on purpose (#90, timbre parity). | The polyBLEP square/saw already in `core.ts` (BJS-487). supersaw and pulse: see finding 4. |
+| `registerSynthSounds`, synth `square`/`sawtooth` (native `OscillatorNode`), `supersaw`, `pulse` | The fourteen selectable synths (ten oscillator names plus `z_sine`, `z_square`, `z_sawtooth`, `z_triangle`). square/saw go to superdough on purpose (#90, timbre parity). | The polyBLEP square/saw already in `core.ts` (BJS-487). supersaw, pulse and the z_* four: see finding 4. |
 | `getAudioContext`, `initAudio({ maxPolyphony: 64 })`, `getSuperdoughAudioController().output.destinationGain`, `getOrbit(2)` (`audioRuntime.ts`) | Owns the context, master gain and live orbit. Every analyser, scope and recorder fans out from that master gain. | An app-owned graph: context, worklet node, master gain, and reverb and delay buses (finding 2). |
 | `orbit.getReverb`/`getDelay`/`sendReverb`/`sendDelay` (`liveShaping.ts`) | Live Shape effects. One `BiquadFilterNode` covers the whole live chain; room and delay are sends into orbit 2. | A per-voice lowpass in the worklet. The worklet's send outputs feed native convolver and delay buses (finding 1). |
 | Per-voice lowpass in patterns (`cutoff`, `resonance` → `BiquadFilterNode` lowpass, 12 dB, Q = resonance or 1) | Pattern Shape filter. | A worklet biquad with WebAudio's lowpass coefficients. **Trap:** WebAudio defines the lowpass `Q` in dB, not as a linear Q. Use the spec's formula or the parity will be off. |
@@ -276,9 +280,13 @@ by the UI. The core already sequences Repeat/Arp pulses there.
   `late`; a past bar is never honoured.
 - Every applied change answers with `{ arrivalFrame, appliedFrame, appliedBar, late }`.
   That is the receipt the UI and the recorder use.
-- **Tempo** at bar B adds an anchor at B's frame under the old tempo. Its map is
-  published to the main thread when the change is *requested*, so the UI never
-  extrapolates past a tempo change it then has to retract.
+- **Tempo** at bar B adds an anchor at B's frame under the old tempo. The main
+  thread publishes the anchor when the change is *requested*, so the UI never
+  extrapolates past a tempo change it then has to retract. If the command
+  arrives after B, the worklet applies it at once and reports `late`. The main
+  thread then reconciles the published anchor to the receipt's
+  `appliedFrame`/`appliedBar`, because the worklet's clock is the authority.
+  Test this with a command posted just before B and delivered after it.
 
 ### Tails, mute and solo
 
@@ -430,13 +438,17 @@ and PCM capture, as #140 and the spike do.
    (assert no `StrudelMirror` or Cyclist exists).
 2. **Timing.** PCM attacks on the worklet output match the note-data oracle:
    0 missing, 0 extra, events exact to the frame, PCM within 12 ms. Run for a
-   melody, a chord pattern (brace lanes) and a pattern with rests.
+   melody, a chord pattern (brace lanes) and a pattern with rests. Notes that
+   start on the same frame merge into one onset in mixed PCM, so for chords
+   render each note as an isolated stem (or compare per-note spectra) before
+   counting missing and extra attacks.
 3. **Plan parity.** The member table comes from `recordedPatternPlan`. A test
    compares its onsets and gates with the exported code evaluated by real
    Strudel over eight cycles, as #140 did. Run it while Strudel is still
    installed, then freeze the result as a fixture for after BJS-495.
 4. **Typed note events.** There is one type. Every attack has a release.
-   `noteId`, `phraseId` and `sourceNoteId` are present. Stage and keys
+   `noteId`, `phraseId` and `sourceNoteId` are present. `noteId` is unique per
+   occurrence; `sourceNoteId` is stable across loop passes. Stage and keys
    listeners light up and clear (a DOM test drives the event contract, not the
    engine).
 5. **UIBeat from the transport.** It has one generation, never steps backward,
@@ -453,15 +465,19 @@ and PCM capture, as #140 and the spike do.
    lowpass (Q in dB) by golden PCM. Use cutoffs of 200, 1,000 and 5,000 Hz with
    resonance 0 and 10. At 12 kHz and above it is bypassed.
 2. **Reverb.** It uses an app-owned convolver over superdough's IR recipe
-   (2 s, 0.1 s fade, 15 kHz → 1 kHz) with a seeded noise source. Golden PCM
+   (2 s decay, so a 3 s impulse buffer; 0.1 s fade, 15 kHz → 1 kHz) with a
+   seeded noise source. Golden PCM
    runs in `OfflineAudioContext`. The send level equals `room`.
 3. **Delay.** It is 0.25 s with feedback 0.3. Its impulse response has taps at
-   multiples of 250 ms with amplitudes 0.3ⁿ × send.
+   multiples of 250 ms. Tap n has amplitude send × 0.3^(n−1): the wet gain is 1,
+   and only the feedback loop carries 0.3, so the first echo equals the send.
 4. **One chain, live and playback.** Live and pattern voices with the same
    Shape render identically (golden comparison).
 5. **No zipper noise.** Knob changes glide over about 15 ms.
 6. **No allocation.** Rendering 60 s with 16 voices and all effects in Node
-   shows a flat heap after GC.
+   performs no allocations in the render path. Count them with an allocation
+   hook (a Node `--trace-gc`/allocation-sampling run or an instrumented pool),
+   because a flat post-GC heap only rules out leaks, not per-quantum garbage.
 7. **Graph ownership.** The app owns the context, master gain and buses
    (finding 2). Analysers fan out from the new master.
 8. **Listening note.** An A/B note for Burooj against frozen superdough renders
@@ -470,8 +486,8 @@ and PCM capture, as #140 and the spike do.
 ### BJS-487 Square and saw
 
 1. **Routing.** square, sawtooth, sqr, saw and the synths mapped to them play
-   in the worklet live and in patterns. Add supersaw and pulse, or drop them
-   (finding 4).
+   in the worklet live and in patterns. Add supersaw, pulse and the four z_*
+   synths, or drop them (finding 4).
 2. **Parity.** The parity suite runs against superdough's native oscillators
    from C2 to C7. Per-harmonic level differences and the aliasing floor are
    reported on the PR.
@@ -482,7 +498,7 @@ and PCM capture, as #140 and the spike do.
 ### BJS-488 Load samples and soundfonts into the worklet
 
 1. **Catalog sweep.** A headless run prepares every selectable instrument:
-   about 188, being 10 synths, the piano, 74 of the 128 registered VCSL sounds
+   about 192, being 14 synths, the piano, 74 of the 128 registered VCSL sounds
    and 103 of the 125 registered GM names. The picker's categories filter out
    the rest. Each renders a C4 with
    non-silent PCM, and its pitch is within ±10 cents by `pitchy`. List
@@ -524,10 +540,13 @@ and PCM capture, as #140 and the spike do.
 
 ### BJS-492 HighlightStrip and notation export
 
-1. **Spans.** The generator emits text plus one span per note id. Every plan
+1. **Spans.** The generator emits text plus one span per source note id. Every plan
    note has exactly one span, and the text is byte-identical to today's
    `logNotesToStrudel` output for all library patterns (snapshot).
-2. **Engine-agnostic lighting.** The strip lights spans from typed note events
+2. **Engine-agnostic lighting.** The strip maps each event to its span by
+   `sourceNoteId` and tracks active instances by the unique `noteId`, so
+   overlapping loop occurrences neither miss nor clear each other. It lights
+   spans from typed note events
    fed by a fake event source in a test, so it is engine-agnostic. Filtering by
    `phraseId` lights only the desk member.
 3. **Follow-scroll.** It follows playback. Reduced Motion disables the

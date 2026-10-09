@@ -42,7 +42,10 @@ orchestrator.
    app-owned native buses. The worklet feeds them through extra outputs (send
    levels per voice), the same multi-output mechanism the prototype uses for
    per-member capture. Golden-PCM tests render the buses in an
-   `OfflineAudioContext` with a seeded impulse. BJS-486's "Done when" should
+   `OfflineAudioContext` with a seeded impulse. superdough also holds the
+   delay's wet gain until `t + delayTime` when a delay is created
+   (`feedbackdelay.mjs:23`, `start(t)`), and the golden test must reproduce
+   that gating. BJS-486's "Done when" should
    say "the engine renders", not "the worklet renders".
 2. **Someone has to own the audio graph.** superdough owns the
    `AudioContext`, the master gain, and the orbit reverb and delay that live
@@ -54,11 +57,15 @@ orchestrator.
    Acoustic_Guitar 1) whose licence nobody states. The data's maintainer says
    in writing that he does not know their licences. Only the 20 FluidR3 defaults
    are licensed (MIT). BJS-488 says "its own loader for the same sample and
-   soundfont data". Loading the same files from the same host is no worse than
-   today. Self-hosting them, or caching them in the service worker, would make
-   EmotiTone a redistributor of files with no known licence. See
+   soundfont data". This exposure is inherited, not new. Loading the same
+   files from the same host is no worse than today. The only decision is
+   whether to self-host or service-worker-cache them, which would make
+   EmotiTone a redistributor of files with no known licence. Separately,
+   `fontloader.mjs` `eval`s remote JavaScript today. A loader that parses the
+   font data without `eval` is a security win for BJS-488 whichever way the
+   hosting goes. See
    [Licences](#sample-pack-and-soundfont-licences). **Burooj decides** before
-   BJS-488 starts: keep fetching from the upstream host, or self-host a clean
+   BJS-488 starts: keep fetching from the upstream host as today, or self-host a clean
    set (FluidR3 first, then GeneralUserGS), which changes how about 100
    instruments sound.
 4. **supersaw and pulse have no owner.** The catalog offers ten synths:
@@ -71,8 +78,9 @@ orchestrator.
    (`useCodeStripStrudel.play` → `StrudelMirror.evaluate`). BJS-485 plays from
    note data, so once it lands, edits in the editor stop changing the sound
    while the editor still looks editable. **Land BJS-492 (the read-only
-   HighlightStrip) before BJS-485, or make BJS-485 set the editor read-only.**
-   Today the blocking order runs the other way: 492 blocks only 493 and 495.
+   HighlightStrip) before BJS-485.** Keep the cheap fallback: if BJS-492
+   slips, BJS-485 makes the existing editor read-only. Today the blocking order
+   runs the other way: 492 blocks only 493 and 495.
 6. **UIBeat has no clock without Strudel.** Its only producer is StrudelMirror's
    draw loop (`CodeStrip/index.vue` `onDraw` → `publishUIBeatFrame`). BJS-485
    must supply the replacement producer, not just patterns. The prototype shows
@@ -80,7 +88,11 @@ orchestrator.
 7. **The parity suite loses its reference.** `audio-lab/parity` compares the
    worklet against real superdough. Once BJS-495 lands, that reference is gone.
    BJS-486 and BJS-487 should freeze superdough renders as golden fixtures
-   (fixed seed, fixed IR) while superdough is still installed.
+   while superdough is still installed:
+   - filter, delay and oscillators sample-exact;
+   - reverb as a spectral and decay envelope. superdough's IR is unseeded
+     noise (`reverbGen.mjs` `Math.random`), so no two of its renders are
+     sample-identical.
 8. **The spec still says Strudel stays in several places.** Decision 3 was
    superseded, but these were not updated. Each should be edited or marked
    superseded when #143 is next touched:
@@ -99,14 +111,17 @@ orchestrator.
    (`playStyles.ts`, `scheduledLiveVoice.ts` → `superdoughAudio.attackNote`).
    Once BJS-487 and BJS-488 put every sound in the worklet, that path is dead
    code. Add its removal to BJS-495's "Done when", so "one live rhythm engine"
-   (W9, S117) is actually finished.
+   (W9, S117) is actually finished. The same goes for the ambient types in
+   `src/types/strudel.d.ts` and the audio-lab harnesses that import or hash
+   superdough (§1, "Tests and harnesses").
 
 ## 1. What the app uses today, and what replaces it
 
 Inventory at `origin/main` `a771a515`. Production imports are in seven files:
 `patternPlayback.ts`, `superdoughAudio.ts`, `audioRuntime.ts`, the two
 `prepared*Instrument.ts`, `audioDiagnostics.ts` and the Code Strip's
-`strudelExtension.ts`. Installed versions: `@strudel/core`, `mini`, `tonal` and
+`strudelExtension.ts`. `src/types/strudel.d.ts` declares ambient types for
+the Strudel packages and goes with them (BJS-495). Installed versions: `@strudel/core`, `mini`, `tonal` and
 `transpiler` are pinned at 1.2.6. `webaudio`, `codemirror`, `soundfonts` and
 `superdough` are 1.3.0, the last three under caret ranges. Three patches are
 applied.
@@ -141,6 +156,15 @@ applied.
 | `samples(BASE + 'piano.json' / 'vcsl.json')` | Registers the two sample packs. The piano is 29 pitches from `dough-samples/main/piano/`. VCSL is 128 sounds served straight from `sgossner/VCSL`. | The app's own fetch of the same JSON maps, or maps it generates itself (the dough-samples repo has no licence). |
 | `getSound`, `soundMap`, `getSampleInfo`, `getLoadedBuffer`, `loadBuffer` | Sound registry, picker listing, root pitch parsing (keyed banks by note name; array banks use root MIDI 36), and the decoded `AudioBuffer`s that the worklet then *clones*. | An app catalog: name → kind → zones. Decode, copy into an owned `Float32Array` per channel, **transfer** that buffer (not a clone) to the worklet in chunks, then drop the `AudioBuffer`. That leaves one PCM copy. Today the piano holds about 138 MiB in superdough plus about 138 MiB in the worklet. |
 | `registerSoundfonts`, `prewarmSoundfont`, `getPreparedSoundfont` (patch exports), `@strudel/soundfonts` | Registers the 125 GM names. Fetches `felixroos.github.io/webaudiofontdata/sound/<font>.js` and evaluates it with `eval`. The patch exposes zones with tuning, key ranges and loop points. | Fetch the font file as text and parse its object literal without `eval`, or pre-convert a chosen set at build time (finding 3). The zone mapping in `preparedNativeInstrument.ts` moves over unchanged. Note the service worker does **not** cache `felixroos.github.io`; it caches `raw.githubusercontent.com` and `cdn.jsdelivr.net`. |
+
+**The boot contract (BJS-488 must re-implement it).** `stores/instrument.ts`
+`initialize` calls `initSuperdoughAudio(progressCallback)`. Its progress steps
+drive the loading screen: synths registered, each pack loaded, engine
+starting, default instrument ready. It also sets the startup stage
+(`samples`, `engine` or `ready`). A failed pack download throws
+`SampleLoadError`, which `useAppLoading` turns into the "play the synths"
+offer through `initSynthOnlyAudio`. The new loader must keep the same steps,
+the same error type and the synth-only degraded start.
 
 ### Notation export, "Open in Strudel", and the Code Strip (BJS-492, BJS-495)
 
@@ -183,8 +207,17 @@ spans by note id from the typed events.
 - **`StrudelNotation`:** its transpiler round-trip becomes a text snapshot.
 - **Code Strip:** `CodeStrip`, `CodeStripControlledIsolation` and
   `strudelExtension`.
-- **audio-lab:** `lab.mjs`, `audio-boundary.mjs`, `parity/suite.mjs`,
-  `parity/voice-budget.mjs`, `ui-inspect.ts` and `production-scenarios.mjs`.
+- **audio-lab:** every harness that imports, aliases or hashes superdough or
+  `superdoughAudio`. Each is retired or rewritten against the worklet before
+  BJS-495's grep can pass:
+  - `lab.mjs`, `audio-boundary.mjs`, `production-scenarios.mjs`,
+    `ui-inspect.ts`;
+  - `parity/suite.mjs`, `parity/voice-budget.mjs`;
+  - `run.mjs` (`LAB_SUPERDOUGH`; it aliases `superdoughAudio`), `ui-run.mjs`,
+    `ui-compare.mjs`, `ui-core-run.mjs`, `pattern-growth.mjs`,
+    `finger-expression.mjs`, `validate.mjs` and
+    `summarize-native-comparison.mjs`;
+  - `reference/livePlayback.ts` and its test.
 - **Stale:** `superdoughAudio.test.ts` mocks `@strudel/web`, which is not a
   dependency. `buzz` is listed as a synth but superdough 1.3.0 never registers
   it.
@@ -321,7 +354,9 @@ doc is the deliverable.
   - the same 90 and 150 BPM matrix and the same change times.
 
 No Strudel or superdough is loaded. The only instrument is a worklet sine with
-#140's articulation.
+attack 0.001 s, decay 0.01 s, sustain 0.5 and release 0.01 s. That is #140's
+library-fixture articulation, but not its expression and cold fixtures, which
+used attacks of 0.002–0.005 s and a 0.02 s release.
 
 **Host and method:**
 - The host was bjslab, an i7-6700HQ with 8 threads and 15.5 GiB of RAM, shared
@@ -352,12 +387,13 @@ No Strudel or superdough is loaded. The only instrument is a worklet sine with
 | Cold 512-note join keeps every surviving attack | pass | **pass**, using #140's fixture |
 | Fresh 64/256/512-note builds | 1.6 / 7.9 / 8.1 ms sync | 512 notes: 0.3–0.6 ms with the simplified builder; not comparable, since #140 builds Strudel Patterns with lanes and controls |
 | No browser errors or warnings | pass | **pass** |
+| Measured code and package inputs unchanged during the run | pass | **Not carried.** The spike records the revision, but not input hashes |
 
 Beyond #140's checks:
 
 | Measurement | #140 (Strudel) | Worklet spike |
 | --- | --- | --- |
-| Immediate join/leave takes effect | 202–321 ms after request (next query frontier) | At the next render quantum. In all 46 immediate changes, the applied frame equals the main thread's `currentTime` at the request (0 ms, within that clock's 2.9 ms quantum). The applied receipt came back 1.4 ms after posting on average (5.5 ms max) |
+| Immediate join/leave takes effect | 202–321 ms after request (next query frontier) | At the next render quantum. In all 50 immediate changes made while the transport ran, the applied frame equals the main thread's `currentTime` at the request (0 ms, within that clock's 2.9 ms quantum). The applied receipt came back 1.4 ms after posting on average (5.5 ms max). Joins staged before Start show up to 11.6 ms; nothing is playing then, so it doesn't matter |
 | Bar-boundary changes | Exact, if installed before the frontier | Exact: 78 of 78 applied on the integer bar, none late |
 | Mute: request to silence on that member's output | Not possible immediately; submitted notes finish | 9.8–10.0 ms (the 10 ms fade), 6 trials. That excludes output latency (32 ms reported) and touch latency |
 | Main-thread stalls of 250, 500 and 1,000 ms during playback, with a join posted just before the 500 ms stall | Not measured. Cyclist skips a window when starved (#140 counted skips; the lab baseline lost beats at 300 ms) | 0 lost attacks across 12 stalls. Stage events arrived up to 872 ms late during a stall: the sound stayed right and the picture caught up |
@@ -445,8 +481,10 @@ and PCM capture, as #140 and the spike do.
 
 ### BJS-488 Load samples and soundfonts into the worklet
 
-1. **Catalog sweep.** A headless run prepares every selectable instrument
-   (about 188: 10 synths, piano, 74 VCSL, 103 GM). Each renders a C4 with
+1. **Catalog sweep.** A headless run prepares every selectable instrument:
+   about 188, being 10 synths, the piano, 74 of the 128 registered VCSL sounds
+   and 103 of the 125 registered GM names. The picker's categories filter out
+   the rest. Each renders a C4 with
    non-silent PCM, and its pitch is within ±10 cents by `pitchy`. List
    failures on the PR.
 2. **One PCM copy.** No superdough `AudioBuffer` is retained after transfer.
@@ -460,6 +498,9 @@ and PCM capture, as #140 and the spike do.
    `eval`.
 5. **NOTICE.** Credits for the Salamander piano (CC BY 3.0) and FluidR3
    (MIT), plus whatever finding 3 decides.
+6. **Boot contract.** The loading screen shows the same steps. A failed pack
+   download still raises `SampleLoadError` and offers the synth-only start
+   (§1, "The boot contract").
 
 ### BJS-491 Looper transport on the worklet
 
@@ -467,8 +508,10 @@ and PCM capture, as #140 and the spike do.
    spike skipped: expression stretch, and Stage identity with key and mode.
 2. **The spike's extra checks pass:**
    - an immediate change is applied within one quantum of arrival;
-   - mute is silent on the member's output within 150 ms (desktop
-     render-graph), measured tap to change;
+   - mute is silent on the member's output within 150 ms, measured tap to
+     change. That is the ticket's bound, with desktop render-graph numbers
+     now and phone numbers in the gate; the spike's 10 ms is evidence, not a
+     new bound;
    - a 1,000 ms stall loses nothing;
    - a cold 512-note join keeps every surviving attack.
 3. **Arp lock.** Live Repeat and Arp pulses fall on the transport's
@@ -515,9 +558,10 @@ and PCM capture, as #140 and the spike do.
    preview link with a touch Start. Results are shown and can be copied.
 2. **What Burooj posts.** Attacks lost and doubled, mute and solo from tap to
    audible change, worklet render cost per quantum, memory with the piano,
-   and frame pacing. Measure render cost inside the worklet, aggregated over
-   many quanta. There is no portable underrun counter, so dropouts are counted
-   by ear.
+   and frame pacing. The worklet records render cost per quantum as a
+   histogram, and the p99 and maximum are compared with the 2.9 ms budget.
+   There is no portable underrun counter, so dropouts are also counted by
+   ear.
 3. **Test cases:**
    - eight dense members;
    - sampled and soundfont instruments;
@@ -531,8 +575,9 @@ and PCM capture, as #140 and the spike do.
 ### BJS-495 Remove Strudel and superdough
 
 1. **Dependencies.** `package.json` and `bun.lock` have no `@strudel/*` or
-   `superdough`, and the three patches are deleted.
-   `rg "@strudel|superdough" src audio-lab` finds only notation text and
+   `superdough`. The three patches and `src/types/strudel.d.ts` are deleted.
+   The audio-lab harnesses listed in §1 are retired or rewritten.
+   `rg "@strudel|superdough" src audio-lab` then finds only notation text and
    docs.
 2. **Same text.** "Open in Strudel" produces the same code text as the
    BJS-492 snapshot.
@@ -596,6 +641,22 @@ the AGPL code. The open question is only the unlicensed GM fonts (finding 3).
   dropouts with eight members and a sampled instrument. The mitigations are
   that the worklet already caps voices at 64 with steal fades, and the effect
   buses stay native.
+- **GC on the audio thread.** Table swaps allocate in the worklet by design.
+  A structured clone arrives on the audio thread, and a key or mode bend
+  rebuilds every member at once. Bound it:
+  - keep tables small and flat;
+  - send expression curves as `Float32Array`s, not arrays of objects;
+  - stagger a bend's swaps if the phone gate shows GC pauses.
+- **iOS sample-rate changes.** After an interruption or an audio route change
+  (headphones, Bluetooth), iOS can run the context at a new sample rate. The
+  worklet's `sampleRate` is fixed when the processor is constructed, and so
+  are the transport's frame-based anchors. Tie this to BJS-507: recreate the
+  processor, carry the transport state over in bars, and test it in the gate.
+- **Idle suspend.** BJS-507's 30 s idle suspend must treat a running
+  transport as not idle, even while every member is muted or resting.
+- **Tempo change mid-gate (minor).** A note's gate length is computed in
+  frames at its onset. A tempo change during the note doesn't rescale it, so
+  that one note ends at its old-tempo length.
 - **iOS interruptions.** The worklet path only resumes a "suspended" context
   today (spec W5). An "interrupted" context after a call stops the transport's
   clock as well. Resume handling is W5 work, but the transport must survive it.

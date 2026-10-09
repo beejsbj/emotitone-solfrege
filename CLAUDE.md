@@ -13,7 +13,7 @@ bun run test:run <files>
 bun run build        # includes the type-check
 ```
 
-Use only the package scripts for checks (shared lock across worktrees; see AGENTS.md and `docs/testing.md`).
+Use only the package scripts for checks (shared lock across worktrees; see AGENTS.md and `docs/testing.md`). GitHub CI runs `type-check`, `test` and `lint` on every PR and all three must be green before merge.
 
 ## Architecture as it is
 
@@ -38,7 +38,7 @@ Use only the package scripts for checks (shared lock across worktrees; see AGENT
 
 **Design system.** `src/style-guide/` is the design system and its `/style-guide/` routes: tokens, primitives, compounds, compositions, uniques. Read `src/style-guide/WIP-bible.md` (the short direction) and `DESIGN_SYSTEM_TRACKER.md` (current state) before visual work. Production components live in `src/components/{primatives,compounds,compositions,uniques}`. Two zones: a jazz-poster brand zone, and a chrome-hardware playing zone where the only colour is Music Color. Interface colour uses design-system tokens. `DESIGN_LOG.md` is frozen; PR bodies are the receipt.
 
-**Verification launcher.** `scripts/verify.mjs` wraps type-check, build and Vitest behind a lock in the git common directory so concurrent worktrees queue instead of exhausting memory. Never run `vue-tsc`, `vitest` or `vite build` directly.
+**Verification launcher.** `scripts/verify.mjs` wraps type-check, build and Vitest behind a lock in the git common directory so concurrent worktrees queue instead of exhausting memory. Never run `vue-tsc`, `vitest` or `vite build` directly. `EMOTITONE_VERIFY_BYPASS_LOCK=1` skips the lock; it is for CI and Vercel only (isolated machines), never for local or shared-host runs.
 
 ## Conventions
 

@@ -29,9 +29,10 @@ The record of decisions is `docs/retrospective-spec.md` (PR #143; until it merge
 ## Verification
 
 - Use only the package scripts: `bun run type-check`, `bun run test:run <files>`, `bun run build`, `bun run lint`. Never invoke `vue-tsc`, `vitest` or `vite build` directly.
-- They take a shared lock across this repository's worktrees, so they may wait for another job; that is normal. Run focused tests while editing and one full verification at a coherent checkpoint. A build already includes its typecheck. Use watch/UI mode only when requested, and close it before another verification job.
+- `type-check`, `test:run` and `build` take a shared lock across this repository's worktrees (`scripts/verify.mjs`), so they may wait for another job; that is normal. `lint` does not take the lock. Run focused tests while editing and one full verification at a coherent checkpoint. A build already includes its typecheck. Use watch/UI mode only when requested, and close it before another verification job.
 - The host is memory-constrained: do not leave dev servers or browsers running.
-- A change is done when the CI checks on its PR are green, not when it is green locally. (CI is arriving in PR #146.)
+- GitHub CI (`.github/workflows/ci.yml`) runs `type-check`, `test` and `lint` on every PR and on pushes to `main`. A change is done when those checks on its PR are green, not when it is green locally.
+- `EMOTITONE_VERIFY_BYPASS_LOCK=1` skips the verify lock and is for CI and Vercel only (isolated machines; CI and `vercel.json` set it). Never set it on bjslab or another shared host.
 - Write tests that observe behaviour at the highest seam and fail when the behaviour breaks. See [testing.md](docs/testing.md) for commands, limits and test-quality guidance.
 
 ## Historical Documentation & Plans Archive

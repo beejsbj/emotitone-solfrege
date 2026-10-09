@@ -257,7 +257,10 @@ by the UI. The core already sequences Repeat/Arp pulses there.
     already bent to the Looper's key and mode (or pinned), `instrumentId`,
     `noteId`, the immutable key, mode and solfège it was built under (or a
     table-generation id that resolves to them), and in production its
-    articulation and expression curves.
+    articulation and expression curves. The member also carries its Shape
+    (cutoff, resonance, room, delay), the values `filterModifiers()` and
+    `effectModifiers()` apply today, so differently shaped members can sound
+    together.
 - **Settings:** `offsetBars`, `rate` (0.5, 1 or 2) and `muted`, plus the
   transport's `soloId`. Pin is not a transport setting: it decides which table
   gets built.
@@ -290,10 +293,14 @@ by the UI. The core already sequences Repeat/Arp pulses there.
   arrives after B, the worklet applies it at once and reports `late`. The main
   thread then reconciles the published anchor to the receipt's
   `appliedFrame`/`appliedBar`, because the worklet's clock is the authority.
-  The UI must not step backward: when the receipt lands behind the provisional
-  position (a late increase, 120 to 240 BPM), hold the displayed bar and let
-  the true clock catch up. Test a command posted just before B and delivered
-  after it, for both an increase and a decrease.
+  The UI must not step backward, and it should not freeze either: when the
+  receipt lands behind the provisional position (a late increase, 120 to
+  240 BPM), slew the displayed bar's rate until the true clock meets it. The
+  cost is a phase error during that window, bounded by the lateness and
+  converging to zero. The case is rare (a command posted within the message
+  latency of B), so the phase acceptance check excludes the window and reports
+  its length. Test a command posted just before B and delivered after it, for
+  both an increase and a decrease.
 
 ### Tails, mute and solo
 
@@ -323,7 +330,10 @@ ahead of the sound. Events are batched per quantum through the existing FIFO bri
   table and tempo map. Use one pure function, shared by the worklet and the main
   thread, rather than asking the worklet.
 - **UIBeat** is computed per animation frame on the main thread as
-  `barAt(context.currentTime)` from the published anchors. There is one
+  `barAt(outputTime)` from the published anchors, where `outputTime` is the
+  context's output timestamp (`getOutputTimestamp()` or the existing
+  `audibleAt` conversion), so the bar tracks what is heard, not what is
+  rendered. There is one
   generation per run, and `retime` is called when the active anchor's bpm
   changes. The prototype measured zero backward steps.
 
@@ -462,9 +472,15 @@ and PCM capture, as #140 and the spike do.
    listeners light up and clear (a DOM test drives the event contract, not the
    engine).
 5. **UIBeat from the transport.** It has one generation, never steps backward,
-   and its phase matches the bar grid within one animation frame (S139).
+   and its phase matches the bar grid within one animation frame (S139),
+   measured against captured output, not the render clock.
 6. **Changes while playing.** Tempo, key, mode, octave and instrument changes
-   apply at the next quantum or bar with no lost or doubled attacks.
+   apply at the next quantum or bar with no lost or doubled attacks. A change
+   that needs a cold sampled or soundfont instrument waits for the bank's
+   acknowledgement before its activation boundary is chosen, and keeps the old
+   table and instrument if the load fails. Test a cold swap and a cold join
+   while playback continues (`LiveAudioCore.start()` drops a voice whose
+   instrument is absent today).
 7. **Stall survival.** A 1,000 ms main-thread stall loses no attacks (the
    spike's stall cell).
 8. **Articulation.** Recorded per-note articulation and clip reach the voice.
@@ -489,7 +505,11 @@ and PCM capture, as #140 and the spike do.
    hook (a Node `--trace-gc`/allocation-sampling run or an instrumented pool),
    because a flat post-GC heap only rules out leaks, not per-quantum garbage.
 7. **Graph ownership.** The app owns the context, master gain and buses
-   (finding 2). Analysers fan out from the new master.
+   (finding 2). Analysers fan out from the new master. The context still
+   resumes inside the Play-on tap, waits for `state === "running"`, and reports
+   `AudioBlockedError` when the browser refuses (today's
+   `useAppLoading.initializeAudioContext()` contract). The phone gate checks
+   it.
 8. **Listening note.** An A/B note for Burooj against frozen superdough renders
    is on the PR (finding 7).
 
@@ -593,7 +613,8 @@ and PCM capture, as #140 and the spike do.
 2. **What Burooj posts.** Attacks lost and doubled, mute and solo from tap to
    audible change, worklet render cost per quantum, memory with the piano,
    and frame pacing. The worklet records render cost per quantum as a
-   histogram, and the p99 and maximum are compared with the 2.9 ms budget.
+   histogram, and the p99 and maximum are compared with the budget derived from the measured sample rate (128 frames:
+   2.9 ms at 44.1 kHz, 2.67 ms at 48 kHz).
    There is no portable underrun counter, so dropouts are also counted by
    ear.
 3. **Test cases:**

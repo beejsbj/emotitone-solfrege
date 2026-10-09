@@ -5,6 +5,8 @@ import { createApp, nextTick, ref } from "vue";
 import SaveFailureNotice from "@/components/ui/SaveFailureNotice.vue";
 import {
   createSafeStorage,
+  dismissSaveFailure,
+  ONE_OFF_NOTICE_MS,
   persistedStatePlugin,
   resetSaveFailure,
   saveFailureNotice,
@@ -143,6 +145,89 @@ describe("persisted writes that fail", () => {
     await nextTick();
     await nextTick();
     expect(wrapper.find(".sticker").exists()).toBe(false);
+  });
+
+  it("shows the notice again when saving recovers after a dismissal and then fails again", async () => {
+    freshPinia();
+    const store = useSketchStore();
+    const wrapper = mount(SaveFailureNotice);
+    const restore = breakStorage(quotaError());
+    const settle = async () => {
+      await nextTick();
+      await nextTick();
+    };
+
+    store.takes.push("a");
+    await settle();
+    await wrapper.find("button").trigger("click");
+    expect(wrapper.find(".sticker").exists()).toBe(false);
+
+    restore();
+    store.takes.push("b");
+    await settle();
+    expect(saveFailureNotice.value).toBeNull();
+
+    breakStorage(quotaError());
+    store.takes.push("c");
+    await settle();
+
+    expect(store.takes).toEqual(["a", "b", "c"]);
+    expect(wrapper.find(".sticker").text()).toBe(FULL);
+  });
+
+  it("shows the notice again when a different key fails after a dismissal", () => {
+    const storage = createSafeStorage(() => ({
+      getItem: () => null,
+      setItem: () => {
+        throw quotaError();
+      },
+      removeItem: () => {},
+    }) as unknown as Storage);
+
+    storage.setItem("emotitone-saved-looks", "x");
+    dismissSaveFailure();
+    expect(saveFailureNotice.value).toBeNull();
+
+    storage.setItem("emotitone-phrases", "y");
+    expect(saveFailureNotice.value?.message).toBe(FULL);
+  });
+
+  it("lets a failed explicit save fall away on its own so it cannot hide later failures", () => {
+    vi.useFakeTimers();
+    try {
+      const storage = createSafeStorage(() => ({
+        getItem: () => null,
+        setItem: () => {
+          throw quotaError();
+        },
+        removeItem: () => {},
+      }) as unknown as Storage);
+
+      storage.write("emotitone-saved-looks", "x", { oneOff: true });
+      expect(saveFailureNotice.value?.message).toBe(FULL);
+
+      vi.advanceTimersByTime(ONE_OFF_NOTICE_MS + 1);
+      expect(saveFailureNotice.value).toBeNull();
+
+      storage.setItem("emotitone-phrases", "y");
+      expect(saveFailureNotice.value?.message).toBe(FULL);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("logs once per burst, not on every failed write", async () => {
+    freshPinia();
+    const store = useSketchStore();
+    breakStorage(quotaError());
+
+    for (const take of ["a", "b", "c"]) {
+      store.takes.push(take);
+      await nextTick();
+      await nextTick();
+    }
+
+    expect(console.error).toHaveBeenCalledTimes(1);
   });
 
   it("does not let a small write that still fits end the burst of a key that keeps failing", () => {

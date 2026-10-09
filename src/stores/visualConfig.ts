@@ -645,7 +645,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
   const persistSavedStageLooks = () => {
     if (!persistenceEnabled.value || typeof localStorage === "undefined") return;
     try {
-      persistentStorage.write(SAVED_STAGE_LOOKS_KEY, JSON.stringify(savedStageLooks.value));
+      persistentStorage.write(SAVED_STAGE_LOOKS_KEY, JSON.stringify(savedStageLooks.value), { oneOff: true });
     } catch (error) {
       console.error("Failed to serialize Stage Looks:", error);
     }
@@ -734,7 +734,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     if (!persistenceEnabled.value) return savedConfig;
 
     try {
-      persistentStorage.write(SAVED_CONFIGS_KEY, JSON.stringify(savedConfigs.value));
+      persistentStorage.write(SAVED_CONFIGS_KEY, JSON.stringify(savedConfigs.value), { oneOff: true });
     } catch (error) {
       console.error("Failed to serialize saved configs:", error);
     }
@@ -759,7 +759,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
       if (!persistenceEnabled.value) return;
 
       try {
-        persistentStorage.write(SAVED_CONFIGS_KEY, JSON.stringify(savedConfigs.value));
+        persistentStorage.write(SAVED_CONFIGS_KEY, JSON.stringify(savedConfigs.value), { oneOff: true });
       } catch (error) {
         console.error("Failed to serialize saved configs:", error);
       }

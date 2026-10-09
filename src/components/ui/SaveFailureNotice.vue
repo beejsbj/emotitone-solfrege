@@ -11,7 +11,7 @@
       aria-label="Dismiss save warning"
       @click="dismissSaveFailure"
     >
-      <Sticker variant="fill" color="tomato" paper="cut">{{ saveFailureNotice.message }}</Sticker>
+      <Sticker variant="fill" color="ivory" paper="cut">{{ saveFailureNotice.message }}</Sticker>
     </button>
   </div>
 </template>
@@ -25,9 +25,10 @@ import { dismissSaveFailure, saveFailureNotice } from "@/services/safeStorage";
 .save-failure-notice {
   position: fixed;
   top: calc(env(safe-area-inset-top, 0px) + 12px);
-  left: 0;
-  right: 0;
-  z-index: 200;
+  /* Leave the corners to the top-menu handles, and sit under TopDrawer (100-102). */
+  left: 56px;
+  right: 56px;
+  z-index: 90;
   display: flex;
   justify-content: center;
   pointer-events: none;

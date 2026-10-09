@@ -21,12 +21,26 @@ interface FailureBurst {
   dismissed: boolean;
 }
 
-// A burst runs from the first failed write until every key that failed has
-// since been written successfully. Tracking keys (not "any success") keeps a
-// small key that still fits from clearing and re-raising the notice while a
-// large one keeps failing.
+/** How long a one-off failure (an explicit save) stays up when nothing keeps failing. */
+export const ONE_OFF_NOTICE_MS = 6000;
+
+// A burst runs from the first failed write until nothing is still failing.
+// Two sorts of failure keep it open:
+//  - an autosaved key (Pinia stores, the visual config) stays failing until
+//    that same key writes successfully; tracking keys, not "any success", keeps
+//    a small key that still fits from clearing the notice while a large one
+//    keeps failing;
+//  - a one-off failure (an explicit save such as a Stage Look) can't recover
+//    by itself, since nothing rewrites it, so it only keeps the notice up for
+//    a few seconds instead of for the whole session.
 const burst = ref<FailureBurst | null>(null);
 const failedKeys = new Set<string>();
+// Keys that were already failing when the player dismissed the notice. A
+// failure of any other key, or of a key that has since recovered, is news and
+// shows the notice again.
+const dismissedKeys = new Set<string>();
+let oneOffPending = false;
+let oneOffTimer: ReturnType<typeof setTimeout> | undefined;
 
 /** The failure the player should currently see, or null. */
 export const saveFailureNotice = computed(() => {
@@ -38,34 +52,79 @@ export const saveFailureNotice = computed(() => {
 /** True while a failure burst is open, even if the player dismissed the notice. */
 export const hasSaveFailure = computed(() => burst.value !== null);
 
-/**
- * The single handler for persistence failures. Opens a burst (showing the
- * notice) unless one is already open; a burst never re-shows after dismissal.
- * `key` ties the burst to a write so a later success of that key closes it.
- */
-export function reportSaveFailure(kind: SaveFailureKind, key?: string): void {
-  if (key !== undefined) failedKeys.add(key);
-  if (!burst.value) {
-    burst.value = { kind, dismissed: false };
-  } else if (kind === "quota" && burst.value.kind !== "quota") {
-    // Quota is the more useful explanation; upgrade it without re-showing.
-    burst.value = { ...burst.value, kind };
+function closeIfSettled(): void {
+  if (failedKeys.size === 0 && !oneOffPending) {
+    burst.value = null;
+    dismissedKeys.clear();
   }
 }
 
-/** A write of `key` succeeded; closes the burst once every failed key has recovered. */
+function clearOneOff(): void {
+  oneOffPending = false;
+  if (oneOffTimer !== undefined) clearTimeout(oneOffTimer);
+  oneOffTimer = undefined;
+}
+
+/**
+ * The single handler for persistence failures. Shows the notice when a burst
+ * opens, and shows it again if the player dismissed it and something new then
+ * fails. `key` ties the failure to an autosaved write so that key's next
+ * success ends it; `oneOff` marks a failure that nothing will retry.
+ */
+export function reportSaveFailure(
+  kind: SaveFailureKind,
+  key?: string,
+  oneOff = false,
+): void {
+  let isNews: boolean;
+  if (oneOff || key === undefined) {
+    isNews = true;
+    oneOffPending = true;
+    if (oneOffTimer !== undefined) clearTimeout(oneOffTimer);
+    oneOffTimer = setTimeout(() => {
+      oneOffTimer = undefined;
+      oneOffPending = false;
+      closeIfSettled();
+    }, ONE_OFF_NOTICE_MS);
+  } else {
+    isNews = !dismissedKeys.has(key);
+    failedKeys.add(key);
+  }
+
+  if (!burst.value) {
+    burst.value = { kind, dismissed: false };
+    return;
+  }
+  const upgraded = kind === "quota" ? "quota" : burst.value.kind;
+  const reopen = isNews && burst.value.dismissed;
+  if (reopen) dismissedKeys.clear();
+  burst.value = {
+    kind: upgraded,
+    dismissed: reopen ? false : burst.value.dismissed,
+  };
+}
+
+/** An autosaved write of `key` succeeded; ends the burst once nothing else is failing. */
 export function reportSaveSuccess(key: string): void {
-  if (!failedKeys.delete(key)) return;
-  if (failedKeys.size === 0) burst.value = null;
+  failedKeys.delete(key);
+  dismissedKeys.delete(key);
+  closeIfSettled();
 }
 
 export function dismissSaveFailure(): void {
-  if (burst.value) burst.value = { ...burst.value, dismissed: true };
+  if (!burst.value) return;
+  clearOneOff();
+  dismissedKeys.clear();
+  failedKeys.forEach((key) => dismissedKeys.add(key));
+  burst.value = { ...burst.value, dismissed: true };
+  closeIfSettled();
 }
 
 /** Test seam: forget any open burst. */
 export function resetSaveFailure(): void {
+  clearOneOff();
   failedKeys.clear();
+  dismissedKeys.clear();
   burst.value = null;
 }
 
@@ -88,8 +147,11 @@ export function isQuotaExceeded(error: unknown): boolean {
 }
 
 export interface SafeStorage extends Pick<Storage, "getItem" | "setItem" | "removeItem"> {
-  /** Like setItem, but says whether the value was actually stored. */
-  write(key: string, value: string): boolean;
+  /**
+   * Like setItem, but says whether the value was actually stored. Pass
+   * `{ oneOff: true }` for an explicit save that nothing will retry.
+   */
+  write(key: string, value: string, options?: { oneOff?: boolean }): boolean;
 }
 
 /**
@@ -106,7 +168,7 @@ export function createSafeStorage(
     }
   },
 ): SafeStorage {
-  const write = (key: string, value: string): boolean => {
+  const write = (key: string, value: string, options?: { oneOff?: boolean }): boolean => {
     try {
       const storage = backend();
       if (!storage) throw new Error("Storage is unavailable");
@@ -114,8 +176,9 @@ export function createSafeStorage(
       reportSaveSuccess(key);
       return true;
     } catch (error) {
-      console.error(`Failed to save "${key}" to storage:`, error);
-      reportSaveFailure(isQuotaExceeded(error) ? "quota" : "unknown", key);
+      // Log once per burst; the notice is the player-facing signal.
+      if (!hasSaveFailure.value) console.error(`Failed to save "${key}" to storage:`, error);
+      reportSaveFailure(isQuotaExceeded(error) ? "quota" : "unknown", key, options?.oneOff);
       return false;
     }
   };

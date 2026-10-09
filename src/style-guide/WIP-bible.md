@@ -21,7 +21,7 @@ EmotiTone is **an instrument that teaches through its moats and cues** (Burooj, 
 3. **Loops as play.** Play is the loop.
 4. **A pocket instrument.** One-handed on a phone.
 
-Every name, syllable, interval, chord symbol and colour on screen is a cue, and a cue is a promise: design must never show something the music does not say. Origin: it began as a feeling-building app using solfège and written interval descriptions, absorbed Burooj's own melody-sketching tool because other tools were bloated DAWs, and keeps the UX simple while allowing more, very mobile-focused. Full record: `docs/retrospective-spec.md`.
+Every name, syllable, interval, chord symbol and colour on screen is a cue, and a cue is a promise: design must never show something the music does not say. Origin: it began as a feeling-building app using solfège and written interval descriptions, absorbed Burooj's own melody-sketching tool because other tools were bloated DAWs, and keeps the UX simple while allowing more, very mobile-focused. Full record: `docs/retrospective-spec.md` (open PR #143 until merged).
 
 ---
 

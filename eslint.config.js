@@ -8,9 +8,33 @@ import globals from "globals";
 export default [
   js.configs.recommended,
   {
-    // vue-tsc already checks undefined names in TypeScript and Vue files.
+    // vue-tsc already checks undefined names in TypeScript and Vue files,
+    // except the tests and setup that tsconfig.json excludes (handled below).
     files: ["**/*.{ts,vue}"],
+    ignores: ["src/**/__tests__/**", "src/**/*.test.ts", "src/**/*.spec.ts", "src/test-setup.ts"],
     rules: { "no-undef": "off" },
+  },
+  {
+    // Excluded from vue-tsc and only transpiled by Vitest, so nothing else checks names
+    // here. Keep no-undef as a warning (not error): it cannot tell DOM *type* names from
+    // values, hence the listed type globals, and it flags one real undefined `gain`
+    // in useHilbertScopeLiveAudio.test.ts (BJS-481 to fix and promote to "error").
+    files: ["src/**/__tests__/**/*.ts", "src/**/*.test.ts", "src/**/*.spec.ts", "src/test-setup.ts"],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        ...globals.browser,
+        ...globals.es2021,
+        EventListener: "readonly",
+        FrameRequestCallback: "readonly",
+        IntersectionObserverCallback: "readonly",
+        ResizeObserverCallback: "readonly",
+        MutationCallback: "readonly",
+        AudioContextState: "readonly",
+        RecordingState: "readonly",
+      },
+    },
+    rules: { "no-undef": "warn" },
   },
   {
     // Plain JS/MJS (scripts/, audio-lab/) is outside tsconfig, so keep no-undef there.

@@ -5,6 +5,7 @@ import App from '@/App.vue'
 import appSource from '@/App.vue?raw'
 import mainAppSource from '@/MainApp.vue?raw'
 import mainSource from '@/main.ts?raw'
+import { reportSaveFailure, resetSaveFailure } from '@/services/safeStorage'
 import { STYLE_GUIDE_PAGES, isStyleGuideRoute } from '@/styleGuideRoutes'
 
 const appLoadingState = vi.hoisted(() => ({
@@ -66,6 +67,18 @@ describe('App.vue', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     appLoadingState.isLoading = false
+  })
+
+  it('shows the save-failure Sticker in the app shell when a persisted write fails', async () => {
+    resetSaveFailure()
+    const wrapper = createTestWrapper(App)
+    expect(wrapper.find('[data-testid="save-failure-notice"]').exists()).toBe(false)
+
+    reportSaveFailure('quota', 'emotitone-instrument')
+    await nextTick()
+
+    expect(wrapper.find('[data-testid="save-failure-notice"]').text()).toBe("Can't save — storage full")
+    resetSaveFailure()
   })
 
   it('renders the current shell when the app is ready', () => {

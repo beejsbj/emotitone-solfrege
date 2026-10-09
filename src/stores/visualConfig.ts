@@ -26,6 +26,7 @@ import {
   type DeckControlId,
   type GlobalControlId,
 } from "@/services/configPublicSurface";
+import { persistentStorage, type SaveFailureKind } from "@/services/safeStorage";
 import type {
   BlobConnectionMode,
   HarmonicGeometryMode,
@@ -472,7 +473,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
 
   // Save configuration to localStorage
   const saveToStorage = () => {
-    if (!persistenceEnabled.value || typeof localStorage === "undefined") return;
+    if (!persistenceEnabled.value) return;
 
     try {
       const dataToStore = {
@@ -480,8 +481,9 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
         visualsEnabled: visualsEnabled.value,
         lastSaved: new Date().toISOString(),
       };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToStore));
-      lastSaved.value = dataToStore.lastSaved;
+      if (persistentStorage.write(STORAGE_KEY, JSON.stringify(dataToStore))) {
+        lastSaved.value = dataToStore.lastSaved;
+      }
     } catch (error) {
       console.error("Failed to save visual config to localStorage:", error);
     }
@@ -640,16 +642,27 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     Object.assign(config.codeStrip, defaults.codeStrip, { bpm });
   };
 
-  const persistSavedStageLooks = () => {
-    if (!persistenceEnabled.value || typeof localStorage === "undefined") return;
+  // Explicit saves report back why they failed (null: stored, or persistence
+  // is off for an isolated specimen) so the panel can say so at the point of
+  // action instead of claiming "saved".
+  const persistExplicit = (key: string, value: unknown): SaveFailureKind | null => {
+    if (!persistenceEnabled.value) return null;
+    let serialized: string;
     try {
-      localStorage.setItem(SAVED_STAGE_LOOKS_KEY, JSON.stringify(savedStageLooks.value));
+      serialized = JSON.stringify(value);
     } catch (error) {
-      console.error("Failed to save Stage Looks to localStorage:", error);
+      console.error(`Failed to serialize "${key}":`, error);
+      return "unknown";
     }
+    return persistentStorage.attempt(key, serialized, { oneOff: true });
   };
 
-  const saveStageLookAs = (name: string): SavedStageLook => {
+  const persistSavedStageLooks = () =>
+    persistExplicit(SAVED_STAGE_LOOKS_KEY, savedStageLooks.value);
+
+  const saveStageLookAs = (
+    name: string,
+  ): { look: SavedStageLook; failure: SaveFailureKind | null } => {
     const now = new Date().toISOString();
     // Save the composed appearance before the Stage master applies its
     // temporary runtime suppression to supporting layers.
@@ -665,8 +678,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
       updatedAt: now,
     };
     savedStageLooks.value.push(savedLook);
-    persistSavedStageLooks();
-    return savedLook;
+    return { look: savedLook, failure: persistSavedStageLooks() };
   };
 
   const loadSavedStageLook = (lookId: string) => {
@@ -715,7 +727,9 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
   };
 
   // Save current config with a name
-  const saveConfigAs = (name: string): SavedConfig => {
+  const saveConfigAs = (
+    name: string,
+  ): { savedConfig: SavedConfig; failure: SaveFailureKind | null } => {
     const id = Date.now().toString();
     const now = new Date().toISOString();
 
@@ -729,18 +743,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
 
     savedConfigs.value.push(savedConfig);
 
-    if (!persistenceEnabled.value) return savedConfig;
-
-    try {
-      localStorage.setItem(
-        SAVED_CONFIGS_KEY,
-        JSON.stringify(savedConfigs.value)
-      );
-    } catch (error) {
-      console.error("Failed to save config to localStorage:", error);
-    }
-
-    return savedConfig;
+    return { savedConfig, failure: persistExplicit(SAVED_CONFIGS_KEY, savedConfigs.value) };
   };
 
   // Load a saved config
@@ -757,16 +760,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     const index = savedConfigs.value.findIndex((c) => c.id === configId);
     if (index > -1) {
       savedConfigs.value.splice(index, 1);
-      if (!persistenceEnabled.value) return;
-
-      try {
-        localStorage.setItem(
-          SAVED_CONFIGS_KEY,
-          JSON.stringify(savedConfigs.value)
-        );
-      } catch (error) {
-        console.error("Failed to update saved configs in localStorage:", error);
-      }
+      persistExplicit(SAVED_CONFIGS_KEY, savedConfigs.value);
     }
   };
 

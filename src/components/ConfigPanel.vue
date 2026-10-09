@@ -587,6 +587,7 @@ import {
   Shuffle as ShuffleIcon,
   Check,
 } from "lucide-vue-next";
+import { SAVE_FAILURE_MESSAGES } from "@/services/safeStorage";
 import { generateRoliPianoScript } from "@/services/roliPianoExport";
 import {
   isRoliMidiPortName,
@@ -978,8 +979,13 @@ const promptSaveStageLook = () => {
 
   if (!name?.trim()) return;
 
-  saveStageLookAs(name.trim());
-  notify(`Stage Look "${name.trim()}" saved.`);
+  const { failure } = saveStageLookAs(name.trim());
+  // Say what actually happened here: the drawer sits over the global notice.
+  notify(
+    failure
+      ? SAVE_FAILURE_MESSAGES[failure]
+      : `Stage Look "${name.trim()}" saved.`,
+  );
 };
 
 const notify = (message: string) => {

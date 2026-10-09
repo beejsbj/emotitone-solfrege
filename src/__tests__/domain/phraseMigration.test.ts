@@ -118,3 +118,18 @@ describe("legacy pattern migration", () => {
     expect(shelveBook(book, []).recent.map((phrase) => phrase.id)).toEqual(["old"]);
   });
 });
+
+describe("legacy migration and retired built-ins", () => {
+  it("drops retired built-ins that older saves carried, keeps the player's own", () => {
+    const retired = pattern({ id: "pattern-warrior-chorus-1", name: "Warrior of the Mind (Chorus)", isKept: true });
+    const mine = pattern({ id: "saved-mine", name: "Mine", isSaved: true });
+    const book = migrateLegacyPatterns(
+      { savedPatterns: [retired, mine], loggedNotes: [] },
+      { ...options, retiredLibraryIds: new Set(["pattern-warrior-chorus-1"]) },
+    )!;
+    const names = shelveBook(book, []).kept.map((phrase) => phrase.name);
+    expect(names).toEqual(["Mine"]);
+    expect(book.libraryNames).toEqual({});
+    expect(book.phrases.map((phrase) => phrase.name)).not.toContain("Warrior of the Mind (Chorus)");
+  });
+});

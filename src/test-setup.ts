@@ -141,6 +141,7 @@ vi.mock('@/services/superdoughAudio', () => ({
   stopNote: vi.fn(),
   playNoteWithDuration: vi.fn().mockResolvedValue(undefined),
   releaseAll: vi.fn(),
+  getActiveStrudelStageNotes: vi.fn(() => []),
   getAudioContext: vi.fn(() => ({
     currentTime: 0,
     state: 'running',

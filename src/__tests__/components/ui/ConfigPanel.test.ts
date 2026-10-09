@@ -98,7 +98,7 @@ const visualConfigStore = reactive({
   keepStageLook: vi.fn(),
   clearStageLook: vi.fn(),
   resetStage: vi.fn(),
-  saveStageLookAs: vi.fn(),
+  saveStageLookAs: vi.fn(() => ({ look: null, failure: null })),
   loadSavedStageLook: vi.fn(),
   deleteSavedStageLook: vi.fn(),
   updateGlobalControl: vi.fn(),

@@ -325,7 +325,12 @@ function createProductionWiring() {
   const voiceGroups = createVoiceGroupLifecycle((noteId) => musicStore.releaseNote(noteId));
   const activeChordSnapshots = reactive(new Map<string, ActiveChordSnapshot>());
 
-  useKeyboardControls(computed(() => config.value.mainOctave));
+  // The number row builds chords too, so it follows the same Joystick
+  // alteration as the on-screen chord keys.
+  useKeyboardControls(
+    computed(() => config.value.mainOctave),
+    computed(() => props.harmonyAlteration),
+  );
 
   const romanDegrees = [
     "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII",

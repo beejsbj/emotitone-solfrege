@@ -868,6 +868,15 @@ useGSAP(({ gsap }: { gsap: any }) => {
   font: inherit;
 }
 
+.knob-wrapper[role="slider"]:focus-visible {
+  outline: 2px solid var(--ivory);
+  outline-offset: 3px;
+}
+
+@media (forced-colors: active) {
+  .knob-wrapper[role="slider"]:focus-visible { outline-color: Highlight; }
+}
+
 .knob-wrapper__face {
   position: relative;
 }

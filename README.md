@@ -25,6 +25,10 @@ bun run build
 
 Use the package scripts rather than calling the compilers directly; they share a lock so several worktrees do not exhaust memory.
 
+## Credits
+
+The Hilbert scope was influenced by Seeing Music and Audioscope; see [Hilbert Scope credits and provenance](docs/credits.md).
+
 ## For contributors and agents
 
 Start with [AGENTS.md](AGENTS.md) and [CLAUDE.md](CLAUDE.md). The decision record is `docs/retrospective-spec.md` (open PR #143), and the visual direction is `src/style-guide/WIP-bible.md`. The app is moving from Strudel and superdough to its own AudioWorklet engine; the spec explains why.

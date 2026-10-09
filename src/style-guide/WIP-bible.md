@@ -12,6 +12,19 @@ Status: **work in progress.** Stated by Burooj on 2026-09-27, including the hard
 
 Two halves, two jobs. *Cut-paper jazz* is the identity: poster, hand-cut, loud, and made by hand. *Lit by a synth* is the instrument: dark hardware where light means sound is happening.
 
+## 1a. What it is for
+
+EmotiTone is **an instrument that teaches through its moats and cues** (Burooj, 2026-10-09). It does not teach through lessons or quizzes. The look serves four moats:
+
+1. **Feeling first.** Every interval has an emotional voice: the written interval descriptions and Music Color.
+2. **Sketch speed.** Everything played is kept; no record button, no DAW.
+3. **Loops as play.** Play is the loop.
+4. **A pocket instrument.** One-handed on a phone.
+
+Every name, syllable, interval, chord symbol and colour on screen is a cue, and a cue is a promise: design must never show something the music does not say. Origin: it began as a feeling-building app using solfège and written interval descriptions, absorbed Burooj's own melody-sketching tool because other tools were bloated DAWs, and keeps the UX simple while allowing more, very mobile-focused. Full record: `docs/retrospective-spec.md`.
+
+---
+
 ## 2. Where it came from
 
 - **Before:** the app explored a sleek, glassy instrument look (glassmorphism). It was purged app-wide on 2026-08-20, and glass stays rejected.

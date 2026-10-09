@@ -1,33 +1,5 @@
 // Ambient declarations for @strudel/* packages that ship no TypeScript types.
 // These modules are all runtime-only — we use `any` intentionally.
-declare module "@strudel/codemirror" {
-  import type { StateEffectType } from "@codemirror/state";
-
-  export const setMiniLocations: StateEffectType<Array<[number, number]>>;
-  export const showMiniLocations: StateEffectType<{
-    atTime: number | { valueOf(): number };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    haps: any[];
-  }>;
-
-  export class StrudelMirror {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    constructor(opts: any);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    updateSettings(settings: any): void;
-    setCode(code: string): void;
-    getCode(): string;
-    evaluate(): Promise<void>;
-    stop(): Promise<void> | void;
-    clear(): void;
-    destroy?(): void;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    editor?: any;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    view?: any;
-  }
-}
-
 declare module "@strudel/transpiler" {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   export const transpiler: any;
@@ -47,6 +19,9 @@ declare module "@strudel/core" {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   export function samples(url: string): Promise<any>;
   export function isNote(note: string): boolean;
+  // The headless REPL: scheduler, transpiled evaluation and output routing.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  export function repl(options: any): any;
 }
 
 declare module "@strudel/mini" {

@@ -171,7 +171,7 @@ export function useNotationHighlight(options: NotationHighlightOptions) {
   });
 
   /** Fill state of one phrase note: 1 once it has sounded in this pass. */
-  function noteProgress(id: string | undefined) {
+  function noteProgress(id: string | undefined): number {
     if (!id) return 0;
     return active.value.has(id) || played.value.has(id) ? 1 : 0;
   }

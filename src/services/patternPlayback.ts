@@ -1,4 +1,3 @@
-import { StrudelMirror } from "@strudel/codemirror";
 import * as StrudelCore from "@strudel/core";
 import * as StrudelMini from "@strudel/mini";
 import * as StrudelTonal from "@strudel/tonal";
@@ -10,30 +9,48 @@ import {
   initSuperdoughAudio,
   stopStrudelVisuals,
 } from "@/services/superdoughAudio";
+import { setSoundingNotationSpans } from "@/services/notationSpans";
+import type { NotationSpan } from "@/types/notation";
 
-export interface PatternEditor {
-  setCode: (code: string) => void;
-  evaluate: () => Promise<void | boolean>;
-  stop: () => Promise<void> | void;
-  clear?: () => void;
-  updateSettings?: (settings: Record<string, unknown>) => void;
-  code?: string;
-  editor?: unknown;
-  view?: unknown;
-  repl?: {
-    scheduler?: { cps?: number; setCps?: (cps: number) => void };
-  };
+interface PatternScheduler {
+  cps?: number;
+  started?: boolean;
+  setCps?: (cps: number) => void;
+  now?: () => number;
+  stop?: () => void;
 }
 
-interface PatternEditorOptions {
-  root: HTMLElement;
+/**
+ * The one pattern transport: Strudel's REPL and scheduler without an editor.
+ * It plays the code it is given; the Code Strip only shows that code.
+ */
+export interface PatternTransport {
+  /** The code the next evaluation plays. */
+  code: string;
+  /** The span each phrase note produced in `code`. */
+  spans: readonly NotationSpan[];
+  setCode: (code: string, spans?: readonly NotationSpan[]) => void;
+  evaluate: () => Promise<void | boolean>;
+  stop: () => Promise<void> | void;
+  repl: { scheduler: PatternScheduler };
+}
+
+interface PatternTransportOptions {
   initialCode: string;
-  onDraw: (haps: unknown[], time: number) => void;
+  initialSpans?: readonly NotationSpan[];
+  /** Each animation frame while playing, with the scheduler's cycle position. */
+  onFrame: (time: number) => void;
   onToggle: (started: boolean) => void;
   onEvalError: (error: unknown) => void;
 }
 
-let activeEditor: PatternEditor | undefined;
+interface StrudelRepl {
+  scheduler: PatternScheduler & { stop: () => void };
+  evaluate: (code: string, autostart?: boolean) => Promise<unknown>;
+}
+
+let activeTransport: PatternTransport | undefined;
+let disposeActiveTransport: (() => void) | undefined;
 let scopeReady: Promise<void> | undefined;
 
 function prepareScope(): Promise<void> {
@@ -49,49 +66,93 @@ function prepareScope(): Promise<void> {
   return scopeReady;
 }
 
-/**
- * StrudelMirror includes a REPL and scheduler. Own that one transport instead
- * of starting an additional @strudel/web runtime behind the editor. CodeStrip
- * supplies presentation/evaluation guards and exposes it through the shared
- * useCodeStripStrudel controller; keyboard shortcuts use this same instance.
- */
-export function createPatternEditor(options: PatternEditorOptions): PatternEditor {
-  if (activeEditor) throw new Error("The pattern transport already has an editor");
-  const instance = new StrudelMirror({
-    ...options,
-    bgFill: false,
-    solo: true,
-    transpiler,
+export function createPatternTransport(options: PatternTransportOptions): PatternTransport {
+  if (activeTransport) throw new Error("The pattern transport already exists");
+
+  const prebaked = Promise.all([initSuperdoughAudio(), prepareScope()]);
+  // Keep an early failure observable through evaluation, not as an unhandled rejection.
+  prebaked.catch(() => undefined);
+  let frame: number | null = null;
+  let evaluatingSpans: readonly NotationSpan[] = [];
+
+  const stopFrames = () => {
+    if (frame !== null) cancelAnimationFrame(frame);
+    frame = null;
+  };
+
+  const repl = StrudelCore.repl({
     defaultOutput: emotitoneStrudelOutput,
     getTime: () => getAudioContext().currentTime,
-    prebake: async () => {
-      await Promise.all([initSuperdoughAudio(), prepareScope()]);
+    transpiler,
+    beforeEval: async () => {
+      await prebaked;
     },
     beforeStart: async () => {
       const context = getAudioContext();
       if (context.state === "suspended") await context.resume();
     },
-  }) as PatternEditor;
-  activeEditor = instance;
-  return instance;
+    // Called with the new pattern just before the scheduler receives it, so
+    // the spans always describe the code whose haps are being triggered.
+    editPattern: (pattern: unknown) => {
+      setSoundingNotationSpans(evaluatingSpans);
+      return pattern;
+    },
+    onToggle: (started: boolean) => {
+      options.onToggle(started);
+      if (!started) {
+        stopFrames();
+        setSoundingNotationSpans(null);
+        return;
+      }
+      if (frame !== null) return;
+      const tick = () => {
+        options.onFrame(repl.scheduler.now?.() ?? 0);
+        frame = requestAnimationFrame(tick);
+      };
+      frame = requestAnimationFrame(tick);
+    },
+    onEvalError: options.onEvalError,
+  }) as StrudelRepl;
+
+  const transport: PatternTransport = {
+    code: options.initialCode,
+    spans: options.initialSpans ?? [],
+    setCode(code, spans = []) {
+      transport.code = code;
+      transport.spans = spans;
+    },
+    async evaluate() {
+      evaluatingSpans = transport.spans;
+      await repl.evaluate(transport.code, true);
+    },
+    stop() {
+      repl.scheduler.stop();
+    },
+    repl,
+  };
+
+  activeTransport = transport;
+  disposeActiveTransport = stopFrames;
+  return transport;
 }
 
-/** Clear transport listeners and the editor view, allowing a clean remount. */
-export function disposePatternEditor(instance: PatternEditor): Promise<void> {
-  if (activeEditor !== instance) return Promise.resolve();
-  activeEditor = undefined;
+/** Stop the transport and release it, allowing a clean remount. */
+export function disposePatternTransport(transport: PatternTransport): Promise<void> {
+  if (activeTransport !== transport) return Promise.resolve();
+  activeTransport = undefined;
+  const stopFrames = disposeActiveTransport;
+  disposeActiveTransport = undefined;
   let stopped: Promise<void> | void;
   try {
-    stopped = instance.stop();
+    stopped = transport.stop();
   } finally {
+    stopFrames?.();
+    setSoundingNotationSpans(null);
     stopStrudelVisuals();
-    instance.clear?.();
-    const view = (instance.editor ?? instance.view) as { destroy?: () => void } | undefined;
-    view?.destroy?.();
   }
   return Promise.resolve(stopped);
 }
 
 export function getPatternPlaybackDiagnostics() {
-  return { activeTransports: activeEditor ? 1 : 0 };
+  return { activeTransports: activeTransport ? 1 : 0 };
 }

@@ -57,8 +57,6 @@ const props = withDefaults(
     viewport: undefined,
     colorResolver: undefined,
     stillColorResolver: undefined,
-    followLatestKey: undefined,
-    resetScrollKey: undefined,
     noteEventTarget: undefined,
   },
 );
@@ -236,7 +234,9 @@ function isStripEvent(token: CodeStripToken): token is StripEvent {
 
 function noteIdsOf(token: StripEvent): string[] {
   if (token.type === "note") return token.noteId ? [token.noteId] : [];
-  if (token.type === "chord") return token.members.map((member) => member.id).filter(Boolean);
+  if (token.type === "chord") {
+    return token.members.map((member) => member.id).filter((id): id is string => Boolean(id));
+  }
   return [];
 }
 

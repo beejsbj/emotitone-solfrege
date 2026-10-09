@@ -2,7 +2,7 @@
   <AnatomyDisplay
     title="Code Strip &middot; Notation Unique"
     :features="features"
-    caption="CodeStrip is the styled Strudel CodeMirror document itself, read as a Stave: one hairline staff runs through it, Notes and Chords sit on it, brackets become barlines, and code punctuation recedes until focus hands back the plain source. Duration stems count each event's time out as it sounds; a rest is a slim gap in the staff that fills with Ivory."
+    caption="CodeStrip is the HighlightStrip: the app's own read-only view of the pattern code, read as a Stave. One hairline staff runs through it and Notes, Chords and Rests sit on it. While the pattern plays, each note lights from the note events that name it and the strip follows; Open in Strudel hands the code to strudel.cc. Duration stems count each event's time out as it sounds; a rest is a slim gap in the staff that fills with Ivory."
   >
     <template #hero>
       <CodeStrip :tokens="animatedTokens" />
@@ -211,7 +211,7 @@ const features = [
   { label: "Duration", value: "stacked text, Stave stems (one per meter segment, each lighting as playback enters its segment), or hidden" },
   { label: "Stave", value: "hairline staff · brackets as barlines · punctuation recedes while unfocused · Ivory selection" },
   { label: "Density", value: "dense, default, or spaced" },
-  { label: "Document", value: "one CodeMirror · styled mini-notation ranges · focus reveals the same raw source" },
+  { label: "Document", value: "read-only · generated code with a span per note id · lit by note events, not edited" },
   { label: "Boundary", value: "no parallel renderer · no independent playback clock · no hidden Strudel line" },
   { label: "Source", value: "components/uniques/CodeStrip/index.vue" },
 ];

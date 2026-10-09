@@ -756,7 +756,7 @@ export const UNIFIED_CONFIG = {
     _meta: {
       label: "Code Strip",
       icon: "🎼",
-      description: "Workspace CodeStrip and editable Strudel-line settings",
+      description: "Workspace CodeStrip and read-only Strudel-line settings",
     },
     enabled: {
       value: true,

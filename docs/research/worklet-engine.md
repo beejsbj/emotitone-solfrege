@@ -250,10 +250,14 @@ by the UI. The core already sequences Repeat/Arp pulses there.
 
 - **Member** (built on the main thread, immutable):
   - `id` (the phrase id);
-  - `lengthBars` (whole bars, padded with silence);
+  - `lengthBars` (fractional, not padded to whole bars: a take that ends off
+    the measure keeps its authored length plus one beat of tail, as
+    `recordedTiming.ts` and `StrudelNotation.ts` do today);
   - `notes[]`, each with `begin` and `duration` in bars at rate 1, `pitch`
     already bent to the Looper's key and mode (or pinned), `instrumentId`,
-    `noteId`, and in production its articulation and expression curves.
+    `noteId`, the immutable key, mode and solfège it was built under (or a
+    table-generation id that resolves to them), and in production its
+    articulation and expression curves.
 - **Settings:** `offsetBars`, `rate` (0.5, 1 or 2) and `muted`, plus the
   transport's `soloId`. Pin is not a transport setting: it decides which table
   gets built.
@@ -286,7 +290,10 @@ by the UI. The core already sequences Repeat/Arp pulses there.
   arrives after B, the worklet applies it at once and reports `late`. The main
   thread then reconciles the published anchor to the receipt's
   `appliedFrame`/`appliedBar`, because the worklet's clock is the authority.
-  Test this with a command posted just before B and delivered after it.
+  The UI must not step backward: when the receipt lands behind the provisional
+  position (a late increase, 120 to 240 BPM), hold the displayed bar and let
+  the true clock catch up. Test a command posted just before B and delivered
+  after it, for both an increase and a decrease.
 
 ### Tails, mute and solo
 
@@ -300,8 +307,11 @@ by the UI. The core already sequences Repeat/Arp pulses there.
 ### Events, the Stage, keys and UIBeat
 
 The worklet posts attack and release events for every transport voice. Each
-carries `noteId`, `memberId`, `sourceNoteId`, `pitch`, `frame`, `bar` and the
-articulation. Events are batched per quantum through the existing FIFO bridge.
+carries `noteId`, `memberId`, `sourceNoteId`, `pitch`, `frame`, `bar`, the
+articulation, and the key, mode and solfège (or the table-generation id) the
+note was built under. The Stage and keys cues read these, not the current
+store, because a queued key change or a stalled main thread can leave the store
+ahead of the sound. Events are batched per quantum through the existing FIFO bridge.
 
 - **The Stage and keys** keep using `audibleAt` (render time plus output
   latency) as they do now. In the prototype an event reached the main thread
@@ -502,7 +512,12 @@ and PCM capture, as #140 and the spike do.
    and 103 of the 125 registered GM names. The picker's categories filter out
    the rest. Each renders a C4 with
    non-silent PCM, and its pitch is within ±10 cents by `pitchy`. List
-   failures on the PR.
+   failures on the PR. The serial sweep cannot expose residency: add a case
+   with more distinct sampled or soundfont instruments sounding at once than
+   `livePlayback.ts` keeps resident (4 banks, 192 MiB, held banks pinned). Define
+   the supported behaviour (raise the cap, or refuse a fifth instrument loudly)
+   before BJS-495 removes the fallback, because today the extra member would be
+   silent.
 2. **One PCM copy.** No superdough `AudioBuffer` is retained after transfer.
    The piano's desktop memory reading is posted and should be about half of
    today's 276 MiB.
@@ -657,7 +672,8 @@ the AGPL code. The open question is only the unlicensed GM fonts (finding 3).
   audible dropout, not a late note. The cost is a few binary searches per
   member, which is small next to resampling voices, but nobody has measured it
   on a phone. The phone gate measures render cost per quantum and listens for
-  dropouts with eight members and a sampled instrument. The mitigations are
+  dropouts with eight members, including more distinct sampled instruments
+  than the residency cap. The mitigations are
   that the worklet already caps voices at 64 with steal fades, and the effect
   buses stay native.
 - **GC on the audio thread.** Table swaps allocate in the worklet by design.
@@ -665,7 +681,10 @@ the AGPL code. The open question is only the unlicensed GM fonts (finding 3).
   rebuilds every member at once. Bound it:
   - keep tables small and flat;
   - send expression curves as `Float32Array`s, not arrays of objects;
-  - stagger a bend's swaps if the phone gate shows GC pauses.
+  - if the phone gate shows GC pauses, stage the rebuilt tables incrementally
+    but activate one version for every member atomically at the shared
+    boundary. Never stagger the swaps themselves: members would play old and
+    new harmony together.
 - **iOS sample-rate changes.** After an interruption or an audio route change
   (headphones, Bluetooth), iOS can run the context at a new sample rate. The
   worklet's `sampleRate` is fixed when the processor is constructed, and so

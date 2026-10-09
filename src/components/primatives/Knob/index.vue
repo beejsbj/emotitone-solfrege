@@ -5,16 +5,16 @@
     class="knob-wrapper instrument-control"
     :type="knobType === 'boolean' ? 'button' : undefined"
     :disabled="knobType === 'boolean' ? isDisabled : undefined"
-    :role="knobType === 'options' ? 'slider' : undefined"
-    :tabindex="knobType === 'options' ? (isDisabled || isDisplayMode ? -1 : 0) : undefined"
+    :role="isSlider ? 'slider' : undefined"
+    :tabindex="isSlider ? (isDisabled || isDisplayMode ? -1 : 0) : undefined"
     :aria-pressed="knobType === 'boolean' ? Boolean(actualValue) : undefined"
-    :aria-label="knobType === 'boolean' || knobType === 'options' ? actualLabel : undefined"
-    :aria-disabled="knobType === 'options' && (isDisabled || isDisplayMode) ? true : undefined"
-    :aria-orientation="knobType === 'options' ? 'vertical' : undefined"
-    :aria-valuemin="knobType === 'options' ? 0 : undefined"
-    :aria-valuemax="knobType === 'options' ? Math.max(0, (options?.length ?? 1) - 1) : undefined"
-    :aria-valuenow="knobType === 'options' ? currentOptionIndex : undefined"
-    :aria-valuetext="knobType === 'options' ? currentOptionLabel : undefined"
+    :aria-label="actualLabel"
+    :aria-disabled="isSlider && (isDisabled || isDisplayMode) ? true : undefined"
+    :aria-orientation="isSlider ? 'vertical' : undefined"
+    :aria-valuemin="knobType === 'range' ? min : knobType === 'options' ? 0 : undefined"
+    :aria-valuemax="knobType === 'range' ? max : knobType === 'options' ? Math.max(0, (options?.length ?? 1) - 1) : undefined"
+    :aria-valuenow="knobType === 'range' ? actualValue : knobType === 'options' ? currentOptionIndex : undefined"
+    :aria-valuetext="knobType === 'range' ? readoutValue : knobType === 'options' ? currentOptionLabel : undefined"
     :class="{
       'cursor-not-allowed opacity-50 pointer-events-none': isDisabled,
       'cursor-not-allowed pointer-events-none saturate-50': isDisplayMode,
@@ -301,6 +301,7 @@ const knobType = computed((): KnobType => {
   return "range";
 });
 
+const isSlider = computed(() => knobType.value === "range" || knobType.value === "options");
 const knobTag = computed(() => (knobType.value === "boolean" ? "button" : "div"));
 
 // Get the actual label (prioritize label, fallback to paramName for backwards compatibility)
@@ -354,7 +355,7 @@ const handleStart = (e: MouseEvent | TouchEvent) => {
 
   e.preventDefault();
   e.stopPropagation();
-  if (knobType.value === "options") wrapperRef.value?.focus();
+  if (isSlider.value) wrapperRef.value?.focus();
 
   const initiatingTouch = "touches" in e
     ? e.changedTouches[0] ?? e.touches[e.touches.length - 1]
@@ -516,6 +517,18 @@ const handleMove = (e: Event) => {
   }
 };
 
+// Pointer and keyboard changes share the same step grid, anchored at min.
+const quantizeRangeValue = (value: number) => {
+  if (value <= props.min) return props.min;
+  if (value >= props.max) return props.max;
+  let newValue = value;
+  if (props.step > 0) {
+    const stepsFromMin = Math.round((newValue - props.min) / props.step);
+    newValue = props.min + stepsFromMin * props.step;
+  }
+  return Math.max(props.min, Math.min(props.max, newValue));
+};
+
 const handleRangeMovement = (deltaY: number, timeDelta: number) => {
   // Enhanced range movement with controlled sensitivity
   const range = props.max - props.min;
@@ -543,19 +556,9 @@ const handleRangeMovement = (deltaY: number, timeDelta: number) => {
   // Higher threshold for changes to require more deliberate movement
   const changeThreshold = props.step * 0.6; // Increased from 0.3
   if (Math.abs(interaction.valueAccumulator.value) >= changeThreshold) {
-    let newValue =
-      (actualValue.value as number) + interaction.valueAccumulator.value;
-
-    // Clamp to bounds
-    newValue = Math.max(props.min, Math.min(props.max, newValue));
-
-    // Apply step quantization - ensure we land on valid step values
-    if (props.step > 0) {
-      const stepsFromMin = Math.round((newValue - props.min) / props.step);
-      newValue = props.min + (stepsFromMin * props.step);
-      // Ensure we stay within bounds after step adjustment
-      newValue = Math.max(props.min, Math.min(props.max, newValue));
-    }
+    const newValue = quantizeRangeValue(
+      (actualValue.value as number) + interaction.valueAccumulator.value,
+    );
 
     // Only update if value actually changed
     if (newValue !== actualValue.value) {
@@ -728,12 +731,45 @@ const selectOptionAt = (index: number, wrap = true) => {
 };
 
 const handleKeydown = (event: KeyboardEvent) => {
-  if (
-    knobType.value !== "options"
-    || props.isDisabled
-    || props.isDisplay
-    || !props.options?.length
-  ) return;
+  if (props.isDisabled || props.isDisplay) return;
+
+  if (knobType.value === "range") {
+    let nextValue: number;
+    const value = actualValue.value as number;
+    switch (event.key) {
+      case "ArrowUp":
+      case "ArrowRight":
+        nextValue = quantizeRangeValue(value + props.step);
+        break;
+      case "ArrowDown":
+      case "ArrowLeft":
+        nextValue = quantizeRangeValue(value - props.step);
+        break;
+      case "PageUp":
+        nextValue = quantizeRangeValue(value + 10 * props.step);
+        break;
+      case "PageDown":
+        nextValue = quantizeRangeValue(value - 10 * props.step);
+        break;
+      case "Home":
+        nextValue = props.min;
+        break;
+      case "End":
+        nextValue = props.max;
+        break;
+      default:
+        return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    if (nextValue !== actualValue.value) {
+      handleValueUpdate(nextValue);
+      triggerSmartHaptic();
+    }
+    return;
+  }
+
+  if (knobType.value !== "options" || !props.options?.length) return;
 
   let nextIndex: number | undefined;
   if (event.key === "ArrowUp" || event.key === "ArrowRight") {

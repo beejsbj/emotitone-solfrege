@@ -1,3 +1,4 @@
+import { resumeAudioContext, registerAudioActivity } from "@/services/audioLifecycle";
 import { defineStore } from "pinia";
 import { ref, computed, readonly, watch, onScopeDispose } from "vue";
 import { musicTheory, CHROMATIC_NOTES } from "@/services/music";
@@ -129,6 +130,7 @@ export const useMusicStore = defineStore(
     let generatedCounter = 0;
     const heldAliases = new Map<string, string>();
     const heldOwners = new Set<string>();
+    const stopActivity = registerAudioActivity(() => heldOwners.size > 0);
     const liveAudioClock = createLiveAudioClock(superdoughAudio.getAudioContext, { onSuspend: boundary => { clearLiveInputs(); livePerformance.close(boundary); } });
     const now = liveAudioClock.now;
     // Presentation only: recording and MIDI keep their existing event clock.
@@ -335,6 +337,7 @@ export const useMusicStore = defineStore(
     window.addEventListener("blur", clearLiveInputs);
     document.addEventListener("visibilitychange", onHidden);
     onScopeDispose(() => {
+      stopActivity();
       clearLiveInputs();
       livePerformance.dispose();
       liveAudioClock.dispose();
@@ -356,6 +359,12 @@ export const useMusicStore = defineStore(
       const solfegeIndex = currentScaleNotes.value.indexOf(parsed.noteName);
       const solfege = solfegeIndex === -1 ? borrowedPitchSolfege(parsed.noteName) : solfegeData.value[solfegeIndex];
       if (!solfege) return null;
+      // A sleeping/interrupted graph (or route rebuild) must finish before the
+      // renderer is selected or the input is submitted. Keep running input sync.
+      const selectionEpoch = instrumentStore.selectionEpoch;
+      const resumption = resumeAudioContext(superdoughAudio.getAudioContext());
+      if (resumption) await resumption;
+      if (isCancelled() || instrumentStore.isInteractionLocked || instrumentStore.selectionEpoch !== selectionEpoch) return null;
       const owner = `held_${storeId}_${++heldCounter}`;
       const held: HeldPitch = {
         snapshot: {
@@ -376,9 +385,7 @@ export const useMusicStore = defineStore(
       heldOwners.add(owner);
       const renderer = getLivePlayback(held.instrument);
       if (renderer) {
-        // No await, state notification, or sample preparation before the audio command.
-        const context = superdoughAudio.getAudioContext();
-        if (context.state === "suspended") void context.resume().catch(error => console.error("[Live Audio] Resume failed", error));
+        // The running path submits without yielding to unrelated microtasks.
         liveAudioClock.now();
         heldAliases.set(owner, owner);
         livePerformance.press(owner, [{ pitch: tonal.midi, instrumentId: resolveLiveSoundName(held.instrument) }], held, renderer,

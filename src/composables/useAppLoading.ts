@@ -1,3 +1,4 @@
+import { resumeAudioContext } from "@/services/audioLifecycle";
 /**
  * App Loading State Composable
  * Manages the overall loading state and coordination between different initialization phases
@@ -162,9 +163,10 @@ export function useAppLoading() {
       }
 
       const context = getAudioContext();
-      if (context.state !== "running") {
+      const resumption = resumeAudioContext(context);
+      if (resumption) {
         await Promise.race([
-          context.resume(),
+          resumption,
           new Promise((resolve) => setTimeout(resolve, AUDIO_RESUME_TIMEOUT_MS)),
         ]);
       }

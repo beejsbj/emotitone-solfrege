@@ -26,6 +26,7 @@ import { usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { useInstrumentStore } from "@/stores/instrument";
 import * as audio from "@/services/superdoughAudio";
+import { manageAudioLifecycle } from "@/services/audioLifecycle";
 import { getLivePlayback } from "@/services/livePlayback";
 import { SCHEDULED_LIVE_MIDI_EVENT } from "@/services/scheduledLiveVoice";
 
@@ -78,6 +79,49 @@ afterEach(() => {
 });
 
 describe("music store production worklet integration", () => {
+  it("never idles a held worklet input even when its output is silent", async () => {
+    context.suspend = vi.fn().mockResolvedValue(undefined);
+    const stop = manageAudioLifecycle(context, { isSounding: () => false });
+    const music = useMusicStore();
+    try {
+      const owner = await music.attackExactPitch("C4");
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(context.suspend).not.toHaveBeenCalled();
+      await music.releaseNote(owner!);
+      await vi.advanceTimersByTimeAsync(30_250);
+      expect(context.suspend).toHaveBeenCalledOnce();
+    } finally { stop(); }
+  });
+
+  it.each(["suspended", "interrupted"])("waits for %s recovery before submitting the first attack", async state => {
+    Object.defineProperty(context, "state", { configurable: true, value: state, writable: true });
+    let finish!: () => void;
+    context.resume = vi.fn(() => new Promise<void>(resolve => { finish = () => {
+      Object.defineProperty(context, "state", { value: "running" }); resolve();
+    }; }));
+    const music = useMusicStore();
+    const pending = music.attackExactPitch("C4");
+    expect(worklet.engine.press).not.toHaveBeenCalled();
+    finish();
+    const owner = await pending;
+    expect(worklet.engine.press).toHaveBeenCalledWith(owner, [{ pitch: 60, instrumentId: "piano" }]);
+    await music.releaseNote(owner!);
+  });
+
+  it("drops an input released while recovery is pending", async () => {
+    Object.defineProperty(context, "state", { configurable: true, value: "interrupted" });
+    let finish!: () => void;
+    context.resume = vi.fn(() => new Promise<void>(resolve => { finish = () => {
+      Object.defineProperty(context, "state", { value: "running" }); resolve();
+    }; }));
+    let cancelled = false;
+    const pending = useMusicStore().attackExactPitch("C4", () => cancelled);
+    cancelled = true;
+    finish();
+    expect(await pending).toBeNull();
+    expect(worklet.engine.press).not.toHaveBeenCalled();
+  });
+
   it("records the renderer envelope and final release override as independent snapshots", async () => {
     const music = useMusicStore(); const patterns = recorder();
     const owner = await music.attackExactPitch("C4");

@@ -8,6 +8,7 @@ const retryUnlock = new WeakMap<AudioContext, () => void>();
 const suspending = new WeakMap<AudioContext, Promise<void>>();
 const touch = new WeakMap<AudioContext, () => void>();
 const activity = new Set<() => boolean>();
+let microphoneSources = 0;
 
 export function registerAudioActivity(isActive: () => boolean): () => void {
   activity.add(isActive);
@@ -26,10 +27,27 @@ export function onAudioRunning(context: AudioContext, recover: Recovery): () => 
   return () => { listeners.delete(recover); };
 }
 
-function playbackSession() {
+/** Acquire before asking for permission: playback can reject or end mic tracks. */
+export function holdMicrophoneAudio(): () => void {
+  const releaseActivity = holdAudioActivity();
+  microphoneSources++;
+  updateAudioSession();
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    releaseActivity();
+    microphoneSources--;
+    updateAudioSession();
+  };
+}
+
+function updateAudioSession() {
   try {
-    if (typeof navigator !== "undefined" && "audioSession" in navigator && navigator.audioSession) {
-      navigator.audioSession.type = "playback";
+    const session = typeof navigator !== "undefined" ? navigator.audioSession : undefined;
+    const type = microphoneSources ? "play-and-record" : "playback";
+    if (session && session.type !== type) {
+      session.type = type;
     }
   } catch { /* Unsupported/denied session hints must not block audio unlock. */ }
 }
@@ -37,16 +55,11 @@ function playbackSession() {
 /** Undefined is the synchronous ready path. Otherwise callers must await before
  * attacking, including while a route-change rebuild or idle suspend is pending. */
 export function resumeAudioContext(context: AudioContext): Promise<void> | undefined {
-  playbackSession();
+  updateAudioSession();
   touch.get(context)?.();
   if (context.state === "closed") return Promise.reject(new Error("Audio context is closed"));
   const pending = resuming.get(context);
-  if (pending) {
-    // WebKit may leave an earlier unlock promise pending. Retry in the new
-    // gesture, but resolve the original gate too so its first note survives.
-    retryUnlock.get(context)?.();
-    return pending;
-  }
+  if (pending) return pending;
   const suspension = suspending.get(context);
   const unlock = () => new Promise<void>((resolve, reject) => {
     const attempt = () => {
@@ -63,11 +76,14 @@ export function resumeAudioContext(context: AudioContext): Promise<void> | undef
     attempt();
   });
   const resume = suspension ? suspension.then(unlock) : context.state !== "running" ? unlock() : undefined;
-  const recover = () => {
+  const recover = (): Promise<void> | undefined => {
     retryUnlock.delete(context);
     if (context.state !== "running") throw new AudioBlockedError();
     const jobs = [...(recoveries.get(context) ?? [])].map(callback => callback()).filter(Boolean);
-    return jobs.length ? Promise.all(jobs).then(() => undefined) : undefined;
+    // A second interruption may arrive while a rate rebuild is awaiting banks.
+    // Keep the original note behind the gate until both audio and banks are ready.
+    return jobs.length ? Promise.all(jobs).then(() =>
+      context.state === "running" ? undefined : unlock().then(recover)) : undefined;
   };
   try {
     const work = resume ? resume.then(recover) : recover();
@@ -91,18 +107,23 @@ export function manageAudioLifecycle(context: AudioContext, options: {
 }): () => void {
   let silentSince: number | undefined = performance.now();
   let disposed = false;
+  let timer: ReturnType<typeof setInterval> | undefined;
   touch.set(context, () => { silentSince = performance.now(); });
   const wake = () => {
     silentSince = performance.now();
+    // Retry hung WebKit unlocks only on a new wake event. Note handlers in this
+    // same gesture join the gate without issuing another resume.
+    retryUnlock.get(context)?.();
     void resumeAudioContext(context)?.catch(() => { /* Retry on the next gesture. */ });
   };
   const visible = () => { if (document.visibilityState === "visible") wake(); };
   const stateChanged = () => {
     silentSince = performance.now();
+    updateMeter();
     if (context.state === "closed") { retryUnlock.get(context)?.(); dispose(); }
     else if (context.state === "running") queueMicrotask(() => { if (!disposed) wake(); });
   };
-  const timer = setInterval(() => {
+  const poll = () => {
     if (disposed || context.state !== "running" || resuming.has(context) || suspending.has(context)) return;
     if ([...activity].some(read => read()) || options.isSounding()) {
       silentSince = undefined;
@@ -114,7 +135,16 @@ export function manageAudioLifecycle(context: AudioContext, options: {
       if (suspending.get(context) === pending) suspending.delete(context);
     });
     suspending.set(context, pending);
-  }, 250);
+  };
+  function updateMeter() {
+    if (disposed || context.state !== "running") {
+      clearInterval(timer);
+      timer = undefined;
+    } else {
+      timer ??= setInterval(poll, 250);
+    }
+  }
+  updateMeter();
   for (const event of ["pointerdown", "keydown", "touchend"]) document.addEventListener(event, wake, true);
   document.addEventListener("visibilitychange", visible);
   context.addEventListener?.("statechange", stateChanged);

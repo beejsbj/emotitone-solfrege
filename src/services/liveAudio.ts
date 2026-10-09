@@ -1,4 +1,4 @@
-import { resumeAudioContext, holdAudioActivity } from "@/services/audioLifecycle";
+import { resumeAudioContext, holdMicrophoneAudio } from "@/services/audioLifecycle";
 import { getAudioContext } from "@/services/superdoughAudio";
 
 export interface LiveAudioSource {
@@ -47,10 +47,10 @@ export function createLiveAudioInput(
       trackEndListeners.delete(track);
     });
     publish(null);
-    releaseActivity?.();
-    releaseActivity = undefined;
     staleSource.node.disconnect();
     staleSource.stream.getTracks().forEach((track) => track.stop());
+    releaseActivity?.();
+    releaseActivity = undefined;
   }
 
   async function openSource(): Promise<LiveAudioSource> {
@@ -58,7 +58,7 @@ export function createLiveAudioInput(
     if (sourceRequest) return sourceRequest;
 
     sourceRequest = (async () => {
-      releaseActivity = holdAudioActivity();
+      releaseActivity = holdMicrophoneAudio();
       let stream: MediaStream;
       try { stream = await dependencies.getUserMedia(); } catch (error) {
         releaseActivity(); releaseActivity = undefined; throw error;
@@ -80,9 +80,9 @@ export function createLiveAudioInput(
         });
         return nextSource;
       } catch (error) {
+        stream.getTracks().forEach((track) => track.stop());
         releaseActivity?.();
         releaseActivity = undefined;
-        stream.getTracks().forEach((track) => track.stop());
         throw error;
       }
     })().finally(() => {

@@ -19,16 +19,6 @@ beforeEach(() => { vi.useFakeTimers(); vi.spyOn(performance, "now").mockImplemen
 afterEach(() => { cleanup.splice(0).forEach(dispose => dispose()); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 
 describe("shared audio lifecycle", () => {
-  it.each(["suspended", "interrupted"])("recovers %s on gestures and visible return", async state => {
-    const { context } = fixture(state);
-    for (const event of ["pointerdown", "keydown", "touchend", "visibilitychange"]) {
-      context.state = state;
-      document.dispatchEvent(new Event(event));
-      await vi.advanceTimersByTimeAsync(0);
-    }
-    expect(context.resume).toHaveBeenCalledTimes(4);
-  });
-
   it("does not resume on hidden return or ever try a closed context", async () => {
     const { context, audio } = fixture("interrupted");
     vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
@@ -42,11 +32,16 @@ describe("shared audio lifecycle", () => {
   });
 
   it("sets the playback session before unlock and tolerates an unsupported setter", async () => {
-    const session = { type: "auto" };
+    let type = "auto";
+    const session = { get type() { return type; }, set type(value: string) { type = value; } };
     vi.stubGlobal("navigator", { audioSession: session });
+    const setType = vi.spyOn(session, "type", "set");
     const { context, audio } = fixture("interrupted");
     context.resume.mockImplementation(async () => { expect(session.type).toBe("playback"); context.state = "running"; });
     await resumeAudioContext(audio);
+    await resumeAudioContext(audio);
+    expect(setType).toHaveBeenCalledTimes(1);
+    type = "auto";
     Object.defineProperty(session, "type", { set() { throw new Error("unsupported"); } });
     expect(() => resumeAudioContext(audio)).not.toThrow();
   });
@@ -60,6 +55,26 @@ describe("shared audio lifecycle", () => {
     document.dispatchEvent(new Event("pointerdown"));
     await vi.advanceTimersByTimeAsync(0);
     expect(context.resume).toHaveBeenCalledOnce();
+  });
+
+  it.each(["suspended", "interrupted"])("stops polling while %s and restarts on running", async state => {
+    const { context } = fixture(state);
+    expect(vi.getTimerCount()).toBe(0);
+    document.dispatchEvent(new Event("pointerdown"));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(vi.getTimerCount()).toBe(1);
+    context.state = state;
+    context.dispatchEvent(new Event("statechange"));
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(vi.getTimerCount()).toBe(0);
+    expect(context.suspend).not.toHaveBeenCalled();
+    document.dispatchEvent(new Event("pointerdown"));
+    await vi.advanceTimersByTimeAsync(29_999);
+    expect(vi.getTimerCount()).toBe(1);
+    expect(context.suspend).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(context.suspend).toHaveBeenCalledOnce();
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it("keeps an activity lease awake through silent passages", async () => {
@@ -163,7 +178,7 @@ describe("shared audio lifecycle", () => {
     cleanup.push(onAudioRunning(audio, recovered));
     const first = resumeAudioContext(audio);
     expect(resumeAudioContext(audio)).toBe(first);
-    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(0);
     finish();
     await first;
     expect(recovered).toHaveBeenCalledOnce();

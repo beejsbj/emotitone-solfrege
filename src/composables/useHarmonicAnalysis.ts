@@ -81,7 +81,7 @@ export function useHarmonicAnalysis(
   // in the newest note's key, and a detected chord spells its own members.
   const identifiedChord = computed(() => {
     const notes = displayedNotes.value;
-    const latest = notes.at(-1);
+    const latest = notes[notes.length - 1];
     if (!latest || notes.length < 2) return null;
     return identifyChord(
       notes.map((note) => note.noteName),

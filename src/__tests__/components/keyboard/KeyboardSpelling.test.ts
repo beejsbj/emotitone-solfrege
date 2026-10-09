@@ -38,7 +38,7 @@ const mocks = vi.hoisted(() => ({
   musicStore: {
     currentKey: "C",
     currentMode: "major",
-    getNoteName: (_scaleIndex: number, _octave: number) => "C4",
+    getNoteName: (() => "C4") as (scaleIndex: number, octave: number) => string,
     getActiveNotes: () => [],
     attackExactPitch: async () => "note",
     attackNoteWithOctave: async () => "note",

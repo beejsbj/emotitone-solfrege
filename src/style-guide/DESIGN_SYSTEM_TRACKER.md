@@ -6,7 +6,7 @@ Current truth for the EmotiTone production visual-design pass. **Status: closed 
 
 Tighten and promote the visual language already present in production, `/style-guide/`, and the reference material. Burooj is the taste authority where evidence leaves a real visual choice. Reconcile drift and lineage without redesigning the product from zero.
 
-This is a visual-system migration. Preserve interaction, audio, routing, state, persistence, APIs, accessibility behavior, haptics, and motion unless a unit's accepted definition expressly changes them. The exception is a defect its lab recorded: an adoption fixes it instead of carrying it forward. Park standalone functionality and defects outside this pass.
+This is a visual-system migration. Preserve interaction, audio, routing, state, persistence, APIs, accessibility behavior, haptics, and motion unless a unit's accepted definition expressly changes them. The exception is an accessibility or behaviour defect the unit's lab recorded: the adoption fixes it instead of carrying it forward. Park standalone functionality and defects outside this pass.
 
 ## System model
 
@@ -32,7 +32,7 @@ There are two durable records:
 - This file is the **Plan**: live definitions, status, dependencies, collision points, and next gates.
 - `DESIGN_LOG.md` is the **Log**: acceptance, implementation, verification, and handoff receipts up to 2026-10-09. It is frozen: add no rows. PR bodies are the receipt from now on.
 
-Do not create a third planning ledger. Keep completed implementation narrative, commit lists, and old verification matrices in the Log, Git, or existing evidence directories; keep only decisions that still constrain future work here.
+Do not create a third planning ledger. Keep completed implementation narrative, commit lists, and old verification matrices in the frozen Log, Git, PR bodies, or existing evidence directories; keep only decisions that still constrain future work here.
 
 When sources disagree, use this order: Burooj's current instruction, this Plan, current production and observed behavior, the Log, Linear `BJS-35`, then Git history. The external design repository, old preview HTML, screenshots, and guide staging are reference evidence rather than acceptance authority.
 
@@ -191,7 +191,7 @@ Accepted `UIBeat` distribution reaches every enabled Button and Knob plus Joysti
 | Global token inventory | Closed: orphans retired, parallel style.css set removed, retentions recorded, Motion timings kept local, neutral chrome migrated -> shared 72ms press promoted to `--dur-press` -> final audit confirmed every `var(--x)` is declared and moved the last duplicated literals onto tokens | Later lab PRs | Central token CSS and the shared token guide have one owner. New tokens need a production consumer or a recorded retention |
 | Final adoption audit | Closed 2026-09-27. Walked `App.vue` → `MainApp.vue` → every mounted surface, swept undeclared `var(--x)`, token literals, orphans and duplicate units. All five compositions and their lower units consume their authoritative sources. Fixed here: Ivory-alpha hairlines and the Key tap read `--ivory`/`--dur-tap`; the unconsumed tooltip layer (TooltipRenderer, `v-tooltip` plugin, `useTooltip`; no component used the directive) and empty `StickyBottom.vue` are removed rather than given an owner; the guide root no longer resets production typography; guide routes and the spacing specimen each read one source; on Burooj's 2026-09-28 call the `MidiSettingsIcon` status LED moved from neutral greys to tokens (dim `--ivory-4` idle, `--ivory-2` connecting, `--brass` connected as the instrument-metal "on", `--tomato` error); `vue-sonner` and its test mock are removed now that #104 dropped the last `toast()` call. Explicitly deferred: Beat Indicator's local Knob LED collar tilt/shape/light copy (see its row); the functional orphans `useLiveListening.ts`, `audioDiagnostics.ts` and `data/instrumentCategories.ts`, which sit outside this visual pass | Nothing | No sixth composition was created. The Loading Screen and Brand Logo rows came from PR #104, audited read-only before it merged. The token pass deleted six unmounted legacy components and their unused barrel |
 
-The shared collision files are the central token stylesheet, `StyleGuide.vue`, this Plan, and the Log. Give each one integration owner per merge window. Parallel branches report receipts to that owner; they do not all append or rewrite the ledgers independently.
+The shared collision files are the central token stylesheet, `StyleGuide.vue`, and this Plan. Give each one integration owner per merge window. Parallel branches report to that owner; they do not all rewrite the Plan independently. The Log is frozen; receipts live in PR bodies.
 
 Music Color owns its settled resolver seam and consumer policies. UIBeat and Stage serialize `UnifiedVisualEffects.vue`; UIBeat also serializes Config schema, metadata, and presets without reopening Config's accepted visuals or coupling BPM to Music Color phase. PerformanceDeck owns `PerformanceDeck.vue`, inherits source-owned UIBeat from its accepted interactive controls, and must coordinate any proposed deck-specific distribution change.
 
@@ -246,7 +246,7 @@ A unit closes only when:
 - guide scaffolding and demo state have not entered production;
 - focused tests, type-check/build, responsive/state verification, and a fresh bounded lineage audit pass in proportion to risk;
 - visual evidence is named precisely, including anything not captured or exercised;
-- this Plan contains only the resulting current truth and `DESIGN_LOG.md` receives one concise receipt;
+- this Plan contains only the resulting current truth and the PR body carries the receipt (`DESIGN_LOG.md` is frozen);
 - branch, commits, checks, pushed state, residual risk, and next dependent unit are handed off exactly.
 
 After all lanes merge, run the final adoption/orphan scan across token declarations, guide registrations, component imports, the five compositions, and other runtime-mounted surfaces. The pass is complete only when every design-system unit is consumed by a later layer, a terminal composition is mounted in production, a direct foundational specimen is intentionally retained with a recorded reason, or the unit is removed. That scan ran on 2026-09-27 and closed the programme; its dispositions are in the Final adoption audit lane and the Log.

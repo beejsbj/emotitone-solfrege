@@ -12,7 +12,7 @@ Temporary. Burooj runs this with `$emotitone-design-system` in its own session. 
 
 ## How to run this lab
 
-You are running one **layer lab** in EmotiTone's reimagining pass. Use the `emotitone-design-system` skill. The Plan (`src/style-guide/DESIGN_SYSTEM_TRACKER.md`, section "Reimagining pass") is the source of truth; `src/style-guide/DESIGN_LOG.md` is append-only. Read the design bible `src/style-guide/WIP-bible.md` before designing anything.
+You are running one **layer lab** in EmotiTone's reimagining pass. Use the `emotitone-design-system` skill. The Plan (`src/style-guide/DESIGN_SYSTEM_TRACKER.md`, section "Reimagining pass") is the source of truth; `src/style-guide/DESIGN_LOG.md` is frozen (2026-10-09; PR bodies are the receipt). Read the design bible `src/style-guide/WIP-bible.md` before designing anything.
 
 **Gate:** only start if every earlier step in the Plan's reimagining-pass table is marked Closed. If one is still open, stop and tell Burooj which step blocks this one.
 

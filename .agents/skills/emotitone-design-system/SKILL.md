@@ -14,7 +14,7 @@ This skill is temporary. Retire it after the Plan records the visual pass and fi
 Resolve the repository root and verify that the work belongs to `emotitone-solfrege`. Read:
 
 1. `src/style-guide/DESIGN_SYSTEM_TRACKER.md` completely — the current Plan, dependencies, collision points, and next gates.
-2. `src/style-guide/DESIGN_LOG.md` only when the current unit needs an acceptance, implementation, or verification receipt.
+2. `src/style-guide/DESIGN_LOG.md` is frozen as of 2026-10-09: read it for history, never append; receipts go in the PR body.
 
 Inspect live Git state. Recompute the current branch, mainline, dirty files, worktrees, tests, and active sessions. When editing, create a focused branch from the current mainline, normally the latest `origin/main`; do not infer branch state from the Plan or Log.
 
@@ -123,7 +123,7 @@ End with exact branch, commits, pushed status, checks, visual evidence, residual
 ## Boundaries
 
 - Use this Plan; the Log is frozen (2026-10-09), so add no rows to it and no third design-system ledger.
-- Keep standalone functionality, bugs, broad accessibility redesign, audio, routing, and state architecture in separate work.
+- Keep standalone functionality, bugs, broad accessibility redesign (a defect the unit's lab recorded is fixed in the adoption, not parked), audio, routing, and state architecture in separate work.
 - Reopen a closed unit only for a concrete contradiction or Burooj's request.
 - Respect dirty worktrees and adjacent sessions; coordinate every shared-file edit.
 - Use at most one bounded scout before definition and one bounded lineage auditor after implementation. Orchestration must shorten the loop.

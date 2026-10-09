@@ -96,6 +96,12 @@ export default defineConfig({
       },
     }),
   ],
+  define: {
+    // Source & Credits links to the deployed commit; empty on local builds.
+    "import.meta.env.VITE_COMMIT_SHA": JSON.stringify(
+      process.env.VERCEL_GIT_COMMIT_SHA ?? "",
+    ),
+  },
   resolve: {
     alias: {
       "@": resolve(__dirname, "src"),

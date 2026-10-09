@@ -158,7 +158,7 @@ applied.
 | Import | What it does | Replacement |
 | --- | --- | --- |
 | `samples(BASE + 'piano.json' / 'vcsl.json')` | Registers the two sample packs. The piano is 29 pitches from `dough-samples/main/piano/`. VCSL is 128 sounds served straight from `sgossner/VCSL`. | The app's own fetch of the same JSON maps, or maps it generates itself (the dough-samples repo has no licence). |
-| `getSound`, `soundMap`, `getSampleInfo`, `getLoadedBuffer`, `loadBuffer` | Sound registry, picker listing, root pitch parsing (keyed banks by note name; array banks use root MIDI 36), and the decoded `AudioBuffer`s that the worklet then *clones*. | An app catalog: name → kind → zones. Decode, copy into an owned `Float32Array` per channel, **transfer** that buffer (not a clone) to the worklet in chunks, then drop the `AudioBuffer`. That leaves one PCM copy. Today the piano holds about 138 MiB in superdough plus about 138 MiB in the worklet. |
+| `getSound`, `soundMap`, `getSampleInfo`, `getLoadedBuffer`, `loadBuffer` | Sound registry, picker listing, root pitch parsing (keyed banks by note name; array banks use root MIDI 36), and the decoded `AudioBuffer`s that the worklet then *clones*. | An app catalog: name → kind → zones. Decode, copy into an owned `Float32Array` per channel, **transfer** that buffer (not a clone) to the worklet, then drop the `AudioBuffer`. A transfer detaches the whole backing `ArrayBuffer`, so "chunks" means independently allocated per-zone or per-channel buffers that the worklet keeps as chunks, never slices of one buffer; BJS-488 checks that the largest single transfer meets the long-task gate. That leaves one PCM copy. Today the piano holds about 138 MiB in superdough plus about 138 MiB in the worklet. |
 | `registerSoundfonts`, `prewarmSoundfont`, `getPreparedSoundfont` (patch exports), `@strudel/soundfonts` | Registers the 125 GM names. Fetches `felixroos.github.io/webaudiofontdata/sound/<font>.js` and evaluates it with `eval`. The patch exposes zones with tuning, key ranges and loop points. | Fetch the font file as text and parse its object literal without `eval`, or pre-convert a chosen set at build time (finding 3). The zone mapping in `preparedNativeInstrument.ts` moves over unchanged. Note the service worker does **not** cache `felixroos.github.io`; it caches `raw.githubusercontent.com` and `cdn.jsdelivr.net`. |
 
 **The boot contract (BJS-488 must re-implement it).** `stores/instrument.ts`
@@ -254,8 +254,9 @@ by the UI. The core already sequences Repeat/Arp pulses there.
 - **Member** (built on the main thread, immutable):
   - `id` (the phrase id);
   - `lengthBars` (fractional, not padded to whole bars: a take that ends off
-    the measure keeps its authored length plus one beat of tail, as
-    `recordedTiming.ts` and `StrudelNotation.ts` do today);
+    the measure keeps its authored length; the tail is the phrase's authored
+    trailing silence when it has one, and one beat only for a fresh take with
+    none, as `StrudelNotation.ts` does today);
   - `notes[]`, each with `begin` and `duration` in bars at rate 1, `pitch`
     already bent to the Looper's key and mode (or pinned), `instrumentId`,
     `sourceNoteId` (the table holds no `noteId`: the scheduler allocates a
@@ -326,7 +327,10 @@ by the UI. The core already sequences Repeat/Arp pulses there.
 The worklet posts attack and release events for every transport voice. Each
 carries `noteId`, `memberId`, `sourceNoteId`, `pitch`, `frame`, `bar`, the
 articulation, and the key, mode and solfège (or the table-generation id) the
-note was built under. The Stage and keys cues read these, not the current
+note was built under. Every transport event is marked non-recordable (`record: false`, or a source
+the recorder excludes), because `phrases.ts` otherwise records the transport's
+own attacks into the open take; a test shows playback leaves the take
+unchanged. The Stage and keys cues read these, not the current
 store, because a queued key change or a stalled main thread can leave the store
 ahead of the sound. Events are batched per quantum through the FIFO bridge. Today's bridge
 allocates (it builds response objects and replaces its array on every flush),
@@ -520,8 +524,10 @@ and PCM capture, as #140 and the spike do.
    performs no allocations in the render path, event delivery included. Run it
    with a dense attack/release transport (sixteen looping members), not only
    already-started voices. Count them with an allocation
-   hook (a Node `--trace-gc`/allocation-sampling run or an instrumented pool),
-   because a flat post-GC heap only rules out leaks, not per-quantum garbage.
+   hook (deterministic instrumentation: counting wrappers on the pool and ring, or
+   an assertion that the render path creates no objects; GC traces and
+   sampling can miss allocations), because a flat post-GC heap only rules out
+   leaks, not per-quantum garbage.
 7. **Graph ownership.** The app owns the context, master gain and buses
    (finding 2). Analysers fan out from the new master. The context still
    resumes inside the Play-on tap, waits for `state === "running"`, and reports

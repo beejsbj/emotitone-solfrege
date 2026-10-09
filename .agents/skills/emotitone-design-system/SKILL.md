@@ -113,7 +113,7 @@ Before closure, run a fresh read-only lineage audit—normally with one bounded 
 - higher layers compose lower sources instead of copying CSS or markup;
 - production and the guide cross the same public component seam;
 - specimen scaffold and demo state stay out of production;
-- behavior changes have separate authorization and evidence;
+- behavior changes have separate authorization and evidence, except fixes to defects the unit's lab recorded, which the adoption must carry;
 - provisional adapters and duplicated recipes remain visible in the Plan.
 
 Fix findings in a separate atomic slice. Then update the Plan's four gates independently and put the receipt in the PR body (Summary, Verification, Linear link). The Log is frozen as of 2026-10-09: append nothing to `DESIGN_LOG.md`. If Cockpit/Linear is active, leave the corresponding `BJS-35` receipt without changing lifecycle beyond the evidence.

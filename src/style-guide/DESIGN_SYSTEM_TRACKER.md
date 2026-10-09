@@ -77,7 +77,7 @@ Do not re-grill closed units without a concrete contradiction or explicit reques
 
 ### Note Flecks retirement — 2026-10-05
 
-Burooj retired Note Flecks: printed-mark fragments with gravity were the only Stage part not made of light and the most expensive per note. Definition is settled by that decision; the authoritative particle source and its per-note/per-frame work are removed; the guide no longer advertises or demonstrates them; production has no Flecks controls or configuration. Scope, Note Bodies, Atmosphere, Pitch Strings, and Explanations retain their existing sources and appearance. Legacy visual configs, saved full configs, imported presets, and saved Stage Looks silently drop the retired section through the existing section/field allowlists while preserving every other setting. Mark remains an SVG primitive consumed by Loading Screen. Stage's separate reimagining step remains open.
+Burooj retired Note Flecks: printed-mark fragments with gravity were the only Stage part not made of light and the most expensive per note. Definition is settled by that decision; the authoritative particle source and its per-note/per-frame work are removed; the guide no longer advertises or demonstrates them; production has no Flecks controls or configuration. Scope, Note Bodies, Atmosphere, Pitch Strings, and Explanations retain their existing sources and appearance. Legacy visual configs, saved full configs, imported presets, and saved Stage Looks silently drop the retired section through the existing section/field allowlists while preserving every other setting. Mark remains an SVG primitive consumed by Loading Screen. Stage's reimagining step (4) closed the same day; Compositions is next.
 
 ### Stage musical lettering
 

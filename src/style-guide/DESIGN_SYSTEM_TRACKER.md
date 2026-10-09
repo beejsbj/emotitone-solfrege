@@ -221,7 +221,7 @@ Burooj, 2026-09-28: Badge stays as the Brass Sticker variant even though the Rea
 
 Rules for the pass:
 - **A lab is independent and exploratory.** It is based on `main`, makes no production changes, and nothing stacks on it. It mounts each direction beside the real production unit. Once its picks are adopted, it can be closed as a record.
-- **An adoption reopens its unit.** One PR per pick, based on `main`, never containing lab files. It reopens that unit's four gates in this Plan and closes them again with the new definition, authoritative source, real specimen and production adoption, plus a Log receipt. Closed consumers of a changed unit keep their accepted presentation unless the pick says otherwise.
+- **An adoption reopens its unit.** One PR per pick, based on `main`, never containing lab files. It reopens that unit's four gates in this Plan and closes them again with the new definition, authoritative source, real specimen and production adoption, plus a receipt in the PR body (the Log is frozen). Closed consumers of a changed unit keep their accepted presentation unless the pick says otherwise.
 - **The pass closes like the first one.** It closes only when every step's picks have landed and step 6's audit passes. Until then the pass is open, even though the units not yet reopened stay closed.
 
 Burooj accepted the real-device checks the same day: "works well. Tho beat animation isn't all that smooth. But it's okay." Beat Indicator/UIBeat smoothness is a known, accepted limitation, not a blocker.

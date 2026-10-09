@@ -21,7 +21,6 @@ import type {
 
 const FALLBACK_NOTE_COLORS: NoteColorRelationships = {
   primary: "hsla(0, 0%, 16%, 1)",
-  accent: "hsla(0, 0%, 26%, 1)",
 };
 
 export function useMusicColor(options: { animated?: boolean } = {}) {

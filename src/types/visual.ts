@@ -49,7 +49,6 @@ export interface ConfigSectionMeta {
  */
 export interface NoteColorRelationships {
   primary: string;
-  accent: string;
 }
 
 export type MusicColorMode =

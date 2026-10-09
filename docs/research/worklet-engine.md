@@ -190,8 +190,11 @@ format and the same sound names (`piano`, the VCSL names, `gm_*`).
 The Code Strip uses `StrudelMirror` and `showMiniLocations`, and the
 `strudelExtension.ts` playback field reads `hap.context.locations`. It also
 carries the `@codemirror/view` 6.40.0 patch (a selection-read guard) and the
-native-reveal workaround. All of it goes in BJS-492. Its replacement lights
-spans by note id from the typed events.
+native-reveal workaround. The visible editor goes in BJS-492 and its
+replacement lights spans by note id from the typed events. `StrudelMirror` is
+still the only pattern transport until BJS-485 lands, so BJS-492 keeps the
+packages, the patch and a hidden mirror as a temporary transport adapter; they
+are deleted in BJS-495 (or in BJS-492 if it lands after BJS-485).
 
 ### Patches
 
@@ -199,7 +202,7 @@ spans by note id from the typed events.
 | --- | --- | --- | --- |
 | `superdough@1.3.0` | 4,492 lines, about 720 of real source change; the rest is regenerated minified dist | Held voices (`voiceId`, `sustainUntilRelease`, the voice API), late held onsets clamped instead of dropped, time-aware admission and steal fades, eviction of failed sample loads, zzfx stop | Deleted in BJS-495. The fixes worth offering upstream (W9) stay a courtesy, not a dependency. |
 | `@strudel/soundfonts@1.3.0` | 475 lines | Object-expression preset parse, cache eviction, `prewarmSoundfont`, `getPreparedSoundfont`, real `stop`, and a reordered variant for five instruments | Deleted in BJS-495. The variant order moves into the app catalog. |
-| `@codemirror/view@6.40.0` | 36 lines | Skips a forced selection read on blurred views | Deleted in BJS-492. |
+| `@codemirror/view@6.40.0` | 36 lines | Skips a forced selection read on blurred views | Deleted in BJS-495, or in BJS-492 if it lands after BJS-485 (the hidden mirror is the transport until then). |
 
 ### Tests and harnesses that retire with the packages
 
@@ -308,7 +311,13 @@ by the UI. The core already sequences Repeat/Arp pulses there.
   musical, and it matches #140.
 - **Mute and solo stop future onsets and fade the member's sounding voices over
   10 ms.** Voices carry `memberId`. #140 could not do this, because superdough
-  owned voices it had already been handed.
+  owned voices it had already been handed. The fade silences the member's dry
+  output only. Sound already sent to the shared native reverb and delay buses
+  rings out (up to the 3 s impulse plus echoes), because the buses no longer
+  know which member it came from. That is the cost of finding 1; the
+  alternative is a wet bus per member. Mute and solo therefore leave a tail
+  of the muted member audible, and BJS-491 measures the dry output for its
+  150 ms bound. **Burooj decides** whether that tail is acceptable.
 - **Stop fades everything.**
 
 ### Events, the Stage, keys and UIBeat
@@ -530,8 +539,9 @@ and PCM capture, as #140 and the spike do.
 1. **Catalog sweep.** A headless run prepares every selectable instrument:
    about 192, being 14 synths, the piano, 74 of the 128 registered VCSL sounds
    and 103 of the 125 registered GM names. The picker's categories filter out
-   the rest. Each renders a C4 with
-   non-silent PCM, and its pitch is within ±10 cents by `pitchy`. List
+   the rest. Each renders low, middle and high pitches (and every zone boundary for
+   multi-zone banks) with non-silent PCM, and each pitch is within ±10 cents by
+   `pitchy`. List
    failures on the PR. The serial sweep cannot expose residency: add a case
    with more distinct sampled or soundfont instruments sounding at once than
    `livePlayback.ts` keeps resident (4 banks, 192 MiB, held banks pinned). Define
@@ -559,8 +569,8 @@ and PCM capture, as #140 and the spike do.
    spike skipped: expression stretch, and Stage identity with key and mode.
 2. **The spike's extra checks pass:**
    - an immediate change is applied within one quantum of arrival;
-   - mute is silent on the member's output within 150 ms, measured tap to
-     change. That is the ticket's bound, with desktop render-graph numbers
+   - mute is silent on the member's dry output within 150 ms, measured tap to
+     change (wet tails ring out; see "Tails, mute and solo"). That is the ticket's bound, with desktop render-graph numbers
      now and phone numbers in the gate; the spike's 10 ms is evidence, not a
      new bound;
    - a 1,000 ms stall loses nothing;
@@ -588,10 +598,14 @@ and PCM capture, as #140 and the spike do.
    animation but keeps the position.
 4. **Open in Strudel.** The URL decodes back to the same text (round-trip
    test).
-5. **Removal.** `@strudel/codemirror`, `@codemirror/*`, the CodeMirror patch
-   and `nativeReveal.ts` are gone, and `bun.lock` has no `@codemirror`.
+5. **Removal.** The visible editor is gone and Play still works: until
+   BJS-485 lands, a hidden `StrudelMirror` stays as the transport, with its
+   packages and patch. If BJS-492 lands after BJS-485, `@strudel/codemirror`,
+   `@codemirror/*`, the CodeMirror patch and `nativeReveal.ts` are gone and
+   `bun.lock` has no `@codemirror`; otherwise BJS-495 does that.
 6. **Order.** Lands before BJS-485, or BJS-485 makes the editor read-only
-   (finding 5).
+   (finding 5). Either way there is no shipped state in which Play has no
+   scheduler.
 
 ### BJS-493 Play is the loop
 

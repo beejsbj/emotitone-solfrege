@@ -1,11 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { mount } from "@vue/test-utils";
-import { markRaw } from "vue";
+import { enableAutoUnmount, mount } from "@vue/test-utils";
+import { defineComponent, h, markRaw, nextTick, ref } from "vue";
 import Tabs from "@/components/primatives/Tabs.vue";
+import { TABS_EDITIONS } from "@/components/primatives/TabsEdition";
 import tabsSource from "@/components/primatives/Tabs.vue?raw";
 import TabsPage from "@/style-guide/TabsPage.vue";
 
 const TestIcon = markRaw({ template: "<svg />" });
+
+enableAutoUnmount(afterEach);
 
 const tabs = [
   { label: "Keyboards", shortLabel: "Keys", value: "keys", testId: "tab-keys" },
@@ -18,6 +21,20 @@ const tabs = [
   },
   { label: "Unavailable", value: "off", disabled: true },
 ];
+
+const keyboardTabs = [
+  { label: "Unavailable first", value: "off-first", disabled: true },
+  ...tabs,
+  { label: "Presets", value: "presets", testId: "tab-presets" },
+  { label: "Unavailable last", value: "off-last", disabled: true },
+];
+
+async function pressKey(element: Element, key: string) {
+  const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
+  element.dispatchEvent(event);
+  await nextTick();
+  return event;
+}
 
 describe("Tabs", () => {
   it("uses a destination's brass material without pinning the rail geometry or other tabs", async () => {
@@ -39,18 +56,135 @@ describe("Tabs", () => {
     vi.unstubAllGlobals();
   });
 
-  it("emits selection through the authoritative chip surface", async () => {
+  it("emits pointer selection through the authoritative chip surface", async () => {
     const wrapper = mount(Tabs, {
       props: { tabs, modelValue: "keys", layout: "scroll" },
     });
 
     expect(wrapper.classes()).toContain("tabs--layout-scroll");
-    expect(wrapper.get('[data-testid="tab-keys"]').attributes("tabindex")).toBe("0");
-    expect(wrapper.get('[data-testid="tab-mallets"]').attributes("tabindex")).toBe("-1");
     expect(wrapper.get('[data-testid="tab-mallets"]').attributes("aria-label")).toBe("Mallets");
 
     await wrapper.get('[data-testid="tab-mallets"]').trigger("click", { detail: 1 });
     expect(wrapper.emitted("update:modelValue")).toEqual([["mallets", "pointer"]]);
+  });
+
+  it.each(TABS_EDITIONS.flatMap((edition) =>
+    [true, false].map((controlled) => ({ ...edition, controlled })),
+  ))("reaches inactive tabs with Arrow/Home/End in $id (controlled: $controlled)", async ({ geometry, tone, controlled }) => {
+    const wrapper = mount(defineComponent({
+      setup() {
+        const value = ref("keys");
+        return () => h(Tabs, {
+          tabs: keyboardTabs,
+          geometry,
+          tone,
+          layout: "scroll",
+          modelValue: controlled ? value.value : undefined,
+          defaultValue: "keys",
+          "onUpdate:modelValue": (next: string) => { value.value = next; },
+        });
+      },
+    }), { attachTo: document.body });
+    const rail = wrapper.getComponent(Tabs);
+    const keys = rail.get('[data-testid="tab-keys"]');
+    expect(keys.attributes("tabindex")).toBe("0");
+    expect(rail.get('[data-testid="tab-mallets"]').attributes("tabindex")).toBe("-1");
+    (keys.element as HTMLElement).focus();
+    expect(document.activeElement).toBe(keys.element);
+
+    const steps = [
+      ["ArrowRight", "mallets"],
+      ["ArrowRight", "presets"],
+      ["ArrowRight", "keys"],
+      ["ArrowLeft", "presets"],
+      ["ArrowLeft", "mallets"],
+      ["ArrowLeft", "keys"],
+      ["End", "presets"],
+      ["Home", "keys"],
+    ];
+    for (const [key, value] of steps) {
+      const event = await pressKey(document.activeElement as Element, key);
+      const selected = rail.get(`[data-testid="tab-${value}"]`);
+      expect(event.defaultPrevented).toBe(true);
+      expect(document.activeElement).toBe(selected.element);
+      expect(rail.findAll('[aria-selected="true"]').map((tab) => tab.element)).toEqual([selected.element]);
+      expect(rail.findAll('[tabindex="0"]').map((tab) => tab.element)).toEqual([selected.element]);
+    }
+    expect(rail.emitted("update:modelValue")).toEqual(steps.map(([, value]) => [value, "keyboard"]));
+  });
+
+  it.each(["horizontal", "vertical"])("honors %s aria-orientation and leaves other keys alone", async (orientation) => {
+    const wrapper = mount(Tabs, {
+      attachTo: document.body,
+      attrs: { "aria-orientation": orientation },
+      props: { tabs: keyboardTabs, defaultValue: "keys" },
+    });
+    const keys = wrapper.get('[data-testid="tab-keys"]');
+    (keys.element as HTMLElement).focus();
+    const vertical = orientation === "vertical";
+    for (const key of [vertical ? "ArrowRight" : "ArrowDown", vertical ? "ArrowLeft" : "ArrowUp", "Tab", "Enter", " "]) {
+      const event = await pressKey(keys.element, key);
+      expect(event.defaultPrevented).toBe(false);
+      expect(document.activeElement).toBe(keys.element);
+      expect(keys.attributes("aria-selected")).toBe("true");
+    }
+    expect(wrapper.emitted("update:modelValue")).toBeUndefined();
+
+    for (const [key, value] of [
+      [vertical ? "ArrowDown" : "ArrowRight", "mallets"],
+      [vertical ? "ArrowUp" : "ArrowLeft", "keys"],
+      ["End", "presets"],
+      [vertical ? "ArrowDown" : "ArrowRight", "keys"],
+      [vertical ? "ArrowUp" : "ArrowLeft", "presets"],
+      ["Home", "keys"],
+    ]) {
+      const event = await pressKey(document.activeElement as Element, key);
+      const selected = wrapper.get(`[data-testid="tab-${value}"]`);
+      expect(event.defaultPrevented).toBe(true);
+      expect(document.activeElement).toBe(selected.element);
+      expect(selected.attributes("aria-selected")).toBe("true");
+    }
+  });
+
+  it("navigates from the focused tab when controlled selection has not changed", async () => {
+    const wrapper = mount(Tabs, {
+      attachTo: document.body,
+      props: { tabs: keyboardTabs, modelValue: "keys" },
+    });
+    const mallets = wrapper.get('[data-testid="tab-mallets"]');
+    (mallets.element as HTMLElement).focus();
+    await pressKey(mallets.element, "ArrowRight");
+    expect(document.activeElement).toBe(wrapper.get('[data-testid="tab-presets"]').element);
+    expect(wrapper.emitted("update:modelValue")).toEqual([["presets", "keyboard"]]);
+    expect(wrapper.get('[data-testid="tab-keys"]').attributes("aria-selected")).toBe("true");
+  });
+
+  it("keeps a single enabled tab focused without emitting a redundant selection", async () => {
+    const wrapper = mount(Tabs, {
+      attachTo: document.body,
+      props: { tabs: [keyboardTabs[0], tabs[0], keyboardTabs[keyboardTabs.length - 1]], defaultValue: "keys" },
+    });
+    const keys = wrapper.get('[data-testid="tab-keys"]');
+    (keys.element as HTMLElement).focus();
+    for (const key of ["ArrowRight", "ArrowLeft", "Home", "End"]) {
+      const event = await pressKey(keys.element, key);
+      expect(event.defaultPrevented).toBe(true);
+      expect(document.activeElement).toBe(keys.element);
+      expect(keys.attributes("aria-selected")).toBe("true");
+    }
+    expect(wrapper.emitted("update:modelValue")).toBeUndefined();
+  });
+
+  it.each([
+    { items: [] },
+    { items: [{ label: "Unavailable", value: "off", disabled: true }] },
+  ])("ignores navigation when no enabled tab is focused ($items)", async ({ items }) => {
+    const wrapper = mount(Tabs, { props: { tabs: items } });
+    for (const key of ["ArrowRight", "ArrowLeft", "Home", "End"]) {
+      const event = await pressKey(wrapper.element, key);
+      expect(event.defaultPrevented).toBe(false);
+    }
+    expect(wrapper.emitted("update:modelValue")).toBeUndefined();
   });
 
   it("keeps disabled destinations inert and pins explicit guide variants", async () => {

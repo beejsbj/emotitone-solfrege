@@ -60,7 +60,9 @@
 
       <output
         v-if="status !== 'error'"
-        class="humming-capture-transport__status"
+        :class="status === 'recording'
+          ? 'humming-capture-transport__feedback humming-capture-transport__countdown'
+          : 'humming-capture-transport__status'"
         role="status"
         aria-live="polite"
       >
@@ -162,6 +164,7 @@ function handleTakeSelection(event: Event) {
 }
 
 .humming-capture-transport__error,
+.humming-capture-transport__countdown,
 .humming-capture-transport__take-select {
   border: 1px solid var(--hairline);
   border-radius: var(--r-xs);
@@ -171,7 +174,8 @@ function handleTakeSelection(event: Event) {
   font-size: 9px;
 }
 
-.humming-capture-transport__error {
+.humming-capture-transport__error,
+.humming-capture-transport__countdown {
   margin: 0;
   padding: var(--s-3) var(--s-4);
   line-height: 1.35;

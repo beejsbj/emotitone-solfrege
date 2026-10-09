@@ -141,7 +141,7 @@ describe("pitch analysis", () => {
       releaseTime: 550,
       duration: 450,
       frequency: 294,
-      velocity: 0.75,
+      velocity: 0.7,
     }));
     expect(candidates[1].notes).toHaveLength(1);
     expect(candidates[1].source?.takeNumber).toBe(2);
@@ -167,5 +167,82 @@ describe("pitch analysis", () => {
       }),
       { key: "C", mode: "major" },
     )).toThrow("Pitch analysis detected C#4, which is outside C major.");
+  });
+});
+
+describe("recorded voice dynamics", () => {
+  function take(rmsDb: number, confidence: number) {
+    return pitchAnalysisToPatternCandidates(analysis({
+      frames: [
+        { time_seconds: 0.5, rms_db: rmsDb, confidence, voiced: true,
+          f0_hz_raw: 440, midi_raw: 69, midi_processed: 69 },
+        // Excluded: unvoiced and end-exclusive frames must not change loudness.
+        { time_seconds: 0.75, rms_db: 0, confidence: 1, voiced: false,
+          f0_hz_raw: null, midi_raw: null, midi_processed: null },
+        { time_seconds: 1, rms_db: 0, confidence: 1, voiced: true,
+          f0_hz_raw: 440, midi_raw: 69, midi_processed: 69 },
+        { time_seconds: 0.49, rms_db: 0, confidence: 1, voiced: true,
+          f0_hz_raw: 440, midi_raw: 69, midi_processed: 69 },
+      ],
+      phrases: [{ number: 1, start_seconds: 0, end_seconds: 1, duration_seconds: 1,
+        events: [{ type: "note", midi: 69, note: "A4", start_seconds: 0.5,
+          end_seconds: 1, duration_seconds: 0.5, confidence }],
+      }],
+    }), { key: "C", mode: "major" })[0].notes[0];
+  }
+
+  it("uses voiced RMS inside the note window rather than pitch confidence", () => {
+    const quiet = take(-40, 0.95);
+    const loud = take(-20, 0.95);
+    expect(quiet.velocity).toBeCloseTo(Math.sqrt((0.01 - 0.003) / 0.097));
+    expect(loud.velocity).toBe(1);
+    expect(quiet.velocity).toBeLessThan(loud.velocity!);
+    expect(take(-40, 0.1).velocity).toBe(quiet.velocity);
+  });
+
+  it("combines frame energy before mapping velocity", () => {
+    const candidate = pitchAnalysisToPatternCandidates(analysis({
+      frames: [0.01, 0.04].map((rms, index) => ({
+        time_seconds: index / 2, rms_db: 20 * Math.log10(rms),
+        confidence: 0.9, voiced: true, f0_hz_raw: 440, midi_raw: 69, midi_processed: 69,
+      })),
+      phrases: [{ number: 1, start_seconds: 0, end_seconds: 1, duration_seconds: 1,
+        events: [{ type: "note", midi: 69, note: "A4", start_seconds: 0,
+          end_seconds: 1, duration_seconds: 1 }],
+      }],
+    }), { key: "C", mode: "major" })[0].notes[0];
+    expect(candidate.velocity).toBeCloseTo(Math.sqrt((Math.sqrt((0.01 ** 2 + 0.04 ** 2) / 2) - 0.003) / 0.097));
+  });
+});
+
+describe("pitch recording duration", () => {
+  it.each([3, 65])("retains the first min(%i, 60) seconds even after a delayed recorder stop", async (duration) => {
+    const close = vi.fn();
+    vi.stubGlobal("AudioContext", class {
+      decodeAudioData = async () => ({ duration });
+      close = close;
+    });
+    vi.stubGlobal("OfflineAudioContext", class {
+      destination = {};
+      constructor(_channels: number, private length: number, _sampleRate: number) {}
+      createBufferSource() { return { buffer: null, connect() {}, start() {} }; }
+      async startRendering() {
+        const pcm = new Float32Array(this.length).fill(0.25);
+        return { getChannelData: () => pcm };
+      }
+    });
+    try {
+      const { preparePitchAnalysisAudio } = await import("@/services/pitchAnalysis");
+      const wav = await preparePitchAnalysisAudio(new Blob(["recorded audio"]), 60);
+      const data = new DataView(await wav.arrayBuffer());
+      const sampleRate = data.getUint32(24, true);
+      const sampleCount = data.getUint32(40, true) / 2;
+      expect(sampleCount / sampleRate).toBe(Math.min(duration, 60));
+      expect(data.getInt16(44, true)).toBe(8192);
+      expect(data.getInt16(wav.size - 2, true)).toBe(8192);
+      expect(close).toHaveBeenCalledOnce();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

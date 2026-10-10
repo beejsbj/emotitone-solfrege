@@ -214,6 +214,19 @@ describe("superdoughAudio live note handling", () => {
     );
   });
 
+  it("scales held voice gain by normalized MIDI velocity", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    await audio.attackNote("quiet-midi", "F#4", "synth", { velocity: 1 / 127 });
+    expect(hoisted.mockSuperdough).toHaveBeenCalledWith(
+      expect.objectContaining({ note: "F#4", voiceId: "quiet-midi", gain: 0.8 / 127, sustainUntilRelease: true }),
+      12.005,
+      0.25,
+      1,
+    );
+    audio.releaseNote("quiet-midi");
+    expect(hoisted.mockReleaseVoice).toHaveBeenCalledWith("quiet-midi", 12);
+  });
+
   it("attacks a live note as a held voice with voice ownership", async () => {
     const audio = await import("@/services/superdoughAudio");
 

@@ -705,8 +705,8 @@ function fallbackNoteToken(
   const degree = borrowed ? undefined : String(normalized + 1);
   const glyph: CodeStripGlyph = presentation.notation === "note"
     ? "raw"
-    : presentation.notation === "degree" && !borrowed
-      ? "deg"
+    : presentation.notation === "degree"
+      ? (borrowed ? "raw" : "deg")
       : "syl";
 
   return {

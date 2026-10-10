@@ -121,19 +121,23 @@ describe("CodeStrip recorded-token metadata", () => {
     expect(chord.members.every((member) => member.progress == null)).toBe(true);
   });
 
-  it("renders borrowed exact pitches with chromatic syllables", () => {
+  it.each([
+    ["solfege", "syl", "Me", "syllable"],
+    ["degree", "raw", "D#4", "raw"],
+    ["note", "raw", "D#4", "raw"],
+  ] as const)("renders borrowed exact pitches in %s notation", (notation, glyph, text, primary) => {
     const borrowed = {
       ...note("borrowed", "D#4", -1, 4, 1000, 500),
       scaleDegree: 0,
       pitchClassIndex: 3,
       isBorrowed: true,
     };
-    const single = tokens([borrowed], "solfege")[0];
+    const single = tokens([borrowed], notation)[0];
 
     expect(single).toMatchObject({
       type: "note",
-      glyph: "syl",
-      text: "Me",
+      glyph,
+      text,
       rawPitch: "D#4",
       scaleIndex: -1,
       pitchClassIndex: 3,
@@ -142,12 +146,12 @@ describe("CodeStrip recorded-token metadata", () => {
     const chord = tokens([
       note("root", "C4", 0, 4, 1000, 500),
       borrowed,
-    ])[0];
+    ], notation)[0];
     if (chord.type !== "chord") throw new Error("Expected chord token");
     expect(chord.members[1]).toMatchObject({
       rawPitch: "D#4",
-      primary: "syllable",
-      visibleLabels: ["syllable"],
+      primary,
+      visibleLabels: [primary],
       syllable: "Me",
       scaleIndex: -1,
       pitchClassIndex: 3,

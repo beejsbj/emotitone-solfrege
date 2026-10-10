@@ -111,8 +111,8 @@ export function buildRecordedCodeStripTokens(input: RecordedCodeStripInput): Cod
           : solfegeLabel(note, input),
         degree: borrowed ? undefined : degreeLabel(note, input.mode),
         rawPitch: note.note,
-        primary: input.notation === "note" ? "raw" : input.notation === "degree" && !borrowed ? "degree" : "syllable",
-        visibleLabels: [input.notation === "note" ? "raw" : input.notation === "degree" && !borrowed ? "degree" : "syllable"],
+        primary: input.notation === "degree" ? (borrowed ? "raw" : "degree") : input.notation === "note" ? "raw" : "syllable",
+        visibleLabels: [input.notation === "degree" ? (borrowed ? "raw" : "degree") : input.notation === "note" ? "raw" : "syllable"],
         scaleIndex: note.scaleIndex,
         pitchClassIndex: borrowed ? exactPitchClassIndex(note) : undefined,
         octave: note.octave,
@@ -222,7 +222,7 @@ function noteToken(
   const degree = borrowed ? undefined : degreeLabel(note, input.mode);
   const glyph = input.notation === "note"
     ? "raw"
-    : input.notation === "degree" && !borrowed ? "deg" : "syl";
+    : input.notation === "degree" ? (borrowed ? "raw" : "deg") : "syl";
   const text = glyph === "raw"
     ? note.note
     : glyph === "deg" ? degree ?? note.note : syllable ?? note.note;

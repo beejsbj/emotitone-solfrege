@@ -743,6 +743,19 @@ describe("CodeStrip Strudel source decorations", () => {
     expect(progress(host, ".code-strip__note")).toBe("0.5");
   });
 
+  it.each(["C4", "E4"])("uses raw labels for edited borrowed %s in degree notation", async (original) => {
+    const { host, view } = createView(codeStripStrudelExtension, { notation: "degree", mode: "major", musicKey: "C" });
+    const from = view.state.doc.toString().indexOf(original);
+    view.dispatch({ changes: { from, to: from + 2, insert: "D#4" } });
+    await Promise.resolve();
+    const selector = original === "C4" ? ".code-strip__note .note" : ".chord__cluster-member .note";
+    const note = host.querySelector<HTMLElement>(selector);
+    expect(note?.dataset.primary).toBe("raw");
+    expect(note?.textContent).toContain("D");
+    expect(note?.textContent).toContain("♯");
+    expect(note?.textContent).not.toContain("Me");
+  });
+
   it("names an edited borrowed note with a syllable and chromatically colored", async () => {
     const { host, view } = createView();
     const from = view.state.doc.toString().indexOf("C4");

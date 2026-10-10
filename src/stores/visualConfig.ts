@@ -715,7 +715,6 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
 
   // Reset configuration to defaults
   const resetToDefaults = () => {
-    laBasedMinor.value = false;
     applyRuntimeConfig(cloneDefaultConfig());
     visualsEnabled.value = true;
     saveToStorage();

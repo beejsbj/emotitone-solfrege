@@ -106,11 +106,11 @@ describe("Keyboard spelling by key", () => {
     wrapper.unmount();
   });
 
-  it.each([false, true])("shows minor key and chord-member syllables (la-based=%s)", (laBasedMinor) => {
+  it.each([false, true].flatMap((laBasedMinor) => ["raw", "syllable"].map((primary) => ({ laBasedMinor, primary: primary as "raw" | "syllable" }))))("shows minor key and chord-member labels ($primary, la-based=$laBasedMinor)", ({ laBasedMinor, primary }) => {
     playIn("A", "minor", laBasedMinor);
-    mocks.keyboardStore.keyboardConfig.primaryLabel = "syllable";
+    mocks.keyboardStore.keyboardConfig.primaryLabel = primary;
     const wrapper = mountKeyboard();
-    expect(keyLabels(wrapper)).toEqual(laBasedMinor
+    expect(keyLabels(wrapper)).toEqual(primary === "raw" ? ["A4", "B4", "C5", "D5", "E5", "F5", "G5"] : laBasedMinor
       ? ["La", "Ti", "Do", "Re", "Mi", "Fa", "Sol"]
       : ["Do", "Re", "Me", "Fa", "Sol", "Le", "Te"]);
     // Keyboard's fused chord symbol carries these same members; render its
@@ -120,7 +120,7 @@ describe("Keyboard spelling by key", () => {
       global: { provide: { [noteColorResolverKey as symbol]: staticNoteColorResolver } },
     });
     const chordLabels = chord.findAll(".note__label--rank-primary").map((label) => visible(label.text()));
-    expect(chordLabels).toEqual(laBasedMinor ? ["La", "Do", "Mi"] : ["Do", "Me", "Sol"]);
+    expect(chordLabels).toEqual(primary === "raw" ? ["A4", "C5", "E5"] : laBasedMinor ? ["La", "Do", "Mi"] : ["Do", "Me", "Sol"]);
     chord.unmount();
     wrapper.unmount();
   });

@@ -91,7 +91,7 @@ describe("every MIDI pitch through the shared performer", () => {
     ["G", "dorian", 66, "F#4", "Ti", true],
     ["C", "chromatic", 66, "F#4", "Fi", false],
     ["C", "major", 0, "C-1", "Do", false],
-    ["C", "major", 127, "G9", "So", false],
+    ["C", "major", 127, "G9", "Sol", false],
   ])("plays and labels %s %s MIDI %i", async (key, mode, pitch, noteName, label, borrowed) => {
     const music = useMusicStore();
     music.setKey(key);
@@ -133,7 +133,7 @@ describe("every MIDI pitch through the shared performer", () => {
   it("labels every chromatic-mode semitone without marking it borrowed", async () => {
     useMusicStore().setMode("chromatic");
     await connect();
-    const labels = ["Do", "Ra", "Re", "Me", "Mi", "Fa", "Fi", "So", "Le", "La", "Te", "Ti"];
+    const labels = ["Do", "Ra", "Re", "Me", "Mi", "Fa", "Fi", "Sol", "Le", "La", "Te", "Ti"];
     for (const [semitone, name] of labels.entries()) {
       packet(0x90, 60 + semitone);
       await vi.advanceTimersByTimeAsync(0);

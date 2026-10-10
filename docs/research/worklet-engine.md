@@ -138,7 +138,7 @@ applied.
 | `transpiler` (`@strudel/transpiler`) | Turns the editor text into JS at Play (about 1.2 s per 64 notes, #137) and records mini source locations for the highlight. | None needed. Members are built from note data. Highlights come from note ids (BJS-492). |
 | `evalScope(core, mini, tonal, webaudio)` | Exposes `.as`, `.sound`, `.cpm`, `.scale`, `lpf`, `room` and so on to the evaluated code. `@strudel/tonal`'s `.scale()` resolves relative (degree) notation. | None. Degrees are resolved on the main thread when the member table is built. Bending a running member means rebuilding its table and swapping it at a boundary. |
 | `webaudioOutput` (`@strudel/webaudio`) | Sends each hap's value to `superdough()` at its audio time. | The worklet starts voices itself, at exact frames. |
-| `emotitoneStrudelOutput` (app, `superdoughAudio.ts`) | Builds `note-played`/`note-released` (source `strudel-playback`) from hap values. A `setTimeout` releases each note. Exposes `getActiveStrudelStageNotes`. | Typed attack/release events posted by the worklet. They carry `noteId`, `memberId`, `sourceNoteId`, `frame` and `bar`. One builder, not two (W9 "typed note events"). |
+| `emotitoneStrudelOutput` (app, `superdoughAudio.ts`) | Builds `note-played`/`note-released` (source `strudel-playback`) from hap values. A `setTimeout` releases each note. Exposes `getActiveStrudelStageNotes`. | Typed attack/release events posted by the worklet. They carry `noteId`, `memberId`, `phraseId` (an explicit alias of `memberId`), `sourceNoteId`, `frame` and `bar`. One builder, not two (W9 "typed note events"). |
 | `repl.scheduler.setCps(bpm/4/60)` and `.cpm(bpm/4)` in code text | Tempo. A change while playing regenerates the code and re-evaluates it. | A tempo command at the next quantum or an exact bar, recorded in a piecewise tempo map that is published to the main thread. |
 
 ### Voice rendering and the graph (BJS-486, BJS-487, BJS-488)
@@ -263,7 +263,7 @@ by the UI. The core already sequences Repeat/Arp pulses there.
     unique voice `noteId` for each occurrence it schedules), the immutable key, mode and solfège it was built under (or a
     table-generation id that resolves to them), and in production its
     articulation and expression curves. The member also carries its Shape
-    (cutoff, resonance, room, delay), the values `filterModifiers()` and
+    (attack, release, cutoff, resonance, room, delay), including envelope overrides when a note has no articulation and the values `filterModifiers()` and
     `effectModifiers()` apply today, so differently shaped members can sound
     together.
 - **Settings:** `offsetBars`, `rate` (0.5, 1 or 2) and `muted`, plus the
@@ -278,7 +278,7 @@ by the UI. The core already sequences Repeat/Arp pulses there.
 
 ### Changes
 
-- **Commands:** `start`, `stop`, and `change` with a boundary.
+- **Commands:** `start`, `stop`, and `change` with a boundary. Each carries a unique `requestId`.
   - The change kinds are `join` (which also replaces a member with the same
     id), `leave`, `update` (`muted`, `offsetBars`, `rate`), `solo` and `tempo`.
   - The boundary is `immediate` or `{ bar: B }`.
@@ -290,8 +290,8 @@ by the UI. The core already sequences Repeat/Arp pulses there.
   a note exactly on B belongs to the new membership. That is the same rule as
   #140's whole-onset filter. A B already passed is applied at once and reported
   `late`; a past bar is never honoured.
-- Every applied change answers with `{ arrivalFrame, appliedFrame, appliedBar, late }`.
-  That is the receipt the UI and the recorder use.
+- Every applied change answers with `{ requestId, arrivalFrame, appliedFrame, appliedBar, late }`.
+  That is the receipt the UI and the recorder use. Match it by `requestId`, never submission order; test a future tempo change followed by an immediate mute applying first.
 - **Tempo** at bar B adds an anchor at B's frame under the old tempo. The main
   thread publishes the anchor when the change is *requested*, so the UI never
   extrapolates past a tempo change it then has to retract. If the command
@@ -325,12 +325,14 @@ by the UI. The core already sequences Repeat/Arp pulses there.
 ### Events, the Stage, keys and UIBeat
 
 The worklet posts attack and release events for every transport voice. Each
-carries `noteId`, `memberId`, `sourceNoteId`, `pitch`, `frame`, `bar`, the
+carries `noteId`, `memberId`, `phraseId` (an explicit alias of `memberId`), `sourceNoteId`, `pitch`, `frame`, `bar`, the
 articulation, and the key, mode and solfège (or the table-generation id) the
 note was built under. Every transport event is marked non-recordable (`record: false`, or a source
 the recorder excludes), because `phrases.ts` otherwise records the transport's
 own attacks into the open take; a test shows playback leaves the take
-unchanged. The Stage and keys cues read these, not the current
+unchanged. The adapter also supplies the existing MIDI fields (`noteName`, `solfegeIndex`, `octave`) from the immutable note context; test transport attacks and releases mirrored to a connected MIDI output.
+The main thread retains an active-note registry keyed by `noteId`, fed by these events and cleared on stop/reset; test enabling Stage or Note Bodies halfway through a long gate to hydrate already-sounding notes.
+The Stage and keys cues read these, not the current
 store, because a queued key change or a stalled main thread can leave the store
 ahead of the sound. Events are batched per quantum through the FIFO bridge. Today's bridge
 allocates (it builds response objects and replaces its array on every flush),
@@ -498,12 +500,12 @@ and PCM capture, as #140 and the spike do.
    that needs a cold sampled or soundfont instrument, including the first
    Play of a persisted reel whose bank boot has not prepared, waits for the bank's
    acknowledgement before its activation boundary is chosen, and keeps the old
-   table and instrument if the load fails. Test a cold swap, a cold join and Play on a cold non-default reel
+   table and instrument if the load fails. On initial Play, with no old table, fail explicitly with a retryable load error, clear the pending Play state, and start no transport; test failed fetch/decode followed by a successful retry. Test a cold swap, a cold join and Play on a cold non-default reel
    while playback continues (`LiveAudioCore.start()` drops a voice whose
    instrument is absent today).
 7. **Stall survival.** A 1,000 ms main-thread stall loses no attacks (the
    spike's stall cell).
-8. **Articulation.** Recorded per-note articulation and clip reach the voice.
+8. **Articulation.** Recorded per-note articulation and clip reach the voice. Golden PCM also covers an authored/legacy phrase with Shape attack/release overrides and no per-note articulation.
 
 ### BJS-486 Filter, reverb and delay
 
@@ -565,13 +567,13 @@ and PCM capture, as #140 and the spike do.
    silent.
 2. **One PCM copy.** No superdough `AudioBuffer` is retained after transfer.
    The piano's desktop memory reading is posted and should be about half of
-   today's 276 MiB.
+   today's 276 MiB. Retain the anti-alias mipmaps from `preparedLiveInstrument.ts`; account for source and derived PCM separately in every bank's residency budget and the phone memory result, and compare high-transposition aliasing with the current worklet before removing the fallback.
 3. **Chunked transfer.** While the piano loads, no main-thread long task
    exceeds 50 ms, and a key press during load reaches the worklet.
 4. **Retry and soundfonts.** A failed load evicts and can retry. Soundfont zones
    keep tuning, key ranges and loop points; compare them with
    `getPreparedSoundfont` output for five fonts while it still exists. No
-   `eval`.
+   `eval`. For every selectable soundfont, hold a note through at least one loop in every looped zone; verify sample-rate conversion of loop offsets and compare sustained PCM for premature endings or boundary clicks.
 5. **NOTICE.** Credits for the Salamander piano (CC BY 3.0) and FluidR3
    (MIT), plus whatever finding 3 decides.
 6. **Boot contract.** The loading screen shows the same steps. A failed pack

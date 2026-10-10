@@ -1,10 +1,10 @@
 {
-  "revision": "daa8929e190d3ffb1c51129eb218e90acc4cc27a",
-  "capturedAt": "2026-10-10T08:10:25.432668+00:00",
-  "command": "bun run test:audio-parity /tmp/bjs-487-parity-review-final.json",
+  "revision": "d23695f55dd31afc13f526d3e86c1e9b72401077",
+  "capturedAt": "2026-10-10T08:15:03.261735+00:00",
+  "command": "bun run test:audio-parity /tmp/bjs-487-parity-merged-60s.json",
   "exitCode": 0,
   "interpretation": "54/54 browser checks pass with fixed .85 square/saw scalar and explicit per-pitch divergence bounds. Not full PCM parity.",
-  "sourceState": "Measured pending review-fix changes over revision; hashes identify exact inputs.",
+  "sourceState": "Production inputs at revision; harness startup wait increased from 20s to 60s. Exact input hashes below.",
   "environment": {
     "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.0.0 Safari/537.36",
     "sampleRate": 48000,
@@ -12,8 +12,8 @@
     "phasePolicy": "Hann-window harmonic magnitudes and energy envelope; waveform phase is not compared pointwise"
   },
   "fullReceipt": {
-    "sha256": "46111b835c32c70a8062480465731ac888dc3df5d1ffe7ea4f349a8973585374",
-    "bytes": 210155
+    "sha256": "a6237f3d39f0f1947c09ddef127c3d8c1148323740ae78fa385593aa677a973c",
+    "bytes": 210215
   },
   "hashes": {
     "/mnt/server-ssd/BJsWorkspace/Projects/emotitone-worktrees/bjs-487-squaresaw/node_modules/superdough/dist/index.mjs": "0fd8d71a890902aff433f19201145f001f522634ebfe92b56f2252753945dc1d",
@@ -25,7 +25,7 @@
     "/mnt/server-ssd/BJsWorkspace/Projects/emotitone-worktrees/bjs-487-squaresaw/src/services/recordedTiming.ts": "b76ae59f4e5bee1cc936bfadc8090eb2cc389f3313d3cc8b069d01801ab471fe",
     "/mnt/server-ssd/BJsWorkspace/Projects/emotitone-worktrees/bjs-487-squaresaw/src/services/liveArticulation.ts": "a0aa515a2a9011fcaaf5b9d3eb209a4c3b2f0fbd4f39430c6a83ddaa736eac30",
     "/mnt/server-ssd/BJsWorkspace/Projects/emotitone-worktrees/bjs-487-squaresaw/src/services/preparedNativeInstrument.ts": "8ee459070e0d4f2c44124b0e5c3c125e303cb7a81cddcdc693f113acd7e1d76b",
-    "/mnt/server-ssd/BJsWorkspace/Projects/emotitone-worktrees/bjs-487-squaresaw/src/services/preparedLiveInstrument.ts": "9e9f2777d31639272d057fc8dd5ae89362e5159179d07890ef8ef48bc5576384",
+    "/mnt/server-ssd/BJsWorkspace/Projects/emotitone-worktrees/bjs-487-squaresaw/src/services/preparedLiveInstrument.ts": "2c9b97265dd62b379dda20210dede3573e46afe74270a82b479114d36085f1a6",
     "/mnt/server-ssd/BJsWorkspace/Projects/emotitone-worktrees/bjs-487-squaresaw/audio-lab/parity/suite.mjs": "fe62cbad5e181458a39ff089674a2f8456e4170f2e120fc221c81a857441676d",
     "/mnt/server-ssd/BJsWorkspace/Projects/emotitone-worktrees/bjs-487-squaresaw/audio-lab/parity/metrics.mjs": "8f573b7e51ed910fb1919d719aa73d36533de6f71a1064bd10fd3fb80a9e6110",
     "/mnt/server-ssd/BJsWorkspace/Projects/emotitone-worktrees/bjs-487-squaresaw/audio-lab/parity/fixtures.mjs": "cb32706cb6bdfcea82358e3653106805744f2fac2b9e46e41c6f6fde2a519b3c",
@@ -323,56 +323,56 @@
       "sound": "square",
       "sampleRate": 48000,
       "wallStallMs": 300,
-      "stallStart": 0.4613333333333333,
-      "stallEnd": 0.7626666666666667,
-      "releasedAt": 1.3146666666666667,
-      "maxGridErrorSeconds": 0,
+      "stallStart": 0.4026666666666667,
+      "stallEnd": 0.704,
+      "releasedAt": 1.2533333333333334,
+      "maxGridErrorSeconds": 1.1102230246251565e-16,
       "stalledPulseCount": 2,
       "pulses": [
         {
-          "at": 0.272,
+          "at": 0.20266666666666666,
           "rms": 0.2022533871076172,
           "frames": 3120,
           "expectedFrames": 3120
         },
         {
-          "at": 0.397,
+          "at": 0.32766666666666666,
           "rms": 0.2022533871076172,
           "frames": 3120,
           "expectedFrames": 3120
         },
         {
-          "at": 0.522,
+          "at": 0.45266666666666666,
           "rms": 0.2022533871076172,
           "frames": 3120,
           "expectedFrames": 3120
         },
         {
-          "at": 0.647,
+          "at": 0.5776666666666667,
           "rms": 0.2022533871076172,
           "frames": 3120,
           "expectedFrames": 3120
         },
         {
-          "at": 0.772,
+          "at": 0.7026666666666667,
           "rms": 0.2022533871076172,
           "frames": 3120,
           "expectedFrames": 3120
         },
         {
-          "at": 0.897,
+          "at": 0.8276666666666667,
           "rms": 0.2022533871076172,
           "frames": 3120,
           "expectedFrames": 3120
         },
         {
-          "at": 1.022,
+          "at": 0.9526666666666667,
           "rms": 0.2022533871076172,
           "frames": 3120,
           "expectedFrames": 3120
         },
         {
-          "at": 1.147,
+          "at": 1.0776666666666668,
           "rms": 0.2022533871076172,
           "frames": 3120,
           "expectedFrames": 3120
@@ -383,56 +383,56 @@
       "sound": "sawtooth",
       "sampleRate": 48000,
       "wallStallMs": 300,
-      "stallStart": 0.3413333333333333,
-      "stallEnd": 0.6426666666666667,
-      "releasedAt": 1.1946666666666668,
-      "maxGridErrorSeconds": 2.7755575615628914e-17,
+      "stallStart": 0.2906666666666667,
+      "stallEnd": 0.592,
+      "releasedAt": 1.144,
+      "maxGridErrorSeconds": 0,
       "stalledPulseCount": 2,
       "pulses": [
         {
-          "at": 0.14133333333333334,
+          "at": 0.10133333333333333,
           "rms": 0.11607747657843605,
           "frames": 3120,
           "expectedFrames": 3120
         },
         {
-          "at": 0.2663333333333333,
+          "at": 0.22633333333333333,
           "rms": 0.11607747657843605,
           "frames": 3120,
           "expectedFrames": 3120
         },
         {
-          "at": 0.3913333333333333,
+          "at": 0.35133333333333333,
           "rms": 0.11607747657843605,
           "frames": 3120,
           "expectedFrames": 3120
         },
         {
-          "at": 0.5163333333333333,
+          "at": 0.47633333333333333,
           "rms": 0.11607747657843605,
           "frames": 3120,
           "expectedFrames": 3120
         },
         {
-          "at": 0.6413333333333333,
+          "at": 0.6013333333333334,
           "rms": 0.11607747657843605,
           "frames": 3120,
           "expectedFrames": 3120
         },
         {
-          "at": 0.7663333333333333,
+          "at": 0.7263333333333334,
           "rms": 0.11607747657843605,
           "frames": 3120,
           "expectedFrames": 3120
         },
         {
-          "at": 0.8913333333333333,
+          "at": 0.8513333333333334,
           "rms": 0.11607747657843605,
           "frames": 3120,
           "expectedFrames": 3120
         },
         {
-          "at": 1.0163333333333333,
+          "at": 0.9763333333333334,
           "rms": 0.11607747657843605,
           "frames": 3120,
           "expectedFrames": 3120

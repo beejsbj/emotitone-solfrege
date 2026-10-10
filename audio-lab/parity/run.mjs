@@ -87,7 +87,8 @@ try {
   await call('Fetch.enable', { patterns: [{ urlPattern: '*' }] });
   await call('Page.navigate', { url: `${origin}/audio-lab/parity/` });
   let ready = false;
-  for (let attempt = 0; attempt < 200; attempt++) {
+  // Cold dependency transforms can exceed 20 seconds on the shared lab host.
+  for (let attempt = 0; attempt < 600; attempt++) {
     const result = await call('Runtime.evaluate', { expression: 'typeof window.runPlaybackParity === "function"', returnByValue: true });
     if (result.result.value) { ready = true; break; }
     if (exceptions.length) break;

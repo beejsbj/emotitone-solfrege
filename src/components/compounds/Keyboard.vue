@@ -279,6 +279,11 @@ const emit = defineEmits<{
   chordGainChange: [intent: KeyboardChordIntent & { gain: number }];
 }>();
 
+const romanDegrees = [
+  "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII",
+];
+const degreeLabel = (number: number) => romanDegrees[number - 1] ?? String(number);
+
 function chordMembers(
   chord: HarmonyChord,
   mode: MusicalMode,
@@ -289,25 +294,29 @@ function chordMembers(
   keySaturation = 1,
   laBasedMinor = false,
 ): ChordMember[] {
-  return chord.voicing.pitches.map((pitch, voicingOrder) => ({
-    id: `${chord.id}:${pitch.name}:${voicingOrder}`,
-    rawPitch: pitch.label,
-    syllable: spelledPitchSolfege(pitch.label, { tonic: key, mode }, laBasedMinor),
-    primary,
-    visibleLabels: [primary],
-    scaleIndex: pitch.scaleIndex ?? chord.degreeIndex,
-    pitchClassIndex: pitch.pitchClassIndex,
-    octave: pitch.octave,
-    mode,
-    musicKey: key,
-    surfaceStyle,
-    accidental: pitch.pitchClass.includes("#"),
-    keyBrightness,
-    keySaturation,
-    voicingOrder,
-    // Playable keys retain musical identity at rest; CodeStrip owns temporal progress.
-    progress: 1,
-  }));
+  return chord.voicing.pitches.map((pitch, voicingOrder) => {
+    const label = primary === "degree" && pitch.scaleIndex === null ? "raw" : primary;
+    return {
+      id: `${chord.id}:${pitch.name}:${voicingOrder}`,
+      rawPitch: pitch.label,
+      syllable: spelledPitchSolfege(pitch.label, { tonic: key, mode }, laBasedMinor),
+      degree: pitch.scaleIndex === null ? undefined : degreeLabel(pitch.scaleIndex + 1),
+      primary: label,
+      visibleLabels: [label],
+      scaleIndex: pitch.scaleIndex ?? chord.degreeIndex,
+      pitchClassIndex: pitch.pitchClassIndex,
+      octave: pitch.octave,
+      mode,
+      musicKey: key,
+      surfaceStyle,
+      accidental: pitch.pitchClass.includes("#"),
+      keyBrightness,
+      keySaturation,
+      voicingOrder,
+      // Playable keys retain musical identity at rest; CodeStrip owns temporal progress.
+      progress: 1,
+    };
+  });
 }
 
 function createProductionWiring() {
@@ -335,10 +344,6 @@ function createProductionWiring() {
     computed(() => props.harmonyAlteration),
   );
 
-  const romanDegrees = [
-    "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII",
-  ];
-  const degreeLabel = (number: number) => romanDegrees[number - 1] ?? String(number);
   const noteKey = (scaleIndex: number, octave: number) => `${scaleIndex}_${octave}`;
   /** Sharps-only scientific pitch: the internal key the store attacks. */
   const noteName = (scaleIndex: number, octave: number) =>

@@ -19,7 +19,7 @@ const mocks = vi.hoisted(() => ({
     keyboardConfig: {
       mainOctave: 4,
       rowCount: 1,
-      primaryLabel: "raw" as "raw" | "syllable",
+      primaryLabel: "raw" as "raw" | "syllable" | "degree",
       keyboardPadding: false,
       keyGaps: "small" as const,
       showLabels: true,
@@ -71,8 +71,9 @@ function playIn(key: ChromaticNote, mode: MusicalMode, laBasedMinor = false) {
   mocks.keyboardStore.solfegeData = theory.getCurrentScaleNotes().map((pitch) => pitchSolfegeData(pitch, { tonic: key, mode }, laBasedMinor));
 }
 
-function mountKeyboard() {
+function mountKeyboard(harmonyAlteration: "auto" | "flip" = "auto") {
   return mount(Keyboard, {
+    props: { harmonyAlteration },
     global: { provide: { [noteColorResolverKey as symbol]: staticNoteColorResolver } },
   });
 }
@@ -106,11 +107,11 @@ describe("Keyboard spelling by key", () => {
     wrapper.unmount();
   });
 
-  it.each([false, true].flatMap((laBasedMinor) => ["raw", "syllable"].map((primary) => ({ laBasedMinor, primary: primary as "raw" | "syllable" }))))("shows minor key and chord-member labels ($primary, la-based=$laBasedMinor)", ({ laBasedMinor, primary }) => {
+  it.each([false, true].flatMap((laBasedMinor) => (["raw", "syllable", "degree"] as const).map((primary) => ({ laBasedMinor, primary }))))("shows minor key and chord-member labels ($primary, la-based=$laBasedMinor)", ({ laBasedMinor, primary }) => {
     playIn("A", "minor", laBasedMinor);
     mocks.keyboardStore.keyboardConfig.primaryLabel = primary;
     const wrapper = mountKeyboard();
-    expect(keyLabels(wrapper)).toEqual(primary === "raw" ? ["A4", "B4", "C5", "D5", "E5", "F5", "G5"] : laBasedMinor
+    expect(keyLabels(wrapper)).toEqual(primary === "degree" ? ["I", "II", "III", "IV", "V", "VI", "VII"] : primary === "raw" ? ["A4", "B4", "C5", "D5", "E5", "F5", "G5"] : laBasedMinor
       ? ["La", "Ti", "Do", "Re", "Mi", "Fa", "Sol"]
       : ["Do", "Re", "Me", "Fa", "Sol", "Le", "Te"]);
     // Keyboard's fused chord symbol carries these same members; render its
@@ -120,7 +121,20 @@ describe("Keyboard spelling by key", () => {
       global: { provide: { [noteColorResolverKey as symbol]: staticNoteColorResolver } },
     });
     const chordLabels = chord.findAll(".note__label--rank-primary").map((label) => visible(label.text()));
-    expect(chordLabels).toEqual(primary === "raw" ? ["A4", "C5", "E5"] : laBasedMinor ? ["La", "Do", "Mi"] : ["Do", "Me", "Sol"]);
+    expect(chordLabels).toEqual(primary === "degree" ? ["I", "III", "V"] : primary === "raw" ? ["A4", "C5", "E5"] : laBasedMinor ? ["La", "Do", "Mi"] : ["Do", "Me", "Sol"]);
+    chord.unmount();
+    wrapper.unmount();
+  });
+
+  it("uses raw pitch for borrowed chord members in degree notation", () => {
+    mocks.keyboardStore.keyboardConfig.primaryLabel = "degree";
+    const wrapper = mountKeyboard("flip");
+    const chord = mount(Chord, {
+      props: { ...wrapper.findComponent(Chord).props(), display: "notes" },
+      global: { provide: { [noteColorResolverKey as symbol]: staticNoteColorResolver } },
+    });
+    expect(chord.findAll(".note__label--rank-primary").map((label) => visible(label.text())))
+      .toEqual(["I", "E♭4", "V"]);
     chord.unmount();
     wrapper.unmount();
   });

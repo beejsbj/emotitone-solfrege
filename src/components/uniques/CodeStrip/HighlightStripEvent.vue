@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
 import type { NoteColorResolver } from "@/components/primatives/noteColorContext";
 import Sequence from "./Sequence.vue";
+import type { NotationHighlightSource } from "./highlight";
 import type { CodeStripViewport } from "./viewport";
 import type {
   CodeStripDensity,
@@ -10,8 +11,9 @@ import type {
 } from "./types";
 
 /**
- * One Stave event of the HighlightStrip. Progress arrives as primitives so an
- * event re-renders only when its own state changes, not on every note.
+ * One Stave event of the HighlightStrip. Controlled progress arrives as
+ * primitives; during playback the event reads its own state from the
+ * highlight `source`, so it re-renders only when its own state changes.
  */
 const props = defineProps<{
   token: CodeStripToken;
@@ -20,8 +22,10 @@ const props = defineProps<{
   /** Chord member fills in member order, joined by "|". */
   memberProgress?: string;
   active: boolean;
-  /** Progress follows the playback clock frame by frame: no eased fill. */
-  live?: boolean;
+  /** Playback highlight to read from; progress then follows its clock. */
+  source?: NotationHighlightSource;
+  /** This event's phrase note ids, for `source`. */
+  noteIds?: readonly string[];
   hidden?: boolean;
   density: CodeStripDensity;
   durationMode: CodeStripDurationMode;
@@ -47,24 +51,46 @@ onBeforeUnmount(() => {
   if (root.value) props.viewport?.unbind(root.value);
 });
 
+const state = computed(() => {
+  const { source, token } = props;
+  if (!source) return { progress: props.progress, active: props.active };
+  if (token.type === "rest") return { progress: source.restProgress(props.index), active: false };
+  const active = source.isActive(props.noteIds ?? []);
+  if (token.type === "chord") {
+    const members = token.members.map((member) => source.noteProgress(member.id));
+    return {
+      progress: members.reduce((sum, value) => sum + value, 0) / Math.max(1, members.length),
+      members,
+      active,
+    };
+  }
+  return { progress: source.noteProgress(token.type === "note" ? token.noteId : undefined), active };
+});
+
 const rendered = computed<CodeStripToken>(() => {
   const token = props.token;
+  const { progress } = state.value;
   if (token.type === "chord") {
-    const members = props.memberProgress?.split("|").map(Number) ?? [];
+    const members = "members" in state.value && state.value.members
+      ? state.value.members
+      : props.memberProgress?.split("|").map(Number) ?? [];
     return {
       ...token,
       members: token.members.map((member, memberIndex) => ({
         ...member,
-        progress: members[memberIndex] ?? props.progress,
+        progress: members[memberIndex] ?? progress,
       })),
     };
   }
-  if (token.type === "note" || token.type === "rest") return { ...token, progress: props.progress };
+  if (token.type === "note" || token.type === "rest") return { ...token, progress };
   return token;
 });
 
+const lit = computed(() => state.value.active);
+
+// Playback progress follows the clock every frame, so it must not ease.
 const fillStyle = computed(() =>
-  props.live ? { "--code-strip-fill-duration": "0ms" } : undefined,
+  props.source ? { "--code-strip-fill-duration": "0ms" } : undefined,
 );
 
 const accessibleName = computed(() => {
@@ -81,11 +107,11 @@ const accessibleName = computed(() => {
     ref="root"
     class="highlight-strip-event"
     :class="{
-      'highlight-strip-event--active': active,
+      'highlight-strip-event--active': lit,
       'highlight-strip-event--hidden': hidden,
     }"
     :data-event-index="index"
-    :data-active="active || undefined"
+    :data-active="lit || undefined"
     :aria-hidden="hidden || undefined"
     :style="fillStyle"
   >

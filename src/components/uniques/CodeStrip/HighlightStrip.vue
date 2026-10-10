@@ -107,24 +107,9 @@ const entries = computed(() => events.value.map((token, index) => {
   const key = eventKey(token, index);
   if (props.listening) {
     if (!props.playing) return { token, key, hidden, progress: 1, memberProgress: allMembers(token, 1), active: false };
-    const active = highlight.isActive(ids);
-    if (token.type === "rest") {
-      return { token, key, hidden, progress: highlight.restProgress(index), active: false, live: true };
-    }
-    if (token.type === "chord") {
-      const members = token.members.map((member) => highlight.noteProgress(member.id));
-      return {
-        token, key, hidden, active,
-        progress: members.reduce((sum, value) => sum + value, 0) / Math.max(1, members.length),
-        memberProgress: members.join("|"),
-        live: true,
-      };
-    }
-    return {
-      token, key, hidden, active,
-      progress: highlight.noteProgress(token.noteId),
-      live: true,
-    };
+    // Each event reads its own state from the highlight, so a frame of
+    // playback re-renders only what is sounding, not the whole line.
+    return { token, key, hidden, ids, progress: 0, active: false, source: highlight.source };
   }
 
   if (!controlledProgress.value) return { token, key, hidden, progress: 1, memberProgress: allMembers(token, 1), active: false };
@@ -302,7 +287,8 @@ function clamp(value: number) {
           :progress="entry.progress"
           :member-progress="entry.memberProgress"
           :active="entry.active"
-          :live="entry.live"
+          :source="entry.source"
+          :note-ids="entry.ids"
           :hidden="entry.hidden"
           :density="density"
           :duration-mode="durationMode"

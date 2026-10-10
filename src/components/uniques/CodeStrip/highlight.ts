@@ -40,6 +40,13 @@ export interface NotationHighlightOptions {
   now?: () => number;
 }
 
+/** What an event reads to show its own highlight state. */
+export interface NotationHighlightSource {
+  noteProgress: (id: string | undefined) => number;
+  isActive: (ids: readonly string[]) => boolean;
+  restProgress: (index: number) => number;
+}
+
 /**
  * Lights a phrase's events from typed note events keyed by `sourceNoteId`.
  *
@@ -56,16 +63,18 @@ export interface NotationHighlightOptions {
  */
 export function useNotationHighlight(options: NotationHighlightOptions) {
   const now = options.now ?? (() => performance.now());
-  // One reactive tick per painted frame while anything is moving; everything
-  // the template reads is derived from the schedule at that tick.
-  const tick = ref(0);
+  // `version` moves when something starts, ends or a pass begins; `frame`
+  // moves every painted frame. Only a value that sweeps with time reads
+  // `frame`, so a long phrase re-renders just its sounding event per frame.
+  const version = ref(0);
+  const frame = ref(0);
   // The current pass through the loop, and the furthest event lit in it.
   let pass = 0;
   let passIndex = -1;
   const voices = new Map<string, Voice>();
   const sounding = new Map<string, Voice>();
   const played = new Map<string, Voice>();
-  let frame: number | null = null;
+  let frameRequest: number | null = null;
   let frameTime = 0;
 
   function indexOf(id: string) {
@@ -75,14 +84,14 @@ export function useNotationHighlight(options: NotationHighlightOptions) {
   }
 
   function reset() {
-    if (frame !== null) cancelAnimationFrame(frame);
-    frame = null;
+    if (frameRequest !== null) cancelAnimationFrame(frameRequest);
+    frameRequest = null;
     voices.clear();
     sounding.clear();
     played.clear();
     pass = 0;
     passIndex = -1;
-    tick.value++;
+    version.value++;
   }
 
   function startPass(index: number) {
@@ -95,6 +104,7 @@ export function useNotationHighlight(options: NotationHighlightOptions) {
   /** Move the schedule to `time`: onsets in heard order, then endings. */
   function advance(time: number) {
     frameTime = time;
+    let changed = false;
     const due = [...voices.values()]
       .filter((voice) => voice.pass === 0 && voice.start <= time)
       .sort((a, b) => a.start - b.start);
@@ -105,6 +115,7 @@ export function useNotationHighlight(options: NotationHighlightOptions) {
       else passIndex = Math.max(passIndex, voice.index);
       voice.pass = pass;
       sounding.set(voice.id, voice);
+      changed = true;
       options.onActivate?.(voice.index);
     }
     for (const [id, voice] of sounding) {
@@ -112,11 +123,14 @@ export function useNotationHighlight(options: NotationHighlightOptions) {
       if (end > time) continue;
       sounding.delete(id);
       if (voice.pass === pass) played.set(id, voice);
+      changed = true;
     }
     // A started voice is kept only while it sounds, for its release to find.
     for (const [key, voice] of voices) {
       if (voice.pass !== 0 && sounding.get(voice.id) !== voice) voices.delete(key);
     }
+    if (changed) version.value++;
+    frame.value++;
   }
 
   /** Keep a frame running while a note sounds, waits to be heard, or a rest fills. */
@@ -126,11 +140,10 @@ export function useNotationHighlight(options: NotationHighlightOptions) {
   }
 
   function schedule() {
-    if (frame !== null || typeof requestAnimationFrame === "undefined") return;
-    frame = requestAnimationFrame(() => {
-      frame = null;
+    if (frameRequest !== null || typeof requestAnimationFrame === "undefined") return;
+    frameRequest = requestAnimationFrame(() => {
+      frameRequest = null;
       advance(now());
-      tick.value++;
       if (needsFrames()) schedule();
     });
   }
@@ -162,7 +175,7 @@ export function useNotationHighlight(options: NotationHighlightOptions) {
     }
     // An event already due is shown now, not a frame later.
     advance(time);
-    tick.value++;
+    version.value++;
     schedule();
   }
 
@@ -191,12 +204,13 @@ export function useNotationHighlight(options: NotationHighlightOptions) {
   }
 
   /** The progress of the rest at `index`, 0 to 1, at `time`. */
-  function restAt(index: number, time: number) {
+  function restAt(index: number, time: number, sweeping?: () => void) {
     if (passIndex < 0) return 0;
     if (passIndex > index) return 1;
     const rest = restWindow(index);
     if (!rest) return 0;
     if (options.still?.() || rest.lengthMs <= 0) return 1;
+    sweeping?.();
     return clamp((time - rest.from) / rest.lengthMs);
   }
 
@@ -234,27 +248,29 @@ export function useNotationHighlight(options: NotationHighlightOptions) {
 
   /** Fill of one phrase note: sweeps 0 to 1 while it sounds, 1 once played this pass. */
   function noteProgress(id: string | undefined): number {
-    void tick.value;
+    void version.value;
     if (!id) return 0;
     if (played.has(id)) return 1;
     const voice = sounding.get(id);
     if (!voice) return 0;
     if (options.still?.() || voice.lengthMs === undefined) return 1;
+    void frame.value;
     return clamp((frameTime - voice.start) / voice.lengthMs);
   }
 
   function isActive(ids: readonly string[]) {
-    void tick.value;
+    void version.value;
     return ids.some((id) => sounding.has(id));
   }
 
   /** A rest fills over its own length once the event before it has ended. */
   function restProgress(index: number) {
-    void tick.value;
-    return restAt(index, frameTime);
+    void version.value;
+    return restAt(index, frameTime, () => void frame.value);
   }
 
-  return { noteProgress, isActive, restProgress, reset };
+  const source: NotationHighlightSource = { noteProgress, isActive, restProgress };
+  return { ...source, source, reset };
 }
 
 function clamp(value: number) {

@@ -100,6 +100,7 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     vi.spyOn(performance, "now").mockImplementation(() => Date.now() - EPOCH);
     vi.mocked(audio.attackNote).mockResolvedValue(undefined);
     vi.mocked(audio.getAudioContext).mockImplementation(() => ({
+      state: "running",
       currentTime: performance.now() / 1000,
     } as AudioContext));
 

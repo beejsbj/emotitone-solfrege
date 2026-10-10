@@ -1,8 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
-  const context = { state: "running", resume: vi.fn().mockResolvedValue(undefined) };
-  const master = { id: "shared-master" };
+  const context = Object.assign(new EventTarget(), { createAnalyser: () => ({ fftSize: 2048, getFloatTimeDomainData: vi.fn(), disconnect: vi.fn() }), state: "running", resume: vi.fn().mockResolvedValue(undefined) });
+  const master = { connect: vi.fn(), disconnect: vi.fn(), id: "shared-master" };
   return {
     context,
     master,
@@ -20,12 +20,15 @@ vi.mock("superdough", () => ({
 
 describe("production audio graph ownership", () => {
   beforeEach(() => {
+    vi.useFakeTimers();
     vi.resetModules();
     vi.clearAllMocks();
     mocks.context.state = "running";
     mocks.initAudio.mockResolvedValue(undefined);
     mocks.context.resume.mockResolvedValue(undefined);
   });
+
+  afterEach(() => { mocks.context.state = "closed"; mocks.context.dispatchEvent(new Event("statechange")); vi.clearAllTimers(); vi.useRealTimers(); });
 
   it("shares the native graph and coalesces concurrent initialization", async () => {
     const runtime = await import("@/services/audioRuntime");

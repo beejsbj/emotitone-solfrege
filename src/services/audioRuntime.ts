@@ -6,6 +6,7 @@
  */
 // @ts-ignore — superdough does not publish TypeScript declarations.
 import { getAudioContext as superdoughContext, getDefaultValue, getSuperdoughAudioController, initAudio, multiChannelOrbits } from "superdough";
+import { manageAudioLifecycle } from "@/services/audioLifecycle";
 import { MAX_AUDIO_VOICES } from "@/audio/voicePolicy";
 import type { LiveOrbitSends } from "@/audio/liveShaping";
 
@@ -14,6 +15,7 @@ export const LIVE_ORBIT = 2;
 
 let context: AudioContext | undefined;
 let initialization: Promise<void> | undefined;
+let stopLifecycle: (() => void) | undefined;
 
 export function getAudioContext(): AudioContext {
   context ??= superdoughContext() as AudioContext;
@@ -52,4 +54,22 @@ export async function initializeAudio(): Promise<void> {
     throw error;
   });
   await initialization;
+  const master = getMasterGain();
+  if (!stopLifecycle && master && context) {
+    const meter = context.createAnalyser();
+    meter.fftSize = 2048;
+    const samples = new Float32Array(meter.fftSize);
+    master.connect(meter);
+    const stop = manageAudioLifecycle(context, {
+      isSounding() {
+        meter.getFloatTimeDomainData(samples);
+        // Below -80 dBFS is treated as silence, including effect tails.
+        return samples.some(sample => Math.abs(sample) > 0.0001);
+      },
+    });
+    stopLifecycle = () => { stop(); master.disconnect(meter); meter.disconnect(); };
+    context.addEventListener("statechange", () => {
+      if (context?.state === "closed") { stopLifecycle?.(); stopLifecycle = undefined; }
+    });
+  }
 }

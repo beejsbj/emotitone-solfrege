@@ -1,9 +1,9 @@
 import * as dough from 'superdough';
 import { createFilter } from '../../node_modules/superdough/helpers.mjs';
 
-function impulse(context, at = 0) {
+function impulse(context, at = 0, frames = 1) {
   const source = context.createBufferSource();
-  source.buffer = context.createBuffer(1, 1, context.sampleRate);
+  source.buffer = context.createBuffer(1, frames, context.sampleRate);
   source.buffer.getChannelData(0)[0] = 1;
   source.start(at);
   return source;
@@ -14,7 +14,7 @@ window.runEffectReference = async () => {
   for (const rate of [44100, 48000]) for (const cutoff of [200, 1000, 5000]) for (const q of [1, 10]) {
     const context = new OfflineAudioContext(1, 4096, rate);
     const { filter } = createFilter(context, 0, 1, { type: 'lowpass', frequency: cutoff, q });
-    impulse(context).connect(filter).connect(context.destination);
+    impulse(context, 0, context.length).connect(filter).connect(context.destination);
     filters.push({ rate, cutoff, q, pcm: pcm(await context.startRendering()) });
   }
   const context = new OfflineAudioContext(2, 96000, 48000);

@@ -1,3 +1,4 @@
+import { sizeStageCanvas } from "@/composables/canvas/stageCanvas";
 import { createCanvas } from "@napi-rs/canvas";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getBlobFieldConnectionGeometry, getBlobWebConnections, getBlobWebConnectionWidth, useBlobFieldRenderer } from "@/composables/canvas/useBlobFieldRenderer";
@@ -61,6 +62,26 @@ describe("Merge field pixels", () => {
     );
   });
   afterEach(() => vi.restoreAllMocks());
+
+  it.each([1, 2, 3])("paints field bodies at the same CSS positions at capped DPR %s", dpr => {
+    const canvas = createCanvas(1, 1);
+    const ctx = canvas.getContext("2d");
+    sizeStageCanvas(canvas as unknown as HTMLCanvasElement,
+      ctx as unknown as CanvasRenderingContext2D, 1000, 650, Math.min(dpr, 2));
+    const frames = chordFrames(35);
+    const renderer = useBlobFieldRenderer();
+    expect(renderer.renderBlobField(ctx as unknown as CanvasRenderingContext2D, frames,
+      { ...DEFAULT_CONFIG.blobs, connectionMode: "merge", blurRadius: 0, glowEnabled: false }, null)).toBe(true);
+    const scale = Math.min(dpr, 2);
+    for (const frame of frames) {
+      const pixel = ctx.getImageData(frame.blob.x * scale, frame.blob.y * scale, 1, 1).data;
+      expect(pixel[0]).toBeGreaterThan(240);
+      expect(pixel[3]).toBeGreaterThan(240);
+    }
+    // A point outside all bodies remains clear in CSS coordinates.
+    expect(ctx.getImageData(50 * scale, 550 * scale, 1, 1).data[3]).toBe(0);
+    renderer.dispose();
+  });
 
   it.each(["merge", "web"] as const)("takes %s opacity from the prepared note strength, independently of color alpha", (mode) => {
     const opaque = framesAt();

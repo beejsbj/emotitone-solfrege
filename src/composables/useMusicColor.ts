@@ -23,13 +23,14 @@ const FALLBACK_NOTE_COLORS: NoteColorRelationships = {
   primary: "hsla(0, 0%, 16%, 1)",
 };
 
-export function useMusicColor(options: { animated?: boolean } = {}) {
+export function useMusicColor(options: { animated?: boolean; animationActive?: () => boolean } = {}) {
   const {
     config: dynamicColorConfig,
     clockKey,
   } = useMusicColorProvider();
   const clock = useMusicColorClock(
-    () => options.animated === true && dynamicColorConfig.value.hueMotionEnabled,
+    () => options.animated === true && dynamicColorConfig.value.hueMotionEnabled
+      && (options.animationActive?.() ?? true),
     () => dynamicColorConfig.value.animationSpeed,
     clockKey,
   );

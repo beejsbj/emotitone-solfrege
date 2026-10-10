@@ -2,8 +2,6 @@
   <div v-show="visualsEnabled" class="unified-visual-effects">
     <canvas
       ref="canvasRef"
-      :width="canvasWidth"
-      :height="canvasHeight"
       class="unified-canvas"
       aria-hidden="true"
     />
@@ -49,8 +47,6 @@ const { visualsEnabled } = storeToRefs(visualConfigStore);
 
 // Use the unified canvas system
 const {
-  canvasWidth,
-  canvasHeight,
   harmonicAccessibleText,
   noteEventTarget,
   initializeCanvas,

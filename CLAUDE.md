@@ -20,7 +20,7 @@ Use only the package scripts for checks (shared lock across worktrees; see AGENT
 **Audio is mid-migration.** The decision (spec, Decision 3) is to move off Strudel and superdough to the app's own AudioWorklet engine. Today both exist:
 
 - `src/audio/live/` is the worklet engine: `processor.ts` (render thread), `core.ts` (voices, scheduling, envelopes, band-limited oscillators), `bridge.ts` (main-thread commands and responses), `resampler.ts`. It plays live notes and play-style repeats/arpeggios from prepared sample banks.
-- Superdough still provides the AudioContext, master output and orbit effects (`src/services/audioRuntime.ts`, `superdoughAudio.ts`), and Strudel (`@strudel/*`, `useStrudel.ts`) still renders authored and recorded patterns. Patched dependencies live in `patches/`. Do not deepen the Strudel/superdough dependency; new audio work targets the worklet.
+- The app owns the AudioContext, master output and native room/delay buses (`src/services/audioRuntime.ts`, `src/audio/effects.ts`). The worklet filters per voice and feeds those buses through wet outputs. Superdough borrows the app graph, and Strudel (`@strudel/*`, `useStrudel.ts`) still renders authored and recorded patterns. Patched dependencies live in `patches/`. Do not deepen the Strudel/superdough dependency; new audio work targets the worklet.
 - `src/audio/voicePolicy.ts` and `liveShaping.ts` hold voice budgets and Shape-to-sound mapping. `src/services/live*.ts` is the live-play path; `playStyles.ts` is the main-thread play-style engine slated to move into the worklet.
 - Audio measurements run in `audio-lab/` (`bun run test:audio-browser`). Research and decisions: `docs/research/`.
 

@@ -4,8 +4,8 @@ const mocks = vi.hoisted(() => ({ create: vi.fn(), prepare: vi.fn(), releasePrep
   chains: [] as { input: object; apply: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn> }[] }))
 vi.mock('@strudel/soundfonts', () => ({ getPreparedSoundfont: vi.fn() }))
 vi.mock('@/audio/live/bridge', () => ({ createLiveWorklet: mocks.create }))
-vi.mock('@/audio/liveShaping', () => ({ createLiveShapingChain: vi.fn(() => {
-  const chain = { input: {}, apply: vi.fn(), dispose: vi.fn() }
+vi.mock('@/audio/liveShaping', () => ({ OPEN_CUTOFF_HZ: 12000, createLiveShapingChain: vi.fn(() => {
+  const chain = { input: {}, room: {}, delay: {}, apply: vi.fn(), dispose: vi.fn() }
   mocks.chains.push(chain)
   return chain
 }) }))
@@ -19,7 +19,7 @@ const context = () => ({ audioWorklet: {}, state: 'running' }) as AudioContext
 const destination = {} as AudioNode
 async function setup() {
   const engine = { prepare: vi.fn().mockResolvedValue(undefined), forget: vi.fn(), press: vi.fn(),
-    release: vi.fn(), clear: vi.fn(), configure: vi.fn(), shape: vi.fn(), dispose: vi.fn() }
+    release: vi.fn(), clear: vi.fn(), configure: vi.fn(), shape: vi.fn(), effects: vi.fn(), dispose: vi.fn() }
   mocks.create.mockResolvedValue(engine)
   mocks.prepare.mockImplementation(async (_context, name) => bank(name))
   mocks.preparationDiagnostics.mockReturnValue({ cachedPreparationPcmBytes: 0, preparingPcmBytes: 0, preparationPcmBudgetBytes: 192 * 1024 * 1024 })
@@ -244,17 +244,19 @@ describe('live Shape controls on the worklet backend', () => {
     manager.setLivePlaybackShaping(shaped)
     await manager.prepareLivePlayback(context, destination, 'piano')
     const [chain] = mocks.chains
-    expect(mocks.create).toHaveBeenCalledWith(context, chain.input, expect.anything())
-    expect(chain.apply).toHaveBeenLastCalledWith(shaped)
+    expect(mocks.create).toHaveBeenCalledWith(context, chain.input, expect.anything(), chain)
+    expect(engine.effects).toHaveBeenLastCalledWith(shaped)
     expect(engine.shape).toHaveBeenLastCalledWith(shaped.envelope)
+    expect(engine.effects).toHaveBeenLastCalledWith(shaped)
   })
 
   it('applies later edits to the chain and the worklet envelope', async () => {
     const { manager, engine, context } = await setup()
     await manager.prepareLivePlayback(context, destination, 'piano')
     manager.setLivePlaybackShaping(shaped)
-    expect(mocks.chains[0].apply).toHaveBeenLastCalledWith(shaped)
+    expect(engine.effects).toHaveBeenLastCalledWith(shaped)
     expect(engine.shape).toHaveBeenLastCalledWith(shaped.envelope)
+    expect(engine.effects).toHaveBeenLastCalledWith(shaped)
   })
 
   it('keeps edits made while the worklet is still being created', async () => {
@@ -265,8 +267,9 @@ describe('live Shape controls on the worklet backend', () => {
     await vi.waitFor(() => expect(finish).toBeTypeOf('function'))
     manager.setLivePlaybackShaping(shaped)
     finish(engine); await pending
-    expect(mocks.chains[0].apply).toHaveBeenLastCalledWith(shaped)
+    expect(engine.effects).toHaveBeenLastCalledWith(shaped)
     expect(engine.shape).toHaveBeenLastCalledWith(shaped.envelope)
+    expect(engine.effects).toHaveBeenLastCalledWith(shaped)
   })
 
   it('disposes the chain together with its worklet', async () => {

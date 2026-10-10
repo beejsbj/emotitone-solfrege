@@ -7,9 +7,11 @@ import { LiveAudioCore } from '../../src/audio/live/core';
 import { prepareLiveInstrument } from '../../src/services/preparedLiveInstrument';
 import { getLiveArticulation } from '../../src/services/liveArticulation';
 import { logNotesToStrudel } from '../../src/services/StrudelNotation';
-import { comparePcm, parityChecks } from './metrics.mjs';
+import { comparePcm, harmonics } from './metrics.mjs';
+import { oscillatorParityChecks } from './oscillator-bounds.mjs';
 import { createFixtureWav } from './fixtures.mjs';
 import { registerSoundfonts, setSoundfontUrl } from '@strudel/soundfonts';
+import { runOscillatorStalls } from './oscillator-stalls.mjs';
 import { runVoiceBudgetParity } from './voice-budget.mjs';
 
 const RATE = 48000, START = .05, HOLD = .4;
@@ -30,62 +32,35 @@ async function render(sound, code, fixture = {}) {
   const notes = fixture.notes ?? [{ at: 0, hold, style: 'together' }];
   const lastEnd = Math.max(...notes.map(note => note.at + note.hold));
   const length = Math.max(2.5, lastEnd + 2);
-  let context = await createContext(length);
+  const context = await createContext(length);
   const prepared = await prepareLiveInstrument(context, sound);
-  const nativeFallback = sound === 'square' || sound === 'sawtooth';
-  if (nativeFallback ? prepared.kind !== 'unsupported' : !['sample-bank', 'oscillator'].includes(prepared.kind)) {
+  if (!['sample-bank', 'oscillator'].includes(prepared.kind)) {
     throw new Error(`Unexpected renderer selection: ${JSON.stringify(prepared)}`);
   }
   const events = [], live = new LiveAudioCore(RATE, message => {
     if (message.type === 'event') events.push(message.event);
   });
-  let reference;
-  const nativeScheduled = [];
-  if (nativeFallback) {
-    // Exercise the actual native held-voice path, independently of finite
-    // notation playback. These are scheduled API edges, not store/UI captures.
-    for (const [index, note] of notes.entries()) {
-      const voiceId = `parity-held-${sound}-${index}`;
-      const articulation = { ...getLiveArticulation(sound),
-        ...(note.style === 'repeat' || note.style.startsWith('arp') ? { release: .03 } : {}) };
-      const value = { s: sound, note: pitch, gain: .8, ...articulation, voiceId, sustainUntilRelease: true };
-      const start = START + note.at, release = start + note.hold;
-      const armedAt = await dough.superdough(value, start, .25, 1);
-      if (!Number.isFinite(armedAt) || Math.abs(armedAt - start) > 1 / RATE) {
-        throw new Error(`Unexpected native held onset: ${armedAt}, expected ${start}`);
-      }
-      if (!dough.releaseVoice(voiceId, release)) throw new Error(`Native voice was not registered: ${voiceId}`);
-      nativeScheduled.push({ value, start: armedAt, release });
-      for (const [phase, at] of [['attack', armedAt], ['release', release]]) {
-        events.push({ phase, at, noteId: voiceId, ownerId: `key-${index}`, pitch,
-          instrumentId: sound, style: note.style, articulation });
-      }
-    }
-    reference = (await context.startRendering()).getChannelData(0);
-    context = await createContext(length);
-  } else {
-    live.command({ type: 'prepare', requestId: 1, instrument: prepared }, 0);
-    reference = new Float32Array(Math.ceil(RATE * length));
-    const commands = notes.flatMap((note, index) => [
-      { at: Math.round((START + note.at) * RATE), command: { type: 'configure', config: { style: note.style, bpm: 120, rate: 4 } } },
-      { at: Math.round((START + note.at) * RATE), command: { type: 'press', ownerId: `key-${index}`, notes: [{ pitch, instrumentId: sound }] } },
-      { at: Math.round((START + note.at + note.hold) * RATE), command: { type: 'release', ownerId: `key-${index}` } },
-    ]);
-    const edges = [...new Set([0, ...commands.map(command => command.at), reference.length])].sort((a, b) => a - b);
-    for (let j = 0; j < edges.length - 1; j++) {
-      const from = edges[j], to = edges[j + 1];
-      commands.filter(command => command.at === from).forEach(({ command }) => live.command(command, from));
-      for (let at = from; at < to; at += 128) {
-        const left = reference.subarray(at, Math.min(at + 128, to));
-        live.render([left, new Float32Array(left.length)], at);
-      }
+  live.command({ type: 'prepare', requestId: 1, instrument: prepared }, 0);
+  const reference = new Float32Array(Math.ceil(RATE * length));
+  const commands = notes.flatMap((note, index) => [
+    { at: Math.round((START + note.at) * RATE), command: { type: 'configure', config: { style: note.style, bpm: 120, rate: 4 } } },
+    { at: Math.round((START + note.at) * RATE), command: { type: 'press', ownerId: `key-${index}`, notes: [{ pitch, instrumentId: sound }] } },
+    { at: Math.round((START + note.at + note.hold) * RATE), command: { type: 'release', ownerId: `key-${index}` } },
+  ]);
+  const edges = [...new Set([0, ...commands.map(command => command.at), reference.length])].sort((a, b) => a - b);
+  for (let j = 0; j < edges.length - 1; j++) {
+    const from = edges[j], to = edges[j + 1];
+    commands.filter(command => command.at === from).forEach(({ command }) => live.command(command, from));
+    for (let at = from; at < to; at += 128) {
+      const left = reference.subarray(at, Math.min(at + 128, to));
+      live.render([left, new Float32Array(left.length)], at);
     }
   }
   const recorded = events.filter(event => event.phase === 'attack').map(attack => {
     const release = events.find(event => event.phase === 'release' && event.noteId === attack.noteId);
     if (!release) throw new Error(`Live fixture failed to release ${attack.noteId}`);
-    return { id: attack.noteId, note: `A${Math.floor(pitch / 12) - 1}`, octave: Math.floor(pitch / 12) - 1,
-      scaleIndex: 5, key: 'C', mode: 'major', instrument: sound, articulation: attack.articulation,
+    return { id: attack.noteId, note: `${pitch % 12 === 0 ? "C" : "A"}${Math.floor(pitch / 12) - 1}`, octave: Math.floor(pitch / 12) - 1,
+      scaleIndex: pitch % 12 === 0 ? 0 : 5, key: 'C', mode: 'major', instrument: sound, articulation: attack.articulation,
       pressTime: Math.round((attack.at - START) * 1e6) / 1000,
       releaseTime: Math.round((release.at - START) * 1e6) / 1000,
       duration: Math.round((release.at - attack.at) * 1e6) / 1000 };
@@ -108,14 +83,37 @@ async function render(sound, code, fixture = {}) {
     // Short-gate checks compare the release segment because no sustain plateau
     // exists. Both paths must begin release from the same partial attack level.
     steadyStart: START + (hold < .1 ? .015 : .12), steadyEnd: START + (hold < .1 ? .08 : .32) });
-  const checks = parityChecks(metrics);
+  const checks = oscillatorParityChecks(metrics, sound, pitch);
   checks.gates = scheduled.every((hap, i) => Math.abs(hap.start * 1000 - recorded[i].pressTime) < .25
     && Math.abs(hap.duration * 1000 - recorded[i].duration) < .25);
   return { code, scheduled, recorded, liveEvents: events, fixture: { pitch, notes },
-    referenceRenderer: nativeFallback ? 'native-held-voice-api' : 'LiveAudioCore',
+    referenceRenderer: 'LiveAudioCore',
     preparation: { kind: prepared.kind, reason: prepared.reason, gain: prepared.gain },
-    nativeScheduled,
     metrics, checks };
+}
+
+async function measureOscillatorFoldback() {
+  const evidence = [];
+  const context = await createContext(.2);
+  for (const sound of ['square', 'sawtooth']) {
+    const prepared = await prepareLiveInstrument(context, sound);
+    if (prepared.kind !== 'oscillator') throw new Error(`Not an oscillator: ${sound}`);
+    const live = new LiveAudioCore(RATE, () => {});
+    live.command({ type: 'prepare', requestId: 1, instrument: prepared }, 0);
+    live.command({ type: 'press', ownerId: 'spectrum', notes: [{
+      pitch: 69 + 12 * Math.log2(5000 / 440), instrumentId: sound,
+    }] }, 0);
+    const pcm = new Float32Array(RATE * .2);
+    for (let at = 0; at < pcm.length; at += 128) live.render([pcm.subarray(at, at + 128)], at);
+    const magnitude = frequency => harmonics(pcm, RATE, frequency, .1, .2, 1)[0];
+    const fundamental = magnitude(5000);
+    const foldback = [5, 6, 7, 8, 9].map(harmonic => {
+      const frequency = Math.abs(((harmonic * 5000 + RATE / 2) % RATE) - RATE / 2);
+      return { harmonic, frequency, dBc: 20 * Math.log10(Math.max(1e-15, magnitude(frequency) / fundamental)) };
+    });
+    evidence.push({ sound, frequency: 5000, foldback });
+  }
+  return evidence;
 }
 
 window.runPlaybackParity = async () => {
@@ -143,8 +141,8 @@ window.runPlaybackParity = async () => {
     }
     for (const pitch of [57, 81]) results.push({ sound: 'piano', scenario: `generated-sample-A${Math.floor(pitch / 12) - 1}`,
       ...await render('piano', undefined, { pitch }) });
-    for (const sound of ['square', 'sawtooth']) for (const pitch of [57, 81, 93, 105]) {
-      results.push({ sound, scenario: `generated-oscillator-A${Math.floor(pitch / 12) - 1}`,
+    for (const sound of ['square', 'sawtooth']) for (const pitch of [36, 48, 60, 72, 84, 96, 57, 81, 93, 105]) {
+      results.push({ sound, scenario: `generated-oscillator-${pitch % 12 === 0 ? "C" : "A"}${Math.floor(pitch / 12) - 1}`,
         ...await render(sound, undefined, { pitch }) });
     }
     results.push({ sound: 'parity_sample', scenario: 'generated-5ms-gate-10ms-attack',
@@ -168,8 +166,13 @@ window.runPlaybackParity = async () => {
     passed: !results.find(row => row.scenario === 'negative-overwritten-gate-ratio').checks.gates });
   const voiceBudget = await runVoiceBudgetParity();
   checks.push(...voiceBudget.checks);
-  return { environment: { userAgent: navigator.userAgent, sampleRate: RATE,
-    scope: 'Finite generated Superdough PCM versus LiveAudioCore or square/saw native held-voice API; no devices, catalog downloads, or UI/store latency',
+  const oscillatorFoldback = await measureOscillatorFoldback();
+  checks.push(...oscillatorFoldback.map(row => ({ name: `${row.sound} 5 kHz foldback below -20 dBc`,
+    passed: row.foldback.every(bin => bin.dBc < -20) })));
+  const oscillatorStalls = await runOscillatorStalls();
+  checks.push(...oscillatorStalls.checks);
+  return { oscillatorFoldback, oscillatorStalls: oscillatorStalls.evidence, environment: { userAgent: navigator.userAgent, sampleRate: RATE,
+    scope: 'Finite generated Superdough PCM versus LiveAudioCore; real worklet oscillator repeats across 300 ms stalls; no devices or catalog downloads',
     phasePolicy: 'Hann-window harmonic magnitudes and energy envelope; waveform phase is not compared pointwise' },
     results, voiceBudget: voiceBudget.evidence, checks };
 };

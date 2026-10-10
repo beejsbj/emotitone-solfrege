@@ -108,24 +108,11 @@ describe("prepared live instrument catalog", () => {
         { rootMidi: 59.25, lowMidi: 60, highMidi: 73 }] });
   });
 
-  it.each(["sine", "triangle"])("prepares %s without sample work and keeps the explicit live envelope", async name => {
+  it.each(["sine", "triangle", "square", "sawtooth"])("prepares %s without sample work and keeps the explicit live envelope", async name => {
     mocks.sounds.set(name, { data: { type: "synth" } });
     expect(await prepareLiveInstrument(context(), name)).toEqual({ kind: "oscillator", instrumentId: name, waveform: name,
       gain: 0.24, attack: 0.003, decay: 0.001, sustain: 1, release: 0.12 });
     expect(mocks.font).not.toHaveBeenCalled(); expect(mocks.load).not.toHaveBeenCalled();
-  });
-
-  it.each(["square", "sawtooth"])("keeps %s on the native renderer before allocating worklet preparation", async name => {
-    mocks.sounds.set(name, { data: { type: "synth" } });
-    const ctx = context();
-    expect(await prepareLiveInstrument(ctx, name)).toMatchObject({ kind: "unsupported", instrumentId: name,
-      reason: expect.stringContaining("native oscillator") });
-    expect(mocks.font).not.toHaveBeenCalled(); expect(mocks.load).not.toHaveBeenCalled();
-    expect(mocks.mipmaps).not.toHaveBeenCalled();
-    expect(getPreparedLiveInstrumentDiagnostics(ctx)).toMatchObject({ cachedPreparationPcmBytes: 0, preparingPcmBytes: 0 });
-    // This restriction belongs to worklet preparation, not the native catalog.
-    expect(await prepareNativeInstrument(ctx, name)).toMatchObject({ kind: "oscillator", waveform: name, gain: 0.24,
-      attack: 0.003, decay: 0.001, sustain: 1, release: 0.12 });
   });
 
   it("prepares only octave levels reachable through each root's actual MIDI selection range", async () => {
@@ -150,8 +137,10 @@ describe("prepared live instrument catalog", () => {
   });
 
   it("reports unsupported synthesis and invalid samples instead of substituting an instrument", async () => {
-    mocks.sounds.set("supersaw", { data: { type: "synth" } });
-    expect(await prepareLiveInstrument(context(), "supersaw")).toMatchObject({ kind: "unsupported", reason: expect.stringContaining("supersaw") });
+    for (const name of ["supersaw", "pulse", "z_square", "z_sawtooth"]) {
+      mocks.sounds.set(name, { data: { type: "synth" } });
+      expect(await prepareLiveInstrument(context(), name)).toMatchObject({ kind: "unsupported", reason: expect.stringContaining(name) });
+    }
     mocks.sounds.set("bad", { data: { type: "sample", samples: ["bad.wav"] } });
     mocks.load.mockResolvedValue({ ...buffer(), numberOfChannels: 6 });
     expect(await prepareLiveInstrument(context(), "bad")).toMatchObject({ kind: "unsupported", reason: expect.stringContaining("mono/stereo") });

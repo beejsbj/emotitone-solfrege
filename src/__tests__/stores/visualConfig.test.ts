@@ -52,7 +52,7 @@ describe('Visual Config Store', () => {
       vi.advanceTimersByTime(500);
       expect(createFreshStore().laBasedMinor).toBe(true);
       expect(JSON.parse(localStorage.getItem('emotitone-visual-config')!).config).toEqual(oldSave.config);
-      oldSave.applyBuiltInStageLook('default');
+      expect(oldSave.applyBuiltInStageLook('soft')).toBe(true);
       expect(oldSave.laBasedMinor).toBe(true);
     } finally {
       vi.useRealTimers();

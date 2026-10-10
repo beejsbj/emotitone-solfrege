@@ -30,11 +30,11 @@ vi.mock('@/components/UnifiedVisualEffects.vue', () => ({
   default: { template: '<div data-testid="unified-visual-effects">Visual Effects</div>' },
 }))
 
-vi.mock('@/components/ConfigPanel.vue', () => ({
+vi.mock('@/components/LazyConfigPanel.vue', () => ({
   default: { template: '<div data-testid="config-panel">Config</div>' },
 }))
 
-vi.mock('@/components/InstrumentSelector.vue', () => ({
+vi.mock('@/components/LazyInstrumentSelector.vue', () => ({
   default: {
     props: ['compact', 'floating'],
     template: '<div data-testid="instrument-selector">Instrument</div>',

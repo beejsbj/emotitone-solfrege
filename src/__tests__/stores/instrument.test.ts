@@ -426,19 +426,33 @@ describe("instrument persistence", () => {
     expect(store.instrumentShapes).toEqual({ piano: { ...NEUTRAL, cutoff: 1800, attack: 0.05 } });
   });
 
-  it("warms a persisted sampled instrument during startup", async () => {
-    saved.set(KEY, JSON.stringify({ currentInstrument: "gm_epiano1", instrumentShapes: {} }));
+  it("preserves the persisted selection and Shape at boot, then prepares them after Play", async () => {
+    saved.set(KEY, JSON.stringify({ currentInstrument: "gm_epiano1", instrumentShapes: {
+      gm_epiano1: { ...NEUTRAL, cutoff: 1800 },
+    } }));
     audioMocks.isPrewarmed.mockImplementation((name: string) => name === DEFAULT_INSTRUMENT);
     audioMocks.getReadySounds.mockReturnValue([DEFAULT_INSTRUMENT]);
     const store = freshStore();
     const progress = vi.fn();
 
-    await store.initializeInstruments(progress);
-
-    expect(audioMocks.prewarmSoundSamples).toHaveBeenCalledWith("gm_epiano1");
-    expect(progress).toHaveBeenCalledWith(99, "Preparing epiano1…");
+    await store.initializeInstruments(progress, { prepareSelected: false });
+    expect(audioMocks.prewarmSoundSamples).not.toHaveBeenCalled();
     expect(store.currentInstrument).toBe("gm_epiano1");
+    expect(store.shape.cutoff).toBe(1800);
+    expect(store.isInstrumentReady("gm_epiano1")).toBe(false);
+    expect(store.isLoading).toBe(false);
+
+    const prepared = createDeferred<void>();
+    audioMocks.prewarmSoundSamples.mockReturnValueOnce(prepared.promise);
+    const entry = store.initializeInstruments(progress);
+    await Promise.resolve();
+    expect(store.isLoading).toBe(true);
+    prepared.resolve();
+    await entry;
+    expect(store.currentInstrument).toBe("gm_epiano1");
+    expect(store.shape.cutoff).toBe(1800);
     expect(store.isInstrumentReady("gm_epiano1")).toBe(true);
+    expect(store.isLoading).toBe(false);
   });
 
   it("falls back at startup when the persisted instrument fails, recalling the fallback's Shape", async () => {

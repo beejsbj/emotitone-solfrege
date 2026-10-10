@@ -1,7 +1,5 @@
 // @ts-ignore — superdough ships no TypeScript declarations.
 import { getSound, getSampleInfo, getLoadedBuffer, loadBuffer } from "superdough";
-// @ts-ignore — this export is supplied by the checked-in soundfonts patch.
-import { getPreparedSoundfont } from "@strudel/soundfonts";
 import type { LiveEnvelope } from "../audio/live/types";
 import { getLiveArticulation } from "./liveArticulation";
 
@@ -71,6 +69,7 @@ async function prepare(context: AudioContext, instrumentId: string, sound: Sound
   let zoneSelection: "first-range" | "nearest-root";
   let gain: number;
   if (data?.type === "soundfont" && data.fonts?.[0]) {
+    const { getPreparedSoundfont } = await import("@strudel/soundfonts");
     const fonts: FontZone[] = await getPreparedSoundfont(data.fonts[0], context);
     zones = fonts.map((zone, index) => {
       const rootMidi = (zone.originalPitch - 100 * zone.coarseTune - zone.fineTune) / 100;

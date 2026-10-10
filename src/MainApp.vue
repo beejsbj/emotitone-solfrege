@@ -21,9 +21,9 @@
 import { useAppLoading } from "@/composables/useAppLoading";
 import { useMidiControls } from "@/composables/useMidiControls";
 import { provideUIBeat, uiBeatClock } from "@/composables/useUIBeat";
-import ConfigPanel from "@/components/ConfigPanel.vue";
+import ConfigPanel from "@/components/LazyConfigPanel.vue";
 import PerformanceDeck from "@/components/PerformanceDeck.vue";
-import InstrumentSelector from "@/components/InstrumentSelector.vue";
+import InstrumentSelector from "@/components/LazyInstrumentSelector.vue";
 import LoadingSplash from "@/components/LoadingSplash.vue";
 import SaveFailureNotice from "@/components/ui/SaveFailureNotice.vue";
 import UnifiedVisualEffects from "@/components/UnifiedVisualEffects.vue";

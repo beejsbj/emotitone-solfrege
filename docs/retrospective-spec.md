@@ -769,6 +769,7 @@ This sequencing changes the plan proposed on 2026-10-06 in one place:
   Out-of-scale notes follow the harmonic chromatic scale; for chromatic solfège the syllable follows the written spelling.
 - Design-law lint (#158 when merged): baselines are counted per file and rule and can only shrink; deliberate obfuscation (e.g. assembled import paths) is out of scope for lint.
 - Licence inputs for BJS-496: GSAP's custom licence and the unverified Let's Jazz font licence (finding on BJS-478).
+- Mode remap (#165): the W2 rule gained one constraint. Between same-size scales, a borrowed note stays between the images of its neighbouring degrees, so contour can collapse but never reverse (found in review: C major blues F F E E would otherwise rise in minor blues).
 - PR #67 closed; its three live findings are BJS-514/515/516.
 - Moat 4 reads "a deep sound library" in AGENTS.md/the bible, since Strudel's library is leaving (Decision 3, #151).
 

@@ -32,14 +32,14 @@ const harmonicTestState = vi.hoisted(() => ({
   } | null,
 }));
 
-// The emotion label's default policy is one code constant; tests swap it.
+// The emotion label's policy controls fresh state and switched-on labels.
 const emotionLabelPolicy = vi.hoisted(() => ({ value: "off" as "off" | "on" | "chord" }));
 
 vi.mock("@/data/emotionLabel", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/data/emotionLabel")>();
   return {
     ...actual,
-    get EMOTION_LABEL_DEFAULT() {
+    get EMOTION_LABEL_POLICY() {
       return emotionLabelPolicy.value;
     },
   };
@@ -187,6 +187,22 @@ describe("useHarmonicAnalysis", () => {
     } finally {
       emotionLabelPolicy.value = "off";
     }
+  });
+
+  it("lets the player enable Emotion on already-held notes under the off policy", async () => {
+    harmonicTestState.blobConfig!.value.showEmotionLabel = false;
+    const { snapshot, notePlayed } = createAnalysis();
+    notePlayed(createActiveNote("c", "C4", "Do", "Grounded"));
+    notePlayed(createActiveNote("e", "E4", "Mi", "Radiant"));
+    expect(snapshot.value.emotionalDescription).toBe("");
+
+    harmonicTestState.blobConfig!.value.showEmotionLabel = true;
+    await nextTick();
+    expect(snapshot.value.emotionalDescription).toBe("Grounded & Radiant");
+
+    harmonicTestState.blobConfig!.value.showEmotionLabel = false;
+    await nextTick();
+    expect(snapshot.value.emotionalDescription).toBe("");
   });
 
   it("keeps event-driven harmonic history visible until its timing window expires", async () => {

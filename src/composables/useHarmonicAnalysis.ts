@@ -7,7 +7,7 @@ import {
   spellPitch,
 } from "@/domain/musicalIdentity";
 import { describeHarmonicEmotion } from "@/services/harmonicEmotion";
-import { EMOTION_LABEL_DEFAULT, emotionLabelShows } from "@/data/emotionLabel";
+import { EMOTION_LABEL_POLICY, emotionLabelShows } from "@/data/emotionLabel";
 import type {
   ActiveNote,
   HarmonicAnalysisSnapshot,
@@ -148,7 +148,7 @@ export function useHarmonicAnalysis(
   const emotionalDescription = computed(() => {
     const notes = displayedNotes.value;
     const pitches = new Set(notes.map((note) => Note.chroma(note.noteName)));
-    if (!emotionLabelShows(EMOTION_LABEL_DEFAULT, blobConfig.value.showEmotionLabel, pitches.size)) {
+    if (!emotionLabelShows(EMOTION_LABEL_POLICY, blobConfig.value.showEmotionLabel, pitches.size)) {
       return "";
     }
     if (pitches.size >= 3) {

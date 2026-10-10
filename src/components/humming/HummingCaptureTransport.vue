@@ -7,7 +7,6 @@
         :tone="canAccept ? 'ivory' : 'brass'"
         :haptic="haptic"
         :loading="loading"
-        :disabled="loading"
         :accessible-name="buttonLabel"
         :title="buttonTitle"
         @click="emit('toggle')"

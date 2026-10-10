@@ -79,8 +79,12 @@ describe("HummingCaptureTransport.vue", () => {
   it("keeps capture cancellable while microphone permission is pending", async () => {
     wrapper = render({ status: "requesting" });
 
-    expect(wrapper.get('button[aria-label="Requesting microphone"]').attributes("disabled"))
-      .toBeDefined();
+    // Busy, not disabled: a natively disabled key hides its loading spinner.
+    const mic = wrapper.get('button[aria-label="Requesting microphone"]');
+    expect(mic.attributes("disabled")).toBeUndefined();
+    expect(mic.attributes("aria-busy")).toBe("true");
+    expect(mic.classes()).toContain("paper-button--loading");
+    await mic.trigger("click");
     const cancel = wrapper.get('button[aria-label="Cancel humming capture"]');
     expect(cancel.attributes("disabled")).toBeUndefined();
     await cancel.trigger("click");

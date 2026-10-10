@@ -1,3 +1,4 @@
+import { createSolfegeData } from "@/data/solfege";
 import {
   identifyPitch,
   pitchSolfegeData,
@@ -23,8 +24,8 @@ export interface IntervalFeeling {
 }
 
 /**
- * Reads through the identity module only: the interval comes from the key's
- * spelling and the words from the interval data keyed by that interval's
+ * The interval comes from the identity module's key spelling, and the words
+ * from the interval data keyed by that interval's
  * Tonal name, so the cue is true in every key and mode.
  */
 export function intervalFeeling(
@@ -35,12 +36,17 @@ export function intervalFeeling(
   const identity = identifyPitch(pitch, context);
   const data = pitchSolfegeData(pitch, context, laBasedMinor);
   if (!identity || !data) return null;
+  // Borrowed tones carry generic membership metadata in pitchSolfegeData;
+  // this cue names their written interval and needs that interval's words.
+  const words = identity.borrowed
+    ? createSolfegeData([identity.interval.tonal], [identity.semitones], context.mode)[0]
+    : data;
   return {
     pitchClass: identity.pitchClass,
     syllable: data.name,
     // Scale tones are named by function; borrowed tones by their spelling.
     interval: identity.borrowed ? identity.interval : identity.functionalInterval,
-    emotion: data.emotion,
-    description: data.description,
+    emotion: words.emotion,
+    description: words.description,
   };
 }

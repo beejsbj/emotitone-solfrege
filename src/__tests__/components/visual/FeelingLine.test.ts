@@ -73,6 +73,8 @@ describe("FeelingLine", () => {
     ["D", "dorian", "B4", "La", "6M"],
     ["E", "phrygian", "F4", "Ra", "2m"],
     ["C", "chromatic", "F#4", "Fi", "4A"],
+    ["C", "major", "Eb4", "Me", "3m"],
+    ["C", "major", "F#4", "Fi", "4A"],
   ] as const)("names %s %s %s as %s, %s from the tonic, with that interval's description", async (key, mode, pitch, syllable, tonal) => {
     mountLine();
     await play("n1", pitch, key, mode);
@@ -83,6 +85,17 @@ describe("FeelingLine", () => {
       interval: describeInterval(tonal)!.label,
       text: wordsFor(tonal, mode).description,
     });
+  });
+
+  it("uses borrowed intervals' shortest words in a held chord", async () => {
+    mountLine();
+    await play("eb", "Eb4", "C", "major");
+    await play("fs", "F#4", "C", "major");
+
+    expect(rows().map((_, index) => rowText(index))).toEqual([
+      { syllable: "Me", interval: "m3", text: wordsFor("3m", "major").emotion },
+      { syllable: "Fi", interval: "A4", text: wordsFor("4A", "major").emotion },
+    ]);
   });
 
   it("follows the la-based minor syllable without changing the interval or its words", async () => {

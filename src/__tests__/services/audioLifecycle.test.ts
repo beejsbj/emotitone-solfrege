@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { manageAudioLifecycle, onAudioRunning, registerAudioActivity, resumeAudioContext } from "@/services/audioLifecycle";
 import { createLiveAudioInput } from "@/services/liveAudio";
+import { createStageSpecimenAudio } from "@/style-guide/stage/stageSpecimenAudio";
 
 const cleanup: Array<() => void> = [];
 function fixture(state = "running") {
@@ -19,6 +20,31 @@ beforeEach(() => { vi.useFakeTimers(); vi.spyOn(performance, "now").mockImplemen
 afterEach(() => { cleanup.splice(0).forEach(dispose => dispose()); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 
 describe("shared audio lifecycle", () => {
+  it("retries a hung specimen unlock on a later explicit call without a lifecycle manager", async () => {
+    const context = {
+      state: "suspended",
+      createOscillator: () => ({ frequency: { value: 0 }, connect() {}, start() {}, stop() {}, disconnect() {} }),
+      createGain: () => ({ gain: { value: 0 }, connect() {}, disconnect() {} }),
+      resume: vi.fn(async () => { context.state = "running"; }),
+      close: vi.fn(async () => { context.state = "closed"; }),
+    };
+    context.resume.mockImplementationOnce(() => new Promise(() => {}));
+    vi.stubGlobal("AudioContext", vi.fn(() => context));
+    const specimen = createStageSpecimenAudio(() => "phrase");
+    cleanup.push(() => specimen.features.cleanup());
+    let ready = 0;
+    const first = specimen.resume().then(() => { ready++; });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(ready).toBe(0);
+    const second = specimen.resume().then(() => { ready++; });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(ready).toBe(2);
+    await Promise.all([first, second]);
+    expect(context.resume).toHaveBeenCalledTimes(2);
+    expect(context.state).toBe("running");
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it("does not resume on hidden return or ever try a closed context", async () => {
     const { context, audio } = fixture("interrupted");
     vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");

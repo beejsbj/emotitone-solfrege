@@ -20,6 +20,7 @@ const unsupported = new Set<string>();
 let context: AudioContext | undefined;
 let stopRecovery: (() => void) | undefined;
 let engineSampleRate: number | undefined;
+const builtSampleRates = new Set<number>();
 let engine: ShapedLiveWorklet | undefined;
 let managedEngine: LiveRenderer | undefined;
 type LiveShapingState = LiveShaping & { envelope: LiveEnvelopeOverride };
@@ -53,6 +54,7 @@ function invalidate(error?: unknown) {
   managedEngine = undefined;
   enginePromise = undefined;
   installed.clear();
+  builtSampleRates.clear();
   preparing.clear();
   pins.clear();
   retiring.clear();
@@ -79,8 +81,9 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
     context = nextContext;
     engineSampleRate = nextContext.sampleRate;
     stopRecovery?.();
-    stopRecovery = onAudioRunning(nextContext, () => {
-      if (engineSampleRate === nextContext.sampleRate) return;
+    stopRecovery = onAudioRunning(nextContext, function recover(): void | Promise<void> {
+      if (engineSampleRate === nextContext.sampleRate
+        && [...builtSampleRates].every(rate => rate === nextContext.sampleRate)) return;
       engineSampleRate = nextContext.sampleRate;
       const names = [...new Set([...installed.keys(), ...preparing.keys()])];
       // The processor's frame clock and oscillator increments use its original
@@ -89,7 +92,9 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
       invalidate(new Error("Audio sample rate changed; rebuilding live renderer"));
       // Let the retired generation drop its preparation ownership first.
       installQueue = previousInstall;
-      return Promise.all(names.map(id => prepareLivePlayback(nextContext, destination, id))).then(() => undefined);
+      // Preparation can run at a transient rate even when the route returns
+      // to its starting rate. Check the actual build rates before opening input.
+      return Promise.all(names.map(id => prepareLivePlayback(nextContext, destination, id))).then(recover);
     });
   }
   if (retiring.has(instrumentId)) {
@@ -107,9 +112,13 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
   let preparedResult: import("@/services/preparedLiveInstrument").LiveInstrumentPreparation | undefined;
   const promise = installQueue.then(async () => {
     if (run !== generation) return;
-    const prepared = await (workletCatalog = await (workletPreparation ??= import("@/services/preparedLiveInstrument"))).prepareLiveInstrument(nextContext, instrumentId);
+    workletCatalog = await (workletPreparation ??= import("@/services/preparedLiveInstrument"));
+    if (run !== generation) return;
+    const preparationSampleRate = nextContext.sampleRate;
+    const prepared = await workletCatalog.prepareLiveInstrument(nextContext, instrumentId);
     preparedResult = prepared;
     if (run !== generation) return;
+    builtSampleRates.add(preparationSampleRate);
     if (prepared.kind === "unsupported" || prepared.kind === "retryable") {
       reasons.set(instrumentId, prepared.reason);
       if (prepared.kind === "unsupported") unsupported.add(instrumentId);
@@ -138,7 +147,12 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
         const chain = createLiveShapingChain(nextContext, destination, getLiveOrbit);
         let worklet: LiveWorklet;
         try {
+          const rendererSampleRate = nextContext.sampleRate;
           worklet = await createLiveWorklet(nextContext, chain.input, callbacks, chain);
+          if (run === generation) {
+            builtSampleRates.add(rendererSampleRate);
+            builtSampleRates.add(nextContext.sampleRate);
+          }
         } catch (error) {
           chain.dispose();
           throw error;

@@ -6,6 +6,7 @@ import { MAJOR_SOLFEGE } from "@/data";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { mockCanvasContext } from "@/__tests__/helpers/test-utils";
 import * as stageAudio from "@/services/stageAudio";
+import { getAudioContext } from "@/services/superdoughAudio";
 import { liveAudioInput, type LiveAudioSource } from "@/services/liveAudio";
 import type { ActiveNote } from "@/types/music";
 import { useUnifiedCanvas } from "@/composables/canvas/useUnifiedCanvas";
@@ -156,6 +157,61 @@ describe("unified canvas resource lifetime", () => {
     expect(frames.size).toBeGreaterThan(0);
     for (let index = 0; index < 100 && frames.size; index++) await frame();
     expect(frames.size).toBe(0);
+  });
+
+  it("wakes from the scope audio tap without a note, including later hits after silence", async () => {
+    canvas.initializeCanvas();
+    canvas.startAnimation();
+    await frame();
+    for (let hit = 0; hit < 2; hit++) {
+      expect(canvas.isAnimating.value).toBe(false);
+      audioEnvelope = 0.8;
+      for (let index = 0; index < 60; index++) await frame();
+      expect(canvas.isAnimating.value).toBe(true);
+      audioEnvelope = 0;
+      for (let index = 0; index < 150 && frames.size; index++) await frame();
+    }
+    expect(frames.size).toBe(0);
+    const audioContext = { state: "suspended" } as AudioContext;
+    vi.mocked(getAudioContext).mockReturnValue(audioContext);
+    audio.sample.mockClear();
+    audioEnvelope = 0.8;
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(audio.sample).not.toHaveBeenCalled();
+    vi.mocked(getAudioContext).mockReturnValue({ state: "running" } as AudioContext);
+    await vi.advanceTimersByTimeAsync(50);
+    expect(canvas.isAnimating.value).toBe(true);
+    canvas.stopAnimation();
+    audio.sample.mockClear();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(audio.sample).not.toHaveBeenCalled();
+  });
+
+  it.each(["live", "soundfont", "strudel-playback", "recorded", "live-pitch"])(
+    "wakes on %s note lifecycle events without a reactive registry", async source => {
+      canvas.initializeCanvas();
+      canvas.startAnimation();
+      await frame();
+      for (const type of ["note-played", "note-released"]) {
+        expect(frames.size).toBe(0);
+        events.dispatchEvent(new CustomEvent(type, { detail: { source, noteId: source } }));
+        expect(canvas.isAnimating.value).toBe(true);
+        await frame();
+      }
+    },
+  );
+
+  it("wakes for a sample onset and removes that listener on teardown", async () => {
+    canvas.initializeCanvas();
+    canvas.startAnimation();
+    await frame();
+    events.dispatchEvent(new Event("stage-audio"));
+    expect(canvas.isAnimating.value).toBe(true);
+    wrapper!.unmount();
+    wrapper = undefined;
+    events.dispatchEvent(new Event("stage-audio"));
+    expect(frames.size).toBe(0);
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it("wakes the production Stage for an unpitched live input meter and releases its subscription", async () => {

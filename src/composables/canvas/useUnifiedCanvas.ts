@@ -23,7 +23,7 @@ import {
   type StageAudioFeatures,
 } from "@/services/stageAudio";
 import { getActiveLivePitchStageNotes } from "@/services/hummingStage";
-import { getActiveStrudelStageNotes } from "@/services/superdoughAudio";
+import { getActiveStrudelStageNotes, getAudioContext } from "@/services/superdoughAudio";
 import {
   STAGE_BODY_SIZE_BASE_RATIO,
   STAGE_BODY_SIZE_MAX_RATIO,
@@ -509,8 +509,9 @@ export function useUnifiedCanvas(
   });
 
   const isAnimating = animation.isAnimating;
+  const canAnimate = () => !disposed && !!ctx && loopEnabled && !document.hidden && stageConfig.value.isEnabled;
   const wakeAnimation = () => {
-    if (disposed || !ctx || !loopEnabled || document.hidden || !stageConfig.value.isEnabled) return;
+    if (!canAnimate()) return;
     if (!isAnimating.value) {
       previousTimestamp = null;
       animation.startAnimation();
@@ -530,7 +531,18 @@ export function useUnifiedCanvas(
     else wakeAnimation();
   };
   document.addEventListener("visibilitychange", onVisibilityChange);
-  noteEventTarget.addEventListener("note-expression", wakeAnimation);
+  const wakeEvents = ["note-played", "note-released", "note-expression"];
+  wakeEvents.forEach(event => noteEventTarget.addEventListener(event, wakeAnimation));
+  const audioEventTarget = runtime?.eventTarget ?? window;
+  audioEventTarget.addEventListener("stage-audio", wakeAnimation);
+  // Soundfonts, unpitched samples and late-connected audio taps need no pitch
+  // event. Probe only idle, visible Stages with a running audio clock; never draw
+  // silent transport frames just to discover a later onset.
+  const idleAudioTimer = window.setInterval(() => {
+    if (!canAnimate() || isAnimating.value || getAudioContext().state !== "running") return;
+    const frame = stageAudio.sample(performance.now());
+    if (frame.hasSignal || frame.envelope >= 0.001 || getStageActiveNotes().length) wakeAnimation();
+  }, 50);
   const unsubscribeLiveInput = runtime?.audioFeatures ? () => {} : liveAudioInput.subscribe(source => {
     liveInputActive = source !== null;
     wakeAnimation();
@@ -708,7 +720,9 @@ export function useUnifiedCanvas(
     canvasObserver?.disconnect();
     resolutionQuery?.removeEventListener("change", onResolutionChange);
     document.removeEventListener("visibilitychange", onVisibilityChange);
-    noteEventTarget.removeEventListener("note-expression", wakeAnimation);
+    wakeEvents.forEach(event => noteEventTarget.removeEventListener(event, wakeAnimation));
+    audioEventTarget.removeEventListener("stage-audio", wakeAnimation);
+    window.clearInterval(idleAudioTimer);
     audibleTimeline?.dispose();
     blobRenderer.clearAllBlobs();
     stringRenderer.clearAllStrings();

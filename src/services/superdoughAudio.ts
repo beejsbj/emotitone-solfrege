@@ -521,7 +521,10 @@ function releaseStrudelVisual(noteId: string, audibleAt = audioTimeToOutputTime(
   _activeStrudelVisuals.delete(noteId);
 }
 
+const pendingStageWakes = new Set<number>();
 export function stopStrudelVisuals(): void {
+  pendingStageWakes.forEach(timer => clearTimeout(timer));
+  pendingStageWakes.clear();
   if (typeof window === "undefined") {
     _activeStrudelVisuals.clear();
     return;
@@ -545,6 +548,14 @@ export async function emotitoneStrudelOutput(
   // absolute audio-clock onset as t; its legacy deadline argument is unused.
   const output = webaudioOutput(hap as never, deadline, hapDuration, cps, t);
   const visualPayload = buildStrudelVisualPayload(hap);
+
+  if (!visualPayload && typeof window !== "undefined" && t >= submittedAt) {
+    const timer = window.setTimeout(() => {
+      pendingStageWakes.delete(timer);
+      if (context.state === "running") window.dispatchEvent(new Event("stage-audio"));
+    }, Math.max(0, audioTimeToOutputTime(context, t) - performance.now()));
+    pendingStageWakes.add(timer);
+  }
 
   if (visualPayload && typeof window !== "undefined" && t >= submittedAt) {
     const noteId = `strudel_${++_strudelVisualCounter}`;

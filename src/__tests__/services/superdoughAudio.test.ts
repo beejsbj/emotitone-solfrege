@@ -526,6 +526,33 @@ describe("superdoughAudio live note handling", () => {
     vi.useRealTimers();
   });
 
+  it("wakes sample-only playback at each scheduled onset and cancels stopped onsets", async () => {
+    vi.useFakeTimers();
+    const audio = await import("@/services/superdoughAudio");
+    const wake = vi.fn();
+    window.addEventListener("stage-audio", wake);
+    try {
+      const hap = { value: { s: "bd" } };
+      await audio.emotitoneStrudelOutput(hap, 0, 0.25, 1, 12.5);
+      expect(hoisted.mockWebaudioOutput).toHaveBeenCalledWith(hap, 0, 0.25, 1, 12.5);
+      await vi.advanceTimersByTimeAsync(499);
+      expect(wake).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(wake).toHaveBeenCalledOnce();
+      await audio.emotitoneStrudelOutput(hap, 0, 0.25, 1, 13);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(wake).toHaveBeenCalledTimes(2);
+      await audio.emotitoneStrudelOutput(hap, 0, 0.25, 1, 14);
+      audio.stopStrudelVisuals();
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(wake).toHaveBeenCalledTimes(2);
+    } finally {
+      audio.stopStrudelVisuals();
+      window.removeEventListener("stage-audio", wake);
+      vi.useRealTimers();
+    }
+  });
+
   it("presents a short clipped gate without stretching its note-off to 40 ms", async () => {
     vi.useFakeTimers();
     try {

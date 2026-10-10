@@ -505,7 +505,7 @@ describe("ConfigPanel.vue", () => {
   it("aligns action Knobs with small Buttons", () => {
     wrapper = createTestWrapper(ConfigPanel);
 
-    expect(configPanelSource).toContain("--knob-size: 32px");
+    expect(configPanelSource).toContain("--knob-size: var(--control-sm)");
     expect(configPanelSource).toMatch(
       /\.config-panel__section-controls\s*\{[^}]*align-items: flex-start;/s,
     );

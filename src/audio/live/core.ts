@@ -11,6 +11,8 @@ const PITCH_SMOOTH_SECONDS = .007
 const MIN_GAIN_EXPRESSION = .25
 const MAX_GAIN_EXPRESSION = 1.75
 const GAIN_SMOOTH_SECONDS = .007
+// matches superdough's band-limited normalisation; remove when patterns render on the worklet (BJS-485)
+const SQUARE_SAW_PLAYBACK_GAIN = .85
 function polyBlep(t: number, dt: number) {
   return t < dt ? 2 * t / dt - (t / dt) ** 2 - 1
     : t > 1 - dt ? ((t - 1) / dt) ** 2 + 2 * (t - 1) / dt + 1 : 0
@@ -427,8 +429,8 @@ export class LiveAudioCore {
       case 'sine': return Math.sin(2 * Math.PI * phase)
       case 'triangle': return 1 - 4 * Math.abs(phase - .5)
         + 4 * dt * (polyBlamp(phase, dt) - polyBlamp((phase + .5) % 1, dt))
-      case 'sawtooth': return 2 * phase - 1 - polyBlep(phase, dt)
-      case 'square': return (phase < .5 ? 1 : -1) + polyBlep(phase, dt) - polyBlep((phase + .5) % 1, dt)
+      case 'sawtooth': return SQUARE_SAW_PLAYBACK_GAIN * (2 * phase - 1 - polyBlep(phase, dt))
+      case 'square': return SQUARE_SAW_PLAYBACK_GAIN * ((phase < .5 ? 1 : -1) + polyBlep(phase, dt) - polyBlep((phase + .5) % 1, dt))
     }
   }
 

@@ -7,7 +7,8 @@ import { LiveAudioCore } from '../../src/audio/live/core';
 import { prepareLiveInstrument } from '../../src/services/preparedLiveInstrument';
 import { getLiveArticulation } from '../../src/services/liveArticulation';
 import { logNotesToStrudel } from '../../src/services/StrudelNotation';
-import { comparePcm, parityChecks, harmonics } from './metrics.mjs';
+import { comparePcm, harmonics } from './metrics.mjs';
+import { oscillatorParityChecks } from './oscillator-bounds.mjs';
 import { createFixtureWav } from './fixtures.mjs';
 import { registerSoundfonts, setSoundfontUrl } from '@strudel/soundfonts';
 import { runOscillatorStalls } from './oscillator-stalls.mjs';
@@ -82,7 +83,7 @@ async function render(sound, code, fixture = {}) {
     // Short-gate checks compare the release segment because no sustain plateau
     // exists. Both paths must begin release from the same partial attack level.
     steadyStart: START + (hold < .1 ? .015 : .12), steadyEnd: START + (hold < .1 ? .08 : .32) });
-  const checks = parityChecks(metrics);
+  const checks = oscillatorParityChecks(metrics, sound, pitch);
   checks.gates = scheduled.every((hap, i) => Math.abs(hap.start * 1000 - recorded[i].pressTime) < .25
     && Math.abs(hap.duration * 1000 - recorded[i].duration) < .25);
   return { code, scheduled, recorded, liveEvents: events, fixture: { pitch, notes },

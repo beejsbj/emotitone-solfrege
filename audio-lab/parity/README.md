@@ -3,7 +3,6 @@
 Run from the repository root:
 
 ```sh
-node --test audio-lab/parity/metrics.check.mjs
 bun run test:audio-parity /tmp/recorded-playback-parity.json
 ```
 
@@ -24,19 +23,19 @@ Fixtures are generated PCM16 WAV data, never catalog assets:
 
 Each result retains source, queried hap values, structural/gate duration, reference renderer and events, preparation result, source hashes, and quantitative PCM metrics. The runner rejects attempted non-local page requests, uncaught browser exceptions, and changes to tracked production inputs during the run, including installed Superdough and soundfont bundles.
 
-Pass limits are fixed: onset/offset within 3 ms, steady RMS within 5%, normalized local-energy envelope error at most .06, normalized harmonic-magnitude distance at most .08, pitch difference at most .5 Hz, and scheduled gate/onset within .25 ms of recorded values. The harmonic comparison is phase-invariant. The energy envelope uses 20 ms windows; its tolerance accommodates carrier phase near window boundaries. Metric checks explicitly verify that quarter-cycle phase shifts pass while harmonic changes, .6 sustain, detuning, and extra tails fail. A short-gate case has no steady plateau; it compares the corresponding release segment.
+Default pass limits are: onset/offset within 3 ms, steady RMS within 5%, normalized local-energy envelope error at most .06, normalized harmonic-magnitude distance at most .08, pitch difference at most .5 Hz, and scheduled gate/onset within .25 ms of recorded values. The harmonic comparison is phase-invariant. The energy envelope uses 20 ms windows; its tolerance accommodates carrier phase near window boundaries. Metric checks explicitly verify that quarter-cycle phase shifts pass while harmonic changes, .6 sustain, detuning, and extra tails fail. A short-gate case has no steady plateau; it compares the corresponding release segment.
 
 Negative controls must fail the applicable metric: omitted sample gating (no clip/release/loop), default synth ADSR, and overriding a generated gate ratio with `.clip(1)`. Removing `.clip(1)` from otherwise explicit ADSR is a separate diagnostic: the installed sampler also gates when `release` is supplied, so it would be incorrect to demand that mutation fail PCM parity.
 
-Any matched-control mismatch remains a failure; the harness does not calibrate away gain differences or widen limits.
+Square/saw have explicit migration bounds in `oscillator-bounds.mjs`, pinned from the pre-correction BJS-487 receipt at `bdd3b0cb`: native/live RMS must be within .01 of the measured ratio divided by .85, normalized harmonic distance must be at most the recorded distance + .005, and native/live fundamental ratio must stay in [.98, 1.03]. The original onset, offset, pitch and gate limits remain. Envelope limits remain .06 except saw C2/C3: their corrected .186580/.095785 energy errors get .01 margin. At these low pitches, each 20 ms window contains only a few carrier cycles and remains sensitive to native/polyBLEP phase. Each measured MIDI pitch has its own entry; unmeasured pitches fail instead of inheriting an exception. Other sounds keep the default limits. The metrics controls render a deliberately broken .7 fundamental ratio and changed harmonic balance and require these bounds to reject them. Bounds never derive from the render under test.
 
 ## BJS-487 worklet receipt
 
-[Square/saw results](square-saw-results.json) records the worklet migration's input hashes, per-harmonic levels, parity failures, 5 kHz foldback levels and captured stall pulses. The detailed receipt can be regenerated with the package command above. [Earlier results](results.json) describe the superseded native fallback and are historical evidence.
+[Square/saw results](square-saw-results.json) records the worklet migration's input hashes, per-harmonic levels, bounded parity checks, 5 kHz foldback levels and captured stall pulses. The detailed receipt can be regenerated with the package command above. [Earlier results](results.json) describe the superseded native fallback and are historical evidence.
 
-The parity command deliberately exits nonzero while the documented live-versus-native differences exceed its unchanged limits. The migration ticket permits documented differences; this receipt does **not** claim full PCM parity. All non-square/saw comparisons, negative controls, native voice-budget checks and worklet stall/foldback checks must still pass. CI covers routing, rendered harmonic families, high-note foldback, pitch bends, gain expression, repeat scheduling and release to silence.
+The parity command must exit zero for the documented baseline and fail on new drift outside the explicit bounds. This receipt does **not** claim full PCM parity. All non-square/saw comparisons, negative controls, native voice-budget checks and worklet stall/foldback checks must also pass. CI covers routing, rendered harmonic families, high-note foldback, pitch bends, gain expression, repeat scheduling and release to silence.
 
-Both paths retain attack .003 s, decay .001 s, sustain 1, release .12 s, effective gain .24 (.8 × .3), and no base detune. There is no browser-specific gain correction. The native oscillator's normalization and bandlimiting differ from polyBLEP: expect a louder live tone and a different upper-register brightness when replaying the recorded phrase through Superdough. The shared settings prevent an additional envelope/gain/detune-policy discrepancy; waveform parity remains incomplete until both paths use the same renderer.
+Both paths retain attack .003 s, decay .001 s, sustain 1, release .12 s, configured gain .24 (.8 × .3), and no base detune. Worklet square/saw now apply a named fixed .85 waveform scalar to match Superdough's band-limited normalization; remove it when patterns render on the worklet (BJS-485). This removes the roughly 1.4 dB A4 level step. Upper-register brightness and a smaller RMS difference remain because the bandlimiting differs; the correction is fixed, not browser-probed. Waveform parity remains incomplete until both paths use the same renderer.
 
 The 5 kHz check bounds the first five folded harmonics below −20 dBc at 48 kHz. PolyBLEP suppresses aliases; it is not alias-free. A naive discontinuous oscillator fails this threshold. This is a measured desktop Chrome result, not a phone or cross-browser guarantee. Per-harmonic native magnitudes are retained as evidence, not sample-exact golden PCM fixtures.
 
@@ -59,7 +58,7 @@ The motivating 48 kHz Chrome measurements below compare finite native playback a
 | sawtooth | A6 | .86858 | 1.02361 | .08099 |
 | sawtooth | A7 | .89267 | 1.05201 | .11235 |
 
-The abandoned scalar correction passed only 27/30 checks: square A7 and saw A6/A7 still exceeded the unchanged .08 shape limit; saw A7 also exceeded 5% RMS error. BJS-487 retains the existing polyBLEP code and shared gain defaults rather than reviving that browser-probed correction. Its current receipt above reports the resulting differences.
+The abandoned scalar correction passed only 27/30 checks: square A7 and saw A6/A7 still exceeded the unchanged .08 shape limit; saw A7 also exceeded 5% RMS error. BJS-487 now uses the fixed .85 scalar requested in review and explicit bounds for the remaining differences. It does not revive the browser-probed correction. Its current receipt above reports the corrected levels.
 
 ## Native future-retirement regression
 

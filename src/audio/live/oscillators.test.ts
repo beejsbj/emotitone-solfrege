@@ -51,7 +51,9 @@ describe.each(['square', 'sawtooth'] as const)('%s worklet PCM', waveform => {
     voice.press(); voice.render(.1)
     const pcm = voice.render(.5)
     const fundamental = magnitude(pcm, 440)
-    expect(fundamental).toBeGreaterThan(.14)
+    // Native Superdough A4 fundamental measured by the browser parity lab.
+    // This absolute level catches removal/double application of the .85 scalar.
+    expect(fundamental).toBeCloseTo(waveform === 'square' ? .25919 : .12965, 2)
     for (let harmonic = 2; harmonic <= 8; harmonic++) {
       const level = magnitude(pcm, 440 * harmonic) / fundamental
       if (waveform === 'square' && harmonic % 2 === 0) expect(level).toBeLessThan(.001)

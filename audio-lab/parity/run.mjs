@@ -17,6 +17,7 @@ const watched = [packagePath, ...[
   'src/services/StrudelNotation.ts', 'src/services/recordedTiming.ts',
   'src/services/liveArticulation.ts', 'src/services/preparedNativeInstrument.ts', 'src/services/preparedLiveInstrument.ts',
   'audio-lab/parity/suite.mjs', 'audio-lab/parity/metrics.mjs', 'audio-lab/parity/fixtures.mjs',
+  'audio-lab/parity/oscillator-bounds.mjs',
   'audio-lab/parity/voice-budget.mjs', 'audio-lab/parity/oscillator-stalls.mjs',
   'src/audio/live/processor.ts', 'src/audio/live/bridge.ts', 'src/services/liveInstrumentNames.ts',
 ].map(path => resolve(path))];

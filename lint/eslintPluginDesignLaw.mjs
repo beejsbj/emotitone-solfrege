@@ -77,7 +77,8 @@ function budgeted({ baselineKey, description, violation, collect }) {
 
 function isColourValue(node) {
   for (let parent = node.parent; parent; parent = parent.parent) {
-    if (["BinaryExpression", "CallExpression", "ArrowFunctionExpression", "FunctionExpression"].includes(parent.type)) return false;
+    if (["BinaryExpression", "ArrowFunctionExpression", "FunctionExpression"].includes(parent.type)) return false;
+    if (parent.type === "CallExpression" && !["ref", "shallowRef"].includes(parent.callee.name)) return false;
     let name;
     if (parent.type === "Property") name = parent.key.name ?? parent.key.value;
     if (parent.type === "VariableDeclarator") name = parent.id.name;
@@ -91,6 +92,18 @@ function isColourValue(node) {
 function colourText(patterns) {
   const check = (add) => (node, text) => {
     if (typeof text !== "string") return;
+    if (patterns === RAW_COLOUR_PATTERNS) {
+      for (let parent = node.parent; parent; parent = parent.parent) {
+        if (parent.type === "VAttribute" && /^(?:href|xlink:href|src)$/.test(parent.directive ? parent.key.argument?.name : parent.key.name)) return;
+        if (parent.type === "JSXAttribute" && /^(?:href|xlinkHref|src)$/.test(parent.name.name)) return;
+        if (parent.type === "Property") {
+          if (/^(?:-webkit-|Webkit)?mask(?:-image|Image)?$/i.test(parent.key.name ?? parent.key.value)) return;
+          break;
+        }
+      }
+      text = text.replace(/(?:^|[;{])\s*(?:-webkit-)?mask(?:-image)?\s*:[^;{}]*/gi, " ");
+    }
+    text = text.replace(/url\([^)]*\)/gi, " ");
     const hit = patterns.map((p) => p.exec(text)).find(Boolean);
     if (hit) add(node, (hit[1] ?? hit[0]).trim());
     else if (isColourValue(node)) {

@@ -83,6 +83,7 @@ RAW_COLOUR_PATTERNS.push(inlineNames(rawNames.join("|")), utilityNames(rawNames.
  */
 export function styleDeclarationViolations(prop, value) {
   const property = prop.toLowerCase();
+  value = value.replace(/url\([^)]*\)/gi, " ");
   const brandHit = BRAND_TEXT_PATTERNS[0].exec(prop) ?? BRAND_TEXT_PATTERNS[0].exec(value);
   // Words outside strings, url() and custom-property names.
   const words = value

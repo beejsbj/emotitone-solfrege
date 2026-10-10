@@ -19,10 +19,18 @@ const run = (bin, args) => {
       stdio: ["ignore", "ignore", "pipe"],
       maxBuffer: 256 * 1024 * 1024,
     });
-  } catch {
+  } catch (error) {
+    if (error.status !== (bin === "eslint" ? 1 : 2)) throw error;
     // Violations make the linters exit non-zero; the report file is what we read.
   }
 };
+
+export function assertCompleteReport(files) {
+  if (files.some((file) => file.fatalErrorCount || file.messages?.some((m) => m.fatal) || file.parseErrors?.length || file.warnings?.some((w) => w.rule === "CssSyntaxError"))) {
+    throw new Error("Cannot update the design-law baseline: a linter could not parse a source file.");
+  }
+  return files;
+}
 
 export function collectCounts() {
   const counts = Object.fromEntries(RULES.map((rule) => [rule, {}]));
@@ -33,7 +41,7 @@ export function collectCounts() {
   try {
     const eslintReport = resolve(dir, "eslint.json");
     run("eslint", [...PLAYING_ZONE_DIRS, ...PLAYING_ZONE_FILES, "-f", "json", "-o", eslintReport]);
-    for (const file of JSON.parse(readFileSync(eslintReport, "utf8"))) {
+    for (const file of assertCompleteReport(JSON.parse(readFileSync(eslintReport, "utf8")))) {
       for (const message of file.messages) {
         const rule = message.ruleId?.replace(/^design-law\//, "");
         if (RULES.includes(rule)) bump(rule, relativeToRoot(file.filePath));
@@ -42,7 +50,7 @@ export function collectCounts() {
 
     const styleReport = resolve(dir, "stylelint.json");
     run("stylelint", ["src/**/*.{vue,css}", "-f", "json", "--output-file", styleReport]);
-    for (const file of JSON.parse(readFileSync(styleReport, "utf8"))) {
+    for (const file of assertCompleteReport(JSON.parse(readFileSync(styleReport, "utf8")))) {
       for (const warning of file.warnings) {
         if (warning.rule?.startsWith("design-law/")) bump(`style/${warning.rule.slice("design-law/".length)}`, relativeToRoot(file.source));
       }

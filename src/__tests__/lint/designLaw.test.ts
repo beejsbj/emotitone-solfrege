@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { FlatESLint } from "eslint/use-at-your-own-risk";
 import stylelint from "stylelint";
 // @ts-expect-error plain ESM modules, no types
-import { collectCounts } from "../../../lint/designLawCounts.mjs";
+import { assertCompleteReport, collectCounts } from "../../../lint/designLawCounts.mjs";
 
 /**
  * The design-law lint (BJS-481) is behaviour of the real ESLint and Stylelint
@@ -149,6 +149,21 @@ describe("baseline: a file with debt may not gain more (bypass 2)", () => {
   it("is exactly today's debt: nothing stale, nothing unlisted", { timeout: 180_000 }, () => {
     expect(collectCounts()).toEqual(baseline);
   });
+
+  it("refuses debt collection from actual fatal lint reports", async () => {
+    const script = await eslint.lintText("const =", { filePath: resolve(root, "src/components/fresh.ts") });
+    const css = await stylelint.lint({ code: ".x {", codeFilename: resolve(root, "src/components/fresh.css"), configFile: resolve(root, "stylelint.config.mjs") });
+    for (const report of [script, css.results]) expect(() => assertCompleteReport(report)).toThrow(/could not parse/);
+    const ordinary = await eslint.lintText('const c = "#abc"; void c;', { filePath: resolve(root, "src/components/fresh.ts") });
+    expect(() => assertCompleteReport(ordinary)).not.toThrow();
+  });
+
+  it("judges all Vue roots together and visits interpolation-only templates", async () => {
+    const note = "src/components/primatives/Note.vue";
+    const colours = Array(baseline["no-raw-colour"][note]).fill("'#abc'").join(",");
+    expect(await eslintRules(note, vue("", `<div /><div :data-colours="[${colours}]" />`))).toEqual([]);
+    expect(await eslintRules("src/components/Fresh.vue", vue("", "{{ '#abc' }}"))).toContain(RAW);
+  });
 });
 
 describe("colour law in script and template", () => {
@@ -225,6 +240,26 @@ describe("colour law in script and template", () => {
       'const a = "var(--ink)";\nconst b = "var(--brass)";\nconst c = "transparent";\nconst d = "currentColor";\nconst e = "pine-tree";\n[a, b, c, d, e];',
     );
     expect(await eslintRules(playing, code)).toEqual([]);
+  });
+
+  it("checks named colours initialized with Vue refs", async () => {
+    for (const factory of ["ref", "shallowRef"]) {
+      expect(await eslintRules(playing, vue(`import { ${factory} } from "vue"; const color = ${factory}("white");`, '<div :style="{ color }" />'))).toContain(RAW);
+    }
+  });
+
+  it("allows inline mask stops without exempting adjacent colours", async () => {
+    for (const template of ['<div style="mask: linear-gradient(#000 0 0)" />', '<div :style="{ WebkitMaskImage: `linear-gradient(#000, transparent)` }" />']) {
+      expect(await eslintRules(playing, vue("", template))).toEqual([]);
+    }
+    expect(await eslintRules(playing, vue("", '<div style="mask: linear-gradient(#000 0 0); color: #fff" />'))).toContain(RAW);
+  });
+
+  it("allows SVG fragment references but still rejects adjacent colour literals", async () => {
+    expect(await eslintRules(playing, vue("", '<svg><use href="#face" :xlink:href="\'#abc\'" style="filter: url(#abc)" /></svg>'))).toEqual([]);
+    for (const ext of ["jsx", "tsx"]) expect(await eslintRules(`src/components/fresh.${ext}`, 'export const view = <svg><use href="#face" xlinkHref="#abc" /></svg>;')).toEqual([]);
+    expect(await styleProblems("src/components/fresh.css", ".x { filter: url(#abc); clip-path: url('#face'); }")).toEqual([]);
+    expect((await styleProblems("src/components/fresh.css", ".x { filter: url(#abc); color: #abc; }")).join()).toMatch(/Raw colour/);
   });
 
   it("does not apply to the brand zone, services or the style guide", async () => {

@@ -162,6 +162,18 @@ describe("Stage runtime", () => {
     },
   );
 
+  it("keeps Scope Size proportional and increasing when the default already exceeds the diagonal", () => {
+    const usable = { x: 0, y: 0, width: 1600, height: 1600 };
+    const at = (size: number) =>
+      resolveStageComposition(usable, 75, size).hilbertRadius;
+    const { value, max } = UNIFIED_CONFIG.hilbertScope.sizeRatio;
+
+    expect(at(value) * 2).toBeGreaterThan(Math.hypot(1600, 1600));
+    expect(at(max)).toBeCloseTo((at(value) * max) / value, 6);
+    expect(at(1.0)).toBeGreaterThan(at(value));
+    expect(at(max)).toBeGreaterThan(at(1.0));
+  });
+
   it("keeps Scope Size responsive at the maximum public Body Size", () => {
     const usable = { x: 0, y: 0, width: 1200, height: 375 };
     const canonicalRadius = Math.max(75, usable.height * 0.1);

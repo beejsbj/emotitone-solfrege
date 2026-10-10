@@ -114,6 +114,8 @@ export function resolveStageComposition(
   // region's diagonal at the control's maximum, so the top end can still run
   // a little off the edge (the Stage canvas clips it) without ever running
   // away. Past the maximum the same slope continues, keeping it monotonic.
+  // On very large near-square regions the default already exceeds the
+  // diagonal; there Size stays proportional (a phone never reaches this).
   const defaultSize = UNIFIED_CONFIG.hilbertScope.sizeRatio.value;
   const maxSize = UNIFIED_CONFIG.hilbertScope.sizeRatio.max;
   const defaultPresentedRadius = HILBERT_PRESENTATION_SCALE * defaultHilbertRadius;

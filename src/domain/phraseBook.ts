@@ -1,3 +1,4 @@
+import { pitchSolfege } from "./musicalIdentity";
 /**
  * The phrase book: one noun (Phrase) on four shelves, with exactly one open
  * take. See docs/pattern-system-reimagined.md for the rules this enforces.
@@ -45,9 +46,6 @@ const SILENCE_BOUNDARY_BARS = 1.5;
 const MIN_SILENCE_GAP_MS = 1500;
 const MAX_NAME_LENGTH = 80;
 const CONTOUR_LENGTH = 5;
-const CHROMATIC_SYLLABLES = [
-  "Do", "Ra", "Re", "Me", "Mi", "Fa", "Se", "Sol", "Le", "La", "Te", "Ti",
-];
 
 export type NewId = (prefix: "phrase" | "note") => string;
 
@@ -314,12 +312,11 @@ function pitchClassOf(note: PatternNote): number | null {
 }
 
 /** First few movable-do syllables, e.g. "Do Mi Sol Mi Do…". */
-export function phraseContour(phrase: Pick<Phrase, "notes" | "context">): string {
-  const root = Math.max(0, CHROMATIC_NOTES.indexOf(phrase.context.key));
+export function phraseContour(phrase: Pick<Phrase, "notes" | "context">, laBasedMinor = false): string {
   const ordered = [...phrase.notes].sort((left, right) => left.pressTime - right.pressTime);
   const syllables = ordered.slice(0, CONTOUR_LENGTH).map((note) => {
     const pitchClass = pitchClassOf(note);
-    return pitchClass === null ? "·" : CHROMATIC_SYLLABLES[(pitchClass - root + 12) % 12];
+    return pitchClass === null ? "·" : pitchSolfege(pitchClass, { tonic: phrase.context.key, mode: phrase.context.mode }, { laBasedMinor });
   });
   return syllables.join(" ") + (ordered.length > CONTOUR_LENGTH ? "…" : "");
 }

@@ -4,7 +4,7 @@ import { computed, ref, watch, type Ref } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { useVisualConfig } from "@/composables/useVisualConfig";
 import { useHarmonicAnalysis } from "@/composables/useHarmonicAnalysis";
-import { spokenPitchName, spelledPitchSolfege, spellPitch } from "@/domain/musicalIdentity";
+import { spokenPitchName, spelledPitchSolfege, pitchSolfege, spellPitch } from "@/domain/musicalIdentity";
 import { useAnimationLifecycle } from "@/composables/useAnimationLifecycle";
 import type {
   ActiveNote,
@@ -172,7 +172,10 @@ export function useUnifiedCanvas(
               ? { tonic: latest.key, mode: latest.mode }
               : { tonic: note.key, mode: note.mode };
             const spelling = snapshot.noteSpellings?.[note.noteId] ?? spellPitch(note.noteName, context) ?? note.noteName;
-            return `${spelledPitchSolfege(spelling, context, musicStore.laBasedMinor)} (${spokenPitchName(spelling)})`;
+            const syllable = snapshot.chordSymbol
+              ? spelledPitchSolfege(spelling, context, musicStore.laBasedMinor)
+              : pitchSolfege(note.noteName, context, { laBasedMinor: musicStore.laBasedMinor });
+            return `${syllable} (${spokenPitchName(spelling)})`;
           };
           announcements.push(
             `Interval ${spoken(from)} to ${spoken(to)}: ${edge.spokenInterval || edge.interval}`

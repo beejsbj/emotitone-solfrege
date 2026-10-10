@@ -22,6 +22,7 @@ vi.mock("@/services/livePlayback", () => ({
 }));
 
 import { useMidiControls } from "@/composables/useMidiControls";
+import { usePhrasesStore } from "@/stores/phrases";
 import { useMusicStore } from "@/stores/music";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useInstrumentStore } from "@/stores/instrument";
@@ -257,6 +258,65 @@ describe("every MIDI pitch through the shared performer", () => {
     packet(0x80, 68);
     await vi.advanceTimersByTimeAsync(0);
     expect(useMusicStore().activeNotes.size).toBe(0);
+  });
+
+  it.each(['repeat', 'arp-up'] as const)('records and mirrors surviving unison %s velocity from real worklet PCM', async style => {
+    const sampleRate = 1000;
+    let frame = 0;
+    const core = new LiveAudioCore(sampleRate, response => {
+      if (response.type === 'event') playback.listener?.onEvent(response.event);
+      else if (response.type === 'plan') playback.listener?.onPlan?.(response.events);
+      else if (response.type === 'owner-ended') playback.listener?.onOwnerEnded?.(response.ownerId);
+    });
+    core.command({ type: 'prepare', requestId: 1, instrument: {
+      kind: 'sample-bank', instrumentId: 'piano', zoneSelection: 'nearest-root',
+      gain: 1, attack: 0, decay: 0, sustain: 1, release: 0,
+      zones: [{ id: 'constant', rootMidi: 60, sampleRate, channels: [new Float32Array(10).fill(1)],
+        loopStartFrame: 0, loopEndFrame: 10 }],
+    } }, frame);
+    playback.renderer = {
+      press: (ownerId, notes) => core.command({ type: 'press', ownerId, notes }, frame),
+      release: ownerId => core.command({ type: 'release', ownerId }, frame),
+      configure: config => core.command({ type: 'configure', config }, frame),
+      clear: () => core.command({ type: 'clear' }, frame),
+      dispose: () => {}, forget: async () => {},
+    };
+    const render = (length: number) => {
+      const pcm = new Float32Array(length);
+      core.render([pcm], frame);
+      frame += length;
+      return pcm;
+    };
+    const send = vi.fn();
+    const access = await navigator.requestMIDIAccess();
+    (access.outputs as unknown as Map<string, unknown>).set('roli', {
+      id: 'roli', name: 'LUMI Keys', state: 'connected', send, clear: vi.fn(),
+    });
+    const phrases = usePhrasesStore();
+    useMusicStore().setPlayStyle(style);
+    useMusicStore().setPlayRate(16);
+    await connect();
+    try {
+      packet(0x90, 60, 31);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(render(50)[20]).toBeCloseTo(31 / 127);
+      await vi.advanceTimersByTimeAsync(50);
+      packet(0x91, 60, 113); // Separate MIDI channel, same pitch.
+      await vi.advanceTimersByTimeAsync(0);
+      packet(0x80, 60);
+      await vi.advanceTimersByTimeAsync(0);
+      const next = render(100);
+      expect(next[90]).toBeCloseTo(113 / 127);
+      await vi.advanceTimersByTimeAsync(100);
+      packet(0x81, 60);
+      await vi.advanceTimersByTimeAsync(0);
+      render(100);
+      expect(phrases.takeNotes.map(note => note.velocity)).toEqual([31 / 127, 113 / 127]);
+      const attacks = send.mock.calls.filter(([message]) => (message[0] & 0xf0) === 0x90);
+      expect(attacks.length).toBeGreaterThan(0);
+      expect(attacks.filter(([, at]) => at === 125).at(-1)?.[0]).toEqual([0x90, 60, 113]);
+      expect(useMusicStore().activeNotes.size).toBe(0);
+    } finally { phrases.removeEventListeners(); }
   });
 
   it.each([false, true])("renders borrowed MIDI then silence after one off (retrigger: %s)", async (retrigger) => {

@@ -185,6 +185,18 @@ describe('prepared performance MIDI ownership', () => {
     ])
   })
 
+  it('replaces a queued plan when only its velocity changes', () => {
+    const { callbacks } = setup()
+    const plan = (velocity: number) => [
+      { ...event('hand', 'attack', 2), velocity }, { ...event('hand', 'release', 3), velocity },
+    ]
+    listener.onPlan!(plan(.25))
+    listener.onPlan!(plan(.75))
+    expect(callbacks.onMirror.mock.calls.map(([next, , phase]) => [phase, next.velocity])).toEqual([
+      ['attack', .25], ['release', .25], ['cancel', .25], ['attack', .75], ['release', .75],
+    ])
+  })
+
   it('republishes a cancelled plan if the renderer schedules the same note again', () => {
     const { callbacks } = setup()
     const attack = event('hand', 'attack', 2), release = event('hand', 'release', 3)

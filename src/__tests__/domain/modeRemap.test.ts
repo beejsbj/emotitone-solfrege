@@ -31,7 +31,7 @@ describe("mode remap", () => {
 
   it("maps equal-size scales by actual pitch's degree, ignoring stale indices", () => {
     const base = notes("B3", "C4", "E4", "B4", "C5");
-    base.forEach((note) => { note.scaleIndex = 99; });
+    base.forEach((note) => { note.scaleIndex = 99; note.isBorrowed = true; });
     expect(remap(base, "major", "minor", "C").map((note) => note.note))
       .toEqual(["A#3", "C4", "D#4", "A#4", "C5"]);
   });
@@ -43,13 +43,12 @@ describe("mode remap", () => {
     expect(ties.map((note) => note.note)).toEqual(["D#4", "A#4"]);
   });
 
-  it("applies the specified rules to equal-size blues scales with a borrowed tone", () => {
-    const base = notes("E4", "F4");
+  it("keeps borrowed Twinkle notes between their mapped enclosing degrees", () => {
+    const base = notes("F4", "F4", "E4", "E4");
     base[1] = { ...base[1], scaleIndex: -1, scaleDegree: 0, isBorrowed: true };
-    // Degree mapping moves E to F#, while borrowed F is already a target
-    // tone. This is the documented contour exception to the two policies.
+    // Borrowed F cannot fall below the image of E (F#). Collapse is allowed.
     expect(remap(base, "major blues", "minor blues", "C").map((note) => note.note))
-      .toEqual(["F#4", "F4"]);
+      .toEqual(["F#4", "F#4", "F#4", "F#4"]);
     expect(remap(base, "major blues", "major blues", "C")).toEqual(base);
   });
 
@@ -61,7 +60,11 @@ describe("mode remap", () => {
     base[0].velocity = 0.4;
     base[0].pitchExpression = [{ timeMs: 0, cents: 15 }];
     const saved = structuredClone(base);
-    remap(base, "major", "minor pentatonic", "C");
+    for (const mode of ["major", "minor pentatonic"] as const) {
+      const mapped = remap(base, "major", mode, "C");
+      mapped[0].pitchExpression![0].cents = 100;
+      expect(base).toEqual(saved);
+    }
     expect(base).toEqual(saved);
     expect(remap(base, "major", "major", "C")).toEqual(saved);
   });
@@ -74,6 +77,20 @@ describe("mode remap", () => {
     expect(buns.notes.slice(0, 3).map((note) => getSolfegeLabelForInterval(
       identifyPitch(note.note, { tonic: buns.key, mode: buns.mode })!.interval.tonal,
     ))).toEqual(["Mi", "Re", "Do"]);
+  });
+
+  it("preserves chromatic pitch order including borrowed notes across every key and mode pair", () => {
+    const chromatic = notes(...Array.from({ length: 37 }, (_, i) =>
+      `${CHROMATIC_NOTES[i % 12]}${3 + Math.floor(i / 12)}`));
+    for (const key of CHROMATIC_NOTES) for (const from of MODE_ORDER) {
+      const base = chromatic.map((note) => ({ ...note,
+        isBorrowed: identifyPitch(note.note, { tonic: key, mode: from })!.borrowed,
+      }));
+      for (const to of MODE_ORDER) {
+        const pitches = heights(remap(base, from, to, key));
+        expect(pitches, `${key}: ${from} -> ${to}`).toEqual([...pitches].sort((a, b) => a - b));
+      }
+    }
   });
 
   for (const key of CHROMATIC_NOTES) {
@@ -129,6 +146,6 @@ describe("mode remap", () => {
       }
       expect(failures).toEqual([]);
       expect(collapses).toBeGreaterThan(0);
-    });
+    }, 15_000);
   }
 });

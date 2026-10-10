@@ -133,6 +133,7 @@ export function ensureSingleTake(
   const chosen = takes.find((phrase) => phrase.id === book.takeId) ?? takes[0];
   for (const extra of takes) {
     if (extra === chosen) continue;
+    delete extra.modeBase;
     extra.shelf = "recent";
     extra.closedAt = now;
   }

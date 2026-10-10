@@ -1,3 +1,4 @@
+import { resumeAudioContext, holdAudioActivity } from "@/services/audioLifecycle";
 import { StrudelMirror } from "@strudel/codemirror";
 import * as StrudelCore from "@strudel/core";
 import * as StrudelMini from "@strudel/mini";
@@ -34,6 +35,7 @@ interface PatternEditorOptions {
 }
 
 let activeEditor: PatternEditor | undefined;
+let releaseTransport: (() => void) | undefined;
 let scopeReady: Promise<void> | undefined;
 
 function prepareScope(): Promise<void> {
@@ -59,6 +61,11 @@ export function createPatternEditor(options: PatternEditorOptions): PatternEdito
   if (activeEditor) throw new Error("The pattern transport already has an editor");
   const instance = new StrudelMirror({
     ...options,
+    onToggle(started: boolean) {
+      if (started) releaseTransport ??= holdAudioActivity();
+      else { releaseTransport?.(); releaseTransport = undefined; }
+      options.onToggle(started);
+    },
     bgFill: false,
     solo: true,
     transpiler,
@@ -69,7 +76,7 @@ export function createPatternEditor(options: PatternEditorOptions): PatternEdito
     },
     beforeStart: async () => {
       const context = getAudioContext();
-      if (context.state === "suspended") await context.resume();
+      await resumeAudioContext(context);
     },
   }) as PatternEditor;
   activeEditor = instance;
@@ -84,6 +91,8 @@ export function disposePatternEditor(instance: PatternEditor): Promise<void> {
   try {
     stopped = instance.stop();
   } finally {
+    releaseTransport?.();
+    releaseTransport = undefined;
     stopStrudelVisuals();
     instance.clear?.();
     const view = (instance.editor ?? instance.view) as { destroy?: () => void } | undefined;

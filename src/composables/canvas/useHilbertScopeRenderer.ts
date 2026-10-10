@@ -32,6 +32,9 @@ const sigmoidFactory = (k: number) => {
 };
 
 const DEFAULT_SCOPE_COLOR = "hsl(48, 96%, 78%)";
+// The additive mix rounds two 8-bit contributions independently. Below half
+// an alpha level neither copy can leave a visible pixel after rasterization.
+const TRAIL_VISIBILITY = 0.5 / 255;
 
 // Hilbert transform processor using Web Audio API
 class HilbertProcessor {
@@ -168,6 +171,9 @@ interface HilbertScopeState {
 export function useHilbertScopeRenderer(animationActive?: () => boolean) {
   let lifetime = 0;
   let trailStrength = 0;
+  // While releasing, swap holds an unfaded snapshot. Repainting from it avoids
+  // 8-bit alpha rounding accumulating (or stalling) once the trail gets faint.
+  let releaseSeconds: number | null = null;
   let fadeOutDuration: number | null = null;
   const emptyWaveform = new Float32Array(0);
   // Core processors
@@ -256,6 +262,7 @@ export function useHilbertScopeRenderer(animationActive?: () => boolean) {
   /** Clear renderer-owned persistence without discarding musical state. */
   const clearHistory = () => {
     trailStrength = 0;
+    releaseSeconds = null;
     if (state.historyCanvas && state.historyContext) {
       state.historyContext.clearRect(
         0,
@@ -304,6 +311,7 @@ export function useHilbertScopeRenderer(animationActive?: () => boolean) {
       ? [emptyWaveform, emptyWaveform]
       : hilbertProcessor.getValues();
     const amplitude = reducedMotion ? 0 : audioFrame.envelope;
+    const drawingWaveform = amplitude > 0.01 || activeNotes.length > 0;
     // Handle fade animations
     if (reducedMotion) {
       state.fadeInProgress = 1;
@@ -325,10 +333,16 @@ export function useHilbertScopeRenderer(animationActive?: () => boolean) {
     const shiftX = targetX - (state.layoutCenterX ?? targetX);
     const shiftY = targetY - (state.layoutCenterY ?? targetY);
     if (!reducedMotion && (shiftX || shiftY) && state.historyCanvas) {
-      state.swapContext.clearRect(0, 0, canvasWidth, canvasHeight);
-      state.swapContext.drawImage(state.historyCanvas, shiftX, shiftY, canvasWidth, canvasHeight);
-      state.historyContext.clearRect(0, 0, canvasWidth, canvasHeight);
-      state.historyContext.drawImage(state.swapCanvas, 0, 0, canvasWidth, canvasHeight);
+      // Move the retained release snapshot too, without baking its current fade
+      // into it. The other surface remains available as translation scratch.
+      const source = releaseSeconds === null ? state.historyCanvas : state.swapCanvas;
+      const scratch = releaseSeconds === null ? state.swapCanvas : state.historyCanvas;
+      const sourceContext = releaseSeconds === null ? state.historyContext : state.swapContext;
+      const scratchContext = releaseSeconds === null ? state.swapContext : state.historyContext;
+      scratchContext.clearRect(0, 0, canvasWidth, canvasHeight);
+      scratchContext.drawImage(source, shiftX, shiftY, canvasWidth, canvasHeight);
+      sourceContext.clearRect(0, 0, canvasWidth, canvasHeight);
+      sourceContext.drawImage(scratch, 0, 0, canvasWidth, canvasHeight);
     }
     state.layoutCenterX = targetX;
     state.layoutCenterY = targetY;
@@ -347,37 +361,24 @@ export function useHilbertScopeRenderer(animationActive?: () => boolean) {
       // Clear both trail buffers so enabling it cannot preserve an earlier frame.
       clearHistory();
     } else {
-      // Maintain an offscreen trail buffer instead of sampling the main canvas.
-      const persistence = Math.pow(mathClamp(config.history, 0, 0.99), deltaSeconds * 60);
-      trailStrength *= persistence;
-
-      state.swapContext.clearRect(0, 0, canvasWidth, canvasHeight);
-      if (persistence > 0) {
-        state.swapContext.globalAlpha = persistence;
-        state.swapContext.drawImage(state.historyCanvas, 0, 0, canvasWidth, canvasHeight);
-        state.swapContext.globalAlpha = 1;
-
-        if (config.smear > 0) {
-          const smearScale = Math.pow(1 + config.smear * 0.012, deltaSeconds * 60);
-          const smearWidth = canvasWidth * smearScale;
-          const smearHeight = canvasHeight * smearScale;
-          const smearX = (canvasWidth - smearWidth) / 2;
-          const smearY = (canvasHeight - smearHeight) / 2;
-
-          state.swapContext.globalAlpha = persistence * frameBlend(config.smear * 0.25, deltaSeconds);
-          state.swapContext.drawImage(
-            state.historyCanvas,
-            smearX,
-            smearY,
-            smearWidth,
-            smearHeight
-          );
-          state.swapContext.globalAlpha = 1;
+      if (!drawingWaveform && trailStrength > 0) {
+        if (releaseSeconds === null) {
+          state.swapContext.clearRect(0, 0, canvasWidth, canvasHeight);
+          state.swapContext.drawImage(state.historyCanvas, 0, 0, canvasWidth, canvasHeight);
+          releaseSeconds = 0;
         }
+        releaseSeconds += Math.max(0, deltaSeconds);
+        trailStrength = Math.pow(mathClamp(config.history, 0, 0.99), releaseSeconds * 60);
+        paintTrail(state.swapCanvas, state.historyContext, trailStrength, releaseSeconds,
+          config.smear, canvasWidth, canvasHeight);
+      } else {
+        releaseSeconds = null;
+        const persistence = Math.pow(mathClamp(config.history, 0, 0.99), Math.max(0, deltaSeconds) * 60);
+        paintTrail(state.historyCanvas, state.swapContext, persistence, deltaSeconds,
+          config.smear, canvasWidth, canvasHeight);
+        state.historyContext.clearRect(0, 0, canvasWidth, canvasHeight);
+        state.historyContext.drawImage(state.swapCanvas, 0, 0, canvasWidth, canvasHeight);
       }
-
-      state.historyContext.clearRect(0, 0, canvasWidth, canvasHeight);
-      state.historyContext.drawImage(state.swapCanvas, 0, 0, canvasWidth, canvasHeight);
     }
 
     let resolvedColor: string | null = null;
@@ -426,7 +427,9 @@ export function useHilbertScopeRenderer(animationActive?: () => boolean) {
 
     const drawCurve = (targetContext: CanvasRenderingContext2D) => {
       targetContext.save();
-      targetContext.globalAlpha = drawAlpha;
+      // This stroke accumulates in history: depositing it twice as often must
+      // not double its energy. A zero-time wake deposits no additional ink.
+      targetContext.globalAlpha = frameBlend(drawAlpha, deltaSeconds);
 
       if (config.glowEnabled) {
         targetContext.shadowBlur = config.glowIntensity * stageCanvasSize(state.historyCanvas!).dpr;
@@ -460,7 +463,7 @@ export function useHilbertScopeRenderer(animationActive?: () => boolean) {
       targetContext.restore();
     };
 
-    if (!reducedMotion && (amplitude > 0.01 || activeNotes.length > 0)) {
+    if (!reducedMotion && drawingWaveform) {
       drawCurve(state.historyContext);
       trailStrength = 1;
     } else if (reducedMotion) {
@@ -474,7 +477,7 @@ export function useHilbertScopeRenderer(animationActive?: () => boolean) {
       ctx.restore();
     }
 
-    if (trailStrength < 1 / 255) clearHistory();
+    if (trailStrength < TRAIL_VISIBILITY) clearHistory();
     if (!reducedMotion) {
       ctx.save();
       ctx.globalAlpha = 1;
@@ -505,6 +508,7 @@ export function useHilbertScopeRenderer(animationActive?: () => boolean) {
     }
 
     trailStrength = 0;
+    releaseSeconds = null;
     // Update position to maintain relative position
     state.x = width / 2;
     state.y = composition?.centerY ?? height / 2;
@@ -531,6 +535,7 @@ export function useHilbertScopeRenderer(animationActive?: () => boolean) {
     hilbertProcessor.disconnect();
 
     trailStrength = 0;
+    releaseSeconds = null;
     fadeOutDuration = null;
     state.isInitialized = false;
     state.isActive = false;
@@ -544,7 +549,7 @@ export function useHilbertScopeRenderer(animationActive?: () => boolean) {
   };
 
   return {
-    hasPendingAnimation: () => trailStrength >= 1 / 255 || (fadeOutDuration !== null && state.isActive),
+    hasPendingAnimation: () => trailStrength >= TRAIL_VISIBILITY || (fadeOutDuration !== null && state.isActive),
     initializeHilbertScope,
     renderHilbertScope,
     resizeHilbertScope,
@@ -553,6 +558,35 @@ export function useHilbertScopeRenderer(animationActive?: () => boolean) {
     cleanup,
     isActive: () => state.isActive,
   };
+}
+
+/** Smear redistributes the decaying trail; it must never amplify its alpha. */
+function paintTrail(
+  source: HTMLCanvasElement,
+  target: CanvasRenderingContext2D,
+  persistence: number,
+  seconds: number,
+  smear: number,
+  width: number,
+  height: number,
+) {
+  target.clearRect(0, 0, width, height);
+  if (persistence <= 0) return;
+  const amount = mathClamp(smear, 0, 1);
+  const mix = frameBlend(amount * 0.25, seconds);
+  target.save();
+  // Source-over copies feed each other's alpha. A weighted additive mixture
+  // has a strict persistence upper bound even where the two copies overlap.
+  target.globalCompositeOperation = "lighter";
+  target.globalAlpha = persistence * (1 - mix);
+  target.drawImage(source, 0, 0, width, height);
+  if (mix > 0) {
+    const scale = Math.pow(1 + amount * 0.012, Math.max(0, seconds) * 60);
+    target.globalAlpha = persistence * mix;
+    target.drawImage(source, width * (1 - scale) / 2, height * (1 - scale) / 2,
+      width * scale, height * scale);
+  }
+  target.restore();
 }
 
 function safeDisconnect(node: AudioNode | null) {

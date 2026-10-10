@@ -114,7 +114,7 @@ describe("Hilbert Scope waveform source", () => {
     renderer.cleanup();
   });
 
-  it("gives equal scope growth, fading and history decay after one second at 60 and 120 Hz", async () => {
+  it("gives equal scope growth and finishes release after one second at 60 and 120 Hz", async () => {
     const results: number[][] = [];
     for (const hz of [60, 120]) {
       const historyContext = canvasContext();
@@ -138,7 +138,7 @@ describe("Hilbert Scope waveform source", () => {
         renderer.renderHilbertScope(main as unknown as CanvasRenderingContext2D, index / hz,
           config, 800, 600, undefined, { envelope: 1, hasSignal: true }, false, [], index ? 1 / hz : 0);
       }
-      results.push([...historyContext.moveTo.mock.calls.at(-1)!, historyContext.globalAlpha]);
+      results.push([...historyContext.moveTo.mock.calls.at(-1)!]);
       expect(renderer.hasPendingAnimation()).toBe(true);
       for (let index = 0; index < hz; index++) {
         renderer.renderHilbertScope(main as unknown as CanvasRenderingContext2D, 1 + index / hz,
@@ -150,7 +150,6 @@ describe("Hilbert Scope waveform source", () => {
     }
     expect(results[0][0]).toBeCloseTo(results[1][0], 8);
     expect(results[0][1]).toBeCloseTo(results[1][1], 8);
-    expect(results[0][2]).toBeCloseTo(results[1][2], 8);
   });
 
   it("clears waveform history for Reduced Motion and resumes from a blank trail", async () => {

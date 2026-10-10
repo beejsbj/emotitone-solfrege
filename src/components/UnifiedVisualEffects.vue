@@ -9,6 +9,16 @@
     <p class="sr-only" aria-live="polite" aria-atomic="true">
       {{ harmonicAccessibleText }}
     </p>
+
+    <FeelingLine
+      :event-target="noteEventTarget"
+      :usable-height="usableRect.height"
+      :reduced-motion="reducedMotion"
+      :la-based-minor="musicStore.laBasedMinor"
+      :hold-time="visualConfigStore.effectiveConfig.blobs.analysisHoldTime"
+      :fallback-key="musicStore.currentKey as ChromaticNote"
+      :fallback-mode="musicStore.currentMode"
+    />
   </div>
 </template>
 
@@ -19,6 +29,7 @@ import { useMusicStore } from "@/stores/music";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { useUnifiedCanvas } from "@/composables/canvas/useUnifiedCanvas";
 import { useStageHostLayout } from "@/composables/useStageHostLayout";
+import FeelingLine from "@/components/uniques/FeelingLine.vue";
 import type {
   ActiveNote,
   ChromaticNote,

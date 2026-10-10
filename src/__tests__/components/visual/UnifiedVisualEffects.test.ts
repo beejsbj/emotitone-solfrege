@@ -7,6 +7,7 @@ import UnifiedVisualEffects from '@/components/UnifiedVisualEffects.vue'
 // it reactively, so the stand-in is a ref too.
 const visualConfigStore = vi.hoisted(() => ({
   visualsEnabled: null as unknown as Ref<boolean>,
+  effectiveConfig: { blobs: { analysisHoldTime: 2500 } },
 }))
 
 const unifiedCanvasMocks = vi.hoisted(() => ({

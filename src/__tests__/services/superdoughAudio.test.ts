@@ -1,11 +1,12 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const hoisted = vi.hoisted(() => {
-  const mockAudioContext = {
+  const mockAudioContext = Object.assign(new EventTarget(), {
+    createAnalyser: () => ({ fftSize: 2048, getFloatTimeDomainData: vi.fn(), disconnect: vi.fn() }),
     state: "running",
     currentTime: 12,
     resume: vi.fn().mockResolvedValue(undefined),
-  };
+  });
 
   return {
     mockAudioContext,
@@ -15,7 +16,7 @@ const hoisted = vi.hoisted(() => {
     mockSamples: vi.fn().mockResolvedValue(undefined),
     mockGetSuperdoughAudioController: vi.fn(() => ({
       output: {
-        destinationGain: { id: "master-gain" },
+        destinationGain: { id: "master-gain", connect: vi.fn(), disconnect: vi.fn() },
       },
     })),
     mockLoadBuffer: vi.fn().mockResolvedValue(undefined),
@@ -103,6 +104,8 @@ describe("superdoughAudio live note handling", () => {
     hoisted.mockSamples.mockResolvedValue(undefined);
     hoisted.mockInitAudio.mockReset().mockResolvedValue(undefined);
   });
+
+  afterEach(() => { hoisted.mockAudioContext.state = "closed"; hoisted.mockAudioContext.dispatchEvent(new Event("statechange")); });
 
   it("initializes the canonical audio graph once without bootstrapping a hidden Strudel REPL", async () => {
     const audio = await import("@/services/superdoughAudio");

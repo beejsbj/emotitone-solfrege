@@ -1,3 +1,4 @@
+import { onAudioRunning } from "@/services/audioLifecycle";
 import type { LiveEnvelopeOverride, PreparedLiveInstrument, LiveWorklet } from "@/audio/live/types";
 import type { LiveRenderer, LiveRendererCallbacks } from "@/audio/liveRenderer";
 import { createLiveShapingChain, type LiveShaping } from "@/audio/liveShaping";
@@ -17,6 +18,8 @@ const listeners = new Set<Listener>();
 const reasons = new Map<string, string>();
 const unsupported = new Set<string>();
 let context: AudioContext | undefined;
+let stopRecovery: (() => void) | undefined;
+let engineSampleRate: number | undefined;
 let engine: ShapedLiveWorklet | undefined;
 let managedEngine: LiveRenderer | undefined;
 type LiveShapingState = LiveShaping & { envelope: LiveEnvelopeOverride };
@@ -74,6 +77,20 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
   if (context !== nextContext) {
     invalidate();
     context = nextContext;
+    engineSampleRate = nextContext.sampleRate;
+    stopRecovery?.();
+    stopRecovery = onAudioRunning(nextContext, () => {
+      if (engineSampleRate === nextContext.sampleRate) return;
+      engineSampleRate = nextContext.sampleRate;
+      const names = [...new Set([...installed.keys(), ...preparing.keys()])];
+      // The processor's frame clock and oscillator increments use its original
+      // sample rate. Retire that generation before accepting another input.
+      const previousInstall = installQueue;
+      invalidate(new Error("Audio sample rate changed; rebuilding live renderer"));
+      // Let the retired generation drop its preparation ownership first.
+      installQueue = previousInstall;
+      return Promise.all(names.map(id => prepareLivePlayback(nextContext, destination, id))).then(() => undefined);
+    });
   }
   if (retiring.has(instrumentId)) {
     await installQueue;

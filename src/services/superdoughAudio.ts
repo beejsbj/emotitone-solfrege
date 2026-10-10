@@ -1,3 +1,4 @@
+import { resumeAudioContext } from "@/services/audioLifecycle";
 /**
  * superdoughAudio.ts
  * Instrument catalog/preparation and the Superdough playback adapter.
@@ -650,9 +651,8 @@ export async function attackNote(
   // On first note the context may still be "suspended" from loading-screen init;
   // this call is a fast no-op on all subsequent notes.
   const ac = getAudioContext();
-  if (ac.state !== "running") {
-    await ac.resume();
-  }
+  const resumption = resumeAudioContext(ac);
+  if (resumption) await resumption;
 
   const sound = resolveLiveSoundName(instrument);
   const envelope = resolveLiveEnvelope(sound, liveEnvelopeShape(sound));
@@ -742,9 +742,8 @@ export async function playNoteWithDuration(
   await initSuperdoughAudio();
 
   const ac = getAudioContext();
-  if (ac.state !== "running") {
-    await ac.resume();
-  }
+  const resumption = resumeAudioContext(ac);
+  if (resumption) await resumption;
 
   const sound = resolveLiveSoundName(instrument);
   const durationSeconds = durationMs / 1000;

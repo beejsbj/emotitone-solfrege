@@ -6,7 +6,7 @@ import { prepareNativeInstrument, UnsupportedLiveInstrumentError } from "./prepa
 import type { UnsupportedLiveInstrument, RetryableLiveInstrument } from "./preparedNativeInstrument";
 export type { UnsupportedLiveInstrument } from "./preparedNativeInstrument";
 export type LiveInstrumentPreparation = PreparedLiveInstrument | UnsupportedLiveInstrument | RetryableLiveInstrument;
-interface CacheEntry { registration: object; pending: Promise<LiveInstrumentPreparation>; additionalPcmBytes: number; result?: LiveInstrumentPreparation }
+interface CacheEntry { registration: object; sampleRate: number; pending: Promise<LiveInstrumentPreparation>; additionalPcmBytes: number; result?: LiveInstrumentPreparation }
 const caches = new WeakMap<AudioContext, Map<string, CacheEntry>>();
 const queues = new WeakMap<AudioContext, Promise<void>>();
 const preparingBytes = new WeakMap<AudioContext, number>();
@@ -28,12 +28,7 @@ export function releasePreparedLiveInstrument(context: AudioContext, instrumentI
   if (cache?.get(instrumentId)?.result === expected) cache.delete(instrumentId);
 }
 
-async function prepare(context: AudioContext, instrumentId: string, reserve: (bytes: number) => void): Promise<LiveInstrumentPreparation> {
-  // Native square/saw bandlimiting differs from the worklet's polyBLEP shape,
-  // especially at high pitches. Preserve native timbre via existing fallback.
-  if (instrumentId === "square" || instrumentId === "sawtooth") {
-    return { kind: "unsupported", instrumentId, reason: "Use the native oscillator to preserve square/saw timbre" };
-  }
+async function prepare(context: AudioContext, instrumentId: string, sampleRate: number, reserve: (bytes: number) => void): Promise<LiveInstrumentPreparation> {
   const raw = await prepareNativeInstrument(context, instrumentId);
   if (raw.kind !== "sample-bank") return raw;
   const { zoneSelection } = raw;
@@ -51,7 +46,7 @@ async function prepare(context: AudioContext, instrumentId: string, reserve: (by
       ? zones.find(zone => pitch >= zone.lowMidi! && pitch <= zone.highMidi!)
       : zones.reduce((best, zone) => Math.abs(zone.rootMidi - pitch) < Math.abs(best.rootMidi - pitch) ? zone : best);
     if (!selected) continue;
-    const ratio = 2 ** ((pitch - selected.rootMidi) / 12) * selected.sampleRate / (context.sampleRate || selected.sampleRate);
+    const ratio = 2 ** ((pitch - selected.rootMidi) / 12) * selected.sampleRate / (sampleRate || selected.sampleRate);
     needed.set(selected, Math.max(needed.get(selected)!, Math.max(0, Math.floor(Math.log2(ratio)))));
   }
   const originalBuffers = new Set(zones.flatMap(zone => zone.channels.map(channel => channel.buffer)));
@@ -101,11 +96,11 @@ export function prepareLiveInstrument(context: AudioContext, instrumentId: strin
   const cache = caches.get(context) ?? new Map<string, CacheEntry>();
   caches.set(context, cache);
   const existing = cache.get(instrumentId);
-  if (existing?.registration === sound) {
+  if (existing?.registration === sound && existing.sampleRate === context.sampleRate) {
     cache.delete(instrumentId); cache.set(instrumentId, existing);
     return existing.pending;
   }
-  const entry: CacheEntry = { registration: sound, pending: undefined!, additionalPcmBytes: 0 };
+  const entry: CacheEntry = { registration: sound, sampleRate: context.sampleRate, pending: undefined!, additionalPcmBytes: 0 };
   const reserve = (bytes: number) => {
     // Preparation is serialized per context; evict before allocating so
     // cached plus currently-being-built pyramids share this byte budget.
@@ -115,7 +110,7 @@ export function prepareLiveInstrument(context: AudioContext, instrumentId: strin
     }
     preparingBytes.set(context, bytes);
   };
-  entry.pending = (queues.get(context) ?? Promise.resolve()).then(() => prepare(context, instrumentId, reserve)).then(result => {
+  entry.pending = (queues.get(context) ?? Promise.resolve()).then(() => prepare(context, instrumentId, entry.sampleRate, reserve)).then(result => {
     entry.result = result;
     entry.additionalPcmBytes = preparingBytes.get(context) ?? 0;
     preparingBytes.delete(context);

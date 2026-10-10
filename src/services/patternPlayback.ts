@@ -1,3 +1,4 @@
+import { resumeAudioContext, holdAudioActivity } from "@/services/audioLifecycle";
 import * as StrudelCore from "@strudel/core";
 import * as StrudelMini from "@strudel/mini";
 import * as StrudelTonal from "@strudel/tonal";
@@ -51,6 +52,8 @@ interface StrudelRepl {
 
 let activeTransport: PatternTransport | undefined;
 let disposeActiveTransport: (() => void) | undefined;
+// Keeps the audio context awake through silent bars while the pattern plays.
+let releaseTransport: (() => void) | undefined;
 let scopeReady: Promise<void> | undefined;
 
 function prepareScope(): Promise<void> {
@@ -88,8 +91,7 @@ export function createPatternTransport(options: PatternTransportOptions): Patter
       await prebaked;
     },
     beforeStart: async () => {
-      const context = getAudioContext();
-      if (context.state === "suspended") await context.resume();
+      await resumeAudioContext(getAudioContext());
     },
     // Called with the new pattern just before the scheduler receives it, so
     // the spans always describe the code whose haps are being triggered.
@@ -98,6 +100,11 @@ export function createPatternTransport(options: PatternTransportOptions): Patter
       return pattern;
     },
     onToggle: (started: boolean) => {
+      if (started) releaseTransport ??= holdAudioActivity();
+      else {
+        releaseTransport?.();
+        releaseTransport = undefined;
+      }
       options.onToggle(started);
       if (!started) {
         stopFrames();
@@ -146,6 +153,8 @@ export function disposePatternTransport(transport: PatternTransport): Promise<vo
   try {
     stopped = transport.stop();
   } finally {
+    releaseTransport?.();
+    releaseTransport = undefined;
     stopFrames?.();
     setSoundingNotationSpans(null);
     stopStrudelVisuals();

@@ -104,18 +104,17 @@ export function createLivePitchStageBridge(
   let noteCounter = 0;
 
   const gate = new StablePitchGate({
-    attack(_midi, frame) {
-      if (frame.frequencyHz == null) return;
+    attack(midi, frame) {
       const pitch = classifyDetectedPitch(
-        { frequencyHz: frame.frequencyHz },
+        { midi },
         { tonic: currentContext.key, mode: currentContext.mode },
         currentContext.laBasedMinor,
       );
       if (!pitch) return;
-      const { midi, pitchClass: pitchClassIndex } = pitch;
+      const { pitchClass: pitchClassIndex } = pitch;
       const pitchClass = CHROMATIC_NOTES[pitchClassIndex];
       const octave = Math.floor(midi / 12) - 1;
-      if (!pitchClass || !Number.isFinite(octave) || frame.frequencyHz == null) {
+      if (!pitchClass || !Number.isFinite(octave)) {
         return;
       }
       const noteName = `${pitchClass}${octave}`;

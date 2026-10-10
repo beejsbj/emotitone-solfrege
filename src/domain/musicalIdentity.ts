@@ -477,10 +477,9 @@ export interface DetectedPitchIdentity {
 }
 
 /**
- * A voice within ±40 cents of a scale tone snaps to it. Otherwise retain the
- * nearest chromatic pitch as borrowed, even when that rounded pitch is itself
- * in the scale. Both humming lanes use the unrounded detection here; their
- * timing/stability gates remain separate. Invalid detections are not pitches.
+ * Round to the nearest semitone; only pitches outside the scale are borrowed.
+ * Both humming lanes share identity and spelling here, while their timing and
+ * stability gates remain separate. Invalid detections are not pitches.
  */
 export function classifyDetectedPitch(
   pitch: DetectedPitch,
@@ -492,19 +491,17 @@ export function classifyDetectedPitch(
     : pitch.midi + (pitch.cents ?? 0) / 100;
   if (!Number.isFinite(height)) return null;
 
-  // With a tolerance below half a semitone, only the nearest chromatic pitch
-  // can be a qualifying scale tone. Identity owns scale membership/spelling.
+  // Identity owns scale membership and spelling, independently of intonation.
   const midi = Math.round(height);
   const identity = identifyPitch(midi, context)!;
-  const borrowed = identity.borrowed || Math.abs(height - midi) > 0.4 + 1e-9;
   const solfege = pitchSolfegeData(midi, context, laBasedMinor)!;
   return {
     midi,
     frequency: 440 * 2 ** ((midi - 69) / 12),
     pitchClass: identity.pitchClass,
-    scaleIndex: borrowed ? null : identity.scaleIndex,
-    borrowed,
-    solfege: borrowed ? { ...solfege, number: 0 } : solfege,
+    scaleIndex: identity.scaleIndex,
+    borrowed: identity.borrowed,
+    solfege,
   };
 }
 

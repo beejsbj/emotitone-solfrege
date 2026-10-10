@@ -219,7 +219,7 @@ function eventToPatternNote(
     return null;
   }
 
-  // The analyser may round event.midi; retain its measured Hz for tolerance.
+  // The analyser may round event.midi; use measured Hz for nearest-semitone rounding.
   const pitch = classifyDetectedPitch(
     Number.isFinite(event.pitch_hz) && event.pitch_hz! > 0
       ? { frequencyHz: event.pitch_hz! }

@@ -2,17 +2,19 @@ import { afterEach, expect, it, vi } from "vitest";
 import { manageAudioLifecycle } from "@/services/audioLifecycle";
 
 const mocks = vi.hoisted(() => ({ options: undefined as undefined | {
-  onToggle(started: boolean): void; beforeStart(): Promise<void>; beforeEval(): Promise<void>; prebake(): Promise<void>;
+  onToggle(started: boolean): void; beforeStart(): Promise<void>; beforeEval(): Promise<void>;
 }, context: Object.assign(new EventTarget(), { state: "interrupted", resume: vi.fn(), suspend: vi.fn() }) }));
-vi.mock("@strudel/core", () => ({ evalScope: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("@strudel/core", () => ({
+  evalScope: vi.fn().mockResolvedValue(undefined),
+  repl: (options: typeof mocks.options) => {
+    mocks.options = options;
+    return { scheduler: { stop: () => mocks.options!.onToggle(false) }, evaluate: vi.fn() };
+  },
+}));
 vi.mock("@strudel/mini", () => ({}));
 vi.mock("@strudel/tonal", () => ({}));
 vi.mock("@strudel/webaudio", () => ({}));
 vi.mock("@strudel/transpiler", () => ({ transpiler: vi.fn() }));
-vi.mock("@strudel/codemirror", () => ({ StrudelMirror: class {
-  constructor(options: typeof mocks.options) { mocks.options = options; }
-  stop() { mocks.options!.onToggle(false); }
-} }));
 vi.mock("@/services/superdoughAudio", () => ({
   ensureSoundfontCatalog: vi.fn().mockResolvedValue(undefined),
   setStrudelLaBasedMinor: vi.fn(),
@@ -20,7 +22,7 @@ vi.mock("@/services/superdoughAudio", () => ({
   stopStrudelVisuals: vi.fn(), emotitoneStrudelOutput: vi.fn(),
 }));
 import { ensureSoundfontCatalog } from "@/services/superdoughAudio";
-import { createPatternEditor, disposePatternEditor } from "@/services/patternPlayback";
+import { createPatternTransport, disposePatternTransport } from "@/services/patternPlayback";
 
 afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
 it("resumes interrupted native playback and protects silent transport bars until stop", async () => {
@@ -36,10 +38,8 @@ it("resumes interrupted native playback and protects silent transport bars until
   });
   const stop = manageAudioLifecycle(mocks.context as unknown as AudioContext, { isSounding: () => false });
   const onToggle = vi.fn();
-  const editor = createPatternEditor({ root: document.createElement("div"), initialCode: "", onDraw: vi.fn(), onToggle, onEvalError: vi.fn() });
+  const editor = createPatternTransport({ initialCode: "", onFrame: vi.fn(), onToggle, onEvalError: vi.fn() });
   try {
-    await mocks.options!.prebake();
-    expect(ensureSoundfontCatalog).not.toHaveBeenCalled();
     editor.code = "s('triangle')";
     await mocks.options!.beforeEval();
     expect(ensureSoundfontCatalog).not.toHaveBeenCalled();
@@ -58,8 +58,8 @@ it("resumes interrupted native playback and protects silent transport bars until
     await vi.advanceTimersByTimeAsync(60_000);
     expect(onToggle).toHaveBeenCalledWith(true);
     expect(mocks.context.suspend).not.toHaveBeenCalled();
-    await disposePatternEditor(editor);
+    await disposePatternTransport(editor);
     await vi.advanceTimersByTimeAsync(30_250);
     expect(mocks.context.suspend).toHaveBeenCalledOnce();
-  } finally { await disposePatternEditor(editor); stop(); }
+  } finally { await disposePatternTransport(editor); stop(); }
 });

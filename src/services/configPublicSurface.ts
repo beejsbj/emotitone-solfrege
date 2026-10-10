@@ -165,7 +165,7 @@ export const DECK_CONTROL_GROUPS: PublicConfigControlGroup<DeckControlId>[] = [
   },
   {
     label: "Code Strip",
-    description: "Keep the editable music line available and decide whether rests stay visible.",
+    description: "Show the pattern's code line and decide whether rests stay visible.",
     controls: [
       {
         id: "codeStrip",

@@ -4,8 +4,7 @@ import { resolve } from "node:path";
 import { createTestWrapper } from "../../helpers/test-utils";
 import CodeStripBar from "@/components/compounds/CodeStripBar.vue";
 import Button from "@/components/primatives/Button.vue";
-import patternPlaybackSource from "@/services/patternPlayback.ts?raw";
-import codeStripSource from "@/components/uniques/CodeStrip/index.vue?raw";
+import highlightStripSource from "@/components/uniques/CodeStrip/HighlightStrip.vue?raw";
 import codeStripBarSource from "@/components/compounds/CodeStripBar.vue?raw";
 import controlBarSource from "@/components/compounds/ControlBar.vue?raw";
 
@@ -61,24 +60,20 @@ describe("CodeStripBar.vue", () => {
     expect(strip.props("density")).toBe("dense");
     expect(strip.props("durationMode")).toBe("bar");
     expect(strip.props("framed")).toBe(false);
-    expect(codeStripSource).toMatch(
-      /\.code-strip--dense[\s\S]*?\.cm-content\)[\s\S]*?padding:\s*0;/,
+    expect(highlightStripSource).toMatch(
+      /\.highlight-strip--dense \.highlight-strip__line\s*{\s*padding:\s*0;/,
     );
-    expect(codeStripSource).toMatch(
-      /\.code-strip--unframed\s*{[\s\S]*?border:\s*0;[\s\S]*?background:\s*transparent;/,
+    expect(highlightStripSource).toMatch(
+      /\.highlight-strip--unframed\s*{[\s\S]*?border:\s*0;[\s\S]*?background:\s*transparent;/,
     );
-    expect(patternPlaybackSource).toContain("bgFill: false");
-    expect(codeStripSource).toMatch(
-      /\.code-strip--unframed[\s\S]*?\.cm-activeLine\)[\s\S]*?background-color:\s*transparent\s*!important;/,
+    expect(highlightStripSource).toMatch(
+      /\.highlight-strip--unframed \.highlight-strip__line\s*{\s*min-height:\s*40px;/,
     );
-    expect(codeStripSource).toMatch(
-      /\.code-strip--unframed[\s\S]*?\.cm-line:only-child\)[\s\S]*?min-height:\s*40px;[\s\S]*?align-items:\s*center;/,
+    expect(highlightStripSource).toMatch(
+      /\.highlight-strip__empty\s*{[\s\S]*?font-size:\s*11px;[\s\S]*?text-align:\s*center;/,
     );
-    expect(codeStripSource).toMatch(
-      /\.code-strip--empty[\s\S]*?\.cm-line:only-child\)[\s\S]*?justify-content:\s*center;[\s\S]*?font-size:\s*11px;/,
-    );
-    expect(codeStripSource).toMatch(
-      /\.code-strip\s*{[\s\S]*?background:\s*var\(--ink-2\);/,
+    expect(highlightStripSource).toMatch(
+      /\.highlight-strip\s*{[\s\S]*?background:\s*var\(--ink-2\);/,
     );
     expect(designSystemSource).toMatch(/--instrument-bar-surface:\s*var\(--ink\);/);
     expect(designSystemSource).not.toContain("--instrument-bar-backdrop");

@@ -100,7 +100,7 @@ const props = withDefaults(
     density: "dense",
     durationMode: "bar",
     timeSignature: "4/4",
-    ariaLabel: "Editable Strudel pattern",
+    ariaLabel: "Pattern code, read-only",
   },
 );
 

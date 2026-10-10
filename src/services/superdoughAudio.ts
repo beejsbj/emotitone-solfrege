@@ -30,6 +30,7 @@ import { getAudioContext, getMasterGain, initializeAudio, LIVE_ORBIT } from "@/s
 import { setLivePlaybackShaping } from "@/services/livePlayback";
 import { LIVE_DELAY_FEEDBACK, LIVE_DELAY_TIME_SECONDS } from "@/audio/liveShaping";
 import { SampleLoadError } from "@/services/audioFailures";
+import { soundingNoteIdForHap } from "@/services/notationSpans";
 
 /** Compatibility facade: the playback graph is owned by audioRuntime. */
 export { getAudioContext };
@@ -123,6 +124,7 @@ const _activeStrudelVisuals = new Map<
     instrument: string;
     releaseTimeout: number;
     audibleAt: number;
+    sourceNoteId?: string;
   }
 >();
 let _strudelVisualCounter = 0;
@@ -520,6 +522,7 @@ function releaseStrudelVisual(noteId: string, audibleAt = audioTimeToOutputTime(
         instrumentConfig: null,
         source: STRUDEL_PLAYBACK_SOURCE,
         audibleAt,
+        sourceNoteId: active.sourceNoteId,
       },
     })
   );
@@ -564,6 +567,9 @@ export async function emotitoneStrudelOutput(
 
   if (visualPayload && typeof window !== "undefined" && t >= submittedAt) {
     const noteId = `strudel_${++_strudelVisualCounter}`;
+    // The phrase note this hap came from, named by the span its source
+    // location falls in, so the HighlightStrip can light it.
+    const sourceNoteId = soundingNoteIdForHap(hap);
     // The scheduler supplies the clipped gate. Presentation must not invent a
     // longer hold for short notes; release tails are separate from key-down.
     const durationMs = Math.max(0, hapDuration * 1000);
@@ -586,6 +592,7 @@ export async function emotitoneStrudelOutput(
       instrument: visualPayload.instrument,
       releaseTimeout,
       audibleAt,
+      sourceNoteId,
     });
 
     window.dispatchEvent(
@@ -607,6 +614,7 @@ export async function emotitoneStrudelOutput(
           durationMs,
           audibleAt,
           source: STRUDEL_PLAYBACK_SOURCE,
+          sourceNoteId,
         },
       })
     );

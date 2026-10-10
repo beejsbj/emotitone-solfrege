@@ -38,6 +38,7 @@ import {
 } from "@/domain/phraseBook";
 import { logNotesToStrudel } from "@/services/StrudelNotation";
 import { recordedLoopTailMs } from "@/services/recordedTiming";
+import { strudelUrl } from "@/services/strudelLink";
 import { chromaticPitchHeight } from "@/services/scalePitch";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
@@ -363,10 +364,7 @@ async function copyNotation(id: string) {
 function openInStrudel(id: string) {
   const source = notationFor(id);
   if (!source) return;
-  const bytes = new TextEncoder().encode(source);
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  window.open(`https://strudel.cc/#${btoa(binary)}`, "_blank", "noopener,noreferrer");
+  window.open(strudelUrl(source), "_blank", "noopener,noreferrer");
 }
 </script>
 

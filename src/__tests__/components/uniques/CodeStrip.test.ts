@@ -1,32 +1,24 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { flushPromises, mount } from "@vue/test-utils";
 import { nextTick, reactive } from "vue";
-import { EditorView } from "@codemirror/view";
 import type { PatternNote } from "@/types/patterns";
 
 const mocks = vi.hoisted(() => ({
   phrasesStore: null as any,
   instrumentStore: null as any,
   visualConfigStore: null as any,
-  mirrorOptions: null as any,
-  mirrorInitialCode: "",
-  mirrorEvaluate: vi.fn().mockResolvedValue(undefined),
-  mirrorStop: vi.fn().mockResolvedValue(undefined),
+  replOptions: null as any,
+  replInstance: null as any,
+  replEvaluate: vi.fn(),
+  schedulerStop: vi.fn(),
   schedulerSetCps: vi.fn(),
+  schedulerNow: 0,
+  started: false,
   attachEditor: vi.fn(),
   detachEditor: vi.fn(),
   syncCode: vi.fn(),
   setPlaying: vi.fn(),
   setError: vi.fn(),
-  updatePresentation: vi.fn((view: any, _presentation: any, code?: string) => {
-    if (code !== undefined && view.state.doc.toString() !== code) {
-      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: code } });
-    }
-  }),
-  setCodeStripPlaying: vi.fn(),
-  mirrorInstance: null as any,
-  mirrorScroller: null as HTMLElement | null,
-  latestEvent: null as HTMLElement | null,
   rafCallbacks: [] as FrameRequestCallback[],
   usePhrasesStore: vi.fn(),
   useInstrumentStore: vi.fn(),
@@ -68,37 +60,22 @@ function playbackWiring() {
   };
 }
 
-vi.mock("@/components/uniques/CodeStrip/recordingTokens", () => ({
-  buildRecordedCodeStripTokens: () => [{
-    type: "note",
-    note: "do",
-    text: "Do",
-    rawPitch: "C4",
-    scaleIndex: 0,
-    duration: "@0.25",
-  }],
-}));
-
-vi.mock("@/components/uniques/CodeStrip/strudelExtension", () => ({
-  codeStripStrudelExtension: [],
-  codeStripStrudelExtensionWithPresentation: () => [],
-  updateCodeStripPresentation: mocks.updatePresentation,
-  setCodeStripPlaying: mocks.setCodeStripPlaying,
-  applySpecimenPlayback: vi.fn(),
-  parseCodeStripEvents: (doc: { toString: () => string }) => {
-    const patternEnd = doc.toString().indexOf(">");
-    return patternEnd > 0 ? [{ from: 0, to: patternEnd }] : [];
-  },
-  serializeCodeStripTokens: vi.fn(() => "`< C4@0.25 >`"),
-}));
-
 vi.mock("@/composables/useStrudel", () => ({
   toStrudelSound: () => "sine",
 }));
 
 vi.mock("@/services/StrudelNotation", () => ({
-  logNotesToStrudel: (notes: PatternNote[], config: { bpm: number }) =>
-    `\`< ${notes.map((note) => `${note.note}@0.25`).join(" ")} >\`.as(\"note\").sound(\"sine\").cpm(${config.bpm} / 4)`,
+  renderStrudelNotation: (notes: PatternNote[], config: { bpm: number }) => {
+    let code = "`< ";
+    const spans: Array<{ noteId: string; from: number; to: number }> = [];
+    notes.forEach((note, index) => {
+      if (index) code += " ";
+      spans.push({ noteId: note.id, from: code.length, to: code.length + note.note.length });
+      code += `${note.note}@0.25`;
+    });
+    code += ` >\`.as("note").sound("sine").cpm(${config.bpm} / 4)`;
+    return { code, spans };
+  },
 }));
 
 vi.mock("@/services/superdoughAudio", () => ({
@@ -109,92 +86,24 @@ vi.mock("@/services/superdoughAudio", () => ({
   stopStrudelVisuals: vi.fn(),
 }));
 
-vi.mock("@strudel/codemirror", () => ({
-  StrudelMirror: class {
-    code: string;
-    editor: any;
-    repl = {
-      scheduler: {
-        cps: 0.5,
-        setCps: (cps: number) => {
-          mocks.schedulerSetCps(cps);
-          this.repl.scheduler.cps = cps;
-        },
+// Strudel's headless REPL: the scheduler and evaluation the transport owns.
+vi.mock("@strudel/core", () => ({
+  evalScope: vi.fn().mockResolvedValue(undefined),
+  repl: (options: any) => {
+    mocks.replOptions = options;
+    const scheduler = {
+      cps: 0.5,
+      setCps: (cps: number) => {
+        mocks.schedulerSetCps(cps);
+        scheduler.cps = cps;
       },
+      now: () => mocks.schedulerNow,
+      stop: mocks.schedulerStop,
     };
-    stop = mocks.mirrorStop;
-    clear = vi.fn();
-    updateSettings = vi.fn();
-
-    constructor(options: any) {
-      const makeDoc = (value: string) => ({
-        length: value.length,
-        toString: () => value,
-      });
-      const scroller = document.createElement("div");
-      scroller.className = "cm-scroller";
-      Object.defineProperties(scroller, {
-        clientWidth: { configurable: true, value: 300 },
-        scrollWidth: { configurable: true, value: 1000 },
-      });
-      const latestEvent = document.createElement("span");
-      latestEvent.className = "cm-code-strip-event";
-      Object.defineProperties(latestEvent, {
-        offsetLeft: { configurable: true, value: 420 },
-        offsetWidth: { configurable: true, value: 80 },
-      });
-      scroller.appendChild(latestEvent);
-      options.root.appendChild(scroller);
-
-      const rawEditor = {
-        destroy: vi.fn(),
-        hasFocus: false,
-        scrollDOM: scroller,
-        state: { doc: makeDoc(options.initialCode) },
-        coordsAtPos: () => ({ left: 420, right: 420, top: 0, bottom: 20 }),
-        measuring: false,
-        requestMeasure(request: any) {
-          this.measuring = true;
-          try {
-            request.write(request.read(this), this);
-          } finally {
-            this.measuring = false;
-          }
-        },
-        dispatch(this: any, transaction: any) {
-          // CodeMirror keeps its update lock through requestMeasure.write.
-          if (this.measuring) throw new Error("Calls to EditorView.update are not allowed while an update is in progress");
-          if (transaction.changes) {
-            const nextCode = transaction.changes.insert;
-            this.state.doc = makeDoc(nextCode);
-            // Match the installed StrudelMirror behavior: setCode changes the
-            // EditorView document, but its public runtime code can remain stale.
-          }
-        },
-      };
-
-      mocks.mirrorOptions = options;
-      mocks.mirrorInitialCode = options.initialCode;
-      this.code = options.initialCode;
-      this.editor = rawEditor;
-      mocks.mirrorInstance = this;
-      mocks.mirrorScroller = scroller;
-      mocks.latestEvent = latestEvent;
-    }
-
-    setCode(code: string) {
-      this.editor.dispatch({
-        changes: { from: 0, to: this.editor.state.doc.length, insert: code },
-      });
-    }
-
-    async evaluate() {
-      await mocks.mirrorEvaluate(this.code);
-    }
+    mocks.replInstance = { scheduler, evaluate: mocks.replEvaluate };
+    return mocks.replInstance;
   },
 }));
-
-vi.mock("@strudel/core", () => ({ evalScope: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("@strudel/mini", () => ({}));
 vi.mock("@strudel/tonal", () => ({}));
 vi.mock("@strudel/webaudio", () => ({}));
@@ -203,6 +112,8 @@ vi.mock("@strudel/transpiler", () => ({ transpiler: vi.fn() }));
 import CodeStrip from "@/components/uniques/CodeStrip/index.vue";
 import { uiBeatClock } from "@/composables/useUIBeat";
 import { getPatternPlaybackDiagnostics } from "@/services/patternPlayback";
+import { soundingNoteIdForHap } from "@/services/notationSpans";
+import { DEFAULT_CONFIG } from "@/data/visual-config-metadata";
 
 const recordedNote: PatternNote = {
   id: "c",
@@ -214,6 +125,64 @@ const recordedNote: PatternNote = {
   releaseTime: 1500,
   duration: 500,
 };
+
+/** The scheduler has started (Play) and draws one frame at this cycle position. */
+function drawFrame(time: number) {
+  if (!mocks.started) {
+    mocks.started = true;
+    mocks.replOptions.onToggle(true);
+  }
+  mocks.schedulerNow = time;
+  const pending = mocks.rafCallbacks.splice(0);
+  for (const callback of pending) callback(0);
+}
+
+function controllerOf() {
+  return mocks.attachEditor.mock.calls[0][0];
+}
+
+function scroller(wrapper: ReturnType<typeof mount>) {
+  return wrapper.get(".highlight-strip__scroller").element as HTMLElement;
+}
+
+const geometryRestores: Array<() => void> = [];
+
+function overrideOnHTMLElement(name: string, descriptor: PropertyDescriptor) {
+  const target = HTMLElement.prototype;
+  const own = Object.getOwnPropertyDescriptor(target, name);
+  Object.defineProperty(target, name, { configurable: true, ...descriptor });
+  geometryRestores.push(() => {
+    if (own) Object.defineProperty(target, name, own);
+    else delete (target as unknown as Record<string, unknown>)[name];
+  });
+}
+
+/** Layout the strip: a 300px view onto 1000px of events, 80px apart. */
+function stubStripGeometry(maxScroll = Infinity) {
+  const isScroller = (element: Element) => element.classList.contains("highlight-strip__scroller");
+  let scrollLeft = 0;
+  overrideOnHTMLElement("clientWidth", {
+    get(this: HTMLElement) { return isScroller(this) ? 300 : 0; },
+  });
+  overrideOnHTMLElement("scrollWidth", {
+    get(this: HTMLElement) { return isScroller(this) ? 1000 : 0; },
+  });
+  overrideOnHTMLElement("scrollLeft", {
+    get(this: HTMLElement) { return isScroller(this) ? scrollLeft : 0; },
+    set(this: HTMLElement, value: number) {
+      if (isScroller(this)) scrollLeft = Math.min(maxScroll, Math.round(value));
+    },
+  });
+  overrideOnHTMLElement("getBoundingClientRect", {
+    value(this: HTMLElement) {
+      const index = this.dataset?.eventIndex;
+      if (index === undefined) return { left: 0, right: 300, width: 300 } as DOMRect;
+      const left = 400 + Number(index) * 80 - scrollLeft;
+      return { left, right: left + 80, width: 80 } as DOMRect;
+    },
+  });
+  return { get scrollLeft() { return scrollLeft; } };
+}
 
 beforeEach(() => {
   uiBeatClock.stop();
@@ -232,6 +201,7 @@ beforeEach(() => {
   mocks.instrumentStore = reactive({ isInteractionLocked: false });
   mocks.visualConfigStore = reactive({
     config: {
+      ...structuredClone(DEFAULT_CONFIG),
       codeStrip: {
         enabled: true,
         opacity: 1,
@@ -248,11 +218,10 @@ beforeEach(() => {
       },
     },
   });
-  mocks.mirrorOptions = null;
-  mocks.mirrorInitialCode = "";
-  mocks.mirrorInstance = null;
-  mocks.mirrorScroller = null;
-  mocks.latestEvent = null;
+  mocks.replOptions = null;
+  mocks.replInstance = null;
+  mocks.schedulerNow = 0;
+  mocks.started = false;
   mocks.rafCallbacks = [];
   mocks.usePhrasesStore.mockReturnValue(mocks.phrasesStore);
   mocks.useInstrumentStore.mockReturnValue(mocks.instrumentStore);
@@ -269,40 +238,44 @@ beforeEach(() => {
   });
   vi.stubGlobal("cancelAnimationFrame", vi.fn());
   vi.clearAllMocks();
-  mocks.mirrorStop.mockResolvedValue(undefined);
+  mocks.replEvaluate.mockReset();
+  // A successful evaluation hands the scheduler its new pattern.
+  mocks.replEvaluate.mockImplementation(async () => {
+    mocks.replOptions.editPattern?.({});
+  });
+  mocks.schedulerStop.mockReset();
 });
 
 afterEach(() => {
+  while (geometryRestores.length) geometryRestores.pop()!();
   vi.unstubAllGlobals();
 });
 
-describe("CodeStrip production Strudel document", () => {
-  it("owns one production transport and releases its editor resources before remount", async () => {
+describe("CodeStrip production pattern transport", () => {
+  it("owns one production transport and releases it before remount", async () => {
     const first = mount(CodeStrip);
     await flushPromises();
-    const firstInstance = mocks.mirrorInstance;
-    const firstView = firstInstance.editor;
+    const firstRepl = mocks.replInstance;
     expect(getPatternPlaybackDiagnostics().activeTransports).toBe(1);
-    expect(mocks.mirrorOptions.getTime()).toBe(mocks.audioContext.currentTime);
+    expect(mocks.replOptions.getTime()).toBe(mocks.audioContext.currentTime);
 
     const second = mount(CodeStrip);
     await flushPromises();
-    expect(mocks.mirrorInstance).toBe(firstInstance);
+    expect(mocks.replInstance).toBe(firstRepl);
     expect(mocks.attachEditor).toHaveBeenCalledOnce();
     expect(mocks.setError).toHaveBeenCalledWith(
-      expect.objectContaining({ message: "The pattern transport already has an editor" }),
+      expect.objectContaining({ message: "The pattern transport already exists" }),
     );
     second.unmount();
     expect(getPatternPlaybackDiagnostics().activeTransports).toBe(1);
 
     first.unmount();
     expect(getPatternPlaybackDiagnostics().activeTransports).toBe(0);
-    expect(firstInstance.clear).toHaveBeenCalledOnce();
-    expect(firstView.destroy).toHaveBeenCalledOnce();
+    expect(mocks.schedulerStop).toHaveBeenCalledOnce();
 
     const remount = mount(CodeStrip);
     await flushPromises();
-    expect(mocks.mirrorInstance).not.toBe(firstInstance);
+    expect(mocks.replInstance).not.toBe(firstRepl);
     expect(getPatternPlaybackDiagnostics().activeTransports).toBe(1);
     remount.unmount();
   });
@@ -321,51 +294,41 @@ describe("CodeStrip production Strudel document", () => {
     expect(mocks.useInstrumentStore).not.toHaveBeenCalled();
     expect(mocks.useVisualConfigStore).not.toHaveBeenCalled();
     expect(mocks.useCodeStripStrudel).not.toHaveBeenCalled();
-    expect(mocks.mirrorOptions).toBeNull();
+    expect(mocks.replOptions).toBeNull();
     expect(mocks.attachEditor).not.toHaveBeenCalled();
-    expect(mocks.updatePresentation).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({ colorResolver: expect.any(Object) }),
-    );
+    expect(wrapper.find(".note").exists()).toBe(true);
     expect(wrapper.get(".code-strip").isVisible()).toBe(true);
     wrapper.unmount();
   });
-  it("is the sole public host for one editable Strudel mirror", async () => {
+
+  it("shows the recorded take as read-only notation, not an editor", async () => {
     const wrapper = mount(CodeStrip);
     await flushPromises();
 
     expect(wrapper.findAll(".code-strip")).toHaveLength(1);
-    expect(wrapper.find(".live-strip").exists()).toBe(false);
-    expect(wrapper.classes()).not.toContain("code-strip--unframed");
-    expect(wrapper.classes()).not.toContain("code-strip--empty");
-    expect(wrapper.get(".code-strip__editor").attributes("style") ?? "")
-      .not.toContain("display: none");
-    expect(mocks.mirrorInitialCode).toContain("C4@0.25");
-    expect(mocks.mirrorOptions.bgFill).toBe(false);
-    expect(mocks.attachEditor).toHaveBeenCalledOnce();
-    expect(mocks.updatePresentation).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({
-        durationMode: "bar",
-        colorResolver: expect.any(Object),
-        tokens: [expect.objectContaining({ type: "note", rawPitch: "C4" })],
-      }),
-    );
+    expect(wrapper.find(".cm-editor, [contenteditable]").exists()).toBe(false);
+    expect(wrapper.find(".highlight-strip").classes()).not.toContain("highlight-strip--unframed");
+    expect(wrapper.find(".highlight-strip").classes()).not.toContain("highlight-strip--empty");
+    expect(scroller(wrapper).getAttribute("aria-label")).toBe("Pattern code, read-only");
+    // The take's note and its loop-tail rest sit on the Stave.
+    expect(wrapper.findAll("[data-event-index]")).toHaveLength(2);
+    expect(wrapper.find(".note").exists()).toBe(true);
+    expect(controllerOf().getCode()).toContain("C4@0.25");
 
     wrapper.unmount();
     expect(mocks.detachEditor).toHaveBeenCalledOnce();
   });
 
-  it("keeps the empty production editor compact and free of third-party fill", async () => {
+  it("keeps the empty production strip compact and prompting", async () => {
     mocks.phrasesStore.takeNotes = [];
 
     const wrapper = mount(CodeStrip, { props: { framed: false } });
     await flushPromises();
 
-    expect(mocks.mirrorInitialCode).toBe("// Record a pattern");
-    expect(mocks.mirrorOptions.bgFill).toBe(false);
-    expect(wrapper.classes()).toContain("code-strip--unframed");
-    expect(wrapper.classes()).toContain("code-strip--empty");
+    expect(controllerOf().getCode()).toBe("// Record a pattern");
+    expect(wrapper.text()).toContain("// Record a pattern");
+    expect(wrapper.find(".highlight-strip").classes()).toContain("highlight-strip--unframed");
+    expect(wrapper.find(".highlight-strip").classes()).toContain("highlight-strip--empty");
 
     wrapper.unmount();
   });
@@ -376,25 +339,26 @@ describe("CodeStrip production Strudel document", () => {
     const wrapper = mount(CodeStrip);
     await flushPromises();
 
-    expect(wrapper.classes()).toContain("code-strip--empty");
-    expect(wrapper.classes()).not.toContain("code-strip--unframed");
+    expect(wrapper.find(".highlight-strip").classes()).toContain("highlight-strip--empty");
+    expect(wrapper.find(".highlight-strip").classes()).not.toContain("highlight-strip--unframed");
 
     wrapper.unmount();
   });
 
-  it("turns the source decorations to Ink as soon as play is requested", async () => {
+  it("turns the Stave to Ink as soon as play is requested and drives UIBeat from frames", async () => {
     const wrapper = mount(CodeStrip);
     await flushPromises();
-    const controller = mocks.attachEditor.mock.calls[0][0];
+    const fills = () => wrapper.findAll(".code-strip__note").map((node) =>
+      (node.element as HTMLElement).style.getPropertyValue("--code-strip-progress"));
+    expect(fills()).toEqual(["1"]);
 
-    await controller.evaluate();
-    expect(mocks.setCodeStripPlaying).toHaveBeenCalledWith(expect.anything(), true);
-    expect(mocks.mirrorEvaluate).toHaveBeenCalledOnce();
+    await controllerOf().evaluate();
+    await nextTick();
+    expect(fills()).toEqual(["0"]);
+    expect(mocks.replEvaluate).toHaveBeenCalledOnce();
+    expect(mocks.replEvaluate.mock.lastCall).toEqual([controllerOf().getCode(), true]);
 
-    const presentationsBeforeDraw = mocks.updatePresentation.mock.calls.length;
-    mocks.mirrorOptions.onDraw([], .5);
-    await flushPromises();
-    expect(mocks.updatePresentation).toHaveBeenCalledTimes(presentationsBeforeDraw);
+    drawFrame(.5);
     expect(uiBeatClock.snapshot).toMatchObject({
       status: "running",
       mappingAvailable: true,
@@ -403,26 +367,49 @@ describe("CodeStrip production Strudel document", () => {
       beatPhase: 0,
     });
 
-    mocks.mirrorOptions.onToggle(false);
-    expect(mocks.setCodeStripPlaying).toHaveBeenLastCalledWith(expect.anything(), false);
+    mocks.replOptions.onToggle(false);
+    await nextTick();
+    expect(fills()).toEqual(["1"]);
     expect(uiBeatClock.snapshot.status).toBe("idle");
     wrapper.unmount();
   });
 
-  it("keeps UIBeat unavailable when the sounding document is user-authored", async () => {
+  it("lights the take's note from the Strudel note event that names it", async () => {
     const wrapper = mount(CodeStrip);
     await flushPromises();
-    mocks.mirrorInstance.editor.dispatch({
-      changes: {
-        from: 0,
-        to: mocks.mirrorInstance.editor.state.doc.length,
-        insert: '`< C4 D4 >`.sound("sine")',
-      },
-    });
+    await controllerOf().evaluate();
 
-    const controller = mocks.attachEditor.mock.calls[0][0];
-    await controller.evaluate();
-    mocks.mirrorOptions.onDraw([], 1.25);
+    // The transport handed the scheduler the spans of the code it plays.
+    const span = { start: 3, end: 5 };
+    expect(controllerOf().getCode().slice(span.start, span.end)).toBe("C4");
+    expect(soundingNoteIdForHap({ context: { locations: [span] } })).toBe("c");
+
+    window.dispatchEvent(new CustomEvent("note-played", {
+      detail: { noteId: "strudel_1", sourceNoteId: "c", audibleAt: performance.now(), durationMs: 250 },
+    }));
+    await nextTick();
+    expect(wrapper.get('[data-event-index="0"]').attributes("data-active")).toBe("true");
+
+    window.dispatchEvent(new CustomEvent("note-released", {
+      detail: { noteId: "strudel_1", sourceNoteId: "c" },
+    }));
+    await nextTick();
+    expect(wrapper.get('[data-event-index="0"]').attributes("data-active")).toBeUndefined();
+
+    controllerOf().stop();
+    expect(soundingNoteIdForHap({ context: { locations: [span] } })).toBe("c");
+    mocks.replOptions.onToggle(false);
+    expect(soundingNoteIdForHap({ context: { locations: [span] } })).toBeUndefined();
+    wrapper.unmount();
+  });
+
+  it("keeps UIBeat unavailable when the sounding code is not the generated take", async () => {
+    const wrapper = mount(CodeStrip);
+    await flushPromises();
+    controllerOf().setCode('`< C4 D4 >`.sound("sine")');
+
+    await controllerOf().evaluate();
+    drawFrame(1.25);
 
     expect(uiBeatClock.snapshot).toMatchObject({
       status: "unavailable",
@@ -436,49 +423,47 @@ describe("CodeStrip production Strudel document", () => {
   });
 
   it("retires an evaluation generation when Strudel reports a resolved error", async () => {
-    mocks.mirrorEvaluate.mockImplementationOnce(async () => {
-      mocks.mirrorOptions.onEvalError(new Error("invalid pattern"));
+    mocks.replEvaluate.mockImplementationOnce(async () => {
+      mocks.replOptions.onEvalError(new Error("invalid pattern"));
     });
     const wrapper = mount(CodeStrip);
     await flushPromises();
-    const controller = mocks.attachEditor.mock.calls[0][0];
 
-    await expect(controller.evaluate()).rejects.toThrow("invalid pattern");
-    mocks.mirrorOptions.onDraw([], 0.5);
+    await expect(controllerOf().evaluate()).rejects.toThrow("invalid pattern");
+    mocks.rafCallbacks.splice(0).forEach((callback) => callback(0));
 
     expect(uiBeatClock.snapshot.status).toBe("idle");
     expect(mocks.setError).toHaveBeenCalledWith(expect.objectContaining({
       message: "invalid pattern",
     }));
-    expect(mocks.mirrorStop).toHaveBeenCalledOnce();
+    expect(mocks.schedulerStop).toHaveBeenCalledOnce();
     expect(mocks.setPlaying).toHaveBeenCalledWith(false);
     wrapper.unmount();
   });
 
   it("serializes overlapping evaluations so stale callbacks cannot stop the newer run", async () => {
     let resolveFirst!: () => void;
-    mocks.mirrorEvaluate
+    mocks.replEvaluate
       .mockImplementationOnce(
         () => new Promise<void>((resolve) => {
           resolveFirst = resolve;
         }),
-      )
-      .mockResolvedValueOnce(undefined);
+      );
     const wrapper = mount(CodeStrip);
     await flushPromises();
 
-    const first = mocks.mirrorInstance.evaluate();
-    const second = mocks.mirrorInstance.evaluate();
+    const first = controllerOf().evaluate();
+    const second = controllerOf().evaluate();
     await Promise.resolve();
-    expect(mocks.mirrorEvaluate).toHaveBeenCalledTimes(1);
+    expect(mocks.replEvaluate).toHaveBeenCalledTimes(1);
 
-    mocks.mirrorOptions.onEvalError(new Error("stale first evaluation"));
+    mocks.replOptions.onEvalError(new Error("stale first evaluation"));
     resolveFirst();
     await expect(first).rejects.toThrow("stale first evaluation");
     await expect(second).resolves.toBe(true);
-    expect(mocks.mirrorEvaluate).toHaveBeenCalledTimes(2);
+    expect(mocks.replEvaluate).toHaveBeenCalledTimes(2);
 
-    mocks.mirrorOptions.onDraw([], 0.5);
+    drawFrame(0.5);
     expect(uiBeatClock.snapshot).toMatchObject({
       status: "running",
       generation: expect.any(Number),
@@ -489,94 +474,68 @@ describe("CodeStrip production Strudel document", () => {
 
   it("discards a queued evaluation when playback stops", async () => {
     let resolveFirst!: () => void;
-    mocks.mirrorEvaluate.mockImplementationOnce(
+    mocks.replEvaluate.mockImplementationOnce(
       () => new Promise<void>((resolve) => {
         resolveFirst = resolve;
       }),
     );
     const wrapper = mount(CodeStrip);
     await flushPromises();
-    const controller = mocks.attachEditor.mock.calls[0][0];
+    const controller = controllerOf();
 
-    const first = mocks.mirrorInstance.evaluate();
-    const queued = mocks.mirrorInstance.evaluate();
+    const first = controller.evaluate();
+    const queued = controller.evaluate();
     await Promise.resolve();
-    expect(mocks.mirrorEvaluate).toHaveBeenCalledOnce();
+    expect(mocks.replEvaluate).toHaveBeenCalledOnce();
 
     await controller.stop();
     resolveFirst();
     await expect(first).resolves.toBe(false);
     await expect(queued).resolves.toBe(false);
 
-    expect(mocks.mirrorEvaluate).toHaveBeenCalledOnce();
+    expect(mocks.replEvaluate).toHaveBeenCalledOnce();
     expect(uiBeatClock.snapshot.status).toBe("idle");
     wrapper.unmount();
   });
 
-  it("discards a queued evaluation when Strudel invokes its native stop", async () => {
+  it("keeps a new Play requested after Stop while retiring older work", async () => {
     let resolveFirst!: () => void;
-    mocks.mirrorEvaluate.mockImplementationOnce(
-      () => new Promise<void>((resolve) => {
-        resolveFirst = resolve;
-      }),
-    );
-    const wrapper = mount(CodeStrip);
-    await flushPromises();
-
-    const first = mocks.mirrorInstance.evaluate();
-    const queued = mocks.mirrorInstance.evaluate();
-    await Promise.resolve();
-    expect(mocks.mirrorEvaluate).toHaveBeenCalledOnce();
-
-    await mocks.mirrorInstance.stop();
-    resolveFirst();
-    await expect(first).resolves.toBe(false);
-    await expect(queued).resolves.toBe(false);
-
-    expect(mocks.mirrorEvaluate).toHaveBeenCalledOnce();
-    expect(mocks.mirrorStop).toHaveBeenCalledTimes(2);
-    expect(uiBeatClock.snapshot.status).toBe("idle");
-    wrapper.unmount();
-  });
-
-  it("keeps a new Play requested after native Stop while retiring older work", async () => {
-    let resolveFirst!: () => void;
-    mocks.mirrorEvaluate
+    mocks.replEvaluate
       .mockImplementationOnce(
         () => new Promise<void>((resolve) => {
           resolveFirst = resolve;
         }),
-      )
-      .mockResolvedValueOnce(undefined);
+      );
     const wrapper = mount(CodeStrip);
     await flushPromises();
+    const controller = controllerOf();
 
-    const first = mocks.mirrorInstance.evaluate();
-    const staleQueued = mocks.mirrorInstance.evaluate();
+    const first = controller.evaluate();
+    const staleQueued = controller.evaluate();
     await Promise.resolve();
-    await mocks.mirrorInstance.stop();
-    const afterStop = mocks.mirrorInstance.evaluate();
+    await controller.stop();
+    const afterStop = controller.evaluate();
     resolveFirst();
 
     await expect(first).resolves.toBe(false);
     await expect(staleQueued).resolves.toBe(false);
     await expect(afterStop).resolves.toBe(true);
-    expect(mocks.mirrorEvaluate).toHaveBeenCalledTimes(2);
+    expect(mocks.replEvaluate).toHaveBeenCalledTimes(2);
     wrapper.unmount();
   });
 
   it("does not publish a late evaluation error after Stop cancels its intent", async () => {
     let rejectEvaluation!: (error: Error) => void;
-    mocks.mirrorEvaluate.mockImplementationOnce(
+    mocks.replEvaluate.mockImplementationOnce(
       () => new Promise<void>((_resolve, reject) => {
         rejectEvaluation = reject;
       }),
     );
     const wrapper = mount(CodeStrip);
     await flushPromises();
-    const controller = mocks.attachEditor.mock.calls[0][0];
+    const controller = controllerOf();
 
-    const evaluation = mocks.mirrorInstance.evaluate();
+    const evaluation = controller.evaluate();
     await Promise.resolve();
     await controller.stop();
     rejectEvaluation(new Error("late canceled failure"));
@@ -589,34 +548,34 @@ describe("CodeStrip production Strudel document", () => {
 
   it("discards a queued evaluation when its CodeStrip unmounts", async () => {
     let resolveFirst!: () => void;
-    mocks.mirrorEvaluate.mockImplementationOnce(
+    mocks.replEvaluate.mockImplementationOnce(
       () => new Promise<void>((resolve) => {
         resolveFirst = resolve;
       }),
     );
     const wrapper = mount(CodeStrip);
     await flushPromises();
+    const controller = controllerOf();
 
-    const first = mocks.mirrorInstance.evaluate();
-    const queued = mocks.mirrorInstance.evaluate();
+    const first = controller.evaluate();
+    const queued = controller.evaluate();
     await Promise.resolve();
-    expect(mocks.mirrorEvaluate).toHaveBeenCalledOnce();
+    expect(mocks.replEvaluate).toHaveBeenCalledOnce();
 
     wrapper.unmount();
     resolveFirst();
     await expect(first).resolves.toBe(false);
     await expect(queued).resolves.toBe(false);
 
-    expect(mocks.mirrorEvaluate).toHaveBeenCalledOnce();
+    expect(mocks.replEvaluate).toHaveBeenCalledOnce();
     expect(mocks.detachEditor).toHaveBeenCalledOnce();
   });
 
   it("rests during audio suspension and rejoins on the next sounding frame", async () => {
     const wrapper = mount(CodeStrip);
     await flushPromises();
-    const controller = mocks.attachEditor.mock.calls[0][0];
-    await controller.evaluate();
-    mocks.mirrorOptions.onDraw([], 0.25);
+    await controllerOf().evaluate();
+    drawFrame(0.25);
     expect(uiBeatClock.snapshot.status).toBe("running");
 
     const stateListener = mocks.audioContext.addEventListener.mock.calls
@@ -633,7 +592,7 @@ describe("CodeStrip production Strudel document", () => {
     mocks.audioContext.state = "running";
     stateListener(new Event("statechange"));
     expect(uiBeatClock.snapshot.status).toBe("arming");
-    mocks.mirrorOptions.onDraw([], 0.5);
+    drawFrame(0.5);
     expect(uiBeatClock.snapshot).toMatchObject({
       status: "running",
       beatIndex: 2,
@@ -646,34 +605,33 @@ describe("CodeStrip production Strudel document", () => {
     );
   });
 
-  it("invalidates active presentation when the editor document is replaced", async () => {
+  it("invalidates active presentation when the playing code is replaced", async () => {
     const wrapper = mount(CodeStrip);
     await flushPromises();
-    const controller = mocks.attachEditor.mock.calls[0][0];
-    await controller.evaluate();
-    mocks.mirrorOptions.onDraw([], 0.25);
+    await controllerOf().evaluate();
+    drawFrame(0.25);
     expect(uiBeatClock.snapshot.status).toBe("running");
 
-    controller.setCode('`< E4 >`.sound("sine")');
+    controllerOf().setCode('`< E4 >`.sound("sine")');
 
     expect(uiBeatClock.snapshot.status).toBe("idle");
     wrapper.unmount();
   });
 
-  it("blocks editor-owned playback shortcuts while samples are warming", async () => {
+  it("blocks playback while samples are warming", async () => {
     const wrapper = mount(CodeStrip);
     await flushPromises();
     mocks.instrumentStore.isInteractionLocked = true;
 
-    await mocks.mirrorInstance.evaluate();
+    await expect(controllerOf().evaluate()).resolves.toBe(false);
 
-    expect(mocks.mirrorEvaluate).not.toHaveBeenCalled();
+    expect(mocks.replEvaluate).not.toHaveBeenCalled();
     wrapper.unmount();
   });
 
   it("stops playback when warmup begins during a pending evaluation", async () => {
     let resolveEvaluation!: () => void;
-    mocks.mirrorEvaluate.mockImplementationOnce(
+    mocks.replEvaluate.mockImplementationOnce(
       () => new Promise<void>((resolve) => {
         resolveEvaluation = resolve;
       }),
@@ -681,14 +639,14 @@ describe("CodeStrip production Strudel document", () => {
     const wrapper = mount(CodeStrip);
     await flushPromises();
 
-    const evaluation = mocks.mirrorInstance.evaluate();
+    const evaluation = controllerOf().evaluate();
     await Promise.resolve();
-    expect(mocks.mirrorEvaluate).toHaveBeenCalledOnce();
+    expect(mocks.replEvaluate).toHaveBeenCalledOnce();
     mocks.instrumentStore.isInteractionLocked = true;
     resolveEvaluation();
     await evaluation;
 
-    expect(mocks.mirrorStop).toHaveBeenCalled();
+    expect(mocks.schedulerStop).toHaveBeenCalled();
     expect(mocks.setPlaying).toHaveBeenCalledWith(false);
     wrapper.unmount();
   });
@@ -697,10 +655,9 @@ describe("CodeStrip production Strudel document", () => {
     mocks.visualConfigStore.config.codeStrip.bpm = 90;
     const wrapper = mount(CodeStrip);
     await flushPromises();
-    const controller = mocks.attachEditor.mock.calls[0][0];
 
-    await controller.evaluate();
-    mocks.mirrorOptions.onDraw([], 0.125);
+    await controllerOf().evaluate();
+    drawFrame(0.125);
 
     expect(mocks.schedulerSetCps).toHaveBeenLastCalledWith(0.375);
     expect(uiBeatClock.snapshot).toMatchObject({
@@ -716,10 +673,8 @@ describe("CodeStrip production Strudel document", () => {
   it("preserves UIBeat generation and phase when playback tempo changes", async () => {
     const wrapper = mount(CodeStrip);
     await flushPromises();
-    const controller = mocks.attachEditor.mock.calls[0][0];
-    await controller.evaluate();
-    mocks.mirrorOptions.onToggle(true);
-    mocks.mirrorOptions.onDraw([], 0.125);
+    await controllerOf().evaluate();
+    drawFrame(0.125);
     const before = uiBeatClock.snapshot;
 
     mocks.isPlaying.value = true;
@@ -727,7 +682,7 @@ describe("CodeStrip production Strudel document", () => {
     await nextTick();
     await flushPromises();
 
-    expect(mocks.mirrorEvaluate).toHaveBeenCalledTimes(2);
+    expect(mocks.replEvaluate).toHaveBeenCalledTimes(2);
     expect(mocks.schedulerSetCps).toHaveBeenLastCalledWith(0.375);
     expect(uiBeatClock.snapshot).toMatchObject({
       generation: before.generation,
@@ -738,9 +693,9 @@ describe("CodeStrip production Strudel document", () => {
       presenting: true,
     });
 
-    mocks.mirrorOptions.onDraw([], 0.125);
+    drawFrame(0.125);
     expect(uiBeatClock.snapshot.barPosition).toBeCloseTo(0.125);
-    mocks.mirrorOptions.onDraw([], 0.21875);
+    drawFrame(0.21875);
     expect(uiBeatClock.snapshot.barPosition).toBeCloseTo(0.21875);
     expect(uiBeatClock.snapshot.generation).toBe(before.generation);
     wrapper.unmount();
@@ -749,12 +704,10 @@ describe("CodeStrip production Strudel document", () => {
   it("coalesces paired pattern and CodeStrip BPM updates into one evaluation", async () => {
     const wrapper = mount(CodeStrip);
     await flushPromises();
-    const controller = mocks.attachEditor.mock.calls[0][0];
-    await controller.evaluate();
-    mocks.mirrorOptions.onToggle(true);
-    mocks.mirrorOptions.onDraw([], 0.125);
+    await controllerOf().evaluate();
+    drawFrame(0.125);
     mocks.isPlaying.value = true;
-    mocks.mirrorEvaluate.mockClear();
+    mocks.replEvaluate.mockClear();
     mocks.schedulerSetCps.mockClear();
 
     mocks.phrasesStore.takeContext.bpm = 90;
@@ -762,7 +715,7 @@ describe("CodeStrip production Strudel document", () => {
     await nextTick();
     await flushPromises();
 
-    expect(mocks.mirrorEvaluate).toHaveBeenCalledOnce();
+    expect(mocks.replEvaluate).toHaveBeenCalledOnce();
     expect(mocks.schedulerSetCps).toHaveBeenCalledOnce();
     expect(mocks.schedulerSetCps).toHaveBeenCalledWith(0.375);
     expect(uiBeatClock.snapshot).toMatchObject({
@@ -777,13 +730,12 @@ describe("CodeStrip production Strudel document", () => {
     const wrapper = mount(CodeStrip);
     try {
       await flushPromises();
-      const controller = mocks.attachEditor.mock.calls[0][0];
+      const controller = controllerOf();
       await controller.evaluate();
-      mocks.mirrorOptions.onToggle(true);
-      mocks.mirrorOptions.onDraw([], 0.125);
+      drawFrame(0.125);
       const before = uiBeatClock.snapshot;
       mocks.isPlaying.value = true;
-      mocks.mirrorEvaluate.mockClear();
+      mocks.replEvaluate.mockClear();
       mocks.schedulerSetCps.mockClear();
 
       // One replacement note keeps the pattern length unchanged. Pattern
@@ -795,22 +747,22 @@ describe("CodeStrip production Strudel document", () => {
       await nextTick();
       await flushPromises();
 
-      expect(mocks.mirrorEvaluate).toHaveBeenCalledOnce();
+      expect(mocks.replEvaluate).toHaveBeenCalledOnce();
       expect(controller.getCode()).toContain("D4@0.25");
-      expect(mocks.mirrorEvaluate).toHaveBeenLastCalledWith(controller.getCode());
+      expect(mocks.replEvaluate.mock.lastCall?.[0]).toBe(controller.getCode());
       expect(mocks.schedulerSetCps).toHaveBeenCalledExactlyOnceWith(0.375);
       expect(uiBeatClock.snapshot.generation).not.toBe(before.generation);
       // A fresh run waits for its own frame instead of displaying the old
       // pattern's mapped beat position at the newly selected tempo.
       expect(uiBeatClock.snapshot.barPosition).toBeNull();
-      mocks.mirrorOptions.onDraw([], 0.25);
+      drawFrame(0.25);
       expect(uiBeatClock.snapshot).toMatchObject({ status: "running", bpm: 90, barPosition: 0.25 });
     } finally {
       wrapper.unmount();
     }
   });
 
-  it("evaluates the current visible recording instead of stale runtime source", async () => {
+  it("plays the current recording once its publication lands", async () => {
     const wrapper = mount(CodeStrip);
     await flushPromises();
 
@@ -825,47 +777,31 @@ describe("CodeStrip production Strudel document", () => {
     await nextTick();
     await flushPromises();
 
-    const visibleSource = mocks.mirrorInstance.editor.state.doc.toString();
-    expect(visibleSource).toContain("D4@0.25");
-    expect(mocks.mirrorInstance.code).not.toBe(visibleSource);
-
-    const controller = mocks.attachEditor.mock.calls[0][0];
-    await controller.evaluate();
-    expect(mocks.mirrorInstance.code).toBe(visibleSource);
-    expect(mocks.mirrorEvaluate).toHaveBeenLastCalledWith(visibleSource);
+    expect(mocks.syncCode).toHaveBeenLastCalledWith(expect.stringContaining("D4@0.25"));
+    await controllerOf().evaluate();
+    expect(mocks.replEvaluate.mock.lastCall?.[0]).toContain("D4@0.25");
     wrapper.unmount();
   });
 
-  it("coalesces presentation updates and applies the latest metadata after a source edit", async () => {
+  it("coalesces code publications into one per flush", async () => {
     const wrapper = mount(CodeStrip);
     await flushPromises();
-    mocks.updatePresentation.mockClear();
+    mocks.syncCode.mockClear();
 
-    const nextNote: PatternNote = {
-      ...recordedNote,
-      id: "d",
-      note: "D4",
-      scaleDegree: 2,
-      scaleIndex: 1,
-    };
-    mocks.phrasesStore.takeNotes = [nextNote];
-    mocks.visualConfigStore.config.codeStrip.durationMode = "bar";
+    mocks.phrasesStore.takeNotes = [{ ...recordedNote, id: "d", note: "D4", scaleDegree: 2, scaleIndex: 1 }];
+    mocks.phrasesStore.takeNotes = [{ ...recordedNote, id: "e", note: "E4", scaleDegree: 3, scaleIndex: 2 }];
     await nextTick();
     await flushPromises();
 
-    expect(mocks.updatePresentation).toHaveBeenCalledOnce();
-    expect(mocks.updatePresentation).toHaveBeenLastCalledWith(
-      expect.anything(),
-      expect.objectContaining({ durationMode: "bar" }),
-      expect.stringContaining("D4@0.25"),
-    );
+    expect(mocks.syncCode).toHaveBeenCalledOnce();
+    expect(mocks.syncCode).toHaveBeenLastCalledWith(expect.stringContaining("E4@0.25"));
     wrapper.unmount();
   });
 
   it("lets an explicit source load supersede an already queued recording update", async () => {
     const wrapper = mount(CodeStrip);
     await flushPromises();
-    const controller = mocks.attachEditor.mock.calls[0][0];
+    const controller = controllerOf();
     mocks.phrasesStore.takeNotes = [{ ...recordedNote, id: "d", note: "D4" }];
     const authored = '`< E4 >`.sound("sine")';
     // Vue's watcher runs first, then this load, then the queued publication.
@@ -873,43 +809,31 @@ describe("CodeStrip production Strudel document", () => {
     await flushPromises();
     expect(controller.getCode()).toBe(authored);
     await controller.evaluate();
-    expect(mocks.mirrorEvaluate).toHaveBeenLastCalledWith(authored);
+    expect(mocks.replEvaluate.mock.lastCall?.[0]).toBe(authored);
     wrapper.unmount();
   });
 
-  it("repairs a stale runtime source from the visible document before Play", async () => {
+  it("smoothly follows the newest typed note", async () => {
+    const geometry = stubStripGeometry();
     const wrapper = mount(CodeStrip);
     await flushPromises();
-    const visibleSource = mocks.mirrorInstance.editor.state.doc.toString();
-    mocks.mirrorInstance.code = "`< stale@1 >`";
+    mocks.rafCallbacks.length = 0;
 
-    const controller = mocks.attachEditor.mock.calls[0][0];
-    await controller.evaluate();
-
-    expect(mocks.mirrorInstance.code).toBe(visibleSource);
-    expect(mocks.mirrorEvaluate).toHaveBeenLastCalledWith(visibleSource);
-    wrapper.unmount();
-  });
-
-  it("smoothly follows the latest semantic event without jumping into the raw source tail", async () => {
-    const wrapper = mount(CodeStrip);
-    await flushPromises();
-    expect(mocks.mirrorScroller).not.toBeNull();
-
-    mocks.mirrorScroller!.scrollLeft = 0;
     const nextNote: PatternNote = {
       ...recordedNote,
       id: "d",
       note: "D4",
       scaleDegree: 2,
       scaleIndex: 1,
+      pressTime: 1500,
+      releaseTime: 2000,
     };
     mocks.phrasesStore.takeNotes = [recordedNote, nextNote];
     mocks.phrasesStore.lastLiveNoteId = nextNote.id;
     await nextTick();
     await flushPromises();
 
-    expect(mocks.mirrorScroller!.scrollLeft).toBe(0);
+    expect(geometry.scrollLeft).toBe(0);
     expect(mocks.rafCallbacks.length).toBeGreaterThan(0);
 
     const samples: number[] = [];
@@ -917,7 +841,7 @@ describe("CodeStrip production Strudel document", () => {
       const callback = mocks.rafCallbacks.shift();
       if (!callback) break;
       callback(frame * 16);
-      samples.push(mocks.mirrorScroller!.scrollLeft);
+      samples.push(geometry.scrollLeft);
     }
 
     expect(samples.length).toBeGreaterThan(2);
@@ -925,49 +849,33 @@ describe("CodeStrip production Strudel document", () => {
       .toBe(true);
     expect(samples[0]).toBeGreaterThan(0);
     expect(samples[0]).toBeLessThan(samples.at(-1)!);
-    expect(samples.at(-1)!).toBeLessThan(
-      mocks.mirrorScroller!.scrollWidth - mocks.mirrorScroller!.clientWidth,
-    );
     wrapper.unmount();
   });
 
-  it("reveals a replacement event even when the recording length is unchanged", async () => {
+  it("returns to the start when a different phrase arrives", async () => {
+    const geometry = stubStripGeometry();
     const wrapper = mount(CodeStrip);
     await flushPromises();
-    mocks.mirrorScroller!.scrollLeft = 0;
+    scroller(wrapper).scrollLeft = 240;
+    expect(geometry.scrollLeft).toBe(240);
 
-    const replacement: PatternNote = {
-      ...recordedNote,
-      id: "replacement",
-      note: "E4",
-      scaleDegree: 3,
-      scaleIndex: 2,
-    };
-    mocks.phrasesStore.takeNotes = [replacement];
-    mocks.phrasesStore.lastLiveNoteId = replacement.id;
+    mocks.phrasesStore.takeId = "take-2";
     await nextTick();
     await flushPromises();
 
-    expect(mocks.rafCallbacks.length).toBeGreaterThan(0);
-    mocks.rafCallbacks.shift()?.(16);
-    expect(mocks.mirrorScroller!.scrollLeft).toBeGreaterThan(0);
+    expect(geometry.scrollLeft).toBe(0);
     wrapper.unmount();
   });
 
   it.each(["rounded pixels", "shrinking scroll extent"])(
     "finishes recording follow with %s so a later manual scroll is not overwritten",
     async (caseName) => {
+      const geometry = stubStripGeometry(caseName === "rounded pixels" ? 700 : 50);
       const wrapper = mount(CodeStrip);
       await flushPromises();
       try {
-        const scroller = mocks.mirrorScroller!;
-        let actualScrollLeft = 0;
-        Object.defineProperty(scroller, "scrollLeft", {
-          configurable: true,
-          get: () => actualScrollLeft,
-          set: value => { actualScrollLeft = Math.min(caseName === "rounded pixels" ? 700 : 50, Math.round(value)); },
-        });
-        mocks.phrasesStore.takeNotes = [recordedNote, { ...recordedNote, id: "next" }];
+        mocks.rafCallbacks.length = 0;
+        mocks.phrasesStore.takeNotes = [recordedNote, { ...recordedNote, id: "next", pressTime: 1500, releaseTime: 2000 }];
         mocks.phrasesStore.lastLiveNoteId = "next";
         await nextTick();
         await flushPromises();
@@ -976,50 +884,15 @@ describe("CodeStrip production Strudel document", () => {
           if (!callback) break;
           callback(frame * 16);
         }
-        expect(actualScrollLeft).toBe(caseName === "rounded pixels" ? 195 : 50);
+        // The last event (index 2, the loop tail) ends at 400 + 3 * 80;
+        // its right edge settles at 75% of the 300px view.
+        expect(geometry.scrollLeft).toBe(caseName === "rounded pixels" ? 415 : 50);
         expect(mocks.rafCallbacks).toHaveLength(0);
-        scroller.scrollLeft = 0;
-        expect(actualScrollLeft).toBe(0);
+        scroller(wrapper).scrollLeft = 0;
+        expect(geometry.scrollLeft).toBe(0);
       } finally {
         wrapper.unmount();
       }
     },
   );
-
-  it("asks CodeMirror to materialize an omitted last event before following it", async () => {
-    const wrapper = mount(CodeStrip);
-    await flushPromises();
-    const nativeScroll = vi.spyOn(EditorView, "scrollIntoView");
-    const view = mocks.mirrorInstance.editor;
-    const coordinates = vi.spyOn(view, "coordsAtPos");
-    try {
-      view.visibleRanges = [{ from: 0, to: 3 }];
-      mocks.mirrorOptions.onToggle(true);
-      mocks.phrasesStore.takeNotes = [recordedNote, { ...recordedNote, id: "outside" }];
-      mocks.phrasesStore.lastLiveNoteId = "outside";
-      await nextTick();
-      await flushPromises();
-      expect(nativeScroll).toHaveBeenCalledWith(
-        view.state.doc.toString().indexOf(">") - 1,
-        { x: "center", y: "nearest" },
-      );
-      expect(coordinates).not.toHaveBeenCalled();
-      expect(mocks.rafCallbacks).toHaveLength(0);
-      // Materializing a recording append must not retire the independent
-      // playback-follow state used by subsequent native location callbacks.
-      mocks.latestEvent!.classList.add("cm-code-strip-event--active");
-      mocks.latestEvent!.dataset.followRank = "1";
-      vi.spyOn(mocks.latestEvent!, "getBoundingClientRect").mockReturnValue({
-        left: 420, right: 500, width: 80, top: 0, bottom: 20, height: 20,
-      } as DOMRect);
-      mocks.mirrorOptions.onDraw([], .5);
-      await nextTick();
-      expect(mocks.rafCallbacks).toHaveLength(1);
-      mocks.rafCallbacks.shift()?.(16);
-      expect(mocks.mirrorScroller!.scrollLeft).toBeGreaterThan(0);
-    } finally {
-      nativeScroll.mockRestore();
-      wrapper.unmount();
-    }
-  });
 });

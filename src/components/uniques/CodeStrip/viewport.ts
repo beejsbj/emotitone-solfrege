@@ -14,9 +14,9 @@ interface Registration {
   binding: WidgetBinding;
 }
 
-/** One observer for all mounted widgets in an editor, including scroll clipping.
- * CodeMirror still owns document virtualization. No layout reads or frame loop
- * are needed to decide whether an individual mounted widget should do work.
+/** One observer for all mounted events in a strip, including scroll clipping.
+ * No layout reads or frame loop are needed to decide whether an individual
+ * mounted event should do work.
  */
 export class CodeStripViewport {
   readonly visibleCount = ref(0);
@@ -67,7 +67,7 @@ export class CodeStripViewport {
       colorResolver,
       update: draw => {
         latestDraw = draw;
-        // The first render supplies intrinsic size for CodeMirror and IO.
+        // The first render supplies intrinsic size for the observer.
         if (!mounted || visible) draw();
         mounted = true;
       },

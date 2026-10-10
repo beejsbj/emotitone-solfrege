@@ -255,7 +255,10 @@ const eventProgress = (token: CodeStripToken) => {
  * enters that segment; the Note itself carries the continuous fill.
  */
 const isStemLit = (token: CodeStripToken, markIndex: number) => {
-  const segments = "duration" in token ? durationMarks(token.duration) : 0;
+  // An omitted duration is the implicit base 1, not "no stems".
+  const segments = token.type === "note" || token.type === "chord" || token.type === "rest"
+    ? durationMarks(token.duration)
+    : 0;
   return eventProgress(token) * segments > markIndex - 1;
 };
 
@@ -363,8 +366,18 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
   background: var(--ink);
   transform: scaleY(calc(1 - var(--code-strip-progress)));
   transform-origin: top center;
-  transition: transform var(--dur-press) linear;
+  /* Live playback sets progress every frame (fill duration 0ms); any other
+     change is a press. */
+  transition: transform var(--code-strip-fill-duration, var(--dur-press)) linear;
   will-change: transform;
+}
+
+.code-strip__event-line :deep(.chord__fused-progress) {
+  transition-duration: var(--code-strip-fill-duration, var(--dur-press));
+}
+
+.code-strip__event-line :deep(.chord__cluster-member .note__surface::before) {
+  transition-duration: var(--code-strip-fill-duration, var(--dur-press));
 }
 
 /* Stave: a rest is a slim gap in the staff that fills with Ivory as it passes. */
@@ -388,7 +401,7 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
   background: var(--ivory);
   transform: scaleY(var(--code-strip-progress));
   transform-origin: bottom center;
-  transition: transform var(--dur-press) linear;
+  transition: transform var(--code-strip-fill-duration, var(--dur-press)) linear;
   will-change: transform;
 }
 
@@ -529,6 +542,8 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
 
 @media (prefers-reduced-motion: reduce) {
   .code-strip__note :deep(.note__surface::before),
+  .code-strip__event-line :deep(.chord__fused-progress),
+  .code-strip__event-line :deep(.chord__cluster-member .note__surface::before),
   .code-strip__rest-fill {
     transition: none;
   }

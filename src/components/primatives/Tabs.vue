@@ -27,7 +27,7 @@
         v-for="tab in tabs"
         :key="tab.value"
         type="button"
-        class="tabs__button"
+        class="tabs__button touch-floor touch-floor--block"
         :class="{
           'tabs__button--active': tab.value === activeValue,
           'tabs__button--brass': isMarquee && (tab.tone ?? railTone) === 'brass',
@@ -528,12 +528,6 @@ onBeforeUnmount(() => {
   padding: 10px 14px;
   text-transform: uppercase;
   white-space: nowrap;
-}
-
-.tabs__button::before {
-  content: "";
-  position: absolute;
-  inset: min(0px, (100% - var(--hit-min)) / 2);
 }
 
 .tabs--layout-scroll .tabs__button {

@@ -394,7 +394,7 @@ async function selectInstrument(name: string, close: () => void) {
         <template #toolbar>
           <div v-if="activeTab !== 'shape'" class="flex items-center gap-2">
             <label
-              class="instrument-search flex flex-1 items-center gap-2 border-b border-[var(--ink-5)] px-0.5 pb-2 pt-0.5 text-[var(--ivory-3)] transition-colors focus-within:border-[var(--ivory-2)] focus-within:text-[var(--ivory)]"
+              class="touch-floor touch-floor--block flex flex-1 items-center gap-2 border-b border-[var(--ink-5)] px-0.5 pb-2 pt-0.5 text-[var(--ivory-3)] transition-colors focus-within:border-[var(--ivory-2)] focus-within:text-[var(--ivory)]"
             >
               <Search :size="14" class="text-[var(--ivory-3)]" />
               <input
@@ -594,18 +594,6 @@ async function selectInstrument(name: string, close: () => void) {
      the row spacing. */
   gap: 0 .75rem;
   padding: .875rem .125rem .125rem;
-}
-
-/* The search row is drawn compact; its label (which focuses the field)
-   still takes a --hit-min touch. */
-.instrument-search {
-  position: relative;
-}
-
-.instrument-search::before {
-  content: "";
-  position: absolute;
-  inset: min(0px, (100% - var(--hit-min)) / 2) 0;
 }
 
 .instrument-choice {

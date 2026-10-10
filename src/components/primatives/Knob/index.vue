@@ -880,12 +880,15 @@ useGSAP(({ gsap }: { gsap: any }) => {
   font: inherit;
 }
 
-/* A Knob drawn smaller than the touch floor (Config's 32px toggles) still
-   takes a --hit-min touch; the face and label keep their size. */
+/* A Knob drawn smaller than the touch floor (Config's --control-sm toggles)
+   still takes a --hit-min touch; the face and label keep their size. It grows
+   from its drawn size, not its slot, so a squeezed Knob never reaches over
+   its neighbours. */
 .knob-wrapper::before {
   content: "";
   position: absolute;
-  inset: min(0px, (100% - var(--hit-min)) / 2);
+  inset-block: min(0px, (100% - var(--hit-min)) / 2);
+  inset-inline: min(0px, (var(--instrument-control-size) - var(--hit-min)) / 2);
 }
 
 .knob-wrapper[role="slider"]:focus-visible {

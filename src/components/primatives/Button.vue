@@ -1,7 +1,7 @@
 <template>
   <button
     :type="type"
-    class="paper-button"
+    class="paper-button touch-floor"
     :class="[
       `paper-button--${size}`,
       `paper-button--${tone}`,
@@ -146,19 +146,10 @@ function handleClick(event: MouseEvent) {
   transition: opacity var(--dur-tap) var(--ease-stab);
 }
 
-/*
- * Hit area: an invisible layer centred on the key that never takes less than
- * the touch floor, whatever the cap's size. It belongs to the native button,
- * so it holds still while UIBeat scales the face; consumers leave room for it
- * between neighbours.
- */
-.paper-button::before {
-  content: "";
-  position: absolute;
-  inset: min(0px, (100% - var(--hit-min)) / 2);
-}
-
-.paper-button--sm { --button-size: 32px; --button-travel: 3px; }
+/* The touch floor (.touch-floor) belongs to the native button, so it holds
+   still while UIBeat scales the face; consumers leave room for it between
+   neighbours with --hit-gap-sm. */
+.paper-button--sm { --button-size: var(--control-sm); --button-travel: 3px; }
 .paper-button--md { --button-size: 40px; }
 .paper-button--lg { --button-size: 48px; --button-travel: 5px; }
 

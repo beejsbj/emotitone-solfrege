@@ -507,9 +507,9 @@ const openLabel = computed(() => props.item.canOpenStrudel === false
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  /* The 32px keys sit --s-5 apart so their --hit-min touches meet without
-     overlapping, at every width. */
-  gap: var(--s-5);
+  /* Small keys sit --hit-gap-sm apart so their touches meet, not overlap, at
+     every width. */
+  gap: var(--hit-gap-sm);
 }
 
 /* The take is flat Ink like every strip; only its Brass edges mark it. */

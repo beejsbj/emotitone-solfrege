@@ -1025,7 +1025,7 @@ const formatTimestamp = (timestamp: string) => {
 }
 
 .config-panel__boolean-knob {
-  --knob-size: 32px;
+  --knob-size: var(--control-sm);
   flex: 0 0 var(--knob-size);
   inline-size: var(--knob-size);
 }
@@ -1043,7 +1043,7 @@ const formatTimestamp = (timestamp: string) => {
 /* A section's own reset key sits at the panel's edge; keep its touch inside
    the scroller. */
 .config-panel__section-header > .paper-button {
-  margin-inline-end: calc((var(--hit-min) - 32px) / 2);
+  margin-inline-end: calc(var(--hit-gap-sm) / 2);
 }
 
 .config-panel__saved-time,
@@ -1102,19 +1102,19 @@ const formatTimestamp = (timestamp: string) => {
   opacity: .82;
 }
 
-/* Rows of 32px keys sit --s-5 apart so their --hit-min touches meet without
-   overlapping. */
+/* Rows of small keys sit --hit-gap-sm apart so their touches meet, not
+   overlap. */
 .config-panel__look-preview-actions {
   flex: none;
-  gap: var(--s-5);
+  gap: var(--hit-gap-sm);
 }
 
 .config-panel__section-controls {
   align-items: flex-start;
   flex: none;
-  gap: var(--s-5);
+  gap: var(--hit-gap-sm);
   /* Keys at the panel's edge keep their touch inside the scroller. */
-  padding-inline-end: calc((var(--hit-min) - 32px) / 2);
+  padding-inline-end: calc(var(--hit-gap-sm) / 2);
 }
 
 .config-panel__groups,
@@ -1152,8 +1152,8 @@ const formatTimestamp = (timestamp: string) => {
 .config-panel__looks-actions {
   align-items: flex-start;
   flex: none;
-  gap: var(--s-5);
-  padding-inline-end: calc((var(--hit-min) - 32px) / 2);
+  gap: var(--hit-gap-sm);
+  padding-inline-end: calc(var(--hit-gap-sm) / 2);
 }
 
 .config-panel__legacy-configs {
@@ -1361,14 +1361,14 @@ const formatTimestamp = (timestamp: string) => {
 }
 
 .config-panel__midi-actions {
-  gap: var(--s-5);
+  gap: var(--hit-gap-sm);
 }
 
 .config-panel__labeled-action {
   display: grid;
   justify-items: center;
   /* The caption sits clear of the key's --hit-min touch. */
-  gap: calc((var(--hit-min) - 32px) / 2);
+  gap: calc(var(--hit-gap-sm) / 2);
 }
 
 @media (min-width: 560px) {

@@ -7,7 +7,7 @@
   >
     <button
       type="button"
-      class="save-failure-notice__button"
+      class="save-failure-notice__button touch-floor touch-floor--block"
       aria-label="Dismiss save warning"
       @click="dismissSaveFailure"
     >
@@ -36,19 +36,10 @@ import { dismissSaveFailure, saveFailureNotice } from "@/services/safeStorage";
 }
 
 .save-failure-notice__button {
-  position: relative;
   pointer-events: auto;
   padding: 6px;
   background: none;
   border: 0;
   cursor: pointer;
-}
-
-/* The one-line sticker is shorter than the touch floor; its dismiss touch
-   is not. */
-.save-failure-notice__button::before {
-  content: "";
-  position: absolute;
-  inset: min(0px, (100% - var(--hit-min)) / 2) 0;
 }
 </style>

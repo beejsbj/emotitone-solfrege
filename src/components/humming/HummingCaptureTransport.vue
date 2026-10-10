@@ -132,6 +132,9 @@ function handleTakeSelection(event: Event) {
 
 <style scoped>
 .humming-capture-transport {
+  --humming-primary-size: 28px;
+  --humming-cancel-size: 22.4px;
+
   position: fixed;
   z-index: 110;
   top: calc(env(safe-area-inset-top, 0px) + var(--s-5));
@@ -142,15 +145,15 @@ function handleTakeSelection(event: Event) {
 }
 
 .humming-capture-transport .humming-capture-transport__primary {
-  --button-size: 28px;
-  inline-size: 28px;
-  block-size: 28px;
+  --button-size: var(--humming-primary-size);
+  inline-size: var(--humming-primary-size);
+  block-size: var(--humming-primary-size);
 }
 
 .humming-capture-transport .humming-capture-transport__cancel {
-  --button-size: 22.4px;
-  inline-size: 22.4px;
-  block-size: 22.4px;
+  --button-size: var(--humming-cancel-size);
+  inline-size: var(--humming-cancel-size);
+  block-size: var(--humming-cancel-size);
 }
 
 .humming-capture-transport__cancel-slot {
@@ -158,7 +161,7 @@ function handleTakeSelection(event: Event) {
   top: 50%;
   /* Far enough out that the two keys' --hit-min touches meet without
      overlapping: half of each touch, less half of each face. */
-  left: calc(100% + var(--hit-min) - (28px + 22.4px) / 2);
+  left: calc(100% + var(--hit-min) - (var(--humming-primary-size) + var(--humming-cancel-size)) / 2);
   display: flex;
   transform: translateY(-50%);
 }

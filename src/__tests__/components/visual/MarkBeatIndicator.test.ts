@@ -327,11 +327,11 @@ describe("Beat Indicator crown", () => {
     clock.destroy();
   });
 
-  it("keeps unlit chads opaque Ink5 and neutralizes motion under Reduced Motion", () => {
+  it("keeps unlit chads opaque unlit-LED and neutralizes motion under Reduced Motion", () => {
     // The DOM harness does not render scoped CSS or emulate media queries.
     // These checks cover only the material and accessibility CSS contracts.
     const beatRule = beatIndicatorSource.match(/\.beat-indicator__beat\s*\{([^}]*)\}/)?.[1];
-    expect(beatRule).toMatch(/background:\s*var\(--ink-5\)/);
+    expect(beatRule).toMatch(/background:\s*var\(--led-off\)/);
     expect(beatRule).not.toMatch(/opacity\s*:/);
 
     const reducedMotion = beatIndicatorSource.match(

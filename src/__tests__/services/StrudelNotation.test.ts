@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 vi.unmock('@strudel/core')
 import { logNotesToStrudel, mergeStrudelRests } from '@/services/StrudelNotation'
-import { defaultPatterns } from '@/data/patterns'
+import { buildDefaultPattern } from '@/data/patterns'
 import { as } from '@strudel/core/controls.mjs'
 import { mini } from '@strudel/mini/mini.mjs'
 import { m } from '@strudel/mini'
@@ -489,18 +489,25 @@ describe('StrudelNotation', () => {
   })
 
   it("preserves a parsed pattern's trailing rest at the loop boundary", () => {
-    const chorus = defaultPatterns.find(
-      (pattern) => pattern.name === "Warrior of the Mind (Chorus)",
-    )
-    expect(chorus).toBeDefined()
-    expect(chorus?.duration).toBe(7920)
+    // An original phrase written in Strudel notation, ending in a rest.
+    const phrase = buildDefaultPattern({
+      id: 'test-trailing-rest',
+      name: 'Trailing rest',
+      key: 'C',
+      mode: 'major',
+      bpm: 125,
+      instrument: 'piano',
+      strudel: 'C4@0.25 E4@0.25 G4@0.25 ~@0.25',
+    })
+    expect(phrase.notes).toHaveLength(3)
+    expect(phrase.duration).toBe(1920)
 
-    const result = logNotesToStrudel(chorus!.notes as LogNote[], {
-      bpm: chorus!.bpm,
-      sourceBpm: chorus!.bpm,
-      patternDurationMs: chorus!.duration,
+    const result = logNotesToStrudel(phrase.notes as LogNote[], {
+      bpm: phrase.bpm,
+      sourceBpm: phrase.bpm,
+      patternDurationMs: phrase.duration,
     })
 
-    expect(result).toContain('C#4@0.25 ~@0.375')
+    expect(result).toContain('G4@0.25 ~@0.25')
   })
 })

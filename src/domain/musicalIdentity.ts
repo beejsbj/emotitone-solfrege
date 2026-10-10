@@ -24,16 +24,18 @@ import type { MusicalMode } from "@/types/music";
  * - Scale tones are the tonic transposed by the mode's own Tonal intervals.
  *   Heptatonic modes therefore use each letter once. Pentatonic scales are a
  *   subset of their signature's spelling; the blues scales add one blue note
- *   spelled by its interval (3m in major blues, 5d in minor blues), so a
- *   letter can repeat there (C D Eb E G A).
+ *   spelled by its interval (3m in major blues, 5d in minor blues), with the
+ *   chromatic fallback below when needed (Eb minor blues uses A, not Bbb).
+ *   A letter can repeat there (C D Eb E G A).
  * - Chromatic mode and borrowed (out-of-scale) tones use the harmonic chromatic
  *   scale from the tonic: b2, b3, #4, b6, b7. An explicit `inflection` asks
  *   for the raised or lowered form instead. When that spelling would need a
  *   double accidental, only the written spelling falls back to the other
  *   inflection (Db major's b6 is written A, not Bbb). The note's function,
- *   `degree` and `alteration` (and so its later syllable), stays on the
- *   chosen rule: Db major's pitch class 9 is degree 6 lowered (Le) even
- *   though it is written A and its written interval is A5.
+ *   `degree` and `alteration`, stays on the chosen rule: Db major's pitch
+ *   class 9 is degree 6 lowered, written A with interval A5. For chromatic
+ *   solfege after a fallback, take the syllable from the written `interval`;
+ *   use `functionalInterval` only when the player explicitly asks raised/lowered.
  * - Chord members are spelled from the chord root, so E major in C major is
  *   E G# B even though G# alone reads Ab. A scale-tone root keeps the key's
  *   spelling; a borrowed root takes the enharmonic spelling that gives the
@@ -239,7 +241,10 @@ export function keySpelling(context: MusicalContext): KeySpelling {
   const intervals = scale.family === "chromatic"
     ? scale.intervals.map((semitones) =>
       chromaticIntervalFor(tonic, modulo(semitones, 12)).spelled)
-    : [...scale.intervalNames];
+    : scale.intervalNames.map((interval, index) =>
+      scale.family === "hexatonic" && (interval === "3m" || interval === "5d")
+        ? chromaticIntervalFor(tonic, scale.intervals[index], "lowered").spelled
+        : interval);
   const spelling: KeySpelling = {
     tonic,
     tonicPitchClass,
@@ -384,7 +389,7 @@ export function identifyPitch(
   // Scale tones keep the key's spelling. Chromatic mode and borrowed tones
   // follow the harmonic-chromatic rule (or the requested inflection).
   const { functional, spelled } = scaleIndex !== null && scale.family !== "chromatic"
-    ? { functional: key.intervals[scaleIndex], spelled: key.intervals[scaleIndex] }
+    ? { functional: scale.intervalNames[scaleIndex], spelled: key.intervals[scaleIndex] }
     : chromaticIntervalFor(key.tonic, semitones, options.inflection);
   const interval = describeInterval(spelled)!;
   const functionalInterval = describeInterval(functional)!;

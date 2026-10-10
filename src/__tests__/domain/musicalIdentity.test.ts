@@ -118,8 +118,12 @@ describe("musical identity: key spelling", () => {
       const key = keySpelling(context);
       const parent = keySpelling({ tonic: context.tonic, mode: key.signatureMode });
       const blueInterval = context.mode === "major blues" ? "3m" : "5d";
+      const blueNote = Note.transpose(key.tonic, blueInterval);
       const outside = key.degrees.filter((degree) => !parent.degrees.includes(degree));
-      expect(outside).toEqual([Note.transpose(key.tonic, blueInterval)]);
+      expect(outside).toEqual([accidentals(blueNote) > 1
+        ? Note.transpose(key.tonic, blueInterval === "5d" ? "4A" : "2A")
+        : blueNote]);
+      expect(key.degrees.every((degree) => accidentals(degree) <= 1)).toBe(true);
       // The blue note shares a letter with a neighbour, so letters repeat by design.
       expect(new Set(key.degrees.map((degree) => Note.get(degree).letter)).size).toBe(5);
     },
@@ -152,7 +156,7 @@ describe("musical identity: key spelling", () => {
     ["D#", "harmonic minor", "Eb", "the raised seventh is D, not C##"],
     ["D#", "melodic minor", "Eb", "the raised sixth and seventh avoid B# and C##"],
     ["D#", "minor pentatonic", "Eb", "minor signature, leading tone tie-break"],
-    ["D#", "minor blues", "Eb", "agrees with Eb minor; its blue fifth is written Bbb"],
+    ["D#", "minor blues", "Eb", "agrees with Eb minor; its blue fifth is written A"],
     ["A#", "phrygian", "A#", "6 sharps tie 6 flats in the mode itself"],
     ["G#", "dorian", "G#", "6 sharps tie 6 flats in the mode itself"],
   ] as const)("spells a stored %s %s as %s (%s)", (tonic, mode, expected) => {
@@ -163,6 +167,15 @@ describe("musical identity: key spelling", () => {
     expect(keySpelling({ tonic: "D#", mode: "harmonic minor" }).degrees).toEqual([
       "Eb", "F", "Gb", "Ab", "Bb", "Cb", "D",
     ]);
+  });
+
+  it("spells Eb minor blues' blue note as A rather than Bbb", () => {
+    const context = { tonic: "D#", mode: "minor blues" as MusicalMode };
+    expect(keySpelling(context).degrees).toEqual(["Eb", "Gb", "Ab", "A", "Bb", "Db"]);
+    expect(identifyPitch("A", context)).toMatchObject({
+      spelling: "A", borrowed: false,
+      interval: { label: "A4" }, functionalInterval: { label: "d5" },
+    });
   });
 
   it("keeps true leading tones in harmonic minor, double sharps included", () => {
@@ -228,17 +241,16 @@ describe("musical identity: pitches and intervals", () => {
       .toBe("F#");
   });
 
-  it("avoids a double accidental for a borrowed tone when one spelling exists", () => {
+  it.each([undefined, "raised", "lowered"] as const)("exposes written and functional intervals for solfege (%s)", (inflection) => {
     // Db major's b6 would be Bbb; A natural is the raised fifth.
     expect(spellPitch("A4", { tonic: "C#", mode: "major" })).toBe("A4");
-    // Written as A (an augmented fifth), it still functions as the lowered
-    // sixth, Le, so later syllables do not change with the spelling.
-    expect(identifyPitch("A", { tonic: "C#", mode: "major" })).toMatchObject({
+    // Default solfege follows written A5; an explicit inflection can use function.
+    expect(identifyPitch("A", { tonic: "C#", mode: "major" }, { inflection })).toMatchObject({
       spelling: "A",
       interval: { label: "A5" },
-      functionalInterval: { label: "m6" },
-      degree: 6,
-      alteration: -1,
+      functionalInterval: { label: inflection === "raised" ? "A5" : "m6" },
+      degree: inflection === "raised" ? 5 : 6,
+      alteration: inflection === "raised" ? 1 : -1,
     });
   });
 

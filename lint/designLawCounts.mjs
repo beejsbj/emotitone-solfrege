@@ -26,8 +26,11 @@ const run = (bin, args) => {
 };
 
 export function assertCompleteReport(files) {
-  if (files.some((file) => file.fatalErrorCount || file.messages?.some((m) => m.fatal) || file.parseErrors?.length || file.warnings?.some((w) => w.rule === "CssSyntaxError"))) {
-    throw new Error("Cannot update the design-law baseline: a linter could not parse a source file.");
+  const incomplete = files.some((file) => file.fatalErrorCount || file.messages?.some((m) => m.fatal) ||
+    file.parseErrors?.length || file.invalidOptionWarnings?.length ||
+    file.warnings?.some((w) => !w.rule?.startsWith("design-law/")));
+  if (incomplete) {
+    throw new Error("Cannot update the design-law baseline: a linter could not parse or validate its input.");
   }
   return files;
 }

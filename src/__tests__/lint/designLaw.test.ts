@@ -153,7 +153,8 @@ describe("baseline: a file with debt may not gain more (bypass 2)", () => {
   it("refuses debt collection from actual fatal lint reports", async () => {
     const script = await eslint.lintText("const =", { filePath: resolve(root, "src/components/fresh.ts") });
     const css = await stylelint.lint({ code: ".x {", codeFilename: resolve(root, "src/components/fresh.css"), configFile: resolve(root, "stylelint.config.mjs") });
-    for (const report of [script, css.results]) expect(() => assertCompleteReport(report)).toThrow(/could not parse/);
+    const invalidConfig = await stylelint.lint({ code: ".x {}", config: { rules: { "unknown-rule": true } } });
+    for (const report of [script, css.results, invalidConfig.results]) expect(() => assertCompleteReport(report)).toThrow(/could not parse/);
     const ordinary = await eslint.lintText('const c = "#abc"; void c;', { filePath: resolve(root, "src/components/fresh.ts") });
     expect(() => assertCompleteReport(ordinary)).not.toThrow();
   });

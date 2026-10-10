@@ -49,17 +49,19 @@ describe("Stage runtime", () => {
       for (let index = 1; index < radii.length; index += 1) {
         expect(radii[index]).toBeGreaterThan(radii[index - 1]!);
       }
-      // Size is a straight scale on the accepted default, in both directions.
+      // Below the default, Size is a straight scale on the accepted default.
       const defaultRadius = resolveStageComposition(
         usable,
         75,
         sizeControl.value,
       ).hilbertRadius;
       sizes.forEach((size, index) => {
-        expect(radii[index]).toBeCloseTo(
-          (defaultRadius * size) / sizeControl.value,
-          6,
-        );
+        if (size <= sizeControl.value) {
+          expect(radii[index]).toBeCloseTo(
+            (defaultRadius * size) / sizeControl.value,
+            6,
+          );
+        }
       });
       expect(radii.at(-1)).toBeGreaterThan(defaultRadius);
     },
@@ -117,6 +119,48 @@ describe("Stage runtime", () => {
     expect(larger.orbitRadiusX).toBe(baseline.orbitRadiusX);
     expect(larger.orbitRadiusY).toBe(baseline.orbitRadiusY);
   });
+
+  it.each([
+    [900, 420],
+    [390, 180],
+    [390, 400],
+    [390, 640],
+  ])(
+    "reaches the usable diagonal at the top of the Size range at %i×%i",
+    (width, height) => {
+      const top = resolveStageComposition(
+        { x: 0, y: 0, width, height },
+        75,
+        UNIFIED_CONFIG.hilbertScope.sizeRatio.max,
+      ).hilbertRadius;
+
+      expect(top * 2).toBeCloseTo(Math.hypot(width, height), 6);
+    },
+  );
+
+  it.each([
+    [900, 420],
+    [390, 180],
+    [390, 400],
+    [390, 640],
+  ])(
+    "keeps the default Scope radius unchanged at %i×%i",
+    (width, height) => {
+      const paddedMinorAxis = Math.min(width - 40, height - 40);
+      const bodyExtent = Math.min(75 * 1.3, paddedMinorAxis * 0.115);
+      const orbit = paddedMinorAxis / 2 - bodyExtent;
+      const clearance = Math.max(18, orbit * 0.28);
+      const accepted = (orbit - bodyExtent - clearance) * 1.8 * 2;
+
+      expect(
+        resolveStageComposition(
+          { x: 0, y: 0, width, height },
+          75,
+          UNIFIED_CONFIG.hilbertScope.sizeRatio.value,
+        ).hilbertRadius,
+      ).toBeCloseTo(accepted, 6);
+    },
+  );
 
   it("keeps Scope Size responsive at the maximum public Body Size", () => {
     const usable = { x: 0, y: 0, width: 1200, height: 375 };

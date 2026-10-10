@@ -172,9 +172,11 @@ describe("every MIDI pitch through the shared performer", () => {
     expect(useMusicStore().activeNotes.size).toBe(0);
   });
 
-  it("pairs repeated borrowed note-ons with their own voices in arrival order", async () => {
+  it.each([false, true])("releases each retriggered voice once (off between attacks: %s)", async (offBetween) => {
     await connect();
     packet(0x90, 66, 20);
+    await vi.advanceTimersByTimeAsync(0);
+    if (offBetween) packet(0x80, 66);
     packet(0x90, 66, 110);
     await vi.advanceTimersByTimeAsync(0);
     const [first, second] = events("note-played");
@@ -182,9 +184,8 @@ describe("every MIDI pitch through the shared performer", () => {
     expect(vi.mocked(audio.attackNote).mock.calls.map(([, name, , options]) => [name, options?.velocity])).toEqual([
       ["F#4", 20 / 127], ["F#4", 110 / 127],
     ]);
-    packet(0x80, 66);
-    await vi.advanceTimersByTimeAsync(0);
     expect(audio.releaseNote).toHaveBeenCalledExactlyOnceWith(first.noteId);
+    expect(vi.mocked(audio.releaseNote).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(audio.attackNote).mock.invocationCallOrder[1]);
     expect(useMusicStore().getActiveNotes().map(note => note.noteId)).toEqual([second.noteId]);
     packet(0x80, 66);
     await vi.advanceTimersByTimeAsync(0);
@@ -211,13 +212,13 @@ describe("every MIDI pitch through the shared performer", () => {
     await music.releaseNote(screenId!);
   });
 
-  it("handles off and reattack while an earlier borrowed attack is still pending", async () => {
+  it.each([false, true])("cancels a pending attack on retrigger (off between attacks: %s)", async (offBetween) => {
     let resolveAttack!: () => void;
     vi.mocked(audio.attackNote).mockImplementationOnce(() => new Promise<void>(resolve => { resolveAttack = resolve; }));
     await connect();
     packet(0x90, 66);
     const firstId = vi.mocked(audio.attackNote).mock.calls[0][0];
-    packet(0x80, 66);
+    if (offBetween) packet(0x80, 66);
     packet(0x90, 66);
     await vi.advanceTimersByTimeAsync(0);
     const [second] = events("note-played");
@@ -258,7 +259,7 @@ describe("every MIDI pitch through the shared performer", () => {
     expect(useMusicStore().activeNotes.size).toBe(0);
   });
 
-  it("passes borrowed pitch and velocity into the worklet and renders sound before releasing it", async () => {
+  it.each([false, true])("renders borrowed MIDI then silence after one off (retrigger: %s)", async (retrigger) => {
     const sampleRate = 1000;
     const core = new LiveAudioCore(sampleRate, response => {
       if (response.type === "event") playback.listener?.onEvent(response.event);
@@ -285,6 +286,11 @@ describe("every MIDI pitch through the shared performer", () => {
     await connect();
     packet(0x90, 66, 32);
     await vi.advanceTimersByTimeAsync(0);
+    if (retrigger) {
+      render(100);
+      packet(0x90, 66, 32);
+      await vi.advanceTimersByTimeAsync(0);
+    }
     const quiet = render(100);
     expect(Math.max(...quiet.map(Math.abs))).toBeGreaterThan(.2);
     expect(Math.max(...quiet.map(Math.abs))).toBeLessThanOrEqual(32 / 127);
@@ -292,6 +298,10 @@ describe("every MIDI pitch through the shared performer", () => {
     packet(0x80, 66);
     await vi.advanceTimersByTimeAsync(0);
     expect(render(100).every(sample => sample === 0)).toBe(true);
+    expect(core.voiceCount).toBe(0);
+    const attacks = events("note-played").map(event => event.noteId);
+    expect(attacks).toHaveLength(retrigger ? 2 : 1);
+    expect(events("note-released").map(event => event.noteId)).toEqual(attacks);
     expect(useMusicStore().activeNotes.size).toBe(0);
     expect(audio.attackNote).not.toHaveBeenCalled();
   });

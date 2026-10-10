@@ -499,8 +499,8 @@ export function useMidiControls() {
   const roliInputIds = ref<Set<string>>(new Set());
   const activeMidiNotes = ref<Map<string, ActiveMidiNote>>(new Map());
   const pendingMidiPresses = ref<Map<string, PendingMidiPress>>(new Map());
-  // Each note-on owns a lifetime; matching note-offs consume them in order.
-  const midiPressQueues = new Map<string, string[]>();
+  // One held press per input/channel/pitch; duplicate note-ons retrigger it.
+  const midiPressIds = new Map<string, string>();
   let midiPressSerial = 0;
   const pendingReleasedPressIds = ref<Set<string>>(new Set());
   const pendingInputNoteOns = ref<Map<string, number>>(new Map());
@@ -576,6 +576,29 @@ export function useMidiControls() {
     keyboardDrawerStore.releaseVisualNote(detail.noteId);
   };
 
+  const releaseMidiPress = (inputNoteId: string) => {
+    const pressId = midiPressIds.get(inputNoteId);
+    midiPressIds.delete(inputNoteId);
+    if (!pressId) return;
+    const activeNote = activeMidiNotes.value.get(pressId);
+    if (!activeNote) {
+      if (pendingMidiPresses.value.has(pressId)) {
+        pendingReleasedPressIds.value.add(pressId);
+        keyboardDrawerStore.removeTouch(pressId);
+      }
+      return;
+    }
+
+    if (activeNote.isRoliInput) {
+      pendingInputNoteOffs.value.add(activeNote.noteId);
+    }
+    musicStore.releaseNote(activeNote.noteId);
+    pendingInputNoteOffs.value.delete(activeNote.noteId);
+    keyboardDrawerStore.removeTouch(activeNote.pressId);
+    activeMidiNotes.value.delete(pressId);
+    pendingReleasedPressIds.value.delete(pressId);
+  };
+
   const handleMidiPacket = (inputId: string, rawData: ArrayLike<number>) => {
     const data = Array.from(rawData).slice(0, 3);
     if (data.length < 2) {
@@ -596,10 +619,9 @@ export function useMidiControls() {
         return;
       }
 
+      releaseMidiPress(inputNoteId);
       const pressId = `${inputNoteId}:${++midiPressSerial}`;
-      const queue = midiPressQueues.get(inputNoteId) ?? [];
-      queue.push(pressId);
-      midiPressQueues.set(inputNoteId, queue);
+      midiPressIds.set(inputNoteId, pressId);
 
       // Exact pitches share the on-screen performer, including identity and
       // borrowed-note metadata. Only in-scale pitches have a key to light.
@@ -662,27 +684,7 @@ export function useMidiControls() {
       messageType === MIDI_NOTE_OFF
       || (messageType === MIDI_NOTE_ON && velocity === 0)
     ) {
-      const queue = midiPressQueues.get(inputNoteId);
-      const pressId = queue?.shift();
-      if (!queue?.length) midiPressQueues.delete(inputNoteId);
-      if (!pressId) return;
-      const activeNote = activeMidiNotes.value.get(pressId);
-      if (!activeNote) {
-        if (pendingMidiPresses.value.has(pressId)) {
-          pendingReleasedPressIds.value.add(pressId);
-          keyboardDrawerStore.removeTouch(pressId);
-        }
-        return;
-      }
-
-      if (activeNote.isRoliInput) {
-        pendingInputNoteOffs.value.add(activeNote.noteId);
-      }
-      musicStore.releaseNote(activeNote.noteId);
-      pendingInputNoteOffs.value.delete(activeNote.noteId);
-      keyboardDrawerStore.removeTouch(activeNote.pressId);
-      activeMidiNotes.value.delete(pressId);
-      pendingReleasedPressIds.value.delete(pressId);
+      releaseMidiPress(inputNoteId);
     }
   };
 
@@ -956,8 +958,8 @@ export function useMidiControls() {
   };
 
   const releaseMidiNotes = (inputId?: string) => {
-    for (const inputNoteId of midiPressQueues.keys()) {
-      if (!inputId || inputNoteId.startsWith(`midi:${inputId}:`)) midiPressQueues.delete(inputNoteId);
+    for (const inputNoteId of midiPressIds.keys()) {
+      if (!inputId || inputNoteId.startsWith(`midi:${inputId}:`)) midiPressIds.delete(inputNoteId);
     }
     for (const [pressId, activeNote] of activeMidiNotes.value.entries()) {
       if (!inputId || pressId.startsWith(`midi:${inputId}:`)) {

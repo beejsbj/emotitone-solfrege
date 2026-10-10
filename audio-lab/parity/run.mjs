@@ -17,7 +17,9 @@ const watched = [packagePath, ...[
   'src/services/StrudelNotation.ts', 'src/services/recordedTiming.ts',
   'src/services/liveArticulation.ts', 'src/services/preparedNativeInstrument.ts', 'src/services/preparedLiveInstrument.ts',
   'audio-lab/parity/suite.mjs', 'audio-lab/parity/metrics.mjs', 'audio-lab/parity/fixtures.mjs',
-  'audio-lab/parity/voice-budget.mjs',
+  'audio-lab/parity/oscillator-bounds.mjs',
+  'audio-lab/parity/voice-budget.mjs', 'audio-lab/parity/oscillator-stalls.mjs',
+  'src/audio/live/processor.ts', 'src/audio/live/bridge.ts', 'src/services/liveInstrumentNames.ts',
 ].map(path => resolve(path))];
 const hashes = Object.fromEntries(await Promise.all(watched.map(async path => [path, await digest(path)])));
 let vite, chrome, socket;
@@ -85,7 +87,8 @@ try {
   await call('Fetch.enable', { patterns: [{ urlPattern: '*' }] });
   await call('Page.navigate', { url: `${origin}/audio-lab/parity/` });
   let ready = false;
-  for (let attempt = 0; attempt < 200; attempt++) {
+  // Cold dependency transforms can exceed 20 seconds on the shared lab host.
+  for (let attempt = 0; attempt < 600; attempt++) {
     const result = await call('Runtime.evaluate', { expression: 'typeof window.runPlaybackParity === "function"', returnByValue: true });
     if (result.result.value) { ready = true; break; }
     if (exceptions.length) break;

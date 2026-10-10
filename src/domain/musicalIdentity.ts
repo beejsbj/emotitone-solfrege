@@ -36,8 +36,9 @@ import type { SolfegeData, MusicalMode } from "@/types/music";
  *   inflection (Db major's b6 is written A, not Bbb). The note's function,
  *   `degree` and `alteration`, stays on the chosen rule: Db major's pitch
  *   class 9 is degree 6 lowered, written A with interval A5. For chromatic
- *   solfege after a fallback, take the syllable from the written `interval`;
- *   use `functionalInterval` only when the player explicitly asks raised/lowered.
+ *   solfege of borrowed tones after a fallback, use the written `interval`.
+ *   Scale tones retain the mode's `functionalInterval`, as do explicit
+ *   raised/lowered requests.
  * - Chord members are spelled from the chord root, so E major in C major is
  *   E G# B even though G# alone reads Ab. A scale-tone root keeps the key's
  *   spelling; a borrowed root takes the enharmonic spelling that gives the
@@ -419,13 +420,14 @@ export interface SolfegeOptions extends SpellingOptions {
   laBasedMinor?: boolean;
 }
 
-/** Default labels follow written spelling, including double-accidental fallbacks. */
+/** Scale tones follow the mode; borrowed tones follow their written spelling. */
 export function pitchSolfege(
   pitch: string | number, context: MusicalContext, options: SolfegeOptions = {},
 ): string {
   const identity = identifyPitch(pitch, context, options);
   if (!identity) return "·";
-  const interval = options.inflection ? identity.functionalInterval : identity.interval;
+  const interval = identity.scaleIndex !== null || options.inflection
+    ? identity.functionalInterval : identity.interval;
   return getSolfegeLabelForInterval(interval.tonal, usesLaBasedMinor(context, options.laBasedMinor));
 }
 

@@ -24,10 +24,9 @@ export const MOVABLE_DO_SOLFEGE_NOTES = Object.values(INTERVAL_TO_SOLFEGE);
  */
 export function getSolfegeLabelForInterval(intervalName: string, laBased = false): string {
   const interval = Interval.get(intervalName);
-  if (interval.empty) return "·";
-  const degree = (Math.abs(interval.num) - 1 + (laBased ? 5 : 0)) % 7;
-  const directedSemitones = interval.num < 0 ? -interval.semitones : interval.semitones;
-  const semitones = (directedSemitones + (laBased ? 9 : 0) + 12) % 12;
+  if (interval.empty || interval.num < 1) return "·";
+  const degree = (interval.num - 1 + (laBased ? 5 : 0)) % 7;
+  const semitones = (interval.semitones + (laBased ? 9 : 0) + 12) % 12;
   const alteration = ((semitones - MAJOR[degree] + 18) % 12) - 6;
   const perfect = [0, 3, 4].includes(degree);
   const quality = alteration === 0 ? (perfect ? "P" : "M")

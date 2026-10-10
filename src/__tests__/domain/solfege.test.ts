@@ -1,6 +1,7 @@
+import { Interval } from "@tonaljs/tonal";
 import { describe, expect, it } from "vitest";
-import { CHROMATIC_NOTES, MODE_ORDER } from "@/data";
-import { identifyPitch, pitchSolfege, pitchSolfegeData, spelledPitchSolfege } from "@/domain/musicalIdentity";
+import { CHROMATIC_NOTES, MODE_ORDER, getScaleForMode } from "@/data";
+import { getSolfegeLabelForInterval, identifyPitch, spellTonic, pitchSolfege, pitchSolfegeData, spelledPitchSolfege } from "@/domain/musicalIdentity";
 import { phraseContour } from "@/domain/phraseBook";
 import type { Phrase } from "@/types/phrases";
 
@@ -24,7 +25,18 @@ describe("shared chromatic solfege", () => {
     const context = { tonic, mode };
     for (let pc = 0; pc < 12; pc++) {
       const identity = identifyPitch(pc, context)!;
-      const expected = EXPECTED[identity.interval.tonal][laBasedMinor && MINOR_MODES.includes(mode) ? 1 : 0];
+      const scale = getScaleForMode(mode);
+      const semitones = (pc - CHROMATIC_NOTES.indexOf(tonic) + 12) % 12;
+      const scaleIndex = scale.intervals.indexOf(semitones);
+      // Chromatic mode deliberately uses harmonic-chromatic spelling (Fi at 6).
+      // Other scale tones follow the mode table even if a double accidental
+      // was respelled. Borrowed tones follow the displayed note's spelling.
+      const expectedInterval = mode === "chromatic"
+        ? ["1P", "2m", "2M", "3m", "3M", "4P", "4A", "5P", "6m", "6M", "7m", "7M"][semitones]
+        : scaleIndex !== -1
+          ? scale.intervalNames[scaleIndex]
+          : Interval.distance(spellTonic(context), identity.spelling);
+      const expected = EXPECTED[expectedInterval][laBasedMinor && MINOR_MODES.includes(mode) ? 1 : 0];
       expect(pitchSolfege(pc, context, { laBasedMinor })).toBe(expected);
       expect(pitchSolfegeData(pc, context, laBasedMinor)?.name).toBe(expected);
       const phrase = {
@@ -33,6 +45,18 @@ describe("shared chromatic solfege", () => {
       } as Pick<Phrase, "notes" | "context">;
       expect(phraseContour(phrase, laBasedMinor)).toBe(expected);
     }
+  });
+
+  it.each(CHROMATIC_NOTES)("keeps the %s minor-blues blue degree Se / Me", (tonic) => {
+    const pc = (CHROMATIC_NOTES.indexOf(tonic) + 6) % 12;
+    const context = { tonic, mode: "minor blues" as const };
+    expect(pitchSolfege(pc, context)).toBe("Se");
+    expect(pitchSolfege(pc, context, { laBasedMinor: true })).toBe("Me");
+  });
+
+  it("accepts ascending compound intervals and rejects directed descending intervals", () => {
+    expect(getSolfegeLabelForInterval("9M")).toBe("Re");
+    expect(getSolfegeLabelForInterval("-2M")).toBe("·");
   });
 
   it("uses all five raised and lowered syllables when explicitly requested", () => {

@@ -81,9 +81,11 @@ export function useHummingCapture() {
   const statusMessage = computed(() => {
     if (status.value === "requesting") return "Requesting microphone access";
     if (status.value === "recording") {
-      return remainingSeconds.value <= 10
-        ? `${remainingSeconds.value} ${remainingSeconds.value === 1 ? "second" : "seconds"} left — your take saves automatically`
-        : "Listening to your humming (60-second limit)";
+      // Keep live-region text stable between the three countdown milestones.
+      if (remainingSeconds.value <= 1) return "1 second left";
+      if (remainingSeconds.value <= 5) return "5 seconds left";
+      if (remainingSeconds.value <= 10) return "10 seconds left — your take saves automatically";
+      return "Listening to your humming (60-second limit)";
     }
     if (status.value === "preparing") return "Preparing the recording";
     if (status.value === "analyzing") return "Analyzing the phrase";

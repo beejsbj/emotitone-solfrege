@@ -71,6 +71,7 @@ describe("humming recording deadline", () => {
         const capture = useHummingCapture();
         return () => h(HummingCaptureTransport, {
           status: capture.status.value, statusMessage: capture.statusMessage.value,
+          remainingSeconds: capture.remainingSeconds.value,
           onToggle: capture.toggle, onCancel: capture.cancel,
         });
       },
@@ -81,10 +82,23 @@ describe("humming recording deadline", () => {
       await flushPromises();
       expect(recorder.state).toBe("recording");
       expect(wrapper.get('[role="status"]').text()).toContain("60-second limit");
-      expect(wrapper.get('[role="status"]').classes()).not.toContain("humming-capture-transport__status");
+      const visibleCountdown = () => wrapper.get('.humming-capture-transport__countdown');
+      expect(visibleCountdown().text()).toContain("60-second limit");
+      expect(visibleCountdown().attributes("aria-hidden")).toBe("true");
+      expect(visibleCountdown().attributes("aria-live")).toBeUndefined();
+      expect(visibleCountdown().attributes("role")).toBeUndefined();
       await vi.advanceTimersByTimeAsync(50_000);
-      expect(wrapper.get('[role="status"]').text()).toContain("10 seconds left");
-      await vi.advanceTimersByTimeAsync(9_999);
+      const announced: string[] = [];
+      for (let seconds = 10; seconds >= 1; seconds -= 1) {
+        if (seconds < 10) await vi.advanceTimersByTimeAsync(1000);
+        const message = wrapper.get('[role="status"]').text();
+        if (message !== announced.at(-1)) announced.push(message);
+        expect(visibleCountdown().text()).toContain(`${seconds} ${seconds === 1 ? "second" : "seconds"} left`);
+      }
+      expect(announced).toEqual([
+        "10 seconds left — your take saves automatically", "5 seconds left", "1 second left",
+      ]);
+      await vi.advanceTimersByTimeAsync(999);
       expect(recorder.state).toBe("recording");
       expect(wrapper.get('[role="status"]').text()).toContain("1 second left");
       await vi.advanceTimersByTimeAsync(1);

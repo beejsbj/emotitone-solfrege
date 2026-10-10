@@ -58,11 +58,19 @@
         </select>
       </div>
 
+      <p
+        v-if="status === 'recording'"
+        class="humming-capture-transport__feedback humming-capture-transport__countdown"
+        aria-hidden="true"
+      >
+        {{ remainingSeconds <= 10
+          ? `${remainingSeconds} ${remainingSeconds === 1 ? 'second' : 'seconds'} left — your take saves automatically`
+          : statusMessage }}
+      </p>
+
       <output
         v-if="status !== 'error'"
-        :class="status === 'recording'
-          ? 'humming-capture-transport__feedback humming-capture-transport__countdown'
-          : 'humming-capture-transport__status'"
+        class="humming-capture-transport__status"
         role="status"
         aria-live="polite"
       >
@@ -82,6 +90,7 @@ const props = withDefaults(defineProps<{
   status?: HummingCaptureStatus;
   error?: string | null;
   statusMessage?: string;
+  remainingSeconds?: number;
   takeLabels?: readonly string[];
   selectedTakeIndex?: number;
   haptic?: boolean;
@@ -89,6 +98,7 @@ const props = withDefaults(defineProps<{
   status: "idle",
   error: null,
   statusMessage: "Ready to capture a hummed pattern",
+  remainingSeconds: 60,
   takeLabels: () => [],
   selectedTakeIndex: 0,
   haptic: false,

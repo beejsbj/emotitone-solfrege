@@ -9,7 +9,7 @@ Status: proposed, 2026-10-07.
 All of it is reversible. Each item is a small PR.
 
 1. **CI and lint.** A GitHub workflow runs type-check, tests and lint on every PR. Fix the ESLint config (the invalid rule name and the legacy flags). Done when a PR shows all three checks green on GitHub.
-2. **The phone gate, first.** Before any further Looper slice merges, run #140's transport receipts on Burooj's iPhone (and an Android phone if available), with a sampled instrument. Count scheduler skips and read the tab's memory with the default piano. Done when the numbers are in the Looper PR. If the gate fails, the fallback in Decision 3 becomes the plan before more slices land.
+2. **The phone gate, first.** Before any further Looper slice merges, run #140's transport receipts on the worklet engine (BJS-494), on Burooj's iPhone (and an Android phone if available), with a sampled instrument. Count scheduler skips and read the tab's memory with the default piano. Done when the numbers are in the Looper PR. If the gate fails, fix the worklet engine before more slices land; Decision 3 moved off Strudel and superdough on 2026-10-09.
 3. **Licence and content.**
    - Add the LICENSE (AGPL-3.0-or-later) and NOTICE.
    - Move the five transcriptions out of the default library.
@@ -193,7 +193,7 @@ From the player's side:
 
 4. **The Code Strip leaves the Strudel code editor and becomes the HighlightStrip** (Burooj, 2026-10-09: "No one's really gonna edit the code editor. It doesn't even look editable.").
    - **What stays:**
-     - Strudel as the engine and transport.
+     - Playback and transport, moving off Strudel and superdough to the worklet engine under Decision 3 (superseded on 2026-10-09).
      - Its sound library, the larger instrument library that was a reason it was added.
      - The highlight animation.
      - An "Open in Strudel" action that hands the current code to strudel.cc.
@@ -678,7 +678,7 @@ The engine track is ticketed separately.
 - **Humming notice.** Humming shows a one-line notice the first time ("Your recording is sent to the pitch-analysis service and not kept"), worded to match what that service actually does, which is to be verified.
 - **Docs:**
   - The product stance (Decision 2) goes into the design bible and the repository router (S138).
-  - The Looper brief marks Strudel as decided.
+  - The Looper brief records the 2026-10-09 decision to move off Strudel and superdough to the worklet engine, with the phone gate on that engine (BJS-494).
   - The root agent doc is rewritten for the current architecture.
   - The Warp doc is deleted, or reduced to a pointer.
   - The README gets a short description.
@@ -746,7 +746,7 @@ This sequencing changes the plan proposed on 2026-10-06 in one place:
 ## Out of Scope
 
 - **A curriculum:** quizzes, scored exercises, progress tracking, and sing-back scoring. The product stance is to teach through the instrument's moats and cues. Call-and-response from the phrase book stays an idea for later.
-- **Running the Looper on a transport other than Strudel.** It is the fallback only if the phone gate fails.
+- **Running the Looper on a transport other than the worklet engine.** Decision 3 moved off Strudel and superdough on 2026-10-09; the phone gate runs on the worklet engine (BJS-494).
 - **A WebGL renderer for the Stage field.** Revisit only if the DPR fix makes the CPU field look coarse.
 - **Rewriting git history** to remove committed receipts, the purged evidence pack, the transcriptions or the font. Each would be a separate, explicit decision.
 - **A headless accessibility component library** (such as Reka UI). In-place fixes are smaller. It remains the fallback if the Tabs and Knob work grows.
@@ -757,6 +757,21 @@ This sequencing changes the plan proposed on 2026-10-06 in one place:
 
 ## Further Notes
 
+**Changed while executing (2026-10-09/10).**
+
+- Engine design merged (#151, `docs/research/worklet-engine.md`): scheduling runs on the audio thread inside the live worklet core; reverb (2 s convolution) and delay stay native Web Audio nodes fed by worklet sends, and only the low-pass moves into the worklet (BJS-486). BJS-486 also owns the AudioContext, master gain and effect buses; BJS-485 provides UIBeat's new producer.
+  Superdough goldens are frozen before BJS-495, which also retires `src/types/strudel.d.ts`, the audio-lab harnesses and the main-thread rhythm engine. Spike #150 stays a draft.
+- BJS-492 (read-only HighlightStrip) now blocks BJS-485, so hand edits can't silently stop changing the sound.
+- Soundfonts: 105 of 125 default GM fonts carry no stated licence (inherited); the hosting choice is Burooj's (BJS-488). Supersaw/pulse have no owner (question on BJS-487).
+- Square/saw play live on the worklet (#161), with a temporary 0.85 gain to match superdough's band-limited level until BJS-485.
+- iOS (#159): the audio session is 'playback' at unlock and 'play-and-record' while the mic is open, because 'playback' ends the mic track on iOS 17+.
+- Spelling (#154 when merged): six-accidental ties are broken by the key signature plus minor's raised leading tone (Eb minor, F# major); augmented chords read `C+`.
+  Out-of-scale notes follow the harmonic chromatic scale; for chromatic solfège the syllable follows the written spelling.
+- Design-law lint (#158 when merged): baselines are counted per file and rule and can only shrink; deliberate obfuscation (e.g. assembled import paths) is out of scope for lint.
+- Licence inputs for BJS-496: GSAP's custom licence and the unverified Let's Jazz font licence (finding on BJS-478).
+- PR #67 closed; its three live findings are BJS-514/515/516.
+- Moat 4 reads "a deep sound library" in AGENTS.md/the bible, since Strudel's library is leaving (Decision 3, #151).
+
 - **Confirmed by Burooj on 2026-10-09:**
   - "Moats" means moats, and the four-moat list is correct.
   - Decision 4: leave the code editor; keep the highlight and "Open in Strudel".
@@ -765,7 +780,7 @@ This sequencing changes the plan proposed on 2026-10-06 in one place:
 - **Still his to decide:**
   - The colour-wheel question (story 96) and the emotion-label default (story 95) are his.
 - **What "editions" means.** Several parts pick a different look on each load (Tabs, Knob, Joystick, Keyboard keys). Decision 5 groups them into families, which Shuffle picks between by default.
-- **Strudel.** Two reviewers proposed worklet-based transports, and the 2026-10-06 summary asked Burooj to choose. Decision 3 records the answer: Strudel stays, the alternatives become the fallback, and the phone gate is the condition. Separately, Burooj chose to leave the Strudel code editor (Decision 4).
+- **Strudel.** Two reviewers proposed worklet-based transports, and the 2026-10-06 summary asked Burooj to choose. Decision 3 was superseded on 2026-10-09: move off Strudel and superdough to the worklet engine, with the phone gate on that engine (BJS-494). Separately, Burooj chose to leave the Strudel code editor (Decision 4).
 - **What the 2026-10-06 plan left out, which this spec restores:**
   - Device work: DPR, frame-rate-independent motion, idle and adaptive quality, iOS audio, memory, bundle size.
   - Ownership of superdough and the single live rhythm engine.

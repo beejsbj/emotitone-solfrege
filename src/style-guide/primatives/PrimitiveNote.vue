@@ -66,12 +66,18 @@
       </VariantCell>
     </VariantGrid>
 
-    <VariantGrid title="Piano-key text contrast">
-      <VariantCell caption="Natural · white text" stage="ink3">
-        <Note syllable="Do" degree="I" raw-pitch="C4" :pitch-class-index="0" />
+    <VariantGrid title="Label tone from fill lightness">
+      <VariantCell caption="Low natural · Ivory label" stage="ink3">
+        <Note syllable="Do" degree="I" raw-pitch="C2" :octave="2" :pitch-class-index="0" />
       </VariantCell>
-      <VariantCell caption="Accidental · black text" stage="ink3">
-        <Note syllable="Ra" degree="bII" raw-pitch="Db4" :scale-index="1" :pitch-class-index="1" />
+      <VariantCell caption="High natural · Ink label" stage="ink3">
+        <Note syllable="Do" degree="I" raw-pitch="C7" :octave="7" :pitch-class-index="0" />
+      </VariantCell>
+      <VariantCell caption="Low accidental · Ivory label" stage="ink3">
+        <Note syllable="Ra" degree="bII" raw-pitch="Db3" :octave="3" :scale-index="1" :pitch-class-index="1" />
+      </VariantCell>
+      <VariantCell caption="High accidental · Ink label" stage="ink3">
+        <Note syllable="Ra" degree="bII" raw-pitch="Db7" :octave="7" :scale-index="1" :pitch-class-index="1" />
       </VariantCell>
     </VariantGrid>
 

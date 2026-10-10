@@ -38,7 +38,7 @@ describe("shared chromatic solfege", () => {
           : Interval.distance(spellTonic(context), identity.spelling);
       const expected = EXPECTED[expectedInterval][laBasedMinor && MINOR_MODES.includes(mode) ? 1 : 0];
       expect(pitchSolfege(pc, context, { laBasedMinor })).toBe(expected);
-      expect(pitchSolfegeData(pc, context, laBasedMinor)?.name).toBe(expected);
+      expect(pitchSolfegeData(pc, context, laBasedMinor)).toMatchObject({ name: expected, intervalName: expectedInterval });
       const phrase = {
         context: { key: tonic, mode },
         notes: [{ note: `${CHROMATIC_NOTES[pc]}4`, pitchClassIndex: pc, pressTime: 0 }],

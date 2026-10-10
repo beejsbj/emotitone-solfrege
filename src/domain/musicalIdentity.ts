@@ -460,7 +460,7 @@ export function pitchSolfegeData(
   return {
     ...metadata,
     name: pitchSolfege(pitch, context, { laBasedMinor }),
-    intervalName: identity.interval.tonal,
+    intervalName: identity.scaleIndex === null ? identity.interval.tonal : identity.functionalInterval.tonal,
     semitones: identity.semitones,
   };
 }

@@ -4,13 +4,41 @@ import typescriptParser from "@typescript-eslint/parser";
 import vue from "eslint-plugin-vue";
 import vueParser from "vue-eslint-parser";
 import globals from "globals";
+import designLaw from "./lint/eslintPluginDesignLaw.mjs";
+import {
+  BRAND_ZONE,
+  IMPORT_BOUNDARY_SCOPE,
+  PLAYING_ZONE_IGNORE,
+  SOURCE_EXTENSIONS,
+  playingZoneGlobs,
+} from "./lint/designZones.mjs";
+
+// Design law (BJS-481). Zones are data in lint/designZones.mjs; the debt that
+// predates the rules is counted per file in lint/designLawBaseline.json (a file may
+// not gain violations, and the count only goes down). AGENTS.md explains both.
+const designLawConfigs = [
+  {
+    // Import boundary: primitives and compounds do not import stores or production services.
+    files: IMPORT_BOUNDARY_SCOPE,
+    ignores: PLAYING_ZONE_IGNORE,
+    plugins: { "design-law": designLaw },
+    rules: { "design-law/no-store-imports": "error", "design-law/no-production-service-imports": "error" },
+  },
+  {
+    // Colour law: brand papers and raw colour literals stay out of the playing zone.
+    files: playingZoneGlobs(SOURCE_EXTENSIONS),
+    ignores: [...PLAYING_ZONE_IGNORE, ...BRAND_ZONE],
+    plugins: { "design-law": designLaw },
+    rules: { "design-law/no-brand-colour": "error", "design-law/no-raw-colour": "error" },
+  },
+];
 
 export default [
   js.configs.recommended,
   {
     // vue-tsc already checks undefined names in TypeScript and Vue files,
     // except the tests and setup that tsconfig.json excludes (handled below).
-    files: ["**/*.{ts,vue}"],
+    files: ["**/*.{ts,tsx,vue}"],
     ignores: ["src/**/__tests__/**", "src/**/*.test.ts", "src/**/*.spec.ts", "src/test-setup.ts"],
     rules: { "no-undef": "off" },
   },
@@ -38,7 +66,7 @@ export default [
   },
   {
     // Plain JS/MJS (scripts/, audio-lab/) is outside tsconfig, so keep no-undef there.
-    files: ["**/*.{js,mjs,cjs}"],
+    files: ["**/*.{js,jsx,mjs,cjs}"],
     languageOptions: {
       globals: { ...globals.node, ...globals.browser, ...globals.es2021 },
     },
@@ -62,7 +90,7 @@ export default [
     },
   },
   {
-    files: ["**/*.{js,ts,vue}"],
+    files: ["**/*.{js,jsx,ts,tsx,vue}"],
     languageOptions: {
       parser: typescriptParser,
       parserOptions: {
@@ -108,6 +136,7 @@ export default [
       },
     },
   },
+  ...designLawConfigs,
   {
     ignores: [
       "dist/**",

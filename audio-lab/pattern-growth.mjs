@@ -26,7 +26,8 @@ if (process.env.LAB_UI_REF) {
   const archive = execFileSync('git', ['archive', revision], { cwd: repoRoot, maxBuffer: 100 * 1024 * 1024 });
   execFileSync('tar', ['-x', '-C', appRoot], { input: archive });
   // A reference must also use its own dependency patches, especially CodeMirror.
-  execFileSync('bun', ['install', '--frozen-lockfile'], { cwd: appRoot, stdio: 'pipe' });
+  execFileSync('bun', ['install', '--frozen-lockfile'], { cwd: appRoot, stdio: 'pipe',
+    env: { ...process.env, BUN_INSTALL_CACHE_DIR: join(directory, 'bun-cache') } });
 }
 const requestedBackend = process.env.LAB_UI_BACKEND;
 if (requestedBackend && !['native', 'worklet'].includes(requestedBackend)) throw new Error('LAB_UI_BACKEND must be native or worklet');
@@ -119,7 +120,7 @@ try {
     await delay(1000);
   }
   if (!ready) throw new Error(`Application never became ready: ${warnings.slice(-8).join('\n')}`);
-  if (!process.env.LAB_UI_REF) console.log('Pre-entry backend:', JSON.stringify(await evaluate("import('/src/services/livePlayback.ts').then(module=>module.getLivePlaybackDiagnostics('piano'))", true)));
+  if (!process.env.LAB_UI_REF && mode!=='append-only') console.log('Pre-entry backend:', JSON.stringify(await evaluate("import('/src/services/livePlayback.ts').then(module=>module.getLivePlaybackDiagnostics('piano'))", true)));
   console.log('Pre-entry warnings:', JSON.stringify(warnings));
   const bank = await evaluate("import('/audio-lab/ui-inspect.ts').then(module=>module.inspectPianoBank())", true);
   console.log('Piano bank:', JSON.stringify(bank));
@@ -150,7 +151,7 @@ try {
   })()`);
   console.log('Real app ready:', JSON.stringify(state));
   if (!process.env.LAB_UI_REF) {
-    const diagnostics = await evaluate("import('/src/services/livePlayback.ts').then(module=>module.getLivePlaybackDiagnostics('piano'))", true);
+    const diagnostics = await evaluate("import('/src/services/livePlayback.ts').then(module=>module.getLivePlaybackDiagnostics("+JSON.stringify(mode==='append-only'?state.instrument:'piano')+"))", true);
     console.log('Backend:', JSON.stringify(diagnostics));
     const expectedBackend = requestedBackend === 'native' ? 'native-web-audio' : 'audio-worklet';
     if (process.env.LAB_UI_TRIALS !== '0' && diagnostics.backend !== expectedBackend) throw new Error('Expected '+expectedBackend+': '+JSON.stringify(diagnostics));

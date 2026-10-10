@@ -152,3 +152,34 @@ This closes the local focused CodeStrip gate. Absolute input delays remain visib
 The final review additionally tightened the checker to require the complete tuple multiset for either focused or full sweeps, preserving the two intentional repeated controls in the full matrix. `node audio-lab/verify-receipt-guards.mjs` verifies that duplicate rows cannot replace the 128/2048-note or hue-off conditions; the retained focused receipt still passes. The same script verifies that asynchronously captured guide errors cannot publish or overwrite a success receipt.
 
 A separate CodeStrip generation guard fixes pattern replacement concurrent with a tempo edit; 31 component regressions and typecheck pass, including pure-tempo continuity. This changes active-pattern phase ownership, not the recorded append/viewport benchmark path. No additional production timing capture is claimed. The guide was subsequently rerun with console error/warning collection and passed at desktop/phone sizes with zero captured failures; see [post-review validation](../docs/research/audio-stack-validation.md).
+
+## HighlightStrip review receipt (2026-10-10)
+
+The [main capture](results/highlightstrip-append-main-20261010.json) used
+`3f0a3405` (BJS-489 included). The [HighlightStrip capture](results/highlightstrip-append-highlight-20261010.json)
+used `491f9bef`, which merges that exact main revision. Both fresh app instances
+selected Triangle, used headless Chrome 147 at 1280×1000, and ran sequentially
+without profiling. Each hue condition recorded all six releases and finished
+with 518 notes in the same take. No browser warnings/errors were captured.
+
+| Strip / hue | Append-to-DOM median / mean / max (ms per note) | Frame median / p95 / max (ms) | Scroller DOM nodes, 512 → 518 notes | Mounted notes, before → after | Final document elements |
+| --- | --- | --- | --- | --- | --- |
+| Main / off | 820.2 / 818.2 / 981.4 | 75.0 / 550.0 / 666.6 | 7,411 → 7,733 | 243 → 249 | 5,272 |
+| HighlightStrip / off | 1,476.1 / 1,376.1 / 1,556.3 | 83.4 / 1,116.7 / 1,316.6 | 13,339 → 13,616 | 512 → 518 | 7,689 |
+| Main / on | 836.6 / 841.8 / 1,012.3 | 150.0 / 666.7 / 683.3 | 7,411 → 7,737 | 243 → 249 | 5,276 |
+| HighlightStrip / on | 1,671.4 / 1,660.5 / 1,969.2 | 183.3 / 1,266.7 / 1,383.3 | 13,339 → 13,624 | 512 → 518 | 7,697 |
+
+HighlightStrip is slower in this capture: median append-to-DOM latency is
+**1.80× main with hue off, 2.00× with hue on**. Keyup CDP round-trip medians
+also increased: 35.7 → 92.5ms (off), 65.3 → 93.4ms (on). Maximum LongTasks
+were 558 → 1,204ms (off) and 542 → 1,166ms (on). Main already exceeds the
+historical 500ms LongTask ceiling, and this branch worsens it. This is a
+completed measurement, not a passed historical performance gate.
+
+The scroller node counts include elements, text and comments. CodeMirror
+virtualises part of this history; HighlightStrip mounts all notes. Whole-app
+append-to-DOM latency includes release publication, Vue work and a forced
+layout read; it does not isolate strip CPU work or measure sound latency.
+Six samples per condition on a shared host are descriptive evidence, not
+a phone performance guarantee. Physical-device measurements and virtualisation
+are deferred; no production visual rules changed for this follow-up.

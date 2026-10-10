@@ -1040,6 +1040,12 @@ const formatTimestamp = (timestamp: string) => {
   margin-block-end: clamp(var(--s-5), 4vw, var(--s-7));
 }
 
+/* A section's own reset key sits at the panel's edge; keep its touch inside
+   the scroller. */
+.config-panel__section-header > .paper-button {
+  margin-inline-end: calc((var(--hit-min) - 32px) / 2);
+}
+
 .config-panel__saved-time,
 .config-panel__labeled-action span {
   color: var(--ivory);
@@ -1096,15 +1102,19 @@ const formatTimestamp = (timestamp: string) => {
   opacity: .82;
 }
 
+/* Rows of 32px keys sit --s-5 apart so their --hit-min touches meet without
+   overlapping. */
 .config-panel__look-preview-actions {
   flex: none;
-  gap: var(--s-2);
+  gap: var(--s-5);
 }
 
 .config-panel__section-controls {
   align-items: flex-start;
   flex: none;
-  gap: var(--s-2);
+  gap: var(--s-5);
+  /* Keys at the panel's edge keep their touch inside the scroller. */
+  padding-inline-end: calc((var(--hit-min) - 32px) / 2);
 }
 
 .config-panel__groups,
@@ -1142,7 +1152,8 @@ const formatTimestamp = (timestamp: string) => {
 .config-panel__looks-actions {
   align-items: flex-start;
   flex: none;
-  gap: var(--s-2);
+  gap: var(--s-5);
+  padding-inline-end: calc((var(--hit-min) - 32px) / 2);
 }
 
 .config-panel__legacy-configs {
@@ -1255,6 +1266,7 @@ const formatTimestamp = (timestamp: string) => {
 .config-panel__saved-load {
   display: flex;
   min-inline-size: 0;
+  min-block-size: var(--hit-min);
   align-items: center;
   flex-wrap: wrap;
   gap: var(--s-3);
@@ -1349,13 +1361,14 @@ const formatTimestamp = (timestamp: string) => {
 }
 
 .config-panel__midi-actions {
-  gap: var(--s-4);
+  gap: var(--s-5);
 }
 
 .config-panel__labeled-action {
   display: grid;
   justify-items: center;
-  gap: var(--s-2);
+  /* The caption sits clear of the key's --hit-min touch. */
+  gap: calc((var(--hit-min) - 32px) / 2);
 }
 
 @media (min-width: 560px) {

@@ -507,7 +507,9 @@ const openLabel = computed(() => props.item.canOpenStrudel === false
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: var(--s-3);
+  /* The 32px keys sit --s-5 apart so their --hit-min touches meet without
+     overlapping, at every width. */
+  gap: var(--s-5);
 }
 
 /* The take is flat Ink like every strip; only its Brass edges mark it. */
@@ -587,10 +589,6 @@ const openLabel = computed(() => props.item.canOpenStrudel === false
     gap: var(--s-3);
     padding-right: 7px;
     padding-left: 13px;
-  }
-
-  .pattern-strip__actions {
-    gap: var(--s-2);
   }
 
   .pattern-strip__identity strong {

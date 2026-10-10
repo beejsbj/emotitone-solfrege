@@ -146,6 +146,9 @@ const emit = defineEmits<{
 
 .code-strip-bar__right {
   min-width: 0;
+  /* The 32px keys sit --s-5 apart so their --hit-min touches meet without
+     overlapping. */
+  gap: var(--s-5);
 }
 
 .code-strip-bar__beat {

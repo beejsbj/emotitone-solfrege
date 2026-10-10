@@ -6,10 +6,10 @@
  * take time and ids as arguments so every rule is testable without a clock.
  */
 
+import { remap } from "@/domain/modeRemap";
 import { CHROMATIC_NOTES } from "@/data/notes";
 import {
   getSemitoneShift,
-  mutatePatternMode,
   transposePatternNotes,
 } from "@/data/patterns";
 import { isSameShape, NEUTRAL_SHAPE, resolveLiveEnvelope } from "@/services/shape";
@@ -133,6 +133,7 @@ export function ensureSingleTake(
   const chosen = takes.find((phrase) => phrase.id === book.takeId) ?? takes[0];
   for (const extra of takes) {
     if (extra === chosen) continue;
+    delete extra.modeBase;
     extra.shelf = "recent";
     extra.closedAt = now;
   }
@@ -530,6 +531,7 @@ function retireTake(
   reason: CloseReason,
 ): void {
   const take = getTake(book);
+  delete take.modeBase;
   if (closingShelf(take, book.recorder, reason) === "recent") {
     // A Recent phrase that was only looked at goes back to its own place, so
     // scrolling through Recent never reshuffles it.
@@ -584,6 +586,7 @@ export function keepTake(
     return origin === "kept" ? source.id : null;
   }
 
+  delete take.modeBase;
   take.shelf = "kept";
   take.keptAt = now;
   // A reopened Recent phrase still carries its closedAt; kept now means now.
@@ -730,6 +733,9 @@ export function undoLastNote(book: PhraseBook): PatternNote | null {
   });
   const baseTrailing = Math.max(0, recorder.baseDuration - baseEnd(take.notes));
   const [removed] = take.notes.splice(lastIndex, 1);
+  if (take.modeBase) {
+    take.modeBase.notes = take.modeBase.notes.filter((note) => note.id !== removed.id);
+  }
 
   if (live.has(removed.id)) {
     recorder.liveNoteIds = recorder.liveNoteIds.filter((id) => id !== removed.id);
@@ -767,30 +773,25 @@ export function followControls(
   if (book.recorder.origin === "recent") return false;
 
   const context = take.context;
-  let notes = take.notes;
-  let changed = false;
-  if (context.key !== live.key) {
-    notes = transposePatternNotes(notes, getSemitoneShift(context.key, live.key));
-    context.key = live.key;
-    changed = true;
+  const changed = context.key !== live.key || context.mode !== live.mode
+    || context.octave !== live.octave || context.instrument !== live.instrument
+    || !isSameShape(context.shape, live.shape);
+  if (!changed) return false;
+
+  // Capture once, before any watcher result can become the next input. This
+  // optional snapshot uses the existing phrase/note shape and survives reloads.
+  const base = take.modeBase ??= {
+    notes: take.notes.map(cloneNote),
+    context: cloneContext(context),
+  };
+  let notes = remap(base.notes, base.context.mode, live.mode, base.context.key);
+  notes = transposePatternNotes(notes, getSemitoneShift(base.context.key, live.key)
+    + (live.octave - base.context.octave) * 12);
+  if (base.context.instrument !== live.instrument || !isSameShape(base.context.shape, live.shape)) {
+    notes = reskinArticulation(notes, base.context, live.instrument, live.shape);
   }
-  if (context.mode !== live.mode) {
-    notes = mutatePatternMode(notes, context.key, live.mode);
-    context.mode = live.mode;
-    changed = true;
-  }
-  if (context.octave !== live.octave) {
-    notes = transposePatternNotes(notes, (live.octave - context.octave) * 12);
-    context.octave = live.octave;
-    changed = true;
-  }
-  if (context.instrument !== live.instrument || !isSameShape(context.shape, live.shape)) {
-    notes = reskinArticulation(notes, context, live.instrument, live.shape);
-    context.instrument = live.instrument;
-    context.shape = { ...live.shape };
-    changed = true;
-  }
-  if (changed) take.notes = notes;
+  take.notes = notes;
+  take.context = { ...cloneContext(live), bpm: context.bpm };
   return changed;
 }
 

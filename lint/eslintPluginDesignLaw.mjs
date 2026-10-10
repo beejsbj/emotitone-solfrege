@@ -6,7 +6,7 @@
  * no baseline entry gets a budget of zero.
  */
 import { posix } from "node:path";
-import { BRAND_TEXT_PATTERNS, RAW_COLOUR_PATTERNS, NAMED_COLOURS } from "./colourPatterns.mjs";
+import { BRAND_TEXT_PATTERNS, RAW_COLOUR_PATTERNS, styleDeclarationViolations } from "./colourPatterns.mjs";
 import { PURE_SERVICES } from "./designZones.mjs";
 import { judge, relativeToRoot } from "./baseline.mjs";
 
@@ -81,9 +81,9 @@ function isColourValue(node) {
     let name;
     if (parent.type === "Property") name = parent.key.name ?? parent.key.value;
     if (parent.type === "VariableDeclarator") name = parent.id.name;
-    if (parent.type === "AssignmentExpression") name = parent.left.property?.name;
+    if (parent.type === "AssignmentExpression") name = parent.left.property?.name ?? parent.left.property?.value;
     if (parent.type === "VAttribute") return parent.key.argument?.name === "style";
-    if (name !== undefined) return /(?:colou?r|fill|stroke|background|shadow|accent|caret)/i.test(name);
+    if (name !== undefined) return /(?:colou?r|fill|stroke|background|shadow|accent|caret|border|outline|column-?rule|text-?decoration|^--)/i.test(name);
   }
   return false;
 }
@@ -93,7 +93,11 @@ function colourText(patterns) {
     if (typeof text !== "string") return;
     const hit = patterns.map((p) => p.exec(text)).find(Boolean);
     if (hit) add(node, (hit[1] ?? hit[0]).trim());
-    else if (patterns === RAW_COLOUR_PATTERNS && NAMED_COLOURS.has(text.toLowerCase()) && !BRAND_TEXT_PATTERNS.some((p) => p.test(text)) && isColourValue(node)) add(node, text);
+    else if (isColourValue(node)) {
+      const kind = patterns === RAW_COLOUR_PATTERNS ? "raw" : "brand";
+      const named = styleDeclarationViolations("color", text)[kind];
+      if (named) add(node, named);
+    }
   };
   return ({ add }) => {
     const test = check(add);

@@ -190,6 +190,20 @@ describe("colour law in script and template", () => {
     }
   });
 
+  it("checks inline property variants and shorthand values in style objects", async () => {
+    for (const [property, value, rule] of [
+      ["border-top", "1px solid white", RAW], ["outline", "1px solid tomato", BRAND],
+      ["column-rule", "1px solid white", RAW], ["text-decoration", "underline tomato", BRAND],
+      ["background-image", "linear-gradient(white, transparent)", RAW],
+      ["--edge", "1px solid white", RAW],
+    ]) {
+      expect(await eslintRules(playing, vue("", `<div style="${property}: ${value}" />`))).toContain(rule);
+      expect(await eslintRules(playing, vue("", `<div :style="{ '${property}': '${value}' }" />`))).toContain(rule);
+    }
+    expect(await eslintRules(playing, vue('const s = { borderTop: "1px solid white", outline: "1px solid tomato" }; void s;'))).toEqual([RAW, BRAND]);
+    expect(await eslintRules(playing, vue('const s = { fontFamily: "white", animation: "tan 1s" }; void s;', '<div style="font-family: white; animation: tan 1s; color: var(--ivory)" />'))).toEqual([]);
+  });
+
   it("covers every runtime source extension, not just .vue and .ts (bypass 3)", async () => {
     const code = 'export const colour = "#123456";\nexport const tone = "tomato";';
     for (const path of [
@@ -243,6 +257,25 @@ describe("colour law in styles", () => {
     expect((await styleProblems(playing, inVue("border: 1px solid white;"))).join()).toMatch(/Raw colour "white"/);
     expect((await styleProblems(playing, inVue("--glow: color-mix(in srgb, mustard 40%, transparent);"))).join()).toMatch(/Brand paper "mustard"/);
     expect((await styleProblems("src/components/primatives/fresh.css", ".x { color: bone; }")).join()).toMatch(/Brand paper "bone"/);
+  });
+
+  it("rejects modern raw colour functions in styles, script and inline styles", async () => {
+    for (const value of [
+      "oklch(70% .1 20)", "oklab(.7 .1 .1)", "lab(70% 10 10)", "lch(70% 20 30)",
+      "hwb(20 10% 10%)", "color(display-p3 1 0 0)", "device-cmyk(0 1 1 0)",
+    ]) {
+      expect((await styleProblems(playing, inVue(`color: ${value};`))).join(), value).toMatch(/Raw colour/);
+      expect(await eslintRules(playing, vue(`const c = "${value}"; void c;`)), value).toContain(RAW);
+      expect(await eslintRules(playing, vue("", `<div style="color: ${value}" />`)), value).toContain(RAW);
+    }
+  });
+
+  it("rejects declared brand custom properties even when their values are allowed tokens", async () => {
+    for (const token of ["tomato", "mustard", "plum", "cobalt", "pine", "bone"]) {
+      expect((await styleProblems(playing, inVue(`--${token}: var(--ivory);`))).join()).toMatch(/Brand paper/);
+    }
+    expect((await styleProblems("src/components/fresh.css", ".x { --tomato: var(--ivory); }")).join()).toMatch(/Brand paper/);
+    expect(await styleProblems(playing, inVue("--tomato-edge: var(--ivory); --ink: currentColor;"))).toEqual([]);
   });
 
   it("allows transparent, currentColor, inherit, tokens, masks and non-colour words", async () => {

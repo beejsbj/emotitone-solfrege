@@ -20,7 +20,7 @@ export const BRAND_TEXT_PATTERNS = [
 /** #rgb, #rgba, #rrggbb, #rrggbbaa, and the colour functions. Group 1 is the token. */
 export const RAW_COLOUR_PATTERNS = [
   /(?:^|[^\w&])(#(?:[0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3,4}))(?![\w-])/i,
-  /(?:^|[^\w-])((?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\()/i,
+  /(?:^|[^\w-])((?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color|device-cmyk)\()/i,
 ];
 
 /** CSS named colours except the keywords that are not a colour choice (transparent, currentColor, inherit...). */
@@ -44,12 +44,9 @@ export const NAMED_COLOURS = new Set(
 );
 
 // Inline CSS and Tailwind arbitrary values never reach Stylelint.
-const inlineNames = (names) => new RegExp(`(?:^|[;{])\\s*(?:[\\w-]*colou?r|background|border|box-shadow|fill|stroke|--[\\w-]+)\\s*:[^;{}]*?(?<![\\w-])(${names})(?![\\w-])`, "i");
+const inlineNames = (names) => new RegExp(`(?:^|[;{])\\s*(?!(?:${[...NAMED_COLOUR_EXEMPT_PROPERTIES].join("|")})\\s*:)[\\w-]+\\s*:[^;{}]*?(?<![\\w-])(${names})(?![\\w-])`, "i");
 const utilityNames = (names) => new RegExp(`(?:^|[\\s:"'])` +
   `(?:bg|text|border|ring|fill|stroke|from|via|to|outline|decoration|shadow|accent|caret|divide)-\\[?(?:${names})(?![\\w-])`, "i");
-BRAND_TEXT_PATTERNS.push(inlineNames(BRAND), utilityNames(BRAND));
-const rawNames = [...NAMED_COLOURS].filter((name) => !BRAND_TOKENS.includes(name));
-RAW_COLOUR_PATTERNS.push(inlineNames(rawNames.join("|")), utilityNames(rawNames.filter((name) => name !== "ivory").join("|")));
 
 /** Properties whose values are names or lists, not colours (a word like `white` or `tan` is not a colour there). */
 export const NAMED_COLOUR_EXEMPT_PROPERTIES = new Set([
@@ -76,13 +73,17 @@ export const NAMED_COLOUR_EXEMPT_PROPERTIES = new Set([
 /** Gradient masks only need an opaque stop, not a colour choice. */
 export const RAW_COLOUR_EXEMPT_PROPERTIES = new Set(["mask", "-webkit-mask", "mask-image", "-webkit-mask-image"]);
 
+BRAND_TEXT_PATTERNS.push(inlineNames(BRAND), utilityNames(BRAND));
+const rawNames = [...NAMED_COLOURS].filter((name) => !BRAND_TOKENS.includes(name));
+RAW_COLOUR_PATTERNS.push(inlineNames(rawNames.join("|")), utilityNames(rawNames.filter((name) => name !== "ivory").join("|")));
+
 /**
  * Violations in one CSS declaration. A declaration yields at most one brand and
  * one raw violation: { brand: string | null, raw: string | null }.
  */
 export function styleDeclarationViolations(prop, value) {
   const property = prop.toLowerCase();
-  const brandHit = BRAND_TEXT_PATTERNS.slice(0, 1).map((p) => p.exec(value)).find(Boolean);
+  const brandHit = BRAND_TEXT_PATTERNS[0].exec(prop) ?? BRAND_TEXT_PATTERNS[0].exec(value);
   // Words outside strings, url() and custom-property names.
   const words = value
     .replace(/(["'])(?:\\.|(?!\1).)*\1/g, " ")

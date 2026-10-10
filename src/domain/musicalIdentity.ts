@@ -794,6 +794,7 @@ const SUPPLEMENTAL_CHORD_TYPES = [
   { alias: "maj11", name: "major eleventh", intervals: ["1P", "3M", "5P", "7M", "9M", "11P"] },
 ];
 for (const { alias, name, intervals } of SUPPLEMENTAL_CHORD_TYPES) {
+  // Registration mutates Tonal's global ChordType dictionary at module import.
   if (ChordType.get(alias).empty) ChordType.add(intervals, [alias], name);
 }
 

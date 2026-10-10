@@ -442,6 +442,17 @@ describe("useHarmonicAnalysis", () => {
       });
     });
 
+    it("orders enharmonic unisons by written letter across a key change", () => {
+      const { snapshot, notePlayed } = createAnalysis();
+      notePlayed({ ...createActiveNote("cb", "B4", "Cb"), key: "F", mode: "locrian" });
+      notePlayed(createActiveNote("b", "B4", "B"));
+      expect(snapshot.value.noteSpellings).toEqual({ cb: "Cb5", b: "B4" });
+      expect(snapshot.value.intervalEdges[0]).toEqual({
+        fromNoteId: "b", toNoteId: "cb", fromIndex: 1, toIndex: 0,
+        interval: "d2", spokenInterval: "diminished second",
+      });
+    });
+
     it("labels F major's IV as Bb with conventional intervals", () => {
       const snapshot = playIn([["d", "D4"], ["f", "F4"], ["bb", "A#4"]], "F");
 

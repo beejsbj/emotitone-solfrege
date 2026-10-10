@@ -114,8 +114,11 @@ export function useHarmonicAnalysis(
         compareIndex < notes.length;
         compareIndex += 1
       ) {
-        const [fromIndex, toIndex] = Note.get(spellings[notes[index].noteId]).height
-          <= Note.get(spellings[notes[compareIndex].noteId]).height
+        const first = Note.get(spellings[notes[index].noteId]);
+        const second = Note.get(spellings[notes[compareIndex].noteId]);
+        const letterRank = (note: typeof first) => (note.oct ?? 0) * 7 + note.step;
+        const [fromIndex, toIndex] = (first.height - second.height
+          || letterRank(first) - letterRank(second)) <= 0
           ? [index, compareIndex] : [compareIndex, index];
         const interval = intervalBetween(
           spellings[notes[fromIndex].noteId],

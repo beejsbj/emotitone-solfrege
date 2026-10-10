@@ -281,14 +281,14 @@ const midiPaper = computed(() => (midi.value?.stamp === "SET" ? "plum" : "ink-4"
           v-if="isReady"
           type="button"
           class="count-gate count-gate--play brass"
-          aria-label="Play EmotiTone"
+          :aria-label="audioInitializing ? 'Preparing EmotiTone' : 'Play EmotiTone'"
           title="Enter EmotiTone"
           :disabled="audioInitializing"
           :aria-busy="audioInitializing || undefined"
           @click="emit('start')"
         >
-          <span class="count-gate__label"><span aria-hidden="true">►</span> PLAY</span>
-          <span class="count-gate__sub">on the downbeat</span>
+          <span class="count-gate__label"><span aria-hidden="true">►</span> {{ audioInitializing ? "PREPARING…" : "PLAY" }}</span>
+          <span class="count-gate__sub">{{ audioInitializing ? "getting your sound ready" : "on the downbeat" }}</span>
         </button>
 
         <button

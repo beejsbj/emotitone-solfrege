@@ -187,13 +187,13 @@ export const useInstrumentStore = defineStore("instrument", () => {
     );
   };
 
-  const syncReadyInstrumentsFromAudio = (warmed: string[] = []) => {
+  const syncReadyInstrumentsFromAudio = (warmed: string[] = [], preserveSelection = false) => {
     readyInstruments.value = new Set([...getReadySounds(), ...warmed]);
 
     const fallback = findReadyFallback([currentInstrument.value]);
     if (fallback) {
       markInstrumentReady(fallback);
-      currentInstrument.value = fallback;
+      if (!preserveSelection) currentInstrument.value = fallback;
       lastReadyInstrument.value = fallback;
     } else {
       lastReadyInstrument.value = null;
@@ -206,17 +206,18 @@ export const useInstrumentStore = defineStore("instrument", () => {
   // Initialize — boots superdough and reports granular sample-pack progress
   // through the optional callback so loading screens can show real steps.
   const initializeInstruments = async (
-    progressCallback?: (progress: number, message: string) => void
+    progressCallback?: (progress: number, message: string) => void,
+    { prepareSelected = true }: { prepareSelected?: boolean } = {},
   ) => {
     isInitializing.value = true;
     try {
       await initSuperdoughAudio(progressCallback);
-      // A persisted sampled instrument is still cold here. Warm it during
-      // loading rather than silently replacing it with a ready fallback; if
-      // it fails, the sync below falls back and recalls that one's Shape.
+      // Boot preserves the saved selection without downloading its bank.
+      // Play calls this again after the gesture and keeps the splash up until
+      // the live renderer is prepared (or the established fallback is ready).
       const preferred = currentInstrument.value;
       const warmed: string[] = [];
-      if (preferred !== DEFAULT_INSTRUMENT && !isInstrumentReady(preferred)) {
+      if (prepareSelected && preferred !== DEFAULT_INSTRUMENT && !isInstrumentReady(preferred)) {
         progressCallback?.(99, `Preparing ${displayInstrumentName(preferred)}…`);
         try {
           await prewarmSoundSamples(preferred);
@@ -229,9 +230,9 @@ export const useInstrumentStore = defineStore("instrument", () => {
           lastWarmupErrorInstrument.value = preferred;
         }
       }
-      syncReadyInstrumentsFromAudio(warmed);
+      syncReadyInstrumentsFromAudio(warmed, !prepareSelected);
       // Prewarming above already prepared the live renderer for that sound.
-      if (!warmed.includes(currentInstrument.value) && needsLivePlaybackPreparation(currentInstrument.value)) {
+      if (prepareSelected && !warmed.includes(currentInstrument.value) && needsLivePlaybackPreparation(currentInstrument.value)) {
         await prewarmSoundSamples(currentInstrument.value);
       }
       // Guarantee a 100% call even when already initialized (early return path)

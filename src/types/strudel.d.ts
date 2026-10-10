@@ -59,4 +59,8 @@ declare module "@strudel/tonal" {
 
 declare module "@strudel/soundfonts" {
   export function registerSoundfonts(): Promise<void>;
+  export function prewarmSoundfont(name: string, context: AudioContext): Promise<void>;
+  // Zones are validated by preparedNativeInstrument before reaching the worklet.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  export function getPreparedSoundfont(name: string, context: AudioContext): Promise<any[]>;
 }

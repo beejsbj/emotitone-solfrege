@@ -75,4 +75,16 @@ describe("the save warning and the humming feedback share the top of the screen"
     transport!.unmount();
     transport = undefined;
   });
+
+  it("clears the clearance when the transport unmounts mid-feedback, and follows a prop change", async () => {
+    await showTransport({ status: "idle" });
+    await transport!.setProps({ status: "error", error: "x", statusMessage: "x" });
+    await nextTick();
+    await nextTick();
+    expect(noticeClearance(notice!)).toBe(FEEDBACK_TOP + 38 + 8);
+    transport!.unmount();
+    transport = undefined;
+    await nextTick();
+    expect(noticeClearance(notice!)).toBe(0);
+  });
 });

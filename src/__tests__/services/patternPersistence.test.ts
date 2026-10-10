@@ -3,6 +3,7 @@ import { createPinia, setActivePinia } from "pinia";
 import { createApp, nextTick, reactive } from "vue";
 import piniaPluginPersistedstate from "pinia-plugin-persistedstate";
 import { usePhrasesStore } from "@/stores/phrases";
+import { createLooper, join, openLoop, saveLoop } from "@/domain/looper";
 import {
   deserializePatternsState,
   serializePatternsState,
@@ -105,6 +106,45 @@ describe("pattern persistence serializer", () => {
     await nextTick();
     const parsed = JSON.parse(storage.getItem("phrases")!);
     expect(parsed.book.phrases[0].notes[0].id).toBe("note-0");
+    store.removeEventListeners();
+  });
+
+  it("round-trips saved Loop pointers and all membership controls through Pinia persistence", async () => {
+    const seed = makeStore();
+    seed.book.phrases.push({ ...seed.take, id: "recent-loop-member", shelf: "recent", notes: [createNote(0)], duration: 4000 });
+    const looper = createLooper();
+    const member = join(looper, seed.book.phrases[1], { kind: "played", phraseOriginBars: 10 });
+    Object.assign(member, { offsetBars: -0.375, muted: true, pinned: true, rate: 0.5 });
+    const id = saveLoop(seed.book, looper, "Together", 1000, () => "loop-1")!;
+    const serialized = serializePatternsState({ book: seed.book, isRecordingEnabled: true });
+    const saved = JSON.parse(serialized).book.loops;
+    storage.setItem("phrases", serialized);
+    seed.removeEventListeners();
+
+    const store = makeStore();
+    expect(store.book.loops).toEqual(saved);
+    expect(openLoop(store.book, id)!.members).toEqual([member]);
+    store.book.loops[0].name = "Persisted Loop";
+    await nextTick();
+    const restored = deserializePatternsState(storage.getItem("phrases")!);
+    expect(restored.book.loops[0]).toEqual({ ...saved[0], name: "Persisted Loop" });
+    expect(restored.book.loops[0].members[0]).not.toHaveProperty("notes");
+    store.removeEventListeners();
+  });
+
+  it("migrates older stored phrase books without loops to an empty Loop list", () => {
+    const seed = makeStore();
+    seed.book.phrases.push({ ...seed.take, id: "old-kept", shelf: "kept", notes: [createNote(0)] });
+    const legacy = JSON.parse(serializePatternsState({ book: seed.book, isRecordingEnabled: false }));
+    delete legacy.book.loops;
+    const serialized = JSON.stringify(legacy);
+    seed.removeEventListeners();
+    expect(deserializePatternsState(serialized).book).toEqual({ ...legacy.book, loops: [] });
+    storage.setItem("phrases", serialized);
+    const store = makeStore();
+    expect(store.book.loops).toEqual([]);
+    expect(store.book.phrases.find((phrase) => phrase.id === "old-kept")?.notes).toHaveLength(1);
+    expect(store.isRecordingEnabled).toBe(false);
     store.removeEventListeners();
   });
 });

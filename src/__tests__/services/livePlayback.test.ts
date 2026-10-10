@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({ create: vi.fn(), prepare: vi.fn(), releasePrepared: vi.fn(), preparationDiagnostics: vi.fn(),
   chains: [] as { input: object; apply: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn> }[] }))
+vi.mock('@strudel/soundfonts', () => ({ getPreparedSoundfont: vi.fn() }))
 vi.mock('@/audio/live/bridge', () => ({ createLiveWorklet: mocks.create }))
 vi.mock('@/audio/liveShaping', () => ({ createLiveShapingChain: vi.fn(() => {
   const chain = { input: {}, apply: vi.fn(), dispose: vi.fn() }
@@ -28,6 +29,48 @@ beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); mocks.chains.length = 
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs() })
 
 describe('live playback instrument manager', () => {
+  it('rebuilds a changed-rate worklet before a resumed input can use it', async () => {
+    const { manager, engine, context } = await setup()
+    Object.assign(context, { sampleRate: 48000, state: 'running' })
+    await manager.prepareLivePlayback(context, destination, 'piano')
+    const stale = manager.getLivePlayback('piano')!
+    const next = { ...engine, prepare: vi.fn().mockResolvedValue(undefined), press: vi.fn(), dispose: vi.fn() }
+    mocks.create.mockResolvedValueOnce(next)
+    Object.assign(context, { state: 'interrupted', resume: vi.fn(async () => {
+      Object.assign(context, { state: 'running', sampleRate: 44100 })
+    }) })
+    const { resumeAudioContext } = await import('@/services/audioLifecycle')
+    await resumeAudioContext(context)
+    expect(engine.dispose).toHaveBeenCalledOnce()
+    expect(mocks.create).toHaveBeenCalledTimes(2)
+    expect(next.prepare).toHaveBeenCalledWith(expect.objectContaining({ instrumentId: 'piano' }))
+    stale.press('stale', [{ instrumentId: 'piano', pitch: 60 }])
+    expect(engine.press).not.toHaveBeenCalled()
+    manager.getLivePlayback('piano')!.press('new', [{ instrumentId: 'piano', pitch: 60 }])
+    expect(next.press).toHaveBeenCalledOnce()
+    expect(resumeAudioContext(context)).toBeUndefined()
+    expect(mocks.create).toHaveBeenCalledTimes(2)
+  })
+
+  it('drains old-rate preparation before installing the rebuilt generation', async () => {
+    const { manager, context } = await setup()
+    Object.assign(context, { sampleRate: 48000 })
+    let finish!: () => void
+    mocks.prepare.mockImplementationOnce(() => new Promise(resolve => { finish = () => resolve(bank('piano')) }))
+    const original = manager.prepareLivePlayback(context, destination, 'piano')
+    await vi.waitFor(() => expect(mocks.prepare).toHaveBeenCalledOnce())
+    Object.assign(context, { sampleRate: 44100 })
+    const { resumeAudioContext } = await import('@/services/audioLifecycle')
+    const recovering = resumeAudioContext(context)
+    await Promise.resolve()
+    expect(mocks.prepare).toHaveBeenCalledOnce()
+    finish()
+    await Promise.all([original, recovering])
+    expect(mocks.prepare).toHaveBeenCalledTimes(2)
+    expect(mocks.create).toHaveBeenCalledOnce()
+    expect(manager.getLivePlayback('piano')).toBeDefined()
+  })
+
   it('deduplicates preparation, waits for acknowledgement and reports zero-lead readiness', async () => {
     const { manager, engine, context } = await setup()
     let acknowledge!: () => void
@@ -237,14 +280,38 @@ describe('live Shape controls on the worklet backend', () => {
 
 describe('production renderer selection', () => {
   it.each([
-    ['square', 'square'], ['sawtooth', 'sawtooth'], ['amSynth', 'sawtooth'],
-    ['fmSynth', 'square'], ['metalSynth', 'square'],
+    ['square', 'square'], ['sawtooth', 'sawtooth'], ['sqr', 'square'], ['saw', 'sawtooth'],
+    ['amSynth', 'sawtooth'], ['fmSynth', 'square'], ['metalSynth', 'square'],
+  ])('prepares and renders %s as worklet %s using the real catalog', async (name, resolved) => {
+    const { manager, context, engine } = await setup()
+    const { registerSynthSounds } = await import('superdough')
+    registerSynthSounds()
+    const actual = await vi.importActual<typeof import('@/services/preparedLiveInstrument')>('@/services/preparedLiveInstrument')
+    mocks.prepare.mockImplementation(actual.prepareLiveInstrument)
+    const { LiveAudioCore } = await import('@/audio/live/core')
+    const core = new LiveAudioCore(48000, () => {})
+    engine.prepare.mockImplementation(async instrument => core.command({ type: 'prepare', requestId: 1, instrument }, 0))
+    engine.press.mockImplementation((ownerId, notes) => core.command({ type: 'press', ownerId, notes }, 0))
+
+    await manager.prepareLivePlayback(context, destination, name)
+    expect(manager.getLivePlaybackDiagnostics(name).backend).toBe('audio-worklet')
+    const renderer = manager.getLivePlayback(name)!
+    renderer.press('finger', [{ pitch: 69, instrumentId: resolved }])
+    const pcm = new Float32Array(4800)
+    core.render([pcm], 0)
+    expect(pcm.some(value => Math.abs(value) > .1)).toBe(true)
+    expect(engine.prepare).toHaveBeenCalledWith(expect.objectContaining({ waveform: resolved,
+      gain: .24, attack: .003, decay: .001, sustain: 1, release: .12 }))
+  })
+
+  it.each([
+    ['supersaw', 'supersaw'], ['pulse', 'pulse'],
   ])('routes unsupported %s through %s to fallback without disturbing a held worklet bank', async (name, resolved) => {
     const { manager, context, engine } = await setup()
     await manager.prepareLivePlayback(context, destination, 'sine')
     const held = manager.getLivePlayback('sine')!
     held.press('finger', [{ pitch: 96, instrumentId: 'sine' }])
-    const unsupported = { kind: 'unsupported', instrumentId: resolved, reason: 'Native oscillator required for timbre fidelity' }
+    const unsupported = { kind: 'unsupported', instrumentId: resolved, reason: 'Unsupported synthesis' }
     mocks.prepare.mockResolvedValueOnce(unsupported)
 
     await manager.prepareLivePlayback(context, destination, name)

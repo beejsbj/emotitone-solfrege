@@ -1,3 +1,4 @@
+import { resumeAudioContext } from "@/services/audioLifecycle";
 import { PitchDetector } from "pitchy";
 import { VOICE_RMS_FLOOR } from "@/services/voiceDynamics";
 import type { LiveAudioSource } from "@/services/liveAudio";
@@ -93,7 +94,7 @@ export async function startLivePitchMonitor(
 
     sourceNode.connect(analyser);
     analyser.connect(mute);
-    await context.resume();
+    await resumeAudioContext(context);
 
     const samples = new Float32Array(FRAME_SIZE);
     const samplePitch = () => {

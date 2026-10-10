@@ -38,6 +38,7 @@ describe("live styles through music, recording, and Strudel", () => {
     vi.mocked(audio.prewarmSoundSamples).mockResolvedValue(undefined);
     vi.spyOn(performance, "now").mockImplementation(() => Date.now() - EPOCH);
     vi.mocked(audio.getAudioContext).mockImplementation(() => ({
+      state: "running",
       currentTime: performance.now() / 1000,
     } as AudioContext));
     pinia = createPinia();
@@ -236,6 +237,7 @@ describe("live styles through music, recording, and Strudel", () => {
 
   it("keeps musical timestamps while presenting repeat onset and release at estimated output", async () => {
     vi.mocked(audio.getAudioContext).mockImplementation(() => ({
+      state: "running",
       currentTime: performance.now() / 1000,
       getOutputTimestamp: () => ({ contextTime: 0, performanceTime: 200 }),
     } as AudioContext));
@@ -256,6 +258,7 @@ describe("live styles through music, recording, and Strudel", () => {
 
   it("uses the actual Together onset for presentation and the current output clock on release", async () => {
     vi.mocked(audio.getAudioContext).mockImplementation(() => ({
+      state: "running",
       currentTime: performance.now() / 1000,
       getOutputTimestamp: () => ({ contextTime: 0, performanceTime: 200 }),
     } as AudioContext));

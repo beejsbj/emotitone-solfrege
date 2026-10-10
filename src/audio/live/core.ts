@@ -2,6 +2,7 @@ import type { LiveCommand, LiveConfig, LiveEnvelopeOverride, LiveInputNote, Live
   LiveVoiceEvent, PreparedLiveInstrument } from './types'
 import { createSampleResampler, type SampleResampler } from './resampler'
 import { MAX_AUDIO_VOICES, VOICE_RETIRE_SECONDS } from '../voicePolicy'
+import { AudioTransport, type TransportAction } from './transport'
 
 const MAX_FADES = 8
 const PLAN_SECONDS = .15
@@ -23,6 +24,11 @@ interface PlannedNote extends LiveInputNote {
   noteId: string
   ownerId: string
   owners: Set<string>
+  /** SPIKE: transport identity. */
+  memberId?: string
+  sourceNoteId?: string
+  bar?: number
+  bus?: number
 }
 interface Pulse {
   frame: number
@@ -30,6 +36,8 @@ interface Pulse {
   duration?: number
   style: LiveConfig['style']
   notes: PlannedNote[]
+  /** SPIKE: transport notes keep their instrument release. */
+  scheduled?: boolean
 }
 interface Voice extends PlannedNote {
   expressionOwnerId: string
@@ -76,8 +84,20 @@ export class LiveAudioCore {
   private forgetting = new Map<number, string>()
   private pitchBends = new Map<string, number>()
   private gainExpressions = new Map<string, number>()
+  private transport: AudioTransport
+  private scheduled: TransportAction[] = []
 
-  constructor(private sampleRate: number, private send: (message: LiveResponse) => void, private notePrefix = 'worklet') {}
+  constructor(private sampleRate: number, private send: (message: LiveResponse) => void, private notePrefix = 'worklet') {
+    this.transport = new AudioTransport(sampleRate, send)
+  }
+
+  /** SPIKE: fade a member's sounding voices; future onsets are the transport's. */
+  private silenceMember(memberId: string, frame: number) {
+    for (const voice of this.voices) if (voice.memberId === memberId && !voice.released) {
+      this.releaseVoice(voice, frame, VOICE_RETIRE_SECONDS * this.sampleRate)
+    }
+  }
+  get transportRunning() { return this.transport.isRunning }
 
   get voiceCount() { return this.voices.length + this.fades.length }
   private rhythmic() { return this.config.style === 'repeat' || this.config.style.startsWith('arp-') }
@@ -115,6 +135,11 @@ export class LiveAudioCore {
   }
 
   command(command: LiveCommand, frame: number) {
+    if (command.type === 'transport-start' || command.type === 'transport-stop' || command.type === 'transport-change') {
+      this.transport.command(command, frame, (memberId, at) => this.silenceMember(memberId, at))
+      if (command.type === 'transport-stop') this.scheduled = []
+      return
+    }
     const endedOwners = command.type === 'clear' ? [...this.held.keys()]
       : command.type === 'release' ? [command.ownerId] : []
     switch (command.type) {
@@ -324,7 +349,8 @@ export class LiveAudioCore {
 
   private event(note: PlannedNote, phase: LiveVoiceEvent['phase'], frame: number, style: LiveConfig['style']): LiveVoiceEvent {
     return { phase, noteId: note.noteId, ownerId: note.ownerId, pitch: note.pitch,
-      instrumentId: note.instrumentId, style, at: Math.ceil(frame) / this.sampleRate }
+      instrumentId: note.instrumentId, style, at: Math.ceil(frame) / this.sampleRate,
+      ...(note.memberId === undefined ? {} : { memberId: note.memberId, sourceNoteId: note.sourceNoteId, bar: note.bar, frame: Math.ceil(frame) }) }
   }
   private voiceEvent(voice: Voice, phase: LiveVoiceEvent['phase'], frame: number): LiveVoiceEvent {
     const { attack, decay, sustain } = voice.instrument
@@ -389,7 +415,7 @@ export class LiveAudioCore {
       style: pulse.style, start: frame, end: pulse.duration === undefined ? Infinity : Math.ceil(pulse.frame + pulse.duration),
       position: 0, increment, pitchIncrement, pitchTarget: pitchIncrement, pitchRampRemaining: 0,
       gainExpression, gainTarget: gainExpression, gainRampRemaining: 0,
-      releaseLength: (pulse.duration === undefined ? Math.max(0, instrument.release) : .03) * this.sampleRate,
+      releaseLength: (pulse.duration === undefined || pulse.scheduled ? Math.max(0, instrument.release) : .03) * this.sampleRate,
       releaseLevel: 0, released: false, published: false }
     this.voices.push(voice)
   }
@@ -432,12 +458,13 @@ export class LiveAudioCore {
     }
   }
 
-  private mix(collection: Voice[], output: Float32Array[], offset: number, length: number, firstFrame: number) {
+  private mix(collection: Voice[], mainOutput: Float32Array[], offset: number, length: number, firstFrame: number, buses?: Float32Array[][]) {
     // Each envelope section is affine. The sampler can mix a contiguous block
     // with one coefficient lookup per stereo frame and no virtual calls in its
     // inner filter loop; source/filter state stays local for the whole span.
     for (let index = collection.length - 1; index >= 0; index--) {
       const voice = collection[index]
+      const output = voice.bus ? buses?.[voice.bus] ?? mainOutput : mainOutput
       const instrument = voice.instrument
       let sampleOffset = 0
       while (sampleOffset < length) {
@@ -524,12 +551,28 @@ export class LiveAudioCore {
     }
   }
 
-  render(output: Float32Array[], firstFrame: number) {
+  render(output: Float32Array[], firstFrame: number, buses?: Float32Array[][]) {
     const length = output[0]?.length ?? 0
     const endFrame = firstFrame + length
     for (const channel of output) channel.fill(0)
+    if (buses) for (const bus of buses) for (const channel of bus) channel.fill(0)
+    // SPIKE: the transport answers for this quantum at exact frames.
+    if (this.transport.isRunning) {
+      this.transport.collect(firstFrame, endFrame, this.scheduled)
+      if (this.scheduled.length > 1) this.scheduled.sort((a, b) => a.frame - b.frame)
+    }
     let frame = firstFrame
     while (frame < endFrame) {
+      while (this.scheduled.length && this.scheduled[0].frame <= frame) {
+        const action = this.scheduled.shift()!
+        if (action.kind === 'silence') { this.silenceMember(action.memberId, frame); continue }
+        const memberId = action.memberId
+        const note: PlannedNote = { pitch: action.note.pitch, instrumentId: action.note.instrumentId,
+          noteId: `${this.notePrefix}-${++this.serial}`, ownerId: memberId, owners: new Set([memberId]),
+          memberId, sourceNoteId: action.note.noteId, bar: action.bar, bus: action.bus }
+        this.start(note, { frame: action.frame, step: 0, style: 'together', notes: [note],
+          duration: action.durationFrames, scheduled: true }, frame)
+      }
       this.fill(frame)
       while (this.pulses.length && this.pulses.some(pulse => pulse.frame <= frame)) {
         const index = this.pulses.findIndex(pulse => pulse.frame <= frame)
@@ -548,13 +591,14 @@ export class LiveAudioCore {
       for (const pulse of this.pulses) if (pulse.frame > frame) boundary = Math.min(boundary, Math.ceil(pulse.frame))
       for (const voice of this.voices) if (!voice.released && voice.end > frame) boundary = Math.min(boundary, Math.ceil(voice.end))
       if (this.strumAt !== undefined) boundary = Math.min(boundary, Math.ceil(this.strumAt))
+      if (this.scheduled.length) boundary = Math.min(boundary, Math.max(frame + 1, Math.ceil(this.scheduled[0].frame)))
       if (this.nextFrame !== undefined) {
         const planningBoundary = Math.ceil(this.nextFrame - PLAN_SECONDS * this.sampleRate)
         if (planningBoundary > frame) boundary = Math.min(boundary, planningBoundary)
       }
       const span = Math.max(1, boundary - frame)
-      this.mix(this.voices, output, frame - firstFrame, span, frame)
-      this.mix(this.fades, output, frame - firstFrame, span, frame)
+      this.mix(this.voices, output, frame - firstFrame, span, frame, buses)
+      this.mix(this.fades, output, frame - firstFrame, span, frame, buses)
       frame += span
     }
     this.publishPlan(endFrame)

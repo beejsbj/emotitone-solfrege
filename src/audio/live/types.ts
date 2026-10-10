@@ -1,4 +1,5 @@
 import type { LiveConfig, LiveExpressionOwner, LiveInputNote, LiveRenderer, LiveVoiceEvent } from '../liveRenderer'
+import type { TransportCommand, TransportResponse } from './transport'
 export type { LiveConfig, LiveInputNote, LiveVoiceEvent } from '../liveRenderer'
 
 export interface LiveEnvelope {
@@ -43,6 +44,7 @@ export type LiveCommand =
   | { type: 'configure'; config: Partial<LiveConfig> }
   | { type: 'shape'; envelope: LiveEnvelopeOverride }
   | { type: 'clear' }
+  | TransportCommand
 
 export type LiveResponse =
   | { type: 'prepared'; requestId: number }
@@ -51,6 +53,7 @@ export type LiveResponse =
   | ({ type: 'expression-owner' } & LiveExpressionOwner)
   | { type: 'event'; event: LiveVoiceEvent }
   | { type: 'plan'; events: LiveVoiceEvent[] }
+  | TransportResponse
 
 export interface LiveWorklet extends LiveRenderer {
   prepare(instrument: PreparedLiveInstrument): Promise<void>

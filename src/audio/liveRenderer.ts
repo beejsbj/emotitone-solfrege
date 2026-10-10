@@ -12,6 +12,11 @@ export interface LiveVoiceEvent extends LiveInputNote {
   articulation?: LiveArticulation
   /** Absolute AudioContext time, in seconds. */
   at: number
+  /** SPIKE: transport identity for Looper members. */
+  memberId?: string
+  sourceNoteId?: string
+  bar?: number
+  frame?: number
 }
 export interface LiveExpressionOwner {
   noteId: string

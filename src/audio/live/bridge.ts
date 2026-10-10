@@ -8,13 +8,14 @@ import type { LiveRendererCallbacks as LiveWorkletCallbacks } from '../liveRende
 
 /** Installs one persistent mixer. Input messages never wait for a beat timer. */
 export async function createLiveWorklet(context: AudioContext, destination: AudioNode,
-  callbacks: LiveWorkletCallbacks): Promise<LiveWorklet> {
+  callbacks: LiveWorkletCallbacks, sends?: { room: AudioNode; delay: AudioNode }): Promise<LiveWorklet> {
   await context.audioWorklet.addModule(processorUrl)
   const node = new AudioWorkletNode(context, 'emotitone-live', {
-    numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2], channelCount: 2,
+    numberOfInputs: 0, numberOfOutputs: 3, outputChannelCount: [2, 2, 2], channelCount: 2,
     processorOptions: { instanceId: `worklet-${Date.now()}-${++engineSerial}` },
   })
-  node.connect(destination)
+  node.connect(destination, 0)
+  if (sends) { node.connect(sends.room, 1); node.connect(sends.delay, 2) }
   let disposed = false
   let inbox: LiveResponse[] = []
   let drainQueued = false
@@ -147,6 +148,7 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
     setGain: (ownerId, gain) => post({ type: 'gain-expression', ownerId, gain }),
     release: ownerId => post({ type: 'release', ownerId }),
     configure: config => post({ type: 'configure', config }),
+    effects: shaping => post({ type: 'effects', shaping }),
     shape: envelope => post({ type: 'shape', envelope }),
     clear: () => post({ type: 'clear' }),
     dispose,

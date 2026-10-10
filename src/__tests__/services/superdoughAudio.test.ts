@@ -54,6 +54,13 @@ vi.mock("superdough", () => ({
   releaseAllVoices: hoisted.mockReleaseAllVoices,
 }));
 
+vi.mock("@/services/audioRuntime", () => ({
+  getAudioContext: () => hoisted.mockAudioContext,
+  getMasterGain: () => hoisted.mockGetSuperdoughAudioController().output.destinationGain,
+  initializeAudio: () => hoisted.mockInitAudio({ maxPolyphony: 64 }),
+  LIVE_ORBIT: 2,
+}));
+
 vi.mock("@strudel/web", () => ({
   initStrudel: hoisted.mockInitStrudel,
   evaluate: hoisted.mockEvaluateStrudel,

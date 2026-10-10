@@ -411,25 +411,6 @@ export function midiNoteNumberToName(noteNumber: number) {
   return `${noteName}${octave}`;
 }
 
-export function resolvePlayableMidiNote(
-  noteNumber: number,
-  noteResolver: MidiNoteResolver
-) {
-  const chromaticNote = midiNoteNumberToName(noteNumber);
-  const parsed = noteResolver.parseNoteInput(chromaticNote);
-
-  if (!parsed) {
-    return null;
-  }
-
-  // Only accept notes that round-trip exactly into the current scale.
-  if (noteResolver.getNoteName(parsed.solfegeIndex, parsed.octave) !== chromaticNote) {
-    return null;
-  }
-
-  return parsed;
-}
-
 export function resolveMirroredEventDurationMs(
   detail?: MirroredNoteEventDetail
 ) {
@@ -518,6 +499,9 @@ export function useMidiControls() {
   const roliInputIds = ref<Set<string>>(new Set());
   const activeMidiNotes = ref<Map<string, ActiveMidiNote>>(new Map());
   const pendingMidiPresses = ref<Map<string, PendingMidiPress>>(new Map());
+  // One held press per input/channel/pitch; duplicate note-ons retrigger it.
+  const midiPressIds = new Map<string, string>();
+  let midiPressSerial = 0;
   const pendingReleasedPressIds = ref<Set<string>>(new Set());
   const pendingInputNoteOns = ref<Map<string, number>>(new Map());
   const pendingInputNoteOffs = ref<Set<string>>(new Set());
@@ -592,6 +576,29 @@ export function useMidiControls() {
     keyboardDrawerStore.releaseVisualNote(detail.noteId);
   };
 
+  const releaseMidiPress = (inputNoteId: string) => {
+    const pressId = midiPressIds.get(inputNoteId);
+    midiPressIds.delete(inputNoteId);
+    if (!pressId) return;
+    const activeNote = activeMidiNotes.value.get(pressId);
+    if (!activeNote) {
+      if (pendingMidiPresses.value.has(pressId)) {
+        pendingReleasedPressIds.value.add(pressId);
+        keyboardDrawerStore.removeTouch(pressId);
+      }
+      return;
+    }
+
+    if (activeNote.isRoliInput) {
+      pendingInputNoteOffs.value.add(activeNote.noteId);
+    }
+    musicStore.releaseNote(activeNote.noteId);
+    pendingInputNoteOffs.value.delete(activeNote.noteId);
+    keyboardDrawerStore.removeTouch(activeNote.pressId);
+    activeMidiNotes.value.delete(pressId);
+    pendingReleasedPressIds.value.delete(pressId);
+  };
+
   const handleMidiPacket = (inputId: string, rawData: ArrayLike<number>) => {
     const data = Array.from(rawData).slice(0, 3);
     if (data.length < 2) {
@@ -601,7 +608,7 @@ export function useMidiControls() {
     const [status, noteNumber, velocity = 0] = data;
     const messageType = status & MIDI_STATUS_MASK;
     const channel = (status & MIDI_CHANNEL_MASK) + 1;
-    const pressId = buildMidiPressId(inputId, channel, noteNumber);
+    const inputNoteId = buildMidiPressId(inputId, channel, noteNumber);
     const noteName = midiNoteNumberToName(noteNumber);
     // Only suppress the immediate echo of an ordinary ROLI press. Styled
     // output is a new performance and must reach the MIDI mirror in full.
@@ -612,30 +619,23 @@ export function useMidiControls() {
         return;
       }
 
-      if (
-        activeMidiNotes.value.has(pressId)
-        || pendingMidiPresses.value.has(pressId)
-        || hasActiveTouchPress(keyboardDrawerStore.touch.activeTouches, pressId)
-      ) {
-        return;
-      }
+      releaseMidiPress(inputNoteId);
+      const pressId = `${inputNoteId}:${++midiPressSerial}`;
+      midiPressIds.set(inputNoteId, pressId);
 
-      const parsed = resolvePlayableMidiNote(noteNumber, musicStore);
-      if (!parsed) {
-        return;
+      // Exact pitches share the on-screen performer, including identity and
+      // borrowed-note metadata. Only in-scale pitches have a key to light.
+      const parsed = musicStore.parseNoteInput(noteName);
+      if (parsed && TonalNote.midi(musicStore.getNoteName(parsed.solfegeIndex, parsed.octave)) === noteNumber) {
+        keyboardDrawerStore.addTouch(pressId, `${parsed.solfegeIndex}_${parsed.octave}`);
       }
-
-      keyboardDrawerStore.addTouch(
-        pressId,
-        `${parsed.solfegeIndex}_${parsed.octave}`
-      );
       pendingMidiPresses.value.set(pressId, { noteName, isRoliInput });
       if (isRoliInput) {
         incrementPendingNoteCount(pendingInputNoteOns.value, noteName);
       }
 
       void musicStore
-        .attackNoteWithOctave(parsed.solfegeIndex, parsed.octave)
+        .attackExactPitch(noteName, () => pendingReleasedPressIds.value.has(pressId), velocity / 127)
         .then((noteId) => {
           const pendingPress = pendingMidiPresses.value.get(pressId);
           pendingMidiPresses.value.delete(pressId);
@@ -684,23 +684,7 @@ export function useMidiControls() {
       messageType === MIDI_NOTE_OFF
       || (messageType === MIDI_NOTE_ON && velocity === 0)
     ) {
-      const activeNote = activeMidiNotes.value.get(pressId);
-      if (!activeNote) {
-        if (pendingMidiPresses.value.has(pressId)) {
-          pendingReleasedPressIds.value.add(pressId);
-          keyboardDrawerStore.removeTouch(pressId);
-        }
-        return;
-      }
-
-      if (activeNote.isRoliInput) {
-        pendingInputNoteOffs.value.add(activeNote.noteId);
-      }
-      musicStore.releaseNote(activeNote.noteId);
-      pendingInputNoteOffs.value.delete(activeNote.noteId);
-      keyboardDrawerStore.removeTouch(activeNote.pressId);
-      activeMidiNotes.value.delete(pressId);
-      pendingReleasedPressIds.value.delete(pressId);
+      releaseMidiPress(inputNoteId);
     }
   };
 
@@ -974,6 +958,9 @@ export function useMidiControls() {
   };
 
   const releaseMidiNotes = (inputId?: string) => {
+    for (const inputNoteId of midiPressIds.keys()) {
+      if (!inputId || inputNoteId.startsWith(`midi:${inputId}:`)) midiPressIds.delete(inputNoteId);
+    }
     for (const [pressId, activeNote] of activeMidiNotes.value.entries()) {
       if (!inputId || pressId.startsWith(`midi:${inputId}:`)) {
         if (activeNote.isRoliInput) {
@@ -1217,7 +1204,6 @@ export function useMidiControls() {
 
   const disconnectMidi = () => {
     releaseMidiNotes();
-    pendingReleasedPressIds.value.clear();
     pendingInputNoteOns.value.clear();
     pendingInputNoteOffs.value.clear();
     flushRoliOutput();

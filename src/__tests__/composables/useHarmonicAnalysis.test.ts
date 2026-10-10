@@ -103,6 +103,19 @@ describe("useHarmonicAnalysis", () => {
     expect(DEFAULT_CONFIG.blobs.showEmotionLabel).toBe(false);
   });
 
+  it("publishes a major-eleventh label and spoken name for the Stage", () => {
+    const { snapshot, notePlayed } = createAnalysis();
+    ["C4", "E4", "G4", "B4", "D5", "F5"].forEach((name, index) =>
+      notePlayed(createActiveNote(`maj11-${index}`, name, name))
+    );
+    expect(snapshot.value).toMatchObject({
+      chordSymbol: "Cmaj11",
+      chordLabel: "Cmaj11",
+      chordSpoken: "C major eleventh",
+      emotionalDescription: "Warm and wistful, spacious",
+    });
+  });
+
   it.each([
     [["C4", "F4", "G4"], "Csus4"],
     [["C4", "E4", "G#4"], "C+"],

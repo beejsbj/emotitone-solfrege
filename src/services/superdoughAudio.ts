@@ -644,6 +644,8 @@ export async function attackNote(
   instrument: string,
   options?: {
     atTime?: number;
+    /** Normalized input velocity; omitted on-screen input keeps unity. */
+    velocity?: number;
     attack?: number;
     release?: number;
     cutoff?: number;
@@ -683,7 +685,7 @@ export async function attackNote(
   const payload: Record<string, unknown> = {
     s: sound,
     note: noteName,
-    gain: 0.8,
+    gain: 0.8 * (options?.velocity ?? 1),
     attack,
     decay: envelope.decay,
     sustain: envelope.sustain,

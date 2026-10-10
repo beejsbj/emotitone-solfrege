@@ -35,6 +35,7 @@ describe("key surface color projection", () => {
     )).toEqual({
       background: "hsla(120, 20%, 30%, 1)",
       primaryColor: "hsla(120, 20%, 30%, 1)",
+      labelTone: "ivory",
     });
   });
 
@@ -42,10 +43,12 @@ describe("key surface color projection", () => {
     expect(resolveKeySurfaceColor("ignored", "monochrome", false)).toEqual({
       background: "hsla(0, 0%, 10%, 1)",
       primaryColor: "hsla(0, 0%, 10%, 1)",
+      labelTone: "ivory",
     });
     expect(resolveKeySurfaceColor("ignored", "monochrome", true)).toEqual({
       background: "hsla(0, 0%, 100%, 1)",
       primaryColor: "hsla(0, 0%, 100%, 1)",
+      labelTone: "ink",
     });
   });
 });

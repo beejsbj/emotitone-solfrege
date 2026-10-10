@@ -16,7 +16,7 @@
     "src/components/primatives/Knob/index.vue": 1,
     "src/components/primatives/Knob/OptionsKnob.vue": 1,
     "src/components/primatives/Knob/RangeKnob.vue": 1,
-    "src/components/primatives/Note.vue": 9,
+    "src/components/primatives/Note.vue": 3,
     "src/composables/canvas/harmonicTypography.ts": 2,
     "src/composables/canvas/useAmbientRenderer.ts": 2,
     "src/composables/canvas/useBlobFieldRenderer.ts": 2,

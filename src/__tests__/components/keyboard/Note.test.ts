@@ -2,14 +2,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mount } from "@vue/test-utils";
 import Note from "@/components/primatives/Note.vue";
 import noteSource from "@/components/primatives/Note.vue?raw";
+import {
+  noteColorResolverKey,
+  staticNoteColorResolver,
+} from "@/components/primatives/noteColorContext";
 
 const getKeyBackground = vi.fn(() => ({
   background: "hsla(10, 80%, 50%, 1)",
   primaryColor: "hsla(10, 80%, 50%, 1)",
+  labelTone: "ink" as const,
 }));
 const getKeyBackgroundByPitchClass = vi.fn(() => ({
   background: "hsla(280, 80%, 50%, 1)",
   primaryColor: "hsla(280, 80%, 50%, 1)",
+  labelTone: "ivory" as const,
 }));
 
 vi.mock("@/composables/useMusicColor", () => ({
@@ -265,7 +271,7 @@ describe("Note", () => {
     expect(wrapper.find(".note__label--syllable").exists()).toBe(false);
   });
 
-  it("derives accidental semantics and piano-key text variables from raw pitch", () => {
+  it("derives accidental semantics from raw pitch", () => {
     const accidentalWrapper = mount(Note, {
       props: { rawPitch: "Db4", scaleIndex: 1 },
     });
@@ -280,9 +286,6 @@ describe("Note", () => {
       { keyBrightness: 1, keySaturation: 1 },
     );
     expect(accidentalWrapper.classes()).toContain("note--accidental");
-    expect(accidentalWrapper.attributes("style")).toContain(
-      "--note-label-main: rgba(0, 0, 0, .88)",
-    );
 
     const naturalWrapper = mount(Note, {
       props: { rawPitch: "C4", scaleIndex: 0 },
@@ -290,9 +293,36 @@ describe("Note", () => {
 
     expect(naturalWrapper.classes()).toContain("note--natural");
     expect(naturalWrapper.classes()).not.toContain("note--accidental");
-    expect(naturalWrapper.attributes("style")).toContain(
-      "--note-label-main: rgba(255, 255, 255, .94)",
-    );
+  });
+
+  it("prints every label in the tone the fill's lightness calls for, not by accidental", () => {
+    const mountWithRealColor = (props: Record<string, unknown>) =>
+      mount(Note, {
+        props,
+        global: { provide: { [noteColorResolverKey as symbol]: staticNoteColorResolver } },
+      });
+
+    // A high natural is a light fill: Ink labels, though it is not an accidental.
+    const lightNatural = mountWithRealColor({ rawPitch: "C8", octave: 8, scaleIndex: 0 });
+    // A low accidental is a dark fill: Ivory labels, though it is an accidental.
+    const darkAccidental = mountWithRealColor({
+      rawPitch: "C#2", octave: 2, pitchClassIndex: 1, scaleIndex: -1,
+    });
+
+    expect(lightNatural.classes()).toContain("note--natural");
+    expect(lightNatural.attributes("data-label-tone")).toBe("ink");
+    expect(lightNatural.attributes("style")).toContain("--note-label: var(--ink)");
+
+    expect(darkAccidental.classes()).toContain("note--accidental");
+    expect(darkAccidental.attributes("data-label-tone")).toBe("ivory");
+    expect(darkAccidental.attributes("style")).toContain("--note-label: var(--ivory)");
+
+    // Monochrome keeps its white accidental and near-black natural surfaces,
+    // and their labels follow those fills too.
+    const whiteAccidental = mountWithRealColor({ rawPitch: "C#4", surfaceStyle: "monochrome" });
+    const blackNatural = mountWithRealColor({ rawPitch: "C4", surfaceStyle: "monochrome" });
+    expect(whiteAccidental.attributes("data-label-tone")).toBe("ink");
+    expect(blackNatural.attributes("data-label-tone")).toBe("ivory");
   });
 
   it("keeps all five geometries independent from all five proportions", () => {

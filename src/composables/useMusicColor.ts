@@ -5,6 +5,7 @@ import { useMusicColorProvider } from "@/composables/useMusicColorConfig";
 import {
   resolveMonochromeKeySurface,
   resolveMusicColorKeySurface,
+  type KeySurfaceColor,
 } from "@/services/keySurfaceColor";
 import {
   musicColorRelationships,
@@ -191,7 +192,7 @@ export function useMusicColor(options: { animated?: boolean; animationActive?: (
       keySaturation?: number;
       glassmorphOpacity?: number;
     } = {},
-  ): { background: string; primaryColor: string } => {
+  ): KeySurfaceColor => {
     const brightness = config.keyBrightness ?? 1;
     const saturation = config.keySaturation ?? 1;
     if (surfaceStyle === "monochrome") {
@@ -212,11 +213,11 @@ export function useMusicColor(options: { animated?: boolean; animationActive?: (
     const colors = coloredSurface(resolved, brightness, saturation);
     return surfaceStyle === "glassmorphism"
       ? {
+          ...colors,
           background: createGlassmorphBackground(
             colors.primaryColor,
             config.glassmorphOpacity ?? 0.4,
           ),
-          primaryColor: colors.primaryColor,
         }
       : colors;
   };
@@ -233,7 +234,7 @@ export function useMusicColor(options: { animated?: boolean; animationActive?: (
       keySaturation?: number;
       glassmorphOpacity?: number;
     } = {},
-  ): { background: string; primaryColor: string } => {
+  ): KeySurfaceColor => {
     if (surfaceStyle === "monochrome") {
       return getKeyBackground(0, mode, key, octave, surfaceStyle, isAccidental, config);
     }
@@ -254,11 +255,11 @@ export function useMusicColor(options: { animated?: boolean; animationActive?: (
     );
     return surfaceStyle === "glassmorphism"
       ? {
+          ...colors,
           background: createGlassmorphBackground(
             colors.primaryColor,
             config.glassmorphOpacity ?? 0.4,
           ),
-          primaryColor: colors.primaryColor,
         }
       : colors;
   };

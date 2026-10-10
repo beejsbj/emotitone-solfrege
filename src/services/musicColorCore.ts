@@ -378,3 +378,54 @@ export function sampleMusicColor(
     primary: valueForOklch(primary),
   };
 }
+
+function srgbChannelToLinear(channel: number): number {
+  return channel <= 0.04045
+    ? channel / 12.92
+    : ((channel + 0.055) / 1.055) ** 2.4;
+}
+
+/** WCAG 2 relative luminance of an opaque sRGB colour; alpha is ignored. */
+export function relativeLuminance(
+  color: Pick<SrgbColor, "r" | "g" | "b">,
+): number {
+  return 0.2126 * srgbChannelToLinear(color.r) +
+    0.7152 * srgbChannelToLinear(color.g) +
+    0.0722 * srgbChannelToLinear(color.b);
+}
+
+/** WCAG 2 contrast ratio between two opaque sRGB colours, from 1 to 21. */
+export function contrastRatio(
+  a: Pick<SrgbColor, "r" | "g" | "b">,
+  b: Pick<SrgbColor, "r" | "g" | "b">,
+): number {
+  const first = relativeLuminance(a);
+  const second = relativeLuminance(b);
+  return (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
+}
+
+/** The UI token a label printed on a Music Color fill is drawn in. */
+export type MusicColorLabelTone = "ink" | "ivory";
+
+/**
+ * Fill luminance at which an Ink label and an Ivory label have equal contrast:
+ * sqrt((Y(--ivory) + 0.05) * (Y(--ink) + 0.05)) - 0.05 for the token values.
+ * At or above it Ink reads better; below it, Ivory. The contrast-floor test
+ * recomputes it from the token source, so a token change cannot drift past it.
+ */
+export const MUSIC_COLOR_LABEL_CROSSOVER_LUMINANCE = 0.17;
+
+/**
+ * Chooses the label tone from the fill's lightness as it is actually rendered:
+ * the gamut-mapped sRGB the authority emits, not the OKLCH request. Hue and
+ * gamut mapping spread one OKLCH lightness over a range of luminance, so a
+ * lightness-only threshold would pick the weaker tone for some hues near the
+ * crossover. The result is always the higher-contrast of Ink and Ivory.
+ */
+export function musicColorLabelTone(
+  fill: Pick<SrgbColor, "r" | "g" | "b">,
+): MusicColorLabelTone {
+  return relativeLuminance(fill) >= MUSIC_COLOR_LABEL_CROSSOVER_LUMINANCE
+    ? "ink"
+    : "ivory";
+}

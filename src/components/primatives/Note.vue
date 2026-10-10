@@ -10,6 +10,7 @@
     :data-geometry="geometry"
     :data-proportion="proportion"
     :data-sounding="sounding || undefined"
+    :data-label-tone="color.labelTone"
   >
     <span class="note__surface">
       <span
@@ -250,9 +251,6 @@ const noteClasses = computed(() => [
 
 const noteStyles = computed(() => {
   const isAccidental = inferredAccidental.value;
-  const labelMain = isAccidental ? "rgba(0, 0, 0, .88)" : "rgba(255, 255, 255, .94)";
-  const labelSoft = isAccidental ? "rgba(0, 0, 0, .62)" : "rgba(255, 255, 255, .74)";
-  const labelMuted = isAccidental ? "rgba(0, 0, 0, .5)" : "rgba(255, 255, 255, .58)";
   const innerBorder =
     props.surfaceStyle === "monochrome"
       ? isAccidental
@@ -263,9 +261,9 @@ const noteStyles = computed(() => {
   return {
     "--note-surface": color.value.background,
     "--note-primary-color": color.value.primaryColor,
-    "--note-label-main": labelMain,
-    "--note-label-soft": labelSoft,
-    "--note-label-muted": labelMuted,
+    // Every label prints in one full-strength token chosen from the fill's
+    // lightness; translucent label tiers cannot keep the text floor.
+    "--note-label": `var(--${color.value.labelTone})`,
     "--note-inner-border": innerBorder,
     "--note-shadow": "var(--shadow-key)",
   };
@@ -390,7 +388,7 @@ const ariaLabel = computed(() => {
   left: 50%;
   max-width: calc(100% - (var(--note-primary-safe-inline) * 2));
   transform: translate(-50%, -50%);
-  color: var(--note-label-main);
+  color: var(--note-label);
   text-align: center;
 }
 
@@ -451,7 +449,7 @@ const ariaLabel = computed(() => {
 }
 
 .note__label--rank-aux {
-  color: var(--note-label-soft);
+  color: var(--note-label);
 }
 
 .note__label--slot-top-left {
@@ -483,10 +481,6 @@ const ariaLabel = computed(() => {
 .note__label--rank-aux {
   font-size: var(--note-aux-size);
   letter-spacing: var(--note-aux-tracking);
-}
-
-.note__label--rank-aux.note__label--raw {
-  color: var(--note-label-muted);
 }
 
 .note--geometry-standard {

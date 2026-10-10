@@ -4,6 +4,7 @@ import { computed, ref, watch, type Ref } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { useVisualConfig } from "@/composables/useVisualConfig";
 import { useHarmonicAnalysis } from "@/composables/useHarmonicAnalysis";
+import { spokenPitchName } from "@/domain/musicalIdentity";
 import { useAnimationLifecycle } from "@/composables/useAnimationLifecycle";
 import type {
   ActiveNote,
@@ -156,7 +157,7 @@ export function useUnifiedCanvas(
     const announcements: string[] = [];
 
     if (config.showChordLabel && snapshot.chordLabel) {
-      announcements.push(`Chord: ${snapshot.chordLabel}`);
+      announcements.push(`Chord: ${snapshot.chordSpoken ?? snapshot.chordLabel}`);
     }
 
     if (config.showIntervalLabels) {
@@ -164,8 +165,11 @@ export function useUnifiedCanvas(
         const from = notesById.get(edge.fromNoteId);
         const to = notesById.get(edge.toNoteId);
         if (from && to) {
+          // Spoken from the key's spelling; stored sharps never reach a label.
+          const spoken = (note: typeof from) =>
+            spokenPitchName(snapshot.noteSpellings?.[note.noteId] ?? note.noteName);
           announcements.push(
-            `Interval ${from.noteName} to ${to.noteName}: ${edge.interval}`
+            `Interval ${spoken(from)} to ${spoken(to)}: ${edge.spokenInterval || edge.interval}`
           );
         }
       });

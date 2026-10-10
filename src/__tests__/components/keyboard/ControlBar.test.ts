@@ -46,7 +46,8 @@ describe("ControlBar.vue", () => {
       "Octave",
       "Style",
     ]);
-    expect(knobs[0].props("options")).toEqual(CHROMATIC_NOTES);
+    expect(knobs[0].props("options").map((option: { value: string }) => option.value))
+      .toEqual(CHROMATIC_NOTES);
     expect(knobs[1].props("options")).toEqual(MODE_OPTIONS);
     expect(knobs[2].props()).toMatchObject({ min: 40, max: 220, step: 1 });
     expect(knobs.every((knob) => knob.props("uiBeat") === undefined)).toBe(true);
@@ -134,5 +135,19 @@ describe("ControlBar.vue", () => {
     expect(new Set(options.map((option: { value: string }) => option.value)).size).toBe(12);
     await wrapper.setProps({ playMode: "repeat:16" });
     expect(mode.props("modelValue")).toBe("repeat:16");
+  });
+
+  it("spells each stored key for the current mode while keeping stored values", async () => {
+    const wrapper = mount(ControlBar, { props: { keyValue: "A#", modeValue: "major" } });
+    const key = () => wrapper.findAllComponents({ name: "Knob" })[0];
+    const labels = () => key().props("options").map((option: { label: string }) => option.label);
+
+    expect(labels()).toEqual(["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"]);
+    await wrapper.setProps({ modeValue: "minor" });
+    expect(labels()).toEqual(["C", "C#", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B"]);
+
+    key().vm.$emit("update:modelValue", "D#");
+    expect(wrapper.emitted("update:keyValue")?.[0]).toEqual(["D#"]);
+    wrapper.unmount();
   });
 });

@@ -92,14 +92,22 @@ vi.mock("@/composables/useHarmonicAnalysis", () => ({
       snapshot: {
         value: {
           isVisible: true,
+          // Stored names stay sharps-only; the analysis supplies spellings.
           displayedNotes: [
             { noteId: "c4", noteName: "C4" },
-            { noteId: "e4", noteName: "E4" },
+            { noteId: "eb4", noteName: "D#4" },
           ],
+          noteSpellings: { c4: "C4", eb4: "Eb4" },
           intervalEdges: [
-            { fromNoteId: "c4", toNoteId: "e4", interval: "3M" },
+            {
+              fromNoteId: "c4",
+              toNoteId: "eb4",
+              interval: "m3",
+              spokenInterval: "minor third",
+            },
           ],
-          chordLabel: "C major",
+          chordLabel: "Cm",
+          chordSpoken: "C minor",
           emotionalDescription: "Grounded & radiant",
         },
       },
@@ -606,7 +614,7 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
   it("exposes only enabled harmonic labels as accessible text", () => {
     const canvas = useUnifiedCanvas(createCanvasRef());
 
-    const fullText = "Chord: C major. Interval C4 to E4: 3M. Emotion: Grounded & radiant";
+    const fullText = "Chord: C minor. Interval C 4 to E flat 4: minor third. Emotion: Grounded & radiant";
     expect(canvas.harmonicAccessibleText.value).toBe(fullText);
   });
 
@@ -615,7 +623,7 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
     mocks.blobConfig.value.showEmotionLabel = false;
     const canvas = useUnifiedCanvas(createCanvasRef());
 
-    expect(canvas.harmonicAccessibleText.value).toBe("Chord: C major");
+    expect(canvas.harmonicAccessibleText.value).toBe("Chord: C minor");
   });
 
   it("selectively exposes only enabled interval label in accessible text", () => {
@@ -623,7 +631,7 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
     mocks.blobConfig.value.showEmotionLabel = false;
     const canvas = useUnifiedCanvas(createCanvasRef());
 
-    expect(canvas.harmonicAccessibleText.value).toBe("Interval C4 to E4: 3M");
+    expect(canvas.harmonicAccessibleText.value).toBe("Interval C 4 to E flat 4: minor third");
   });
 
   it("selectively exposes only enabled emotion label in accessible text", () => {

@@ -25,3 +25,40 @@ describe("LivePitch", () => {
     }));
   });
 });
+
+describe("voice dynamics", () => {
+  it("keeps a voice at the detector gate audible while rejecting quieter noise", async () => {
+    const { VOICE_RMS_FLOOR, voiceRmsToVelocity } = await import("@/services/voiceDynamics");
+    const samples = Float32Array.from({ length: FRAME_SIZE }, (_, i) =>
+      Math.sin(2 * Math.PI * 440 * i / SAMPLE_RATE));
+    const rms = Math.sqrt(samples.reduce((sum, sample) => sum + sample ** 2, 0) / samples.length);
+    // Normalize real PCM to just above the voiced threshold.
+    const frame = new LiveMpmTracker().analyze(
+      samples.map((sample) => sample * VOICE_RMS_FLOOR * 1.00001 / rms), SAMPLE_RATE, 0,
+    );
+    expect(frame.voiced).toBe(true);
+    expect(voiceRmsToVelocity(frame.rms)).toBe(0.15);
+    expect(voiceRmsToVelocity(VOICE_RMS_FLOOR)).toBe(0.15);
+    expect(voiceRmsToVelocity(VOICE_RMS_FLOOR * 0.999)).toBe(0);
+  });
+
+  it("measures real buffer RMS and gives louder voices higher velocity at equal clarity", async () => {
+    const { voiceRmsToVelocity } = await import("@/services/voiceDynamics");
+    const tracker = new LiveMpmTracker();
+    const frames = [0.01, 0.04, 0.2].map((amplitude) => {
+      const samples = Float32Array.from({ length: FRAME_SIZE }, (_, i) =>
+        amplitude * Math.sin(2 * Math.PI * 440 * i / SAMPLE_RATE));
+      return tracker.analyze(samples, SAMPLE_RATE, 0);
+    });
+    expect(frames.every((frame) => frame.voiced)).toBe(true);
+    expect(frames[0].rms).toBeCloseTo(0.01 / Math.sqrt(2), 3);
+    expect(frames[0].clarity).toBeCloseTo(frames[1].clarity, 3);
+    const velocities = frames.map((frame) => voiceRmsToVelocity(frame.rms));
+    expect(velocities[0]).toBeGreaterThan(0);
+    expect(velocities[0]).toBeLessThan(velocities[1]);
+    expect(velocities[2]).toBe(1);
+    expect(voiceRmsToVelocity(tracker.analyze(new Float32Array(FRAME_SIZE), SAMPLE_RATE, 0).rms)).toBe(0);
+    expect(voiceRmsToVelocity(-1)).toBe(0);
+    expect(voiceRmsToVelocity(Number.NaN)).toBe(0);
+  });
+});

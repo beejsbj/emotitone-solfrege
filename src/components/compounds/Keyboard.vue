@@ -145,6 +145,7 @@ import {
   type HarmonyAlteration,
   type HarmonyChord,
 } from "@/domain/harmony";
+import { spellPitch } from "@/domain/musicalIdentity";
 import { createVoiceGroupLifecycle } from "@/services/inputVoiceGroups";
 import {
   KEYBOARD_PAGE_EDITION_SEED,
@@ -288,7 +289,7 @@ function chordMembers(
 ): ChordMember[] {
   return chord.voicing.pitches.map((pitch, voicingOrder) => ({
     id: `${chord.id}:${pitch.name}:${voicingOrder}`,
-    rawPitch: pitch.name,
+    rawPitch: pitch.label,
     primary: "raw",
     visibleLabels: ["raw"],
     scaleIndex: pitch.scaleIndex ?? chord.degreeIndex,
@@ -336,8 +337,15 @@ function createProductionWiring() {
   ];
   const degreeLabel = (number: number) => romanDegrees[number - 1] ?? String(number);
   const noteKey = (scaleIndex: number, octave: number) => `${scaleIndex}_${octave}`;
+  /** Sharps-only scientific pitch: the internal key the store attacks. */
   const noteName = (scaleIndex: number, octave: number) =>
     musicStore.getNoteName(scaleIndex, octave);
+  /** Spelled for the key (Bb4 in F major); labels only, never attacked. */
+  const spelledPitch = (pitch: string) => spellPitch(pitch, {
+    tonic: currentMusicKey.value,
+    mode: musicStore.currentMode,
+  }) ?? pitch;
+  // Surface tone follows the black-key pitch class, not the spelling (E# is white).
   const isAccidental = (scaleIndex: number, octave: number) =>
     /[#b♯♭]/.test(noteName(scaleIndex, octave));
   const pitchClassIndex = (scaleIndex: number) => {
@@ -365,22 +373,23 @@ function createProductionWiring() {
       octave,
       keys: store.solfegeData.map((solfege, scaleIndex) => {
         const id = noteKey(scaleIndex, octave);
-        const rawPitch = noteName(scaleIndex, octave);
+        const pitch = noteName(scaleIndex, octave);
         return {
           id,
           syllable: solfege.name,
           degree: degreeLabel(solfege.number),
-          rawPitch,
+          rawPitch: spelledPitch(pitch),
           scaleIndex,
           pitchClassIndex: pitchClassIndex(scaleIndex),
-          colorOctave: scientificOctave(rawPitch, octave),
+          // Physical octave of the sounding pitch (Cb5 sounds in octave 4).
+          colorOctave: scientificOctave(pitch, octave),
           mode: musicStore.currentMode,
           musicKey: currentMusicKey.value,
           accidental: isAccidental(scaleIndex, octave),
           keyBrightness: config.value.keyBrightness,
           keySaturation: config.value.keySaturation,
           sounding: store.isVisualNoteActive(id) || soundingNoteKeys.value.has(id),
-          pressed: store.isKeyPressed(id) || chordPressedPitches.value.has(rawPitch),
+          pressed: store.isKeyPressed(id) || chordPressedPitches.value.has(pitch),
         };
       }),
     })),

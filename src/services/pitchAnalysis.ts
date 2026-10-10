@@ -1,5 +1,5 @@
 import { CHROMATIC_NOTES } from "@/data";
-import { findScaleIndexForPitchClass } from "@/services/scalePitch";
+import { classifyDetectedPitch } from "@/domain/musicalIdentity";
 import { DEFAULT_VOICE_VELOCITY, voiceRmsToVelocity } from "@/services/voiceDynamics";
 import type { PhraseCandidate } from "@/domain/phraseBook";
 import type { PatternNote } from "@/types/patterns";
@@ -212,31 +212,30 @@ function eventToPatternNote(
   frames: PitchAnalysisFrame[],
 ): PatternNote | null {
   if (
-    !Number.isFinite(event.midi)
-    || !Number.isFinite(event.start_seconds)
+    !Number.isFinite(event.start_seconds)
     || !Number.isFinite(event.end_seconds)
     || event.end_seconds <= event.start_seconds
   ) {
     return null;
   }
 
-  const midi = Math.round(event.midi);
-  const pitchClass = CHROMATIC_NOTES[((midi % 12) + 12) % 12];
+  // The analyser may round event.midi; retain its measured Hz for tolerance.
+  const pitch = classifyDetectedPitch(
+    Number.isFinite(event.pitch_hz) && event.pitch_hz! > 0
+      ? { frequencyHz: event.pitch_hz! }
+      : { midi: event.midi },
+    { tonic: context.key, mode: context.mode },
+  );
+  if (!pitch) return null;
+  const { midi } = pitch;
+  const pitchClass = CHROMATIC_NOTES[pitch.pitchClass];
   const octave = Math.floor(midi / 12) - 1;
   if (!pitchClass || !Number.isFinite(octave)) {
     return null;
   }
   const canonicalName = `${pitchClass}${octave}`;
 
-  const scaleIndex = findScaleIndexForPitchClass(
-    pitchClass,
-    context,
-  );
-  if (scaleIndex == null) {
-    throw new Error(
-      `Pitch analysis detected ${canonicalName}, which is outside ${context.key} ${context.mode}.`,
-    );
-  }
+  const scaleIndex = pitch.scaleIndex ?? -1;
   const pressTime = Math.max(
     0,
     Math.round((event.start_seconds - phrase.start_seconds) * 1000),
@@ -251,10 +250,10 @@ function eventToPatternNote(
     note: canonicalName,
     scaleDegree: scaleIndex + 1,
     scaleIndex,
+    pitchClassIndex: pitch.pitchClass,
+    isBorrowed: pitch.borrowed,
     octave,
-    frequency: Number.isFinite(event.pitch_hz)
-      ? event.pitch_hz
-      : 440 * 2 ** ((event.midi - 69) / 12),
+    frequency: pitch.frequency,
     velocity: noteVelocity(event, frames),
     pressTime,
     releaseTime,

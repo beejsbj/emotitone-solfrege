@@ -11,6 +11,7 @@ import { useInstrumentStore } from "@/stores/instrument";
 import { DEFAULT_INSTRUMENT } from "@/data/instruments";
 
 const superdoughMocks = vi.hoisted(() => ({
+  setStrudelLaBasedMinor: vi.fn(),
   attackNote: vi.fn().mockResolvedValue(undefined),
   releaseNote: vi.fn(),
   stopNote: vi.fn(),
@@ -30,6 +31,7 @@ vi.mock("@/services/superdoughAudio", () => ({
   isPrewarmed: vi.fn().mockReturnValue(true),
   prewarmSoundSamples: vi.fn().mockResolvedValue(undefined),
   getAudioContext: vi.fn(() => superdoughMocks.audioContext),
+  setStrudelLaBasedMinor: superdoughMocks.setStrudelLaBasedMinor,
   emotitoneStrudelOutput: vi.fn(),
   stopStrudelVisuals: vi.fn(),
 }));
@@ -46,6 +48,15 @@ describe("music store", () => {
     if (typeof localStorage?.clear === "function") {
       localStorage.clear();
     }
+  });
+
+  it("supplies the restored and changing learn preference to Strudel", () => {
+    const visual = useVisualConfigStore();
+    visual.laBasedMinor = true;
+    useMusicStore();
+    expect(superdoughMocks.setStrudelLaBasedMinor).toHaveBeenLastCalledWith(true);
+    visual.laBasedMinor = false;
+    expect(superdoughMocks.setStrudelLaBasedMinor).toHaveBeenLastCalledWith(false);
   });
 
   it("exposes expanded mode metadata through computed state", () => {

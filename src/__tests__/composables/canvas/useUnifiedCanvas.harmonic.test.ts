@@ -62,6 +62,7 @@ vi.mock("@/services/hummingStage", () => ({
 }));
 
 vi.mock("@/services/superdoughAudio", () => ({
+  setStrudelLaBasedMinor: vi.fn(),
   getActiveStrudelStageNotes: () => mocks.strudelStageNotes,
   getAudioContext: () => null,
 }));

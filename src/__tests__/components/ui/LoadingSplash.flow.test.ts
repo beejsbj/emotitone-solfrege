@@ -25,6 +25,7 @@ const audio = vi.hoisted(() => {
 const instruments = vi.hoisted(() => ({ initializeInstruments: vi.fn(async () => {}), fallBackToSynth: vi.fn() }));
 
 vi.mock("@/services/superdoughAudio", () => ({
+  setStrudelLaBasedMinor: vi.fn(),
   initSuperdoughAudio: audio.initSuperdoughAudio,
   initSynthOnlyAudio: audio.initSynthOnlyAudio,
   getAudioStartupStage: () => "ready",

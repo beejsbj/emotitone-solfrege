@@ -1,5 +1,3 @@
-import { getActivePinia } from "pinia";
-import { useVisualConfigStore } from "@/stores/visualConfig";
 import { pitchSolfegeData } from "@/domain/musicalIdentity";
 import { resumeAudioContext } from "@/services/audioLifecycle";
 /**
@@ -425,6 +423,13 @@ function extractHapFrequency(hap: unknown, noteName: string): number {
   return TonalNote.get(noteName).freq || 0;
 }
 
+let strudelLaBasedMinor = false;
+
+/** The music store supplies the presentation preference; audio never reads Pinia. */
+export function setStrudelLaBasedMinor(value: boolean): void {
+  strudelLaBasedMinor = value;
+}
+
 function buildStrudelVisualPayload(hap: unknown) {
   try {
     const noteValue = extractHapNoteName(hap);
@@ -450,7 +455,7 @@ function buildStrudelVisualPayload(hap: unknown) {
 
     const note = pitchSolfegeData(chromaticNote, {
       tonic: musicTheory.getCurrentKey(), mode: musicTheory.getCurrentMode(),
-    }, getActivePinia() ? useVisualConfigStore().laBasedMinor : false);
+    }, strudelLaBasedMinor);
     if (!note) {
       return null;
     }

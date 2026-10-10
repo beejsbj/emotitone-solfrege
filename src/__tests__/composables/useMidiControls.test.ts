@@ -12,6 +12,7 @@ import {
 } from "@/composables/useMidiControls";
 
 vi.mock("@/services/superdoughAudio", () => ({
+  setStrudelLaBasedMinor: vi.fn(),
   attackNote: vi.fn().mockResolvedValue(undefined),
   releaseNote: vi.fn(),
   releaseAll: vi.fn(),

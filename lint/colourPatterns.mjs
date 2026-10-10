@@ -45,8 +45,8 @@ export const NAMED_COLOURS = new Set(
 
 // Inline CSS and Tailwind arbitrary values never reach Stylelint.
 const inlineNames = (names) => new RegExp(`(?:^|[;{])\\s*(?!(?:${[...NAMED_COLOUR_EXEMPT_PROPERTIES].join("|")})\\s*:)[\\w-]+\\s*:[^;{}]*?(?<![\\w-])(${names})(?![\\w-])`, "i");
-const utilityNames = (names) => new RegExp(`(?:^|[\\s:"'])` +
-  `(?:bg|text|border|ring|fill|stroke|from|via|to|outline|decoration|shadow|accent|caret|divide)-\\[?(?:${names})(?![\\w-])`, "i");
+const utilityNames = (names, suffix = "") => new RegExp(`(?:^|[\\s:"'])` +
+  `(?:bg|text|border|ring|fill|stroke|from|via|to|outline|decoration|shadow|accent|caret|divide)-(?:[a-z]+-)*\\[?(?:${names})${suffix}(?![\\w-])`, "i");
 
 /** Properties whose values are names or lists, not colours (a word like `white` or `tan` is not a colour there). */
 export const NAMED_COLOUR_EXEMPT_PROPERTIES = new Set([
@@ -76,6 +76,8 @@ export const RAW_COLOUR_EXEMPT_PROPERTIES = new Set(["mask", "-webkit-mask", "ma
 BRAND_TEXT_PATTERNS.push(inlineNames(BRAND), utilityNames(BRAND));
 const rawNames = [...NAMED_COLOURS].filter((name) => !BRAND_TOKENS.includes(name));
 RAW_COLOUR_PATTERNS.push(inlineNames(rawNames.join("|")), utilityNames(rawNames.filter((name) => name !== "ivory").join("|")));
+const tailwindPalette = "slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose";
+RAW_COLOUR_PATTERNS.push(utilityNames(tailwindPalette, "-\\d+"));
 
 /**
  * Violations in one CSS declaration. A declaration yields at most one brand and

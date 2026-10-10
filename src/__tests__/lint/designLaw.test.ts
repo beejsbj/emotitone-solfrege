@@ -220,6 +220,13 @@ describe("colour law in script and template", () => {
     expect(await eslintRules(playing, vue('const s = { fontFamily: "white", animation: "tan 1s" }; void s;', '<div style="font-family: white; animation: tan 1s; color: var(--ivory)" />'))).toEqual([]);
   });
 
+  it("rejects Tailwind palette shades, variants and directional utilities", async () => {
+    for (const name of ["red", "blue", "slate", "zinc", "neutral", "stone", "amber", "emerald", "sky", "rose"]) {
+      for (const utility of ["bg", "text", "hover:border-t", "ring-offset"]) expect(await eslintRules(playing, vue("", `<div class="${utility}-${name}-500/80" />`))).toContain(RAW);
+    }
+    expect(await eslintRules(playing, vue("", '<div class="text-ivory bg-transparent border-current" />'))).toEqual([]);
+  });
+
   it("covers every runtime source extension, not just .vue and .ts (bypass 3)", async () => {
     const code = 'export const colour = "#123456";\nexport const tone = "tomato";';
     for (const path of [

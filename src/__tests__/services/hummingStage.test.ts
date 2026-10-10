@@ -31,6 +31,23 @@ const unvoiced: LivePitchFrame = {
 };
 
 describe("LivePitch humming Stage bridge", () => {
+  it("uses the minor convention for Stage notes and applies preference changes", () => {
+    const dispatchEvent = vi.fn().mockReturnValue(true);
+    const context = { key: "A" as const, mode: "minor" as const, instrument: "piano" };
+    const bridge = createHummingStageBridge(context, { dispatchEvent });
+    bridge.push(voiced(69));
+    bridge.push(voiced(69));
+    expect((dispatchEvent.mock.calls[0][0] as CustomEvent).detail.note.name).toBe("Do");
+    bridge.updateContext({ ...context, laBasedMinor: true });
+    bridge.push(voiced(69));
+    bridge.push(voiced(69));
+    const played = dispatchEvent.mock.calls.map(([event]) => event as CustomEvent)
+      .filter((event) => event.type === "note-played");
+    expect(played.map((event) => event.detail.note.name)).toEqual(["Do", "La"]);
+    expect(played.map((event) => event.detail.noteName)).toEqual(["A4", "A4"]);
+    bridge.stop();
+  });
+
   it("debounces attacks and releases a stable note after silence", () => {
     const dispatchEvent = vi.fn().mockReturnValue(true);
     const bridge = createHummingStageBridge(

@@ -1,6 +1,9 @@
 import { Chord, Interval, Note } from "@tonaljs/tonal";
 import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
-import type { MusicalMode } from "@/types/music";
+import { getSolfegeLabelForInterval } from "./solfege";
+import { createSolfegeData } from "@/data/solfege";
+export { INTERVAL_TO_SOLFEGE, getSolfegeLabelForInterval } from "./solfege";
+import type { SolfegeData, MusicalMode } from "@/types/music";
 
 /**
  * Musical identity: the one pure answer to "what is this pitch called here?"
@@ -34,8 +37,9 @@ import type { MusicalMode } from "@/types/music";
  *   inflection (Db major's b6 is written A, not Bbb). The note's function,
  *   `degree` and `alteration`, stays on the chosen rule: Db major's pitch
  *   class 9 is degree 6 lowered, written A with interval A5. For chromatic
- *   solfege after a fallback, take the syllable from the written `interval`;
- *   use `functionalInterval` only when the player explicitly asks raised/lowered.
+ *   solfege of borrowed tones after a fallback, use the written `interval`.
+ *   Scale tones retain the mode's `functionalInterval`, as do explicit
+ *   raised/lowered requests.
  * - Chord members are spelled from the chord root, so E major in C major is
  *   E G# B even though G# alone reads Ab. A scale-tone root keeps the key's
  *   spelling; a borrowed root takes the enharmonic spelling that gives the
@@ -113,7 +117,7 @@ export function pitchClassOf(pitch: string | number): number | null {
     return Number.isFinite(pitch) ? modulo(Math.round(pitch), 12) : null;
   }
   const chroma = Note.chroma(pitch);
-  return typeof chroma === "number" ? chroma : null;
+  return typeof chroma === "number" && Number.isFinite(chroma) ? chroma : null;
 }
 
 /** Unbounded MIDI-like height of a scientific pitch name, or the number itself. */
@@ -405,6 +409,59 @@ export function identifyPitch(
     functionalInterval,
     degree,
     alteration: functionalInterval.semitones - MAJOR_SCALE_SEMITONES[degree - 1],
+  };
+}
+
+/** La-based applies to the five minor-signature modes; other modes stay do-based. */
+function usesLaBasedMinor(context: MusicalContext, laBasedMinor = false) {
+  return laBasedMinor && SIGNATURE_MODE[context.mode] === "minor";
+}
+
+export interface SolfegeOptions extends SpellingOptions {
+  laBasedMinor?: boolean;
+}
+
+/** Scale tones follow the mode; borrowed tones follow their written spelling. */
+export function pitchSolfege(
+  pitch: string | number, context: MusicalContext, options: SolfegeOptions = {},
+): string {
+  const identity = identifyPitch(pitch, context, options);
+  if (!identity) return "·";
+  const interval = identity.scaleIndex !== null || options.inflection
+    ? identity.functionalInterval : identity.interval;
+  return getSolfegeLabelForInterval(interval.tonal, usesLaBasedMinor(context, options.laBasedMinor));
+}
+
+/** Already-spelled chord members must retain the chord's spelling (G# = Si, not Le). */
+export function spelledPitchSolfege(
+  spelling: string, context: MusicalContext, laBasedMinor = false,
+): string {
+  return getSolfegeLabelForInterval(
+    Interval.distance(spellTonic(context), Note.get(spelling).pc),
+    usesLaBasedMinor(context, laBasedMinor),
+  );
+}
+
+/** Display metadata for live and recorded Stage notes; number 0 keeps borrowed positioning. */
+export function pitchSolfegeData(
+  pitch: string | number, context: MusicalContext, laBasedMinor = false,
+): SolfegeData | null {
+  const identity = identifyPitch(pitch, context);
+  if (!identity) return null;
+  const metadata = identity.scaleIndex === null ? {
+    number: 0,
+    emotion: "Borrowed harmony tone",
+    description: "A tone outside the active scale.",
+    texture: "harmonic",
+  } : context.mode === "chromatic" ? {
+    ...createSolfegeData([identity.functionalInterval.tonal], [identity.semitones], context.mode)[0],
+    number: identity.scaleIndex + 1,
+  } : getScaleForMode(context.mode).solfege[identity.scaleIndex];
+  return {
+    ...metadata,
+    name: pitchSolfege(pitch, context, { laBasedMinor }),
+    intervalName: identity.scaleIndex === null ? identity.interval.tonal : identity.functionalInterval.tonal,
+    semitones: identity.semitones,
   };
 }
 

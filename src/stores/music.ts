@@ -1,3 +1,4 @@
+import { pitchSolfegeData } from "@/domain/musicalIdentity";
 import { resumeAudioContext, registerAudioActivity } from "@/services/audioLifecycle";
 import { defineStore } from "pinia";
 import { ref, computed, readonly, watch, onScopeDispose } from "vue";
@@ -82,16 +83,6 @@ function parseNoteWithOctave(
   }
 
   return { noteName, octave };
-}
-
-function borrowedPitchSolfege(noteName: ChromaticNote): SolfegeData {
-  return {
-    name: noteName,
-    number: 0,
-    emotion: "Borrowed harmony tone",
-    description: "An explicit chord alteration outside the active scale.",
-    texture: "harmonic",
-  };
 }
 
 let liveStoreId = 0;
@@ -357,7 +348,7 @@ export const useMusicStore = defineStore(
       const tonal = TonalNote.get(exactName);
       if (tonal.midi == null || !tonal.freq) return null;
       const solfegeIndex = currentScaleNotes.value.indexOf(parsed.noteName);
-      const solfege = solfegeIndex === -1 ? borrowedPitchSolfege(parsed.noteName) : solfegeData.value[solfegeIndex];
+      const solfege = pitchSolfegeData(parsed.noteName, { tonic: currentKey.value, mode: currentMode.value }, visualConfigStore.laBasedMinor);
       if (!solfege) return null;
       // A sleeping/interrupted graph (or route rebuild) must finish before the
       // renderer is selected or the input is submitted. Keep running input sync.
@@ -448,8 +439,9 @@ export const useMusicStore = defineStore(
     });
 
     const solfegeData = computed(() => {
-      // Return the base solfege data - colors are now handled by ColorService
-      return currentScale.value.solfege;
+      return currentScaleNotes.value.map((pitch) => pitchSolfegeData(
+        pitch, { tonic: currentKey.value, mode: currentMode.value }, visualConfigStore.laBasedMinor,
+      )!);
     });
 
     const currentKeyDisplay = computed(() => {
@@ -545,6 +537,12 @@ export const useMusicStore = defineStore(
         musicTheory.setCurrentMode(mode);
       },
       { immediate: true }
+    );
+
+    watch(
+      () => visualConfigStore.laBasedMinor,
+      (value) => superdoughAudio.setStrudelLaBasedMinor(value),
+      { immediate: true, flush: "sync" },
     );
 
     // Play note with either format
@@ -998,6 +996,7 @@ export const useMusicStore = defineStore(
       currentModeDefinition,
       currentScaleNotes,
       solfegeData,
+      laBasedMinor: computed(() => visualConfigStore.laBasedMinor),
       currentKeyDisplay,
 
       // Actions

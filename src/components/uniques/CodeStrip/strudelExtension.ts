@@ -1,3 +1,4 @@
+import { identifyChord, pitchSolfege, spelledPitchSolfege } from "@/domain/musicalIdentity";
 import { Facet, type SelectionRange, type Text } from "@codemirror/state";
 import {
   RangeSetBuilder,
@@ -18,7 +19,6 @@ import { Note as TonalNote } from "@tonaljs/tonal";
 import {
   CHROMATIC_NOTES,
   getScaleForMode,
-  getSolfegeNameForMode,
   normalizeScaleIndex,
 } from "@/data";
 import { getScaleDegreeIndexForPitchClass } from "@/services/musicColor";
@@ -82,6 +82,7 @@ export interface CodeStripPresentation {
   timeSignature?: string;
   showRests?: boolean;
   notation?: "solfege" | "note" | "degree";
+  laBasedMinor?: boolean;
   mode?: MusicalMode;
   musicKey?: ChromaticNote;
   surfaceStyle?: "colored" | "monochrome";
@@ -651,14 +652,13 @@ function fallbackToken(
   if (event.kind === "group") {
     const members = event.notes.map((note, index): ChordMember => {
       const token = fallbackNoteToken(note, event.duration, presentation, relativeScale);
-      const borrowed = (token.scaleIndex ?? 0) < 0;
       return {
         id: `${note.from}:${note.to}`,
         syllable: token.syllable,
         degree: token.degree,
         rawPitch: token.rawPitch,
-        primary: borrowed ? "raw" : undefined,
-        visibleLabels: borrowed ? ["raw"] : undefined,
+        primary: token.glyph === "raw" ? "raw" : token.glyph === "deg" ? "degree" : "syllable",
+        visibleLabels: [token.glyph === "raw" ? "raw" : token.glyph === "deg" ? "degree" : "syllable"],
         scaleIndex: token.scaleIndex ?? index,
         pitchClassIndex: token.pitchClassIndex,
         octave: token.octave,
@@ -671,6 +671,11 @@ function fallbackToken(
         voicingOrder: index,
         pressOrder: index,
       };
+    });
+    const context = { tonic: members[0].musicKey ?? "C", mode: members[0].mode ?? "major" };
+    const chord = identifyChord(members.map((member) => member.rawPitch ?? ""), context);
+    if (chord) members.forEach((member, index) => {
+      member.syllable = spelledPitchSolfege(chord.pitchSpellings[index], context, presentation.laBasedMinor);
     });
     return {
       type: "chord",
@@ -696,12 +701,12 @@ function fallbackNoteToken(
   const parsed = parseSourceNote(note, mode, musicKey, relativeScale);
   const borrowed = parsed.scaleIndex < 0;
   const normalized = borrowed ? 0 : normalizeScaleIndex(mode, parsed.scaleIndex);
-  const syllable = borrowed ? undefined : getSolfegeNameForMode(mode, normalized);
+  const syllable = pitchSolfege(parsed.rawPitch, { tonic: musicKey, mode }, { laBasedMinor: presentation.laBasedMinor });
   const degree = borrowed ? undefined : String(normalized + 1);
-  const glyph: CodeStripGlyph = borrowed || presentation.notation === "note"
+  const glyph: CodeStripGlyph = presentation.notation === "note"
     ? "raw"
     : presentation.notation === "degree"
-      ? "deg"
+      ? (borrowed ? "raw" : "deg")
       : "syl";
 
   return {

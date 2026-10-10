@@ -129,3 +129,12 @@ to be written for the app (their authorship is not recorded in the repository).
 Third-party song transcriptions were removed from it (BJS-478); they remain in
 git history, which was not rewritten. Anything a player records or imports is
 the player's own data.
+
+--------------------------------------------------------------------------
+8. Worklet-engine room impulse recipe (Apache-2.0)
+--------------------------------------------------------------------------
+
+src/audio/effects.ts adapts the reverb impulse recipe from superdough's
+reverbGen.mjs, Copyright 2014 Alan deLespinasse, Apache License 2.0.
+The adaptation uses promises and local native nodes and removes debug state.
+See licenses/Apache-2.0.txt. EmotiTone's overall licence remains AGPL-3.0-or-later.

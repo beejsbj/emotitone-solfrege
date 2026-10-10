@@ -18,6 +18,7 @@ const audioMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/services/superdoughAudio", () => ({
+  setStrudelLaBasedMinor: vi.fn(),
   ...audioMocks,
 }));
 

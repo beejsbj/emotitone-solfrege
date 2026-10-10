@@ -412,6 +412,10 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
   // State
   const config = reactive<VisualEffectsConfig>(cloneDefaultConfig());
   const visualsEnabled = ref(true);
+  // Learn preference: do-based minor is the default, including older saves
+  // without this field. La-based covers natural/harmonic/melodic minor,
+  // minor pentatonic and minor blues; appearance presets do not change it.
+  const laBasedMinor = ref(false);
   const savedConfigs = ref<SavedConfig[]>([]);
   const savedStageLooks = ref<SavedStageLook[]>([]);
   const transientStageLook = ref<TransientStageLook | null>(null);
@@ -433,10 +437,12 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
       const stored = localStorage.getItem(STORAGE_KEY);
       isFreshInstall = stored === null;
       transientStageLook.value = null;
+      laBasedMinor.value = false;
       if (stored) {
         const parsedConfig = JSON.parse(stored);
         Object.assign(config, migrateVisualConfig(parsedConfig.config || parsedConfig));
         visualsEnabled.value = parsedConfig.visualsEnabled ?? true;
+        laBasedMinor.value = parsedConfig.laBasedMinor === true;
       }
 
       const storedSavedConfigs = localStorage.getItem(SAVED_CONFIGS_KEY);
@@ -461,6 +467,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
 
     } catch (error) {
       console.error("Failed to load visual config from localStorage:", error);
+      laBasedMinor.value = false;
       Object.assign(config, cloneDefaultConfig());
       visualsEnabled.value = true;
       transientStageLook.value = null;
@@ -479,6 +486,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
       const dataToStore = {
         config: JSON.parse(JSON.stringify(config)),
         visualsEnabled: visualsEnabled.value,
+        laBasedMinor: laBasedMinor.value,
         lastSaved: new Date().toISOString(),
       };
       if (persistentStorage.write(STORAGE_KEY, JSON.stringify(dataToStore))) {
@@ -634,6 +642,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
   };
 
   const resetDeck = () => {
+    laBasedMinor.value = false;
     const defaults = cloneDefaultConfig();
     const { mainOctave, rowCount } = config.keyboard;
     const { bpm } = config.codeStrip;
@@ -790,6 +799,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
   const exportConfig = () => {
     const configData = {
       config: getConfigSnapshot(),
+      laBasedMinor: laBasedMinor.value,
       visualsEnabled: visualsEnabled.value,
       exportedAt: new Date().toISOString(),
       version: "2.0.0",
@@ -804,6 +814,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
       const importedData = JSON.parse(jsonData);
       if (importedData.config) {
         applyRuntimeConfig(importedData.config);
+        laBasedMinor.value = importedData.laBasedMinor === true;
         if (typeof importedData.visualsEnabled === "boolean") {
           visualsEnabled.value = importedData.visualsEnabled;
         }
@@ -818,6 +829,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
 
   const useEphemeralDefaults = () => {
     persistenceEnabled.value = false;
+    laBasedMinor.value = false;
     applyRuntimeConfig(cloneDefaultConfig());
     visualsEnabled.value = true;
     savedConfigs.value = [];
@@ -831,7 +843,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
   // Watch for changes and auto-save (debounced)
   let saveTimeout: ReturnType<typeof setTimeout> | null = null;
   watch(
-    [config, visualsEnabled],
+    [config, visualsEnabled, laBasedMinor],
     () => {
       if (saveTimeout) clearTimeout(saveTimeout);
       saveTimeout = setTimeout(saveToStorage, 500); // Debounce saves by 500ms
@@ -850,6 +862,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     globalControls,
     deckControls,
     visualsEnabled,
+    laBasedMinor,
     savedConfigs,
     savedStageLooks,
     transientStageLook,

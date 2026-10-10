@@ -4,12 +4,14 @@ import { createPinia, setActivePinia } from "pinia";
 vi.unmock("@/services/music");
 vi.unmock("@/data");
 
+import { useVisualConfigStore } from "@/stores/visualConfig";
 import { useMusicStore } from "@/stores/music";
 import { usePhrasesStore } from "@/stores/phrases";
 import { useInstrumentStore } from "@/stores/instrument";
 import { DEFAULT_INSTRUMENT } from "@/data/instruments";
 
 const superdoughMocks = vi.hoisted(() => ({
+  setStrudelLaBasedMinor: vi.fn(),
   attackNote: vi.fn().mockResolvedValue(undefined),
   releaseNote: vi.fn(),
   stopNote: vi.fn(),
@@ -29,6 +31,7 @@ vi.mock("@/services/superdoughAudio", () => ({
   isPrewarmed: vi.fn().mockReturnValue(true),
   prewarmSoundSamples: vi.fn().mockResolvedValue(undefined),
   getAudioContext: vi.fn(() => superdoughMocks.audioContext),
+  setStrudelLaBasedMinor: superdoughMocks.setStrudelLaBasedMinor,
   emotitoneStrudelOutput: vi.fn(),
   stopStrudelVisuals: vi.fn(),
 }));
@@ -45,6 +48,15 @@ describe("music store", () => {
     if (typeof localStorage?.clear === "function") {
       localStorage.clear();
     }
+  });
+
+  it("supplies the restored and changing learn preference to Strudel", () => {
+    const visual = useVisualConfigStore();
+    visual.laBasedMinor = true;
+    useMusicStore();
+    expect(superdoughMocks.setStrudelLaBasedMinor).toHaveBeenLastCalledWith(true);
+    visual.laBasedMinor = false;
+    expect(superdoughMocks.setStrudelLaBasedMinor).toHaveBeenLastCalledWith(false);
   });
 
   it("exposes expanded mode metadata through computed state", () => {
@@ -126,6 +138,19 @@ describe("music store", () => {
     });
   });
 
+  it("updates minor labels from the persisted learn preference without changing pitches", async () => {
+    const store = useMusicStore();
+    const display = useVisualConfigStore();
+    store.setKey("A");
+    store.setMode("minor");
+    expect(store.solfegeData.map((note) => note.name)).toEqual(["Do", "Re", "Me", "Fa", "Sol", "Le", "Te"]);
+    display.laBasedMinor = true;
+    expect(store.solfegeData.map((note) => note.name)).toEqual(["La", "Ti", "Do", "Re", "Mi", "Fa", "Sol"]);
+    const id = await store.attackExactPitch("G#4");
+    expect(store.getActiveNotes()[0]).toMatchObject({ noteName: "G#4", solfege: { name: "Si" } });
+    await store.releaseNote(id ?? undefined);
+  });
+
   it("attacks borrowed chord tones through the exact-pitch seam without scale flooring", async () => {
     const musicStore = useMusicStore();
     const patternsStore = usePhrasesStore();
@@ -143,6 +168,7 @@ describe("music store", () => {
     );
     expect(musicStore.getActiveNotes()[0]).toMatchObject({
       noteName: "D#4",
+      solfege: expect.objectContaining({ name: "Me" }),
       solfegeIndex: -1,
       pitchClassIndex: 3,
       octave: 4,

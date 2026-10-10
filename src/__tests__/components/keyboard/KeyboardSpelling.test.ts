@@ -1,11 +1,14 @@
 import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import Chord from "@/components/compounds/Chord.vue";
 import Keyboard from "@/components/compounds/Keyboard.vue";
 import {
   noteColorResolverKey,
   staticNoteColorResolver,
 } from "@/components/primatives/noteColorContext";
-import { getScaleForMode } from "@/data";
+import { pitchSolfegeData } from "@/domain/musicalIdentity";
+import { phraseContour } from "@/domain/phraseBook";
+import type { Phrase } from "@/types/phrases";
 import { MusicTheoryService } from "@/services/music";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 
@@ -16,7 +19,7 @@ const mocks = vi.hoisted(() => ({
     keyboardConfig: {
       mainOctave: 4,
       rowCount: 1,
-      primaryLabel: "raw" as const,
+      primaryLabel: "raw" as "raw" | "syllable" | "degree",
       keyboardPadding: false,
       keyGaps: "small" as const,
       showLabels: true,
@@ -36,6 +39,7 @@ const mocks = vi.hoisted(() => ({
     clearAllTouches: () => undefined,
   },
   musicStore: {
+    laBasedMinor: false,
     currentKey: "C",
     currentMode: "major",
     getNoteName: (() => "C4") as (scaleIndex: number, octave: number) => string,
@@ -56,18 +60,20 @@ vi.mock("@/stores/instrument", () => ({
 vi.mock("@/composables/useKeyboardControls", () => ({ useKeyboardControls: () => undefined }));
 vi.mock("@/utils/hapticFeedback", () => ({ triggerNoteHaptic: () => undefined }));
 
-function playIn(key: ChromaticNote, mode: MusicalMode) {
+function playIn(key: ChromaticNote, mode: MusicalMode, laBasedMinor = false) {
   const theory = new MusicTheoryService();
   theory.setCurrentKey(key);
   theory.setCurrentMode(mode);
+  mocks.musicStore.laBasedMinor = laBasedMinor;
   mocks.musicStore.currentKey = key;
   mocks.musicStore.currentMode = mode;
   mocks.musicStore.getNoteName = (scaleIndex, octave) => theory.getNoteName(scaleIndex, octave);
-  mocks.keyboardStore.solfegeData = getScaleForMode(mode).solfege;
+  mocks.keyboardStore.solfegeData = theory.getCurrentScaleNotes().map((pitch) => pitchSolfegeData(pitch, { tonic: key, mode }, laBasedMinor));
 }
 
-function mountKeyboard() {
+function mountKeyboard(harmonyAlteration: "auto" | "flip" = "auto") {
   return mount(Keyboard, {
+    props: { harmonyAlteration },
     global: { provide: { [noteColorResolverKey as symbol]: staticNoteColorResolver } },
   });
 }
@@ -86,6 +92,51 @@ function chordSymbols(wrapper: ReturnType<typeof mountKeyboard>) {
 describe("Keyboard spelling by key", () => {
   beforeEach(() => {
     playIn("C", "major");
+    mocks.keyboardStore.keyboardConfig.primaryLabel = "raw";
+  });
+
+  it("shows Fi on both the Lydian fourth key and its phrase contour", () => {
+    playIn("C", "lydian");
+    mocks.keyboardStore.keyboardConfig.primaryLabel = "syllable";
+    const wrapper = mountKeyboard();
+    expect(keyLabels(wrapper)).toEqual(["Do", "Re", "Mi", "Fi", "Sol", "La", "Ti"]);
+    expect(phraseContour({
+      context: { key: "C", mode: "lydian" },
+      notes: [{ note: "F#4", pitchClassIndex: 6, pressTime: 0 }],
+    } as Pick<Phrase, "notes" | "context">)).toBe("Fi");
+    wrapper.unmount();
+  });
+
+  it.each([false, true].flatMap((laBasedMinor) => (["raw", "syllable", "degree"] as const).map((primary) => ({ laBasedMinor, primary }))))("shows minor key and chord-member labels ($primary, la-based=$laBasedMinor)", ({ laBasedMinor, primary }) => {
+    playIn("A", "minor", laBasedMinor);
+    mocks.keyboardStore.keyboardConfig.primaryLabel = primary;
+    const wrapper = mountKeyboard();
+    expect(keyLabels(wrapper)).toEqual(primary === "degree" ? ["I", "II", "III", "IV", "V", "VI", "VII"] : primary === "raw" ? ["A4", "B4", "C5", "D5", "E5", "F5", "G5"] : laBasedMinor
+      ? ["La", "Ti", "Do", "Re", "Mi", "Fa", "Sol"]
+      : ["Do", "Re", "Me", "Fa", "Sol", "Le", "Te"]);
+    // Keyboard's fused chord symbol carries these same members; render its
+    // notes presentation to observe the labels that Code Strip also uses.
+    const chord = mount(Chord, {
+      props: { ...wrapper.findComponent(Chord).props(), display: "notes" },
+      global: { provide: { [noteColorResolverKey as symbol]: staticNoteColorResolver } },
+    });
+    const chordLabels = chord.findAll(".note__label--rank-primary").map((label) => visible(label.text()));
+    expect(chordLabels).toEqual(primary === "degree" ? ["I", "III", "V"] : primary === "raw" ? ["A4", "C5", "E5"] : laBasedMinor ? ["La", "Do", "Mi"] : ["Do", "Me", "Sol"]);
+    chord.unmount();
+    wrapper.unmount();
+  });
+
+  it("uses raw pitch for borrowed chord members in degree notation", () => {
+    mocks.keyboardStore.keyboardConfig.primaryLabel = "degree";
+    const wrapper = mountKeyboard("flip");
+    const chord = mount(Chord, {
+      props: { ...wrapper.findComponent(Chord).props(), display: "notes" },
+      global: { provide: { [noteColorResolverKey as symbol]: staticNoteColorResolver } },
+    });
+    expect(chord.findAll(".note__label--rank-primary").map((label) => visible(label.text())))
+      .toEqual(["I", "E♭4", "V"]);
+    chord.unmount();
+    wrapper.unmount();
   });
 
   it("shows Bb, not A#, on the fourth Key and chord in F major", () => {

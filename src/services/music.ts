@@ -1,3 +1,4 @@
+import { pitchSolfegeData } from "@/domain/musicalIdentity";
 // Music Theory Service for Emotitone Solfege
 // Handles all music theory calculations, scales, and interval-driven identities.
 
@@ -266,7 +267,8 @@ export class MusicTheoryService {
   }
 
   getSolfegeData(degree: number): SolfegeData | null {
-    return this.getCurrentScale().solfege[degree] || null;
+    const pitch = this.getCurrentScaleNotes()[degree];
+    return pitch ? pitchSolfegeData(pitch, { tonic: this.currentKey, mode: this.currentMode }) : null;
   }
 }
 

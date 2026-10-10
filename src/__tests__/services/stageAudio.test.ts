@@ -21,6 +21,7 @@ vi.mock("@/services/liveAudio", () => ({
 }));
 
 vi.mock("@/services/superdoughAudio", () => ({
+  setStrudelLaBasedMinor: vi.fn(),
   getSuperdoughMasterGain: () => mocks.master,
   getAudioContext: () => context,
 }));

@@ -1,13 +1,17 @@
 import { afterEach, expect, it, vi } from 'vitest'
+import { EngineAudioGraph } from '@/audio/effects'
 import { MAX_AUDIO_VOICES, VOICE_RETIRE_SECONDS } from '@/audio/voicePolicy'
 import { createSuperdoughTestAudio } from './superdoughTestAudio'
 
 vi.unmock('superdough')
 
-afterEach(() => { vi.unstubAllGlobals() })
+afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks() })
 
 it('applies the application budget to real native admission and matches worklet retirement timing', async () => {
   const audio = createSuperdoughTestAudio()
+  vi.stubGlobal('AudioContext', function () { return audio.context })
+  Object.assign(audio.context, { addEventListener() {}, createAnalyser: () => ({ fftSize: 2048, getFloatTimeDomainData() {}, disconnect() {} }) })
+  vi.spyOn(EngineAudioGraph.prototype, 'getOrbit').mockReturnValue({ connectToOutput() {}, ready: async () => {} } as any)
   // @ts-ignore — superdough does not publish TypeScript declarations.
   const dough = await import('superdough')
   dough.setAudioContext(audio.context)

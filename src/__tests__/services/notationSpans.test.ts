@@ -3,7 +3,7 @@ vi.unmock('@strudel/core');
 import { m } from '@strudel/mini';
 import { transpiler } from '@strudel/transpiler';
 import '@strudel/tonal';
-import { logNotesToStrudel, renderStrudelNotation, type StrudelConfig } from '@/services/StrudelNotation';
+import { renderStrudelNotation, type StrudelConfig } from '@/services/StrudelNotation';
 import {
   noteIdAtLocations,
   setSoundingNotationSpans,
@@ -34,11 +34,11 @@ function soundingIds(notes: LogNote[], config: Partial<StrudelConfig> = {}) {
 }
 
 describe('notation generator spans', () => {
-  it('emits the same code as before plus one span per note id covering its value', () => {
+  it('emits one span per note id covering its value', () => {
     const notes = [note('a', 'C4', 0, 500), note('b', 'E4', 750, 250)];
     const { code, spans } = renderStrudelNotation(notes);
 
-    expect(code).toBe(logNotesToStrudel(notes));
+    // Byte-for-byte generated-code expectations live in StrudelNotation.test.ts.
     expect(spans.map((span) => span.noteId)).toEqual(['a', 'b']);
     expect(spans.map((span) => code.slice(span.from, span.to))).toEqual(['C4', 'E4']);
   });

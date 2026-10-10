@@ -153,7 +153,7 @@ describe("CodeStrip recorded-token metadata", () => {
     });
   });
 
-  it("always preserves Rest semantics for the CodeMirror source map", () => {
+  it("preserves rests between recorded notes and after the last note", () => {
     expect(tokens([
       note("c", "C4", 0, 4, 1000, 500),
       note("d", "D4", 1, 4, 2000, 500),

@@ -171,29 +171,56 @@ describe("useHummingCapture", () => {
     expect(mocks.updateBridgeContext).not.toHaveBeenCalled();
   });
 
-  it("keeps listening beyond 45 seconds and only stops and imports on acceptance", async () => {
+  it("shows remaining time and accepts the take automatically at 60 seconds", async () => {
     vi.useFakeTimers();
     const wrapper = mountCapture();
     await capture.toggle();
-
-    await vi.advanceTimersByTimeAsync(5 * 60_000);
-
-    expect(capture.status.value).toBe("recording");
+    await vi.advanceTimersByTimeAsync(50_000);
+    expect(capture.remainingSeconds.value).toBe(10);
+    expect(capture.statusMessage.value).toContain("10 seconds left");
     expect(mocks.sessionStop).not.toHaveBeenCalled();
-    expect(mocks.bridgeStop).not.toHaveBeenCalled();
-    const frame = { voiced: true, midi: 62, frequencyHz: 293.66 };
-    mocks.startMicrophoneCapture.mock.calls[0][0](frame);
-    expect(mocks.bridgePush).toHaveBeenCalledWith(frame);
-    expect(mocks.analyzePitchRecording).not.toHaveBeenCalled();
-    expect(mocks.importPhrases).not.toHaveBeenCalled();
-
-    await capture.toggle();
-
+    await vi.advanceTimersByTimeAsync(9_999);
+    expect(capture.remainingSeconds.value).toBe(1);
+    expect(capture.status.value).toBe("recording");
+    await vi.advanceTimersByTimeAsync(1);
     expect(mocks.sessionStop).toHaveBeenCalledTimes(1);
     expect(mocks.analyzePitchRecording).toHaveBeenCalledTimes(1);
     expect(mocks.importPhrases).toHaveBeenCalledTimes(1);
     expect(capture.status.value).toBe("idle");
+    expect(vi.getTimerCount()).toBe(0);
     wrapper.unmount();
+  });
+
+  it.each(["stop", "cancel", "error", "unmount"] as const)("clears the deadline after %s", async (action) => {
+    vi.useFakeTimers();
+    const wrapper = mountCapture();
+    await capture.start();
+    await vi.advanceTimersByTimeAsync(20_000);
+    if (action === "error") mocks.startMicrophoneCapture.mock.calls[0][1](new Error("Device lost"));
+    else if (action === "unmount") wrapper.unmount();
+    else await capture[action]();
+    const stopCount = mocks.sessionStop.mock.calls.length;
+    const importCount = mocks.importPhrases.mock.calls.length;
+    expect(vi.getTimerCount()).toBe(0);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(mocks.sessionStop).toHaveBeenCalledTimes(stopCount);
+    expect(mocks.importPhrases).toHaveBeenCalledTimes(importCount);
+    if (action !== "unmount") wrapper.unmount();
+  });
+
+  it("gives a new capture its own full deadline after cancelling an earlier take", async () => {
+    vi.useFakeTimers();
+    const wrapper = mountCapture();
+    await capture.start();
+    await vi.advanceTimersByTimeAsync(45_000);
+    await capture.cancel();
+    await capture.start();
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(capture.status.value).toBe("recording");
+    expect(capture.remainingSeconds.value).toBe(45);
+    expect(mocks.sessionStop).not.toHaveBeenCalled();
+    wrapper.unmount();
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it.each(["resolve", "reject"])("awaits microphone cleanup when acceptance is cancelled (%s)", async (outcome) => {

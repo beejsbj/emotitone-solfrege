@@ -48,11 +48,7 @@ vi.mock("@/stores/visualConfig", async () => {
   return { useVisualConfigStore: () => mocks.visualConfig };
 });
 
-vi.mock("@/composables/useGSAP", () => ({
-  default: () => ({
-    gsap: { utils: { interpolate: (from: number, to: number) => from + (to - from) * 0.5 } },
-  }),
-}));
+
 
 describe("useStringRenderer humming lifecycle", () => {
   let nowSpy: ReturnType<typeof vi.spyOn>;
@@ -151,14 +147,14 @@ describe("useStringRenderer humming lifecycle", () => {
       },
     }));
     renderer.updateStringProperties(stringConfig, animationConfig, mocks.musicStore);
-    expect(playedString).toMatchObject({ isActive: true, opacity: 0.3 });
+    expect(playedString).toMatchObject({ isActive: true, opacity: 0.6 });
 
     renderer.handleNoteReleased(new CustomEvent("note-released", {
       detail: { noteId: "visible-c4" },
     }));
     renderer.updateStringProperties(stringConfig, animationConfig, mocks.musicStore);
     expect(playedString?.isActive).toBe(false);
-    expect(playedString?.opacity).toBeLessThan(0.3);
+    expect(playedString?.opacity).toBeLessThan(0.6);
   });
 
   it("uses keyboard octave for wrapped note event activation", () => {
@@ -273,7 +269,7 @@ describe("useStringRenderer humming lifecycle", () => {
       mocks.musicStore,
       { envelope: 0.5, hasSignal: true },
     );
-    expect(renderer.strings.value.find((string) => string.octave === 4)?.amplitude).toBe(5);
+    expect(renderer.strings.value.find((string) => string.octave === 4)?.amplitude).toBe(10);
 
     renderer.updateStringProperties(
       stringConfig,
@@ -443,7 +439,7 @@ describe("useStringRenderer humming lifecycle", () => {
     expect(mocks.musicStore.getActiveNotes).not.toHaveBeenCalled();
     expect(renderer.strings.value.find((string) => string.octave === 4)).toMatchObject({
       isActive: true,
-      amplitude: 5,
+      amplitude: 10,
       color: "animated-exact",
     });
   });

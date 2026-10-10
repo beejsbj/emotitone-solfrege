@@ -60,8 +60,6 @@ describe('UnifiedVisualEffects.vue', () => {
 
     expect(wrapper.find('.unified-visual-effects').exists()).toBe(true)
     expect(wrapper.find('[data-testid="beating-shapes"]').exists()).toBe(false)
-    expect(wrapper.find('.unified-canvas').attributes('width')).toBe('1024')
-    expect(wrapper.find('.unified-canvas').attributes('height')).toBe('768')
     expect(wrapper.find('.unified-canvas').attributes('aria-hidden')).toBe('true')
     expect(wrapper.find('[aria-live="polite"]').text()).toContain('Chord: C major')
   })

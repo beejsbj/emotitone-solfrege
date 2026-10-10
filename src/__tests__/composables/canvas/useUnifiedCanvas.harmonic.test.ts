@@ -63,6 +63,7 @@ vi.mock("@/services/hummingStage", () => ({
 
 vi.mock("@/services/superdoughAudio", () => ({
   getActiveStrudelStageNotes: () => mocks.strudelStageNotes,
+  getAudioContext: () => null,
 }));
 
 vi.mock("@/services/stageAudio", () => ({
@@ -91,14 +92,22 @@ vi.mock("@/composables/useHarmonicAnalysis", () => ({
       snapshot: {
         value: {
           isVisible: true,
+          // Stored names stay sharps-only; the analysis supplies spellings.
           displayedNotes: [
             { noteId: "c4", noteName: "C4" },
-            { noteId: "e4", noteName: "E4" },
+            { noteId: "eb4", noteName: "D#4" },
           ],
+          noteSpellings: { c4: "C4", eb4: "Eb4" },
           intervalEdges: [
-            { fromNoteId: "c4", toNoteId: "e4", interval: "3M" },
+            {
+              fromNoteId: "c4",
+              toNoteId: "eb4",
+              interval: "m3",
+              spokenInterval: "minor third",
+            },
           ],
-          chordLabel: "C major",
+          chordLabel: "Cm",
+          chordSpoken: "C minor",
           emotionalDescription: "Grounded & radiant",
         },
       },
@@ -123,6 +132,7 @@ vi.mock("@/composables/useAnimationLifecycle", () => ({
 
 vi.mock("@/composables/canvas/useBlobRenderer", () => ({
   useBlobRenderer: () => ({
+    hasPendingAnimation: () => mocks.activeBlobs.size > 0,
     activeBlobs: mocks.activeBlobs,
     createBlob: mocks.createBlob,
     startBlobFadeOut: mocks.startBlobFadeOut,
@@ -139,6 +149,7 @@ vi.mock("@/composables/canvas/useBlobRenderer", () => ({
 
 vi.mock("@/composables/canvas/useStringRenderer", () => ({
   useStringRenderer: () => ({
+    hasPendingAnimation: () => false,
     initializeStrings: vi.fn(),
     addEventListeners: vi.fn((target: EventTarget) => { mocks.stringEventTarget = target; }),
     removeEventListeners: vi.fn(),
@@ -171,7 +182,8 @@ vi.mock("@/composables/canvas/useBlobFieldRenderer", () => ({
 
 vi.mock("@/composables/canvas/useHilbertScopeRenderer", () => ({
   useHilbertScopeRenderer: () => ({
-    initializeHilbertScope: vi.fn(),
+    hasPendingAnimation: () => false,
+    initializeHilbertScope: vi.fn(async () => {}),
     resizeHilbertScope: vi.fn(),
     renderHilbertScope: mocks.renderHilbertScope,
     clearHistory: mocks.clearHilbertHistory,
@@ -200,6 +212,7 @@ const note = {
 
 function createCanvasRef() {
   const canvas = {
+    getBoundingClientRect: () => ({ width: window.innerWidth, height: window.innerHeight }),
     width: 800,
     height: 600,
     getContext: vi.fn(() => mockCanvasContext),
@@ -543,7 +556,7 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
     expect(mocks.renderAmbientBackground.mock.calls.at(-1)?.at(-1)).toEqual([
       liveNote,
     ]);
-    expect(mocks.renderHilbertScope.mock.calls.at(-1)?.at(-1)).toEqual([
+    expect(mocks.renderHilbertScope.mock.calls.at(-1)?.at(-2)).toEqual([
       liveNote,
     ]);
   });
@@ -601,7 +614,7 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
   it("exposes only enabled harmonic labels as accessible text", () => {
     const canvas = useUnifiedCanvas(createCanvasRef());
 
-    const fullText = "Chord: C major. Interval C4 to E4: 3M. Emotion: Grounded & radiant";
+    const fullText = "Chord: C minor. Interval C 4 to E flat 4: minor third. Emotion: Grounded & radiant";
     expect(canvas.harmonicAccessibleText.value).toBe(fullText);
   });
 
@@ -610,7 +623,7 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
     mocks.blobConfig.value.showEmotionLabel = false;
     const canvas = useUnifiedCanvas(createCanvasRef());
 
-    expect(canvas.harmonicAccessibleText.value).toBe("Chord: C major");
+    expect(canvas.harmonicAccessibleText.value).toBe("Chord: C minor");
   });
 
   it("selectively exposes only enabled interval label in accessible text", () => {
@@ -618,7 +631,7 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
     mocks.blobConfig.value.showEmotionLabel = false;
     const canvas = useUnifiedCanvas(createCanvasRef());
 
-    expect(canvas.harmonicAccessibleText.value).toBe("Interval C4 to E4: 3M");
+    expect(canvas.harmonicAccessibleText.value).toBe("Interval C 4 to E flat 4: minor third");
   });
 
   it("selectively exposes only enabled emotion label in accessible text", () => {

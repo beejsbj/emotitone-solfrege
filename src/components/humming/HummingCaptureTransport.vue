@@ -1,6 +1,6 @@
 <template>
   <Teleport to="body">
-    <div class="humming-capture-transport">
+    <div ref="root" class="humming-capture-transport">
       <Button
         class="humming-capture-transport__primary"
         size="md"
@@ -80,10 +80,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { Check, Mic, X } from "lucide-vue-next";
 import Button from "@/components/primatives/Button.vue";
 import type { HummingCaptureStatus } from "@/composables/useHummingCapture";
+import { setTopNoticeClearance } from "@/composables/useTopNoticeClearance";
 
 const props = withDefaults(defineProps<{
   status?: HummingCaptureStatus;
@@ -123,6 +124,33 @@ const emit = defineEmits<{
   cancel: [];
   selectTake: [index: number];
 }>();
+
+// Tell the other fixed top notices where this feedback ends, so they sit below it.
+const root = ref<HTMLElement | null>(null);
+
+function publishFeedbackBottom() {
+  const feedback = root.value?.querySelectorAll(".humming-capture-transport__feedback") ?? [];
+  const noticeGap = 8;
+  let bottom = 0;
+  feedback.forEach((el) => {
+    bottom = Math.max(bottom, el.getBoundingClientRect().bottom + noticeGap);
+  });
+  setTopNoticeClearance(bottom);
+}
+
+watch(
+  () => [props.status, props.statusMessage, props.remainingSeconds <= 10, props.takeLabels.length],
+  () => nextTick(publishFeedbackBottom),
+  { flush: "post" },
+);
+onMounted(() => {
+  publishFeedbackBottom();
+  window.addEventListener("resize", publishFeedbackBottom);
+});
+onBeforeUnmount(() => {
+  window.removeEventListener("resize", publishFeedbackBottom);
+  setTopNoticeClearance(0);
+});
 
 function handleTakeSelection(event: Event) {
   emit("selectTake", Number((event.target as HTMLSelectElement).value));

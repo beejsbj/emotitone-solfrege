@@ -27,6 +27,42 @@ function playback(notes: LogNote[], sourceBpm = 120, bpm = sourceBpm, sound = 's
 }
 
 describe('recording to actual Strudel playback', () => {
+  it.each(['absolute', 'relative'] as const)('keeps stored velocities in actual %s phrase playback controls and chord lanes', notationType => {
+    const captured = [
+      { ...note('C4', 0, 500), velocity: .25 },
+      { ...note('C4', 0, 500), velocity: .75 },
+      note('D4', 500, 500),
+    ];
+    const { controls } = playback(captured, 120, 120, 'sine', { notationType });
+    expect(controls.filter((value: any) => value.note === 'C4').slice(0, 2).map((value: any) => value.gain))
+      .toEqual([expect.closeTo(.2), expect.closeTo(.6)]);
+    expect(controls.find((value: any) => value.note === 'D4').gain).toBeCloseTo(.8);
+    expect(captured.map(note => note.velocity)).toEqual([.25, .75, undefined]);
+  });
+
+  it.each([undefined, NaN, Infinity, -1, 0, 2])('bounds persisted velocity %s without emitting invalid audio controls', velocity => {
+    const { controls } = playback([{ ...note('C4', 0, 500), velocity }]);
+    const gain = controls[0].gain ?? .8; // Existing Superdough default for legacy notes.
+    expect(gain).toBe(velocity === -1 || velocity === 0 ? 0 : .8);
+  });
+
+  it('preserves velocity alongside recorded vibrato, tremolo, gate and envelope columns', () => {
+    const expressive = { ...note('C4', 0, 500), velocity: .25,
+      pitchExpression: [{ timeMs: 0, cents: -20 }, { timeMs: 100, cents: 20 }, { timeMs: 200, cents: -20 },
+        { timeMs: 300, cents: 20 }, { timeMs: 400, cents: -20 }],
+      gainExpression: [{ timeMs: 0, gain: .5 }, { timeMs: 100, gain: 1.5 }, { timeMs: 200, gain: .5 },
+        { timeMs: 300, gain: 1.5 }, { timeMs: 400, gain: .5 }],
+      articulation: { attack: .02, decay: .03, sustain: .6, release: .1 } };
+    const { controls } = playback([expressive, { ...note('D4', 520, 500), velocity: .75 }]);
+    expect(controls[0]).toMatchObject({ gain: .2, attack: .02, decay: .03, sustain: .6, release: .1 });
+    expect(controls[0].clip).toBeCloseTo(500 / 520);
+    expect(controls[0].vib).toBeGreaterThan(0);
+    expect(controls[0].tremolo).toBeGreaterThan(0);
+    const second = controls.find((value: any) => value.note === 'D4');
+    expect(second).toMatchObject({ gain: expect.closeTo(.6), vib: 0 });
+    expect(second.tremolo).toBeUndefined();
+  });
+
   it('replays a legacy hold with the resolved sound live envelope and an explicit full gate', () => {
     const { code, controls } = playback([note('C4', 0, 500)], 120, 120, 'gm_marimba');
     expect(code).toContain('.clip(1)');

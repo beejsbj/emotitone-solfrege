@@ -42,7 +42,12 @@ export function useHummingCapture() {
   let limitTimer: ReturnType<typeof setTimeout> | null = null;
   let countdownTimer: ReturnType<typeof setInterval> | null = null;
 
+  function stopWhenHidden() {
+    if (document.visibilityState === "hidden") void stop();
+  }
+
   function clearRecordingTimers() {
+    document.removeEventListener("visibilitychange", stopWhenHidden);
     if (limitTimer != null) clearTimeout(limitTimer);
     if (countdownTimer != null) clearInterval(countdownTimer);
     limitTimer = null;
@@ -139,6 +144,8 @@ export function useHummingCapture() {
         remainingSeconds.value = 0;
         void stop();
       }, HUMMING_RECORDING_LIMIT_SECONDS * 1000);
+      document.addEventListener("visibilitychange", stopWhenHidden);
+      stopWhenHidden();
     } catch (caught) {
       if (generation === activeGeneration) fail(caught);
     }

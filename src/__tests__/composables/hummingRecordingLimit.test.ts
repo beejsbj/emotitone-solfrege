@@ -28,9 +28,11 @@ describe("humming recording deadline", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    vi.clearAllMocks();
   });
 
-  it("counts down visibly, stops the recorder at 60s, and keeps the analysed take", async () => {
+  it.each([false, true])("keeps the take after the deadline or backgrounding (hidden=%s)", async (hidden) => {
     vi.useFakeTimers();
     let recorder!: FakeRecorder;
     class FakeRecorder {
@@ -101,7 +103,12 @@ describe("humming recording deadline", () => {
       await vi.advanceTimersByTimeAsync(999);
       expect(recorder.state).toBe("recording");
       expect(wrapper.get('[role="status"]').text()).toContain("1 second left");
-      await vi.advanceTimersByTimeAsync(1);
+      if (hidden) {
+        vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+        document.dispatchEvent(new Event("visibilitychange"));
+      } else {
+        await vi.advanceTimersByTimeAsync(1);
+      }
       await flushPromises();
       expect(recorder.state).toBe("inactive");
       expect(uploads).toHaveLength(1);

@@ -67,14 +67,20 @@ export function resumeAudioContext(context: AudioContext): Promise<void> | undef
   }
   const suspension = suspending.get(context);
   const unlock = () => new Promise<void>((resolve, reject) => {
+    // Each try owns a token; a superseded resume() that settles late must not
+    // resolve or fail the gate the current try is still working on.
+    let current = 0;
     const attempt = () => {
+      const token = ++current;
+      const live = () => token === current;
       if (context.state === "closed") { reject(new Error("Audio context is closed")); return; }
       if (context.state === "running") { resolve(); return; }
       try {
         context.resume().then(() => {
+          if (!live()) return;
           if (context.state === "running") resolve();
           else reject(new AudioBlockedError());
-        }, reject);
+        }, error => { if (live()) reject(error); });
       } catch (error) { reject(error); }
     };
     retryUnlock.set(context, attempt);

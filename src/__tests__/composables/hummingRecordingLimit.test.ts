@@ -28,7 +28,6 @@ describe("humming recording deadline", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
-    vi.restoreAllMocks();
     vi.clearAllMocks();
   });
 
@@ -104,8 +103,9 @@ describe("humming recording deadline", () => {
       expect(recorder.state).toBe("recording");
       expect(wrapper.get('[role="status"]').text()).toContain("1 second left");
       if (hidden) {
-        vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+        const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
         document.dispatchEvent(new Event("visibilitychange"));
+        visibility.mockRestore();
       } else {
         await vi.advanceTimersByTimeAsync(1);
       }

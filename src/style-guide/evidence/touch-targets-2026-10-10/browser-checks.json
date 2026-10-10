@@ -1,7 +1,7 @@
 {
  "method": "Headless Chromium (Playwright 1.56 bundled build), 390x844 CSS px, DPR 2, touch + mobile emulation, reduced motion. For every visible interactive element: scroll it to the viewport centre, then walk 1px steps left/right/up/down from its centre while document.elementFromPoint() still returns the control or a descendant (cap 60px each way, so 121 means 'at least 121'). 'covered' means another element owns the centre point. Guide scaffolding (guide chips, specimen controls) and sr-only radios are excluded. Scenario syntax: route|selector clicked|selector clicked.",
  "baseRevision": "e56c273d",
- "headRevision": "0c99bf61",
+ "headRevision": "c91d1db6",
  "scenarios": {
   "/style-guide/tabs": {
    "before": [
@@ -58,7 +58,47 @@
      ]
     }
    ],
-   "after": []
+   "after": [
+    {
+     "control": "button[tab] .tabs__button.touch-floor face 77x33 hit 77x44",
+     "count": 3,
+     "examples": [
+      "Anim",
+      "Freq",
+      "Color"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.touch-floor face 77x33 hit 78x44",
+     "count": 1,
+     "examples": [
+      "Scope"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.touch-floor face 73x36 hit 73x44",
+     "count": 1,
+     "examples": [
+      "Keyboards"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.touch-floor face 58x36 hit 58x44",
+     "count": 16,
+     "examples": [
+      "Synth",
+      "GM",
+      "Drums"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.touch-floor face 60x36 hit 62x44",
+     "count": 1,
+     "examples": [
+      "Presets"
+     ]
+    }
+   ]
   },
   "/style-guide/primitives": {
    "before": [
@@ -260,7 +300,7 @@
    ],
    "after": [
     {
-     "control": "button .paper-button.paper-button--md face 40x40 hit 44x44",
+     "control": "button .paper-button.touch-floor face 40x40 hit 44x44",
      "count": 13,
      "examples": [
       "Play",
@@ -269,14 +309,14 @@
      ]
     },
     {
-     "control": "button .paper-button.paper-button--sm face 32x32 hit 44x44",
+     "control": "button .paper-button.touch-floor face 32x32 hit 44x44",
      "count": 1,
      "examples": [
       "Small"
      ]
     },
     {
-     "control": "button .paper-button.paper-button--lg face 48x48 hit 48x48",
+     "control": "button .paper-button.touch-floor face 48x48 hit 48x48",
      "count": 3,
      "examples": [
       "Large",
@@ -346,109 +386,78 @@
      ]
     },
     {
-     "control": "button[tab] .tabs__button.tabs__button--active face 71x33 hit 71x44",
-     "count": 1,
-     "examples": [
-      "Anim"
-     ]
-    },
-    {
-     "control": "button[tab] .tabs__button face 71x33 hit 71x44",
-     "count": 2,
-     "examples": [
-      "Freq",
-      "Color"
-     ]
-    },
-    {
-     "control": "button[tab] .tabs__button face 71x33 hit 72x44",
-     "count": 1,
-     "examples": [
-      "Scope"
-     ]
-    },
-    {
-     "control": "button[tab] .tabs__button.tabs__button--active face 44x33 hit 43x44",
-     "count": 7,
-     "examples": [
-      "Anim"
-     ]
-    },
-    {
-     "control": "button[tab] .tabs__button face 44x33 hit 43x44",
-     "count": 7,
-     "examples": [
-      "Freq"
-     ]
-    },
-    {
-     "control": "button[tab] .tabs__button face 44x33 hit 53x44",
-     "count": 7,
-     "examples": [
-      "Color"
-     ]
-    },
-    {
-     "control": "button[tab] .tabs__button.tabs__button--active face 46x36 hit 45x44",
-     "count": 1,
-     "examples": [
-      "Anim"
-     ]
-    },
-    {
-     "control": "button[tab] .tabs__button face 46x36 hit 45x44",
-     "count": 1,
-     "examples": [
-      "Freq"
-     ]
-    },
-    {
-     "control": "button[tab] .tabs__button face 46x36 hit 47x44",
-     "count": 1,
-     "examples": [
-      "Color"
-     ]
-    },
-    {
-     "control": "button[tab] .tabs__button.tabs__button--active face 33x33 hit 32x44",
-     "count": 1,
-     "examples": [
-      "Anim"
-     ]
-    },
-    {
-     "control": "button[tab] .tabs__button face 33x33 hit 32x44",
-     "count": 2,
-     "examples": [
-      "Freq",
-      "Color"
-     ]
-    },
-    {
-     "control": "button[tab] .tabs__button face 33x33 hit 58x44",
-     "count": 1,
-     "examples": [
-      "Scope"
-     ]
-    },
-    {
-     "control": "button[tab] .tabs__button.tabs__button--active face 27x36 hit 23x44",
-     "count": 1,
-     "examples": [
-      "Anim"
-     ]
-    },
-    {
-     "control": "button[tab] .tabs__button face 27x36 hit 27x44",
+     "control": "button[tab] .tabs__button.touch-floor face 71x33 hit 71x44",
      "count": 3,
      "examples": [
+      "Anim",
       "Freq",
-      "Color",
+      "Color"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.touch-floor face 71x33 hit 72x44",
+     "count": 1,
+     "examples": [
       "Scope"
      ]
     },
     {
-     "control": "button[tab] .tabs__button face 27x36 hit 44x44",
+     "control": "button[tab] .tabs__button.touch-floor face 44x33 hit 43x44",
+     "count": 14,
+     "examples": [
+      "Anim",
+      "Freq"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.touch-floor face 44x33 hit 53x44",
+     "count": 7,
+     "examples": [
+      "Color"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.touch-floor face 46x36 hit 45x44",
+     "count": 2,
+     "examples": [
+      "Anim",
+      "Freq"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.touch-floor face 46x36 hit 47x44",
+     "count": 1,
+     "examples": [
+      "Color"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.touch-floor face 33x33 hit 33x44",
+     "count": 3,
+     "examples": [
+      "Anim",
+      "Freq",
+      "Color"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.touch-floor face 33x33 hit 53x44",
+     "count": 1,
+     "examples": [
+      "Scope"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.touch-floor face 27x36 hit 27x44",
+     "count": 4,
+     "examples": [
+      "Anim",
+      "Freq",
+      "Color"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.touch-floor face 27x36 hit 34x44",
      "count": 1,
      "examples": [
       "Keys"
@@ -722,7 +731,7 @@
      ]
     },
     {
-     "control": "button .paper-button.paper-button--lg face 48x48 hit 48x48",
+     "control": "button .paper-button.touch-floor face 48x48 hit 48x48",
      "count": 2,
      "examples": [
       "Stop crown specimen",
@@ -730,7 +739,7 @@
      ]
     },
     {
-     "control": "button .paper-button.paper-button--sm face 32x32 hit 44x44",
+     "control": "button .paper-button.touch-floor face 32x32 hit 44x44",
      "count": 47,
      "examples": [
       "Stop small crown specimen",
@@ -739,7 +748,7 @@
      ]
     },
     {
-     "control": "button .paper-button.paper-button--md face 40x40 hit 44x44",
+     "control": "button .paper-button.touch-floor face 40x40 hit 44x44",
      "count": 1,
      "examples": [
       "Play medium specimen"
@@ -755,23 +764,23 @@
      ]
     },
     {
-     "control": "div[slider] .knob-wrapper.instrument-control face 24x37 hit 15x44",
-     "count": 2,
-     "examples": [
-      "Key"
-     ]
-    },
-    {
      "control": "div[slider] .knob-wrapper.instrument-control face 24x37 hit 24x44",
      "count": 6,
      "examples": [
+      "Key",
       "Mode",
-      "BPM",
+      "BPM"
+     ]
+    },
+    {
+     "control": "div[slider] .knob-wrapper.instrument-control face 24x37 hit 25x44",
+     "count": 2,
+     "examples": [
       "Octave"
      ]
     },
     {
-     "control": "div[slider] .knob-wrapper.instrument-control face 24x37 hit 44x44",
+     "control": "div[slider] .knob-wrapper.instrument-control face 24x37 hit 26x44",
      "count": 2,
      "examples": [
       "Style"
@@ -874,7 +883,7 @@
      ]
     },
     {
-     "control": "button .paper-button.paper-button--sm face 32x32 hit 44x44",
+     "control": "button .paper-button.touch-floor face 32x32 hit 44x44",
      "count": 3,
      "examples": [
       "Play",
@@ -1189,14 +1198,14 @@
      ]
     },
     {
-     "control": "button .paper-button.paper-button--sm face 32x32 hit 44x44",
+     "control": "button .paper-button.touch-floor face 32x32 hit 44x44",
      "count": 1,
      "examples": [
       "Close sounds"
      ]
     },
     {
-     "control": "label .instrument-search.flex face 362x35 hit 121x45",
+     "control": "label .touch-floor.touch-floor--block face 362x35 hit 121x45",
      "count": 1,
      "examples": [
       "LABEL"
@@ -1210,7 +1219,7 @@
      ]
     },
     {
-     "control": "button .instrument-choice face 93x44 hit 94x44",
+     "control": "button .instrument-choice face 87x44 hit 88x44",
      "count": 1,
      "examples": [
       "triangle, current"
@@ -1231,7 +1240,7 @@
      ]
     },
     {
-     "control": "button .instrument-choice face 149x44 hit 121x44",
+     "control": "button .instrument-choice face 129x44 hit 121x44",
      "count": 1,
      "examples": [
       "lead_3_calliope, available"
@@ -1239,48 +1248,49 @@
     },
     {
      "control": "button .instrument-choice face 114x44 hit 114x44",
-     "count": 1,
+     "count": 2,
      "examples": [
-      "lead_4_chiff, available"
+      "lead_4_chiff, available",
+      "synth_bass_1, available"
      ]
     },
     {
-     "control": "button .instrument-choice face 150x44 hit 121x44",
+     "control": "button .instrument-choice face 130x44 hit 121x44",
      "count": 1,
      "examples": [
       "lead_5_charang, available"
      ]
     },
     {
-     "control": "button .instrument-choice face 119x44 hit 120x44",
+     "control": "button .instrument-choice face 113x44 hit 114x44",
      "count": 1,
      "examples": [
       "lead_6_voice, available"
      ]
     },
     {
-     "control": "button .instrument-choice face 123x44 hit 121x44",
+     "control": "button .instrument-choice face 117x44 hit 118x44",
      "count": 1,
      "examples": [
       "lead_7_fifths, available"
      ]
     },
     {
-     "control": "button .instrument-choice face 148x44 hit 121x44",
+     "control": "button .instrument-choice face 142x44 hit 121x44",
      "count": 1,
      "examples": [
       "lead_8_bass_lead, available"
      ]
     },
     {
-     "control": "button .instrument-choice face 117x44 hit 118x44",
+     "control": "button .instrument-choice face 108x44 hit 110x44",
      "count": 1,
      "examples": [
       "pad_bowed, available"
      ]
     },
     {
-     "control": "button .instrument-choice face 111x44 hit 112x44",
+     "control": "button .instrument-choice face 96x44 hit 98x44",
      "count": 1,
      "examples": [
       "pad_choir, available"
@@ -1294,33 +1304,31 @@
      ]
     },
     {
-     "control": "button .instrument-choice face 110x44 hit 112x44",
+     "control": "button .instrument-choice face 128x44 hit 121x44",
      "count": 1,
      "examples": [
       "pad_metallic, available"
      ]
     },
     {
-     "control": "button .instrument-choice face 115x44 hit 116x44",
-     "count": 2,
+     "control": "button .instrument-choice face 121x44 hit 121x44",
+     "count": 1,
      "examples": [
-      "pad_new_age, available",
-      "synth_bass_2, available"
+      "pad_new_age, available"
      ]
     },
     {
-     "control": "button .instrument-choice face 96x44 hit 98x44",
+     "control": "button .instrument-choice face 90x44 hit 92x44",
      "count": 1,
      "examples": [
       "pad_poly, available"
      ]
     },
     {
-     "control": "button .instrument-choice face 106x44 hit 108x44",
-     "count": 2,
+     "control": "button .instrument-choice face 100x44 hit 102x44",
+     "count": 1,
      "examples": [
-      "pad_sweep, available",
-      "synth_choir, available"
+      "pad_sweep, available"
      ]
     },
     {
@@ -1334,33 +1342,40 @@
      "control": "button .instrument-choice face 132x44 hit 121x44",
      "count": 1,
      "examples": [
-      "synth_bass_1, available"
+      "synth_bass_2, available"
      ]
     },
     {
-     "control": "button .instrument-choice face 121x44 hit 121x44",
-     "count": 2,
+     "control": "button .instrument-choice face 139x44 hit 121x44",
+     "count": 1,
      "examples": [
-      "synth_brass_1, available",
+      "synth_brass_1, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 127x44 hit 121x44",
+     "count": 1,
+     "examples": [
       "synth_brass_2, available"
      ]
     },
     {
-     "control": "button .instrument-choice face 71x44 hit 72x44",
+     "control": "button .instrument-choice face 112x44 hit 114x44",
      "count": 1,
      "examples": [
-      "pulse, available"
+      "synth_choir, available"
      ]
     },
     {
-     "control": "button .instrument-choice face 68x44 hit 70x44",
-     "count": 1,
+     "control": "button .instrument-choice face 71x44 hit 72x44",
+     "count": 2,
      "examples": [
+      "pulse, available",
       "saw, available"
      ]
     },
     {
-     "control": "button .instrument-choice face 97x44 hit 98x44",
+     "control": "button .instrument-choice face 91x44 hit 92x44",
      "count": 1,
      "examples": [
       "sawtooth, available"
@@ -1368,9 +1383,15 @@
     },
     {
      "control": "button .instrument-choice face 63x44 hit 64x44",
-     "count": 2,
+     "count": 1,
      "examples": [
-      "sin, available",
+      "sin, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 73x44 hit 74x44",
+     "count": 1,
+     "examples": [
       "sine, available"
      ]
     },
@@ -1382,51 +1403,44 @@
      ]
     },
     {
-     "control": "button .instrument-choice face 79x44 hit 80x44",
+     "control": "button .instrument-choice face 85x44 hit 86x44",
      "count": 1,
      "examples": [
       "square, available"
      ]
     },
     {
-     "control": "button .instrument-choice face 99x44 hit 100x44",
+     "control": "button .instrument-choice face 107x44 hit 108x44",
      "count": 1,
      "examples": [
       "supersaw, available"
      ]
     },
     {
-     "control": "button .instrument-choice face 56x44 hit 56x44",
+     "control": "button .instrument-choice face 62x44 hit 62x44",
      "count": 1,
      "examples": [
       "tri, available"
      ]
     },
     {
-     "control": "button[tab] .tabs__button face 58x36 hit 58x44",
-     "count": 5,
+     "control": "button[tab] .tabs__button.touch-floor face 58x36 hit 58x44",
+     "count": 6,
      "examples": [
       "Shape",
-      "Keys",
-      "Organs"
+      "Synths",
+      "Keys"
      ]
     },
     {
-     "control": "button[tab] .tabs__button.tabs__button--active face 58x36 hit 58x44",
-     "count": 1,
-     "examples": [
-      "Synths"
-     ]
-    },
-    {
-     "control": "button[tab] .tabs__button face 61x36 hit 61x44",
+     "control": "button[tab] .tabs__button.touch-floor face 61x36 hit 61x44",
      "count": 1,
      "examples": [
       "Mallets"
      ]
     },
     {
-     "control": "button[tab] .tabs__button face 59x36 hit 59x44",
+     "control": "button[tab] .tabs__button.touch-floor face 59x36 hit 59x44",
      "count": 1,
      "examples": [
       "Strings"
@@ -1515,7 +1529,7 @@
      ]
     },
     {
-     "control": "button .paper-button.paper-button--sm face 32x32 hit 44x44",
+     "control": "button .paper-button.touch-floor face 32x32 hit 44x44",
      "count": 4,
      "examples": [
       "Reset all settings",
@@ -1540,23 +1554,16 @@
      ]
     },
     {
-     "control": "button[tab] .tabs__button.tabs__button--active face 58x36 hit 58x44",
-     "count": 1,
+     "control": "button[tab] .tabs__button.touch-floor face 58x36 hit 58x44",
+     "count": 7,
      "examples": [
-      "Global"
-     ]
-    },
-    {
-     "control": "button[tab] .tabs__button face 58x36 hit 58x44",
-     "count": 6,
-     "examples": [
+      "Global",
       "Stage",
-      "Scope",
-      "Bodies"
+      "Scope"
      ]
     },
     {
-     "control": "button[tab] .tabs__button face 69x36 hit 69x44",
+     "control": "button[tab] .tabs__button.touch-floor face 69x36 hit 69x44",
      "count": 1,
      "examples": [
       "Relations"
@@ -1656,7 +1663,7 @@
      ]
     },
     {
-     "control": "button .paper-button.paper-button--sm face 32x32 hit 44x44",
+     "control": "button .paper-button.touch-floor face 32x32 hit 44x44",
      "count": 6,
      "examples": [
       "Reset all settings",
@@ -1666,43 +1673,42 @@
     },
     {
      "control": "button .config-panel__sticker-action face 175x89 hit 121x90",
-     "count": 4,
+     "count": 2,
      "examples": [
       "Preview Clear Stage Look",
-      "Preview Still Stage Look",
+      "Preview Still Stage Look"
+     ]
+    },
+    {
+     "control": "button .config-panel__sticker-action face 175x85 hit 121x86",
+     "count": 5,
+     "examples": [
+      "Preview Soft Stage Look",
+      "Preview Luminous Stage Look",
       "Preview Pop Stage Look"
      ]
     },
     {
-     "control": "button .config-panel__sticker-action face 175x84 hit 121x84",
-     "count": 3,
-     "examples": [
-      "Preview Soft Stage Look",
-      "Preview Luminous Stage Look",
-      "Preview Smoke Stage Look"
-     ]
-    },
-    {
-     "control": "button[tab] .tabs__button face 58x36 hit 58x44",
+     "control": "button[tab] .tabs__button.touch-floor face 63x36 hit 63x44",
      "count": 6,
      "examples": [
       "Global",
-      "Scope",
-      "Bodies"
+      "Stage",
+      "Scope"
      ]
     },
     {
-     "control": "button[tab] .tabs__button.tabs__button--active face 58x36 hit 58x44",
-     "count": 1,
-     "examples": [
-      "Stage"
-     ]
-    },
-    {
-     "control": "button[tab] .tabs__button face 69x36 hit 69x44",
+     "control": "button[tab] .tabs__button.touch-floor face 67x36 hit 67x44",
      "count": 1,
      "examples": [
       "Relations"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.touch-floor face 63x36 hit 64x44",
+     "count": 1,
+     "examples": [
+      "MIDI"
      ]
     }
    ]
@@ -1810,7 +1816,7 @@
      ]
     },
     {
-     "control": "button .paper-button.paper-button--sm face 32x32 hit 44x44",
+     "control": "button .paper-button.touch-floor face 32x32 hit 44x44",
      "count": 4,
      "examples": [
       "Reset all settings",
@@ -1851,8 +1857,8 @@
      ]
     },
     {
-     "control": "button[tab] .tabs__button face 63x36 hit 63x44",
-     "count": 5,
+     "control": "button[tab] .tabs__button.touch-floor face 58x36 hit 58x44",
+     "count": 7,
      "examples": [
       "Global",
       "Stage",
@@ -1860,24 +1866,10 @@
      ]
     },
     {
-     "control": "button[tab] .tabs__button face 67x36 hit 67x44",
+     "control": "button[tab] .tabs__button.touch-floor face 69x36 hit 69x44",
      "count": 1,
      "examples": [
       "Relations"
-     ]
-    },
-    {
-     "control": "button[tab] .tabs__button.tabs__button--active face 63x36 hit 63x44",
-     "count": 1,
-     "examples": [
-      "Deck"
-     ]
-    },
-    {
-     "control": "button[tab] .tabs__button face 63x36 hit 64x44",
-     "count": 1,
-     "examples": [
-      "MIDI"
      ]
     }
    ]
@@ -1947,7 +1939,7 @@
      ]
     },
     {
-     "control": "button .paper-button.paper-button--sm face 32x32 hit 44x44",
+     "control": "button .paper-button.touch-floor face 32x32 hit 44x44",
      "count": 5,
      "examples": [
       "Reset all settings",
@@ -1956,8 +1948,8 @@
      ]
     },
     {
-     "control": "button[tab] .tabs__button face 58x36 hit 58x44",
-     "count": 6,
+     "control": "button[tab] .tabs__button.touch-floor face 58x36 hit 58x44",
+     "count": 7,
      "examples": [
       "Global",
       "Stage",
@@ -1965,17 +1957,10 @@
      ]
     },
     {
-     "control": "button[tab] .tabs__button face 69x36 hit 69x44",
+     "control": "button[tab] .tabs__button.touch-floor face 69x36 hit 69x44",
      "count": 1,
      "examples": [
       "Relations"
-     ]
-    },
-    {
-     "control": "button[tab] .tabs__button.tabs__button--active face 58x36 hit 58x44",
-     "count": 1,
-     "examples": [
-      "MIDI"
      ]
     }
    ]
@@ -2149,7 +2134,7 @@
      ]
     },
     {
-     "control": "button .paper-button.paper-button--sm face 32x32 hit covered",
+     "control": "button .paper-button.touch-floor face 32x32 hit covered",
      "count": 6,
      "examples": [
       "Delete this take",
@@ -2232,7 +2217,7 @@
      ]
     },
     {
-     "control": "button .paper-button.paper-button--sm face 32x32 hit 44x44",
+     "control": "button .paper-button.touch-floor face 32x32 hit 44x44",
      "count": 4,
      "examples": [
       "Reset all settings",
@@ -2257,23 +2242,16 @@
      ]
     },
     {
-     "control": "button[tab] .tabs__button.tabs__button--active face 58x36 hit 58x44",
-     "count": 1,
+     "control": "button[tab] .tabs__button.touch-floor face 58x36 hit 58x44",
+     "count": 7,
      "examples": [
-      "Global"
-     ]
-    },
-    {
-     "control": "button[tab] .tabs__button face 58x36 hit 58x44",
-     "count": 6,
-     "examples": [
+      "Global",
       "Stage",
-      "Scope",
-      "Bodies"
+      "Scope"
      ]
     },
     {
-     "control": "button[tab] .tabs__button face 69x36 hit 69x44",
+     "control": "button[tab] .tabs__button.touch-floor face 69x36 hit 69x44",
      "count": 1,
      "examples": [
       "Relations"
@@ -2287,7 +2265,7 @@
      ]
     },
     {
-     "control": "button .paper-button.paper-button--md face 28x28 hit 44x44",
+     "control": "button .paper-button.touch-floor face 28x28 hit 44x44",
      "count": 1,
      "examples": [
       "Start humming capture"
@@ -2401,7 +2379,7 @@
      ]
     },
     {
-     "control": "button .paper-button.paper-button--sm face 32x32 hit 44x44",
+     "control": "button .paper-button.touch-floor face 32x32 hit 44x44",
      "count": 6,
      "examples": [
       "Delete this take",
@@ -2467,7 +2445,7 @@
      ]
     },
     {
-     "control": "button .paper-button.paper-button--md face 28x28 hit 44x44",
+     "control": "button .paper-button.touch-floor face 28x28 hit 44x44",
      "count": 1,
      "examples": [
       "Start humming capture"
@@ -2848,7 +2826,7 @@
      ]
     },
     {
-     "control": "button .paper-button.paper-button--sm face 32x32 hit covered",
+     "control": "button .paper-button.touch-floor face 32x32 hit covered",
      "count": 6,
      "examples": [
       "Delete this take",
@@ -2931,14 +2909,14 @@
      ]
     },
     {
-     "control": "button .paper-button.paper-button--sm face 32x32 hit 44x44",
+     "control": "button .paper-button.touch-floor face 32x32 hit 44x44",
      "count": 1,
      "examples": [
       "Close sounds"
      ]
     },
     {
-     "control": "label .instrument-search.flex face 362x35 hit 121x45",
+     "control": "label .touch-floor.touch-floor--block face 362x35 hit 121x45",
      "count": 1,
      "examples": [
       "LABEL"
@@ -2952,32 +2930,32 @@
      ]
     },
     {
-     "control": "button .instrument-choice face 87x44 hit 88x44",
+     "control": "button .instrument-choice face 93x44 hit 94x44",
      "count": 1,
      "examples": [
       "triangle, current"
      ]
     },
     {
-     "control": "button .instrument-choice face 71x44 hit 72x44",
+     "control": "button .instrument-choice face 82x44 hit 82x44",
      "count": 1,
      "examples": [
       "pulse, ready"
      ]
     },
     {
-     "control": "button .instrument-choice face 62x44 hit 64x44",
+     "control": "button .instrument-choice face 71x44 hit 72x44",
      "count": 1,
      "examples": [
       "saw, ready"
      ]
     },
     {
-     "control": "button .instrument-choice face 105x44 hit 106x44",
+     "control": "button .instrument-choice face 97x44 hit 98x44",
      "count": 2,
      "examples": [
       "sawtooth, ready",
-      "pad_halo, cold"
+      "pad_warm, cold"
      ]
     },
     {
@@ -2988,21 +2966,21 @@
      ]
     },
     {
-     "control": "button .instrument-choice face 73x44 hit 74x44",
+     "control": "button .instrument-choice face 63x44 hit 64x44",
      "count": 1,
      "examples": [
       "sine, ready"
      ]
     },
     {
-     "control": "button .instrument-choice face 70x44 hit 70x44",
+     "control": "button .instrument-choice face 67x44 hit 68x44",
      "count": 1,
      "examples": [
       "sqr, ready"
      ]
     },
     {
-     "control": "button .instrument-choice face 79x44 hit 80x44",
+     "control": "button .instrument-choice face 85x44 hit 86x44",
      "count": 1,
      "examples": [
       "square, ready"
@@ -3023,15 +3001,14 @@
      ]
     },
     {
-     "control": "button .instrument-choice face 128x44 hit 121x44",
-     "count": 2,
+     "control": "button .instrument-choice face 141x44 hit 121x44",
+     "count": 1,
      "examples": [
-      "lead_1_square, cold",
-      "pad_metallic, cold"
+      "lead_1_square, cold"
      ]
     },
     {
-     "control": "button .instrument-choice face 135x44 hit 121x44",
+     "control": "button .instrument-choice face 155x44 hit 121x44",
      "count": 1,
      "examples": [
       "lead_2_sawtooth, cold"
@@ -3045,7 +3022,7 @@
      ]
     },
     {
-     "control": "button .instrument-choice face 114x44 hit 114x44",
+     "control": "button .instrument-choice face 120x44 hit 120x44",
      "count": 1,
      "examples": [
       "lead_4_chiff, cold"
@@ -3059,19 +3036,17 @@
      ]
     },
     {
-     "control": "button .instrument-choice face 131x44 hit 121x44",
-     "count": 2,
+     "control": "button .instrument-choice face 119x44 hit 120x44",
+     "count": 1,
      "examples": [
-      "lead_6_voice, cold",
-      "pad_new_age, cold"
+      "lead_6_voice, cold"
      ]
     },
     {
      "control": "button .instrument-choice face 117x44 hit 118x44",
-     "count": 2,
+     "count": 1,
      "examples": [
-      "lead_7_fifths, cold",
-      "pad_bowed, cold"
+      "lead_7_fifths, cold"
      ]
     },
     {
@@ -3079,6 +3054,13 @@
      "count": 1,
      "examples": [
       "lead_8_bass_lead, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 108x44 hit 110x44",
+     "count": 1,
+     "examples": [
+      "pad_bowed, cold"
      ]
     },
     {
@@ -3090,21 +3072,36 @@
      ]
     },
     {
-     "control": "button .instrument-choice face 106x44 hit 108x44",
+     "control": "button .instrument-choice face 98x44 hit 98x44",
+     "count": 1,
+     "examples": [
+      "pad_halo, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 110x44 hit 112x44",
+     "count": 1,
+     "examples": [
+      "pad_metallic, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 121x44 hit 121x44",
+     "count": 2,
+     "examples": [
+      "pad_new_age, cold",
+      "synth_brass_1, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 115x44 hit 116x44",
      "count": 1,
      "examples": [
       "pad_sweep, cold"
      ]
     },
     {
-     "control": "button .instrument-choice face 103x44 hit 104x44",
-     "count": 1,
-     "examples": [
-      "pad_warm, cold"
-     ]
-    },
-    {
-     "control": "button .instrument-choice face 120x44 hit 120x44",
+     "control": "button .instrument-choice face 114x44 hit 114x44",
      "count": 1,
      "examples": [
       "synth_bass_1, cold"
@@ -3118,58 +3115,44 @@
      ]
     },
     {
-     "control": "button .instrument-choice face 121x44 hit 121x44",
-     "count": 1,
-     "examples": [
-      "synth_brass_1, cold"
-     ]
-    },
-    {
-     "control": "button .instrument-choice face 127x44 hit 121x44",
+     "control": "button .instrument-choice face 140x44 hit 121x44",
      "count": 1,
      "examples": [
       "synth_brass_2, cold"
      ]
     },
     {
-     "control": "button .instrument-choice face 112x44 hit 114x44",
+     "control": "button .instrument-choice face 123x44 hit 121x44",
      "count": 1,
      "examples": [
       "synth_choir, cold"
      ]
     },
     {
-     "control": "button[tab] .tabs__button face 58x36 hit 58x44",
-     "count": 5,
+     "control": "button[tab] .tabs__button.touch-floor face 58x36 hit 58x44",
+     "count": 6,
      "examples": [
       "Shape",
-      "Keys",
-      "Organs"
+      "Synths",
+      "Keys"
      ]
     },
     {
-     "control": "button[tab] .tabs__button.tabs__button--active face 58x36 hit 58x44",
-     "count": 1,
-     "examples": [
-      "Synths"
-     ]
-    },
-    {
-     "control": "button[tab] .tabs__button face 61x36 hit 61x44",
+     "control": "button[tab] .tabs__button.touch-floor face 61x36 hit 61x44",
      "count": 1,
      "examples": [
       "Mallets"
      ]
     },
     {
-     "control": "button[tab] .tabs__button face 59x36 hit 59x44",
+     "control": "button[tab] .tabs__button.touch-floor face 59x36 hit 59x44",
      "count": 1,
      "examples": [
       "Strings"
      ]
     },
     {
-     "control": "button .paper-button.paper-button--md face 28x28 hit 44x44",
+     "control": "button .paper-button.touch-floor face 28x28 hit 44x44",
      "count": 1,
      "examples": [
       "Start humming capture"

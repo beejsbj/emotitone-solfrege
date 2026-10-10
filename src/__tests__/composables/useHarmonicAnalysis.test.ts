@@ -434,6 +434,14 @@ describe("useHarmonicAnalysis", () => {
       expect(snapshot.value.noteSpellings).toEqual({ c: "C4", eb: "Eb4" });
     });
 
+    it("orders descending interval endpoints from lower to upper for accessibility", () => {
+      const snapshot = playIn([["high", "C5"], ["low", "E4"]], "C");
+      expect(snapshot.value.intervalEdges[0]).toEqual({
+        fromNoteId: "low", toNoteId: "high", fromIndex: 1, toIndex: 0,
+        interval: "m6", spokenInterval: "minor sixth",
+      });
+    });
+
     it("labels F major's IV as Bb with conventional intervals", () => {
       const snapshot = playIn([["d", "D4"], ["f", "F4"], ["bb", "A#4"]], "F");
 

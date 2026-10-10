@@ -114,15 +114,18 @@ export function useHarmonicAnalysis(
         compareIndex < notes.length;
         compareIndex += 1
       ) {
+        const [fromIndex, toIndex] = Note.get(spellings[notes[index].noteId]).height
+          <= Note.get(spellings[notes[compareIndex].noteId]).height
+          ? [index, compareIndex] : [compareIndex, index];
         const interval = intervalBetween(
-          spellings[notes[index].noteId],
-          spellings[notes[compareIndex].noteId],
+          spellings[notes[fromIndex].noteId],
+          spellings[notes[toIndex].noteId],
         );
         result.push({
-          fromNoteId: notes[index].noteId,
-          toNoteId: notes[compareIndex].noteId,
-          fromIndex: index,
-          toIndex: compareIndex,
+          fromNoteId: notes[fromIndex].noteId,
+          toNoteId: notes[toIndex].noteId,
+          fromIndex,
+          toIndex,
           interval: interval?.label ?? "",
           spokenInterval: interval?.spoken ?? "",
         });

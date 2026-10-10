@@ -156,7 +156,9 @@ function handleTakeSelection(event: Event) {
 .humming-capture-transport__cancel-slot {
   position: absolute;
   top: 50%;
-  left: calc(100% + var(--s-3));
+  /* Far enough out that the two keys' --hit-min touches meet without
+     overlapping: half of each touch, less half of each face. */
+  left: calc(100% + var(--hit-min) - (28px + 22.4px) / 2);
   display: flex;
   transform: translateY(-50%);
 }
@@ -193,8 +195,10 @@ function handleTakeSelection(event: Event) {
 }
 
 .humming-capture-transport__take-select {
-  height: 24px;
+  /* A take list is a field: at least the no-zoom text size and a full touch. */
+  min-block-size: var(--hit-min);
   padding: 0 var(--s-3);
+  font-size: var(--input-text-min);
 }
 
 .humming-capture-transport__status {

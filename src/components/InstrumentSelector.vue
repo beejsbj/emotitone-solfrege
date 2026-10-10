@@ -394,7 +394,7 @@ async function selectInstrument(name: string, close: () => void) {
         <template #toolbar>
           <div v-if="activeTab !== 'shape'" class="flex items-center gap-2">
             <label
-              class="flex flex-1 items-center gap-2 border-b border-[var(--ink-5)] px-0.5 pb-2 pt-0.5 text-[var(--ivory-3)] transition-colors focus-within:border-[var(--ivory-2)] focus-within:text-[var(--ivory)]"
+              class="instrument-search flex flex-1 items-center gap-2 border-b border-[var(--ink-5)] px-0.5 pb-2 pt-0.5 text-[var(--ivory-3)] transition-colors focus-within:border-[var(--ivory-2)] focus-within:text-[var(--ivory)]"
             >
               <Search :size="14" class="text-[var(--ivory-3)]" />
               <input
@@ -402,7 +402,7 @@ async function selectInstrument(name: string, close: () => void) {
                 data-testid="instrument-search"
                 type="text"
                 placeholder="search sounds"
-                class="w-full bg-transparent text-[10px] text-[var(--ivory)] placeholder:text-[var(--ivory-4)] focus:outline-none"
+                class="relative z-[1] w-full bg-transparent text-[length:var(--input-text-min)] text-[var(--ivory)] placeholder:text-[var(--ivory-4)] focus:outline-none"
                 autocomplete="off"
                 autocorrect="off"
                 spellcheck="false"
@@ -590,13 +590,28 @@ async function selectInstrument(name: string, close: () => void) {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: .625rem .75rem;
+  /* Rows of choices touch edge to edge: each choice's own --hit-min height is
+     the row spacing. */
+  gap: 0 .75rem;
   padding: .875rem .125rem .125rem;
+}
+
+/* The search row is drawn compact; its label (which focuses the field)
+   still takes a --hit-min touch. */
+.instrument-search {
+  position: relative;
+}
+
+.instrument-search::before {
+  content: "";
+  position: absolute;
+  inset: min(0px, (100% - var(--hit-min)) / 2) 0;
 }
 
 .instrument-choice {
   min-width: 0;
   max-width: 100%;
+  min-block-size: var(--hit-min);
   border: 0;
   background: transparent;
   padding: .125rem;
@@ -634,7 +649,7 @@ async function selectInstrument(name: string, close: () => void) {
 
 @media (max-width: 460px) {
   .sound-shape__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .instrument-group__choices { gap: .5625rem .5rem; }
+  .instrument-group__choices { column-gap: .5rem; }
   .instrument-choice__sticker { font-size: 12px; }
 }
 </style>

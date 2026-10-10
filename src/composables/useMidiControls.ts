@@ -1,3 +1,4 @@
+import { velocityToMidi } from "@/audio/velocity";
 import { onMounted, onUnmounted, ref, watch } from "vue";
 import { Note as TonalNote } from "@tonaljs/tonal";
 import type { ChromaticNote } from "@/types";
@@ -95,6 +96,7 @@ interface MidiNoteResolver {
 interface MirroredNoteEventDetail {
   /** Monotonic performance.now deadline; independent of system date changes. */
   midiTimestamp?: number;
+  velocity?: number;
   source?: string;
   mirrorMidi?: boolean;
   duration?: string;
@@ -116,6 +118,8 @@ interface ScheduledMidiNoteEventDetail extends MirroredNoteEventDetail {
 
 export interface MidiOwnerTransition {
   midiNote: number;
+  /** Normalized input velocity, preserved until packet encoding. */
+  velocity?: number;
   phase: "attack" | "release";
   timestamp: number;
 }
@@ -125,6 +129,7 @@ interface ScheduledMidiOwnerEvent extends MidiOwnerTransition {
 }
 
 interface PendingMidiOwnerUpdate {
+  velocity?: number;
   ownerId: string;
   midiNote: number;
   phase: "attack" | "release" | "cancel";
@@ -199,7 +204,7 @@ export function createMidiNoteOwnerScheduler(
 
   const apply = (
     ownersByNote: Map<number, Set<string>>,
-    event: Pick<ScheduledMidiOwnerEvent, "ownerId" | "midiNote" | "phase">,
+    event: Pick<ScheduledMidiOwnerEvent, "ownerId" | "midiNote" | "phase" | "velocity">,
   ): Omit<MidiOwnerTransition, "timestamp"> | null => {
     const owners = ownersByNote.get(event.midiNote) ?? new Set<string>();
     const before = owners.size;
@@ -213,7 +218,7 @@ export function createMidiNoteOwnerScheduler(
     }
 
     if (before === 0 && owners.size > 0) {
-      return { midiNote: event.midiNote, phase: "attack" };
+      return { midiNote: event.midiNote, phase: "attack", ...(event.velocity === undefined ? {} : { velocity: event.velocity }) };
     }
     if (before > 0 && owners.size === 0) {
       return { midiNote: event.midiNote, phase: "release" };
@@ -244,7 +249,8 @@ export function createMidiNoteOwnerScheduler(
         const queued = queuedTransitions[index];
         return transition.midiNote === queued.midiNote
           && transition.phase === queued.phase
-          && transition.timestamp === queued.timestamp;
+          && transition.timestamp === queued.timestamp
+          && transition.velocity === queued.velocity;
       });
     if (unchanged) return;
     queuedTransitions = transitions;
@@ -256,6 +262,7 @@ export function createMidiNoteOwnerScheduler(
     midiNote: number,
     phase: ScheduledMidiOwnerEvent["phase"],
     timestamp?: number,
+    velocity?: number,
   ) => {
     const currentTime = isBatching ? batchTime : now();
     if (!isBatching || !advancedCurrentBatch) {
@@ -267,9 +274,9 @@ export function createMidiNoteOwnerScheduler(
     let immediateTransition: Omit<MidiOwnerTransition, "timestamp"> | null = null;
 
     if (timestamp === undefined || timestamp < currentTime) {
-      immediateTransition = apply(activeOwners, { ownerId, midiNote, phase });
+      immediateTransition = apply(activeOwners, { ownerId, midiNote, phase, velocity });
     } else {
-      scheduledEvents.set(key, { ownerId, midiNote, phase, timestamp });
+      scheduledEvents.set(key, { ownerId, midiNote, phase, timestamp, velocity });
     }
     if (isBatching) {
       if (immediateTransition) batchImmediateTransitions.push(immediateTransition);
@@ -294,8 +301,8 @@ export function createMidiNoteOwnerScheduler(
       batchImmediateTransitions = [];
       immediate.forEach(sendNow);
     },
-    attack(ownerId: string, midiNote: number, timestamp?: number) {
-      update(ownerId, midiNote, "attack", timestamp);
+    attack(ownerId: string, midiNote: number, timestamp?: number, velocity?: number) {
+      update(ownerId, midiNote, "attack", timestamp, velocity);
     },
     release(ownerId: string, midiNote: number, timestamp?: number) {
       update(ownerId, midiNote, "release", timestamp);
@@ -851,18 +858,18 @@ export function useMidiControls() {
       if (replaceScheduled) {
         clearRoliQueue();
       }
-      immediate.forEach(({ midiNote, phase }) => {
+      immediate.forEach(({ midiNote, phase, velocity }) => {
         sendToRoliOutput(
           phase === "attack"
-            ? buildRoliNoteOnMessage(midiNote)
+            ? buildRoliNoteOnMessage(midiNote, velocityToMidi(velocity))
             : buildRoliNoteOffMessage(midiNote),
         );
       });
       if (replaceScheduled) {
-        scheduled.forEach(({ midiNote, phase, timestamp }) => {
+        scheduled.forEach(({ midiNote, phase, timestamp, velocity }) => {
           sendToRoliOutput(
             phase === "attack"
-              ? buildRoliNoteOnMessage(midiNote)
+              ? buildRoliNoteOnMessage(midiNote, velocityToMidi(velocity))
               : buildRoliNoteOffMessage(midiNote),
             timestamp,
           );
@@ -904,9 +911,9 @@ export function useMidiControls() {
       pendingMidiOwnerUpdates = [];
       midiOwnerScheduler.beginBatch();
       try {
-        updates.forEach(({ ownerId, midiNote, phase, timestamp }) => {
+        updates.forEach(({ ownerId, midiNote, phase, timestamp, velocity }) => {
           if (phase === "attack") {
-            midiOwnerScheduler.attack(ownerId, midiNote, timestamp);
+            midiOwnerScheduler.attack(ownerId, midiNote, timestamp, velocity);
           } else if (phase === "cancel") {
             midiOwnerScheduler.cancel(ownerId, midiNote);
           } else {
@@ -1087,6 +1094,7 @@ export function useMidiControls() {
         ownerId: `mirrored:${detail.noteId}`,
         midiNote,
         phase: "attack",
+        velocity: detail?.velocity,
         timestamp: resolveMidiEventTimestamp(detail),
       });
       return;
@@ -1102,6 +1110,7 @@ export function useMidiControls() {
       ownerId,
       midiNote,
       phase: "attack",
+      velocity: detail?.velocity,
       timestamp: resolveMidiEventTimestamp(detail),
     });
     const timeoutId = window.setTimeout(() => {
@@ -1199,7 +1208,7 @@ export function useMidiControls() {
     const timestamp = resolveMidiEventTimestamp(detail);
     if (timestamp === undefined) return;
     const ownerId = `scheduled:${detail.noteId}`;
-    queueMidiOwnerUpdate({ ownerId, midiNote, phase: detail.phase, timestamp });
+    queueMidiOwnerUpdate({ ownerId, midiNote, phase: detail.phase, timestamp, velocity: detail.velocity });
   };
 
   const disconnectMidi = () => {

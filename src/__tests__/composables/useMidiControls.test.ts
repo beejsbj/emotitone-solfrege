@@ -19,6 +19,22 @@ vi.mock("@/services/superdoughAudio", () => ({
 }));
 
 describe("useMidiControls helpers", () => {
+  it('rebuilds a future MIDI packet when only velocity changes', () => {
+    const send = vi.fn();
+    const replace = vi.fn();
+    const scheduler = createMidiNoteOwnerScheduler(send, replace, () => 0);
+    scheduler.attack('pulse', 60, 100, .25);
+    scheduler.release('pulse', 60, 200);
+    replace.mockClear();
+    scheduler.attack('pulse', 60, 100, .75);
+    expect(replace).toHaveBeenCalledExactlyOnceWith([
+      { midiNote: 60, phase: 'attack', timestamp: 100, velocity: .75 },
+      { midiNote: 60, phase: 'release', timestamp: 200 },
+    ]);
+    scheduler.attack('immediate', 64, undefined, 1 / 127);
+    expect(send).toHaveBeenLastCalledWith({ midiNote: 64, phase: 'attack', velocity: 1 / 127 });
+  });
+
   it("cancels a replaced future worklet plan without emitting its note-on", () => {
     const send = vi.fn();
     const replace = vi.fn();

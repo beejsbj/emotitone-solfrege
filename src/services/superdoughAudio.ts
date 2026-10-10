@@ -1,3 +1,4 @@
+import { velocityToGain } from "@/audio/velocity";
 import { pitchSolfegeData } from "@/domain/musicalIdentity";
 import { resumeAudioContext } from "@/services/audioLifecycle";
 /**
@@ -685,7 +686,7 @@ export async function attackNote(
   const payload: Record<string, unknown> = {
     s: sound,
     note: noteName,
-    gain: 0.8 * (options?.velocity ?? 1),
+    gain: 0.8 * velocityToGain(options?.velocity),
     attack,
     decay: envelope.decay,
     sustain: envelope.sustain,

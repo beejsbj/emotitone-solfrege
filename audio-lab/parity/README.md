@@ -18,6 +18,7 @@ Fixtures are generated PCM16 WAV data, never catalog assets:
 - Sine and triangle at A4; square and sawtooth at A3–A7 and C2–C7.
 - A 5 ms gate under a 10 ms attack, including release from the incomplete attack.
 - One rhythmic piano pulse followed by an ordinary held piano note, exercising recorded 30 ms and 200 ms release values in one generated document.
+- Two equal-pitch sine and sample notes at velocities .25 and .75. Live and generated playback PCM must each have a soft/hard RMS ratio within .01 of 1/3, with each playback level within 5% of its live level.
 - A 20 ms silent gap: structural rest cleanup must preserve both actual note gates and onsets.
 - A synthetic local soundfont preset with tuning, range, and a continuous .1–.5 second loop; a 1.3 second hold exercises the loop. Both the live preparation path and installed soundfont handler decode the same fixture. This does not cover the diversity of real GM zone metadata.
 

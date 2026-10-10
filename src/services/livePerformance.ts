@@ -46,7 +46,7 @@ export function createLivePerformance<T>(callbacks: {
   const mirrored = new Map<string, LiveVoiceEvent>()
   const key = (event: LiveVoiceEvent) => `${event.noteId}:${event.phase}`
   const same = (a: LiveVoiceEvent | undefined, b: LiveVoiceEvent) => a?.at === b.at && a.pitch === b.pitch
-    && a.instrumentId === b.instrumentId && a.ownerId === b.ownerId && a.style === b.style
+    && a.velocity === b.velocity && a.instrumentId === b.instrumentId && a.ownerId === b.ownerId && a.style === b.style
   function mirror(event: LiveVoiceEvent, phase = event.phase as 'attack' | 'release' | 'cancel') {
     const owner = owners.get(event.ownerId)
     if (owner) callbacks.onMirror({ ...event, ownerId: owner.ownerId }, owner.metadata, phase)

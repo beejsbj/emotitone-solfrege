@@ -168,7 +168,8 @@ function handleTakeSelection(event: Event) {
 
 .humming-capture-transport__feedback {
   position: absolute;
-  top: calc(100% + var(--s-3));
+  /* Below the primary key's centred --hit-min touch, not just its face. */
+  top: calc(50% + var(--hit-min) / 2 + var(--s-2));
   left: 50%;
   display: grid;
   width: max-content;

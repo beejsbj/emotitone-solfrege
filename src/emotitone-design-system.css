@@ -110,10 +110,11 @@
      them (.touch-floor); dense rows make room for it with spacing, never by
      overlapping. --control-sm is the small control face (Button sm, Config's
      toggles); --hit-gap-sm is the gap at which two of them have touches that
-     meet, and half of it is the room one needs from an edge that clips. */
+     meet (with a 1px seam that absorbs hit-test pixel snapping), and half of
+     it is the room one needs from an edge that clips. */
   --hit-min: 44px;
   --control-sm: 32px;
-  --hit-gap-sm: calc(var(--hit-min) - var(--control-sm));
+  --hit-gap-sm: calc(var(--hit-min) - var(--control-sm) + 1px);
 
   /* Edges are crisp. The poster aesthetic doesn't bevel, blur or round much. */
   --r-xs: 4px;

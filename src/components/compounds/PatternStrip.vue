@@ -33,7 +33,7 @@
         v-else
         :is="selectable ? 'button' : 'div'"
         ref="identityElement"
-        class="pattern-strip__identity"
+        class="pattern-strip__identity touch-floor touch-floor--block"
         :class="{ 'pattern-strip__identity--static': !selectable }"
         :type="selectable ? 'button' : undefined"
         :role="selectable ? undefined : 'group'"
@@ -396,11 +396,15 @@ const openLabel = computed(() => props.item.canOpenStrudel === false
 }
 
 .pattern-strip__row {
+  /* The last key's touch stays inside the strip, which clips; a reel row drawn
+     smaller (--slot-scale) needs more room for its scaled-back-up touch. */
+  --pattern-strip-key-room: calc((var(--hit-min) / var(--slot-scale, 1) - var(--control-sm)) / 2 + 1px);
+
   display: flex;
   min-width: 0;
   align-items: center;
   gap: var(--s-4);
-  padding: 1.6px 10px 1.6px 16px;
+  padding: 1.6px max(10px, var(--pattern-strip-key-room)) 1.6px 16px;
 }
 
 .pattern-strip__identity {
@@ -507,9 +511,10 @@ const openLabel = computed(() => props.item.canOpenStrudel === false
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  /* Small keys sit --hit-gap-sm apart so their touches meet, not overlap, at
-     every width. */
-  gap: var(--hit-gap-sm);
+  /* Small keys sit far enough apart that their touches meet, not overlap, at
+     every width: --hit-gap-sm at full size, wider in a reel row drawn smaller
+     (--slot-scale), so the drawn pitch stays one --hit-min. */
+  gap: calc((var(--control-sm) + var(--hit-gap-sm)) / var(--slot-scale, 1) - var(--control-sm));
 }
 
 /* The take is flat Ink like every strip; only its Brass edges mark it. */
@@ -587,7 +592,7 @@ const openLabel = computed(() => props.item.canOpenStrudel === false
 @media (max-width: 520px) {
   .pattern-strip__row {
     gap: var(--s-3);
-    padding-right: 7px;
+    padding-right: max(7px, var(--pattern-strip-key-room));
     padding-left: 13px;
   }
 

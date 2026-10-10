@@ -1,3 +1,5 @@
+import { velocityToGain } from "@/audio/velocity";
+import { pitchSolfegeData } from "@/domain/musicalIdentity";
 import { resumeAudioContext } from "@/services/audioLifecycle";
 /**
  * superdoughAudio.ts
@@ -10,8 +12,6 @@ import { resumeAudioContext } from "@/services/audioLifecycle";
 // @ts-ignore
 import { superdough, registerSynthSounds, samples, loadBuffer, getSound, soundMap, hasVoice, stopVoice, cancelVoice, releaseVoice, releaseAllVoices } from "superdough";
 import { webaudioOutput } from "@strudel/webaudio";
-// @ts-ignore
-import { prewarmSoundfont, registerSoundfonts } from "@strudel/soundfonts";
 import { musicTheory, CHROMATIC_NOTES } from "@/services/music";
 import type {
   ActiveNote,
@@ -151,6 +151,14 @@ const SAMPLE_PACKS = [
   { key: "vcsl", label: "Orchestra" },
 ] as const;
 
+/** Catalog code is needed only by the picker or a selected GM instrument. */
+let soundfontCatalog: Promise<void> | null = null;
+export function ensureSoundfontCatalog(): Promise<void> {
+  return soundfontCatalog ??= import("@strudel/soundfonts")
+    .then(({ registerSoundfonts }) => registerSoundfonts())
+    .catch(error => { soundfontCatalog = null; throw error; });
+}
+
 /**
  * Core pre-warm logic — assumes superdough is already initialised.
  * Do NOT call initSuperdoughAudio() here; it would deadlock when invoked
@@ -161,6 +169,7 @@ async function _prewarmSoundCore(
   tolerateBufferFailures = false
 ): Promise<void> {
   const resolved = resolveLiveSoundName(soundName);
+  if (resolved.startsWith("gm_")) await ensureSoundfontCatalog();
   let sound;
   try {
     // Resolve the registered sound before treating synth names as ready. This
@@ -185,6 +194,7 @@ async function _prewarmSoundCore(
     }
 
     try {
+      const { prewarmSoundfont } = await import("@strudel/soundfonts");
       await prewarmSoundfont(font, getAudioContext());
       await prepareLivePlayback(getAudioContext(), getSuperdoughMasterGain(), resolved);
       _prewarmedSounds.add(resolved);
@@ -293,11 +303,10 @@ export async function initSuperdoughAudio(
       registerSynthSounds();
       progressCallback?.(3, "Synth sounds registered");
 
-      // Load all sample packs from the dough-samples CDN + GM soundfonts.
+      // Load sample-pack metadata only; audio files warm on selection.
       // Track individual completions so the loading screen shows real steps.
       const BASE = "https://raw.githubusercontent.com/felixroos/dough-samples/main/";
-      // 7 items total: 6 JSON packs + soundfonts
-      const total = SAMPLE_PACKS.length + 1;
+      const total = SAMPLE_PACKS.length;
       let done = 0;
 
       const reportPack = (label: string) => {
@@ -312,7 +321,6 @@ export async function initSuperdoughAudio(
           ...SAMPLE_PACKS.map(({ key, label }) =>
             Promise.resolve(samples(`${BASE}${key}.json`)).then(() => reportPack(label))
           ),
-          Promise.resolve(registerSoundfonts()).then(() => reportPack("Soundfonts")),
         ]);
       } catch (error) {
         // Tagged so the loading screen can offer the synths, which need no download.
@@ -395,16 +403,6 @@ function resolveSolfegeIndex(noteName: string): number | null {
   return musicTheory.getCurrentScaleNotes().indexOf(chromaticNote);
 }
 
-function borrowedPitchSolfege(noteName: ChromaticNote): SolfegeData {
-  return {
-    name: noteName,
-    number: 0,
-    emotion: "Borrowed harmony tone",
-    description: "An explicit chord alteration outside the active scale.",
-    texture: "harmonic",
-  };
-}
-
 function extractHapNoteName(hap: unknown): string | null {
   const value = (hap as { value?: unknown })?.value;
 
@@ -434,6 +432,13 @@ function extractHapFrequency(hap: unknown, noteName: string): number {
   return TonalNote.get(noteName).freq || 0;
 }
 
+let strudelLaBasedMinor = false;
+
+/** The music store supplies the presentation preference; audio never reads Pinia. */
+export function setStrudelLaBasedMinor(value: boolean): void {
+  strudelLaBasedMinor = value;
+}
+
 function buildStrudelVisualPayload(hap: unknown) {
   try {
     const noteValue = extractHapNoteName(hap);
@@ -457,9 +462,9 @@ function buildStrudelVisualPayload(hap: unknown) {
       return null;
     }
 
-    const note = solfegeIndex === -1
-      ? borrowedPitchSolfege(chromaticNote)
-      : musicTheory.getCurrentScale().solfege[solfegeIndex];
+    const note = pitchSolfegeData(chromaticNote, {
+      tonic: musicTheory.getCurrentKey(), mode: musicTheory.getCurrentMode(),
+    }, strudelLaBasedMinor);
     if (!note) {
       return null;
     }
@@ -524,7 +529,10 @@ function releaseStrudelVisual(noteId: string, audibleAt = audioTimeToOutputTime(
   _activeStrudelVisuals.delete(noteId);
 }
 
+const pendingStageWakes = new Set<number>();
 export function stopStrudelVisuals(): void {
+  pendingStageWakes.forEach(timer => clearTimeout(timer));
+  pendingStageWakes.clear();
   if (typeof window === "undefined") {
     _activeStrudelVisuals.clear();
     return;
@@ -548,6 +556,14 @@ export async function emotitoneStrudelOutput(
   // absolute audio-clock onset as t; its legacy deadline argument is unused.
   const output = webaudioOutput(hap as never, deadline, hapDuration, cps, t);
   const visualPayload = buildStrudelVisualPayload(hap);
+
+  if (!visualPayload && typeof window !== "undefined" && t >= submittedAt) {
+    const timer = window.setTimeout(() => {
+      pendingStageWakes.delete(timer);
+      if (context.state === "running") window.dispatchEvent(new Event("stage-audio"));
+    }, Math.max(0, audioTimeToOutputTime(context, t) - performance.now()));
+    pendingStageWakes.add(timer);
+  }
 
   if (visualPayload && typeof window !== "undefined" && t >= submittedAt) {
     const noteId = `strudel_${++_strudelVisualCounter}`;
@@ -637,6 +653,8 @@ export async function attackNote(
   instrument: string,
   options?: {
     atTime?: number;
+    /** Normalized input velocity; omitted on-screen input keeps unity. */
+    velocity?: number;
     attack?: number;
     release?: number;
     cutoff?: number;
@@ -676,7 +694,7 @@ export async function attackNote(
   const payload: Record<string, unknown> = {
     s: sound,
     note: noteName,
-    gain: 0.8,
+    gain: 0.8 * velocityToGain(options?.velocity),
     attack,
     decay: envelope.decay,
     sustain: envelope.sustain,

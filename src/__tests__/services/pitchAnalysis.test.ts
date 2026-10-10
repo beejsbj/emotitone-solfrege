@@ -141,15 +141,15 @@ describe("pitch analysis", () => {
       pressTime: 100,
       releaseTime: 550,
       duration: 450,
-      frequency: 294,
+      frequency: 440 * 2 ** ((62 - 69) / 12),
       velocity: 0.7,
     }));
     expect(candidates[1].notes).toHaveLength(1);
     expect(candidates[1].source?.takeNumber).toBe(2);
   });
 
-  it("surfaces analyzed pitches outside the selected scale", () => {
-    expect(() => pitchAnalysisToPatternCandidates(
+  it("keeps analyzed pitches outside the selected scale as borrowed", () => {
+    const candidates = pitchAnalysisToPatternCandidates(
       analysis({
         phrases: [{
           number: 1,
@@ -167,7 +167,11 @@ describe("pitch analysis", () => {
         }],
       }),
       { key: "C", mode: "major" },
-    )).toThrow("Pitch analysis detected C#4, which is outside C major.");
+    );
+    expect(candidates[0].notes).toHaveLength(1);
+    expect(candidates[0].notes[0]).toMatchObject({
+      note: "C#4", scaleIndex: -1, scaleDegree: 0, isBorrowed: true, pitchClassIndex: 1,
+    });
   });
 });
 

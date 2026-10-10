@@ -215,7 +215,7 @@ function reelItem(entry: ReelEntry, isFront: boolean): PatternReelItem {
   const source = inPlace && phrase.derivedFrom
     ? phrasesStore.findPhrase(phrase.derivedFrom.id)
     : undefined;
-  const contour = phrase.notes.length ? phraseContour(phrase) : "";
+  const contour = phrase.notes.length ? phraseContour(phrase, visualConfigStore.laBasedMinor) : "";
   // A stable title; the solfège contour lives on the meta line below it.
   const title = source?.name || phraseTitle(phrase);
   const { key, mode, instrument, octave } = phrase.context;

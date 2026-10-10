@@ -3,13 +3,14 @@ import { nextTick } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { mount } from '@vue/test-utils'
 import MainApp from '@/MainApp.vue'
+import { MAJOR_SOLFEGE } from '@/data'
 import { useVisualConfigStore } from '@/stores/visualConfig'
 
 // Everything except the Stage and the store is a stand-in: the behaviour under
 // test is the Visuals switch reaching the real Stage and its animation loop.
 vi.mock('@/components/LoadingSplash.vue', () => ({ default: { template: '<div />' } }))
-vi.mock('@/components/ConfigPanel.vue', () => ({ default: { template: '<div />' } }))
-vi.mock('@/components/InstrumentSelector.vue', () => ({ default: { template: '<div />' } }))
+vi.mock('@/components/LazyConfigPanel.vue', () => ({ default: { template: '<div />' } }))
+vi.mock('@/components/LazyInstrumentSelector.vue', () => ({ default: { template: '<div />' } }))
 vi.mock('@/components/PerformanceDeck.vue', () => ({ default: { template: '<div />' } }))
 vi.mock('@/composables/useMidiControls', () => ({ useMidiControls: vi.fn() }))
 vi.mock('@/composables/useAppLoading', () => ({ useAppLoading: () => ({ isLoading: false }) }))
@@ -28,6 +29,8 @@ describe('Visuals switch', () => {
   }
 
   beforeEach(() => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getBoundingClientRect')
+      .mockReturnValue(new DOMRect(0, 0, 800, 600))
     pending = new Map()
     nextId = 0
     scheduled = 0
@@ -45,6 +48,7 @@ describe('Visuals switch', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals()
+    vi.restoreAllMocks()
   })
 
   it('unmounts the Stage and ends its animation loop when Visuals is switched off, and restores it when switched on', async () => {
@@ -53,7 +57,12 @@ describe('Visuals switch', () => {
     const wrapper = mount(MainApp, { global: { plugins: [pinia] } })
     await nextTick()
 
-    // Stage is up and its loop is running: each frame schedules the next one.
+    window.dispatchEvent(new CustomEvent('note-played', {
+      detail: { note: MAJOR_SOLFEGE[0], frequency: 261.63, noteId: 'visuals-switch-held',
+        noteName: 'C4', octave: 4, pitchClassIndex: 0, key: 'C', mode: 'major' },
+    }))
+
+    // A held note keeps the Stage running; silence is allowed to idle.
     expect(wrapper.find('canvas.unified-canvas').exists()).toBe(true)
     runFrames(16)
     const runningBefore = scheduled

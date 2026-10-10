@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { flushPromises } from '@vue/test-utils'
 
 const mocks = vi.hoisted(() => ({ create: vi.fn(), prepare: vi.fn(), releasePrepared: vi.fn(), preparationDiagnostics: vi.fn(),
   chains: [] as { input: object; apply: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn> }[] }))
 vi.mock('@strudel/soundfonts', () => ({ getPreparedSoundfont: vi.fn() }))
 vi.mock('@/audio/live/bridge', () => ({ createLiveWorklet: mocks.create }))
-vi.mock('@/audio/liveShaping', () => ({ createLiveShapingChain: vi.fn(() => {
-  const chain = { input: {}, apply: vi.fn(), dispose: vi.fn() }
+vi.mock('@/audio/liveShaping', () => ({ OPEN_CUTOFF_HZ: 12000, createLiveShapingChain: vi.fn(() => {
+  const chain = { input: {}, room: {}, delay: {}, apply: vi.fn(), dispose: vi.fn() }
   mocks.chains.push(chain)
   return chain
 }) }))
@@ -19,7 +20,7 @@ const context = () => ({ audioWorklet: {}, state: 'running' }) as AudioContext
 const destination = {} as AudioNode
 async function setup() {
   const engine = { prepare: vi.fn().mockResolvedValue(undefined), forget: vi.fn(), press: vi.fn(),
-    release: vi.fn(), clear: vi.fn(), configure: vi.fn(), shape: vi.fn(), dispose: vi.fn() }
+    release: vi.fn(), clear: vi.fn(), configure: vi.fn(), shape: vi.fn(), effects: vi.fn(), dispose: vi.fn() }
   mocks.create.mockResolvedValue(engine)
   mocks.prepare.mockImplementation(async (_context, name) => bank(name))
   mocks.preparationDiagnostics.mockReturnValue({ cachedPreparationPcmBytes: 0, preparingPcmBytes: 0, preparationPcmBudgetBytes: 192 * 1024 * 1024 })
@@ -29,6 +30,85 @@ beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); mocks.chains.length = 
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs() })
 
 describe('live playback instrument manager', () => {
+  it.each([false, true])('rebuilds transient-rate banks (route returns before renderer creation: %s)', async returnBeforeRenderer => {
+    const { manager, engine, context } = await setup()
+    Object.assign(context, { sampleRate: 48000 })
+    await manager.prepareLivePlayback(context, destination, 'piano')
+    const renderedRates: number[] = []
+    const preparedRates: number[] = []
+    const rebuilt: Array<{ rate: number; acknowledge: () => void; dispose: ReturnType<typeof vi.fn> }> = []
+    let finishPreparation!: () => void
+    mocks.prepare.mockImplementation(async () => {
+      preparedRates.push(context.sampleRate)
+      if (preparedRates.length === 1) await new Promise<void>(resolve => { finishPreparation = resolve })
+      return bank('piano')
+    })
+    mocks.create.mockImplementation(async () => {
+      const rate = context.sampleRate
+      const dispose = vi.fn()
+      return { ...engine, dispose, press: () => { renderedRates.push(rate) },
+        prepare: () => new Promise<void>(acknowledge => { rebuilt.push({ rate, acknowledge, dispose }) }) }
+    })
+    Object.assign(context, { sampleRate: 44100 })
+    const { resumeAudioContext } = await import('@/services/audioLifecycle')
+    const gate = resumeAudioContext(context)!
+    const waiting = gate.then(() => manager.getLivePlayback('piano')!.press('waiting', [{ instrumentId: 'piano', pitch: 60 }]))
+    Object.assign(context, { sampleRate: 32000 })
+    await vi.waitFor(() => expect(preparedRates).toEqual([32000]))
+    if (returnBeforeRenderer) Object.assign(context, { sampleRate: 44100 })
+    finishPreparation()
+    await vi.waitFor(() => expect(rebuilt).toHaveLength(1))
+    Object.assign(context, { sampleRate: 44100 })
+    rebuilt[0].acknowledge()
+    await flushPromises()
+    expect(renderedRates).toEqual([])
+    await vi.waitFor(() => expect(rebuilt).toHaveLength(2))
+    expect(preparedRates).toEqual([32000, 44100])
+    rebuilt[1].acknowledge()
+    await waiting
+    expect(renderedRates).toEqual([44100])
+    expect(rebuilt[0].dispose).toHaveBeenCalledOnce()
+    expect(resumeAudioContext(context)).toBeUndefined()
+  })
+
+  it('keeps waiting input gated through successive rate changes during bank rebuilds', async () => {
+    const { manager, engine, context } = await setup()
+    Object.assign(context, { sampleRate: 48000 })
+    await manager.prepareLivePlayback(context, destination, 'piano')
+    const renderedRates: number[] = []
+    const rebuilt: Array<{ rate: number; acknowledge: () => void; dispose: ReturnType<typeof vi.fn> }> = []
+    mocks.create.mockImplementation(async () => {
+      const rate = context.sampleRate
+      const dispose = vi.fn()
+      return { ...engine, dispose,
+        press: () => { renderedRates.push(rate) },
+        prepare: () => new Promise<void>(acknowledge => { rebuilt.push({ rate, acknowledge, dispose }) }),
+      }
+    })
+    Object.assign(context, { sampleRate: 44100 })
+    const { resumeAudioContext } = await import('@/services/audioLifecycle')
+    const gate = resumeAudioContext(context)!
+    const waiting = gate.then(() => manager.getLivePlayback('piano')!.press('waiting', [{ instrumentId: 'piano', pitch: 60 }]))
+    for (const [index, nextRate] of [32000, 96000].entries()) {
+      await vi.waitFor(() => expect(rebuilt).toHaveLength(index + 1))
+      expect(resumeAudioContext(context)).toBe(gate)
+      Object.assign(context, { sampleRate: nextRate })
+      rebuilt[index].acknowledge()
+      await flushPromises()
+      expect(renderedRates).toEqual([])
+    }
+    await vi.waitFor(() => expect(rebuilt).toHaveLength(3))
+    expect(rebuilt.map(build => build.rate)).toEqual([44100, 32000, 96000])
+    rebuilt[2].acknowledge()
+    await waiting
+    expect(renderedRates).toEqual([96000])
+    expect(engine.dispose).toHaveBeenCalledOnce()
+    expect(rebuilt[0].dispose).toHaveBeenCalledOnce()
+    expect(rebuilt[1].dispose).toHaveBeenCalledOnce()
+    expect(rebuilt[2].dispose).not.toHaveBeenCalled()
+    expect(resumeAudioContext(context)).toBeUndefined()
+  })
+
   it('rebuilds a changed-rate worklet before a resumed input can use it', async () => {
     const { manager, engine, context } = await setup()
     Object.assign(context, { sampleRate: 48000, state: 'running' })
@@ -244,17 +324,19 @@ describe('live Shape controls on the worklet backend', () => {
     manager.setLivePlaybackShaping(shaped)
     await manager.prepareLivePlayback(context, destination, 'piano')
     const [chain] = mocks.chains
-    expect(mocks.create).toHaveBeenCalledWith(context, chain.input, expect.anything())
-    expect(chain.apply).toHaveBeenLastCalledWith(shaped)
+    expect(mocks.create).toHaveBeenCalledWith(context, chain.input, expect.anything(), chain)
+    expect(engine.effects).toHaveBeenLastCalledWith(shaped)
     expect(engine.shape).toHaveBeenLastCalledWith(shaped.envelope)
+    expect(engine.effects).toHaveBeenLastCalledWith(shaped)
   })
 
   it('applies later edits to the chain and the worklet envelope', async () => {
     const { manager, engine, context } = await setup()
     await manager.prepareLivePlayback(context, destination, 'piano')
     manager.setLivePlaybackShaping(shaped)
-    expect(mocks.chains[0].apply).toHaveBeenLastCalledWith(shaped)
+    expect(engine.effects).toHaveBeenLastCalledWith(shaped)
     expect(engine.shape).toHaveBeenLastCalledWith(shaped.envelope)
+    expect(engine.effects).toHaveBeenLastCalledWith(shaped)
   })
 
   it('keeps edits made while the worklet is still being created', async () => {
@@ -265,8 +347,9 @@ describe('live Shape controls on the worklet backend', () => {
     await vi.waitFor(() => expect(finish).toBeTypeOf('function'))
     manager.setLivePlaybackShaping(shaped)
     finish(engine); await pending
-    expect(mocks.chains[0].apply).toHaveBeenLastCalledWith(shaped)
+    expect(engine.effects).toHaveBeenLastCalledWith(shaped)
     expect(engine.shape).toHaveBeenLastCalledWith(shaped.envelope)
+    expect(engine.effects).toHaveBeenLastCalledWith(shaped)
   })
 
   it('disposes the chain together with its worklet', async () => {

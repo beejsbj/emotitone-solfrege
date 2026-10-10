@@ -1,8 +1,21 @@
 import { mount } from "@vue/test-utils";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import specimenSource from "@/style-guide/compounds/CompoundKeyboard.vue?raw";
+import UniqueDrawer from "@/style-guide/uniques/UniqueDrawer.vue";
 import CompoundKeyboard from "@/style-guide/compounds/CompoundKeyboard.vue";
+import { getSolfegeLabelForInterval } from "@/domain/solfege";
+
+vi.mock("@/domain/solfege", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/domain/solfege")>();
+  return { ...actual, getSolfegeLabelForInterval: vi.fn(actual.getSolfegeLabelForInterval) };
+});
+
+// The drawer's code editor is unrelated to keyboard labels and imports the
+// browser-only Strudel transport. Keep the real Drawer, Keyboard and Notes.
+vi.mock("@/components/compounds/CodeStripBar.vue", () => ({
+  default: { template: "<div />" },
+}));
 
 describe("Keyboard style-guide specimen", () => {
   it("imports the authoritative compound and remains inert", () => {
@@ -14,6 +27,36 @@ describe("Keyboard style-guide specimen", () => {
     );
     expect(specimenSource.match(/usage="controlled"/g)).toHaveLength(2);
     expect(specimenSource).toContain("inert · no input yet");
+  });
+
+  it.each([
+    ["Keyboard", CompoundKeyboard],
+    ["Drawer", UniqueDrawer],
+  ] as const)("shows Fi for the chromatic raised fourth in the %s specimen", (_name, component) => {
+    const wrapper = mount(component);
+    try {
+      const labels = wrapper.findAll(".keyboard__row .note__label--rank-primary")
+        .map((label) => label.text());
+      expect(labels).toContain("Fi");
+      expect(labels).not.toContain("Se");
+    } finally {
+      wrapper.unmount();
+    }
+  });
+
+  it.each([CompoundKeyboard, UniqueDrawer])("derives specimen labels from the shared vocabulary", (component) => {
+    const helper = vi.mocked(getSolfegeLabelForInterval);
+    const original = helper.getMockImplementation()!;
+    helper.mockReturnValue("Shared");
+    const wrapper = mount(component);
+    try {
+      const labels = wrapper.findAll(".keyboard__row .note__label--rank-primary.note__label--syllable");
+      expect(labels.length).toBeGreaterThan(0);
+      expect(labels.map((label) => label.text().replace(/\s+/g, ""))).toEqual(labels.map(() => "Shared"));
+    } finally {
+      wrapper.unmount();
+      helper.mockImplementation(original);
+    }
   });
 
   // Mounting two full Keyboards and re-rendering them three times takes about

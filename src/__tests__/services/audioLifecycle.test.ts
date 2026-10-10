@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { manageAudioLifecycle, onAudioRunning, registerAudioActivity, resumeAudioContext } from "@/services/audioLifecycle";
 import { createLiveAudioInput } from "@/services/liveAudio";
+import { createStageSpecimenAudio } from "@/style-guide/stage/stageSpecimenAudio";
 
 const cleanup: Array<() => void> = [];
 function fixture(state = "running") {
@@ -19,6 +20,31 @@ beforeEach(() => { vi.useFakeTimers(); vi.spyOn(performance, "now").mockImplemen
 afterEach(() => { cleanup.splice(0).forEach(dispose => dispose()); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 
 describe("shared audio lifecycle", () => {
+  it("retries a hung specimen unlock on a later explicit call without a lifecycle manager", async () => {
+    const context = {
+      state: "suspended",
+      createOscillator: () => ({ frequency: { value: 0 }, connect() {}, start() {}, stop() {}, disconnect() {} }),
+      createGain: () => ({ gain: { value: 0 }, connect() {}, disconnect() {} }),
+      resume: vi.fn(async () => { context.state = "running"; }),
+      close: vi.fn(async () => { context.state = "closed"; }),
+    };
+    context.resume.mockImplementationOnce(() => new Promise(() => {}));
+    vi.stubGlobal("AudioContext", vi.fn(() => context));
+    const specimen = createStageSpecimenAudio(() => "phrase");
+    cleanup.push(() => specimen.features.cleanup());
+    let ready = 0;
+    const first = specimen.resume().then(() => { ready++; });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(ready).toBe(0);
+    const second = specimen.resume().then(() => { ready++; });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(ready).toBe(2);
+    await Promise.all([first, second]);
+    expect(context.resume).toHaveBeenCalledTimes(2);
+    expect(context.state).toBe("running");
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it("does not resume on hidden return or ever try a closed context", async () => {
     const { context, audio } = fixture("interrupted");
     vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
@@ -136,6 +162,46 @@ describe("shared audio lifecycle", () => {
     await waiting;
     expect(context.resume).toHaveBeenCalledTimes(2);
     expect(context.state).toBe("running");
+  });
+
+  it("ignores a superseded attempt's late rejection while the retry is pending", async () => {
+    const { context, audio } = fixture("interrupted");
+    let rejectOld!: (error: Error) => void;
+    let finishRetry!: () => void;
+    context.resume
+      .mockImplementationOnce(() => new Promise<void>((_, reject) => { rejectOld = reject; }))
+      .mockImplementationOnce(() => new Promise<void>(resolve => {
+        finishRetry = () => { context.state = "running"; resolve(); };
+      }));
+    let outcome = "pending";
+    const waiting = resumeAudioContext(audio)!.then(() => { outcome = "ready"; }, () => { outcome = "failed"; });
+    document.dispatchEvent(new Event("pointerdown"));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(context.resume).toHaveBeenCalledTimes(2);
+    rejectOld(new Error("late"));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(outcome).toBe("pending");
+    finishRetry();
+    await waiting;
+    expect(outcome).toBe("ready");
+  });
+
+  it("lets a superseded attempt's late success release an unmanaged gate whose retry hangs", async () => {
+    const context = Object.assign(new EventTarget(), { state: "suspended", sampleRate: 48000, resume: vi.fn() });
+    let finishOld!: () => void;
+    context.resume
+      .mockImplementationOnce(() => new Promise<void>(resolve => { finishOld = () => { context.state = "running"; resolve(); }; }))
+      .mockImplementationOnce(() => new Promise<void>(() => {}));
+    const audio = context as unknown as AudioContext;
+    let outcome = "pending";
+    const first = resumeAudioContext(audio)!.then(() => { outcome = "ready"; }, () => { outcome = "failed"; });
+    resumeAudioContext(audio);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(context.resume).toHaveBeenCalledTimes(2);
+    expect(outcome).toBe("pending");
+    finishOld();
+    await first;
+    expect(outcome).toBe("ready");
   });
 
   it("releases a hung unlock if the browser independently returns to running", async () => {

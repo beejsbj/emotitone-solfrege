@@ -54,6 +54,13 @@ vi.mock("superdough", () => ({
   releaseAllVoices: hoisted.mockReleaseAllVoices,
 }));
 
+vi.mock("@/services/audioRuntime", () => ({
+  getAudioContext: () => hoisted.mockAudioContext,
+  getMasterGain: () => hoisted.mockGetSuperdoughAudioController().output.destinationGain,
+  initializeAudio: () => hoisted.mockInitAudio({ maxPolyphony: 64 }),
+  LIVE_ORBIT: 2,
+}));
+
 vi.mock("@strudel/web", () => ({
   initStrudel: hoisted.mockInitStrudel,
   evaluate: hoisted.mockEvaluateStrudel,
@@ -205,6 +212,19 @@ describe("superdoughAudio live note handling", () => {
       0.25,
       1,
     );
+  });
+
+  it("scales held voice gain by normalized MIDI velocity", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    await audio.attackNote("quiet-midi", "F#4", "synth", { velocity: 1 / 127 });
+    expect(hoisted.mockSuperdough).toHaveBeenCalledWith(
+      expect.objectContaining({ note: "F#4", voiceId: "quiet-midi", gain: expect.closeTo(0.8 / 127, 10), sustainUntilRelease: true }),
+      12.005,
+      0.25,
+      1,
+    );
+    audio.releaseNote("quiet-midi");
+    expect(hoisted.mockReleaseVoice).toHaveBeenCalledWith("quiet-midi");
   });
 
   it("attacks a live note as a held voice with voice ownership", async () => {
@@ -462,6 +482,25 @@ describe("superdoughAudio live note handling", () => {
     expect(audio.isPrewarmed("gm_celesta")).toBe(false);
   });
 
+  it("uses the supplied minor convention for Strudel Stage labels without Pinia", async () => {
+    vi.useFakeTimers();
+    const audio = await import("@/services/superdoughAudio");
+    const { musicTheory } = await import("@/services/music");
+    const mode = vi.mocked(musicTheory.getCurrentMode).mockReturnValue("minor");
+    try {
+      for (const [laBased, name] of [[true, "La"], [false, "Do"]] as const) {
+        audio.setStrudelLaBasedMinor(laBased);
+        await audio.emotitoneStrudelOutput({ value: { note: "C4", s: "piano" } }, 12, 0.25, 1, 12);
+        expect(audio.getActiveStrudelStageNotes()[0].solfege.name).toBe(name);
+        audio.stopStrudelVisuals();
+      }
+    } finally {
+      mode.mockReturnValue("major");
+      audio.stopStrudelVisuals();
+      vi.useRealTimers();
+    }
+  });
+
   it("emits exact borrowed-pitch lifecycle events during Strudel playback", async () => {
     vi.useFakeTimers();
     const dispatchEvent = vi.spyOn(window, "dispatchEvent");
@@ -480,7 +519,7 @@ describe("superdoughAudio live note handling", () => {
       .find((event) => event.type === "note-played") as CustomEvent;
     expect(played.detail).toMatchObject({
       note: expect.objectContaining({
-        name: "D#",
+        name: "Me",
         emotion: "Borrowed harmony tone",
       }),
       noteName: "D#4",
@@ -495,7 +534,7 @@ describe("superdoughAudio live note handling", () => {
       expect.objectContaining({
         noteId: played.detail.noteId,
         noteName: "D#4",
-        solfege: expect.objectContaining({ name: "D#" }),
+        solfege: expect.objectContaining({ name: "Me" }),
         frequency: 311.13,
         octave: 4,
         keyboardOctave: 4,
@@ -514,7 +553,7 @@ describe("superdoughAudio live note handling", () => {
       .find((event) => event.type === "note-released") as CustomEvent;
     expect(released.detail.audibleAt - played.detail.audibleAt).toBeCloseTo(250);
     expect(released.detail).toMatchObject({
-      note: "D#",
+      note: "Me",
       noteName: "D#4",
       solfegeIndex: -1,
       pitchClassIndex: 3,
@@ -550,6 +589,33 @@ describe("superdoughAudio live note handling", () => {
       });
       setSoundingNotationSpans(null);
     } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("wakes sample-only playback at each scheduled onset and cancels stopped onsets", async () => {
+    vi.useFakeTimers();
+    const audio = await import("@/services/superdoughAudio");
+    const wake = vi.fn();
+    window.addEventListener("stage-audio", wake);
+    try {
+      const hap = { value: { s: "bd" } };
+      await audio.emotitoneStrudelOutput(hap, 0, 0.25, 1, 12.5);
+      expect(hoisted.mockWebaudioOutput).toHaveBeenCalledWith(hap, 0, 0.25, 1, 12.5);
+      await vi.advanceTimersByTimeAsync(499);
+      expect(wake).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(wake).toHaveBeenCalledOnce();
+      await audio.emotitoneStrudelOutput(hap, 0, 0.25, 1, 13);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(wake).toHaveBeenCalledTimes(2);
+      await audio.emotitoneStrudelOutput(hap, 0, 0.25, 1, 14);
+      audio.stopStrudelVisuals();
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(wake).toHaveBeenCalledTimes(2);
+    } finally {
+      audio.stopStrudelVisuals();
+      window.removeEventListener("stage-audio", wake);
       vi.useRealTimers();
     }
   });

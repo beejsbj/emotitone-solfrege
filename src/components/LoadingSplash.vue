@@ -71,11 +71,14 @@ const midiMessage = computed(() => {
 });
 
 const phase = computed(() => {
+  if (audioInitializing.value) return "Preparing sound";
   if (isComplete.value) return "Ready to play";
   return loadingState.progress.overall.message || "Starting soundcheck";
 });
 
 const message = computed(() => {
+  if (audioInitializing.value) return loadingState.progress.instruments.isComplete
+    ? "Starting audio…" : loadingState.progress.instruments.message;
   if (isComplete.value) return "Everything is tuned. Your first note is waiting.";
 
   const instrumentMessage = loadingState.progress.instruments.message;
@@ -96,7 +99,7 @@ const STAGE_PHASES = ["visualEffects", "instruments", "audioContext"] as const;
 const stages = computed(() => {
   const { visualEffects, instruments, audioContext } = loadingState.progress;
   // Each tile reports its own phase, so a held phase (a failed load, blocked audio) stays the active beat.
-  const ready = isComplete.value && audioContext.isComplete && !hasError.value;
+  const ready = isComplete.value && !audioInitializing.value && audioContext.isComplete && !hasError.value;
   const midi = keyboardDrawerStore.midi;
   const midiCheckComplete = ready && !midi.isConnecting;
   const midiStamp = !midi.isSupported ? "N/A" : midi.lastError ? "SKIP" : "SET";

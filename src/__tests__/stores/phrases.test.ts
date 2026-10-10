@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { nextTick } from "vue";
+import { createApp, nextTick } from "vue";
+import piniaPluginPersistedstate from "pinia-plugin-persistedstate";
 import { setActivePinia } from "pinia";
 import { createTestPinia } from "../helpers/test-utils";
 import { usePhrasesStore, libraryPhrases } from "@/stores/phrases";
@@ -13,6 +14,7 @@ import {
 } from "@/services/patternPersistence";
 
 vi.mock("@/services/superdoughAudio", () => ({
+  setStrudelLaBasedMinor: vi.fn(),
   setLiveSynthControls: vi.fn(),
   attackNote: vi.fn().mockResolvedValue(undefined),
   releaseNote: vi.fn(),
@@ -111,6 +113,72 @@ describe("phrases store", () => {
     await nextTick();
     expect(store.takeContext.key).toBe(nextKey);
     expect(store.takeNotes[0].note).not.toBe(phrase.notes[0].note);
+  });
+
+  it("remaps the original loaded melody through repeated mode/key/octave changes", async () => {
+    const twinkle = libraryPhrases.find((phrase) => phrase.id === "pattern-twinkle-1")!;
+    store.openPhrase(twinkle.id);
+    await nextTick();
+    const original = JSON.parse(JSON.stringify(store.takeNotes));
+    const music = useMusicStore();
+    music.setMode("major pentatonic");
+    await nextTick();
+    expect(store.takeNotes[2]).toMatchObject({ note: "D5", scaleIndex: 3 });
+    music.setMode("minor pentatonic");
+    music.setKey("A#");
+    useKeyboardDrawerStore().setMainOctave(twinkle.context.octave + 1);
+    await nextTick();
+    music.setMode(twinkle.context.mode);
+    music.setKey(twinkle.context.key);
+    useKeyboardDrawerStore().setMainOctave(twinkle.context.octave);
+    await nextTick();
+    expect(store.takeNotes).toEqual(original);
+    expect(twinkle.notes).toEqual(original);
+  });
+
+  it("restores borrowed notes after saving and hydrating a remapped take", async () => {
+    const twinkle = libraryPhrases.find((phrase) => phrase.id === "pattern-twinkle-1")!;
+    const source = JSON.parse(JSON.stringify(twinkle));
+    source.id = "borrowed-source";
+    source.shelf = "kept";
+    source.notes[0] = {
+      ...source.notes[0], note: "G#4", octave: 4, pitchClassIndex: 8,
+      scaleIndex: -1, scaleDegree: 0, isBorrowed: true,
+    };
+    store.book.phrases.push(source);
+    store.openPhrase(source.id);
+    await nextTick();
+    const original = JSON.parse(JSON.stringify(store.takeNotes));
+    useMusicStore().setMode("minor pentatonic");
+    await nextTick();
+    const saved = serializePatternsState({ book: store.book, isRecordingEnabled: true });
+    store.$dispose();
+    localStorage.setItem("phrases", saved);
+    const pinia = createTestPinia().use(piniaPluginPersistedstate);
+    createApp({}).use(pinia);
+    setActivePinia(pinia);
+    useMusicStore().setKey(source.context.key);
+    useMusicStore().setMode("minor pentatonic");
+    useKeyboardDrawerStore().setMainOctave(source.context.octave);
+    store = usePhrasesStore();
+    expect(store.takeContext.mode).toBe("minor pentatonic");
+    expect(store.take.modeBase).toBeDefined();
+    useMusicStore().setMode(source.context.mode);
+    await nextTick();
+    expect(store.takeNotes).toEqual(original);
+  });
+
+  it("does not resurrect an undone loaded note on a later mode change", async () => {
+    store.openPhrase("pattern-twinkle-1");
+    await nextTick();
+    useMusicStore().setMode("major pentatonic");
+    await nextTick();
+    const removed = store.takeNotes[store.takeNotes.length - 1].id;
+    store.undoLastNote();
+    useMusicStore().setMode("major");
+    await nextTick();
+    expect(store.takeNotes).toHaveLength(13);
+    expect(store.takeNotes.some((note) => note.id === removed)).toBe(false);
   });
 
   it("keeps, renames, and deletes the source of a copy you are only looking at", async () => {

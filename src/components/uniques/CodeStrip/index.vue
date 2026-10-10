@@ -219,6 +219,7 @@ const recordedTokens = computed(() => {
     mode: sketchMeta.value.mode,
     musicKey: sketchMeta.value.key,
     notation: codeStripConfig.value.notation,
+    laBasedMinor: productionWiring?.visualConfigStore.laBasedMinor,
     barMs: barMs.value,
     sourceBpm: sketchMeta.value.bpm,
     surfaceStyle: keyboardConfig.value.surfaceStyle,

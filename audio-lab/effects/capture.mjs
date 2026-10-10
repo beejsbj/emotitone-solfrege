@@ -69,16 +69,17 @@ try {
   await call('Runtime.enable');
   await call('Fetch.enable', { patterns: [{ urlPattern: '*' }] });
   await call('Page.navigate', { url: `${origin}/audio-lab/effects/` });
+  const functionName = process.argv[3] === 'engine' ? 'runEngineEffects' : process.argv[3] === 'listening' ? 'renderEffectListening' : 'runEffectReference';
   let ready = false;
   // Cold dependency transforms can exceed 20 seconds on the shared lab host.
   for (let attempt = 0; attempt < 600; attempt++) {
-    const result = await call('Runtime.evaluate', { expression: 'typeof window.runEffectReference === "function"', returnByValue: true });
+    const result = await call('Runtime.evaluate', { expression: `typeof window.${functionName} === "function"`, returnByValue: true });
     if (result.result.value) { ready = true; break; }
     if (exceptions.length) break;
     await new Promise(done => setTimeout(done, 100));
   }
   if (!ready) throw new Error(`Parity page did not initialize: ${JSON.stringify({ exceptions, warnings, blockedRequests })}`);
-  const result = await call('Runtime.evaluate', { expression: 'window.runEffectReference()', awaitPromise: true, returnByValue: true, timeout: 90000 });
+  const result = await call('Runtime.evaluate', { expression: `window.${functionName}()`, awaitPromise: true, returnByValue: true, timeout: 90000 });
   if (result.exceptionDetails) throw new Error(JSON.stringify(result.exceptionDetails));
   const changes = (await Promise.all(watched.map(async path => await digest(path) !== hashes[path] ? path : null))).filter(Boolean);
   const receipt = { revision: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), hashes,

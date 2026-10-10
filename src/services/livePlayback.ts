@@ -136,20 +136,20 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
         // The chain lives and dies with its worklet, so a stale build can
         // never tear down the effects of a newer one.
         const chain = createLiveShapingChain(nextContext, destination, getLiveOrbit);
-        chain.apply(shaping);
         let worklet: LiveWorklet;
         try {
-          worklet = await createLiveWorklet(nextContext, chain.input, callbacks);
+          worklet = await createLiveWorklet(nextContext, chain.input, callbacks, chain);
         } catch (error) {
           chain.dispose();
           throw error;
         }
         worklet.shape(shaping.envelope);
+        worklet.effects(shaping);
         const disposeWorklet = worklet.dispose;
         return {
           ...worklet,
           dispose() { disposeWorklet(); chain.dispose(); },
-          applyShaping(next: LiveShapingState) { chain.apply(next); worklet.shape(next.envelope); },
+          applyShaping(next: LiveShapingState) { worklet.shape(next.envelope); worklet.effects(next); },
         };
       })();
       const ready = await enginePromise;

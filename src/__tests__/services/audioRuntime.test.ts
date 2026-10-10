@@ -1,42 +1,61 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
-  const context = Object.assign(new EventTarget(), { createAnalyser: () => ({ fftSize: 2048, getFloatTimeDomainData: vi.fn(), disconnect: vi.fn() }), state: "running", resume: vi.fn().mockResolvedValue(undefined) });
+  const context = Object.assign(new EventTarget(), { createAnalyser: () => ({ fftSize: 2048, getFloatTimeDomainData: vi.fn(), disconnect: vi.fn() }), sampleRate: 48000, state: "running", resume: vi.fn().mockResolvedValue(undefined) });
   const master = { connect: vi.fn(), disconnect: vi.fn(), id: "shared-master" };
   return {
     context,
     master,
     initAudio: vi.fn().mockResolvedValue(undefined),
-    getContext: vi.fn(() => context),
+    setContext: vi.fn(),
+    setController: vi.fn(),
+    constructContext: vi.fn(() => context),
+    getContext: vi.fn(() => { throw new Error("superdough must not own the context") }),
     getController: vi.fn(() => ({ output: { destinationGain: master } })),
   };
 });
 
 vi.mock("superdough", () => ({
+  setAudioContext: mocks.setContext,
+  setSuperdoughAudioController: mocks.setController,
   getAudioContext: mocks.getContext,
   getSuperdoughAudioController: mocks.getController,
   initAudio: mocks.initAudio,
 }));
 
 describe("production audio graph ownership", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    class Gain {
+      gain = { value: 1 };
+      connect = vi.fn((target: unknown) => target);
+      disconnect = vi.fn();
+    }
+    vi.stubGlobal("GainNode", Gain);
+    vi.stubGlobal("AudioContext", mocks.constructContext);
     vi.useFakeTimers();
     vi.resetModules();
+    const { EngineAudioGraph } = await import("@/audio/effects");
+    vi.spyOn(EngineAudioGraph.prototype, "getOrbit").mockReturnValue({ ready: async () => {} } as any);
     vi.clearAllMocks();
     mocks.context.state = "running";
+    mocks.context.sampleRate = 48000;
     mocks.initAudio.mockResolvedValue(undefined);
     mocks.context.resume.mockResolvedValue(undefined);
   });
 
-  afterEach(() => { mocks.context.state = "closed"; mocks.context.dispatchEvent(new Event("statechange")); vi.clearAllTimers(); vi.useRealTimers(); });
+  afterEach(() => { mocks.context.state = "closed"; mocks.context.dispatchEvent(new Event("statechange")); vi.clearAllTimers(); vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
-  it("shares the native graph and coalesces concurrent initialization", async () => {
+  it("creates one app graph and lends it to the native fallback", async () => {
     const runtime = await import("@/services/audioRuntime");
     expect(runtime.getAudioContext()).toBe(mocks.context);
-    expect(runtime.getMasterGain()).toBe(mocks.master);
+    const master = runtime.getMasterGain();
+    expect(master).toBeTruthy();
+    expect(mocks.setController).toHaveBeenCalledWith(expect.objectContaining({ master, audioContext: mocks.context }));
     await Promise.all([runtime.initializeAudio(), runtime.initializeAudio()]);
     expect(runtime.getAudioContext()).toBe(mocks.context);
-    expect(mocks.getContext).toHaveBeenCalledOnce();
+    expect(mocks.constructContext).toHaveBeenCalledOnce();
+    expect(mocks.getContext).not.toHaveBeenCalled();
+    expect(mocks.setContext).toHaveBeenCalledWith(mocks.context);
     expect(mocks.initAudio).toHaveBeenCalledOnce();
     expect(mocks.initAudio).toHaveBeenCalledWith({ maxPolyphony: 64 });
   });
@@ -50,6 +69,29 @@ describe("production audio graph ownership", () => {
     expect(mocks.context.resume).not.toHaveBeenCalled();
     expect(mocks.initAudio).toHaveBeenCalledOnce();
     expect(runtime.getAudioContext()).toBe(mocks.context);
+  });
+
+  it("waits for effect rebuilds at the lifecycle sample-rate gate", async () => {
+    const runtime = await import("@/services/audioRuntime");
+    await runtime.initializeAudio();
+    const graph = mocks.setController.mock.calls[0][0];
+    let finish!: () => void;
+    const rebuild = vi.spyOn(graph, "rebuildEffects").mockImplementation(() => new Promise<void>(resolve => { finish = resolve; }));
+    mocks.context.state = "interrupted";
+    mocks.context.resume.mockImplementation(async () => {
+      mocks.context.state = "running";
+      mocks.context.sampleRate = 44100;
+    });
+    const { resumeAudioContext } = await import("@/services/audioLifecycle");
+    let ready = false;
+    const gate = resumeAudioContext(mocks.context as unknown as AudioContext)!.then(() => { ready = true; });
+    await Promise.resolve(); await Promise.resolve();
+    expect(rebuild).toHaveBeenCalledOnce();
+    expect(ready).toBe(false);
+    finish(); await gate;
+    expect(ready).toBe(true);
+    expect(resumeAudioContext(mocks.context as unknown as AudioContext)).toBeUndefined();
+    expect(rebuild).toHaveBeenCalledOnce();
   });
 
   it("allows initialization to retry after failure", async () => {

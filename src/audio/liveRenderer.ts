@@ -1,7 +1,13 @@
+import type { LiveShaping } from './liveShaping'
 import type { PlayStyle, PlayStyleRate } from '@/services/playStyles'
 import type { LiveArticulation } from '@/services/liveArticulation'
 
-export interface LiveInputNote { pitch: number; instrumentId: string }
+export interface LiveInputNote {
+  pitch: number
+  instrumentId: string
+  /** Playback/member snapshot; omitted live notes follow the current Shape. */
+  shaping?: LiveShaping
+}
 export interface LiveConfig { style: PlayStyle; bpm: number; rate: PlayStyleRate }
 export interface LiveVoiceEvent extends LiveInputNote {
   phase: 'attack' | 'release'

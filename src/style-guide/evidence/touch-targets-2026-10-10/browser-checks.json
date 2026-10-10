@@ -1,0 +1,3181 @@
+{
+ "method": "Headless Chromium (Playwright 1.56 bundled build), 390x844 CSS px, DPR 2, touch + mobile emulation, reduced motion. For every visible interactive element: scroll it to the viewport centre, then walk 1px steps left/right/up/down from its centre while document.elementFromPoint() still returns the control or a descendant (cap 60px each way, so 121 means 'at least 121'). 'covered' means another element owns the centre point. Guide scaffolding (guide chips, specimen controls) and sr-only radios are excluded. Scenario syntax: route|selector clicked|selector clicked.",
+ "baseRevision": "e56c273d",
+ "headRevision": "0c99bf61",
+ "scenarios": {
+  "/style-guide/tabs": {
+   "before": [
+    {
+     "control": "button[tab] .tabs__button.tabs__button--active face 77x33 hit 77x34",
+     "count": 1,
+     "examples": [
+      "Anim"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 77x33 hit 77x34",
+     "count": 2,
+     "examples": [
+      "Freq",
+      "Color"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 77x33 hit 78x34",
+     "count": 1,
+     "examples": [
+      "Scope"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.tabs__button--active face 73x24 hit 73x24",
+     "count": 1,
+     "examples": [
+      "Keyboards"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 58x24 hit 58x24",
+     "count": 15,
+     "examples": [
+      "Synth",
+      "GM",
+      "Drums"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.tabs__button--active face 58x24 hit 58x24",
+     "count": 1,
+     "examples": [
+      "Scenes"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 60x24 hit 62x24",
+     "count": 1,
+     "examples": [
+      "Presets"
+     ]
+    }
+   ],
+   "after": []
+  },
+  "/style-guide/primitives": {
+   "before": [
+    {
+     "control": "button .paper-button.paper-button--md face 40x40 hit 40x40",
+     "count": 13,
+     "examples": [
+      "Play",
+      "Undo",
+      "Send"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--sm face 32x32 hit 32x32",
+     "count": 1,
+     "examples": [
+      "Small"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--lg face 48x48 hit 48x48",
+     "count": 3,
+     "examples": [
+      "Large",
+      "Undo",
+      "Send"
+     ]
+    },
+    {
+     "control": "button . face 85x28 hit 86x28",
+     "count": 1,
+     "examples": [
+      "Replay onset"
+     ]
+    },
+    {
+     "control": "button . face 58x28 hit 60x28",
+     "count": 1,
+     "examples": [
+      "Release"
+     ]
+    },
+    {
+     "control": "div[slider] .knob-wrapper.instrument-control face 48x62 hit 48x65",
+     "count": 6,
+     "examples": [
+      "Volume",
+      "Mode",
+      "Release"
+     ]
+    },
+    {
+     "control": "button .knob-wrapper.instrument-control face 48x62 hit 48x65",
+     "count": 2,
+     "examples": [
+      "Sync",
+      "Latch"
+     ]
+    },
+    {
+     "control": "div[slider] .knob-wrapper.instrument-control face 48x62 hit 49x66",
+     "count": 3,
+     "examples": [
+      "Volume",
+      "Mode",
+      "Shape"
+     ]
+    },
+    {
+     "control": "button .knob-wrapper.instrument-control face 48x62 hit 49x66",
+     "count": 1,
+     "examples": [
+      "Sync"
+     ]
+    },
+    {
+     "control": "div[slider] .knob-wrapper.instrument-control face 48x62 hit 49x65",
+     "count": 1,
+     "examples": [
+      "Release"
+     ]
+    },
+    {
+     "control": "button .knob-wrapper.instrument-control face 48x62 hit 49x65",
+     "count": 1,
+     "examples": [
+      "Latch"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.tabs__button--active face 71x33 hit 71x34",
+     "count": 1,
+     "examples": [
+      "Anim"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 71x33 hit 71x34",
+     "count": 2,
+     "examples": [
+      "Freq",
+      "Color"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 71x33 hit 72x34",
+     "count": 1,
+     "examples": [
+      "Scope"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.tabs__button--active face 44x33 hit 43x34",
+     "count": 7,
+     "examples": [
+      "Anim"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 44x33 hit 43x34",
+     "count": 7,
+     "examples": [
+      "Freq"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 44x33 hit 53x34",
+     "count": 7,
+     "examples": [
+      "Color"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.tabs__button--active face 46x34 hit 45x34",
+     "count": 1,
+     "examples": [
+      "Anim"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 46x34 hit 45x34",
+     "count": 1,
+     "examples": [
+      "Freq"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 46x34 hit 47x34",
+     "count": 1,
+     "examples": [
+      "Color"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.tabs__button--active face 33x33 hit 33x34",
+     "count": 1,
+     "examples": [
+      "Anim"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 33x33 hit 33x34",
+     "count": 2,
+     "examples": [
+      "Freq",
+      "Color"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 33x33 hit 53x34",
+     "count": 1,
+     "examples": [
+      "Scope"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.tabs__button--active face 27x24 hit 27x24",
+     "count": 1,
+     "examples": [
+      "Anim"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 27x24 hit 27x24",
+     "count": 3,
+     "examples": [
+      "Freq",
+      "Color",
+      "Scope"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 27x24 hit 34x24",
+     "count": 1,
+     "examples": [
+      "Keys"
+     ]
+    }
+   ],
+   "after": [
+    {
+     "control": "button .paper-button.paper-button--md face 40x40 hit 44x44",
+     "count": 13,
+     "examples": [
+      "Play",
+      "Undo",
+      "Send"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--sm face 32x32 hit 44x44",
+     "count": 1,
+     "examples": [
+      "Small"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--lg face 48x48 hit 48x48",
+     "count": 3,
+     "examples": [
+      "Large",
+      "Undo",
+      "Send"
+     ]
+    },
+    {
+     "control": "button . face 85x28 hit 86x28",
+     "count": 1,
+     "examples": [
+      "Replay onset"
+     ]
+    },
+    {
+     "control": "button . face 58x28 hit 60x28",
+     "count": 1,
+     "examples": [
+      "Release"
+     ]
+    },
+    {
+     "control": "div[slider] .knob-wrapper.instrument-control face 48x62 hit 48x65",
+     "count": 6,
+     "examples": [
+      "Volume",
+      "Mode",
+      "Release"
+     ]
+    },
+    {
+     "control": "button .knob-wrapper.instrument-control face 48x62 hit 48x65",
+     "count": 2,
+     "examples": [
+      "Sync",
+      "Latch"
+     ]
+    },
+    {
+     "control": "div[slider] .knob-wrapper.instrument-control face 48x62 hit 49x66",
+     "count": 3,
+     "examples": [
+      "Volume",
+      "Mode",
+      "Shape"
+     ]
+    },
+    {
+     "control": "button .knob-wrapper.instrument-control face 48x62 hit 49x66",
+     "count": 1,
+     "examples": [
+      "Sync"
+     ]
+    },
+    {
+     "control": "div[slider] .knob-wrapper.instrument-control face 48x62 hit 49x65",
+     "count": 1,
+     "examples": [
+      "Release"
+     ]
+    },
+    {
+     "control": "button .knob-wrapper.instrument-control face 48x62 hit 49x65",
+     "count": 1,
+     "examples": [
+      "Latch"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.tabs__button--active face 71x33 hit 71x44",
+     "count": 1,
+     "examples": [
+      "Anim"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 71x33 hit 71x44",
+     "count": 2,
+     "examples": [
+      "Freq",
+      "Color"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 71x33 hit 72x44",
+     "count": 1,
+     "examples": [
+      "Scope"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.tabs__button--active face 44x33 hit 43x44",
+     "count": 7,
+     "examples": [
+      "Anim"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 44x33 hit 43x44",
+     "count": 7,
+     "examples": [
+      "Freq"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 44x33 hit 53x44",
+     "count": 7,
+     "examples": [
+      "Color"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.tabs__button--active face 46x36 hit 45x44",
+     "count": 1,
+     "examples": [
+      "Anim"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 46x36 hit 45x44",
+     "count": 1,
+     "examples": [
+      "Freq"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 46x36 hit 47x44",
+     "count": 1,
+     "examples": [
+      "Color"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.tabs__button--active face 33x33 hit 32x44",
+     "count": 1,
+     "examples": [
+      "Anim"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 33x33 hit 32x44",
+     "count": 2,
+     "examples": [
+      "Freq",
+      "Color"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 33x33 hit 58x44",
+     "count": 1,
+     "examples": [
+      "Scope"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.tabs__button--active face 27x36 hit 23x44",
+     "count": 1,
+     "examples": [
+      "Anim"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 27x36 hit 27x44",
+     "count": 3,
+     "examples": [
+      "Freq",
+      "Color",
+      "Scope"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 27x36 hit 44x44",
+     "count": 1,
+     "examples": [
+      "Keys"
+     ]
+    }
+   ]
+  },
+  "/style-guide/compounds": {
+   "before": [
+    {
+     "control": "button .key.pressable-key face 56x88 hit 56x88",
+     "count": 4,
+     "examples": [
+      "Live Do key",
+      "Controlled pressed key",
+      "Sounding key"
+     ]
+    },
+    {
+     "control": "button .key.pressable-key face 120x56 hit 120x56",
+     "count": 1,
+     "examples": [
+      "F sharp two, raised fourth"
+     ]
+    },
+    {
+     "control": "button .chord-key.pressable-key face 43x44 hit 44x44",
+     "count": 7,
+     "examples": [
+      "C major chord",
+      "D minor chord",
+      "E minor chord"
+     ]
+    },
+    {
+     "control": "button .key.pressable-key face 24x56 hit 24x56",
+     "count": 24,
+     "examples": [
+      "Do, scale degree one, C five, octave 5",
+      "Ra, scale degree two, C sharp five, octave 5",
+      "Re, scale degree three, D five, octave 5"
+     ]
+    },
+    {
+     "control": "button .key.pressable-key face 24x76 hit 24x76",
+     "count": 12,
+     "examples": [
+      "Do, scale degree one, C four, main octave",
+      "Ra, scale degree two, C sharp four, main octave",
+      "Re, scale degree three, D four, main octave"
+     ]
+    },
+    {
+     "control": "button . face 105x32 hit 106x32",
+     "count": 4,
+     "examples": [
+      "standard",
+      "tile",
+      "tab"
+     ]
+    },
+    {
+     "control": "button .is-active face 105x32 hit 106x32",
+     "count": 1,
+     "examples": [
+      "offcut"
+     ]
+    },
+    {
+     "control": "label . face 154x35 hit covered",
+     "count": 5,
+     "examples": [
+      "Gap · 2px",
+      "Main height · 76px",
+      "Outer height · 56px"
+     ]
+    },
+    {
+     "control": "button .chord-key.pressable-key face 135x44 hit 121x44",
+     "count": 7,
+     "examples": [
+      "C major chord",
+      "D minor chord",
+      "E minor chord"
+     ]
+    },
+    {
+     "control": "button .key.pressable-key face 78x56 hit 80x56",
+     "count": 24,
+     "examples": [
+      "Do, scale degree one, C five, octave 5",
+      "Ra, scale degree two, C sharp five, octave 5",
+      "Re, scale degree three, D five, octave 5"
+     ]
+    },
+    {
+     "control": "button .key.pressable-key face 78x76 hit 80x76",
+     "count": 12,
+     "examples": [
+      "Do, scale degree one, C four, main octave",
+      "Ra, scale degree two, C sharp four, main octave",
+      "Re, scale degree three, D four, main octave"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--lg face 48x48 hit 48x48",
+     "count": 2,
+     "examples": [
+      "Stop crown specimen",
+      "Play large specimen"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--sm face 32x32 hit 32x32",
+     "count": 47,
+     "examples": [
+      "Stop small crown specimen",
+      "Stop even crown specimen",
+      "Play 4/4 specimen"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--md face 40x40 hit 40x40",
+     "count": 1,
+     "examples": [
+      "Play medium specimen"
+     ]
+    },
+    {
+     "control": "div[slider] .knob-wrapper.instrument-control face 48x62 hit 49x65",
+     "count": 5,
+     "examples": [
+      "Key",
+      "Mode",
+      "BPM"
+     ]
+    },
+    {
+     "control": "div[slider] .knob-wrapper.instrument-control face 24x37 hit 24x41",
+     "count": 6,
+     "examples": [
+      "Key",
+      "Mode",
+      "BPM"
+     ]
+    },
+    {
+     "control": "div[slider] .knob-wrapper.instrument-control face 24x37 hit 25x41",
+     "count": 2,
+     "examples": [
+      "Octave"
+     ]
+    },
+    {
+     "control": "div[slider] .knob-wrapper.instrument-control face 24x37 hit 26x41",
+     "count": 2,
+     "examples": [
+      "Style"
+     ]
+    },
+    {
+     "control": "button .pattern-strip__identity face 110x44 hit 110x44",
+     "count": 2,
+     "examples": [
+      "Select Evening Glass, Rhodes, root F#4",
+      "Unwind patterns around Current Take, Piano, root C4"
+     ]
+    },
+    {
+     "control": "button .pattern-strip__identity face 28x44 hit 30x44",
+     "count": 1,
+     "examples": [
+      "Unwind patterns around Current Take, Piano, root C4"
+     ]
+    }
+   ],
+   "after": [
+    {
+     "control": "button .key.pressable-key face 56x88 hit 56x88",
+     "count": 4,
+     "examples": [
+      "Live Do key",
+      "Controlled pressed key",
+      "Sounding key"
+     ]
+    },
+    {
+     "control": "button .key.pressable-key face 120x56 hit 120x56",
+     "count": 1,
+     "examples": [
+      "F sharp two, raised fourth"
+     ]
+    },
+    {
+     "control": "button .chord-key.pressable-key face 43x44 hit 44x44",
+     "count": 7,
+     "examples": [
+      "C major chord",
+      "D minor chord",
+      "E minor chord"
+     ]
+    },
+    {
+     "control": "button .key.pressable-key face 24x56 hit 24x56",
+     "count": 24,
+     "examples": [
+      "Do, scale degree one, C five, octave 5",
+      "Ra, scale degree two, C sharp five, octave 5",
+      "Re, scale degree three, D five, octave 5"
+     ]
+    },
+    {
+     "control": "button .key.pressable-key face 24x76 hit 24x76",
+     "count": 12,
+     "examples": [
+      "Do, scale degree one, C four, main octave",
+      "Ra, scale degree two, C sharp four, main octave",
+      "Re, scale degree three, D four, main octave"
+     ]
+    },
+    {
+     "control": "button . face 105x32 hit 106x32",
+     "count": 4,
+     "examples": [
+      "standard",
+      "tile",
+      "tab"
+     ]
+    },
+    {
+     "control": "button .is-active face 105x32 hit 106x32",
+     "count": 1,
+     "examples": [
+      "offcut"
+     ]
+    },
+    {
+     "control": "label . face 154x35 hit covered",
+     "count": 5,
+     "examples": [
+      "Gap · 2px",
+      "Main height · 76px",
+      "Outer height · 56px"
+     ]
+    },
+    {
+     "control": "button .chord-key.pressable-key face 135x44 hit 121x44",
+     "count": 7,
+     "examples": [
+      "C major chord",
+      "D minor chord",
+      "E minor chord"
+     ]
+    },
+    {
+     "control": "button .key.pressable-key face 78x56 hit 80x56",
+     "count": 24,
+     "examples": [
+      "Do, scale degree one, C five, octave 5",
+      "Ra, scale degree two, C sharp five, octave 5",
+      "Re, scale degree three, D five, octave 5"
+     ]
+    },
+    {
+     "control": "button .key.pressable-key face 78x76 hit 80x76",
+     "count": 12,
+     "examples": [
+      "Do, scale degree one, C four, main octave",
+      "Ra, scale degree two, C sharp four, main octave",
+      "Re, scale degree three, D four, main octave"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--lg face 48x48 hit 48x48",
+     "count": 2,
+     "examples": [
+      "Stop crown specimen",
+      "Play large specimen"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--sm face 32x32 hit 44x44",
+     "count": 47,
+     "examples": [
+      "Stop small crown specimen",
+      "Stop even crown specimen",
+      "Play 4/4 specimen"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--md face 40x40 hit 44x44",
+     "count": 1,
+     "examples": [
+      "Play medium specimen"
+     ]
+    },
+    {
+     "control": "div[slider] .knob-wrapper.instrument-control face 48x62 hit 49x65",
+     "count": 5,
+     "examples": [
+      "Key",
+      "Mode",
+      "BPM"
+     ]
+    },
+    {
+     "control": "div[slider] .knob-wrapper.instrument-control face 24x37 hit 15x44",
+     "count": 2,
+     "examples": [
+      "Key"
+     ]
+    },
+    {
+     "control": "div[slider] .knob-wrapper.instrument-control face 24x37 hit 24x44",
+     "count": 6,
+     "examples": [
+      "Mode",
+      "BPM",
+      "Octave"
+     ]
+    },
+    {
+     "control": "div[slider] .knob-wrapper.instrument-control face 24x37 hit 44x44",
+     "count": 2,
+     "examples": [
+      "Style"
+     ]
+    },
+    {
+     "control": "button .pattern-strip__identity face 110x44 hit 110x44",
+     "count": 2,
+     "examples": [
+      "Select Evening Glass, Rhodes, root F#4",
+      "Unwind patterns around Current Take, Piano, root C4"
+     ]
+    },
+    {
+     "control": "button .pattern-strip__identity face 12x44 hit 14x44",
+     "count": 1,
+     "examples": [
+      "Unwind patterns around Current Take, Piano, root C4"
+     ]
+    }
+   ]
+  },
+  "/style-guide/uniques": {
+   "before": [
+    {
+     "control": "button .drawer__handle face 88x28 hit 88x34",
+     "count": 2,
+     "examples": [
+      "Instrument specimen",
+      "Config specimen"
+     ]
+    },
+    {
+     "control": "button .drawer__handle.drawer__handle--metered face 88x28 hit 88x40",
+     "count": 1,
+     "examples": [
+      "Keyboard specimen"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--sm face 32x32 hit 32x32",
+     "count": 3,
+     "examples": [
+      "Play",
+      "Delete last event",
+      "Return"
+     ]
+    },
+    {
+     "control": "div[slider] .knob-wrapper.instrument-control face 48x62 hit 49x65",
+     "count": 5,
+     "examples": [
+      "Key",
+      "Mode",
+      "BPM"
+     ]
+    },
+    {
+     "control": "button .chord-key.pressable-key face 48x44 hit 50x44",
+     "count": 7,
+     "examples": [
+      "C major chord",
+      "D minor chord",
+      "E minor chord"
+     ]
+    },
+    {
+     "control": "button .key.pressable-key face 27x56 hit 28x56",
+     "count": 24,
+     "examples": [
+      "Do, scale degree one, C five, octave 5",
+      "Ra, scale degree two, C sharp five, octave 5",
+      "Re, scale degree three, D five, octave 5"
+     ]
+    },
+    {
+     "control": "button .key.pressable-key face 27x76 hit 28x76",
+     "count": 12,
+     "examples": [
+      "Do, scale degree one, C four, main octave",
+      "Ra, scale degree two, C sharp four, main octave",
+      "Re, scale degree three, D four, main octave"
+     ]
+    }
+   ],
+   "after": [
+    {
+     "control": "button .drawer__handle face 88x28 hit 88x44",
+     "count": 2,
+     "examples": [
+      "Instrument specimen",
+      "Config specimen"
+     ]
+    },
+    {
+     "control": "button .drawer__handle.drawer__handle--metered face 88x28 hit 88x44",
+     "count": 1,
+     "examples": [
+      "Keyboard specimen"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--sm face 32x32 hit 44x44",
+     "count": 3,
+     "examples": [
+      "Play",
+      "Delete last event",
+      "Return"
+     ]
+    },
+    {
+     "control": "div[slider] .knob-wrapper.instrument-control face 48x62 hit 49x65",
+     "count": 5,
+     "examples": [
+      "Key",
+      "Mode",
+      "BPM"
+     ]
+    },
+    {
+     "control": "button .chord-key.pressable-key face 48x44 hit 50x44",
+     "count": 7,
+     "examples": [
+      "C major chord",
+      "D minor chord",
+      "E minor chord"
+     ]
+    },
+    {
+     "control": "button .key.pressable-key face 27x56 hit 28x56",
+     "count": 24,
+     "examples": [
+      "Do, scale degree one, C five, octave 5",
+      "Ra, scale degree two, C sharp five, octave 5",
+      "Re, scale degree three, D five, octave 5"
+     ]
+    },
+    {
+     "control": "button .key.pressable-key face 27x76 hit 28x76",
+     "count": 12,
+     "examples": [
+      "Do, scale degree one, C four, main octave",
+      "Ra, scale degree two, C sharp four, main octave",
+      "Re, scale degree three, D four, main octave"
+     ]
+    }
+   ]
+  },
+  "/style-guide/instrument-picker|.drawer__handle": {
+   "before": [
+    {
+     "control": "button .drawer__handle face 96x28 hit 96x40",
+     "count": 1,
+     "examples": [
+      "Instrument"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--sm face 32x32 hit 32x32",
+     "count": 1,
+     "examples": [
+      "Close sounds"
+     ]
+    },
+    {
+     "control": "label .flex.flex-1 face 362x26 hit 121x26",
+     "count": 1,
+     "examples": [
+      "LABEL"
+     ]
+    },
+    {
+     "control": "input .w-full.bg-transparent face 337x15 hit 121x16 font 10px",
+     "count": 1,
+     "examples": [
+      "search sounds"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 87x31 hit 88x32",
+     "count": 1,
+     "examples": [
+      "triangle, current"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 141x34 hit 121x34",
+     "count": 1,
+     "examples": [
+      "lead_1_square, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 155x34 hit 121x34",
+     "count": 1,
+     "examples": [
+      "lead_2_sawtooth, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 129x31 hit 121x32",
+     "count": 1,
+     "examples": [
+      "lead_3_calliope, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 120x31 hit 120x32",
+     "count": 2,
+     "examples": [
+      "lead_4_chiff, available",
+      "synth_bass_1, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 130x31 hit 121x32",
+     "count": 1,
+     "examples": [
+      "lead_5_charang, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 131x34 hit 121x34",
+     "count": 1,
+     "examples": [
+      "lead_6_voice, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 117x31 hit 118x32",
+     "count": 1,
+     "examples": [
+      "lead_7_fifths, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 148x31 hit 121x32",
+     "count": 1,
+     "examples": [
+      "lead_8_bass_lead, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 102x31 hit 104x32",
+     "count": 1,
+     "examples": [
+      "pad_bowed, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 96x31 hit 98x32",
+     "count": 2,
+     "examples": [
+      "pad_choir, available",
+      "pad_poly, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 92x31 hit 92x32",
+     "count": 1,
+     "examples": [
+      "pad_halo, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 116x31 hit 118x32",
+     "count": 1,
+     "examples": [
+      "pad_metallic, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 121x31 hit 121x32",
+     "count": 2,
+     "examples": [
+      "pad_new_age, available",
+      "synth_brass_2, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 100x31 hit 102x32",
+     "count": 1,
+     "examples": [
+      "pad_sweep, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 111x34 hit 112x34",
+     "count": 1,
+     "examples": [
+      "pad_warm, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 132x34 hit 121x34",
+     "count": 1,
+     "examples": [
+      "synth_bass_2, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 127x31 hit 121x32",
+     "count": 1,
+     "examples": [
+      "synth_brass_1, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 106x31 hit 108x32",
+     "count": 1,
+     "examples": [
+      "synth_choir, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 82x34 hit 82x34",
+     "count": 1,
+     "examples": [
+      "pulse, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 68x31 hit 70x32",
+     "count": 1,
+     "examples": [
+      "saw, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 105x34 hit 106x34",
+     "count": 1,
+     "examples": [
+      "sawtooth, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 66x34 hit 68x34",
+     "count": 1,
+     "examples": [
+      "sin, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 69x31 hit 70x32",
+     "count": 1,
+     "examples": [
+      "sine, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 67x31 hit 68x32",
+     "count": 1,
+     "examples": [
+      "sqr, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 91x34 hit 92x34",
+     "count": 1,
+     "examples": [
+      "square, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 99x31 hit 100x32",
+     "count": 1,
+     "examples": [
+      "supersaw, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 56x31 hit 56x32",
+     "count": 1,
+     "examples": [
+      "tri, available"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 58x24 hit 58x24",
+     "count": 5,
+     "examples": [
+      "Shape",
+      "Keys",
+      "Organs"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.tabs__button--active face 58x24 hit 58x24",
+     "count": 1,
+     "examples": [
+      "Synths"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 61x24 hit 61x24",
+     "count": 1,
+     "examples": [
+      "Mallets"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 59x24 hit 59x24",
+     "count": 1,
+     "examples": [
+      "Strings"
+     ]
+    }
+   ],
+   "after": [
+    {
+     "control": "button .drawer__handle face 96x28 hit 96x44",
+     "count": 1,
+     "examples": [
+      "Instrument"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--sm face 32x32 hit 44x44",
+     "count": 1,
+     "examples": [
+      "Close sounds"
+     ]
+    },
+    {
+     "control": "label .instrument-search.flex face 362x35 hit 121x45",
+     "count": 1,
+     "examples": [
+      "LABEL"
+     ]
+    },
+    {
+     "control": "input .relative.z-[1] face 337x24 hit 121x24 font 16px",
+     "count": 1,
+     "examples": [
+      "search sounds"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 93x44 hit 94x44",
+     "count": 1,
+     "examples": [
+      "triangle, current"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 141x44 hit 121x44",
+     "count": 1,
+     "examples": [
+      "lead_1_square, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 155x44 hit 121x44",
+     "count": 1,
+     "examples": [
+      "lead_2_sawtooth, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 149x44 hit 121x44",
+     "count": 1,
+     "examples": [
+      "lead_3_calliope, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 114x44 hit 114x44",
+     "count": 1,
+     "examples": [
+      "lead_4_chiff, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 150x44 hit 121x44",
+     "count": 1,
+     "examples": [
+      "lead_5_charang, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 119x44 hit 120x44",
+     "count": 1,
+     "examples": [
+      "lead_6_voice, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 123x44 hit 121x44",
+     "count": 1,
+     "examples": [
+      "lead_7_fifths, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 148x44 hit 121x44",
+     "count": 1,
+     "examples": [
+      "lead_8_bass_lead, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 117x44 hit 118x44",
+     "count": 1,
+     "examples": [
+      "pad_bowed, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 111x44 hit 112x44",
+     "count": 1,
+     "examples": [
+      "pad_choir, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 105x44 hit 106x44",
+     "count": 1,
+     "examples": [
+      "pad_halo, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 110x44 hit 112x44",
+     "count": 1,
+     "examples": [
+      "pad_metallic, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 115x44 hit 116x44",
+     "count": 2,
+     "examples": [
+      "pad_new_age, available",
+      "synth_bass_2, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 96x44 hit 98x44",
+     "count": 1,
+     "examples": [
+      "pad_poly, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 106x44 hit 108x44",
+     "count": 2,
+     "examples": [
+      "pad_sweep, available",
+      "synth_choir, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 103x44 hit 104x44",
+     "count": 1,
+     "examples": [
+      "pad_warm, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 132x44 hit 121x44",
+     "count": 1,
+     "examples": [
+      "synth_bass_1, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 121x44 hit 121x44",
+     "count": 2,
+     "examples": [
+      "synth_brass_1, available",
+      "synth_brass_2, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 71x44 hit 72x44",
+     "count": 1,
+     "examples": [
+      "pulse, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 68x44 hit 70x44",
+     "count": 1,
+     "examples": [
+      "saw, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 97x44 hit 98x44",
+     "count": 1,
+     "examples": [
+      "sawtooth, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 63x44 hit 64x44",
+     "count": 2,
+     "examples": [
+      "sin, available",
+      "sine, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 67x44 hit 68x44",
+     "count": 1,
+     "examples": [
+      "sqr, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 79x44 hit 80x44",
+     "count": 1,
+     "examples": [
+      "square, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 99x44 hit 100x44",
+     "count": 1,
+     "examples": [
+      "supersaw, available"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 56x44 hit 56x44",
+     "count": 1,
+     "examples": [
+      "tri, available"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 58x36 hit 58x44",
+     "count": 5,
+     "examples": [
+      "Shape",
+      "Keys",
+      "Organs"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.tabs__button--active face 58x36 hit 58x44",
+     "count": 1,
+     "examples": [
+      "Synths"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 61x36 hit 61x44",
+     "count": 1,
+     "examples": [
+      "Mallets"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 59x36 hit 59x44",
+     "count": 1,
+     "examples": [
+      "Strings"
+     ]
+    }
+   ]
+  },
+  "/style-guide/config-menu|.drawer__handle": {
+   "before": [
+    {
+     "control": "button .drawer__handle face 88x28 hit 88x40",
+     "count": 1,
+     "examples": [
+      "Open settings. Waiting for MIDI."
+     ]
+    },
+    {
+     "control": "button .knob-wrapper.instrument-control face 32x45 hit 32x49",
+     "count": 1,
+     "examples": [
+      "Disable all visuals"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--sm face 32x32 hit 32x32",
+     "count": 4,
+     "examples": [
+      "Reset all settings",
+      "Export configuration",
+      "Close settings"
+     ]
+    },
+    {
+     "control": "div[slider] .knob-wrapper.instrument-control face 48x62 hit 48x65",
+     "count": 3,
+     "examples": [
+      "Mapping",
+      "Color Intensity",
+      "Color Motion"
+     ]
+    },
+    {
+     "control": "button .knob-wrapper.instrument-control face 32x58 hit 32x61",
+     "count": 1,
+     "examples": [
+      "UI Rhythm"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.tabs__button--active face 58x26 hit 58x26",
+     "count": 1,
+     "examples": [
+      "Global"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 58x26 hit 58x26",
+     "count": 6,
+     "examples": [
+      "Stage",
+      "Scope",
+      "Bodies"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 69x26 hit 69x26",
+     "count": 1,
+     "examples": [
+      "Relations"
+     ]
+    }
+   ],
+   "after": [
+    {
+     "control": "button .drawer__handle face 88x28 hit 88x44",
+     "count": 1,
+     "examples": [
+      "Open settings. Waiting for MIDI."
+     ]
+    },
+    {
+     "control": "button .knob-wrapper.instrument-control face 32x45 hit 44x49",
+     "count": 1,
+     "examples": [
+      "Disable all visuals"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--sm face 32x32 hit 44x44",
+     "count": 4,
+     "examples": [
+      "Reset all settings",
+      "Export configuration",
+      "Close settings"
+     ]
+    },
+    {
+     "control": "div[slider] .knob-wrapper.instrument-control face 48x62 hit 48x65",
+     "count": 3,
+     "examples": [
+      "Mapping",
+      "Color Intensity",
+      "Color Motion"
+     ]
+    },
+    {
+     "control": "button .knob-wrapper.instrument-control face 32x58 hit 44x61",
+     "count": 1,
+     "examples": [
+      "UI Rhythm"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.tabs__button--active face 58x36 hit 58x44",
+     "count": 1,
+     "examples": [
+      "Global"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 58x36 hit 58x44",
+     "count": 6,
+     "examples": [
+      "Stage",
+      "Scope",
+      "Bodies"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 69x36 hit 69x44",
+     "count": 1,
+     "examples": [
+      "Relations"
+     ]
+    }
+   ]
+  },
+  "/style-guide/config-menu|.drawer__handle|[data-testid=config-tab-stage]": {
+   "before": [
+    {
+     "control": "button .drawer__handle face 88x28 hit 88x40",
+     "count": 1,
+     "examples": [
+      "Open settings. Waiting for MIDI."
+     ]
+    },
+    {
+     "control": "button .knob-wrapper.instrument-control face 32x45 hit 32x49",
+     "count": 2,
+     "examples": [
+      "Disable all visuals",
+      "Stage"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--sm face 32x32 hit 32x32",
+     "count": 6,
+     "examples": [
+      "Reset all settings",
+      "Export configuration",
+      "Close settings"
+     ]
+    },
+    {
+     "control": "button .config-panel__sticker-action face 175x84 hit 121x84",
+     "count": 3,
+     "examples": [
+      "Preview Clear Stage Look",
+      "Preview Still Stage Look",
+      "Preview Smoke Stage Look"
+     ]
+    },
+    {
+     "control": "button .config-panel__sticker-action face 175x89 hit 121x90",
+     "count": 3,
+     "examples": [
+      "Preview Soft Stage Look",
+      "Preview Luminous Stage Look",
+      "Preview Pop Stage Look"
+     ]
+    },
+    {
+     "control": "button .config-panel__sticker-action face 175x89 hit 121x91",
+     "count": 1,
+     "examples": [
+      "Preview Phosphor Stage Look"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 58x26 hit 58x26",
+     "count": 6,
+     "examples": [
+      "Global",
+      "Scope",
+      "Bodies"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.tabs__button--active face 58x26 hit 58x26",
+     "count": 1,
+     "examples": [
+      "Stage"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 69x26 hit 69x26",
+     "count": 1,
+     "examples": [
+      "Relations"
+     ]
+    }
+   ],
+   "after": [
+    {
+     "control": "button .drawer__handle face 88x28 hit 88x44",
+     "count": 1,
+     "examples": [
+      "Open settings. Waiting for MIDI."
+     ]
+    },
+    {
+     "control": "button .knob-wrapper.instrument-control face 32x45 hit 44x49",
+     "count": 2,
+     "examples": [
+      "Disable all visuals",
+      "Stage"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--sm face 32x32 hit 44x44",
+     "count": 6,
+     "examples": [
+      "Reset all settings",
+      "Export configuration",
+      "Close settings"
+     ]
+    },
+    {
+     "control": "button .config-panel__sticker-action face 175x89 hit 121x90",
+     "count": 4,
+     "examples": [
+      "Preview Clear Stage Look",
+      "Preview Still Stage Look",
+      "Preview Pop Stage Look"
+     ]
+    },
+    {
+     "control": "button .config-panel__sticker-action face 175x84 hit 121x84",
+     "count": 3,
+     "examples": [
+      "Preview Soft Stage Look",
+      "Preview Luminous Stage Look",
+      "Preview Smoke Stage Look"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 58x36 hit 58x44",
+     "count": 6,
+     "examples": [
+      "Global",
+      "Scope",
+      "Bodies"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.tabs__button--active face 58x36 hit 58x44",
+     "count": 1,
+     "examples": [
+      "Stage"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 69x36 hit 69x44",
+     "count": 1,
+     "examples": [
+      "Relations"
+     ]
+    }
+   ]
+  },
+  "/style-guide/config-menu|.drawer__handle|[data-testid=config-tab-deck]": {
+   "before": [
+    {
+     "control": "button .drawer__handle face 88x28 hit 88x40",
+     "count": 1,
+     "examples": [
+      "Open settings. Waiting for MIDI."
+     ]
+    },
+    {
+     "control": "button .knob-wrapper.instrument-control face 32x45 hit 32x49",
+     "count": 1,
+     "examples": [
+      "Disable all visuals"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--sm face 32x32 hit 32x32",
+     "count": 4,
+     "examples": [
+      "Reset all settings",
+      "Export configuration",
+      "Close settings"
+     ]
+    },
+    {
+     "control": "div[slider] .knob-wrapper.instrument-control face 48x74 hit 48x76",
+     "count": 1,
+     "examples": [
+      "Notation"
+     ]
+    },
+    {
+     "control": "button .knob-wrapper.instrument-control face 48x74 hit 48x78",
+     "count": 2,
+     "examples": [
+      "Keyboard Labels",
+      "Touch Feedback"
+     ]
+    },
+    {
+     "control": "div[slider] .knob-wrapper.instrument-control face 48x62 hit 48x66",
+     "count": 3,
+     "examples": [
+      "Spacing",
+      "Note Surface",
+      "Durations"
+     ]
+    },
+    {
+     "control": "button .knob-wrapper.instrument-control face 48x62 hit 48x66",
+     "count": 1,
+     "examples": [
+      "Code Strip"
+     ]
+    },
+    {
+     "control": "button .knob-wrapper.instrument-control face 48x62 hit 48x65",
+     "count": 1,
+     "examples": [
+      "Show Rests"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 58x26 hit 58x26",
+     "count": 6,
+     "examples": [
+      "Global",
+      "Stage",
+      "Scope"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 69x26 hit 69x26",
+     "count": 1,
+     "examples": [
+      "Relations"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.tabs__button--active face 58x26 hit 58x26",
+     "count": 1,
+     "examples": [
+      "Deck"
+     ]
+    }
+   ],
+   "after": [
+    {
+     "control": "button .drawer__handle face 88x28 hit 88x44",
+     "count": 1,
+     "examples": [
+      "Open settings. Waiting for MIDI."
+     ]
+    },
+    {
+     "control": "button .knob-wrapper.instrument-control face 32x45 hit 44x49",
+     "count": 1,
+     "examples": [
+      "Disable all visuals"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--sm face 32x32 hit 44x44",
+     "count": 4,
+     "examples": [
+      "Reset all settings",
+      "Export configuration",
+      "Close settings"
+     ]
+    },
+    {
+     "control": "div[slider] .knob-wrapper.instrument-control face 48x74 hit 48x76",
+     "count": 1,
+     "examples": [
+      "Notation"
+     ]
+    },
+    {
+     "control": "button .knob-wrapper.instrument-control face 48x74 hit 48x78",
+     "count": 2,
+     "examples": [
+      "Keyboard Labels",
+      "Touch Feedback"
+     ]
+    },
+    {
+     "control": "div[slider] .knob-wrapper.instrument-control face 48x62 hit 48x65",
+     "count": 3,
+     "examples": [
+      "Spacing",
+      "Note Surface",
+      "Durations"
+     ]
+    },
+    {
+     "control": "button .knob-wrapper.instrument-control face 48x62 hit 48x65",
+     "count": 2,
+     "examples": [
+      "Code Strip",
+      "Show Rests"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 63x36 hit 63x44",
+     "count": 5,
+     "examples": [
+      "Global",
+      "Stage",
+      "Scope"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 67x36 hit 67x44",
+     "count": 1,
+     "examples": [
+      "Relations"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.tabs__button--active face 63x36 hit 63x44",
+     "count": 1,
+     "examples": [
+      "Deck"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 63x36 hit 64x44",
+     "count": 1,
+     "examples": [
+      "MIDI"
+     ]
+    }
+   ]
+  },
+  "/style-guide/config-menu|.drawer__handle|[data-testid=config-tab-midi]": {
+   "before": [
+    {
+     "control": "button .drawer__handle face 88x28 hit 88x40",
+     "count": 1,
+     "examples": [
+      "Open settings. Waiting for MIDI."
+     ]
+    },
+    {
+     "control": "button .knob-wrapper.instrument-control face 32x45 hit 32x49",
+     "count": 1,
+     "examples": [
+      "Disable all visuals"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--sm face 32x32 hit 32x32",
+     "count": 5,
+     "examples": [
+      "Reset all settings",
+      "Export configuration",
+      "Close settings"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 58x26 hit 58x26",
+     "count": 6,
+     "examples": [
+      "Global",
+      "Stage",
+      "Scope"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 69x26 hit 69x26",
+     "count": 1,
+     "examples": [
+      "Relations"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.tabs__button--active face 58x26 hit 58x26",
+     "count": 1,
+     "examples": [
+      "MIDI"
+     ]
+    }
+   ],
+   "after": [
+    {
+     "control": "button .drawer__handle face 88x28 hit 88x44",
+     "count": 1,
+     "examples": [
+      "Open settings. Waiting for MIDI."
+     ]
+    },
+    {
+     "control": "button .knob-wrapper.instrument-control face 32x45 hit 44x49",
+     "count": 1,
+     "examples": [
+      "Disable all visuals"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--sm face 32x32 hit 44x44",
+     "count": 5,
+     "examples": [
+      "Reset all settings",
+      "Export configuration",
+      "Close settings"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 58x36 hit 58x44",
+     "count": 6,
+     "examples": [
+      "Global",
+      "Stage",
+      "Scope"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 69x36 hit 69x44",
+     "count": 1,
+     "examples": [
+      "Relations"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.tabs__button--active face 58x36 hit 58x44",
+     "count": 1,
+     "examples": [
+      "MIDI"
+     ]
+    }
+   ]
+  },
+  "/|.count-gate--play|button[aria-label^='Open settings']": {
+   "before": [
+    {
+     "control": "button .drawer__handle.drawer__handle--metered face 88x28 hit covered",
+     "count": 1,
+     "examples": [
+      "Performance deck"
+     ]
+    },
+    {
+     "control": "button .pattern-strip__identity face 210x44 hit covered",
+     "count": 1,
+     "examples": [
+      "Unwind patterns around New take, on the desk, yours, triangle, root C4"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--sm face 32x32 hit covered",
+     "count": 6,
+     "examples": [
+      "Delete this take",
+      "Copy New take Strudel code",
+      "Open New take in Strudel"
+     ]
+    },
+    {
+     "control": "div[textbox] .cm-content face 248x40 hit covered font 13px",
+     "count": 1,
+     "examples": [
+      "// Record a pattern"
+     ]
+    },
+    {
+     "control": "div[slider] .knob-wrapper.instrument-control face 48x62 hit covered",
+     "count": 5,
+     "examples": [
+      "Key",
+      "Mode",
+      "BPM"
+     ]
+    },
+    {
+     "control": "button .chord-key.pressable-key face 54x44 hit covered",
+     "count": 7,
+     "examples": [
+      "C major chord",
+      "D minor chord",
+      "E minor chord"
+     ]
+    },
+    {
+     "control": "button .key.pressable-key face 54x56 hit 54x56",
+     "count": 12,
+     "examples": [
+      "Do, scale degree one, C five, octave 5",
+      "Re, scale degree two, D five, octave 5",
+      "Mi, scale degree three, E five, octave 5"
+     ]
+    },
+    {
+     "control": "button .key.pressable-key face 54x56 hit 54x45",
+     "count": 2,
+     "examples": [
+      "La, scale degree six, A five, octave 5",
+      "Ti, scale degree seven, B five, octave 5"
+     ]
+    },
+    {
+     "control": "button .key.pressable-key face 54x76 hit 54x76",
+     "count": 7,
+     "examples": [
+      "Do, scale degree one, C four, main octave",
+      "Re, scale degree two, D four, main octave",
+      "Mi, scale degree three, E four, main octave"
+     ]
+    },
+    {
+     "control": "button .drawer__handle face 88x28 hit 88x40",
+     "count": 1,
+     "examples": [
+      "Open settings. Requesting MIDI access."
+     ]
+    },
+    {
+     "control": "button .knob-wrapper.instrument-control face 32x45 hit 32x49",
+     "count": 1,
+     "examples": [
+      "Disable all visuals"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--sm face 32x32 hit 32x32",
+     "count": 4,
+     "examples": [
+      "Reset all settings",
+      "Export configuration",
+      "Close settings"
+     ]
+    },
+    {
+     "control": "div[slider] .knob-wrapper.instrument-control face 48x62 hit 48x65",
+     "count": 3,
+     "examples": [
+      "Mapping",
+      "Color Intensity",
+      "Color Motion"
+     ]
+    },
+    {
+     "control": "button .knob-wrapper.instrument-control face 32x58 hit 32x61",
+     "count": 1,
+     "examples": [
+      "UI Rhythm"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.tabs__button--active face 58x26 hit 58x26",
+     "count": 1,
+     "examples": [
+      "Global"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 58x26 hit 58x26",
+     "count": 6,
+     "examples": [
+      "Stage",
+      "Scope",
+      "Bodies"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 69x26 hit 69x26",
+     "count": 1,
+     "examples": [
+      "Relations"
+     ]
+    },
+    {
+     "control": "button .drawer__handle face 96x28 hit 96x34",
+     "count": 1,
+     "examples": [
+      "Instrument"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--md face 28x28 hit 28x28",
+     "count": 1,
+     "examples": [
+      "Start humming capture"
+     ]
+    }
+   ],
+   "after": [
+    {
+     "control": "button .drawer__handle.drawer__handle--metered face 88x28 hit covered",
+     "count": 1,
+     "examples": [
+      "Performance deck"
+     ]
+    },
+    {
+     "control": "button .pattern-strip__identity face 194x44 hit covered",
+     "count": 1,
+     "examples": [
+      "Unwind patterns around New take, on the desk, yours, triangle, root C4"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--sm face 32x32 hit covered",
+     "count": 6,
+     "examples": [
+      "Delete this take",
+      "Copy New take Strudel code",
+      "Open New take in Strudel"
+     ]
+    },
+    {
+     "control": "div[textbox] .cm-content face 242x40 hit covered font 13px",
+     "count": 1,
+     "examples": [
+      "// Record a pattern"
+     ]
+    },
+    {
+     "control": "div[slider] .knob-wrapper.instrument-control face 48x62 hit covered",
+     "count": 5,
+     "examples": [
+      "Key",
+      "Mode",
+      "BPM"
+     ]
+    },
+    {
+     "control": "button .chord-key.pressable-key face 54x44 hit covered",
+     "count": 7,
+     "examples": [
+      "C major chord",
+      "D minor chord",
+      "E minor chord"
+     ]
+    },
+    {
+     "control": "button .key.pressable-key face 54x56 hit 54x53",
+     "count": 5,
+     "examples": [
+      "Do, scale degree one, C five, octave 5",
+      "Re, scale degree two, D five, octave 5",
+      "Mi, scale degree three, E five, octave 5"
+     ]
+    },
+    {
+     "control": "button .key.pressable-key face 54x56 hit covered",
+     "count": 2,
+     "examples": [
+      "La, scale degree six, A five, octave 5",
+      "Ti, scale degree seven, B five, octave 5"
+     ]
+    },
+    {
+     "control": "button .key.pressable-key face 54x76 hit 54x76",
+     "count": 7,
+     "examples": [
+      "Do, scale degree one, C four, main octave",
+      "Re, scale degree two, D four, main octave",
+      "Mi, scale degree three, E four, main octave"
+     ]
+    },
+    {
+     "control": "button .key.pressable-key face 54x56 hit 54x56",
+     "count": 7,
+     "examples": [
+      "Do, scale degree one, C three, octave 3",
+      "Re, scale degree two, D three, octave 3",
+      "Mi, scale degree three, E three, octave 3"
+     ]
+    },
+    {
+     "control": "button .drawer__handle face 88x28 hit 88x44",
+     "count": 1,
+     "examples": [
+      "Open settings. Requesting MIDI access."
+     ]
+    },
+    {
+     "control": "button .knob-wrapper.instrument-control face 32x45 hit 44x49",
+     "count": 1,
+     "examples": [
+      "Disable all visuals"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--sm face 32x32 hit 44x44",
+     "count": 4,
+     "examples": [
+      "Reset all settings",
+      "Export configuration",
+      "Close settings"
+     ]
+    },
+    {
+     "control": "div[slider] .knob-wrapper.instrument-control face 48x62 hit 48x65",
+     "count": 3,
+     "examples": [
+      "Mapping",
+      "Color Intensity",
+      "Color Motion"
+     ]
+    },
+    {
+     "control": "button .knob-wrapper.instrument-control face 32x58 hit 44x61",
+     "count": 1,
+     "examples": [
+      "UI Rhythm"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.tabs__button--active face 58x36 hit 58x44",
+     "count": 1,
+     "examples": [
+      "Global"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 58x36 hit 58x44",
+     "count": 6,
+     "examples": [
+      "Stage",
+      "Scope",
+      "Bodies"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 69x36 hit 69x44",
+     "count": 1,
+     "examples": [
+      "Relations"
+     ]
+    },
+    {
+     "control": "button .drawer__handle face 96x28 hit 96x44",
+     "count": 1,
+     "examples": [
+      "Instrument"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--md face 28x28 hit 44x44",
+     "count": 1,
+     "examples": [
+      "Start humming capture"
+     ]
+    }
+   ]
+  },
+  "/|.count-gate--play": {
+   "before": [
+    {
+     "control": "button .drawer__handle.drawer__handle--metered face 88x28 hit 88x40",
+     "count": 1,
+     "examples": [
+      "Performance deck"
+     ]
+    },
+    {
+     "control": "button .pattern-strip__identity face 210x44 hit 121x44",
+     "count": 1,
+     "examples": [
+      "Unwind patterns around New take, on the desk, yours, triangle, root C4"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--sm face 32x32 hit 32x32",
+     "count": 6,
+     "examples": [
+      "Delete this take",
+      "Copy New take Strudel code",
+      "Open New take in Strudel"
+     ]
+    },
+    {
+     "control": "div[textbox] .cm-content face 248x40 hit 121x40 font 13px",
+     "count": 1,
+     "examples": [
+      "// Record a pattern"
+     ]
+    },
+    {
+     "control": "div[slider] .knob-wrapper.instrument-control face 48x62 hit 48x65",
+     "count": 5,
+     "examples": [
+      "Key",
+      "Mode",
+      "BPM"
+     ]
+    },
+    {
+     "control": "button .chord-key.pressable-key face 54x44 hit 54x44",
+     "count": 7,
+     "examples": [
+      "C major chord",
+      "D minor chord",
+      "E minor chord"
+     ]
+    },
+    {
+     "control": "button .key.pressable-key face 54x56 hit 54x56",
+     "count": 14,
+     "examples": [
+      "Do, scale degree one, C five, octave 5",
+      "Re, scale degree two, D five, octave 5",
+      "Mi, scale degree three, E five, octave 5"
+     ]
+    },
+    {
+     "control": "button .key.pressable-key face 54x76 hit 54x76",
+     "count": 7,
+     "examples": [
+      "Do, scale degree one, C four, main octave",
+      "Re, scale degree two, D four, main octave",
+      "Mi, scale degree three, E four, main octave"
+     ]
+    },
+    {
+     "control": "button .drawer__handle face 88x28 hit 88x34",
+     "count": 1,
+     "examples": [
+      "Open settings. Requesting MIDI access."
+     ]
+    },
+    {
+     "control": "button .drawer__handle face 96x28 hit 96x34",
+     "count": 1,
+     "examples": [
+      "Instrument"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--md face 28x28 hit 28x28",
+     "count": 1,
+     "examples": [
+      "Start humming capture"
+     ]
+    }
+   ],
+   "after": [
+    {
+     "control": "button .drawer__handle.drawer__handle--metered face 88x28 hit 88x44",
+     "count": 1,
+     "examples": [
+      "Performance deck"
+     ]
+    },
+    {
+     "control": "button .pattern-strip__identity face 194x44 hit 121x44",
+     "count": 1,
+     "examples": [
+      "Unwind patterns around New take, on the desk, yours, triangle, root C4"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--sm face 32x32 hit 44x44",
+     "count": 6,
+     "examples": [
+      "Delete this take",
+      "Copy New take Strudel code",
+      "Open New take in Strudel"
+     ]
+    },
+    {
+     "control": "div[textbox] .cm-content face 242x40 hit 121x40 font 13px",
+     "count": 1,
+     "examples": [
+      "// Record a pattern"
+     ]
+    },
+    {
+     "control": "div[slider] .knob-wrapper.instrument-control face 48x62 hit 48x65",
+     "count": 5,
+     "examples": [
+      "Key",
+      "Mode",
+      "BPM"
+     ]
+    },
+    {
+     "control": "button .chord-key.pressable-key face 54x44 hit 54x44",
+     "count": 7,
+     "examples": [
+      "C major chord",
+      "D minor chord",
+      "E minor chord"
+     ]
+    },
+    {
+     "control": "button .key.pressable-key face 54x56 hit 54x56",
+     "count": 14,
+     "examples": [
+      "Do, scale degree one, C five, octave 5",
+      "Re, scale degree two, D five, octave 5",
+      "Mi, scale degree three, E five, octave 5"
+     ]
+    },
+    {
+     "control": "button .key.pressable-key face 54x76 hit 54x76",
+     "count": 7,
+     "examples": [
+      "Do, scale degree one, C four, main octave",
+      "Re, scale degree two, D four, main octave",
+      "Mi, scale degree three, E four, main octave"
+     ]
+    },
+    {
+     "control": "button .drawer__handle face 88x28 hit 88x44",
+     "count": 1,
+     "examples": [
+      "Open settings. Requesting MIDI access."
+     ]
+    },
+    {
+     "control": "button .drawer__handle face 96x28 hit 96x44",
+     "count": 1,
+     "examples": [
+      "Instrument"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--md face 28x28 hit 44x44",
+     "count": 1,
+     "examples": [
+      "Start humming capture"
+     ]
+    }
+   ]
+  },
+  "/|.count-gate--play|button[aria-label=Instrument]": {
+   "before": [
+    {
+     "control": "button .drawer__handle.drawer__handle--metered face 88x28 hit covered",
+     "count": 1,
+     "examples": [
+      "Performance deck"
+     ]
+    },
+    {
+     "control": "button .pattern-strip__identity face 210x44 hit covered",
+     "count": 1,
+     "examples": [
+      "Unwind patterns around New take, on the desk, yours, triangle, root C4"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--sm face 32x32 hit covered",
+     "count": 6,
+     "examples": [
+      "Delete this take",
+      "Copy New take Strudel code",
+      "Open New take in Strudel"
+     ]
+    },
+    {
+     "control": "div[textbox] .cm-content face 248x40 hit covered font 13px",
+     "count": 1,
+     "examples": [
+      "// Record a pattern"
+     ]
+    },
+    {
+     "control": "div[slider] .knob-wrapper.instrument-control face 48x62 hit covered",
+     "count": 5,
+     "examples": [
+      "Key",
+      "Mode",
+      "BPM"
+     ]
+    },
+    {
+     "control": "button .chord-key.pressable-key face 54x44 hit covered",
+     "count": 7,
+     "examples": [
+      "C major chord",
+      "D minor chord",
+      "E minor chord"
+     ]
+    },
+    {
+     "control": "button .key.pressable-key face 54x56 hit covered",
+     "count": 7,
+     "examples": [
+      "Do, scale degree one, C five, octave 5",
+      "Re, scale degree two, D five, octave 5",
+      "Mi, scale degree three, E five, octave 5"
+     ]
+    },
+    {
+     "control": "button .key.pressable-key face 54x76 hit covered",
+     "count": 2,
+     "examples": [
+      "Do, scale degree one, C four, main octave",
+      "Re, scale degree two, D four, main octave"
+     ]
+    },
+    {
+     "control": "button .key.pressable-key face 54x76 hit 54x70",
+     "count": 5,
+     "examples": [
+      "Mi, scale degree three, E four, main octave",
+      "Fa, scale degree four, F four, main octave",
+      "Sol, scale degree five, G four, main octave"
+     ]
+    },
+    {
+     "control": "button .key.pressable-key face 54x56 hit 54x56",
+     "count": 7,
+     "examples": [
+      "Do, scale degree one, C three, octave 3",
+      "Re, scale degree two, D three, octave 3",
+      "Mi, scale degree three, E three, octave 3"
+     ]
+    },
+    {
+     "control": "button .drawer__handle face 88x28 hit 88x34",
+     "count": 1,
+     "examples": [
+      "Open settings. Requesting MIDI access."
+     ]
+    },
+    {
+     "control": "button .drawer__handle face 96x28 hit 96x40",
+     "count": 1,
+     "examples": [
+      "Instrument"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--sm face 32x32 hit 32x32",
+     "count": 1,
+     "examples": [
+      "Close sounds"
+     ]
+    },
+    {
+     "control": "label .flex.flex-1 face 362x26 hit 121x26",
+     "count": 1,
+     "examples": [
+      "LABEL"
+     ]
+    },
+    {
+     "control": "input .w-full.bg-transparent face 337x15 hit 121x16 font 10px",
+     "count": 1,
+     "examples": [
+      "search sounds"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 93x31 hit 94x32",
+     "count": 1,
+     "examples": [
+      "triangle, current"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 77x31 hit 78x32",
+     "count": 1,
+     "examples": [
+      "pulse, ready"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 62x31 hit 64x32",
+     "count": 1,
+     "examples": [
+      "saw, ready"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 105x34 hit 106x34",
+     "count": 1,
+     "examples": [
+      "sawtooth, ready"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 66x34 hit 68x34",
+     "count": 1,
+     "examples": [
+      "sin, ready"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 63x31 hit 64x32",
+     "count": 1,
+     "examples": [
+      "sine, ready"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 67x31 hit 68x32",
+     "count": 1,
+     "examples": [
+      "sqr, ready"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 85x31 hit 86x32",
+     "count": 1,
+     "examples": [
+      "square, ready"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 107x34 hit 108x34",
+     "count": 1,
+     "examples": [
+      "supersaw, ready"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 62x31 hit 62x32",
+     "count": 1,
+     "examples": [
+      "tri, ready"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 141x34 hit 121x34",
+     "count": 1,
+     "examples": [
+      "lead_1_square, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 141x31 hit 121x32",
+     "count": 1,
+     "examples": [
+      "lead_2_sawtooth, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 135x31 hit 121x32",
+     "count": 1,
+     "examples": [
+      "lead_3_calliope, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 120x31 hit 120x32",
+     "count": 2,
+     "examples": [
+      "lead_4_chiff, cold",
+      "synth_bass_1, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 130x31 hit 121x32",
+     "count": 1,
+     "examples": [
+      "lead_5_charang, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 119x31 hit 120x32",
+     "count": 1,
+     "examples": [
+      "lead_6_voice, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 136x34 hit 121x34",
+     "count": 1,
+     "examples": [
+      "lead_7_fifths, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 148x31 hit 121x32",
+     "count": 1,
+     "examples": [
+      "lead_8_bass_lead, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 102x31 hit 104x32",
+     "count": 1,
+     "examples": [
+      "pad_bowed, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 96x31 hit 98x32",
+     "count": 1,
+     "examples": [
+      "pad_choir, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 98x31 hit 98x32",
+     "count": 1,
+     "examples": [
+      "pad_halo, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 128x34 hit 121x34",
+     "count": 1,
+     "examples": [
+      "pad_metallic, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 121x31 hit 121x32",
+     "count": 3,
+     "examples": [
+      "pad_new_age, cold",
+      "synth_bass_2, cold",
+      "synth_brass_2, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 104x34 hit 104x34",
+     "count": 1,
+     "examples": [
+      "pad_poly, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 106x31 hit 108x32",
+     "count": 1,
+     "examples": [
+      "pad_sweep, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 111x34 hit 112x34",
+     "count": 1,
+     "examples": [
+      "pad_warm, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 127x31 hit 121x32",
+     "count": 1,
+     "examples": [
+      "synth_brass_1, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 123x34 hit 121x34",
+     "count": 1,
+     "examples": [
+      "synth_choir, cold"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 58x24 hit 58x24",
+     "count": 5,
+     "examples": [
+      "Shape",
+      "Keys",
+      "Organs"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.tabs__button--active face 58x24 hit 58x24",
+     "count": 1,
+     "examples": [
+      "Synths"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 61x24 hit 61x24",
+     "count": 1,
+     "examples": [
+      "Mallets"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 59x24 hit 59x24",
+     "count": 1,
+     "examples": [
+      "Strings"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--md face 28x28 hit 28x28",
+     "count": 1,
+     "examples": [
+      "Start humming capture"
+     ]
+    }
+   ],
+   "after": [
+    {
+     "control": "button .drawer__handle.drawer__handle--metered face 88x28 hit covered",
+     "count": 1,
+     "examples": [
+      "Performance deck"
+     ]
+    },
+    {
+     "control": "button .pattern-strip__identity face 194x44 hit covered",
+     "count": 1,
+     "examples": [
+      "Unwind patterns around New take, on the desk, yours, triangle, root C4"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--sm face 32x32 hit covered",
+     "count": 6,
+     "examples": [
+      "Delete this take",
+      "Copy New take Strudel code",
+      "Open New take in Strudel"
+     ]
+    },
+    {
+     "control": "div[textbox] .cm-content face 242x40 hit covered font 13px",
+     "count": 1,
+     "examples": [
+      "// Record a pattern"
+     ]
+    },
+    {
+     "control": "div[slider] .knob-wrapper.instrument-control face 48x62 hit covered",
+     "count": 5,
+     "examples": [
+      "Key",
+      "Mode",
+      "BPM"
+     ]
+    },
+    {
+     "control": "button .chord-key.pressable-key face 54x44 hit covered",
+     "count": 7,
+     "examples": [
+      "C major chord",
+      "D minor chord",
+      "E minor chord"
+     ]
+    },
+    {
+     "control": "button .key.pressable-key face 54x56 hit covered",
+     "count": 7,
+     "examples": [
+      "Do, scale degree one, C five, octave 5",
+      "Re, scale degree two, D five, octave 5",
+      "Mi, scale degree three, E five, octave 5"
+     ]
+    },
+    {
+     "control": "button .key.pressable-key face 54x76 hit covered",
+     "count": 2,
+     "examples": [
+      "Do, scale degree one, C four, main octave",
+      "Re, scale degree two, D four, main octave"
+     ]
+    },
+    {
+     "control": "button .key.pressable-key face 54x76 hit 54x70",
+     "count": 5,
+     "examples": [
+      "Mi, scale degree three, E four, main octave",
+      "Fa, scale degree four, F four, main octave",
+      "Sol, scale degree five, G four, main octave"
+     ]
+    },
+    {
+     "control": "button .key.pressable-key face 54x56 hit 54x56",
+     "count": 7,
+     "examples": [
+      "Do, scale degree one, C three, octave 3",
+      "Re, scale degree two, D three, octave 3",
+      "Mi, scale degree three, E three, octave 3"
+     ]
+    },
+    {
+     "control": "button .drawer__handle face 88x28 hit 88x44",
+     "count": 1,
+     "examples": [
+      "Open settings. Requesting MIDI access."
+     ]
+    },
+    {
+     "control": "button .drawer__handle face 96x28 hit 96x44",
+     "count": 1,
+     "examples": [
+      "Instrument"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--sm face 32x32 hit 44x44",
+     "count": 1,
+     "examples": [
+      "Close sounds"
+     ]
+    },
+    {
+     "control": "label .instrument-search.flex face 362x35 hit 121x45",
+     "count": 1,
+     "examples": [
+      "LABEL"
+     ]
+    },
+    {
+     "control": "input .relative.z-[1] face 337x24 hit 121x24 font 16px",
+     "count": 1,
+     "examples": [
+      "search sounds"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 87x44 hit 88x44",
+     "count": 1,
+     "examples": [
+      "triangle, current"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 71x44 hit 72x44",
+     "count": 1,
+     "examples": [
+      "pulse, ready"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 62x44 hit 64x44",
+     "count": 1,
+     "examples": [
+      "saw, ready"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 105x44 hit 106x44",
+     "count": 2,
+     "examples": [
+      "sawtooth, ready",
+      "pad_halo, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 66x44 hit 68x44",
+     "count": 1,
+     "examples": [
+      "sin, ready"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 73x44 hit 74x44",
+     "count": 1,
+     "examples": [
+      "sine, ready"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 70x44 hit 70x44",
+     "count": 1,
+     "examples": [
+      "sqr, ready"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 79x44 hit 80x44",
+     "count": 1,
+     "examples": [
+      "square, ready"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 107x44 hit 108x44",
+     "count": 1,
+     "examples": [
+      "supersaw, ready"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 65x44 hit 66x44",
+     "count": 1,
+     "examples": [
+      "tri, ready"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 128x44 hit 121x44",
+     "count": 2,
+     "examples": [
+      "lead_1_square, cold",
+      "pad_metallic, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 135x44 hit 121x44",
+     "count": 1,
+     "examples": [
+      "lead_2_sawtooth, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 149x44 hit 121x44",
+     "count": 1,
+     "examples": [
+      "lead_3_calliope, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 114x44 hit 114x44",
+     "count": 1,
+     "examples": [
+      "lead_4_chiff, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 136x44 hit 121x44",
+     "count": 1,
+     "examples": [
+      "lead_5_charang, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 131x44 hit 121x44",
+     "count": 2,
+     "examples": [
+      "lead_6_voice, cold",
+      "pad_new_age, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 117x44 hit 118x44",
+     "count": 2,
+     "examples": [
+      "lead_7_fifths, cold",
+      "pad_bowed, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 163x44 hit 121x44",
+     "count": 1,
+     "examples": [
+      "lead_8_bass_lead, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 96x44 hit 98x44",
+     "count": 2,
+     "examples": [
+      "pad_choir, cold",
+      "pad_poly, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 106x44 hit 108x44",
+     "count": 1,
+     "examples": [
+      "pad_sweep, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 103x44 hit 104x44",
+     "count": 1,
+     "examples": [
+      "pad_warm, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 120x44 hit 120x44",
+     "count": 1,
+     "examples": [
+      "synth_bass_1, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 132x44 hit 121x44",
+     "count": 1,
+     "examples": [
+      "synth_bass_2, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 121x44 hit 121x44",
+     "count": 1,
+     "examples": [
+      "synth_brass_1, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 127x44 hit 121x44",
+     "count": 1,
+     "examples": [
+      "synth_brass_2, cold"
+     ]
+    },
+    {
+     "control": "button .instrument-choice face 112x44 hit 114x44",
+     "count": 1,
+     "examples": [
+      "synth_choir, cold"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 58x36 hit 58x44",
+     "count": 5,
+     "examples": [
+      "Shape",
+      "Keys",
+      "Organs"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button.tabs__button--active face 58x36 hit 58x44",
+     "count": 1,
+     "examples": [
+      "Synths"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 61x36 hit 61x44",
+     "count": 1,
+     "examples": [
+      "Mallets"
+     ]
+    },
+    {
+     "control": "button[tab] .tabs__button face 59x36 hit 59x44",
+     "count": 1,
+     "examples": [
+      "Strings"
+     ]
+    },
+    {
+     "control": "button .paper-button.paper-button--md face 28x28 hit 44x44",
+     "count": 1,
+     "examples": [
+      "Start humming capture"
+     ]
+    }
+   ]
+  }
+ }
+}

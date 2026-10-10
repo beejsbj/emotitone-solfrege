@@ -129,6 +129,8 @@ export function isQuotaExceeded(error: unknown): boolean {
 }
 
 export interface SafeStorage extends Pick<Storage, "getItem" | "setItem" | "removeItem"> {
+  /** A read that distinguishes a missing key from unavailable or failing storage. */
+  read(key: string): { ok: true; value: string | null } | { ok: false };
   /** Every stored key (empty when storage is unavailable). */
   keys(): string[];
   /**
@@ -177,8 +179,24 @@ export function createSafeStorage(
   const write = (key: string, value: string, options?: { oneOff?: boolean }): boolean =>
     attempt(key, value, options) === null;
 
+  const read = (key: string): ReturnType<SafeStorage["read"]> => {
+    try {
+      const storage = backend();
+      if (!storage) throw new Error("Storage is unavailable");
+      return { ok: true, value: storage.getItem(key) };
+    } catch (error) {
+      if (!hasSaveFailure.value) console.error(`Failed to read "${key}" from storage:`, error);
+      reportSaveFailure("unknown", key);
+      return { ok: false };
+    }
+  };
+
   return {
-    getItem: (key) => backend()?.getItem(key) ?? null,
+    read,
+    getItem: (key) => {
+      const result = read(key);
+      return result.ok ? result.value : null;
+    },
     setItem: (key, value) => {
       write(key, value);
     },

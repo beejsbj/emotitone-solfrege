@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createPinia, defineStore } from "pinia";
+import { createApp, nextTick } from "vue";
+import { createPersistedState } from "pinia-plugin-persistedstate";
 import {
   BACKUP_RETENTION,
+  codecPersist,
   createPersistedBinding,
   defineCodec,
   installBackupConsole,
@@ -170,6 +174,77 @@ describe("persistence codec", () => {
     expect(backend.items.get(`${KEY}.backup.unreadable.2026-10-10`)).toBe("{not json");
   });
 
+  it.each(["{not json", envelope(2, { takes: "not a list" })])(
+    "retains unreadable bytes after two later routine migrations: %s",
+    (raw) => {
+      const { backend, binding, setNow } = setup();
+      backend.items.set(KEY, raw);
+      binding.load();
+      const unreadableBackup = listBackups(binding.storage, KEY)[0].backupKey;
+      expect(binding.save({ takes: ["fresh"], tempo: 120 })).toBe(true);
+
+      for (const day of [1, 2]) {
+        setNow(DAY + day * 24 * 60 * 60 * 1000);
+        backend.items.set(KEY, envelope(1, { takes: [`migration ${day}`] }));
+        binding.load();
+      }
+
+      expect(backend.items.get(unreadableBackup)).toBe(raw);
+      expect(listBackups(binding.storage, KEY).filter((entry) => /^v\d+$/.test(entry.label))).toHaveLength(2);
+    },
+  );
+
+  it.each(["save", "prepare"] as const)("refuses a stale binding's %s after another binding writes v2", (method) => {
+    const { backend, storage } = memoryStorage();
+    const older = createPersistedBinding({ ...sketchCodec, version: 1, migrations: { 0: sketchCodec.migrations[0] } }, { storage });
+    older.load();
+    const newer = createPersistedBinding(sketchCodec, { storage });
+    newer.load();
+    expect(newer.save({ takes: ["new tab"], tempo: 90 })).toBe(true);
+    const saved = backend.items.get(KEY);
+    backend.writes.length = 0;
+
+    expect(older[method]({ takes: ["old tab"], tempo: 120 })).toBe(method === "save" ? false : null);
+    expect(older.hold).toEqual({ reason: "newer", found: 2 });
+    expect(backend.items.get(KEY)).toBe(saved);
+    expect(backend.writes).toEqual([]);
+    expect(saveFailureNotice.value?.message).toBe("Can't save — reload to update");
+  });
+
+  it("protects a newer tab's autosave from a store opened before the update", async () => {
+    const { backend, storage } = memoryStorage();
+    const tab = (version: number) => {
+      const binding = createPersistedBinding({
+        ...sketchCodec,
+        version,
+        migrations: version === 1 ? { 0: sketchCodec.migrations[0] } : sketchCodec.migrations,
+      }, { storage });
+      const useStore = defineStore(KEY, {
+        state: sketchCodec.defaults,
+        persist: codecPersist(binding),
+      });
+      const pinia = createPinia();
+      createApp({}).use(pinia);
+      pinia.use(createPersistedState());
+      return useStore(pinia);
+    };
+    const older = tab(1);
+    older.takes.push("old tab");
+    await nextTick();
+    const newer = tab(2);
+    newer.takes.push("new tab");
+    await nextTick();
+    const saved = backend.items.get(KEY);
+    expect(JSON.parse(saved!).$version).toBe(2);
+
+    older.takes.push("unsaved edit");
+    await nextTick();
+
+    expect(older.takes).toEqual(["old tab", "unsaved edit"]);
+    expect(backend.items.get(KEY)).toBe(saved);
+    expect(saveFailureNotice.value?.message).toBe("Can't save — reload to update");
+  });
+
   it("clears the failure when a retried backup lands after the date has moved on", () => {
     const { backend, binding, setNow } = setup();
     backend.items.set(KEY, JSON.stringify(["late night"]));
@@ -225,6 +300,34 @@ describe("persistence codec", () => {
     expect(backend.items.get(KEY)).toBe(envelope(2, { takes: ["safe"], tempo: 120 }));
   });
 
+  it("holds writes after an unavailable backend becomes readable again", () => {
+    const { backend } = memoryStorage();
+    const saved = envelope(2, { takes: ["safe"], tempo: 120 });
+    backend.items.set(KEY, saved);
+    let available = false;
+    const storage = createSafeStorage(() => available ? backend as unknown as Storage : undefined);
+    const binding = createPersistedBinding(sketchCodec, { storage });
+
+    expect(binding.load()).toEqual(sketchCodec.defaults());
+    available = true;
+    expect(binding.save(sketchCodec.defaults())).toBe(false);
+    expect(binding.hold).toEqual({ reason: "unread" });
+    expect(backend.items.get(KEY)).toBe(saved);
+  });
+
+  it("refuses a save if the stored version cannot be read after hydration", () => {
+    const { backend, binding } = setup();
+    const saved = envelope(2, { takes: ["safe"], tempo: 120 });
+    backend.items.set(KEY, saved);
+    binding.load();
+    vi.spyOn(backend, "getItem").mockImplementationOnce(() => { throw new Error("Read denied"); });
+
+    expect(binding.save({ takes: ["unsaved"], tempo: 120 })).toBe(false);
+    expect(backend.items.get(KEY)).toBe(saved);
+    expect(binding.hold).toEqual({ reason: "unread" });
+    expect(saveFailureNotice.value?.message).toBe("Can't save");
+  });
+
   it(`keeps the newest ${BACKUP_RETENTION} backups per key and never prunes the one just written`, () => {
     const { backend, binding, setNow } = setup();
     const days = [Date.UTC(2026, 0, 1), Date.UTC(2026, 3, 1), Date.UTC(2026, 6, 1)];
@@ -252,6 +355,24 @@ describe("persistence codec", () => {
 
     expect(backend.items.get(`${KEY}.backup.unreadable.2026-10-10`)).toBe("{broken one");
     expect(backend.items.get(`${KEY}.backup.unreadable.2026-10-10.2`)).toBe("{broken two");
+  });
+
+  it("retains pre-restore bytes through later migrations without consuming their retention", () => {
+    const { backend, binding, storage, setNow } = setup();
+    backend.items.set(KEY, JSON.stringify(["original"]));
+    binding.load();
+    binding.save({ takes: ["before restore"], tempo: 100 });
+    const beforeRestore = backend.items.get(KEY);
+    const restored = restoreBackup(`${KEY}.backup.v0.2026-10-10`, { storage, now: () => DAY });
+    expect(restored.ok).toBe(true);
+    binding.load();
+    for (const day of [1, 2]) {
+      setNow(DAY + day * 24 * 60 * 60 * 1000);
+      backend.items.set(KEY, envelope(1, { takes: [`migration ${day}`] }));
+      binding.load();
+    }
+    expect(backend.items.get(restored.preRestoreBackup!)).toBe(beforeRestore);
+    expect(listBackups(storage, KEY).filter((entry) => /^v\d+$/.test(entry.label))).toHaveLength(2);
   });
 });
 

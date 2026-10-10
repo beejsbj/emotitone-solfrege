@@ -294,4 +294,20 @@ describe("persisted writes that fail", () => {
     expect(storage.getItem("k")).toBeNull();
     expect(saveFailureNotice.value?.message).toBe("Can't save");
   });
+
+  it.each(["resolve", "getItem"])("reports a throwing storage read without throwing: %s", (where) => {
+    const storage = createSafeStorage(() => {
+      if (where === "resolve") throw new Error("Storage access denied");
+      return {
+        getItem: () => { throw new Error("Storage read denied"); },
+      } as unknown as Storage;
+    });
+    let value: string | null | undefined;
+    expect(() => { value = storage.getItem("sketch"); }).not.toThrow();
+    expect(value).toBeNull();
+    expect(saveFailureNotice.value?.message).toBe("Can't save");
+    expect(console.error).toHaveBeenCalledTimes(1);
+    expect(() => storage.getItem("sketch")).not.toThrow();
+    expect(console.error).toHaveBeenCalledTimes(1);
+  });
 });

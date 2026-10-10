@@ -23,9 +23,9 @@ import {
 export const UNVERSIONED = 0;
 
 /**
- * Backups kept per store key, newest first. The spec said one ("kept for one
- * version"); two survives a restore followed by a reload that migrates again,
- * and a bad migration followed by a second one before anyone notices.
+ * Routine migration backups kept per store key, newest first. The spec said
+ * one ("kept for one version"); two protects against a bad migration followed
+ * by a second one before anyone notices. Recovery copies are kept separately.
  * Burooj's call in the PR (docs/persistence-codec.md).
  */
 export const BACKUP_RETENTION = 2;
@@ -52,7 +52,7 @@ export interface PersistenceCodec<T> {
    * unversioned data omits 0, and an unversioned payload is then unreadable.
    */
   migrations: Readonly<Record<number, (data: unknown) => unknown>>;
-  /** Backups to keep for this key; defaults to BACKUP_RETENTION. */
+  /** Version-labelled migration backups to keep; defaults to BACKUP_RETENTION. */
   backupRetention?: number;
 }
 
@@ -215,10 +215,12 @@ function writeBackup(
   return { backupKey, stored: storage.write(backupKey, raw) };
 }
 
-/** Keep `keep` plus the newest others up to `retention`; remove the rest. */
+/** Prune only version-labelled migrations; recovery copies never count toward retention. */
 function pruneBackups(storage: SafeStorage, key: string, retention: number, keep: string): void {
-  const others = listBackups(storage, key).filter((entry) => entry.backupKey !== keep);
-  for (const stale of others.slice(Math.max(0, retention - 1))) storage.removeItem(stale.backupKey);
+  const migrations = listBackups(storage, key).filter((entry) => /^v\d+$/.test(entry.label));
+  const keptMigration = migrations.some((entry) => entry.backupKey === keep);
+  const others = migrations.filter((entry) => entry.backupKey !== keep);
+  for (const stale of others.slice(retention - (keptMigration ? 1 : 0))) storage.removeItem(stale.backupKey);
 }
 
 // ─── The binding: one store's reads and writes ──────────────────────────────
@@ -307,6 +309,18 @@ export function createPersistedBinding<T>(
   };
 
   const prepare = (state: T): string | null => {
+    // Recheck on every save: another tab may have upgraded the stored format
+    // since hydration. Read only the envelope prefix, not the full data.
+    const stored = storage.read(codec.key);
+    if (!stored.ok) {
+      if (hold?.reason !== "newer" && hold?.reason !== "restored") hold = { reason: "unread" };
+      return null;
+    }
+    const prefix = /^\s*\{\s*"\$version"\s*:\s*(\d+(?:[eE][+-]?\d+)?)\s*[,}]/.exec(stored.value ?? "");
+    const found = prefix ? Number(prefix[1]) : null;
+    if (found !== null && Number.isInteger(found) && found > codec.version) {
+      hold = { reason: "newer", found };
+    }
     if (!releaseHold()) return null;
     try {
       return encodePayload(codec, state);
@@ -332,16 +346,14 @@ export function createPersistedBinding<T>(
     prepare,
     encode: (state) => encodePayload(codec, state),
     load() {
-      let raw: string | null;
-      try {
-        raw = storage.getItem(codec.key);
-      } catch (error) {
+      const stored = storage.read(codec.key);
+      if (!stored.ok) {
         // Can't see what is stored, so nothing may be written over it.
-        console.error(`Failed to read "${codec.key}" from storage:`, error);
         outcome = "unreadable";
         hold = { reason: "unread" };
         return codec.defaults();
       }
+      const raw = stored.value;
       const read = readPayload(codec, raw);
       outcome = read.kind;
       hold = null;
@@ -357,7 +369,7 @@ export function createPersistedBinding<T>(
           hold = {
             reason: "needs-backup",
             raw: raw as string,
-            label: read.from === null ? "unreadable" : `v${read.from}`,
+            label: "unreadable",
           };
           // Back up now if it fits; the store's saves overwrite only after.
           releaseHold();

@@ -23,7 +23,7 @@ A store describes its saved format once:
 | `decode(data)` | Current-version data → state. It cleans up field by field (an instrument the catalog no longer has is dropped). It throws only when the data is unusable as a whole. |
 | `encode(state)` | State → current-version data. Optional (identity if absent). It may throw. |
 | `migrations` | Keyed by from-version: `migrations[n]` turns version-n data into version n+1. `migrations[0]` lifts data saved before codecs existed. `defineCodec` refuses gaps in the table. |
-| `backupRetention` | Optional per-store override of how many backups to keep. |
+| `backupRetention` | Optional per-store override of how many version-labelled migration backups to keep. |
 
 The stored string is an envelope, `{"$version":1,"data":{…}}`. A payload
 with no `$version` field is version 0, which means unversioned. A
@@ -64,8 +64,11 @@ serializer stops it.
    - Every later save tries the backup again. Once it fits, the backup is
      written first and then the save.
 3. Pruning happens only after a new backup is safely stored. Each key keeps
-   its newest `BACKUP_RETENTION` backups (2), and the one just written is
-   never pruned. Backups are never deleted to make room.
+   its newest `BACKUP_RETENTION` version-labelled migration backups (2), and
+   the one just written is never pruned. `unreadable` and `pre-restore`
+   backups are never auto-pruned and do not count toward that limit.
+   A payload rejected by migration or decode is labelled `unreadable` too,
+   even when its version can be read. Backups are never deleted to make room.
 
 ## Restore (support path)
 
@@ -135,16 +138,14 @@ Never edit a capture; add a new file.
 You are signing off on the envelope, the read table above, the backup rule,
 and the restore path. Four points are real choices:
 
-1. **How many backups to keep per key.**
+1. **How many routine migration backups to keep per key.**
    - (a) 1, the spec's "kept for one version".
    - (b) **2 (implemented).**
    - (c) All, until removed by hand.
 
-   One isn't enough in two cases:
-   - A restore followed by a reload that migrates again drops the
-     pre-restore copy.
-   - A bad migration followed by a second one before anyone notices replaces
-     the only good copy.
+   One can lose the only good copy after a bad migration followed by a second
+   one before anyone notices. Unreadable and pre-restore copies are retained
+   independently, so reloads and later migrations cannot prune them.
 
    Small stores cost a few hundred bytes per backup. The phrase book is
    different; see the cost below.
@@ -172,6 +173,9 @@ and the restore path. Four points are real choices:
 
 - On the first load after this ships, every returning device backs up and
   rewrites `emotitone-instrument` once (about 500 bytes).
+- Unreadable and pre-restore backups accumulate until removed manually;
+  this preserves recovery copies but consumes storage beyond the two routine
+  migration backups.
 - Sanitising within a version is not a migration and takes no backup. For
   example, a Shape for an instrument the catalog dropped is lost on the next
   save. This is today's behaviour.
@@ -183,4 +187,9 @@ and the restore path. Four points are real choices:
   - lower the budget to leave room;
   - accept that a full shelf blocks the migration until space is freed.
 - Two tabs running the same version still race (last write wins), as today.
-  The newer-version rule only protects a newer tab from an older one.
+  Before every save or prepare, the binding rereads the stored envelope's
+  `$version` prefix without parsing the full payload. If a newer tab has
+  written a higher version, the older tab holds writes until reload and
+  reports "Can't save — reload to update". A failed storage read also holds
+  writes, even if access later recovers. The check and write are separate
+  storage operations; they do not make concurrent writes atomic.

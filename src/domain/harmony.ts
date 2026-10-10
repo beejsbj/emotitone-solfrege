@@ -1,6 +1,7 @@
 import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
 import {
   nameChord,
+  pitchClassOf,
   spellPitch,
   spellPitchClass,
   spokenPitchName,
@@ -173,8 +174,8 @@ function isMajorQuality(quality: HarmonyChordQuality) {
 }
 
 /**
- * `spellings` are the members' spelled pitch classes in interval order (from
- * the chord root); without them each pitch is spelled in the key.
+ * `spellings` are the chord's spelled members (matched by pitch class);
+ * without them each pitch is spelled in the key.
  */
 function voicingForIntervals(
   rootMidi: number,
@@ -197,9 +198,11 @@ function voicingForIntervals(
   return {
     kind: "close-position" as const,
     rootMidi: playableRootMidi,
-    pitches: intervals.map((interval, index) =>
-      pitchFromMidi(playableRootMidi + interval, scale, tonic, spellings[index] ?? null)
-    ),
+    pitches: intervals.map((interval) => {
+      const midi = playableRootMidi + interval;
+      const spelling = spellings.find((member) => pitchClassOf(member) === modulo(midi, 12));
+      return pitchFromMidi(midi, scale, tonic, spelling ?? null);
+    }),
   };
 }
 

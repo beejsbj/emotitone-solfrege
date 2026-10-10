@@ -144,7 +144,7 @@ describe("ControlBar.vue", () => {
 
     expect(labels()).toEqual(["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"]);
     await wrapper.setProps({ modeValue: "minor" });
-    expect(labels()).toEqual(["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "Bb", "B"]);
+    expect(labels()).toEqual(["C", "C#", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B"]);
 
     key().vm.$emit("update:modelValue", "D#");
     expect(wrapper.emitted("update:keyValue")?.[0]).toEqual(["D#"]);

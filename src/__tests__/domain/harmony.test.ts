@@ -153,9 +153,9 @@ describe("harmony domain", () => {
     expect(flipped.voicing.pitches.map((pitch) => pitch.label)).toEqual(["E4", "G#4", "B4"]);
   });
 
-  it("names every chord-row chord as the Stage would name its sounding pitches", () => {
-    // One chord namer: a chord is never named two ways on one screen.
-    for (const tonic of CHROMATIC_NOTES) {
+  // One chord namer: a chord is never named two ways on one screen.
+  it.each(CHROMATIC_NOTES)("names every %s chord-row chord as the Stage names its pitches", (tonic) => {
+    {
       for (const scaleType of MODE_ORDER) {
         for (const alteration of HARMONY_ALTERATIONS) {
           for (const chord of buildHarmony({ tonic, scaleType, alteration })) {

@@ -42,12 +42,14 @@ describe("musical identity: key spelling", () => {
 
   it.each([
     ["major", "C Db D Eb E F F# G Ab A Bb B"],
-    ["minor", "C C# D D# E F F# G G# A Bb B"],
+    ["minor", "C C# D Eb E F F# G G# A Bb B"],
     ["dorian", "C C# D Eb E F F# G G# A Bb B"],
+    ["phrygian", "C C# D D# E F F# G G# A A# B"],
     ["lydian", "C Db D Eb E F Gb G Ab A Bb B"],
-    ["harmonic minor", "C C# D D# E F F# G G# A Bb B"],
+    ["harmonic minor", "C C# D Eb E F F# G G# A Bb B"],
     ["major pentatonic", "C Db D Eb E F F# G Ab A Bb B"],
-    ["minor blues", "C C# D D# E F F# G G# A Bb B"],
+    ["minor pentatonic", "C C# D Eb E F F# G G# A Bb B"],
+    ["minor blues", "C C# D Eb E F F# G G# A Bb B"],
     ["chromatic", "C Db D Eb E F F# G Ab A Bb B"],
   ] as const)("spells the twelve stored tonics in %s", (mode, expected) => {
     expect(CHROMATIC_NOTES.map((tonic) => spellTonic({ tonic, mode })).join(" "))
@@ -143,6 +145,26 @@ describe("musical identity: key spelling", () => {
     expect(spellPitch("A#4", { tonic: "F", mode: "major" })).toBe("Bb4");
   });
 
+  it.each([
+    ["D#", "major", "Eb", "fewer flats than sharps"],
+    ["F#", "major", "F#", "6 sharps tie 6 flats; the stored sharp stays"],
+    ["D#", "minor", "Eb", "tie broken by the leading tone: D, not C##"],
+    ["D#", "harmonic minor", "Eb", "the raised seventh is D, not C##"],
+    ["D#", "melodic minor", "Eb", "the raised sixth and seventh avoid B# and C##"],
+    ["D#", "minor pentatonic", "Eb", "minor signature, leading tone tie-break"],
+    ["D#", "minor blues", "Eb", "agrees with Eb minor; its blue fifth is written Bbb"],
+    ["A#", "phrygian", "A#", "6 sharps tie 6 flats in the mode itself"],
+    ["G#", "dorian", "G#", "6 sharps tie 6 flats in the mode itself"],
+  ] as const)("spells a stored %s %s as %s (%s)", (tonic, mode, expected) => {
+    expect(spellTonic({ tonic, mode })).toBe(expected);
+  });
+
+  it("gives D#/Eb minor a leading tone without a double sharp", () => {
+    expect(keySpelling({ tonic: "D#", mode: "harmonic minor" }).degrees).toEqual([
+      "Eb", "F", "Gb", "Ab", "Bb", "Cb", "D",
+    ]);
+  });
+
   it("keeps true leading tones in harmonic minor, double sharps included", () => {
     expect(keySpelling({ tonic: "A", mode: "harmonic minor" }).degrees.at(-1)).toBe("G#");
     expect(keySpelling({ tonic: "G#", mode: "harmonic minor" }).degrees.at(-1)).toBe("F##");
@@ -163,7 +185,11 @@ describe("musical identity: pitches and intervals", () => {
           expect(identity.interval.number).toBe(
             ((letterIndex(identity.spelling) - letterIndex(key.tonic) + 7) % 7) + 1,
           );
-          expect(identity.degree).toBe(identity.interval.number);
+          // Function follows the rule; only the written form may fall back.
+          expect(identity.degree).toBe(identity.functionalInterval.number);
+          expect(identity.functionalInterval.semitones).toBe(identity.semitones);
+          expect((identity.degree === 1 ? 0 : [0, 2, 4, 5, 7, 9, 11][identity.degree - 1])
+            + identity.alteration).toBe(identity.semitones);
           expect(identity.borrowed).toBe(identity.scaleIndex === null);
           if (identity.scaleIndex !== null && context.mode !== "chromatic") {
             expect(identity.spelling).toBe(key.degrees[identity.scaleIndex]);
@@ -205,7 +231,15 @@ describe("musical identity: pitches and intervals", () => {
   it("avoids a double accidental for a borrowed tone when one spelling exists", () => {
     // Db major's b6 would be Bbb; A natural is the raised fifth.
     expect(spellPitch("A4", { tonic: "C#", mode: "major" })).toBe("A4");
-    expect(identifyPitch("A", { tonic: "C#", mode: "major" })!.interval.label).toBe("A5");
+    // Written as A (an augmented fifth), it still functions as the lowered
+    // sixth, Le, so later syllables do not change with the spelling.
+    expect(identifyPitch("A", { tonic: "C#", mode: "major" })).toMatchObject({
+      spelling: "A",
+      interval: { label: "A5" },
+      functionalInterval: { label: "m6" },
+      degree: 6,
+      alteration: -1,
+    });
   });
 
   it.each(contexts.filter((_, index) => index % 5 === 0).map((context) => [label(context), context] as const))(
@@ -293,6 +327,28 @@ describe("musical identity: chord symbols", () => {
       .toBe("B flat major over D");
     expect(nameChord(11, "halfDiminished7", { tonic: "C", mode: "major" }).spoken)
       .toBe("B half-diminished seventh");
+  });
+
+  it("keeps a minor-major seventh whole rather than reading ma7 as a bass", () => {
+    expect(identifyChord(["C4", "D#4", "G4", "B4"], { tonic: "C", mode: "major" })?.symbol)
+      .toBe("Cm(maj7)");
+    expect(identifyChord(["A3", "C4", "E4", "G#4"], { tonic: "A", mode: "harmonic minor" }))
+      .toMatchObject({ symbol: "Am(maj7)", quality: "minorMajor7" });
+  });
+
+  it("prefers a catalog name over Tonal's first candidate", () => {
+    // Tonal ranks CM7b6 first for C E G# B.
+    expect(identifyChord(["C4", "E4", "G#4", "B4"], { tonic: "C", mode: "major" }))
+      .toMatchObject({ symbol: "C+maj7", quality: "augmentedMajor7" });
+  });
+
+  it("roots a symmetric chord where its spelling is simplest", () => {
+    const c = { tonic: "C", mode: "major" as MusicalMode };
+    // Tonal offers E+ (E G# B#) first; C+ over E needs one accidental.
+    expect(identifyChord(["E4", "G#4", "C5"], c)?.symbol).toBe("C+/E");
+    expect(identifyChord(["C4", "E4", "G#4"], c)?.symbol).toBe("C+");
+    // A tie keeps the bass as root.
+    expect(identifyChord(["G#3", "B3", "D4", "F4"], c)?.symbol).toBe("G#°7");
   });
 
   it("returns no chord for a dyad Tonal cannot name", () => {

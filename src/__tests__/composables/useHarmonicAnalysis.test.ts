@@ -457,6 +457,18 @@ describe("useHarmonicAnalysis", () => {
         .toEqual(["M3", "P5", "M7", "m3", "P5", "M3"]);
     });
 
+    it("reads a minor-major seventh on the Stage without dropping the seventh", () => {
+      const snapshot = playIn(
+        [["a", "A3"], ["c", "C4"], ["e", "E4"], ["gs", "G#4"]],
+        "A",
+        "harmonic minor",
+      );
+
+      expect(snapshot.value.chordLabel).toBe("Am(maj7)");
+      expect(snapshot.value.chordSpoken).toBe("A minor major seventh");
+      expect(snapshot.value.emotionalDescription).toBe("Tender with an edge");
+    });
+
     it("spells chord members from the root and keeps the emotion reading", () => {
       const snapshot = playIn(
         [["b", "B3"], ["d", "D4"], ["f", "F4"], ["a", "A4"]],

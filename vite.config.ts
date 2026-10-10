@@ -3,7 +3,7 @@ import vue from "@vitejs/plugin-vue";
 import { VitePWA } from "vite-plugin-pwa";
 import { resolve } from "path";
 
-// The PWA must not undo code splitting by downloading every lazy chunk at install.
+// Precache the pocket controls for offline use; keep guide and catalog deferred.
 const deferredCode = new Set<string>();
 const captureDeferredCode: Plugin = {
   name: "deferred-code-precache",
@@ -23,6 +23,7 @@ const captureDeferredCode: Plugin = {
         // These dynamic modules prepare the default synth during boot; keep
         // their existing offline availability with the startup graph.
         || /\/src\/(services\/preparedLiveInstrument|audio\/live\/bridge)\.ts$/.test(chunk.facadeModuleId ?? "")
+        || /\/src\/components\/(ConfigPanel|InstrumentSelector)\.vue$/.test(chunk.facadeModuleId ?? "")
         || (chunk.facadeModuleId ?? "").includes("workbox-window"))) visit(chunk.fileName);
     }
     const initialStyles = new Set<string>();

@@ -11,7 +11,7 @@ const root = process.cwd();
 await readFile(join(root, 'dist/index.html'));
 const manifest = JSON.parse(await readFile(join(root, 'dist/manifest.json'), 'utf8'));
 const deferredFiles = new Set(Object.values(manifest)
-  .filter(entry => /assets\/(ConfigPanel|InstrumentSelector|StyleGuide)-[^/]+\.js$/.test(entry.file)
+  .filter(entry => /assets\/StyleGuide-[^/]+\.js$/.test(entry.file)
     || entry.src === 'node_modules/@strudel/soundfonts/dist/index.mjs')
   .map(entry => `/${entry.file}`));
 const savedInstrument = process.env.SAVED_INSTRUMENT || 'piano';
@@ -146,18 +146,27 @@ try {
   await waitFor('!!window.__probe.onsetAt', 15000);
   const probe = await evaluate(`({ playAt: window.__probe.playAt, noteAt: window.__probe.noteAt, onsetAt: window.__probe.onsetAt })`);
   const beforeDrawers = [...requests];
+  const offlinePanels = process.env.OFFLINE_PANELS === '1';
+  if (offlinePanels) {
+    await waitFor('!!navigator.serviceWorker.controller');
+    await call('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: 0, uploadThroughput: 0 });
+  }
   await click('[data-testid="config-panel-trigger"]');
   await waitFor(`!!document.querySelector('[data-testid="global-public-controls"]')`);
   await click('[data-testid="instrument-selector-trigger"]');
   await waitFor(`!!document.querySelector('[data-testid="instrument-search"]')`);
-  await evaluate(`(() => {
-    const search = document.querySelector('[data-testid="instrument-search"]');
-    search.value = 'epiano1';
-    search.dispatchEvent(new Event('input', { bubbles: true }));
-  })()`);
-  await waitFor(`!!document.querySelector('[data-testid="instrument-option-gm_epiano1"]')`);
+  if (!offlinePanels) {
+    await evaluate(`(() => {
+      const search = document.querySelector('[data-testid="instrument-search"]');
+      search.value = 'epiano1';
+      search.dispatchEvent(new Event('input', { bubbles: true }));
+    })()`);
+    await waitFor(`!!document.querySelector('[data-testid="instrument-option-gm_epiano1"]')`);
+  } else {
+    await waitFor(`!!document.querySelector('[data-testid="instrument-option-triangle"]')`);
+  }
   assert.deepEqual(exceptions, [], 'Uncaught browser exceptions');
-  console.log(JSON.stringify({ savedInstrument, selectedInstrument, preGestureRequests, cachedBeforeGesture,
+  console.log(JSON.stringify({ savedInstrument, selectedInstrument, offlinePanels, preGestureRequests, cachedBeforeGesture,
     beforeDrawers, requests, failures, exceptions, probe,
     playToReadyMs: readyAt - probe.playAt, noteToOnsetMs: probe.onsetAt - probe.noteAt }, null, 2));
 } finally {

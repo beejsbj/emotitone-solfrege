@@ -2,6 +2,7 @@
 import { computed, defineAsyncComponent, ref } from "vue";
 import TopDrawer from "./TopDrawer.vue";
 import LazyPanelLoading from "./LazyPanelLoading.vue";
+import LazyPanelError from "./LazyPanelError.vue";
 import { useInstrumentStore } from "@/stores/instrument";
 import { displayInstrumentName } from "@/data/instruments";
 import { instrumentIconFor } from "./primatives/instrumentIcon";
@@ -9,7 +10,7 @@ import { instrumentIconFor } from "./primatives/instrumentIcon";
 defineProps<{ compact?: boolean; floating?: boolean }>();
 
 const loadPanel = () => import("./InstrumentSelector.vue");
-const InstrumentSelector = defineAsyncComponent({ loader: loadPanel, loadingComponent: LazyPanelLoading });
+const InstrumentSelector = defineAsyncComponent({ loader: loadPanel, loadingComponent: LazyPanelLoading, errorComponent: LazyPanelError });
 const preload = () => { void loadPanel().catch(() => { /* Opening retries via the async component. */ }); };
 const drawerContentHeight = ref<number>();
 const drawer = ref<InstanceType<typeof TopDrawer> | null>(null);

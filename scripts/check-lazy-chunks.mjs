@@ -17,6 +17,8 @@ const surfaces = [
   'node_modules/@strudel/soundfonts/dist/index.mjs',
 ];
 const files = new Set();
+const worker = await readFile(new URL('../dist/sw.js', import.meta.url), 'utf8');
+const precache = new Set([...worker.matchAll(/\{url:"([^"]+)"/g)].map(match => match[1]));
 for (const key of surfaces) {
   // Vite 4 omits src for the guide's shared facade; its dynamic entry keeps
   // the output name. Inspect the emitted graph in either representation.
@@ -28,5 +30,16 @@ for (const key of surfaces) {
   assert.ok(!initial.has(resolvedKey), `${key} is imported at startup`);
   assert.ok(!files.has(entry.file), `${key} shares another surface's chunk`);
   files.add(entry.file);
+  const offlinePanel = /components\/(ConfigPanel|InstrumentSelector)\.vue$/.test(key);
+  assert.equal(precache.has(entry.file), offlinePanel, `${key}: incorrect offline precache policy`);
+  if (offlinePanel) {
+    const checkOffline = chunk => {
+      for (const file of [chunk.file, ...(chunk.css ?? [])]) {
+        assert.ok(precache.has(file), `Offline panel dependency missing: ${file}`);
+      }
+      for (const dependency of chunk.imports ?? []) checkOffline(manifest[dependency]);
+    };
+    checkOffline(entry);
+  }
   console.log(`lazy chunk: ${key} → ${entry.file}`);
 }

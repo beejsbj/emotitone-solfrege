@@ -6,6 +6,7 @@
 <script setup lang="ts">
 import { defineAsyncComponent } from "vue";
 import MainApp from "./MainApp.vue";
+import LazyPanelLoading from "./components/LazyPanelLoading.vue";
 import { beginJoystickPageEdition } from "./components/uniques/Joystick/edition";
 import {
   STYLE_GUIDE_PAGES,
@@ -27,7 +28,8 @@ if (isStyleGuideRoute) {
   beginJoystickPageEdition();
 }
 
-const StyleGuide = defineAsyncComponent(
-  () => import("./style-guide/StyleGuide.vue"),
-);
+const StyleGuide = defineAsyncComponent({
+  loader: () => import("./style-guide/StyleGuide.vue"),
+  loadingComponent: LazyPanelLoading,
+});
 </script>

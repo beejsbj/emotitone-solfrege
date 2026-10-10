@@ -156,7 +156,15 @@ describe("instrument load timeout", () => {
 
   it("names a sampled instrument still warming after the engine is ready as samples, and plays the synth", async () => {
     audio.state.hang = "warmup";
-    const wrapper = await mountAndTimeOut();
+    useInstrumentStore().currentInstrument = "piano";
+    const wrapper = mount(LoadingSplash, { global: { plugins: [pinia] } });
+    await vi.advanceTimersByTimeAsync(400);
+    await flushPromises();
+    expect(audio.prewarmSoundSamples).not.toHaveBeenCalled();
+    await wrapper.get(".count-gate--play").trigger("click");
+    await flushPromises();
+    await vi.advanceTimersByTimeAsync(60_000);
+    await flushPromises();
 
     expect(audio.prewarmSoundSamples).toHaveBeenCalledWith("piano");
     expect(useAppLoading().loadingState.progress.instruments.failure).toBe("samples");

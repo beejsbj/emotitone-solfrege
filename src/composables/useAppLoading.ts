@@ -149,6 +149,7 @@ export function useAppLoading() {
       message: "Enabling audio context...",
     });
 
+    let selectedInstrumentTimedOut = false;
     try {
       await within(
         synthsOnly ? initSynthOnlyAudio() : initSuperdoughAudio(),
@@ -171,6 +172,17 @@ export function useAppLoading() {
         ]);
       }
       if (context.state !== "running") throw new AudioBlockedError();
+      if (!synthsOnly) {
+        const { useInstrumentStore } = await import("@/stores/instrument");
+        await within(
+          useInstrumentStore().initializeInstruments((progress, message) => {
+            loadingState.progress.instruments.progress = progress;
+            loadingState.progress.instruments.message = message;
+          }),
+          INSTRUMENT_LOAD_TIMEOUT_MS,
+          () => { selectedInstrumentTimedOut = true; return instrumentLoadTimeout(); },
+        );
+      }
 
       updatePhase("audioContext", {
         progress: 100,
@@ -181,8 +193,17 @@ export function useAppLoading() {
       });
       return true;
     } catch (error) {
-      // Only a context the browser refused is a cue; anything the initializers
-      // throw is an engine fault, which a tap cannot fix.
+      if (error instanceof SampleLoadError) {
+        updatePhase("instruments", {
+          message: "Instrument samples failed to load",
+          isComplete: false,
+          error: error.message,
+          failure: "samples",
+          timedOut: selectedInstrumentTimedOut,
+        });
+        return false;
+      }
+      // Only a context the browser refused is a cue. Engine faults keep the splash.
       const blocked = error instanceof AudioBlockedError;
       updatePhase("audioContext", {
         progress: 0,
@@ -221,7 +242,7 @@ export function useAppLoading() {
 
       // A load that hangs stops the count; the timeout is named by the step that hung.
       await within(
-        instrumentStore.initializeInstruments(progressCallback),
+        instrumentStore.initializeInstruments(progressCallback, { prepareSelected: false }),
         INSTRUMENT_LOAD_TIMEOUT_MS,
         () => {
           timedOut = true;
@@ -231,7 +252,7 @@ export function useAppLoading() {
 
       updatePhase("instruments", {
         progress: 100,
-        message: "All instruments ready",
+        message: "Audio engine ready; selected sound prepares on Play",
         isComplete: true,
       });
     } catch (error) {

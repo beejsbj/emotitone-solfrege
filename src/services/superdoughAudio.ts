@@ -11,8 +11,6 @@ import { resumeAudioContext } from "@/services/audioLifecycle";
 // @ts-ignore
 import { superdough, registerSynthSounds, samples, loadBuffer, getSound, soundMap, hasVoice, stopVoice, cancelVoice, releaseVoice, releaseAllVoices } from "superdough";
 import { webaudioOutput } from "@strudel/webaudio";
-// @ts-ignore
-import { prewarmSoundfont, registerSoundfonts } from "@strudel/soundfonts";
 import { musicTheory, CHROMATIC_NOTES } from "@/services/music";
 import type {
   ActiveNote,
@@ -150,6 +148,14 @@ const SAMPLE_PACKS = [
   { key: "vcsl", label: "Orchestra" },
 ] as const;
 
+/** Catalog code is needed only by the picker or a selected GM instrument. */
+let soundfontCatalog: Promise<void> | null = null;
+export function ensureSoundfontCatalog(): Promise<void> {
+  return soundfontCatalog ??= import("@strudel/soundfonts")
+    .then(({ registerSoundfonts }) => registerSoundfonts())
+    .catch(error => { soundfontCatalog = null; throw error; });
+}
+
 /**
  * Core pre-warm logic — assumes superdough is already initialised.
  * Do NOT call initSuperdoughAudio() here; it would deadlock when invoked
@@ -160,6 +166,7 @@ async function _prewarmSoundCore(
   tolerateBufferFailures = false
 ): Promise<void> {
   const resolved = resolveLiveSoundName(soundName);
+  if (resolved.startsWith("gm_")) await ensureSoundfontCatalog();
   let sound;
   try {
     // Resolve the registered sound before treating synth names as ready. This
@@ -184,6 +191,7 @@ async function _prewarmSoundCore(
     }
 
     try {
+      const { prewarmSoundfont } = await import("@strudel/soundfonts");
       await prewarmSoundfont(font, getAudioContext());
       await prepareLivePlayback(getAudioContext(), getSuperdoughMasterGain(), resolved);
       _prewarmedSounds.add(resolved);
@@ -292,11 +300,10 @@ export async function initSuperdoughAudio(
       registerSynthSounds();
       progressCallback?.(3, "Synth sounds registered");
 
-      // Load all sample packs from the dough-samples CDN + GM soundfonts.
+      // Load sample-pack metadata only; audio files warm on selection.
       // Track individual completions so the loading screen shows real steps.
       const BASE = "https://raw.githubusercontent.com/felixroos/dough-samples/main/";
-      // 7 items total: 6 JSON packs + soundfonts
-      const total = SAMPLE_PACKS.length + 1;
+      const total = SAMPLE_PACKS.length;
       let done = 0;
 
       const reportPack = (label: string) => {
@@ -311,7 +318,6 @@ export async function initSuperdoughAudio(
           ...SAMPLE_PACKS.map(({ key, label }) =>
             Promise.resolve(samples(`${BASE}${key}.json`)).then(() => reportPack(label))
           ),
-          Promise.resolve(registerSoundfonts()).then(() => reportPack("Soundfonts")),
         ]);
       } catch (error) {
         // Tagged so the loading screen can offer the synths, which need no download.

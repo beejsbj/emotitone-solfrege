@@ -68,6 +68,22 @@ afterEach(() => {
 });
 
 describe("production loading flow", () => {
+  it("keeps Play busy and the splash visible until the selected instrument prepares", async () => {
+    const wrapper = await mountLoaded();
+    audio.context.allow = true;
+    let finish!: () => void;
+    instruments.initializeInstruments.mockImplementationOnce(() => new Promise<void>(resolve => { finish = resolve; }));
+    await wrapper.get(".count-gate--play").trigger("click");
+    await flushPromises();
+    expect(wrapper.get(".count-gate--play").attributes("disabled")).toBeDefined();
+    expect(useAppLoading().isVisible.value).toBe(true);
+    finish();
+    await flushPromises();
+    await vi.advanceTimersByTimeAsync(600);
+    expect(useAppLoading().isVisible.value).toBe(false);
+    wrapper.unmount();
+  });
+
   it("lands a blocked Play tap on the Enable Audio cue, and a successful cue tap enters the app", async () => {
     const wrapper = await mountLoaded();
 

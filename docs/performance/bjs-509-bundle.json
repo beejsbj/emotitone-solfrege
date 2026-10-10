@@ -1,0 +1,77 @@
+{
+  "ticket": "BJS-509",
+  "baselineCommit": "4f0f779c",
+  "chrome": "147.0.7727.101",
+  "mainChunk": {
+    "units": "Vite build output, decimal kB",
+    "before": {
+      "raw": 3101.88,
+      "gzip": 862.01
+    },
+    "after": {
+      "raw": 2698.77,
+      "gzip": 785.84
+    },
+    "reductionPercent": {
+      "raw": 13.0,
+      "gzip": 8.84
+    },
+    "note": "Measured before PR #163 (HighlightStrip) merges; its independent CodeMirror removal will change these numbers."
+  },
+  "separateLazyChunks": [
+    "StyleGuide",
+    "ConfigPanel",
+    "InstrumentSelector",
+    "@strudel/soundfonts"
+  ],
+  "pwaPrecache": {
+    "beforeEntries": 100,
+    "afterEntries": 17,
+    "note": "Deferred JS and CSS are cached on first use. Default-synth boot modules remain precached; unopened optional surfaces need a connection for first use."
+  },
+  "coldPianoBefore": {
+    "playToReadyMs": 1307.8,
+    "pointerdownToObservedPcmMs": 119.8,
+    "audioRequestsBeforeGesture": 29,
+    "cachedUrlsBeforeGesture": 0,
+    "uncaughtExceptions": 0
+  },
+  "coldPianoAfter": {
+    "playToReadyMs": 3624.9,
+    "pointerdownToObservedPcmMs": 171.1,
+    "audioRequestsBeforeGesture": 0,
+    "cachedUrlsBeforeGesture": 14,
+    "uncaughtExceptions": 0
+  },
+  "additionalPianoAfterObservationsMs": [
+    134.9,
+    212.4
+  ],
+  "coldGmEpiano1After": {
+    "playToReadyMs": 1743.8,
+    "pointerdownToObservedPcmMs": 148.6,
+    "audioRequestsBeforeGesture": 0,
+    "cachedUrlsBeforeGesture": 14,
+    "uncaughtExceptions": 0
+  },
+  "browserChecks": {
+    "commands": [
+      "bun run measure:startup",
+      "SAVED_INSTRUMENT=gm_epiano1 bun run measure:startup"
+    ],
+    "passed": [
+      "No MP3/audio or remote soundfont preset requests before Play",
+      "Deferred surface chunks absent from page requests and service-worker CacheStorage before Play",
+      "Selected persisted sound retained after Play",
+      "First key produces PCM after selected instrument preparation",
+      "Config, picker and real GM catalog render after loading"
+    ],
+    "limitations": [
+      "Single headless Chrome on a shared host; no phone or speaker/hardware latency measurement",
+      "PCM onset is sampled on the main thread and includes host scheduling and timer delays; results vary",
+      "One before observation; these data do not establish latency parity",
+      "Baseline captured using the same CDP/AnalyserNode probe before the reusable package script existed"
+    ]
+  },
+  "startupTradeoff": "Cold selected-bank download moves from page load onto Play. The splash stays up until preparation succeeds or the established synth fallback is ready."
+}

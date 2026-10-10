@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import capturedAnalysis from "../fixtures/pitch-analysis/melograph-two-level-sine.json";
 import {
   analyzePitchRecording,
   encodeMonoPcmWav,
@@ -191,7 +192,28 @@ describe("recorded voice dynamics", () => {
     }), { key: "C", mode: "major" })[0].notes[0];
   }
 
-  it("uses voiced RMS inside the note window rather than pitch confidence", () => {
+  it("preserves different loudness at equal confidence in the captured Melograph response", () => {
+    const captured = capturedAnalysis as PitchAnalysisResult;
+    const notes = pitchAnalysisToPatternCandidates(captured, { key: "C", mode: "major" })[0].notes;
+    expect(notes).toHaveLength(2);
+    expect(notes.map((note) => note.note)).toEqual(["C4", "C4"]);
+    // Known PCM amplitudes give RMS amplitude / sqrt(2). The second note's
+    // window includes the short amplitude transition, hence the 0.01 tolerance.
+    expect(notes[0].velocity).toBeCloseTo(0.205, 2);
+    expect(notes[1].velocity).toBeCloseTo(0.578, 2);
+    expect(notes[0].velocity).toBeLessThan(notes[1].velocity!);
+    expect(notes[1].velocity).toBeLessThan(1);
+
+    const lowConfidence = structuredClone(captured);
+    lowConfidence.frames.forEach((frame) => { frame.confidence = 0.1; });
+    lowConfidence.phrases.forEach((phrase) => phrase.events.forEach((event) => {
+      if (event.type === "note") event.confidence = 0.1;
+    }));
+    expect(pitchAnalysisToPatternCandidates(lowConfidence, { key: "C", mode: "major" })[0].notes
+      .map((note) => note.velocity)).toEqual(notes.map((note) => note.velocity));
+  });
+
+  it("excludes unvoiced and out-of-window frames from note energy", () => {
     const quiet = take(-40, 0.95);
     const loud = take(-20, 0.95);
     expect(quiet.velocity).toBeCloseTo(Math.sqrt((0.01 - 0.003) / 0.097));

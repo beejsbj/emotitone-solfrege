@@ -27,6 +27,21 @@ describe("LivePitch", () => {
 });
 
 describe("voice dynamics", () => {
+  it("keeps a voice at the detector gate audible while rejecting quieter noise", async () => {
+    const { VOICE_RMS_FLOOR, voiceRmsToVelocity } = await import("@/services/voiceDynamics");
+    const samples = Float32Array.from({ length: FRAME_SIZE }, (_, i) =>
+      Math.sin(2 * Math.PI * 440 * i / SAMPLE_RATE));
+    const rms = Math.sqrt(samples.reduce((sum, sample) => sum + sample ** 2, 0) / samples.length);
+    // Normalize real PCM to just above the voiced threshold.
+    const frame = new LiveMpmTracker().analyze(
+      samples.map((sample) => sample * VOICE_RMS_FLOOR * 1.00001 / rms), SAMPLE_RATE, 0,
+    );
+    expect(frame.voiced).toBe(true);
+    expect(voiceRmsToVelocity(frame.rms)).toBe(0.15);
+    expect(voiceRmsToVelocity(VOICE_RMS_FLOOR)).toBe(0.15);
+    expect(voiceRmsToVelocity(VOICE_RMS_FLOOR * 0.999)).toBe(0);
+  });
+
   it("measures real buffer RMS and gives louder voices higher velocity at equal clarity", async () => {
     const { voiceRmsToVelocity } = await import("@/services/voiceDynamics");
     const tracker = new LiveMpmTracker();

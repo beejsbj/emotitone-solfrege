@@ -15,7 +15,7 @@ export interface PitchAnalysisFrame {
   midi_processed: number | null;
   confidence: number;
   voiced: boolean;
-  rms_db: number;
+  rms_db: number; // Amplitude dBFS, confirmed against captured Melograph PCM analysis.
 }
 
 export interface PitchAnalysisNoteEvent {
@@ -271,7 +271,8 @@ function noteVelocity(event: PitchAnalysisNoteEvent, frames: PitchAnalysisFrame[
       || frame.time_seconds < event.start_seconds
       || frame.time_seconds >= event.end_seconds
     ) continue;
-    // rms_db is amplitude dBFS; average energy, then recover linear RMS.
+    // Melograph reports amplitude dBFS (not Praat intensity); see the captured
+    // two-level sine fixture. Average energy, then recover linear RMS.
     energy += 10 ** (frame.rms_db / 10);
     count += 1;
   }

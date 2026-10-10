@@ -145,7 +145,7 @@ applied.
 
 | Import | What it does | Replacement |
 | --- | --- | --- |
-| `superdough(payload, t, dur, cps)` | Renders every pattern note and the live fallback. Payload fields the app emits: `s`, `note`/`n`, `gain` 0.8, `attack`, `decay`, `sustain`, `release`, `clip`, `cutoff`, `resonance`, `room`, `delay`, `delaytime` 0.25, `delayfeedback` 0.3, `vib`, `vibmod`, `tremolo`, `tremolodepth`, `orbit` 2 (live), and the patch's `voiceId`/`sustainUntilRelease`. | Worklet voices. Envelope and gain already exist. `clip` becomes the gate length in the table. Recorded pitch and gain curves can replay through the existing per-owner bend and gain paths (within the bend range), more exactly than the `vib`/`tremolo` approximations. Filter and sends are covered in the next rows. |
+| `superdough(payload, t, dur, cps)` | Renders every pattern note and the live fallback. Payload fields the app emits: `s`, `note`/`n`, `gain` 0.8, `attack`, `decay`, `sustain`, `release`, `clip`, `cutoff`, `resonance`, `room`, `delay`, `delaytime` 0.25, `delayfeedback` 0.3, `vib`, `vibmod`, `tremolo`, `tremolodepth`, `orbit` 2 (live), and the patch's `voiceId`/`sustainUntilRelease`. | Worklet voices. Envelope and gain already exist. `clip` becomes the gate length in the table. Recorded pitch and gain curves can replay through the existing per-owner bend and gain paths (within the bend range, with a separate expression owner per scheduled occurrence), more exactly than the `vib`/`tremolo` approximations. Filter and sends are covered in the next rows. |
 | `hasVoice`, `stopVoice`, `cancelVoice`, `releaseVoice`, `releaseAllVoices` (patch exports) | Held live voices on the fallback path. | The worklet's existing `press`/`release`/`clear` owners. They retire with the fallback. |
 | `registerSynthSounds`, synth `square`/`sawtooth` (native `OscillatorNode`), `supersaw`, `pulse` | The fourteen selectable synths (ten oscillator names plus `z_sine`, `z_square`, `z_sawtooth`, `z_triangle`). square/saw go to superdough on purpose (#90, timbre parity). | The polyBLEP square/saw already in `core.ts` (BJS-487). supersaw, pulse and the z_* four: see finding 4. |
 | `getAudioContext`, `initAudio({ maxPolyphony: 64 })`, `getSuperdoughAudioController().output.destinationGain`, `getOrbit(2)` (`audioRuntime.ts`) | Owns the context, master gain and live orbit. Every analyser, scope and recorder fans out from that master gain. | An app-owned graph: context, worklet node, master gain, and reverb and delay buses (finding 2). |
@@ -260,7 +260,7 @@ by the UI. The core already sequences Repeat/Arp pulses there.
   - `notes[]`, each with `begin` and `duration` in bars at rate 1, `pitch`
     already bent to the Looper's key and mode (or pinned), `instrumentId`,
     `sourceNoteId` (the table holds no `noteId`: the scheduler allocates a
-    unique voice `noteId` for each occurrence it schedules), the immutable key, mode and solfège it was built under (or a
+    unique voice `noteId` for each occurrence it schedules; use numeric generation/counter fields in the worklet and create public string IDs on the main thread, including ID creation in the allocation gate), the immutable key, mode and solfège it was built under (or a
     table-generation id that resolves to them), and in production its
     articulation and expression curves. The member also carries its Shape
     (attack, release, cutoff, resonance, room, delay), including envelope overrides when a note has no articulation and the values `filterModifiers()` and
@@ -305,7 +305,7 @@ by the UI. The core already sequences Repeat/Arp pulses there.
   converging to zero. The case is rare (a command posted within the message
   latency of B), so the phase acceptance check excludes the window and reports
   its length. Test a command posted just before B and delivered after it, for
-  both an increase and a decrease.
+  both an increase and a decrease. Pending commands retain musical bar boundaries: whenever an earlier tempo anchor changes, recompute all later provisional anchors and boundary frames. Test two tempo commands submitted in a different order from their boundaries.
 
 ### Tails, mute and solo
 
@@ -320,7 +320,7 @@ by the UI. The core already sequences Repeat/Arp pulses there.
   alternative is a wet bus per member. Mute and solo therefore leave a tail
   of the muted member audible, and BJS-491 measures the dry output for its
   150 ms bound. **Burooj decides** whether that tail is acceptable.
-- **Stop fades everything.**
+- **Stop fades everything.** Forced fades (mute, solo and stop) emit one release/cancel at the fade boundary and suppress the later authored release; test that a long gate clears Stage, keys, HighlightStrip, the registry and MIDI within that bound.
 
 ### Events, the Stage, keys and UIBeat
 
@@ -330,14 +330,14 @@ articulation, and the key, mode and solfège (or the table-generation id) the
 note was built under. Every transport event is marked non-recordable (`record: false`, or a source
 the recorder excludes), because `phrases.ts` otherwise records the transport's
 own attacks into the open take; a test shows playback leaves the take
-unchanged. The adapter also supplies the existing MIDI fields (`noteName`, `solfegeIndex`, `octave`) from the immutable note context; test transport attacks and releases mirrored to a connected MIDI output.
+unchanged. The adapter preserves the complete existing event payload, including `note`, `frequency`, `noteName`, `solfegeIndex`, `octave`, `keyboardOctave`, `pitchClassIndex` and `isBorrowed`, from the immutable note context; test a borrowed pitch and a frequency-dependent Stage renderer. MIDI uses `midiTimestamp` derived from the audible output time of `frame`; measure alignment and stalled delivery. During a main-thread stall MIDI cannot guarantee audio-thread timing: discard expired attacks, release retired voices and reconcile still-active notes on recovery, testing for no burst of stale attacks or stuck notes.
 The main thread retains an active-note registry keyed by `noteId`, fed by these events and cleared on stop/reset; test enabling Stage or Note Bodies halfway through a long gate to hydrate already-sounding notes.
 The Stage and keys cues read these, not the current
 store, because a queued key change or a stalled main thread can leave the store
 ahead of the sound. Events are batched per quantum through the FIFO bridge. Today's bridge
 allocates (it builds response objects and replaces its array on every flush),
 so production needs recyclable or transferable event batches, not a new object
-per flush.
+per flush. BJS-485 must size a preallocated ring/pool for the supported maximum event rate over a 1,000 ms stall and test dense delivery without lost edges. Beyond that bound, never allocate or block rendering: mark overflow and recover consumers from an authoritative active-voice snapshot, explicitly releasing absent IDs and suppressing stale attacks; test overflow recovery separately.
 
 - **The Stage and keys** keep using `audibleAt` (render time plus output
   latency) as they do now. In the prototype an event reached the main thread
@@ -476,7 +476,7 @@ and PCM capture, as #140 and the spike do.
 ### BJS-485 Play patterns on the worklet clock
 
 1. **From the reel.** Playing a reel pattern constructs no Strudel scheduler
-   (assert no `StrudelMirror` or Cyclist exists).
+   (assert no `StrudelMirror` or Cyclist exists). The transport acquires `holdAudioActivity()` on start and releases it on stop, failed start or disposal; test a muted/resting transport beyond the 30 s idle threshold and idle suspension after stop.
 2. **Timing.** PCM attacks on the worklet output match the note-data oracle:
    0 missing, 0 extra, events exact to the frame, PCM within 12 ms. Run for a
    melody, a chord pattern (brace lanes) and a pattern with rests. Notes that
@@ -505,7 +505,7 @@ and PCM capture, as #140 and the spike do.
    instrument is absent today).
 7. **Stall survival.** A 1,000 ms main-thread stall loses no attacks (the
    spike's stall cell).
-8. **Articulation.** Recorded per-note articulation and clip reach the voice. Golden PCM also covers an authored/legacy phrase with Shape attack/release overrides and no per-note articulation.
+8. **Articulation.** Recorded per-note articulation and clip reach the voice. Golden PCM also covers an authored/legacy phrase with Shape attack/release overrides and no per-note articulation, and overlapping notes with different pitch/gain curves that remain independent.
 
 ### BJS-486 Filter, reverb and delay
 
@@ -760,9 +760,7 @@ the AGPL code. The open question is only the unlicensed GM fonts (finding 3).
 - **Messages under main-thread stalls.** Commands are not lost, but the UI's
   view lags. A tap during a stall is delivered when the main thread frees up.
   The worklet can't help with input that the main thread hasn't received.
-- **Memory spike during load.** With one PCM copy, the transient peak during
-  decode and copy is still two copies of one zone. Serialising zones keeps
-  that small.
+- **Memory spike during load.** Decoded AudioBuffer, owned source PCM and derived mipmap PCM can coexist, approaching three source copies per zone. BJS-488 and the phone gate measure peak loading memory separately from steady residency, serialize zone preparation, and establish a device-tested per-zone budget with a retryable over-budget failure before removing fallback.
 - **strudel.cc's URL format** is outside our control. "Open in Strudel" is a
   hand-off, so if it breaks, playback is not affected.
 - **Momentum.** The Looper waits on BJS-485 and BJS-491. #139 and #141 can

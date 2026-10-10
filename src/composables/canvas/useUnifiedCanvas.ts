@@ -543,7 +543,8 @@ export function useUnifiedCanvas(
   // event. Probe only idle, visible Stages with a running audio clock; never draw
   // silent transport frames just to discover a later onset.
   const idleAudioTimer = window.setInterval(() => {
-    if (!canAnimate() || isAnimating.value || getAudioContext().state !== "running") return;
+    if (!canAnimate() || isAnimating.value || getComposition().suspended
+      || getAudioContext().state !== "running") return;
     const frame = stageAudio.sample(performance.now());
     if (frame.hasSignal || frame.envelope >= 0.001 || getStageActiveNotes().length) wakeAnimation();
   }, 50);

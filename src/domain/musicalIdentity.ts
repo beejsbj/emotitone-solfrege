@@ -465,6 +465,46 @@ export function pitchSolfegeData(
   };
 }
 
+export type DetectedPitch = { frequencyHz: number } | { midi: number; cents?: number };
+
+export interface DetectedPitchIdentity {
+  midi: number;
+  frequency: number;
+  pitchClass: number;
+  scaleIndex: number | null;
+  borrowed: boolean;
+  solfege: SolfegeData;
+}
+
+/**
+ * Round to the nearest semitone; only pitches outside the scale are borrowed.
+ * Both humming lanes share identity and spelling here, while their timing and
+ * stability gates remain separate. Invalid detections are not pitches.
+ */
+export function classifyDetectedPitch(
+  pitch: DetectedPitch,
+  context: MusicalContext,
+  laBasedMinor = false,
+): DetectedPitchIdentity | null {
+  const height = "frequencyHz" in pitch
+    ? (pitch.frequencyHz > 0 ? 69 + 12 * Math.log2(pitch.frequencyHz / 440) : NaN)
+    : pitch.midi + (pitch.cents ?? 0) / 100;
+  if (!Number.isFinite(height)) return null;
+
+  // Identity owns scale membership and spelling, independently of intonation.
+  const midi = Math.round(height);
+  const identity = identifyPitch(midi, context)!;
+  const solfege = pitchSolfegeData(midi, context, laBasedMinor)!;
+  return {
+    midi,
+    frequency: 440 * 2 ** ((midi - 69) / 12),
+    pitchClass: identity.pitchClass,
+    scaleIndex: identity.scaleIndex,
+    borrowed: identity.borrowed,
+    solfege,
+  };
+}
+
 /** Spelled pitch class in the key, e.g. "Bb". */
 export function spellPitchClass(
   pitch: string | number,

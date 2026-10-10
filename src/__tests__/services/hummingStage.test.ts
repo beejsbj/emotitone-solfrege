@@ -111,7 +111,7 @@ describe("LivePitch humming Stage bridge", () => {
     expect(events.at(-1)?.type).toBe("note-released");
   });
 
-  it("does not present an off-scale pitch as the wrong solfege degree", () => {
+  it("presents an off-scale pitch with its chromatic syllable", () => {
     const dispatchEvent = vi.fn().mockReturnValue(true);
     const bridge = createHummingStageBridge(
       { key: "C", mode: "major", instrument: "piano" },
@@ -121,7 +121,12 @@ describe("LivePitch humming Stage bridge", () => {
     bridge.push(voiced(61));
     bridge.push(voiced(61));
 
-    expect(dispatchEvent).not.toHaveBeenCalled();
+    expect((dispatchEvent.mock.calls[0][0] as CustomEvent).detail).toMatchObject({
+      noteName: "C#4", solfegeIndex: -1, pitchClassIndex: 1,
+      note: { name: "Ra", number: 0 },
+    });
+    bridge.stop();
+    expect(getActiveLivePitchStageNotes()).toEqual([]);
   });
 
   it("releases the old identity before applying a changed musical context", () => {

@@ -63,6 +63,9 @@ describe("import boundary: primitives and compounds", () => {
   it("rejects dynamic import(), require() and re-exports of the same targets (bypass 1)", async () => {
     for (const [code, rule] of [
       ['export const x = import("@/stores/music");', STORES],
+      ['export const load = (n: string) => import("../../stores/" + n);', STORES],
+      ['export const load = (n: string) => import("@/services/" + n);', SERVICES],
+      ['export const x = import("@/components/../stores/music");', STORES],
       ['export const x = import("../../stores/music");', STORES],
       ['export const x = import("../../../src/stores/music");', STORES],
       ['export const x = import("@/services/inputVoiceGroups");', SERVICES],
@@ -75,6 +78,11 @@ describe("import boundary: primitives and compounds", () => {
       expect(await eslintRules("src/components/primatives/fresh.ts", code), code).toContain(rule);
     }
     expect(await eslintRules(compound, vue('const load = () => import("@/stores/music");\nload;'))).toContain(STORES);
+  });
+
+  it("forbids the playback engine and exempts colocated specs", async () => {
+    expect(await eslintRules(primitive, vue('import { createPlayStyleEngine } from "@/services/playStyles"; void createPlayStyleEngine;'))).toContain(SERVICES);
+    expect(await eslintRules("src/components/primatives/fresh.spec.ts", 'import { s } from "@/stores/music"; export const c = "#123456"; void s;')).toEqual([]);
   });
 
   it("allows type-only imports, pure services, composables and ordinary dynamic imports", async () => {
@@ -126,6 +134,7 @@ describe("baseline: a file with debt may not gain more (bypass 2)", () => {
     const readout = read("src/components/primatives/Readout.vue");
     const grown = readout.replace("</style>", ".more { background: rgba(10, 20, 30, .5); }\n</style>");
     expect((await styleProblems("src/components/primatives/Readout.vue", grown)).join()).toMatch(/must not gain more/);
+    expect((await styleProblems("src/components/primatives/Readout.vue", readout + style("background: #123456;"))).join()).toMatch(/must not gain more/);
     const mark = read("src/components/primatives/Mark.vue").replace("</style>", ".more { color: var(--cobalt); }\n</style>");
     expect((await styleProblems("src/components/primatives/Mark.vue", mark)).join()).toMatch(/must not gain more/);
   });
@@ -160,6 +169,24 @@ describe("colour law in script and template", () => {
       vue("", '<div class="border-[#76544f] p-2" />'),
     ]) {
       expect(await eslintRules(playing, code)).toContain(RAW);
+    }
+  });
+
+  it("rejects inline named colours without rejecting token tone names or prose", async () => {
+    for (const [template, rule] of [
+      ['<div style=" color: tomato" />', BRAND], ['<div class="bg-[tomato]" />', BRAND],
+      ['<div class="bg-white" />', RAW], ['<div style="border: 1px solid white" />', RAW],
+      ["<div :style=\"{ color: true ? 'black' : 'currentColor' }\" />", RAW],
+    ]) expect(await eslintRules(playing, vue("", template)), template).toContain(rule);
+    expect(await eslintRules(playing, vue('const s = { color: "white" }; void s;'))).toContain(RAW);
+    expect(await eslintRules(playing, vue('const s = { tone: "ivory", label: "white" }; const resolvedColor = () => true ? "ivory" : "ink"; void [s, resolvedColor];', '<div title="white" class="text-ivory" />'))).toEqual([]);
+  });
+
+  it("parses JSX and TSX before applying colour rules", async () => {
+    for (const ext of ["jsx", "tsx"]) {
+      const file = `src/components/fresh.${ext}`;
+      expect(await eslintRules(file, 'export const view = <div style={{ color: "var(--ink)" }} />;')).toEqual([]);
+      expect(await eslintRules(file, 'export const view = <div style={{ color: "#123456" }} />;')).toContain(RAW);
     }
   });
 

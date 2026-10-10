@@ -43,6 +43,14 @@ export const NAMED_COLOURS = new Set(
   ).split(" "),
 );
 
+// Inline CSS and Tailwind arbitrary values never reach Stylelint.
+const inlineNames = (names) => new RegExp(`(?:^|[;{])\\s*(?:[\\w-]*colou?r|background|border|box-shadow|fill|stroke|--[\\w-]+)\\s*:[^;{}]*?(?<![\\w-])(${names})(?![\\w-])`, "i");
+const utilityNames = (names) => new RegExp(`(?:^|[\\s:"'])` +
+  `(?:bg|text|border|ring|fill|stroke|from|via|to|outline|decoration|shadow|accent|caret|divide)-\\[?(?:${names})(?![\\w-])`, "i");
+BRAND_TEXT_PATTERNS.push(inlineNames(BRAND), utilityNames(BRAND));
+const rawNames = [...NAMED_COLOURS].filter((name) => !BRAND_TOKENS.includes(name));
+RAW_COLOUR_PATTERNS.push(inlineNames(rawNames.join("|")), utilityNames(rawNames.filter((name) => name !== "ivory").join("|")));
+
 /** Properties whose values are names or lists, not colours (a word like `white` or `tan` is not a colour there). */
 export const NAMED_COLOUR_EXEMPT_PROPERTIES = new Set([
   "font",

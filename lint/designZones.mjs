@@ -48,6 +48,7 @@ export const playingZoneGlobs = (extensions) => [
 export const PLAYING_ZONE_IGNORE = [
   "src/**/__tests__/**",
   "src/**/*.test.ts",
+  "src/**/*.spec.ts",
   "src/**/*.typecheck.*",
 ];
 
@@ -73,7 +74,6 @@ export const PURE_SERVICES = [
   "musicColorCore",
   "keySurfaceColor",
   "music",
-  "playStyles",
   "scalePitch",
   "shape",
   "harmonicEmotion",

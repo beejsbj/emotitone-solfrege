@@ -6,7 +6,7 @@
  * no baseline entry gets a budget of zero.
  */
 import { posix } from "node:path";
-import { BRAND_TEXT_PATTERNS, RAW_COLOUR_PATTERNS } from "./colourPatterns.mjs";
+import { BRAND_TEXT_PATTERNS, RAW_COLOUR_PATTERNS, NAMED_COLOURS } from "./colourPatterns.mjs";
 import { PURE_SERVICES } from "./designZones.mjs";
 import { judge, relativeToRoot } from "./baseline.mjs";
 
@@ -75,11 +75,25 @@ function budgeted({ baselineKey, description, violation, collect }) {
 
 // Colour law ---------------------------------------------------------------
 
+function isColourValue(node) {
+  for (let parent = node.parent; parent; parent = parent.parent) {
+    if (["BinaryExpression", "CallExpression", "ArrowFunctionExpression", "FunctionExpression"].includes(parent.type)) return false;
+    let name;
+    if (parent.type === "Property") name = parent.key.name ?? parent.key.value;
+    if (parent.type === "VariableDeclarator") name = parent.id.name;
+    if (parent.type === "AssignmentExpression") name = parent.left.property?.name;
+    if (parent.type === "VAttribute") return parent.key.argument?.name === "style";
+    if (name !== undefined) return /(?:colou?r|fill|stroke|background|shadow|accent|caret)/i.test(name);
+  }
+  return false;
+}
+
 function colourText(patterns) {
   const check = (add) => (node, text) => {
     if (typeof text !== "string") return;
     const hit = patterns.map((p) => p.exec(text)).find(Boolean);
     if (hit) add(node, (hit[1] ?? hit[0]).trim());
+    else if (patterns === RAW_COLOUR_PATTERNS && NAMED_COLOURS.has(text.toLowerCase()) && !BRAND_TEXT_PATTERNS.some((p) => p.test(text)) && isColourValue(node)) add(node, text);
   };
   return ({ add }) => {
     const test = check(add);
@@ -96,7 +110,7 @@ function colourText(patterns) {
 /** Resolve an import specifier to a repo-relative path, or null for packages. */
 function resolveSpecifier(source, file) {
   let resolved;
-  if (source.startsWith("@/")) resolved = `src/${source.slice(2)}`;
+  if (source.startsWith("@/")) resolved = posix.normalize(`src/${source.slice(2)}`);
   else if (source.startsWith(".")) resolved = posix.normalize(posix.join(posix.dirname(file), source));
   else return null;
   return resolved.startsWith("..") ? null : resolved;
@@ -123,6 +137,7 @@ function dynamicSource(node) {
   if (!node) return null;
   if (node.type === "Literal" && typeof node.value === "string") return node.value;
   if (node.type === "TemplateLiteral") return node.quasis[0].value.cooked;
+  if (node.type === "BinaryExpression" && node.operator === "+") return dynamicSource(node.left);
   return null;
 }
 

@@ -38,7 +38,7 @@ export default [
   {
     // vue-tsc already checks undefined names in TypeScript and Vue files,
     // except the tests and setup that tsconfig.json excludes (handled below).
-    files: ["**/*.{ts,vue}"],
+    files: ["**/*.{ts,tsx,vue}"],
     ignores: ["src/**/__tests__/**", "src/**/*.test.ts", "src/**/*.spec.ts", "src/test-setup.ts"],
     rules: { "no-undef": "off" },
   },
@@ -66,7 +66,7 @@ export default [
   },
   {
     // Plain JS/MJS (scripts/, audio-lab/) is outside tsconfig, so keep no-undef there.
-    files: ["**/*.{js,mjs,cjs}"],
+    files: ["**/*.{js,jsx,mjs,cjs}"],
     languageOptions: {
       globals: { ...globals.node, ...globals.browser, ...globals.es2021 },
     },
@@ -90,7 +90,7 @@ export default [
     },
   },
   {
-    files: ["**/*.{js,ts,vue}"],
+    files: ["**/*.{js,jsx,ts,tsx,vue}"],
     languageOptions: {
       parser: typescriptParser,
       parserOptions: {

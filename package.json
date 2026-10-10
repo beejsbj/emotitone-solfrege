@@ -9,7 +9,7 @@
     "dev": "vite --port 5175",
     "build": "node scripts/verify.mjs build",
     "preview": "vite preview",
-    "lint": "eslint . && stylelint \"src/**/*.{vue,css}\"",
+    "lint": "node lint/run.mjs",
     "lint:baseline": "node lint/updateBaseline.mjs",
     "type-check": "node scripts/verify.mjs type-check",
     "test": "node scripts/verify.mjs test run",

@@ -3,6 +3,7 @@
     "src/components/compounds/Keyboard.vue": 3
   },
   "no-production-service-imports": {
+    "src/components/compounds/ControlBar.vue": 1,
     "src/components/compounds/Keyboard.vue": 1
   },
   "no-brand-colour": {
@@ -11,14 +12,14 @@
   },
   "no-raw-colour": {
     "src/components/InstrumentSelector.vue": 1,
-    "src/components/primatives/Knob/BooleanKnob.vue": 3,
+    "src/components/primatives/Knob/BooleanKnob.vue": 4,
     "src/components/primatives/Knob/index.vue": 1,
     "src/components/primatives/Knob/OptionsKnob.vue": 1,
     "src/components/primatives/Knob/RangeKnob.vue": 1,
     "src/components/primatives/Note.vue": 9,
     "src/composables/canvas/harmonicTypography.ts": 2,
     "src/composables/canvas/useAmbientRenderer.ts": 2,
-    "src/composables/canvas/useBlobFieldRenderer.ts": 1,
+    "src/composables/canvas/useBlobFieldRenderer.ts": 2,
     "src/composables/canvas/useHilbertScopeRenderer.ts": 1,
     "src/composables/useMusicColor.ts": 1
   },

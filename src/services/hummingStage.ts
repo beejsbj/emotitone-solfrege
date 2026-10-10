@@ -1,4 +1,5 @@
-import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
+import { pitchSolfegeData } from "@/domain/musicalIdentity";
+import { CHROMATIC_NOTES } from "@/data";
 import { LIVE_PITCH_SOURCE } from "@/services/livePitch";
 import { voiceRmsToVelocity } from "@/services/voiceDynamics";
 import { findScaleIndexForPitchClass } from "@/services/scalePitch";
@@ -10,6 +11,7 @@ import type {
 } from "@/types/music";
 
 export interface HummingStageContext {
+  laBasedMinor?: boolean;
   key: ChromaticNote;
   mode: MusicalMode;
   instrument: string;
@@ -117,7 +119,7 @@ export function createLivePitchStageBridge(
         currentContext,
       );
       if (solfegeIndex == null) return;
-      const note = getScaleForMode(currentContext.mode).solfege[solfegeIndex];
+      const note = pitchSolfegeData(pitchClass, { tonic: currentContext.key, mode: currentContext.mode }, currentContext.laBasedMinor);
       if (!note) return;
       const tonicIndex = CHROMATIC_NOTES.indexOf(currentContext.key);
       const keyboardOctave = tonicIndex === -1
@@ -177,6 +179,7 @@ export function createLivePitchStageBridge(
         nextContext.key === currentContext.key
         && nextContext.mode === currentContext.mode
         && nextContext.instrument === currentContext.instrument
+        && Boolean(nextContext.laBasedMinor) === Boolean(currentContext.laBasedMinor)
       ) return;
 
       // Release with the same musical identity used for the attack, then let

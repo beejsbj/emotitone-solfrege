@@ -20,10 +20,12 @@ const mocks = vi.hoisted(() => {
 
   return {
     blobConfig,
+    minorBlues: false,
     stageConfig: null as unknown as Ref<{ isEnabled: boolean }>,
     ambientConfig: { value: { isEnabled: false } },
     hilbertScopeConfig: { value: { isEnabled: false, sizeRatio: 0.6 } },
     musicStore: {
+      laBasedMinor: false,
       currentMode: "major",
       currentKey: "C",
       solfegeData: [],
@@ -62,6 +64,7 @@ vi.mock("@/services/hummingStage", () => ({
 }));
 
 vi.mock("@/services/superdoughAudio", () => ({
+  setStrudelLaBasedMinor: vi.fn(),
   getActiveStrudelStageNotes: () => mocks.strudelStageNotes,
   getAudioContext: () => null,
 }));
@@ -93,11 +96,14 @@ vi.mock("@/composables/useHarmonicAnalysis", () => ({
         value: {
           isVisible: true,
           // Stored names stay sharps-only; the analysis supplies spellings.
-          displayedNotes: [
-            { noteId: "c4", noteName: "C4" },
-            { noteId: "eb4", noteName: "D#4" },
+          displayedNotes: mocks.minorBlues ? [
+            { noteId: "c4", noteName: "D#4", key: "D#", mode: "minor blues" },
+            { noteId: "eb4", noteName: "A4", key: "D#", mode: "minor blues" },
+          ] : [
+            { noteId: "c4", noteName: "C4", key: "C", mode: "major" },
+            { noteId: "eb4", noteName: "D#4", key: "C", mode: "major" },
           ],
-          noteSpellings: { c4: "C4", eb4: "Eb4" },
+          noteSpellings: mocks.minorBlues ? { c4: "Eb4", eb4: "A4" } : { c4: "C4", eb4: "Eb4" },
           intervalEdges: [
             {
               fromNoteId: "c4",
@@ -106,7 +112,8 @@ vi.mock("@/composables/useHarmonicAnalysis", () => ({
               spokenInterval: "minor third",
             },
           ],
-          chordLabel: "Cm",
+          chordSymbol: mocks.minorBlues ? null : "Cm",
+          chordLabel: mocks.minorBlues ? null : "Cm",
           chordSpoken: "C minor",
           emotionalDescription: "Grounded & radiant",
         },
@@ -225,6 +232,8 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
+    mocks.minorBlues = false;
+    mocks.musicStore.laBasedMinor = false;
     mocks.stageConfig = ref({ isEnabled: true });
     mocks.ambientConfig.value.isEnabled = false;
     mocks.hilbertScopeConfig.value.isEnabled = false;
@@ -611,10 +620,21 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
     );
   });
 
+  it.each([[false, "Do", "Se"], [true, "La", "Me"]] as const)("announces Eb minor-blues scale function despite respelling (la-based=%s)", (laBasedMinor, tonic, blue) => {
+    mocks.minorBlues = true;
+    mocks.musicStore.laBasedMinor = laBasedMinor;
+    const canvas = useUnifiedCanvas(createCanvasRef());
+    try {
+      expect(canvas.harmonicAccessibleText.value).toContain(`Interval ${tonic} (E flat 4) to ${blue} (A 4)`);
+    } finally {
+      canvas.cleanup();
+    }
+  });
+
   it("exposes only enabled harmonic labels as accessible text", () => {
     const canvas = useUnifiedCanvas(createCanvasRef());
 
-    const fullText = "Chord: C minor. Interval C 4 to E flat 4: minor third. Emotion: Grounded & radiant";
+    const fullText = "Chord: C minor. Interval Do (C 4) to Me (E flat 4): minor third. Emotion: Grounded & radiant";
     expect(canvas.harmonicAccessibleText.value).toBe(fullText);
   });
 
@@ -631,7 +651,7 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
     mocks.blobConfig.value.showEmotionLabel = false;
     const canvas = useUnifiedCanvas(createCanvasRef());
 
-    expect(canvas.harmonicAccessibleText.value).toBe("Interval C 4 to E flat 4: minor third");
+    expect(canvas.harmonicAccessibleText.value).toBe("Interval Do (C 4) to Me (E flat 4): minor third");
   });
 
   it("selectively exposes only enabled emotion label in accessible text", () => {

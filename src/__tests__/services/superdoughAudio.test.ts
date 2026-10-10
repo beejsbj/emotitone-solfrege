@@ -469,6 +469,25 @@ describe("superdoughAudio live note handling", () => {
     expect(audio.isPrewarmed("gm_celesta")).toBe(false);
   });
 
+  it("uses the supplied minor convention for Strudel Stage labels without Pinia", async () => {
+    vi.useFakeTimers();
+    const audio = await import("@/services/superdoughAudio");
+    const { musicTheory } = await import("@/services/music");
+    const mode = vi.mocked(musicTheory.getCurrentMode).mockReturnValue("minor");
+    try {
+      for (const [laBased, name] of [[true, "La"], [false, "Do"]] as const) {
+        audio.setStrudelLaBasedMinor(laBased);
+        await audio.emotitoneStrudelOutput({ value: { note: "C4", s: "piano" } }, 12, 0.25, 1, 12);
+        expect(audio.getActiveStrudelStageNotes()[0].solfege.name).toBe(name);
+        audio.stopStrudelVisuals();
+      }
+    } finally {
+      mode.mockReturnValue("major");
+      audio.stopStrudelVisuals();
+      vi.useRealTimers();
+    }
+  });
+
   it("emits exact borrowed-pitch lifecycle events during Strudel playback", async () => {
     vi.useFakeTimers();
     const dispatchEvent = vi.spyOn(window, "dispatchEvent");
@@ -487,7 +506,7 @@ describe("superdoughAudio live note handling", () => {
       .find((event) => event.type === "note-played") as CustomEvent;
     expect(played.detail).toMatchObject({
       note: expect.objectContaining({
-        name: "D#",
+        name: "Me",
         emotion: "Borrowed harmony tone",
       }),
       noteName: "D#4",
@@ -502,7 +521,7 @@ describe("superdoughAudio live note handling", () => {
       expect.objectContaining({
         noteId: played.detail.noteId,
         noteName: "D#4",
-        solfege: expect.objectContaining({ name: "D#" }),
+        solfege: expect.objectContaining({ name: "Me" }),
         frequency: 311.13,
         octave: 4,
         keyboardOctave: 4,
@@ -521,7 +540,7 @@ describe("superdoughAudio live note handling", () => {
       .find((event) => event.type === "note-released") as CustomEvent;
     expect(released.detail.audibleAt - played.detail.audibleAt).toBeCloseTo(250);
     expect(released.detail).toMatchObject({
-      note: "D#",
+      note: "Me",
       noteName: "D#4",
       solfegeIndex: -1,
       pitchClassIndex: 3,

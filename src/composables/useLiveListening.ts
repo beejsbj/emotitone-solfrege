@@ -35,6 +35,7 @@ export function useLiveListening() {
   let pendingStartup: ListeningStartup | null = null;
 
   const currentStageContext = () => ({
+    laBasedMinor: musicStore.laBasedMinor,
     key: musicStore.currentKey as ChromaticNote,
     mode: musicStore.currentMode as MusicalMode,
     instrument: instrumentStore.currentInstrument,
@@ -44,6 +45,7 @@ export function useLiveListening() {
     () => [
       musicStore.currentKey,
       musicStore.currentMode,
+      musicStore.laBasedMinor,
       instrumentStore.currentInstrument,
     ],
     () => {

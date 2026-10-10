@@ -24,7 +24,7 @@ Use only the package scripts for checks (shared lock across worktrees; see AGENT
 - `src/audio/voicePolicy.ts` and `liveShaping.ts` hold voice budgets and Shape-to-sound mapping. `src/services/live*.ts` is the live-play path; `playStyles.ts` is the main-thread play-style engine slated to move into the worklet.
 - Audio measurements run in `audio-lab/` (`bun run test:audio-browser`). Research and decisions: `docs/research/`.
 
-**Music theory.** `src/domain/harmony.ts` owns chord generation (see `src/domain/HARMONY.md`). `src/services/music.ts`, `src/data/` (scales, modes, solfège, instruments, default patterns) and Tonal.js supply theory. Names, syllables and intervals shown to the player must be correct in every key and mode; the target is that borrowed notes take chromatic solfège, but `superdoughAudio.ts` still returns the letter name there (the spec treats that as a false cue to fix).
+**Music theory.** `src/domain/harmony.ts` owns chord generation (see `src/domain/HARMONY.md`). `src/services/music.ts`, `src/data/` (scales, modes, solfège, instruments, default patterns) and Tonal.js supply theory. Names, syllables and intervals shown to the player must be correct in every key and mode; `src/domain/musicalIdentity.ts` derives spelling-aware chromatic solfège from the single vocabulary in `src/domain/solfege.ts`, including borrowed notes and chord members. Minor defaults to do-based; Settings → Deck → Learn offers a persisted la-based preference.
 
 **Phrase book.** `src/domain/phraseBook.ts` and `src/stores/phrases.ts`: one noun (Phrase) on four shelves with one open take. Everything played is kept; there is no record button. Rules: `docs/pattern-system-reimagined.md`. UI: `PhraseShelf`, `PatternReel`, `PatternStrip`.
 

@@ -14,6 +14,7 @@ vi.mock("@strudel/codemirror", () => ({ StrudelMirror: class {
   stop() { mocks.options!.onToggle(false); }
 } }));
 vi.mock("@/services/superdoughAudio", () => ({
+  setStrudelLaBasedMinor: vi.fn(),
   getAudioContext: () => mocks.context, initSuperdoughAudio: vi.fn(),
   stopStrudelVisuals: vi.fn(), emotitoneStrudelOutput: vi.fn(),
 }));

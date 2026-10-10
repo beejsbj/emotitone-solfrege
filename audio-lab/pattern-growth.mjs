@@ -13,12 +13,13 @@ import { fileURLToPath } from 'node:url';
 
 const labRoot = dirname(fileURLToPath(import.meta.url));
 const outputPath = resolve(process.env.LAB_PATTERN_RESULT || '/tmp/pattern-growth.json');
-const mode = process.env.LAB_PATTERN_VIEWPORT_SMOKE === '1' ? 'viewport-smoke'
+const mode = process.env.LAB_PATTERN_APPEND_ONLY === '1' ? 'append-only'
+  : process.env.LAB_PATTERN_VIEWPORT_SMOKE === '1' ? 'viewport-smoke'
   : process.env.LAB_PATTERN_PROFILE_APPEND === '1' ? 'append-profile'
   : process.env.LAB_PATTERN_FOCUSED === '1' ? 'focused' : 'full';
 const repoRoot = resolve(labRoot, '..');
 const directory = await mkdtemp(join(tmpdir(), 'emotitone-ui-audio-'));
-const revision = process.env.LAB_UI_REF || execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim();
+const revision = execFileSync('git', ['rev-parse', process.env.LAB_UI_REF || 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim();
 let appRoot = repoRoot;
 if (process.env.LAB_UI_REF) {
   appRoot = join(directory, 'app'); await mkdir(appRoot);
@@ -42,7 +43,10 @@ const sourceHashesBefore = await hashSources();
 const sourceTreeSha256 = createHash('sha256').update(JSON.stringify(sourceHashesBefore)).digest('hex');
 const dependencyHashes = Object.fromEntries(await Promise.all([
   '@codemirror/view/dist/index.js', 'superdough/dist/index.mjs',
-].map(async path => [path, createHash('sha256').update(await readFile(join(appRoot, 'node_modules', path))).digest('hex')])));
+].map(async path => [path, await readFile(join(appRoot, 'node_modules', path)).then(data => createHash('sha256').update(data).digest('hex')).catch(error => {
+    if (error.code === 'ENOENT' && path.startsWith('@codemirror/')) return null;
+    throw error;
+  })])));
 const vite = await createServer({ root: appRoot, configFile: join(appRoot, 'vite.config.ts'),
   plugins: [nativeBackendPlugin(requestedBackend, appRoot)],
   ...(requestedBackend ? { define: { 'import.meta.env.VITE_LIVE_AUDIO_BACKEND': JSON.stringify(requestedBackend) } } : {}),
@@ -105,13 +109,19 @@ try {
   for (let attempt = 0; attempt < 180; attempt++) {
     ready = await evaluate('Boolean(document.querySelector("[aria-label=\\"Play EmotiTone\\"]"))');
     if (ready) break;
-    if (attempt % 20 === 19) console.log(await evaluate('document.body.innerText.slice(-800)'));
+    if (attempt % 20 === 19) {
+      const loadingText=await evaluate('document.body.innerText.slice(-800)');
+      console.log(loadingText);
+      // A fresh Vite dependency optimisation can leave the initial module
+      // navigation empty. Retry once before collecting any measurements.
+      if(attempt===19 && !loadingText.trim())await call('Page.reload',{ignoreCache:true});
+    }
     await delay(1000);
   }
   if (!ready) throw new Error(`Application never became ready: ${warnings.slice(-8).join('\n')}`);
   if (!process.env.LAB_UI_REF) console.log('Pre-entry backend:', JSON.stringify(await evaluate("import('/src/services/livePlayback.ts').then(module=>module.getLivePlaybackDiagnostics('piano'))", true)));
   console.log('Pre-entry warnings:', JSON.stringify(warnings));
-  const bank = await evaluate("import('/@fs/" + labRoot + "/ui-inspect.ts').then(module=>module.inspectPianoBank())", true);
+  const bank = await evaluate("import('/audio-lab/ui-inspect.ts').then(module=>module.inspectPianoBank())", true);
   console.log('Piano bank:', JSON.stringify(bank));
   await delay(800);
   const start = await evaluate('(()=>{const r=document.querySelector("[aria-label=\\"Play EmotiTone\\"]").getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}})()');
@@ -148,7 +158,13 @@ try {
   console.log('Startup warnings:', JSON.stringify(warnings));
 
   await evaluate(`(()=>{
-    window.ps=document.querySelector('#app').__vue_app__.config.globalProperties.$pinia._s.get('patterns');
+    const stores=document.querySelector('#app').__vue_app__.config.globalProperties.$pinia._s;
+    window.phrases=stores.get('phrases');
+    window.ps=phrases ? {
+      get loggedNotes(){return phrases.takeNotes},
+      get currentWorkingNotes(){return phrases.takeNotes},
+    } : stores.get('patterns');
+    if(!ps)throw new Error('Missing recording store');
     window.longTasks=[];new PerformanceObserver(list=>longTasks.push(...list.getEntries().map(e=>({start:e.startTime,duration:e.duration})))).observe({type:'longtask'});
     window.frames=[];let last=performance.now();function frame(t){frames.push({start:last,duration:t-last});last=t;requestAnimationFrame(frame)}requestAnimationFrame(frame);
     window.inputLog=[];for(const type of ['keydown','keyup'])window.addEventListener(type,e=>{if(e.code==='KeyA')inputLog.push({type,at:performance.now(),trusted:e.isTrusted,eventTime:e.timeStamp})},true);
@@ -159,16 +175,50 @@ try {
   console.log('Initial note',await evaluate('JSON.parse(JSON.stringify(ps.loggedNotes.at(-1)))'));
   await evaluate(`window.template=JSON.parse(JSON.stringify(ps.loggedNotes.at(-1)));if(!template)throw new Error('No recorded key note');
     window.seed=async(n,logging=true)=>{
-      ps.isLoggingEnabled=logging;ps.loadedBaseNotes=[];ps.loadedBaseMeta=null;ps.loadedBasePatternId=null;ps.isStripCleared=false;
       const end=Date.now()-150;
-      ps.loggedNotes=Array.from({length:n},(_,i)=>({...template,id:'fixture-'+i,pressTime:end-(n-i)*125,releaseTime:end-(n-i)*125+90,duration:90,isStartingNewPattern:i===0}));
+      const notes=Array.from({length:n},(_,i)=>({...template,id:'fixture-'+i,pressTime:i*125,releaseTime:i*125+90,duration:90,isStartingNewPattern:i===0}));
+      if(phrases){
+        phrases.isRecordingEnabled=logging;
+        phrases.take.notes=notes;
+        phrases.take.duration=notes.at(-1)?.releaseTime??0;
+        Object.assign(phrases.book.recorder,{origin:'fresh',liveNoteIds:notes.map(note=>note.id),
+          wallOrigin:end-phrases.take.duration,lastReleaseWall:end,edited:true,baseDuration:0});
+      }else{
+        ps.isLoggingEnabled=logging;ps.loadedBaseNotes=[];ps.loadedBaseMeta=null;ps.loadedBasePatternId=null;ps.isStripCleared=false;
+        ps.loggedNotes=notes.map(note=>({...note,pressTime:end-n*125+note.pressTime,releaseTime:end-n*125+note.releaseTime}));
+      }
       await new Promise(r=>setTimeout(r,250));longTasks=[];frames=[];inputLog=[];
     }`);
 
-  await evaluate(`window.refreshTimes=()=>{const notes=ps.loggedNotes.__v_raw;if(!notes.length)return;const shift=Date.now()-50-notes.at(-1).releaseTime;for(const n of notes){n.pressTime+=shift;n.releaseTime+=shift}};
-    window.domStats=()=>({notes:document.querySelectorAll('.note').length,codeNotes:document.querySelectorAll('.code-strip-bar .note').length,widgets:document.querySelectorAll('.cm-code-strip-event').length,loopArcs:document.querySelectorAll('.loop-dial__arc').length,elements:document.querySelectorAll('*').length});`);
+  await evaluate(`window.refreshTimes=()=>{
+    if(phrases){const r=phrases.book.recorder;const shift=Date.now()-50-r.lastReleaseWall;r.wallOrigin+=shift;r.lastReleaseWall+=shift;return}
+    const notes=ps.loggedNotes.__v_raw;if(!notes.length)return;const shift=Date.now()-50-notes.at(-1).releaseTime;for(const n of notes){n.pressTime+=shift;n.releaseTime+=shift}
+  };
+  window.stripScroller=()=>document.querySelector('.code-strip-bar .highlight-strip__scroller, .code-strip-bar .cm-scroller');
+  window.domStats=()=>{
+    const strip=stripScroller();if(!strip)throw new Error('Missing strip scroller');
+    let stripNodes=1;const walker=document.createTreeWalker(strip,NodeFilter.SHOW_ALL);while(walker.nextNode())stripNodes++;
+    return {notes:document.querySelectorAll('.note').length,codeNotes:strip.querySelectorAll('.note').length,
+      widgets:strip.querySelectorAll('.highlight-strip-event, .cm-code-strip-event').length,
+      stripElements:strip.querySelectorAll('*').length,stripNodes,
+      loopArcs:document.querySelectorAll('.loop-dial__arc').length,elements:document.querySelectorAll('*').length};
+  };
+  window.appendObservations=[];
+  let appendStart, expectedNotes;
+  window.addEventListener('keyup',event=>{
+    if(event.code!=='KeyA')return;
+    appendStart=performance.now();expectedNotes=window.nextAppendCount??ps.loggedNotes.length+1;
+  },true);
+  new MutationObserver(()=>{
+    if(appendStart===undefined || ps.loggedNotes.length!==expectedNotes)return;
+    // Read layout after Vue's published DOM changes. This is end-to-end
+    // keyup-to-DOM latency, not isolated CPU time or acoustic latency.
+    const width=stripScroller().scrollWidth;
+    appendObservations.push({notes:expectedNotes,domMs:performance.now()-appendStart,scrollWidth:width});
+    appendStart=undefined;
+  }).observe(stripScroller(),{childList:true,subtree:true});`);
   await evaluate(`window.visibleCodeNote=note=>{
-    const r=note.getBoundingClientRect(), s=note.closest('.cm-scroller').getBoundingClientRect();
+    const r=note.getBoundingClientRect(), s=stripScroller().getBoundingClientRect();
     return Math.min(r.right,s.right,innerWidth)>Math.max(r.left,s.left,0) &&
       Math.min(r.bottom,s.bottom,innerHeight)>Math.max(r.top,s.top,0);
   };
@@ -185,21 +235,38 @@ try {
   }`);
 
   const hueRows=[];
-  const conditions = mode === 'viewport-smoke' ? [{n:512,hue:true,logging:true}]
+  const conditions = mode === 'append-only' ? [{n:512,hue:false,logging:true},{n:512,hue:true,logging:true}]
+    : mode === 'viewport-smoke' ? [{n:512,hue:true,logging:true}]
     : mode === 'append-profile' ? [{n:512,hue:false,logging:true}] : mode === 'focused'
     ? [{n:16,hue:true,logging:false},{n:512,hue:true,logging:false},{n:512,hue:false,logging:true},{n:512,hue:true,logging:true}]
     : [{n:16,hue:true,logging:false},{n:128,hue:true,logging:false},{n:512,hue:true,logging:false},{n:2048,hue:true,logging:false},{n:16,hue:true,logging:false},{n:512,hue:false,logging:false},{n:512,hue:false,logging:true},{n:512,hue:true,logging:false},{n:512,hue:true,logging:true}];
   for(const spec of conditions){
     await delay(1400);await evaluate(`__uiVisual.config.dynamicColors.hueMotionEnabled=${spec.hue};seed(${spec.n},${spec.logging})`,true);
     await delay(1200);
-    const colors = await evaluate('probeCodeColors()',true);
-    await evaluate('longTasks=[];frames=[];inputLog=[]');
+    const colors = mode==='append-only' ? null : await evaluate('probeCodeColors()',true);
+    if(mode==='append-only') await evaluate('stripScroller().scrollIntoView({block:"center"})');
+    const domBefore=await evaluate('domStats()');
+    if(!domBefore.codeNotes)throw new Error('Missing rendered history notes');
+    await evaluate('longTasks=[];frames=[];inputLog=[];appendObservations=[]');
     if(mode==='append-profile') {
       await call('Profiler.enable');
       await call('Profiler.setSamplingInterval',{interval:1000});
       await call('Profiler.start');
     }
-    const samples=[];for(let i=0;i<6;i++){if(spec.logging)await evaluate('refreshTimes()');const downMs=await key('keyDown');await delay(90);const upMs=await key('keyUp');await delay(180);samples.push({downMs,upMs})}
+    const samples=[];
+    for(let i=0;i<6;i++){
+      if(spec.logging)await evaluate('refreshTimes()');
+      if(mode==='append-only')await evaluate(`window.nextAppendCount=${spec.n+i+1}`);
+      const downMs=await key('keyDown');await delay(90);const upMs=await key('keyUp');
+      if(mode==='append-only')await evaluate(`new Promise((done,reject)=>{
+        const start=performance.now();function check(){
+          if(appendObservations.some(sample=>sample.notes===${spec.n+i+1}))return done();
+          if(performance.now()-start>10000)return reject(new Error('Append DOM publication timed out at ${spec.n+i+1}'));
+          requestAnimationFrame(check);
+        }check();
+      })`,true);
+      await delay(180);samples.push({downMs,upMs});
+    }
     // Drain delayed release publication and include its trailing LongTasks.
     await delay(1500);
     if(mode==='append-profile') {
@@ -207,17 +274,21 @@ try {
       await writeFile(outputPath+'.cpuprofile',JSON.stringify(profile));
       await call('Profiler.disable');
     }
-    const data=await evaluate('({logged:ps.loggedNotes.length,pending:ps.pendingNotes?.size,working:ps.currentWorkingNotes.length,hue:__uiVisual.config.dynamicColors.hueMotionEnabled,longTasks,frames:frames.filter(f=>f.duration>25),inputLog,...domStats()})');
-    const row={...spec,samples,colors,...data};hueRows.push(row);console.log('FINAL',JSON.stringify(row));
-    await writeFile(outputPath,JSON.stringify({revision,mode,sourceTreeSha256,sourceHashes:sourceHashesBefore,dependencyHashes,rows:hueRows,warnings},null,2));
+    const data=await evaluate('({logged:ps.loggedNotes.length,pending:ps.pendingNotes?.size,working:ps.currentWorkingNotes.length,hue:__uiVisual.config.dynamicColors.hueMotionEnabled,longTasks,frames,appendObservations,inputLog,...domStats()})');
+    const row={...spec,samples,colors,domBefore,...data};hueRows.push(row);console.log('FINAL',JSON.stringify(row));
+    await writeFile(outputPath,JSON.stringify({revision,mode,state,sourceTreeSha256,sourceHashes:sourceHashesBefore,dependencyHashes,rows:hueRows,warnings},null,2));
+    if (mode==='append-only' && (data.appendObservations.length!==6 || data.appendObservations.some((sample,index)=>sample.notes!==spec.n+index+1))) {
+      throw new Error('Missing consecutive append DOM observations');
+    }
     if (data.working !== spec.n + (spec.logging ? 6 : 0)) {
       throw new Error(`Fixture crossed a take boundary: expected ${spec.n + (spec.logging ? 6 : 0)}, got ${data.working}`);
     }
   }
+  if(mode!=='append-only') {
   await evaluate('__uiVisual.config.dynamicColors.hueMotionEnabled=true;seed(512,false)',true);
   await delay(1200);
   const viewport = await evaluate(`(async()=>{
-    const scroller=document.querySelector('.code-strip-bar .cm-scroller');
+    const scroller=stripScroller();
     if(scroller.scrollWidth<=scroller.clientWidth*2) throw new Error('Fixture must scroll horizontally');
     scroller.scrollLeft=0;await new Promise(r=>setTimeout(r,500));
     const before=await probeCodeColors();
@@ -257,13 +328,14 @@ try {
   };
   await clickTransport('Play');
   await delay(1200);
-  const replay=await evaluate(`({playing:!!document.querySelector('.code-strip-bar [aria-label="Stop"]'),richNotes:document.querySelectorAll('.code-strip-bar .note').length,active:document.querySelectorAll('.cm-code-strip-event--active').length})`);
+  const replay=await evaluate(`({playing:!!document.querySelector('.code-strip-bar [aria-label="Stop"]'),richNotes:document.querySelectorAll('.code-strip-bar .note').length,active:document.querySelectorAll('.cm-code-strip-event--active, .highlight-strip-event--active').length})`);
   if(!replay.playing || !replay.richNotes) throw new Error('Rich generated-pattern replay failed: '+JSON.stringify(replay));
   await clickTransport('Stop');
   replay.stopped=await evaluate(`!!document.querySelector('.code-strip-bar [aria-label="Play"]')`);
   if(!replay.stopped) throw new Error('Transport did not stop');
   console.log('REPLAY',JSON.stringify(replay));
-  await writeFile(outputPath,JSON.stringify({revision,mode,sourceTreeSha256,sourceHashes:sourceHashesBefore,dependencyHashes,rows:hueRows,viewport,replay,warnings},null,2));
+  await writeFile(outputPath,JSON.stringify({revision,mode,state,sourceTreeSha256,sourceHashes:sourceHashesBefore,dependencyHashes,rows:hueRows,viewport,replay,warnings},null,2));
+  }
 } finally {
   if (JSON.stringify(sourceHashesBefore) !== JSON.stringify(await hashSources())) {
     console.error('Application source changed during benchmark; discard this receipt.');

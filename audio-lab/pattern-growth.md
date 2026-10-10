@@ -26,6 +26,40 @@ Hue is enabled and disabled at a fixed 512-note history. Both settings include r
 
 A preliminary sweep without the final tail drain was excluded because its last append snapshot contained 517 rather than 518 notes. The matched results below use the same drain on both revisions.
 
+## HighlightStrip append comparison (BJS-492)
+
+Use the current runner against both revisions, one browser at a time:
+
+```sh
+TMPDIR=/tmp LAB_UI_REF=origin/main LAB_PATTERN_APPEND_ONLY=1 LAB_PATTERN_RESULT=/tmp/bjs-492-main-growth.json node audio-lab/pattern-growth.mjs
+TMPDIR=/tmp LAB_PATTERN_APPEND_ONLY=1 LAB_PATTERN_RESULT=/tmp/bjs-492-highlight-growth.json node audio-lab/pattern-growth.mjs
+```
+
+`append-only` records six real QWERTY releases after seeding 512 completed notes,
+with hue disabled and then enabled. Each sequence must finish at 518 notes in
+the same take and publish exactly six consecutive append DOM observations. Each
+append waits for its DOM observation before the next input, then waits the normal
+180ms inter-input delay. The
+current phrase-store fixture uses relative note times; advancing its wall origin
+keeps it within one take without changing the notes' relative timing. Historical
+pattern-store fixtures remain supported. Both CodeMirror and HighlightStrip
+scrollers are supported; a missing CodeMirror dependency is recorded as `null`.
+
+`appendObservations[].domMs` measures from the trusted keyup capture listener to
+the first post-publication DOM mutation callback that sees the new completed
+note, including a `scrollWidth` layout read. It is whole-app append-to-DOM latency,
+not isolated strip CPU cost or acoustic latency. `samples[].upMs` also records
+CDP keyup round-trip time. Frame intervals are consecutive animation-frame times
+through the six inputs and the 1500ms tail drain. `domBefore` and the final row
+count scroller elements and all connected scroller nodes (including text and
+comments); `elements` counts document elements. The numbers include rests and
+any virtualised CodeMirror history currently mounted.
+
+This narrow comparison does not run the full/focused colour, Reduced Motion or
+replay gates and cannot pass `check-pattern-growth.mjs`. Its results and limits
+belong in the PR receipt. It runs without a CPU profiler. No production UI source
+is changed by the capture.
+
 ## Validation receipt
 
 **Final end-to-end performance validation is incomplete.** The build and regression suites passed, and the browser evidence establishes the two application-level improvements plus the remaining selection-read cause. The installed dependency patch could not complete a valid final sweep on the shared host.

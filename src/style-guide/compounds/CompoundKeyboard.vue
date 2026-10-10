@@ -230,6 +230,7 @@
 </template>
 
 <script setup lang="ts">
+import { HARMONIC_CHROMATIC_INTERVALS, getSolfegeLabelForInterval } from "@/domain/musicalIdentity";
 import { computed, ref } from "vue";
 import Keyboard from "@/components/compounds/Keyboard.vue";
 import type {
@@ -258,7 +259,7 @@ const rowCounts = [1, 3, 5, 7] as const;
 const octaves = [1, 2, 3, 4, 5, 6, 7, 8] as const;
 const families = KEYBOARD_GEOMETRY_FAMILIES;
 const noteNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-const syllables = ["Do", "Ra", "Re", "Me", "Mi", "Fa", "Fi", "Sol", "Le", "La", "Te", "Ti"];
+const syllables = HARMONIC_CHROMATIC_INTERVALS.map((interval) => getSolfegeLabelForInterval(interval));
 const degrees = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 const harmonyScales: readonly { value: MusicalMode; label: string }[] = [
   { value: "major pentatonic", label: "5 · Major pentatonic" },

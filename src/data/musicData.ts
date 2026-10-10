@@ -26,7 +26,6 @@ export {
   MINOR_SCALE,
   SCALE_MAP,
   getScaleForMode,
-  getSolfegeNameForMode,
 } from "./scales";
 
 // Re-export types for backward compatibility

@@ -2,6 +2,7 @@ import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
 import { nextTick } from "vue";
 import specimenSource from "@/style-guide/compounds/CompoundKeyboard.vue?raw";
+import UniqueDrawer from "@/style-guide/uniques/UniqueDrawer.vue";
 import CompoundKeyboard from "@/style-guide/compounds/CompoundKeyboard.vue";
 
 describe("Keyboard style-guide specimen", () => {
@@ -14,6 +15,21 @@ describe("Keyboard style-guide specimen", () => {
     );
     expect(specimenSource.match(/usage="controlled"/g)).toHaveLength(2);
     expect(specimenSource).toContain("inert · no input yet");
+  });
+
+  it.each([
+    ["Keyboard", CompoundKeyboard],
+    ["Drawer", UniqueDrawer],
+  ] as const)("shows Fi for the chromatic raised fourth in the %s specimen", (_name, component) => {
+    const wrapper = mount(component);
+    try {
+      const labels = wrapper.findAll(".keyboard__row .note__label--rank-primary")
+        .map((label) => label.text());
+      expect(labels).toContain("Fi");
+      expect(labels).not.toContain("Se");
+    } finally {
+      wrapper.unmount();
+    }
   });
 
   // Mounting two full Keyboards and re-rendering them three times takes about

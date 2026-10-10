@@ -62,6 +62,27 @@ describe('Visual Config Store', () => {
     }
   });
 
+  it('resets the Deck learn preference to Do', () => {
+    visualConfigStore.laBasedMinor = true;
+    visualConfigStore.resetDeck();
+    expect(visualConfigStore.laBasedMinor).toBe(false);
+  });
+
+  it('exports and imports the learn preference with a safe legacy default', () => {
+    visualConfigStore.laBasedMinor = true;
+    const exported = visualConfigStore.exportConfig();
+    expect(JSON.parse(exported).laBasedMinor).toBe(true);
+    const restored = createFreshStore();
+    expect(restored.importConfig(exported)).toBe(true);
+    expect(restored.laBasedMinor).toBe(true);
+    expect(createFreshStore().laBasedMinor).toBe(true);
+    for (const value of [undefined, false, 'true']) {
+      restored.laBasedMinor = true;
+      expect(restored.importConfig(JSON.stringify({ config: DEFAULT_CONFIG, laBasedMinor: value }))).toBe(true);
+      expect(restored.laBasedMinor).toBe(false);
+    }
+  });
+
   describe('Initial State', () => {
     it('supports an isolated specimen state without writing production storage', () => {
       vi.useFakeTimers()

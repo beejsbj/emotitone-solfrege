@@ -642,6 +642,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
   };
 
   const resetDeck = () => {
+    laBasedMinor.value = false;
     const defaults = cloneDefaultConfig();
     const { mainOctave, rowCount } = config.keyboard;
     const { bpm } = config.codeStrip;
@@ -798,6 +799,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
   const exportConfig = () => {
     const configData = {
       config: getConfigSnapshot(),
+      laBasedMinor: laBasedMinor.value,
       visualsEnabled: visualsEnabled.value,
       exportedAt: new Date().toISOString(),
       version: "2.0.0",
@@ -812,6 +814,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
       const importedData = JSON.parse(jsonData);
       if (importedData.config) {
         applyRuntimeConfig(importedData.config);
+        laBasedMinor.value = importedData.laBasedMinor === true;
         if (typeof importedData.visualsEnabled === "boolean") {
           visualsEnabled.value = importedData.visualsEnabled;
         }

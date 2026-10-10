@@ -57,6 +57,8 @@ export interface Phrase {
   keptAt?: number;
   derivedFrom?: PhraseLineage;
   source?: PatternSource;
+  /** Original loaded material for reversible control changes, including reloads. */
+  modeBase?: { notes: PatternNote[]; context: PhraseContext };
 }
 
 /** How the open take came to be; decides its fate when it closes. */

@@ -10,6 +10,7 @@ const nodeTests = [
   'audio-lab/validate.test.ts',
   'src/__tests__/services/{recordedTiming,livePitch,liveResampler,liveArticulation,livePerformance,playStyles,inputVoiceGroups,audioDiagnostics,musicColorCore,keySurfaceColor,pitchAnalysis,music,StrudelNotation}.test.ts',
   'src/__tests__/data/**/*.test.ts',
+  'src/__tests__/lint/**/*.test.ts',
 ]
 
 export default defineConfig({

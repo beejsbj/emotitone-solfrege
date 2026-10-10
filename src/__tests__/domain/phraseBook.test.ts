@@ -152,7 +152,10 @@ describe("phrase book: exactly one take", () => {
       ],
       takeId: "b",
     };
+    for (const take of doubled.phrases) take.modeBase = { notes: [], context: C_MAJOR };
     ensureSingleTake(doubled, C_MAJOR, clock, newId);
+    expect(doubled.phrases.find((phrase) => phrase.id === "a")?.modeBase).toBeUndefined();
+    expect(getTake(doubled).modeBase).toBeDefined();
     expect(takeCount(doubled)).toBe(1);
     expect(doubled.takeId).toBe("b");
     expect(doubled.phrases.find((phrase) => phrase.id === "a")?.shelf).toBe("recent");

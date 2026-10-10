@@ -129,7 +129,7 @@ export function useMusicColorClock(
 
   let stopWatching: () => void = () => {};
   if (getCurrentScope()) {
-    stopWatching = watch(enabled, setActive, { immediate: true });
+    stopWatching = watch(enabled, setActive, { immediate: true, flush: "sync" });
     onScopeDispose(() => {
       stopWatching();
       releaseActive();

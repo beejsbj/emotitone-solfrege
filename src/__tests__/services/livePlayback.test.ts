@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { flushPromises } from '@vue/test-utils'
 
 const mocks = vi.hoisted(() => ({ create: vi.fn(), prepare: vi.fn(), releasePrepared: vi.fn(), preparationDiagnostics: vi.fn(),
   chains: [] as { input: object; apply: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn> }[] }))
@@ -29,6 +30,44 @@ beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); mocks.chains.length = 
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs() })
 
 describe('live playback instrument manager', () => {
+  it('keeps waiting input gated through successive rate changes during bank rebuilds', async () => {
+    const { manager, engine, context } = await setup()
+    Object.assign(context, { sampleRate: 48000 })
+    await manager.prepareLivePlayback(context, destination, 'piano')
+    const renderedRates: number[] = []
+    const rebuilt: Array<{ rate: number; acknowledge: () => void; dispose: ReturnType<typeof vi.fn> }> = []
+    mocks.create.mockImplementation(async () => {
+      const rate = context.sampleRate
+      const dispose = vi.fn()
+      return { ...engine, dispose,
+        press: () => { renderedRates.push(rate) },
+        prepare: () => new Promise<void>(acknowledge => { rebuilt.push({ rate, acknowledge, dispose }) }),
+      }
+    })
+    Object.assign(context, { sampleRate: 44100 })
+    const { resumeAudioContext } = await import('@/services/audioLifecycle')
+    const gate = resumeAudioContext(context)!
+    const waiting = gate.then(() => manager.getLivePlayback('piano')!.press('waiting', [{ instrumentId: 'piano', pitch: 60 }]))
+    for (const [index, nextRate] of [32000, 96000].entries()) {
+      await vi.waitFor(() => expect(rebuilt).toHaveLength(index + 1))
+      expect(resumeAudioContext(context)).toBe(gate)
+      Object.assign(context, { sampleRate: nextRate })
+      rebuilt[index].acknowledge()
+      await flushPromises()
+      expect(renderedRates).toEqual([])
+    }
+    await vi.waitFor(() => expect(rebuilt).toHaveLength(3))
+    expect(rebuilt.map(build => build.rate)).toEqual([44100, 32000, 96000])
+    rebuilt[2].acknowledge()
+    await waiting
+    expect(renderedRates).toEqual([96000])
+    expect(engine.dispose).toHaveBeenCalledOnce()
+    expect(rebuilt[0].dispose).toHaveBeenCalledOnce()
+    expect(rebuilt[1].dispose).toHaveBeenCalledOnce()
+    expect(rebuilt[2].dispose).not.toHaveBeenCalled()
+    expect(resumeAudioContext(context)).toBeUndefined()
+  })
+
   it('rebuilds a changed-rate worklet before a resumed input can use it', async () => {
     const { manager, engine, context } = await setup()
     Object.assign(context, { sampleRate: 48000, state: 'running' })

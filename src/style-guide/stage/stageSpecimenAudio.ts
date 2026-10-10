@@ -1,3 +1,4 @@
+import { resumeAudioContext } from "@/services/audioLifecycle";
 import type { StageAudioFeatures } from "@/services/stageAudio";
 
 export type StageSpecimenSignal = "silence" | "phrase" | "borrowed";
@@ -77,7 +78,7 @@ export function createStageSpecimenAudio(
     },
     async resume() {
       if (!initialize()) throw new Error("Web Audio is unavailable");
-      if (context?.state === "suspended") await context.resume();
+      if (context?.state === "suspended") await resumeAudioContext(context);
     },
   };
 }

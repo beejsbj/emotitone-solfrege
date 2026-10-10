@@ -480,7 +480,7 @@ describe("superdoughAudio live note handling", () => {
       .find((event) => event.type === "note-played") as CustomEvent;
     expect(played.detail).toMatchObject({
       note: expect.objectContaining({
-        name: "D#",
+        name: "Me",
         emotion: "Borrowed harmony tone",
       }),
       noteName: "D#4",
@@ -495,7 +495,7 @@ describe("superdoughAudio live note handling", () => {
       expect.objectContaining({
         noteId: played.detail.noteId,
         noteName: "D#4",
-        solfege: expect.objectContaining({ name: "D#" }),
+        solfege: expect.objectContaining({ name: "Me" }),
         frequency: 311.13,
         octave: 4,
         keyboardOctave: 4,
@@ -514,7 +514,7 @@ describe("superdoughAudio live note handling", () => {
       .find((event) => event.type === "note-released") as CustomEvent;
     expect(released.detail.audibleAt - played.detail.audibleAt).toBeCloseTo(250);
     expect(released.detail).toMatchObject({
-      note: "D#",
+      note: "Me",
       noteName: "D#4",
       solfegeIndex: -1,
       pitchClassIndex: 3,

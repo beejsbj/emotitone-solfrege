@@ -145,7 +145,7 @@ import {
   type HarmonyAlteration,
   type HarmonyChord,
 } from "@/domain/harmony";
-import { spellPitch } from "@/domain/musicalIdentity";
+import { spellPitch, spelledPitchSolfege } from "@/domain/musicalIdentity";
 import { createVoiceGroupLifecycle } from "@/services/inputVoiceGroups";
 import {
   KEYBOARD_PAGE_EDITION_SEED,
@@ -286,12 +286,14 @@ function chordMembers(
   surfaceStyle: NoteSurfaceStyle,
   keyBrightness = 1,
   keySaturation = 1,
+  laBasedMinor = false,
 ): ChordMember[] {
   return chord.voicing.pitches.map((pitch, voicingOrder) => ({
     id: `${chord.id}:${pitch.name}:${voicingOrder}`,
     rawPitch: pitch.label,
-    primary: "raw",
-    visibleLabels: ["raw"],
+    syllable: spelledPitchSolfege(pitch.label, { tonic: key, mode }, laBasedMinor),
+    primary: "syllable",
+    visibleLabels: ["syllable"],
     scaleIndex: pitch.scaleIndex ?? chord.degreeIndex,
     pitchClassIndex: pitch.pitchClassIndex,
     octave: pitch.octave,
@@ -418,6 +420,7 @@ function createProductionWiring() {
           surfaceStyle.value,
           config.value.keyBrightness,
           config.value.keySaturation,
+          musicStore.laBasedMinor,
         ),
         pressed: Boolean(snapshot) || store.isKeyPressed(`chord:${harmony.id}`),
         orphaned: false,
@@ -441,6 +444,7 @@ function createProductionWiring() {
         surfaceStyle.value,
         config.value.keyBrightness,
         config.value.keySaturation,
+        musicStore.laBasedMinor,
       ),
       pressed: true,
       orphaned: true,

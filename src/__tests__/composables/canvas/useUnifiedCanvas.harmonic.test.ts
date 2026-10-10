@@ -94,8 +94,8 @@ vi.mock("@/composables/useHarmonicAnalysis", () => ({
           isVisible: true,
           // Stored names stay sharps-only; the analysis supplies spellings.
           displayedNotes: [
-            { noteId: "c4", noteName: "C4" },
-            { noteId: "eb4", noteName: "D#4" },
+            { noteId: "c4", noteName: "C4", key: "C", mode: "major" },
+            { noteId: "eb4", noteName: "D#4", key: "C", mode: "major" },
           ],
           noteSpellings: { c4: "C4", eb4: "Eb4" },
           intervalEdges: [
@@ -614,7 +614,7 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
   it("exposes only enabled harmonic labels as accessible text", () => {
     const canvas = useUnifiedCanvas(createCanvasRef());
 
-    const fullText = "Chord: C minor. Interval C 4 to E flat 4: minor third. Emotion: Grounded & radiant";
+    const fullText = "Chord: C minor. Interval Do (C 4) to Me (E flat 4): minor third. Emotion: Grounded & radiant";
     expect(canvas.harmonicAccessibleText.value).toBe(fullText);
   });
 
@@ -631,7 +631,7 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
     mocks.blobConfig.value.showEmotionLabel = false;
     const canvas = useUnifiedCanvas(createCanvasRef());
 
-    expect(canvas.harmonicAccessibleText.value).toBe("Interval C 4 to E flat 4: minor third");
+    expect(canvas.harmonicAccessibleText.value).toBe("Interval Do (C 4) to Me (E flat 4): minor third");
   });
 
   it("selectively exposes only enabled emotion label in accessible text", () => {

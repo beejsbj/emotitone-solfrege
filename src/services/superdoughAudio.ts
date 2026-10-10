@@ -1,3 +1,6 @@
+import { getActivePinia } from "pinia";
+import { useVisualConfigStore } from "@/stores/visualConfig";
+import { pitchSolfegeData } from "@/domain/musicalIdentity";
 import { resumeAudioContext } from "@/services/audioLifecycle";
 /**
  * superdoughAudio.ts
@@ -393,16 +396,6 @@ function resolveSolfegeIndex(noteName: string): number | null {
   return musicTheory.getCurrentScaleNotes().indexOf(chromaticNote);
 }
 
-function borrowedPitchSolfege(noteName: ChromaticNote): SolfegeData {
-  return {
-    name: noteName,
-    number: 0,
-    emotion: "Borrowed harmony tone",
-    description: "An explicit chord alteration outside the active scale.",
-    texture: "harmonic",
-  };
-}
-
 function extractHapNoteName(hap: unknown): string | null {
   const value = (hap as { value?: unknown })?.value;
 
@@ -455,9 +448,9 @@ function buildStrudelVisualPayload(hap: unknown) {
       return null;
     }
 
-    const note = solfegeIndex === -1
-      ? borrowedPitchSolfege(chromaticNote)
-      : musicTheory.getCurrentScale().solfege[solfegeIndex];
+    const note = pitchSolfegeData(chromaticNote, {
+      tonic: musicTheory.getCurrentKey(), mode: musicTheory.getCurrentMode(),
+    }, getActivePinia() ? useVisualConfigStore().laBasedMinor : false);
     if (!note) {
       return null;
     }

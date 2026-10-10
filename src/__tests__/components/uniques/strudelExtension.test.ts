@@ -25,46 +25,6 @@ vi.mock("@strudel/core", () => ({
   isNote: (value: string) => /^[a-g](?:[#bsf]+)?\d$/i.test(value),
 }));
 
-vi.mock("@/data", () => ({
-  CHROMATIC_NOTES: ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"],
-  ...(() => {
-    const scaleData: Record<string, { intervalNames: string[]; intervals: number[] }> = {
-      major: {
-        intervalNames: ["1P", "2M", "3M", "4P", "5P", "6M", "7M"],
-        intervals: [0, 2, 4, 5, 7, 9, 11],
-      },
-      minor: {
-        intervalNames: ["1P", "2M", "3m", "4P", "5P", "6m", "7m"],
-        intervals: [0, 2, 3, 5, 7, 8, 10],
-      },
-      "major pentatonic": {
-        intervalNames: ["1P", "2M", "3M", "5P", "6M"],
-        intervals: [0, 2, 4, 7, 9],
-      },
-      "major blues": {
-        intervalNames: ["1P", "2M", "3m", "3M", "5P", "6M"],
-        intervals: [0, 2, 3, 4, 7, 9],
-      },
-      chromatic: {
-        intervalNames: ["1P", "2m", "2M", "3m", "3M", "4P", "5d", "5P", "6m", "6M", "7m", "7M"],
-        intervals: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
-      },
-    };
-    return {
-      getScaleForMode: (mode: string) => {
-        const selected = scaleData[mode] ?? scaleData.major;
-        return { mode, degreeCount: selected.intervals.length, ...selected };
-      },
-      normalizeScaleIndex: (mode: string, scaleIndex: number) => {
-        const degreeCount = scaleData[mode]?.intervals.length ?? scaleData.major.intervals.length;
-        return ((scaleIndex % degreeCount) + degreeCount) % degreeCount;
-      },
-    };
-  })(),
-  getSolfegeNameForMode: (_mode: string, scaleIndex: number) =>
-    ["Do", "Re", "Mi", "Fa", "Sol", "La", "Ti"][scaleIndex] ?? "Do",
-}));
-
 vi.mock("@/services/musicColor", () => ({
   getScaleDegreeIndexForPitchClass: (pitchClass: string) =>
     ({ C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: 6 })[pitchClass],
@@ -783,7 +743,7 @@ describe("CodeStrip Strudel source decorations", () => {
     expect(progress(host, ".code-strip__note")).toBe("0.5");
   });
 
-  it("keeps an edited borrowed note raw and chromatically colored", async () => {
+  it("names an edited borrowed note with a syllable and chromatically colored", async () => {
     const { host, view } = createView();
     const from = view.state.doc.toString().indexOf("C4");
 
@@ -791,14 +751,14 @@ describe("CodeStrip Strudel source decorations", () => {
     await Promise.resolve();
 
     const editedNote = host.querySelector<HTMLElement>(".code-strip__note .note");
-    expect(editedNote?.dataset.primary).toBe("raw");
+    expect(editedNote?.dataset.primary).toBe("syllable");
     expect(editedNote?.dataset.pitchClassIndex).toBe("3");
     expect(
       editedNote?.querySelector(".note__identity-core")?.textContent,
-    ).toBe("D♯4");
+    ).toBe("Me");
   });
 
-  it("keeps an edited borrowed chord member raw and chromatically colored", async () => {
+  it("names an edited borrowed chord member with a syllable and chromatically colored", async () => {
     const { host, view } = createView();
     const from = view.state.doc.toString().indexOf("E4");
 
@@ -808,11 +768,11 @@ describe("CodeStrip Strudel source decorations", () => {
     const editedMember = host.querySelector<HTMLElement>(
       ".chord__cluster-member .note",
     );
-    expect(editedMember?.dataset.primary).toBe("raw");
+    expect(editedMember?.dataset.primary).toBe("syllable");
     expect(editedMember?.dataset.pitchClassIndex).toBe("3");
     expect(
       editedMember?.querySelector(".note__identity-core")?.textContent,
-    ).toBe("D♯4");
+    ).toBe("Me");
   });
 
   it("takes edited event duration from the source instead of stale metadata", async () => {

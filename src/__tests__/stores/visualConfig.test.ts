@@ -41,6 +41,24 @@ describe('Visual Config Store', () => {
     vi.clearAllTimers?.()
   })
 
+  it('defaults missing minor preference to Do and round-trips La without changing old config', async () => {
+    vi.useFakeTimers();
+    try {
+      localStorage.setItem('emotitone-visual-config', JSON.stringify({ config: DEFAULT_CONFIG }));
+      const oldSave = createFreshStore();
+      expect(oldSave.laBasedMinor).toBe(false);
+      oldSave.laBasedMinor = true;
+      await nextTick();
+      vi.advanceTimersByTime(500);
+      expect(createFreshStore().laBasedMinor).toBe(true);
+      expect(JSON.parse(localStorage.getItem('emotitone-visual-config')!).config).toEqual(oldSave.config);
+      oldSave.applyBuiltInStageLook('default');
+      expect(oldSave.laBasedMinor).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   describe('Initial State', () => {
     it('supports an isolated specimen state without writing production storage', () => {
       vi.useFakeTimers()

@@ -4,7 +4,7 @@ import { computed, ref, watch, type Ref } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { useVisualConfig } from "@/composables/useVisualConfig";
 import { useHarmonicAnalysis } from "@/composables/useHarmonicAnalysis";
-import { spokenPitchName } from "@/domain/musicalIdentity";
+import { spokenPitchName, spelledPitchSolfege, spellPitch } from "@/domain/musicalIdentity";
 import { useAnimationLifecycle } from "@/composables/useAnimationLifecycle";
 import type {
   ActiveNote,
@@ -166,8 +166,14 @@ export function useUnifiedCanvas(
         const to = notesById.get(edge.toNoteId);
         if (from && to) {
           // Spoken from the key's spelling; stored sharps never reach a label.
-          const spoken = (note: typeof from) =>
-            spokenPitchName(snapshot.noteSpellings?.[note.noteId] ?? note.noteName);
+          const spoken = (note: typeof from) => {
+            const latest = snapshot.displayedNotes[snapshot.displayedNotes.length - 1];
+            const context = snapshot.chordSymbol
+              ? { tonic: latest.key, mode: latest.mode }
+              : { tonic: note.key, mode: note.mode };
+            const spelling = snapshot.noteSpellings?.[note.noteId] ?? spellPitch(note.noteName, context) ?? note.noteName;
+            return `${spelledPitchSolfege(spelling, context, musicStore.laBasedMinor)} (${spokenPitchName(spelling)})`;
+          };
           announcements.push(
             `Interval ${spoken(from)} to ${spoken(to)}: ${edge.spokenInterval || edge.interval}`
           );

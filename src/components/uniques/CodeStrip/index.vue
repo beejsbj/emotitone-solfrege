@@ -245,6 +245,7 @@ const recordedTokens = computed(() => {
     mode: sketchMeta.value.mode,
     musicKey: sketchMeta.value.key,
     notation: codeStripConfig.value.notation,
+    laBasedMinor: productionWiring?.visualConfigStore.laBasedMinor,
     barMs: barMs.value,
     sourceBpm: sketchMeta.value.bpm,
     surfaceStyle: keyboardConfig.value.surfaceStyle,
@@ -562,6 +563,7 @@ function applyPresentation(code?: string, preserveUIBeat = false) {
     timeSignature: props.timeSignature,
     showRests: codeStripConfig.value.showRests,
     notation: codeStripConfig.value.notation,
+    laBasedMinor: productionWiring?.visualConfigStore.laBasedMinor,
     mode: sketchMeta.value.mode,
     musicKey: sketchMeta.value.key,
     surfaceStyle: keyboardConfig.value.surfaceStyle === "monochrome"
@@ -924,6 +926,7 @@ watch(
     () => props.density,
     () => props.timeSignature,
     () => codeStripConfig.value.notation,
+    () => productionWiring?.visualConfigStore.laBasedMinor,
     () => codeStripConfig.value.showRests,
     () => keyboardConfig.value.surfaceStyle,
     () => keyboardConfig.value.keyBrightness,

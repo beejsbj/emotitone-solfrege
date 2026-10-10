@@ -407,6 +407,16 @@
               </header>
 
               <div class="config-panel__groups">
+                <div class="config-panel__group">
+                  <p class="config-panel__group-label panel-heading panel-heading--tape">Learn</p>
+                  <p class="config-panel__group-copy">Minor starts on Do by default. Choose La for natural, harmonic, melodic, pentatonic and blues minor.</p>
+                  <Knob
+                    v-model="laBasedMinor"
+                    data-testid="learn-la-based-minor"
+                    type="boolean"
+                    label="La-based minor"
+                  />
+                </div>
                 <div
                   v-for="group in DECK_CONTROL_GROUPS"
                   :key="group.label"
@@ -667,6 +677,7 @@ const activeTab = ref("global");
 const {
   config,
   visualsEnabled,
+  laBasedMinor,
   savedConfigs,
   savedStageLooks,
   transientStageLook,

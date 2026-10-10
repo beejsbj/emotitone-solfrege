@@ -4,6 +4,7 @@ import { createPinia, setActivePinia } from "pinia";
 vi.unmock("@/services/music");
 vi.unmock("@/data");
 
+import { useVisualConfigStore } from "@/stores/visualConfig";
 import { useMusicStore } from "@/stores/music";
 import { usePhrasesStore } from "@/stores/phrases";
 import { useInstrumentStore } from "@/stores/instrument";
@@ -126,6 +127,19 @@ describe("music store", () => {
     });
   });
 
+  it("updates minor labels from the persisted learn preference without changing pitches", async () => {
+    const store = useMusicStore();
+    const display = useVisualConfigStore();
+    store.setKey("A");
+    store.setMode("minor");
+    expect(store.solfegeData.map((note) => note.name)).toEqual(["Do", "Re", "Me", "Fa", "Sol", "Le", "Te"]);
+    display.laBasedMinor = true;
+    expect(store.solfegeData.map((note) => note.name)).toEqual(["La", "Ti", "Do", "Re", "Mi", "Fa", "Sol"]);
+    const id = await store.attackExactPitch("G#4");
+    expect(store.getActiveNotes()[0]).toMatchObject({ noteName: "G#4", solfege: { name: "Si" } });
+    await store.releaseNote(id ?? undefined);
+  });
+
   it("attacks borrowed chord tones through the exact-pitch seam without scale flooring", async () => {
     const musicStore = useMusicStore();
     const patternsStore = usePhrasesStore();
@@ -143,6 +157,7 @@ describe("music store", () => {
     );
     expect(musicStore.getActiveNotes()[0]).toMatchObject({
       noteName: "D#4",
+      solfege: expect.objectContaining({ name: "Me" }),
       solfegeIndex: -1,
       pitchClassIndex: 3,
       octave: 4,

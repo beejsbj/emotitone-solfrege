@@ -42,7 +42,8 @@ import { triggerUIHaptic } from "@/utils/hapticFeedback";
  * bottoms the cap out, opens the lip into a full ring, lights the face, and
  * closes back down into the lip like a note's release. Loading rotates the
  * lip around the cap. The native button keeps an invariant hit box; the face
- * inside carries UIBeat scale, and the cap owns press travel.
+ * inside carries UIBeat scale, and the cap owns press travel. However small
+ * the cap, the button takes at least a --hit-min touch.
  */
 
 export type ButtonSize = "sm" | "md" | "lg";
@@ -143,6 +144,18 @@ function handleClick(event: MouseEvent) {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
   transition: opacity var(--dur-tap) var(--ease-stab);
+}
+
+/*
+ * Hit area: an invisible layer centred on the key that never takes less than
+ * the touch floor, whatever the cap's size. It belongs to the native button,
+ * so it holds still while UIBeat scales the face; consumers leave room for it
+ * between neighbours.
+ */
+.paper-button::before {
+  content: "";
+  position: absolute;
+  inset: min(0px, (100% - var(--hit-min)) / 2);
 }
 
 .paper-button--sm { --button-size: 32px; --button-travel: 3px; }

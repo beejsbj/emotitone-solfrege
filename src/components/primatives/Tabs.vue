@@ -413,18 +413,25 @@ onBeforeUnmount(() => {
   overflow: hidden;
 }
 
+.tabs {
+  /* The track inset each tab's hit area may reach into; the rail clips
+     anything past it. */
+  --tabs-track-inset: 6px;
+}
+
+.tabs--density-compact,
+.tabs--geometry-marquee {
+  --tabs-track-inset: 4px;
+}
+
 .tabs__track {
   position: relative;
   display: flex;
   width: 100%;
   min-width: 100%;
   box-sizing: border-box;
-  padding: 6px;
+  padding: var(--tabs-track-inset);
   isolation: isolate;
-}
-
-.tabs--density-compact .tabs__track {
-  padding: 4px;
 }
 
 .tabs--layout-scroll {
@@ -459,8 +466,8 @@ onBeforeUnmount(() => {
 
 .tabs__chip {
   position: absolute;
-  top: 6px;
-  bottom: 6px;
+  top: var(--tabs-track-inset);
+  bottom: var(--tabs-track-inset);
   z-index: 1;
   background: var(--ivory);
   box-shadow: 3px 3px 0 var(--ink);
@@ -469,11 +476,6 @@ onBeforeUnmount(() => {
     left var(--dur-ui) var(--ease-swing),
     width var(--dur-ui) var(--ease-swing),
     transform var(--dur-ui) var(--ease-swing);
-}
-
-.tabs--density-compact .tabs__chip {
-  top: 4px;
-  bottom: 4px;
 }
 
 .tabs__chip--smearing {
@@ -513,6 +515,9 @@ onBeforeUnmount(() => {
   z-index: 2;
   flex: 1 1 0;
   min-width: 0;
+  /* With its hit area reaching through the track inset, every tab takes the
+     touch floor at any density. */
+  min-block-size: calc(var(--hit-min) - 2 * var(--tabs-track-inset));
   border: 0;
   background: transparent;
   color: var(--ivory);
@@ -523,6 +528,12 @@ onBeforeUnmount(() => {
   padding: 10px 14px;
   text-transform: uppercase;
   white-space: nowrap;
+}
+
+.tabs__button::before {
+  content: "";
+  position: absolute;
+  inset: min(0px, (100% - var(--hit-min)) / 2);
 }
 
 .tabs--layout-scroll .tabs__button {
@@ -579,10 +590,6 @@ onBeforeUnmount(() => {
 .tabs--geometry-marquee {
   border: 0;
   background: var(--ink-2);
-}
-
-.tabs--geometry-marquee .tabs__track {
-  padding: 4px;
 }
 
 .tabs--geometry-marquee .tabs__button {
@@ -650,7 +657,7 @@ onBeforeUnmount(() => {
 }
 
 .tabs--geometry-marquee.tabs--density-compact .tabs__button {
-  min-height: 34px;
+  min-height: calc(var(--hit-min) - 2 * var(--tabs-track-inset));
   gap: 5px;
   padding: 7px 9px 6px;
 }

@@ -870,6 +870,7 @@ useGSAP(({ gsap }: { gsap: any }) => {
 .knob-wrapper {
   --instrument-control-size: var(--knob-size, var(--instrument-control-size-default));
 
+  position: relative;
   user-select: none;
   touch-action: none;
   padding: 0;
@@ -877,6 +878,14 @@ useGSAP(({ gsap }: { gsap: any }) => {
   background: transparent;
   color: inherit;
   font: inherit;
+}
+
+/* A Knob drawn smaller than the touch floor (Config's 32px toggles) still
+   takes a --hit-min touch; the face and label keep their size. */
+.knob-wrapper::before {
+  content: "";
+  position: absolute;
+  inset: min(0px, (100% - var(--hit-min)) / 2);
 }
 
 .knob-wrapper[role="slider"]:focus-visible {

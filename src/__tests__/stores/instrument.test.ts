@@ -486,13 +486,22 @@ describe("instrument store: versioned saved data on captured payloads", () => {
 
   const writtenKeys = () => storage.setItem.mock.calls.map(([key]) => key as string);
 
-  /** Make every write to localStorage throw a quota error until the returned function runs. */
+  /**
+   * Storage that is nearly full until the returned function runs: a key that
+   * is already stored can still be replaced in place, but a new key (a
+   * backup, as large as the payload) throws a quota error.
+   */
   function fillStorage() {
-    const original = storage.setItem.getMockImplementation();
-    storage.setItem.mockImplementation(() => {
-      throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+    // test-setup's Storage double keeps its items in `store`.
+    const items = (window.localStorage as unknown as { store: Map<string, string> }).store;
+    const store = (key: string, value: string) => {
+      items.set(String(key), String(value));
+    };
+    storage.setItem.mockImplementation((key: string, value: string) => {
+      if (!items.has(key)) throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+      store(key, value);
     });
-    return () => storage.setItem.mockImplementation(original!);
+    return () => storage.setItem.mockImplementation(store);
   }
 
   beforeEach(() => {

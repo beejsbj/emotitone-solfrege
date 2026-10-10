@@ -4,6 +4,7 @@ import App from "./App.vue";
 import "./style.css";
 import "./emotitone-design-system.css";
 import { persistedStatePlugin } from "./services/safeStorage";
+import { installBackupConsole } from "./services/persistenceCodec";
 import { beginKnobPageEdition } from "./components/primatives/Knob/edition";
 import { beginTabsPageEdition } from "./components/primatives/TabsEdition";
 import { registerSW } from 'virtual:pwa-register';
@@ -48,6 +49,9 @@ app.use(pinia);
 if (pathname !== "/style-guide/instrument-picker") {
   pinia.use(persistedStatePlugin);
 }
+// Support path for saved-data backups: `emotitoneBackups.list()` in the
+// console (docs/persistence-codec.md).
+installBackupConsole(window);
 
 if (import.meta.env.DEV) {
   void clearDevServiceWorkers();

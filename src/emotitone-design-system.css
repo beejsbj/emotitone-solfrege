@@ -105,6 +105,11 @@
   --s-5: 12px; --s-6: 16px; --s-7: 20px; --s-8: 24px;
   --s-9: 32px; --s-10: 48px; --s-11: 64px;
 
+  /* Touch floor: every control takes at least this much touch, whatever its
+     face looks like. Smaller faces carry an invisible hit area centred on
+     them; dense rows make room for it with spacing, never by overlapping. */
+  --hit-min: 44px;
+
   /* Edges are crisp. The poster aesthetic doesn't bevel, blur or round much. */
   --r-xs: 4px;
   --r-sm: 8px;
@@ -285,6 +290,10 @@
   --t-body-mono:  450 14px/1.55 var(--font-mono);     /* long body */
   --t-body-s-mono:450 12px/1.50 var(--font-mono);     /* long small body */
 
+  /* Text fields never render under this: iOS zooms the page when a focused
+     field's text is smaller. */
+  --input-text-min: 16px;
+
   --tracking-display: 0.01em;
   --tracking-label:   0.14em;
 }
@@ -361,6 +370,14 @@
       close
     );
   }
+}
+
+/* Bare text fields start at the no-zoom floor; a component that styles its
+   field sets the size itself and must stay at or above the token. */
+input,
+select,
+textarea {
+  font-size: max(var(--input-text-min), 1em);
 }
 
 /* Cut-tab slide (Persona-5 style swap) */

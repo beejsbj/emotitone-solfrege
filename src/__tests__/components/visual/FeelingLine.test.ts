@@ -176,6 +176,23 @@ describe("FeelingLine", () => {
     );
   });
 
+  it("settles Stage labels and degree feelings together in one announcement", async () => {
+    mountLine({ harmonicAccessibleText: "Chord: C major" });
+    await play("n1", "C4", "C", "major");
+    vi.advanceTimersByTime(FEELING_ANNOUNCE_SETTLE_MS - 100);
+    await wrapper!.setProps({ harmonicAccessibleText: "Chord: C major. Emotion: Bright and settled" });
+    vi.advanceTimersByTime(100);
+    await nextTick();
+    expect(announced()).toBe("");
+
+    vi.advanceTimersByTime(FEELING_ANNOUNCE_SETTLE_MS - 100);
+    await nextTick();
+    expect(wrapper!.findAll('[aria-live="polite"]')).toHaveLength(1);
+    expect(announced()).toBe(
+      `Chord: C major. Emotion: Bright and settled. Do, perfect unison: ${wordsFor("1P", "major").description}`,
+    );
+  });
+
   it("keeps the visible readout away from assistive technology, which hears the live region", async () => {
     mountLine();
     await play("n1", "C4", "C", "major");

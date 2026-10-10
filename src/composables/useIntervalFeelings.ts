@@ -27,6 +27,8 @@ export const FEELING_ANNOUNCE_SETTLE_MS = 1000;
 
 interface IntervalFeelingsOptions {
   laBasedMinor: () => boolean;
+  /** Additional Stage labels use the same settle timer and live region. */
+  harmonicAccessibleText?: () => string;
   /** How long the last held set stays after every note is released. */
   holdTime: () => number;
 }
@@ -80,9 +82,12 @@ export function useIntervalFeelings(options: IntervalFeelingsOptions) {
       .map((row) => (chord ? { ...row, text: row.emotion } : row));
   });
 
-  const spokenText = computed(() => rows.value
-    .map((row) => `${row.syllable}, ${row.interval.spoken}: ${row.text}`)
-    .join(". "));
+  const spokenText = computed(() => [
+    options.harmonicAccessibleText?.() ?? "",
+    rows.value
+      .map((row) => `${row.syllable}, ${row.interval.spoken}: ${row.text}`)
+      .join(". "),
+  ].filter(Boolean).join(". "));
 
   const publish = () => {
     shown.value = [...held.values()];

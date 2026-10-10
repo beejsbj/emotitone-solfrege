@@ -6,11 +6,8 @@
       aria-hidden="true"
     />
 
-    <p class="sr-only" aria-live="polite" aria-atomic="true">
-      {{ harmonicAccessibleText }}
-    </p>
-
     <FeelingLine
+      :harmonic-accessible-text="harmonicAccessibleText"
       :event-target="noteEventTarget"
       :usable-height="usableRect.height"
       :reduced-motion="reducedMotion"

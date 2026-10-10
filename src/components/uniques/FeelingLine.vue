@@ -17,6 +17,8 @@ const props = withDefaults(defineProps<{
   eventTarget: EventTarget;
   /** Height of the Stage area the deck leaves uncovered, in CSS pixels. */
   usableHeight: number;
+  /** Stage chord/interval labels share this line's settled announcement. */
+  harmonicAccessibleText?: string;
   reducedMotion?: boolean;
   laBasedMinor?: boolean;
   /** How long the last readout stays after release, in milliseconds. */
@@ -25,6 +27,7 @@ const props = withDefaults(defineProps<{
   fallbackKey?: ChromaticNote;
   fallbackMode?: MusicalMode;
 }>(), {
+  harmonicAccessibleText: "",
   reducedMotion: false,
   laBasedMinor: false,
   holdTime: 2500,
@@ -36,6 +39,7 @@ const { rows, visible, announcement, notePlayed, noteReleased, reset } =
   useIntervalFeelings({
     laBasedMinor: () => props.laBasedMinor,
     holdTime: () => props.holdTime,
+    harmonicAccessibleText: () => props.harmonicAccessibleText,
   });
 
 interface NoteEventDetail {

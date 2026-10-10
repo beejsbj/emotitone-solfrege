@@ -2,12 +2,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick, ref, type Ref } from 'vue'
 import { createTestWrapper } from '../../helpers/test-utils'
 import UnifiedVisualEffects from '@/components/UnifiedVisualEffects.vue'
+import { FEELING_ANNOUNCE_SETTLE_MS } from '@/composables/useIntervalFeelings'
+import { createSolfegeData } from '@/data/solfege'
+import { DEFAULT_CONFIG } from '@/data/visual-config-metadata'
 
 // A real setup store exposes `visualsEnabled` as a ref; the component must read
 // it reactively, so the stand-in is a ref too.
 const visualConfigStore = vi.hoisted(() => ({
   visualsEnabled: null as unknown as Ref<boolean>,
-  effectiveConfig: { blobs: { analysisHoldTime: 2500 } },
+  config: {} as typeof DEFAULT_CONFIG,
+  effectiveConfig: {} as typeof DEFAULT_CONFIG,
 }))
 
 const unifiedCanvasMocks = vi.hoisted(() => ({
@@ -48,12 +52,16 @@ describe('UnifiedVisualEffects.vue', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.useFakeTimers()
     visualConfigStore.visualsEnabled = ref(true)
+    visualConfigStore.config = structuredClone(DEFAULT_CONFIG)
+    visualConfigStore.effectiveConfig = visualConfigStore.config
   })
 
   afterEach(() => {
     wrapper?.unmount()
     wrapper = null
+    vi.useRealTimers()
   })
 
   it('renders the canvas layer when visuals are enabled', () => {
@@ -62,7 +70,37 @@ describe('UnifiedVisualEffects.vue', () => {
     expect(wrapper.find('.unified-visual-effects').exists()).toBe(true)
     expect(wrapper.find('[data-testid="beating-shapes"]').exists()).toBe(false)
     expect(wrapper.find('.unified-canvas').attributes('aria-hidden')).toBe('true')
-    expect(wrapper.find('[aria-live="polite"]').text()).toContain('Chord: C major')
+    expect(wrapper.findAll('[aria-live="polite"]')).toHaveLength(1)
+    expect(wrapper.find('[aria-live="polite"]').text()).toBe('')
+  })
+
+  it('announces a held chord once through the settled Feeling line', async () => {
+    const target = new EventTarget()
+    wrapper = createTestWrapper(UnifiedVisualEffects, { props: { eventTarget: target } })
+    const words = createSolfegeData(['1P', '3M', '5P'], [0, 4, 7], 'major')
+    for (const [index, noteName] of ['C4', 'E4', 'G4'].entries()) {
+      target.dispatchEvent(new CustomEvent('note-played', {
+        detail: { noteId: `chord-${index}`, noteName, key: 'C', mode: 'major', octave: 4 },
+      }))
+      await nextTick()
+      vi.advanceTimersByTime(100)
+    }
+    const regions = wrapper.findAll('[aria-live="polite"]')
+    expect(regions).toHaveLength(1)
+    expect(regions[0].text()).toBe('')
+    vi.advanceTimersByTime(FEELING_ANNOUNCE_SETTLE_MS - 101)
+    await nextTick()
+    expect(regions[0].text()).toBe('')
+    vi.advanceTimersByTime(1)
+    await nextTick()
+    const settled = regions[0].text()
+    expect(settled.match(/Chord:/g)).toHaveLength(1)
+    expect(settled).toContain(`Do, perfect unison: ${words[0].emotion}`)
+    expect(settled).toContain(`Mi, major third: ${words[1].emotion}`)
+    expect(settled).toContain(`Sol, perfect fifth: ${words[2].emotion}`)
+    vi.advanceTimersByTime(FEELING_ANNOUNCE_SETTLE_MS * 2)
+    await nextTick()
+    expect(regions[0].text()).toBe(settled)
   })
 
   it('hides the visual layer when visuals are disabled', () => {

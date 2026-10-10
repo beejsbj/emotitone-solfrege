@@ -57,6 +57,20 @@ describe("Button", () => {
     expect(wrapper.get(".paper-button__face").attributes("data-ui-beat-scale")).toBeUndefined();
   });
 
+  it("ignores presses while loading without being disabled", async () => {
+    const wrapper = mount(Button, {
+      props: { loading: true, haptic: true, accessibleName: "Rendering" },
+    });
+    expect(wrapper.attributes("disabled")).toBeUndefined();
+    await wrapper.trigger("click");
+    expect(wrapper.emitted("click")).toBeUndefined();
+    expect(triggerUIHaptic).not.toHaveBeenCalled();
+
+    await wrapper.setProps({ loading: false });
+    await wrapper.trigger("click");
+    expect(wrapper.emitted("click")).toHaveLength(1);
+  });
+
   it("keeps disabled production brass in the native still-state contract", () => {
     const wrapper = mount(Button, {
       props: { tone: "brass", disabled: true, accessibleName: "Unavailable send" },

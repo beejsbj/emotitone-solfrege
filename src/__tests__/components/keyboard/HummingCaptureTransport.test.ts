@@ -32,7 +32,7 @@ describe("HummingCaptureTransport.vue", () => {
       /\.humming-capture-transport\s*{[^}]*position:\s*fixed;[^}]*z-index:\s*110;[^}]*top:[^}]*left:\s*50%;/,
     );
     expect(transportSource).toMatch(
-      /\.humming-capture-transport \.humming-capture-transport__primary\s*{[^}]*--button-size:\s*28px;/,
+      /\.humming-capture-transport \.humming-capture-transport__primary\s*{[^}]*--button-size:\s*var\(--humming-primary-size\);/,
     );
     // The Lit Keycap owns its own depth; the retired paper-offset override is gone.
     expect(transportSource).not.toContain("--button-rest-shadow");
@@ -79,8 +79,12 @@ describe("HummingCaptureTransport.vue", () => {
   it("keeps capture cancellable while microphone permission is pending", async () => {
     wrapper = render({ status: "requesting" });
 
-    expect(wrapper.get('button[aria-label="Requesting microphone"]').attributes("disabled"))
-      .toBeDefined();
+    // Busy, not disabled: a natively disabled key hides its loading spinner.
+    const mic = wrapper.get('button[aria-label="Requesting microphone"]');
+    expect(mic.attributes("disabled")).toBeUndefined();
+    expect(mic.attributes("aria-busy")).toBe("true");
+    expect(mic.classes()).toContain("paper-button--loading");
+    await mic.trigger("click");
     const cancel = wrapper.get('button[aria-label="Cancel humming capture"]');
     expect(cancel.attributes("disabled")).toBeUndefined();
     await cancel.trigger("click");

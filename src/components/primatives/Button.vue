@@ -1,7 +1,7 @@
 <template>
   <button
     :type="type"
-    class="paper-button"
+    class="paper-button touch-floor"
     :class="[
       `paper-button--${size}`,
       `paper-button--${tone}`,
@@ -42,7 +42,8 @@ import { triggerUIHaptic } from "@/utils/hapticFeedback";
  * bottoms the cap out, opens the lip into a full ring, lights the face, and
  * closes back down into the lip like a note's release. Loading rotates the
  * lip around the cap. The native button keeps an invariant hit box; the face
- * inside carries UIBeat scale, and the cap owns press travel.
+ * inside carries UIBeat scale, and the cap owns press travel. However small
+ * the cap, the button takes at least a --hit-min touch.
  */
 
 export type ButtonSize = "sm" | "md" | "lg";
@@ -92,6 +93,9 @@ function strike() {
 }
 
 function handleClick(event: MouseEvent) {
+  // Busy is not disabled: the key stays visible, focusable and lit, but a
+  // press does nothing until the work it is waiting on finishes.
+  if (props.loading) return;
   if (props.haptic) triggerUIHaptic();
   // Pointer hits already struck on press; keyboard activation strikes here.
   if (event.detail === 0) strike();
@@ -145,7 +149,10 @@ function handleClick(event: MouseEvent) {
   transition: opacity var(--dur-tap) var(--ease-stab);
 }
 
-.paper-button--sm { --button-size: 32px; --button-travel: 3px; }
+/* The touch floor (.touch-floor) belongs to the native button, so it holds
+   still while UIBeat scales the face; consumers leave room for it between
+   neighbours with --hit-gap-sm. */
+.paper-button--sm { --button-size: var(--control-sm); --button-travel: 3px; }
 .paper-button--md { --button-size: 40px; }
 .paper-button--lg { --button-size: 48px; --button-travel: 5px; }
 
@@ -310,6 +317,7 @@ function handleClick(event: MouseEvent) {
 @keyframes paper-button-lamp-b { from { opacity: 1; } to { opacity: 0; } }
 
 /* Loading rotates the lip itself around the key. */
+.paper-button--loading { cursor: progress; }
 .paper-button--loading .paper-button__content { opacity: .3; }
 .paper-button--loading .paper-button__lip { animation: paper-button-orbit 900ms linear infinite; }
 
@@ -318,13 +326,13 @@ function handleClick(event: MouseEvent) {
   to { --paper-button-lip-angle: 540deg; }
 }
 
-.paper-button:disabled {
+.paper-button:disabled:not(.paper-button--loading) {
   cursor: not-allowed;
   opacity: .35;
   transition: none;
 }
 
-.paper-button:disabled .paper-button__lip { display: none; }
+.paper-button:disabled:not(.paper-button--loading) .paper-button__lip { display: none; }
 .paper-button:disabled .paper-button__cap { transition: none; }
 .paper-button:disabled .paper-button__cap::after { animation: none; }
 

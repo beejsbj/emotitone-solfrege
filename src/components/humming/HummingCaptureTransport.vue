@@ -7,7 +7,6 @@
         :tone="canAccept ? 'ivory' : 'brass'"
         :haptic="haptic"
         :loading="loading"
-        :disabled="loading"
         :accessible-name="buttonLabel"
         :title="buttonTitle"
         @click="emit('toggle')"
@@ -132,6 +131,9 @@ function handleTakeSelection(event: Event) {
 
 <style scoped>
 .humming-capture-transport {
+  --humming-primary-size: 28px;
+  --humming-cancel-size: 22.4px;
+
   position: fixed;
   z-index: 110;
   top: calc(env(safe-area-inset-top, 0px) + var(--s-5));
@@ -142,28 +144,31 @@ function handleTakeSelection(event: Event) {
 }
 
 .humming-capture-transport .humming-capture-transport__primary {
-  --button-size: 28px;
-  inline-size: 28px;
-  block-size: 28px;
+  --button-size: var(--humming-primary-size);
+  inline-size: var(--humming-primary-size);
+  block-size: var(--humming-primary-size);
 }
 
 .humming-capture-transport .humming-capture-transport__cancel {
-  --button-size: 22.4px;
-  inline-size: 22.4px;
-  block-size: 22.4px;
+  --button-size: var(--humming-cancel-size);
+  inline-size: var(--humming-cancel-size);
+  block-size: var(--humming-cancel-size);
 }
 
 .humming-capture-transport__cancel-slot {
   position: absolute;
   top: 50%;
-  left: calc(100% + var(--s-3));
+  /* Far enough out that the two keys' --hit-min touches meet without
+     overlapping: half of each touch, less half of each face. */
+  left: calc(100% + var(--hit-min) - (var(--humming-primary-size) + var(--humming-cancel-size)) / 2);
   display: flex;
   transform: translateY(-50%);
 }
 
 .humming-capture-transport__feedback {
   position: absolute;
-  top: calc(100% + var(--s-3));
+  /* Below the primary key's centred --hit-min touch, not just its face. */
+  top: calc(50% + var(--hit-min) / 2 + var(--s-2));
   left: 50%;
   display: grid;
   width: max-content;
@@ -193,8 +198,10 @@ function handleTakeSelection(event: Event) {
 }
 
 .humming-capture-transport__take-select {
-  height: 24px;
+  /* A take list is a field: at least the no-zoom text size and a full touch. */
+  min-block-size: var(--hit-min);
   padding: 0 var(--s-3);
+  font-size: var(--input-text-min);
 }
 
 .humming-capture-transport__status {

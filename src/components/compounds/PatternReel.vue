@@ -83,12 +83,18 @@ export type PatternReelItem = PatternStripItem & {
   presentationKey?: string;
 };
 
+// Unwound rows that take touches (current, -1, -2) are drawn no smaller than a
+// 51.2px strip can hold a counter-scaled 44px touch (scale >= .86), and each
+// row's controls sit at least half a --hit-min (plus a 1px seam) above the
+// next row in front, so no touch is shared with it. The farthest row is a
+// ghost: drawn for context, reached by dragging or the arrow keys.
 const WHEEL_POSITIONS = [
   { y: 0, scale: 1, opacity: 1 },
-  { y: -46.4, scale: .95, opacity: .8 },
-  { y: -78.4, scale: .85, opacity: .48 },
-  { y: -97.6, scale: .72, opacity: .2 },
+  { y: -48, scale: .95, opacity: .8 },
+  { y: -94, scale: .86, opacity: .48 },
+  { y: -114, scale: .72, opacity: .2 },
 ];
+const GHOST_SLOT = -3;
 const DECK_POSITIONS = [
   { y: 0, scale: 1, opacity: 1 },
   { y: -14.4, scale: .997, opacity: .92 },
@@ -334,7 +340,8 @@ function isSlotUnavailable(slot: number, id: string) {
     && props.items[wrapIndex(displayIndex.value + 1)]?.id === id
     && isActivePreview(id);
   const collapsedPredecessor = slot < 0 && unwindProgress.value === 0;
-  return stagedForwardSlot || recedingShortDuplicate || collapsedPredecessor;
+  const ghost = slot <= GHOST_SLOT;
+  return stagedForwardSlot || recedingShortDuplicate || collapsedPredecessor || ghost;
 }
 
 function slotStyle(slot: number, id: string): CSSProperties {
@@ -875,6 +882,16 @@ onBeforeUnmount(() => {
     transform var(--settle-duration) var(--settle-easing),
     opacity var(--settle-duration) var(--settle-opacity-easing);
   will-change: transform, opacity;
+}
+
+/* A row drawn smaller keeps full-size touches: each touch layer is scaled
+   back up by its row's scale. Identity rows grow only in height. */
+.pattern-reel__slot :deep(.paper-button.touch-floor::before) {
+  scale: calc(1 / var(--slot-scale));
+}
+
+.pattern-reel__slot :deep(.pattern-strip__identity.touch-floor::before) {
+  scale: 1 calc(1 / var(--slot-scale));
 }
 
 .pattern-reel__slot--active {

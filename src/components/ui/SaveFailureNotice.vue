@@ -7,7 +7,7 @@
   >
     <button
       type="button"
-      class="save-failure-notice__button"
+      class="save-failure-notice__button touch-floor touch-floor--block"
       aria-label="Dismiss save warning"
       @click="dismissSaveFailure"
     >
@@ -24,7 +24,8 @@ import { dismissSaveFailure, saveFailureNotice } from "@/services/safeStorage";
 <style scoped>
 .save-failure-notice {
   position: fixed;
-  top: calc(env(safe-area-inset-top, 0px) + 12px);
+  /* Below the humming key's touch, which holds the top centre above it. */
+  top: calc(env(safe-area-inset-top, 0px) + var(--s-5) + var(--hit-min));
   /* Leave the corners to the top-menu handles, and sit under TopDrawer (100-102). */
   left: 56px;
   right: 56px;

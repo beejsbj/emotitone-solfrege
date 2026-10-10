@@ -79,9 +79,13 @@ const isEmpty = computed(() => events.value.length === 0);
 const openHref = computed(() =>
   !isEmpty.value && props.code?.trim() ? strudelUrl(props.code) : undefined);
 
+const eventUnits = computed(() => events.value.map((token) => durationUnits(token.duration)));
+
 const highlight = useNotationHighlight({
   eventNoteIds: () => eventNoteIds.value,
+  eventUnits: () => eventUnits.value,
   listening: () => props.listening && props.playing,
+  still: () => reducedMotion.value,
   target: () => props.noteEventTarget,
   onActivate: (index) => void nextTick(() => followEvent(index)),
 });
@@ -99,7 +103,7 @@ const entries = computed(() => events.value.map((token, index) => {
     if (!props.playing) return { token, key, hidden, progress: 1, memberProgress: allMembers(token, 1), active: false };
     const active = highlight.isActive(ids);
     if (token.type === "rest") {
-      return { token, key, hidden, progress: highlight.restProgress(index), active: false };
+      return { token, key, hidden, progress: highlight.restProgress(index), active: false, live: true };
     }
     if (token.type === "chord") {
       const members = token.members.map((member) => highlight.noteProgress(member.id));
@@ -107,13 +111,13 @@ const entries = computed(() => events.value.map((token, index) => {
         token, key, hidden, active,
         progress: members.reduce((sum, value) => sum + value, 0) / Math.max(1, members.length),
         memberProgress: members.join("|"),
-        fillDurationMs: highlight.activeDurationMs(ids),
+        live: true,
       };
     }
     return {
       token, key, hidden, active,
       progress: highlight.noteProgress(token.noteId),
-      fillDurationMs: highlight.activeDurationMs(ids),
+      live: true,
     };
   }
 
@@ -261,6 +265,13 @@ function eventKey(token: StripEvent, index: number) {
   return ids.length ? `${token.type}:${ids.join(",")}` : `${token.type}:${index}`;
 }
 
+/** An event's length in notation units: `@0.25` is 0.25; none is the base 1. */
+function durationUnits(duration: string | undefined) {
+  if (duration == null || duration === "") return 1;
+  const amount = Number.parseFloat(duration.replace(/^@/, ""));
+  return Number.isFinite(amount) ? Math.max(0, amount) : 0;
+}
+
 function clamp(value: number) {
   return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
 }
@@ -285,7 +296,7 @@ function clamp(value: number) {
           :progress="entry.progress"
           :member-progress="entry.memberProgress"
           :active="entry.active"
-          :fill-duration-ms="entry.fillDurationMs"
+          :live="entry.live"
           :hidden="entry.hidden"
           :density="density"
           :duration-mode="durationMode"

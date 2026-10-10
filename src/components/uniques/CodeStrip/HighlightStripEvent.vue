@@ -20,8 +20,8 @@ const props = defineProps<{
   /** Chord member fills in member order, joined by "|". */
   memberProgress?: string;
   active: boolean;
-  /** How long the sounding note takes to fill, while it is active. */
-  fillDurationMs?: number;
+  /** Progress follows the playback clock frame by frame: no eased fill. */
+  live?: boolean;
   hidden?: boolean;
   density: CodeStripDensity;
   durationMode: CodeStripDurationMode;
@@ -64,9 +64,7 @@ const rendered = computed<CodeStripToken>(() => {
 });
 
 const fillStyle = computed(() =>
-  props.active && props.fillDurationMs !== undefined
-    ? { "--code-strip-fill-duration": `${Math.round(props.fillDurationMs)}ms` }
-    : undefined,
+  props.live ? { "--code-strip-fill-duration": "0ms" } : undefined,
 );
 
 const accessibleName = computed(() => {

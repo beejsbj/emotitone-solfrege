@@ -16,25 +16,41 @@ const tokens: CodeStripToken[] = [
 let target: EventTarget;
 let frames: FrameRequestCallback[];
 let reducedMotion = false;
+/** The presentation clock (`performance.now()`), moved by the test. */
+let clock = 1000;
 
 function send(type: "note-played" | "note-released", detail: NotationNoteEventDetail) {
   target.dispatchEvent(new CustomEvent(type, { detail }));
 }
 
 function play(sourceNoteId: string, voice: string, extra: Partial<NotationNoteEventDetail> = {}) {
-  send("note-played", { noteId: voice, sourceNoteId, audibleAt: performance.now(), durationMs: 300, ...extra });
+  send("note-played", { noteId: voice, sourceNoteId, audibleAt: clock, durationMs: 300, ...extra });
 }
 
-function release(sourceNoteId: string, voice: string) {
-  send("note-released", { noteId: voice, sourceNoteId });
+function release(sourceNoteId: string, voice: string, audibleAt = clock) {
+  send("note-released", { noteId: voice, sourceNoteId, audibleAt });
 }
 
 function runFrames() {
   for (let pass = 0; pass < 4 && frames.length; pass++) {
     const pending = frames;
     frames = [];
-    for (const frame of pending) frame(performance.now());
+    for (const frame of pending) frame(clock);
   }
+}
+
+/** Move the clock and paint one frame. */
+async function at(time: number) {
+  clock = time;
+  const pending = frames;
+  frames = [];
+  for (const frame of pending) frame(clock);
+  await flushPromises();
+}
+
+/** How many of an event's stems are lit. */
+function litStems(wrapper: VueWrapper, index: number) {
+  return event(wrapper, index).findAll(".code-strip__duration-mark--lit").length;
 }
 
 function event(wrapper: VueWrapper, index: number) {
@@ -75,7 +91,9 @@ beforeEach(() => {
   target = new EventTarget();
   frames = [];
   reducedMotion = false;
+  clock = 1000;
   vi.useFakeTimers();
+  vi.spyOn(performance, "now").mockImplementation(() => clock);
   vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
     frames.push(callback);
     return frames.length;
@@ -90,13 +108,14 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.useRealTimers();
   vi.unstubAllGlobals();
   document.body.innerHTML = "";
 });
 
 describe("HighlightStrip", () => {
-  it("lights the event whose note id sounds and clears the highlight on release", async () => {
+  it("lights the event whose note id sounds and clears the highlight when it ends", async () => {
     const wrapper = mountStrip();
     await flushPromises();
     expect([0, 1, 2, 3].map((index) => fill(wrapper, index))).toEqual([0, 0, 0, 0]);
@@ -105,20 +124,16 @@ describe("HighlightStrip", () => {
     await flushPromises();
 
     expect(event(wrapper, 2).attributes("data-active")).toBe("true");
-    expect(event(wrapper, 2).attributes("style")).toContain("--code-strip-fill-duration: 480ms");
-    expect(fill(wrapper, 2)).toBe(1);
     expect(event(wrapper, 0).attributes("data-active")).toBeUndefined();
     // The rest before the sounding note has passed.
     expect(fill(wrapper, 1)).toBe(1);
 
-    release("mi", "voice-1");
-    await flushPromises();
+    release("mi", "voice-1", clock + 480);
+    await at(1480);
 
     expect(event(wrapper, 2).attributes("data-active")).toBeUndefined();
-    expect(event(wrapper, 2).attributes("style") ?? "").not.toContain("--code-strip-fill-duration");
-    // Played this pass: it stays filled, and the rest after it is now passing.
+    // Played this pass: it stays filled.
     expect(fill(wrapper, 2)).toBe(1);
-    expect(fill(wrapper, 3)).toBe(1);
   });
 
   it("ignores note events that name no note in this phrase", async () => {
@@ -131,52 +146,119 @@ describe("HighlightStrip", () => {
     expect([0, 2].map((index) => fill(wrapper, index))).toEqual([0, 0]);
   });
 
-  it("lights a note when it is heard, not when it is scheduled", async () => {
+  it("lights a note on the frame it is heard, not when its event arrives", async () => {
     const wrapper = mountStrip();
-    play("do", "voice-1", { audibleAt: performance.now() + 200 });
+    // Strudel dispatches a hap ahead of its audio time.
+    play("do", "voice-1", { audibleAt: 1200 });
     await flushPromises();
     expect(event(wrapper, 0).attributes("data-active")).toBeUndefined();
 
-    vi.advanceTimersByTime(200);
-    await flushPromises();
+    await at(1199);
+    expect(event(wrapper, 0).attributes("data-active")).toBeUndefined();
+    expect(fill(wrapper, 0)).toBe(0);
+
+    await at(1200);
     expect(event(wrapper, 0).attributes("data-active")).toBe("true");
   });
 
-  it("starts a new pass when the loop comes round, emptying what was played", async () => {
+  it("is never later than the sound when its event arrives late", async () => {
     const wrapper = mountStrip();
-    play("do", "v1");
-    release("do", "v1");
-    play("mi", "v2");
-    release("mi", "v2");
+    // A busy main thread delivers the event after the note is already heard.
+    play("mi", "voice-1", { audibleAt: 900, durationMs: 400 });
     await flushPromises();
-    expect([0, 2].map((index) => fill(wrapper, index))).toEqual([1, 1]);
 
-    play("do", "v3");
-    await flushPromises();
-    // Painted empty first, so the fill restarts instead of staying full.
-    expect([0, 1, 2, 3].map((index) => fill(wrapper, index))).toEqual([0, 0, 0, 0]);
+    expect(event(wrapper, 2).attributes("data-active")).toBe("true");
+    // It is a quarter of the way through, not starting from empty.
+    expect(fill(wrapper, 2)).toBeCloseTo(0.25);
+  });
 
-    runFrames();
+  it("fills a sounding note and lights its stems with its own sounding time", async () => {
+    const wrapper = mountStrip();
+    // Mi is half a 4/4 bar: eight stems.
+    play("mi", "voice-1", { audibleAt: 1000, durationMs: 800 });
     await flushPromises();
+    expect(litStems(wrapper, 2)).toBe(0);
+
+    await at(1200);
+    expect(fill(wrapper, 2)).toBeCloseTo(0.25);
+    expect(litStems(wrapper, 2)).toBe(2);
+
+    await at(1600);
+    expect(fill(wrapper, 2)).toBeCloseTo(0.75);
+    expect(litStems(wrapper, 2)).toBe(6);
+
+    await at(1800);
+    expect(fill(wrapper, 2)).toBe(1);
+    expect(litStems(wrapper, 2)).toBe(8);
+  });
+
+  it("fills a rest over its own length once the note before it ends", async () => {
+    const wrapper = mountStrip();
+    // Mi (@0.5) sounds 800ms, so the @0.125 rest after it lasts 200ms.
+    play("mi", "voice-1", { audibleAt: 1000, durationMs: 800 });
+    await at(1800);
+    expect(fill(wrapper, 3)).toBe(0);
+
+    await at(1900);
+    expect(fill(wrapper, 3)).toBeCloseTo(0.5);
+    await at(2000);
+    expect(fill(wrapper, 3)).toBe(1);
+  });
+
+  it("replays the whole highlight from the start every time the loop comes round", async () => {
+    const wrapper = mountStrip();
+    const loop = async (start: number) => {
+      play("do", `do-${start}`, { audibleAt: start, durationMs: 400 });
+      play("mi", `mi-${start}`, { audibleAt: start + 800, durationMs: 800 });
+      await at(start + 200);
+      expect(fill(wrapper, 0)).toBeCloseTo(0.5);
+      // What the last pass played reads empty again.
+      expect([1, 2, 3].map((index) => fill(wrapper, index))).toEqual([0, 0, 0]);
+      expect(litStems(wrapper, 2)).toBe(0);
+      await at(start + 1200);
+      expect(fill(wrapper, 0)).toBe(1);
+      expect(fill(wrapper, 1)).toBe(1);
+      expect(fill(wrapper, 2)).toBeCloseTo(0.5);
+      await at(start + 1800);
+      expect(fill(wrapper, 2)).toBe(1);
+      await at(start + 2000);
+      expect(fill(wrapper, 3)).toBe(1);
+    };
+
+    await loop(1000);
+    await loop(3000);
+    await loop(5000);
+  });
+
+  it("lights the first note of a pass even if its release is already known", async () => {
+    const wrapper = mountStrip();
+    play("do", "v1", { audibleAt: 1000, durationMs: 300 });
+    play("mi", "v2", { audibleAt: 1600, durationMs: 300 });
+    await at(2000);
+
+    // The loop comes round: Do is scheduled and released before a frame paints.
+    play("do", "v3", { audibleAt: 2200, durationMs: 300 });
+    release("do", "v3", 2500);
+    await at(2300);
+
     expect(event(wrapper, 0).attributes("data-active")).toBe("true");
-    expect(fill(wrapper, 0)).toBe(1);
+    expect(fill(wrapper, 0)).toBeCloseTo(1 / 3);
     expect(fill(wrapper, 2)).toBe(0);
   });
 
   it("does not count a note still ringing from the last pass as played in the next", async () => {
     const wrapper = mountStrip();
-    play("do", "v1");
-    release("do", "v1");
-    play("mi", "v2");
-    await flushPromises();
+    play("do", "v1", { durationMs: 100 });
+    play("mi", "v2", { audibleAt: 1200, durationMs: 2000 });
+    await at(1300);
 
     // The loop comes round while Mi still rings, then Mi's old voice ends.
-    play("do", "v3");
-    runFrames();
-    release("mi", "v2");
-    await flushPromises();
+    play("do", "v3", { audibleAt: 1400, durationMs: 100 });
+    await at(1400);
+    release("mi", "v2", 1450);
+    await at(1500);
 
-    expect(event(wrapper, 0).attributes("data-active")).toBe("true");
+    expect(fill(wrapper, 0)).toBe(1);
     expect(fill(wrapper, 2)).toBe(0);
   });
 
@@ -213,8 +295,10 @@ describe("HighlightStrip", () => {
     await flushPromises();
 
     // Event 2 centre (500 + 20) less 42% of the 200px view.
+    // Already there, with no scroll animation still to run.
     expect(scroller.scrollLeft).toBe(436);
-    expect(frames).toHaveLength(0);
+    await at(clock + 16);
+    expect(scroller.scrollLeft).toBe(436);
     expect(event(wrapper, 2).attributes("data-active")).toBe("true");
     expect(fill(wrapper, 2)).toBe(1);
   });

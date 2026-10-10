@@ -170,6 +170,21 @@ describe("persistence codec", () => {
     expect(backend.items.get(`${KEY}.backup.unreadable.2026-10-10`)).toBe("{not json");
   });
 
+  it("clears the failure when a retried backup lands after the date has moved on", () => {
+    const { backend, binding, setNow } = setup();
+    backend.items.set(KEY, JSON.stringify(["late night"]));
+    backend.full = true;
+    binding.load();
+    expect(hasSaveFailure.value).toBe(true);
+
+    setNow(DAY + 24 * 60 * 60 * 1000);
+    backend.full = false;
+    expect(binding.save({ takes: ["late night"], tempo: 120 })).toBe(true);
+
+    expect(backend.items.get(`${KEY}.backup.v0.2026-10-11`)).toBe(JSON.stringify(["late night"]));
+    expect(hasSaveFailure.value).toBe(false);
+  });
+
   it("never overwrites an unreadable payload while its backup can't be stored", () => {
     const { backend, binding } = setup();
     // Parseable and current-version, but decode rejects it.

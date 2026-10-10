@@ -1,6 +1,11 @@
 import type { PersistenceOptions } from "pinia-plugin-persistedstate";
 import type { PiniaPluginContext, StateTree } from "pinia";
-import { persistentStorage, reportSaveFailure, type SafeStorage } from "@/services/safeStorage";
+import {
+  persistentStorage,
+  reportSaveFailure,
+  reportSaveSuccess,
+  type SafeStorage,
+} from "@/services/safeStorage";
 
 /**
  * Versioned saved data. Every saved store describes its format once (a codec)
@@ -143,7 +148,7 @@ export interface BackupEntry {
   backupKey: string;
   /** The store key it was copied from. */
   of: string;
-  /** Why it was taken: `v<from>` (before a migration), `unreadable`, or `pre-restore`. */
+  /** Why it was taken: `v<n>` (the version the bytes were read as), `unreadable`, or `pre-restore`. */
   label: string;
   /** UTC date it was written, YYYY-MM-DD. */
   date: string;
@@ -188,20 +193,26 @@ export function listBackups(storage: SafeStorage, key?: string): BackupEntry[] {
 const isoDate = (time: number) => new Date(time).toISOString().slice(0, 10);
 
 /**
- * Copy `raw` to a dated backup of `key`. Returns the backup key, or null when
- * the copy could not be stored (the failure is already reported). Reuses
- * today's copy when it holds the same bytes.
+ * Copy `raw` to a dated backup of `key`, reusing today's copy when it holds
+ * the same bytes. `stored` is false when the copy could not be written (the
+ * failure is already reported under `backupKey`).
  */
-function writeBackup(storage: SafeStorage, key: string, label: string, raw: string, time: number): string | null {
+function writeBackup(
+  storage: SafeStorage,
+  key: string,
+  label: string,
+  raw: string,
+  time: number,
+): { backupKey: string; stored: boolean } {
   const date = isoDate(time);
   const existing = listBackups(storage, key);
   const sameCopy = existing.find(
     (entry) => entry.label === label && entry.date === date && storage.getItem(entry.backupKey) === raw,
   );
-  if (sameCopy) return sameCopy.backupKey;
+  if (sameCopy) return { backupKey: sameCopy.backupKey, stored: true };
   const sequence = 1 + Math.max(0, ...existing.filter((entry) => entry.date === date).map((entry) => entry.sequence));
   const backupKey = backupKeyFor(key, label, date, sequence);
-  return storage.write(backupKey, raw) ? backupKey : null;
+  return { backupKey, stored: storage.write(backupKey, raw) };
 }
 
 /** Keep `keep` plus the newest others up to `retention`; remove the rest. */
@@ -217,7 +228,7 @@ export type WriteHold =
   /** A newer app wrote the payload; refused for the rest of this page's life. */
   | { reason: "newer"; found: number }
   /** The stored bytes must be backed up first; retried on every save. */
-  | { reason: "needs-backup"; raw: string; label: string }
+  | { reason: "needs-backup"; raw: string; label: string; failedKey?: string }
   /** The stored bytes could not be read at all; refused for this page's life. */
   | { reason: "unread" }
   /** A backup was just restored into storage; refused until the page reloads. */
@@ -281,8 +292,13 @@ export function createPersistedBinding<T>(
       case "restored":
         return false;
       case "needs-backup": {
-        const backupKey = writeBackup(storage, codec.key, hold.label, hold.raw, now());
-        if (!backupKey) return false;
+        const { backupKey, stored } = writeBackup(storage, codec.key, hold.label, hold.raw, now());
+        if (!stored) {
+          hold.failedKey = backupKey;
+          return false;
+        }
+        // A retry can land on a new key (the date moved on); end the old failure too.
+        if (hold.failedKey && hold.failedKey !== backupKey) reportSaveSuccess(hold.failedKey);
         pruneBackups(storage, codec.key, retention, backupKey);
         hold = null;
         return true;
@@ -440,8 +456,8 @@ export function restoreBackup(
   let preRestoreBackup: string | undefined;
   if (current !== null && current !== saved) {
     const kept = writeBackup(storage, entry.of, "pre-restore", current, now());
-    if (!kept) return { ok: false, message: `Could not back up the current "${entry.of}"; nothing restored.` };
-    preRestoreBackup = kept;
+    if (!kept.stored) return { ok: false, message: `Could not back up the current "${entry.of}"; nothing restored.` };
+    preRestoreBackup = kept.backupKey;
   }
   if (!storage.write(entry.of, saved)) {
     return { ok: false, message: `Could not write "${entry.of}"; nothing restored.`, preRestoreBackup };

@@ -51,7 +51,8 @@ serializer stops it.
 1. Before any rewrite of stored bytes the app did not just write itself (a
    migration, replacing an unreadable payload, or a restore), the prior raw
    bytes are copied to `<key>.backup.<label>.<YYYY-MM-DD>`.
-   - `label` is `v<from-version>`, `unreadable`, or `pre-restore`.
+   - `label` is `v<n>` (the version the bytes were read as), `unreadable`,
+     or `pre-restore`.
    - The date is UTC.
    - If that key already holds the same bytes, it is reused. If it holds
      different bytes, `.2`, `.3` and so on are appended, so a backup is never

@@ -486,8 +486,8 @@ export class LiveAudioCore {
         if (voice.gainRampRemaining) boundary = Math.min(boundary, frame + voice.gainRampRemaining)
         const span = boundary - frame
         let envelope = this.envelope(voice, frame)
-        let gain = envelope * instrument.gain * voice.gainExpression
-        const gainStep = envelopeStep * instrument.gain * voice.gainExpression
+        let gain = envelope * instrument.gain * (voice.velocity ?? 1) * voice.gainExpression
+        const gainStep = envelopeStep * instrument.gain * (voice.velocity ?? 1) * voice.gainExpression
         this.scratch[0].fill(0)
         this.scratch[1].fill(0)
         let rendered = span
@@ -499,7 +499,7 @@ export class LiveAudioCore {
                 ? (voice.pitchTarget - voice.pitchIncrement) / voice.pitchRampRemaining : 0
               const gainExpressionStep = voice.gainRampRemaining
                 ? (voice.gainTarget - voice.gainExpression) / voice.gainRampRemaining : 0
-              gain = envelope * instrument.gain * voice.gainExpression
+              gain = envelope * instrument.gain * (voice.velocity ?? 1) * voice.gainExpression
               const mixed = voice.resampler.mix(this.scratch[0], this.scratch[1], consumed, 1,
                 voice.position, gain, 0, voice.pitchIncrement)
               if (!mixed) {
@@ -531,7 +531,7 @@ export class LiveAudioCore {
         } else {
           for (let i = 0; i < span; i++) {
             const sample = this.oscillator(voice) * (voice.gainRampRemaining
-              ? envelope * instrument.gain * voice.gainExpression : gain)
+              ? envelope * instrument.gain * (voice.velocity ?? 1) * voice.gainExpression : gain)
             this.scratch[0][i] = this.scratch[1][i] = sample
             voice.position += voice.pitchIncrement
             if (voice.pitchRampRemaining) {

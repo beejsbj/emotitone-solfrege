@@ -162,12 +162,12 @@ describe("PatternReel", () => {
 
     await wrapper.get('button[aria-label^="Unwind patterns around Gamma"]').trigger("click");
     await nextTick();
-    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -46.4px");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -48px");
     expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--settle-duration: 200ms");
 
     vi.advanceTimersByTime(1099);
     await nextTick();
-    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -46.4px");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -48px");
 
     vi.advanceTimersByTime(1);
     await nextTick();
@@ -519,7 +519,7 @@ describe("PatternReel", () => {
     await identity.trigger("click");
     await nextTick();
     expect(slotFor(wrapper, "Beta").attributes("aria-hidden")).toBeUndefined();
-    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -46.4px");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -48px");
   });
 
   it("clears an uncaptured pointer released outside before the next gesture", async () => {
@@ -654,7 +654,7 @@ describe("PatternReel", () => {
     await nextTick();
     expect(document.activeElement).toBe(betaDelete.element);
     expect(slotFor(wrapper, "Beta").attributes("aria-hidden")).toBeUndefined();
-    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -46.4px");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -48px");
 
     (wrapper.element as HTMLElement).focus();
     await nextTick();
@@ -923,7 +923,7 @@ describe("PatternReel", () => {
 
     await wrapper.get('button[aria-label^="Unwind patterns around Gamma"]').trigger("click");
     await nextTick();
-    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -46.4px");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -48px");
     expect(slotFor(wrapper, "Beta").attributes("aria-hidden")).toBeUndefined();
     expect(patternReelSource).toMatch(
       /@media \(prefers-reduced-motion: reduce\)[\s\S]*transition: none;/,

@@ -408,7 +408,9 @@ export function pressNote(
   }
 
   numberTake(book, take);
-  if (!takeIsLive(book, held)) {
+  // A reload keeps the take's live notes but drops its wall-clock anchor, so a
+  // live take can arrive here unanchored; anchor it too, or every press lands at 0.
+  if (!takeIsLive(book, held) || book.recorder.wallOrigin === null) {
     if (take.notes.length === 0) take.context = cloneContext(press.context);
     // Seam: live input continues at the phrase's end, whenever it arrives.
     book.recorder.wallOrigin = press.wallTime - take.duration;

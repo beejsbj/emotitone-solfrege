@@ -168,6 +168,29 @@ describe("phrases store", () => {
     expect(store.takeNotes).toEqual(original);
   });
 
+  it("keeps the rests of notes played into a take restored by a reload", () => {
+    playPhrase(store, "before", START);
+    const saved = serializePatternsState({ book: store.book, isRecordingEnabled: true });
+    store.$dispose();
+    localStorage.setItem("phrases", saved);
+    const pinia = createTestPinia().use(piniaPluginPersistedstate);
+    createApp({}).use(pinia);
+    setActivePinia(pinia);
+    useVisualConfigStore().updateConfig("codeStrip", { bpm: 120 });
+    store = usePhrasesStore();
+    expect(store.takeNotes).toHaveLength(3);
+
+    const later = START + 60_000;
+    [0, 700, 1900].forEach((offset, index) => tap(store, `after-${index}`, 2, later + offset));
+
+    const presses = store.takeNotes.map((note) => note.pressTime);
+    expect(presses.slice(0, 3)).toEqual([0, 300, 600]);
+    const resumed = presses.slice(3);
+    // Input continues at the take's end, with its own rests intact.
+    expect(resumed[0]).toBeGreaterThanOrEqual(800);
+    expect(resumed.map((time) => time - resumed[0])).toEqual([0, 700, 1900]);
+  });
+
   it("does not resurrect an undone loaded note on a later mode change", async () => {
     store.openPhrase("pattern-twinkle-1");
     await nextTick();

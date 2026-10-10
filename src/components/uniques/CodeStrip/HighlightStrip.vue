@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { ExternalLink } from "lucide-vue-next";
+import Button from "@/components/primatives/Button.vue";
 import { strudelUrl } from "@/services/strudelLink";
 import type { NoteColorResolver } from "@/components/primatives/noteColorContext";
 import HighlightStripEvent from "./HighlightStripEvent.vue";
@@ -78,6 +79,11 @@ const eventNoteIds = computed(() => events.value.map(noteIdsOf));
 const isEmpty = computed(() => events.value.length === 0);
 const openHref = computed(() =>
   !isEmpty.value && props.code?.trim() ? strudelUrl(props.code) : undefined);
+
+/** Hand the code to strudel.cc in a new tab that cannot reach back to this one. */
+function openInStrudel() {
+  if (openHref.value) window.open(openHref.value, "_blank", "noopener,noreferrer");
+}
 
 const eventUnits = computed(() => events.value.map((token) => durationUnits(token.duration)));
 
@@ -307,17 +313,17 @@ function clamp(value: number) {
         />
       </div>
     </div>
-    <a
+    <Button
       v-if="openHref"
       class="highlight-strip__open"
-      :href="openHref"
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label="Open in Strudel"
+      size="sm"
+      tone="ink"
+      accessible-name="Open in Strudel"
       title="Open in Strudel"
+      @click="openInStrudel"
     >
-      <ExternalLink aria-hidden="true" />
-    </a>
+      <ExternalLink />
+    </Button>
   </div>
 </template>
 
@@ -412,40 +418,11 @@ function clamp(value: number) {
   text-align: center;
 }
 
-/* Open in Strudel: a quiet trailing glyph whose 44px hit area reaches back
-   over the end of the line, never past the strip toward its neighbours. */
+/* Open in Strudel: a small Ink key at the end of the line. Its 44px touch
+   floor stays inside the strip, never reaching toward its neighbours. */
 .highlight-strip__open {
-  position: relative;
-  display: grid;
-  flex: 0 0 auto;
-  place-items: center;
-  width: 24px;
-  color: var(--ivory-3);
-}
-
-.highlight-strip__open::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  right: 0;
-  width: 44px;
-  height: 44px;
-  transform: translateY(-50%);
-}
-
-.highlight-strip__open svg {
-  width: 14px;
-  height: 14px;
-}
-
-.highlight-strip__open:hover,
-.highlight-strip__open:focus-visible {
-  color: var(--ivory);
-}
-
-.highlight-strip__open:focus-visible {
-  outline: 2px solid var(--ivory);
-  outline-offset: -2px;
+  align-self: center;
+  margin-inline: var(--s-2) calc(var(--hit-gap-sm) / 2);
 }
 
 @media (prefers-reduced-motion: reduce) {

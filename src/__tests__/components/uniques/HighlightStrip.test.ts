@@ -339,20 +339,24 @@ describe("HighlightStrip", () => {
     expect(fill(wrapper, 1)).toBe(0);
   });
 
-  it("offers Open in Strudel as a new-tab link to the code it shows", () => {
+  it("offers Open in Strudel as a key that opens the code it shows in a new tab", async () => {
     const code = '`< C4@0.25 ~@0.25 E4@0.5 >`.as("note").sound("sine")';
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
     const wrapper = mountStrip({ code });
-    const link = wrapper.get('a[aria-label="Open in Strudel"]');
+    const key = wrapper.get('button[aria-label="Open in Strudel"]');
 
-    expect(link.attributes("href")).toBe(strudelUrl(code));
-    expect(link.attributes("target")).toBe("_blank");
-    expect(link.attributes("rel")).toContain("noopener");
+    // The design law's Button primitive, with its touch floor.
+    expect(key.classes()).toEqual(expect.arrayContaining(["paper-button", "touch-floor"]));
+    await key.trigger("click");
+
+    expect(open).toHaveBeenCalledWith(strudelUrl(code), "_blank", "noopener,noreferrer");
+    expect(wrapper.find("a").exists()).toBe(false);
   });
 
   it("offers nothing to open while the strip is empty", () => {
     const wrapper = mountStrip({ tokens: [], code: "// Record a pattern" });
 
-    expect(wrapper.find('a[aria-label="Open in Strudel"]').exists()).toBe(false);
+    expect(wrapper.find('[aria-label="Open in Strudel"]').exists()).toBe(false);
   });
 
   it("lights every stem of a played note whose duration is the implicit base 1", () => {

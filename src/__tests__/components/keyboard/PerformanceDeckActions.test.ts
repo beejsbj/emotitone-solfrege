@@ -103,6 +103,7 @@ vi.mock("@/composables/useHummingCapture", () => ({
     status: mocks.hummingStatus,
     error: mocks.hummingError,
     statusMessage: mocks.hummingStatusMessage,
+    remainingSeconds: { value: 60, __v_isRef: true },
     takeLabels: mocks.hummingTakeLabels,
     selectedTakeIndex: mocks.selectedHummingTake,
     toggle: mocks.toggleHumming,

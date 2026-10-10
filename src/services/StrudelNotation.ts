@@ -8,6 +8,7 @@
  * // >`.as("note").sound("sine").cpm(120 / 4)
  */
 
+import { velocityToGain } from "@/audio/velocity";
 import type { LogNote } from "@/types/patterns";
 import type { Shape } from "@/types/instrument";
 import type { MusicalMode } from "@/types/music";
@@ -60,7 +61,7 @@ const DEFAULT_CONFIG: StrudelConfig = {
 export const DEFAULT_SOURCE_BPM = DEFAULT_CONFIG.sourceBpm;
 
 const OVERLAP_EPSILON_MS = 0;
-type RecordedControl = 'clip' | keyof LiveArticulation;
+type RecordedControl = 'clip' | 'gain' | keyof LiveArticulation;
 const RECORDED_CONTROLS: RecordedControl[] = ['clip', 'attack', 'decay', 'sustain', 'release'];
 
 /** Length of one bar in milliseconds. */
@@ -128,9 +129,13 @@ export class StrudelNotation {
     this.fallbackEnvelope = resolveLiveEnvelope(this.config.sound, this.config.shape);
     // Uniform recorded articulation becomes a global modifier; only varying
     // controls need a per-note column alongside the expression columns.
-    const values = new Map(RECORDED_CONTROLS.map(control =>
+    // Superdough's existing unity-velocity gain is 0.8. Only emit gain when
+    // a note needs attenuation, preserving legacy notation and loudness.
+    const recordedControls: RecordedControl[] = this.notes.some(note => velocityToGain(note.velocity) !== 1)
+      ? [...RECORDED_CONTROLS, 'gain'] : RECORDED_CONTROLS;
+    const values = new Map(recordedControls.map(control =>
       [control, this.notes.map(note => this.noteControl(note, control))] as const));
-    this.controlFields = RECORDED_CONTROLS.filter(control =>
+    this.controlFields = recordedControls.filter(control =>
       new Set(values.get(control)).size > 1);
     this.vibratoByNote.clear();
     this.tremoloByNote.clear();
@@ -191,7 +196,7 @@ export class StrudelNotation {
     const inner = mergeStrudelRests(tokens, this.config.precision).join(" ");
     // Each mapped column is present on every note. Globals cover only the
     // unmapped controls so they cannot overwrite recorded per-note values.
-    const controls = RECORDED_CONTROLS.filter(control => !this.controlFields.includes(control))
+    const controls = recordedControls.filter(control => !this.controlFields.includes(control))
       .map(control => `.${control}(${values.get(control)![0]})`).join('');
     const filters = this.filterModifiers();
     const effects = this.effectModifiers();
@@ -343,6 +348,7 @@ export class StrudelNotation {
   }
 
   private noteControl(note: PreparedRecordedNote<LogNote>, control: RecordedControl): number {
+    if (control === 'gain') return 0.8 * velocityToGain(note.velocity);
     if (control === 'clip') {
       const ratio = (note.gateDuration ?? this.noteDuration(note)) / this.noteDuration(note);
       return Number.isFinite(ratio) && ratio > 0 ? ratio : 1;

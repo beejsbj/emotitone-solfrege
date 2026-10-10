@@ -1,9 +1,15 @@
 import { mount } from "@vue/test-utils";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import specimenSource from "@/style-guide/compounds/CompoundKeyboard.vue?raw";
 import UniqueDrawer from "@/style-guide/uniques/UniqueDrawer.vue";
 import CompoundKeyboard from "@/style-guide/compounds/CompoundKeyboard.vue";
+
+// The drawer's code editor is unrelated to keyboard labels and imports the
+// browser-only Strudel transport. Keep the real Drawer, Keyboard and Notes.
+vi.mock("@/components/compounds/CodeStripBar.vue", () => ({
+  default: { template: "<div />" },
+}));
 
 describe("Keyboard style-guide specimen", () => {
   it("imports the authoritative compound and remains inert", () => {

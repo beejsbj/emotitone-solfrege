@@ -22,7 +22,7 @@ The record of decisions is `docs/retrospective-spec.md` (PR #143; until it merge
 ## Where work goes
 
 - **Design** (`implementing-design-system`: review, define, tighten, promote, adopt or verify a visual unit): invoke `$emotitone-design-system` and follow it before asking questions or editing. Records: `src/style-guide/WIP-bible.md` (direction), `src/style-guide/DESIGN_SYSTEM_TRACKER.md` (current truth and next gate), and `src/style-guide/DESIGN_LOG.md` (frozen 2026-10-09, do not append; PR bodies are the receipt). Do not use `design-lab` for this pass. Keep standalone functionality and bug fixes outside the visual-system slice. Respect the dirty tree and coordinate with adjacent unit sessions before touching shared lineage or files.
-- **Product** (stance, Looper, phrase book, Code Strip, persistence, licence): `docs/retrospective-spec.md`, `docs/looper.md` (open PR #138), `docs/pattern-system-reimagined.md`. A change that works against a moat needs Burooj's decision first.
+- **Product** (stance, Looper, phrase book, Code Strip, persistence, licence): `docs/retrospective-spec.md`, `docs/looper.md` (open PR #138; until it merges, `git show origin/docs/looper-brief:docs/looper.md`), `docs/pattern-system-reimagined.md`. A change that works against a moat needs Burooj's decision first.
 - **Audio** (worklet engine, Strudel/superdough, transport, voices, latency): `src/audio/live/`, `docs/research/audio-*.md`, `audio-lab/README.md`. The engine is moving off Strudel and superdough to the worklet; do not deepen the old dependency. Measure with the audio lab, not by ear alone.
 - **Music theory** (scales, modes, solfège, chords, names, colour): `src/domain/HARMONY.md`, `src/domain/harmony.ts`, `src/data/`, `src/services/music.ts`, `src/services/musicColorCore.ts`. Correctness in every key and mode is the bar; add a test for the case that was wrong.
 
@@ -33,7 +33,7 @@ The record of decisions is `docs/retrospective-spec.md` (PR #143; until it merge
 - The host is memory-constrained: do not leave dev servers or browsers running.
 - GitHub CI (`.github/workflows/ci.yml`) runs `type-check`, `test` and `lint` on every PR and on pushes to `main`. A change is done when those checks on its PR are green, not when it is green locally.
 - `EMOTITONE_VERIFY_BYPASS_LOCK=1` skips the verify lock and is for CI and Vercel only (isolated machines; CI and `vercel.json` set it). Never set it on bjslab or another shared host.
-- Write tests that observe behaviour at the highest seam and fail when the behaviour breaks. See [testing.md](docs/testing.md) for commands, limits and test-quality guidance.
+- Write tests that observe behaviour at the highest seam and fail when the behaviour breaks. Source assertions may protect meaningful architecture contracts (imports, routing, lineage); avoid incidental text such as comments or variable spelling and a mock's canned answer. See [testing.md](docs/testing.md) for commands, limits and test-quality guidance.
 
 ## Design-law lint
 

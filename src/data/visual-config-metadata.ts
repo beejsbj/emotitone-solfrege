@@ -8,6 +8,7 @@ import type {
   ExtractConfigValues,
   VisualEffectsConfig,
 } from "@/types/visual";
+import { EMOTION_LABEL_DEFAULT } from "@/data/emotionLabel";
 
 /**
  * Unified configuration with metadata
@@ -238,7 +239,7 @@ export const UNIFIED_CONFIG = {
       group: "Labels",
     },
     showEmotionLabel: {
-      value: false,
+      value: EMOTION_LABEL_DEFAULT !== "off",
       label: "Show Emotion Label",
       group: "Labels",
     },

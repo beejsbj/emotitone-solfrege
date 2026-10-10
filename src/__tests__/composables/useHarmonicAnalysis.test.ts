@@ -32,6 +32,19 @@ const harmonicTestState = vi.hoisted(() => ({
   } | null,
 }));
 
+// The emotion label's default policy is one code constant; tests swap it.
+const emotionLabelPolicy = vi.hoisted(() => ({ value: "off" as "off" | "on" | "chord" }));
+
+vi.mock("@/data/emotionLabel", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/data/emotionLabel")>();
+  return {
+    ...actual,
+    get EMOTION_LABEL_DEFAULT() {
+      return emotionLabelPolicy.value;
+    },
+  };
+});
+
 vi.mock("@/composables/useVisualConfig", async () => {
   const { ref } = await vi.importActual<typeof import("vue")>("vue");
   const blobConfig = ref({
@@ -138,6 +151,28 @@ describe("useHarmonicAnalysis", () => {
       // Same visible content, different classification: suspended/augmented
       // entrances must not silently become the ordinary settled-chord gesture.
       expect(paint(scene.chordSymbol!).equals(paint("CM"))).toBe(false);
+    }
+  });
+
+  it.each([
+    ["off", "Grounded & Radiant", "Bright and settled"],
+    ["on", "Grounded & Radiant", "Bright and settled"],
+    ["chord", "", "Bright and settled"],
+  ] as const)("with the %s emotion-label policy a switched-on label shows dyad %j and triad %j", (policy, dyad, triad) => {
+    emotionLabelPolicy.value = policy;
+    try {
+      const { snapshot, notePlayed } = createAnalysis();
+      notePlayed(createActiveNote("note-c4", "C4", "Do", "Grounded"));
+      notePlayed(createActiveNote("note-e4", "E4", "Mi", "Radiant"));
+      expect(snapshot.value.emotionalDescription).toBe(dyad);
+      notePlayed(createActiveNote("note-g4", "G4", "Sol", "Steady"));
+      expect(snapshot.value.emotionalDescription).toBe(triad);
+
+      harmonicTestState.blobConfig!.value.showEmotionLabel = false;
+      notePlayed(createActiveNote("note-b4", "B4", "Ti", "Urgent"));
+      expect(snapshot.value.emotionalDescription).toBe("");
+    } finally {
+      emotionLabelPolicy.value = "off";
     }
   });
 

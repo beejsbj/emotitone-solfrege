@@ -276,9 +276,12 @@ function handleClick(event: MouseEvent) {
   transform: translateY(calc(var(--button-travel) - 1px));
 }
 
+/* The dual focus ring: Ivory outline past the lip, the offset filled with
+   Ink, so it reads against the dark stage and against Ivory and Brass caps. */
 .paper-button:focus-visible {
-  outline: 2px solid currentColor;
+  outline: var(--focus-ring-width) solid var(--focus-ring-outer);
   outline-offset: 5px;
+  box-shadow: 0 0 0 5px var(--focus-ring-inner);
 }
 
 /* Each hit opens the lip into a full ring and lights the face; the release

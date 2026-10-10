@@ -78,6 +78,20 @@
      so separators sit in the same warm ramp as the Ink they cut. */
   --hairline:   color-mix(in srgb, var(--ivory) 10%, transparent);
 
+  /* Unlit LED — the off state of every hand-cut chad and bulb (Knob collar,
+     Beat Indicator crown, Tabs Marquee). A step between --ivory-3 and
+     --ivory-4, it is the dimmest that keeps 3:1 on --ink through --ink-4, so
+     an unlit mark still reads as a mark and lit ones still outshine it. */
+  --led-off:    color-mix(in srgb, var(--ivory-3) 55%, var(--ivory-4));
+
+  /* Focus ring — two rings, so focus reads on every material: the inner Ink
+     ring carries it against light caps (Ivory, Brass), the outer Ivory ring
+     against the dark stage. Draw the outer ring as an outline and fill the
+     outline offset with the inner ring (see Button and Tabs). */
+  --focus-ring-inner: var(--ink);
+  --focus-ring-outer: var(--ivory);
+  --focus-ring-width: 2px;
+
   /* CodeStrip Bar and Control Bar share one opaque instrument plane. */
   --instrument-bar-surface: var(--ink);
 

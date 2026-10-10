@@ -34,9 +34,9 @@ describe('recording to actual Strudel playback', () => {
       note('D4', 500, 500),
     ];
     const { controls } = playback(captured, 120, 120, 'sine', { notationType });
-    expect(controls.filter((value: any) => value.note === 'C4').slice(0, 2).map((value: any) => value.gain))
+    expect(controls.filter((value) => value.note === 'C4').slice(0, 2).map((value) => value.gain))
       .toEqual([expect.closeTo(.2), expect.closeTo(.6)]);
-    expect(controls.find((value: any) => value.note === 'D4').gain).toBeCloseTo(.8);
+    expect(controls.find((value) => value.note === 'D4').gain).toBeCloseTo(.8);
     expect(captured.map(note => note.velocity)).toEqual([.25, .75, undefined]);
   });
 
@@ -58,7 +58,7 @@ describe('recording to actual Strudel playback', () => {
     expect(controls[0].clip).toBeCloseTo(500 / 520);
     expect(controls[0].vib).toBeGreaterThan(0);
     expect(controls[0].tremolo).toBeGreaterThan(0);
-    const second = controls.find((value: any) => value.note === 'D4');
+    const second = controls.find((value) => value.note === 'D4');
     expect(second).toMatchObject({ gain: expect.closeTo(.6), vib: 0 });
     expect(second.tremolo).toBeUndefined();
   });

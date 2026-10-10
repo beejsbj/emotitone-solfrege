@@ -2,6 +2,7 @@ import type { LiveCommand, LiveConfig, LiveEnvelopeOverride, LiveInputNote, Live
   LiveVoiceEvent, PreparedLiveInstrument } from './types'
 import { createSampleResampler, type SampleResampler } from './resampler'
 import { VoiceEffects } from './lowpass'
+import { velocityToGain } from '../velocity'
 import { OPEN_CUTOFF_HZ, type LiveShaping } from '../liveShaping'
 import { MAX_AUDIO_VOICES, VOICE_RETIRE_SECONDS } from '../voicePolicy'
 
@@ -118,7 +119,7 @@ export class LiveAudioCore {
       const previous = pulse.notes
       pulse.notes = this.selection(pulse.step).map(({ note, ownerId, owners }) => {
         const match = previous.find(old => old.pitch === note.pitch && old.instrumentId === note.instrumentId)
-        return match ? { ...match, ownerId, owners: new Set(owners) } : this.note(note, ownerId, owners)
+        return match ? { ...match, velocity: note.velocity, ownerId, owners: new Set(owners) } : this.note(note, ownerId, owners)
       })
     }
     this.planDirty = true
@@ -342,7 +343,7 @@ export class LiveAudioCore {
 
   private event(note: PlannedNote, phase: LiveVoiceEvent['phase'], frame: number, style: LiveConfig['style']): LiveVoiceEvent {
     return { phase, noteId: note.noteId, ownerId: note.ownerId, pitch: note.pitch,
-      instrumentId: note.instrumentId, style, at: Math.ceil(frame) / this.sampleRate }
+      instrumentId: note.instrumentId, velocity: note.velocity, style, at: Math.ceil(frame) / this.sampleRate }
   }
   private voiceEvent(voice: Voice, phase: LiveVoiceEvent['phase'], frame: number): LiveVoiceEvent {
     const { attack, decay, sustain } = voice.instrument
@@ -462,6 +463,7 @@ export class LiveAudioCore {
     for (let index = collection.length - 1; index >= 0; index--) {
       const voice = collection[index]
       const instrument = voice.instrument
+      const velocityGain = velocityToGain(voice.velocity)
       let sampleOffset = 0
       while (sampleOffset < length) {
         const frame = firstFrame + sampleOffset
@@ -486,8 +488,8 @@ export class LiveAudioCore {
         if (voice.gainRampRemaining) boundary = Math.min(boundary, frame + voice.gainRampRemaining)
         const span = boundary - frame
         let envelope = this.envelope(voice, frame)
-        let gain = envelope * instrument.gain * voice.gainExpression
-        const gainStep = envelopeStep * instrument.gain * voice.gainExpression
+        let gain = envelope * instrument.gain * velocityGain * voice.gainExpression
+        const gainStep = envelopeStep * instrument.gain * velocityGain * voice.gainExpression
         this.scratch[0].fill(0)
         this.scratch[1].fill(0)
         let rendered = span
@@ -499,7 +501,7 @@ export class LiveAudioCore {
                 ? (voice.pitchTarget - voice.pitchIncrement) / voice.pitchRampRemaining : 0
               const gainExpressionStep = voice.gainRampRemaining
                 ? (voice.gainTarget - voice.gainExpression) / voice.gainRampRemaining : 0
-              gain = envelope * instrument.gain * voice.gainExpression
+              gain = envelope * instrument.gain * velocityGain * voice.gainExpression
               const mixed = voice.resampler.mix(this.scratch[0], this.scratch[1], consumed, 1,
                 voice.position, gain, 0, voice.pitchIncrement)
               if (!mixed) {
@@ -531,7 +533,7 @@ export class LiveAudioCore {
         } else {
           for (let i = 0; i < span; i++) {
             const sample = this.oscillator(voice) * (voice.gainRampRemaining
-              ? envelope * instrument.gain * voice.gainExpression : gain)
+              ? envelope * instrument.gain * velocityGain * voice.gainExpression : gain)
             this.scratch[0][i] = this.scratch[1][i] = sample
             voice.position += voice.pitchIncrement
             if (voice.pitchRampRemaining) {

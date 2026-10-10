@@ -13,7 +13,7 @@ const packagePath = resolve('node_modules/superdough/dist/index.mjs');
 const digest = async path => createHash('sha256').update(await readFile(path)).digest('hex');
 const watched = [packagePath, ...[
   'node_modules/@strudel/soundfonts/dist/index.mjs',
-  'src/audio/live/core.ts', 'src/audio/live/resampler.ts', 'src/audio/voicePolicy.ts',
+  'src/audio/live/core.ts', 'src/audio/live/resampler.ts', 'src/audio/voicePolicy.ts', 'src/audio/velocity.ts',
   'src/services/StrudelNotation.ts', 'src/services/recordedTiming.ts',
   'src/services/liveArticulation.ts', 'src/services/preparedNativeInstrument.ts', 'src/services/preparedLiveInstrument.ts',
   'audio-lab/parity/suite.mjs', 'audio-lab/parity/metrics.mjs', 'audio-lab/parity/fixtures.mjs',

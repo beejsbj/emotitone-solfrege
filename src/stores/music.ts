@@ -112,6 +112,7 @@ export const useMusicStore = defineStore(
       instrument: string;
       /** Shape at input onset: pattern context for every note this hold logs. */
       shape: Shape;
+      velocity?: number;
       isCancelled: () => boolean;
       firstAttack?: (cancelled: () => boolean) => Promise<string | null>;
       initialVoice?: Promise<string | null>;
@@ -141,7 +142,7 @@ export const useMusicStore = defineStore(
       return {
         ...held.snapshot, noteId: event.noteId, note: held.snapshot.solfege,
         isBorrowed: held.snapshot.solfegeIndex === -1,
-        instrument: held.instrument, shape: held.shape, instrumentConfig: null, source: "live-play-style",
+        instrument: held.instrument, shape: held.shape, velocity: event.velocity ?? held.velocity, instrumentConfig: null, source: "live-play-style",
         articulation: { ...(event.articulation ?? styleArticulation(held.instrument, event.style)) },
         timestamp: liveAudioClock.toEpochTime(event.at * 1000),
         midiTimestamp: liveAudioClock.toPerformanceTime(event.at * 1000),
@@ -229,6 +230,7 @@ export const useMusicStore = defineStore(
           note: activeNote.solfege,
           isBorrowed: activeNote.solfegeIndex === -1,
           instrument: held.instrument,
+          velocity: held.velocity,
           shape: held.shape,
           instrumentConfig: null,
           source: "live-play-style",
@@ -238,6 +240,7 @@ export const useMusicStore = defineStore(
           noteName: activeNote.noteName,
           instrument: held.instrument,
           at,
+          velocity: held.velocity,
           releaseSeconds: articulation.release,
           now,
           clock: liveAudioClock,
@@ -340,6 +343,7 @@ export const useMusicStore = defineStore(
       noteName: string,
       isCancelled: () => boolean,
       exactInput = false,
+      velocity?: number,
     ): Promise<string | null> {
       if (instrumentStore.isInteractionLocked || isCancelled()) return null;
       const parsed = parseNoteWithOctave(noteName);
@@ -370,16 +374,17 @@ export const useMusicStore = defineStore(
         },
         instrument: instrumentStore.currentInstrument,
         shape: instrumentStore.shape,
+        velocity,
         isCancelled,
       };
-      held.firstAttack = (cancelled) => attackPreparedPitch(held.snapshot, held.instrument, held.shape, exactInput, cancelled);
+      held.firstAttack = (cancelled) => attackPreparedPitch(held.snapshot, held.instrument, held.shape, exactInput, cancelled, velocity);
       heldOwners.add(owner);
       const renderer = getLivePlayback(held.instrument);
       if (renderer) {
         // The running path submits without yielding to unrelated microtasks.
         liveAudioClock.now();
         heldAliases.set(owner, owner);
-        livePerformance.press(owner, [{ pitch: tonal.midi, instrumentId: resolveLiveSoundName(held.instrument) }], held, renderer,
+        livePerformance.press(owner, [{ pitch: tonal.midi, instrumentId: resolveLiveSoundName(held.instrument), ...(velocity === undefined ? {} : { velocity }) }], held, renderer,
           { style: playStyle.value, rate: playRate.value, bpm: visualConfigStore.config.codeStrip.bpm });
         return owner;
       }
@@ -415,8 +420,8 @@ export const useMusicStore = defineStore(
       );
     }
 
-    function attackExactPitch(note: string, isCancelled: () => boolean = () => false) {
-      return holdPitch(note, isCancelled, true);
+    function attackExactPitch(note: string, isCancelled: () => boolean = () => false, velocity?: number) {
+      return holdPitch(note, isCancelled, true, velocity);
     }
 
     // Getters
@@ -620,6 +625,7 @@ export const useMusicStore = defineStore(
       shape: Shape,
       exactInput: boolean,
       isCancelled: () => boolean,
+      velocity?: number,
     ): Promise<string | null> {
       if (instrumentStore.isInteractionLocked || isCancelled()) return null;
       const selectionEpoch = instrumentStore.selectionEpoch;
@@ -631,7 +637,9 @@ export const useMusicStore = defineStore(
       const timestamp = Date.now();
       // attackNote resolves the same Shaped envelope from the live controls.
       const articulation = resolveLiveEnvelope(instrument, shape);
-      const startedAt = await superdoughAudio.attackNote(noteId, snapshot.noteName, instrument);
+      const startedAt = await (velocity === undefined
+        ? superdoughAudio.attackNote(noteId, snapshot.noteName, instrument)
+        : superdoughAudio.attackNote(noteId, snapshot.noteName, instrument, { velocity }));
       if (
         isCancelled()
         || instrumentStore.isInteractionLocked
@@ -656,6 +664,7 @@ export const useMusicStore = defineStore(
           isBorrowed: snapshot.solfegeIndex === -1,
           instrument,
           shape,
+          velocity,
           articulation: { ...articulation },
           instrumentConfig: null,
           timestamp,

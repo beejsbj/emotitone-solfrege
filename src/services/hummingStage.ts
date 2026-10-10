@@ -1,8 +1,7 @@
-import { pitchSolfegeData } from "@/domain/musicalIdentity";
+import { classifyDetectedPitch } from "@/domain/musicalIdentity";
 import { CHROMATIC_NOTES } from "@/data";
 import { LIVE_PITCH_SOURCE } from "@/services/livePitch";
 import { voiceRmsToVelocity } from "@/services/voiceDynamics";
-import { findScaleIndexForPitchClass } from "@/services/scalePitch";
 import type { LivePitchFrame } from "@/services/livePitch";
 import type {
   ActiveNote,
@@ -106,21 +105,22 @@ export function createLivePitchStageBridge(
 
   const gate = new StablePitchGate({
     attack(midi, frame) {
-      const pitchClass = CHROMATIC_NOTES[((midi % 12) + 12) % 12];
-      const pitchClassIndex = ((midi % 12) + 12) % 12;
+      const pitch = classifyDetectedPitch(
+        { midi },
+        { tonic: currentContext.key, mode: currentContext.mode },
+        currentContext.laBasedMinor,
+      );
+      if (!pitch) return;
+      const { pitchClass: pitchClassIndex } = pitch;
+      const pitchClass = CHROMATIC_NOTES[pitchClassIndex];
       const octave = Math.floor(midi / 12) - 1;
-      if (!pitchClass || !Number.isFinite(octave) || frame.frequencyHz == null) {
+      if (!pitchClass || !Number.isFinite(octave)) {
         return;
       }
       const noteName = `${pitchClass}${octave}`;
 
-      const solfegeIndex = findScaleIndexForPitchClass(
-        pitchClass,
-        currentContext,
-      );
-      if (solfegeIndex == null) return;
-      const note = pitchSolfegeData(pitchClass, { tonic: currentContext.key, mode: currentContext.mode }, currentContext.laBasedMinor);
-      if (!note) return;
+      const solfegeIndex = pitch.scaleIndex ?? -1;
+      const note = pitch.solfege;
       const tonicIndex = CHROMATIC_NOTES.indexOf(currentContext.key);
       const keyboardOctave = tonicIndex === -1
         ? octave
@@ -130,7 +130,7 @@ export function createLivePitchStageBridge(
         noteId: `live-pitch-${sessionId}-${++noteCounter}`,
         noteName,
         solfege: note,
-        frequency: frame.frequencyHz,
+        frequency: pitch.frequency,
         octave,
         keyboardOctave,
         solfegeIndex,

@@ -36,6 +36,57 @@ function setup(instrument = bank) {
 }
 
 describe('production live audio render core', () => {
+  it.each(['oscillator', 'sample-bank'] as const)('scales %s PCM by input velocity through repeats and release tails', kind => {
+    const instrument: PreparedLiveInstrument = kind === 'oscillator'
+      ? { kind, instrumentId: 'velocity', waveform: 'sine', gain: 1, attack: .002, decay: .003, sustain: .6, release: .03 }
+      : { ...envelopeBank, instrumentId: 'velocity' }
+    const full = setup(instrument)
+    const quiet = setup(instrument)
+    for (const [renderer, velocity] of [[full, undefined], [quiet, 1 / 127]] as const) {
+      renderer.send({ type: 'configure', config: { style: 'repeat', bpm: 120, rate: 16 } })
+      renderer.send({ type: 'press', ownerId: 'midi', notes: [{ pitch: 60, instrumentId: 'velocity', velocity }] })
+    }
+    const loud = full.render(300)[0]
+    const soft = quiet.render(300)[0]
+    expect(loud.some(sample => Math.abs(sample) > .1)).toBe(true)
+    for (let index = 0; index < loud.length; index++) expect(soft[index]).toBeCloseTo(loud[index] / 127, 6)
+    expect(quiet.events.filter(event => event.phase === 'attack')).toHaveLength(3)
+    full.send({ type: 'release', ownerId: 'midi' })
+    quiet.send({ type: 'release', ownerId: 'midi' })
+    const loudTail = full.render(100)[0]
+    const softTail = quiet.render(100)[0]
+    for (let index = 0; index < loudTail.length; index++) expect(softTail[index]).toBeCloseTo(loudTail[index] / 127, 6)
+    expect(softTail.subarray(50).every(sample => sample === 0)).toBe(true)
+  })
+
+  it.each(['repeat', 'arp-up', 'arp-up-down'] as const)('refreshes a queued %s unison pulse from its surviving owner', style => {
+    const { send, render, events, messages } = setup(envelopeBank)
+    send({ type: 'configure', config: { style, rate: 16 } })
+    send({ type: 'press', ownerId: 'soft', notes: [{ pitch: 60, instrumentId: 'test', velocity: .25 }] })
+    render(1) // The 125 ms pulse is already in the lookahead plan.
+    send({ type: 'press', ownerId: 'hard', notes: [{ pitch: 60, instrumentId: 'test', velocity: .75 }] })
+    render(49)
+    send({ type: 'release', ownerId: 'soft' })
+    const next = render(100)[0]
+    // A sounding attack retains its original velocity; the next one uses .75.
+    expect(next[0]).toBeCloseTo(.6 * .25)
+    expect(next[90]).toBeCloseTo(.6 * .75)
+    expect(events.filter(event => event.phase === 'attack').map(event => [event.ownerId, event.velocity]))
+      .toEqual([['soft', .25], ['hard', .75]])
+    const plans = messages.filter(message => message.type === 'plan')
+    expect(plans.at(-1)).toMatchObject({ events: expect.arrayContaining([
+      expect.objectContaining({ ownerId: 'hard', velocity: .75, phase: 'attack' }),
+    ]) })
+  })
+
+  it.each([undefined, NaN, Infinity, -1, 0, 2])('renders bounded PCM for legacy or invalid velocity %s', velocity => {
+    const { send, render } = setup({ ...envelopeBank, attack: 0, decay: 0, sustain: 1 })
+    send({ type: 'press', ownerId: 'input', notes: [{ pitch: 60, instrumentId: 'test', velocity }] })
+    const pcm = render(10)[0]
+    const expected = velocity === -1 || velocity === 0 ? 0 : 1
+    for (const sample of pcm) expect(sample).toBeCloseTo(expected)
+  })
+
   it('smoothly bends only its expression owner while leaving oscillator and PCM pitch events unchanged', () => {
     const oscillator: PreparedLiveInstrument = { kind: 'oscillator', instrumentId: 'osc', waveform: 'sine',
       gain: 1, attack: 0, decay: 0, sustain: 1, release: 0 }

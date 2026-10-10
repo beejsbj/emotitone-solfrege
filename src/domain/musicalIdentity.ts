@@ -1,4 +1,4 @@
-import { Chord, Interval, Note } from "@tonaljs/tonal";
+import { Chord, ChordType, Interval, Note } from "@tonaljs/tonal";
 import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
 import { getSolfegeLabelForInterval } from "./solfege";
 import { createSolfegeData } from "@/data/solfege";
@@ -465,6 +465,46 @@ export function pitchSolfegeData(
   };
 }
 
+export type DetectedPitch = { frequencyHz: number } | { midi: number; cents?: number };
+
+export interface DetectedPitchIdentity {
+  midi: number;
+  frequency: number;
+  pitchClass: number;
+  scaleIndex: number | null;
+  borrowed: boolean;
+  solfege: SolfegeData;
+}
+
+/**
+ * Round to the nearest semitone; only pitches outside the scale are borrowed.
+ * Both humming lanes share identity and spelling here, while their timing and
+ * stability gates remain separate. Invalid detections are not pitches.
+ */
+export function classifyDetectedPitch(
+  pitch: DetectedPitch,
+  context: MusicalContext,
+  laBasedMinor = false,
+): DetectedPitchIdentity | null {
+  const height = "frequencyHz" in pitch
+    ? (pitch.frequencyHz > 0 ? 69 + 12 * Math.log2(pitch.frequencyHz / 440) : NaN)
+    : pitch.midi + (pitch.cents ?? 0) / 100;
+  if (!Number.isFinite(height)) return null;
+
+  // Identity owns scale membership and spelling, independently of intonation.
+  const midi = Math.round(height);
+  const identity = identifyPitch(midi, context)!;
+  const solfege = pitchSolfegeData(midi, context, laBasedMinor)!;
+  return {
+    midi,
+    frequency: 440 * 2 ** ((midi - 69) / 12),
+    pitchClass: identity.pitchClass,
+    scaleIndex: identity.scaleIndex,
+    borrowed: identity.borrowed,
+    solfege,
+  };
+}
+
 /** Spelled pitch class in the key, e.g. "Bb". */
 export function spellPitchClass(
   pitch: string | number,
@@ -746,6 +786,33 @@ function fallbackSuffix(aliases: readonly string[]) {
   return aliases.find((alias) => alias && !/^[M^Δ\-o]/.test(alias)) ?? aliases[0] ?? "";
 }
 
+// The installed Tonal dictionaries omit maj11. Register it for Chord.get too,
+// so emitted tonalName values remain usable by typography/emotion consumers.
+// Chord.detect ships a separate dictionary version, so registration alone
+// does not make it detect this type; the fallback below covers that gap.
+const SUPPLEMENTAL_CHORD_TYPES = [
+  { alias: "maj11", name: "major eleventh", intervals: ["1P", "3M", "5P", "7M", "9M", "11P"] },
+];
+for (const { alias, name, intervals } of SUPPLEMENTAL_CHORD_TYPES) {
+  // Registration mutates Tonal's global ChordType dictionary at module import.
+  if (ChordType.get(alias).empty) ChordType.add(intervals, [alias], name);
+}
+
+function detectChordCandidates(pitches: readonly string[]): string[] {
+  const detected = Chord.detect([...pitches]);
+  if (detected.length) return detected;
+
+  const roots = [...new Set(pitches.map((pitch) => Note.get(pitch).pc))];
+  const pitchClasses = new Set(roots.map((root) => Note.chroma(root)));
+  return roots.flatMap((root) => SUPPLEMENTAL_CHORD_TYPES.flatMap(({ alias }) => {
+    const chord = Chord.get([root, alias]);
+    return chord.notes.length === pitchClasses.size
+      && chord.notes.every((note) => pitchClasses.has(Note.chroma(note)))
+      ? [chord.symbol]
+      : [];
+  }));
+}
+
 /** Splits Tonal's "CM/E" into chord and bass; "Cm/ma7" is one chord name. */
 function splitDetectedChord(candidate: string) {
   const slash = candidate.lastIndexOf("/");
@@ -827,7 +894,7 @@ export function identifyChord(
   if (heights.some((height) => height === null) || heights.length < 2) return null;
   const sorted = [...new Set(heights as number[])].sort((first, second) => first - second);
   const keyNames = sorted.map((height) => spellPitch(height, context)!);
-  const detected = pickDetectedChord(Chord.detect(keyNames), context, modulo(sorted[0], 12));
+  const detected = pickDetectedChord(detectChordCandidates(keyNames), context, modulo(sorted[0], 12));
   if (!detected) return null;
 
   const { tonalChord, known, root } = detected;

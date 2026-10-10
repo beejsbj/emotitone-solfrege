@@ -37,6 +37,8 @@ The `node` project exercises pure calculations, real audio-core rendering, and a
 
 Add a test for an observable behavior, failure boundary, resource lifetime, or meaningful architecture contract. Prefer changing an existing regression test when it already owns that behavior. Audio timing, voice budgets, cleanup, recording fidelity, actual persistence, and rendered output deserve protection. Assertions about a source comment, a variable's spelling, duplicate shell presence, or a mock's canned answer usually do not. Missing prerequisites must fail, not return successfully before any assertion.
 
+Source assertions may protect meaningful architecture contracts (imports, routing, lineage) when those boundaries are not directly observable through runtime behavior. Existing examples are `src/__tests__/components/core/App.test.ts` and `src/__tests__/components/PatternStrip.test.ts`; keep assertions focused on the boundary rather than incidental implementation text.
+
 The retired `test:e2e` collection used happy-dom, mocked shells, and direct store calls. It did not exercise multiple browsers. Its useful behavior is covered by current component/store tests and the separately named browser audio lab. Old palette suites and their scaffolding were retired with their removed production APIs; Git retains the history. Canvas lifetime tests use current APIs alongside the existing harmonic and pixel-rendering suites.
 
 ## Incident behind the limits

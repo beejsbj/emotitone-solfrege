@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import { useInstrumentStore } from "@/stores/instrument";
-import { getRegisteredSounds } from "@/services/superdoughAudio";
+import { ensureSoundfontCatalog, getRegisteredSounds } from "@/services/superdoughAudio";
 import Button from "@/components/primatives/Button.vue";
 import Sticker from "@/components/primatives/Sticker";
 import OverlayPanelHeader from "@/components/OverlayPanelHeader.vue";
@@ -33,6 +33,9 @@ interface Props {
   onClose?: () => void;
   compact?: boolean;
   floating?: boolean;
+  embedded?: boolean;
+  close?: () => void;
+  drawerSession?: { showPanel: boolean; openSession: number };
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -43,7 +46,10 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   "select-instrument": [instrumentId: string];
   close: [];
+  "content-height": [height: number];
 }>();
+
+watch(drawerContentHeight, height => { if (height !== undefined) emit("content-height", height); });
 
 const instrumentStore = useInstrumentStore();
 const currentInstrumentId = computed(
@@ -164,6 +170,7 @@ function syncActiveTabToInstrument(instrumentId: string) {
 onMounted(async () => {
   try {
     await instrumentStore.initializeInstruments();
+    await ensureSoundfontCatalog();
   } catch {
     // The global loading flow already reports degraded initialization. Keep
     // the chooser usable for whatever sounds were registered successfully.
@@ -312,7 +319,7 @@ function closeSelector(close: () => void) {
 
 async function selectInstrument(name: string, close: () => void) {
   const selection = ++selectionGeneration;
-  const panelSession = topDrawerRef.value?.openSession;
+  const panelSession = (props.drawerSession ?? topDrawerRef.value)?.openSession;
   emit("select-instrument", name);
 
   if (!useStoreAudioFlow.value) {
@@ -326,7 +333,7 @@ async function selectInstrument(name: string, close: () => void) {
     return;
   }
 
-  const drawer = topDrawerRef.value;
+  const drawer = props.drawerSession ?? topDrawerRef.value;
   if (
     panelSession !== undefined &&
     drawer &&
@@ -343,6 +350,8 @@ async function selectInstrument(name: string, close: () => void) {
   <TopDrawer
     ref="topDrawerRef"
     anchor="top-left"
+    :embedded="embedded"
+    :close="props.close"
     :content-height="drawerContentHeight"
     aria-label="Instrument"
     :handle-label="displayInstrumentName(currentInstrumentId)"

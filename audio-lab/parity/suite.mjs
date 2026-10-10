@@ -7,7 +7,7 @@ import { LiveAudioCore } from '../../src/audio/live/core';
 import { prepareLiveInstrument } from '../../src/services/preparedLiveInstrument';
 import { getLiveArticulation } from '../../src/services/liveArticulation';
 import { logNotesToStrudel } from '../../src/services/StrudelNotation';
-import { comparePcm, harmonics } from './metrics.mjs';
+import { comparePcm, harmonics, rms } from './metrics.mjs';
 import { oscillatorParityChecks } from './oscillator-bounds.mjs';
 import { createFixtureWav } from './fixtures.mjs';
 import { registerSoundfonts, setSoundfontUrl } from '@strudel/soundfonts';
@@ -44,7 +44,7 @@ async function render(sound, code, fixture = {}) {
   const reference = new Float32Array(Math.ceil(RATE * length));
   const commands = notes.flatMap((note, index) => [
     { at: Math.round((START + note.at) * RATE), command: { type: 'configure', config: { style: note.style, bpm: 120, rate: 4 } } },
-    { at: Math.round((START + note.at) * RATE), command: { type: 'press', ownerId: `key-${index}`, notes: [{ pitch, instrumentId: sound }] } },
+    { at: Math.round((START + note.at) * RATE), command: { type: 'press', ownerId: `key-${index}`, notes: [{ pitch, instrumentId: sound, velocity: note.velocity }] } },
     { at: Math.round((START + note.at + note.hold) * RATE), command: { type: 'release', ownerId: `key-${index}` } },
   ]);
   const edges = [...new Set([0, ...commands.map(command => command.at), reference.length])].sort((a, b) => a - b);
@@ -60,7 +60,7 @@ async function render(sound, code, fixture = {}) {
     const release = events.find(event => event.phase === 'release' && event.noteId === attack.noteId);
     if (!release) throw new Error(`Live fixture failed to release ${attack.noteId}`);
     return { id: attack.noteId, note: `${pitch % 12 === 0 ? "C" : "A"}${Math.floor(pitch / 12) - 1}`, octave: Math.floor(pitch / 12) - 1,
-      scaleIndex: pitch % 12 === 0 ? 0 : 5, key: 'C', mode: 'major', instrument: sound, articulation: attack.articulation,
+      scaleIndex: pitch % 12 === 0 ? 0 : 5, key: 'C', mode: 'major', instrument: sound, velocity: attack.velocity, articulation: attack.articulation,
       pressTime: Math.round((attack.at - START) * 1e6) / 1000,
       releaseTime: Math.round((release.at - START) * 1e6) / 1000,
       duration: Math.round((release.at - attack.at) * 1e6) / 1000 };
@@ -86,7 +86,18 @@ async function render(sound, code, fixture = {}) {
   const checks = oscillatorParityChecks(metrics, sound, pitch);
   checks.gates = scheduled.every((hap, i) => Math.abs(hap.start * 1000 - recorded[i].pressTime) < .25
     && Math.abs(hap.duration * 1000 - recorded[i].duration) < .25);
-  return { code, scheduled, recorded, liveEvents: events, fixture: { pitch, notes },
+  let velocityLevels;
+  if (fixture.measureVelocity) {
+    const level = (pcm, at) => rms(pcm, Math.round((START + at + .12) * RATE), Math.round((START + at + .32) * RATE));
+    const live = notes.map(note => level(reference, note.at));
+    const playback = notes.map(note => level(actual, note.at));
+    velocityLevels = { live, playback, liveRatio: live[0] / live[1], playbackRatio: playback[0] / playback[1] };
+    checks.velocity = live[1] > .01 && playback[1] > .01
+      && Math.abs(velocityLevels.liveRatio - 1 / 3) < .01
+      && Math.abs(velocityLevels.playbackRatio - 1 / 3) < .01
+      && live.every((value, index) => Math.abs(playback[index] / value - 1) < .05);
+  }
+  return { code, scheduled, recorded, velocityLevels, liveEvents: events, fixture: { pitch, notes },
     referenceRenderer: 'LiveAudioCore',
     preparation: { kind: prepared.kind, reason: prepared.reason, gain: prepared.gain },
     metrics, checks };
@@ -139,6 +150,13 @@ window.runPlaybackParity = async () => {
       }
       if (sound === 'sine') results.push({ sound, scenario: 'negative-default-envelope', ...await render(sound, `${source}.clip(1)`) });
     }
+    // Same pitch/timing, different performed RMS or MIDI velocity. Compare
+    // actual Superdough playback PCM with the live worklet, not audio payloads.
+    for (const sound of ['sine', 'piano']) results.push({ sound, scenario: 'generated-velocity-soft-hard',
+      ...await render(sound, undefined, { measureVelocity: true, notes: [
+        { at: 0, hold: .4, style: 'together', velocity: .25 },
+        { at: .8, hold: .4, style: 'together', velocity: .75 },
+      ] }) });
     for (const pitch of [57, 81]) results.push({ sound: 'piano', scenario: `generated-sample-A${Math.floor(pitch / 12) - 1}`,
       ...await render('piano', undefined, { pitch }) });
     for (const sound of ['square', 'sawtooth']) for (const pitch of [36, 48, 60, 72, 84, 96, 57, 81, 93, 105]) {

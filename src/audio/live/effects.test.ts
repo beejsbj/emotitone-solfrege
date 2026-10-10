@@ -69,6 +69,9 @@ describe('worklet Shape PCM', () => {
   it('glides held voices and reuses filter state through dense stealing and retirement', () => {
     const core = new LiveAudioCore(48000, () => {})
     prepare(core, 48000, new Float32Array(4096).fill(.2))
+    // Fail if admission uses a callback scan of the preallocated effect pool.
+    const pool = (core as unknown as { effectPool: VoiceEffects[] }).effectPool
+    const find = vi.spyOn(pool, 'find').mockImplementation(() => { throw new Error('callback allocation in effect admission') })
     for (let round = 0; round < 3; round++) {
       for (let i = 0; i < 100; i++) core.command({ type: 'press', ownerId: `key-${i}`, notes: [{ pitch: 69, instrumentId: 'fixture' }] }, round * 4096)
       core.command({ type: 'effects', shaping: { ...open, cutoff: 1000, resonance: 10, room: 1, delay: .5 } }, round * 4096)
@@ -79,6 +82,8 @@ describe('worklet Shape PCM', () => {
       core.render(output, (round + 1) * 4096)
       expect(core.voiceCount).toBe(0)
     }
+    expect(find).not.toHaveBeenCalled()
+    find.mockRestore()
   })
   it('allocates no typed buffers, arrays, maps or sets while processing 60 s of 16 changing filters', () => {
     const effects = Array.from({ length: 16 }, () => new VoiceEffects(48000))

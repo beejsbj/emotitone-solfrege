@@ -32,6 +32,11 @@ it('renders app-owned native buses against frozen delay and room, through the re
   const processor = new Float32Array(actual.processorDelay)
   processor[2400] -= 1 // separate dry signal from the processor's dry+wet output
   expect(processor).toEqual(decode(reference.delay))
+  const degraded = new Float32Array(actual.degraded.pcm)
+  degraded[2400] -= 1
+  expect(degraded).toEqual(decode(reference.delay)) // dry+delay survive; room stays silent
+  expect(actual.degraded.roomWarnings).toBe(2) // once for each of the two orbits
+  expect(actual.degraded.failedRenders).toBe(2) // repeated ready() does not retry
   const metrics: any = { roomDecayDb: [], roomSpectrumDb: [] }
   for (let channel = 0; channel < 2; channel++) {
     const expected = decode(reference.room[channel]), rendered = actual.room[channel]

@@ -51,6 +51,7 @@ export class EffectOrbit implements LiveOrbitSends {
   private convolver?: ConvolverNode
   private roomReady?: Promise<void>
   private generation = 0
+  private roomWarningLogged = false
   constructor(private context: BaseAudioContext, destination: AudioNode) {
     this.output = stereo(context)
     this.summingNode = stereo(context)
@@ -76,7 +77,7 @@ export class EffectOrbit implements LiveOrbitSends {
     return this.delayInput
   }
   getReverb(): AudioNode {
-    if (!this.convolver) {
+    if (!this.roomReady) {
       const generation = this.generation
       const convolver = this.convolver = new ConvolverNode(this.context)
       this.roomInput.connect(convolver).connect(this.summingNode)
@@ -85,12 +86,13 @@ export class EffectOrbit implements LiveOrbitSends {
       }).catch(error => {
         if (generation === this.generation) {
           this.roomInput.disconnect(convolver); convolver.disconnect()
-          this.convolver = undefined; this.roomReady = undefined
+          this.convolver = undefined
+          if (!this.roomWarningLogged) {
+            this.roomWarningLogged = true
+            console.warn("Room reverb unavailable; continuing with dry audio and delay", error)
+          }
         }
-        throw error
       })
-      // ready() propagates failures to startup/rebuild; also handle lazy requests.
-      void this.roomReady.catch(() => {})
     }
     return this.roomInput
   }

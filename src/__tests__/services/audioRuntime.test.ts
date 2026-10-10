@@ -94,6 +94,15 @@ describe("production audio graph ownership", () => {
     expect(rebuild).toHaveBeenCalledOnce();
   });
 
+  it("starts audio while the optional room impulse is still rendering", async () => {
+    const { EngineAudioGraph } = await import("@/audio/effects");
+    vi.mocked(EngineAudioGraph.prototype.getOrbit).mockReturnValue({ ready: () => new Promise(() => {}) } as any);
+    const runtime = await import("@/services/audioRuntime");
+    await runtime.initializeAudio();
+    expect(mocks.initAudio).toHaveBeenCalledOnce();
+    expect(runtime.getMasterGain()).toBeTruthy();
+  });
+
   it("allows initialization to retry after failure", async () => {
     const runtime = await import("@/services/audioRuntime");
     mocks.initAudio.mockRejectedValueOnce(new Error("worklets unavailable"));

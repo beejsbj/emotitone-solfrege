@@ -402,7 +402,9 @@ export class LiveAudioCore {
       : 440 * 2 ** ((note.pitch - 69) / 12) / this.sampleRate
     const pitchIncrement = increment * 2 ** ((this.pitchBends.get(note.ownerId) ?? 0) / 1200)
     const gainExpression = this.gainExpressions.get(note.ownerId) ?? 1
-    const effects = this.effectPool.find(effect => !effect.inUse)!
+    let effectIndex = 0
+    while (this.effectPool[effectIndex].inUse) effectIndex++
+    const effects = this.effectPool[effectIndex]
     effects.inUse = true
     effects.reset(note.shaping ?? this.effectShape)
     const voice: Voice = { ...note, effects, owners: new Set(note.owners), expressionOwnerId: note.ownerId, instrument, zone,

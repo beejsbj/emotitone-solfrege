@@ -48,7 +48,8 @@ export async function initializeAudio(): Promise<void> {
   const ownedContext = getAudioContext(), owned = graph!;
   initialization ??= Promise.resolve().then(async () => {
     await initAudio({ maxPolyphony: MAX_AUDIO_VOICES });
-    await owned.getOrbit(LIVE_ORBIT).ready();
+    // The optional room IR must never delay dry audio or delay playback.
+    void owned.getOrbit(LIVE_ORBIT).ready();
   }).catch(error => { if (graph === owned) initialization = undefined; throw error; });
   await initialization;
   if (context !== ownedContext) return;

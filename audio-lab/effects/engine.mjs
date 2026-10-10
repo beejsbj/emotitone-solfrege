@@ -96,5 +96,31 @@ window.runEngineEffects = async () => {
     orbit: dough.getSuperdoughAudioController().getOrbit(2) === runtime.getLiveOrbit(),
     preparationResumes: resumes, before, after: ownedContext.state };
   await ownedContext.close();
-  return { delay: delay[0], room, filter: filter[0], processorDelay: processorDelay[0], ownership };
+  // A rejected native IR render must leave initialization and dry/delay usable.
+  const startRendering = OfflineAudioContext.prototype.startRendering;
+  const warn = console.warn;
+  let roomWarnings = 0, failedRenders = 0;
+  OfflineAudioContext.prototype.startRendering = async () => { failedRenders++; throw new Error('IR render unavailable'); };
+  console.warn = () => { roomWarnings++; };
+  let degraded;
+  try {
+    await runtime.initializeAudio();
+    await runtime.getLiveOrbit().ready();
+    await runtime.getLiveOrbit().ready();
+    const context = new OfflineAudioContext(2, echo.length, RATE);
+    const graph = new EngineAudioGraph(context), orbit = graph.getOrbit(2);
+    await orbit.ready(); await orbit.ready();
+    source(context, echo).connect(graph.master);
+    orbit.sendDelay(source(context, echo), .6); orbit.getDelay();
+    orbit.sendReverb(source(context, echo), 1);
+    OfflineAudioContext.prototype.startRendering = startRendering;
+    const buffer = await context.startRendering();
+    degraded = { pcm: Array.from(buffer.getChannelData(0)), roomWarnings, failedRenders };
+    graph.reset(); graph.master.disconnect();
+  } finally {
+    OfflineAudioContext.prototype.startRendering = startRendering;
+    console.warn = warn;
+    await runtime.getAudioContext().close();
+  }
+  return { delay: delay[0], room, filter: filter[0], processorDelay: processorDelay[0], ownership, degraded };
 };

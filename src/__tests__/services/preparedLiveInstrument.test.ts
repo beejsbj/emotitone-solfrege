@@ -26,6 +26,25 @@ const context = () => ({}) as AudioContext;
 beforeEach(() => { mocks.sounds.clear(); mocks.loaded.clear(); mocks.load.mockReset(); mocks.font.mockReset(); mocks.mipmaps.mockReset(); });
 
 describe("prepared live instrument catalog", () => {
+  it("recomputes filter octaves when the rate changes during pending preparation", async () => {
+    mocks.sounds.set("piano", { data: { type: "sample", samples: { C4: ["pending.wav"] } } });
+    let finish!: (pcm: AudioBuffer) => void;
+    mocks.load.mockImplementationOnce(() => new Promise<AudioBuffer>(resolve => { finish = resolve; }));
+    const ctx = { sampleRate: 48000 } as AudioContext;
+    const old = prepareLiveInstrument(ctx, "piano");
+    await vi.waitFor(() => expect(mocks.load).toHaveBeenCalledOnce());
+    Object.assign(ctx, { sampleRate: 24000 });
+    const next = prepareLiveInstrument(ctx, "piano");
+    expect(next).not.toBe(old);
+    finish(buffer());
+    const [oldBank, newBank] = await Promise.all([old, next]);
+    if (oldBank.kind !== "sample-bank" || newBank.kind !== "sample-bank") throw new Error("Expected samples");
+    expect(oldBank.zones[0].mipmaps).toHaveLength(5);
+    expect(newBank.zones[0].mipmaps).toHaveLength(6);
+    releasePreparedLiveInstrument(ctx, "piano", oldBank);
+    expect(prepareLiveInstrument(ctx, "piano")).toBe(next);
+  });
+
   it("prepares native banks using only original AudioBuffer references and shares catalog resolution with the worklet", async () => {
     const pcm = buffer(48000, true);
     const read = vi.spyOn(pcm, "getChannelData");

@@ -2,6 +2,7 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import StagePage from "@/style-guide/StagePage.vue";
+import { createStageSpecimenAudio } from "@/style-guide/stage/stageSpecimenAudio";
 
 const wakeAudio = vi.fn<() => Promise<void>>();
 
@@ -24,6 +25,7 @@ describe("Stage real specimen page", () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+    vi.unstubAllGlobals();
     vi.useRealTimers();
   });
 
@@ -79,6 +81,37 @@ describe("Stage real specimen page", () => {
     expect(wakeAudio).toHaveBeenCalledTimes(2);
     expect(stage.props("signal")).toBe("phrase");
     expect(wrapper.text()).toContain("Synthetic signal ready");
+  });
+
+  it("retries a hung browser unlock through the Stage start button", async () => {
+    const context = {
+      state: "suspended",
+      createOscillator: () => ({ frequency: { value: 0 }, connect() {}, start() {}, stop() {}, disconnect() {} }),
+      createGain: () => ({ gain: { value: 0 }, connect() {}, disconnect() {} }),
+      resume: vi.fn(async () => { context.state = "running"; }),
+      close: vi.fn(async () => { context.state = "closed"; }),
+    };
+    context.resume.mockImplementationOnce(() => new Promise(() => {}));
+    vi.stubGlobal("AudioContext", vi.fn(() => context));
+    const audio = createStageSpecimenAudio(() => "phrase");
+    wakeAudio.mockImplementation(audio.resume);
+    const wrapper = mount(StagePage);
+    try {
+      const start = wrapper.get(".stage-page__start");
+      await start.trigger("click");
+      await flushPromises();
+      expect(wrapper.getComponent({ name: "StageSpecimenCanvas" }).props("signal")).toBe("silence");
+      expect(start.attributes("disabled")).toBeUndefined();
+      await start.trigger("click");
+      await flushPromises();
+      expect(context.resume).toHaveBeenCalledTimes(2);
+      expect(wrapper.text()).toContain("Synthetic signal ready");
+      expect(wrapper.getComponent({ name: "StageSpecimenCanvas" }).props("signal")).toBe("phrase");
+      expect(start.attributes("disabled")).toBeDefined();
+    } finally {
+      wrapper.unmount();
+      audio.features.cleanup();
+    }
   });
 
   it("publishes moving generic occlusion geometry without presenting a deck copy", async () => {

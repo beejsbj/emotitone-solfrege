@@ -30,6 +30,47 @@ beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); mocks.chains.length = 
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs() })
 
 describe('live playback instrument manager', () => {
+  it.each([false, true])('rebuilds transient-rate banks (route returns before renderer creation: %s)', async returnBeforeRenderer => {
+    const { manager, engine, context } = await setup()
+    Object.assign(context, { sampleRate: 48000 })
+    await manager.prepareLivePlayback(context, destination, 'piano')
+    const renderedRates: number[] = []
+    const preparedRates: number[] = []
+    const rebuilt: Array<{ rate: number; acknowledge: () => void; dispose: ReturnType<typeof vi.fn> }> = []
+    let finishPreparation!: () => void
+    mocks.prepare.mockImplementation(async () => {
+      preparedRates.push(context.sampleRate)
+      if (preparedRates.length === 1) await new Promise<void>(resolve => { finishPreparation = resolve })
+      return bank('piano')
+    })
+    mocks.create.mockImplementation(async () => {
+      const rate = context.sampleRate
+      const dispose = vi.fn()
+      return { ...engine, dispose, press: () => { renderedRates.push(rate) },
+        prepare: () => new Promise<void>(acknowledge => { rebuilt.push({ rate, acknowledge, dispose }) }) }
+    })
+    Object.assign(context, { sampleRate: 44100 })
+    const { resumeAudioContext } = await import('@/services/audioLifecycle')
+    const gate = resumeAudioContext(context)!
+    const waiting = gate.then(() => manager.getLivePlayback('piano')!.press('waiting', [{ instrumentId: 'piano', pitch: 60 }]))
+    Object.assign(context, { sampleRate: 32000 })
+    await vi.waitFor(() => expect(preparedRates).toEqual([32000]))
+    if (returnBeforeRenderer) Object.assign(context, { sampleRate: 44100 })
+    finishPreparation()
+    await vi.waitFor(() => expect(rebuilt).toHaveLength(1))
+    Object.assign(context, { sampleRate: 44100 })
+    rebuilt[0].acknowledge()
+    await flushPromises()
+    expect(renderedRates).toEqual([])
+    await vi.waitFor(() => expect(rebuilt).toHaveLength(2))
+    expect(preparedRates).toEqual([32000, 44100])
+    rebuilt[1].acknowledge()
+    await waiting
+    expect(renderedRates).toEqual([44100])
+    expect(rebuilt[0].dispose).toHaveBeenCalledOnce()
+    expect(resumeAudioContext(context)).toBeUndefined()
+  })
+
   it('keeps waiting input gated through successive rate changes during bank rebuilds', async () => {
     const { manager, engine, context } = await setup()
     Object.assign(context, { sampleRate: 48000 })

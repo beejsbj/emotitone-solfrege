@@ -186,6 +186,24 @@ describe("shared audio lifecycle", () => {
     expect(outcome).toBe("ready");
   });
 
+  it("lets a superseded attempt's late success release an unmanaged gate whose retry hangs", async () => {
+    const context = Object.assign(new EventTarget(), { state: "suspended", sampleRate: 48000, resume: vi.fn() });
+    let finishOld!: () => void;
+    context.resume
+      .mockImplementationOnce(() => new Promise<void>(resolve => { finishOld = () => { context.state = "running"; resolve(); }; }))
+      .mockImplementationOnce(() => new Promise<void>(() => {}));
+    const audio = context as unknown as AudioContext;
+    let outcome = "pending";
+    const first = resumeAudioContext(audio)!.then(() => { outcome = "ready"; }, () => { outcome = "failed"; });
+    resumeAudioContext(audio);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(context.resume).toHaveBeenCalledTimes(2);
+    expect(outcome).toBe("pending");
+    finishOld();
+    await first;
+    expect(outcome).toBe("ready");
+  });
+
   it("releases a hung unlock if the browser independently returns to running", async () => {
     const { context, audio } = fixture("interrupted");
     context.resume.mockImplementationOnce(() => new Promise(() => {}));

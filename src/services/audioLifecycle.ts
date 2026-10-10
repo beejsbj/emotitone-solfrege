@@ -68,7 +68,7 @@ export function resumeAudioContext(context: AudioContext): Promise<void> | undef
   const suspension = suspending.get(context);
   const unlock = () => new Promise<void>((resolve, reject) => {
     // Each try owns a token; a superseded resume() that settles late must not
-    // resolve or fail the gate the current try is still working on.
+    // fail the gate the current try is still working on.
     let current = 0;
     const attempt = () => {
       const token = ++current;
@@ -77,9 +77,10 @@ export function resumeAudioContext(context: AudioContext): Promise<void> | undef
       if (context.state === "running") { resolve(); return; }
       try {
         context.resume().then(() => {
-          if (!live()) return;
+          // Running is a verified fact, so even a superseded success may release
+          // the gate; only the live attempt may fail it.
           if (context.state === "running") resolve();
-          else reject(new AudioBlockedError());
+          else if (live()) reject(new AudioBlockedError());
         }, error => { if (live()) reject(error); });
       } catch (error) { reject(error); }
     };

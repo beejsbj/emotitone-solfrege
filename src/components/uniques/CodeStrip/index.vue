@@ -693,6 +693,7 @@ onBeforeUnmount(() => {
     <HighlightStrip
       class="code-strip__view"
       :tokens="presentationTokens"
+      :code="visibleCode"
       :playing="isControlled ? false : stripPlaying"
       :listening="!isControlled"
       :density="density"

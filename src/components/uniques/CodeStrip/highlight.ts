@@ -86,10 +86,10 @@ export function useNotationHighlight(options: NotationHighlightOptions) {
     if (index === undefined) return;
     const startsPass = index < passIndex.value || played.value.has(id) || active.value.has(id);
     if (startsPass) {
+      // A note still ringing from the last pass belongs to that pass; its
+      // late release must not mark it played in this one.
       played.value = new Set();
-      const kept = new Map(active.value);
-      kept.delete(id);
-      active.value = kept;
+      active.value = new Map();
       passIndex.value = index;
     }
     if (startsPass || deferredFrame !== null) {
@@ -105,15 +105,20 @@ export function useNotationHighlight(options: NotationHighlightOptions) {
       clearTimeout(pending);
       timers.delete(key);
     }
+    const deferredCount = deferred.length;
     deferred = deferred.filter((task) => task.key !== key);
+    // A note released before it lit (very short, or within a repaint) has
+    // still sounded in this pass.
+    const wasPending = pending !== undefined || deferred.length !== deferredCount;
     const current = active.value.get(id);
     if (current && current.voice !== voice) return;
+    if (!current && !wasPending) return;
     if (current) {
       const next = new Map(active.value);
       next.delete(id);
       active.value = next;
     }
-    if (!indexById.value.has(id) || played.value.has(id)) return;
+    if (played.value.has(id)) return;
     const next = new Set(played.value);
     next.add(id);
     played.value = next;

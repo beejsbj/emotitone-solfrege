@@ -4,6 +4,7 @@ import HighlightStrip from "@/components/uniques/CodeStrip/HighlightStrip.vue";
 import type { CodeStripToken } from "@/components/uniques/CodeStrip/types";
 import { staticNoteColorResolver } from "@/components/primatives/noteColorContext";
 import type { NotationNoteEventDetail } from "@/types/notation";
+import { strudelUrl } from "@/services/strudelLink";
 
 const tokens: CodeStripToken[] = [
   { type: "note", noteId: "do", note: "do", text: "Do", rawPitch: "C4", scaleIndex: 0, duration: "@0.25" },
@@ -162,6 +163,23 @@ describe("HighlightStrip", () => {
     expect(fill(wrapper, 2)).toBe(0);
   });
 
+  it("does not count a note still ringing from the last pass as played in the next", async () => {
+    const wrapper = mountStrip();
+    play("do", "v1");
+    release("do", "v1");
+    play("mi", "v2");
+    await flushPromises();
+
+    // The loop comes round while Mi still rings, then Mi's old voice ends.
+    play("do", "v3");
+    runFrames();
+    release("mi", "v2");
+    await flushPromises();
+
+    expect(event(wrapper, 0).attributes("data-active")).toBe("true");
+    expect(fill(wrapper, 2)).toBe(0);
+  });
+
   it("reads complete at rest and ignores note events until the pattern plays", async () => {
     const wrapper = mountStrip({ playing: false });
     play("do", "v1");
@@ -235,5 +253,21 @@ describe("HighlightStrip", () => {
 
     expect(fill(wrapper, 0)).toBe(0.5);
     expect(fill(wrapper, 1)).toBe(0);
+  });
+
+  it("offers Open in Strudel as a new-tab link to the code it shows", () => {
+    const code = '`< C4@0.25 ~@0.25 E4@0.5 >`.as("note").sound("sine")';
+    const wrapper = mountStrip({ code });
+    const link = wrapper.get('a[aria-label="Open in Strudel"]');
+
+    expect(link.attributes("href")).toBe(strudelUrl(code));
+    expect(link.attributes("target")).toBe("_blank");
+    expect(link.attributes("rel")).toContain("noopener");
+  });
+
+  it("offers nothing to open while the strip is empty", () => {
+    const wrapper = mountStrip({ tokens: [], code: "// Record a pattern" });
+
+    expect(wrapper.find('a[aria-label="Open in Strudel"]').exists()).toBe(false);
   });
 });

@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
+import { ExternalLink } from "lucide-vue-next";
+import { strudelUrl } from "@/services/strudelLink";
 import type { NoteColorResolver } from "@/components/primatives/noteColorContext";
 import HighlightStripEvent from "./HighlightStripEvent.vue";
 import { useNotationHighlight, useReducedMotion } from "./highlight";
@@ -23,6 +25,8 @@ type StripEvent = CodeStripNoteToken | CodeStripChordToken | Extract<CodeStripTo
 const props = withDefaults(
   defineProps<{
     tokens: CodeStripToken[];
+    /** The code the strip shows, handed to strudel.cc by Open in Strudel. */
+    code?: string;
     /** The pattern transport is playing: unplayed events read empty. */
     playing?: boolean;
     /** Light events from note events (production) instead of token progress. */
@@ -45,6 +49,7 @@ const props = withDefaults(
     noteEventTarget?: EventTarget;
   }>(),
   {
+    code: undefined,
     playing: false,
     listening: false,
     density: "default",
@@ -71,6 +76,8 @@ const reducedMotion = useReducedMotion();
 const events = computed(() => props.tokens.filter(isStripEvent));
 const eventNoteIds = computed(() => events.value.map(noteIdsOf));
 const isEmpty = computed(() => events.value.length === 0);
+const openHref = computed(() =>
+  !isEmpty.value && props.code?.trim() ? strudelUrl(props.code) : undefined);
 
 const highlight = useNotationHighlight({
   eventNoteIds: () => eventNoteIds.value,
@@ -289,7 +296,17 @@ function clamp(value: number) {
         />
       </div>
     </div>
-    <slot name="actions" :empty="isEmpty" />
+    <a
+      v-if="openHref"
+      class="highlight-strip__open"
+      :href="openHref"
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="Open in Strudel"
+      title="Open in Strudel"
+    >
+      <ExternalLink aria-hidden="true" />
+    </a>
   </div>
 </template>
 
@@ -298,9 +315,9 @@ function clamp(value: number) {
   --strip-border: hsla(152, 100%, 50%, 0.16);
   display: flex;
   align-items: stretch;
+  position: relative;
   width: 100%;
   min-width: 0;
-  overflow: hidden;
   border: 1px solid var(--strip-border);
   background: var(--ink-2);
   color: var(--ivory);
@@ -384,6 +401,42 @@ function clamp(value: number) {
   text-align: center;
 }
 
+/* Open in Strudel: a quiet trailing glyph whose 44px hit area reaches back
+   over the end of the line, never past the strip toward its neighbours. */
+.highlight-strip__open {
+  position: relative;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 24px;
+  color: var(--ivory-3);
+}
+
+.highlight-strip__open::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 0;
+  width: 44px;
+  height: 44px;
+  transform: translateY(-50%);
+}
+
+.highlight-strip__open svg {
+  width: 14px;
+  height: 14px;
+}
+
+.highlight-strip__open:hover,
+.highlight-strip__open:focus-visible {
+  color: var(--ivory);
+}
+
+.highlight-strip__open:focus-visible {
+  outline: 2px solid var(--ivory);
+  outline-offset: -2px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .highlight-strip {
     transition: none;
@@ -393,6 +446,10 @@ function clamp(value: number) {
 @media (forced-colors: active) {
   .highlight-strip:not(.highlight-strip--empty) .highlight-strip__line {
     background: none;
+  }
+
+  .highlight-strip__open {
+    color: LinkText;
   }
 }
 </style>

@@ -575,6 +575,22 @@ onBeforeUnmount(() => {
   opacity: .38;
 }
 
+/* Every edition shares the dual focus ring, inset because the rail clips:
+   Ivory at the edge, Ink inside it, so focus reads on the Ink rail and on an
+   Ivory or Brass chip alike. */
+.tabs__button:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-outer);
+  outline-offset: calc(var(--focus-ring-width) * -1);
+  box-shadow: inset 0 0 0 calc(var(--focus-ring-width) * 2) var(--focus-ring-inner);
+}
+
+/* Difference blending inverts a label over Brass to a 3.3:1 blue; the active
+   Brass chip prints its label in engraved Brass Edge instead. */
+.tabs--tone-brass .tabs__button--active {
+  color: var(--brass-edge);
+  mix-blend-mode: normal;
+}
+
 /* Marquee geometry: an unboxed rail of lit names. */
 .tabs--geometry-marquee {
   border: 0;
@@ -593,7 +609,7 @@ onBeforeUnmount(() => {
   gap: 7px;
   min-height: 44px;
   padding: 10px 12px 8px;
-  color: var(--ivory-4);
+  color: var(--ivory-3);
   mix-blend-mode: normal;
 }
 
@@ -603,21 +619,18 @@ onBeforeUnmount(() => {
 }
 
 .tabs--geometry-marquee .tabs__button.tabs__button--brass:not(.tabs__button--active) {
-  color: color-mix(in srgb, var(--brass) 55%, var(--ink));
+  color: var(--brass-lo);
 }
 
 .tabs--geometry-marquee .tabs__button:not(:disabled):not(.tabs__button--active):hover {
-  color: var(--ivory-3);
+  color: var(--ivory-2);
 }
 
 .tabs--geometry-marquee .tabs__button--active {
   color: var(--light);
 }
 
-.tabs--geometry-marquee .tabs__button:focus-visible {
-  outline: 2px solid var(--ivory);
-  outline-offset: -2px;
-}
+
 
 .tabs--geometry-marquee .tabs__label {
   transition:
@@ -638,7 +651,7 @@ onBeforeUnmount(() => {
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: var(--ink-5);
+  background: var(--led-off);
   transition:
     background-color var(--dur-tap) var(--ease-stab),
     box-shadow var(--dur-tap) var(--ease-stab);

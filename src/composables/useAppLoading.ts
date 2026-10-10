@@ -174,6 +174,7 @@ export function useAppLoading() {
       if (context.state !== "running") throw new AudioBlockedError();
       if (!synthsOnly) {
         const { useInstrumentStore } = await import("@/stores/instrument");
+        updatePhase("instruments", { isComplete: false, progress: 0, message: "Preparing instrument…" });
         await within(
           useInstrumentStore().initializeInstruments((progress, message) => {
             loadingState.progress.instruments.progress = progress;
@@ -182,6 +183,7 @@ export function useAppLoading() {
           INSTRUMENT_LOAD_TIMEOUT_MS,
           () => { selectedInstrumentTimedOut = true; return instrumentLoadTimeout(); },
         );
+        updatePhase("instruments", { isComplete: true, progress: 100 });
       }
 
       updatePhase("audioContext", {

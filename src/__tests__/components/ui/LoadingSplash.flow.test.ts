@@ -72,11 +72,19 @@ describe("production loading flow", () => {
     const wrapper = await mountLoaded();
     audio.context.allow = true;
     let finish!: () => void;
-    instruments.initializeInstruments.mockImplementationOnce(() => new Promise<void>(resolve => { finish = resolve; }));
+    instruments.initializeInstruments.mockImplementationOnce((report?: (progress: number, message: string) => void) => {
+      report?.(99, "Preparing piano…");
+      return new Promise<void>(resolve => { finish = resolve; });
+    });
     await wrapper.get(".count-gate--play").trigger("click");
     await flushPromises();
     expect(wrapper.get(".count-gate--play").attributes("disabled")).toBeDefined();
     expect(useAppLoading().isVisible.value).toBe(true);
+    expect(wrapper.get(".count-gate--play").text()).toContain("PREPARING…");
+    expect(wrapper.get(".count-gate--play").attributes("aria-label")).toBe("Preparing EmotiTone");
+    expect(wrapper.get('[role="status"]').text()).toContain("Preparing piano…");
+    expect(wrapper.text()).not.toContain("Everything is tuned");
+    expect(wrapper.get(".count-tile.is-active").text()).toContain("Instrument samples");
     finish();
     await flushPromises();
     await vi.advanceTimersByTimeAsync(600);

@@ -421,11 +421,18 @@ export const MUSIC_COLOR_LABEL_CROSSOVER_LUMINANCE = 0.17;
  * gamut mapping spread one OKLCH lightness over a range of luminance, so a
  * lightness-only threshold would pick the weaker tone for some hues near the
  * crossover. The result is always the higher-contrast of Ink and Ivory.
+ *
+ * A label whose background varies (a sheen across a corner) passes the
+ * lightest and darkest backgrounds it sits on; the result is the tone with the
+ * higher worst-case contrast. Ink wins exactly when the geometric mean of the
+ * extremes' (Y + 0.05) clears the crossover's.
  */
 export function musicColorLabelTone(
-  fill: Pick<SrgbColor, "r" | "g" | "b">,
+  ...fills: [Pick<SrgbColor, "r" | "g" | "b">, ...Pick<SrgbColor, "r" | "g" | "b">[]]
 ): MusicColorLabelTone {
-  return relativeLuminance(fill) >= MUSIC_COLOR_LABEL_CROSSOVER_LUMINANCE
-    ? "ink"
-    : "ivory";
+  const luminances = fills.map(relativeLuminance);
+  const darkest = Math.min(...luminances);
+  const lightest = Math.max(...luminances);
+  const effective = Math.sqrt((darkest + 0.05) * (lightest + 0.05)) - 0.05;
+  return effective >= MUSIC_COLOR_LABEL_CROSSOVER_LUMINANCE ? "ink" : "ivory";
 }

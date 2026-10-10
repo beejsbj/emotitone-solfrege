@@ -11,11 +11,13 @@ const getKeyBackground = vi.fn(() => ({
   background: "hsla(10, 80%, 50%, 1)",
   primaryColor: "hsla(10, 80%, 50%, 1)",
   labelTone: "ink" as const,
+  cornerLabelTones: { top: "ink" as const, bottom: "ink" as const },
 }));
 const getKeyBackgroundByPitchClass = vi.fn(() => ({
   background: "hsla(280, 80%, 50%, 1)",
   primaryColor: "hsla(280, 80%, 50%, 1)",
   labelTone: "ivory" as const,
+  cornerLabelTones: { top: "ivory" as const, bottom: "ivory" as const },
 }));
 
 vi.mock("@/composables/useMusicColor", () => ({
@@ -312,6 +314,9 @@ describe("Note", () => {
     expect(lightNatural.classes()).toContain("note--natural");
     expect(lightNatural.attributes("data-label-tone")).toBe("ink");
     expect(lightNatural.attributes("style")).toContain("--note-label: var(--ink)");
+    // Corner labels get their own tone, chosen against the sheen they sit under.
+    expect(lightNatural.attributes("style")).toContain("--note-label-top: var(--ink)");
+    expect(lightNatural.attributes("style")).toContain("--note-label-bottom: var(--ink)");
 
     expect(darkAccidental.classes()).toContain("note--accidental");
     expect(darkAccidental.attributes("data-label-tone")).toBe("ivory");

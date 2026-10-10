@@ -11,8 +11,11 @@ import {
 } from "@/services/musicColorCore";
 import { resolveMusicColorSampleByPitchClass } from "@/services/musicColor";
 import {
+  NOTE_SURFACE_SHEEN,
+  noteLabelBackgrounds,
   resolveMonochromeKeySurface,
   resolveMusicColorKeySurface,
+  type KeySurfaceColor,
 } from "@/services/keySurfaceColor";
 import {
   parseCssRgb,
@@ -105,37 +108,80 @@ describe("UI token contrast floor", () => {
 
 describe("Note label tone from the Music Color authority", () => {
   const toneColor = { ink, ivory } as const;
-  // The best any Ink/Ivory choice can guarantee: the fill whose contrast with
-  // both is equal gets the geometric mean of the Ink–Ivory ratio.
-  const ceiling = Math.sqrt(contrastRatio(ink, ivory));
+  const lum = { ink: relativeLuminance(ink), ivory: relativeLuminance(ivory) };
 
-  function expectBestLabel(label: string, fill: Rgb) {
-    const tone = musicColorLabelTone(fill);
-    const chosen = contrastRatio(toneColor[tone], fill);
-    const other = contrastRatio(toneColor[tone === "ink" ? "ivory" : "ink"], fill);
-    // Always the stronger token (the shipped crossover is rounded to 0.01 luminance).
-    expect(chosen, `${label}: ${tone} ${chosen.toFixed(3)} vs ${other.toFixed(3)}`)
-      .toBeGreaterThanOrEqual(other - 0.01);
-    // 4.5:1 wherever Ink or Ivory can reach it; otherwise the ceiling.
-    expect(chosen, `${label}: ${tone} ${chosen.toFixed(2)}:1`)
-      .toBeGreaterThanOrEqual(Math.min(TEXT, ceiling - 0.01));
+  /*
+   * KNOWN BAND — awaiting Burooj's decision (PR #170, BJS-504). Neither Ink
+   * nor Ivory reaches 4.5:1 on a background whose luminance lies strictly
+   * between these bounds; at the crossover the best either can do is
+   * sqrt(contrast(Ink, Ivory)) = 4.17:1. Default octave 5 (L 0.575) lands here
+   * for about half the hues. Closing it needs a design decision (accept, move
+   * the Music Color octave ramp, or a label halo), not a different tone. Any
+   * label below 4.5:1 must be explained by this band and nothing else.
+   */
+  const KNOWN_BAND = {
+    // Ink reaches 4.5:1 from here up.
+    inkFrom: TEXT * (lum.ink + 0.05) - 0.05,
+    // Ivory reaches 4.5:1 from here down.
+    ivoryTo: (lum.ivory + 0.05) / TEXT - 0.05,
+  };
+
+  function expectBestLabel(label: string, backgrounds: Rgb[]) {
+    const tone = musicColorLabelTone(...(backgrounds as [Rgb, ...Rgb[]]));
+    const other = tone === "ink" ? "ivory" : "ink";
+    const worst = (name: "ink" | "ivory") =>
+      Math.min(...backgrounds.map((background) => contrastRatio(toneColor[name], background)));
+    const chosen = worst(tone);
+    // Always the tone with the better worst case (the shipped crossover is rounded).
+    expect(chosen, `${label}: ${tone} ${chosen.toFixed(3)} vs ${worst(other).toFixed(3)}`)
+      .toBeGreaterThanOrEqual(worst(other) - 0.01);
     expect(chosen).toBeGreaterThanOrEqual(LARGE_TEXT);
+    if (chosen < TEXT) {
+      const luminances = backgrounds.map(relativeLuminance);
+      const touchesBand = Math.min(...luminances) < KNOWN_BAND.inkFrom &&
+        Math.max(...luminances) > KNOWN_BAND.ivoryTo;
+      expect(touchesBand, `${label}: ${chosen.toFixed(2)}:1 outside the known band`).toBe(true);
+    }
     return chosen;
   }
 
+  function expectSurfaceLabels(label: string, surface: KeySurfaceColor, fill: Rgb, sheen: "colored" | "monochrome") {
+    const backgrounds = noteLabelBackgrounds(fill, sheen);
+    expect(surface.labelTone).toBe(musicColorLabelTone(...backgrounds.center));
+    expect(surface.cornerLabelTones.top).toBe(musicColorLabelTone(...backgrounds.top));
+    expect(surface.cornerLabelTones.bottom).toBe(musicColorLabelTone(...backgrounds.bottom));
+    return [
+      expectBestLabel(`${label} centre`, backgrounds.center),
+      expectBestLabel(`${label} top corner`, backgrounds.top),
+      expectBestLabel(`${label} bottom corner`, backgrounds.bottom),
+    ];
+  }
+
   it("ships the crossover the --ink and --ivory tokens imply", () => {
-    const crossover = Math.sqrt(
-      (relativeLuminance(ivory) + 0.05) * (relativeLuminance(ink) + 0.05),
-    ) - 0.05;
+    const crossover = Math.sqrt((lum.ivory + 0.05) * (lum.ink + 0.05)) - 0.05;
     expect(Math.abs(MUSIC_COLOR_LABEL_CROSSOVER_LUMINANCE - crossover)).toBeLessThan(0.001);
+    // The known band is real, and centred on the crossover.
+    expect(KNOWN_BAND.ivoryTo).toBeLessThan(crossover);
+    expect(KNOWN_BAND.inkFrom).toBeGreaterThan(crossover);
+  });
+
+  it("models the surface sheen with the peak strengths in the token source", () => {
+    const peaks = (name: string) => {
+      const value = tokens.get(name)!;
+      const alphas = (rgb: string) => [...value.matchAll(new RegExp(`rgba\\(${rgb},\\s*([\\d.]+)\\)`, "g"))]
+        .map((match) => Number(match[1]));
+      return { highlight: Math.max(...alphas("255,\\s*255,\\s*255")), shade: Math.max(...alphas("0,\\s*0,\\s*0")) };
+    };
+    expect(NOTE_SURFACE_SHEEN.colored).toEqual(peaks("--paper-surface-sheen"));
+    expect(NOTE_SURFACE_SHEEN.monochrome).toEqual(peaks("--paper-surface-sheen-monochrome"));
   });
 
   it("labels every pitch class at every octave, mapping, hue phase and key brightness", () => {
     const config = DEFAULT_CONFIG.dynamicColors;
     const modes: MusicColorMode[] = ["fixed", "movable-ordinal", "movable-relative"];
     const brightnessSteps = Array.from({ length: 18 }, (_, step) => 0.3 + step * 0.1);
-    let samples = 0;
-    let belowText = 0;
+    let labels = 0;
+    let inBand = 0;
 
     for (const musicColorMode of modes) {
       for (const note of CHROMATIC_NOTES) {
@@ -149,20 +195,21 @@ describe("Note label tone from the Music Color authority", () => {
             for (const keyBrightness of brightnessSteps) {
               const surface = resolveMusicColorKeySurface(resolved!.sample.primary, { keyBrightness });
               const fill = parseCssRgb(surface.background);
-              expect(surface.labelTone).toBe(musicColorLabelTone(fill));
-              const chosen = expectBestLabel(`${musicColorMode} ${note}${octave} ×${keyBrightness.toFixed(1)}`, fill);
-              samples += 1;
-              if (chosen < TEXT) belowText += 1;
+              const ratios = expectSurfaceLabels(
+                `${musicColorMode} ${note}${octave} ×${keyBrightness.toFixed(1)}`, surface, fill, "colored",
+              );
+              labels += ratios.length;
+              inBand += ratios.filter((ratio) => ratio < TEXT).length;
             }
           }
         }
       }
     }
 
-    expect(samples).toBe(3 * 12 * 9 * 3 * 18);
-    // The mid-lightness band where neither token reaches 4.5:1 is real but narrow.
-    expect(belowText / samples).toBeLessThan(0.1);
-  });
+    expect(labels).toBe(3 * 3 * 12 * 9 * 3 * 18);
+    // The known band is real but narrow.
+    expect(inBand / labels).toBeLessThan(0.15);
+  }, 60_000);
 
   it("labels the whole configurable lightness and chroma range", () => {
     // Middle Lightness 0.2–0.9 with an octave span up to 0.7 reaches every L.
@@ -170,20 +217,25 @@ describe("Note label tone from the Music Color authority", () => {
       const l = step / 100;
       for (const c of [0, 0.05, 0.18, 0.3]) {
         for (let h = 0; h < 360; h += 15) {
-          expectBestLabel(`L ${l} C ${c} h ${h}`, mapOklchToSrgb({ l, c, h, alpha: 1 }));
+          const fill = mapOklchToSrgb({ l, c, h, alpha: 1 });
+          const backgrounds = noteLabelBackgrounds(fill, "colored");
+          expectBestLabel(`L ${l} C ${c} h ${h} centre`, backgrounds.center);
+          expectBestLabel(`L ${l} C ${c} h ${h} top`, backgrounds.top);
+          expectBestLabel(`L ${l} C ${c} h ${h} bottom`, backgrounds.bottom);
         }
       }
     }
-  });
+  }, 60_000);
 
   it("labels monochrome surfaces by their lightness, not by accidental", () => {
     for (const accidental of [false, true]) {
       for (let brightness = 0.3; brightness <= 2.001; brightness += 0.1) {
         const surface = resolveMonochromeKeySurface(accidental, { keyBrightness: brightness });
         const grey = Number(surface.background.match(/(\d+(?:\.\d+)?)%, 1\)$/)![1]) / 100;
-        const fill = { r: grey, g: grey, b: grey };
-        expect(surface.labelTone).toBe(musicColorLabelTone(fill));
-        expectBestLabel(`monochrome ${accidental ? "accidental" : "natural"} ×${brightness.toFixed(1)}`, fill);
+        expectSurfaceLabels(
+          `monochrome ${accidental ? "accidental" : "natural"} ×${brightness.toFixed(1)}`,
+          surface, { r: grey, g: grey, b: grey }, "monochrome",
+        );
       }
     }
   });

@@ -17,12 +17,59 @@ export interface KeySurfaceTuning {
 export interface KeySurfaceColor {
   background: string;
   primaryColor: string;
-  /** Ink or Ivory, whichever reads better on this surface's fill. */
+  /** Ink or Ivory for the centred label, which sits on the flat fill. */
   labelTone: MusicColorLabelTone;
+  /** Ink or Ivory for the corner labels, which sit under the surface sheen. */
+  cornerLabelTones: { top: MusicColorLabelTone; bottom: MusicColorLabelTone };
 }
 
 export const FALLBACK_KEY_SURFACE_COLOR = "hsla(0, 0%, 16%, 1)";
 const FALLBACK_KEY_SURFACE_SRGB = { r: 0.16, g: 0.16, b: 0.16 };
+
+type Rgb = Pick<SrgbColor, "r" | "g" | "b">;
+type SurfaceSheen = "colored" | "monochrome";
+
+/**
+ * Peak strengths of --paper-surface-sheen and --paper-surface-sheen-monochrome
+ * (mix-blend-mode: overlay): a white highlight falling from the top edge and a
+ * black shade rising to the bottom edge. The corner labels sit inside those
+ * bands, so their tone is chosen against the fill with the peak overlay as well
+ * as the flat fill. The contrast-floor test reads these from the token source.
+ */
+export const NOTE_SURFACE_SHEEN: Readonly<Record<SurfaceSheen, { highlight: number; shade: number }>> = {
+  colored: { highlight: 0.18, shade: 0.22 },
+  monochrome: { highlight: 0.12, shade: 0.1 },
+};
+
+/** CSS overlay blend of a solid white (1) or black (0) layer at an alpha. */
+function overlay(backdrop: Rgb, source: 0 | 1, alpha: number): Rgb {
+  const channel = (b: number) => {
+    const blended = b <= 0.5 ? 2 * b * source : 1 - 2 * (1 - b) * (1 - source);
+    return (1 - alpha) * b + alpha * blended;
+  };
+  return { r: channel(backdrop.r), g: channel(backdrop.g), b: channel(backdrop.b) };
+}
+
+/** The backgrounds each label slot sits on: centre on the flat fill, corners under the sheen. */
+export function noteLabelBackgrounds(fill: Rgb, sheen: SurfaceSheen) {
+  const { highlight, shade } = NOTE_SURFACE_SHEEN[sheen];
+  return {
+    center: [fill] as [Rgb],
+    top: [fill, overlay(fill, 1, highlight)] as [Rgb, Rgb],
+    bottom: [fill, overlay(fill, 0, shade)] as [Rgb, Rgb],
+  };
+}
+
+function labelTones(fill: Rgb, sheen: SurfaceSheen) {
+  const backgrounds = noteLabelBackgrounds(fill, sheen);
+  return {
+    labelTone: musicColorLabelTone(...backgrounds.center),
+    cornerLabelTones: {
+      top: musicColorLabelTone(...backgrounds.top),
+      bottom: musicColorLabelTone(...backgrounds.bottom),
+    },
+  };
+}
 
 /** Shared OKLCH-to-CSS projection for live and isolated colored key surfaces. */
 export function resolveMusicColorKeySurface(
@@ -33,7 +80,7 @@ export function resolveMusicColorKeySurface(
     return {
       background: FALLBACK_KEY_SURFACE_COLOR,
       primaryColor: FALLBACK_KEY_SURFACE_COLOR,
-      labelTone: musicColorLabelTone(FALLBACK_KEY_SURFACE_SRGB),
+      ...labelTones(FALLBACK_KEY_SURFACE_SRGB, "colored"),
     };
   }
 
@@ -45,7 +92,7 @@ export function resolveMusicColorKeySurface(
   return {
     background: color,
     primaryColor: color,
-    labelTone: musicColorLabelTone(tuned.srgb),
+    ...labelTones(tuned.srgb, "colored"),
   };
 }
 
@@ -95,13 +142,13 @@ function adjustColorHSL(
   };
 }
 
-function surfaceFromHsl(adjusted: AdjustedHsl): KeySurfaceColor {
+function surfaceFromHsl(adjusted: AdjustedHsl, sheen: SurfaceSheen): KeySurfaceColor {
   return {
     background: adjusted.css,
     primaryColor: adjusted.css,
     // An unparseable controlled colour has no known lightness; label it as the
     // dark fallback surface it most likely stands in for.
-    labelTone: musicColorLabelTone(adjusted.srgb ?? FALLBACK_KEY_SURFACE_SRGB),
+    ...labelTones(adjusted.srgb ?? FALLBACK_KEY_SURFACE_SRGB, sheen),
   };
 }
 
@@ -114,7 +161,7 @@ export function resolveMonochromeKeySurface(
     isAccidental ? "hsla(0, 0%, 100%, 1)" : "hsla(0, 0%, 10%, 1)",
     tuning.keyBrightness,
     tuning.keySaturation,
-  ));
+  ), "monochrome");
 }
 
 /** Opaque HSL projection for controlled Note/Keyboard color sources. */
@@ -131,5 +178,5 @@ export function resolveKeySurfaceColor(
     primaryColor,
     tuning.keyBrightness,
     tuning.keySaturation,
-  ));
+  ), "colored");
 }

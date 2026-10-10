@@ -740,5 +740,17 @@ onBeforeUnmount(() => {
   .tabs__button--active .tabs__bulb {
     background: HighlightText;
   }
+
+  /* Forced colors drop the inner Ink ring and repaint the outline; keep a ring
+     that differs from the unfocused pixels: CanvasText on the Canvas rail,
+     HighlightText inside the Highlight chip of the active tab. */
+  .tabs__button:focus-visible {
+    outline: var(--focus-ring-width) solid CanvasText;
+    outline-offset: calc(var(--focus-ring-width) * -2);
+  }
+
+  .tabs__button--active:focus-visible {
+    outline-color: HighlightText;
+  }
 }
 </style>

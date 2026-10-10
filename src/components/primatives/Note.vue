@@ -10,7 +10,7 @@
     :data-geometry="geometry"
     :data-proportion="proportion"
     :data-sounding="sounding || undefined"
-    :data-label-tone="color.labelTone"
+    :data-label-tone="labelTones.center"
   >
     <span class="note__surface">
       <span
@@ -156,6 +156,17 @@ const color = computed(() => {
     : getKeyBackground(props.scaleIndex, ...colorArgs);
 });
 
+// A controlled resolver may predate corner tones; corners then follow the
+// centre, and an untoned surface is labelled as the dark fallback it stands for.
+const labelTones = computed(() => {
+  const center = color.value.labelTone ?? "ivory";
+  return {
+    center,
+    top: color.value.cornerLabelTones?.top ?? center,
+    bottom: color.value.cornerLabelTones?.bottom ?? center,
+  };
+});
+
 const labelValues = computed<Record<NoteLabel, string>>(() => ({
   syllable: props.syllable,
   degree: props.degree,
@@ -263,7 +274,9 @@ const noteStyles = computed(() => {
     "--note-primary-color": color.value.primaryColor,
     // Every label prints in one full-strength token chosen from the fill's
     // lightness; translucent label tiers cannot keep the text floor.
-    "--note-label": `var(--${color.value.labelTone})`,
+    "--note-label": `var(--${labelTones.value.center})`,
+    "--note-label-top": `var(--${labelTones.value.top})`,
+    "--note-label-bottom": `var(--${labelTones.value.bottom})`,
     "--note-inner-border": innerBorder,
     "--note-shadow": "var(--shadow-key)",
   };
@@ -448,8 +461,13 @@ const ariaLabel = computed(() => {
   transform: translateX(-50%);
 }
 
-.note__label--rank-aux {
-  color: var(--note-label);
+/* Corner labels sit under the sheen, so each corner has its own tone. */
+.note__label--rank-aux.note__label--slot-top-left {
+  color: var(--note-label-top);
+}
+
+.note__label--rank-aux.note__label--slot-bottom-right {
+  color: var(--note-label-bottom);
 }
 
 .note__label--slot-top-left {

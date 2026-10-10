@@ -47,6 +47,15 @@ describe("shared chromatic solfege", () => {
     }
   });
 
+  it.each(CHROMATIC_NOTES)("gives chromatic Fi augmented-fourth emotion metadata in %s", (tonic) => {
+    const pc = (CHROMATIC_NOTES.indexOf(tonic) + 6) % 12;
+    expect(pitchSolfegeData(pc, { tonic, mode: "chromatic" })).toMatchObject({
+      name: "Fi", number: 7, emotion: "Lift, shimmer, surprise",
+      description: "A sharpened fourth that opens a bright suspended skylight.",
+      texture: "electric lift, suspended shine",
+    });
+  });
+
   it.each(CHROMATIC_NOTES)("keeps the %s minor-blues blue degree Se / Me", (tonic) => {
     const pc = (CHROMATIC_NOTES.indexOf(tonic) + 6) % 12;
     const context = { tonic, mode: "minor blues" as const };

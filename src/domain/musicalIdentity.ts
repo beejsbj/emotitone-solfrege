@@ -1,6 +1,7 @@
 import { Chord, Interval, Note } from "@tonaljs/tonal";
 import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
 import { getSolfegeLabelForInterval } from "./solfege";
+import { createSolfegeData } from "@/data/solfege";
 export { INTERVAL_TO_SOLFEGE, getSolfegeLabelForInterval } from "./solfege";
 import type { SolfegeData, MusicalMode } from "@/types/music";
 
@@ -452,6 +453,9 @@ export function pitchSolfegeData(
     emotion: "Borrowed harmony tone",
     description: "A tone outside the active scale.",
     texture: "harmonic",
+  } : context.mode === "chromatic" ? {
+    ...createSolfegeData([identity.functionalInterval.tonal], [identity.semitones], context.mode)[0],
+    number: identity.scaleIndex + 1,
   } : getScaleForMode(context.mode).solfege[identity.scaleIndex];
   return {
     ...metadata,

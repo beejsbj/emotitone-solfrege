@@ -1,9 +1,12 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApp, nextTick } from "vue";
 import { createPinia, setActivePinia } from "pinia";
-import { createPersistedState } from "pinia-plugin-persistedstate";
 import { useInstrumentStore } from "@/stores/instrument";
-import { deserializeInstrumentState } from "@/services/instrumentPersistence";
+import { decodeInstrumentState, INSTRUMENT_STORAGE_KEY } from "@/services/instrumentPersistence";
+import { persistedStatePlugin, resetSaveFailure, saveFailureNotice } from "@/services/safeStorage";
+import { installBackupConsole } from "@/services/persistenceCodec";
+import capturedPayload from "../fixtures/persistence/instrument.v0.store-capture.json?raw";
+import headlessChromePayload from "../fixtures/persistence/instrument.v0.headless-chrome.json?raw";
 import { DEFAULT_INSTRUMENT } from "@/data/instruments";
 
 const liveMocks = vi.hoisted(() => ({ needsLivePlaybackPreparation: vi.fn(() => false) }));
@@ -331,24 +334,24 @@ describe("instrument store warmup", () => {
 
 describe("instrument persistence", () => {
   const NEUTRAL = { cutoff: 12000, resonance: 0, room: 0, delay: 0, attack: null, release: null };
-  const KEY = "emotitone-instrument";
-  let saved: Map<string, string>;
-  const storage = {
-    getItem: (key: string) => saved.get(key) ?? null,
-    setItem: (key: string, value: string) => { saved.set(key, value); },
+  const KEY = INSTRUMENT_STORAGE_KEY;
+  // The app's real localStorage (test-setup's Storage double).
+  const saved = {
+    get: (key: string) => window.localStorage.getItem(key),
+    set: (key: string, value: string) => window.localStorage.setItem(key, value),
   };
 
-  // A fresh page load: new Pinia with the persistence plugin installed.
+  // A fresh page load: new Pinia with the app's persistence plugin installed.
   function freshStore() {
     const pinia = createPinia();
-    pinia.use(createPersistedState({ storage }));
+    pinia.use(persistedStatePlugin);
     createApp({}).use(pinia);
     setActivePinia(pinia);
     return useInstrumentStore();
   }
 
   beforeEach(() => {
-    saved = new Map();
+    window.localStorage.clear();
     vi.clearAllMocks();
     audioMocks.isPrewarmed.mockImplementation((name: string) => name === "piano");
     audioMocks.prewarmSoundSamples.mockResolvedValue(undefined);
@@ -365,10 +368,13 @@ describe("instrument persistence", () => {
     first.setSynthControl("room", 0.4);
     await nextTick(); // the persistence subscription flushes before render
     expect(JSON.parse(saved.get(KEY)!)).toEqual({
-      currentInstrument: "gm_flute",
-      instrumentShapes: {
-        piano: { ...NEUTRAL, cutoff: 1800, release: 0.8 },
-        gm_flute: { ...NEUTRAL, room: 0.4 },
+      $version: 1,
+      data: {
+        currentInstrument: "gm_flute",
+        instrumentShapes: {
+          piano: { ...NEUTRAL, cutoff: 1800, release: 0.8 },
+          gm_flute: { ...NEUTRAL, room: 0.4 },
+        },
       },
     });
 
@@ -387,18 +393,19 @@ describe("instrument persistence", () => {
   it("falls back to the default instrument when the persisted one is not selectable", () => {
     saved.set(KEY, JSON.stringify({ currentInstrument: "bassdrum1", instrumentShapes: {} }));
     expect(freshStore().currentInstrument).toBe(DEFAULT_INSTRUMENT);
-    expect(deserializeInstrumentState(JSON.stringify({ currentInstrument: "not_a_sound" })).currentInstrument)
+    expect(decodeInstrumentState({ currentInstrument: "not_a_sound" }).currentInstrument)
       .toBe(DEFAULT_INSTRUMENT);
     saved.set(KEY, JSON.stringify({ currentInstrument: 42 }));
     expect(freshStore().currentInstrument).toBe(DEFAULT_INSTRUMENT);
     saved.set(KEY, "{not json");
+    vi.spyOn(console, "error").mockImplementationOnce(() => {});
     const store = freshStore();
     expect(store.currentInstrument).toBe(DEFAULT_INSTRUMENT);
     expect(store.shape).toEqual(NEUTRAL);
   });
 
   it("sanitizes persisted Shapes: clamps ranges and drops malformed entries", () => {
-    const state = deserializeInstrumentState(JSON.stringify({
+    const state = decodeInstrumentState({
       currentInstrument: "piano",
       instrumentShapes: {
         piano: { cutoff: 99999, resonance: -3, room: 0.5, delay: 0, attack: null, release: 9 },
@@ -408,7 +415,7 @@ describe("instrument persistence", () => {
         triangle: "junk",
         sine: { ...NEUTRAL },
       },
-    }));
+    });
     expect(state).toEqual({
       currentInstrument: "piano",
       instrumentShapes: {
@@ -457,5 +464,174 @@ describe("instrument persistence", () => {
     expect(store.shape).toEqual({ ...NEUTRAL, delay: 0.3 });
     expect(store.lastWarmupErrorInstrument).toBe("gm_epiano1");
     expect(audioMocks.setLiveSynthControls).toHaveBeenLastCalledWith(expect.objectContaining({ delay: 0.3 }));
+  });
+});
+
+describe("instrument store: versioned saved data on captured payloads", () => {
+  const KEY = INSTRUMENT_STORAGE_KEY;
+  const TODAY = Date.UTC(2026, 9, 10, 9);
+  const BACKUP = `${KEY}.backup.v0.2026-10-10`;
+  const storage = window.localStorage as unknown as {
+    getItem: (key: string) => string | null;
+    setItem: ReturnType<typeof vi.fn>;
+  };
+
+  function freshStore() {
+    const pinia = createPinia();
+    pinia.use(persistedStatePlugin);
+    createApp({}).use(pinia);
+    setActivePinia(pinia);
+    return useInstrumentStore();
+  }
+
+  const writtenKeys = () => storage.setItem.mock.calls.map(([key]) => key as string);
+
+  /** Make every write to localStorage throw a quota error until the returned function runs. */
+  function fillStorage() {
+    const original = storage.setItem.getMockImplementation();
+    storage.setItem.mockImplementation(() => {
+      throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+    });
+    return () => storage.setItem.mockImplementation(original!);
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(TODAY);
+    window.localStorage.clear();
+    resetSaveFailure();
+    vi.clearAllMocks();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    audioMocks.isPrewarmed.mockImplementation(() => true);
+    audioMocks.prewarmSoundSamples.mockResolvedValue(undefined);
+    audioMocks.getReadySounds.mockReturnValue(["piano"]);
+    liveMocks.needsLivePlaybackPreparation.mockReturnValue(false);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("migrates today's captured payload to v1, writing the backup before the rewrite", () => {
+    window.localStorage.setItem(KEY, capturedPayload);
+    vi.clearAllMocks();
+
+    const store = freshStore();
+
+    expect(store.currentInstrument).toBe("piano");
+    expect(store.shape).toEqual({ cutoff: 2400, resonance: 3.2, room: 0.35, delay: 0, attack: null, release: 0.9 });
+    expect(Object.keys(store.instrumentShapes).sort()).toEqual(["gm_flute", "gm_vibraphone", "piano", "sawtooth"]);
+
+    expect(writtenKeys()).toEqual([BACKUP, KEY]);
+    expect(storage.getItem(BACKUP)).toBe(capturedPayload);
+    expect(JSON.parse(storage.getItem(KEY)!)).toEqual({ $version: 1, data: JSON.parse(capturedPayload) });
+  });
+
+  it("round-trips the migrated payload: a second load reads v1 and changes nothing", async () => {
+    window.localStorage.setItem(KEY, capturedPayload);
+    const first = freshStore();
+    await first.setInstrument("gm_vibraphone");
+    await nextTick();
+    const v1 = storage.getItem(KEY)!;
+    vi.clearAllMocks();
+
+    const second = freshStore();
+
+    expect(second.currentInstrument).toBe("gm_vibraphone");
+    expect(second.shape).toEqual({ cutoff: 12000, resonance: 0, room: 0, delay: 0.25, attack: 0.04, release: null });
+    expect(second.instrumentShapes).toEqual(first.instrumentShapes);
+    expect(writtenKeys()).toEqual([]);
+    expect(storage.getItem(KEY)).toBe(v1);
+  });
+
+  it("migrates a payload a real Chrome profile stored", () => {
+    window.localStorage.setItem(KEY, headlessChromePayload);
+
+    const store = freshStore();
+
+    expect(store.currentInstrument).toBe("triangle");
+    expect(storage.getItem(BACKUP)).toBe(headlessChromePayload);
+    expect(JSON.parse(storage.getItem(KEY)!)).toEqual({ $version: 1, data: JSON.parse(headlessChromePayload) });
+  });
+
+  it("keeps the captured payload when the backup can't be written, playing on it and saying so", async () => {
+    window.localStorage.setItem(KEY, capturedPayload);
+    const restore = fillStorage();
+
+    const store = freshStore();
+    expect(store.currentInstrument).toBe("piano");
+    expect(store.shape.cutoff).toBe(2400);
+    expect(saveFailureNotice.value?.message).toBe("Can't save — storage full");
+
+    store.setSynthControl("cutoff", 600);
+    await store.setInstrument("gm_flute");
+    await nextTick();
+    restore();
+    expect(storage.getItem(KEY)).toBe(capturedPayload);
+    expect(storage.getItem(BACKUP)).toBeNull();
+    expect(store.instrumentShapes.piano.cutoff).toBe(600);
+  });
+
+  it("leaves a payload from a newer app untouched while this page plays on defaults", async () => {
+    const newer = JSON.stringify({ $version: 2, data: { selection: { id: "piano" }, shapes: [] } });
+    window.localStorage.setItem(KEY, newer);
+
+    const store = freshStore();
+    expect(store.currentInstrument).toBe(DEFAULT_INSTRUMENT);
+
+    await store.setInstrument("gm_flute");
+    store.setSynthControl("room", 0.5);
+    await nextTick();
+
+    expect(storage.getItem(KEY)).toBe(newer);
+    expect(saveFailureNotice.value?.message).toBe("Can't save — reload to update");
+  });
+
+  it("keeps corrupt saved bytes in a backup and starts on defaults", async () => {
+    window.localStorage.setItem(KEY, capturedPayload.slice(0, 40));
+
+    const store = freshStore();
+    expect(store.currentInstrument).toBe(DEFAULT_INSTRUMENT);
+    expect(storage.getItem(`${KEY}.backup.unreadable.2026-10-10`)).toBe(capturedPayload.slice(0, 40));
+
+    await store.setInstrument("gm_flute");
+    await nextTick();
+    expect(JSON.parse(storage.getItem(KEY)!).data.currentInstrument).toBe("gm_flute");
+    expect(storage.getItem(`${KEY}.backup.unreadable.2026-10-10`)).toBe(capturedPayload.slice(0, 40));
+  });
+
+  it("reports an autosave whose encode throws instead of failing silently", async () => {
+    const store = freshStore();
+    await store.setInstrument("piano");
+    await nextTick();
+    const before = storage.getItem(KEY);
+
+    // A value JSON can't encode reaches the saved state.
+    (store.instrumentShapes as Record<string, unknown>).piano = { cutoff: BigInt(1) };
+    await nextTick();
+
+    expect(saveFailureNotice.value?.message).toBe("Can't save");
+    expect(storage.getItem(KEY)).toBe(before);
+  });
+
+  it("restores the pre-migration backup from the console", () => {
+    window.localStorage.setItem(KEY, capturedPayload);
+    freshStore();
+    const target: Record<string, unknown> = {};
+    installBackupConsole(target);
+    const backups = target.emotitoneBackups as {
+      list: () => Array<{ backupKey: string }>;
+      restore: (key: string) => { ok: boolean };
+    };
+
+    expect(backups.list().map((entry) => entry.backupKey)).toEqual([BACKUP]);
+    expect(backups.restore(BACKUP).ok).toBe(true);
+    expect(storage.getItem(KEY)).toBe(capturedPayload);
+
+    // The next page load migrates the restored bytes again, as on day one.
+    const reloaded = freshStore();
+    expect(reloaded.currentInstrument).toBe("piano");
+    expect(JSON.parse(storage.getItem(KEY)!).$version).toBe(1);
   });
 });

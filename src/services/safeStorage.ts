@@ -8,12 +8,15 @@ import { createPersistedState } from "pinia-plugin-persistedstate";
  * left exactly as it was.
  */
 
-export type SaveFailureKind = "quota" | "unknown";
+export type SaveFailureKind = "quota" | "unknown" | "newer";
 
 /** What the player reads. Later kinds (e.g. a full phrase shelf) add a row here. */
 export const SAVE_FAILURE_MESSAGES: Record<SaveFailureKind, string> = {
   quota: "Can't save — storage full",
   unknown: "Can't save",
+  // A newer EmotiTone saved this device's data; this (older) page must not
+  // overwrite it. Reloading picks up the newer app.
+  newer: "Can't save — reload to update",
 };
 
 interface FailureBurst {
@@ -126,6 +129,8 @@ export function isQuotaExceeded(error: unknown): boolean {
 }
 
 export interface SafeStorage extends Pick<Storage, "getItem" | "setItem" | "removeItem"> {
+  /** Every stored key (empty when storage is unavailable). */
+  keys(): string[];
   /**
    * Like setItem, but says whether the value was actually stored. Pass
    * `{ oneOff: true }` for an explicit save that nothing will retry.
@@ -182,6 +187,20 @@ export function createSafeStorage(
         backend()?.removeItem(key);
       } catch (error) {
         console.error(`Failed to remove "${key}" from storage:`, error);
+      }
+    },
+    keys: () => {
+      try {
+        const storage = backend();
+        if (!storage) return [];
+        const found: string[] = [];
+        for (let index = 0; index < storage.length; index += 1) {
+          const key = storage.key(index);
+          if (key !== null) found.push(key);
+        }
+        return found;
+      } catch {
+        return [];
       }
     },
     write,

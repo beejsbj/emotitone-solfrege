@@ -12,7 +12,8 @@ import {
 import { needsLivePlaybackPreparation } from "@/services/livePlayback";
 import { getLiveArticulation } from "@/services/liveArticulation";
 import { canonicalShape, isSameShape, NEUTRAL_SHAPE } from "@/services/shape";
-import { deserializeInstrumentState } from "@/services/instrumentPersistence";
+import { instrumentPersistence } from "@/services/instrumentPersistence";
+import { codecPersist } from "@/services/persistenceCodec";
 import type { Shape } from "@/types/instrument";
 
 export type InstrumentSelectionResult =
@@ -351,15 +352,14 @@ export const useInstrumentStore = defineStore("instrument", () => {
     recallShape,
   };
 }, {
-  persist: {
-    key: "emotitone-instrument",
+  // Saved through the versioned codec: decoding validates the instrument and
+  // sanitizes every Shape, and older formats are backed up before migrating.
+  // afterHydrate then pushes the restored Shape to live audio, since setup
+  // synced defaults before hydration ran.
+  persist: codecPersist(instrumentPersistence, {
     pick: ["currentInstrument", "instrumentShapes"],
-    // Deserialization validates the instrument and sanitizes every Shape;
-    // afterHydrate then pushes the restored Shape to live audio, since setup
-    // synced defaults before hydration ran.
-    serializer: { serialize: JSON.stringify, deserialize: deserializeInstrumentState },
     afterHydrate: ({ store }) => {
       (store as unknown as { recallShape: () => void }).recallShape();
     },
-  },
+  }),
 });

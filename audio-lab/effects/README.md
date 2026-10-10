@@ -72,8 +72,9 @@ work and its full acceptance run. No full-core zero-allocation claim is made.
 
 ## Listening
 
-`listening/*-{before,after}.wav` contains two/three-second A4 harmonic plucks with
-one effect at a time. Both sides use the same fixed sample, avoiding a synth
+[The listening assets](https://github.com/beejsbj/emotitone-solfrege/tree/pr-assets/bjs-486) contain two/three-second A4 harmonic plucks with
+one effect at a time. Regeneration writes WAVs and metrics to
+`/tmp/emotitone-effects-listening`, outside the source tree. Both sides use the same fixed sample, avoiding a synth
 or sample-loader change. The delay clip is limited to the frozen two-second response window.
 The baseline is convolution with the **frozen**
 superdough responses; the new side uses worklet DSP and app-native buses.

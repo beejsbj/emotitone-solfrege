@@ -17,18 +17,21 @@ function wav(channels: number[][]) {
 }
 it('provides short before/after WAVs with measured differences for listening', async () => {
   if (process.env.RENDER_EFFECT_LISTENING !== '1') {
-    for (const name of ['filter', 'delay', 'room']) for (const side of ['before', 'after']) {
-      expect(readFileSync(`audio-lab/effects/listening/${name}-${side}.wav`).subarray(0, 4).toString()).toBe('RIFF')
-    }
+    const encoded = wav([[0, 1, -1], [.5, 2, -2]])
+    expect(encoded.subarray(0, 4).toString()).toBe('RIFF')
+    expect(encoded.readUInt32LE(40)).toBe(12)
+    expect(Array.from({ length: 6 }, (_, i) => encoded.readInt16LE(44 + i * 2)))
+      .toEqual([0, 16384, 32767, 32767, -32767, -32767])
     return
   }
   await promisify(execFile)('node', ['audio-lab/effects/capture.mjs', '/tmp/emotitone-effects-listening.json', 'listening'], { timeout: 120000 })
   const { clips } = JSON.parse(readFileSync('/tmp/emotitone-effects-listening.json', 'utf8'))
-  mkdirSync('audio-lab/effects/listening', { recursive: true })
+  const output = '/tmp/emotitone-effects-listening'
+  mkdirSync(output, { recursive: true })
   const metrics = clips.map((clip: any) => {
     for (const side of ['before', 'after']) {
       expect(clip[side][0].some((sample: number) => Math.abs(sample) > .01)).toBe(true)
-      writeFileSync(`audio-lab/effects/listening/${clip.name}-${side}.wav`, wav(clip[side]))
+      writeFileSync(`${output}/${clip.name}-${side}.wav`, wav(clip[side]))
     }
     let maxError = 0, errorPower = 0
     for (let c = 0; c < clip.before.length; c++) for (let i = 0; i < clip.before[c].length; i++) {
@@ -40,6 +43,6 @@ it('provides short before/after WAVs with measured differences for listening', a
     if (clip.name !== 'room') expect(maxError).toBeLessThan(2e-6)
     return { name: clip.name, shape: clip.shape, maxError, rmsError: Math.sqrt(errorPower / (clip.before.length * clip.before[0].length)) }
   })
-  writeFileSync('audio-lab/effects/listening/metrics.json', JSON.stringify(metrics, null, 2) + '\n')
+  writeFileSync(`${output}/metrics.json`, JSON.stringify(metrics, null, 2) + '\n')
   expect(clips).toHaveLength(3)
 }, 120000)

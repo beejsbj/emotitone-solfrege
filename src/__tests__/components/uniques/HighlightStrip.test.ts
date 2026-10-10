@@ -270,4 +270,15 @@ describe("HighlightStrip", () => {
 
     expect(wrapper.find('a[aria-label="Open in Strudel"]').exists()).toBe(false);
   });
+
+  it("lights every stem of a played note whose duration is the implicit base 1", () => {
+    const wrapper = mountStrip({
+      listening: false,
+      tokens: [{ type: "note", note: "do", text: "Do", progress: 1 }],
+    });
+    const marks = event(wrapper, 0).findAll(".code-strip__duration-mark");
+
+    expect(marks.length).toBe(16);
+    expect(marks.every((mark) => mark.classes().includes("code-strip__duration-mark--lit"))).toBe(true);
+  });
 });

@@ -258,7 +258,10 @@ const eventProgress = (token: CodeStripToken) => {
  * enters that segment; the Note itself carries the continuous fill.
  */
 const isStemLit = (token: CodeStripToken, markIndex: number) => {
-  const segments = "duration" in token ? durationMarks(token.duration) : 0;
+  // An omitted duration is the implicit base 1, not "no stems".
+  const segments = token.type === "note" || token.type === "chord" || token.type === "rest"
+    ? durationMarks(token.duration)
+    : 0;
   return eventProgress(token) * segments > markIndex - 1;
 };
 

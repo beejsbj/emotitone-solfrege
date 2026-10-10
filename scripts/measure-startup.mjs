@@ -163,7 +163,7 @@ try {
     })()`);
     await waitFor(`!!document.querySelector('[data-testid="instrument-option-gm_epiano1"]')`);
   } else {
-    await waitFor(`!!document.querySelector('[data-testid="instrument-option-triangle"]')`);
+    await waitFor(`!!document.querySelector('[data-testid="instrument-option-${savedInstrument}"]')`);
   }
   assert.deepEqual(exceptions, [], 'Uncaught browser exceptions');
   console.log(JSON.stringify({ savedInstrument, selectedInstrument, offlinePanels, preGestureRequests, cachedBeforeGesture,

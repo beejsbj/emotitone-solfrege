@@ -9,14 +9,18 @@
       "gzip": 862.01
     },
     "after": {
-      "raw": 2698.77,
-      "gzip": 785.84
+      "raw": 2700.11,
+      "gzip": 786.29
     },
     "reductionPercent": {
-      "raw": 13.0,
-      "gzip": 8.84
+      "raw": 12.95,
+      "gzip": 8.78
     },
-    "note": "Measured before PR #163 (HighlightStrip) merges; its independent CodeMirror removal will change these numbers."
+    "note": "Final build after merging origin/main f270c83c and applying the review fixes (application head f9c1ab39). Baseline remains the recorded 4f0f779c build; this comparison includes the intervening mainline changes. PR #163 has not merged.",
+    "initialImplementationAfter": {
+      "raw": 2698.77,
+      "gzip": 785.84
+    }
   },
   "separateLazyChunks": [
     "StyleGuide",
@@ -26,8 +30,9 @@
   ],
   "pwaPrecache": {
     "beforeEntries": 100,
-    "afterEntries": 17,
-    "note": "Deferred JS and CSS are cached on first use. Default-synth boot modules remain precached; unopened optional surfaces need a connection for first use."
+    "afterEntries": 28,
+    "note": "Config and Instrument Picker JS, static dependencies and CSS are precached for offline first opening. Style guide and soundfont catalog remain deferred and cache on use.",
+    "initialImplementationAfterEntries": 17
   },
   "coldPianoBefore": {
     "playToReadyMs": 1307.8,
@@ -57,14 +62,16 @@
   "browserChecks": {
     "commands": [
       "bun run measure:startup",
-      "SAVED_INSTRUMENT=gm_epiano1 bun run measure:startup"
+      "SAVED_INSTRUMENT=gm_epiano1 bun run measure:startup",
+      "OFFLINE_PANELS=1 bun run measure:startup"
     ],
     "passed": [
       "No MP3/audio or remote soundfont preset requests before Play",
-      "Deferred surface chunks absent from page requests and service-worker CacheStorage before Play",
+      "Style guide and soundfont catalog absent from page requests and service-worker CacheStorage before Play; Config and Instrument Picker JS and CSS precached",
       "Selected persisted sound retained after Play",
       "First key produces PCM after selected instrument preparation",
-      "Config, picker and real GM catalog render after loading"
+      "Config, picker and real GM catalog render after loading",
+      "Previously unopened Config and Instrument Picker render with networking disabled"
     ],
     "limitations": [
       "Single headless Chrome on a shared host; no phone or speaker/hardware latency measurement",
@@ -73,5 +80,26 @@
       "Baseline captured using the same CDP/AnalyserNode probe before the reusable package script existed"
     ]
   },
-  "startupTradeoff": "Cold selected-bank download moves from page load onto Play. The splash stays up until preparation succeeds or the established synth fallback is ready."
+  "startupTradeoff": "Cold selected-bank download moves from page load onto Play. The splash stays up until preparation succeeds or the established synth fallback is ready.",
+  "reviewVerification": {
+    "applicationCommit": "f9c1ab39",
+    "localTests": 3506,
+    "testFiles": 183,
+    "build": "passed, including lazy-boundary and precache contracts",
+    "lint": "0 errors, 215 existing warnings",
+    "coldPianoOfflinePanels": {
+      "playToReadyMs": 3165.3,
+      "pointerdownToObservedPcmMs": 129.3,
+      "audioRequestsBeforeGesture": 0,
+      "offlinePanels": true,
+      "uncaughtExceptions": 0
+    },
+    "coldGmEpiano1": {
+      "playToReadyMs": 1446.2,
+      "pointerdownToObservedPcmMs": 107.6,
+      "audioRequestsBeforeGesture": 0,
+      "offlinePanels": false,
+      "uncaughtExceptions": 0
+    }
+  }
 }

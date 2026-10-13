@@ -1,5 +1,7 @@
 // @vitest-environment node
-import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { FlatESLint } from "eslint/use-at-your-own-risk";
@@ -44,6 +46,7 @@ const STORES = "design-law/no-store-imports";
 const SERVICES = "design-law/no-production-service-imports";
 const BRAND = "design-law/no-brand-colour";
 const RAW = "design-law/no-raw-colour";
+const BUTTON = "design-law/no-bespoke-button";
 
 describe("import boundary: primitives and compounds", () => {
   const primitive = "src/components/primatives/FreshPrimitive.vue";
@@ -80,6 +83,13 @@ describe("import boundary: primitives and compounds", () => {
     expect(await eslintRules(compound, vue('const load = () => import("@/stores/music");\nload;'))).toContain(STORES);
   });
 
+  it("resolves root-absolute paths such as /src/stores/music (BJS-520)", async () => {
+    expect(await eslintRules(primitive, vue('import { useMusicStore } from "/src/stores/music";\nuseMusicStore();'))).toContain(STORES);
+    expect(await eslintRules(compound, vue('export const x = import("/src/services/stageAudio");'))).toContain(SERVICES);
+    expect(await eslintRules(compound, vue('import { x } from "/src/services/musicColor";\nx;'))).toEqual([]);
+    expect(await eslintRules(compound, vue('import { x } from "/node_modules/gsap/index.js";\nx;'))).toEqual([]);
+  });
+
   it("forbids the playback engine and exempts colocated specs", async () => {
     expect(await eslintRules(primitive, vue('import { createPlayStyleEngine } from "@/services/playStyles"; void createPlayStyleEngine;'))).toContain(SERVICES);
     expect(await eslintRules("src/components/primatives/fresh.spec.ts", 'import { s } from "@/stores/music"; export const c = "#123456"; void s;')).toEqual([]);
@@ -104,6 +114,48 @@ describe("import boundary: primitives and compounds", () => {
   it("does not apply outside primitives and compounds", async () => {
     const code = vue('import { useMusicStore } from "@/stores/music";\nuseMusicStore();');
     expect(await eslintRules("src/components/FreshPanel.vue", code)).toEqual([]);
+  });
+});
+
+describe("use the primitives: no bespoke buttons", () => {
+  const panel = "src/components/FreshPanel.vue";
+
+  it("rejects a raw <button> in a playing-zone component, compounds and uniques included", async () => {
+    for (const path of [panel, "src/components/compounds/FreshCompound.vue", "src/components/uniques/Fresh/index.vue"]) {
+      expect(await eslintRules(path, vue("", "<button type=\"button\" @click=\"go\">Go</button>")), path).toContain(BUTTON);
+    }
+    expect(await eslintRules("src/components/fresh.tsx", "export const view = <button>Go</button>;")).toContain(BUTTON);
+  });
+
+  it("rejects an <a> with its own visual styling, but not a plain link", async () => {
+    for (const anchor of ['<a href="/x" class="rounded px-3">Go</a>', '<a href="/x" :class="{ on }">Go</a>', '<a href="/x" style="padding: 4px">Go</a>', '<a href="/x" role="button">Go</a>']) {
+      expect(await eslintRules(panel, vue("", anchor)), anchor).toContain(BUTTON);
+    }
+    expect(await eslintRules("src/components/fresh.tsx", 'export const view = <a href="/x" className="pill">Go</a>;')).toContain(BUTTON);
+    expect(await eslintRules(panel, vue("", '<a href="/credits">Credits</a>'))).toEqual([]);
+  });
+
+  it("accepts the Button primitive and other components, however they are spelled", async () => {
+    const code = vue('import Button from "@/components/primatives/Button.vue";\nvoid Button;', '<Button accessible-name="Go">Go</Button><button-group /><span class="button" />');
+    expect(await eslintRules(panel, code)).toEqual([]);
+  });
+
+  it("does not apply inside the primitives folder, the brand zone or tests", async () => {
+    const code = vue("", '<button type="button">Go</button>');
+    for (const path of ["src/components/primatives/FreshControl.vue", "src/components/primatives/Knob/Fresh.vue", "src/components/compositions/LoadingScreen.vue", "src/style-guide/FreshPage.vue"]) {
+      expect(await eslintRules(path, code), path).toEqual([]);
+    }
+  });
+
+  it("lets a file with recorded debt keep it, and fails when it gains another or pays one down", async () => {
+    const path = "src/components/compounds/Key.vue";
+    const key = read(path);
+    expect(baseline["no-bespoke-button"][path]).toBe(1);
+    expect(await eslintRules(path, key)).toEqual([]);
+    expect(await eslintRules(path, key.replace("</template>", "<button>More</button></template>"))).toContain(BUTTON);
+    const paidDown = await eslintProblems(path, vue("export {};"));
+    expect(paidDown.map((p) => p.rule)).toContain(BUTTON);
+    expect(paidDown.map((p) => p.message).join()).toMatch(/lower it with "bun run lint:baseline"/i);
   });
 });
 
@@ -243,6 +295,26 @@ describe("colour law in script and template", () => {
     expect(await eslintRules("src/components/primatives/fresh.js", 'import { s } from "@/stores/music";\nexport default s;')).toContain(STORES);
   });
 
+  it("rejects named colours in SVG paint attributes, static and bound (BJS-520)", async () => {
+    for (const template of ['<svg><path fill="white" /></svg>', '<svg><path :stroke="\'black\'" /></svg>', '<svg><stop stop-color="red" /></svg>', '<svg><path fill="tomato" /></svg>']) {
+      expect(await eslintRules(playing, vue("", template)), template).toEqual([template.includes("tomato") ? BRAND : RAW]);
+    }
+    expect(await eslintRules("src/components/fresh.tsx", 'export const view = <svg><path fill="white" /></svg>;')).toContain(RAW);
+    expect(await eslintRules(playing, vue("", '<svg><path fill="none" stroke="currentColor" /><path :fill="`var(--ivory)`" /></svg><Sticker color="ivory" />'))).toEqual([]);
+  });
+
+  it("rejects named colours inside computed callbacks, but not unrelated strings there (BJS-520)", async () => {
+    for (const script of [
+      'const color = computed(() => "white");\nvoid color;',
+      'const style = computed(() => ({ color: "white" }));\nvoid style;',
+      'const stroke = computed(() => { return on.value ? "black" : "var(--ink)"; });\nvoid stroke;',
+    ]) {
+      expect(await eslintRules(playing, vue(`import { computed, ref } from "vue";\nconst on = ref(true);\n${script}`)), script).toEqual([RAW]);
+    }
+    const fine = 'const label = computed(() => (on.value === "white" ? "white" : "ink"));\nconst color = computed(() => (on.value ? "var(--ivory)" : "ivory"));\nvoid [label, color];';
+    expect(await eslintRules(playing, vue(`import { computed, ref } from "vue";\nconst on = ref(true);\n${fine}`))).toEqual([]);
+  });
+
   it("allows tokens, transparent, currentColor and ordinary strings", async () => {
     const code = vue(
       'const a = "var(--ink)";\nconst b = "var(--brass)";\nconst c = "transparent";\nconst d = "currentColor";\nconst e = "pine-tree";\n[a, b, c, d, e];',
@@ -351,5 +423,42 @@ describe("colour law in styles", () => {
     expect(await styleProblems("src/components/uniques/BrandLogo.vue", vue("", "<div />", css))).toEqual([]);
     expect(await styleProblems("src/style-guide/FreshPage.vue", vue("", "<div />", css))).toEqual([]);
     expect(await styleProblems("src/emotitone-design-system.css", ":root { --tomato: #d8362a; }")).toEqual([]);
+  });
+});
+
+describe("an unreadable baseline stops the lint instead of passing it (BJS-520)", () => {
+  const bad = ["", "{", "[]", '{"no-raw-colour": {"src/a.vue": "three"}}', '{"no-raw-colour": {"src/a.vue": -1}}'];
+  const withBaseline = (contents: string | null, run: (file: string) => void) => {
+    const dir = mkdtempSync(resolve(tmpdir(), "design-law-baseline-"));
+    const file = resolve(dir, "baseline.json");
+    try {
+      if (contents !== null) writeFileSync(file, contents);
+      run(file);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+  const node = (script: string, args: string[], file: string, input?: string) =>
+    spawnSync(process.execPath, [resolve(root, script), ...args], { cwd: root, input, encoding: "utf8", env: { ...process.env, DESIGN_LAW_BASELINE_FILE: file } });
+
+  it("makes ESLint fail with a message naming the baseline, for a missing, empty or malformed file", { timeout: 60_000 }, () => {
+    for (const contents of [null, ...bad]) {
+      withBaseline(contents, (file) => {
+        const result = node("node_modules/.bin/eslint", ["--stdin", "--stdin-filename", "src/components/FreshPanel.vue"], file, vue("export {};"));
+        expect(result.status, String(contents)).not.toBe(0);
+        expect(result.stderr, String(contents)).toMatch(/design-law baseline .* (?:is unreadable|is malformed)/);
+      });
+    }
+  });
+
+  it("refuses to rebuild the baseline from scratch without --allow-growth, and leaves the file alone", { timeout: 60_000 }, () => {
+    for (const contents of bad) {
+      withBaseline(contents, (file) => {
+        const result = node("lint/updateBaseline.mjs", [], file);
+        expect(result.status, contents).toBe(1);
+        expect(result.stderr, contents).toMatch(/--allow-growth/);
+        expect(readFileSync(file, "utf8")).toBe(contents);
+      });
+    }
   });
 });

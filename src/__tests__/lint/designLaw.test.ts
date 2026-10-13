@@ -311,8 +311,22 @@ describe("colour law in script and template", () => {
     ]) {
       expect(await eslintRules(playing, vue(`import { computed, ref } from "vue";\nconst on = ref(true);\n${script}`)), script).toEqual([RAW]);
     }
-    const fine = 'const label = computed(() => (on.value === "white" ? "white" : "ink"));\nconst color = computed(() => (on.value ? "var(--ivory)" : "ivory"));\nvoid [label, color];';
+    const fine = 'const label = computed(() => (on.value === "white" ? "white" : "ink"));\nconst tone = computed(() => (on.value ? "brass" : "ivory"));\nvoid [label, tone];';
     expect(await eslintRules(playing, vue(`import { computed, ref } from "vue";\nconst on = ref(true);\n${fine}`))).toEqual([]);
+  });
+
+  it("allows Ivory tone names but rejects CSS ivory in styles, SVG and computed colours", async () => {
+    for (const template of ['<div :style="{ color: \'ivory\' }" />', '<svg><path fill="ivory" /></svg>', '<svg><path :stroke="\'ivory\'" /></svg>']) {
+      expect(await eslintRules(playing, vue("", template)), template).toEqual([RAW]);
+    }
+    for (const script of ['const color = "ivory";', 'const color = computed(() => "ivory");', 'const style = computed(() => ({ color: "ivory" }));']) {
+      expect(await eslintRules(playing, vue(`${script}\nvoid 0;`)), script).toEqual([RAW]);
+    }
+    expect(await eslintRules("src/components/fresh.tsx", 'export const view = <svg><path fill="ivory" /></svg>;')).toEqual([RAW]);
+    expect(await eslintRules(playing, vue("", '<Mark tone="ivory" /><Sticker :color="\'ivory\'" /><div :style="{ color: \'var(--ivory)\' }" />'))).toEqual([]);
+    const token = 'const resolvedColor = computed<StickerPaperColor>(() => props.color ?? "ivory");';
+    expect(await eslintRules(playing, vue(token))).toEqual([]);
+    expect(await eslintRules(playing, vue(token.replace('"ivory"', '"white"')))).toEqual([RAW]);
   });
 
   it("allows tokens, transparent, currentColor and ordinary strings", async () => {

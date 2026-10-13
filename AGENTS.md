@@ -46,7 +46,9 @@ The record of decisions is `docs/retrospective-spec.md` (PR #143; until it merge
 **Known limits.** The lint guards against accidents, not adversaries. Closed: named colours in SVG paint attributes (`fill`, `stroke`, `stop-color`, `flood-color`, `lighting-color`), colours in `computed()` callbacks, root-absolute imports (`/src/stores/x`), and an unreadable baseline (a missing, empty or malformed `designLawBaseline.json` stops the lint, and `lint:baseline` refuses to rebuild it without `--allow-growth`). Left out, with the reason:
 - *One count per value, not per colour.* The unit of debt is the offending value or declaration; counting every colour inside it would rewrite the recorded baseline (`instrumentControl.css` 2 to 7, `Tabs.vue` 1 to 4) for a hole the next fix in that file closes anyway.
 - *Import paths built by concatenation or other obfuscation.* A leading literal or template prefix (`"@/stores/" + name`) is already checked; paths assembled from pieces (`"@/sto" + "res"`) are something nobody writes by accident.
-- *A bespoke control that is not a `<button>` or `<a>`* (`<div role="button">`, `h("button")`) and a lone `ivory` string passed as a colour (it is the Ivory token's name) are not caught.
+- *A bespoke control that is not a `<button>` or `<a>`* (`<div role="button">`, `h("button")`) is not caught; the rule checks native controls written in templates and JSX.
+
+`ivory` is a token name in tone props and Sticker's `computed<StickerPaperColor>` derivation; in CSS colour contexts (styles, SVG paint and other colour derivations), it is a forbidden named colour. Use `var(--ivory)` there.
 
 **The baseline.** Violations that predate the lint are counted per file and per rule in `lint/designLawBaseline.json`. A listed file may have at most its recorded count: one more fails CI, and fewer also fails until the baseline is lowered, so counts only go down. Any other file has a budget of zero.
 

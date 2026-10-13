@@ -104,6 +104,19 @@ function isColourValue(node) {
   return false;
 }
 
+/** Sticker's explicit token-name type is not a CSS colour derivation. */
+function isIvoryTone(node, text) {
+  if (text.trim().toLowerCase() !== "ivory") return false;
+  for (let parent = node.parent; parent; parent = parent.parent) {
+    if (["Property", "VAttribute", "JSXAttribute"].includes(parent.type)) return false;
+    if (["ArrowFunctionExpression", "FunctionExpression"].includes(parent.type)) {
+      const call = parent.parent;
+      return isComputedCall(call) && call.typeArguments?.params?.[0]?.typeName?.name === "StickerPaperColor";
+    }
+  }
+  return false;
+}
+
 function colourText(patterns) {
   const check = (add) => (node, text) => {
     if (typeof text !== "string") return;
@@ -121,8 +134,7 @@ function colourText(patterns) {
     text = text.replace(/url\([^)]*\)/gi, " ");
     const hit = patterns.map((p) => p.exec(text)).find(Boolean);
     if (hit) add(node, (hit[1] ?? hit[0]).trim());
-    // A lone "ivory" is the Ivory token's name (a tone or prop value), not CSS's #fffff0.
-    else if (isColourValue(node) && text.trim().toLowerCase() !== "ivory") {
+    else if (isColourValue(node) && !isIvoryTone(node, text)) {
       const kind = patterns === RAW_COLOUR_PATTERNS ? "raw" : "brand";
       const named = styleDeclarationViolations("color", text)[kind];
       if (named) add(node, named);

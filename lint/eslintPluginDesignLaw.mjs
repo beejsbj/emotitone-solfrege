@@ -141,7 +141,7 @@ function isColourValue(node) {
 
 /** Sticker's explicit token-name type is not a CSS colour derivation. */
 function isIvoryTone(node, text) {
-  if (text.trim().toLowerCase() !== "ivory") return false;
+  if (text.trim().toLowerCase() !== "ivory" || !isComputedReturn(node)) return false;
   for (let parent = node.parent; parent; parent = parent.parent) {
     if (["Property", "VAttribute", "JSXAttribute"].includes(parent.type)) return false;
     if (["ArrowFunctionExpression", "FunctionExpression"].includes(parent.type)) {

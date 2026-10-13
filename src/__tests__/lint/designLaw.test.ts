@@ -353,6 +353,7 @@ describe("colour law in script and template", () => {
     const token = 'const resolvedColor = computed<StickerPaperColor>(() => props.color ?? "ivory");';
     expect(await eslintRules(playing, vue(token))).toEqual([]);
     expect(await eslintRules(playing, vue(token.replace('"ivory"', '"white"')))).toEqual([RAW]);
+    expect(await eslintRules(playing, vue('const resolvedColor = computed<StickerPaperColor>(() => { el.style.color = "ivory"; return props.color ?? "ivory"; });'))).toEqual([RAW]);
   });
 
   it("checks writable computed getters without treating setter strings as colours", async () => {

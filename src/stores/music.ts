@@ -3,7 +3,6 @@ import { resumeAudioContext, registerAudioActivity } from "@/services/audioLifec
 import { defineStore } from "pinia";
 import { ref, computed, readonly, watch, onScopeDispose } from "vue";
 import { musicTheory, CHROMATIC_NOTES } from "@/services/music";
-import { getModeDefinition } from "@/data";
 import type {
   SolfegeData,
   MusicalMode,
@@ -96,6 +95,16 @@ export const useMusicStore = defineStore(
     // State
     const currentKey = ref<string>("C");
     const currentMode = ref<MusicalMode>("major");
+    // Sole writer of the shared theory context. Persistence and $patch bypass
+    // the actions, so synchronize before any audio or display reader can run.
+    watch(
+      [currentKey, currentMode],
+      ([key, mode]) => {
+        musicTheory.setCurrentKey(key as ChromaticNote);
+        musicTheory.setCurrentMode(mode);
+      },
+      { immediate: true, flush: "sync" },
+    );
     const currentNote = ref<string | null>(null); // Keep for backward compatibility
     const activeNotes = ref<Map<string, ActiveNote>>(new Map());
     const fallbackArticulations = new Map<string, LiveArticulation>();
@@ -357,7 +366,7 @@ export const useMusicStore = defineStore(
       const tonal = TonalNote.get(exactName);
       if (tonal.midi == null || !tonal.freq) return null;
       const solfegeIndex = currentScaleNotes.value.indexOf(parsed.noteName);
-      const solfege = pitchSolfegeData(parsed.noteName, { tonic: currentKey.value, mode: currentMode.value }, visualConfigStore.laBasedMinor);
+      const solfege = pitchSolfegeData(parsed.noteName, { tonic: musicTheory.getCurrentKey(), mode: musicTheory.getCurrentMode() }, visualConfigStore.laBasedMinor);
       if (!solfege) return null;
       // A sleeping/interrupted graph (or route rebuild) must finish before the
       // renderer is selected or the input is submitted. Keep running input sync.
@@ -430,38 +439,27 @@ export const useMusicStore = defineStore(
     }
 
     // Getters
-    const currentScale = computed(() => {
-      // Bind the singleton service to reactive store state so downstream
-      // consumers like the keyboard and visual systems actually refresh
-      // when mode or key changes after initial mount.
-      musicTheory.setCurrentKey(currentKey.value as ChromaticNote);
-      musicTheory.setCurrentMode(currentMode.value);
-      return musicTheory.getCurrentScale();
-    });
+    const currentScale = computed(() => musicTheory.getCurrentScale());
     const currentModeDefinition = computed(() =>
-      getModeDefinition(currentMode.value)
+      musicTheory.getCurrentModeDefinition()
     );
 
-    const currentScaleNotes = computed(() => {
-      musicTheory.setCurrentKey(currentKey.value as ChromaticNote);
-      musicTheory.setCurrentMode(currentMode.value);
-      return musicTheory.getCurrentScaleNotes();
-    });
+    const currentScaleNotes = computed(() => musicTheory.getCurrentScaleNotes());
 
     const solfegeData = computed(() => {
       return currentScaleNotes.value.map((pitch) => pitchSolfegeData(
-        pitch, { tonic: currentKey.value, mode: currentMode.value }, visualConfigStore.laBasedMinor,
+        pitch, { tonic: musicTheory.getCurrentKey(), mode: musicTheory.getCurrentMode() }, visualConfigStore.laBasedMinor,
       )!);
     });
 
     const currentKeyDisplay = computed(() => {
-      return `${currentKey.value} ${currentModeDefinition.value.label}`;
+      return `${musicTheory.getCurrentKey()} ${currentModeDefinition.value.label}`;
     });
 
     function getCurrentNoteContext() {
       return {
-        mode: currentMode.value,
-        key: currentKey.value as ChromaticNote,
+        mode: musicTheory.getCurrentMode(),
+        key: musicTheory.getCurrentKey() as ChromaticNote,
       };
     }
 
@@ -473,7 +471,7 @@ export const useMusicStore = defineStore(
     ): number {
       const noteIndex = CHROMATIC_NOTES.indexOf(noteName);
       const keyIndex = CHROMATIC_NOTES.indexOf(
-        currentKey.value as ChromaticNote
+        musicTheory.getCurrentKey() as ChromaticNote
       );
 
       if (noteIndex === -1 || keyIndex === -1) {
@@ -528,26 +526,11 @@ export const useMusicStore = defineStore(
     // Actions
     function setKey(key: string) {
       currentKey.value = key;
-      musicTheory.setCurrentKey(key as ChromaticNote);
     }
 
     function setMode(mode: MusicalMode) {
       currentMode.value = mode;
-      musicTheory.setCurrentMode(mode);
     }
-
-    // Keep the MusicTheoryService singleton in sync with Pinia-persisted state.
-    // Pinia's persist plugin restores ref values directly (bypassing setKey/setMode),
-    // so a watcher with immediate:true ensures the service is always up-to-date
-    // before any component calls getNoteName().
-    watch(
-      [currentKey, currentMode],
-      ([key, mode]) => {
-        musicTheory.setCurrentKey(key as ChromaticNote);
-        musicTheory.setCurrentMode(mode);
-      },
-      { immediate: true }
-    );
 
     watch(
       () => visualConfigStore.laBasedMinor,

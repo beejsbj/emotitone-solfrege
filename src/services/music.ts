@@ -1,4 +1,5 @@
 import { pitchSolfegeData } from "@/domain/musicalIdentity";
+import { reactive } from "vue";
 // Music Theory Service for Emotitone Solfege
 // Handles all music theory calculations, scales, and interval-driven identities.
 
@@ -272,4 +273,6 @@ export class MusicTheoryService {
   }
 }
 
-export const musicTheory = new MusicTheoryService();
+// The music store synchronizes this shared context. Reactive reads let display
+// computeds refresh without mutating it; audio reads the same instance directly.
+export const musicTheory = reactive(new MusicTheoryService());

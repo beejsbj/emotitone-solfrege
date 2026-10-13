@@ -1,7 +1,19 @@
-// @ts-ignore — superdough ships no TypeScript declarations.
-import { getSound, getSampleInfo, getLoadedBuffer, loadBuffer } from "superdough";
-import type { LiveEnvelope } from "../audio/live/types";
+import type { LiveSampleZone, PreparedLiveInstrument } from "../audio/live/types";
+import { getCatalogSound, sampleZoneSources, type SampleBank, type SampleZoneSource } from "../audio/soundCatalog";
+import { parseSoundfontPreset, type SoundfontZone } from "../audio/soundfontPreset";
+import { soundfontUrl } from "../audio/sampleSources";
 import { getLiveArticulation } from "./liveArticulation";
+
+/**
+ * The instrument loader: catalog entry → owned PCM zones for the live worklet.
+ *
+ * It fetches and decodes sample and soundfont data itself (no superdough, no
+ * @strudel/soundfonts, no `eval`). Each zone is decoded, copied into its own
+ * freshly allocated Float32Array per channel, and the AudioBuffer is dropped
+ * before the next zone decodes, so at most one decoded zone coexists with the
+ * owned copy. Nothing is cached here: the bridge transfers the owned buffers
+ * to the worklet, which then holds the only copy.
+ */
 
 export interface UnsupportedLiveInstrument {
   kind: "unsupported";
@@ -15,127 +27,153 @@ export interface RetryableLiveInstrument {
 }
 /** Structural catalog failures are permanent; loading/decoding failures may retry. */
 export class UnsupportedLiveInstrumentError extends Error {}
-export interface NativeSampleZone {
-  id: string;
-  rootMidi: number;
-  lowMidi?: number;
-  highMidi?: number;
-  buffer: AudioBuffer;
-  loopStartFrame?: number;
-  loopEndFrame?: number;
-}
-export type PreparedNativeInstrument = LiveEnvelope & { instrumentId: string } & (
-  | { kind: "sample-bank"; zoneSelection: "first-range" | "nearest-root"; zones: NativeSampleZone[] }
-  | { kind: "oscillator"; waveform: "sine" | "triangle" | "square" | "sawtooth" }
-);
-export type NativeInstrumentPreparation = PreparedNativeInstrument | UnsupportedLiveInstrument | RetryableLiveInstrument;
+export type NativeInstrumentPreparation = PreparedLiveInstrument | UnsupportedLiveInstrument | RetryableLiveInstrument;
 
-interface SoundRegistration {
-  data?: { type?: string; samples?: string[] | Record<string, string[]>; fonts?: string[] };
-}
-interface FontZone {
-  buffer: AudioBuffer;
-  originalPitch: number;
-  coarseTune: number;
-  fineTune: number;
-  keyRangeLow: number;
-  keyRangeHigh: number;
-  sampleRate: number;
-  loopStart: number;
-  loopEnd: number;
-}
-interface CacheEntry { registration: SoundRegistration; pending: Promise<NativeInstrumentPreparation> }
-const caches = new WeakMap<AudioContext, Map<string, CacheEntry>>();
-const MAX_CACHED_BANKS = 8;
 const OSCILLATORS = new Set(["sine", "triangle", "square", "sawtooth"]);
+/** Encoded files fetched ahead of the zone being decoded. Bounds encoded bytes held at once. */
+const PREFETCH_WINDOW = 4;
 
-function validatedBuffer(buffer: AudioBuffer): AudioBuffer {
+/** Let queued input (key presses, pointer events) run between zones. */
+export function yieldToInput(): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, 0));
+}
+
+async function fetchOk(url: string): Promise<Response> {
+  const response = await fetch(url.replace("#", "%23"));
+  if (!response.ok) throw new Error(`Could not download ${url} (HTTP ${response.status})`);
+  return response;
+}
+
+/** Copy decoded PCM into buffers this app owns, one independent ArrayBuffer per channel. */
+function ownedChannels(buffer: AudioBuffer): Float32Array[] {
   if (!(buffer.sampleRate > 0) || !Number.isFinite(buffer.sampleRate) || buffer.length < 1 ||
       buffer.numberOfChannels < 1 || buffer.numberOfChannels > 2) {
     throw new UnsupportedLiveInstrumentError("Only valid mono/stereo PCM is supported");
   }
-  return buffer;
+  return Array.from({ length: buffer.numberOfChannels }, (_, channel) => {
+    const owned = new Float32Array(buffer.length);
+    if (typeof buffer.copyFromChannel === "function") buffer.copyFromChannel(owned, channel);
+    else owned.set(buffer.getChannelData(channel));
+    return owned;
+  });
 }
 
-async function prepare(context: AudioContext, instrumentId: string, sound: SoundRegistration): Promise<PreparedNativeInstrument> {
-  const articulation = getLiveArticulation(instrumentId);
-  const envelope = { ...articulation };
-  const data = sound.data;
-  if (data?.type === "synth" && OSCILLATORS.has(instrumentId)) {
+function decode(context: AudioContext, bytes: ArrayBuffer): Promise<AudioBuffer> {
+  return context.decodeAudioData(bytes);
+}
+
+async function loadSampleZones(context: AudioContext, instrumentId: string, bank: SampleBank): Promise<LiveSampleZone[]> {
+  let sources: SampleZoneSource[];
+  try { sources = sampleZoneSources(bank); } catch (error) {
+    throw new UnsupportedLiveInstrumentError(error instanceof Error ? error.message : "Invalid sample root pitch");
+  }
+  const downloads = new Map<number, Promise<ArrayBuffer>>();
+  let requested = 0;
+  const request = (index: number) => {
+    if (index >= sources.length || index < requested) return;
+    requested = index + 1;
+    const download = fetchOk(sources[index].url).then(response => response.arrayBuffer());
+    // A later failure is reported when its zone is reached; never as unhandled.
+    download.catch(() => {});
+    downloads.set(index, download);
+  };
+  const zones: LiveSampleZone[] = [];
+  for (let index = 0; index < sources.length; index++) {
+    for (let ahead = index; ahead < index + PREFETCH_WINDOW; ahead++) request(ahead);
+    const decoded = await decode(context, await downloads.get(index)!);
+    const channels = ownedChannels(decoded);
+    zones.push({ id: `${instrumentId}:${index}`, rootMidi: sources[index].rootMidi, sampleRate: decoded.sampleRate, channels });
+    downloads.delete(index);
+    await yieldToInput();
+  }
+  return zones;
+}
+
+function base64Bytes(base64: string): Uint8Array {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
+  return bytes;
+}
+
+/** Older fonts carry raw 16-bit little-endian PCM, scaled exactly as webaudiofont did. */
+function pcm16Channel(base64: string): Float32Array {
+  const bytes = base64Bytes(base64);
+  const output = new Float32Array(bytes.length >> 1);
+  for (let index = 0; index < output.length; index++) {
+    let value = bytes[index * 2] + bytes[index * 2 + 1] * 256;
+    if (value >= 32768) value -= 65536;
+    output[index] = value / 65536;
+  }
+  return output;
+}
+
+async function loadSoundfontZones(context: AudioContext, instrumentId: string, font: string): Promise<LiveSampleZone[]> {
+  const text = await (await fetchOk(soundfontUrl(font))).text();
+  const preset: SoundfontZone[] = parseSoundfontPreset(text);
+  const zones: LiveSampleZone[] = [];
+  for (const [index, zone] of preset.entries()) {
+    const rootMidi = (zone.originalPitch - 100 * zone.coarseTune - zone.fineTune) / 100;
+    if (![rootMidi, zone.keyRangeLow, zone.keyRangeHigh].every(Number.isFinite)) {
+      throw new UnsupportedLiveInstrumentError("Invalid soundfont tuning or key range");
+    }
+    let channels: Float32Array[];
+    let sampleRate: number;
+    if (zone.file) {
+      const decoded = await decode(context, base64Bytes(zone.file).buffer as ArrayBuffer);
+      channels = ownedChannels(decoded);
+      sampleRate = decoded.sampleRate;
+    } else {
+      channels = [pcm16Channel(zone.sample!)];
+      sampleRate = zone.sampleRate;
+      if (!(sampleRate > 0) || !channels[0].length) throw new UnsupportedLiveInstrumentError("Only valid mono/stereo PCM is supported");
+    }
+    const prepared: LiveSampleZone = {
+      id: `${instrumentId}:${index}`, rootMidi, lowMidi: zone.keyRangeLow,
+      // Match upstream findZone exactly, including its overlapping upper edge.
+      highMidi: zone.keyRangeHigh + 1, sampleRate, channels,
+    };
+    if (zone.loopStart > 1 && zone.loopStart < zone.loopEnd) {
+      if (!(zone.sampleRate > 0) || !Number.isFinite(zone.loopEnd)) throw new UnsupportedLiveInstrumentError("Invalid soundfont loop");
+      // Source loop offsets use the preset rate, while decodeAudioData can resample.
+      prepared.loopStartFrame = zone.loopStart / zone.sampleRate * sampleRate;
+      prepared.loopEndFrame = zone.loopEnd / zone.sampleRate * sampleRate;
+      if (prepared.loopEndFrame > channels[0].length) throw new UnsupportedLiveInstrumentError("Soundfont loop exceeds decoded PCM");
+    }
+    zones.push(prepared);
+    await yieldToInput();
+  }
+  return zones;
+}
+
+async function load(context: AudioContext, instrumentId: string): Promise<PreparedLiveInstrument> {
+  const envelope = { ...getLiveArticulation(instrumentId) };
+  if (OSCILLATORS.has(instrumentId)) {
     return { kind: "oscillator", instrumentId, waveform: instrumentId as "sine" | "triangle" | "square" | "sawtooth",
       gain: 0.8 * 0.3, ...envelope };
   }
-  let zones: NativeSampleZone[];
-  let zoneSelection: "first-range" | "nearest-root";
-  let gain: number;
-  if (data?.type === "soundfont" && data.fonts?.[0]) {
-    const { getPreparedSoundfont } = await import("@strudel/soundfonts");
-    const fonts: FontZone[] = await getPreparedSoundfont(data.fonts[0], context);
-    zones = fonts.map((zone, index) => {
-      const rootMidi = (zone.originalPitch - 100 * zone.coarseTune - zone.fineTune) / 100;
-      if (![rootMidi, zone.keyRangeLow, zone.keyRangeHigh].every(Number.isFinite)) {
-        throw new UnsupportedLiveInstrumentError("Invalid soundfont tuning or key range");
-      }
-      const prepared: NativeSampleZone = {
-        id: `${instrumentId}:${index}`, rootMidi, lowMidi: zone.keyRangeLow,
-        // Match upstream findZone exactly, including its overlapping upper edge.
-        highMidi: zone.keyRangeHigh + 1, buffer: validatedBuffer(zone.buffer),
-      };
-      if (zone.loopStart > 1 && zone.loopStart < zone.loopEnd) {
-        if (!(zone.sampleRate > 0) || !Number.isFinite(zone.loopEnd)) throw new UnsupportedLiveInstrumentError("Invalid soundfont loop");
-        // Source loop offsets use the preset rate, while decodeAudioData can resample.
-        prepared.loopStartFrame = zone.loopStart / zone.sampleRate * zone.buffer.sampleRate;
-        prepared.loopEndFrame = zone.loopEnd / zone.sampleRate * zone.buffer.sampleRate;
-        if (prepared.loopEndFrame > zone.buffer.length) throw new UnsupportedLiveInstrumentError("Soundfont loop exceeds decoded PCM");
-      }
-      return prepared;
-    });
-    zoneSelection = "first-range";
-    gain = 0.8 * 0.3;
-  } else if (data?.type === "sample" && data.samples) {
-    const bank = data.samples;
-    const entries = Array.isArray(bank) ? [["default", bank] as const] : Object.entries(bank).filter(([key]) => !key.startsWith("_"));
-    zones = await Promise.all(entries.map(async ([key, samples], index) => {
-      if (!Array.isArray(samples) || typeof samples[0] !== "string") throw new UnsupportedLiveInstrumentError("Unsupported sample bank entry");
-      // Use the installed sampler's pitch parser and n=0 selection. Array banks
-      // have root MIDI 36; keyed banks keep insertion-order nearest-root ties.
-      const info = getSampleInfo({ s: instrumentId, note: 0 }, Array.isArray(bank) ? samples : { [key]: samples });
-      const rootMidi = -info.transpose;
-      if (!Number.isFinite(rootMidi)) throw new UnsupportedLiveInstrumentError("Invalid sample root pitch");
-      const buffer: AudioBuffer = getLoadedBuffer(info.url.replace("#", "%23")) ?? await loadBuffer(info.url, context, instrumentId);
-      return { id: `${instrumentId}:${index}`, rootMidi, buffer: validatedBuffer(buffer) };
-    }));
-    zoneSelection = "nearest-root";
-    gain = 0.8;
-  } else {
-    throw new UnsupportedLiveInstrumentError(`Unsupported live renderer: ${data?.type ?? "unregistered"} (${instrumentId})`);
-  }
+  const sound = getCatalogSound(instrumentId);
+  if (!sound) throw new UnsupportedLiveInstrumentError(`Unsupported live renderer: ${instrumentId}`);
+  const zones = sound.kind === "soundfont"
+    ? await loadSoundfontZones(context, instrumentId, sound.fonts[0])
+    : await loadSampleZones(context, instrumentId, sound.bank);
   if (!zones.length) throw new UnsupportedLiveInstrumentError("Instrument contains no playable sample zones");
-  return { kind: "sample-bank", instrumentId, gain, ...envelope, zoneSelection, zones };
+  return {
+    kind: "sample-bank", instrumentId, gain: sound.kind === "soundfont" ? 0.8 * 0.3 : 0.8, ...envelope,
+    zoneSelection: sound.kind === "soundfont" ? "first-range" : "nearest-root", zones,
+  };
 }
 
-/** Resolve original decoded AudioBuffers at selection time. No PCM copy or DSP pyramid.
- * Unsupported/failed preparations preserve the existing renderer.
- * The bounded cache shares concurrent requests and follows sound re-registration.
- * Rejections are evicted so a transient download/decode failure can retry.
+/**
+ * Load an instrument's PCM from its catalog entry. Synthesis that the worklet
+ * cannot render and malformed data are "unsupported" (the fallback renderer
+ * keeps them); download, decode and parse failures are "retryable".
  */
-export function prepareNativeInstrument(context: AudioContext, instrumentId: string): Promise<NativeInstrumentPreparation> {
-  const sound = getSound(instrumentId) as SoundRegistration | undefined;
-  if (!sound) return Promise.resolve({ kind: "retryable", instrumentId, reason: "Sound is not registered" });
-  const cache = caches.get(context) ?? new Map<string, CacheEntry>();
-  caches.set(context, cache);
-  const existing = cache.get(instrumentId);
-  if (existing?.registration === sound) {
-    cache.delete(instrumentId); cache.set(instrumentId, existing);
-    return existing.pending;
-  }
-  const entry: CacheEntry = { registration: sound, pending: undefined! };
-  entry.pending = prepare(context, instrumentId, sound).catch(error => {
-    if (cache.get(instrumentId) === entry) cache.delete(instrumentId);
+export async function prepareNativeInstrument(context: AudioContext, instrumentId: string): Promise<NativeInstrumentPreparation> {
+  try {
+    return await load(context, instrumentId);
+  } catch (error) {
     return { kind: error instanceof UnsupportedLiveInstrumentError ? "unsupported" : "retryable",
-      instrumentId, reason: error instanceof Error ? error.message : String(error) } as const;
-  });
-  cache.set(instrumentId, entry);
-  while (cache.size > MAX_CACHED_BANKS) cache.delete(cache.keys().next().value!);
-  return entry.pending;
+      instrumentId, reason: error instanceof Error ? error.message : String(error) };
+  }
 }

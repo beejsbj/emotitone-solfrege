@@ -1,5 +1,6 @@
 import processorUrl from './processor.ts?worker&url'
 import type { LiveCommand, LiveResponse, LiveWorklet } from './types'
+import { pcmTransferList } from './pcm'
 
 let engineSerial = 0
 
@@ -32,9 +33,12 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
     rejectPending(error)
     try { callbacks.onError?.(error) } finally { dispose() }
   }
-  function post(command: LiveCommand) {
+  function post(command: LiveCommand, transfer: Transferable[] = []) {
     if (disposed) return
-    try { node.port.postMessage(command) } catch (error) {
+    try {
+      if (transfer.length) node.port.postMessage(command, transfer)
+      else node.port.postMessage(command)
+    } catch (error) {
       fail(error instanceof Error ? error : new Error(String(error)))
     }
   }
@@ -126,9 +130,11 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
           reject(new Error('Live audio instrument preparation was not acknowledged'))
         }, 5000)
         pending.set(id, { resolve, reject, timer })
-        // Structured cloning preserves borrowed AudioBuffer memory used by
-        // the fallback renderer and by the prepared instrument cache.
-        post({ type: 'prepare', requestId: id, instrument })
+        // Transfer, never clone: the worklet takes the loader's owned PCM and
+        // the main thread's views detach, leaving one copy. Every zone channel
+        // and pyramid level is its own ArrayBuffer, so no single buffer is
+        // larger than one channel of one zone.
+        post({ type: 'prepare', requestId: id, instrument }, pcmTransferList(instrument))
       })
     },
     forget(instrumentId) {

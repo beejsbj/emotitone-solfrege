@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { nextTick, reactive, watch } from 'vue'
+import { MessageChannel as NodeMessageChannel } from 'node:worker_threads'
 import { createLiveWorklet } from './bridge'
 import type { LiveResponse, LiveVoiceEvent, PreparedLiveInstrument } from './types'
 
@@ -27,7 +28,7 @@ function setup() {
 }
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers() })
 describe('production live worklet bridge', () => {
-  it('waits for instrument receipt, including with a suspended context, without transferring source buffers', async () => {
+  it('waits for instrument receipt, including with a suspended context', async () => {
     const { node, context, callbacks, drain } = setup()
     const bridge = await createLiveWorklet(context, {} as AudioNode, callbacks)
     const ready = vi.fn()
@@ -39,6 +40,33 @@ describe('production live worklet bridge', () => {
     drain()
     await pending
     expect(ready).toHaveBeenCalledOnce()
+    bridge.dispose()
+  })
+  it('transfers a sample bank to the worklet, leaving the main thread no copy', async () => {
+    const { node, context, callbacks, drain } = setup()
+    // A real message port, so the transfer list has its real effect.
+    const wire = new NodeMessageChannel()
+    const received = new Promise<any>(resolve => wire.port2.once('message', resolve))
+    node.port.postMessage = vi.fn((message: unknown, transfer?: Transferable[]) => wire.port1.postMessage(message, transfer as any))
+    const bridge = await createLiveWorklet(context, {} as AudioNode, callbacks)
+    const zone = (rootMidi: number, frames: number) => ({ id: `piano:${rootMidi}`, rootMidi, sampleRate: 48000,
+      channels: [new Float32Array(frames).fill(.25), new Float32Array(frames).fill(-.25)],
+      mipmaps: [[new Float32Array(frames / 2), new Float32Array(frames / 2)]] })
+    const piano: PreparedLiveInstrument = { kind: 'sample-bank', instrumentId: 'piano', zoneSelection: 'nearest-root',
+      gain: .8, attack: 0, decay: 0, sustain: 1, release: .2, zones: [zone(60, 4096), zone(72, 2048)] }
+    const views = piano.kind === 'sample-bank' ? piano.zones.flatMap(z => [...z.channels, ...z.mipmaps!.flat()]) : []
+    const pending = bridge.prepare(piano)
+    // Each channel and pyramid level went as its own buffer; none is left behind.
+    expect(vi.mocked(node.port.postMessage).mock.calls[0][1]).toHaveLength(views.length)
+    expect(views.every(view => view.byteLength === 0)).toBe(true)
+    const { instrument } = await received
+    expect(instrument.zones[0].channels[0]).toHaveLength(4096)
+    expect(instrument.zones[0].channels[0][17]).toBe(.25)
+    expect(instrument.zones[1].mipmaps[0][1]).toHaveLength(1024)
+    node.port.onmessage({ data: { type: 'prepared', requestId: 1 } })
+    drain()
+    await pending
+    wire.port1.close()
     bridge.dispose()
   })
   it('rejects missing acknowledgements and pending preparation on disposal', async () => {

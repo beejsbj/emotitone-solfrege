@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { flushPromises } from "@vue/test-utils";
 
 const hoisted = vi.hoisted(() => {
   const mockAudioContext = Object.assign(new EventTarget(), {
@@ -167,7 +168,9 @@ describe("superdoughAudio live note handling", () => {
     const loading = scope.run(useAppLoading)!;
     const store = useInstrumentStore();
     let finishEngine!: () => void;
+    let finishPreparation!: () => void;
     hoisted.mockInitAudio.mockImplementationOnce(() => new Promise<void>(resolve => { finishEngine = resolve; }));
+    hoisted.mockPrepareLive.mockImplementationOnce(() => new Promise<void>(resolve => { finishPreparation = resolve; }));
     try {
       const first = loading.initializeInstruments();
       await vi.waitFor(() => expect(hoisted.mockInitAudio).toHaveBeenCalledOnce());
@@ -177,17 +180,46 @@ describe("superdoughAudio live note handling", () => {
       expect(store.isLoading).toBe(false);
 
       const retry = loading.initializeInstruments();
+      await vi.waitFor(() => expect(store.isLoading).toBe(true));
+      const shared = (await import("@/services/superdoughAudio")).initSuperdoughAudio();
       finishEngine();
-      await retry;
+      await vi.waitFor(() => expect(hoisted.mockPrepareLive).toHaveBeenCalledOnce());
+      expect(loading.loadingState.progress.instruments.progress).toBe(80);
+      expect(loading.loadingState.progress.instruments.isComplete).toBe(false);
+      finishPreparation();
+      await Promise.all([retry, shared]);
       expect(loading.loadingState.progress.instruments.isComplete).toBe(true);
       expect(store.isLoading).toBe(false);
       expect(store.isInstrumentReady("triangle")).toBe(true);
       expect(hoisted.mockInitAudio).toHaveBeenCalledOnce();
       expect(hoisted.mockPrepareLive).toHaveBeenCalledOnce();
     } finally {
+      finishPreparation?.();
       loading.resetLoading();
       scope.stop();
       disposePinia(pinia);
+    }
+  });
+
+  it("ignores a failed attempt's late sample progress after another caller retries", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    let finishOldPack!: () => void;
+    hoisted.mockSamples.mockRejectedValueOnce(new Error("Sample pack failed"))
+      .mockImplementationOnce(() => new Promise<void>(resolve => { finishOldPack = resolve; }));
+    await expect(audio.initSuperdoughAudio()).rejects.toThrow("Sample pack failed");
+    let finishEngine!: () => void;
+    hoisted.mockInitAudio.mockImplementationOnce(() => new Promise<void>(resolve => { finishEngine = resolve; }));
+    const progress: number[] = [];
+    const retry = audio.initSuperdoughAudio(value => progress.push(value));
+    try {
+      await vi.waitFor(() => expect(hoisted.mockInitAudio).toHaveBeenCalledOnce());
+      expect(progress.at(-1)).toBe(79);
+      finishOldPack();
+      await flushPromises();
+      expect(progress.at(-1)).toBe(79);
+    } finally {
+      finishEngine?.();
+      await retry;
     }
   });
 

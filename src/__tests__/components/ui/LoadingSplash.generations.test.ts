@@ -103,6 +103,8 @@ describe("loading generations with the real instrument store", () => {
     loading.resetLoading();
     await flushPromises();
     expect(useInstrumentStore().isLoading).toBe(false);
+    expect(loading.loadingState.progress.instruments.error).toBeUndefined();
+    expect(loading.loadingState.progress.instruments.progress).toBe(0);
     const reset = JSON.stringify(loading.loadingState);
     const screen = wrapper.text();
     report(90, "Old samples arrived");
@@ -137,6 +139,8 @@ describe("loading generations with the real instrument store", () => {
     await vi.advanceTimersByTimeAsync(400);
     await flushPromises();
     const loading = useAppLoading();
+    expect(loading.loadingState.progress.instruments.error).toBeUndefined();
+    expect(loading.loadingState.progress.instruments.progress).toBe(0);
     const retry = JSON.stringify(loading.loadingState);
     first.resolve();
     await flushPromises();
@@ -161,6 +165,8 @@ describe("loading generations with the real instrument store", () => {
     await vi.advanceTimersByTimeAsync(400);
     await flushPromises();
     expect(wrapper.find(".count-gate--play").exists()).toBe(true);
+    expect(useAppLoading().loadingState.progress.instruments.error).toBeUndefined();
+    expect(useAppLoading().loadingState.progress.instruments.progress).toBe(100);
     const ready = JSON.stringify(useAppLoading().loadingState);
     report(10, "Old download");
     first.reject(new Error("Old failure"));
@@ -180,6 +186,8 @@ describe("loading generations with the real instrument store", () => {
     useAppLoading().resetLoading();
     await flushPromises();
     expect(useInstrumentStore().isLoading).toBe(false);
+    expect(useAppLoading().loadingState.progress.instruments.error).toBeUndefined();
+    expect(useAppLoading().loadingState.progress.instruments.progress).toBe(0);
     const state = JSON.stringify(useAppLoading().loadingState);
     const ready = [...useInstrumentStore().readyInstruments];
     warmup.resolve();

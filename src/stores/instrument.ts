@@ -269,7 +269,8 @@ export const useInstrumentStore = defineStore("instrument", () => {
    * Entering with basic synths after a failed or hung sample load: select the
    * default synth the synth-only start prepared, whatever was selected or
    * persisted, and supersede any warmup still pending so it cannot win later.
-   * A load that finishes afterwards reconciles from this synth and keeps it.
+   * A cancelled load may finish caching resources, but cannot reconcile the
+   * store or change this selection; a later active load can reuse its cache.
    */
   const fallBackToSynth = () => {
     selectionEpoch.value += 1;

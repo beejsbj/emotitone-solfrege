@@ -142,6 +142,17 @@ describe("use the primitives: no bespoke buttons", () => {
     expect(await eslintRules("src/components/fresh.tsx", 'export const view = <a href="/x" role={"link"}>Go</a>;')).toEqual([]);
   });
 
+  it("rejects conditional button roles and inline object bindings on anchors", async () => {
+    for (const template of ['<a :role="active ? \'button\' : \'link\'">Go</a>', '<a v-bind="{ class: \'pill\' }">Go</a>', '<a v-bind="{ role: active ? \'button\' : \'link\' }">Go</a>']) {
+      expect(await eslintRules(panel, vue("", template)), template).toEqual([BUTTON]);
+    }
+    for (const view of ['<a role={active ? "button" : "link"}>Go</a>', '<a {...{ className: "pill" }}>Go</a>', '<a {...{ style: { padding: 4 } }}>Go</a>']) {
+      expect(await eslintRules("src/components/fresh.tsx", `export const view = ${view};`), view).toEqual([BUTTON]);
+    }
+    expect(await eslintRules(panel, vue("", '<a v-bind="{ href: \'/x\', role: active ? \'link\' : undefined }">Go</a>'))).toEqual([]);
+    expect(await eslintRules("src/components/fresh.tsx", 'export const view = <a {...{ href: "/x", role: "link" }}>Go</a>;')).toEqual([]);
+  });
+
   it("accepts the Button primitive and other components, however they are spelled", async () => {
     const code = vue('import Button from "@/components/primatives/Button.vue";\nvoid Button;', '<Button accessible-name="Go">Go</Button><button-group /><span class="button" />');
     expect(await eslintRules(panel, code)).toEqual([]);
@@ -322,6 +333,14 @@ describe("colour law in script and template", () => {
     expect(await eslintRules(playing, vue(`import { computed, ref } from "vue";\nconst on = ref(true);\n${fine}`))).toEqual([]);
   });
 
+  it("checks SVG color presentation attributes while preserving component colour props", async () => {
+    expect(await eslintRules(playing, vue("", '<svg color="white"><path fill="currentColor" /></svg>'))).toEqual([RAW]);
+    expect(await eslintRules(playing, vue("", '<svg><path :color="\'ivory\'" /></svg>'))).toEqual([RAW]);
+    expect(await eslintRules("src/components/fresh.tsx", 'export const view = <svg color="white"><path fill="currentColor" /></svg>;')).toEqual([RAW]);
+    expect(await eslintRules(playing, vue("", '<svg color="var(--ivory)"><Sticker color="ivory" /></svg>'))).toEqual([]);
+    expect(await eslintRules("src/components/fresh.tsx", 'export const view = <svg color="var(--ivory)"><Sticker color="ivory" /></svg>;')).toEqual([]);
+  });
+
   it("allows Ivory tone names but rejects CSS ivory in styles, SVG and computed colours", async () => {
     for (const template of ['<div :style="{ color: \'ivory\' }" />', '<svg><path fill="ivory" /></svg>', '<svg><path :stroke="\'ivory\'" /></svg>']) {
       expect(await eslintRules(playing, vue("", template)), template).toEqual([RAW]);
@@ -342,6 +361,14 @@ describe("colour law in script and template", () => {
     }
     expect(await eslintRules(playing, vue('const color = computed({ get: () => "var(--ivory)", set(value) { log("white", value); } });'))).toEqual([]);
     expect(await eslintRules(playing, vue('const label = computed({ get: () => "white", set() {} });'))).toEqual([]);
+  });
+
+  it("checks calls returned from computed colours without treating logging strings as colours", async () => {
+    for (const script of ['const color = computed(() => normalizeColor("white"));', 'const color = computed(() => { log("white"); return normalizeColor("ivory"); });', 'const color = computed({ get: () => normalizeColor("white"), set() {} });', 'const style = computed(() => ({ color: normalizeColor("white") }));']) {
+      expect(await eslintRules(playing, vue(script)), script).toEqual([RAW]);
+    }
+    expect(await eslintRules(playing, vue('const color = computed(() => { log("white"); return normalizeColor("var(--ivory)"); });'))).toEqual([]);
+    expect(await eslintRules(playing, vue('const label = computed(() => normalizeLabel("white"));'))).toEqual([]);
   });
 
   it("allows tokens, transparent, currentColor and ordinary strings", async () => {

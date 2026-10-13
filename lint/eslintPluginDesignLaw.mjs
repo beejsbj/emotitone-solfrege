@@ -77,6 +77,7 @@ function budgeted({ baselineKey, description, violation, collect }) {
 
 /** SVG presentation attributes whose value is a colour, so a bare name there (`fill="white"`) is one. */
 const COLOUR_ATTRIBUTES = /^(?:fill|stroke|stop-?color|flood-?color|lighting-?color)$/i;
+const COLOUR_NAMES = /(?:colou?r|fill|stroke|background|shadow|accent|caret|border|outline|column-?rule|text-?decoration|^--)/i;
 
 /** `computed(() => ...)` is how a colour is derived in this codebase, so its callback is not a boundary. */
 const isComputedCall = (node) => node?.type === "CallExpression" && node.callee.type === "Identifier" && node.callee.name === "computed";
@@ -86,6 +87,32 @@ const isComputedGetter = (node) => node?.type === "Property" && (node.key.name ?
 const computedForCallback = (node) => isComputedCall(node.parent) ? node.parent :
   isComputedGetter(node.parent) ? node.parent.parent.parent : null;
 
+function isComputedReturn(node) {
+  for (let parent = node.parent; parent; parent = parent.parent) {
+    if (parent.type === "ReturnStatement") {
+      let callback = parent.parent;
+      while (callback && !["ArrowFunctionExpression", "FunctionExpression"].includes(callback.type)) callback = callback.parent;
+      return Boolean(callback && computedForCallback(callback));
+    }
+    if (parent.type === "ArrowFunctionExpression") return parent.body.type !== "BlockStatement" && Boolean(computedForCallback(parent));
+    if (parent.type === "Property" && COLOUR_NAMES.test(parent.key.name ?? parent.key.value)) continue;
+    if (!["CallExpression", "ObjectExpression", "ConditionalExpression", "LogicalExpression", "TSAsExpression", "TSNonNullExpression"].includes(parent.type)) return false;
+  }
+  return false;
+}
+
+function isSvgElement(node) {
+  let element = node;
+  while (element && !["VElement", "JSXElement"].includes(element.type)) element = element.parent;
+  if (element?.type === "VElement") return element.namespace === "http://www.w3.org/2000/svg" && /^[a-z][^-]*$/.test(element.rawName);
+  if (element?.type !== "JSXElement" || !/^[a-z][^-]*$/.test(element.openingElement.name.name ?? "")) return false;
+  for (let parent = node; parent; parent = parent.parent) {
+    if (parent !== element && parent.type === "JSXElement" && parent.openingElement.name.name === "foreignObject") return false;
+    if (parent.type === "JSXElement" && parent.openingElement.name.name === "svg") return true;
+  }
+  return false;
+}
+
 function isColourValue(node) {
   for (let parent = node.parent; parent; parent = parent.parent) {
     if (parent.type === "BinaryExpression") return false;
@@ -93,7 +120,7 @@ function isColourValue(node) {
       if (computedForCallback(parent)) continue;
       return false;
     }
-    if (parent.type === "CallExpression" && !["ref", "shallowRef", "computed"].includes(parent.callee.name)) return false;
+    if (parent.type === "CallExpression" && !["ref", "shallowRef", "computed"].includes(parent.callee.name) && !isComputedReturn(parent)) return false;
     let name;
     if (parent.type === "Property") {
       if (isComputedGetter(parent)) continue;
@@ -104,10 +131,10 @@ function isColourValue(node) {
     if (parent.type === "VAttribute") {
       const attribute = parent.directive ? parent.key.argument?.name : parent.key.name;
       // A bound :style value is an object or CSS text checked here; a static style="" is parsed by the inline patterns.
-      return (parent.directive && attribute === "style") || (typeof attribute === "string" && COLOUR_ATTRIBUTES.test(attribute));
+      return (parent.directive && attribute === "style") || (typeof attribute === "string" && COLOUR_ATTRIBUTES.test(attribute)) || (attribute === "color" && isSvgElement(parent));
     }
-    if (parent.type === "JSXAttribute") return COLOUR_ATTRIBUTES.test(parent.name.name ?? "");
-    if (name !== undefined) return /(?:colou?r|fill|stroke|background|shadow|accent|caret|border|outline|column-?rule|text-?decoration|^--)/i.test(name);
+    if (parent.type === "JSXAttribute") return COLOUR_ATTRIBUTES.test(parent.name.name ?? "") || (parent.name.name === "color" && isSvgElement(parent));
+    if (name !== undefined) return COLOUR_NAMES.test(name);
   }
   return false;
 }
@@ -229,6 +256,17 @@ function importBoundary(kind) {
 /** An `<a>` is a bespoke button when it carries its own visual styling: a class, a style, or role="button". */
 const STYLING_ATTRIBUTES = /^(?:class|style|role)$/;
 
+function attributeValue(node) {
+  const value = node?.expression ?? node;
+  const choices = value?.type === "ConditionalExpression" ? [value.consequent, value.alternate] :
+    value?.type === "LogicalExpression" ? [value.left, value.right] : [];
+  return choices.length ? (choices.some((choice) => attributeValue(choice) === "button") ? "button" : undefined) : value?.value;
+}
+
+const objectAttributes = (node) => node?.type === "ObjectExpression" ? node.properties
+  .filter((property) => property.type === "Property")
+  .map((property) => ({ name: property.key.name ?? property.key.value, value: attributeValue(property.value) })) : [];
+
 function bespokeButton({ add }) {
   const check = (node, tag, attributes) => {
     if (tag === "button") add(node, "<button>");
@@ -237,17 +275,19 @@ function bespokeButton({ add }) {
   return {
     template: {
       VElement(node) {
-        const attributes = node.startTag.attributes.map((attribute) => ({
+        const attributes = node.startTag.attributes.flatMap((attribute) => attribute.directive && attribute.key.name.name === "bind" && !attribute.key.argument
+          ? objectAttributes(attribute.value?.expression) : [{
           name: attribute.directive ? attribute.key.argument?.name : attribute.key.name,
-          value: attribute.value?.value ?? attribute.value?.expression?.value,
-        }));
+          value: attributeValue(attribute.value),
+        }]);
         check(node, node.rawName, attributes);
       },
     },
     script: {
       JSXOpeningElement(node) {
-        const attributes = node.attributes.filter((attribute) => attribute.type === "JSXAttribute")
-          .map((attribute) => ({ name: attribute.name.name === "className" ? "class" : attribute.name.name, value: attribute.value?.value ?? attribute.value?.expression?.value }));
+        const attributes = node.attributes.flatMap((attribute) => attribute.type === "JSXSpreadAttribute"
+          ? objectAttributes(attribute.argument) : [{ name: attribute.name.name, value: attributeValue(attribute.value) }])
+          .map((attribute) => ({ ...attribute, name: attribute.name === "className" ? "class" : attribute.name }));
         check(node, node.name.type === "JSXIdentifier" ? node.name.name : undefined, attributes);
       },
     },

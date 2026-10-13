@@ -174,13 +174,13 @@ describe("superdoughAudio live note handling", () => {
       loading.resetLoading();
       await first;
       expect(store.readyInstruments.size).toBe(0);
-      expect(store.isInitializing).toBe(false);
+      expect(store.isLoading).toBe(false);
 
       const retry = loading.initializeInstruments();
       finishEngine();
       await retry;
       expect(loading.loadingState.progress.instruments.isComplete).toBe(true);
-      expect(store.isInitializing).toBe(false);
+      expect(store.isLoading).toBe(false);
       expect(store.isInstrumentReady("triangle")).toBe(true);
       expect(hoisted.mockInitAudio).toHaveBeenCalledOnce();
       expect(hoisted.mockPrepareLive).toHaveBeenCalledOnce();

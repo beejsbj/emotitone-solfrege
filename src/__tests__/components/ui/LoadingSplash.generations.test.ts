@@ -99,10 +99,10 @@ describe("loading generations with the real instrument store", () => {
     });
     const wrapper = await mountSplash();
     const loading = useAppLoading();
-    expect(useInstrumentStore().isInitializing).toBe(true);
+    expect(useInstrumentStore().isLoading).toBe(true);
     loading.resetLoading();
     await flushPromises();
-    expect(useInstrumentStore().isInitializing).toBe(false);
+    expect(useInstrumentStore().isLoading).toBe(false);
     const reset = JSON.stringify(loading.loadingState);
     const screen = wrapper.text();
     report(90, "Old samples arrived");
@@ -141,11 +141,11 @@ describe("loading generations with the real instrument store", () => {
     first.resolve();
     await flushPromises();
     expect(JSON.stringify(loading.loadingState)).toBe(retry);
-    expect(useInstrumentStore().isInitializing).toBe(true);
+    expect(useInstrumentStore().isLoading).toBe(true);
     expect(wrapper.find(".count-gate--play").exists()).toBe(false);
     second.resolve();
     await flushPromises();
-    expect(useInstrumentStore().isInitializing).toBe(false);
+    expect(useInstrumentStore().isLoading).toBe(false);
     expect(wrapper.find(".count-gate--play").exists()).toBe(true);
   });
 
@@ -176,10 +176,10 @@ describe("loading generations with the real instrument store", () => {
     audio.prewarmSoundSamples.mockReturnValueOnce(warmup.promise);
     await wrapper.get(".count-gate--play").trigger("click");
     await flushPromises();
-    expect(useInstrumentStore().isInitializing).toBe(true);
+    expect(useInstrumentStore().isLoading).toBe(true);
     useAppLoading().resetLoading();
     await flushPromises();
-    expect(useInstrumentStore().isInitializing).toBe(false);
+    expect(useInstrumentStore().isLoading).toBe(false);
     const state = JSON.stringify(useAppLoading().loadingState);
     const ready = [...useInstrumentStore().readyInstruments];
     warmup.resolve();
@@ -224,7 +224,7 @@ describe("loading generations with the real instrument store", () => {
     const wrapper = await mountSplash();
     await vi.advanceTimersByTimeAsync(60_000);
     await flushPromises();
-    expect(useInstrumentStore().isInitializing).toBe(false);
+    expect(useInstrumentStore().isLoading).toBe(false);
     const timeout = JSON.stringify(useAppLoading().loadingState);
     report(100, "Audio engine ready");
     pending.resolve();

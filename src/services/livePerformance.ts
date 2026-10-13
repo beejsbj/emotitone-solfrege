@@ -15,6 +15,7 @@ export function createLivePerformance<T>(callbacks: {
   onMirror(event: LiveVoiceEvent, metadata: T, phase: 'attack' | 'release' | 'cancel'): void
   onOwnerClosed(ownerId: string): void
   onError(error: Error): void
+  onLoadError?(instrumentId: string, reason: string): void
 }) {
   const owners = new Map<string, { ownerId: string; metadata: T; renderer: LiveRenderer; held: boolean;
     cents?: number; expressionAt?: number; gain?: number; gainExpressionAt?: number }>()
@@ -154,6 +155,7 @@ export function createLivePerformance<T>(callbacks: {
       for (const [id, event] of mirrored) if (event.ownerId === rendererOwnerId) mirrored.delete(id)
     },
     onError(error) { close(); callbacks.onError(error) },
+    onLoadError(instrumentId, reason) { callbacks.onLoadError?.(instrumentId, reason) },
   })
   function release(ownerId: string) {
     const rendererOwnerId = currentOwners.get(ownerId)

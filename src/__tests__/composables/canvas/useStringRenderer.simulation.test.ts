@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createPinia, disposePinia, setActivePinia } from "pinia";
-import { effectScope, nextTick, watchEffect } from "vue";
+import { effectScope, isReactive, nextTick, watchEffect } from "vue";
 import { useStringRenderer } from "@/composables/canvas/useStringRenderer";
 import { useMusicStore } from "@/stores/music";
 import { useVisualConfigStore } from "@/stores/visualConfig";
@@ -57,6 +57,15 @@ describe("string simulation", () => {
     }, false, [], 1 / 60);
   }
 
+  it("keeps the simulation collection and its per-frame objects outside deep reactivity", () => {
+    play();
+    update();
+    expect(renderer.strings.value).toHaveLength(21);
+    expect(isReactive(renderer.strings.value)).toBe(false);
+    expect(renderer.strings.value.every(string => !isReactive(string))).toBe(true);
+    expect(renderer.getActiveStringCount()).toBe(1);
+  });
+
   it("publishes completed frames, release, reinitialization and clearing to reactive readers", async () => {
     let observed = { count: 0, active: 0, amplitude: 0 };
     const stop = scope.run(() => watchEffect(() => {
@@ -77,12 +86,13 @@ describe("string simulation", () => {
     update();
     await nextTick();
     expect(observed.amplitude).toBeGreaterThan(previousAmplitude);
+    const amplitudeBeforeRelease = observed.amplitude;
 
     renderer.handleNoteReleased(new CustomEvent("note-released", { detail: { noteId: "held" } }));
     update();
     await nextTick();
     expect(observed.active).toBe(0);
-    expect(observed.amplitude).toBeLessThan(previousAmplitude * 2);
+    expect(observed.amplitude).toBeLessThan(amplitudeBeforeRelease);
 
     renderer.initializeStrings(stringConfig, 390, 600, music.solfegeData.slice(0, 2));
     await nextTick();

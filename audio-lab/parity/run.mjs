@@ -16,6 +16,7 @@ const watched = [packagePath, ...[
   'src/audio/live/core.ts', 'src/audio/live/resampler.ts', 'src/audio/voicePolicy.ts', 'src/audio/velocity.ts',
   'src/services/StrudelNotation.ts', 'src/services/recordedTiming.ts',
   'src/services/liveArticulation.ts', 'src/services/preparedNativeInstrument.ts', 'src/services/preparedLiveInstrument.ts',
+  'src/audio/soundCatalog.ts', 'src/audio/soundfontPreset.ts', 'src/audio/sampleSources.ts', 'src/audio/live/pcm.ts',
   'audio-lab/parity/suite.mjs', 'audio-lab/parity/metrics.mjs', 'audio-lab/parity/fixtures.mjs',
   'audio-lab/parity/oscillator-bounds.mjs',
   'audio-lab/parity/voice-budget.mjs', 'audio-lab/parity/oscillator-stalls.mjs',

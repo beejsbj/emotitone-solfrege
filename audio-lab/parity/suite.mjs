@@ -11,6 +11,9 @@ import { comparePcm, harmonics, rms } from './metrics.mjs';
 import { oscillatorParityChecks } from './oscillator-bounds.mjs';
 import { createFixtureWav } from './fixtures.mjs';
 import { registerSoundfonts, setSoundfontUrl } from '@strudel/soundfonts';
+import { registerSampleMap, registerSoundfonts as registerCatalogSoundfonts } from '../../src/audio/soundCatalog';
+import { setSoundfontBaseUrl } from '../../src/audio/sampleSources';
+import { GM_SOUNDFONTS } from '../../src/data/gmSoundfonts';
 import { runOscillatorStalls } from './oscillator-stalls.mjs';
 import { runVoiceBudgetParity } from './voice-budget.mjs';
 
@@ -130,10 +133,14 @@ async function measureOscillatorFoldback() {
 window.runPlaybackParity = async () => {
   await core.evalScope(core, mini, tonal);
   dough.registerSynthSounds();
+  // Reference: superdough and @strudel/soundfonts. Worklet: the app's own loader, same data.
   setSoundfontUrl(`${location.origin}/audio-lab/parity/font-fixture`);
   registerSoundfonts();
+  setSoundfontBaseUrl(`${location.origin}/audio-lab/parity/font-fixture`);
+  registerCatalogSoundfonts(GM_SOUNDFONTS);
   const url = URL.createObjectURL(new Blob([createFixtureWav(RATE)], { type: 'audio/wav' }));
   await dough.samples({ piano: { A4: [url] }, parity_sample: { A4: [url] } });
+  registerSampleMap({ piano: { A4: [url] }, parity_sample: { A4: [url] } });
   const results = [];
   try {
     for (const sound of SOUNDS) {

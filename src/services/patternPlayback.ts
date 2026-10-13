@@ -7,9 +7,9 @@ import * as StrudelWebAudio from "@strudel/webaudio";
 import { transpiler } from "@strudel/transpiler";
 import {
   emotitoneStrudelOutput,
-  ensureSoundfontCatalog,
   getAudioContext,
   initSuperdoughAudio,
+  preparePatternSounds,
   stopStrudelVisuals,
 } from "@/services/superdoughAudio";
 
@@ -76,7 +76,7 @@ export function createPatternEditor(options: PatternEditorOptions): PatternEdito
       await Promise.all([initSuperdoughAudio(), prepareScope()]);
     },
     beforeEval: async () => {
-      if (instance.code?.includes("gm_")) await ensureSoundfontCatalog();
+      await preparePatternSounds(instance.code);
     },
     beforeStart: async () => {
       const context = getAudioContext();

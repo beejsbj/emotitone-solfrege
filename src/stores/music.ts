@@ -189,6 +189,11 @@ export const useMusicStore = defineStore(
         for (const [alias, aliasedOwner] of heldAliases) if (aliasedOwner === owner) heldAliases.delete(alias);
       },
       onError(error) { console.error("[Live Audio] Renderer failed", error); },
+      onLoadError(instrumentId, reason) {
+        if (instrumentId !== resolveLiveSoundName(instrumentStore.currentInstrument)) return;
+        instrumentStore.lastWarmupError = reason;
+        instrumentStore.lastWarmupErrorInstrument = instrumentStore.currentInstrument;
+      },
     });
 
     const playEngine = createPlayStyleEngine<HeldPitch>({

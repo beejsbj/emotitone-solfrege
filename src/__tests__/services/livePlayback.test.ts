@@ -182,7 +182,7 @@ describe('live playback instrument manager', () => {
     expect(engine.forget).toHaveBeenLastCalledWith('d')
   })
 
-  it('serializes preparation through acknowledgement and then drops only its owned cache reference', async () => {
+  it('drops the prepared reference immediately after posting while installation stays gated on acknowledgement', async () => {
     const { manager, engine, context } = await setup()
     let acknowledge!: () => void
     const instrument = { ...bank('piano'), kind: 'sample-bank', zoneSelection: 'nearest-root', zones: [{
@@ -195,7 +195,7 @@ describe('live playback instrument manager', () => {
     const next = manager.prepareLivePlayback(context, destination, 'sine')
     await vi.waitFor(() => expect(engine.prepare).toHaveBeenCalledOnce())
     expect(mocks.prepare).toHaveBeenCalledOnce()
-    expect(mocks.releasePrepared).not.toHaveBeenCalled()
+    expect(mocks.releasePrepared).toHaveBeenCalledWith(context, 'piano', instrument)
     expect(manager.getLivePlaybackDiagnostics('piano')).toMatchObject({
       installedPcmBytes: 0, installingPcmBytes: 96, cachedPreparationPcmBytes: 32, preparingPcmBytes: 0, additionalPcmBytes: 128,
     })
@@ -207,16 +207,18 @@ describe('live playback instrument manager', () => {
     expect(manager.getLivePlaybackDiagnostics('piano').installingPcmBytes).toBe(0)
   })
 
-  it('releases prepared pyramids when held banks prevent installation', async () => {
+  it('refuses held-bank pressure before preparing any PCM', async () => {
     const { manager, context } = await setup()
     for (const name of ['a', 'b', 'c', 'd']) {
       await manager.prepareLivePlayback(context, destination, name)
       manager.getLivePlayback(name)!.press(name, [{ instrumentId: name, pitch: 60 }])
     }
     mocks.releasePrepared.mockClear()
+    mocks.prepare.mockClear()
     await manager.prepareLivePlayback(context, destination, 'e')
     expect(manager.getLivePlayback('e')).toBeUndefined()
-    expect(mocks.releasePrepared).toHaveBeenCalledWith(context, 'e', expect.objectContaining({ instrumentId: 'e' }))
+    expect(mocks.prepare).not.toHaveBeenCalled()
+    expect(mocks.releasePrepared).not.toHaveBeenCalled()
   })
 
   it('pins held banks until release and temporarily falls back when all four are held', async () => {
@@ -233,6 +235,71 @@ describe('live playback instrument manager', () => {
     await manager.prepareLivePlayback(context, destination, 'e')
     expect(engine.forget).toHaveBeenCalledWith('a')
     expect(manager.getLivePlayback('e')).toBeDefined()
+  })
+
+  it('keeps a resting holder\'s pinned bank resident through cache pressure until the pin is released', async () => {
+    const { manager, engine, context } = await setup()
+    await manager.prepareLivePlayback(context, destination, 'piano')
+    // A looping member rests (sounds nothing) while other banks load.
+    const unpin = manager.pinLivePlayback('member-1', ['piano'])
+    for (const name of ['b', 'c', 'd', 'e', 'f', 'g']) await manager.prepareLivePlayback(context, destination, name)
+    expect(engine.forget.mock.calls.flat()).not.toContain('piano')
+    expect(manager.getLivePlayback('piano')).toBeDefined()
+    unpin()
+    for (const name of ['h', 'i', 'j', 'k']) await manager.prepareLivePlayback(context, destination, name)
+    expect(engine.forget.mock.calls.flat()).toContain('piano')
+  })
+
+  it('refuses a fifth bank loudly when every resident bank is pinned, and names it a fallback, not a load failure', async () => {
+    const { manager, engine, context } = await setup()
+    for (const name of ['a', 'b', 'c', 'd']) {
+      await manager.prepareLivePlayback(context, destination, name)
+      manager.pinLivePlayback(`member-${name}`, [name])
+    }
+    mocks.prepare.mockClear()
+    await manager.prepareLivePlayback(context, destination, 'e')
+    await manager.prepareLivePlayback(context, destination, 'e')
+    expect(mocks.prepare).not.toHaveBeenCalled()
+    expect(engine.forget).not.toHaveBeenCalled()
+    expect(manager.getLivePlayback('e')).toBeUndefined()
+    expect(manager.getLivePlaybackFailure('e')).toEqual({ kind: 'fallback', reason: expect.stringContaining('pinned') })
+    expect(manager.getLivePlaybackFailure('a')).toBeUndefined()
+  })
+
+  it('reports a failed download as a load failure until a retry installs the bank', async () => {
+    const { manager, context } = await setup()
+    mocks.prepare.mockResolvedValueOnce({ kind: 'retryable', instrumentId: 'piano', reason: 'Could not download C4v8.mp3 (HTTP 503)' })
+    await manager.prepareLivePlayback(context, destination, 'piano')
+    expect(manager.getLivePlaybackFailure('piano')).toEqual({ kind: 'load', reason: 'Could not download C4v8.mp3 (HTTP 503)' })
+    await manager.prepareLivePlayback(context, destination, 'piano')
+    expect(manager.getLivePlaybackFailure('piano')).toBeUndefined()
+  })
+
+  it('reports a failed rebuild to subscribers with the instrument load failure available', async () => {
+    const { manager, context } = await setup()
+    Object.assign(context, { sampleRate: 48000 })
+    await manager.prepareLivePlayback(context, destination, 'piano')
+    const failures: unknown[] = []
+    const stop = manager.subscribeLivePlayback({ onEvent() {}, onLoadError(instrumentId, reason) {
+      failures.push({ instrumentId, reason, failure: manager.getLivePlaybackFailure(instrumentId) })
+    } })
+    mocks.prepare.mockResolvedValueOnce({ kind: 'retryable', instrumentId: 'piano', reason: 'offline' })
+    Object.assign(context, { sampleRate: 44100 })
+    const { resumeAudioContext } = await import('@/services/audioLifecycle')
+    await resumeAudioContext(context)
+    expect(failures).toContainEqual({ instrumentId: 'piano', reason: 'offline', failure: { kind: 'load', reason: 'offline' } })
+    stop()
+  })
+
+  it('accounts installed source and derived PCM separately', async () => {
+    const { manager, context } = await setup()
+    mocks.prepare.mockImplementation(async (_context, instrumentId) => ({
+      ...bank(instrumentId), kind: 'sample-bank', zoneSelection: 'nearest-root',
+      zones: [{ id: 'z', rootMidi: 60, sampleRate: 48000, channels: [new Float32Array(1024)], mipmaps: [[new Float32Array(512)]] }],
+    }))
+    await manager.prepareLivePlayback(context, destination, 'piano')
+    expect(manager.getLivePlaybackDiagnostics('piano')).toMatchObject({
+      installedPcmBytes: 6144, installedSourcePcmBytes: 4096, installedDerivedPcmBytes: 2048 })
   })
 
   it('includes resampling pyramids in the192MiB installed PCM budget', async () => {

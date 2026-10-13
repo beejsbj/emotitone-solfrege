@@ -45,6 +45,9 @@ upstream package versions named above, they are the corresponding source of
 what is served. The superdough patch is a diff of the published dist build, not
 of the upstream source tree.
 
+src/data/gmSoundfonts.ts copies the General MIDI name-to-font map from
+@strudel/soundfonts 1.3.0 gm.mjs (as patched), under the same licence.
+
 The app is moving to its own audio engine (src/audio/live/). Once no Strudel
 code ships, this section and the licence choice are due for review. Published
 snapshots stay AGPL either way.
@@ -87,25 +90,50 @@ combines with AGPL-3.0. Sources, authors and links are in docs/credits.md.
 5. Sample packs and soundfonts loaded at runtime
 --------------------------------------------------------------------------
 
-These are fetched by the player's browser; they are not in this repository.
+The app's own loader (src/services/preparedNativeInstrument.ts) fetches these
+in the player's browser from the upstream hosts named below. None of the
+audio or font data is in this repository or in the built app; EmotiTone does
+not redistribute it. The base URLs are in src/audio/sampleSources.ts. Font
+files are parsed as data and never evaluated as code. This is not legal
+advice.
 
-  felixroos/dough-samples (raw.githubusercontent.com)
-    The repository itself declares no licence; each pack is documented in its
-    README. The app loads two packs:
-    - piano: Salamander Grand Piano V3, by Alexander Holm,
-      CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/).
-      Attribution required: https://archive.org/details/SalamanderGrandPianoV3
-    - vcsl: Versilian Community Sample Library, CC0
-      (https://github.com/sgossner/VCSL).
+  Piano (piano.json map, 29 pitches)
+    Salamander Grand Piano V3 by Alexander Holm, licensed CC BY 3.0
+    (https://creativecommons.org/licenses/by/3.0/). Converted to MP3, single
+    velocity layer, by felixroos/dough-samples. Source:
+    https://archive.org/details/SalamanderGrandPianoV3
+    Fetched from raw.githubusercontent.com/felixroos/dough-samples.
 
-  General MIDI soundfonts (felixroos.github.io/webaudiofontdata, via
-  @strudel/soundfonts)
-    The webaudiofontdata repository is MIT. It converts several soundfonts;
-    by count in @strudel/soundfonts' General MIDI map, GeneralUserGS (most
-    instruments), Aspirin, JCLive, Chaos, LesPaul, Stratocaster and SBAWE32.
-    Its README links the GeneralUserGS and FluidR3 licences. The individual
-    terms of GeneralUserGS, Aspirin, JCLive, Chaos, LesPaul, Stratocaster
-    and SBAWE32 are unverified here.
+  Orchestra (vcsl.json map, 128 sounds)
+    Versilian Community Sample Library (VCSL) by Sam Gossner and
+    contributors, CC0 1.0 (https://github.com/sgossner/VCSL). No attribution
+    is required; it is given with thanks. Fetched from
+    raw.githubusercontent.com/sgossner/VCSL.
+
+  The sample maps (piano.json, vcsl.json)
+    By Felix Roos, in felixroos/dough-samples. That repository states no
+    licence. The app fetches the maps at runtime and does not copy them.
+
+  General MIDI soundfonts (125 gm_* instruments)
+    Converted from SF2 banks by Sergey Surikov in
+    https://github.com/surikov/webaudiofontdata (the conversion repository
+    is MIT; its owner says the source fonts' licences are unknown, issue #1).
+    Fetched from felixroos.github.io/webaudiofontdata. The name-to-font map in
+    src/data/gmSoundfonts.ts comes from @strudel/soundfonts (see section 2).
+    By each instrument's default (first) font:
+    - 20 instruments use FluidR3_GM: MIT licence.
+      Copyright (c) 2000-2002, 2008 Frank Wen.
+      Mono version: Copyright (c) 2014-16 Michael Cowgill.
+      The MIT notice must accompany copies or derivatives of the font.
+    - The other 105 instruments use fonts whose licence nobody states:
+      JCLive (64), Aspirin (38), Chaos (2) and Acoustic_Guitar (1). They are
+      fetched from the upstream host as the app did before; EmotiTone does
+      not host or redistribute them. Self-hosting is a separate decision
+      (BJS-496).
+    Patterns can select other variants of an instrument (".n()"), which
+    may come from GeneralUserGS (GeneralUser GS License v2.0, S. Christian
+    Collins), FluidR3_GM, or fonts with no stated licence (Aspirin, JCLive,
+    Chaos, LesPaul, Stratocaster, SBAWE32, Soul_Ahhs and others).
 
 --------------------------------------------------------------------------
 6. Font: Let's Jazz

@@ -48,6 +48,7 @@ The record of decisions is `docs/retrospective-spec.md` (PR #143; until it merge
 - *Import paths built by concatenation or other obfuscation.* A leading literal or template prefix (`"@/stores/" + name`) is already checked; paths assembled from pieces (`"@/sto" + "res"`) are something nobody writes by accident.
 - *A bespoke control that is not a `<button>` or `<a>`* (`<div role="button">`, `h("button")`) is not caught; the rule checks native controls written in templates and JSX.
 - *Aliased or namespace Vue helpers* (`computed as derive`, `Vue.computed`) are not resolved; this repository uses direct `computed` calls, and import-binding resolution is a separate lint follow-up.
+- *Anchor roles wrapped in TypeScript assertions or template literals* are not unwrapped; no such anchors exist in the playing zone today, and extending expression evaluation is a separate lint follow-up.
 
 `ivory` is a token name in tone props and Sticker's `computed<StickerPaperColor>` derivation; in CSS colour contexts (styles, SVG paint and other colour derivations), it is a forbidden named colour. Use `var(--ivory)` there.
 

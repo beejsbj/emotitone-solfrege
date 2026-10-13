@@ -88,7 +88,8 @@ const computedForCallback = (node) => isComputedCall(node.parent) ? node.parent 
   isComputedGetter(node.parent) ? node.parent.parent.parent : null;
 
 function isComputedReturn(node) {
-  for (let parent = node.parent; parent; parent = parent.parent) {
+  for (let child = node, parent = node.parent; parent; child = parent, parent = parent.parent) {
+    if (parent.type === "ConditionalExpression" && parent.test === child) return false;
     if (parent.type === "ReturnStatement") {
       let callback = parent.parent;
       while (callback && !["ArrowFunctionExpression", "FunctionExpression"].includes(callback.type)) callback = callback.parent;

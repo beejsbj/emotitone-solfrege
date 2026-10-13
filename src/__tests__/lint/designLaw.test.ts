@@ -370,6 +370,7 @@ describe("colour law in script and template", () => {
     }
     expect(await eslintRules(playing, vue('const color = computed(() => { log("white"); return normalizeColor("var(--ivory)"); });'))).toEqual([]);
     expect(await eslintRules(playing, vue('const label = computed(() => normalizeLabel("white"));'))).toEqual([]);
+    expect(await eslintRules(playing, vue('const color = computed(() => names.includes("white") ? "var(--ink)" : "var(--ivory)");'))).toEqual([]);
   });
 
   it("allows tokens, transparent, currentColor and ordinary strings", async () => {

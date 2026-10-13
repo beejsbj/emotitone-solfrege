@@ -156,6 +156,41 @@ describe("superdoughAudio live note handling", () => {
     expect(hoisted.mockInitStrudel).not.toHaveBeenCalled();
   });
 
+  it("reuses the pending engine across loading reset and reconciles only the new generation", async () => {
+    const { createPinia, setActivePinia, disposePinia } = await import("pinia");
+    const { effectScope } = await import("vue");
+    const { useAppLoading } = await import("@/composables/useAppLoading");
+    const { useInstrumentStore } = await import("@/stores/instrument");
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const scope = effectScope();
+    const loading = scope.run(useAppLoading)!;
+    const store = useInstrumentStore();
+    let finishEngine!: () => void;
+    hoisted.mockInitAudio.mockImplementationOnce(() => new Promise<void>(resolve => { finishEngine = resolve; }));
+    try {
+      const first = loading.initializeInstruments();
+      await vi.waitFor(() => expect(hoisted.mockInitAudio).toHaveBeenCalledOnce());
+      loading.resetLoading();
+      await first;
+      expect(store.readyInstruments.size).toBe(0);
+      expect(store.isInitializing).toBe(false);
+
+      const retry = loading.initializeInstruments();
+      finishEngine();
+      await retry;
+      expect(loading.loadingState.progress.instruments.isComplete).toBe(true);
+      expect(store.isInitializing).toBe(false);
+      expect(store.isInstrumentReady("triangle")).toBe(true);
+      expect(hoisted.mockInitAudio).toHaveBeenCalledOnce();
+      expect(hoisted.mockPrepareLive).toHaveBeenCalledOnce();
+    } finally {
+      loading.resetLoading();
+      scope.stop();
+      disposePinia(pinia);
+    }
+  });
+
   it("tags only sample-pack failures as SampleLoadError, never a graph failure after the samples load", async () => {
     const { SampleLoadError } = await import("@/services/audioFailures");
     const audio = await import("@/services/superdoughAudio");

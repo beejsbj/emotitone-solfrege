@@ -1,3 +1,4 @@
+import { abortable } from "@/utils/abortable";
 import { computed, ref, watch } from "vue";
 import { defineStore } from "pinia";
 import { DEFAULT_INSTRUMENT, displayInstrumentName } from "@/data/instruments";
@@ -64,6 +65,7 @@ export const useInstrumentStore = defineStore("instrument", () => {
   const lastWarmupError = ref<string | null>(null);
   const lastWarmupErrorInstrument = ref<string | null>(null);
   const isInitializing = ref(false);
+  let initializationGeneration = 0;
   const warmupPromises = new Map<string, Promise<void>>();
   const selectionEpoch = ref(0);
   const synthControls = ref<SynthControls>({ ...DEFAULT_SYNTH_CONTROLS });
@@ -207,22 +209,34 @@ export const useInstrumentStore = defineStore("instrument", () => {
   // through the optional callback so loading screens can show real steps.
   const initializeInstruments = async (
     progressCallback?: (progress: number, message: string) => void,
-    { prepareSelected = true }: { prepareSelected?: boolean } = {},
+    { prepareSelected = true, signal }: { prepareSelected?: boolean; signal?: AbortSignal } = {},
   ) => {
+    if (signal?.aborted) return;
+    const generation = ++initializationGeneration;
+    let settled = false;
+    const isCurrent = () => generation === initializationGeneration && !signal?.aborted;
+    const report = (progress: number, message: string) => {
+      if (!settled && isCurrent()) progressCallback?.(progress, message);
+    };
     isInitializing.value = true;
     try {
-      await initSuperdoughAudio(progressCallback);
+      // Keep the engine's single-flight promise intact: cancellation releases
+      // this caller, while the next generation can reuse the same graph.
+      await abortable(initSuperdoughAudio(report), signal);
+      if (!isCurrent()) return;
       // Boot preserves the saved selection without downloading its bank.
       // Play calls this again after the gesture and keeps the splash up until
       // the live renderer is prepared (or the established fallback is ready).
       const preferred = currentInstrument.value;
       const warmed: string[] = [];
       if (prepareSelected && preferred !== DEFAULT_INSTRUMENT && !isInstrumentReady(preferred)) {
-        progressCallback?.(99, `Preparing ${displayInstrumentName(preferred)}…`);
+        report(99, `Preparing ${displayInstrumentName(preferred)}…`);
         try {
-          await prewarmSoundSamples(preferred);
+          await abortable(prewarmSoundSamples(preferred), signal);
+          if (!isCurrent()) return;
           warmed.push(preferred);
         } catch (error) {
+          if (!isCurrent()) return;
           lastWarmupError.value =
             error instanceof Error && error.message
               ? error.message
@@ -233,18 +247,21 @@ export const useInstrumentStore = defineStore("instrument", () => {
       syncReadyInstrumentsFromAudio(warmed, !prepareSelected);
       // Prewarming above already prepared the live renderer for that sound.
       if (prepareSelected && !warmed.includes(currentInstrument.value) && needsLivePlaybackPreparation(currentInstrument.value)) {
-        await prewarmSoundSamples(currentInstrument.value);
+        await abortable(prewarmSoundSamples(currentInstrument.value), signal);
+        if (!isCurrent()) return;
       }
       // Guarantee a 100% call even when already initialized (early return path)
-      progressCallback?.(100, "Audio engine ready");
+      report(100, "Audio engine ready");
     } catch (error) {
+      if (!isCurrent()) return;
       console.error("Error initializing superdough:", error);
       // Synth registration can succeed before a sample pack fails. Reconcile
       // that partial success so the app falls back to something truly playable.
       syncReadyInstrumentsFromAudio();
       throw error;
     } finally {
-      isInitializing.value = false;
+      settled = true;
+      if (generation === initializationGeneration) isInitializing.value = false;
     }
   };
 

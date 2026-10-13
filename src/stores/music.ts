@@ -100,7 +100,12 @@ export const useMusicStore = defineStore(
     watch(
       [currentKey, currentMode],
       ([key, mode]) => {
-        musicTheory.setCurrentKey(key as ChromaticNote);
+        const normalizedKey = (typeof key === "string" ? normalizePitchClass(key) : null) ?? "C";
+        if (key !== normalizedKey) {
+          currentKey.value = normalizedKey;
+          return;
+        }
+        musicTheory.setCurrentKey(normalizedKey);
         musicTheory.setCurrentMode(mode);
       },
       { immediate: true, flush: "sync" },
@@ -366,6 +371,7 @@ export const useMusicStore = defineStore(
       const tonal = TonalNote.get(exactName);
       if (tonal.midi == null || !tonal.freq) return null;
       const solfegeIndex = currentScaleNotes.value.indexOf(parsed.noteName);
+      // Read through the reactive singleton; caching its raw context here would stale live-input cues.
       const solfege = pitchSolfegeData(parsed.noteName, { tonic: musicTheory.getCurrentKey(), mode: musicTheory.getCurrentMode() }, visualConfigStore.laBasedMinor);
       if (!solfege) return null;
       // A sleeping/interrupted graph (or route rebuild) must finish before the

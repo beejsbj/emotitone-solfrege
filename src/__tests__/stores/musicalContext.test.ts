@@ -4,6 +4,7 @@ import { createPinia, disposePinia, setActivePinia, type Pinia } from "pinia";
 import piniaPluginPersistedstate from "pinia-plugin-persistedstate";
 import { useMusicStore } from "@/stores/music";
 import * as audio from "@/services/superdoughAudio";
+import { musicTheory } from "@/services/music";
 
 vi.unmock("@/services/superdoughAudio");
 
@@ -60,6 +61,25 @@ function expectAudioContext() {
 }
 
 describe("shared musical context", () => {
+  it.each([["Db", "C#"], ["invalid", "C"], [null, "C"]])(
+    "normalizes persisted key %s in the ref and shared context while restoring mode",
+    async (key, expectedKey) => {
+      localStorage.setItem("music", JSON.stringify({ currentKey: key, currentMode: "harmonic minor" }));
+      const music = useMusicStore();
+      const output = audio.emotitoneStrudelOutput({ value: { note: `${expectedKey}4`, s: "piano" } }, 12, .25, 1, 12);
+      expect(audio.getActiveStrudelStageNotes()[0]).toMatchObject({
+        key: expectedKey, mode: "harmonic minor", solfege: { name: "Do" },
+      });
+      expect(music.currentKey).toBe(expectedKey);
+      expect(music.currentMode).toBe("harmonic minor");
+      expect(musicTheory.getCurrentKey()).toBe(expectedKey);
+      expect(musicTheory.getCurrentMode()).toBe("harmonic minor");
+      expect(music.currentKeyDisplay).toBe(`${expectedKey} Harmonic Minor`);
+      expect(music.currentScaleNotes[0]).toBe(expectedKey);
+      await output;
+    },
+  );
+
   it("updates key and mode independently, including sparse scales and borrowed pitches", async () => {
     const music = useMusicStore();
     expect(music.currentScaleNotes[0]).toBe("C");

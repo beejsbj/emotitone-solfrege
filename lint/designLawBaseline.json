@@ -41,5 +41,14 @@
     "src/components/primatives/Sticker.vue": 1,
     "src/components/primatives/Tabs.vue": 1,
     "src/components/uniques/CodeStrip/index.vue": 4
+  },
+  "no-bespoke-button": {
+    "src/components/compounds/ChordKey.vue": 1,
+    "src/components/compounds/Key.vue": 1,
+    "src/components/ConfigPanel.vue": 3,
+    "src/components/InstrumentSelector.vue": 1,
+    "src/components/ui/SaveFailureNotice.vue": 1,
+    "src/components/uniques/Drawer/index.vue": 1,
+    "src/components/uniques/Joystick/index.vue": 1
   }
 }

@@ -53,6 +53,14 @@ export const PLAYING_ZONE_IGNORE = [
 ];
 
 /**
+ * Use the primitives: playing-zone components get their buttons from the Button
+ * primitive, so a raw <button> (or an <a> with its own visual styling) is a
+ * bespoke control. The primitives folder is where Button itself is built, so it
+ * is exempt; brand-zone surfaces keep their own buttons (see BRAND_ZONE).
+ */
+export const PRIMITIVES_DIR = "src/components/primatives";
+
+/**
  * Import boundary: primitives and compounds are presentational. They take props
  * and use composables; they do not reach for stores or the audio/persistence
  * services. (The folder is spelled "primatives" in the repo.)

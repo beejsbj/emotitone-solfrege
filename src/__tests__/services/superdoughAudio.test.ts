@@ -573,6 +573,32 @@ describe("superdoughAudio live note handling", () => {
     ]);
   });
 
+  it.each(['s', 'sound'])("warms a root %s constructor before playback", async constructor => {
+    hoisted.mockLiveFailure.mockImplementation(() => undefined);
+    const audio = await import("@/services/superdoughAudio");
+    await audio.initSuperdoughAudio();
+    await audio.preparePatternSounds(`${constructor}("piano")`);
+    expect(hoisted.mockLoadBuffer.mock.calls.map(([url]) => url)).toEqual([
+      "https://samples.test/piano/A0v8.mp3", "https://samples.test/piano/C4v8.mp3",
+    ]);
+  });
+
+  it("warms every GM variant a pattern can select, only once", async () => {
+    hoisted.mockLiveFailure.mockImplementation(() => undefined);
+    const audio = await import("@/services/superdoughAudio");
+    await audio.initSuperdoughAudio();
+    const { registerSoundfonts } = await import("@/audio/soundCatalog");
+    registerSoundfonts({ gm_test: ["first_sf2_file", "second_sf2_file"] });
+    fetchMock.mockClear();
+    hoisted.mockAudioContext.decodeAudioData.mockClear();
+    await audio.preparePatternSounds('n("0 1").sound("gm_test")');
+    await audio.preparePatternSounds('n("1").sound("gm_test")');
+    expect(fetchMock.mock.calls.map(([url]) => url.split("/").pop())).toEqual([
+      "first_sf2_file.js", "second_sf2_file.js",
+    ]);
+    expect(hoisted.mockAudioContext.decodeAudioData).toHaveBeenCalledTimes(2);
+  });
+
   it("leaves a soundfont cold when its preset fails to warm", async () => {
     const audio = await import("@/services/superdoughAudio");
     await audio.initSuperdoughAudio();

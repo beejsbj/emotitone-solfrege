@@ -37,6 +37,17 @@ describe('soundfont preset parser', () => {
     ])
   })
 
+  it('parses a large escape run without blocking input for seconds', () => {
+    const count = 300_000
+    const payload = '\\\\'.repeat(count)
+    const start = performance.now()
+    const [zone] = parseSoundfontPreset(`var _x={zones:[{originalPitch:60,keyRangeLow:0,keyRangeHigh:127,sampleRate:1,file:'${payload}'}]}`)
+    const elapsed = performance.now() - start
+    expect(zone.file).toBe('\\'.repeat(count))
+    // Generous headroom over a linear scan; the repeated suffix searches take seconds.
+    expect(elapsed).toBeLessThan(1000)
+  })
+
   it('never runs code from a font file', () => {
     const evaluate = vi.spyOn(globalThis, 'eval')
     const attacks = [

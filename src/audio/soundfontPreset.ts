@@ -183,28 +183,26 @@ class LiteralParser {
 
   string(): string {
     const quote = this.text[this.position++]
-    let result = ''
+    const result: string[] = []
+    const boundary = quote === "'" ? /['\\\n]/g : /["\\\n]/g
     for (;;) {
-      // Base64 payloads are hundreds of kilobytes: copy unescaped runs whole.
-      const end = this.text.indexOf(quote, this.position)
-      const escape = this.text.indexOf('\\', this.position)
-      if (end === -1) this.fail('Unterminated string')
-      const stop = escape !== -1 && escape < end ? escape : end
-      const run = this.text.slice(this.position, stop)
-      if (run.includes('\n')) this.fail('Unterminated string')
-      result += run
-      this.position = stop + 1
-      if (stop === end) return result
+      // Scan each run once, including escape-heavy input and large base64 payloads.
+      boundary.lastIndex = this.position
+      const match = boundary.exec(this.text)
+      if (!match || match[0] === '\n') this.fail('Unterminated string')
+      result.push(this.text.slice(this.position, match.index))
+      this.position = match.index + 1
+      if (match[0] === quote) return result.join('')
       const code = this.text[this.position++]
       if (code === 'u' || code === 'x') {
         const length = code === 'u' ? 4 : 2
         const hex = this.text.slice(this.position, this.position + length)
         if (!new RegExp(`^[\\da-fA-F]{${length}}$`).test(hex)) this.fail('Invalid escape')
-        result += String.fromCharCode(parseInt(hex, 16))
+        result.push(String.fromCharCode(parseInt(hex, 16)))
         this.position += length
       } else if (code === '\n') {
         // Line continuation.
-      } else result += ESCAPES[code] ?? code
+      } else result.push(ESCAPES[code] ?? code)
     }
   }
 }

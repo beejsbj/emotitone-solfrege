@@ -184,10 +184,12 @@ function isRegisteredSynth(name: string): boolean {
  * cannot hold the bank, and before patterns play (superdough renders them
  * until BJS-485). The live worklet never reads these buffers.
  */
-async function prewarmFallbackSound(sound: CatalogSound): Promise<void> {
+async function prewarmFallbackSound(sound: CatalogSound, allVariants = false): Promise<void> {
   const ac = getAudioContext();
   if (sound.kind === "soundfont") {
-    await prewarmFallbackSoundfont(sound.fonts[0], ac);
+    for (const font of allVariants ? sound.fonts : sound.fonts.slice(0, 1)) {
+      await prewarmFallbackSoundfont(font, ac);
+    }
     return;
   }
   const urls = Array.isArray(sound.bank) ? sound.bank : Object.values(sound.bank).flat();
@@ -270,13 +272,13 @@ export async function preparePatternSounds(code: string | undefined): Promise<vo
   if (!code) return;
   if (code.includes("gm_")) await ensureSoundfontCatalog();
   const names = new Set<string>();
-  for (const [, , value] of code.matchAll(/\.(?:sound|s)\(\s*(["'`])(.*?)\1/gs)) {
+  for (const [, , value] of code.matchAll(/(?:^|[^\w$])(?:sound|s)\(\s*(["'`])(.*?)\1/gs)) {
     for (const token of value.split(/[^\w-]+/)) {
       const sound = getCatalogSound(resolveLiveSoundName(token));
       if (sound) names.add(resolveLiveSoundName(token));
     }
   }
-  await Promise.all([...names].map(name => prewarmFallbackSound(getCatalogSound(name)!).catch(error => {
+  await Promise.all([...names].map(name => prewarmFallbackSound(getCatalogSound(name)!, true).catch(error => {
     console.warn(`[superdoughAudio] could not warm ${name} for patterns:`, error);
   })));
 }

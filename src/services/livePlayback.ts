@@ -6,7 +6,7 @@ import { getLiveOrbit } from "@/services/audioRuntime";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import { preparedPcmBytes } from "@/audio/live/pcm";
 
-type Listener = LiveRendererCallbacks;
+type Listener = LiveRendererCallbacks & { onLoadError?(instrumentId: string, reason: string): void };
 
 const MAX_BANKS = 4;
 const MAX_PCM_BYTES = 192 * 1024 * 1024;
@@ -36,7 +36,7 @@ const pins = new Map<string, Set<string>>();
 /** Holders (e.g. transport members) whose banks must stay resident while they rest. */
 const leases = new Map<string, Set<string>>();
 const installedPcm = new Map<string, { source: number; derived: number }>();
-/** Instruments whose data could not be downloaded, decoded or parsed (retryable). */
+/** Instruments whose data could not be downloaded or decoded (retryable). */
 const loadFailures = new Set<string>();
 const retiring = new Set<string>();
 let installQueue: Promise<void> = Promise.resolve();
@@ -134,6 +134,11 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
     if (run !== generation) return;
     workletCatalog = await (workletPreparation ??= import("@/services/preparedLiveInstrument"));
     if (run !== generation) return;
+    if (installed.size >= MAX_BANKS && [...installed.keys()].every(isPinned)) {
+      reasons.set(instrumentId, "Live renderer instrument budget is occupied by held or pinned instruments");
+      loadFailures.delete(instrumentId);
+      return;
+    }
     const preparationSampleRate = nextContext.sampleRate;
     const prepared = await workletCatalog.prepareLiveInstrument(nextContext, instrumentId);
     preparedResult = prepared;
@@ -145,6 +150,7 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
       else loadFailures.delete(instrumentId);
       if (prepared.kind === "unsupported") unsupported.add(instrumentId);
       else unsupported.delete(instrumentId);
+      if (prepared.kind === "retryable") listeners.forEach(listener => listener.onLoadError?.(instrumentId, prepared.reason));
       return;
     }
     const bytes = byteSize(prepared);
@@ -223,7 +229,10 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
       installingPcmBytes = bytes;
       const split = preparedPcmBytes(prepared);
       // Transfers the PCM: from here the worklet owns the bank's only copy.
-      await ready.prepare(prepared);
+      const acknowledgement = ready.prepare(prepared);
+      workletCatalog?.releasePreparedLiveInstrument(nextContext, instrumentId, prepared);
+      preparedResult = undefined;
+      await acknowledgement;
       if (run === generation) {
         installed.set(instrumentId, bytes);
         installedPcm.set(instrumentId, split);
@@ -246,8 +255,8 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
     if (preparing.get(instrumentId) === promise) preparing.delete(instrumentId);
   });
   // Serialize the entire preparation/installation transaction: only one new
-  // bank can coexist with the installed banks. Drop the preparer's reference
-  // after acknowledgement (or fallback); a transferred bank is detached here.
+  // bank can coexist with the installed banks. Release its preparation entry
+  // immediately after posting, or in finally when installation is refused.
   installQueue = promise;
   preparing.set(instrumentId, promise);
   return promise;

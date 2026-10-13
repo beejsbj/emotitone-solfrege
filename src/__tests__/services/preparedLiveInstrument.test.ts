@@ -155,7 +155,7 @@ describe("instrument loader for the live worklet", () => {
   it("refuses a soundfont that contains code, and retries a failed download", async () => {
     registerSoundfonts({ gm_bad: ["bad"], gm_later: ["later"] });
     fonts.set("bad", font(`{originalPitch:6000,keyRangeLow:0,keyRangeHigh:127,sampleRate:1,file:(globalThis.__fontRan=1,'AAAA')}`));
-    expect(await prepareLiveInstrument(context(), "gm_bad")).toMatchObject({ kind: "retryable" });
+    expect(await prepareLiveInstrument(context(), "gm_bad")).toMatchObject({ kind: "unsupported" });
     expect((globalThis as Record<string, unknown>).__fontRan).toBeUndefined();
 
     const ctx = context();

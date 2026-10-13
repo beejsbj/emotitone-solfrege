@@ -1,6 +1,6 @@
 import type { LiveSampleZone, PreparedLiveInstrument } from "../audio/live/types";
 import { getCatalogSound, sampleZoneSources, type SampleBank, type SampleZoneSource } from "../audio/soundCatalog";
-import { parseSoundfontPreset, type SoundfontZone } from "../audio/soundfontPreset";
+import { parseSoundfontPreset, SoundfontParseError, type SoundfontZone } from "../audio/soundfontPreset";
 import { soundfontUrl } from "../audio/sampleSources";
 import { getLiveArticulation } from "./liveArticulation";
 
@@ -177,13 +177,13 @@ async function load(context: AudioContext, instrumentId: string): Promise<Prepar
 /**
  * Load an instrument's PCM from its catalog entry. Synthesis that the worklet
  * cannot render and malformed data are "unsupported" (the fallback renderer
- * keeps them); download, decode and parse failures are "retryable".
+ * keeps them); download and decode failures are "retryable".
  */
 export async function prepareNativeInstrument(context: AudioContext, instrumentId: string): Promise<NativeInstrumentPreparation> {
   try {
     return await load(context, instrumentId);
   } catch (error) {
-    return { kind: error instanceof UnsupportedLiveInstrumentError ? "unsupported" : "retryable",
+    return { kind: (error instanceof UnsupportedLiveInstrumentError || error instanceof SoundfontParseError) ? "unsupported" : "retryable",
       instrumentId, reason: error instanceof Error ? error.message : String(error) };
   }
 }

@@ -17,7 +17,7 @@ import { useVisualConfigStore } from "@/stores/visualConfig";
 import { createPlayStyleEngine, PLAY_STYLE_OPTIONS, PLAY_MODE_OPTIONS, PLAY_STYLE_SCHEDULING_LEAD_MS, playModeValue, type PlayStyle, type PlayStyleRate } from "@/services/playStyles";
 import { audioTimeToOutputTime, LIVE_AUDIO_SCHEDULING_LEAD_MS } from "@/services/liveAudioTiming";
 import { createLiveAudioClock } from "@/services/liveAudioClock";
-import { getLivePlayback } from "@/services/livePlayback";
+import { getLivePlayback, subscribeLivePlayback } from "@/services/livePlayback";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import type { LiveVoiceEvent } from "@/audio/liveRenderer";
 import { createLivePerformance } from "@/services/livePerformance";
@@ -190,6 +190,16 @@ export const useMusicStore = defineStore(
       },
       onError(error) { console.error("[Live Audio] Renderer failed", error); },
     });
+
+    const stopLoadErrors = subscribeLivePlayback({
+      onEvent() {},
+      onLoadError(instrumentId, reason) {
+        if (instrumentId !== resolveLiveSoundName(instrumentStore.currentInstrument)) return;
+        instrumentStore.lastWarmupError = reason;
+        instrumentStore.lastWarmupErrorInstrument = instrumentStore.currentInstrument;
+      },
+    });
+    onScopeDispose(stopLoadErrors);
 
     const playEngine = createPlayStyleEngine<HeldPitch>({
       now,

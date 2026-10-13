@@ -14,12 +14,12 @@ vi.mock("@strudel/codemirror", () => ({ StrudelMirror: class {
   stop() { mocks.options!.onToggle(false); }
 } }));
 vi.mock("@/services/superdoughAudio", () => ({
-  ensureSoundfontCatalog: vi.fn().mockResolvedValue(undefined),
+  preparePatternSounds: vi.fn().mockResolvedValue(undefined),
   setStrudelLaBasedMinor: vi.fn(),
   getAudioContext: () => mocks.context, initSuperdoughAudio: vi.fn(),
   stopStrudelVisuals: vi.fn(), emotitoneStrudelOutput: vi.fn(),
 }));
-import { ensureSoundfontCatalog } from "@/services/superdoughAudio";
+import { preparePatternSounds } from "@/services/superdoughAudio";
 import { createPatternEditor, disposePatternEditor } from "@/services/patternPlayback";
 
 afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
@@ -39,16 +39,14 @@ it("resumes interrupted native playback and protects silent transport bars until
   const editor = createPatternEditor({ root: document.createElement("div"), initialCode: "", onDraw: vi.fn(), onToggle, onEvalError: vi.fn() });
   try {
     await mocks.options!.prebake();
-    expect(ensureSoundfontCatalog).not.toHaveBeenCalled();
-    editor.code = "s('triangle')";
-    await mocks.options!.beforeEval();
-    expect(ensureSoundfontCatalog).not.toHaveBeenCalled();
+    expect(preparePatternSounds).not.toHaveBeenCalled();
+    // Play waits until the sounds the pattern names are loaded for its renderer.
     editor.code = "s('gm_celesta')";
     let finishCatalog!: () => void;
-    vi.mocked(ensureSoundfontCatalog).mockImplementationOnce(() => new Promise<void>(resolve => { finishCatalog = resolve; }));
+    vi.mocked(preparePatternSounds).mockImplementationOnce(() => new Promise<void>(resolve => { finishCatalog = resolve; }));
     let started = false;
     const starting = mocks.options!.beforeEval().then(() => { started = true; });
-    await vi.waitFor(() => expect(ensureSoundfontCatalog).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(preparePatternSounds).toHaveBeenCalledWith("s('gm_celesta')"));
     expect(started).toBe(false);
     finishCatalog();
     await starting;

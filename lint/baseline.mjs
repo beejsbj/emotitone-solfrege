@@ -43,8 +43,9 @@ export function loadBaseline(file = BASELINE_FILE) {
   }
   const isMap = (value, valid) => value && typeof value === "object" && !Array.isArray(value) && Object.values(value).every(valid);
   const isCount = (n) => Number.isInteger(n) && n >= 0;
-  if (!isMap(parsed, (counts) => isMap(counts, isCount))) {
-    throw new Error(`The design-law baseline (${where}) is malformed: expected { rule: { file: count } } with whole-number counts. Restore it from git.`);
+  if (!isMap(parsed, (counts) => isMap(counts, isCount)) ||
+    Object.keys(parsed).length !== RULES.length || !RULES.every((rule) => Object.hasOwn(parsed, rule))) {
+    throw new Error(`The design-law baseline (${where}) is malformed: expected all design-law rules as { rule: { file: count } } with whole-number counts. Restore it from git.`);
   }
   return parsed;
 }

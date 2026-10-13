@@ -135,6 +135,13 @@ describe("use the primitives: no bespoke buttons", () => {
     expect(await eslintRules(panel, vue("", '<a href="/credits">Credits</a>'))).toEqual([]);
   });
 
+  it("rejects bound literal button roles in Vue and JSX, while allowing link roles", async () => {
+    expect(await eslintRules(panel, vue("", '<a :role="\'button\'">Go</a>'))).toEqual([BUTTON]);
+    expect(await eslintRules("src/components/fresh.tsx", 'export const view = <a role={"button"}>Go</a>;')).toEqual([BUTTON]);
+    expect(await eslintRules(panel, vue("", '<a href="/x" :role="\'link\'">Go</a>'))).toEqual([]);
+    expect(await eslintRules("src/components/fresh.tsx", 'export const view = <a href="/x" role={"link"}>Go</a>;')).toEqual([]);
+  });
+
   it("accepts the Button primitive and other components, however they are spelled", async () => {
     const code = vue('import Button from "@/components/primatives/Button.vue";\nvoid Button;', '<Button accessible-name="Go">Go</Button><button-group /><span class="button" />');
     expect(await eslintRules(panel, code)).toEqual([]);
@@ -329,6 +336,14 @@ describe("colour law in script and template", () => {
     expect(await eslintRules(playing, vue(token.replace('"ivory"', '"white"')))).toEqual([RAW]);
   });
 
+  it("checks writable computed getters without treating setter strings as colours", async () => {
+    for (const script of ['const color = computed({ get: () => "white", set() {} });', 'const stroke = computed({ get() { return "ivory"; }, set() {} });']) {
+      expect(await eslintRules(playing, vue(script)), script).toEqual([RAW]);
+    }
+    expect(await eslintRules(playing, vue('const color = computed({ get: () => "var(--ivory)", set(value) { log("white", value); } });'))).toEqual([]);
+    expect(await eslintRules(playing, vue('const label = computed({ get: () => "white", set() {} });'))).toEqual([]);
+  });
+
   it("allows tokens, transparent, currentColor and ordinary strings", async () => {
     const code = vue(
       'const a = "var(--ink)";\nconst b = "var(--brass)";\nconst c = "transparent";\nconst d = "currentColor";\nconst e = "pine-tree";\n[a, b, c, d, e];',
@@ -441,7 +456,7 @@ describe("colour law in styles", () => {
 });
 
 describe("an unreadable baseline stops the lint instead of passing it (BJS-520)", () => {
-  const bad = ["", "{", "[]", '{"no-raw-colour": {"src/a.vue": "three"}}', '{"no-raw-colour": {"src/a.vue": -1}}'];
+  const bad = ["", "{", "[]", "{}", '{"no-raw-colour": {}}', '{"no-raw-colour": {"src/a.vue": "three"}}', '{"no-raw-colour": {"src/a.vue": -1}}'];
   const withBaseline = (contents: string | null, run: (file: string) => void) => {
     const dir = mkdtempSync(resolve(tmpdir(), "design-law-baseline-"));
     const file = resolve(dir, "baseline.json");
@@ -454,6 +469,13 @@ describe("an unreadable baseline stops the lint instead of passing it (BJS-520)"
   };
   const node = (script: string, args: string[], file: string, input?: string) =>
     spawnSync(process.execPath, [resolve(root, script), ...args], { cwd: root, input, encoding: "utf8", env: { ...process.env, DESIGN_LAW_BASELINE_FILE: file } });
+
+  it("loads the committed baseline from a fresh file without needing regeneration", () => {
+    withBaseline(JSON.stringify(baseline), (file) => {
+      const result = node("node_modules/.bin/eslint", ["--stdin", "--stdin-filename", "src/components/FreshPanel.vue"], file, vue("export {};"));
+      expect(result.status, result.stderr).toBe(0);
+    });
+  });
 
   it("makes ESLint fail with a message naming the baseline, for a missing, empty or malformed file", { timeout: 60_000 }, () => {
     for (const contents of [null, ...bad]) {

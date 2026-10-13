@@ -81,16 +81,24 @@ const COLOUR_ATTRIBUTES = /^(?:fill|stroke|stop-?color|flood-?color|lighting-?co
 /** `computed(() => ...)` is how a colour is derived in this codebase, so its callback is not a boundary. */
 const isComputedCall = (node) => node?.type === "CallExpression" && node.callee.type === "Identifier" && node.callee.name === "computed";
 
+const isComputedGetter = (node) => node?.type === "Property" && (node.key.name ?? node.key.value) === "get" &&
+  node.parent?.type === "ObjectExpression" && isComputedCall(node.parent.parent);
+const computedForCallback = (node) => isComputedCall(node.parent) ? node.parent :
+  isComputedGetter(node.parent) ? node.parent.parent.parent : null;
+
 function isColourValue(node) {
   for (let parent = node.parent; parent; parent = parent.parent) {
     if (parent.type === "BinaryExpression") return false;
     if (["ArrowFunctionExpression", "FunctionExpression"].includes(parent.type)) {
-      if (isComputedCall(parent.parent)) continue;
+      if (computedForCallback(parent)) continue;
       return false;
     }
     if (parent.type === "CallExpression" && !["ref", "shallowRef", "computed"].includes(parent.callee.name)) return false;
     let name;
-    if (parent.type === "Property") name = parent.key.name ?? parent.key.value;
+    if (parent.type === "Property") {
+      if (isComputedGetter(parent)) continue;
+      name = parent.key.name ?? parent.key.value;
+    }
     if (parent.type === "VariableDeclarator") name = parent.id.name;
     if (parent.type === "AssignmentExpression") name = parent.left.property?.name ?? parent.left.property?.value;
     if (parent.type === "VAttribute") {
@@ -110,7 +118,7 @@ function isIvoryTone(node, text) {
   for (let parent = node.parent; parent; parent = parent.parent) {
     if (["Property", "VAttribute", "JSXAttribute"].includes(parent.type)) return false;
     if (["ArrowFunctionExpression", "FunctionExpression"].includes(parent.type)) {
-      const call = parent.parent;
+      const call = computedForCallback(parent);
       return isComputedCall(call) && call.typeArguments?.params?.[0]?.typeName?.name === "StickerPaperColor";
     }
   }
@@ -231,7 +239,7 @@ function bespokeButton({ add }) {
       VElement(node) {
         const attributes = node.startTag.attributes.map((attribute) => ({
           name: attribute.directive ? attribute.key.argument?.name : attribute.key.name,
-          value: attribute.value?.value,
+          value: attribute.value?.value ?? attribute.value?.expression?.value,
         }));
         check(node, node.rawName, attributes);
       },
@@ -239,7 +247,7 @@ function bespokeButton({ add }) {
     script: {
       JSXOpeningElement(node) {
         const attributes = node.attributes.filter((attribute) => attribute.type === "JSXAttribute")
-          .map((attribute) => ({ name: attribute.name.name === "className" ? "class" : attribute.name.name, value: attribute.value?.value }));
+          .map((attribute) => ({ name: attribute.name.name === "className" ? "class" : attribute.name.name, value: attribute.value?.value ?? attribute.value?.expression?.value }));
         check(node, node.name.type === "JSXIdentifier" ? node.name.name : undefined, attributes);
       },
     },

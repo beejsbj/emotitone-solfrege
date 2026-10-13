@@ -573,7 +573,7 @@ describe("superdoughAudio live note handling", () => {
     ]);
   });
 
-  it.each(['s', 'sound'])("warms a root %s constructor before playback", async constructor => {
+  it.each(['s', 'sound', 's ', 'sound\n'])("warms a root %s constructor before playback", async constructor => {
     hoisted.mockLiveFailure.mockImplementation(() => undefined);
     const audio = await import("@/services/superdoughAudio");
     await audio.initSuperdoughAudio();
@@ -597,6 +597,30 @@ describe("superdoughAudio live note handling", () => {
       "first_sf2_file.js", "second_sf2_file.js",
     ]);
     expect(hoisted.mockAudioContext.decodeAudioData).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps warming valid GM variants after a broken middle preset", async () => {
+    hoisted.mockLiveFailure.mockImplementation(() => undefined);
+    const audio = await import("@/services/superdoughAudio");
+    await audio.initSuperdoughAudio();
+    const { registerSoundfonts } = await import("@/audio/soundCatalog");
+    registerSoundfonts({ gm_test: ["first_sf2_file", "missing_sf2_file", "last_sf2_file"] });
+    fetchMock.mockClear();
+    fetchMock.mockImplementation(async url => url.endsWith("missing_sf2_file.js")
+      ? new Response("", { status: 404 }) : serveFixtures(url));
+    hoisted.mockAudioContext.decodeAudioData.mockClear();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      await audio.preparePatternSounds('n("0 2").sound("gm_test")');
+      expect(fetchMock.mock.calls.map(([url]) => url.split("/").pop())).toEqual([
+        "first_sf2_file.js", "missing_sf2_file.js", "last_sf2_file.js",
+      ]);
+      expect(hoisted.mockAudioContext.decodeAudioData).toHaveBeenCalledTimes(2);
+      expect(warn).toHaveBeenCalledOnce();
+      expect(warn.mock.calls[0][1]).toMatchObject({ message: expect.stringContaining("HTTP 404") });
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it("leaves a soundfont cold when its preset fails to warm", async () => {

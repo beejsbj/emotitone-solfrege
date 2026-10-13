@@ -188,7 +188,10 @@ async function prewarmFallbackSound(sound: CatalogSound, allVariants = false): P
   const ac = getAudioContext();
   if (sound.kind === "soundfont") {
     for (const font of allVariants ? sound.fonts : sound.fonts.slice(0, 1)) {
-      await prewarmFallbackSoundfont(font, ac);
+      await prewarmFallbackSoundfont(font, ac).catch(error => {
+        if (!allVariants) throw error;
+        console.warn(`[superdoughAudio] could not warm soundfont ${font} for patterns:`, error);
+      });
     }
     return;
   }
@@ -272,7 +275,7 @@ export async function preparePatternSounds(code: string | undefined): Promise<vo
   if (!code) return;
   if (code.includes("gm_")) await ensureSoundfontCatalog();
   const names = new Set<string>();
-  for (const [, , value] of code.matchAll(/(?:^|[^\w$])(?:sound|s)\(\s*(["'`])(.*?)\1/gs)) {
+  for (const [, , value] of code.matchAll(/(?:^|[^\w$])(?:sound|s)\s*\(\s*(["'`])(.*?)\1/gs)) {
     for (const token of value.split(/[^\w-]+/)) {
       const sound = getCatalogSound(resolveLiveSoundName(token));
       if (sound) names.add(resolveLiveSoundName(token));

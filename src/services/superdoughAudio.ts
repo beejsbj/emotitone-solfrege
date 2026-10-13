@@ -46,6 +46,7 @@ export { getAudioContext };
 
 let _initialized = false;
 let _initPromise: Promise<void> | null = null;
+let _initProgressCallback: ((progress: number, message: string) => void) | undefined;
 
 /**
  * The startup step currently in flight, so a caller that gives up waiting can
@@ -309,14 +310,18 @@ export async function initSuperdoughAudio(
   progressCallback?: (progress: number, message: string) => void
 ): Promise<void> {
   if (_initialized) return;
+  // A replacement loading generation takes over reports from the shared load.
+  // Callers without a loading UI keep the existing callback.
+  if (progressCallback) _initProgressCallback = progressCallback;
   if (_initPromise) return _initPromise;
 
   _initPromise = (async () => {
+    let settled = false;
     try {
       _startupStage = "samples";
       // Register built-in WebAudio oscillator sounds (sine, triangle, etc.)
       registerSynthSounds();
-      progressCallback?.(3, "Synth sounds registered");
+      _initProgressCallback?.(3, "Synth sounds registered");
 
       // Load sample-pack maps only; audio files load on selection.
       // Track individual completions so the loading screen shows real steps.
@@ -324,10 +329,11 @@ export async function initSuperdoughAudio(
       let done = 0;
 
       const reportPack = (label: string) => {
+        if (settled) return;
         done++;
         // Range: 5 % → 75 % across all packs
         const pct = Math.round(5 + (done / total) * 70);
-        progressCallback?.(pct, `${label} loaded (${done}/${total})`);
+        _initProgressCallback?.(pct, `${label} loaded (${done}/${total})`);
       };
 
       try {
@@ -344,16 +350,16 @@ export async function initSuperdoughAudio(
       // The editor creates the single pattern transport through patternPlayback.
       // Instrument startup only initializes the shared audio graph.
       _startupStage = "engine";
-      progressCallback?.(79, "Starting audio context…");
+      _initProgressCallback?.(79, "Starting audio context…");
       await initializeAudio();
 
       // Only the default instrument is decoded eagerly. Other registered
       // instruments warm on selection so startup stays bounded on mobile.
-      progressCallback?.(80, `Preparing ${DEFAULT_INSTRUMENT}…`);
+      _initProgressCallback?.(80, `Preparing ${DEFAULT_INSTRUMENT}…`);
       await _prewarmDefaultInstrument();
-      progressCallback?.(98, `${DEFAULT_INSTRUMENT} ready`);
+      _initProgressCallback?.(98, `${DEFAULT_INSTRUMENT} ready`);
 
-      progressCallback?.(100, "Audio engine ready");
+      _initProgressCallback?.(100, "Audio engine ready");
       _initialized = true;
       _startupStage = "ready";
     } catch (err) {
@@ -362,6 +368,9 @@ export async function initSuperdoughAudio(
       // Reset so callers can retry after a user gesture
       _initPromise = null;
       throw err;
+    } finally {
+      settled = true;
+      _initProgressCallback = undefined;
     }
   })();
 
@@ -373,7 +382,8 @@ export async function initSuperdoughAudio(
  * oscillator synths, starts the shared audio graph and prepares the default
  * synth, then marks the engine initialised so notes stop retrying the sample
  * download. Sampled instruments stay unavailable until a reload. A full load
- * still in flight (a slow network) keeps running and adds its samples later.
+ * still in flight (a slow network) keeps caching its samples, but its cancelled
+ * loading generation does not reconcile them into the instrument store.
  */
 export async function initSynthOnlyAudio(): Promise<void> {
   if (_initialized) return;

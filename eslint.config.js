@@ -8,6 +8,7 @@ import designLaw from "./lint/eslintPluginDesignLaw.mjs";
 import {
   BRAND_ZONE,
   IMPORT_BOUNDARY_SCOPE,
+  PRIMITIVES_DIR,
   PLAYING_ZONE_IGNORE,
   SOURCE_EXTENSIONS,
   playingZoneGlobs,
@@ -30,6 +31,13 @@ const designLawConfigs = [
     ignores: [...PLAYING_ZONE_IGNORE, ...BRAND_ZONE],
     plugins: { "design-law": designLaw },
     rules: { "design-law/no-brand-colour": "error", "design-law/no-raw-colour": "error" },
+  },
+  {
+    // Use the primitives: playing-zone components build buttons with the Button primitive.
+    files: playingZoneGlobs(SOURCE_EXTENSIONS),
+    ignores: [...PLAYING_ZONE_IGNORE, ...BRAND_ZONE, `${PRIMITIVES_DIR}/**`],
+    plugins: { "design-law": designLaw },
+    rules: { "design-law/no-bespoke-button": "error" },
   },
 ];
 

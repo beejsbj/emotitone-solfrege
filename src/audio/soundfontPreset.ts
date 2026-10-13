@@ -4,8 +4,10 @@
  * A font file is JavaScript: `console.log(...); var _tone_<font>={zones:[...]};`.
  * @strudel/soundfonts `eval`s that text. This module parses only the object
  * literal assigned to the `var`, and only plain data (objects, arrays, strings,
- * numbers, booleans, null, comments). Any expression, call or identifier value
- * is a parse error, so remote code is never executed.
+ * numbers, booleans, null, comments). Numbers may be written as arithmetic on
+ * numeric literals (some fonts say `originalPitch:4200-140`), which is computed
+ * here. Any other expression, call or identifier is a parse error, so remote
+ * code is never executed.
  */
 
 export interface SoundfontZone {
@@ -34,6 +36,7 @@ type Literal = string | number | boolean | null | Literal[] | { [key: string]: L
 
 const IDENTIFIER = /[A-Za-z_$][\w$]*/y
 const NUMBER = /[+-]?(?:0[xX][\da-fA-F]+|(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)/y
+const UNSIGNED = /(?:0[xX][\da-fA-F]+|(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)/y
 const ESCAPES: Record<string, string> = { n: '\n', r: '\r', t: '\t', b: '\b', f: '\f', v: '\v', 0: '\0' }
 
 class LiteralParser {
@@ -67,11 +70,8 @@ class LiteralParser {
     if (char === '{') return this.object(depth)
     if (char === '[') return this.array(depth)
     if (char === '"' || char === "'") return this.string()
-    NUMBER.lastIndex = this.position
-    const number = NUMBER.exec(this.text)
-    if (number) {
-      this.position = NUMBER.lastIndex
-      const parsed = Number(number[0])
+    if (/[\d.+\-(]/.test(char ?? '')) {
+      const parsed = this.sum(depth)
       if (!Number.isFinite(parsed)) this.fail('Invalid number')
       return parsed
     }
@@ -82,6 +82,56 @@ class LiteralParser {
       return word === 'true' ? true : word === 'false' ? false : null
     }
     return this.fail('Only plain data is allowed in a soundfont preset')
+  }
+
+  /** Arithmetic on numeric literals only: + - * / and parentheses. */
+  sum(depth: number): number {
+    let value = this.product(depth)
+    for (;;) {
+      this.skip()
+      const operator = this.text[this.position]
+      if (operator !== '+' && operator !== '-') return value
+      this.position++
+      const right = this.product(depth)
+      value = operator === '+' ? value + right : value - right
+    }
+  }
+
+  product(depth: number): number {
+    let value = this.unary(depth)
+    for (;;) {
+      this.skip()
+      const operator = this.text[this.position]
+      // "//" and "/*" start comments, which skip() has already consumed.
+      if (operator !== '*' && operator !== '/') return value
+      this.position++
+      const right = this.unary(depth)
+      value = operator === '*' ? value * right : value / right
+    }
+  }
+
+  unary(depth: number): number {
+    if (depth > 32) this.fail('Preset nests too deeply')
+    this.skip()
+    const char = this.text[this.position]
+    if (char === '+' || char === '-') {
+      this.position++
+      const operand = this.unary(depth + 1)
+      return char === '-' ? -operand : operand
+    }
+    if (char === '(') {
+      this.position++
+      const inner = this.sum(depth + 1)
+      this.skip()
+      if (this.text[this.position] !== ')') this.fail('Expected ")"')
+      this.position++
+      return inner
+    }
+    UNSIGNED.lastIndex = this.position
+    const number = UNSIGNED.exec(this.text)
+    if (!number) return this.fail('Only plain data is allowed in a soundfont preset')
+    this.position = UNSIGNED.lastIndex
+    return Number(number[0])
   }
 
   object(depth: number) {

@@ -52,6 +52,17 @@ describe('soundfont preset parser', () => {
     evaluate.mockRestore()
   })
 
+  it('computes arithmetic on numeric literals, as some fonts write it (0253_Acoustic_Guitar: originalPitch:4200-140)', () => {
+    const [zone] = parseSoundfontPreset(`var _x={zones:[{originalPitch:4200-140,coarseTune:-(1+1)*3,fineTune:-20/4,keyRangeLow:41,keyRangeHigh:42,sampleRate:44100,file:'A'}]}`)
+    expect(zone).toMatchObject({ originalPitch: 4060, coarseTune: -6, fineTune: -5 })
+    for (const text of [
+      `var _x={zones:[{originalPitch:4200-x,keyRangeLow:0,keyRangeHigh:127,sampleRate:1,file:'A'}]}`,
+      `var _x={zones:[{originalPitch:4200-(globalThis.__soundfontRan=1),keyRangeLow:0,keyRangeHigh:127,sampleRate:1,file:'A'}]}`,
+      `var _x={zones:[{originalPitch:1/0,keyRangeLow:0,keyRangeHigh:127,sampleRate:1,file:'A'}]}`,
+    ]) expect(() => parseSoundfontPreset(text), text).toThrow(SoundfontParseError)
+    expect((globalThis as Record<string, unknown>).__soundfontRan).toBeUndefined()
+  })
+
   it('keeps a "__proto__" key as inert data', () => {
     const [zone] = parseSoundfontPreset(`var _x={zones:[{__proto__:{polluted:1},originalPitch:60,keyRangeLow:0,keyRangeHigh:127,sampleRate:1,file:'A'}]}`)
     expect(Object.getPrototypeOf(zone)).toBe(Object.prototype)

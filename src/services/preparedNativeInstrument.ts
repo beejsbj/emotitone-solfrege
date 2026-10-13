@@ -89,11 +89,21 @@ async function loadSampleZones(context: AudioContext, instrumentId: string, bank
   return zones;
 }
 
-function base64Bytes(base64: string): Uint8Array {
+function base64Bytes(base64: string, length = 0): Uint8Array {
   const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
+  const bytes = new Uint8Array(Math.max(length, binary.length));
   for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
   return bytes;
+}
+
+/**
+ * An encoded zone, zero-padded to its base64 length exactly as webaudiofont
+ * (and so @strudel/soundfonts) sized it. The decoder then flushes the final
+ * MP3 frame; without the padding that frame is lost and some loops end past
+ * the decoded PCM. Keeps the PCM identical to what the app played before.
+ */
+function encodedZone(file: string): ArrayBuffer {
+  return base64Bytes(file, file.length).buffer as ArrayBuffer;
 }
 
 /** Older fonts carry raw 16-bit little-endian PCM, scaled exactly as webaudiofont did. */
@@ -120,7 +130,7 @@ async function loadSoundfontZones(context: AudioContext, instrumentId: string, f
     let channels: Float32Array[];
     let sampleRate: number;
     if (zone.file) {
-      const decoded = await decode(context, base64Bytes(zone.file).buffer as ArrayBuffer);
+      const decoded = await decode(context, encodedZone(zone.file));
       channels = ownedChannels(decoded);
       sampleRate = decoded.sampleRate;
     } else {

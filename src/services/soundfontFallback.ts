@@ -31,11 +31,21 @@ function loadPreset(font: string): Promise<SoundfontZone[]> {
   return preset;
 }
 
-function base64Bytes(base64: string): Uint8Array {
+function base64Bytes(base64: string, length = 0): Uint8Array {
   const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
+  const bytes = new Uint8Array(Math.max(length, binary.length));
   for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
   return bytes;
+}
+
+/**
+ * An encoded zone, zero-padded to its base64 length exactly as webaudiofont
+ * (and so @strudel/soundfonts) sized it. The decoder then flushes the final
+ * MP3 frame; without the padding that frame is lost and some loops end past
+ * the decoded PCM. Keeps the PCM identical to what the app played before.
+ */
+function encodedZone(file: string): ArrayBuffer {
+  return base64Bytes(file, file.length).buffer as ArrayBuffer;
 }
 
 function zoneBuffer(zone: SoundfontZone, context: BaseAudioContext): Promise<AudioBuffer> {
@@ -44,7 +54,7 @@ function zoneBuffer(zone: SoundfontZone, context: BaseAudioContext): Promise<Aud
   let buffer = perContext.get(context);
   if (!buffer) {
     buffer = (async () => {
-      if (zone.file) return context.decodeAudioData(base64Bytes(zone.file).buffer as ArrayBuffer);
+      if (zone.file) return context.decodeAudioData(encodedZone(zone.file));
       const bytes = base64Bytes(zone.sample!);
       const decoded = context.createBuffer(1, bytes.length >> 1, zone.sampleRate);
       const data = decoded.getChannelData(0);

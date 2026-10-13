@@ -47,7 +47,7 @@ describe('production live worklet bridge', () => {
     // A real message port, so the transfer list has its real effect.
     const wire = new NodeMessageChannel()
     const received = new Promise<any>(resolve => wire.port2.once('message', resolve))
-    node.port.postMessage = vi.fn((message: unknown, transfer?: Transferable[]) => wire.port1.postMessage(message, transfer as any))
+    node.port.postMessage = vi.fn((message: unknown, transfer?: ArrayBuffer[]) => wire.port1.postMessage(message, transfer))
     const bridge = await createLiveWorklet(context, {} as AudioNode, callbacks)
     const zone = (rootMidi: number, frames: number) => ({ id: `piano:${rootMidi}`, rootMidi, sampleRate: 48000,
       channels: [new Float32Array(frames).fill(.25), new Float32Array(frames).fill(-.25)],

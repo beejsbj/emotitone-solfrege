@@ -26,6 +26,7 @@ class DecodedBuffer {
 
 interface Decode { url: string; buffer: DecodedBuffer }
 let decoded: Decode[] = [];
+let received: number[] = [];
 let decoding = 0, maxDecoding = 0;
 let shapes = new Map<string, () => DecodedBuffer>();
 const fetchMock = vi.fn(async (url: string) => {
@@ -35,7 +36,8 @@ const fetchMock = vi.fn(async (url: string) => {
 const fonts = new Map<string, string>();
 function context(sampleRate = 48000) {
   return { sampleRate, decodeAudioData: vi.fn(async (bytes: ArrayBuffer) => {
-    const url = new TextDecoder().decode(bytes);
+    received.push(bytes.byteLength);
+    const url = new TextDecoder().decode(bytes).replace(/\0+$/, "");
     maxDecoding = Math.max(maxDecoding, ++decoding);
     await new Promise(resolve => setTimeout(resolve, 1));
     decoding--;
@@ -53,7 +55,7 @@ function bank(result: Awaited<ReturnType<typeof prepareLiveInstrument>>) {
 }
 
 beforeEach(() => {
-  clearSoundCatalog(); fonts.clear(); shapes = new Map(); decoded = []; decoding = maxDecoding = 0;
+  clearSoundCatalog(); fonts.clear(); shapes = new Map(); decoded = []; received = []; decoding = maxDecoding = 0;
   mocks.mipmaps.mockReset(); fetchMock.mockClear();
   vi.stubGlobal("fetch", fetchMock);
 });
@@ -133,6 +135,10 @@ describe("instrument loader for the live worklet", () => {
       zones: [{ rootMidi: 59.25, lowMidi: 48, highMidi: 61, loopStartFrame: 48, loopEndFrame: 240, sampleRate: 48000 },
         { rootMidi: 59.25, lowMidi: 60, highMidi: 73, sampleRate: 48000 }] });
     expect(result.zones[1].loopStartFrame).toBeUndefined();
+    // Encoded zones are zero-padded to their base64 length, as webaudiofont sized them,
+    // so the decoder flushes the final frame and the PCM matches what played before.
+    expect(received).toEqual([btoa("zone-a").length, btoa("zone-b").length]);
+    expect(decoded.map(entry => entry.url)).toEqual(["zone-a", "zone-b"]);
     expect(evaluate).not.toHaveBeenCalled();
     evaluate.mockRestore();
   });

@@ -241,6 +241,46 @@ describe("persistence codec", () => {
     },
   );
 
+  it("hydrates the codec state without a second fallible plugin read", async () => {
+    const { backend, binding, storage } = setup();
+    const saved = envelope(2, { takes: ["kept"], tempo: 90 });
+    backend.items.set(KEY, saved);
+    const getItem = vi.spyOn(backend, "getItem")
+      .mockImplementationOnce((key) => backend.items.get(key) ?? null)
+      .mockImplementationOnce(() => { throw new Error("Transient read failure"); });
+    const useStore = defineStore(KEY, { state: sketchCodec.defaults, persist: codecPersist(binding) });
+    const pinia = createPinia();
+    createApp({}).use(pinia);
+    pinia.use(createPersistedState({ storage }));
+    const store = useStore(pinia);
+    expect(store.takes).toEqual(["kept"]);
+    expect(store.tempo).toBe(90);
+    getItem.mockRestore();
+    store.tempo = 100;
+    await nextTick();
+    expect(JSON.parse(backend.items.get(KEY)!).data).toEqual({ takes: ["kept"], tempo: 100 });
+    backend.items.set(KEY, saved);
+    store.$hydrate({ runHooks: false });
+    expect(store.tempo).toBe(90);
+  });
+
+  it("preserves existing backups when enumeration fails, then retries safely", () => {
+    const { backend, binding } = setup();
+    const backupKey = `${KEY}.backup.unreadable.2026-10-10`;
+    backend.items.set(backupKey, "previous recovery copy");
+    backend.items.set(KEY, "{broken now");
+    vi.spyOn(backend, "key").mockImplementationOnce(() => { throw new Error("Listing denied"); });
+    binding.load();
+    expect(backend.writes).toEqual([]);
+    expect(backend.items.get(backupKey)).toBe("previous recovery copy");
+    expect(backend.items.get(KEY)).toBe("{broken now");
+    expect(binding.hold?.reason).toBe("needs-backup");
+    expect(binding.save({ takes: ["fresh"], tempo: 120 })).toBe(true);
+    expect(backend.items.get(backupKey)).toBe("previous recovery copy");
+    expect(backend.items.get(`${backupKey}.2`)).toBe("{broken now");
+    expect(hasSaveFailure.value).toBe(false);
+  });
+
   it("protects a newer tab's autosave from a store opened before the update", async () => {
     const { backend, storage } = memoryStorage();
     const tab = (version: number) => {

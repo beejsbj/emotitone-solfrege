@@ -137,8 +137,8 @@ export function isQuotaExceeded(error: unknown): boolean {
 export interface SafeStorage extends Pick<Storage, "getItem" | "setItem" | "removeItem"> {
   /** A read that distinguishes a missing key from unavailable or failing storage. */
   read(key: string): { ok: true; value: string | null } | { ok: false };
-  /** Every stored key (empty when storage is unavailable). */
-  keys(): string[];
+  /** Every stored key, or null when enumeration failed. */
+  keys(): string[] | null;
   /**
    * Like setItem, but says whether the value was actually stored. Pass
    * `{ oneOff: true }` for an explicit save that nothing will retry.
@@ -216,7 +216,7 @@ export function createSafeStorage(
     keys: () => {
       try {
         const storage = backend();
-        if (!storage) return [];
+        if (!storage) return null;
         const found: string[] = [];
         for (let index = 0; index < storage.length; index += 1) {
           const key = storage.key(index);
@@ -224,7 +224,7 @@ export function createSafeStorage(
         }
         return found;
       } catch {
-        return [];
+        return null;
       }
     },
     write,

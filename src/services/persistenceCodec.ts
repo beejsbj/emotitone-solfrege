@@ -183,8 +183,9 @@ const newestFirst = (a: BackupEntry, b: BackupEntry) =>
 
 /** Backups in storage, newest first; only those of `key` when given. */
 export function listBackups(storage: SafeStorage, key?: string): BackupEntry[] {
-  return storage
-    .keys()
+  const keys = storage.keys();
+  if (keys === null) throw new Error("Could not enumerate backups");
+  return keys
     .map(parseBackupKey)
     .filter((entry): entry is BackupEntry => entry !== null && (key === undefined || entry.of === key))
     .sort(newestFirst);
@@ -205,7 +206,14 @@ function writeBackup(
   time: number,
 ): { backupKey: string; stored: boolean } {
   const date = isoDate(time);
-  const existing = listBackups(storage, key);
+  let existing: BackupEntry[];
+  try {
+    existing = listBackups(storage, key);
+  } catch {
+    const backupKey = backupKeyFor(key, label, date);
+    reportSaveFailure("unknown", backupKey);
+    return { backupKey, stored: false };
+  }
   const sameCopy = existing.find(
     (entry) => entry.label === label && entry.date === date && storage.getItem(entry.backupKey) === raw,
   );
@@ -217,7 +225,12 @@ function writeBackup(
 
 /** Prune only version-labelled migrations; recovery copies never count toward retention. */
 function pruneBackups(storage: SafeStorage, key: string, retention: number, keep: string): void {
-  const migrations = listBackups(storage, key).filter((entry) => /^v\d+$/.test(entry.label));
+  let migrations: BackupEntry[];
+  try {
+    migrations = listBackups(storage, key).filter((entry) => /^v\d+$/.test(entry.label));
+  } catch {
+    return; // An unavailable listing cannot justify deleting any backup.
+  }
   const keptMigration = migrations.some((entry) => entry.backupKey === keep);
   const others = migrations.filter((entry) => entry.backupKey !== keep);
   for (const stale of others.slice(retention - (keptMigration ? 1 : 0))) storage.removeItem(stale.backupKey);
@@ -422,7 +435,12 @@ export function codecPersist<T extends StateTree>(
   return {
     key: binding.codec.key,
     pick: options.pick,
-    storage: binding.storage,
+    storage: {
+      setItem: (key, value) => binding.storage.setItem(key, value),
+      // deserialize consumes the codec load, even for missing/unreadable data.
+      // A second backend read could otherwise skip applying that saved state.
+      getItem: () => "{}",
+    },
     // Load here rather than from the plugin's getItem, so a failed read still
     // closes the write gate and an empty key still resets it.
     beforeHydrate: () => {

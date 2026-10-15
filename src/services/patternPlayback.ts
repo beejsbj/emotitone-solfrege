@@ -6,9 +6,9 @@ import * as StrudelWebAudio from "@strudel/webaudio";
 import { transpiler } from "@strudel/transpiler";
 import {
   emotitoneStrudelOutput,
-  ensureSoundfontCatalog,
   getAudioContext,
   initSuperdoughAudio,
+  preparePatternSounds,
   stopStrudelVisuals,
 } from "@/services/superdoughAudio";
 import { setSoundingNotationSpans } from "@/services/notationSpans";
@@ -90,8 +90,7 @@ export function createPatternTransport(options: PatternTransportOptions): Patter
     transpiler,
     beforeEval: async () => {
       await prebaked;
-      // General MIDI soundfonts load on demand (BJS-509).
-      if (transport.code.includes("gm_")) await ensureSoundfontCatalog();
+      await preparePatternSounds(transport.code);
     },
     beforeStart: async () => {
       await resumeAudioContext(getAudioContext());

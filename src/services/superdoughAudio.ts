@@ -3,9 +3,12 @@ import { pitchSolfegeData } from "@/domain/musicalIdentity";
 import { resumeAudioContext } from "@/services/audioLifecycle";
 /**
  * superdoughAudio.ts
- * Instrument catalog/preparation and the Superdough playback adapter.
- * audioRuntime owns the shared graph; patternPlayback owns the sole pattern
- * transport; livePlayback selects the prepared live renderer.
+ * Audio startup, instrument warmup and the Superdough playback adapter.
+ * The app's sound catalog (src/audio/soundCatalog.ts) and loader
+ * (preparedNativeInstrument.ts) put sample and soundfont PCM into the live
+ * worklet; superdough keeps only what patterns and the fallback renderer need,
+ * loaded when they need it. audioRuntime owns the shared graph; patternPlayback
+ * owns the sole pattern transport; livePlayback selects the live renderer.
  */
 
 // superdough has no bundled TypeScript declarations
@@ -21,7 +24,7 @@ import type {
 } from "@/types/music";
 import { Note as TonalNote } from "@tonaljs/tonal";
 import { DEFAULT_INSTRUMENT, isSynthSound } from "@/data/instruments";
-import { prepareLivePlayback } from "@/services/livePlayback";
+import { getLivePlaybackFailure, prepareLivePlayback } from "@/services/livePlayback";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import { resolveLiveEnvelope } from "@/services/shape";
 import type { Shape } from "@/types/instrument";
@@ -30,15 +33,13 @@ import { getAudioContext, getMasterGain, initializeAudio, LIVE_ORBIT } from "@/s
 import { setLivePlaybackShaping } from "@/services/livePlayback";
 import { LIVE_DELAY_FEEDBACK, LIVE_DELAY_TIME_SECONDS } from "@/audio/liveShaping";
 import { SampleLoadError } from "@/services/audioFailures";
+import { catalogSoundNames, getCatalogSound, registerSampleMap, registerSoundfonts, type CatalogSound, type SampleMap } from "@/audio/soundCatalog";
+import { SAMPLE_PACKS, sampleMapUrl } from "@/audio/sampleSources";
+import { prewarmFallbackSoundfont, registerFallbackSoundfonts } from "@/services/soundfontFallback";
 import { soundingNoteIdForHap } from "@/services/notationSpans";
 
 /** Compatibility facade: the playback graph is owned by audioRuntime. */
 export { getAudioContext };
-
-/** Oscillator-based sounds that have no sample bank — skip pre-warm for these. */
-const SYNTH_SOUNDS = new Set([
-  "triangle", "sawtooth", "square", "sine", "buzz", "supersaw",
-]);
 
 // ---------------------------------------------------------------------------
 // Module-level init state so we only set up once
@@ -46,6 +47,7 @@ const SYNTH_SOUNDS = new Set([
 
 let _initialized = false;
 let _initPromise: Promise<void> | null = null;
+let _initProgressCallback: ((progress: number, message: string) => void) | undefined;
 
 /**
  * The startup step currently in flight, so a caller that gives up waiting can
@@ -145,18 +147,60 @@ export function getActiveStrudelStageNotes(): readonly ActiveNote[] {
   }));
 }
 
-// Sample packs with user-friendly labels for progress reporting
-const SAMPLE_PACKS = [
-  { key: "piano", label: "Piano" },
-  { key: "vcsl", label: "Orchestra" },
-] as const;
+/**
+ * Fetch one sample map and register it twice: in the app catalog, which the
+ * worklet loader reads, and in superdough's sound map, which patterns and the
+ * fallback renderer still read until BJS-485. Registration downloads no audio.
+ */
+async function loadSamplePack(pack: string): Promise<void> {
+  const response = await fetch(sampleMapUrl(pack));
+  if (!response.ok) throw new Error(`error loading "${sampleMapUrl(pack)}" (HTTP ${response.status})`);
+  const map = await response.json() as SampleMap;
+  registerSampleMap(map);
+  await samples(map, typeof map._base === "string" ? map._base : "");
+}
 
-/** Catalog code is needed only by the picker or a selected GM instrument. */
+/** Catalog data is needed only by the picker or a selected GM instrument. */
 let soundfontCatalog: Promise<void> | null = null;
 export function ensureSoundfontCatalog(): Promise<void> {
-  return soundfontCatalog ??= import("@strudel/soundfonts")
-    .then(({ registerSoundfonts }) => registerSoundfonts())
+  return soundfontCatalog ??= import("@/data/gmSoundfonts")
+    .then(({ GM_SOUNDFONTS }) => {
+      registerSoundfonts(GM_SOUNDFONTS);
+      registerFallbackSoundfonts(GM_SOUNDFONTS);
+    })
     .catch(error => { soundfontCatalog = null; throw error; });
+}
+
+/** superdough still registers and renders the synths the worklet does not (supersaw, pulse, …). */
+function isRegisteredSynth(name: string): boolean {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sound = (getSound as any)(name);
+    return Boolean(sound) && sound.data?.type !== "soundfont" && !sound.data?.samples;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Warm the fallback renderer's own copy of a sound. Used only when the worklet
+ * cannot hold the bank, and before patterns play (superdough renders them
+ * until BJS-485). The live worklet never reads these buffers.
+ */
+async function prewarmFallbackSound(sound: CatalogSound, allVariants = false): Promise<void> {
+  const ac = getAudioContext();
+  if (sound.kind === "soundfont") {
+    for (const font of allVariants ? sound.fonts : sound.fonts.slice(0, 1)) {
+      await prewarmFallbackSoundfont(font, ac).catch(error => {
+        if (!allVariants) throw error;
+        console.warn(`[superdoughAudio] could not warm soundfont ${font} for patterns:`, error);
+      });
+    }
+    return;
+  }
+  const urls = Array.isArray(sound.bank) ? sound.bank : Object.values(sound.bank).flat();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await Promise.all(urls.map((url) => (loadBuffer as any)(url, ac)));
 }
 
 /**
@@ -170,79 +214,44 @@ async function _prewarmSoundCore(
 ): Promise<void> {
   const resolved = resolveLiveSoundName(soundName);
   if (resolved.startsWith("gm_")) await ensureSoundfontCatalog();
-  let sound;
-  try {
-    // Resolve the registered sound before treating synth names as ready. This
-    // prevents pre-init callers and typos from being reported as playable.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    sound = (getSound as any)(resolved);
-  } catch (error) {
-    if (tolerateBufferFailures) return;
-    throw error;
-  }
-
-  if (!sound) {
+  const sound = getCatalogSound(resolved);
+  // Resolve the sound before treating it as ready. This prevents pre-init
+  // callers and typos from being reported as playable.
+  if (!sound && !isRegisteredSynth(resolved)) {
     if (tolerateBufferFailures) return;
     throw new Error(`Unknown sound: ${soundName}`);
   }
 
-  if (sound.data?.type === "soundfont") {
-    const font = Array.isArray(sound.data.fonts) ? sound.data.fonts[0] : null;
-    if (!font) {
-      if (tolerateBufferFailures) return;
-      throw new Error(`Soundfont has no preset: ${soundName}`);
-    }
+  await prepareLivePlayback(getAudioContext(), getSuperdoughMasterGain(), resolved);
+  if (!sound) {
+    _prewarmedSounds.add(resolved); // synths need no data → already "ready"
+    return;
+  }
 
+  const failure = getLivePlaybackFailure(resolved);
+  if (failure?.kind === "load") {
+    if (!tolerateBufferFailures) throw new Error(failure.reason);
+    return;
+  }
+  if (failure) {
+    // The worklet cannot hold this bank (no AudioWorklet, over budget, or its
+    // residency is held), so the fallback renderer plays it from its own copy.
     try {
-      const { prewarmSoundfont } = await import("@strudel/soundfonts");
-      await prewarmSoundfont(font, getAudioContext());
-      await prepareLivePlayback(getAudioContext(), getSuperdoughMasterGain(), resolved);
-      _prewarmedSounds.add(resolved);
+      await prewarmFallbackSound(sound);
     } catch (error) {
       if (!tolerateBufferFailures) throw error;
+      return;
     }
-    return;
   }
-
-  if (SYNTH_SOUNDS.has(resolved) || !sound?.data?.samples) {
-    await prepareLivePlayback(getAudioContext(), getSuperdoughMasterGain(), resolved);
-    _prewarmedSounds.add(resolved); // no samples needed → already "ready"
-    return;
-  }
-
-  const ac = getAudioContext();
-  const bank = sound.data.samples as Record<string, string[]> | string[];
-  const audioUrls: string[] = Array.isArray(bank)
-    ? bank
-    : (Object.values(bank) as string[][]).flat();
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const results = await Promise.allSettled(
-    audioUrls.map((url) => (loadBuffer as any)(url, ac))
-  );
-  const failedBuffer = results.find(
-    (result): result is PromiseRejectedResult => result.status === "rejected"
-  );
-
-  if (failedBuffer) {
-    if (!tolerateBufferFailures) {
-      throw failedBuffer.reason;
-    }
-    return;
-  }
-
-  await prepareLivePlayback(getAudioContext(), getSuperdoughMasterGain(), resolved);
   _prewarmedSounds.add(resolved);
 }
 
 /**
- * Pre-loads every AudioBuffer for any registered superdough sound into its
- * shared bufferCache.  Works for any sample-based instrument; oscillator
- * sounds (sine, triangle, etc.) are skipped immediately.
+ * Loads an instrument into the live worklet (or, when the worklet cannot hold
+ * it, the fallback renderer). Oscillator sounds need no data.
  *
- * Safe to call at any time — triggers audio init if not yet done,
- * then drives fetch → decodeAudioData for all samples in the bank
- * so the first keypress is never silently dropped.
+ * Safe to call at any time — triggers audio init if not yet done, then
+ * fetches and decodes the bank so the first keypress is never dropped.
  */
 export async function prewarmSoundSamples(soundName: string): Promise<void> {
   await initSuperdoughAudio(); // no-op if already initialised; safe for external callers
@@ -250,25 +259,34 @@ export async function prewarmSoundSamples(soundName: string): Promise<void> {
 }
 
 /**
- * Returns true when a sound can play immediately. Sample banks must already be
- * in the buffer cache; oscillator and other no-sample sounds are always ready.
+ * Returns true when a sound can play immediately. Sample and soundfont banks
+ * must already be loaded; oscillator and other no-sample sounds are always ready.
  */
 export function isPrewarmed(soundName: string): boolean {
   const resolved = resolveLiveSoundName(soundName);
-  if (_prewarmedSounds.has(resolved)) {
-    return true;
-  }
+  if (_prewarmedSounds.has(resolved)) return true;
+  if (getCatalogSound(resolved)) return false;
+  return isRegisteredSynth(resolved);
+}
 
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sound = (getSound as any)(resolved);
-    if (sound?.data?.type === "soundfont") return false;
-    return Boolean(
-      sound && (SYNTH_SOUNDS.has(resolved) || !sound?.data?.samples)
-    );
-  } catch {
-    return false;
+/**
+ * Warm the sounds a pattern names before it plays. superdough renders patterns
+ * until BJS-485 and drops onsets whose sample is still loading, so it loads its
+ * own copy here, once per sound, rather than when the first note is due.
+ */
+export async function preparePatternSounds(code: string | undefined): Promise<void> {
+  if (!code) return;
+  if (code.includes("gm_")) await ensureSoundfontCatalog();
+  const names = new Set<string>();
+  for (const [, , value] of code.matchAll(/(?:^|[^\w$])(?:sound|s)\s*\(\s*(["'`])(.*?)\1/gs)) {
+    for (const token of value.split(/[^\w-]+/)) {
+      const sound = getCatalogSound(resolveLiveSoundName(token));
+      if (sound) names.add(resolveLiveSoundName(token));
+    }
   }
+  await Promise.all([...names].map(name => prewarmFallbackSound(getCatalogSound(name)!, true).catch(error => {
+    console.warn(`[superdoughAudio] could not warm ${name} for patterns:`, error);
+  })));
 }
 
 /**
@@ -294,32 +312,36 @@ export async function initSuperdoughAudio(
   progressCallback?: (progress: number, message: string) => void
 ): Promise<void> {
   if (_initialized) return;
+  // A replacement loading generation takes over reports from the shared load.
+  // Callers without a loading UI keep the existing callback.
+  if (progressCallback) _initProgressCallback = progressCallback;
   if (_initPromise) return _initPromise;
 
   _initPromise = (async () => {
+    let settled = false;
     try {
       _startupStage = "samples";
       // Register built-in WebAudio oscillator sounds (sine, triangle, etc.)
       registerSynthSounds();
-      progressCallback?.(3, "Synth sounds registered");
+      _initProgressCallback?.(3, "Synth sounds registered");
 
-      // Load sample-pack metadata only; audio files warm on selection.
+      // Load sample-pack maps only; audio files load on selection.
       // Track individual completions so the loading screen shows real steps.
-      const BASE = "https://raw.githubusercontent.com/felixroos/dough-samples/main/";
       const total = SAMPLE_PACKS.length;
       let done = 0;
 
       const reportPack = (label: string) => {
+        if (settled) return;
         done++;
         // Range: 5 % → 75 % across all packs
         const pct = Math.round(5 + (done / total) * 70);
-        progressCallback?.(pct, `${label} loaded (${done}/${total})`);
+        _initProgressCallback?.(pct, `${label} loaded (${done}/${total})`);
       };
 
       try {
         await Promise.all([
           ...SAMPLE_PACKS.map(({ key, label }) =>
-            Promise.resolve(samples(`${BASE}${key}.json`)).then(() => reportPack(label))
+            loadSamplePack(key).then(() => reportPack(label))
           ),
         ]);
       } catch (error) {
@@ -330,16 +352,16 @@ export async function initSuperdoughAudio(
       // The editor creates the single pattern transport through patternPlayback.
       // Instrument startup only initializes the shared audio graph.
       _startupStage = "engine";
-      progressCallback?.(79, "Starting audio context…");
+      _initProgressCallback?.(79, "Starting audio context…");
       await initializeAudio();
 
       // Only the default instrument is decoded eagerly. Other registered
       // instruments warm on selection so startup stays bounded on mobile.
-      progressCallback?.(80, `Preparing ${DEFAULT_INSTRUMENT}…`);
+      _initProgressCallback?.(80, `Preparing ${DEFAULT_INSTRUMENT}…`);
       await _prewarmDefaultInstrument();
-      progressCallback?.(98, `${DEFAULT_INSTRUMENT} ready`);
+      _initProgressCallback?.(98, `${DEFAULT_INSTRUMENT} ready`);
 
-      progressCallback?.(100, "Audio engine ready");
+      _initProgressCallback?.(100, "Audio engine ready");
       _initialized = true;
       _startupStage = "ready";
     } catch (err) {
@@ -348,6 +370,9 @@ export async function initSuperdoughAudio(
       // Reset so callers can retry after a user gesture
       _initPromise = null;
       throw err;
+    } finally {
+      settled = true;
+      _initProgressCallback = undefined;
     }
   })();
 
@@ -359,7 +384,8 @@ export async function initSuperdoughAudio(
  * oscillator synths, starts the shared audio graph and prepares the default
  * synth, then marks the engine initialised so notes stop retrying the sample
  * download. Sampled instruments stay unavailable until a reload. A full load
- * still in flight (a slow network) keeps running and adds its samples later.
+ * still in flight (a slow network) keeps caching its samples, but its cancelled
+ * loading generation does not reconcile them into the instrument store.
  */
 export async function initSynthOnlyAudio(): Promise<void> {
   if (_initialized) return;
@@ -816,16 +842,19 @@ export function getSuperdoughMasterGain(): GainNode | null {
 }
 
 /**
- * Returns all sound names currently registered in superdough's soundMap.
- * Available after initSuperdoughAudio() resolves.
+ * Returns every playable sound name: the synths superdough registers, then the
+ * app catalog's sample and soundfont instruments. Available after
+ * initSuperdoughAudio() resolves (GM names after ensureSoundfontCatalog()).
  * Excludes internal entries starting with "_".
  */
 export function getRegisteredSounds(): string[] {
+  let synths: string[] = [];
   try {
     // @ts-ignore — soundMap is a nanostores map
     const dict = (soundMap as any).get() as Record<string, unknown>;
-    return Object.keys(dict).filter((k) => !k.startsWith("_"));
+    synths = Object.keys(dict).filter((k) => !k.startsWith("_") && isRegisteredSynth(k));
   } catch {
-    return [];
+    synths = [];
   }
+  return [...new Set([...synths, ...catalogSoundNames()])];
 }

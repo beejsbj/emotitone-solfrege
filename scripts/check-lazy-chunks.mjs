@@ -14,7 +14,8 @@ const surfaces = [
   'src/style-guide/StyleGuide.vue',
   'src/components/ConfigPanel.vue',
   'src/components/InstrumentSelector.vue',
-  'node_modules/@strudel/soundfonts/dist/index.mjs',
+  // The General MIDI catalog loads when the picker or a gm_ sound needs it (BJS-509, BJS-488).
+  'src/data/gmSoundfonts.ts',
 ];
 const files = new Set();
 const worker = await readFile(new URL('../dist/sw.js', import.meta.url), 'utf8');

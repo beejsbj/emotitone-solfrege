@@ -55,7 +55,8 @@ async function render(data, shape, realProcessor = false) {
       onPlan(events) { if (events.length) planned(); },
       onError(error) { throw error; },
     }, chain);
-    const prepared = worklet.prepare(instrument(data));
+    // prepare() transfers the PCM to the worklet (BJS-488); keep the fixture for the next render.
+    const prepared = worklet.prepare(instrument(data.slice()));
     await prepared;
     worklet.effects(shape);
     worklet.press('note', [{ pitch: 69, instrumentId: 'fixture' }]);

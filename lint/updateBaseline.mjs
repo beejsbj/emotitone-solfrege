@@ -5,16 +5,24 @@
  * reviewed exception (say, a surface moved into the playing zone) and must be
  * justified in the PR.
  */
-import { readFileSync, writeFileSync } from "node:fs";
-import { BASELINE_FILE, RULES } from "./baseline.mjs";
+import { writeFileSync } from "node:fs";
+import { BASELINE_FILE, RULES, loadBaseline } from "./baseline.mjs";
 import { collectCounts } from "./designLawCounts.mjs";
 
 const allowGrowth = process.argv.includes("--allow-growth");
+// An unreadable baseline is not a first run: with nothing to ratchet against, today's violations
+// would be recorded as debt. Only a reviewed --allow-growth rebuilds it from scratch.
 let previous = {};
+let hadBaseline = true;
 try {
-  previous = JSON.parse(readFileSync(BASELINE_FILE, "utf8"));
-} catch {
-  // First run: there is nothing to ratchet against.
+  previous = loadBaseline();
+} catch (error) {
+  if (!allowGrowth) {
+    console.error(`${error.message}\n\n(To rebuild it from scratch, run with --allow-growth and justify it in the PR.)`);
+    process.exit(1);
+  }
+  console.error(`${error.message}\nRebuilding from the violations that exist now (--allow-growth).`);
+  hadBaseline = false;
 }
 const next = collectCounts();
 
@@ -31,7 +39,7 @@ for (const rule of RULES) {
   }
 }
 
-if (growth.length && Object.keys(previous).length && !allowGrowth) {
+if (growth.length && hadBaseline && !allowGrowth) {
   console.error("Refusing to raise the design-law baseline. New violations must be fixed, not recorded:\n  " + growth.join("\n  "));
   console.error("\n(Use --allow-growth only for a reviewed exception, and explain it in the PR.)");
   process.exit(1);
@@ -39,4 +47,4 @@ if (growth.length && Object.keys(previous).length && !allowGrowth) {
 
 writeFileSync(BASELINE_FILE, JSON.stringify(next, null, 2) + "\n");
 console.log(paidDown.length ? `Baseline lowered:\n  ${paidDown.join("\n  ")}` : "Baseline unchanged.");
-if (growth.length && Object.keys(previous).length) console.log(`Baseline raised (--allow-growth):\n  ${growth.join("\n  ")}`);
+if (growth.length && hadBaseline) console.log(`Baseline raised (--allow-growth):\n  ${growth.join("\n  ")}`);

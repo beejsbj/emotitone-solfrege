@@ -8,6 +8,7 @@ import { useVisualConfigStore } from "@/stores/visualConfig";
 import { useMusicStore } from "@/stores/music";
 import { usePhrasesStore } from "@/stores/phrases";
 import { useInstrumentStore } from "@/stores/instrument";
+import * as livePlayback from "@/services/livePlayback";
 import { DEFAULT_INSTRUMENT } from "@/data/instruments";
 
 const superdoughMocks = vi.hoisted(() => ({
@@ -258,6 +259,29 @@ describe("music store", () => {
     expect(noteReleasedEvent.detail.mode).toBe("chromatic");
     expect(noteReleasedEvent.detail.key).toBe("F#");
     dispatchEventSpy.mockRestore();
+  });
+
+  it("shows the selected instrument's failed rebuild in the warm-up error", () => {
+    let listener!: Parameters<typeof livePlayback.subscribeLivePlayback>[0];
+    const subscribe = vi.spyOn(livePlayback, "subscribeLivePlayback").mockImplementation(next => {
+      listener = next;
+      return () => {};
+    });
+    try {
+      const instrument = useInstrumentStore();
+      instrument.currentInstrument = "gm_violin";
+      useMusicStore();
+      listener.onLoadError?.("gm_violin", "Soundfont refetch failed (offline)");
+      expect(instrument.lastWarmupError).toBe("Soundfont refetch failed (offline)");
+      expect(instrument.lastWarmupErrorInstrument).toBe("gm_violin");
+      instrument.lastWarmupError = null;
+      instrument.lastWarmupErrorInstrument = null;
+      instrument.currentInstrument = "triangle";
+      listener.onLoadError?.("gm_violin", "Another instrument failed");
+      expect(instrument.lastWarmupError).toBeNull();
+    } finally {
+      subscribe.mockRestore();
+    }
   });
 
   it("refuses live note attacks while instrument samples are warming", async () => {

@@ -269,6 +269,8 @@ export interface PersistedBinding<T> {
   readonly hold: WriteHold | null;
   /** Refuse writes until the page reloads (used by restore). */
   holdUntilReload(): void;
+  /** Remove a disposed or ephemeral store from the support restore registry. */
+  unregister(): void;
 }
 
 export interface BindingOptions {
@@ -278,11 +280,12 @@ export interface BindingOptions {
 
 // Live bindings by key, so a restore can stop the running store from
 // overwriting what it put back.
-const bindings = new Map<string, PersistedBinding<unknown>>();
+const bindings = new Map<string, Set<PersistedBinding<unknown>>>();
 
 /** The live binding for a store key, if one was created. */
 export function bindingFor(key: string): PersistedBinding<unknown> | undefined {
-  return bindings.get(key);
+  const live = Array.from(bindings.get(key) ?? []);
+  return live[live.length - 1];
 }
 
 export function createPersistedBinding<T>(
@@ -353,6 +356,11 @@ export function createPersistedBinding<T>(
   const binding: PersistedBinding<T> = {
     codec,
     storage,
+    unregister() {
+      const live = bindings.get(codec.key);
+      live?.delete(binding as PersistedBinding<unknown>);
+      if (live?.size === 0) bindings.delete(codec.key);
+    },
     get outcome() {
       return outcome;
     },
@@ -409,7 +417,9 @@ export function createPersistedBinding<T>(
     },
   };
 
-  bindings.set(codec.key, binding as PersistedBinding<unknown>);
+  const live = bindings.get(codec.key) ?? new Set<PersistedBinding<unknown>>();
+  live.add(binding as PersistedBinding<unknown>);
+  bindings.set(codec.key, live);
   return binding;
 }
 
@@ -487,7 +497,7 @@ export function restoreBackup(
   const saved = storage.getItem(backupKey);
   if (saved === null) return { ok: false, message: `No backup stored at "${backupKey}".` };
 
-  const live = bindings.get(entry.of);
+  const live = bindingFor(entry.of);
   const currentRead = storage.read(entry.of);
   if (!currentRead.ok) return { ok: false, message: `Could not read "${entry.of}"; nothing restored.` };
   const current = currentRead.value;

@@ -126,6 +126,29 @@ describe("Shuffle", () => {
 });
 
 describe("pinning", () => {
+  it.each(["current", "legacy"])("normalises an unknown stored family to Shuffle on %s load and drops the override on save", async (format) => {
+    localStorage.clear();
+    const data = { config: { editions: { family: "retired-family" } } };
+    localStorage.setItem("emotitone-visual-config", JSON.stringify(
+      format === "current" ? { $version: 1, data } : data,
+    ));
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    try {
+      const shuffled = beginEditionShuffle(memoryStorage(), () => 0.99);
+      const store = useVisualConfigStore();
+      await nextTick();
+      expect(store.config.editions.family).toBe("shuffle");
+      expect(store.globalControls.edition).toBe("shuffle");
+      expect(family.value.id).toBe(shuffled.id);
+      store.saveToStorage();
+      expect(JSON.parse(localStorage.getItem("emotitone-visual-config")!).data.config).not.toHaveProperty("editions");
+    } finally {
+      disposePinia(pinia);
+      localStorage.clear();
+    }
+  });
+
   it("a Config pin beats Shuffle, and Shuffle returns when unpinned", () => {
     const shuffled = beginEditionShuffle(memoryStorage(), () => 0);
     const other = EDITION_FAMILIES.find(({ id }) => id !== shuffled.id)!;
@@ -165,6 +188,8 @@ describe("pinning", () => {
     store.resetGlobal();
     await nextTick();
     expect(store.globalControls.edition).toBe("shuffle");
+    store.saveToStorage();
+    expect(JSON.parse(localStorage.getItem("emotitone-visual-config")!).data.config).not.toHaveProperty("editions");
     parts.unmount();
     disposePinia(pinia);
     localStorage.clear();

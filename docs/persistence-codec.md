@@ -116,28 +116,43 @@ There is no in-app UI for this.
 from today's defaults; returning a setting to its default removes its override.
 Explicitly saved named presets remain snapshots, on their existing keys.
 
-The v0 migration retains the existing legacy-field conversions, then removes
-values equal to current defaults or the verified previous defaults in
-`visualConfigPersistence.ts` (commits `4d167ba1` and `1312ed42`: blob motion,
-connection softness and duration bars). This is a bounded reconciliation,
-not an exhaustive reconstruction of every historical default. It runs only
-once, with the codec's exact-byte backup. **Cost:** a deliberate choice equal
-to one of those defaults is treated as untouched. Choosing that old value
-again after migration persists it normally. No full-config reset is used.
+The v0 migration removes values equal to any historical default before legacy
+field conversions, then saves only remaining overrides. The checked-in table
+in `src/data/visual-config-default-history.ts` is generated from the full Git
+history of `src/data/visual-config-metadata.ts` (including merged histories),
+covering every historical value per field, including retired fields. Regenerate
+from a checkout with full history using:
+
+```sh
+node scripts/generate-visual-default-history.mjs
+```
+
+Reconciliation runs only once, with the codec's exact-byte backup. **Accepted
+pre-v1 cost:** a deliberate choice equal to any historical default is treated
+as untouched. Choosing that old value again after migration persists it
+normally. Reconciliation precedes conversions so a historical `connectionMode:
+"off"` does not manufacture zero-strength overrides. No full-config reset is
+used.
 
 Three small stores now own BPM, octave and drawer rows, under
 `emotitone-tempo`, `emotitone-octave` and `emotitone-drawer-rows`. Each has a
 v1 codec and stores `{ value }`. Missing keys import their values from the
 legacy visual config before its eager rewrite; existing keys always win.
 If a destination write fails but the visual migration succeeds, a missing
-destination recovers from the newest v0 visual-config backup at next load.
+destination recovers from the newest v0 visual-config backup at next load,
+including when the live visual-config envelope has a later version.
 The backup rule and retention are unchanged.
 
 For existing callers, `config.codeStrip.bpm`, `config.keyboard.mainOctave`
 and `config.keyboard.rowCount` remain reactive read/write accessors to those
 stores. They are absent from visual persistence and do not trigger its
 save debounce. Loading or resetting an appearance preset leaves all three
-performance settings alone. New consumers can use the small stores directly.
+performance settings alone. Explicit JSON import restores BPM, octave and
+drawer rows to their owners, matching the exported snapshot. Small-store
+saves debounce for 500 ms and flush on page hide, tab hide and store disposal;
+ephemeral stores cancel pending saves. New consumers can use the small stores
+directly. Ephemeral and disposed bindings leave the support restore registry,
+so opening a style-guide specimen cannot steal the player's restore hold.
 
 ## Captured payloads
 

@@ -415,7 +415,9 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
   const applyRuntimeConfig = (nextConfig: unknown) => {
     transientStageLook.value = null;
     // Appearance presets leave the separately owned performance settings alone.
-    assignAppearance(migrateVisualConfig(nextConfig));
+    const migrated = migrateVisualConfig(nextConfig);
+    assignAppearance(migrated);
+    return migrated;
   };
 
   // Reset configuration to defaults
@@ -513,7 +515,10 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     try {
       const importedData = JSON.parse(jsonData);
       if (importedData.config) {
-        applyRuntimeConfig(importedData.config);
+        const imported = applyRuntimeConfig(importedData.config);
+        tempo.value = imported.codeStrip.bpm;
+        octave.value = imported.keyboard.mainOctave;
+        drawerRows.value = imported.keyboard.rowCount;
         laBasedMinor.value = importedData.laBasedMinor === true;
         if (typeof importedData.visualsEnabled === "boolean") {
           visualsEnabled.value = importedData.visualsEnabled;
@@ -529,6 +534,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
 
   const useEphemeralDefaults = () => {
     persistenceEnabled.value = false;
+    persistence.unregister();
     tempo.useEphemeralDefaults();
     octave.useEphemeralDefaults();
     drawerRows.useEphemeralDefaults();
@@ -554,6 +560,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
   );
 
   onScopeDispose(() => {
+    persistence.unregister();
     if (saveTimeout) clearTimeout(saveTimeout);
   });
 

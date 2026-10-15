@@ -4,8 +4,10 @@ import { nextTick } from 'vue';
 import capture from '../fixtures/persistence/visual-config.v0.store-capture.json?raw';
 import { useVisualConfigStore } from '@/stores/visualConfig';
 import { useTempoStore, useOctaveStore, useDrawerRowsStore } from '@/stores/performanceSettings';
+import { HISTORICAL_VISUAL_DEFAULTS } from '@/data/visual-config-default-history';
+import { visualConfigCodec, isPerformanceField } from '@/services/visualConfigPersistence';
 import { DEFAULT_CONFIG } from '@/data/visual-config-metadata';
-import { listBackups } from '@/services/persistenceCodec';
+import { listBackups, restoreBackup, readPayload } from '@/services/persistenceCodec';
 import { persistentStorage, resetSaveFailure, saveFailureNotice } from '@/services/safeStorage';
 
 const key = 'emotitone-visual-config';
@@ -62,6 +64,113 @@ describe('visual config codec and performance ownership', () => {
     const reloaded = fresh();
     expect(reloaded.config.blobs.driftSpeed).toBe(8);
     expect(reloaded.config.codeStrip.durationMode).toBe('stacked');
+  });
+
+  it.each([
+    ['4141b1fb', {
+      blobs: { baseSizeRatio: 0.1, opacity: 0.5, oscillationAmplitude: 1, driftSpeed: 10,
+        fusionStrength: 0.4, webOpacity: 0.5, showIntervalLabels: false },
+      ambient: { opacityMajor: 0.6, opacityMinor: 0.4, brightnessMajor: 0.5,
+        brightnessMinor: 0.3, saturationMajor: 0.8, saturationMinor: 0.6 },
+      strings: { baseOpacity: 0.05, activeOpacity: 0.9, maxAmplitude: 15,
+        dampingFactor: 0.08, interpolationSpeed: 0.15, opacityInterpolationSpeed: 0.1 },
+      hilbertScope: { sizeRatio: 0.6, opacity: 0.7, glowIntensity: 10, history: 0.2 },
+    }],
+    ['d6dc0e7d', { blobs: { connectionMode: 'off', showChordLabel: false } }],
+  ])('reconciles defaults predating %s without preserving migration side effects', (_, config) => {
+    localStorage.setItem(key, JSON.stringify({ config }));
+    const store = fresh();
+    expect(store.config).toEqual(DEFAULT_CONFIG);
+    expect(saved().data.config).toEqual({});
+  });
+
+  it('reconciles every generated historical visual default through the codec', () => {
+    for (const [section, fields] of Object.entries(HISTORICAL_VISUAL_DEFAULTS)) {
+      for (const [field, values] of Object.entries(fields)) {
+        if (isPerformanceField(section, field)) continue;
+        for (const value of values) {
+          const read = readPayload(visualConfigCodec, JSON.stringify({ config: { [section]: { [field]: value } } }));
+          expect(read.kind).toBe('migrated');
+          expect(read.state.config, `${section}.${field}=${value}`).toEqual(DEFAULT_CONFIG);
+        }
+      }
+    }
+  });
+
+  it('imports exported performance settings into their owners and reloads them', async () => {
+    const store = fresh();
+    store.config.codeStrip.bpm = 157;
+    store.config.keyboard.mainOctave = 6;
+    store.config.keyboard.rowCount = 2;
+    const exported = store.exportConfig();
+    store.config.codeStrip.bpm = 100;
+    store.config.keyboard.mainOctave = 3;
+    store.config.keyboard.rowCount = 4;
+    expect(store.importConfig(exported)).toBe(true);
+    expect(useTempoStore().value).toBe(157);
+    expect(useOctaveStore().value).toBe(6);
+    expect(useDrawerRowsStore().value).toBe(2);
+    await nextTick();
+    vi.runAllTimers();
+    expect(fresh().config).toEqual(store.config);
+    expect(saved().data.config).toEqual({});
+  });
+
+  it('recovers missing performance keys from v0 backup with a later visual format', () => {
+    localStorage.setItem(key + '.backup.v0.2026-10-15', capture);
+    const newer = JSON.stringify({ $version: 2, data: { future: true } });
+    localStorage.setItem(key, newer);
+    const store = fresh();
+    expect(store.config.codeStrip.bpm).toBe(147);
+    expect(store.config.keyboard).toMatchObject({ mainOctave: 6, rowCount: 5 });
+    expect(localStorage.getItem(key)).toBe(newer);
+  });
+
+  it('batches rapid tempo ticks into one write and cancels pending ephemeral saves', async () => {
+    const store = fresh();
+    await nextTick();
+    vi.runAllTimers();
+    const write = vi.spyOn(localStorage, 'setItem');
+    const tempoWrites = () => write.mock.calls.filter(([name]) => name === 'emotitone-tempo');
+    for (let bpm = 121; bpm <= 150; bpm++) {
+      store.config.codeStrip.bpm = bpm;
+      await nextTick();
+      vi.advanceTimersByTime(10);
+    }
+    expect(tempoWrites()).toHaveLength(0);
+    vi.advanceTimersByTime(500);
+    expect(tempoWrites()).toHaveLength(1);
+    expect(saved('emotitone-tempo').data.value).toBe(150);
+    store.config.codeStrip.bpm = 160;
+    await nextTick();
+    store.useEphemeralDefaults();
+    vi.runAllTimers();
+    expect(tempoWrites()).toHaveLength(1);
+  });
+
+  it.each(['pagehide', 'dispose'])('flushes the last performance gesture on %s', (event) => {
+    fresh();
+    useTempoStore().value = 151;
+    useOctaveStore().value = 6;
+    useDrawerRowsStore().value = 4;
+    if (event === 'pagehide') window.dispatchEvent(new Event('pagehide'));
+    else disposePinia(pinia.pop()!);
+    expect(saved('emotitone-tempo').data.value).toBe(151);
+    expect(saved('emotitone-octave').data.value).toBe(6);
+    expect(saved('emotitone-drawer-rows').data.value).toBe(4);
+  });
+
+  it('holds the player store after a backup restore while an ephemeral specimen exists', async () => {
+    localStorage.setItem(key, capture);
+    const player = fresh();
+    const backup = listBackups(persistentStorage, key)[0];
+    fresh().useEphemeralDefaults();
+    expect(restoreBackup(backup.backupKey).ok).toBe(true);
+    player.config.blobs.baseSizeRatio = 0.39;
+    player.saveToStorage();
+    await nextTick();
+    vi.runAllTimers();
+    expect(localStorage.getItem(key)).toBe(capture);
   });
 
   it('saves only changed fields, removes reverted overrides, and picks up later defaults', () => {

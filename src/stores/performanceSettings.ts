@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { ref, watch } from "vue";
+import { ref, watch, onScopeDispose } from "vue";
 import { createPersistedBinding, listBackups } from "@/services/persistenceCodec";
 import { persistentStorage } from "@/services/safeStorage";
 import { isRecord, VISUAL_CONFIG_STORAGE_KEY } from "@/services/visualConfigPersistence";
@@ -12,7 +12,7 @@ function legacyPerformanceValue(section: string, field: string): unknown {
   if (!read.ok || read.value === null) return undefined;
   try {
     let raw = JSON.parse(read.value);
-    if (isRecord(raw) && raw.$version === 1) {
+    if (isRecord(raw) && "$version" in raw) {
       const backup = listBackups(persistentStorage, VISUAL_CONFIG_STORAGE_KEY)
         .find((entry) => entry.label === "v0");
       if (!backup) return undefined;
@@ -49,11 +49,31 @@ function numericSetting(id: string, key: string, fallback: number, section: stri
     }
     const value = ref(loaded.value);
     let persistenceEnabled = true;
-    watch(value, () => {
+    let saveTimeout: ReturnType<typeof setTimeout> | undefined;
+    const savePending = () => {
+      if (saveTimeout === undefined) return;
+      clearTimeout(saveTimeout);
+      saveTimeout = undefined;
       if (persistenceEnabled) persistence.save({ value: value.value });
+    };
+    watch(value, () => {
+      if (saveTimeout !== undefined) clearTimeout(saveTimeout);
+      if (persistenceEnabled) saveTimeout = setTimeout(savePending, 500);
     }, { flush: "sync" });
+    // Flush the last gesture when navigating away or disposing the store.
+    const flushOnHide = () => { if (document.visibilityState === "hidden") savePending(); };
+    window.addEventListener("pagehide", savePending);
+    document.addEventListener("visibilitychange", flushOnHide);
+    onScopeDispose(() => {
+      savePending();
+      persistence.unregister();
+      window.removeEventListener("pagehide", savePending);
+      document.removeEventListener("visibilitychange", flushOnHide);
+    });
     const useEphemeralDefaults = () => {
       persistenceEnabled = false;
+      savePending();
+      persistence.unregister();
       value.value = fallback;
     };
     return { value, useEphemeralDefaults };

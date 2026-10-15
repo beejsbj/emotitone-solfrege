@@ -263,7 +263,7 @@ describe('Visual Config Store', () => {
       expect(newStore.config).not.toHaveProperty('floatingPopup')
     })
 
-    it('preserves an explicitly disabled legacy harmonic section', () => {
+    it('reconciles legacy harmonic enablement defaults while retaining customized strengths', () => {
       localStorage.setItem('emotitone-visual-config', JSON.stringify({
         config: {
           floatingPopup: {
@@ -278,8 +278,8 @@ describe('Visual Config Store', () => {
 
       expect(store.config.blobs).toMatchObject({
         connectionMode: 'merge',
-        fusionStrength: 0,
-        webOpacity: 0,
+        fusionStrength: 0.8,
+        webOpacity: 0.65,
       })
     })
 
@@ -349,7 +349,7 @@ describe('Visual Config Store', () => {
       expect(store.config.blobs.connectionMode).toBe('merge')
     })
 
-    it('preserves a retired disconnected config as Merge with zero strength', () => {
+    it('reconciles the retired off default while retaining customized strengths', () => {
       localStorage.setItem('emotitone-visual-config', JSON.stringify({
         config: {
           blobs: { connectionMode: 'off', fusionStrength: 0.8, webOpacity: 0.65 },
@@ -359,8 +359,8 @@ describe('Visual Config Store', () => {
       const store = createFreshStore()
 
       expect(store.config.blobs.connectionMode).toBe('merge')
-      expect(store.config.blobs.fusionStrength).toBe(0)
-      expect(store.config.blobs.webOpacity).toBe(0)
+      expect(store.config.blobs.fusionStrength).toBe(0.8)
+      expect(store.config.blobs.webOpacity).toBe(0.65)
     })
 
     it('migrates obsolete keyboard presentation controls from saved and imported configs', () => {
@@ -554,6 +554,7 @@ describe('Visual Config Store', () => {
       )
       expect(persisted).not.toHaveProperty('stagePreferences')
 
+      window.dispatchEvent(new Event('pagehide'))
       const reloadedStore = createFreshStore()
       expect(reloadedStore.transientStageLook).toBeNull()
       expect(reloadedStore.config.keyboard.rowCount).toBe(7)
@@ -750,7 +751,7 @@ describe('Visual Config Store', () => {
       
       expect(success).toBe(true)
       expect(visualConfigStore.config.blobs.isEnabled).toBe(false)
-      expect(visualConfigStore.config.keyboard.rowCount).toBe(mockDefaultConfig.keyboard.rowCount)
+      expect(visualConfigStore.config.keyboard.rowCount).toBe(2)
       expect(visualConfigStore.visualsEnabled).toBe(false)
       expect(visualConfigStore.transientStageLook).toBeNull()
       expect(JSON.parse(localStorage.getItem('emotitone-visual-config') ?? '{}'))
@@ -1110,8 +1111,6 @@ describe('Visual Config Store', () => {
       }))
 
       expect(imported).toBe(true)
-      retained.keyboard.mainOctave = mockDefaultConfig.keyboard.mainOctave
-      retained.codeStrip.bpm = mockDefaultConfig.codeStrip.bpm
       expect(visualConfigStore.config).toEqual(retained)
       expect(visualConfigStore.config).not.toHaveProperty('particles')
       expect(visualConfigStore.visualsEnabled).toBe(false)

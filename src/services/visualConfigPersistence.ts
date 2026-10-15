@@ -1,3 +1,4 @@
+import { HISTORICAL_VISUAL_DEFAULTS } from "@/data/visual-config-default-history";
 import { DEFAULT_CONFIG } from "@/data/visual-config-metadata";
 import { defineCodec } from "@/services/persistenceCodec";
 import type { BlobConnectionMode, HarmonicGeometryMode, VisualEffectsConfig } from "@/types/visual";
@@ -315,15 +316,17 @@ export function migrateVisualConfig(
 }
 
 
-// Verified in 4d167ba1 (#87) and 1312ed42. Only the v0 reconciliation uses
-// these values: a player choosing one after migration keeps that choice.
-const PREVIOUS_DEFAULTS: Record<string, Record<string, unknown[]>> = {
-  blobs: {
-    oscillationAmplitude: [0.4], driftSpeed: [8],
-    vibrationFrequencyDivisor: [10], vibrationAmplitude: [10], fieldSoftness: [12],
-  },
-  codeStrip: { durationMode: ["stacked"] },
-};
+// Reconcile before legacy conversions: an old default such as connectionMode
+// "off" must not manufacture fusion/web overrides while being migrated.
+function reconcileHistoricalDefaults(raw: unknown): unknown {
+  if (!isRecord(raw)) return raw;
+  return Object.fromEntries(Object.entries(raw).map(([section, values]) => [
+    section,
+    isRecord(values) ? Object.fromEntries(Object.entries(values).filter(([field, value]) =>
+      isPerformanceField(section, field) || !HISTORICAL_VISUAL_DEFAULTS[section]?.[field]?.includes(value)
+    )) : values,
+  ]));
+}
 
 export function isPerformanceField(section: string, field: string): boolean {
   return (section === "keyboard" && (field === "mainOctave" || field === "rowCount"))
@@ -336,7 +339,7 @@ export function visualOverrides(config: VisualEffectsConfig, reconcile = false) 
     for (const [field, fallback] of Object.entries(DEFAULT_CONFIG[section])) {
       if (isPerformanceField(section, field)) continue;
       const value = (config[section] as unknown as Record<string, unknown>)[field];
-      if (value === fallback || (reconcile && PREVIOUS_DEFAULTS[section]?.[field]?.includes(value))) continue;
+      if (value === fallback || (reconcile && HISTORICAL_VISUAL_DEFAULTS[section]?.[field]?.includes(value))) continue;
       (overrides[section] ??= {})[field] = value;
     }
   }
@@ -381,7 +384,7 @@ export const visualConfigCodec = defineCodec<VisualState>({
     0(data) {
       if (!isRecord(data)) throw new Error("Invalid legacy visual config");
       return {
-        config: visualOverrides(migrateVisualConfig(data.config ?? data), true),
+        config: visualOverrides(migrateVisualConfig(reconcileHistoricalDefaults(data.config ?? data)), true),
         visualsEnabled: data.visualsEnabled,
         laBasedMinor: data.laBasedMinor,
       };

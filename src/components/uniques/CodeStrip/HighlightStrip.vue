@@ -246,8 +246,9 @@ function followLatest() {
   scrollTo(left + width - scroller.value.clientWidth * RECORDING_FOLLOW_ANCHOR);
 }
 
-watch(() => props.followLatestKey, () => {
-  if (props.playing) return;
+watch(() => props.followLatestKey, (key) => {
+  // A cleared key is a phrase switch, not a typed note.
+  if (key == null || props.playing) return;
   eventWindow.pin(events.value.length - 1);
   void nextTick(followLatest);
 }, { flush: "post" });
@@ -256,6 +257,8 @@ watch(() => props.resetScrollKey, () => {
   stopFollow();
   eventWindow.pin(null);
   void nextTick(() => {
+    // A follow queued in the same flush must not carry the new phrase away.
+    stopFollow();
     if (scroller.value) scroller.value.scrollLeft = 0;
   });
 }, { flush: "post" });

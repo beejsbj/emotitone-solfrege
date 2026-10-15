@@ -890,6 +890,25 @@ describe("CodeStrip production pattern transport", () => {
     wrapper.unmount();
   });
 
+  it("stays at the start of a phrase switched in from a live take", async () => {
+    const geometry = stubStripGeometry();
+    const wrapper = mount(CodeStrip);
+    await flushPromises();
+    scroller(wrapper).scrollLeft = 240;
+    mocks.rafCallbacks.length = 0;
+
+    // A Library phrase replaces the live take: the newest-note key clears with it.
+    mocks.phrasesStore.takeNotes = [recordedNote, { ...recordedNote, id: "lib-2", pressTime: 1500, releaseTime: 2000 }];
+    mocks.phrasesStore.lastLiveNoteId = null;
+    mocks.phrasesStore.takeId = "library-1";
+    await nextTick();
+    await flushPromises();
+    for (let frame = 1; frame <= 60; frame++) mocks.rafCallbacks.shift()?.(frame * 16);
+
+    expect(geometry.scrollLeft).toBe(0);
+    wrapper.unmount();
+  });
+
   it.each(["rounded pixels", "shrinking scroll extent"])(
     "finishes recording follow with %s so a later manual scroll is not overwritten",
     async (caseName) => {

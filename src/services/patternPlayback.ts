@@ -78,6 +78,9 @@ export function createPatternTransport(options: PatternTransportOptions): Patter
   prebaked.catch(() => undefined);
   let frame: number | null = null;
   let evaluatingSpans: readonly NotationSpan[] = [];
+  let evaluatingCode: string | undefined;
+  // The code the scheduler is playing, once its pattern has been handed over.
+  let soundingCode: string | undefined;
   // Set once this transport is disposed. An evaluation still in flight then
   // neither publishes its spans nor starts its scheduler.
   let disposed = false;
@@ -102,7 +105,10 @@ export function createPatternTransport(options: PatternTransportOptions): Patter
     // Called with the new pattern just before the scheduler receives it, so
     // the spans always describe the code whose haps are being triggered.
     editPattern: (pattern: unknown) => {
-      if (!disposed) setSoundingNotationSpans(evaluatingSpans);
+      if (!disposed) {
+        setSoundingNotationSpans(evaluatingSpans);
+        soundingCode = evaluatingCode;
+      }
       return pattern;
     },
     onToggle: (started: boolean) => {
@@ -115,6 +121,7 @@ export function createPatternTransport(options: PatternTransportOptions): Patter
       if (!started) {
         stopFrames();
         setSoundingNotationSpans(null);
+        soundingCode = undefined;
         return;
       }
       if (frame !== null) return;
@@ -133,9 +140,13 @@ export function createPatternTransport(options: PatternTransportOptions): Patter
     setCode(code, spans = []) {
       transport.code = code;
       transport.spans = spans;
+      // Another phrase can render the very same code with other note ids.
+      // Nothing to re-evaluate then, but the sounding notes need its names.
+      if (!disposed && code === soundingCode) setSoundingNotationSpans(spans);
     },
     async evaluate() {
       evaluatingSpans = transport.spans;
+      evaluatingCode = transport.code;
       await repl.evaluate(transport.code, true);
     },
     stop() {

@@ -403,6 +403,29 @@ describe("CodeStrip production pattern transport", () => {
     wrapper.unmount();
   });
 
+  it("names the sounding notes after a phrase with identical notation replaces the take", async () => {
+    const wrapper = mount(CodeStrip);
+    await flushPromises();
+    await controllerOf().evaluate();
+    const span = { start: 3, end: 5 };
+    const code = controllerOf().getCode();
+    expect(soundingNoteIdForHap({ context: { locations: [span] } })).toBe("c");
+
+    // Another recording with the same notes and timing: same code, other note ids.
+    mocks.phrasesStore.takeNotes = [{ ...recordedNote, id: "c-again" }];
+    mocks.phrasesStore.takeId = "take-2";
+    await flushPromises();
+
+    expect(controllerOf().getCode()).toBe(code);
+    expect(soundingNoteIdForHap({ context: { locations: [span] } })).toBe("c-again");
+    window.dispatchEvent(new CustomEvent("note-played", {
+      detail: { noteId: "strudel_2", sourceNoteId: "c-again", audibleAt: performance.now(), durationMs: 250 },
+    }));
+    await nextTick();
+    expect(wrapper.get('[data-event-index="0"]').attributes("data-active")).toBe("true");
+    wrapper.unmount();
+  });
+
   it("keeps UIBeat unavailable when the sounding code is not the generated take", async () => {
     const wrapper = mount(CodeStrip);
     await flushPromises();

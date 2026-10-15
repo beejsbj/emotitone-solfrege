@@ -633,7 +633,9 @@ onMounted(() => {
   }
 });
 
-watch(generatedCode, (code) => {
+// Watch the notation, not just its text: a different phrase can render the
+// same code with other note ids, and its spans must still reach the transport.
+watch(generatedNotation, ({ code }) => {
   if (isControlled.value) {
     visibleCode.value = code;
     return;

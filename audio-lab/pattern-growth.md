@@ -205,12 +205,16 @@ between sessions. Compare within a session.
 | B · main `d85d9a02` / on | 1,389.2 / 1,522.4 / 2,345.0 | 208.3 / 1,133.3 / 2,283.2 | 7,411 → 7,749 | 243 → 249 | 1,955 |
 | B · branch head `17c26032` / off | 761.5 / 776.0 / 881.4 | 116.7 / 616.7 / 800.0 | 1,824 → 1,821 | 64 → 59 | 566 |
 | B · branch head `17c26032` / on | 813.7 / 812.8 / 1,003.6 | 158.3 / 552.5 / 616.6 | 1,824 → 1,845 | 64 → 60 | 435 |
+| C · branch head `b3cbea9d` (adds the hidden phrase list) / off | 814.1 / 789.1 / 1,008.0 | 108.4 / 518.3 / 683.3 | 2,853 → 2,896 | 64 → 60 | 557 |
+| C · branch head `b3cbea9d` (adds the hidden phrase list) / on | 784.8 / 784.5 / 925.6 | 150.0 / 566.6 / 883.3 | 2,853 → 2,896 | 64 → 60 | 666 |
 
 Receipts: [A main](results/highlightstrip-window-main-a-20261015.json),
 [A before](results/highlightstrip-window-before-a-20261015.json),
 [A windowed](results/highlightstrip-window-after-a-20261015.json),
 [B main](results/highlightstrip-window-main-b-20261015.json),
-[B branch](results/highlightstrip-window-after-b-20261015.json). Every row
+[B branch](results/highlightstrip-window-after-b-20261015.json),
+[C branch](results/highlightstrip-window-after-c-20261015.json) (session C had
+no main run of its own; it is within session B's range). Every row
 recorded six consecutive append observations, finished at 518 notes in one
 take, and captured no browser warnings or errors. In both sessions, appending
 to a long take is now faster than main: 0.37–0.67× main's median, against

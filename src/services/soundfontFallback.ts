@@ -12,6 +12,7 @@ import { registerSound, getAudioContext, getADSRValues, getParamADSR, getVibrato
 import { parseSoundfontPreset, type SoundfontZone } from "@/audio/soundfontPreset";
 import { sampleKeyToMidi } from "@/audio/soundCatalog";
 import { soundfontUrl } from "@/audio/sampleSources";
+import { fetchInstrumentFile } from "@/audio/instrumentAssetCache";
 
 const presets = new Map<string, Promise<SoundfontZone[]>>();
 const buffers = new WeakMap<SoundfontZone, WeakMap<BaseAudioContext, Promise<AudioBuffer>>>();
@@ -19,7 +20,7 @@ const buffers = new WeakMap<SoundfontZone, WeakMap<BaseAudioContext, Promise<Aud
 function loadPreset(font: string): Promise<SoundfontZone[]> {
   let preset = presets.get(font);
   if (!preset) {
-    preset = fetch(soundfontUrl(font))
+    preset = fetchInstrumentFile(soundfontUrl(font))
       .then(response => {
         if (!response.ok) throw new Error(`Could not download soundfont ${font} (HTTP ${response.status})`);
         return response.text();

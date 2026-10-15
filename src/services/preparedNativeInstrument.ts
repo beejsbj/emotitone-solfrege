@@ -2,6 +2,7 @@ import type { LiveSampleZone, PreparedLiveInstrument } from "../audio/live/types
 import { getCatalogSound, sampleZoneSources, type SampleBank, type SampleZoneSource } from "../audio/soundCatalog";
 import { parseSoundfontPreset, SoundfontParseError, type SoundfontZone } from "../audio/soundfontPreset";
 import { soundfontUrl } from "../audio/sampleSources";
+import { fetchInstrumentFile } from "../audio/instrumentAssetCache";
 import { getLiveArticulation } from "./liveArticulation";
 
 /**
@@ -39,7 +40,7 @@ export function yieldToInput(): Promise<void> {
 }
 
 async function fetchOk(url: string): Promise<Response> {
-  const response = await fetch(url.replace("#", "%23"));
+  const response = await fetchInstrumentFile(url);
   if (!response.ok) throw new Error(`Could not download ${url} (HTTP ${response.status})`);
   return response;
 }

@@ -110,13 +110,19 @@ const entries = computed(() => events.value.map((token, index) => {
   const hidden = token.type === "rest" && !props.showRests;
   const key = eventKey(token, index);
   if (props.listening) {
-    if (!props.playing) return { token, key, hidden, ...atRest(token), active: false };
+    if (!props.playing) {
+      const { progress, memberProgress } = atRest(token);
+      return { token, key, hidden, progress, memberProgress, active: false };
+    }
     // Each event reads its own state from the highlight, so a frame of
     // playback re-renders only what is sounding, not the whole line.
     return { token, key, hidden, ids, progress: 0, active: false, source: highlight.source };
   }
 
-  if (!controlledProgress.value) return { token, key, hidden, ...atRest(token), active: false };
+  if (!controlledProgress.value) {
+    const { progress, memberProgress } = atRest(token);
+    return { token, key, hidden, progress, memberProgress, active: false };
+  }
   if (token.type === "chord") {
     const members = token.members.map((member) => clamp(member.progress ?? token.progress ?? 0));
     return { token, key, hidden, active: false, progress: clamp(token.progress ?? 0), memberProgress: members.join("|") };

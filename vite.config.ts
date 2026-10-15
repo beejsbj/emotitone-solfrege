@@ -2,6 +2,7 @@ import { defineConfig, type Plugin } from "vite";
 import vue from "@vitejs/plugin-vue";
 import { VitePWA } from "vite-plugin-pwa";
 import { resolve } from "path";
+import { instrumentCacheOptions, soundfontRuntimeCache } from "./src/audio/instrumentAssetCache";
 
 // Precache the pocket controls for offline use; keep guide and catalog deferred.
 const deferredCode = new Set<string>();
@@ -92,6 +93,7 @@ export default defineConfig({
           warnings: [],
         })],
         runtimeCaching: [
+          soundfontRuntimeCache,
           {
             urlPattern: ({ request, url }) => url.origin === self.location.origin
               && ["script", "style"].includes(request.destination),
@@ -127,26 +129,12 @@ export default defineConfig({
           {
             urlPattern: /^https:\/\/raw\.githubusercontent\.com\/.*/i,
             handler: "CacheFirst",
-            options: {
-              cacheName: "audio-samples-cache",
-              expiration: {
-                maxEntries: 2000,
-                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
-              },
-              cacheableResponse: { statuses: [0, 200] },
-            },
+            options: instrumentCacheOptions,
           },
           {
             urlPattern: /^https:\/\/cdn\.jsdelivr\.net\/.*/i,
             handler: "CacheFirst",
-            options: {
-              cacheName: "audio-samples-cache",
-              expiration: {
-                maxEntries: 500,
-                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
-              },
-              cacheableResponse: { statuses: [0, 200] },
-            },
+            options: instrumentCacheOptions,
           },
         ],
       },

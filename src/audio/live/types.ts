@@ -47,12 +47,16 @@ export type LiveCommand =
   | { type: 'clear' }
 
 export type LiveResponse =
+  | { type: 'disposed' }
   | { type: 'prepared'; requestId: number }
   | { type: 'forgotten'; requestId: number }
   | { type: 'owner-ended'; ownerId: string }
   | ({ type: 'expression-owner' } & LiveExpressionOwner)
   | { type: 'event'; event: LiveVoiceEvent }
   | { type: 'plan'; events: LiveVoiceEvent[] }
+
+/** Terminal processor command: release its banks and stop rendering. */
+export type LiveProcessorCommand = LiveCommand | { type: 'dispose' }
 
 export interface LiveWorklet extends LiveRenderer {
   prepare(instrument: PreparedLiveInstrument): Promise<void>

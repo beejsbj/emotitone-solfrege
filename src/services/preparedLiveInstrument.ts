@@ -43,8 +43,8 @@ export function releasePreparedLiveInstrument(context: AudioContext, instrumentI
   if (map?.get(instrumentId)?.result === expected) map.delete(instrumentId);
 }
 
-async function prepare(context: AudioContext, instrumentId: string, sampleRate: number): Promise<LiveInstrumentPreparation> {
-  const raw = await prepareNativeInstrument(context, instrumentId);
+async function prepare(context: AudioContext, instrumentId: string, sampleRate: number, signal?: AbortSignal): Promise<LiveInstrumentPreparation> {
+  const raw = await prepareNativeInstrument(context, instrumentId, signal);
   if (raw.kind !== "sample-bank") return raw;
   const { zoneSelection, zones } = raw;
   const sourceBytes = preparedPcmBytes(raw).source;
@@ -87,7 +87,7 @@ async function prepare(context: AudioContext, instrumentId: string, sampleRate: 
  * preparation; preparations run one at a time per context, which bounds peak
  * loading memory to one bank. Failures are not kept, so a later call retries.
  */
-export function prepareLiveInstrument(context: AudioContext, instrumentId: string): Promise<LiveInstrumentPreparation> {
+export function prepareLiveInstrument(context: AudioContext, instrumentId: string, signal?: AbortSignal): Promise<LiveInstrumentPreparation> {
   const registration = getCatalogSound(instrumentId);
   const map = entries.get(context) ?? new Map<string, Entry>();
   entries.set(context, map);
@@ -95,7 +95,7 @@ export function prepareLiveInstrument(context: AudioContext, instrumentId: strin
   if (existing && existing.registration === registration && existing.sampleRate === context.sampleRate) return existing.pending;
   const entry: Entry = { registration, sampleRate: context.sampleRate, pending: undefined!, sourcePcmBytes: 0, derivedPcmBytes: 0 };
   entry.pending = (queues.get(context) ?? Promise.resolve())
-    .then(() => prepare(context, instrumentId, entry.sampleRate))
+    .then(() => prepare(context, instrumentId, entry.sampleRate, signal))
     .catch(error => ({ kind: error instanceof UnsupportedLiveInstrumentError ? "unsupported" : "retryable",
       instrumentId, reason: error instanceof Error ? error.message : String(error) }) as const)
     .then(result => {

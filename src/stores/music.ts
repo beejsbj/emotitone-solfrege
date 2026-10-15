@@ -16,7 +16,7 @@ import { useVisualConfigStore } from "@/stores/visualConfig";
 import { createPlayStyleEngine, PLAY_STYLE_OPTIONS, PLAY_MODE_OPTIONS, PLAY_STYLE_SCHEDULING_LEAD_MS, playModeValue, type PlayStyle, type PlayStyleRate } from "@/services/playStyles";
 import { audioTimeToOutputTime, LIVE_AUDIO_SCHEDULING_LEAD_MS } from "@/services/liveAudioTiming";
 import { createLiveAudioClock } from "@/services/liveAudioClock";
-import { getLivePlayback } from "@/services/livePlayback";
+import { getLivePlayback, waitForLivePlayback } from "@/services/livePlayback";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import type { LiveVoiceEvent } from "@/audio/liveRenderer";
 import { createLivePerformance } from "@/services/livePerformance";
@@ -377,8 +377,20 @@ export const useMusicStore = defineStore(
       // A sleeping/interrupted graph (or route rebuild) must finish before the
       // renderer is selected or the input is submitted. Keep running input sync.
       const selectionEpoch = instrumentStore.selectionEpoch;
+      const selectedInstrument = instrumentStore.currentInstrument;
       const resumption = resumeAudioContext(superdoughAudio.getAudioContext());
-      if (resumption) await resumption;
+      const recover = () => {
+        if (!isCancelled() && !instrumentStore.isInteractionLocked && instrumentStore.selectionEpoch === selectionEpoch) {
+          return waitForLivePlayback(selectedInstrument);
+        }
+      };
+      const recovery = resumption ? resumption.then(recover) : recover();
+      if (recovery) await instrumentStore.waitForRecovery(recovery);
+      if (instrumentStore.selectionEpoch === selectionEpoch && getLivePlayback(selectedInstrument)
+        && instrumentStore.lastWarmupErrorInstrument === selectedInstrument) {
+        instrumentStore.lastWarmupError = null;
+        instrumentStore.lastWarmupErrorInstrument = null;
+      }
       if (isCancelled() || instrumentStore.isInteractionLocked || instrumentStore.selectionEpoch !== selectionEpoch) return null;
       const owner = `held_${storeId}_${++heldCounter}`;
       const held: HeldPitch = {

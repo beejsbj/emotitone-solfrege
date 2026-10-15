@@ -45,6 +45,8 @@ export interface NotationHighlightSource {
   noteProgress: (id: string | undefined) => number;
   isActive: (ids: readonly string[]) => boolean;
   restProgress: (index: number) => number;
+  /** How far the event at `index` is through its own time: a chord's whole block. */
+  eventProgress: (index: number) => number;
 }
 
 /**
@@ -76,6 +78,9 @@ export function useNotationHighlight(options: NotationHighlightOptions) {
   const played = new Map<string, Voice>();
   let frameRequest: number | null = null;
   let frameTime = 0;
+  // Milliseconds per notation unit, learned from a lone note's scheduled
+  // length: the clock a chord block's time is measured on.
+  let unitMs: number | undefined;
 
   function indexOf(id: string) {
     const ids = options.eventNoteIds();
@@ -91,6 +96,7 @@ export function useNotationHighlight(options: NotationHighlightOptions) {
     played.clear();
     pass = 0;
     passIndex = -1;
+    unitMs = undefined;
     version.value++;
   }
 
@@ -168,6 +174,10 @@ export function useNotationHighlight(options: NotationHighlightOptions) {
     } else {
       const lengthMs = Number(detail.durationMs);
       const hasLength = Number.isFinite(lengthMs) && lengthMs > 0;
+      const units = options.eventUnits?.()[index];
+      if (hasLength && units && units > 0 && options.eventNoteIds()[index].length === 1) {
+        unitMs = lengthMs / units;
+      }
       voices.set(key, {
         key, id, index, start: heard, pass: 0,
         ...(hasLength ? { lengthMs, end: heard + lengthMs } : {}),
@@ -179,11 +189,38 @@ export function useNotationHighlight(options: NotationHighlightOptions) {
     schedule();
   }
 
-  /** Bar-unit length of a sounded event, from its notes' scheduled lengths. */
+  /**
+   * When an event's block of time starts and ends this pass, from the voices
+   * heard in it. A chord's members can differ in length; the block lasts
+   * from its first onset to its last ending, and never less than its
+   * notation length on the learned unit clock (a member still to come can
+   * end later than those heard so far).
+   */
+  function blockWindow(index: number, voicesHere: readonly Voice[]) {
+    const timed = voicesHere.filter((voice) => voice.lengthMs !== undefined || voice.end !== undefined);
+    if (!timed.length) return undefined;
+    const from = Math.min(...timed.map((voice) => voice.start));
+    let to = Math.max(...timed.map((voice) => voice.start + (voice.lengthMs ?? voice.end! - voice.start)));
+    const units = options.eventUnits?.()[index];
+    if (unitMs && units && units > 0) to = Math.max(to, from + unitMs * units);
+    return to > from ? { from, to } : undefined;
+  }
+
+  /** Milliseconds per notation unit for a sounded event, from its own block. */
   function msPerUnit(index: number, voicesHere: readonly Voice[]) {
     const units = options.eventUnits?.()[index];
-    const length = voicesHere.find((voice) => voice.lengthMs !== undefined)?.lengthMs;
-    return units && units > 0 && length ? length / units : undefined;
+    const block = blockWindow(index, voicesHere);
+    return units && units > 0 && block ? (block.to - block.from) / units : undefined;
+  }
+
+  /** The voices of an event heard so far this pass, sounding or played. */
+  function heardVoices(ids: readonly string[]) {
+    const heard: Voice[] = [];
+    for (const id of ids) {
+      const voice = sounding.get(id) ?? played.get(id);
+      if (voice) heard.push(voice);
+    }
+    return heard;
   }
 
   /**
@@ -269,7 +306,27 @@ export function useNotationHighlight(options: NotationHighlightOptions) {
     return restAt(index, frameTime, () => void frame.value);
   }
 
-  const source: NotationHighlightSource = { noteProgress, isActive, restProgress };
+  /**
+   * How far an event is through its own block of time, 0 to 1: what its
+   * stems and hold show. For a lone note that is its fill; a chord's block
+   * runs from its first onset to its last member's end, whatever its voicing.
+   */
+  function eventProgress(index: number) {
+    void version.value;
+    const ids = options.eventNoteIds()[index] ?? [];
+    if (!ids.length) return restProgress(index);
+    if (ids.length === 1) return noteProgress(ids[0]);
+    const heard = heardVoices(ids);
+    if (!heard.length) return 0;
+    if (ids.every((id) => played.has(id))) return 1;
+    if (options.still?.()) return 1;
+    const block = blockWindow(index, heard);
+    if (!block) return 1;
+    void frame.value;
+    return clamp((frameTime - block.from) / (block.to - block.from));
+  }
+
+  const source: NotationHighlightSource = { noteProgress, isActive, restProgress, eventProgress };
   return { ...source, source, reset };
 }
 

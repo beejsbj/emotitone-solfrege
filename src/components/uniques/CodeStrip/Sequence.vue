@@ -302,9 +302,14 @@ const durationMarks = (duration: string | undefined) => {
   return amount > 0 ? Math.max(1, Math.round(amount * meter.value.marksPerBar)) : 0;
 };
 
-/** A chord's time passes with its members; notes and rests carry their own. */
+/**
+ * How far an event is through its time. Notes and rests carry their own; a
+ * chord carries its block's when it has one (playback), else its time passes
+ * with its members.
+ */
 const eventProgress = (token: CodeStripToken) => {
   if (token.type !== "chord") return clampProgress("progress" in token ? token.progress : undefined);
+  if (typeof token.progress === "number") return clampProgress(token.progress);
   const members = chordMembers(token);
   if (!members.length) return clampProgress(token.progress);
   return members.reduce((sum, member) => sum + clampProgress(member.progress), 0) / members.length;

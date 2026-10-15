@@ -205,6 +205,37 @@ describe("HighlightStrip", () => {
     expect(fill(wrapper, 3)).toBe(1);
   });
 
+  it("paces a chord's stems and the rest after it on the block's clock, not its members' mean", async () => {
+    // An overlap block: a quarter-bar voice under a whole-bar voice, then a quarter-bar rest.
+    const chordTokens: CodeStripToken[] = [
+      {
+        type: "chord", symbol: "", display: "notes", duration: "@1",
+        members: [{ id: "lo", syllable: "Do", scaleIndex: 0 }, { id: "hi", syllable: "Sol", scaleIndex: 4 }],
+      },
+      { type: "rest", duration: "@0.25" },
+    ];
+    const wrapper = mountStrip({ tokens: chordTokens });
+    await flushPromises();
+    const start = clock;
+    play("lo", "v1", { durationMs: 300 });
+    play("hi", "v2", { durationMs: 1200 });
+    await flushPromises();
+
+    release("lo", "v1", start + 300);
+    await at(start + 600);
+    // Halfway through the block: 8 of 16 stems, though the members average 75%.
+    expect(litStems(wrapper, 0)).toBe(8);
+
+    release("hi", "v2", start + 1200);
+    await at(start + 1200);
+    expect(litStems(wrapper, 0)).toBe(16);
+    // The rest is a quarter of the block's bar: 300ms, not a quarter of the short voice.
+    await at(start + 1350);
+    expect(fill(wrapper, 1)).toBeCloseTo(0.5);
+    await at(start + 1500);
+    expect(fill(wrapper, 1)).toBe(1);
+  });
+
   it("replays the whole highlight from the start every time the loop comes round", async () => {
     const wrapper = mountStrip();
     const loop = async (start: number) => {

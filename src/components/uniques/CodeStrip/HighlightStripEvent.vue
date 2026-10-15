@@ -58,11 +58,8 @@ const state = computed(() => {
   const active = source.isActive(props.noteIds ?? []);
   if (token.type === "chord") {
     const members = token.members.map((member) => source.noteProgress(member.id));
-    return {
-      progress: members.reduce((sum, value) => sum + value, 0) / Math.max(1, members.length),
-      members,
-      active,
-    };
+    // Stems and hold follow the block's own clock, not the members' mean.
+    return { progress: source.eventProgress(props.index), members, active };
   }
   return { progress: source.noteProgress(token.type === "note" ? token.noteId : undefined), active };
 });
@@ -76,6 +73,8 @@ const rendered = computed<CodeStripToken>(() => {
       : props.memberProgress?.split("|").map(Number) ?? [];
     return {
       ...token,
+      // During playback the block's elapsed time drives its stems and hold.
+      ...(props.source ? { progress } : {}),
       members: token.members.map((member, memberIndex) => ({
         ...member,
         progress: members[memberIndex] ?? progress,

@@ -10,7 +10,6 @@
     :data-geometry="geometry"
     :data-proportion="proportion"
     :data-sounding="sounding || undefined"
-    :data-label-tone="labelTones.center"
   >
     <span class="note__surface">
       <span
@@ -156,17 +155,6 @@ const color = computed(() => {
     : getKeyBackground(props.scaleIndex, ...colorArgs);
 });
 
-// A controlled resolver may predate corner tones; corners then follow the
-// centre, and an untoned surface is labelled as the dark fallback it stands for.
-const labelTones = computed(() => {
-  const center = color.value.labelTone ?? "ivory";
-  return {
-    center,
-    top: color.value.cornerLabelTones?.top ?? center,
-    bottom: color.value.cornerLabelTones?.bottom ?? center,
-  };
-});
-
 const labelValues = computed<Record<NoteLabel, string>>(() => ({
   syllable: props.syllable,
   degree: props.degree,
@@ -262,6 +250,9 @@ const noteClasses = computed(() => [
 
 const noteStyles = computed(() => {
   const isAccidental = inferredAccidental.value;
+  const labelMain = isAccidental ? "rgba(0, 0, 0, .88)" : "rgba(255, 255, 255, .94)";
+  const labelSoft = isAccidental ? "rgba(0, 0, 0, .62)" : "rgba(255, 255, 255, .74)";
+  const labelMuted = isAccidental ? "rgba(0, 0, 0, .5)" : "rgba(255, 255, 255, .58)";
   const innerBorder =
     props.surfaceStyle === "monochrome"
       ? isAccidental
@@ -272,11 +263,9 @@ const noteStyles = computed(() => {
   return {
     "--note-surface": color.value.background,
     "--note-primary-color": color.value.primaryColor,
-    // Every label prints in one full-strength token chosen from the fill's
-    // lightness; translucent label tiers cannot keep the text floor.
-    "--note-label": `var(--${labelTones.value.center})`,
-    "--note-label-top": `var(--${labelTones.value.top})`,
-    "--note-label-bottom": `var(--${labelTones.value.bottom})`,
+    "--note-label-main": labelMain,
+    "--note-label-soft": labelSoft,
+    "--note-label-muted": labelMuted,
     "--note-inner-border": innerBorder,
     "--note-shadow": "var(--shadow-key)",
   };
@@ -401,7 +390,7 @@ const ariaLabel = computed(() => {
   left: 50%;
   max-width: calc(100% - (var(--note-primary-safe-inline) * 2));
   transform: translate(-50%, -50%);
-  color: var(--note-label);
+  color: var(--note-label-main);
   text-align: center;
 }
 
@@ -461,13 +450,8 @@ const ariaLabel = computed(() => {
   transform: translateX(-50%);
 }
 
-/* Corner labels sit under the sheen, so each corner has its own tone. */
-.note__label--rank-aux.note__label--slot-top-left {
-  color: var(--note-label-top);
-}
-
-.note__label--rank-aux.note__label--slot-bottom-right {
-  color: var(--note-label-bottom);
+.note__label--rank-aux {
+  color: var(--note-label-soft);
 }
 
 .note__label--slot-top-left {
@@ -499,6 +483,10 @@ const ariaLabel = computed(() => {
 .note__label--rank-aux {
   font-size: var(--note-aux-size);
   letter-spacing: var(--note-aux-tracking);
+}
+
+.note__label--rank-aux.note__label--raw {
+  color: var(--note-label-muted);
 }
 
 .note--geometry-standard {

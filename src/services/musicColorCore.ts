@@ -403,36 +403,3 @@ export function contrastRatio(
   const second = relativeLuminance(b);
   return (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
 }
-
-/** The UI token a label printed on a Music Color fill is drawn in. */
-export type MusicColorLabelTone = "ink" | "ivory";
-
-/**
- * Fill luminance at which an Ink label and an Ivory label have equal contrast:
- * sqrt((Y(--ivory) + 0.05) * (Y(--ink) + 0.05)) - 0.05 for the token values.
- * At or above it Ink reads better; below it, Ivory. The contrast-floor test
- * recomputes it from the token source, so a token change cannot drift past it.
- */
-export const MUSIC_COLOR_LABEL_CROSSOVER_LUMINANCE = 0.17;
-
-/**
- * Chooses the label tone from the fill's lightness as it is actually rendered:
- * the gamut-mapped sRGB the authority emits, not the OKLCH request. Hue and
- * gamut mapping spread one OKLCH lightness over a range of luminance, so a
- * lightness-only threshold would pick the weaker tone for some hues near the
- * crossover. The result is always the higher-contrast of Ink and Ivory.
- *
- * A label whose background varies (a sheen across a corner) passes the
- * lightest and darkest backgrounds it sits on; the result is the tone with the
- * higher worst-case contrast. Ink wins exactly when the geometric mean of the
- * extremes' (Y + 0.05) clears the crossover's.
- */
-export function musicColorLabelTone(
-  ...fills: [Pick<SrgbColor, "r" | "g" | "b">, ...Pick<SrgbColor, "r" | "g" | "b">[]]
-): MusicColorLabelTone {
-  const luminances = fills.map(relativeLuminance);
-  const darkest = Math.min(...luminances);
-  const lightest = Math.max(...luminances);
-  const effective = Math.sqrt((darkest + 0.05) * (lightest + 0.05)) - 0.05;
-  return effective >= MUSIC_COLOR_LABEL_CROSSOVER_LUMINANCE ? "ink" : "ivory";
-}

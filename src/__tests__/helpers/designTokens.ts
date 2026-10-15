@@ -106,14 +106,3 @@ export function tokenGradientStops(
   if (!value) throw new Error(`Unknown token ${name}.`);
   return [...value.matchAll(/#[0-9a-f]{3,6}\b/gi)].map((match) => hexToRgb(match[0]));
 }
-
-/** Parses the rgba()/rgb() string Music Color serialises surfaces to. */
-export function parseCssRgb(value: string): Rgb {
-  const match = value.match(/^rgba?\(\s*([\d.]+),\s*([\d.]+),\s*([\d.]+)/);
-  if (!match) throw new Error(`Not an rgb() colour: ${value}.`);
-  return {
-    r: Number(match[1]) / 255,
-    g: Number(match[2]) / 255,
-    b: Number(match[3]) / 255,
-  };
-}

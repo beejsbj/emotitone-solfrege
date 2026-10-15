@@ -174,7 +174,7 @@ describe("persistence codec", () => {
     expect(backend.items.get(`${KEY}.backup.unreadable.2026-10-10`)).toBe("{not json");
   });
 
-  it.each(["{not json", envelope(2, { takes: "not a list" })])(
+  it.each(["", "{not json", envelope(2, { takes: "not a list" })])(
     "retains unreadable bytes after two later routine migrations: %s",
     (raw) => {
       const { backend, binding, setNow } = setup();
@@ -210,6 +210,22 @@ describe("persistence codec", () => {
     expect(backend.writes).toEqual([]);
     expect(saveFailureNotice.value?.message).toBe("Can't save — reload to update");
   });
+
+  it.each([JSON.stringify(["legacy tab"]), "{broken", "", envelope(2, { takes: null })])(
+    "backs up bytes written after hydration before saving: %s", (raw) => {
+      const { backend, binding } = setup();
+      binding.load();
+      backend.items.set(KEY, raw);
+      backend.full = true;
+      expect(binding.save({ takes: ["new"], tempo: 120 })).toBe(false);
+      expect(backend.items.get(KEY)).toBe(raw);
+      backend.full = false;
+      expect(binding.save({ takes: ["new"], tempo: 120 })).toBe(true);
+      const backup = listBackups(binding.storage, KEY)[0];
+      expect(backend.items.get(backup.backupKey)).toBe(raw);
+      expect(backend.writes).toEqual([backup.backupKey, KEY]);
+    },
+  );
 
   it("protects a newer tab's autosave from a store opened before the update", async () => {
     const { backend, storage } = memoryStorage();
@@ -419,6 +435,22 @@ describe("restoring a backup", () => {
 
     expect(result.ok).toBe(false);
     expect(backend.items.get(KEY)).toBe(current);
+  });
+
+  it("aborts restore when reading the live payload fails", () => {
+    const { backend, storage, binding } = setup();
+    backend.items.set(KEY, JSON.stringify(["original"]));
+    binding.load();
+    const current = backend.items.get(KEY);
+    backend.writes.length = 0;
+    const getItem = backend.getItem;
+    vi.spyOn(backend, "getItem").mockImplementation((key) => {
+      if (key === KEY) throw new Error("Read denied");
+      return getItem(key);
+    });
+    expect(restoreBackup(`${KEY}.backup.v0.2026-10-10`, { storage }).ok).toBe(false);
+    expect(backend.items.get(KEY)).toBe(current);
+    expect(backend.writes).toEqual([]);
   });
 
   it("is reachable from the console for a support step", () => {

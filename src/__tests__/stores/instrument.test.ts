@@ -625,6 +625,18 @@ describe("instrument store: versioned saved data on captured payloads", () => {
     expect(storage.getItem(`${KEY}.backup.unreadable.2026-10-10`)).toBe(capturedPayload.slice(0, 40));
   });
 
+  it.each([null, 42, "invalid", []].map((data) => [data]))("backs up an invalid instrument envelope: %s", async (data) => {
+    const raw = JSON.stringify({ $version: 1, data });
+    window.localStorage.setItem(KEY, raw);
+    const store = freshStore();
+    expect(store.currentInstrument).toBe(DEFAULT_INSTRUMENT);
+    expect(storage.getItem(`${KEY}.backup.unreadable.2026-10-10`)).toBe(raw);
+    await store.setInstrument("gm_flute");
+    await nextTick();
+    expect(JSON.parse(storage.getItem(KEY)!).data.currentInstrument).toBe("gm_flute");
+    expect(storage.getItem(`${KEY}.backup.unreadable.2026-10-10`)).toBe(raw);
+  });
+
   it("reports an autosave whose encode throws instead of failing silently", async () => {
     const store = freshStore();
     await store.setInstrument("piano");

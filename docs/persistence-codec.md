@@ -6,7 +6,7 @@ undone by a revert. This is the contract every saved store follows. Code:
 (`src/services/instrumentPersistence.ts`). Spec: W6 in
 `docs/retrospective-spec.md`.
 
-Burooj signs off on this design once (BJS-511). After that, migrations are
+Signed off by Burooj 2026-10-15 (BJS-511). Later migrations are
 ordinary PRs with a second-model review, tested on captured payloads. A
 change that drops a backup or changes the backup rule needs his sign-off
 again.
@@ -187,9 +187,10 @@ and the restore path. Four points are real choices:
   - lower the budget to leave room;
   - accept that a full shelf blocks the migration until space is freed.
 - Two tabs running the same version still race (last write wins), as today.
-  Before every save or prepare, the binding rereads the stored envelope's
-  `$version` prefix without parsing the full payload. If a newer tab has
-  written a higher version, the older tab holds writes until reload and
+  Before every save or prepare, the binding rereads the stored
+  payload and classifies it again. Older or unreadable bytes are backed up
+  before saving; this parses and decodes the small instrument payload on each save.
+  If a newer tab has written a higher version, the older tab holds writes until reload and
   reports "Can't save — reload to update". A failed storage read also holds
   writes, even if access later recovers. The check and write are separate
   storage operations; they do not make concurrent writes atomic.

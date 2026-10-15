@@ -8,6 +8,8 @@ import {
   dismissSaveFailure,
   persistedStatePlugin,
   resetSaveFailure,
+  reportSaveFailure,
+  reportSaveSuccess,
   saveFailureNotice,
 } from "@/services/safeStorage";
 
@@ -65,6 +67,20 @@ describe("persisted writes that fail", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it.each([false, true])("keeps reload visible in mixed failures, newer first: %s", (newerFirst) => {
+    if (newerFirst) reportSaveFailure("newer", "instrument");
+    reportSaveFailure("unknown", "music");
+    reportSaveFailure("quota", "phrases");
+    if (!newerFirst) reportSaveFailure("newer", "instrument");
+    expect(saveFailureNotice.value?.message).toBe("Can't save — reload to update");
+    reportSaveSuccess("phrases");
+    expect(saveFailureNotice.value?.message).toBe("Can't save — reload to update");
+    reportSaveSuccess("instrument");
+    expect(saveFailureNotice.value?.message).toBe("Can't save");
+    reportSaveSuccess("music");
+    expect(saveFailureNotice.value).toBeNull();
   });
 
   it("shows the storage-full Sticker, keeps the take in memory, and clears once a write succeeds", async () => {

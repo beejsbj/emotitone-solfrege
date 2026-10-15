@@ -17,7 +17,8 @@ export interface PersistedInstrumentState {
  * the default, and malformed or unselectable Shape entries are dropped.
  */
 export function decodeInstrumentState(data: unknown): PersistedInstrumentState {
-  const record = data && typeof data === "object" ? data as Record<string, unknown> : {};
+  if (!data || typeof data !== "object" || Array.isArray(data)) throw new Error("Invalid instrument state");
+  const record = data as Record<string, unknown>;
 
   const instrumentShapes: Record<string, Shape> = {};
   const storedShapes = record.instrumentShapes;

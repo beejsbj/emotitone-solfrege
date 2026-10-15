@@ -119,7 +119,7 @@ function storedVersion(parsed: unknown): { version: number; data: unknown } | { 
 
 /** Read a stored string. Pure: never touches storage, never throws. */
 export function readPayload<T>(codec: PersistenceCodec<T>, raw: string | null): ReadOutcome<T> {
-  if (raw === null || raw === "") return { kind: "empty", state: codec.defaults() };
+  if (raw === null) return { kind: "empty", state: codec.defaults() };
   let from: number | null = null;
   try {
     const stored = storedVersion(JSON.parse(raw));
@@ -309,17 +309,22 @@ export function createPersistedBinding<T>(
   };
 
   const prepare = (state: T): string | null => {
-    // Recheck on every save: another tab may have upgraded the stored format
-    // since hydration. Read only the envelope prefix, not the full data.
+    // Another tab may have replaced the bytes since hydration. Classify them
+    // again so legacy and unreadable payloads get the same backup protection.
     const stored = storage.read(codec.key);
     if (!stored.ok) {
       if (hold?.reason !== "newer" && hold?.reason !== "restored") hold = { reason: "unread" };
       return null;
     }
-    const prefix = /^\s*\{\s*"\$version"\s*:\s*(\d+(?:[eE][+-]?\d+)?)\s*[,}]/.exec(stored.value ?? "");
-    const found = prefix ? Number(prefix[1]) : null;
-    if (found !== null && Number.isInteger(found) && found > codec.version) {
-      hold = { reason: "newer", found };
+    if (!releaseHold()) return null;
+    const read = readPayload(codec, stored.value);
+    if (read.kind === "newer") {
+      hold = { reason: "newer", found: read.found };
+    } else if (read.kind === "migrated" || read.kind === "unreadable") {
+      hold = {
+        reason: "needs-backup", raw: stored.value as string,
+        label: read.kind === "migrated" ? `v${read.from}` : "unreadable",
+      };
     }
     if (!releaseHold()) return null;
     try {
@@ -464,7 +469,9 @@ export function restoreBackup(
   if (saved === null) return { ok: false, message: `No backup stored at "${backupKey}".` };
 
   const live = bindings.get(entry.of);
-  const current = storage.getItem(entry.of);
+  const currentRead = storage.read(entry.of);
+  if (!currentRead.ok) return { ok: false, message: `Could not read "${entry.of}"; nothing restored.` };
+  const current = currentRead.value;
   let preRestoreBackup: string | undefined;
   if (current !== null && current !== saved) {
     const kept = writeBackup(storage, entry.of, "pre-restore", current, now());

@@ -34,8 +34,8 @@ interface FailureBurst {
 //    answer to a tap; a retry of that key ends it, and a repeat failure after a
 //    dismissal is news again.
 const burst = ref<FailureBurst | null>(null);
-const failedKeys = new Set<string>();
-const oneOffKeys = new Set<string>();
+const failedKeys = new Map<string, SaveFailureKind>();
+const oneOffKeys = new Map<string, SaveFailureKind>();
 // Autosaved keys already failing when the player dismissed the notice.
 const dismissedKeys = new Set<string>();
 
@@ -49,10 +49,17 @@ export const saveFailureNotice = computed(() => {
 /** True while a failure burst is open, even if the player dismissed the notice. */
 export const hasSaveFailure = computed(() => burst.value !== null);
 
+function activeFailureKind(): SaveFailureKind {
+  const kinds = [...failedKeys.values(), ...oneOffKeys.values()];
+  return kinds.includes("newer") ? "newer" : kinds.includes("quota") ? "quota" : "unknown";
+}
+
 function closeIfSettled(): void {
   if (failedKeys.size === 0 && oneOffKeys.size === 0) {
     burst.value = null;
     dismissedKeys.clear();
+  } else if (burst.value) {
+    burst.value = { ...burst.value, kind: activeFailureKind() };
   }
 }
 
@@ -66,21 +73,20 @@ export function reportSaveFailure(kind: SaveFailureKind, key: string, oneOff = f
   let isNews: boolean;
   if (oneOff) {
     isNews = true;
-    oneOffKeys.add(key);
+    oneOffKeys.set(key, kind);
   } else {
     isNews = !dismissedKeys.has(key);
-    failedKeys.add(key);
+    failedKeys.set(key, kind);
   }
 
   if (!burst.value) {
     burst.value = { kind, dismissed: false };
     return;
   }
-  const upgraded = kind === "quota" ? "quota" : burst.value.kind;
   const reopen = isNews && burst.value.dismissed;
   if (reopen) dismissedKeys.clear();
   burst.value = {
-    kind: upgraded,
+    kind: activeFailureKind(),
     dismissed: reopen ? false : burst.value.dismissed,
   };
 }
@@ -97,7 +103,7 @@ export function dismissSaveFailure(): void {
   if (!burst.value) return;
   oneOffKeys.clear();
   dismissedKeys.clear();
-  failedKeys.forEach((key) => dismissedKeys.add(key));
+  failedKeys.forEach((_, key) => dismissedKeys.add(key));
   burst.value = { ...burst.value, dismissed: true };
   closeIfSettled();
 }

@@ -32,6 +32,7 @@ export interface PatternTransport {
   /** The span each phrase note produced in `code`. */
   spans: readonly NotationSpan[];
   setCode: (code: string, spans?: readonly NotationSpan[]) => void;
+  /** Callers must serialize evaluations: await one before starting the next. */
   evaluate: () => Promise<void | boolean>;
   stop: () => Promise<void> | void;
   repl: { scheduler: PatternScheduler };

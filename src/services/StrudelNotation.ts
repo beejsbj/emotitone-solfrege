@@ -15,7 +15,7 @@ import type { MusicalMode } from "@/types/music";
 import type { NotationSpan, SpannedNotation } from "@/types/notation";
 import { Note as TonalNote } from "@tonaljs/tonal";
 import { getScaleForMode, normalizeScaleIndex } from "@/data";
-import { prepareRecordedNotes, recordedLoopTailMs, type PreparedRecordedNote } from "./recordedTiming";
+import { loopLengthMs, prepareRecordedNotes, type PreparedRecordedNote } from "./recordedTiming";
 import { approximateVibrato, type VibratoApproximation } from "./vibratoApproximation";
 import { approximateTremolo, type TremoloApproximation } from "./tremoloApproximation";
 import type { LiveArticulation } from "./liveArticulation";
@@ -229,9 +229,11 @@ export class StrudelNotation {
 
     // Preserve a loaded phrase's authored trailing rest. A fresh take's
     // duration ends at its last note, so it still gets one beat of padding.
-    const authoredTail = (this.config.patternDurationMs ?? cursor) - cursor;
-    const trailingSilence = Number.isFinite(authoredTail) && authoredTail > 0
-      ? authoredTail : recordedLoopTailMs(this.config.sourceBpm);
+    const trailingSilence = loopLengthMs({
+      notes: [{ releaseTime: cursor }],
+      duration: this.config.patternDurationMs,
+      context: { bpm: this.config.sourceBpm },
+    }) - cursor;
     tokens.push(plain(`~${toAt(trailingSilence, barMs, this.config.precision)}`));
     // Direct @ weights in <> are cycle lengths. A surrounding [] would
     // normalize the entire take into one cycle, regardless of its duration.

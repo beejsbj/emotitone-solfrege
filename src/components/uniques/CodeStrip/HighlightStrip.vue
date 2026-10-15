@@ -140,6 +140,8 @@ const entries = computed(() => events.value.map((token, index) => {
 // just typed); gaps of their widths stand in for the rest.
 const windowed = computed(() => events.value.length > WINDOW_MIN_EVENTS);
 const eventShapes = computed(() => events.value.map(shapeOf));
+const eventKeys = computed(() => entries.value.map((entry, index) => `${entry.key}|${eventShapes.value[index]}`));
+const eventHidden = computed(() => entries.value.map((entry) => entry.hidden));
 // A windowed line mounts only part of the phrase, so the whole phrase is
 // read to assistive technology from a plain list instead.
 const phraseNames = computed(() => windowed.value
@@ -147,9 +149,9 @@ const phraseNames = computed(() => windowed.value
   : []);
 const eventWindow = useEventWindow({
   scroller,
-  keys: () => entries.value.map((entry, index) => `${entry.key}|${eventShapes.value[index]}`),
+  keys: () => eventKeys.value,
   shapes: () => eventShapes.value,
-  hidden: () => entries.value.map((entry) => entry.hidden),
+  hidden: () => eventHidden.value,
   enabled: () => windowed.value,
   layoutKey: () => `${props.density}|${props.durationMode}|${props.timeSignature}`,
   onShift: (delta) => { followTarget += delta; },

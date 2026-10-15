@@ -7,7 +7,7 @@ import type { PatternNote } from "@/types/patterns";
 import type { KeyboardConfig, CodeStripConfig } from "@/types/visual";
 import type { CodeStripNote, CodeStripToken } from "./types";
 import { Note as TonalNote } from "@tonaljs/tonal";
-import { prepareRecordedNotes, recordedLoopTailMs } from "@/services/recordedTiming";
+import { loopLengthMs, prepareRecordedNotes } from "@/services/recordedTiming";
 
 const OVERLAP_EPSILON_MS = 0;
 const NOTE_NAMES: CodeStripNote[] = ["do", "re", "mi", "fa", "sol", "la", "ti"];
@@ -145,10 +145,11 @@ export function buildRecordedCodeStripTokens(input: RecordedCodeStripInput): Cod
   // keeps its authored trailing silence; a fresh take, ending at its last
   // note, gets one beat.
   const end = schedule.length ? schedule[schedule.length - 1].end : 0;
-  const authoredTail = (input.durationMs ?? end) - end;
-  const tail = Number.isFinite(authoredTail) && authoredTail > 0
-    ? authoredTail
-    : recordedLoopTailMs(input.sourceBpm);
+  const tail = loopLengthMs({
+    notes: [{ releaseTime: end }],
+    duration: input.durationMs,
+    context: { bpm: input.sourceBpm },
+  }) - end;
   tokens.push({ type: "rest", duration: formatDuration(tail, input.barMs) });
   return tokens;
 }

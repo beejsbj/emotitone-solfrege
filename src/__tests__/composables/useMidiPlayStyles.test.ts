@@ -137,7 +137,7 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     });
     pinia = createPinia();
     setActivePinia(pinia);
-    useVisualConfigStore().updateConfig("codeStrip", { bpm: 120 });
+    useVisualConfigStore().useEphemeralDefaults();
   });
 
   afterEach(() => {

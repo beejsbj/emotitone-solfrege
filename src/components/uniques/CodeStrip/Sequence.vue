@@ -380,7 +380,8 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
   transition-duration: var(--code-strip-fill-duration, var(--dur-press));
 }
 
-/* Stave: a rest is a slim gap in the staff that fills with Ivory as it passes. */
+/* Stave: a rest is a slim empty slot in the staff, drawn in outline, that
+   fills with Ivory as it passes. */
 .code-strip__rest {
   --code-strip-rest-inline-size: calc(var(--note-host-block-size) * .28);
   position: relative;
@@ -391,6 +392,7 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
   place-items: center;
   isolation: isolate;
   background: var(--ink-2);
+  box-shadow: inset 0 0 0 1px var(--ivory-4);
 }
 
 .code-strip__rest-fill {

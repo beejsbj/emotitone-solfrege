@@ -268,7 +268,25 @@ describe("HighlightStrip", () => {
     await flushPromises();
 
     expect(wrapper.findAll("[data-active]")).toHaveLength(0);
-    expect([0, 1, 2, 3].map((index) => fill(wrapper, index))).toEqual([1, 1, 1, 1]);
+    // Notes full with every stem lit; rests stay empty slots with dark stems.
+    expect([0, 1, 2, 3].map((index) => fill(wrapper, index))).toEqual([1, 0, 1, 0]);
+    expect([0, 1, 2, 3].map((index) => litStems(wrapper, index))).toEqual([4, 0, 8, 0]);
+  });
+
+  it("fills a rest as it passes once playing, after showing it empty at rest", async () => {
+    const wrapper = mountStrip({ playing: false });
+    await flushPromises();
+    expect(fill(wrapper, 1)).toBe(0);
+
+    await wrapper.setProps({ playing: true });
+    play("do", "v1", { durationMs: 300 });
+    release("do", "v1", clock + 300);
+    await at(clock + 300);
+    // Do has ended; the rest after it (a quarter bar, like Do) sweeps over its own length.
+    await at(clock + 150);
+    expect(fill(wrapper, 1)).toBeCloseTo(0.5);
+    await at(clock + 150);
+    expect(fill(wrapper, 1)).toBe(1);
   });
 
   it("follows the sounding note with an animated scroll", async () => {

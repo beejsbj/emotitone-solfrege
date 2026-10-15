@@ -110,13 +110,13 @@ const entries = computed(() => events.value.map((token, index) => {
   const hidden = token.type === "rest" && !props.showRests;
   const key = eventKey(token, index);
   if (props.listening) {
-    if (!props.playing) return { token, key, hidden, progress: 1, memberProgress: allMembers(token, 1), active: false };
+    if (!props.playing) return { token, key, hidden, ...atRest(token), active: false };
     // Each event reads its own state from the highlight, so a frame of
     // playback re-renders only what is sounding, not the whole line.
     return { token, key, hidden, ids, progress: 0, active: false, source: highlight.source };
   }
 
-  if (!controlledProgress.value) return { token, key, hidden, progress: 1, memberProgress: allMembers(token, 1), active: false };
+  if (!controlledProgress.value) return { token, key, hidden, ...atRest(token), active: false };
   if (token.type === "chord") {
     const members = token.members.map((member) => clamp(member.progress ?? token.progress ?? 0));
     return { token, key, hidden, active: false, progress: clamp(token.progress ?? 0), memberProgress: members.join("|") };
@@ -265,6 +265,15 @@ function noteIdsOf(token: StripEvent): string[] {
 function hasTokenProgress(token: StripEvent) {
   if (token.progress != null) return true;
   return token.type === "chord" && token.members.some((member) => member.progress != null);
+}
+
+/**
+ * Stopped, the line reads complete: every note full and lit. A rest stays an
+ * empty slot, so silence never reads as a note; it fills only as it passes.
+ */
+function atRest(token: StripEvent) {
+  const progress = token.type === "rest" ? 0 : 1;
+  return { progress, memberProgress: allMembers(token, progress) };
 }
 
 function allMembers(token: StripEvent, progress: number) {

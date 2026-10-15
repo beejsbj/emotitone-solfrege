@@ -84,3 +84,50 @@ describe("UI token contrast floor", () => {
     }
   });
 });
+
+/*
+ * Edition marks: every edition in a family must meet the floor before the
+ * family joins Shuffle (BJS-508). Tabs, the Ring collar and the focus rings are
+ * covered above; these are the marks only one edition draws.
+ */
+describe("edition-specific marks", () => {
+  const over = (top: Rgb, alpha: number, bottom: Rgb): Rgb => ({
+    r: top.r * alpha + bottom.r * (1 - alpha),
+    g: top.g * alpha + bottom.g * (1 - alpha),
+    b: top.b * alpha + bottom.b * (1 - alpha),
+  });
+
+  it("Knob Arc: the value stroke reads against its 40% track and the Ink beneath, in Ivory and Brass", () => {
+    for (const surface of INK_SURFACES) {
+      for (const tone of ["--ivory", "--brass"]) {
+        const value = token(tone);
+        const track = over(value, 0.4, token(surface));
+        expectContrast(`${tone} Arc value on ${surface}`, value, token(surface), MARK);
+        expectContrast(`${tone} Arc value against its track on ${surface}`, value, track, MARK);
+      }
+    }
+  });
+
+  // The puck's position carries the chosen direction in both Joystick
+  // editions. Analog's lit Ivory detent is a redundant cue: it reads against
+  // the other detents but only 1.3-2.1:1 on the Brass bezel.
+  it("Joystick Analog: the puck reads on the dark well and the detents on the Brass bezel", () => {
+    // Brightest point of --instrument-control-dark-well: #252525 under its 10% white highlight.
+    const wellHighlight = over({ r: 1, g: 1, b: 1 }, 0.1, { r: 0x25 / 255, g: 0x25 / 255, b: 0x25 / 255 });
+    for (const [index, stop] of brassFillStops.entries()) {
+      expectContrast(`puck stop ${index} on the dark well`, stop, wellHighlight, MARK);
+      expectContrast(`detent on bezel stop ${index}`, token("--brass-edge"), stop, MARK);
+    }
+    expectContrast("effective detent against the other detents", ivory, token("--brass-edge"), MARK);
+  });
+
+  it("Joystick Digital: the ring, cap and detents read on the Ink plate", () => {
+    const plate = token("--ink");
+    expectContrast("ring", token("--brass"), plate, MARK);
+    expectContrast("detent", token("--brass-lo"), plate, MARK);
+    expectContrast("effective detent", token("--brass-hi"), plate, MARK);
+    for (const [index, stop] of brassFillStops.entries()) {
+      expectContrast(`cap stop ${index}`, stop, plate, MARK);
+    }
+  });
+});

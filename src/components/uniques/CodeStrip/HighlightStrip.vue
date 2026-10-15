@@ -6,6 +6,7 @@ import { strudelUrl } from "@/services/strudelLink";
 import type { NoteColorResolver } from "@/components/primatives/noteColorContext";
 import HighlightStripEvent from "./HighlightStripEvent.vue";
 import { useNotationHighlight, useReducedMotion } from "./highlight";
+import { useEventWindow, WINDOW_MIN_EVENTS } from "./eventWindow";
 import type { CodeStripViewport } from "./viewport";
 import type {
   CodeStripChordToken,
@@ -93,7 +94,10 @@ const highlight = useNotationHighlight({
   listening: () => props.listening && props.playing,
   still: () => reducedMotion.value,
   target: () => props.noteEventTarget,
-  onActivate: (index) => void nextTick(() => followEvent(index)),
+  onActivate: (index) => {
+    eventWindow.pin(index);
+    void nextTick(() => followEvent(index));
+  },
 });
 
 // Controlled specimens light from their own token progress; without any, the
@@ -119,6 +123,20 @@ const entries = computed(() => events.value.map((token, index) => {
   }
   return { token, key, hidden, active: false, progress: clamp(token.progress ?? 0) };
 }));
+
+// ─── Window ──────────────────────────────────────────────────────────────────
+// A long take mounts only the events in and near view (and the one sounding or
+// just typed); gaps of their widths stand in for the rest.
+const eventShapes = computed(() => events.value.map(shapeOf));
+const eventWindow = useEventWindow({
+  scroller,
+  keys: () => entries.value.map((entry, index) => `${entry.key}|${eventShapes.value[index]}`),
+  shapes: () => eventShapes.value,
+  hidden: () => entries.value.map((entry) => entry.hidden),
+  enabled: () => events.value.length > WINDOW_MIN_EVENTS,
+  layoutKey: () => `${props.density}|${props.durationMode}|${props.timeSignature}`,
+  onShift: (delta) => { followTarget += delta; },
+});
 
 const hostClasses = computed(() => [
   "highlight-strip",
@@ -213,11 +231,13 @@ function followLatest() {
 
 watch(() => props.followLatestKey, () => {
   if (props.playing) return;
+  eventWindow.pin(events.value.length - 1);
   void nextTick(followLatest);
 }, { flush: "post" });
 
 watch(() => props.resetScrollKey, () => {
   stopFollow();
+  eventWindow.pin(null);
   void nextTick(() => {
     if (scroller.value) scroller.value.scrollLeft = 0;
   });
@@ -251,6 +271,14 @@ function allMembers(token: StripEvent, progress: number) {
   return token.type === "chord" ? token.members.map(() => progress).join("|") : undefined;
 }
 
+/** Everything about an event that sets its width. */
+function shapeOf(token: StripEvent) {
+  const members = token.type === "chord" ? token.members.length : 0;
+  const accidental = token.type === "note" ? token.accidental ?? "" : "";
+  const text = token.type === "note" ? token.text : token.type === "chord" ? token.symbol : "";
+  return `${token.type}|${token.duration ?? ""}|${members}|${accidental}|${text}`;
+}
+
 function eventKey(token: StripEvent, index: number) {
   const ids = noteIdsOf(token);
   return ids.length ? `${token.type}:${ids.join(",")}` : `${token.type}:${index}`;
@@ -276,27 +304,35 @@ function clamp(value: number) {
       role="group"
       :aria-label="ariaLabel"
       :tabindex="isEmpty ? undefined : 0"
+      @scroll.passive="eventWindow.onScroll"
     >
       <div class="highlight-strip__line">
         <span v-if="isEmpty" class="highlight-strip__empty">{{ emptyLabel }}</span>
-        <HighlightStripEvent
-          v-for="(entry, index) in entries"
-          :key="entry.key"
-          :token="entry.token"
-          :index="index"
-          :progress="entry.progress"
-          :member-progress="entry.memberProgress"
-          :active="entry.active"
-          :source="entry.source"
-          :note-ids="entry.ids"
-          :hidden="entry.hidden"
-          :density="density"
-          :duration-mode="durationMode"
-          :time-signature="timeSignature"
-          :viewport="viewport"
-          :color-resolver="colorResolver"
-          :still-color-resolver="stillColorResolver"
-        />
+        <template v-for="item in eventWindow.items.value" :key="item.kind === 'gap' ? item.key : entries[item.index].key">
+          <span
+            v-if="item.kind === 'gap'"
+            class="highlight-strip__gap"
+            :style="{ width: `${item.width}px` }"
+            aria-hidden="true"
+          ></span>
+          <HighlightStripEvent
+            v-else
+            :token="entries[item.index].token"
+            :index="item.index"
+            :progress="entries[item.index].progress"
+            :member-progress="entries[item.index].memberProgress"
+            :active="entries[item.index].active"
+            :source="entries[item.index].source"
+            :note-ids="entries[item.index].ids"
+            :hidden="entries[item.index].hidden"
+            :density="density"
+            :duration-mode="durationMode"
+            :time-signature="timeSignature"
+            :viewport="viewport"
+            :color-resolver="colorResolver"
+            :still-color-resolver="stillColorResolver"
+          />
+        </template>
       </div>
     </div>
     <Button
@@ -384,6 +420,12 @@ function clamp(value: number) {
 /* Stave: one hairline staff runs through the line the events sit on. */
 .highlight-strip:not(.highlight-strip--empty) .highlight-strip__line {
   background: linear-gradient(transparent calc(50% - 1px), var(--ivory-4) calc(50% - 1px) calc(50% + 1px), transparent 0);
+}
+
+/* Stands in for unmounted history at its measured width. */
+.highlight-strip__gap {
+  flex: none;
+  align-self: stretch;
 }
 
 .highlight-strip--dense :deep(.highlight-strip-event:not(.highlight-strip-event--hidden)) {

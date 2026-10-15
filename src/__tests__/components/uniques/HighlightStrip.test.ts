@@ -370,3 +370,150 @@ describe("HighlightStrip", () => {
     expect(marks.every((mark) => mark.classes().includes("code-strip__duration-mark--lit"))).toBe(true);
   });
 });
+
+describe("HighlightStrip on a long take", () => {
+  const EVENT_PX = 40;
+  const VIEW_PX = 200;
+  const longTake: CodeStripToken[] = Array.from({ length: 200 }, (_, index) => ({
+    type: "note", noteId: `n${index}`, note: "do", text: "Do", rawPitch: "C4", scaleIndex: 0, duration: "@0.25",
+  }));
+  const restores: Array<() => void> = [];
+
+  function override(name: string, descriptor: PropertyDescriptor) {
+    const prototype = HTMLElement.prototype;
+    const own = Object.getOwnPropertyDescriptor(prototype, name);
+    Object.defineProperty(prototype, name, { configurable: true, ...descriptor });
+    restores.push(() => {
+      if (own) Object.defineProperty(prototype, name, own);
+      else delete (prototype as unknown as Record<string, unknown>)[name];
+    });
+  }
+
+  /** Lay the line out as a browser would: events 40px wide, in index order, in a 200px view. */
+  function layOut() {
+    let scrollLeft = 0;
+    const isScroller = (element: HTMLElement) => element.classList.contains("highlight-strip__scroller");
+    const lineLength = () => {
+      const line = document.querySelector(".highlight-strip__line");
+      if (!line) return 0;
+      return [...line.children].reduce((sum, child) => {
+        const gap = (child as HTMLElement).style.width;
+        return sum + (gap ? Number.parseFloat(gap) : child.hasAttribute("data-event-index") ? EVENT_PX : 0);
+      }, 0);
+    };
+    override("clientWidth", { get(this: HTMLElement) { return isScroller(this) ? VIEW_PX : 0; } });
+    override("scrollWidth", { get(this: HTMLElement) { return isScroller(this) ? lineLength() : 0; } });
+    override("scrollLeft", {
+      get(this: HTMLElement) { return isScroller(this) ? scrollLeft : 0; },
+      set(this: HTMLElement, value: number) {
+        if (!isScroller(this)) return;
+        scrollLeft = Math.max(0, Math.min(lineLength() - VIEW_PX, value));
+        this.dispatchEvent(new Event("scroll"));
+      },
+    });
+    override("getBoundingClientRect", {
+      value(this: HTMLElement) {
+        const index = this.dataset?.eventIndex;
+        if (index === undefined) return { left: 0, right: VIEW_PX, width: VIEW_PX } as DOMRect;
+        const left = Number(index) * EVENT_PX - scrollLeft;
+        return { left, right: left + EVENT_PX, width: EVENT_PX } as DOMRect;
+      },
+    });
+    return { get scrollLeft() { return scrollLeft; } };
+  }
+
+  function mounted(wrapper: VueWrapper) {
+    return wrapper.findAll("[data-event-index]").map((node) => Number(node.attributes("data-event-index")));
+  }
+
+  /** Total line length the strip lays out: mounted events plus the gaps standing in for the rest. */
+  function laidOutLength(wrapper: VueWrapper) {
+    const gaps = wrapper.findAll(".highlight-strip__gap")
+      .reduce((sum, gap) => sum + Number.parseFloat((gap.element as HTMLElement).style.width), 0);
+    return gaps + mounted(wrapper).length * EVENT_PX;
+  }
+
+  beforeEach(() => {
+    // Measure from layout directly, as a browser without ResizeObserver would.
+    vi.stubGlobal("ResizeObserver", undefined);
+  });
+
+  afterEach(() => {
+    while (restores.length) restores.pop()!();
+  });
+
+  it("mounts only the events in and near view, keeping the whole line's length", async () => {
+    layOut();
+    const wrapper = mountStrip({ tokens: longTake });
+    await flushPromises();
+
+    const shown = mounted(wrapper);
+    expect(shown[0]).toBe(0);
+    expect(shown.length).toBeGreaterThanOrEqual(VIEW_PX / EVENT_PX);
+    expect(shown.length).toBeLessThan(20);
+    expect(laidOutLength(wrapper)).toBe(longTake.length * EVENT_PX);
+  });
+
+  it("mounts what comes into view as the line scrolls, and lets go of what leaves", async () => {
+    const layout = layOut();
+    const wrapper = mountStrip({ tokens: longTake });
+    await flushPromises();
+    const scroller = wrapper.get(".highlight-strip__scroller").element as HTMLElement;
+
+    scroller.scrollLeft = 100 * EVENT_PX;
+    runFrames();
+    await flushPromises();
+
+    expect(layout.scrollLeft).toBe(100 * EVENT_PX);
+    const shown = mounted(wrapper);
+    expect(shown).toContain(100);
+    expect(shown).toContain(104);
+    expect(shown).not.toContain(0);
+    expect(shown.length).toBeLessThan(20);
+    expect(laidOutLength(wrapper)).toBe(longTake.length * EVENT_PX);
+  });
+
+  it("lights and follows a sounding note far out of view, then keeps its played fill", async () => {
+    const layout = layOut();
+    const wrapper = mountStrip({ tokens: longTake });
+    await flushPromises();
+
+    play("n150", "v1", { durationMs: 300 });
+    await flushPromises();
+    // Mounted at once, before the view arrives, and lit on the frame it is heard.
+    expect(event(wrapper, 150).attributes("data-active")).toBe("true");
+
+    release("n150", "v1", clock + 300);
+    for (let frame = 0; frame < 120 && frames.length; frame++) await at(clock + 16);
+    // Followed: event 150's centre (6000 + 20) sits at 42% of the view.
+    expect(layout.scrollLeft).toBeCloseTo(150 * EVENT_PX + EVENT_PX / 2 - VIEW_PX * 0.42, 0);
+    expect(mounted(wrapper)).not.toContain(0);
+    expect(fill(wrapper, 150)).toBe(1);
+
+    // The loop comes round: the first note lights from empty and the strip follows it back.
+    play("n0", "v2", { durationMs: 300 });
+    await flushPromises();
+    expect(event(wrapper, 0).attributes("data-active")).toBe("true");
+    for (let frame = 0; frame < 120 && frames.length; frame++) await at(clock + 16);
+    expect(layout.scrollLeft).toBe(0);
+    expect(mounted(wrapper)).not.toContain(150);
+  });
+
+  it("mounts and follows the newest typed note at the end of a long take", async () => {
+    const layout = layOut();
+    const wrapper = mountStrip({ tokens: longTake, playing: false, followLatestKey: "n199" });
+    await flushPromises();
+
+    const longer = [...longTake, { ...longTake[0], noteId: "n200" }];
+    await wrapper.setProps({ tokens: longer, followLatestKey: "n200" });
+    await flushPromises();
+    expect(mounted(wrapper)).toContain(200);
+    for (let frame = 0; frame < 120 && frames.length; frame++) await at(clock + 16);
+
+    // The newest event's end would sit at 75% of the view; the line ends first.
+    expect(layout.scrollLeft).toBe(longer.length * EVENT_PX - VIEW_PX);
+    expect(mounted(wrapper)).toContain(200);
+    expect(mounted(wrapper)).not.toContain(0);
+    expect(laidOutLength(wrapper)).toBe(longer.length * EVENT_PX);
+  });
+});

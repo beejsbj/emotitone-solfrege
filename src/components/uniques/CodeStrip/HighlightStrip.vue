@@ -7,6 +7,7 @@ import type { NoteColorResolver } from "@/components/primatives/noteColorContext
 import HighlightStripEvent from "./HighlightStripEvent.vue";
 import { useNotationHighlight, useReducedMotion } from "./highlight";
 import { useEventWindow, WINDOW_MIN_EVENTS } from "./eventWindow";
+import { eventName } from "./eventName";
 import type { CodeStripViewport } from "./viewport";
 import type {
   CodeStripChordToken,
@@ -133,13 +134,19 @@ const entries = computed(() => events.value.map((token, index) => {
 // ─── Window ──────────────────────────────────────────────────────────────────
 // A long take mounts only the events in and near view (and the one sounding or
 // just typed); gaps of their widths stand in for the rest.
+const windowed = computed(() => events.value.length > WINDOW_MIN_EVENTS);
 const eventShapes = computed(() => events.value.map(shapeOf));
+// A windowed line mounts only part of the phrase, so the whole phrase is
+// read to assistive technology from a plain list instead.
+const phraseNames = computed(() => windowed.value
+  ? entries.value.filter((entry) => !entry.hidden).map((entry) => eventName(entry.token))
+  : []);
 const eventWindow = useEventWindow({
   scroller,
   keys: () => entries.value.map((entry, index) => `${entry.key}|${eventShapes.value[index]}`),
   shapes: () => eventShapes.value,
   hidden: () => entries.value.map((entry) => entry.hidden),
-  enabled: () => events.value.length > WINDOW_MIN_EVENTS,
+  enabled: () => windowed.value,
   layoutKey: () => `${props.density}|${props.durationMode}|${props.timeSignature}`,
   onShift: (delta) => { followTarget += delta; },
 });
@@ -321,7 +328,10 @@ function clamp(value: number) {
       :tabindex="isEmpty ? undefined : 0"
       @scroll.passive="eventWindow.onScroll"
     >
-      <div class="highlight-strip__line">
+      <ol v-if="windowed" class="highlight-strip__phrase">
+        <li v-for="(name, index) in phraseNames" :key="index">{{ name }}</li>
+      </ol>
+      <div class="highlight-strip__line" :aria-hidden="windowed || undefined">
         <span v-if="isEmpty" class="highlight-strip__empty">{{ emptyLabel }}</span>
         <template v-for="item in eventWindow.items.value" :key="item.kind === 'gap' ? item.key : entries[item.index].key">
           <span
@@ -435,6 +445,18 @@ function clamp(value: number) {
 /* Stave: one hairline staff runs through the line the events sit on. */
 .highlight-strip:not(.highlight-strip--empty) .highlight-strip__line {
   background: linear-gradient(transparent calc(50% - 1px), var(--ivory-4) calc(50% - 1px) calc(50% + 1px), transparent 0);
+}
+
+/* The whole phrase for assistive technology when the line is windowed. */
+.highlight-strip__phrase {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 /* Stands in for unmounted history at its measured width. */

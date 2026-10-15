@@ -503,6 +503,22 @@ describe("HighlightStrip on a long take", () => {
     expect(laidOutLength(wrapper)).toBe(longTake.length * EVENT_PX);
   });
 
+  it("still reads the whole phrase to assistive technology", async () => {
+    layOut();
+    const wrapper = mountStrip({ tokens: longTake });
+    await flushPromises();
+
+    const phrase = wrapper.findAll(".highlight-strip__scroller ol li").map((item) => item.text());
+    expect(phrase).toHaveLength(longTake.length);
+    expect(new Set(phrase)).toEqual(new Set(["Code note Do"]));
+    // The partly mounted line is presentation only.
+    expect(wrapper.get(".highlight-strip__line").attributes("aria-hidden")).toBe("true");
+    // A short line is read directly, as before.
+    const short = mountStrip();
+    expect(short.find(".highlight-strip__scroller ol").exists()).toBe(false);
+    expect(short.get(".highlight-strip__line").attributes("aria-hidden")).toBeUndefined();
+  });
+
   it("mounts what comes into view as the line scrolls, and lets go of what leaves", async () => {
     const layout = layOut();
     const wrapper = mountStrip({ tokens: longTake });

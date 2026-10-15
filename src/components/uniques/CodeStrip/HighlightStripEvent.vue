@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
 import type { NoteColorResolver } from "@/components/primatives/noteColorContext";
 import Sequence from "./Sequence.vue";
+import { eventName } from "./eventName";
 import type { NotationHighlightSource } from "./highlight";
 import type { CodeStripViewport } from "./viewport";
 import type {
@@ -92,13 +93,7 @@ const fillStyle = computed(() =>
   props.source ? { "--code-strip-fill-duration": "0ms" } : undefined,
 );
 
-const accessibleName = computed(() => {
-  const token = props.token;
-  if (token.type === "note") return `Code note ${token.text}`;
-  if (token.type === "chord") return token.accessibleName ?? `Code chord ${token.symbol}`;
-  if (token.type === "rest") return "Code rest";
-  return "Code punctuation";
-});
+const accessibleName = computed(() => eventName(props.token));
 </script>
 
 <template>

@@ -274,7 +274,7 @@ export function bindingFor(key: string): PersistedBinding<unknown> | undefined {
 
 export function createPersistedBinding<T>(
   codecDefinition: PersistenceCodec<T>,
-  { storage = persistentStorage, now = Date.now }: BindingOptions = {},
+  { storage = persistentStorage, now = () => Date.now() }: BindingOptions = {},
 ): PersistedBinding<T> {
   const codec = defineCodec(codecDefinition);
   const retention = codec.backupRetention ?? BACKUP_RETENTION;
@@ -461,7 +461,7 @@ export interface RestoreResult {
  */
 export function restoreBackup(
   backupKey: string,
-  { storage = persistentStorage, now = Date.now }: BindingOptions = {},
+  { storage = persistentStorage, now = () => Date.now() }: BindingOptions = {},
 ): RestoreResult {
   const entry = parseBackupKey(backupKey);
   if (!entry) return { ok: false, message: `"${backupKey}" is not a backup key.` };

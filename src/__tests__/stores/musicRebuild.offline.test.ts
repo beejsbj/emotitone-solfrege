@@ -58,7 +58,7 @@ beforeEach(() => {
     } satisfies LiveWorklet
   })
 })
-afterEach(() => { disposePinia(pinia); vi.unstubAllGlobals(); vi.restoreAllMocks() })
+afterEach(() => { disposePinia(pinia); vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.useRealTimers() })
 
 async function setup(name: string) {
   const catalog = await import('@/audio/soundCatalog')
@@ -111,9 +111,10 @@ describe('selected instrument input across offline rebuilds', () => {
     await music.releaseNote(nextOwner!)
   })
 
-  it.each(['play', 'release', 'change instrument'])('waits after a same-rate processor error; next action: %s', async action => {
+  it.each(['play', 'release', 'change instrument', 'rate change'])('shows warming while preserving input through recovery; next action: %s', async action => {
     const { music, audio, instrument } = await setup('piano')
-    builds[0].callbacks.onError?.(new Error('processor failed'))
+    if (action === 'rate change') Object.assign(context, { sampleRate: 44100 })
+    else builds[0].callbacks.onError?.(new Error('processor failed'))
     let finish!: () => void
     decoded.mockImplementationOnce(() => new Promise(resolve => { finish = () => resolve({
       sampleRate: 48000, length: 1024, numberOfChannels: 1,
@@ -125,6 +126,9 @@ describe('selected instrument input across offline rebuilds', () => {
     await vi.waitFor(() => expect(finish).toBeTypeOf('function'))
     expect(audio.attackNote).not.toHaveBeenCalled()
     expect(builds).toHaveLength(1)
+    expect(instrument.warmingInstrument).toBe('piano')
+    expect(instrument.isInstrumentWarming('piano')).toBe(true)
+    expect(instrument.isLoading).toBe(true)
     if (action === 'release') cancelled = true
     if (action === 'change instrument') instrument.selectionEpoch++
     finish()
@@ -132,13 +136,86 @@ describe('selected instrument input across offline rebuilds', () => {
     const otherOwner = await simultaneous
     expect(decoded).toHaveBeenCalledTimes(2)
     expect(builds).toHaveLength(2)
-    if (action === 'play') {
+    expect(instrument.warmingInstrument).toBeNull()
+    expect(instrument.isLoading).toBe(false)
+    if (action === 'play' || action === 'rate change') {
       expect(owner).toBeTruthy()
       expectSound()
       await music.releaseNote(owner!)
       await music.releaseNote(otherOwner!)
     } else expect(owner).toBeNull()
     expect(audio.attackNote).not.toHaveBeenCalled()
+  })
+
+  it.each(['decode', 'fetch'])('bounds a retired %s and lets the replacement context recover', async stalled => {
+    const { manager } = await setup('piano')
+    const oldContext = context
+    builds[0].callbacks.onError?.(new Error('processor failed'))
+    let finish!: () => void
+    const copy = vi.fn()
+    if (stalled === 'decode') decoded.mockImplementationOnce(() => new Promise(resolve => {
+      finish = () => resolve({ sampleRate: 48000, length: 1024, numberOfChannels: 1, copyFromChannel: copy })
+    }))
+    else {
+      vi.stubGlobal('caches', memoryCaches().storage)
+      network.mockImplementationOnce(() => new Promise(resolve => { finish = () => resolve(new Response(new Uint8Array([1]))) }))
+    }
+    const retired = manager.prepareLivePlayback(oldContext, {} as AudioNode, 'piano')
+    await vi.waitFor(() => expect(finish).toBeTypeOf('function'))
+    vi.useFakeTimers()
+    context = Object.assign(new EventTarget(), {
+      audioWorklet: {}, state: 'running', sampleRate: 44100, currentTime: 0, decodeAudioData: decoded,
+    }) as unknown as AudioContext
+    const replacement = manager.prepareLivePlayback(context, {} as AudioNode, 'piano')
+    await vi.advanceTimersByTimeAsync(5100)
+    expect(manager.getLivePlayback('piano')).toBeDefined()
+    await replacement
+    finish()
+    await retired
+    expect(copy).not.toHaveBeenCalled() // A late decode must never allocate owned PCM.
+    const preparation = await import('@/services/preparedLiveInstrument')
+    expect(preparation.getPreparedLiveInstrumentDiagnostics(oldContext).cachedPreparationPcmBytes).toBe(0)
+    expect(manager.getLivePlaybackDiagnostics('piano').installedBanks).toBe(1)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('shows a bridge creation failure to the player and retries without fallback PCM', async () => {
+    const { music, audio, instrument } = await setup('piano')
+    builds[0].callbacks.onError?.(new Error('processor failed'))
+    adapters.create.mockRejectedValueOnce(new Error('addModule failed'))
+    await expect(music.attackExactPitch('C4')).rejects.toThrow('addModule failed')
+    expect(instrument.lastWarmupError).toBe('addModule failed')
+    expect(instrument.lastWarmupErrorInstrument).toBe('piano')
+    expect(audio.attackNote).not.toHaveBeenCalled()
+    const owner = await music.attackExactPitch('C4')
+    expectSound()
+    expect(instrument.lastWarmupError).toBeNull()
+    await music.releaseNote(owner!)
+  })
+
+  it.each(['rate change', 'release', 'already ready'])('clears a stale error after confirmed recovery: %s', async action => {
+    const { music, instrument } = await setup('piano')
+    instrument.lastWarmupError = 'previous offline failure'
+    instrument.lastWarmupErrorInstrument = 'piano'
+    if (action === 'rate change') Object.assign(context, { sampleRate: 44100 })
+    if (action === 'release') builds[0].callbacks.onError?.(new Error('processor failed'))
+    let finish!: () => void
+    if (action !== 'already ready') {
+      const decode = decoded.getMockImplementation()!
+      decoded.mockImplementationOnce(() => new Promise(resolve => { finish = () => resolve(decode()) }))
+    }
+    let cancelled = false
+    const pending = music.attackExactPitch('C4', () => cancelled)
+    if (action !== 'already ready') {
+      await vi.waitFor(() => expect(finish).toBeTypeOf('function'))
+      cancelled = action === 'release'
+      finish()
+    }
+    const owner = await pending
+    expect(instrument.lastWarmupError).toBeNull()
+    expect(instrument.lastWarmupErrorInstrument).toBeNull()
+    if (action === 'release') expect(owner).toBeNull()
+    else { expectSound(); await music.releaseNote(owner!) }
   })
 
   it('surfaces an uncached recovery failure and retries on the next press without loading fallback PCM', async () => {

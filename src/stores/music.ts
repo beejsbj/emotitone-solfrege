@@ -377,16 +377,21 @@ export const useMusicStore = defineStore(
       // A sleeping/interrupted graph (or route rebuild) must finish before the
       // renderer is selected or the input is submitted. Keep running input sync.
       const selectionEpoch = instrumentStore.selectionEpoch;
+      const selectedInstrument = instrumentStore.currentInstrument;
       const resumption = resumeAudioContext(superdoughAudio.getAudioContext());
-      if (resumption) await resumption;
-      if (isCancelled() || instrumentStore.isInteractionLocked || instrumentStore.selectionEpoch !== selectionEpoch) return null;
-      const recovery = waitForLivePlayback(instrumentStore.currentInstrument);
-      if (recovery) await recovery;
-      if (isCancelled() || instrumentStore.isInteractionLocked || instrumentStore.selectionEpoch !== selectionEpoch) return null;
-      if (recovery && instrumentStore.lastWarmupErrorInstrument === instrumentStore.currentInstrument) {
+      const recover = () => {
+        if (!isCancelled() && !instrumentStore.isInteractionLocked && instrumentStore.selectionEpoch === selectionEpoch) {
+          return waitForLivePlayback(selectedInstrument);
+        }
+      };
+      const recovery = resumption ? resumption.then(recover) : recover();
+      if (recovery) await instrumentStore.waitForRecovery(recovery);
+      if (instrumentStore.selectionEpoch === selectionEpoch && getLivePlayback(selectedInstrument)
+        && instrumentStore.lastWarmupErrorInstrument === selectedInstrument) {
         instrumentStore.lastWarmupError = null;
         instrumentStore.lastWarmupErrorInstrument = null;
       }
+      if (isCancelled() || instrumentStore.isInteractionLocked || instrumentStore.selectionEpoch !== selectionEpoch) return null;
       const owner = `held_${storeId}_${++heldCounter}`;
       const held: HeldPitch = {
         snapshot: {

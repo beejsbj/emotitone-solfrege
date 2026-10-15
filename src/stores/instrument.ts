@@ -149,9 +149,25 @@ export const useInstrumentStore = defineStore("instrument", () => {
   // Shape before anything reads the new instrument.
   watch(currentInstrument, recallShape, { flush: "sync" });
 
+  // Recovery keeps held intent alive; only a new selection locks input.
+  const recoveries = ref(new Map<number, number>());
+  const displayedWarmingInstrument = computed({
+    get: () => warmingInstrument.value ?? (recoveries.value.has(selectionEpoch.value) ? currentInstrument.value : null),
+    set: (name: string | null) => { warmingInstrument.value = name; },
+  });
+  function waitForRecovery(pending: Promise<void>): Promise<void> {
+    const epoch = selectionEpoch.value;
+    recoveries.value.set(epoch, (recoveries.value.get(epoch) ?? 0) + 1);
+    return pending.finally(() => {
+      const remaining = recoveries.value.get(epoch)! - 1;
+      if (remaining) recoveries.value.set(epoch, remaining);
+      else recoveries.value.delete(epoch);
+    });
+  }
+
   const isInteractionLocked = computed(() => warmingInstrument.value !== null);
   const isLoading = computed(
-    () => isInitializing.value || isInteractionLocked.value
+    () => isInitializing.value || displayedWarmingInstrument.value !== null
   );
 
   const clearWarmupError = () => {
@@ -204,7 +220,7 @@ export const useInstrumentStore = defineStore("instrument", () => {
   };
 
   const isInstrumentWarming = (instrumentName: string) =>
-    warmingInstrument.value === instrumentName;
+    displayedWarmingInstrument.value === instrumentName;
 
   // Initialize — boots superdough and reports granular sample-pack progress
   // through the optional callback so loading screens can show real steps.
@@ -347,7 +363,8 @@ export const useInstrumentStore = defineStore("instrument", () => {
     // State
     currentInstrument,
     readyInstruments,
-    warmingInstrument,
+    warmingInstrument: displayedWarmingInstrument,
+    waitForRecovery,
     warmupMessage,
     lastWarmupError,
     lastWarmupErrorInstrument,

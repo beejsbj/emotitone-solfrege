@@ -44,6 +44,7 @@ const installedPcm = new Map<string, { source: number; derived: number }>();
 const loadFailures = new Set<string>();
 const retiring = new Set<string>();
 let installQueue: Promise<void> = Promise.resolve();
+let preparationAbort = new AbortController();
 let workletPreparation: Promise<typeof import("@/services/preparedLiveInstrument")> | undefined;
 let workletCatalog: typeof import("@/services/preparedLiveInstrument") | undefined;
 let installingPcmBytes = 0;
@@ -83,7 +84,12 @@ function invalidate(error?: unknown) {
   retiring.clear();
   installingPcmBytes = 0;
   unsupported.clear();
-  // Drain retired preparation before another generation allocates PCM.
+  // Allow five seconds to drain, then unwind stalled native fetch/decode waits.
+  // Keep the queue serialized: bypassing it could leave retired owned PCM alive.
+  const retired = preparationAbort;
+  preparationAbort = new AbortController();
+  const deadline = setTimeout(() => retired.abort(new Error("Live renderer recovery drain timed out")), 5000);
+  void installQueue.then(() => clearTimeout(deadline));
   if (error) {
     const failure = error instanceof Error ? error : new Error(String(error));
     listeners.forEach(listener => listener.onError?.(failure));
@@ -142,7 +148,7 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
       return;
     }
     const preparationSampleRate = nextContext.sampleRate;
-    const prepared = await workletCatalog.prepareLiveInstrument(nextContext, instrumentId);
+    const prepared = await workletCatalog.prepareLiveInstrument(nextContext, instrumentId, preparationAbort.signal);
     preparedResult = prepared;
     if (run !== generation) return;
     builtSampleRates.add(preparationSampleRate);
@@ -296,6 +302,7 @@ export function waitForLivePlayback(name: string): Promise<void> | undefined {
     } while (run !== generation && preparing.has(instrumentId) && context === nextContext);
     if (!getLivePlayback(instrumentId)) {
       const reason = reasons.get(instrumentId) ?? "Live renderer recovery failed";
+      listeners.forEach(listener => listener.onLoadError?.(instrumentId, reason));
       throw new Error(reason);
     }
   })();

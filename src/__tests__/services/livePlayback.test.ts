@@ -467,7 +467,7 @@ describe('production renderer selection', () => {
 
     await manager.prepareLivePlayback(context, destination, name)
 
-    expect(mocks.prepare).toHaveBeenLastCalledWith(context, resolved)
+    expect(mocks.prepare).toHaveBeenLastCalledWith(context, resolved, expect.any(AbortSignal))
     expect(manager.getLivePlayback(name)).toBeUndefined()
     expect(manager.getLivePlayback(resolved)).toBeUndefined()
     expect(manager.needsLivePlaybackPreparation(name)).toBe(false)

@@ -110,6 +110,8 @@ export function createPatternTransport(options: PatternTransportOptions): Patter
     beforeStart: async () => {
       if (disposed) throw new Error("The pattern transport was disposed");
       await resumeAudioContext(getAudioContext());
+      // Disposal can land while the audio resumes.
+      if (disposed) throw new Error("The pattern transport was disposed");
     },
     // Called with the new pattern just before the scheduler receives it, so
     // the spans always describe the code whose haps are being triggered.
@@ -121,6 +123,11 @@ export function createPatternTransport(options: PatternTransportOptions): Patter
       return pattern;
     },
     onToggle: (started: boolean) => {
+      // A disposed transport owns no shared playback state: stop, report nothing.
+      if (disposed) {
+        if (started) repl.scheduler.stop();
+        return;
+      }
       if (started) releaseTransport ??= holdAudioActivity();
       else {
         releaseTransport?.();

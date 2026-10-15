@@ -103,3 +103,28 @@ it("prepares the code each evaluation plays and retries a failed warm-up on the 
     expect(preparePatternSounds).toHaveBeenLastCalledWith("s('piano')");
   } finally { await disposePatternTransport(transport); }
 });
+
+it("does not start or report playback from a transport disposed while its audio resumed", async () => {
+  let finishResume!: () => void;
+  mocks.context.state = "suspended";
+  mocks.context.resume.mockImplementation(() => new Promise<void>((resolve) => {
+    finishResume = () => {
+      mocks.context.state = "running";
+      mocks.context.dispatchEvent(new Event("statechange"));
+      resolve();
+    };
+  }));
+  const onToggle = vi.fn();
+  const stale = createPatternTransport({ initialCode: "", onFrame: vi.fn(), onToggle, onEvalError: vi.fn() });
+  const hooks = mocks.options!;
+  const starting = hooks.beforeStart();
+  await vi.waitFor(() => expect(mocks.context.resume).toHaveBeenCalled());
+
+  await disposePatternTransport(stale);
+  onToggle.mockClear();
+  finishResume();
+  await expect(starting).rejects.toThrow("disposed");
+  // Nor can a late start of its scheduler report playback.
+  hooks.onToggle(true);
+  expect(onToggle).not.toHaveBeenCalled();
+});

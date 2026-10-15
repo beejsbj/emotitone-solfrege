@@ -8,12 +8,15 @@ import { createPersistedState } from "pinia-plugin-persistedstate";
  * left exactly as it was.
  */
 
-export type SaveFailureKind = "quota" | "unknown";
+export type SaveFailureKind = "quota" | "unknown" | "newer";
 
 /** What the player reads. Later kinds (e.g. a full phrase shelf) add a row here. */
 export const SAVE_FAILURE_MESSAGES: Record<SaveFailureKind, string> = {
   quota: "Can't save — storage full",
   unknown: "Can't save",
+  // A newer EmotiTone saved this device's data; this (older) page must not
+  // overwrite it. Reloading picks up the newer app.
+  newer: "Can't save — reload to update",
 };
 
 interface FailureBurst {
@@ -31,8 +34,8 @@ interface FailureBurst {
 //    answer to a tap; a retry of that key ends it, and a repeat failure after a
 //    dismissal is news again.
 const burst = ref<FailureBurst | null>(null);
-const failedKeys = new Set<string>();
-const oneOffKeys = new Set<string>();
+const failedKeys = new Map<string, SaveFailureKind>();
+const oneOffKeys = new Map<string, SaveFailureKind>();
 // Autosaved keys already failing when the player dismissed the notice.
 const dismissedKeys = new Set<string>();
 
@@ -46,10 +49,17 @@ export const saveFailureNotice = computed(() => {
 /** True while a failure burst is open, even if the player dismissed the notice. */
 export const hasSaveFailure = computed(() => burst.value !== null);
 
+function activeFailureKind(): SaveFailureKind {
+  const kinds = [...failedKeys.values(), ...oneOffKeys.values()];
+  return kinds.includes("newer") ? "newer" : kinds.includes("quota") ? "quota" : "unknown";
+}
+
 function closeIfSettled(): void {
   if (failedKeys.size === 0 && oneOffKeys.size === 0) {
     burst.value = null;
     dismissedKeys.clear();
+  } else if (burst.value) {
+    burst.value = { ...burst.value, kind: activeFailureKind() };
   }
 }
 
@@ -63,21 +73,20 @@ export function reportSaveFailure(kind: SaveFailureKind, key: string, oneOff = f
   let isNews: boolean;
   if (oneOff) {
     isNews = true;
-    oneOffKeys.add(key);
+    oneOffKeys.set(key, kind);
   } else {
     isNews = !dismissedKeys.has(key);
-    failedKeys.add(key);
+    failedKeys.set(key, kind);
   }
 
   if (!burst.value) {
     burst.value = { kind, dismissed: false };
     return;
   }
-  const upgraded = kind === "quota" ? "quota" : burst.value.kind;
   const reopen = isNews && burst.value.dismissed;
   if (reopen) dismissedKeys.clear();
   burst.value = {
-    kind: upgraded,
+    kind: activeFailureKind(),
     dismissed: reopen ? false : burst.value.dismissed,
   };
 }
@@ -94,7 +103,7 @@ export function dismissSaveFailure(): void {
   if (!burst.value) return;
   oneOffKeys.clear();
   dismissedKeys.clear();
-  failedKeys.forEach((key) => dismissedKeys.add(key));
+  failedKeys.forEach((_, key) => dismissedKeys.add(key));
   burst.value = { ...burst.value, dismissed: true };
   closeIfSettled();
 }
@@ -126,6 +135,10 @@ export function isQuotaExceeded(error: unknown): boolean {
 }
 
 export interface SafeStorage extends Pick<Storage, "getItem" | "setItem" | "removeItem"> {
+  /** A read that distinguishes a missing key from unavailable or failing storage. */
+  read(key: string): { ok: true; value: string | null } | { ok: false };
+  /** Every stored key, or null when enumeration failed. */
+  keys(): string[] | null;
   /**
    * Like setItem, but says whether the value was actually stored. Pass
    * `{ oneOff: true }` for an explicit save that nothing will retry.
@@ -172,8 +185,24 @@ export function createSafeStorage(
   const write = (key: string, value: string, options?: { oneOff?: boolean }): boolean =>
     attempt(key, value, options) === null;
 
+  const read = (key: string): ReturnType<SafeStorage["read"]> => {
+    try {
+      const storage = backend();
+      if (!storage) throw new Error("Storage is unavailable");
+      return { ok: true, value: storage.getItem(key) };
+    } catch (error) {
+      if (!hasSaveFailure.value) console.error(`Failed to read "${key}" from storage:`, error);
+      reportSaveFailure("unknown", key);
+      return { ok: false };
+    }
+  };
+
   return {
-    getItem: (key) => backend()?.getItem(key) ?? null,
+    read,
+    getItem: (key) => {
+      const result = read(key);
+      return result.ok ? result.value : null;
+    },
     setItem: (key, value) => {
       write(key, value);
     },
@@ -182,6 +211,20 @@ export function createSafeStorage(
         backend()?.removeItem(key);
       } catch (error) {
         console.error(`Failed to remove "${key}" from storage:`, error);
+      }
+    },
+    keys: () => {
+      try {
+        const storage = backend();
+        if (!storage) return null;
+        const found: string[] = [];
+        for (let index = 0; index < storage.length; index += 1) {
+          const key = storage.key(index);
+          if (key !== null) found.push(key);
+        }
+        return found;
+      } catch {
+        return null;
       }
     },
     write,

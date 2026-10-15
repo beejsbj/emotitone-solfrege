@@ -109,16 +109,35 @@ There is no in-app UI for this.
     `serializePatternsState` does.
   - BJS-513 measures its budget with `binding.encode(state).length`, which is
     the exact string a save writes.
-- **Visual config (BJS-512):**
-  - It writes itself, so it calls `binding.load()` and `binding.save()`
-    directly instead of `codecPersist`.
-  - The state is the effective config. `encode` writes sparse overrides, and
-    `decode` returns defaults plus overrides.
-  - The one-time reconciliation is a migration from the full-config format:
-    it drops stored values equal to a known previous default. The backup rule
-    covers it.
-  - Moving BPM, octave and drawer rows into their own stores can happen in
-    that same migration step.
+## Visual config and performance settings (BJS-512)
+
+`emotitone-visual-config` v1 stores sparse overrides, plus the non-default
+`visualsEnabled` and `laBasedMinor` preferences. Decode fills omitted fields
+from today's defaults; returning a setting to its default removes its override.
+Explicitly saved named presets remain snapshots, on their existing keys.
+
+The v0 migration retains the existing legacy-field conversions, then removes
+values equal to current defaults or the verified previous defaults in
+`visualConfigPersistence.ts` (commits `4d167ba1` and `1312ed42`: blob motion,
+connection softness and duration bars). This is a bounded reconciliation,
+not an exhaustive reconstruction of every historical default. It runs only
+once, with the codec's exact-byte backup. **Cost:** a deliberate choice equal
+to one of those defaults is treated as untouched. Choosing that old value
+again after migration persists it normally. No full-config reset is used.
+
+Three small stores now own BPM, octave and drawer rows, under
+`emotitone-tempo`, `emotitone-octave` and `emotitone-drawer-rows`. Each has a
+v1 codec and stores `{ value }`. Missing keys import their values from the
+legacy visual config before its eager rewrite; existing keys always win.
+If a destination write fails but the visual migration succeeds, a missing
+destination recovers from the newest v0 visual-config backup at next load.
+The backup rule and retention are unchanged.
+
+For existing callers, `config.codeStrip.bpm`, `config.keyboard.mainOctave`
+and `config.keyboard.rowCount` remain reactive read/write accessors to those
+stores. They are absent from visual persistence and do not trigger its
+save debounce. Loading or resetting an appearance preset leaves all three
+performance settings alone. New consumers can use the small stores directly.
 
 ## Captured payloads
 
@@ -128,6 +147,7 @@ Never edit a capture; add a new file.
 - `instrument.v0.store-capture.json`: the real instrument store and its
   pre-codec serializer (`JSON.stringify` through the plugin), driven over four
   shaped instruments. Captured 2026-10-10 from origin/main `10717555`.
+- `visual-config.v0.store-capture.json`: exact output from the pre-codec visual store at `d85d9a02`, captured 2026-10-15 with customized blob size, BPM, octave, drawer rows and La preference. This is a store-driven capture, not a phone/browser-profile capture.
 - `instrument.v0.headless-chrome.json`: read out of a real Chrome profile's
   Local Storage after an audio-lab run (default state).
 - Still wanted: payloads from Burooj's own phone and laptop, from

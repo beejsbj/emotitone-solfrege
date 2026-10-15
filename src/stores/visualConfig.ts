@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { computed, ref, reactive, watch } from "vue";
+import { computed, ref, reactive, watch, onScopeDispose } from "vue";
 import { DEFAULT_CONFIG } from "@/data/visual-config-metadata";
 import { BUILT_IN_STAGE_LOOKS } from "@/data/visual-config-presets";
 import {
@@ -28,12 +28,12 @@ import {
 } from "@/services/configPublicSurface";
 import { persistentStorage, type SaveFailureKind } from "@/services/safeStorage";
 import type {
-  BlobConnectionMode,
-  HarmonicGeometryMode,
   VisualEffectsConfig,
 } from "@/types/visual";
 
-const STORAGE_KEY = "emotitone-visual-config";
+import { createPersistedBinding } from "@/services/persistenceCodec";
+import { cloneDefaultConfig, isRecord, isPerformanceField, migrateVisualConfig, visualConfigCodec } from "@/services/visualConfigPersistence";
+import { useTempoStore, useOctaveStore, useDrawerRowsStore } from "@/stores/performanceSettings";
 const SAVED_CONFIGS_KEY = "emotitone-saved-configs";
 const SAVED_STAGE_LOOKS_KEY = "emotitone-saved-stage-looks";
 
@@ -51,316 +51,6 @@ export interface SavedStageLook {
   patch: StageLookPatch;
   createdAt: string;
   updatedAt: string;
-}
-
-type LegacyDynamicColors = Partial<
-  Omit<VisualEffectsConfig["dynamicColors"], "musicColorMode">
-> & {
-  chromaticMapping?: boolean;
-  musicColorMode?: VisualEffectsConfig["dynamicColors"]["musicColorMode"] | "movable";
-  hueAnimationAmplitude?: number;
-  saturation?: number;
-  baseLightness?: number;
-  lightnessRange?: number;
-};
-
-type LegacyKeyboardConfig = Partial<VisualEffectsConfig["keyboard"]> & {
-  colorMode?: VisualEffectsConfig["keyboard"]["surfaceStyle"];
-};
-
-interface LegacyBeatingShapesConfig {
-  isEnabled?: boolean;
-}
-
-interface LegacyHarmonicConfig {
-  isEnabled?: boolean;
-  accumulationWindow?: number;
-  hideDelay?: number;
-  maxNotes?: number;
-  showChord?: boolean;
-  showIntervals?: boolean;
-  showEmotionalDescription?: boolean;
-  geometryMode?: string;
-  backdropBlur?: number;
-  glassmorphOpacity?: number;
-  opacity?: number;
-}
-
-type LegacyVisualEffectsConfig = Partial<VisualEffectsConfig> & {
-  dynamicColors?: LegacyDynamicColors;
-  keyboard?: LegacyKeyboardConfig;
-  liveStrip?: Partial<VisualEffectsConfig["codeStrip"]>;
-  floatingPopup?: LegacyHarmonicConfig;
-  beatingShapes?: LegacyBeatingShapesConfig;
-};
-
-const LEGACY_HARMONIC_DEFAULTS = {
-  accumulationWindow: 500,
-  hideDelay: 2000,
-} as const;
-
-function cloneDefaultConfig(): VisualEffectsConfig {
-  return JSON.parse(JSON.stringify(DEFAULT_CONFIG)) as VisualEffectsConfig;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function normalizeLegacyGeometryMode(value: unknown): HarmonicGeometryMode {
-  if (value === "web" || value === "center-only") {
-    return "web";
-  }
-
-  return "merge";
-}
-
-function isBlobConnectionMode(value: unknown): value is BlobConnectionMode {
-  return value === "merge" || value === "web";
-}
-
-function clampNumber(value: unknown, fallback: number, min: number, max: number) {
-  return typeof value === "number" && Number.isFinite(value)
-    ? Math.max(min, Math.min(max, value))
-    : fallback;
-}
-
-function migrateMusicColorConfig(
-  incomingSection: Record<string, unknown>,
-  mergedSection: Record<string, unknown>,
-) {
-  const rawMode = incomingSection.musicColorMode;
-  if (rawMode === "fixed" || rawMode === "movable-ordinal" || rawMode === "movable-relative") {
-    mergedSection.musicColorMode = rawMode;
-  } else if (rawMode === "movable") {
-    mergedSection.musicColorMode = "movable-ordinal";
-  } else if (typeof incomingSection.chromaticMapping === "boolean") {
-    mergedSection.musicColorMode = incomingSection.chromaticMapping
-      ? "fixed"
-      : "movable-ordinal";
-  } else {
-    mergedSection.musicColorMode = "movable-ordinal";
-  }
-
-  mergedSection.recipeVersion = 1;
-  mergedSection.hueMotionEnabled = typeof incomingSection.hueMotionEnabled === "boolean"
-    ? incomingSection.hueMotionEnabled
-    : typeof incomingSection.hueAnimationAmplitude === "number"
-      ? incomingSection.hueAnimationAmplitude > 0
-      : true;
-
-  const migratedChromaCandidate = typeof incomingSection.saturation === "number"
-    ? 0.18 * incomingSection.saturation / 0.8
-    : 0.18;
-  const migratedChroma = clampNumber(migratedChromaCandidate, 0.18, 0, 0.3);
-  mergedSection.chroma = clampNumber(
-    incomingSection.chroma,
-    migratedChroma,
-    0,
-    0.3,
-  );
-
-  const migratedCenterCandidate = typeof incomingSection.baseLightness === "number"
-    ? 0.575 + incomingSection.baseLightness - 0.5
-    : 0.575;
-  const migratedCenter = clampNumber(migratedCenterCandidate, 0.575, 0.2, 0.9);
-  const center = clampNumber(
-    incomingSection.lightnessCenter,
-    migratedCenter,
-    0.2,
-    0.9,
-  );
-  mergedSection.lightnessCenter = center;
-
-  const migratedSpanCandidate = typeof incomingSection.lightnessRange === "number"
-    ? 0.6 * incomingSection.lightnessRange / 0.7
-    : 0.6;
-  const migratedSpan = clampNumber(migratedSpanCandidate, 0.6, 0, 0.7);
-  mergedSection.lightnessSpan = clampNumber(
-    incomingSection.lightnessSpan,
-    migratedSpan,
-    0,
-    0.7,
-  );
-
-  delete mergedSection.chromaticMapping;
-  delete mergedSection.hueAnimationAmplitude;
-  delete mergedSection.saturation;
-  delete mergedSection.baseLightness;
-  delete mergedSection.lightnessRange;
-}
-
-function migrateLegacyBlobRelationships(
-  rawConfig: Record<string, unknown>,
-  incomingBlobs: Record<string, unknown>,
-  mergedBlobs: Record<string, unknown>
-) {
-  const legacyHarmonic = rawConfig.floatingPopup;
-  const retiredOff = incomingBlobs.connectionMode === "off" || (
-    !("connectionMode" in incomingBlobs) &&
-    isRecord(legacyHarmonic) &&
-    legacyHarmonic.isEnabled === false
-  );
-  const preserveDisconnectedState = () => {
-    if (!retiredOff) return;
-    mergedBlobs.connectionMode = DEFAULT_CONFIG.blobs.connectionMode;
-    mergedBlobs.fusionStrength = 0;
-    mergedBlobs.webOpacity = 0;
-  };
-  if (!isRecord(legacyHarmonic)) {
-    if (!isBlobConnectionMode(mergedBlobs.connectionMode)) {
-      mergedBlobs.connectionMode = DEFAULT_CONFIG.blobs.connectionMode;
-    }
-    preserveDisconnectedState();
-    return;
-  }
-
-  const copyIfMissing = (newKey: string, legacyKey: string) => {
-    if (!(newKey in incomingBlobs) && legacyKey in legacyHarmonic) {
-      mergedBlobs[newKey] = legacyHarmonic[legacyKey];
-    }
-  };
-
-  if (!("connectionMode" in incomingBlobs)) {
-    mergedBlobs.connectionMode =
-      legacyHarmonic.isEnabled === true
-        ? normalizeLegacyGeometryMode(legacyHarmonic.geometryMode)
-        : DEFAULT_CONFIG.blobs.connectionMode;
-  }
-
-  if (!("analysisHoldTime" in incomingBlobs)) {
-    const hasLegacyTiming =
-      typeof legacyHarmonic.accumulationWindow === "number" ||
-      typeof legacyHarmonic.hideDelay === "number";
-    if (hasLegacyTiming) {
-      mergedBlobs.analysisHoldTime =
-        (typeof legacyHarmonic.accumulationWindow === "number"
-          ? legacyHarmonic.accumulationWindow
-          : LEGACY_HARMONIC_DEFAULTS.accumulationWindow) +
-        (typeof legacyHarmonic.hideDelay === "number"
-          ? legacyHarmonic.hideDelay
-          : LEGACY_HARMONIC_DEFAULTS.hideDelay);
-    }
-  }
-
-  copyIfMissing("analysisNoteLimit", "maxNotes");
-  copyIfMissing("showChordLabel", "showChord");
-  copyIfMissing("showIntervalLabels", "showIntervals");
-  copyIfMissing("showEmotionLabel", "showEmotionalDescription");
-  copyIfMissing("fieldSoftness", "backdropBlur");
-  copyIfMissing("fusionStrength", "glassmorphOpacity");
-
-  if (typeof legacyHarmonic.opacity === "number") {
-    if (!("webOpacity" in incomingBlobs)) {
-      mergedBlobs.webOpacity = legacyHarmonic.opacity;
-    }
-    if (!("labelOpacity" in incomingBlobs)) {
-      mergedBlobs.labelOpacity = legacyHarmonic.opacity;
-    }
-  }
-
-  if (!isBlobConnectionMode(mergedBlobs.connectionMode)) {
-    mergedBlobs.connectionMode = DEFAULT_CONFIG.blobs.connectionMode;
-  }
-  preserveDisconnectedState();
-}
-
-function migrateLegacySectionKeys(
-  sectionName: keyof VisualEffectsConfig,
-  incomingSection: Record<string, unknown>,
-  mergedSection: Record<string, unknown>
-) {
-  if (sectionName === "dynamicColors") {
-    migrateMusicColorConfig(incomingSection, mergedSection);
-  }
-
-  if (sectionName === "keyboard") {
-    if (
-      !("surfaceStyle" in incomingSection) &&
-      typeof incomingSection.colorMode === "string"
-    ) {
-      mergedSection.surfaceStyle = incomingSection.colorMode;
-    }
-    // Daily geometry owns key shape; legacy glass settings now use colored paper.
-    if (mergedSection.surfaceStyle === "glassmorphism") {
-      mergedSection.surfaceStyle = "colored";
-    }
-    delete mergedSection.colorMode;
-  }
-
-  if (sectionName === "codeStrip") {
-    const durationMode = mergedSection.durationMode;
-    if (durationMode !== "stacked" && durationMode !== "bar" && durationMode !== "hidden") {
-      mergedSection.durationMode = DEFAULT_CONFIG.codeStrip.durationMode;
-    }
-  }
-
-}
-
-function migrateVisualConfig(
-  rawConfig: unknown
-): VisualEffectsConfig {
-  const migratedConfig = cloneDefaultConfig();
-  const migratedConfigRecord = migratedConfig as unknown as Record<string, unknown>;
-
-  if (!isRecord(rawConfig)) {
-    return migratedConfig;
-  }
-
-  const legacyConfig = rawConfig as LegacyVisualEffectsConfig;
-
-  const canonicalUIBeat = isRecord(rawConfig.uiBeat) ? rawConfig.uiBeat : undefined;
-  const legacyUIBeat = isRecord(legacyConfig.beatingShapes)
-    ? legacyConfig.beatingShapes
-    : undefined;
-  const migratedUIBeat = canonicalUIBeat
-    ? typeof canonicalUIBeat.isEnabled === "boolean"
-      ? canonicalUIBeat
-      : typeof legacyUIBeat?.isEnabled === "boolean"
-        ? { ...canonicalUIBeat, isEnabled: legacyUIBeat.isEnabled }
-        : canonicalUIBeat
-    : legacyUIBeat;
-
-  for (const sectionName of Object.keys(
-    migratedConfig
-  ) as Array<keyof VisualEffectsConfig>) {
-    const rawIncomingSection = sectionName === "codeStrip"
-      ? rawConfig.codeStrip ?? legacyConfig.liveStrip
-      : sectionName === "uiBeat"
-        ? migratedUIBeat
-        : rawConfig[sectionName];
-    const incomingSection =
-      sectionName === "blobs" &&
-      !isRecord(rawIncomingSection) &&
-      isRecord(rawConfig.floatingPopup)
-        ? {}
-        : rawIncomingSection;
-    const defaultSection = migratedConfig[sectionName];
-
-    if (!isRecord(incomingSection) || !isRecord(defaultSection)) {
-      continue;
-    }
-
-    const mergedSection: Record<string, unknown> = {};
-    const defaultSectionRecord = defaultSection as Record<string, unknown>;
-
-    for (const key of Object.keys(defaultSectionRecord)) {
-      mergedSection[key] =
-        key in incomingSection ? incomingSection[key] : defaultSectionRecord[key];
-    }
-
-    migrateLegacySectionKeys(sectionName, incomingSection, mergedSection);
-    if (sectionName === "blobs") {
-      migrateLegacyBlobRelationships(
-        rawConfig,
-        incomingSection,
-        mergedSection
-      );
-    }
-    migratedConfigRecord[sectionName as string] = mergedSection;
-  }
-
-  return migratedConfig;
 }
 
 function migrateSavedConfig(rawSavedConfig: unknown): SavedConfig | null {
@@ -409,8 +99,39 @@ function createStageLookSeed() {
 }
 
 export const useVisualConfigStore = defineStore("visualConfig", () => {
+  const tempo = useTempoStore();
+  const octave = useOctaveStore();
+  const drawerRows = useDrawerRowsStore();
+  const persistence = createPersistedBinding(visualConfigCodec);
+  // Compatibility accessors keep existing consumers working; the small stores
+  // own these values and their persistence. Appearance never saves them.
+  const initial = cloneDefaultConfig();
+  Object.defineProperty(initial.codeStrip, "bpm", {
+    enumerable: true,
+    get: () => tempo.value,
+    set: (value: number) => { tempo.value = value; },
+  });
+  Object.defineProperty(initial.keyboard, "mainOctave", {
+    enumerable: true,
+    get: () => octave.value,
+    set: (value: number) => { octave.value = value; },
+  });
+  Object.defineProperty(initial.keyboard, "rowCount", {
+    enumerable: true,
+    get: () => drawerRows.value,
+    set: (value: number) => { drawerRows.value = value; },
+  });
+  const assignAppearance = (next: VisualEffectsConfig) => {
+    for (const section of Object.keys(next) as Array<keyof VisualEffectsConfig>) {
+      for (const [field, value] of Object.entries(next[section])) {
+        if (!isPerformanceField(section, field)) {
+          (config[section] as unknown as Record<string, unknown>)[field] = value;
+        }
+      }
+    }
+  };
   // State
-  const config = reactive<VisualEffectsConfig>(cloneDefaultConfig());
+  const config = reactive<VisualEffectsConfig>(initial);
   const visualsEnabled = ref(true);
   // Learn preference: do-based minor is the default, including older saves
   // without this field. La-based covers natural/harmonic/melodic minor,
@@ -434,16 +155,12 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     let isFreshInstall = false;
 
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      isFreshInstall = stored === null;
+      const loaded = persistence.load();
+      isFreshInstall = persistence.outcome === "empty";
       transientStageLook.value = null;
-      laBasedMinor.value = false;
-      if (stored) {
-        const parsedConfig = JSON.parse(stored);
-        Object.assign(config, migrateVisualConfig(parsedConfig.config || parsedConfig));
-        visualsEnabled.value = parsedConfig.visualsEnabled ?? true;
-        laBasedMinor.value = parsedConfig.laBasedMinor === true;
-      }
+      assignAppearance(loaded.config);
+      visualsEnabled.value = loaded.visualsEnabled;
+      laBasedMinor.value = loaded.laBasedMinor;
 
       const storedSavedConfigs = localStorage.getItem(SAVED_CONFIGS_KEY);
       if (storedSavedConfigs) {
@@ -468,7 +185,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     } catch (error) {
       console.error("Failed to load visual config from localStorage:", error);
       laBasedMinor.value = false;
-      Object.assign(config, cloneDefaultConfig());
+      assignAppearance(cloneDefaultConfig());
       visualsEnabled.value = true;
       transientStageLook.value = null;
       savedConfigs.value = [];
@@ -483,14 +200,8 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     if (!persistenceEnabled.value) return;
 
     try {
-      const dataToStore = {
-        config: JSON.parse(JSON.stringify(config)),
-        visualsEnabled: visualsEnabled.value,
-        laBasedMinor: laBasedMinor.value,
-        lastSaved: new Date().toISOString(),
-      };
-      if (persistentStorage.write(STORAGE_KEY, JSON.stringify(dataToStore))) {
-        lastSaved.value = dataToStore.lastSaved;
+      if (persistence.save({ config, visualsEnabled: visualsEnabled.value, laBasedMinor: laBasedMinor.value })) {
+        lastSaved.value = new Date().toISOString();
       }
     } catch (error) {
       console.error("Failed to save visual config to localStorage:", error);
@@ -643,12 +354,8 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
 
   const resetDeck = () => {
     laBasedMinor.value = false;
-    const defaults = cloneDefaultConfig();
-    const { mainOctave, rowCount } = config.keyboard;
-    const { bpm } = config.codeStrip;
-
-    Object.assign(config.keyboard, defaults.keyboard, { mainOctave, rowCount });
-    Object.assign(config.codeStrip, defaults.codeStrip, { bpm });
+    resetSection("keyboard");
+    resetSection("codeStrip");
   };
 
   // Explicit saves report back why they failed (null: stored, or persistence
@@ -706,12 +413,9 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
   };
 
   const applyRuntimeConfig = (nextConfig: unknown) => {
-    const rowCount = config.keyboard.rowCount;
     transientStageLook.value = null;
-    Object.assign(config, migrateVisualConfig(nextConfig));
-    // Drawer allocation is the runtime authority for row count. Loading or
-    // resetting visual presets must not resize the keyboard behind its handle.
-    config.keyboard.rowCount = rowCount;
+    // Appearance presets leave the separately owned performance settings alone.
+    assignAppearance(migrateVisualConfig(nextConfig));
   };
 
   // Reset configuration to defaults
@@ -723,16 +427,12 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
 
   // Reset a specific section to defaults
   const resetSection = <K extends keyof VisualEffectsConfig>(section: K) => {
-    if (section === "keyboard") {
-      const rowCount = config.keyboard.rowCount;
-      Object.assign(config.keyboard, cloneDefaultConfig().keyboard);
-      config.keyboard.rowCount = rowCount;
-      return;
+    const defaults = cloneDefaultConfig()[section];
+    for (const [field, value] of Object.entries(defaults)) {
+      if (!isPerformanceField(section, field)) {
+        (config[section] as unknown as Record<string, unknown>)[field] = value;
+      }
     }
-    Object.assign(
-      config[section],
-      cloneDefaultConfig()[section]
-    );
   };
 
   // Save current config with a name
@@ -829,6 +529,9 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
 
   const useEphemeralDefaults = () => {
     persistenceEnabled.value = false;
+    tempo.useEphemeralDefaults();
+    octave.useEphemeralDefaults();
+    drawerRows.useEphemeralDefaults();
     laBasedMinor.value = false;
     applyRuntimeConfig(cloneDefaultConfig());
     visualsEnabled.value = true;
@@ -843,13 +546,16 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
   // Watch for changes and auto-save (debounced)
   let saveTimeout: ReturnType<typeof setTimeout> | null = null;
   watch(
-    [config, visualsEnabled, laBasedMinor],
+    () => persistence.encode({ config, visualsEnabled: visualsEnabled.value, laBasedMinor: laBasedMinor.value }),
     () => {
       if (saveTimeout) clearTimeout(saveTimeout);
       saveTimeout = setTimeout(saveToStorage, 500); // Debounce saves by 500ms
-    },
-    { deep: true }
+    }
   );
+
+  onScopeDispose(() => {
+    if (saveTimeout) clearTimeout(saveTimeout);
+  });
 
   // Initialize on store creation
   loadFromStorage();

@@ -1,4 +1,4 @@
-import { setActivePinia, createPinia } from 'pinia'
+import { setActivePinia, disposePinia, type Pinia } from 'pinia'
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { nextTick } from 'vue'
 import { useVisualConfigStore } from '@/stores/visualConfig'
@@ -14,8 +14,11 @@ const mockDefaultConfig = JSON.parse(JSON.stringify(DEFAULT_CONFIG)) as VisualEf
 describe('Visual Config Store', () => {
   let visualConfigStore: ReturnType<typeof useVisualConfigStore>
 
+  const instances: Pinia[] = []
   const createFreshStore = () => {
-    setActivePinia(createTestPinia())
+    const pinia = createTestPinia()
+    instances.push(pinia)
+    setActivePinia(pinia)
     return useVisualConfigStore()
   }
 
@@ -23,7 +26,8 @@ describe('Visual Config Store', () => {
     const mockLocalStorage = (window as any).localStorage
     vi.restoreAllMocks()
     resetSaveFailure()
-    const storage = new Map<string, string>()
+    const storage = mockLocalStorage.store as Map<string, string>
+    storage.clear()
     mockLocalStorage.getItem.mockReset()
     mockLocalStorage.setItem.mockReset()
     mockLocalStorage.removeItem.mockReset()
@@ -38,6 +42,7 @@ describe('Visual Config Store', () => {
   })
 
   afterEach(() => {
+    instances.splice(0).forEach(disposePinia)
     vi.clearAllTimers?.()
   })
 
@@ -51,7 +56,7 @@ describe('Visual Config Store', () => {
       await nextTick();
       vi.advanceTimersByTime(500);
       expect(createFreshStore().laBasedMinor).toBe(true);
-      expect(JSON.parse(localStorage.getItem('emotitone-visual-config')!).config).toEqual(oldSave.config);
+      expect(JSON.parse(localStorage.getItem('emotitone-visual-config')!).data.config).toEqual({});
       expect(oldSave.applyBuiltInStageLook('soft')).toBe(true);
       expect(oldSave.laBasedMinor).toBe(true);
       oldSave.resetToDefaults();
@@ -117,8 +122,7 @@ describe('Visual Config Store', () => {
         visualsEnabled: false
       }
       
-      const mockLocalStorage = (window as any).localStorage
-      mockLocalStorage.getItem.mockReturnValue(JSON.stringify(storedConfig))
+      localStorage.setItem('emotitone-visual-config', JSON.stringify(storedConfig))
       
       // Create new store instance to trigger initialization
       const newStore = createFreshStore()
@@ -151,13 +155,7 @@ describe('Visual Config Store', () => {
         }
       }
 
-      const mockLocalStorage = (window as any).localStorage
-      mockLocalStorage.getItem.mockImplementation((key) => {
-        if (key === 'emotitone-visual-config') {
-          return JSON.stringify(storedConfig)
-        }
-        return null
-      })
+      localStorage.setItem('emotitone-visual-config', JSON.stringify(storedConfig))
 
       const newStore = createFreshStore()
 
@@ -396,13 +394,7 @@ describe('Visual Config Store', () => {
         }
       }
 
-      const mockLocalStorage = (window as any).localStorage
-      mockLocalStorage.getItem.mockImplementation((key) => {
-        if (key === 'emotitone-visual-config') {
-          return JSON.stringify(storedConfig)
-        }
-        return null
-      })
+      localStorage.setItem('emotitone-visual-config', JSON.stringify(storedConfig))
 
       const newStore = createFreshStore()
 
@@ -467,13 +459,7 @@ describe('Visual Config Store', () => {
         }
       }
 
-      const mockLocalStorage = (window as any).localStorage
-      mockLocalStorage.getItem.mockImplementation((key) => {
-        if (key === 'emotitone-visual-config') {
-          return JSON.stringify(storedConfig)
-        }
-        return null
-      })
+      localStorage.setItem('emotitone-visual-config', JSON.stringify(storedConfig))
 
       const newStore = createFreshStore()
       const hilbertScope = newStore.config.hilbertScope as Record<string, unknown>
@@ -489,12 +475,11 @@ describe('Visual Config Store', () => {
 
     it('should handle malformed localStorage data gracefully', () => {
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-      const mockLocalStorage = (window as any).localStorage
-      mockLocalStorage.getItem.mockReturnValue('invalid json')
+      localStorage.setItem('emotitone-visual-config', 'invalid json')
       
       const newStore = createFreshStore()
       
-      expect(consoleSpy).toHaveBeenCalledWith('Failed to load visual config from localStorage:', expect.any(Error))
+      expect(localStorage.getItem('emotitone-visual-config')).toBe('invalid json')
       expect(newStore.config.blobs.isEnabled).toBe(true) // Should fallback to defaults
       
       consoleSpy.mockRestore()
@@ -1041,7 +1026,7 @@ describe('Visual Config Store', () => {
       expect(reloaded.effectiveConfig).not.toHaveProperty('particles')
       expect(reloaded.visualsEnabled).toBe(format !== 'wrapped')
       reloaded.saveToStorage()
-      expect(JSON.parse(localStorage.getItem('emotitone-visual-config')!).config).toEqual(retained)
+      expect(JSON.parse(localStorage.getItem('emotitone-visual-config')!).data.config.blobs.baseSizeRatio).toBe(0.33)
       expect(consoleSpy).not.toHaveBeenCalled()
     })
 
@@ -1062,6 +1047,9 @@ describe('Visual Config Store', () => {
       expect(reloaded.savedConfigs).toEqual([{ ...saved, config: retained }])
       expect(reloaded.savedConfigs[0].config).not.toHaveProperty('particles')
       reloaded.loadSavedConfig(saved.id)
+      // Appearance presets no longer own performance settings.
+      retained.keyboard.mainOctave = mockDefaultConfig.keyboard.mainOctave
+      retained.codeStrip.bpm = mockDefaultConfig.codeStrip.bpm
       expect(reloaded.config).toEqual(retained)
       expect(reloaded.config).not.toHaveProperty('particles')
       expect(JSON.parse(reloaded.exportConfig()).config).toEqual(retained)
@@ -1122,11 +1110,13 @@ describe('Visual Config Store', () => {
       }))
 
       expect(imported).toBe(true)
+      retained.keyboard.mainOctave = mockDefaultConfig.keyboard.mainOctave
+      retained.codeStrip.bpm = mockDefaultConfig.codeStrip.bpm
       expect(visualConfigStore.config).toEqual(retained)
       expect(visualConfigStore.config).not.toHaveProperty('particles')
       expect(visualConfigStore.visualsEnabled).toBe(false)
       expect(JSON.parse(visualConfigStore.exportConfig()).config).toEqual(retained)
-      expect(JSON.parse(localStorage.getItem('emotitone-visual-config')!).config).toEqual(retained)
+      expect(JSON.parse(localStorage.getItem('emotitone-visual-config')!).data.config.blobs.baseSizeRatio).toBe(0.33)
       expect(consoleSpy).not.toHaveBeenCalled()
     })
   })
@@ -1138,8 +1128,7 @@ describe('Visual Config Store', () => {
         // Missing other sections
       }
       
-      const mockLocalStorage = (window as any).localStorage
-      mockLocalStorage.getItem.mockReturnValue(JSON.stringify({ config: partialConfig }))
+      localStorage.setItem('emotitone-visual-config', JSON.stringify({ config: partialConfig }))
       
       const newStore = createFreshStore()
       

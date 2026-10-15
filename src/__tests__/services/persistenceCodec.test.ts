@@ -161,6 +161,20 @@ describe("persistence codec", () => {
     expect(saveFailureNotice.value?.message).toBe("Can't save — reload to update");
   });
 
+  it("keeps the reload instruction when a held newer payload becomes unreadable", () => {
+    const { backend, binding } = setup();
+    const future = envelope(3, { takes: ["newer app"], tempo: 90 });
+    backend.items.set(KEY, future);
+    binding.load();
+    expect(binding.save(sketchCodec.defaults())).toBe(false);
+    vi.spyOn(backend, "getItem").mockImplementation(() => { throw new Error("Read denied"); });
+    expect(binding.save(sketchCodec.defaults())).toBe(false);
+    expect(binding.hold).toEqual({ reason: "newer", found: 3 });
+    expect(saveFailureNotice.value?.message).toBe("Can't save — reload to update");
+    expect(backend.items.get(KEY)).toBe(future);
+    expect(backend.writes).toEqual([]);
+  });
+
   it("keeps an unreadable payload: backed up before anything overwrites it, defaults in memory", () => {
     const { backend, binding } = setup();
     backend.items.set(KEY, "{not json");

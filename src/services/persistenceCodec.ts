@@ -314,6 +314,7 @@ export function createPersistedBinding<T>(
     const stored = storage.read(codec.key);
     if (!stored.ok) {
       if (hold?.reason !== "newer" && hold?.reason !== "restored") hold = { reason: "unread" };
+      if (hold?.reason === "newer") reportSaveFailure("newer", codec.key);
       return null;
     }
     if (!releaseHold()) return null;

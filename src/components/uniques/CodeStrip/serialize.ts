@@ -18,7 +18,9 @@ export function serializeCodeStripTokens(tokens: CodeStripToken[]) {
     return token.text ?? ",";
   }).join(" ");
 
-  return `\`< [ ${body} ] >\``;
+  // Weights directly inside <> are cycle lengths, as in the generated take;
+  // a [] wrapper would squeeze the whole line into one cycle.
+  return `\`< ${body} >\``;
 }
 
 function sourceNoteValue(token: CodeStripNoteToken) {

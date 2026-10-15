@@ -23,8 +23,10 @@ const note = (
 const tokens = (
   notes: PatternNote[],
   notation: "solfege" | "note" | "degree" = "solfege",
+  durationMs?: number,
 ) => buildRecordedCodeStripTokens({
   notes,
+  durationMs,
   mode: "major",
   musicKey: "C",
   notation,
@@ -36,6 +38,16 @@ const tokens = (
 });
 
 describe("CodeStrip recorded-token metadata", () => {
+  it("closes the loop with the phrase's authored trailing silence, or one beat after a fresh take", () => {
+    const phrase = [note("c", "C4", 0, 4, 0, 500)];
+
+    // A loaded phrase 3s long: 2.5s of authored silence after its note, as it plays.
+    expect(tokens(phrase, "solfege", 3000).at(-1)).toEqual({ type: "rest", duration: "@1.25" });
+    // A fresh take ends at its last note: one beat (120 BPM) closes the loop.
+    expect(tokens(phrase, "solfege", 500).at(-1)).toEqual({ type: "rest", duration: "@0.25" });
+    expect(tokens(phrase).at(-1)).toEqual({ type: "rest", duration: "@0.25" });
+  });
+
   it("maps sequential notes and silence without inventing playback state", () => {
     const result = tokens([
       note("c", "C4", 0, 4, 1000, 500),

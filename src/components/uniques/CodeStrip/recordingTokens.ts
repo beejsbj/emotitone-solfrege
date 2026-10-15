@@ -53,6 +53,8 @@ export interface RecordedCodeStripInput {
   notation: CodeStripConfig["notation"];
   barMs: number;
   sourceBpm: number;
+  /** The phrase's length; past its last note, that silence is its authored tail. */
+  durationMs?: number;
   surfaceStyle: KeyboardConfig["surfaceStyle"];
   keyBrightness: number;
   keySaturation: number;
@@ -139,7 +141,15 @@ export function buildRecordedCodeStripTokens(input: RecordedCodeStripInput): Cod
     });
   }
 
-  tokens.push({ type: "rest", duration: formatDuration(recordedLoopTailMs(input.sourceBpm), input.barMs) });
+  // The loop's closing rest, as the generated code plays it: a loaded phrase
+  // keeps its authored trailing silence; a fresh take, ending at its last
+  // note, gets one beat.
+  const end = schedule.length ? schedule[schedule.length - 1].end : 0;
+  const authoredTail = (input.durationMs ?? end) - end;
+  const tail = Number.isFinite(authoredTail) && authoredTail > 0
+    ? authoredTail
+    : recordedLoopTailMs(input.sourceBpm);
+  tokens.push({ type: "rest", duration: formatDuration(tail, input.barMs) });
   return tokens;
 }
 

@@ -222,6 +222,7 @@ const recordedTokens = computed(() => {
     laBasedMinor: productionWiring?.visualConfigStore.laBasedMinor,
     barMs: barMs.value,
     sourceBpm: sketchMeta.value.bpm,
+    durationMs: phrasesStore.takeDuration,
     surfaceStyle: keyboardConfig.value.surfaceStyle,
     keyBrightness: keyboardConfig.value.keyBrightness,
     keySaturation: keyboardConfig.value.keySaturation,

@@ -183,3 +183,37 @@ layout read; it does not isolate strip CPU work or measure sound latency.
 Six samples per condition on a shared host are descriptive evidence, not
 a phone performance guarantee. Physical-device measurements and virtualisation
 are deferred; no production visual rules changed for this follow-up.
+
+## HighlightStrip windowing receipt (2026-10-15)
+
+Same runner and mode (`LAB_PATTERN_APPEND_ONLY=1`, 512 → 518 notes, Triangle,
+headless Chrome 147 at 1280×1000, one browser at a time, each revision from
+`LAB_UI_REF`). Windowing (`5e66111f`) mounts only the events within one view
+either side of the scroll position, plus the sounding or newest event. The host
+was heavily loaded (other workers' test suites), so absolute numbers drift
+between sessions. Compare within a session.
+
+| Session · revision / hue | Append-to-DOM median / mean / max (ms) | Frame median / p95 / max (ms) | Strip nodes, 512 → 518 | Mounted notes | Max LongTask (ms) |
+| --- | --- | --- | --- | --- | --- |
+| A · main `23be1e24` / off | 1,535.4 / 1,539.2 / 2,007.4 | 166.6 / 951.7 / 1,516.6 | 7,411 → 7,735 | 243 → 249 | 1,401 |
+| A · main `23be1e24` / on | 1,271.6 / 1,250.4 / 1,498.1 | 216.6 / 895.0 / 1,083.4 | 7,411 → 7,632 | 243 → 249 | 874 |
+| A · before windowing `186971c0` / off | 1,803.3 / 1,681.6 / 1,930.8 | 133.4 / 1,520.0 / 1,816.6 | 13,339 → 13,617 | 512 → 518 | 1,690 |
+| A · before windowing `186971c0` / on | 1,979.1 / 2,243.6 / 3,856.4 | 200.1 / 1,929.9 / 3,283.1 | 13,339 → 13,474 | 512 → 518 | 3,085 |
+| A · windowed `5e66111f` / off | 679.3 / 620.7 / 718.2 | 66.7 / 500.0 / 650.0 | 2,835 → 1,841 | 100 → 60 | 643 |
+| A · windowed `5e66111f` / on | 476.7 / 532.5 / 862.0 | 133.3 / 436.7 / 600.0 | 1,824 → 1,841 | 64 → 60 | 304 |
+| B · main `d85d9a02` / off | 1,136.6 / 1,147.3 / 1,407.0 | 116.7 / 776.6 / 1,033.3 | 7,411 → 7,737 | 243 → 249 | 877 |
+| B · main `d85d9a02` / on | 1,389.2 / 1,522.4 / 2,345.0 | 208.3 / 1,133.3 / 2,283.2 | 7,411 → 7,749 | 243 → 249 | 1,955 |
+| B · branch head `17c26032` / off | 761.5 / 776.0 / 881.4 | 116.7 / 616.7 / 800.0 | 1,824 → 1,821 | 64 → 59 | 566 |
+| B · branch head `17c26032` / on | 813.7 / 812.8 / 1,003.6 | 158.3 / 552.5 / 616.6 | 1,824 → 1,845 | 64 → 60 | 435 |
+
+Receipts: [A main](results/highlightstrip-window-main-a-20261015.json),
+[A before](results/highlightstrip-window-before-a-20261015.json),
+[A windowed](results/highlightstrip-window-after-a-20261015.json),
+[B main](results/highlightstrip-window-main-b-20261015.json),
+[B branch](results/highlightstrip-window-after-b-20261015.json). Every row
+recorded six consecutive append observations, finished at 518 notes in one
+take, and captured no browser warnings or errors. In both sessions, appending
+to a long take is now faster than main: 0.37–0.67× main's median, against
+1.17–1.56× before windowing. The same limits apply as above: these are
+whole-app keyup-to-DOM times on a shared desktop host, not phone or sound
+latency.

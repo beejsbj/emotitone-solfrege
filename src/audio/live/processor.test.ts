@@ -49,6 +49,21 @@ async function setup() {
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks() })
 
 describe('live processor response boundaries', () => {
+  it('releases the old bank and its voices on disposal and stops render callbacks', async () => {
+    const { processor, command, render } = await setup()
+    command({ type: 'prepare', requestId: 1, instrument: { ...instrument, kind: 'sample-bank',
+      zoneSelection: 'nearest-root', zones: [{ id: 'z', rootMidi: 60, sampleRate: 1000, channels: [new Float32Array(1024).fill(.5)] }] } })
+    command({ type: 'press', ownerId: 'finger', notes: [{ pitch: 60, instrumentId: 'sine' }] })
+    render()
+    processor.port.onmessage({ data: { type: 'dispose' } })
+    // The core owns both the instrument map and active voice references to PCM.
+    expect(processor.core).toBeUndefined()
+    const output = [new Float32Array(128)]
+    expect(processor.process([], [output])).toBe(false)
+    expect(output[0].every(value => value === 0)).toBe(true)
+    expect(processor.port.onmessage).toBeNull()
+  })
+
   it('posts exact command receipts and each quantum chord lifecycle/plan as one ordered array', async () => {
     const { command, render } = await setup()
     command({ type: 'prepare', requestId: 1, instrument })

@@ -274,7 +274,7 @@ describe('production live worklet bridge', () => {
     expect(node.disconnect).toHaveBeenCalledOnce()
     expect(channels[0].port1.close).toHaveBeenCalledOnce()
     expect(channels[0].port2.close).toHaveBeenCalledOnce()
-    expect(node.port.postMessage).toHaveBeenLastCalledWith({ type: 'clear' })
+    expect(node.port.postMessage).toHaveBeenLastCalledWith({ type: 'dispose' })
     bridge.dispose()
   })
 })

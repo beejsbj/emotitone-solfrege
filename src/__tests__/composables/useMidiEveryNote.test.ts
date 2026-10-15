@@ -14,6 +14,7 @@ const playback = vi.hoisted(() => ({
 }));
 vi.mock("@/services/livePlayback", () => ({
   getLivePlayback: () => playback.renderer,
+  waitForLivePlayback: () => undefined,
   subscribeLivePlayback: (listener: LiveRendererCallbacks) => {
     playback.listener = listener;
     return () => { playback.listener = undefined; };

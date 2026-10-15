@@ -16,7 +16,7 @@ import { useVisualConfigStore } from "@/stores/visualConfig";
 import { createPlayStyleEngine, PLAY_STYLE_OPTIONS, PLAY_MODE_OPTIONS, PLAY_STYLE_SCHEDULING_LEAD_MS, playModeValue, type PlayStyle, type PlayStyleRate } from "@/services/playStyles";
 import { audioTimeToOutputTime, LIVE_AUDIO_SCHEDULING_LEAD_MS } from "@/services/liveAudioTiming";
 import { createLiveAudioClock } from "@/services/liveAudioClock";
-import { getLivePlayback } from "@/services/livePlayback";
+import { getLivePlayback, waitForLivePlayback } from "@/services/livePlayback";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import type { LiveVoiceEvent } from "@/audio/liveRenderer";
 import { createLivePerformance } from "@/services/livePerformance";
@@ -380,6 +380,13 @@ export const useMusicStore = defineStore(
       const resumption = resumeAudioContext(superdoughAudio.getAudioContext());
       if (resumption) await resumption;
       if (isCancelled() || instrumentStore.isInteractionLocked || instrumentStore.selectionEpoch !== selectionEpoch) return null;
+      const recovery = waitForLivePlayback(instrumentStore.currentInstrument);
+      if (recovery) await recovery;
+      if (isCancelled() || instrumentStore.isInteractionLocked || instrumentStore.selectionEpoch !== selectionEpoch) return null;
+      if (recovery && instrumentStore.lastWarmupErrorInstrument === instrumentStore.currentInstrument) {
+        instrumentStore.lastWarmupError = null;
+        instrumentStore.lastWarmupErrorInstrument = null;
+      }
       const owner = `held_${storeId}_${++heldCounter}`;
       const held: HeldPitch = {
         snapshot: {

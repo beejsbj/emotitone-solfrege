@@ -20,6 +20,10 @@ const listeners = new Set<Listener>();
 const reasons = new Map<string, string>();
 const unsupported = new Set<string>();
 let context: AudioContext | undefined;
+let output: AudioNode | undefined;
+// Names only, never PCM. A formerly resident bank must recover before input
+// can choose a renderer, including after processor failures at the same rate.
+const workletInstruments = new Set<string>();
 let stopRecovery: (() => void) | undefined;
 let engineSampleRate: number | undefined;
 const builtSampleRates = new Set<number>();
@@ -79,7 +83,7 @@ function invalidate(error?: unknown) {
   retiring.clear();
   installingPcmBytes = 0;
   unsupported.clear();
-  installQueue = Promise.resolve();
+  // Drain retired preparation before another generation allocates PCM.
   if (error) {
     const failure = error instanceof Error ? error : new Error(String(error));
     listeners.forEach(listener => listener.onError?.(failure));
@@ -108,15 +112,13 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
       const names = [...new Set([...installed.keys(), ...preparing.keys()])];
       // The processor's frame clock and oscillator increments use its original
       // sample rate. Retire that generation before accepting another input.
-      const previousInstall = installQueue;
       invalidate(new Error("Audio sample rate changed; rebuilding live renderer"));
-      // Let the retired generation drop its preparation ownership first.
-      installQueue = previousInstall;
       // Preparation can run at a transient rate even when the route returns
       // to its starting rate. Check the actual build rates before opening input.
       return Promise.all(names.map(id => prepareLivePlayback(nextContext, destination, id))).then(recover);
     });
   }
+  output = destination;
   if (retiring.has(instrumentId)) {
     await installQueue;
     return prepareLivePlayback(nextContext, destination, name);
@@ -235,6 +237,7 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
       await acknowledgement;
       if (run === generation) {
         installed.set(instrumentId, bytes);
+        workletInstruments.add(instrumentId);
         installedPcm.set(instrumentId, split);
         loadFailures.delete(instrumentId);
         installingPcmBytes = 0;
@@ -275,6 +278,27 @@ export function getLivePlayback(name: string): LiveRenderer | undefined {
   installed.delete(instrumentId);
   installed.set(instrumentId, bytes);
   return managedEngine;
+}
+
+/** Undefined preserves synchronous input when ready (or intentionally on the
+ * fallback). Otherwise wait for the worklet, never warming a second PCM copy.
+ * A failed recovery drops this input and reports through onLoadError. */
+export function waitForLivePlayback(name: string): Promise<void> | undefined {
+  const instrumentId = resolveLiveSoundName(name);
+  if (!workletInstruments.has(instrumentId) || getLivePlayback(name) || unsupported.has(instrumentId)) return;
+  if (!context || !output) return;
+  const nextContext = context, destination = output;
+  return (async () => {
+    let run: number;
+    do {
+      run = generation;
+      await prepareLivePlayback(nextContext, destination, instrumentId);
+    } while (run !== generation && preparing.has(instrumentId) && context === nextContext);
+    if (!getLivePlayback(instrumentId)) {
+      const reason = reasons.get(instrumentId) ?? "Live renderer recovery failed";
+      throw new Error(reason);
+    }
+  })();
 }
 
 export function needsLivePlaybackPreparation(name: string): boolean {

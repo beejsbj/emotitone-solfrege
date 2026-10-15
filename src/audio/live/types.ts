@@ -54,6 +54,9 @@ export type LiveResponse =
   | { type: 'event'; event: LiveVoiceEvent }
   | { type: 'plan'; events: LiveVoiceEvent[] }
 
+/** Terminal processor command: release its banks and stop rendering. */
+export type LiveProcessorCommand = LiveCommand | { type: 'dispose' }
+
 export interface LiveWorklet extends LiveRenderer {
   prepare(instrument: PreparedLiveInstrument): Promise<void>
   shape(envelope: LiveEnvelopeOverride): void

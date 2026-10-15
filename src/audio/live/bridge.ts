@@ -1,5 +1,5 @@
 import processorUrl from './processor.ts?worker&url'
-import type { LiveCommand, LiveResponse, LiveWorklet } from './types'
+import type { LiveProcessorCommand, LiveResponse, LiveWorklet } from './types'
 import { pcmTransferList } from './pcm'
 
 let engineSerial = 0
@@ -33,7 +33,7 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
     rejectPending(error)
     try { callbacks.onError?.(error) } finally { dispose() }
   }
-  function post(command: LiveCommand, transfer: Transferable[] = []) {
+  function post(command: LiveProcessorCommand, transfer: Transferable[] = []) {
     if (disposed) return
     try {
       if (transfer.length) node.port.postMessage(command, transfer)
@@ -109,9 +109,9 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
     drainChannel.port1.onmessage = null
     drainChannel.port1.close()
     drainChannel.port2.close()
-    // Disposal is also the terminal error path. A broken command port must
-    // not recursively report another failure while trying to clear voices.
-    try { node.port.postMessage({ type: 'clear' } satisfies LiveCommand) } catch { /* best-effort shutdown */ }
+    // Release banks as well as voices; disconnected processors must not keep
+    // their old PCM alive while the replacement generation is loaded.
+    try { node.port.postMessage({ type: 'dispose' } satisfies LiveProcessorCommand) } catch { /* best-effort shutdown */ }
     rejectPending(new Error('Live audio worklet has been disposed'))
     node.port.onmessage = node.port.onmessageerror = null
     node.onprocessorerror = null

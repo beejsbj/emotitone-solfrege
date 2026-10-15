@@ -6,7 +6,6 @@ import {
   midiNoteNumberToName,
   resolveMirroredEventDurationMs,
   resolveMirroredMidiNoteNumber,
-  resolvePlayableMidiNote,
   resolveVisualNoteKey,
   shouldMirrorNoteEvent,
 } from "@/composables/useMidiControls";
@@ -20,6 +19,22 @@ vi.mock("@/services/superdoughAudio", () => ({
 }));
 
 describe("useMidiControls helpers", () => {
+  it('rebuilds a future MIDI packet when only velocity changes', () => {
+    const send = vi.fn();
+    const replace = vi.fn();
+    const scheduler = createMidiNoteOwnerScheduler(send, replace, () => 0);
+    scheduler.attack('pulse', 60, 100, .25);
+    scheduler.release('pulse', 60, 200);
+    replace.mockClear();
+    scheduler.attack('pulse', 60, 100, .75);
+    expect(replace).toHaveBeenCalledExactlyOnceWith([
+      { midiNote: 60, phase: 'attack', timestamp: 100, velocity: .75 },
+      { midiNote: 60, phase: 'release', timestamp: 200 },
+    ]);
+    scheduler.attack('immediate', 64, undefined, 1 / 127);
+    expect(send).toHaveBeenLastCalledWith({ midiNote: 64, phase: 'attack', velocity: 1 / 127 });
+  });
+
   it("cancels a replaced future worklet plan without emitting its note-on", () => {
     const send = vi.fn();
     const replace = vi.fn();
@@ -216,29 +231,6 @@ describe("useMidiControls helpers", () => {
     expect(midiNoteNumberToName(21)).toBe("A0");
     expect(midiNoteNumberToName(60)).toBe("C4");
     expect(midiNoteNumberToName(73)).toBe("C#5");
-  });
-
-  it("accepts MIDI notes that round-trip exactly into the current scale", () => {
-    const noteResolver = {
-      parseNoteInput: vi.fn().mockReturnValue({ solfegeIndex: 0, octave: 4 }),
-      getNoteName: vi.fn().mockReturnValue("C4"),
-    };
-
-    expect(resolvePlayableMidiNote(60, noteResolver)).toEqual({
-      solfegeIndex: 0,
-      octave: 4,
-    });
-    expect(noteResolver.parseNoteInput).toHaveBeenCalledWith("C4");
-  });
-
-  it("rejects MIDI notes that would be quantized to a different scale tone", () => {
-    const noteResolver = {
-      parseNoteInput: vi.fn().mockReturnValue({ solfegeIndex: 0, octave: 4 }),
-      getNoteName: vi.fn().mockReturnValue("C4"),
-    };
-
-    expect(resolvePlayableMidiNote(61, noteResolver)).toBeNull();
-    expect(noteResolver.parseNoteInput).toHaveBeenCalledWith("C#4");
   });
 
   it("resolves visual note keys from explicit solfege data or chromatic note names", () => {

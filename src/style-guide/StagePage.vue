@@ -27,7 +27,7 @@
       <button
         class="stage-page__start guide-chip"
         type="button"
-        :disabled="audioState === 'starting' || audioState === 'started'"
+        :disabled="audioState === 'started'"
         @click="startSignal"
       >
         {{ startLabel }}
@@ -133,7 +133,7 @@ const effectiveSignal = computed<StageSpecimenSignal>(() => (
   audioState.value === "started" ? signal.value : "silence"
 ));
 const startLabel = computed(() => {
-  if (audioState.value === "starting") return "Starting synthetic signal…";
+  if (audioState.value === "starting") return "Retry synthetic signal start";
   if (audioState.value === "started") return "Synthetic signal ready";
   if (audioState.value === "failed") return "Try synthetic signal again";
   return "Start synthetic signal";
@@ -177,7 +177,7 @@ const activeReading = computed(() => {
 });
 
 async function startSignal() {
-  if (audioState.value === "starting" || audioState.value === "started") return;
+  if (audioState.value === "started") return;
   const canvas = stageCanvas.value;
   if (!canvas) return;
   audioState.value = "starting";

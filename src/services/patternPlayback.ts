@@ -9,6 +9,7 @@ import {
   emotitoneStrudelOutput,
   getAudioContext,
   initSuperdoughAudio,
+  preparePatternSounds,
   stopStrudelVisuals,
 } from "@/services/superdoughAudio";
 
@@ -73,6 +74,9 @@ export function createPatternEditor(options: PatternEditorOptions): PatternEdito
     getTime: () => getAudioContext().currentTime,
     prebake: async () => {
       await Promise.all([initSuperdoughAudio(), prepareScope()]);
+    },
+    beforeEval: async () => {
+      await preparePatternSounds(instance.code);
     },
     beforeStart: async () => {
       const context = getAudioContext();

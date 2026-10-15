@@ -72,7 +72,8 @@ defineProps<{
   align-items: flex-start;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: var(--s-1);
+  /* Small keys sit --hit-gap-sm apart so their touches meet, not overlap. */
+  gap: var(--hit-gap-sm);
 }
 
 .overlay-panel-header__status {

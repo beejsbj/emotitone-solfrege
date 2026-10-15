@@ -5,6 +5,8 @@ import type { LiveArticulation } from '@/services/liveArticulation'
 export interface LiveInputNote {
   pitch: number
   instrumentId: string
+  /** Normalized input velocity (0–1); omitted input keeps unity. */
+  velocity?: number
   /** Playback/member snapshot; omitted live notes follow the current Shape. */
   shaping?: LiveShaping
 }

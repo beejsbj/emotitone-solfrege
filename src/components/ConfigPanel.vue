@@ -1,6 +1,8 @@
 <template>
   <TopDrawer
     anchor="top-right"
+    :embedded="embedded"
+    :close="props.close"
     :content-height="drawerContentHeight"
     :aria-label="midiTriggerLabel"
     handle-test-id="config-panel-trigger"
@@ -558,7 +560,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import MidiSettingsIcon from "@/components/primatives/MidiSettingsIcon.vue";
 import OverlayPanelHeader from "@/components/OverlayPanelHeader.vue";
 import "./panelHeading.css";
@@ -599,16 +601,18 @@ import {
 } from "lucide-vue-next";
 import { SAVE_FAILURE_MESSAGES } from "@/services/safeStorage";
 import { generateRoliPianoScript } from "@/services/roliPianoExport";
-import {
-  isRoliMidiPortName,
-  isVirtualMidiPortName,
-} from "@/services/roliLiveSync";
+import { useConfigMidiStatus } from "@/composables/useConfigMidiStatus";
 
 const drawerContentHeight = ref<number>();
 
 const props = defineProps<{
   visualConfigPinia?: Pinia;
+  embedded?: boolean;
+  close?: () => void;
 }>();
+
+const emit = defineEmits<{ "content-height": [height: number] }>();
+watch(drawerContentHeight, height => { if (height !== undefined) emit("content-height", height); });
 
 const GLOBAL_TAB = {
   value: "global",
@@ -774,158 +778,7 @@ const handleDeckControl = (
   updateDeckControl(control, value);
 };
 
-const connectedInputs = computed(() => keyboardDrawerStore.midi.connectedInputs);
-const connectedOutputs = computed(() => keyboardDrawerStore.midi.connectedOutputs);
-const physicalInputs = computed(() =>
-  connectedInputs.value.filter((name) => !isVirtualMidiPortName(name))
-);
-const physicalOutputs = computed(() =>
-  connectedOutputs.value.filter((name) => !isVirtualMidiPortName(name))
-);
-const virtualPortNames = computed(() =>
-  Array.from(
-    new Set(
-      [...connectedInputs.value, ...connectedOutputs.value].filter((name) =>
-        isVirtualMidiPortName(name)
-      )
-    )
-  )
-);
-const hasConnectedInput = computed(() => physicalInputs.value.length > 0);
-const detectedRoliOutput = computed(
-  () =>
-    physicalOutputs.value.find((outputName) => isRoliMidiPortName(outputName))
-    ?? null
-);
-const hasVirtualOnlyMidiPorts = computed(
-  () =>
-    !hasConnectedInput.value
-    && !detectedRoliOutput.value
-    && !keyboardDrawerStore.midi.syncedOutput
-    && virtualPortNames.value.length > 0
-);
-
-const hasActionableMidiDevice = computed(
-  () =>
-    hasConnectedInput.value
-    || Boolean(detectedRoliOutput.value)
-    || Boolean(keyboardDrawerStore.midi.syncedOutput)
-);
-
-const midiStatusState = computed(() => {
-  const midi = keyboardDrawerStore.midi;
-
-  if (midi.lastError) {
-    return "error";
-  }
-
-  if (midi.isConnecting) {
-    return "connecting";
-  }
-
-  if (hasActionableMidiDevice.value) {
-    return "connected";
-  }
-
-  return "idle";
-});
-
-const showMidiShortcut = computed(
-  () => keyboardDrawerStore.midi.isSupported && hasActionableMidiDevice.value
-);
-
-const midiStatusHeadline = computed(() => {
-  const midi = keyboardDrawerStore.midi;
-
-  if (!midi.isSupported) {
-    return "Browser MIDI unavailable";
-  }
-
-  if (midi.lastError) {
-    return "MIDI permission blocked";
-  }
-
-  if (midi.isConnecting) {
-    return "Requesting MIDI access";
-  }
-
-  if (midi.syncedOutput) {
-    return `Live sync armed on ${midi.syncedOutput}`;
-  }
-
-  if (hasConnectedInput.value) {
-    return "MIDI controller connected";
-  }
-
-  if (detectedRoliOutput.value) {
-    return "ROLI/LUMI output detected";
-  }
-
-  if (hasVirtualOnlyMidiPorts.value) {
-    return "Virtual MIDI ports detected";
-  }
-
-  if (physicalOutputs.value.length > 0) {
-    return "MIDI output available";
-  }
-
-  if (midi.isListening) {
-    return "MIDI ready for hot-plug";
-  }
-
-  return "Waiting for MIDI";
-});
-
-const midiStatusDetail = computed(() => {
-  const midi = keyboardDrawerStore.midi;
-
-  if (!midi.isSupported) {
-    return "This browser does not expose the Web MIDI API, so external controllers cannot be connected here.";
-  }
-
-  if (midi.lastError) {
-    return "The app still works with touch and QWERTY input, but browser MIDI access was not granted.";
-  }
-
-  if (hasVirtualOnlyMidiPorts.value) {
-    const visiblePortList = virtualPortNames.value.join(", ");
-    return `Chrome can see software MIDI ports like ${visiblePortList}. Those are virtual loopback connections, not physical controllers.`;
-  }
-
-  return roliSyncMessage.value;
-});
-
-const midiTriggerLabel = computed(() => {
-  if (showMidiShortcut.value) {
-    return `Open MIDI and ROLI controls. ${midiStatusHeadline.value}.`;
-  }
-
-  return `Open settings. ${midiStatusHeadline.value}.`;
-});
-
-const midiStatusClass = computed(() =>
-  midiStatusState.value === "idle"
-    ? "config-panel__midi-mark--quiet"
-    : "config-panel__midi-mark--active"
-);
-
-const roliSyncMessage = computed(() => {
-  const midi = keyboardDrawerStore.midi;
-
-  if (midi.syncedOutput) {
-    return `Live sync active on ${midi.syncedOutput}.`;
-  }
-
-  if (detectedRoliOutput.value) {
-    return `ROLI output ${detectedRoliOutput.value} is connected. Load the script onto the keyboard to arm live sync.`;
-  }
-
-  if (physicalOutputs.value.length > 0) {
-    return "MIDI outputs are connected, but none look like a ROLI/LUMI port yet.";
-  }
-
-  return "When a LUMI/ROLI MIDI output is connected, the app will mirror notes and push palette changes automatically after the script is loaded.";
-});
+const { connectedInputs, connectedOutputs, midiStatusState, showMidiShortcut, midiStatusHeadline, midiStatusDetail, midiTriggerLabel, midiStatusClass, roliSyncMessage } = useConfigMidiStatus();
 
 const exportConfig = async () => {
   const configJson = storeExportConfig();
@@ -1036,7 +889,7 @@ const formatTimestamp = (timestamp: string) => {
 }
 
 .config-panel__boolean-knob {
-  --knob-size: 32px;
+  --knob-size: var(--control-sm);
   flex: 0 0 var(--knob-size);
   inline-size: var(--knob-size);
 }
@@ -1049,6 +902,12 @@ const formatTimestamp = (timestamp: string) => {
   justify-content: space-between;
   gap: var(--s-4);
   margin-block-end: clamp(var(--s-5), 4vw, var(--s-7));
+}
+
+/* A section's own reset key sits at the panel's edge; keep its touch inside
+   the scroller. */
+.config-panel__section-header > .paper-button {
+  margin-inline-end: calc(var(--hit-gap-sm) / 2);
 }
 
 .config-panel__saved-time,
@@ -1107,15 +966,19 @@ const formatTimestamp = (timestamp: string) => {
   opacity: .82;
 }
 
+/* Rows of small keys sit --hit-gap-sm apart so their touches meet, not
+   overlap. */
 .config-panel__look-preview-actions {
   flex: none;
-  gap: var(--s-2);
+  gap: var(--hit-gap-sm);
 }
 
 .config-panel__section-controls {
   align-items: flex-start;
   flex: none;
-  gap: var(--s-2);
+  gap: var(--hit-gap-sm);
+  /* Keys at the panel's edge keep their touch inside the scroller. */
+  padding-inline-end: calc(var(--hit-gap-sm) / 2);
 }
 
 .config-panel__groups,
@@ -1153,7 +1016,8 @@ const formatTimestamp = (timestamp: string) => {
 .config-panel__looks-actions {
   align-items: flex-start;
   flex: none;
-  gap: var(--s-2);
+  gap: var(--hit-gap-sm);
+  padding-inline-end: calc(var(--hit-gap-sm) / 2);
 }
 
 .config-panel__legacy-configs {
@@ -1266,6 +1130,7 @@ const formatTimestamp = (timestamp: string) => {
 .config-panel__saved-load {
   display: flex;
   min-inline-size: 0;
+  min-block-size: var(--hit-min);
   align-items: center;
   flex-wrap: wrap;
   gap: var(--s-3);
@@ -1360,13 +1225,14 @@ const formatTimestamp = (timestamp: string) => {
 }
 
 .config-panel__midi-actions {
-  gap: var(--s-4);
+  gap: var(--hit-gap-sm);
 }
 
 .config-panel__labeled-action {
   display: grid;
   justify-items: center;
-  gap: var(--s-2);
+  /* The caption sits clear of the key's --hit-min touch. */
+  gap: calc(var(--hit-gap-sm) / 2);
 }
 
 @media (min-width: 560px) {

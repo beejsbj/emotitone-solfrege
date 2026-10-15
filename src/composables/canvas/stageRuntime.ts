@@ -108,11 +108,26 @@ export function resolveStageComposition(
   const blobFitScale = fittedExtent / desiredBodyExtent;
   // Double the entire fitted range without feeding that enlargement back into
   // body fitting. The enlarged scope may cross the support orbit.
-  // The configured Size scales this radius across its whole range; no cap at
-  // the default, which once made every Size above it identical. The scope may
-  // outgrow the usable region at the top of the range: the Stage canvas
-  // clips it at the viewport edge.
-  const hilbertRadius = HILBERT_PRESENTATION_SCALE * desiredHilbertRadius;
+  // Size maps in two strictly increasing pieces. At and below the default it
+  // scales the accepted radius proportionally, so the default is exactly the
+  // accepted fit. Above the default it interpolates toward half the usable
+  // region's diagonal at the control's maximum, so the top end can still run
+  // a little off the edge (the Stage canvas clips it) without ever running
+  // away. Past the maximum the same slope continues, keeping it monotonic.
+  // On very large near-square regions the default already exceeds the
+  // diagonal; there Size stays proportional (a phone never reaches this).
+  const defaultSize = UNIFIED_CONFIG.hilbertScope.sizeRatio.value;
+  const maxSize = UNIFIED_CONFIG.hilbertScope.sizeRatio.max;
+  const defaultPresentedRadius = HILBERT_PRESENTATION_SCALE * defaultHilbertRadius;
+  const sizeRadius = HILBERT_PRESENTATION_SCALE * desiredHilbertRadius;
+  const diagonalRadius = Math.hypot(width, height) / 2;
+  const sizeAboveDefault = Math.max(0, hilbertSizeRatio) - defaultSize;
+  const hilbertRadius =
+    sizeAboveDefault <= 0 || diagonalRadius <= defaultPresentedRadius
+      ? sizeRadius
+      : defaultPresentedRadius +
+        ((diagonalRadius - defaultPresentedRadius) * sizeAboveDefault) /
+          (maxSize - defaultSize);
 
   return {
     usable: { ...usable, width, height },

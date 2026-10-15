@@ -4,7 +4,7 @@ import { smoothStageValue, stageCanvasSize } from "./stageCanvas";
  * Handles vibrating string visualization with realistic physics
  */
 
-import { ref, watch } from "vue";
+import { shallowRef, triggerRef, watch } from "vue";
 import type {
   VibratingStringConfig,
   StringConfig,
@@ -57,32 +57,30 @@ export function useStringRenderer(animationActive?: () => boolean) {
     hasFrequencyChange: boolean;
   }>();
 
-  // String state
-  const strings = ref<VibratingStringConfig[]>([]);
+  // Keep per-frame objects plain; publish a completed frame once to readers.
+  const strings = shallowRef<VibratingStringConfig[]>([]);
 
   // Cache the last canvas size for reinitialization
   let lastCanvasWidth = 0;
   let lastCanvasHeight = 0;
 
   // Event-based activation for sequencer notes
-  const eventActivatedStrings = ref(
-    new Map<
-      string,
-      {
-        solfegeIndex: number;
-        frequency: number;
-        /** Keyboard row coordinate used to select the rendered String. */
-        octave: number;
-        /** Sounding scientific octave used by Music Color. */
-        scientificOctave: number;
-        mode: MusicalMode;
-        key: ChromaticNote;
-        pitchClassIndex?: number;
-        pitchBendCents?: number;
-        endTime: number | null;
-      }
-    >()
-  );
+  const eventActivatedStrings = new Map<
+    string,
+    {
+      solfegeIndex: number;
+      frequency: number;
+      /** Keyboard row coordinate used to select the rendered String. */
+      octave: number;
+      /** Sounding scientific octave used by Music Color. */
+      scientificOctave: number;
+      mode: MusicalMode;
+      key: ChromaticNote;
+      pitchClassIndex?: number;
+      pitchBendCents?: number;
+      endTime: number | null;
+    }
+  >();
 
   const getStringActivationKey = (solfegeIndex: number, octave: number) =>
     `${solfegeIndex}_${octave}`;
@@ -242,7 +240,7 @@ export function useStringRenderer(animationActive?: () => boolean) {
         : Date.now() + durationMs;
 
       // Add to event-activated strings
-      eventActivatedStrings.value.set(
+      eventActivatedStrings.set(
         noteId ?? getStringActivationKey(solfegeIndex, activationOctave),
         {
           solfegeIndex,
@@ -261,13 +259,13 @@ export function useStringRenderer(animationActive?: () => boolean) {
 
   const handleNoteReleased = (event: CustomEvent) => {
     const noteId = event.detail?.noteId;
-    if (noteId) eventActivatedStrings.value.delete(noteId);
+    if (noteId) eventActivatedStrings.delete(noteId);
   };
 
   const handleNoteExpression = (event: CustomEvent) => {
     const { noteId, cents } = event.detail ?? {};
     if (!noteId || typeof cents !== "number" || !Number.isFinite(cents) || Math.abs(cents) > 50) return;
-    const activation = eventActivatedStrings.value.get(noteId);
+    const activation = eventActivatedStrings.get(noteId);
     if (activation) activation.pitchBendCents = cents;
   };
 
@@ -279,9 +277,9 @@ export function useStringRenderer(animationActive?: () => boolean) {
     for (const [
       activationKey,
       activation,
-    ] of eventActivatedStrings.value.entries()) {
+    ] of eventActivatedStrings.entries()) {
       if (activation.endTime !== null && now > activation.endTime) {
-        eventActivatedStrings.value.delete(activationKey);
+        eventActivatedStrings.delete(activationKey);
       }
     }
   };
@@ -323,7 +321,7 @@ export function useStringRenderer(animationActive?: () => boolean) {
       const isStringActiveFromInput = Boolean(matchingActiveNote);
 
       // Check if this string is activated by sequencer events (for the specific octave)
-      const eventActivation = Array.from(eventActivatedStrings.value.values()).find(
+      const eventActivation = Array.from(eventActivatedStrings.values()).find(
         (activation) =>
           (typeof activation.pitchClassIndex === "number"
             ? activation.pitchClassIndex === stringPitchClass
@@ -440,6 +438,7 @@ export function useStringRenderer(animationActive?: () => boolean) {
         setStringVisualFrequency(string, createVisualFrequency(noteFrequency, 200));
       }
     });
+    triggerRef(strings);
   };
 
   /**
@@ -514,7 +513,7 @@ export function useStringRenderer(animationActive?: () => boolean) {
    */
   const clearAllStrings = () => {
     strings.value = [];
-    eventActivatedStrings.value.clear();
+    eventActivatedStrings.clear();
     temporalCycles.clear();
   };
 
@@ -551,7 +550,7 @@ export function useStringRenderer(animationActive?: () => boolean) {
   return {
     hasPendingAnimation: (config: StringConfig) => {
       cleanupExpiredActivations();
-      if (eventActivatedStrings.value.size > 0) return true;
+      if (eventActivatedStrings.size > 0) return true;
       return strings.value.some(string => string.isActive || string.amplitude > 0
         || Math.abs(string.opacity - config.baseOpacity) >= 0.001);
     },

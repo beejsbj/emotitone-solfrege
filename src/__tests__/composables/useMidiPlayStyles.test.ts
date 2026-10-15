@@ -29,9 +29,9 @@ let midiMessages: Array<{
   index: number;
 }>;
 
-function packet(status: number, pitch: number) {
+function packet(status: number, pitch: number, velocity = 100) {
   expect(input.onmidimessage).toBeTypeOf("function");
-  input.onmidimessage!({ data: new Uint8Array([status, pitch, status === 0x90 ? 100 : 0]) });
+  input.onmidimessage!({ data: new Uint8Array([status, pitch, status === 0x90 ? velocity : 0]) });
 }
 
 function notesWithTimestamps() {
@@ -149,6 +149,21 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     vi.clearAllTimers();
     vi.restoreAllMocks();
     vi.useRealTimers();
+  });
+
+  it.each(['repeat', 'arp-up', 'strum-up'] as const)('mirrors performed %s velocities at their scheduled deadlines', async style => {
+    useMusicStore().setPlayStyle(style);
+    await connect();
+    packet(0x90, 60, 19);
+    packet(0x90, 64, 113);
+    await vi.advanceTimersByTimeAsync(350);
+    const attacks = scheduledNotes().filter(({ message }) => (message[0] & 0xf0) === 0x90);
+    expect(attacks.length).toBeGreaterThanOrEqual(2);
+    for (const { message: [, pitch, velocity], timestamp } of attacks) {
+      expect(velocity).toBe(pitch === 60 ? 19 : 113);
+      expect(timestamp).toBeTypeOf('number');
+    }
+    expect(new Set(attacks.map(({ message }) => message[1]))).toEqual(new Set([60, 64]));
   });
 
   it("does not resend delivered ROLI configuration when rhythmic queues change", async () => {

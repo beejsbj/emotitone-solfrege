@@ -56,7 +56,3 @@ declare module "@strudel/mini" {
 declare module "@strudel/tonal" {
   // intentionally empty — side-effect module
 }
-
-declare module "@strudel/soundfonts" {
-  export function registerSoundfonts(): Promise<void>;
-}

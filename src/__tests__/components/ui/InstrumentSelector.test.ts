@@ -43,6 +43,7 @@ vi.mock('@/stores/instrument', () => ({
 
 vi.mock('@/services/superdoughAudio', () => ({
   getRegisteredSounds,
+  ensureSoundfontCatalog: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('./../../components/OverlayPanelShell.vue', () => ({

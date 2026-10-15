@@ -59,17 +59,29 @@ export function resumeAudioContext(context: AudioContext): Promise<void> | undef
   touch.get(context)?.();
   if (context.state === "closed") return Promise.reject(new Error("Audio context is closed"));
   const pending = resuming.get(context);
-  if (pending) return pending;
+  if (pending) {
+    // Unmanaged contexts have no wake handler: a later explicit call is their
+    // retry gesture. Managed input still joins the wake handler's single try.
+    if (!touch.has(context)) retryUnlock.get(context)?.();
+    return pending;
+  }
   const suspension = suspending.get(context);
   const unlock = () => new Promise<void>((resolve, reject) => {
+    // Each try owns a token; a superseded resume() that settles late must not
+    // fail the gate the current try is still working on.
+    let current = 0;
     const attempt = () => {
+      const token = ++current;
+      const live = () => token === current;
       if (context.state === "closed") { reject(new Error("Audio context is closed")); return; }
       if (context.state === "running") { resolve(); return; }
       try {
         context.resume().then(() => {
+          // Running is a verified fact, so even a superseded success may release
+          // the gate; only the live attempt may fail it.
           if (context.state === "running") resolve();
-          else reject(new AudioBlockedError());
-        }, reject);
+          else if (live()) reject(new AudioBlockedError());
+        }, error => { if (live()) reject(error); });
       } catch (error) { reject(error); }
     };
     retryUnlock.set(context, attempt);
@@ -79,11 +91,14 @@ export function resumeAudioContext(context: AudioContext): Promise<void> | undef
   const recover = (): Promise<void> | undefined => {
     retryUnlock.delete(context);
     if (context.state !== "running") throw new AudioBlockedError();
+    const sampleRate = context.sampleRate;
     const jobs = [...(recoveries.get(context) ?? [])].map(callback => callback()).filter(Boolean);
-    // A second interruption may arrive while a rate rebuild is awaiting banks.
-    // Keep the original note behind the gate until both audio and banks are ready.
-    return jobs.length ? Promise.all(jobs).then(() =>
-      context.state === "running" ? undefined : unlock().then(recover)) : undefined;
+    // A route change may finish while banks rebuild, leaving audio running at
+    // another rate. Keep input gated until recovery matches the current rate.
+    return jobs.length ? Promise.all(jobs).then(() => {
+      if (context.state !== "running") return unlock().then(recover);
+      if (context.sampleRate !== sampleRate) return recover();
+    }) : undefined;
   };
   try {
     const work = resume ? resume.then(recover) : recover();

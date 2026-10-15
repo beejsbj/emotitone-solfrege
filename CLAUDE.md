@@ -30,7 +30,7 @@ Use only the package scripts for checks (shared lock across worktrees; see AGENT
 
 **Code Strip.** `src/components/uniques/CodeStrip/` is still a Strudel CodeMirror editor. The decision is to replace it with a read-only HighlightStrip plus "Open in Strudel"; `StrudelNotation.ts` writes the code text.
 
-**Looper ("Play is the loop").** In flight, not on `main`: brief in `docs/looper.md` (PR #138), domain #139, transport #140, Stage part #141, Play wiring #142. #137 and #140's Strudel transport are research under Decision 3; their receipts become the acceptance tests for a worklet transport. Check the open PRs before touching playback or phrase timing.
+**Looper ("Play is the loop").** In flight, not on `main`: brief in `docs/looper.md` (PR #138; until it merges, `git show origin/docs/looper-brief:docs/looper.md`), domain #139, transport #140, Stage part #141, Play wiring #142. #137 and #140's Strudel transport are research under Decision 3; their receipts become the acceptance tests for a worklet transport. Check the open PRs before touching playback or phrase timing.
 
 **Stage.** The canvas behind the instrument: `UnifiedVisualEffects.vue` with renderers in `src/composables/canvas/` (strings, blobs, harmonic geometry, Hilbert scope, ambient), driven by `stageRuntime.ts`. Music Color comes only from the numeric OKLCH core `src/services/musicColorCore.ts` and its gamut-mapped adapter `musicColor.ts`; never add a parallel colour calculation.
 
@@ -49,7 +49,7 @@ Use only the package scripts for checks (shared lock across worktrees; see AGENT
 - Keep reactive state minimal; derive with `computed`.
 - Primitives and compounds must not import stores (the design law; some existing violations are known and will be allowlisted, new ones are not acceptable).
 - Audio starts only after a user gesture. Track polyphony by note id and owner so a release cannot silence another contact.
-- Tests observe behaviour at the highest seam (rendered PCM, real stores, DOM events). Do not assert source text or a mock's canned answer. See `docs/testing.md`.
+- Tests observe behaviour at the highest seam (rendered PCM, real stores, DOM events). Source assertions may protect meaningful architecture contracts (imports, routing, lineage); avoid incidental text such as comments or variable spelling and a mock's canned answer. See `docs/testing.md`.
 
 ## Where the history is
 

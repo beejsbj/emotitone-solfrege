@@ -9,8 +9,8 @@ import { useVisualConfigStore } from '@/stores/visualConfig'
 // Everything except the Stage and the store is a stand-in: the behaviour under
 // test is the Visuals switch reaching the real Stage and its animation loop.
 vi.mock('@/components/LoadingSplash.vue', () => ({ default: { template: '<div />' } }))
-vi.mock('@/components/ConfigPanel.vue', () => ({ default: { template: '<div />' } }))
-vi.mock('@/components/InstrumentSelector.vue', () => ({ default: { template: '<div />' } }))
+vi.mock('@/components/LazyConfigPanel.vue', () => ({ default: { template: '<div />' } }))
+vi.mock('@/components/LazyInstrumentSelector.vue', () => ({ default: { template: '<div />' } }))
 vi.mock('@/components/PerformanceDeck.vue', () => ({ default: { template: '<div />' } }))
 vi.mock('@/composables/useMidiControls', () => ({ useMidiControls: vi.fn() }))
 vi.mock('@/composables/useAppLoading', () => ({ useAppLoading: () => ({ isLoading: false }) }))

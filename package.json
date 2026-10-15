@@ -16,6 +16,7 @@
     "test:ui": "node scripts/verify.mjs test --ui",
     "test:run": "node scripts/verify.mjs test run",
     "test:audio-parity": "node --test audio-lab/parity/metrics.check.mjs && node audio-lab/parity/run.mjs",
+    "measure:startup": "node scripts/measure-startup.mjs",
     "test:audio-browser": "node audio-lab/run.mjs",
     "test:coverage": "node scripts/verify.mjs test run --coverage",
     "test:watch": "node scripts/verify.mjs test watch",

@@ -256,7 +256,8 @@ async function main() {
   if (!['type-check', 'build', 'test'].includes(kind)) throw new Error('Usage: node scripts/verify.mjs type-check|build|test [args...]')
   const typecheck = { command: process.execPath, args: [`--max-old-space-size=${heapMb()}`, installed('vue-tsc/bin/vue-tsc.js'), '--noEmit'] }
   const steps = kind === 'type-check' ? [{ ...typecheck, args: [...typecheck.args, ...args] }]
-    : kind === 'build' ? [typecheck, { command: process.execPath, args: [installed('vite/bin/vite.js'), 'build', ...args] }]
+    : kind === 'build' ? [typecheck, { command: process.execPath, args: [installed('vite/bin/vite.js'), 'build', ...args] },
+        { command: process.execPath, args: [join(repoRoot, 'scripts/check-lazy-chunks.mjs')] }]
       : [{ command: process.execPath, args: [installed('vitest/vitest.mjs'), ...args] }]
   // Resolving the lock directory needs git; a bypassed run must not.
   const bypass = process.env[BYPASS_LOCK_ENV] === '1'

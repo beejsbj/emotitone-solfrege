@@ -13,6 +13,7 @@ import {
   getSemitoneShift,
   transposePatternNotes,
 } from "@/data/patterns";
+import { recordedLoopTailMs } from "@/services/recordedTiming";
 import { isSameShape, NEUTRAL_SHAPE, resolveLiveEnvelope } from "@/services/shape";
 import type { Shape } from "@/types/instrument";
 import type { ChromaticNote } from "@/types/music";
@@ -380,6 +381,15 @@ function shiftPhrase(
 }
 
 /**
+ * Where a phrase's loop wraps: its authored length, or for a recording that
+ * ends at its last note, one beat after it (the rest its loop plays there).
+ */
+function loopEnd(phrase: Phrase): number {
+  const lastEnd = phrase.notes.reduce((end, note) => Math.max(end, note.releaseTime), 0);
+  return phrase.duration > lastEnd ? phrase.duration : lastEnd + recordedLoopTailMs(phrase.context.bpm);
+}
+
+/**
  * A key goes down. Decides the take boundary *now*: silence since the last
  * live release, or a context that differs from the take's, closes the take
  * and the note opens a fresh one. The note belongs to whichever take is open
@@ -410,10 +420,13 @@ export function pressNote(
   numberTake(book, take);
   // A reload keeps the take's live notes but drops its wall-clock anchor, so a
   // live take can arrive here unanchored; anchor it too, or every press lands at 0.
-  if (!takeIsLive(book, held) || book.recorder.wallOrigin === null) {
+  const reloaded = takeIsLive(book, held) && book.recorder.wallOrigin === null;
+  if (!takeIsLive(book, held) || reloaded) {
     if (take.notes.length === 0) take.context = cloneContext(press.context);
     // Seam: live input continues at the phrase's end, whenever it arrives.
-    book.recorder.wallOrigin = press.wallTime - take.duration;
+    // After a reload the silence since the last note is unknown, so the take
+    // continues where its loop wraps: after the rest it plays at its end.
+    book.recorder.wallOrigin = press.wallTime - (reloaded ? loopEnd(take) : take.duration);
   }
 
   const phraseTime = press.wallTime - (book.recorder.wallOrigin ?? press.wallTime);

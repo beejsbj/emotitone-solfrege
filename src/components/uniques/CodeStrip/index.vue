@@ -710,6 +710,7 @@ onBeforeUnmount(() => {
       :viewport="viewport"
       :color-resolver="colorResolver"
       :still-color-resolver="stillColorResolver"
+      :unit-ms="isControlled ? undefined : (60000 / codeStripConfig.bpm) * GENERATED_BEATS_PER_BAR"
       :follow-latest-key="productionWiring?.phrasesStore.lastLiveNoteId"
       :reset-scroll-key="productionWiring?.phrasesStore.takeId"
     />

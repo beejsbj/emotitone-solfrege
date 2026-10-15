@@ -236,6 +236,26 @@ describe("HighlightStrip", () => {
     expect(fill(wrapper, 1)).toBe(1);
   });
 
+  it("keeps a staggered chord's block whole before its later member is heard", async () => {
+    // C sounds 0–300ms and E 200–1000ms: one half-bar block at 2000ms a bar.
+    const chordTokens: CodeStripToken[] = [{
+      type: "chord", symbol: "", display: "notes", duration: "@0.5",
+      members: [{ id: "c", syllable: "Do", scaleIndex: 0 }, { id: "e", syllable: "Mi", scaleIndex: 2 }],
+    }];
+    const wrapper = mountStrip({ tokens: chordTokens, unitMs: 2000 });
+    await flushPromises();
+    const start = clock;
+    play("c", "v1", { durationMs: 300 });
+    play("e", "v2", { audibleAt: start + 200, durationMs: 800 });
+    await at(start + 150);
+    // 15% of the block, not half of C: 2 of 8 stems.
+    expect(litStems(wrapper, 0)).toBe(2);
+    await at(start + 250);
+    expect(litStems(wrapper, 0)).toBe(2);
+    await at(start + 600);
+    expect(litStems(wrapper, 0)).toBe(5);
+  });
+
   it("replays the whole highlight from the start every time the loop comes round", async () => {
     const wrapper = mountStrip();
     const loop = async (start: number) => {

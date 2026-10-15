@@ -28,6 +28,8 @@ export interface NotationHighlightOptions {
   eventNoteIds: () => readonly (readonly string[])[];
   /** Each event's length in the notation's own units (`@0.25` is 0.25). */
   eventUnits?: () => readonly number[];
+  /** Milliseconds per notation unit at the playing tempo, when known. */
+  unitMs?: () => number | undefined;
   /** Light from note events only while this is true. */
   listening: () => boolean;
   /** Reduced Motion: a sounding note reads full at once; nothing sweeps. */
@@ -79,8 +81,13 @@ export function useNotationHighlight(options: NotationHighlightOptions) {
   let frameRequest: number | null = null;
   let frameTime = 0;
   // Milliseconds per notation unit, learned from a lone note's scheduled
-  // length: the clock a chord block's time is measured on.
-  let unitMs: number | undefined;
+  // length: the clock a chord block's time is measured on when the playing
+  // tempo is not supplied.
+  let learnedUnitMs: number | undefined;
+  const unitClock = () => {
+    const given = options.unitMs?.();
+    return given && given > 0 ? given : learnedUnitMs;
+  };
 
   function indexOf(id: string) {
     const ids = options.eventNoteIds();
@@ -96,7 +103,7 @@ export function useNotationHighlight(options: NotationHighlightOptions) {
     played.clear();
     pass = 0;
     passIndex = -1;
-    unitMs = undefined;
+    learnedUnitMs = undefined;
     version.value++;
   }
 
@@ -176,7 +183,7 @@ export function useNotationHighlight(options: NotationHighlightOptions) {
       const hasLength = Number.isFinite(lengthMs) && lengthMs > 0;
       const units = options.eventUnits?.()[index];
       if (hasLength && units && units > 0 && options.eventNoteIds()[index].length === 1) {
-        unitMs = lengthMs / units;
+        learnedUnitMs = lengthMs / units;
       }
       voices.set(key, {
         key, id, index, start: heard, pass: 0,
@@ -193,8 +200,8 @@ export function useNotationHighlight(options: NotationHighlightOptions) {
    * When an event's block of time starts and ends this pass, from the voices
    * heard in it. A chord's members can differ in length; the block lasts
    * from its first onset to its last ending, and never less than its
-   * notation length on the learned unit clock (a member still to come can
-   * end later than those heard so far).
+   * notation length on the unit clock, so it keeps its whole length before
+   * a later member is heard.
    */
   function blockWindow(index: number, voicesHere: readonly Voice[]) {
     const timed = voicesHere.filter((voice) => voice.lengthMs !== undefined || voice.end !== undefined);
@@ -202,7 +209,8 @@ export function useNotationHighlight(options: NotationHighlightOptions) {
     const from = Math.min(...timed.map((voice) => voice.start));
     let to = Math.max(...timed.map((voice) => voice.start + (voice.lengthMs ?? voice.end! - voice.start)));
     const units = options.eventUnits?.()[index];
-    if (unitMs && units && units > 0) to = Math.max(to, from + unitMs * units);
+    const unit = unitClock();
+    if (unit && units && units > 0) to = Math.max(to, from + unit * units);
     return to > from ? { from, to } : undefined;
   }
 

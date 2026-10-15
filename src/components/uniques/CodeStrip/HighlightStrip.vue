@@ -50,6 +50,8 @@ const props = withDefaults(
     resetScrollKey?: unknown;
     /** Where note events arrive; the window by default. */
     noteEventTarget?: EventTarget;
+    /** Milliseconds per notation unit (`@1`) at the playing tempo. */
+    unitMs?: number;
   }>(),
   {
     code: undefined,
@@ -66,6 +68,7 @@ const props = withDefaults(
     colorResolver: undefined,
     stillColorResolver: undefined,
     noteEventTarget: undefined,
+    unitMs: undefined,
   },
 );
 
@@ -92,6 +95,7 @@ const eventUnits = computed(() => events.value.map((token) => durationUnits(toke
 const highlight = useNotationHighlight({
   eventNoteIds: () => eventNoteIds.value,
   eventUnits: () => eventUnits.value,
+  unitMs: () => props.unitMs,
   listening: () => props.listening && props.playing,
   still: () => reducedMotion.value,
   target: () => props.noteEventTarget,

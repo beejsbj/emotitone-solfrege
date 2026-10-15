@@ -46,16 +46,19 @@ describe('instrument files on the device', () => {
     expect(await (await fetchInstrumentFile(soundfontUrl('violin'))).text()).toBe('instrument')
   })
 
-  it('bounds file count, evicting the oldest file before the newly selected one', async () => {
+  it('bounds file count while scanning only once per 64 new files', async () => {
     const disk = memoryCaches()
     for (let index = 0; index < INSTRUMENT_FILE_LIMIT; index++) disk.entries.set(`https://samples.test/${index}`, new Response('old'))
     vi.stubGlobal('caches', disk.storage)
     vi.stubGlobal('fetch', vi.fn(async () => new Response('new')))
-    const url = soundfontUrl('new')
-    await fetchInstrumentFile(url)
-    expect(disk.entries.size).toBe(INSTRUMENT_FILE_LIMIT)
+    const scans = vi.spyOn(disk.cache, 'keys')
+    for (let index = 0; index < 70; index++) {
+      await fetchInstrumentFile(soundfontUrl(`new-${index}`))
+      expect(disk.entries.size).toBeLessThanOrEqual(INSTRUMENT_FILE_LIMIT)
+    }
+    expect(scans).toHaveBeenCalledTimes(2)
     expect(disk.entries.has('https://samples.test/0')).toBe(false)
-    expect(await (await fetchInstrumentFile(url)).text()).toBe('new')
+    expect(await (await fetchInstrumentFile(soundfontUrl('new-69'))).text()).toBe('new')
   })
 
   it('caches a self-hosted font through the same base URL switch', async () => {

@@ -91,14 +91,19 @@ function observeClippedControls() {
   if (!props.scroll && props.minContentHeight > 0) {
     content.value?.querySelectorAll<HTMLElement>(selector).forEach(element => controls.add(element));
   }
+  const targets = new Set([...controls].map(element =>
+    element.matches('.sr-only[role="radio"]')
+      ? element.closest<HTMLElement>('[role="radiogroup"]') ?? element
+      : element,
+  ));
   for (const [element, originallyInert] of observedControls) {
-    if (!controls.has(element)) {
+    if (!targets.has(element)) {
       visibilityObserver.unobserve(element);
       element.inert = originallyInert;
       observedControls.delete(element);
     }
   }
-  for (const element of controls) {
+  for (const element of targets) {
     if (observedControls.has(element)) continue;
     observedControls.set(element, Boolean(element.inert));
     visibilityObserver.observe(element);
@@ -382,7 +387,9 @@ onMounted(async () => {
   }
   // A partly collapsed stack must not retain invisible tab stops.
   // Observe focus targets rather than whole bars: labels can remain visible after
-  // their button faces have left the clip. Consumer-owned inert state is retained.
+  // their button faces have left the clip. Screen-reader-only radios use their
+  // visible radio group (Joystick); their own clipped pixels never intersect.
+  // Consumer-owned inert state is retained.
   if (root.value && clip.value && typeof IntersectionObserver !== "undefined") {
     visibilityObserver = new IntersectionObserver(entries => {
       for (const entry of entries) {

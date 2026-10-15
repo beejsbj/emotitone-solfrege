@@ -653,7 +653,9 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
   .code-strip__duration-mark--lit { background: CanvasText; }
 
   .code-strip__duration-hold {
-    background: linear-gradient(GrayText, GrayText) left center / 100% 2px no-repeat;
+    background:
+      linear-gradient(CanvasText, CanvasText) left center / calc(var(--code-strip-hold-progress) * 100%) 2px no-repeat,
+      linear-gradient(GrayText, GrayText) left center / 100% 2px no-repeat;
     forced-color-adjust: none;
   }
 

@@ -380,7 +380,7 @@ function clamp(value: number) {
 
 <style scoped>
 .highlight-strip {
-  --strip-border: hsla(152, 100%, 50%, 0.16);
+  --strip-border: var(--hairline);
   display: flex;
   align-items: stretch;
   position: relative;
@@ -390,12 +390,11 @@ function clamp(value: number) {
   background: var(--ink-2);
   color: var(--ivory);
   container-type: inline-size;
-  transition: border-color 160ms ease, box-shadow 160ms ease;
+  transition: border-color 160ms ease;
 }
 
 .highlight-strip--playing {
-  border-color: hsla(152, 100%, 50%, 0.24);
-  box-shadow: 0 0 14px hsla(152, 100%, 50%, 0.04);
+  border-color: var(--ivory-4);
 }
 
 .highlight-strip--unframed {

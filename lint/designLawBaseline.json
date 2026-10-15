@@ -40,7 +40,6 @@
     "src/components/primatives/Readout.vue": 1,
     "src/components/primatives/Sticker.vue": 1,
     "src/components/primatives/Tabs.vue": 1,
-    "src/components/uniques/CodeStrip/HighlightStrip.vue": 3,
     "src/components/uniques/CodeStrip/index.vue": 1
   },
   "no-bespoke-button": {

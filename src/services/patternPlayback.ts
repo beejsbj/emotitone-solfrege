@@ -73,9 +73,17 @@ function prepareScope(): Promise<void> {
 export function createPatternTransport(options: PatternTransportOptions): PatternTransport {
   if (activeTransport) throw new Error("The pattern transport already exists");
 
-  const prebaked = Promise.all([initSuperdoughAudio(), prepareScope()]);
-  // Keep an early failure observable through evaluation, not as an unhandled rejection.
-  prebaked.catch(() => undefined);
+  // Audio and the Strudel scope start warming at once. A failure surfaces
+  // through the evaluation that awaits it, and the next evaluation retries.
+  let prebaked: Promise<unknown> | undefined;
+  const prebake = () => {
+    const attempt = Promise.all([initSuperdoughAudio(), prepareScope()]);
+    attempt.catch(() => {
+      if (prebaked === attempt) prebaked = undefined;
+    });
+    return attempt;
+  };
+  prebaked = prebake();
   let frame: number | null = null;
   let evaluatingSpans: readonly NotationSpan[] = [];
   let evaluatingCode: string | undefined;
@@ -94,9 +102,10 @@ export function createPatternTransport(options: PatternTransportOptions): Patter
     defaultOutput: emotitoneStrudelOutput,
     getTime: () => getAudioContext().currentTime,
     transpiler,
-    beforeEval: async () => {
-      await prebaked;
-      await preparePatternSounds(transport.code);
+    // Prepare the code this evaluation plays, even if newer code arrives meanwhile.
+    beforeEval: async ({ code }: { code: string }) => {
+      await (prebaked ??= prebake());
+      await preparePatternSounds(code);
     },
     beforeStart: async () => {
       if (disposed) throw new Error("The pattern transport was disposed");

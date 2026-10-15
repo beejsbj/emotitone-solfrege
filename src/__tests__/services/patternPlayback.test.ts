@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { manageAudioLifecycle } from "@/services/audioLifecycle";
 
 const mocks = vi.hoisted(() => ({ options: undefined as undefined | {
-  onToggle(started: boolean): void; beforeStart(): Promise<void>; beforeEval(): Promise<void>;
+  onToggle(started: boolean): void; beforeStart(): Promise<void>; beforeEval(args: { code: string }): Promise<void>;
 }, context: Object.assign(new EventTarget(), { state: "interrupted", resume: vi.fn(), suspend: vi.fn() }) }));
 vi.mock("@strudel/core", () => ({
   evalScope: vi.fn().mockResolvedValue(undefined),
@@ -21,7 +21,7 @@ vi.mock("@/services/superdoughAudio", () => ({
   getAudioContext: () => mocks.context, initSuperdoughAudio: vi.fn(),
   stopStrudelVisuals: vi.fn(), emotitoneStrudelOutput: vi.fn(),
 }));
-import { preparePatternSounds } from "@/services/superdoughAudio";
+import { initSuperdoughAudio, preparePatternSounds } from "@/services/superdoughAudio";
 import { createPatternTransport, disposePatternTransport } from "@/services/patternPlayback";
 import { soundingNoteIdForHap } from "@/services/notationSpans";
 
@@ -48,7 +48,7 @@ it("resumes interrupted native playback and protects silent transport bars until
     let finishCatalog!: () => void;
     vi.mocked(preparePatternSounds).mockImplementationOnce(() => new Promise<void>(resolve => { finishCatalog = resolve; }));
     let started = false;
-    const starting = mocks.options!.beforeEval().then(() => { started = true; });
+    const starting = mocks.options!.beforeEval({ code: editor.code }).then(() => { started = true; });
     await vi.waitFor(() => expect(preparePatternSounds).toHaveBeenCalledWith("s('gm_celesta')"));
     expect(started).toBe(false);
     finishCatalog();
@@ -86,4 +86,20 @@ it("refuses to publish or start from an evaluation that outlives its transport",
     expect(noteAt()).toBe("new");
     await expect(staleHooks.beforeStart()).rejects.toThrow("disposed");
   } finally { await disposePatternTransport(current); }
+});
+
+it("prepares the code each evaluation plays and retries a failed warm-up on the next", async () => {
+  vi.mocked(initSuperdoughAudio).mockRejectedValueOnce(new Error("audio unavailable"));
+  const transport = createPatternTransport({ initialCode: "", onFrame: vi.fn(), onToggle: vi.fn(), onEvalError: vi.fn() });
+  const hooks = mocks.options!;
+  try {
+    // The first Play fails with the warm-up…
+    await expect(hooks.beforeEval({ code: "s('piano')" })).rejects.toThrow("audio unavailable");
+    // …and the next one warms again rather than replaying the old failure.
+    transport.code = "s('newer')";
+    await hooks.beforeEval({ code: "s('piano')" });
+    expect(initSuperdoughAudio).toHaveBeenCalledTimes(2);
+    // It prepares the code being evaluated, not code published since.
+    expect(preparePatternSounds).toHaveBeenLastCalledWith("s('piano')");
+  } finally { await disposePatternTransport(transport); }
 });

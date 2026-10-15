@@ -409,7 +409,7 @@ useGSAP(({ gsap }) => {
 }
 
 .knob-face__chad {
-  fill: var(--ink-5);
+  fill: var(--led-off);
   transition:
     fill var(--dur-tap) var(--ease-stab),
     filter var(--dur-tap) var(--ease-stab);

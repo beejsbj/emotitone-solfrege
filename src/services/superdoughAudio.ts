@@ -35,6 +35,7 @@ import { LIVE_DELAY_FEEDBACK, LIVE_DELAY_TIME_SECONDS } from "@/audio/liveShapin
 import { SampleLoadError } from "@/services/audioFailures";
 import { catalogSoundNames, getCatalogSound, registerSampleMap, registerSoundfonts, type CatalogSound, type SampleMap } from "@/audio/soundCatalog";
 import { SAMPLE_PACKS, sampleMapUrl } from "@/audio/sampleSources";
+import { fetchInstrumentFile } from "@/audio/instrumentAssetCache";
 import { prewarmFallbackSoundfont, registerFallbackSoundfonts } from "@/services/soundfontFallback";
 import { soundingNoteIdForHap } from "@/services/notationSpans";
 
@@ -153,7 +154,7 @@ export function getActiveStrudelStageNotes(): readonly ActiveNote[] {
  * fallback renderer still read until BJS-485. Registration downloads no audio.
  */
 async function loadSamplePack(pack: string): Promise<void> {
-  const response = await fetch(sampleMapUrl(pack));
+  const response = await fetchInstrumentFile(sampleMapUrl(pack));
   if (!response.ok) throw new Error(`error loading "${sampleMapUrl(pack)}" (HTTP ${response.status})`);
   const map = await response.json() as SampleMap;
   registerSampleMap(map);

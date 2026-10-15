@@ -251,6 +251,7 @@ describe("superdoughAudio live note handling", () => {
     await Promise.resolve();
     expect(audio.getAudioStartupStage()).toBe("samples");
 
+    await vi.waitFor(() => expect(pendingPacks).toHaveLength(2));
     finishSamples();
     await vi.waitFor(() => expect(audio.getAudioStartupStage()).toBe("engine"));
 

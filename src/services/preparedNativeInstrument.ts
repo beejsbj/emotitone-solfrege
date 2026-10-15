@@ -2,6 +2,7 @@ import type { LiveSampleZone, PreparedLiveInstrument } from "../audio/live/types
 import { getCatalogSound, sampleZoneSources, type SampleBank, type SampleZoneSource } from "../audio/soundCatalog";
 import { parseSoundfontPreset, SoundfontParseError, type SoundfontZone } from "../audio/soundfontPreset";
 import { soundfontUrl } from "../audio/sampleSources";
+import { fetchInstrumentFile } from "../audio/instrumentAssetCache";
 import { getLiveArticulation } from "./liveArticulation";
 
 /**
@@ -39,7 +40,7 @@ export function yieldToInput(): Promise<void> {
 }
 
 async function fetchOk(url: string): Promise<Response> {
-  const response = await fetch(url.replace("#", "%23"));
+  const response = await fetchInstrumentFile(url);
   if (!response.ok) throw new Error(`Could not download ${url} (HTTP ${response.status})`);
   return response;
 }
@@ -58,11 +59,21 @@ function ownedChannels(buffer: AudioBuffer): Float32Array[] {
   });
 }
 
-function decode(context: AudioContext, bytes: ArrayBuffer): Promise<AudioBuffer> {
-  return context.decodeAudioData(bytes);
+// A retired context may never settle decodeAudioData. Unwind its loader at
+// the drain deadline; a late browser result must not allocate owned channels.
+async function interruptible<T>(pending: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return pending;
+  let abort!: () => void;
+  const interrupted = new Promise<never>((_, reject) => {
+    abort = () => reject(signal.reason);
+    if (signal.aborted) abort();
+    else signal.addEventListener("abort", abort, { once: true });
+  });
+  try { return await Promise.race([interrupted, pending]); }
+  finally { signal.removeEventListener("abort", abort); }
 }
 
-async function loadSampleZones(context: AudioContext, instrumentId: string, bank: SampleBank): Promise<LiveSampleZone[]> {
+async function loadSampleZones(context: AudioContext, instrumentId: string, bank: SampleBank, signal?: AbortSignal): Promise<LiveSampleZone[]> {
   let sources: SampleZoneSource[];
   try { sources = sampleZoneSources(bank); } catch (error) {
     throw new UnsupportedLiveInstrumentError(error instanceof Error ? error.message : "Invalid sample root pitch");
@@ -80,7 +91,7 @@ async function loadSampleZones(context: AudioContext, instrumentId: string, bank
   const zones: LiveSampleZone[] = [];
   for (let index = 0; index < sources.length; index++) {
     for (let ahead = index; ahead < index + PREFETCH_WINDOW; ahead++) request(ahead);
-    const decoded = await decode(context, await downloads.get(index)!);
+    const decoded = await interruptible(context.decodeAudioData(await interruptible(downloads.get(index)!, signal)), signal);
     const channels = ownedChannels(decoded);
     zones.push({ id: `${instrumentId}:${index}`, rootMidi: sources[index].rootMidi, sampleRate: decoded.sampleRate, channels });
     downloads.delete(index);
@@ -118,8 +129,8 @@ function pcm16Channel(base64: string): Float32Array {
   return output;
 }
 
-async function loadSoundfontZones(context: AudioContext, instrumentId: string, font: string): Promise<LiveSampleZone[]> {
-  const text = await (await fetchOk(soundfontUrl(font))).text();
+async function loadSoundfontZones(context: AudioContext, instrumentId: string, font: string, signal?: AbortSignal): Promise<LiveSampleZone[]> {
+  const text = await interruptible(fetchOk(soundfontUrl(font)).then(response => response.text()), signal);
   const preset: SoundfontZone[] = parseSoundfontPreset(text);
   const zones: LiveSampleZone[] = [];
   for (const [index, zone] of preset.entries()) {
@@ -130,7 +141,7 @@ async function loadSoundfontZones(context: AudioContext, instrumentId: string, f
     let channels: Float32Array[];
     let sampleRate: number;
     if (zone.file) {
-      const decoded = await decode(context, encodedZone(zone.file));
+      const decoded = await interruptible(context.decodeAudioData(encodedZone(zone.file)), signal);
       channels = ownedChannels(decoded);
       sampleRate = decoded.sampleRate;
     } else {
@@ -156,7 +167,7 @@ async function loadSoundfontZones(context: AudioContext, instrumentId: string, f
   return zones;
 }
 
-async function load(context: AudioContext, instrumentId: string): Promise<PreparedLiveInstrument> {
+async function load(context: AudioContext, instrumentId: string, signal?: AbortSignal): Promise<PreparedLiveInstrument> {
   const envelope = { ...getLiveArticulation(instrumentId) };
   if (OSCILLATORS.has(instrumentId)) {
     return { kind: "oscillator", instrumentId, waveform: instrumentId as "sine" | "triangle" | "square" | "sawtooth",
@@ -165,8 +176,8 @@ async function load(context: AudioContext, instrumentId: string): Promise<Prepar
   const sound = getCatalogSound(instrumentId);
   if (!sound) throw new UnsupportedLiveInstrumentError(`Unsupported live renderer: ${instrumentId}`);
   const zones = sound.kind === "soundfont"
-    ? await loadSoundfontZones(context, instrumentId, sound.fonts[0])
-    : await loadSampleZones(context, instrumentId, sound.bank);
+    ? await loadSoundfontZones(context, instrumentId, sound.fonts[0], signal)
+    : await loadSampleZones(context, instrumentId, sound.bank, signal);
   if (!zones.length) throw new UnsupportedLiveInstrumentError("Instrument contains no playable sample zones");
   return {
     kind: "sample-bank", instrumentId, gain: sound.kind === "soundfont" ? 0.8 * 0.3 : 0.8, ...envelope,
@@ -179,9 +190,9 @@ async function load(context: AudioContext, instrumentId: string): Promise<Prepar
  * cannot render and malformed data are "unsupported" (the fallback renderer
  * keeps them); download and decode failures are "retryable".
  */
-export async function prepareNativeInstrument(context: AudioContext, instrumentId: string): Promise<NativeInstrumentPreparation> {
+export async function prepareNativeInstrument(context: AudioContext, instrumentId: string, signal?: AbortSignal): Promise<NativeInstrumentPreparation> {
   try {
-    return await load(context, instrumentId);
+    return await load(context, instrumentId, signal);
   } catch (error) {
     return { kind: (error instanceof UnsupportedLiveInstrumentError || error instanceof SoundfontParseError) ? "unsupported" : "retryable",
       instrumentId, reason: error instanceof Error ? error.message : String(error) };

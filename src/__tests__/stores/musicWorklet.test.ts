@@ -17,6 +17,7 @@ const worklet = vi.hoisted(() => ({
 }));
 vi.mock("@/services/livePlayback", () => ({
   getLivePlayback: vi.fn(() => worklet.engine),
+  waitForLivePlayback: vi.fn(),
   subscribeLivePlayback: vi.fn(listener => { worklet.listener = listener; return worklet.unsubscribe; }),
   needsLivePlaybackPreparation: vi.fn(() => false),
 }));

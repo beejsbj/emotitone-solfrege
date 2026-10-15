@@ -376,8 +376,9 @@ describe('live playback instrument manager', () => {
     mocks.prepare.mockImplementationOnce(() => new Promise(resolve => { resolveOld = resolve }))
     const old = manager.prepareLivePlayback(oldContext, destination, 'old')
     await vi.waitFor(() => expect(resolveOld).toBeTypeOf('function'))
-    await manager.prepareLivePlayback(context(), destination, 'new')
-    resolveOld(bank('old')); await old
+    const next = manager.prepareLivePlayback(context(), destination, 'new')
+    expect(mocks.prepare).toHaveBeenCalledOnce()
+    resolveOld(bank('old')); await Promise.all([old, next])
     expect(manager.getLivePlayback('old')).toBeUndefined()
     expect(manager.getLivePlayback('new'), JSON.stringify(manager.getLivePlaybackDiagnostics('new'))).toBeDefined()
   })
@@ -466,7 +467,7 @@ describe('production renderer selection', () => {
 
     await manager.prepareLivePlayback(context, destination, name)
 
-    expect(mocks.prepare).toHaveBeenLastCalledWith(context, resolved)
+    expect(mocks.prepare).toHaveBeenLastCalledWith(context, resolved, expect.any(AbortSignal))
     expect(manager.getLivePlayback(name)).toBeUndefined()
     expect(manager.getLivePlayback(resolved)).toBeUndefined()
     expect(manager.needsLivePlaybackPreparation(name)).toBe(false)

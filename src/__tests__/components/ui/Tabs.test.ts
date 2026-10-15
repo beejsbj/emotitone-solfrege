@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { enableAutoUnmount, mount } from "@vue/test-utils";
 import { defineComponent, h, markRaw, nextTick, ref } from "vue";
 import Tabs from "@/components/primatives/Tabs.vue";
-import { TABS_EDITIONS } from "@/components/primatives/TabsEdition";
+import { EDITION_FAMILIES } from "@/composables/useEditionFamily";
 import tabsSource from "@/components/primatives/Tabs.vue?raw";
 import TabsPage from "@/style-guide/TabsPage.vue";
 
@@ -68,8 +68,8 @@ describe("Tabs", () => {
     expect(wrapper.emitted("update:modelValue")).toEqual([["mallets", "pointer"]]);
   });
 
-  it.each(TABS_EDITIONS.flatMap((edition) =>
-    [true, false].map((controlled) => ({ ...edition, controlled })),
+  it.each(EDITION_FAMILIES.flatMap((family) =>
+    [true, false].map((controlled) => ({ id: family.id, ...family.tabs, controlled })),
   ))("reaches inactive tabs with Arrow/Home/End in $id (controlled: $controlled)", async ({ geometry, tone, controlled }) => {
     const wrapper = mount(defineComponent({
       setup() {

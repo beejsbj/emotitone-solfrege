@@ -74,7 +74,7 @@ import {
   watch,
   type Component,
 } from "vue";
-import { currentTabsPageEdition } from "./TabsEdition";
+import { useEditionFamily } from "@/composables/useEditionFamily";
 
 export interface TabItem {
   label: string;
@@ -139,13 +139,13 @@ const railGesture = {
 
 const activeValue = computed(() => props.modelValue ?? internalValue.value);
 
-const pageEdition = currentTabsPageEdition();
+const editionFamily = useEditionFamily();
 const hasPinnedEdition = computed(() => props.geometry !== undefined || props.tone !== undefined);
 const resolvedGeometry = computed(() =>
-  props.geometry ?? (hasPinnedEdition.value ? "tab" : pageEdition.geometry),
+  props.geometry ?? (hasPinnedEdition.value ? "tab" : editionFamily.value.tabs.geometry),
 );
 const railTone = computed<TabsTone>(() =>
-  props.tone ?? (hasPinnedEdition.value ? "ivory" : pageEdition.tone),
+  props.tone ?? (hasPinnedEdition.value ? "ivory" : editionFamily.value.tabs.tone),
 );
 const resolvedTone = computed(() =>
   props.tabs.find((tab) => tab.value === activeValue.value)?.tone ?? railTone.value,

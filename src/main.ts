@@ -5,8 +5,7 @@ import "./style.css";
 import "./emotitone-design-system.css";
 import { persistedStatePlugin } from "./services/safeStorage";
 import { installBackupConsole } from "./services/persistenceCodec";
-import { beginKnobPageEdition } from "./components/primatives/Knob/edition";
-import { beginTabsPageEdition } from "./components/primatives/TabsEdition";
+import { beginEditionShuffle, readEditionReviewPin } from "./composables/useEditionFamily";
 import { registerSW } from 'virtual:pwa-register';
 import { currentPathname, isStyleGuideRoute } from "./styleGuideRoutes";
 
@@ -30,17 +29,12 @@ const pinia = createPinia();
 const pathname = currentPathname();
 // Every guide URL App.vue routes to the style guide comes from the same
 // module, so browsing the guide never runs production-only bootstrap such as
-// the knob edition.
+// the edition Shuffle: guide specimens hold the first family unless a review
+// pin (`?edition=<family>`) asks for another, on any route.
 const isDesignRoute = isStyleGuideRoute(pathname);
-const isPersistenceFreeDesignRoute = [
-  "/style-guide/performance-deck",
-  "/style-guide/stage",
-].includes(pathname);
-if (!isPersistenceFreeDesignRoute) {
-  beginTabsPageEdition();
-}
+readEditionReviewPin();
 if (!isDesignRoute || pathname === "/style-guide/config-menu") {
-  beginKnobPageEdition();
+  beginEditionShuffle();
 }
 
 app.use(pinia);

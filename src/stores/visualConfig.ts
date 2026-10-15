@@ -34,6 +34,7 @@ import type {
 import { createPersistedBinding } from "@/services/persistenceCodec";
 import { cloneDefaultConfig, isRecord, isPerformanceField, migrateVisualConfig, visualConfigCodec } from "@/services/visualConfigPersistence";
 import { useTempoStore, useOctaveStore, useDrawerRowsStore } from "@/stores/performanceSettings";
+import { pinEditionLook } from "@/composables/useEditionFamily";
 const SAVED_CONFIGS_KEY = "emotitone-saved-configs";
 const SAVED_STAGE_LOOKS_KEY = "emotitone-saved-stage-looks";
 
@@ -343,6 +344,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     const defaults = cloneDefaultConfig();
     Object.assign(config.dynamicColors, defaults.dynamicColors);
     Object.assign(config.uiBeat, defaults.uiBeat);
+    Object.assign(config.editions, defaults.editions);
   };
 
   const updateDeckControl = (
@@ -566,6 +568,10 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
 
   // Initialize on store creation
   loadFromStorage();
+
+  // The pinned edition family is a visual setting; the edition helper owns
+  // how it combines with this load's Shuffle and any review pin.
+  watch(() => config.editions.family, pinEditionLook, { immediate: true });
 
   return {
     // State

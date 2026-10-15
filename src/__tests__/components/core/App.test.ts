@@ -127,9 +127,6 @@ describe('App.vue', () => {
     expect(appSource).not.toContain(
       'import StyleGuide from "./style-guide/StyleGuide.vue"',
     )
-    expect(appSource).toContain('beginJoystickPageEdition()')
-    expect(appSource.indexOf('beginJoystickPageEdition()'))
-      .toBeGreaterThan(appSource.indexOf('} else {'))
     expect(appSource).not.toContain('isRoughPage')
   })
 
@@ -145,17 +142,6 @@ describe('App.vue', () => {
     }
     expect(isStyleGuideRoute('/')).toBe(false)
     expect(isStyleGuideRoute('/style-guide/unknown')).toBe(false)
-  })
-
-  it('pins the bootstrap routing wiring: two persistence-free guide routes and sole main.ts tab-edition call', () => {
-    // Structural guard: guards the entry-graph routing contract that beginsTabsPageEdition
-    // is called once in main.ts only for non-design routes
-    expect(mainSource).toMatch(
-      /const isPersistenceFreeDesignRoute = \[\s*"\/style-guide\/performance-deck",\s*"\/style-guide\/stage",\s*\]\.includes\(pathname\);/,
-    )
-    expect(mainSource).toMatch(
-      /if \(!isPersistenceFreeDesignRoute\) \{\s*beginTabsPageEdition\(\);\s*\}/,
-    )
   })
 
   it('bans the named retired FloatingPopup mount and requires UnifiedVisualEffects in MainApp', () => {

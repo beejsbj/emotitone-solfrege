@@ -103,7 +103,7 @@ import RangeKnob from "./RangeKnob.vue";
 import BooleanKnob from "./BooleanKnob.vue";
 import OptionsKnob from "./OptionsKnob.vue";
 import { formatKnobDisplayValue } from "./displayValue";
-import { currentKnobPageVisual } from "./edition";
+import { useEditionFamily } from "@/composables/useEditionFamily";
 import type { KnobTone, KnobType, KnobVisual } from "./types";
 
 // Props - keeping the original API for backwards compatibility
@@ -274,7 +274,8 @@ const actualValue = computed(() => {
 });
 
 const isDisplayMode = computed(() => props.isDisplay);
-const resolvedVisual = computed(() => props.visual ?? currentKnobPageVisual());
+const editionFamily = useEditionFamily();
+const resolvedVisual = computed(() => props.visual ?? editionFamily.value.knob);
 
 // Auto-detect knob type if not explicitly provided
 const knobType = computed((): KnobType => {

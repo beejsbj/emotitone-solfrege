@@ -1,8 +1,8 @@
+import { pitchSolfegeData } from "@/domain/musicalIdentity";
 import { resumeAudioContext, registerAudioActivity } from "@/services/audioLifecycle";
 import { defineStore } from "pinia";
 import { ref, computed, readonly, watch, onScopeDispose } from "vue";
 import { musicTheory, CHROMATIC_NOTES } from "@/services/music";
-import { getModeDefinition } from "@/data";
 import type {
   SolfegeData,
   MusicalMode,
@@ -84,16 +84,6 @@ function parseNoteWithOctave(
   return { noteName, octave };
 }
 
-function borrowedPitchSolfege(noteName: ChromaticNote): SolfegeData {
-  return {
-    name: noteName,
-    number: 0,
-    emotion: "Borrowed harmony tone",
-    description: "An explicit chord alteration outside the active scale.",
-    texture: "harmonic",
-  };
-}
-
 let liveStoreId = 0;
 
 export const useMusicStore = defineStore(
@@ -105,6 +95,21 @@ export const useMusicStore = defineStore(
     // State
     const currentKey = ref<string>("C");
     const currentMode = ref<MusicalMode>("major");
+    // Sole writer of the shared theory context. Persistence and $patch bypass
+    // the actions, so synchronize before any audio or display reader can run.
+    watch(
+      [currentKey, currentMode],
+      ([key, mode]) => {
+        const normalizedKey = (typeof key === "string" ? normalizePitchClass(key) : null) ?? "C";
+        if (key !== normalizedKey) {
+          currentKey.value = normalizedKey;
+          return;
+        }
+        musicTheory.setCurrentKey(normalizedKey);
+        musicTheory.setCurrentMode(mode);
+      },
+      { immediate: true, flush: "sync" },
+    );
     const currentNote = ref<string | null>(null); // Keep for backward compatibility
     const activeNotes = ref<Map<string, ActiveNote>>(new Map());
     const fallbackArticulations = new Map<string, LiveArticulation>();
@@ -121,6 +126,7 @@ export const useMusicStore = defineStore(
       instrument: string;
       /** Shape at input onset: pattern context for every note this hold logs. */
       shape: Shape;
+      velocity?: number;
       isCancelled: () => boolean;
       firstAttack?: (cancelled: () => boolean) => Promise<string | null>;
       initialVoice?: Promise<string | null>;
@@ -150,7 +156,7 @@ export const useMusicStore = defineStore(
       return {
         ...held.snapshot, noteId: event.noteId, note: held.snapshot.solfege,
         isBorrowed: held.snapshot.solfegeIndex === -1,
-        instrument: held.instrument, shape: held.shape, instrumentConfig: null, source: "live-play-style",
+        instrument: held.instrument, shape: held.shape, velocity: event.velocity ?? held.velocity, instrumentConfig: null, source: "live-play-style",
         articulation: { ...(event.articulation ?? styleArticulation(held.instrument, event.style)) },
         timestamp: liveAudioClock.toEpochTime(event.at * 1000),
         midiTimestamp: liveAudioClock.toPerformanceTime(event.at * 1000),
@@ -197,6 +203,11 @@ export const useMusicStore = defineStore(
         for (const [alias, aliasedOwner] of heldAliases) if (aliasedOwner === owner) heldAliases.delete(alias);
       },
       onError(error) { console.error("[Live Audio] Renderer failed", error); },
+      onLoadError(instrumentId, reason) {
+        if (instrumentId !== resolveLiveSoundName(instrumentStore.currentInstrument)) return;
+        instrumentStore.lastWarmupError = reason;
+        instrumentStore.lastWarmupErrorInstrument = instrumentStore.currentInstrument;
+      },
     });
 
     const playEngine = createPlayStyleEngine<HeldPitch>({
@@ -238,6 +249,7 @@ export const useMusicStore = defineStore(
           note: activeNote.solfege,
           isBorrowed: activeNote.solfegeIndex === -1,
           instrument: held.instrument,
+          velocity: held.velocity,
           shape: held.shape,
           instrumentConfig: null,
           source: "live-play-style",
@@ -247,6 +259,7 @@ export const useMusicStore = defineStore(
           noteName: activeNote.noteName,
           instrument: held.instrument,
           at,
+          velocity: held.velocity,
           releaseSeconds: articulation.release,
           now,
           clock: liveAudioClock,
@@ -349,6 +362,7 @@ export const useMusicStore = defineStore(
       noteName: string,
       isCancelled: () => boolean,
       exactInput = false,
+      velocity?: number,
     ): Promise<string | null> {
       if (instrumentStore.isInteractionLocked || isCancelled()) return null;
       const parsed = parseNoteWithOctave(noteName);
@@ -357,7 +371,8 @@ export const useMusicStore = defineStore(
       const tonal = TonalNote.get(exactName);
       if (tonal.midi == null || !tonal.freq) return null;
       const solfegeIndex = currentScaleNotes.value.indexOf(parsed.noteName);
-      const solfege = solfegeIndex === -1 ? borrowedPitchSolfege(parsed.noteName) : solfegeData.value[solfegeIndex];
+      // Read through the reactive singleton; caching its raw context here would stale live-input cues.
+      const solfege = pitchSolfegeData(parsed.noteName, { tonic: musicTheory.getCurrentKey(), mode: musicTheory.getCurrentMode() }, visualConfigStore.laBasedMinor);
       if (!solfege) return null;
       // A sleeping/interrupted graph (or route rebuild) must finish before the
       // renderer is selected or the input is submitted. Keep running input sync.
@@ -379,16 +394,17 @@ export const useMusicStore = defineStore(
         },
         instrument: instrumentStore.currentInstrument,
         shape: instrumentStore.shape,
+        velocity,
         isCancelled,
       };
-      held.firstAttack = (cancelled) => attackPreparedPitch(held.snapshot, held.instrument, held.shape, exactInput, cancelled);
+      held.firstAttack = (cancelled) => attackPreparedPitch(held.snapshot, held.instrument, held.shape, exactInput, cancelled, velocity);
       heldOwners.add(owner);
       const renderer = getLivePlayback(held.instrument);
       if (renderer) {
         // The running path submits without yielding to unrelated microtasks.
         liveAudioClock.now();
         heldAliases.set(owner, owner);
-        livePerformance.press(owner, [{ pitch: tonal.midi, instrumentId: resolveLiveSoundName(held.instrument) }], held, renderer,
+        livePerformance.press(owner, [{ pitch: tonal.midi, instrumentId: resolveLiveSoundName(held.instrument), ...(velocity === undefined ? {} : { velocity }) }], held, renderer,
           { style: playStyle.value, rate: playRate.value, bpm: visualConfigStore.config.codeStrip.bpm });
         return owner;
       }
@@ -424,42 +440,32 @@ export const useMusicStore = defineStore(
       );
     }
 
-    function attackExactPitch(note: string, isCancelled: () => boolean = () => false) {
-      return holdPitch(note, isCancelled, true);
+    function attackExactPitch(note: string, isCancelled: () => boolean = () => false, velocity?: number) {
+      return holdPitch(note, isCancelled, true, velocity);
     }
 
     // Getters
-    const currentScale = computed(() => {
-      // Bind the singleton service to reactive store state so downstream
-      // consumers like the keyboard and visual systems actually refresh
-      // when mode or key changes after initial mount.
-      musicTheory.setCurrentKey(currentKey.value as ChromaticNote);
-      musicTheory.setCurrentMode(currentMode.value);
-      return musicTheory.getCurrentScale();
-    });
+    const currentScale = computed(() => musicTheory.getCurrentScale());
     const currentModeDefinition = computed(() =>
-      getModeDefinition(currentMode.value)
+      musicTheory.getCurrentModeDefinition()
     );
 
-    const currentScaleNotes = computed(() => {
-      musicTheory.setCurrentKey(currentKey.value as ChromaticNote);
-      musicTheory.setCurrentMode(currentMode.value);
-      return musicTheory.getCurrentScaleNotes();
-    });
+    const currentScaleNotes = computed(() => musicTheory.getCurrentScaleNotes());
 
     const solfegeData = computed(() => {
-      // Return the base solfege data - colors are now handled by ColorService
-      return currentScale.value.solfege;
+      return currentScaleNotes.value.map((pitch) => pitchSolfegeData(
+        pitch, { tonic: musicTheory.getCurrentKey(), mode: musicTheory.getCurrentMode() }, visualConfigStore.laBasedMinor,
+      )!);
     });
 
     const currentKeyDisplay = computed(() => {
-      return `${currentKey.value} ${currentModeDefinition.value.label}`;
+      return `${musicTheory.getCurrentKey()} ${currentModeDefinition.value.label}`;
     });
 
     function getCurrentNoteContext() {
       return {
-        mode: currentMode.value,
-        key: currentKey.value as ChromaticNote,
+        mode: musicTheory.getCurrentMode(),
+        key: musicTheory.getCurrentKey() as ChromaticNote,
       };
     }
 
@@ -471,7 +477,7 @@ export const useMusicStore = defineStore(
     ): number {
       const noteIndex = CHROMATIC_NOTES.indexOf(noteName);
       const keyIndex = CHROMATIC_NOTES.indexOf(
-        currentKey.value as ChromaticNote
+        musicTheory.getCurrentKey() as ChromaticNote
       );
 
       if (noteIndex === -1 || keyIndex === -1) {
@@ -526,25 +532,16 @@ export const useMusicStore = defineStore(
     // Actions
     function setKey(key: string) {
       currentKey.value = key;
-      musicTheory.setCurrentKey(key as ChromaticNote);
     }
 
     function setMode(mode: MusicalMode) {
       currentMode.value = mode;
-      musicTheory.setCurrentMode(mode);
     }
 
-    // Keep the MusicTheoryService singleton in sync with Pinia-persisted state.
-    // Pinia's persist plugin restores ref values directly (bypassing setKey/setMode),
-    // so a watcher with immediate:true ensures the service is always up-to-date
-    // before any component calls getNoteName().
     watch(
-      [currentKey, currentMode],
-      ([key, mode]) => {
-        musicTheory.setCurrentKey(key as ChromaticNote);
-        musicTheory.setCurrentMode(mode);
-      },
-      { immediate: true }
+      () => visualConfigStore.laBasedMinor,
+      (value) => superdoughAudio.setStrudelLaBasedMinor(value),
+      { immediate: true, flush: "sync" },
     );
 
     // Play note with either format
@@ -622,6 +619,7 @@ export const useMusicStore = defineStore(
       shape: Shape,
       exactInput: boolean,
       isCancelled: () => boolean,
+      velocity?: number,
     ): Promise<string | null> {
       if (instrumentStore.isInteractionLocked || isCancelled()) return null;
       const selectionEpoch = instrumentStore.selectionEpoch;
@@ -633,7 +631,9 @@ export const useMusicStore = defineStore(
       const timestamp = Date.now();
       // attackNote resolves the same Shaped envelope from the live controls.
       const articulation = resolveLiveEnvelope(instrument, shape);
-      const startedAt = await superdoughAudio.attackNote(noteId, snapshot.noteName, instrument);
+      const startedAt = await (velocity === undefined
+        ? superdoughAudio.attackNote(noteId, snapshot.noteName, instrument)
+        : superdoughAudio.attackNote(noteId, snapshot.noteName, instrument, { velocity }));
       if (
         isCancelled()
         || instrumentStore.isInteractionLocked
@@ -658,6 +658,7 @@ export const useMusicStore = defineStore(
           isBorrowed: snapshot.solfegeIndex === -1,
           instrument,
           shape,
+          velocity,
           articulation: { ...articulation },
           instrumentConfig: null,
           timestamp,
@@ -998,6 +999,7 @@ export const useMusicStore = defineStore(
       currentModeDefinition,
       currentScaleNotes,
       solfegeData,
+      laBasedMinor: computed(() => visualConfigStore.laBasedMinor),
       currentKeyDisplay,
 
       // Actions

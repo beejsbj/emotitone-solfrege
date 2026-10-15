@@ -299,6 +299,7 @@ export const usePhrasesStore = defineStore(
         isBorrowed,
         octave: detail.octave,
         frequency: detail.frequency,
+        velocity: detail.velocity,
         articulation: detail.articulation ? { ...detail.articulation } : undefined,
       }, config);
       heldCount.value = held.size;

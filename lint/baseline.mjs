@@ -10,7 +10,10 @@ import { dirname, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-export const BASELINE_FILE = resolve(REPO_ROOT, "lint/designLawBaseline.json");
+/** DESIGN_LAW_BASELINE_FILE points the lint at another file; the tests use it to exercise an unreadable baseline. */
+export const BASELINE_FILE = process.env.DESIGN_LAW_BASELINE_FILE
+  ? resolve(process.env.DESIGN_LAW_BASELINE_FILE)
+  : resolve(REPO_ROOT, "lint/designLawBaseline.json");
 
 /** The baseline keys; the Stylelint rules count under the `style/` ones. */
 export const RULES = [
@@ -20,13 +23,35 @@ export const RULES = [
   "no-raw-colour",
   "style/no-brand-colour",
   "style/no-raw-colour",
+  "no-bespoke-button",
 ];
 
-let cached;
-export function readBaseline() {
-  cached ??= JSON.parse(readFileSync(BASELINE_FILE, "utf8"));
-  return cached;
+/**
+ * Reads the baseline, or throws an error that says what is wrong with it. A
+ * missing, empty or malformed file must stop the lint: treating it as "no debt"
+ * would fail every file with a confusing flood, and treating it as "first run"
+ * would let `lint:baseline` record whatever violations exist today.
+ */
+export function loadBaseline(file = BASELINE_FILE) {
+  const where = relative(REPO_ROOT, file).split(sep).join("/") || file;
+  let parsed;
+  try {
+    parsed = JSON.parse(readFileSync(file, "utf8"));
+  } catch (error) {
+    const reason = error.code === "ENOENT" ? "the file is missing" : error.message;
+    throw new Error(`The design-law baseline (${where}) is unreadable: ${reason}. Restore it from git; it is never regenerated implicitly.`);
+  }
+  const isMap = (value, valid) => value && typeof value === "object" && !Array.isArray(value) && Object.values(value).every(valid);
+  const isCount = (n) => Number.isInteger(n) && n >= 0;
+  if (!isMap(parsed, (counts) => isMap(counts, isCount)) ||
+    Object.keys(parsed).length !== RULES.length || !RULES.every((rule) => Object.hasOwn(parsed, rule))) {
+    throw new Error(`The design-law baseline (${where}) is malformed: expected all design-law rules as { rule: { file: count } } with whole-number counts. Restore it from git.`);
+  }
+  return parsed;
 }
+
+let cached;
+export const readBaseline = () => (cached ??= loadBaseline());
 
 /** Repo-relative, forward-slash path. */
 export const relativeToRoot = (file) => relative(REPO_ROOT, file).split(sep).join("/");

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Chord, Note } from "@tonaljs/tonal";
+import { Chord, ChordType, Note } from "@tonaljs/tonal";
 import { CHROMATIC_NOTES, MODE_DEFINITIONS, MODE_ORDER, getScaleForMode } from "@/data";
 import {
   CHORD_QUALITIES,
@@ -312,6 +312,44 @@ describe("musical identity: pitches and intervals", () => {
 });
 
 describe("musical identity: chord symbols", () => {
+  it.each(contexts.map((context) => [label(context), context] as const))(
+    "%s: names major elevenths in root position and inversion",
+    (_, context) => {
+      const root = spellTonic(context);
+      const pitches = ["1P", "3M", "5P", "7M", "9M", "11P"]
+        .map((interval) => Note.transpose(`${root}3`, interval));
+      for (const bass of [null, Note.transpose(`${root}2`, "3M")]) {
+        const chord = identifyChord(bass ? [bass, ...pitches] : pitches, context);
+        expect(chord?.symbol).toBe(`${root}maj11${bass ? `/${Note.get(bass).pc}` : ""}`);
+        expect(Chord.get(chord!.tonalName).intervals)
+          .toEqual(["1P", "3M", "5P", "7M", "9M", "11P"]);
+        expect(parseChordSymbol(chord!.symbol)?.intervals).toEqual(chord!.intervals);
+      }
+    },
+  );
+
+  it.each([...CHROMATIC_NOTES, "Db", "Eb", "Gb", "Ab", "Bb"])(
+    "%s: resolves every detected dictionary candidate and displays every dictionary voicing",
+    (root) => {
+      for (const type of ChordType.all()) {
+        const pitches = type.intervals.map((interval) => Note.transpose(`${root}3`, interval));
+        for (const member of pitches) {
+          const voicing = [Note.transpose(member, "-8P"), ...pitches];
+          for (const candidate of Chord.detect(voicing)) {
+            const parsed = parseChordSymbol(candidate);
+            expect(parsed, candidate).not.toBeNull();
+            expect(Chord.get(parsed!.tonalName).empty, candidate).toBe(false);
+          }
+          const chord = identifyChord(voicing, { tonic: root, mode: "major" });
+          expect(chord?.symbol, `${root}${type.aliases[0]} over ${member}`).toBeTruthy();
+          const parsed = parseChordSymbol(chord!.symbol);
+          expect(parsed?.intervals).toEqual(chord!.intervals);
+          expect(Chord.get(chord!.tonalName).empty).toBe(false);
+        }
+      }
+    },
+  );
+
   it.each(LEAD_SHEET.map((entry) => [
     `${entry.tonic} ${entry.mode}: ${entry.pitches.join(" ")} (${entry.note})`,
     entry,

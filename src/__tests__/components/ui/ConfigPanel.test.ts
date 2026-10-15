@@ -41,6 +41,7 @@ const visualConfigStore = reactive({
     },
   },
   visualsEnabled: true,
+  laBasedMinor: false,
   savedConfigs: [] as Array<{ id: string; name: string; updatedAt: string }>,
   savedStageLooks: [] as Array<{ id: string; name: string; updatedAt: string }>,
   transientStageLook: null as null | { name: string },
@@ -359,6 +360,21 @@ describe("ConfigPanel.vue", () => {
     expect(wrapper.find('[class*="sticker--color-brass"]').exists()).toBe(false);
   });
 
+  it("offers the minor solfege convention in Deck's Learn group", async () => {
+    visualConfigStore.laBasedMinor = false;
+    const wrapper = createTestWrapper(ConfigPanel);
+    wrapper.getComponent({ name: "TabbedOverlayPanel" }).vm.$emit("update:modelValue", "deck");
+    await nextTick();
+    const preference = wrapper.getComponent('[data-testid="learn-la-based-minor"]');
+    expect(preference.props("modelValue")).toBe(false);
+    preference.vm.$emit("update:modelValue", true);
+    await nextTick();
+    expect(visualConfigStore.laBasedMinor).toBe(true);
+    expect(preference.props("modelValue")).toBe(true);
+    expect(wrapper.text()).toContain("Minor starts on Do by default");
+    wrapper.unmount();
+  });
+
   it("keeps Deck controls available when the global Visuals presentation is off", async () => {
     visualConfigStore.visualsEnabled = false;
     wrapper = createTestWrapper(ConfigPanel);
@@ -505,7 +521,7 @@ describe("ConfigPanel.vue", () => {
   it("aligns action Knobs with small Buttons", () => {
     wrapper = createTestWrapper(ConfigPanel);
 
-    expect(configPanelSource).toContain("--knob-size: 32px");
+    expect(configPanelSource).toContain("--knob-size: var(--control-sm)");
     expect(configPanelSource).toMatch(
       /\.config-panel__section-controls\s*\{[^}]*align-items: flex-start;/s,
     );

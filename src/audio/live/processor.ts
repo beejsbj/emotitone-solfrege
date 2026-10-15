@@ -29,7 +29,7 @@ class LivePlaybackProcessor extends AudioWorkletProcessor {
   }
   process(_inputs: Float32Array[][], outputs: Float32Array[][]) {
     try {
-      if (outputs[0]) this.core.render(outputs[0], currentFrame)
+      if (outputs[0]) this.core.render(outputs[0], currentFrame, outputs[1], outputs[2])
     } finally { this.flushResponses() }
     return true
   }

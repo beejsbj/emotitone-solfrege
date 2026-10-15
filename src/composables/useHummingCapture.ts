@@ -69,10 +69,11 @@ export function useHummingCapture() {
 
   // Live presentation follows the controls; analysis retains the take's starting context.
   const stopContextWatch = watch(
-    () => [musicStore.currentKey, musicStore.currentMode, instrumentStore.currentInstrument],
+    () => [musicStore.currentKey, musicStore.currentMode, instrumentStore.currentInstrument, musicStore.laBasedMinor],
     () => stageBridge?.updateContext({
       key: musicStore.currentKey as ChromaticNote,
       mode: musicStore.currentMode as MusicalMode,
+      laBasedMinor: musicStore.laBasedMinor,
       instrument: instrumentStore.currentInstrument,
     }),
     { flush: "sync" },
@@ -119,7 +120,7 @@ export function useHummingCapture() {
       bpm: visualConfigStore.config.codeStrip.bpm,
       shape: { ...instrumentStore.shape },
     };
-    stageBridge = createHummingStageBridge(captureContext);
+    stageBridge = createHummingStageBridge({ ...captureContext, laBasedMinor: musicStore.laBasedMinor });
 
     try {
       const nextSession = await startMicrophoneCapture(

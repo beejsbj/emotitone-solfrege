@@ -41,6 +41,48 @@ describe('Visual Config Store', () => {
     vi.clearAllTimers?.()
   })
 
+  it('defaults missing minor preference to Do and round-trips La without changing old config', async () => {
+    vi.useFakeTimers();
+    try {
+      localStorage.setItem('emotitone-visual-config', JSON.stringify({ config: DEFAULT_CONFIG }));
+      const oldSave = createFreshStore();
+      expect(oldSave.laBasedMinor).toBe(false);
+      oldSave.laBasedMinor = true;
+      await nextTick();
+      vi.advanceTimersByTime(500);
+      expect(createFreshStore().laBasedMinor).toBe(true);
+      expect(JSON.parse(localStorage.getItem('emotitone-visual-config')!).config).toEqual(oldSave.config);
+      expect(oldSave.applyBuiltInStageLook('soft')).toBe(true);
+      expect(oldSave.laBasedMinor).toBe(true);
+      oldSave.resetToDefaults();
+      expect(oldSave.laBasedMinor).toBe(true);
+      expect(createFreshStore().laBasedMinor).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('resets the Deck learn preference to Do', () => {
+    visualConfigStore.laBasedMinor = true;
+    visualConfigStore.resetDeck();
+    expect(visualConfigStore.laBasedMinor).toBe(false);
+  });
+
+  it('exports and imports the learn preference with a safe legacy default', () => {
+    visualConfigStore.laBasedMinor = true;
+    const exported = visualConfigStore.exportConfig();
+    expect(JSON.parse(exported).laBasedMinor).toBe(true);
+    const restored = createFreshStore();
+    expect(restored.importConfig(exported)).toBe(true);
+    expect(restored.laBasedMinor).toBe(true);
+    expect(createFreshStore().laBasedMinor).toBe(true);
+    for (const value of [undefined, false, 'true']) {
+      restored.laBasedMinor = true;
+      expect(restored.importConfig(JSON.stringify({ config: DEFAULT_CONFIG, laBasedMinor: value }))).toBe(true);
+      expect(restored.laBasedMinor).toBe(false);
+    }
+  });
+
   describe('Initial State', () => {
     it('supports an isolated specimen state without writing production storage', () => {
       vi.useFakeTimers()

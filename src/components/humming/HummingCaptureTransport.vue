@@ -1,13 +1,12 @@
 <template>
   <Teleport to="body">
-    <div class="humming-capture-transport">
+    <div ref="root" class="humming-capture-transport">
       <Button
         class="humming-capture-transport__primary"
         size="md"
         :tone="canAccept ? 'ivory' : 'brass'"
         :haptic="haptic"
         :loading="loading"
-        :disabled="loading"
         :accessible-name="buttonLabel"
         :title="buttonTitle"
         @click="emit('toggle')"
@@ -81,10 +80,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { Check, Mic, X } from "lucide-vue-next";
 import Button from "@/components/primatives/Button.vue";
 import type { HummingCaptureStatus } from "@/composables/useHummingCapture";
+import { setTopNoticeClearance } from "@/composables/useTopNoticeClearance";
 
 const props = withDefaults(defineProps<{
   status?: HummingCaptureStatus;
@@ -125,6 +125,33 @@ const emit = defineEmits<{
   selectTake: [index: number];
 }>();
 
+// Tell the other fixed top notices where this feedback ends, so they sit below it.
+const root = ref<HTMLElement | null>(null);
+
+function publishFeedbackBottom() {
+  const feedback = root.value?.querySelectorAll(".humming-capture-transport__feedback") ?? [];
+  const noticeGap = 8;
+  let bottom = 0;
+  feedback.forEach((el) => {
+    bottom = Math.max(bottom, el.getBoundingClientRect().bottom + noticeGap);
+  });
+  setTopNoticeClearance(bottom);
+}
+
+watch(
+  () => [props.status, props.statusMessage, props.remainingSeconds <= 10, props.takeLabels.length],
+  () => nextTick(publishFeedbackBottom),
+  { flush: "post" },
+);
+onMounted(() => {
+  publishFeedbackBottom();
+  window.addEventListener("resize", publishFeedbackBottom);
+});
+onBeforeUnmount(() => {
+  window.removeEventListener("resize", publishFeedbackBottom);
+  setTopNoticeClearance(0);
+});
+
 function handleTakeSelection(event: Event) {
   emit("selectTake", Number((event.target as HTMLSelectElement).value));
 }
@@ -132,6 +159,9 @@ function handleTakeSelection(event: Event) {
 
 <style scoped>
 .humming-capture-transport {
+  --humming-primary-size: 28px;
+  --humming-cancel-size: 22.4px;
+
   position: fixed;
   z-index: 110;
   top: calc(env(safe-area-inset-top, 0px) + var(--s-5));
@@ -142,28 +172,31 @@ function handleTakeSelection(event: Event) {
 }
 
 .humming-capture-transport .humming-capture-transport__primary {
-  --button-size: 28px;
-  inline-size: 28px;
-  block-size: 28px;
+  --button-size: var(--humming-primary-size);
+  inline-size: var(--humming-primary-size);
+  block-size: var(--humming-primary-size);
 }
 
 .humming-capture-transport .humming-capture-transport__cancel {
-  --button-size: 22.4px;
-  inline-size: 22.4px;
-  block-size: 22.4px;
+  --button-size: var(--humming-cancel-size);
+  inline-size: var(--humming-cancel-size);
+  block-size: var(--humming-cancel-size);
 }
 
 .humming-capture-transport__cancel-slot {
   position: absolute;
   top: 50%;
-  left: calc(100% + var(--s-3));
+  /* Far enough out that the two keys' --hit-min touches meet without
+     overlapping: half of each touch, less half of each face. */
+  left: calc(100% + var(--hit-min) - (var(--humming-primary-size) + var(--humming-cancel-size)) / 2);
   display: flex;
   transform: translateY(-50%);
 }
 
 .humming-capture-transport__feedback {
   position: absolute;
-  top: calc(100% + var(--s-3));
+  /* Below the primary key's centred --hit-min touch, not just its face. */
+  top: calc(50% + var(--hit-min) / 2 + var(--s-2));
   left: 50%;
   display: grid;
   width: max-content;
@@ -193,8 +226,10 @@ function handleTakeSelection(event: Event) {
 }
 
 .humming-capture-transport__take-select {
-  height: 24px;
+  /* A take list is a field: at least the no-zoom text size and a full touch. */
+  min-block-size: var(--hit-min);
   padding: 0 var(--s-3);
+  font-size: var(--input-text-min);
 }
 
 .humming-capture-transport__status {

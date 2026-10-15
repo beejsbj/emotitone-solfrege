@@ -50,3 +50,16 @@ jobs:
           bun-version: 1.2.17
       - run: bun install --frozen-lockfile
       - run: bun run lint
+
+  bundle:
+    name: bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.17
+      - run: bun install --frozen-lockfile
+      # build includes the manifest-based lazy-boundary contract.
+      - run: bun run build

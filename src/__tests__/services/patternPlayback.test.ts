@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { manageAudioLifecycle } from "@/services/audioLifecycle";
 
 const mocks = vi.hoisted(() => ({ options: undefined as undefined | {
-  onToggle(started: boolean): void; beforeStart(): Promise<void>;
+  onToggle(started: boolean): void; beforeStart(): Promise<void>; beforeEval(): Promise<void>; prebake(): Promise<void>;
 }, context: Object.assign(new EventTarget(), { state: "interrupted", resume: vi.fn(), suspend: vi.fn() }) }));
 vi.mock("@strudel/core", () => ({ evalScope: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("@strudel/mini", () => ({}));
@@ -14,9 +14,12 @@ vi.mock("@strudel/codemirror", () => ({ StrudelMirror: class {
   stop() { mocks.options!.onToggle(false); }
 } }));
 vi.mock("@/services/superdoughAudio", () => ({
+  preparePatternSounds: vi.fn().mockResolvedValue(undefined),
+  setStrudelLaBasedMinor: vi.fn(),
   getAudioContext: () => mocks.context, initSuperdoughAudio: vi.fn(),
   stopStrudelVisuals: vi.fn(), emotitoneStrudelOutput: vi.fn(),
 }));
+import { preparePatternSounds } from "@/services/superdoughAudio";
 import { createPatternEditor, disposePatternEditor } from "@/services/patternPlayback";
 
 afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
@@ -35,6 +38,18 @@ it("resumes interrupted native playback and protects silent transport bars until
   const onToggle = vi.fn();
   const editor = createPatternEditor({ root: document.createElement("div"), initialCode: "", onDraw: vi.fn(), onToggle, onEvalError: vi.fn() });
   try {
+    await mocks.options!.prebake();
+    expect(preparePatternSounds).not.toHaveBeenCalled();
+    // Play waits until the sounds the pattern names are loaded for its renderer.
+    editor.code = "s('gm_celesta')";
+    let finishCatalog!: () => void;
+    vi.mocked(preparePatternSounds).mockImplementationOnce(() => new Promise<void>(resolve => { finishCatalog = resolve; }));
+    let started = false;
+    const starting = mocks.options!.beforeEval().then(() => { started = true; });
+    await vi.waitFor(() => expect(preparePatternSounds).toHaveBeenCalledWith("s('gm_celesta')"));
+    expect(started).toBe(false);
+    finishCatalog();
+    await starting;
     await mocks.options!.beforeStart();
     expect(mocks.context.resume).toHaveBeenCalledOnce();
     mocks.options!.onToggle(true);

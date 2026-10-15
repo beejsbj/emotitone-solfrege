@@ -4,10 +4,11 @@
     class="save-failure-notice"
     role="alert"
     data-testid="save-failure-notice"
+    :style="clearance ? { '--save-notice-clearance': `${clearance}px` } : undefined"
   >
     <button
       type="button"
-      class="save-failure-notice__button"
+      class="save-failure-notice__button touch-floor touch-floor--block"
       aria-label="Dismiss save warning"
       @click="dismissSaveFailure"
     >
@@ -18,13 +19,22 @@
 
 <script setup lang="ts">
 import Sticker from "@/components/primatives/Sticker";
+import { computed } from "vue";
+import { topNoticeClearance } from "@/composables/useTopNoticeClearance";
 import { dismissSaveFailure, saveFailureNotice } from "@/services/safeStorage";
+
+const clearance = computed(() => topNoticeClearance.value);
 </script>
 
 <style scoped>
 .save-failure-notice {
   position: fixed;
-  top: calc(env(safe-area-inset-top, 0px) + 12px);
+  /* Below the humming key's touch, and below its feedback when it shows any:
+     the transport publishes where that ends (viewport y), so the two never overlap. */
+  top: max(
+    calc(env(safe-area-inset-top, 0px) + var(--s-5) + var(--hit-min)),
+    var(--save-notice-clearance, 0px)
+  );
   /* Leave the corners to the top-menu handles, and sit under TopDrawer (100-102). */
   left: 56px;
   right: 56px;

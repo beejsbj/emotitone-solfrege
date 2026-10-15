@@ -64,7 +64,6 @@ describe("Hilbert Scope waveform source", () => {
   it("only consumes the analysis source supplied by the Stage", async () => {
     const context = {
       sampleRate: 48_000,
-      createGain: () => gain,
       createAnalyser: () => audioNode({
         fftSize: 0,
         frequencyBinCount: 128,

@@ -20,17 +20,17 @@ Use only the package scripts for checks (shared lock across worktrees; see AGENT
 **Audio is mid-migration.** The decision (spec, Decision 3) is to move off Strudel and superdough to the app's own AudioWorklet engine. Today both exist:
 
 - `src/audio/live/` is the worklet engine: `processor.ts` (render thread), `core.ts` (voices, scheduling, envelopes, band-limited oscillators), `bridge.ts` (main-thread commands and responses), `resampler.ts`. It plays live notes and play-style repeats/arpeggios from prepared sample banks.
-- Superdough still provides the AudioContext, master output and orbit effects (`src/services/audioRuntime.ts`, `superdoughAudio.ts`), and Strudel (`@strudel/*`, `useStrudel.ts`) still renders authored and recorded patterns. Patched dependencies live in `patches/`. Do not deepen the Strudel/superdough dependency; new audio work targets the worklet.
+- The app owns the AudioContext, master output and native room/delay buses (`src/services/audioRuntime.ts`, `src/audio/effects.ts`). The worklet filters per voice and feeds those buses through wet outputs. Superdough borrows the app graph, and Strudel (`@strudel/*`, `useStrudel.ts`) still renders authored and recorded patterns. Patched dependencies live in `patches/`. Do not deepen the Strudel/superdough dependency; new audio work targets the worklet.
 - `src/audio/voicePolicy.ts` and `liveShaping.ts` hold voice budgets and Shape-to-sound mapping. `src/services/live*.ts` is the live-play path; `playStyles.ts` is the main-thread play-style engine slated to move into the worklet.
 - Audio measurements run in `audio-lab/` (`bun run test:audio-browser`). Research and decisions: `docs/research/`.
 
-**Music theory.** `src/domain/harmony.ts` owns chord generation (see `src/domain/HARMONY.md`). `src/services/music.ts`, `src/data/` (scales, modes, solfège, instruments, default patterns) and Tonal.js supply theory. Names, syllables and intervals shown to the player must be correct in every key and mode; the target is that borrowed notes take chromatic solfège, but `superdoughAudio.ts` still returns the letter name there (the spec treats that as a false cue to fix).
+**Music theory.** `src/domain/harmony.ts` owns chord generation (see `src/domain/HARMONY.md`). `src/services/music.ts`, `src/data/` (scales, modes, solfège, instruments, default patterns) and Tonal.js supply theory. Names, syllables and intervals shown to the player must be correct in every key and mode; `src/domain/musicalIdentity.ts` derives spelling-aware chromatic solfège from the single vocabulary in `src/domain/solfege.ts`, including borrowed notes and chord members. Minor defaults to do-based; Settings → Deck → Learn offers a persisted la-based preference.
 
 **Phrase book.** `src/domain/phraseBook.ts` and `src/stores/phrases.ts`: one noun (Phrase) on four shelves with one open take. Everything played is kept; there is no record button. Rules: `docs/pattern-system-reimagined.md`. UI: `PhraseShelf`, `PatternReel`, `PatternStrip`.
 
 **Code Strip.** `src/components/uniques/CodeStrip/` is still a Strudel CodeMirror editor. The decision is to replace it with a read-only HighlightStrip plus "Open in Strudel"; `StrudelNotation.ts` writes the code text.
 
-**Looper ("Play is the loop").** In flight, not on `main`: brief in `docs/looper.md` (PR #138), domain #139, transport #140, Stage part #141, Play wiring #142. #137 and #140's Strudel transport are research under Decision 3; their receipts become the acceptance tests for a worklet transport. Check the open PRs before touching playback or phrase timing.
+**Looper ("Play is the loop").** In flight, not on `main`: brief in `docs/looper.md` (PR #138; until it merges, `git show origin/docs/looper-brief:docs/looper.md`), domain #139, transport #140, Stage part #141, Play wiring #142. #137 and #140's Strudel transport are research under Decision 3; their receipts become the acceptance tests for a worklet transport. Check the open PRs before touching playback or phrase timing.
 
 **Stage.** The canvas behind the instrument: `UnifiedVisualEffects.vue` with renderers in `src/composables/canvas/` (strings, blobs, harmonic geometry, Hilbert scope, ambient), driven by `stageRuntime.ts`. Music Color comes only from the numeric OKLCH core `src/services/musicColorCore.ts` and its gamut-mapped adapter `musicColor.ts`; never add a parallel colour calculation.
 
@@ -49,7 +49,7 @@ Use only the package scripts for checks (shared lock across worktrees; see AGENT
 - Keep reactive state minimal; derive with `computed`.
 - Primitives and compounds must not import stores (the design law; some existing violations are known and will be allowlisted, new ones are not acceptable).
 - Audio starts only after a user gesture. Track polyphony by note id and owner so a release cannot silence another contact.
-- Tests observe behaviour at the highest seam (rendered PCM, real stores, DOM events). Do not assert source text or a mock's canned answer. See `docs/testing.md`.
+- Tests observe behaviour at the highest seam (rendered PCM, real stores, DOM events). Source assertions may protect meaningful architecture contracts (imports, routing, lineage); avoid incidental text such as comments or variable spelling and a mock's canned answer. See `docs/testing.md`.
 
 ## Where the history is
 

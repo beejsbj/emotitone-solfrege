@@ -8,6 +8,7 @@ import designLaw from "./lint/eslintPluginDesignLaw.mjs";
 import {
   BRAND_ZONE,
   IMPORT_BOUNDARY_SCOPE,
+  PRIMITIVES_DIR,
   PLAYING_ZONE_IGNORE,
   SOURCE_EXTENSIONS,
   playingZoneGlobs,
@@ -31,6 +32,13 @@ const designLawConfigs = [
     plugins: { "design-law": designLaw },
     rules: { "design-law/no-brand-colour": "error", "design-law/no-raw-colour": "error" },
   },
+  {
+    // Use the primitives: playing-zone components build buttons with the Button primitive.
+    files: playingZoneGlobs(SOURCE_EXTENSIONS),
+    ignores: [...PLAYING_ZONE_IGNORE, ...BRAND_ZONE, `${PRIMITIVES_DIR}/**`],
+    plugins: { "design-law": designLaw },
+    rules: { "design-law/no-bespoke-button": "error" },
+  },
 ];
 
 export default [
@@ -44,9 +52,8 @@ export default [
   },
   {
     // Excluded from vue-tsc and only transpiled by Vitest, so nothing else checks names
-    // here. Keep no-undef as a warning (not error): it cannot tell DOM *type* names from
-    // values, hence the listed type globals, and it flags one real undefined `gain`
-    // in useHilbertScopeLiveAudio.test.ts (BJS-481 to fix and promote to "error").
+    // here. Undefined names must fail lint. The listed DOM type globals avoid
+    // false positives because no-undef cannot distinguish types from values.
     files: ["src/**/__tests__/**/*.ts", "src/**/*.test.ts", "src/**/*.spec.ts", "src/test-setup.ts"],
     languageOptions: {
       globals: {
@@ -62,7 +69,7 @@ export default [
         RecordingState: "readonly",
       },
     },
-    rules: { "no-undef": "warn" },
+    rules: { "no-undef": "error" },
   },
   {
     // Plain JS/MJS (scripts/, audio-lab/) is outside tsconfig, so keep no-undef there.

@@ -1,5 +1,6 @@
 import processorUrl from './processor.ts?worker&url'
 import type { LiveCommand, LiveResponse, LiveWorklet } from './types'
+import { pcmTransferList } from './pcm'
 
 let engineSerial = 0
 
@@ -8,13 +9,14 @@ import type { LiveRendererCallbacks as LiveWorkletCallbacks } from '../liveRende
 
 /** Installs one persistent mixer. Input messages never wait for a beat timer. */
 export async function createLiveWorklet(context: AudioContext, destination: AudioNode,
-  callbacks: LiveWorkletCallbacks): Promise<LiveWorklet> {
+  callbacks: LiveWorkletCallbacks, sends?: { room: AudioNode; delay: AudioNode }): Promise<LiveWorklet> {
   await context.audioWorklet.addModule(processorUrl)
   const node = new AudioWorkletNode(context, 'emotitone-live', {
-    numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2], channelCount: 2,
+    numberOfInputs: 0, numberOfOutputs: 3, outputChannelCount: [2, 2, 2], channelCount: 2,
     processorOptions: { instanceId: `worklet-${Date.now()}-${++engineSerial}` },
   })
-  node.connect(destination)
+  node.connect(destination, 0)
+  if (sends) { node.connect(sends.room, 1); node.connect(sends.delay, 2) }
   let disposed = false
   let inbox: LiveResponse[] = []
   let drainQueued = false
@@ -31,9 +33,12 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
     rejectPending(error)
     try { callbacks.onError?.(error) } finally { dispose() }
   }
-  function post(command: LiveCommand) {
+  function post(command: LiveCommand, transfer: Transferable[] = []) {
     if (disposed) return
-    try { node.port.postMessage(command) } catch (error) {
+    try {
+      if (transfer.length) node.port.postMessage(command, transfer)
+      else node.port.postMessage(command)
+    } catch (error) {
       fail(error instanceof Error ? error : new Error(String(error)))
     }
   }
@@ -125,9 +130,11 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
           reject(new Error('Live audio instrument preparation was not acknowledged'))
         }, 5000)
         pending.set(id, { resolve, reject, timer })
-        // Structured cloning preserves borrowed AudioBuffer memory used by
-        // the fallback renderer and by the prepared instrument cache.
-        post({ type: 'prepare', requestId: id, instrument })
+        // Transfer, never clone: the worklet takes the loader's owned PCM and
+        // the main thread's views detach, leaving one copy. Every zone channel
+        // and pyramid level is its own ArrayBuffer, so no single buffer is
+        // larger than one channel of one zone.
+        post({ type: 'prepare', requestId: id, instrument }, pcmTransferList(instrument))
       })
     },
     forget(instrumentId) {
@@ -147,6 +154,7 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
     setGain: (ownerId, gain) => post({ type: 'gain-expression', ownerId, gain }),
     release: ownerId => post({ type: 'release', ownerId }),
     configure: config => post({ type: 'configure', config }),
+    effects: shaping => post({ type: 'effects', shaping }),
     shape: envelope => post({ type: 'shape', envelope }),
     clear: () => post({ type: 'clear' }),
     dispose,

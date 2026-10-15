@@ -145,7 +145,7 @@ import {
   type HarmonyAlteration,
   type HarmonyChord,
 } from "@/domain/harmony";
-import { spellPitch } from "@/domain/musicalIdentity";
+import { spellPitch, spelledPitchSolfege } from "@/domain/musicalIdentity";
 import { createVoiceGroupLifecycle } from "@/services/inputVoiceGroups";
 import {
   KEYBOARD_PAGE_EDITION_SEED,
@@ -279,32 +279,44 @@ const emit = defineEmits<{
   chordGainChange: [intent: KeyboardChordIntent & { gain: number }];
 }>();
 
+const romanDegrees = [
+  "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII",
+];
+const degreeLabel = (number: number) => romanDegrees[number - 1] ?? String(number);
+
 function chordMembers(
   chord: HarmonyChord,
   mode: MusicalMode,
   key: ChromaticNote,
   surfaceStyle: NoteSurfaceStyle,
+  primary: NoteLabel,
   keyBrightness = 1,
   keySaturation = 1,
+  laBasedMinor = false,
 ): ChordMember[] {
-  return chord.voicing.pitches.map((pitch, voicingOrder) => ({
-    id: `${chord.id}:${pitch.name}:${voicingOrder}`,
-    rawPitch: pitch.label,
-    primary: "raw",
-    visibleLabels: ["raw"],
-    scaleIndex: pitch.scaleIndex ?? chord.degreeIndex,
-    pitchClassIndex: pitch.pitchClassIndex,
-    octave: pitch.octave,
-    mode,
-    musicKey: key,
-    surfaceStyle,
-    accidental: pitch.pitchClass.includes("#"),
-    keyBrightness,
-    keySaturation,
-    voicingOrder,
-    // Playable keys retain musical identity at rest; CodeStrip owns temporal progress.
-    progress: 1,
-  }));
+  return chord.voicing.pitches.map((pitch, voicingOrder) => {
+    const label = primary === "degree" && pitch.scaleIndex === null ? "raw" : primary;
+    return {
+      id: `${chord.id}:${pitch.name}:${voicingOrder}`,
+      rawPitch: pitch.label,
+      syllable: spelledPitchSolfege(pitch.label, { tonic: key, mode }, laBasedMinor),
+      degree: pitch.scaleIndex === null ? undefined : degreeLabel(pitch.scaleIndex + 1),
+      primary: label,
+      visibleLabels: [label],
+      scaleIndex: pitch.scaleIndex ?? chord.degreeIndex,
+      pitchClassIndex: pitch.pitchClassIndex,
+      octave: pitch.octave,
+      mode,
+      musicKey: key,
+      surfaceStyle,
+      accidental: pitch.pitchClass.includes("#"),
+      keyBrightness,
+      keySaturation,
+      voicingOrder,
+      // Playable keys retain musical identity at rest; CodeStrip owns temporal progress.
+      progress: 1,
+    };
+  });
 }
 
 function createProductionWiring() {
@@ -332,10 +344,6 @@ function createProductionWiring() {
     computed(() => props.harmonyAlteration),
   );
 
-  const romanDegrees = [
-    "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII",
-  ];
-  const degreeLabel = (number: number) => romanDegrees[number - 1] ?? String(number);
   const noteKey = (scaleIndex: number, octave: number) => `${scaleIndex}_${octave}`;
   /** Sharps-only scientific pitch: the internal key the store attacks. */
   const noteName = (scaleIndex: number, octave: number) =>
@@ -416,8 +424,10 @@ function createProductionWiring() {
           snapshot?.mode ?? musicStore.currentMode,
           snapshot?.key ?? currentMusicKey.value,
           surfaceStyle.value,
+          config.value.primaryLabel,
           config.value.keyBrightness,
           config.value.keySaturation,
+          musicStore.laBasedMinor,
         ),
         pressed: Boolean(snapshot) || store.isKeyPressed(`chord:${harmony.id}`),
         orphaned: false,
@@ -439,8 +449,10 @@ function createProductionWiring() {
         snapshot.mode,
         snapshot.key,
         surfaceStyle.value,
+        config.value.primaryLabel,
         config.value.keyBrightness,
         config.value.keySaturation,
+        musicStore.laBasedMinor,
       ),
       pressed: true,
       orphaned: true,
@@ -698,6 +710,7 @@ const renderChords = computed<KeyboardChordView[]>(() =>
       resolvedScaleType.value,
       resolvedTonic.value,
       resolvedSurfaceStyle.value,
+      resolvedPrimaryLabel.value,
     ),
     pressed: false,
     orphaned: false,

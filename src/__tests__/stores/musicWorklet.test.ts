@@ -79,6 +79,26 @@ afterEach(() => {
 });
 
 describe("music store production worklet integration", () => {
+  it.each([true, false])('records performed velocity through the prepared/fallback path (prepared: %s)', async prepared => {
+    if (!prepared) vi.mocked(getLivePlayback).mockReturnValue(null);
+    const phrases = recorder();
+    const music = useMusicStore();
+    for (const [index, velocity] of [19 / 127, 113 / 127].entries()) {
+      const owner = await music.attackExactPitch('C4', () => false, velocity);
+      expect(owner).toBeTruthy();
+      if (prepared) {
+        worklet.listener!.onEvent({ ...event(owner!, `velocity-${index}`, 'attack', 12 + index * .3), velocity });
+        worklet.listener!.onEvent({ ...event(owner!, `velocity-${index}`, 'release', 12 + index * .3 + .2), velocity });
+      } else {
+        await vi.advanceTimersByTimeAsync(200);
+      }
+      await music.releaseNote(owner!);
+      await vi.advanceTimersByTimeAsync(100);
+    }
+    expect(phrases.takeNotes.map(note => note.velocity)).toEqual([19 / 127, 113 / 127]);
+    expect(events('note-played').map(event => event.velocity)).toEqual([19 / 127, 113 / 127]);
+  });
+
   it.each(["suspended", "interrupted"])("resumes once per wake event including holdPitch from %s", async state => {
     Object.defineProperty(context, "state", { configurable: true, value: state, writable: true });
     let finish!: () => void;

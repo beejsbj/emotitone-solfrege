@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { HARMONIC_CHROMATIC_INTERVALS, getSolfegeLabelForInterval } from "@/domain/musicalIdentity";
 import { computed, ref } from "vue";
 import { Keyboard as KeyboardIcon } from "lucide-vue-next";
 import { instrumentIconFor } from "@/components/primatives/instrumentIcon";
@@ -38,7 +39,7 @@ function resizeKeyboard(contentHeight: number) {
 const rows = computed(() => Array.from({ length: rowCount.value }, (_, index) => {
   const octave = 4 + Math.floor(rowCount.value / 2) - index;
   return { octave, keys: CHROMATIC_NOTES.map((pitch, degree) => ({
-    id: `${pitch}${octave}`, rawPitch: `${pitch}${octave}`, syllable: ["Do", "Ra", "Re", "Me", "Mi", "Fa", "Se", "Sol", "Le", "La", "Te", "Ti"][degree],
+    id: `${pitch}${octave}`, rawPitch: `${pitch}${octave}`, syllable: getSolfegeLabelForInterval(HARMONIC_CHROMATIC_INTERVALS[degree]),
     degree: String(degree + 1), scaleIndex: degree, pitchClassIndex: degree,
   })) };
 }));

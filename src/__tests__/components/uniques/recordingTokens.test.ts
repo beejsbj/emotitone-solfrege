@@ -121,19 +121,23 @@ describe("CodeStrip recorded-token metadata", () => {
     expect(chord.members.every((member) => member.progress == null)).toBe(true);
   });
 
-  it("renders borrowed exact pitches as raw chromatic identities", () => {
+  it.each([
+    ["solfege", "syl", "Me", "syllable"],
+    ["degree", "raw", "D#4", "raw"],
+    ["note", "raw", "D#4", "raw"],
+  ] as const)("renders borrowed exact pitches in %s notation", (notation, glyph, text, primary) => {
     const borrowed = {
       ...note("borrowed", "D#4", -1, 4, 1000, 500),
       scaleDegree: 0,
       pitchClassIndex: 3,
       isBorrowed: true,
     };
-    const single = tokens([borrowed], "solfege")[0];
+    const single = tokens([borrowed], notation)[0];
 
     expect(single).toMatchObject({
       type: "note",
-      glyph: "raw",
-      text: "D#4",
+      glyph,
+      text,
       rawPitch: "D#4",
       scaleIndex: -1,
       pitchClassIndex: 3,
@@ -142,15 +146,27 @@ describe("CodeStrip recorded-token metadata", () => {
     const chord = tokens([
       note("root", "C4", 0, 4, 1000, 500),
       borrowed,
-    ])[0];
+    ], notation)[0];
     if (chord.type !== "chord") throw new Error("Expected chord token");
     expect(chord.members[1]).toMatchObject({
       rawPitch: "D#4",
-      primary: "raw",
-      visibleLabels: ["raw"],
+      primary,
+      visibleLabels: [primary],
+      syllable: "Me",
       scaleIndex: -1,
       pitchClassIndex: 3,
     });
+  });
+
+  it("names an E-major chord in C as Mi Si Ti using the chord spelling", () => {
+    const result = tokens([
+      note("e", "E4", 2, 4, 0, 500),
+      note("g", "G#4", -1, 4, 0, 500),
+      note("b", "B4", 6, 4, 0, 500),
+    ])[0];
+    if (result.type !== "chord") throw new Error("Expected chord");
+    expect(result.members.map((member) => member.syllable)).toEqual(["Mi", "Si", "Ti"]);
+    expect(result.members.every((member) => member.primary === "syllable")).toBe(true);
   });
 
   it("always preserves Rest semantics for the CodeMirror source map", () => {

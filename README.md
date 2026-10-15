@@ -11,6 +11,12 @@ It is built around four things only this instrument does:
 
 It began as a feeling-building app for solfège, then absorbed its author's own tool for sketching melodies quickly. You can play with touch, a computer keyboard, MIDI, or by humming. A canvas behind the keys draws what you play.
 
+## Solfège
+
+Keys, chord members, phrase contours and Stage cues share spelling-aware movable-do syllables, including borrowed notes. A raised fourth is Fi; a lowered fifth is Se. Minor is do-based by default: Do Re Me Fa Sol Le Te.
+
+In **Settings → Deck → Learn**, turn on **La-based minor** for La Ti Do Re Mi Fa Sol. This saved preference applies to natural, harmonic, melodic, pentatonic and blues minor; other modes remain do-based. Existing saves default to do-based. It changes labels, not pitches, recordings or Music Color.
+
 ## Run it
 
 Requires [Bun](https://bun.sh) and Node 22.

@@ -104,6 +104,7 @@ vi.mock("@/services/StrudelNotation", () => ({
 vi.mock("@/services/superdoughAudio", () => ({
   initSuperdoughAudio: vi.fn().mockResolvedValue(undefined),
   getAudioContext: () => mocks.audioContext,
+  setStrudelLaBasedMinor: vi.fn(),
   emotitoneStrudelOutput: vi.fn(),
   stopStrudelVisuals: vi.fn(),
 }));

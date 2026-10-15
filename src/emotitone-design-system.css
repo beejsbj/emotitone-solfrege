@@ -105,6 +105,17 @@
   --s-5: 12px; --s-6: 16px; --s-7: 20px; --s-8: 24px;
   --s-9: 32px; --s-10: 48px; --s-11: 64px;
 
+  /* Touch floor: every control takes at least this much touch, whatever its
+     face looks like. Smaller faces carry an invisible hit area centred on
+     them (.touch-floor); dense rows make room for it with spacing, never by
+     overlapping. --control-sm is the small control face (Button sm, Config's
+     toggles); --hit-gap-sm is the gap at which two of them have touches that
+     meet (with a 1px seam that absorbs hit-test pixel snapping), and half of
+     it is the room one needs from an edge that clips. */
+  --hit-min: 44px;
+  --control-sm: 32px;
+  --hit-gap-sm: calc(var(--hit-min) - var(--control-sm) + 1px);
+
   /* Edges are crisp. The poster aesthetic doesn't bevel, blur or round much. */
   --r-xs: 4px;
   --r-sm: 8px;
@@ -285,6 +296,10 @@
   --t-body-mono:  450 14px/1.55 var(--font-mono);     /* long body */
   --t-body-s-mono:450 12px/1.50 var(--font-mono);     /* long small body */
 
+  /* Text fields never render under this: iOS zooms the page when a focused
+     field's text is smaller. */
+  --input-text-min: 16px;
+
   --tracking-display: 0.01em;
   --tracking-label:   0.14em;
 }
@@ -361,6 +376,26 @@
       close
     );
   }
+}
+
+/* Touch floor. A control drawn smaller than --hit-min takes a --hit-min touch
+   through an invisible layer centred on its face; the face keeps its look.
+   --block grows only the height, for controls that sit edge to edge in a
+   row. The layer is the control's own ::before. */
+.touch-floor { position: relative; }
+.touch-floor::before {
+  content: "";
+  position: absolute;
+  inset: min(0px, (100% - var(--hit-min)) / 2);
+}
+.touch-floor--block::before { inset-inline: 0; }
+
+/* Bare text fields start at the no-zoom floor; a component that styles its
+   field sets the size itself and must stay at or above the token. */
+input,
+select,
+textarea {
+  font-size: max(var(--input-text-min), 1em);
 }
 
 /* Cut-tab slide (Persona-5 style swap) */

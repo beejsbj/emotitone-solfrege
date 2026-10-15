@@ -378,3 +378,28 @@ export function sampleMusicColor(
     primary: valueForOklch(primary),
   };
 }
+
+function srgbChannelToLinear(channel: number): number {
+  return channel <= 0.04045
+    ? channel / 12.92
+    : ((channel + 0.055) / 1.055) ** 2.4;
+}
+
+/** WCAG 2 relative luminance of an opaque sRGB colour; alpha is ignored. */
+export function relativeLuminance(
+  color: Pick<SrgbColor, "r" | "g" | "b">,
+): number {
+  return 0.2126 * srgbChannelToLinear(color.r) +
+    0.7152 * srgbChannelToLinear(color.g) +
+    0.0722 * srgbChannelToLinear(color.b);
+}
+
+/** WCAG 2 contrast ratio between two opaque sRGB colours, from 1 to 21. */
+export function contrastRatio(
+  a: Pick<SrgbColor, "r" | "g" | "b">,
+  b: Pick<SrgbColor, "r" | "g" | "b">,
+): number {
+  const first = relativeLuminance(a);
+  const second = relativeLuminance(b);
+  return (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
+}

@@ -211,29 +211,58 @@ describe("CodeStrip event rendering", () => {
     expect(wrapper.findAll(".code-strip__duration-mark")).toHaveLength(0);
   });
 
-  it("keeps durations beyond one bar bounded and visibly distinct", () => {
+  it("shows a length past one bar as a hold after its stems, never as a number", () => {
     const wrapper = mount(CodeStripSequence, {
       props: {
         durationMode: "bar",
         tokens: [
           { type: "note", note: "do", text: "Do", duration: "@1.5" },
           { type: "note", note: "re", text: "Re", duration: "@2" },
+          { type: "rest", duration: "@2.1449" },
+          { type: "rest", duration: "@7" },
         ],
       },
     });
 
+    // No duration figure anywhere on the line.
+    expect(wrapper.text()).not.toMatch(/[0-9×]/);
+    // The first bar is stems, as for any event; the bars past it are a hold.
     const bars = wrapper.findAll(".code-strip__duration-bar");
-    expect(bars.map((bar) => bar.attributes("style"))).toEqual([
-      "--code-strip-duration-ratio: 1;",
-      "--code-strip-duration-ratio: 1;",
-    ]);
+    expect(bars.map((bar) => bar.findAll(".code-strip__duration-mark").length)).toEqual([16, 16, 16, 16]);
+    const holds = wrapper.findAll(".code-strip__duration-hold");
+    expect(holds.map((hold) => (hold.element as HTMLElement).style.getPropertyValue("--code-strip-hold-bars")))
+      .toEqual(["0.5", "1", String(2.1449 - 1), "4"]);
+    // A barline marks each whole bar held, up to the rail's cap.
+    expect(holds.map((hold) => hold.findAll(".code-strip__duration-hold-bar").length)).toEqual([0, 1, 1, 4]);
+    // Longer than the rail can show: it fades out at its end instead of growing.
+    expect(holds.map((hold) => hold.classes("code-strip__duration-hold--fades"))).toEqual([false, false, false, true]);
     expect(bars.map((bar) => bar.attributes("aria-label"))).toEqual([
       "Duration proportion: 1.5",
       "Duration proportion: 2",
+      "Duration proportion: 2.14",
+      "Duration proportion: 7",
     ]);
-    expect(wrapper.findAll(".code-strip__duration-overflow").map((cue) => cue.text()))
-      .toEqual(["×1.5", "×2"]);
-    expect(wrapper.findAll(".code-strip__duration-mark")).toHaveLength(32);
+  });
+
+  it("lights a long event's stems over its first bar and its hold over the rest", () => {
+    const at = (progress: number) => {
+      const wrapper = mount(CodeStripSequence, {
+        props: {
+          durationMode: "bar",
+          tokens: [{ type: "note", note: "do", text: "Do", duration: "@2", progress }],
+        },
+      });
+      const hold = wrapper.get(".code-strip__duration-hold");
+      return {
+        stems: wrapper.findAll(".code-strip__duration-mark--lit").length,
+        hold: Number((hold.element as HTMLElement).style.getPropertyValue("--code-strip-hold-progress")),
+        barline: hold.get(".code-strip__duration-hold-bar").classes("code-strip__duration-hold-bar--lit"),
+      };
+    };
+
+    expect(at(0.25)).toEqual({ stems: 8, hold: 0, barline: false });
+    expect(at(0.75)).toEqual({ stems: 16, hold: 0.5, barline: false });
+    expect(at(1)).toEqual({ stems: 16, hold: 1, barline: true });
   });
 
   it("exposes density without changing notation anatomy", async () => {

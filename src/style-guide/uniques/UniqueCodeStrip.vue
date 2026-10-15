@@ -30,7 +30,7 @@
       <VariantCell caption="Bar &middot; 3/4 split proportional bar &middot; Rest included" stage="ink3">
         <CodeStrip duration-mode="bar" time-signature="3/4" :tokens="durationSequence" />
       </VariantCell>
-      <VariantCell caption="Bar &middot; implicit base 1 and bounded &times; overflow" stage="ink3">
+      <VariantCell caption="Bar &middot; implicit base 1 and holds past one bar" stage="ink3">
         <CodeStrip duration-mode="bar" time-signature="4/4" :tokens="durationEdgeSequence" />
       </VariantCell>
       <VariantCell caption="Hidden &middot; rhythm unstamped" stage="ink3">
@@ -134,6 +134,7 @@ const durationEdgeSequence: CodeStripToken[] = [
   { type: "note", note: "do", text: "Do", progress: 1 },
   { type: "chord", symbol: "Cmaj7", members: chordMembers(.55), duration: "@1.5" },
   { type: "rest", duration: "@2", progress: .3 },
+  { type: "note", note: "sol", text: "Sol", duration: "@6", progress: 1 },
 ];
 
 const restTokens = (progress: number): CodeStripToken[] => [
@@ -206,9 +207,9 @@ const features = [
   { label: "Composition", value: "Note primitive + accepted Chord compound + CodeStrip-local Rest" },
   { label: "Glyph", value: "3:4 Note proportion · 27.2–33.6px host scale" },
   { label: "Chord", value: "symbol → fused · notes → clustered" },
-  { label: "Rest", value: "slim gap in the staff · Ivory bottom-to-top fill · no duration tag" },
+  { label: "Rest", value: "slim empty slot in the staff, outlined at rest · Ivory bottom-to-top fill as it passes · no duration tag" },
   { label: "Progress", value: "native Strudel source locations · Play resets to Ink · highlight reveals color/Ivory" },
-  { label: "Duration", value: "stacked text, Stave stems (one per meter segment, each lighting as playback enters its segment), or hidden" },
+  { label: "Duration", value: "stacked text, Stave stems (one per meter segment of the first bar, each lighting as playback enters its segment) with a hold rail past one bar (a short step and barline per further bar, capped at four, fading beyond), or hidden" },
   { label: "Stave", value: "hairline staff · brackets as barlines · punctuation recedes while unfocused · Ivory selection" },
   { label: "Density", value: "dense, default, or spaced" },
   { label: "Document", value: "read-only · generated code with a span per note id · lit by note events, not edited" },

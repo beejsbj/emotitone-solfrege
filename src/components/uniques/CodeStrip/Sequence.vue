@@ -35,10 +35,20 @@
               ></span>
             </span>
             <span
-              v-if="durationMode === 'bar' && durationOverflowLabel(token.duration)"
-              class="code-strip__duration-overflow"
+              v-if="durationMode === 'bar' && holdBars(token.duration) > 0"
+              class="code-strip__duration-hold"
+              :class="{ 'code-strip__duration-hold--fades': holdBars(token.duration) > HOLD_MAX_BARS }"
+              :style="holdStyle(token)"
               aria-hidden="true"
-            >{{ durationOverflowLabel(token.duration) }}</span>
+            >
+              <span
+                v-for="barIndex in holdBarlines(token.duration)"
+                :key="barIndex"
+                class="code-strip__duration-hold-bar"
+                :class="{ 'code-strip__duration-hold-bar--lit': isHoldBarLit(token, barIndex) }"
+                :style="{ '--code-strip-hold-at': barIndex }"
+              ></span>
+            </span>
           </span>
           <span v-if="durationMode === 'stacked' && token.duration" class="code-strip__stack-duration">
             {{ token.duration }}
@@ -81,10 +91,20 @@
               ></span>
             </span>
             <span
-              v-if="durationMode === 'bar' && durationOverflowLabel(token.duration)"
-              class="code-strip__duration-overflow"
+              v-if="durationMode === 'bar' && holdBars(token.duration) > 0"
+              class="code-strip__duration-hold"
+              :class="{ 'code-strip__duration-hold--fades': holdBars(token.duration) > HOLD_MAX_BARS }"
+              :style="holdStyle(token)"
               aria-hidden="true"
-            >{{ durationOverflowLabel(token.duration) }}</span>
+            >
+              <span
+                v-for="barIndex in holdBarlines(token.duration)"
+                :key="barIndex"
+                class="code-strip__duration-hold-bar"
+                :class="{ 'code-strip__duration-hold-bar--lit': isHoldBarLit(token, barIndex) }"
+                :style="{ '--code-strip-hold-at': barIndex }"
+              ></span>
+            </span>
           </span>
           <span v-if="durationMode === 'stacked' && token.duration" class="code-strip__stack-duration">
             {{ token.duration }}
@@ -123,10 +143,20 @@
               ></span>
             </span>
             <span
-              v-if="durationMode === 'bar' && durationOverflowLabel(token.duration)"
-              class="code-strip__duration-overflow"
+              v-if="durationMode === 'bar' && holdBars(token.duration) > 0"
+              class="code-strip__duration-hold"
+              :class="{ 'code-strip__duration-hold--fades': holdBars(token.duration) > HOLD_MAX_BARS }"
+              :style="holdStyle(token)"
               aria-hidden="true"
-            >{{ durationOverflowLabel(token.duration) }}</span>
+            >
+              <span
+                v-for="barIndex in holdBarlines(token.duration)"
+                :key="barIndex"
+                class="code-strip__duration-hold-bar"
+                :class="{ 'code-strip__duration-hold-bar--lit': isHoldBarLit(token, barIndex) }"
+                :style="{ '--code-strip-hold-at': barIndex }"
+              ></span>
+            </span>
           </span>
         </span>
 
@@ -213,17 +243,47 @@ const durationBarStyle = (duration: string | undefined) => ({
   "--code-strip-duration-ratio": Math.min(1, durationAmount(duration)),
 });
 
-const formatDurationAmount = (amount: number) => amount.toString();
+/** At most two decimals: a recorded length is a measurement, not a spec. */
+const formatDurationAmount = (amount: number) => Number(amount.toFixed(2)).toString();
 
 const durationBarLabel = (duration: string | undefined) => {
   const amount = durationAmount(duration);
   return `Duration proportion: ${formatDurationAmount(amount)}`;
 };
 
-const durationOverflowLabel = (duration: string | undefined) => {
-  const amount = durationAmount(duration);
-  return amount > 1 ? `×${formatDurationAmount(amount)}` : "";
+/**
+ * Past one bar, an event holds: a rail runs on after its stems, one short
+ * step per further bar, with a barline at each whole bar. The steps are a
+ * quarter of a bar's stems, so a long note reads long without crowding the
+ * line, and the rail stops growing at HOLD_MAX_BARS; anything longer fades out
+ * at its end instead of growing further.
+ */
+const HOLD_MAX_BARS = 4;
+
+const holdBars = (duration: string | undefined) => Math.max(0, durationAmount(duration) - 1);
+
+const holdBarlines = (duration: string | undefined) =>
+  Math.min(HOLD_MAX_BARS, Math.floor(holdBars(duration) + 1e-6));
+
+/** Bars of the hold already passed, from 0 to its full length. */
+const holdPassed = (token: CodeStripToken) => {
+  const hold = holdBars("duration" in token ? token.duration : undefined);
+  if (hold <= 0) return 0;
+  return Math.min(hold, Math.max(0, eventProgress(token) * (hold + 1) - 1));
 };
+
+const holdStyle = (token: CodeStripToken) => {
+  const shown = Math.min(HOLD_MAX_BARS, holdBars("duration" in token ? token.duration : undefined));
+  return {
+    "--code-strip-hold-bars": shown,
+    // The rail is real time: past its end, a longer hold waits there fully lit.
+    "--code-strip-hold-progress": shown > 0 ? Math.min(1, holdPassed(token) / shown) : 0,
+  };
+};
+
+/** A hold's barline lights as playback crosses its bar. */
+const isHoldBarLit = (token: CodeStripToken, barIndex: number) =>
+  holdPassed(token) >= barIndex - 1e-6;
 
 const meter = computed(() => {
   const [rawNumerator, rawDenominator] = props.timeSignature.split("/").map(Number);
@@ -256,10 +316,15 @@ const eventProgress = (token: CodeStripToken) => {
  */
 const isStemLit = (token: CodeStripToken, markIndex: number) => {
   // An omitted duration is the implicit base 1, not "no stems".
+  const duration = token.type === "note" || token.type === "chord" || token.type === "rest"
+    ? token.duration
+    : undefined;
   const segments = token.type === "note" || token.type === "chord" || token.type === "rest"
-    ? durationMarks(token.duration)
+    ? durationMarks(duration)
     : 0;
-  return eventProgress(token) * segments > markIndex - 1;
+  // Past one bar the stems are the first bar only; the hold carries the rest.
+  const bars = Math.max(1, durationAmount(duration));
+  return eventProgress(token) * bars * segments > markIndex - 1;
 };
 
 const isBeatBoundary = (markIndex: number) =>
@@ -465,13 +530,36 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
   height: 15px;
 }
 
-.code-strip__duration-overflow {
-  align-self: center;
-  color: var(--ivory-3);
-  font-size: 9px;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-  white-space: nowrap;
+/* Hold: past one bar, a rail runs on from the stems, a quarter of a bar's
+   stems per further bar, with a beat-height barline at each whole bar. It
+   lights from the left as the held time passes. */
+.code-strip__duration-hold {
+  --code-strip-hold-step: calc(var(--note-host-block-size) * .6);
+  position: relative;
+  flex: 0 0 auto;
+  width: max(4px, calc(var(--code-strip-hold-bars) * var(--code-strip-hold-step)));
+  height: 15px;
+  margin-inline-start: -1px;
+  background:
+    linear-gradient(var(--ivory), var(--ivory)) left center / calc(var(--code-strip-hold-progress) * 100%) 2px no-repeat,
+    linear-gradient(var(--ink-5), var(--ink-5)) left center / 100% 2px no-repeat;
+}
+
+/* Longer than the rail can show: its end fades instead of growing. */
+.code-strip__duration-hold--fades {
+  mask-image: linear-gradient(to right, var(--ink) calc(100% - var(--code-strip-hold-step)), transparent);
+}
+
+.code-strip__duration-hold-bar {
+  position: absolute;
+  inset-block: 0;
+  left: calc(var(--code-strip-hold-at) * var(--code-strip-hold-step) - 1px);
+  width: 2px;
+  background: var(--ink-5);
+}
+
+.code-strip__duration-hold-bar--lit {
+  background: var(--ivory);
 }
 
 /* Stave: brackets survive as barlines; separators recede into the staff. */
@@ -558,6 +646,14 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
   }
 
   .code-strip__duration-mark--lit { background: CanvasText; }
+
+  .code-strip__duration-hold {
+    background: linear-gradient(GrayText, GrayText) left center / 100% 2px no-repeat;
+    forced-color-adjust: none;
+  }
+
+  .code-strip__duration-hold-bar { background: GrayText; forced-color-adjust: none; }
+  .code-strip__duration-hold-bar--lit { background: CanvasText; }
 
   .code-strip__bracket { background: CanvasText; }
   .code-strip__rest { border: 1px solid CanvasText; }

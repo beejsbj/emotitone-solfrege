@@ -18,6 +18,7 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
   node.connect(destination, 0)
   if (sends) { node.connect(sends.room, 1); node.connect(sends.delay, 2) }
   let disposed = false
+  let disposalTimer: ReturnType<typeof setTimeout> | undefined
   let inbox: LiveResponse[] = []
   let drainQueued = false
   const drainChannel = new MessageChannel()
@@ -67,8 +68,11 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
     }
   }
   node.port.onmessage = ({ data }: MessageEvent<LiveResponse | LiveResponse[]>) => {
-    if (disposed) return
     const responses = Array.isArray(data) ? data : [data]
+    if (disposed) {
+      if (responses.some(response => response.type === 'disposed')) closePort()
+      return
+    }
     if (!responses.length) return
     for (const response of responses) {
       if (response.type === 'prepared' || response.type === 'forgotten') {
@@ -101,6 +105,12 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
   }
   context.addEventListener?.('statechange', onStateChange)
 
+  function closePort() {
+    clearTimeout(disposalTimer)
+    node.port.onmessage = node.port.onmessageerror = null
+    node.port.close()
+  }
+
   function dispose() {
     if (disposed) return
     disposed = true
@@ -111,12 +121,14 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
     drainChannel.port2.close()
     // Release banks as well as voices; disconnected processors must not keep
     // their old PCM alive while the replacement generation is loaded.
-    try { node.port.postMessage({ type: 'dispose' } satisfies LiveProcessorCommand) } catch { /* best-effort shutdown */ }
+    // Closing immediately can discard the queued command. Keep delivery alive
+    // until receipt; a failed/closed processor still gets bounded port cleanup.
+    disposalTimer = setTimeout(closePort, 5000)
+    try { node.port.postMessage({ type: 'dispose' } satisfies LiveProcessorCommand) } catch { closePort() }
     rejectPending(new Error('Live audio worklet has been disposed'))
-    node.port.onmessage = node.port.onmessageerror = null
+    node.port.onmessageerror = null
     node.onprocessorerror = null
     context.removeEventListener?.('statechange', onStateChange)
-    node.port.close()
     node.disconnect()
   }
 

@@ -20,6 +20,9 @@ function setup() {
   })
   const node = { port: { postMessage: vi.fn(), close: vi.fn(), onmessage: null as any, onmessageerror: null as any },
     connect: vi.fn(), disconnect: vi.fn(), onprocessorerror: null as any }
+  node.port.postMessage.mockImplementation(command => {
+    if (command.type === 'dispose') node.port.onmessage?.({ data: { type: 'disposed' } })
+  })
   vi.stubGlobal('AudioWorkletNode', vi.fn(() => node))
   const context = { audioWorklet: { addModule: vi.fn().mockResolvedValue(undefined) }, state: 'suspended' } as any
   const callbacks = { onEvent: vi.fn(), onPlan: vi.fn(), onExpressionOwner: vi.fn(), onOwnerEnded: vi.fn(), onError: vi.fn() }
@@ -28,6 +31,40 @@ function setup() {
 }
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers() })
 describe('production live worklet bridge', () => {
+  it('keeps a real port alive until the production processor releases its PCM', async () => {
+    vi.resetModules()
+    const wire = new NodeMessageChannel()
+    vi.stubGlobal('MessageChannel', NodeMessageChannel)
+    vi.stubGlobal('sampleRate', 48000)
+    vi.stubGlobal('currentFrame', 0)
+    vi.stubGlobal('AudioWorkletProcessor', class { port = wire.port2 })
+    const register = vi.fn()
+    vi.stubGlobal('registerProcessor', register)
+    await import('./processor')
+    const Processor = register.mock.calls[0][1]
+    const processor = new Processor()
+    const close = vi.spyOn(wire.port1, 'close')
+    const node = { port: wire.port1, connect() {}, disconnect() {}, onprocessorerror: null }
+    vi.stubGlobal('AudioWorkletNode', vi.fn(() => node))
+    const context = { audioWorklet: { async addModule() {} }, state: 'running' } as unknown as AudioContext
+    const bridge = await createLiveWorklet(context, {} as AudioNode, { onEvent() {} })
+    try {
+      await bridge.prepare({ ...instrument, kind: 'sample-bank', zoneSelection: 'nearest-root',
+        zones: [{ id: 'z', rootMidi: 60, sampleRate: 48000, channels: [new Float32Array(1024).fill(.5)] }] })
+      bridge.press('finger', [{ pitch: 60, instrumentId: 'sine' }])
+      await vi.waitFor(() => {
+        const output = new Float32Array(128)
+        processor.process([], [[output]])
+        expect(output.some(value => value !== 0)).toBe(true)
+      })
+      bridge.dispose()
+      expect(close).not.toHaveBeenCalled()
+      await vi.waitFor(() => expect(close).toHaveBeenCalledOnce())
+      expect(processor.process([], [[new Float32Array(128)]])).toBe(false)
+      expect(processor.core).toBeUndefined()
+    } finally { bridge.dispose(); wire.port1.close(); wire.port2.close() }
+  })
+
   it('waits for instrument receipt, including with a suspended context', async () => {
     const { node, context, callbacks, drain } = setup()
     const bridge = await createLiveWorklet(context, {} as AudioNode, callbacks)
@@ -83,6 +120,19 @@ describe('production live worklet bridge', () => {
     expect(node.port.close).toHaveBeenCalledOnce()
     expect(vi.getTimerCount()).toBe(0)
   })
+  it('closes a retired port at the deadline when its processor cannot acknowledge', async () => {
+    vi.useFakeTimers()
+    const { context, callbacks, node } = setup()
+    node.port.postMessage.mockImplementation(() => {})
+    const bridge = await createLiveWorklet(context, {} as AudioNode, callbacks)
+    bridge.dispose()
+    expect(node.port.close).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(node.port.close).toHaveBeenCalledOnce()
+    expect(node.port.onmessage).toBeNull()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
   it('reports processor failure and relays timing events without a main-thread scheduler', async () => {
     const { context, callbacks, node, drain } = setup()
     const bridge = await createLiveWorklet(context, {} as AudioNode, callbacks)

@@ -47,6 +47,7 @@ export type LiveCommand =
   | { type: 'clear' }
 
 export type LiveResponse =
+  | { type: 'disposed' }
   | { type: 'prepared'; requestId: number }
   | { type: 'forgotten'; requestId: number }
   | { type: 'owner-ended'; ownerId: string }

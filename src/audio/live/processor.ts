@@ -20,6 +20,7 @@ class LivePlaybackProcessor extends AudioWorkletProcessor {
         this.core = undefined
         this.responses = []
         this.port.onmessage = null
+        this.port.postMessage({ type: 'disposed' } satisfies LiveResponse)
         return
       }
       try { this.core?.command(data, currentFrame) } finally { this.flushResponses() }

@@ -284,7 +284,8 @@ const bindings = new Map<string, Set<PersistedBinding<unknown>>>();
 
 /** The live binding for a store key, if one was created. */
 export function bindingFor(key: string): PersistedBinding<unknown> | undefined {
-  return Array.from(bindings.get(key) ?? []).at(-1);
+  const live = Array.from(bindings.get(key) ?? []);
+  return live[live.length - 1];
 }
 
 export function createPersistedBinding<T>(

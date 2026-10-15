@@ -46,7 +46,7 @@ describe("live styles through music, recording, and Strudel", () => {
     // Expected envelopes below are piano's percussive articulation. Pin it
     // instead of inheriting the app default instrument.
     useInstrumentStore().currentInstrument = "piano";
-    useVisualConfigStore().updateConfig("codeStrip", { bpm: 120 });
+    useVisualConfigStore().useEphemeralDefaults();
   });
 
   afterEach(() => {

@@ -78,6 +78,9 @@ export function createPatternTransport(options: PatternTransportOptions): Patter
   prebaked.catch(() => undefined);
   let frame: number | null = null;
   let evaluatingSpans: readonly NotationSpan[] = [];
+  // Set once this transport is disposed. An evaluation still in flight then
+  // neither publishes its spans nor starts its scheduler.
+  let disposed = false;
 
   const stopFrames = () => {
     if (frame !== null) cancelAnimationFrame(frame);
@@ -93,12 +96,13 @@ export function createPatternTransport(options: PatternTransportOptions): Patter
       await preparePatternSounds(transport.code);
     },
     beforeStart: async () => {
+      if (disposed) throw new Error("The pattern transport was disposed");
       await resumeAudioContext(getAudioContext());
     },
     // Called with the new pattern just before the scheduler receives it, so
     // the spans always describe the code whose haps are being triggered.
     editPattern: (pattern: unknown) => {
-      setSoundingNotationSpans(evaluatingSpans);
+      if (!disposed) setSoundingNotationSpans(evaluatingSpans);
       return pattern;
     },
     onToggle: (started: boolean) => {
@@ -141,7 +145,10 @@ export function createPatternTransport(options: PatternTransportOptions): Patter
   };
 
   activeTransport = transport;
-  disposeActiveTransport = stopFrames;
+  disposeActiveTransport = () => {
+    disposed = true;
+    stopFrames();
+  };
   return transport;
 }
 

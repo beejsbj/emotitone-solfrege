@@ -23,6 +23,7 @@ vi.mock("@/services/superdoughAudio", () => ({
 }));
 import { preparePatternSounds } from "@/services/superdoughAudio";
 import { createPatternTransport, disposePatternTransport } from "@/services/patternPlayback";
+import { soundingNoteIdForHap } from "@/services/notationSpans";
 
 afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
 it("resumes interrupted native playback and protects silent transport bars until stop", async () => {
@@ -62,4 +63,27 @@ it("resumes interrupted native playback and protects silent transport bars until
     await vi.advanceTimersByTimeAsync(30_250);
     expect(mocks.context.suspend).toHaveBeenCalledOnce();
   } finally { await disposePatternTransport(editor); stop(); }
+});
+
+it("refuses to publish or start from an evaluation that outlives its transport", async () => {
+  type Hooks = { editPattern(pattern: unknown): unknown; beforeStart(): Promise<void> };
+  const noteAt = () => soundingNoteIdForHap({ context: { locations: [{ start: 0, end: 1 }] } });
+  const stale = createPatternTransport({ initialCode: "", onFrame: vi.fn(), onToggle: vi.fn(), onEvalError: vi.fn() });
+  const staleHooks = mocks.options as unknown as Hooks;
+  stale.setCode("a", [{ noteId: "old", from: 0, to: 1 }]);
+  await stale.evaluate();
+  // Unmounted mid-evaluation; a new strip mounts and plays its own phrase.
+  await disposePatternTransport(stale);
+  const current = createPatternTransport({ initialCode: "", onFrame: vi.fn(), onToggle: vi.fn(), onEvalError: vi.fn() });
+  try {
+    current.setCode("a", [{ noteId: "new", from: 0, to: 1 }]);
+    await current.evaluate();
+    (mocks.options as unknown as Hooks).editPattern("pattern");
+    expect(noteAt()).toBe("new");
+
+    // The stale evaluation resumes: it must not relabel the new notes or start sounding.
+    staleHooks.editPattern("pattern");
+    expect(noteAt()).toBe("new");
+    await expect(staleHooks.beforeStart()).rejects.toThrow("disposed");
+  } finally { await disposePatternTransport(current); }
 });

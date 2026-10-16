@@ -2,7 +2,7 @@
   <AnatomyDisplay
     title="Tabs &middot; Chip-Slide and Marquee Primitive"
     :features="features"
-    caption="Chip-slide is the main tab presentation: a single chip tracks the active label while a dark streak holds the rail together. Marquee is its variant edition: no chip or box, a row of bulbs under every name, only the chosen one lit, chasing in the direction of travel. The source owns the rail, chip, bulbs, selected and disabled states, equal and scrolling layouts, density, and the shared page-load edition. Explicit specimens stay pinned; the specimen owns explanatory groupings only."
+    caption="Chip-slide is the main tab presentation: a single chip tracks the active label while a dark streak holds the rail together. Marquee is its variant edition: no chip or box, a row of bulbs under every name, only the chosen one lit, chasing in the direction of travel. The source owns the rail, chip, bulbs, selected and disabled states, equal and scrolling layouts, density, and the shared edition family. Explicit specimens stay pinned; the specimen owns explanatory groupings only."
   >
     <template #hero>
       <div class="hero-stage">
@@ -119,7 +119,7 @@ const features = [
   { label: "Tone", value: "ivory by default; brass is an ink-and-ivory instrument-metal treatment" },
   { label: "Density", value: "comfortable or compact label rhythm" },
   { label: "Layout", value: "equal-width or horizontally scrolling in every edition" },
-  { label: "Edition", value: "one guide variant shared by every unpinned Tabs instance per page load" },
+  { label: "Edition", value: "the edition family's Tabs edition, shared by every unpinned Tabs instance (Shuffle, Config pin, or ?edition=)" },
   { label: "State", value: "selected and disabled are source-owned tab states" },
   { label: "Boundary", value: "TabsContent retains content coordination; Tabs owns all presentation" },
 ];

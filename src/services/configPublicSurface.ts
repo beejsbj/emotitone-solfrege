@@ -1,3 +1,9 @@
+import {
+  isEditionLook,
+  PINNABLE_LOOKS,
+  SHUFFLE,
+  type EditionLook,
+} from "@/composables/useEditionFamily";
 import type {
   DynamicColorConfig,
   MusicColorMode,
@@ -8,7 +14,8 @@ export type GlobalControlId =
   | "musicColorMapping"
   | "colorIntensity"
   | "colorMotion"
-  | "uiRhythm";
+  | "uiRhythm"
+  | "edition";
 
 export type DeckControlId =
   | "notation"
@@ -30,6 +37,7 @@ export interface GlobalControls {
   colorIntensity: ColorIntensity;
   colorMotion: ColorMotion;
   uiRhythm: boolean;
+  edition: EditionLook;
 }
 
 export interface DeckControls {
@@ -106,6 +114,18 @@ export const GLOBAL_CONTROL_GROUPS: PublicConfigControlGroup<GlobalControlId>[] 
         id: "uiRhythm",
         label: "UI Rhythm",
         type: "boolean",
+      },
+    ],
+  },
+  {
+    label: "Edition",
+    description: "Shuffle gives each visit one family of Tabs, Knobs and Joystick; pin a family to keep it. Keys keep their own daily shapes.",
+    controls: [
+      {
+        id: "edition",
+        label: "Family",
+        type: "options",
+        options: PINNABLE_LOOKS.map(({ value, label }) => ({ value, label })),
       },
     ],
   },
@@ -247,6 +267,7 @@ export function readGlobalControls(config: VisualEffectsConfig): GlobalControls 
     colorIntensity: readColorIntensity(config.dynamicColors.chroma),
     colorMotion: readColorMotion(config.dynamicColors),
     uiRhythm: config.uiBeat.isEnabled,
+    edition: isEditionLook(config.editions.family) ? config.editions.family : SHUFFLE,
   };
 }
 
@@ -289,6 +310,11 @@ export function updateGlobalControl(
       break;
     case "uiRhythm":
       if (typeof value === "boolean") config.uiBeat.isEnabled = value;
+      break;
+    case "edition":
+      if (PINNABLE_LOOKS.some((look) => look.value === value)) {
+        config.editions.family = value as EditionLook;
+      }
       break;
   }
 }

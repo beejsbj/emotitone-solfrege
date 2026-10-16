@@ -285,7 +285,7 @@ describe("ConfigPanel.vue", () => {
       values: ["web"],
     });
     expect(STAGE_CONTROL_DEFINITIONS).toHaveLength(21);
-    expect(GLOBAL_CONTROL_GROUPS.flatMap((group) => group.controls)).toHaveLength(4);
+    expect(GLOBAL_CONTROL_GROUPS.flatMap((group) => group.controls)).toHaveLength(5);
     expect(DECK_CONTROL_GROUPS.flatMap((group) => group.controls)).toHaveLength(8);
   });
 

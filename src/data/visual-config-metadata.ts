@@ -605,6 +605,18 @@ export const UNIFIED_CONFIG = {
     },
   },
 
+  editions: {
+    _meta: {
+      label: "Edition",
+      icon: "◐",
+      description: "Shuffle picks one edition family per load; or keep one",
+    },
+    family: {
+      value: "shuffle",
+      label: "Edition family",
+    },
+  },
+
   patterns: {
     _meta: {
       label: "Pattern Recording",

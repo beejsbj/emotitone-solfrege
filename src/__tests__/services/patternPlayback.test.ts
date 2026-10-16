@@ -3,12 +3,12 @@ import { manageAudioLifecycle } from "@/services/audioLifecycle";
 
 const mocks = vi.hoisted(() => ({ options: undefined as undefined | {
   onToggle(started: boolean): void; beforeStart(): Promise<void>; beforeEval(args: { code: string }): Promise<void>;
-}, context: Object.assign(new EventTarget(), { state: "interrupted", resume: vi.fn(), suspend: vi.fn() }) }));
+}, evaluate: vi.fn(), context: Object.assign(new EventTarget(), { state: "interrupted", resume: vi.fn(), suspend: vi.fn() }) }));
 vi.mock("@strudel/core", () => ({
   evalScope: vi.fn().mockResolvedValue(undefined),
   repl: (options: typeof mocks.options) => {
     mocks.options = options;
-    return { scheduler: { stop: () => mocks.options!.onToggle(false) }, evaluate: vi.fn() };
+    return { scheduler: { stop: () => mocks.options!.onToggle(false) }, evaluate: mocks.evaluate };
   },
 }));
 vi.mock("@strudel/mini", () => ({}));
@@ -127,4 +127,25 @@ it("does not start or report playback from a transport disposed while its audio 
   // Nor can a late start of its scheduler report playback.
   hooks.onToggle(true);
   expect(onToggle).not.toHaveBeenCalled();
+});
+
+
+it.each(["a", "b"])("keeps pending evaluation spans aligned when the displayed code changes to %s", async (nextCode) => {
+  let finishWarmup!: () => void;
+  vi.mocked(initSuperdoughAudio).mockImplementationOnce(() => new Promise<void>(resolve => { finishWarmup = resolve; }));
+  const transport = createPatternTransport({ initialCode: "a", initialSpans: [{ noteId: "old", from: 0, to: 1 }],
+    onFrame: vi.fn(), onToggle: vi.fn(), onEvalError: vi.fn() });
+  const hooks = mocks.options as unknown as { beforeEval(args: { code: string }): Promise<void>; editPattern(pattern: unknown): unknown };
+  mocks.evaluate.mockImplementationOnce(async (code: string) => {
+    await hooks.beforeEval({ code });
+    hooks.editPattern("pattern");
+  });
+  try {
+    const starting = transport.evaluate();
+    transport.setCode(nextCode, [{ noteId: "new", from: 0, to: 1 }]);
+    finishWarmup();
+    await starting;
+    expect(soundingNoteIdForHap({ context: { locations: [{ start: 0, end: 1 }] } }))
+      .toBe(nextCode === "a" ? "new" : "old");
+  } finally { await disposePatternTransport(transport); }
 });

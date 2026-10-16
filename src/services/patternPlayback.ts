@@ -158,7 +158,8 @@ export function createPatternTransport(options: PatternTransportOptions): Patter
       transport.code = code;
       transport.spans = spans;
       // Another phrase can render the very same code with other note ids.
-      // Nothing to re-evaluate then, but the sounding notes need its names.
+      // Relabel both an evaluation still warming up and an already sounding one.
+      if (!disposed && code === evaluatingCode) evaluatingSpans = spans;
       if (!disposed && code === soundingCode) setSoundingNotationSpans(spans);
     },
     async evaluate() {

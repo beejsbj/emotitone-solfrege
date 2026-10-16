@@ -672,6 +672,11 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
 @media (forced-colors: active) {
   .code-strip__event {
     --code-strip-duration-paint: CanvasText;
+  }
+
+  .code-strip__duration-mark,
+  .code-strip__duration-hold,
+  .code-strip__duration-hold-bar {
     forced-color-adjust: none;
   }
 

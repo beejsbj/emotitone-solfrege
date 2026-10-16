@@ -435,7 +435,7 @@
                       :type="control.type"
                       :options="control.options"
                       :label="control.label"
-                      :is-disabled="(control.id === 'showRests' || control.id === 'durationMode') && !deckControls.codeStrip"
+                      :is-disabled="control.id === 'showRests' && !deckControls.codeStrip"
                       @update:modelValue="handleDeckControl(control.id, $event)"
                     />
                   </div>

@@ -7,17 +7,14 @@
           v-if="token.type === 'note'"
           class="code-strip__event code-strip__event--note"
           :data-code-strip-index="tokenIndex"
+          :style="sustainStyle(token)"
         >
-          <span
-            class="code-strip__event-line"
-            :class="{ 'code-strip__event-line--bar': durationMode === 'bar' }"
-          >
+          <span class="code-strip__event-line">
             <span class="code-strip__note" :style="progressStyle(token.progress)">
               <Note v-bind="noteProps(token)" />
             </span>
             <span v-if="token.accidental" class="code-strip__accidental">{{ token.accidental }}</span>
             <span
-              v-if="durationMode === 'bar'"
               class="code-strip__duration-bar"
               :style="durationBarStyle(token.duration)"
               role="img"
@@ -35,7 +32,7 @@
               ></span>
             </span>
             <span
-              v-if="durationMode === 'bar' && holdBars(token.duration) > 0"
+              v-if="holdBars(token.duration) > 0"
               class="code-strip__duration-hold"
               :class="{ 'code-strip__duration-hold--fades': holdBars(token.duration) > HOLD_MAX_BARS }"
               :style="holdStyle(token)"
@@ -50,20 +47,15 @@
               ></span>
             </span>
           </span>
-          <span v-if="durationMode === 'stacked' && token.duration" class="code-strip__stack-duration">
-            {{ token.duration }}
-          </span>
         </span>
 
         <span
           v-else-if="token.type === 'chord'"
           class="code-strip__event code-strip__event--chord"
           :data-code-strip-index="tokenIndex"
+          :style="sustainStyle(token)"
         >
-          <span
-            class="code-strip__event-line"
-            :class="{ 'code-strip__event-line--bar': durationMode === 'bar' }"
-          >
+          <span class="code-strip__event-line">
             <Chord
               :members="chordMembers(token)"
               :display="token.display ?? 'symbol'"
@@ -73,7 +65,6 @@
               :accessible-name="token.accessibleName"
             />
             <span
-              v-if="durationMode === 'bar'"
               class="code-strip__duration-bar"
               :style="durationBarStyle(token.duration)"
               role="img"
@@ -91,7 +82,7 @@
               ></span>
             </span>
             <span
-              v-if="durationMode === 'bar' && holdBars(token.duration) > 0"
+              v-if="holdBars(token.duration) > 0"
               class="code-strip__duration-hold"
               :class="{ 'code-strip__duration-hold--fades': holdBars(token.duration) > HOLD_MAX_BARS }"
               :style="holdStyle(token)"
@@ -106,9 +97,6 @@
               ></span>
             </span>
           </span>
-          <span v-if="durationMode === 'stacked' && token.duration" class="code-strip__stack-duration">
-            {{ token.duration }}
-          </span>
         </span>
 
         <span
@@ -116,16 +104,12 @@
           class="code-strip__event code-strip__event--rest"
           :data-code-strip-index="tokenIndex"
         >
-          <span
-            class="code-strip__event-line"
-            :class="{ 'code-strip__event-line--bar': durationMode === 'bar' }"
-          >
+          <span class="code-strip__event-line">
             <span class="code-strip__rest" :style="progressStyle(token.progress)" role="img" aria-label="Rest">
               <span class="code-strip__rest-fill" aria-hidden="true"></span>
               <span class="code-strip__rest-mark" aria-hidden="true">~</span>
             </span>
             <span
-              v-if="durationMode === 'bar'"
               class="code-strip__duration-bar"
               :style="durationBarStyle(token.duration)"
               role="img"
@@ -143,7 +127,7 @@
               ></span>
             </span>
             <span
-              v-if="durationMode === 'bar' && holdBars(token.duration) > 0"
+              v-if="holdBars(token.duration) > 0"
               class="code-strip__duration-hold"
               :class="{ 'code-strip__duration-hold--fades': holdBars(token.duration) > HOLD_MAX_BARS }"
               :style="holdStyle(token)"
@@ -168,7 +152,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, provide } from "vue";
+import { computed, inject, provide } from "vue";
+import { useMusicColor } from "@/composables/useMusicColor";
 import Chord from "@/components/compounds/Chord.vue";
 import type { ChordMember } from "@/components/compounds/Chord.vue";
 import Note from "@/components/primatives/Note.vue";
@@ -180,7 +165,6 @@ import {
 import type {
   CodeStripChordToken,
   CodeStripDensity,
-  CodeStripDurationMode,
   CodeStripNote,
   CodeStripNoteToken,
   CodeStripToken,
@@ -190,7 +174,6 @@ const props = withDefaults(
   defineProps<{
     tokens: CodeStripToken[];
     density?: CodeStripDensity;
-    durationMode?: CodeStripDurationMode;
     timeSignature?: string;
     wrapped?: boolean;
     scrollable?: boolean;
@@ -201,7 +184,6 @@ const props = withDefaults(
   }>(),
   {
     density: "default",
-    durationMode: "bar",
     timeSignature: "4/4",
     wrapped: false,
     scrollable: false,
@@ -211,14 +193,47 @@ const props = withDefaults(
   },
 );
 
-if (props.colorResolver) {
-  provide(noteColorResolverKey, props.colorResolver);
-}
+const colorResolver = props.colorResolver ?? inject(noteColorResolverKey, null)
+  ?? useMusicColor({ animated: true });
+provide(noteColorResolverKey, colorResolver);
+
+// Use the head's resolver, spelling, tuning and colour phase for its whole sustain.
+const surfaceColor = (source: ChordMember) => {
+  const args = [
+    source.mode ?? "major", source.musicKey ?? "C", source.octave ?? 4,
+    source.surfaceStyle ?? "colored",
+    source.accidental ?? /[#b♯♭]/.test(source.rawPitch ?? ""),
+    { keyBrightness: source.keyBrightness ?? 1, keySaturation: source.keySaturation ?? 1 },
+  ] as const;
+  return typeof source.pitchClassIndex === "number"
+    ? colorResolver.getKeyBackgroundByPitchClass(source.pitchClassIndex, ...args)
+    : colorResolver.getKeyBackground(source.scaleIndex ?? 0, ...args);
+};
+
+const sustainStyle = (token: CodeStripNoteToken | CodeStripChordToken) => {
+  if (token.type === "note") {
+    return { "--code-strip-sustain": surfaceColor(noteProps(token)).background };
+  }
+  // Chord heads use hard member bands in voicing order (press order for clusters).
+  const colors = token.members.map((member, index) => ({ member, index }))
+    .sort((a, b) => {
+      const order = token.display === "notes" ? "pressOrder" : "voicingOrder";
+      return (a.member[order] ?? a.index) - (b.member[order] ?? b.index) || a.index - b.index;
+    })
+    .map(({ member }) => {
+      const color = surfaceColor(member);
+      return token.display === "notes" ? color.background : color.primaryColor;
+    });
+  return { "--code-strip-sustain": colors.length
+    ? `linear-gradient(to top, ${colors.map((color, index) =>
+      `${color} ${index / colors.length * 100}% ${(index + 1) / colors.length * 100}%`
+    ).join(", ")})`
+    : "var(--ink-5)" };
+};
 
 const stripClasses = computed(() => [
   "code-strip-sequence",
   `code-strip-sequence--${props.density}`,
-  `code-strip-sequence--duration-${props.durationMode}`,
   { "code-strip-sequence--wrapped": props.wrapped },
   { "code-strip-sequence--scrollable": props.scrollable },
   { "code-strip-sequence--embedded": props.embedded },
@@ -406,6 +421,7 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
 }
 
 .code-strip__event {
+  --code-strip-duration-paint: var(--code-strip-sustain, var(--ivory));
   display: inline-flex;
   flex: 0 0 auto;
   flex-direction: column;
@@ -416,10 +432,6 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
 .code-strip__event-line {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-}
-
-.code-strip__event-line--bar {
   gap: 4px;
 }
 
@@ -496,15 +508,6 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
   line-height: 1;
 }
 
-.code-strip__stack-duration {
-  min-width: 20px;
-  border-top: 1px solid var(--hairline);
-  padding-top: 2px;
-  color: var(--ivory-3);
-  font-size: 9px;
-  line-height: 1;
-  text-align: center;
-}
 
 .code-strip__duration-bar {
   --code-strip-bar-cycle-span: calc(var(--note-host-block-size) * 2.4);
@@ -519,16 +522,17 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
 }
 
 /* Stave stems: one per segment of the event's time, taller on the beat,
-   lighting Ivory the moment playback enters their segment. */
+   lighting in the event’s colour the moment playback enters their segment. */
 .code-strip__duration-mark {
   justify-self: center;
   width: 2px;
   height: 9px;
-  background: var(--ink-5);
+  background: var(--code-strip-duration-paint);
+  opacity: .35;
 }
 
 .code-strip__duration-mark--lit {
-  background: var(--ivory);
+  opacity: 1;
 }
 
 .code-strip__duration-mark--beat {
@@ -545,9 +549,22 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
   width: max(4px, calc(var(--code-strip-hold-bars) * var(--code-strip-hold-step)));
   height: 15px;
   margin-inline-start: -1px;
-  background:
-    linear-gradient(var(--ivory), var(--ivory)) left center / calc(var(--code-strip-hold-progress) * 100%) 2px no-repeat,
-    linear-gradient(var(--ink-5), var(--ink-5)) left center / 100% 2px no-repeat;
+}
+
+.code-strip__duration-hold::before,
+.code-strip__duration-hold::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: calc(50% - 1px);
+  height: 2px;
+  background: var(--code-strip-duration-paint);
+}
+
+.code-strip__duration-hold::before { opacity: .35; }
+
+.code-strip__duration-hold::after {
+  clip-path: inset(0 calc((1 - var(--code-strip-hold-progress)) * 100%) 0 0);
 }
 
 /* Longer than the rail can show: its end fades instead of growing. */
@@ -560,11 +577,19 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
   inset-block: 0;
   left: calc(var(--code-strip-hold-at) * var(--code-strip-hold-step) - 1px);
   width: 2px;
-  background: var(--ink-5);
+  background: var(--code-strip-duration-paint);
+  opacity: .35;
 }
 
 .code-strip__duration-hold-bar--lit {
-  background: var(--ivory);
+  opacity: 1;
+}
+
+.code-strip__event--rest .code-strip__duration-mark:not(.code-strip__duration-mark--lit),
+.code-strip__event--rest .code-strip__duration-hold-bar:not(.code-strip__duration-hold-bar--lit),
+.code-strip__event--rest .code-strip__duration-hold::before {
+  background: var(--ink-5);
+  opacity: 1;
 }
 
 /* Stave: brackets survive as barlines; separators recede into the staff. */
@@ -645,22 +670,14 @@ const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice
 }
 
 @media (forced-colors: active) {
-  .code-strip__duration-mark {
-    background: GrayText;
+  .code-strip__event {
+    --code-strip-duration-paint: CanvasText;
     forced-color-adjust: none;
   }
 
-  .code-strip__duration-mark--lit { background: CanvasText; }
-
-  .code-strip__duration-hold {
-    background:
-      linear-gradient(CanvasText, CanvasText) left center / calc(var(--code-strip-hold-progress) * 100%) 2px no-repeat,
-      linear-gradient(GrayText, GrayText) left center / 100% 2px no-repeat;
-    forced-color-adjust: none;
-  }
-
-  .code-strip__duration-hold-bar { background: GrayText; forced-color-adjust: none; }
-  .code-strip__duration-hold-bar--lit { background: CanvasText; }
+  .code-strip__event--rest .code-strip__duration-mark:not(.code-strip__duration-mark--lit),
+  .code-strip__event--rest .code-strip__duration-hold-bar:not(.code-strip__duration-hold-bar--lit),
+  .code-strip__event--rest .code-strip__duration-hold::before { background: GrayText; }
 
   .code-strip__bracket { background: CanvasText; }
   .code-strip__rest { border: 1px solid CanvasText; }

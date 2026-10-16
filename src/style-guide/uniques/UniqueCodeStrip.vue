@@ -20,21 +20,15 @@
       </VariantCell>
     </VariantGrid>
 
-    <VariantGrid id="code-strip-duration" title="Duration &mdash; Text, Stave stems, or hidden">
-      <VariantCell caption="Stacked &middot; textual" stage="ink3">
-        <CodeStrip duration-mode="stacked" :tokens="durationSequence" />
-      </VariantCell>
+    <VariantGrid id="code-strip-duration" title="Duration &mdash; Stave stems and holds">
       <VariantCell caption="Bar &middot; 4/4 split proportional bar &middot; Rest included" stage="ink3">
-        <CodeStrip duration-mode="bar" time-signature="4/4" :tokens="durationSequence" />
+        <CodeStrip time-signature="4/4" :tokens="durationSequence" />
       </VariantCell>
       <VariantCell caption="Bar &middot; 3/4 split proportional bar &middot; Rest included" stage="ink3">
-        <CodeStrip duration-mode="bar" time-signature="3/4" :tokens="durationSequence" />
+        <CodeStrip time-signature="3/4" :tokens="durationSequence" />
       </VariantCell>
       <VariantCell caption="Bar &middot; implicit base 1 and holds past one bar" stage="ink3">
-        <CodeStrip duration-mode="bar" time-signature="4/4" :tokens="durationEdgeSequence" />
-      </VariantCell>
-      <VariantCell caption="Hidden &middot; rhythm unstamped" stage="ink3">
-        <CodeStrip duration-mode="hidden" :tokens="durationSequence" />
+        <CodeStrip time-signature="4/4" :tokens="durationEdgeSequence" />
       </VariantCell>
     </VariantGrid>
 
@@ -55,25 +49,25 @@
 
     <VariantGrid id="code-strip-density" title="Density &mdash; Same notation">
       <VariantCell caption="Dense" stage="ink3">
-        <CodeStrip density="dense" duration-mode="hidden" :tokens="densitySequence" />
+        <CodeStrip density="dense" :tokens="densitySequence" />
       </VariantCell>
       <VariantCell caption="Default" stage="ink3">
-        <CodeStrip density="default" duration-mode="hidden" :tokens="densitySequence" />
+        <CodeStrip density="default" :tokens="densitySequence" />
       </VariantCell>
       <VariantCell caption="Spaced" stage="ink3">
-        <CodeStrip density="spaced" duration-mode="hidden" :tokens="densitySequence" />
+        <CodeStrip density="spaced" :tokens="densitySequence" />
       </VariantCell>
     </VariantGrid>
 
     <VariantGrid id="code-strip-glyph-proportions" title="Accepted glyph &mdash; Note owns display">
       <VariantCell caption="Solfège" stage="ink3">
-        <CodeStrip duration-mode="hidden" :tokens="solfegeSequence" />
+        <CodeStrip :tokens="solfegeSequence" />
       </VariantCell>
       <VariantCell caption="Scale degree" stage="ink3">
-        <CodeStrip duration-mode="hidden" :tokens="degreeSequence" />
+        <CodeStrip :tokens="degreeSequence" />
       </VariantCell>
       <VariantCell caption="Raw pitch" stage="ink3">
-        <CodeStrip duration-mode="hidden" :tokens="rawSequence" />
+        <CodeStrip :tokens="rawSequence" />
       </VariantCell>
     </VariantGrid>
   </AnatomyDisplay>
@@ -209,7 +203,7 @@ const features = [
   { label: "Chord", value: "symbol → fused · notes → clustered" },
   { label: "Rest", value: "slim empty slot in the staff, outlined at rest · Ivory bottom-to-top fill as it passes · no duration tag" },
   { label: "Progress", value: "native Strudel source locations · Play resets to Ink · highlight reveals color/Ivory" },
-  { label: "Duration", value: "stacked text, Stave stems (one per meter segment of the first bar, each lighting as playback enters its segment) with a hold rail past one bar (a short step and barline per further bar, capped at four, fading beyond), or hidden" },
+  { label: "Duration", value: "Stave stems (one per meter segment of the first bar, each lighting as playback enters its segment) with a hold rail past one bar (a short step and barline per further bar, capped at four, fading beyond)" },
   { label: "Stave", value: "hairline staff · brackets as barlines · punctuation recedes while unfocused · Ivory selection" },
   { label: "Density", value: "dense, default, or spaced" },
   { label: "Document", value: "read-only · generated code with a span per note id · lit by note events, not edited" },

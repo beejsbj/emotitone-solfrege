@@ -132,20 +132,6 @@ describe('Visual Config Store', () => {
       expect(newStore.visualsEnabled).toBe(false)
     })
 
-    it('defaults missing or invalid Code Strip duration display values', () => {
-      localStorage.setItem('emotitone-visual-config', JSON.stringify({
-        config: { codeStrip: { bpm: 144, durationMode: 'sparkles' } },
-      }))
-
-      const invalidStore = createFreshStore()
-      expect(invalidStore.config.codeStrip.durationMode).toBe('bar')
-
-      localStorage.setItem('emotitone-visual-config', JSON.stringify({
-        config: { codeStrip: { bpm: 144 } },
-      }))
-      const missingStore = createFreshStore()
-      expect(missingStore.config.codeStrip.durationMode).toBe('bar')
-    })
 
     it('should migrate legacy color keys from localStorage on initialization', () => {
       const storedConfig = {

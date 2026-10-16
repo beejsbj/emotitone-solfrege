@@ -2,7 +2,6 @@
 export type {
   CodeStripChordToken,
   CodeStripDensity,
-  CodeStripDurationMode,
   CodeStripGlyph,
   CodeStripNote,
   CodeStripNoteToken,
@@ -53,7 +52,6 @@ import { buildRecordedCodeStripTokens } from "./recordingTokens";
 import { serializeCodeStripTokens } from "./serialize";
 import type {
   CodeStripDensity,
-  CodeStripDurationMode,
   CodeStripToken,
 } from "./types";
 
@@ -63,7 +61,6 @@ const props = withDefaults(
     tokens?: CodeStripToken[];
     source?: string;
     density?: CodeStripDensity;
-    durationMode?: CodeStripDurationMode;
     timeSignature?: string;
     wrapped?: boolean;
     scrollable?: boolean;
@@ -76,7 +73,6 @@ const props = withDefaults(
     tokens: undefined,
     source: undefined,
     density: "default",
-    durationMode: "bar",
     timeSignature: "4/4",
     wrapped: false,
     scrollable: true,
@@ -183,7 +179,6 @@ const controlledCodeStripConfig = {
   opacity: 1,
   bpm: 120,
   notation: "solfege",
-  durationMode: "bar",
   showRests: true,
 } as const;
 const controlledKeyboardConfig = {
@@ -200,9 +195,6 @@ const controlledSketchMeta = {
 } as const;
 const codeStripConfig = computed(() =>
   productionWiring?.visualConfigStore.config.codeStrip ?? controlledCodeStripConfig
-);
-const resolvedDurationMode = computed(() =>
-  isControlled.value ? props.durationMode : codeStripConfig.value.durationMode
 );
 const keyboardConfig = computed(() =>
   productionWiring?.visualConfigStore.config.keyboard ?? controlledKeyboardConfig
@@ -701,7 +693,6 @@ onBeforeUnmount(() => {
       :playing="isControlled ? false : stripPlaying"
       :listening="!isControlled"
       :density="density"
-      :duration-mode="resolvedDurationMode"
       :time-signature="timeSignature"
       :show-rests="codeStripConfig.showRests"
       :framed="framed"

@@ -207,7 +207,6 @@ beforeEach(() => {
         opacity: 1,
         bpm: 120,
         notation: "solfege",
-        durationMode: "bar",
         showRests: true,
       },
       keyboard: {

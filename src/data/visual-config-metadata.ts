@@ -795,11 +795,6 @@ export const UNIFIED_CONFIG = {
       options: ["solfege", "note", "degree"],
       label: "Notation Mode",
     },
-    durationMode: {
-      value: "bar" as const,
-      options: ["stacked", "bar", "hidden"],
-      label: "Duration Display",
-    },
     showRests: {
       value: true,
       label: "Show Rests",

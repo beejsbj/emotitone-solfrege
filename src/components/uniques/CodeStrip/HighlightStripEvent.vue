@@ -7,7 +7,6 @@ import type { NotationHighlightSource } from "./highlight";
 import type { CodeStripViewport } from "./viewport";
 import type {
   CodeStripDensity,
-  CodeStripDurationMode,
   CodeStripToken,
 } from "./types";
 
@@ -29,7 +28,6 @@ const props = defineProps<{
   noteIds?: readonly string[];
   hidden?: boolean;
   density: CodeStripDensity;
-  durationMode: CodeStripDurationMode;
   timeSignature: string;
   viewport?: CodeStripViewport;
   colorResolver?: NoteColorResolver;
@@ -112,7 +110,6 @@ const accessibleName = computed(() => eventName(props.token));
     <Sequence
       v-if="ready && !hidden"
       :tokens="[rendered]"
-      :duration-mode="durationMode"
       :density="density"
       :time-signature="timeSignature"
       :show-chevron="false"

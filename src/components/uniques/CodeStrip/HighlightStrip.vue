@@ -12,7 +12,6 @@ import type { CodeStripViewport } from "./viewport";
 import type {
   CodeStripChordToken,
   CodeStripDensity,
-  CodeStripDurationMode,
   CodeStripNoteToken,
   CodeStripToken,
 } from "./types";
@@ -35,7 +34,6 @@ const props = withDefaults(
     /** Light events from note events (production) instead of token progress. */
     listening?: boolean;
     density?: CodeStripDensity;
-    durationMode?: CodeStripDurationMode;
     timeSignature?: string;
     showRests?: boolean;
     framed?: boolean;
@@ -58,7 +56,6 @@ const props = withDefaults(
     playing: false,
     listening: false,
     density: "default",
-    durationMode: "bar",
     timeSignature: "4/4",
     showRests: true,
     framed: true,
@@ -153,7 +150,7 @@ const eventWindow = useEventWindow({
   shapes: () => eventShapes.value,
   hidden: () => eventHidden.value,
   enabled: () => windowed.value,
-  layoutKey: () => `${props.density}|${props.durationMode}|${props.timeSignature}`,
+  layoutKey: () => `${props.density}|${props.timeSignature}`,
   onShift: (delta) => { followTarget += delta; },
 });
 
@@ -360,7 +357,6 @@ function clamp(value: number) {
             :note-ids="entries[item.index].ids"
             :hidden="entries[item.index].hidden"
             :density="density"
-            :duration-mode="durationMode"
             :time-signature="timeSignature"
             :viewport="viewport"
             :color-resolver="colorResolver"

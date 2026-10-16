@@ -86,7 +86,7 @@
                   <p class="config-panel__eyebrow panel-heading panel-heading--tape">Across EmotiTone</p>
                   <h2 class="panel-heading panel-heading--band">Global</h2>
                   <p class="config-panel__section-copy">
-                    Shared color and interface rhythm, independent of the Stage canvas.
+                    Shared color, interface rhythm and edition, independent of the Stage canvas.
                   </p>
                 </div>
 

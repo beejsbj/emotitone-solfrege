@@ -317,6 +317,14 @@ export interface UIBeatConfig {
 }
 
 /**
+ * Edition family Look: Shuffle (the default) or one pinned family id.
+ * Unknown ids resolve to Shuffle (see `useEditionFamily`).
+ */
+export interface EditionsConfig {
+  family: string;
+}
+
+/**
  * Pattern recording and detection configuration
  */
 export interface PatternConfig {
@@ -454,6 +462,8 @@ export interface VisualEffectsConfig {
   hilbertScope: HilbertScopeConfig;
   /** Shared transport-synchronized UI presentation configuration */
   uiBeat: UIBeatConfig;
+  /** Edition family Look shared by Tabs, Knob and Joystick */
+  editions: EditionsConfig;
   /** Pattern recording configuration */
   patterns: PatternConfig;
   /** Keyboard styling configuration */

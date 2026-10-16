@@ -7,7 +7,6 @@
 import { defineAsyncComponent } from "vue";
 import MainApp from "./MainApp.vue";
 import LazyPanelLoading from "./components/LazyPanelLoading.vue";
-import { beginJoystickPageEdition } from "./components/uniques/Joystick/edition";
 import {
   STYLE_GUIDE_PAGES,
   currentPathname,
@@ -24,8 +23,6 @@ if (isStyleGuideRoute) {
   document.documentElement.classList.add("style-guide-route");
   document.body?.classList.add("style-guide-route");
   void import("./style-guide/guide-defaults.css");
-} else {
-  beginJoystickPageEdition();
 }
 
 const StyleGuide = defineAsyncComponent({

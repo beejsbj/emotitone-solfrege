@@ -41,9 +41,9 @@ import { useUIBeatScale } from "@/composables/useUIBeat";
 import type { HarmonyAlteration } from "@/domain/harmony";
 import { triggerLatchHaptic, triggerUIHaptic } from "@/utils/hapticFeedback";
 import { JOYSTICK_OPTIONS, directionFromVector, vectorFromDirection } from "./joystickOptions";
-import { currentJoystickPageVisual, type JoystickVisual } from "./edition";
+import { useEditionFamily, type JoystickVisual } from "@/composables/useEditionFamily";
 
-export type { JoystickVisual } from "./edition";
+export type { JoystickVisual } from "@/composables/useEditionFamily";
 
 const props = withDefaults(defineProps<{
   modelValue?: HarmonyAlteration;
@@ -60,7 +60,8 @@ const face = ref<HTMLElement | null>(null);
 const beatTarget = ref<HTMLElement | null>(null);
 const plate = ref<HTMLElement | null>(null);
 useUIBeatScale(beatTarget, () => true, { restScale: 0.8, peakScale: 1.1 });
-const resolvedVisual = computed(() => props.visual ?? currentJoystickPageVisual());
+const editionFamily = useEditionFamily();
+const resolvedVisual = computed(() => props.visual ?? editionFamily.value.joystick);
 const pointerValue = ref<HarmonyAlteration | null>(null);
 const pointerVector = ref({ x: 0, y: 0 });
 const pointerPosition = ref({ x: 0, y: 0 });

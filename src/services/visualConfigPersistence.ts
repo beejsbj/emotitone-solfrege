@@ -1,5 +1,6 @@
 import { HISTORICAL_VISUAL_DEFAULTS } from "@/data/visual-config-default-history";
 import { DEFAULT_CONFIG } from "@/data/visual-config-metadata";
+import { isEditionLook, SHUFFLE } from "@/composables/useEditionFamily";
 import { defineCodec } from "@/services/persistenceCodec";
 import type { BlobConnectionMode, HarmonicGeometryMode, VisualEffectsConfig } from "@/types/visual";
 
@@ -371,6 +372,7 @@ export const visualConfigCodec = defineCodec<VisualState>({
         target[field] = value;
       }
     }
+    if (!isEditionLook(config.editions.family)) config.editions.family = SHUFFLE;
     return { config, visualsEnabled: data.visualsEnabled !== false, laBasedMinor: data.laBasedMinor === true };
   },
   encode(state) {

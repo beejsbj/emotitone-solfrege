@@ -100,15 +100,69 @@ There is no in-app UI for this.
 
 - **Keyboard drawer, music:** small codecs whose `migrations[0]` is the
   identity, as for the instrument store.
-- **Phrase book:**
-  - v1 is today's `{ book, isRecordingEnabled }`, and its own history
-    continues in the table.
-  - The legacy `patterns` → `phrases` import reads a different key, so it
-    stays a store-level step outside the codec.
-  - `decode` can run today's repair, and `encode` can unwrap Vue proxies as
-    `serializePatternsState` does.
-  - BJS-513 measures its budget with `binding.encode(state).length`, which is
-    the exact string a save writes.
+- **Phrase book (BJS-513):** v1 is `{ book, isRecordingEnabled }` inside
+  the envelope. The v0 migration preserves the book; decode repairs the single
+  take and resets dead wall-clock anchors. The separate legacy `patterns` import
+  remains a store-level read and leaves its original key untouched.
+
+### Phrase shelf budget and backups
+
+`src/services/phrasePersistence.ts` owns the 3,000,000-byte budget. It measures
+**UTF-16 bytes** (`encoded.length * 2`) of the entire saved envelope, matching
+localStorage's DOMString representation and reserving room for other keys.
+This is deliberately more conservative than UTF-8 file size. Browser quota
+failures below this limit still go through the existing save-failure notice.
+
+Both pitch and gain curves, including `modeBase` copies, are reduced only in
+the encoded snapshot. Samples are at least 10 ms apart and capped at 100 points per second,
+including endpoints (rounded up for a partial second). Both endpoints survive
+when that cap allows two points; shorter curves keep their final value.
+Live state is unchanged. Reduction is lossy;
+no new smoothing or playback behavior is introduced.
+
+There is no default phrase-count cap. An oversized save leaves both the old
+stored bytes and every in-memory phrase intact. The reel shows **Shelf full**,
+explains that new changes are only in this tab, and offers the oldest Recent
+phrase with a second tap to confirm release. Candidates sort by `closedAt`,
+falling back to `createdAt`. Kept, Library and the open take are never release
+candidates. When no Recent remain the UI explains the manual copy/delete path.
+Saving resumes once the encoded payload fits. An already oversized shelf is
+loaded intact; it is not automatically trimmed to fit.
+
+**Measurement (generated data, 2026-10-16):** the regression fixture uses 200
+phrases adapted from a real built-in pattern, eight notes per phrase, 50 Kept,
+and one one-second note per phrase carrying both pitch and gain at 240 Hz.
+The whole envelope is **9,145,426 UTF-16 bytes** before reduction and
+**3,037,026 bytes** after. It correctly trips the budget; releasing ten Recent
+allows all fifty Kept and the remaining Recent to save. This supports retaining
+the initial 3 MB budget, while showing that expression-heavy shelves can fill
+before 200 phrases. This is not a capture from Burooj's phone; device data and
+actual browser quota headroom remain to be measured.
+
+As decided by Burooj on 2026-10-15, phrase **backups go to IndexedDB**, database
+`emotitone-phrase-backups`, object store `backups`. The active shelf stays in
+localStorage. Exact prior bytes, dated names, same-byte reuse, two routine
+migration copies and permanent recovery copies follow the codec rule above.
+Insertion and pruning share one transaction; no rewrite proceeds until its
+commit. A failed or unavailable IndexedDB holds saves and reports a failure;
+a later edit/save retries. While a backup is pending, the latest save request
+wins in memory. After commit the codec rereads the live key before retrying,
+so a newer-version write from another tab is protected. Disposal cancels the
+queued rewrite while allowing the recovery copy to finish.
+
+Phrase support uses an asynchronous console handle (the existing
+`emotitoneBackups` handle still serves the small localStorage-backed stores):
+
+```js
+await emotitonePhraseBackups.list()
+await emotitonePhraseBackups.read(backupKey)
+await emotitonePhraseBackups.restore(backupKey)
+```
+
+Restore backs up current bytes to IndexedDB first and rechecks that the shelf
+has not changed during the transaction. On success it holds saves until reload.
+Backups themselves do not count toward the active shelf budget.
+
 ## Visual config and performance settings (BJS-512)
 
 `emotitone-visual-config` v1 stores sparse overrides, plus the non-default
@@ -214,13 +268,9 @@ and the restore path. Four points are real choices:
 - Sanitising within a version is not a migration and takes no backup. For
   example, a Shape for an instrument the catalog dropped is lost on the next
   save. This is today's behaviour.
-- **Phrase book and quota:** a 3 MB phrase book plus a full backup can't fit
-  in the roughly 5 MB origin limit. Under rule 2, its first migration would
-  then refuse to run on a full shelf. Before the phrase book's first real
-  migration, choose one:
-  - back phrases up to IndexedDB;
-  - lower the budget to leave room;
-  - accept that a full shelf blocks the migration until space is freed.
+- **Phrase book and quota:** its backups use IndexedDB, so a full shelf does
+  not need another full copy in localStorage. IndexedDB denial or a failed
+  transaction still prevents replacement; the backup-first rule is unchanged.
 - Two tabs running the same version still race (last write wins), as today.
   Before every save or prepare, the binding rereads the stored
   payload and classifies it again. Older or unreadable bytes are backed up

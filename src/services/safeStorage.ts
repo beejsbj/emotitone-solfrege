@@ -8,11 +8,12 @@ import { createPersistedState } from "pinia-plugin-persistedstate";
  * left exactly as it was.
  */
 
-export type SaveFailureKind = "quota" | "unknown" | "newer";
+export type SaveFailureKind = "quota" | "unknown" | "newer" | "shelf";
 
 /** What the player reads. Later kinds (e.g. a full phrase shelf) add a row here. */
 export const SAVE_FAILURE_MESSAGES: Record<SaveFailureKind, string> = {
   quota: "Can't save — storage full",
+  shelf: "Shelf full",
   unknown: "Can't save",
   // A newer EmotiTone saved this device's data; this (older) page must not
   // overwrite it. Reloading picks up the newer app.
@@ -51,7 +52,7 @@ export const hasSaveFailure = computed(() => burst.value !== null);
 
 function activeFailureKind(): SaveFailureKind {
   const kinds = [...failedKeys.values(), ...oneOffKeys.values()];
-  return kinds.includes("newer") ? "newer" : kinds.includes("quota") ? "quota" : "unknown";
+  return kinds.includes("newer") ? "newer" : kinds.includes("quota") ? "quota" : kinds.includes("shelf") ? "shelf" : "unknown";
 }
 
 function closeIfSettled(): void {

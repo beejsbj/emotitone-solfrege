@@ -1,4 +1,16 @@
 <template>
+  <section v-if="phrasesStore.isShelfFull" aria-label="Shelf full" class="space-y-2">
+    <p role="status">Shelf full. New changes stay in this tab until there is room to save.</p>
+    <template v-if="oldestRecent">
+      <p>Oldest Recent: {{ phraseTitle(oldestRecent) }}</p>
+      <Button
+        size="sm"
+        :accessible-name="releaseArmed ? 'Confirm release oldest Recent' : 'Release oldest Recent'"
+        @click="releaseOldest"
+      >{{ releaseArmed ? 'Confirm release' : 'Release oldest Recent' }}</Button>
+    </template>
+    <p v-else>No Recent phrases to release. Copy any phrases you want to save before deleting them from the reel.</p>
+  </section>
   <PatternReel
     class="phrase-shelf"
     :items="reelItems"
@@ -17,6 +29,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from "vue";
+import Button from "@/components/primatives/Button.vue";
 import PatternReel from "@/components/compounds/PatternReel.vue";
 import type { PatternReelItem } from "@/components/compounds/PatternReel.vue";
 import type {
@@ -63,6 +76,15 @@ const {
   getStaticPrimaryColorByScaleIndex,
   getStaticPrimaryColorByPitchClass,
 } = useMusicColor();
+
+const oldestRecent = computed(() => phrasesStore.releaseCandidates[0]);
+const releaseArmed = ref(false);
+watch(() => oldestRecent.value?.id, () => { releaseArmed.value = false; });
+function releaseOldest() {
+  if (!releaseArmed.value) { releaseArmed.value = true; return; }
+  if (oldestRecent.value) phrasesStore.releaseRecent(oldestRecent.value.id);
+  releaseArmed.value = false;
+}
 
 const copiedId = ref<string | null>(null);
 const deleteArmedId = ref<string | null>(null);

@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { computed, ref, watch } from "vue";
+import { computed, onScopeDispose, ref, watch } from "vue";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
@@ -33,10 +33,8 @@ import {
   type PhraseCandidate,
 } from "@/domain/phraseBook";
 import { migrateLegacyPatterns } from "@/domain/phraseMigration";
-import {
-  deserializePatternsState,
-  serializePatternsState,
-} from "@/services/patternPersistence";
+import { createPhrasePersistence, encodedPhraseBytes, PHRASE_BUDGET_BYTES } from "@/services/phrasePersistence";
+import { installPhraseBackupConsole } from "@/services/phraseBackups";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 import type { HeldNote, Phrase, PhraseBook, PhraseContext } from "@/types/phrases";
 
@@ -109,11 +107,25 @@ export const usePhrasesStore = defineStore(
     }));
 
     // ─── State ───────────────────────────────────────────────────────────────
-    const book = ref<PhraseBook>(
-      readLegacyBook(liveContext.value)
-        ?? createPhraseBook(liveContext.value, Date.now()),
-    );
-    const isRecordingEnabled = ref(true);
+    const persistence = createPhrasePersistence(() => ({
+      book: readLegacyBook(liveContext.value) ?? createPhraseBook(liveContext.value, Date.now()),
+      isRecordingEnabled: true,
+    }), () => liveContext.value);
+    const restored = persistence.load();
+    const book = ref<PhraseBook>(restored.book);
+    const isRecordingEnabled = ref(restored.isRecordingEnabled);
+    const savedState = () => ({ book: book.value, isRecordingEnabled: isRecordingEnabled.value });
+    const encodedBytes = computed(() => {
+      // Track nested edits even though the encoder unwraps proxies.
+      JSON.stringify(savedState());
+      return encodedPhraseBytes(persistence.encode(savedState()));
+    });
+    const isShelfFull = computed(() => encodedBytes.value > PHRASE_BUDGET_BYTES);
+    const releaseCandidates = computed(() => book.value.phrases
+      .filter((phrase) => phrase.shelf === "recent")
+      .sort((a, b) => (a.closedAt ?? a.createdAt) - (b.closedAt ?? b.createdAt)));
+    watch([book, isRecordingEnabled], () => persistence.save(savedState()), { deep: true });
+    if (typeof window !== "undefined") installPhraseBackupConsole(window);
     // Pressed-but-unreleased notes. Transient; `heldCount` makes it observable.
     const held = new Map<string, HeldNote>();
     const heldCount = ref(0);
@@ -243,6 +255,12 @@ export const usePhrasesStore = defineStore(
       return deleteBookPhrase(book.value, target);
     }
 
+    /** Explicit pressure relief only: never take, Kept, or Library. */
+    function releaseRecent(id: string): boolean {
+      if (!book.value.phrases.some((phrase) => phrase.id === id && phrase.shelf === "recent")) return false;
+      return deleteBookPhrase(book.value, id);
+    }
+
     function renamePhrase(id: string, name: string): boolean {
       const target = lookedAtSource(id)?.id ?? id;
       return renameBookPhrase(book.value, target, name, libraryPhrases);
@@ -361,12 +379,22 @@ export const usePhrasesStore = defineStore(
     }
 
     setupEventListeners();
+    onScopeDispose(() => {
+      removeEventListeners();
+      persistence.holdUntilReload();
+      persistence.unregister();
+    });
     pruneRecent(book.value, Date.now(), config);
 
     return {
       // Persisted
       book,
       isRecordingEnabled,
+
+      encodedBytes,
+      isShelfFull,
+      releaseCandidates,
+      releaseRecent,
 
       // Shelves and the take
       library: libraryPhrases,
@@ -400,18 +428,5 @@ export const usePhrasesStore = defineStore(
       removeEventListeners,
       repairAfterHydrate,
     };
-  },
-  {
-    persist: {
-      key: STORAGE_KEY,
-      pick: ["book", "isRecordingEnabled"],
-      serializer: {
-        serialize: serializePatternsState,
-        deserialize: deserializePatternsState,
-      },
-      afterHydrate: ({ store }) => {
-        (store as unknown as { repairAfterHydrate: () => void }).repairAfterHydrate();
-      },
-    },
   },
 );

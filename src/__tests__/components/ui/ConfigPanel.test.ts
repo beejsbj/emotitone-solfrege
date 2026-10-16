@@ -81,7 +81,6 @@ const visualConfigStore = reactive({
     noteSurface: "colored",
     touchFeedback: true,
     codeStrip: true,
-    durationMode: "bar",
     showRests: true,
   },
   updateValue: vi.fn(),
@@ -244,9 +243,10 @@ describe("ConfigPanel.vue", () => {
       .vm.$emit("update:modelValue", "pitch");
     expect(visualConfigStore.updateDeckControl).toHaveBeenCalledWith("notation", "pitch");
 
-    wrapper.getComponent('[data-testid="deck-control-durationMode"]')
-      .vm.$emit("update:modelValue", "bar");
-    expect(visualConfigStore.updateDeckControl).toHaveBeenCalledWith("durationMode", "bar");
+    wrapper.getComponent('[data-testid="deck-control-showRests"]')
+      .vm.$emit("update:modelValue", false);
+    expect(visualConfigStore.updateDeckControl).toHaveBeenCalledWith("showRests", false);
+    expect(wrapper.find('[data-testid="deck-control-durationMode"]').exists()).toBe(false);
   });
 
   it("promotes each Stage group into a focused destination", () => {
@@ -286,7 +286,7 @@ describe("ConfigPanel.vue", () => {
     });
     expect(STAGE_CONTROL_DEFINITIONS).toHaveLength(21);
     expect(GLOBAL_CONTROL_GROUPS.flatMap((group) => group.controls)).toHaveLength(5);
-    expect(DECK_CONTROL_GROUPS.flatMap((group) => group.controls)).toHaveLength(8);
+    expect(DECK_CONTROL_GROUPS.flatMap((group) => group.controls)).toHaveLength(7);
   });
 
   it("keeps Stage general and allocates every detail control exactly once", async () => {
@@ -383,15 +383,12 @@ describe("ConfigPanel.vue", () => {
 
     const notation = wrapper.getComponent('[data-testid="deck-control-notation"]');
     const rests = wrapper.getComponent('[data-testid="deck-control-showRests"]');
-    const durations = wrapper.getComponent('[data-testid="deck-control-durationMode"]');
     expect(notation.props("isDisabled")).toBe(false);
     expect(rests.props("isDisabled")).toBe(false);
-    expect(durations.props("isDisabled")).toBe(false);
 
     visualConfigStore.deckControls.codeStrip = false;
     await nextTick();
     expect(rests.props("isDisabled")).toBe(true);
-    expect(durations.props("isDisabled")).toBe(true);
   });
 
   it("retires reload Looks and keeps transient actions visible across Stage tabs", async () => {

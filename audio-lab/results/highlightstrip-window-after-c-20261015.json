@@ -1,0 +1,1931 @@
+{
+  "revision": "b3cbea9df52838105877284763d4f11f4a946d7d",
+  "mode": "append-only",
+  "state": {
+    "instrument": "triangle",
+    "ready": true,
+    "key": "0_4",
+    "label": "Do, scale degree one, C four, main octave",
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.0.0 Safari/537.36",
+    "contexts": [
+      {
+        "sampleRate": 44100,
+        "baseLatency": 0.01,
+        "outputLatency": 0.032,
+        "state": "running",
+        "selected": true,
+        "creationStack": "Error\n    at register (<anonymous>:39:83)\n    at new window.AudioContext (<anonymous>:58:44)\n    at getAudioContext (http://127.0.0.1:33101/src/services/audioRuntime.ts:18:15)\n    at initializeAudio (http://127.0.0.1:33101/src/services/audioRuntime.ts:43:24)\n    at http://127.0.0.1:33101/src/services/superdoughAudio.ts:215:13"
+      }
+    ]
+  },
+  "sourceTreeSha256": "f49af57f5916dfc8d9f4d944c1a11b3e9361c0880f1bb4e5f10d7f10982b89c8",
+  "sourceHashes": {
+    "audio-lab/reference/README.md": "e5d43523f1bfc40563a678f79c1daa89d14b5531cfaee5d42d5a7ddc36f49357",
+    "audio-lab/reference/effectBrowser.test.ts": "29373c0116cbccc322d471723a3ecd61e6d8817997a2d5bab7e36433d0c46a97",
+    "audio-lab/reference/effectGoldens.test.ts": "767f9f85970d4aa5f84989f3d2c621b6af91611fc581f506b7208fb215e852bd",
+    "audio-lab/reference/effectListening.test.ts": "d21d12b7b91aeb5852abf080948024aa3c3f0c5fa4e40403a3dcf1d543f4d70b",
+    "audio-lab/reference/livePlayback.test.ts": "68e3f06e46591d53529a36e8c7a5e1ee72952f342d831fbfc1a64f6d5cd19641",
+    "audio-lab/reference/livePlayback.ts": "9db543110bdf3cef7986cd30ae5d8087355f1d003bdaff57de18277448b9461d",
+    "audio-lab/reference/native/renderer.test.ts": "d153212c7df507f4ec9e370480cd1cddd4bebb9af37223bcf505d13221d752c5",
+    "audio-lab/reference/native/renderer.ts": "ea604e6a1bfffa26f427a17a1e09e4701355da82b97d49b09689258b3df5fa3c",
+    "src/App.vue": "bfcfa71c05e86b8b633129318eaaf8f97c8ba864e379455fcfb3e6d606eb8883",
+    "src/MainApp.vue": "3e242dd4f78edb93461e1575f10a942488eb6ac8554691e2f2dfb8af8743ec55",
+    "src/__tests__/components/LoopDial.test.ts": "8e1ad91dc737a3d110e4e49dbb9a8b00b1852ec0330286dc9960e457258759e6",
+    "src/__tests__/components/PatternReel.test.ts": "ca6b399f884198a10195812b6599f370d8fa024b7d0a59a8cab3415100ab2198",
+    "src/__tests__/components/PatternReelLinear.test.ts": "a05666596d4bbd14fa401cf876c4eaf11bdf46eb88f97a43a933f455bf31b091",
+    "src/__tests__/components/PatternStrip.test.ts": "d347cb8cab599bfecb388d4de8000c89889d268279e70d75dc97b4edd1fc8c3b",
+    "src/__tests__/components/SourceCredits.test.ts": "a6506f7cdaf091709c009dcbd2c818051909ecfae147dab71d1a6801dfd3b6eb",
+    "src/__tests__/components/core/App.test.ts": "8f2bdf4a4bacab635e8e11581d2475b366d8270502bd4f27171fe739272d9fd6",
+    "src/__tests__/components/keyboard/Chord.test.ts": "047a41feeb0a72f01f0edee43160f41a3f522305580c3019829150912af798cf",
+    "src/__tests__/components/keyboard/ChordKey.test.ts": "919186ab9d4a6608f7a30a1f27dace222a8ea5e17ee536a8f2d672c41dd777d9",
+    "src/__tests__/components/keyboard/CodeStripBar.test.ts": "1fd8b30a9ad72f167c88a7c10259d54f7b861086f1eb2d40e0bd5a65df441ede",
+    "src/__tests__/components/keyboard/CodeStripNote.test.ts": "5611a50d25641a003bf5f4fadc8fe6f68c3ade599bf6511e23a9dbea69aad30f",
+    "src/__tests__/components/keyboard/ControlBar.test.ts": "cb94c105cb5559b20b9858442a61c519b402560789c4fc121765904601841432",
+    "src/__tests__/components/keyboard/ControlBarHaptics.test.ts": "ae9b9515efe0088a2b5644e7276ef5f5a50c4f9ad5cb6ebee23ec69b1e1edf73",
+    "src/__tests__/components/keyboard/HummingCaptureTransport.test.ts": "49080a5bc9515c719fb676816fe3e517762f7efa1f32b6694e2699a896361e62",
+    "src/__tests__/components/keyboard/Joystick.test.ts": "da68afc80707624cfc7245a173ee2ba117b6ac3cac20bca550476be384d67d65",
+    "src/__tests__/components/keyboard/Key.test.ts": "0b926be82d71906a65816cdc1a98e4709c9b303aba697a03d969b798e976f983",
+    "src/__tests__/components/keyboard/Keyboard.test.ts": "aa5192bf2de45fc7ba0ce45ffc7e04dbaeadb8319a8ec2772afe728717a566ab",
+    "src/__tests__/components/keyboard/KeyboardCompound.test.ts": "e783ee2d4026e839367c00c87b41bc7a36c41d9c6accdc7e0cadb8ecb9d4f4f4",
+    "src/__tests__/components/keyboard/KeyboardControlledIsolation.test.ts": "2f7a0520276b62ddc7ebae5667e3fcf0a39813322ee06b3a25135e019f828cd6",
+    "src/__tests__/components/keyboard/KeyboardNumberRow.test.ts": "3c823fd59b814629c9f4aab3290dc0c5c449654b1eb745925115a88995ceaffc",
+    "src/__tests__/components/keyboard/KeyboardSpecimen.test.ts": "19cb055df5d7ad37cd74ddae28ad50a591398af7af5567a35309c6bdb54795cb",
+    "src/__tests__/components/keyboard/KeyboardSpelling.test.ts": "4b254c89f7b8847847b03498b4d0ca9dbc93822fdb9d004ea0a81a436923a4d0",
+    "src/__tests__/components/keyboard/Note.test.ts": "c99af69e4656690fc997407246c1cbc022d017c00c417576d598cd113c5877b7",
+    "src/__tests__/components/keyboard/PerformanceDeckActions.test.ts": "dfbb7715080493b4a8de03df1d3a9244e4f64899adc73f5042c3c6c8ff6acf9b",
+    "src/__tests__/components/keyboard/PerformanceDeckControlled.test.ts": "6da355fd424ac813c22ad82bb7698f36dd33d5c889ab89dff203a32300694569",
+    "src/__tests__/components/keyboard/PerformanceDeckPage.test.ts": "0ecc2542282282750e5e64c9d227588e2d69399ccff4f2dcd25f57483e09d91c",
+    "src/__tests__/components/keyboard/joystickEdition.test.ts": "303be5579cde2c025b5c6bf3aba92b99fb300f23581c54887cc900e7e745de28",
+    "src/__tests__/components/keyboard/keyboardAccessibility.test.ts": "9cba80fa0c9496246b1ce08e366523d7683dcd409f6ef076a58885d0f8adf294",
+    "src/__tests__/components/keyboard/keyboardEdition.test.ts": "e758c9f1ad4dd4ca477add4f8181e69852d2939fbc2ecc83af73a778102e57df",
+    "src/__tests__/components/keyboard/keyboardSizing.test.ts": "b20847a82f8450de2c55f3d6616a4352610481dd5929abed87ca768fd07f74a3",
+    "src/__tests__/components/knobs/Knob.test.ts": "b97e8b974003dd623a325aeada917c27365d844eb1d21876ff4d50c56c1d80ff",
+    "src/__tests__/components/knobs/KnobAccessibility.test.ts": "5daf542a25d92441e5bd6941c7425a2d4319f16903b8d31798b7ebf673eaaf29",
+    "src/__tests__/components/knobs/knobEdition.test.ts": "0f619f57c0e8ab55ec0867bd08bba1c2dc6d595bf3d0eecd6c8f2859fb92f120",
+    "src/__tests__/components/ui/BrandLogo.test.ts": "2cf9414fb76c9679b13478a6dc7634493fc6d5ebf12cdf2f3aeb1cfa3ff19106",
+    "src/__tests__/components/ui/Button.test.ts": "03fbe7ab64e11883a13ad2ffca42e32ee7fb77f1bec52e11bfedec5be753e2fc",
+    "src/__tests__/components/ui/CompositionLoadingScreen.test.ts": "3cced003b79ba4dea1eef94383efb8dd167dde77db121f19427c565d3971a579",
+    "src/__tests__/components/ui/ConfigPanel.test.ts": "2e673f8a223ead1ba85a07a40b0006a87c4bbc113cb2896d040652ce48435f73",
+    "src/__tests__/components/ui/ConfigPanelSaveFailure.test.ts": "2a4191dc546ebb1e35ac9b76abf0df25d818eedacc28f0bd0d62598a17a2199a",
+    "src/__tests__/components/ui/InstrumentSelector.test.ts": "8bf2c4e8e02598c4865bbcf99b9d483819e41544d429b22289dcba346ca6b83f",
+    "src/__tests__/components/ui/LazySurfaces.offline.test.ts": "9be8785d537bff21525ee7f1bcfe2c7a7f79445e201a191f24a87de7a849d3a4",
+    "src/__tests__/components/ui/LazySurfaces.test.ts": "78a04199ae6002ea33a0d9197509d73687c378684a8cebbb217e509dbccd3255",
+    "src/__tests__/components/ui/LoadingScreen.test.ts": "bd65af245a6e7d70964de74c6cfd986fb6b9af7705d6d925237c2f106c014189",
+    "src/__tests__/components/ui/LoadingSplash.flow.test.ts": "6d70adb4230bac5884092291d87abd763d4b6c31f43b5bf6001c0fbb3dba5019",
+    "src/__tests__/components/ui/LoadingSplash.generations.test.ts": "4848bb3ea9a13badb38673295f7d0e57ac9d6311088113ebbd8bc6b4749c5bde",
+    "src/__tests__/components/ui/LoadingSplash.test.ts": "3245cd5de2716bb31d93b263486b2a670e767c28411962fd6a0d26ed1a95ee19",
+    "src/__tests__/components/ui/LoadingSplash.timeout.test.ts": "b278bd879ba2495f490525a8a8bdff6021e69ee3909bb43110d860e0dd15e58f",
+    "src/__tests__/components/ui/OverlayPanelHeader.test.ts": "7894b9acde5d40ef509d372549e0d997700d7abe5cb709f7b43e3c6baa783d0d",
+    "src/__tests__/components/ui/Sticker.test.ts": "462a66c79f2be1a2dd7e0c98c7b1b0169279b10c164908d593e9ada16c892b67",
+    "src/__tests__/components/ui/TabbedOverlayPanel.test.ts": "6906bdb398b8d108083450e6e03fa2da051c26703c20d80a537560140c2dcfd3",
+    "src/__tests__/components/ui/Tabs.test.ts": "169eb6561044ac0ac017361afb223a5794a3714fb94eec140f9dfd7653272612",
+    "src/__tests__/components/ui/TopDrawer.test.ts": "98a342fca79d3022cd4c3b75f96230960e07ef33d58a8ba68b3a2d7745fe6336",
+    "src/__tests__/components/ui/TopNoticePlacement.test.ts": "f1774982fbf21cfd61af02bbdb52bef2f6a0a779335b0937f369eea461264b41",
+    "src/__tests__/components/ui/tabsEdition.test.ts": "a4a31d4f103af6dfbd4bb8a97df38765c9284913a07a5f480615da422252aa6b",
+    "src/__tests__/components/uniques/CodeStrip.test.ts": "aff330eca377f14ce9dfea5c3c1ba7a2432ad3bbb2746a9bdd9c7925a138f50b",
+    "src/__tests__/components/uniques/CodeStripColors.test.ts": "ee4d26a5b460733715c68cf94936924ad8b078b397d0bbdbb0cd8fb1db002693",
+    "src/__tests__/components/uniques/CodeStripControlledIsolation.test.ts": "74e8d97b380d9578850b3168c019a186f3a96cb5a5f398a475f6d354eaeb8922",
+    "src/__tests__/components/uniques/CodeStripViewport.test.ts": "a0ebc9dea52f93fddddd0f51be598c318f143d92b28a99614dfce5fcd81c1112",
+    "src/__tests__/components/uniques/Drawer.test.ts": "a8821a2f667824812f187c5cbc405fabbbca81a36564caa7e72acf9e2c93ff8c",
+    "src/__tests__/components/uniques/HighlightStrip.test.ts": "b1a938af4ed2859ee9f123cfb206c90fcedb8071e5fac32a92b42313ac695120",
+    "src/__tests__/components/uniques/HighlightStripReload.test.ts": "d0314d95be87fd5eb034c87a64a9d854b0ba66e203a483a783b95951006b82b6",
+    "src/__tests__/components/uniques/recordingTokens.test.ts": "b2167d82b60d0d5189bda91f75e8fe9f96bbbeeac96af700c6d524fca40dcba7",
+    "src/__tests__/components/visual/ExactPitchVisuals.test.ts": "5d28d57a5777f1c81a22d02aca778aefa9d714cd3b42a42594350c12dfe47e9d",
+    "src/__tests__/components/visual/MarkBeatIndicator.test.ts": "3931dac46667f5462ce0842cf62eab60dc10220204bef06050d5937dfeb85d67",
+    "src/__tests__/components/visual/StagePage.test.ts": "2c3acae60102349f3af74a5159a93008d4fdc31b64d408b67be49d4b440e867d",
+    "src/__tests__/components/visual/StageSpecimenCanvas.test.ts": "957145c696eed0e6de67be46cbc2eb7cdbc88f7a4a3acb748e52cbd03240eebe",
+    "src/__tests__/components/visual/UnifiedVisualEffects.test.ts": "7dd866ab1f74687ab546fc7bc8d52a053ef2b1922479fe0e5c7de998fa619199",
+    "src/__tests__/components/visual/VisualsSwitch.test.ts": "057721e1f800d52be88e1753ee3b2bae14a55a8e7aed3be848a0f4cdd8ec9d41",
+    "src/__tests__/composables/canvas/harmonicTypography.test.ts": "7fc2b0fe9a9173bb0b2ea2facd674784c7da5babb53816d9ee14f2e73acf007c",
+    "src/__tests__/composables/canvas/intervalLettering.test.ts": "867e55499425ff19805fcbaca5cf84f09cb6325897278ab3198d5e8e2a8cdba6",
+    "src/__tests__/composables/canvas/stageNoteSources.test.ts": "85f548ca608bfa016214c63b25d5d3301362c9511ec55f776386e1439ce74bbf",
+    "src/__tests__/composables/canvas/stageRuntime.test.ts": "67ed6a25fdea2c070a15ddd60615fce537334bbdfc012d812303d02c2e4fbbe8",
+    "src/__tests__/composables/canvas/useBlobFieldRenderer.pixels.test.ts": "dd33172962fba721f1168b7ee44414f239c8f1674fa9dea87a166bf0259f70d8",
+    "src/__tests__/composables/canvas/useBlobFieldRenderer.test.ts": "182afd78f2ab3b78c9af381012f98bc232d5debdde9bb9d43757d50048a5de79",
+    "src/__tests__/composables/canvas/useBlobRenderer.lifecycle.test.ts": "250e0564c40e8823ca5ae21abed42f54a3a8ed032a13d4722f1fd3cc1239c364",
+    "src/__tests__/composables/canvas/useBlobRenderer.test.ts": "8ca2ebf6d52b1963cb56066dfef3a567e8ad5bb491eab2a920892b47ceb8e694",
+    "src/__tests__/composables/canvas/useBlobVisibility.pixels.test.ts": "8cbb86b34ab9ceb4a73e172b3da2bf48d66ab4d4ef875739a2c6fac43638d0b7",
+    "src/__tests__/composables/canvas/useExactPitchRenderers.test.ts": "40e7e78ef97062b83cc122d938c326a05882c45697345e7cadb8f802dc104487",
+    "src/__tests__/composables/canvas/useHarmonicGeometryRenderer.test.ts": "e90c0719bc4268eca698a23100a47c81992208a069fa97963e72b2015b8037bd",
+    "src/__tests__/composables/canvas/useHilbertScopeLiveAudio.test.ts": "1d927f56aec3c0d7465c3d7a1553797e192484cba3b27ff21233090a8eb6ff8b",
+    "src/__tests__/composables/canvas/useHilbertScopeTrail.pixels.test.ts": "7765fef151bc5de1485628aea119222ffe2360b28dcda2290b77f4044a64f7c5",
+    "src/__tests__/composables/canvas/useStringRenderer.simulation.test.ts": "c272c43a0ef10c58874f7226bb8a6cea2c86918c03217a59b06ae349864accf4",
+    "src/__tests__/composables/canvas/useStringRendererHumming.test.ts": "41f001581cf329be42c2d5829db57d3a9c7b141db4b7ccea64a874fbc49ca8af",
+    "src/__tests__/composables/canvas/useUnifiedCanvas.harmonic.test.ts": "9db7809a9e8527a08632122c8fa32fdd7e388941944d76af767e0b3ba8257a08",
+    "src/__tests__/composables/canvas/useUnifiedCanvas.test.ts": "35f4766ecd1dcb847e8f980081716c72457fe7aa754eec5fd6cf8a732eca34bf",
+    "src/__tests__/composables/hummingRecordingLimit.test.ts": "e72f6e3f1669aa59bdd1c46374678c62b72ede4cca6e72473ca17e0553dad6a9",
+    "src/__tests__/composables/useCodeStripStrudelWarmup.test.ts": "a127bbb48d98be3d9c3914dbfa2ce55e17b72f46a9216d63338675ea8685f094",
+    "src/__tests__/composables/useHarmonicAnalysis.test.ts": "272822dc84140ad3e74ff4c290a9191ebf8e66cf0c4cd9f02994db73cec41687",
+    "src/__tests__/composables/useHummingCapture.test.ts": "b8328139c13685bcbe7b90c8c323ba64a771ab7cac3373b3782abdc57e2ae858",
+    "src/__tests__/composables/useKeyboardControls.test.ts": "b5932da1ec31de92717dd9b54fc7937373cf1814a4c444fb9846b1cb91108b66",
+    "src/__tests__/composables/useLiveListening.test.ts": "381b0a91621a53fa889a75ab5d01c912725034a1a1bb5246ec32b67eb5650a6e",
+    "src/__tests__/composables/useMidiControls.test.ts": "b1ade879474d464be5ffd65882f21a081583a1c642dd5b0349bf86b11531c8e1",
+    "src/__tests__/composables/useMidiEveryNote.test.ts": "dc221f5d2c01e73dde7adb6f7a9ef4bb0fbbc1aac11c088190d7e344febd680f",
+    "src/__tests__/composables/useMidiPlayStyles.test.ts": "3fe4805588662538a375c211fe5666c1236a354f5d2e7b7ecf948348251037d3",
+    "src/__tests__/composables/useMidiWarmup.test.ts": "b7ff6e4d853a8e0d4b1de9275a357aa89794c5efac88c50edf394bfa47470c22",
+    "src/__tests__/composables/useMusicColor.test.ts": "bf42f760c5eba1f3e473462edc752e861ac0c0fa14aa1ba1d4e3efd048e14374",
+    "src/__tests__/composables/useMusicColorClock.test.ts": "f863119958c02f2f52bda79201973881f14ac0e3099e5accebe146f0edf40607",
+    "src/__tests__/composables/useMusicColorConfig.test.ts": "334295e811a506b1062202cf038514a6c5556d3a0ab3bce358aad2ff587ddf78",
+    "src/__tests__/composables/useStageHostLayout.test.ts": "94b4605f7ba21feaed31d2fad184bd3d36367e3aecbfd32ea5e64b9c54d3e515",
+    "src/__tests__/composables/useUIBeat.test.ts": "e9be90a77175d33f7d2f5ccedba1b0484e3a1b99f71a00f1237c4905cd0b5fa9",
+    "src/__tests__/data/instrumentCatalog.test.ts": "0e14bad4d06922e71f5d3df5e552a83cbc46631a8f8eb60fd1a914f0707fa52a",
+    "src/__tests__/data/scales.test.ts": "956c62f6289e7483fa273a55d86fedee21fa0043bb6215c258cdd9ac0b14cf6d",
+    "src/__tests__/domain/fixtures/leadSheet.ts": "6f0593f30169940f0f19a9632d942f2a181879abd71a46ba06e7071c5a179571",
+    "src/__tests__/domain/harmony.test.ts": "f5451901b9ab6eb981fb767d62ec029c64e266a7f165687ea3234843e6f45cf1",
+    "src/__tests__/domain/modeRemap.test.ts": "a1613aae5c2e00f949925dd86c5291f1a09678252468f0f0d03f50cd792c23f6",
+    "src/__tests__/domain/musicalIdentity.test.ts": "ce0f30a34a6b7ffcdae80aea0c8e0d1f028ffe68796e83347d5410c5cf9b3dc7",
+    "src/__tests__/domain/phraseBook.test.ts": "0de7937f0ada7be8e3e94e1ab1ddb3e2cb5d91ae4bd656c099995795030c5f2f",
+    "src/__tests__/domain/phraseMigration.test.ts": "4bc3474c4746e3ea1f8bb04805bc377a42a3d5450f7c29f0eaca9b9ea19979b7",
+    "src/__tests__/domain/solfege.test.ts": "db37da33a3089c0a4a11182d39eb7c28a77fab873547ce91352a77f09dfb9a99",
+    "src/__tests__/fixtures/persistence/instrument.v0.headless-chrome.json": "2274748b924f4f99c49276c17ef1e15a506aae7e613198ce9f79a98de77153d0",
+    "src/__tests__/fixtures/persistence/instrument.v0.store-capture.json": "abdd6ef71c7edfc2fc390cde5443242a51f35c9b7ac9b896456fbad6a40c4445",
+    "src/__tests__/fixtures/pitch-analysis/README.md": "ca91036dafb27b3c682ff488f361f8868ba4d93d8f390cbde32b0788d6905bf5",
+    "src/__tests__/fixtures/pitch-analysis/melograph-two-level-sine.json": "4dddece32802d63a0745ab704bbae05d7076564f24550a5ca82fdb706676d1f5",
+    "src/__tests__/helpers/designTokens.ts": "7bb6a95893822f43ef771bd12cc943c015eb213fc7e3e06512efb8230f11d0da",
+    "src/__tests__/helpers/test-utils.ts": "ebaf4b9fc688ad43cdacd0f5897a57548a0fa5d0151d4e0851fe60c111160b82",
+    "src/__tests__/lint/designLaw.test.ts": "422b1d60cc8312ff6a733d41852aef2f076f95673d62e1592ebf632c1ff60737",
+    "src/__tests__/lint/excludedTypeScript.test.ts": "3206db0ee297ba02e40a3d9f75c3c853b6989335d7509a180ed78264ca7eecae",
+    "src/__tests__/services/StrudelNotation.test.ts": "1458fe93d144c1c6b91c5429cfa12cc5c3853604162870ba0bb523022459495c",
+    "src/__tests__/services/audibleStageTimeline.test.ts": "33b182061bd97231965fb1e7c1c4f59f0091a6beea19521968ea47e133532b64",
+    "src/__tests__/services/audioDiagnostics.test.ts": "033daf8d894dbd40d7cf4a73808f4e0c06ecec959152a47117b4d4412d2b7e0e",
+    "src/__tests__/services/audioLifecycle.test.ts": "bd6cf49fb19a808e3c1fb8d0ab6e2c15806b16e087ab815b69ff8c3e0232e7d7",
+    "src/__tests__/services/audioRuntime.test.ts": "0edabc89d93e5ff864d070d16a43521be4d296ec100bf1e77af57bfea85f8c15",
+    "src/__tests__/services/audioRuntimeBudget.test.ts": "d05267343c73dd325d5c22a0ab431c4c30ec90d0f1a089ebd34fccce414e0838",
+    "src/__tests__/services/configPublicSurface.test.ts": "debc17afe1a3e6590349b0d4333431b9d8b7839fb720ea2bd038e5d29c3e52b8",
+    "src/__tests__/services/hummingClassification.test.ts": "673f3ba3575e23be415cd2c878f70d463b0d67822322377d373d8364bd6b58f7",
+    "src/__tests__/services/hummingStage.test.ts": "8e9689cea9660f31a5da8fc213d5ea786dbda14d64a4408facbd1f8ec3d3a236",
+    "src/__tests__/services/inputVoiceGroups.test.ts": "18e7adca2ee74705c4862d5b87a9e7fdfba20766f135993b3eb4628e24e5d4c6",
+    "src/__tests__/services/keySurfaceColor.test.ts": "2400ea63472f7abb70c79d93511951110940ab6f1caf4c4f60d86be3945ab403",
+    "src/__tests__/services/liveArticulation.test.ts": "4577ddd1a8fc2756ac8f3f0f34c02c24fb0891a10cc9351b603399904d8ae9ac",
+    "src/__tests__/services/liveAudio.test.ts": "9cf77c4c2b77faabc579011fbd685d4c1f8d0efcc528cc2bdb9ecfa5cdda3fda",
+    "src/__tests__/services/liveAudioClock.test.ts": "2bf795ff541a51e30efc3b6d62dcd92fd7a10ba3bacec3e776217bebee027750",
+    "src/__tests__/services/liveAudioTiming.test.ts": "1ad09aefd91cda0e4898e19e3de479696c040921176f4e64ae981fb1b9ee6a6b",
+    "src/__tests__/services/livePerformance.test.ts": "baee73a5b0747326c7b5d2bf802dfe861a24c457a198c9db4f1381ae75bd62a9",
+    "src/__tests__/services/livePitch.test.ts": "99fd871d00ae0c8a3b15c4d1bef4633c77ea03e4cccd7dcaf1b7b5d63ec57a6c",
+    "src/__tests__/services/livePlayback.test.ts": "b6f566d67ba41fe23067a7aaec65f377514897f3a0d38a3f0da347f3eec36ae9",
+    "src/__tests__/services/liveResampler.test.ts": "dbe587938cc57112881fb3d13f1a55288885629f08aa5142a5de5c4f8c1caa62",
+    "src/__tests__/services/microphoneCapture.test.ts": "d303421daf091760804b021ef07c3d1e9c79112cd7b008e70524d7947349a5ad",
+    "src/__tests__/services/music.test.ts": "00e4ef066c10db194f750f9bf69e1b1a5d5e928344594c2390698a45ad7398b8",
+    "src/__tests__/services/musicColor.test.ts": "0c53afac3c3931a5867c0df6c624c944dca3fd899f3df0df747558cb84f9abdc",
+    "src/__tests__/services/musicColorCore.test.ts": "d3ac8d9e3420fa3e0a4c345d00141f9de15392a8c2813915c52c1e4fd174eb4a",
+    "src/__tests__/services/notationSpans.test.ts": "d9f3fef2f0656a71e4184ba238b94a77d721497c202744f9edd0509b76984135",
+    "src/__tests__/services/patternPersistence.bench.test.ts": "37f898d4bd32a2cfe53a1341c3182e663846277e4450cdf25012dad6897f3af4",
+    "src/__tests__/services/patternPersistence.test.ts": "fba80de51e38f040e460f63ac5472a81d0acf71056c7b8038197b66d50db461e",
+    "src/__tests__/services/patternPlayback.test.ts": "42ab8e7e3efa7c5548fef7733c813da721412100fee6016cf775bbda8c97d610",
+    "src/__tests__/services/persistenceCodec.test.ts": "8ea63c5b04e51a40a4736f0d76c4d3d90f96c7b2928248c98dde18a624a61e6a",
+    "src/__tests__/services/pitchAnalysis.test.ts": "d1f4c1e61c3c31a3d5101ea25b8f1131c23aedfc3ba214115d7b2cc22254c910",
+    "src/__tests__/services/playStyles.test.ts": "f595ff8a83e45b891a5ef4476e2b23b293eae59aad111094bac58506dd16ebd0",
+    "src/__tests__/services/preparedLiveInstrument.test.ts": "4bce0ef629c97be27d80bcd18bd90dfd755ccee93473efdd2226d8ac48d77642",
+    "src/__tests__/services/recordedPlayback.test.ts": "1cf9a63121e0def5d6df23d69375d66950c187d35be9b01bdcf1574d9824911e",
+    "src/__tests__/services/recordedTiming.test.ts": "e0738cfcbce15159c961bdffab9f88b89c214073625a8d0f783cde152cb1cfea",
+    "src/__tests__/services/roliLiveSync.test.ts": "89e00f3a1a3f16c09248140d80dc6c992e5774cb47eb805c7633ab14673274aa",
+    "src/__tests__/services/roliPianoExport.test.ts": "b14cc1d53fef9fba26644cebd5889b53a27fc47caea62ba330075cc9f0d9d274",
+    "src/__tests__/services/safeStorage.test.ts": "0d27b2cf5ece0cdf1ccb8b4a3f3ae5eb30048a290069ad659b8cbaca78f1e73f",
+    "src/__tests__/services/scalePitch.test.ts": "a77ca7935e8d2996f712c80ebfc94f6672a04fdc42de6459891bf971d806f2ea",
+    "src/__tests__/services/scheduledLiveVoice.test.ts": "edb3da919ae2611618bdbf00b695732c90917912842278f909a7d7d57cf3fde9",
+    "src/__tests__/services/shape.test.ts": "c0e299e815ce92d4140f6796f58632d34f451fc228858cf2d66e0c3b61043c93",
+    "src/__tests__/services/soundfontPatch.test.ts": "fde0ec7437f188ba19a744e91f1f482a6c88b319d2e9bab7276448293951d447",
+    "src/__tests__/services/soundfontStop.test.ts": "bcd528d2c59421712f40b72462cd9e598e2967a3ff6d515d815bf3ff96fed530",
+    "src/__tests__/services/stageAppearance.test.ts": "5b4bfc8f259ed84bf87bc2c2313578970367c9e13b9cc53c1cced132197b71cf",
+    "src/__tests__/services/stageAudio.test.ts": "88918c027c43b23d5eae25d442a833c8a936d3974bfff86413c3c49ef18a4bc8",
+    "src/__tests__/services/strudelLink.test.ts": "49fa61b1426ae191eb5e582f858d7e13c4edc6f115fe8d281d4f3fbd34f41955",
+    "src/__tests__/services/superdoughAudio.test.ts": "e5346b114eed08b56ce0f76b51c6729f16b6671c13cd18e71f1135aadbea7e85",
+    "src/__tests__/services/superdoughLifecycle.test.ts": "4509e11b6c1a5253158bcc10eef02089ee9290d2a1ad591e9482b3a9961b8750",
+    "src/__tests__/services/superdoughPatch.test.ts": "122b3d51dcf501e811032f9a0182e3804ccfd899bf46ca4a00a6646dad678180",
+    "src/__tests__/services/superdoughRetirementRollback.test.ts": "1e812c4904b2b68d674f7c7c78fc38a123cc1d2892ce592464ee1fbfe4ed4e45",
+    "src/__tests__/services/superdoughSynthesisCache.test.ts": "aa0faf324cfea47f7e68bc4da6349f31687f4976b64af696e67e11f9c109e17b",
+    "src/__tests__/services/superdoughTestAudio.ts": "57a8623b366f06ac7e357476e2a04280d3d0f9844dc1a98470729ff20ae7216b",
+    "src/__tests__/services/tremoloApproximation.test.ts": "f9ea30caffb8f62693cd3c4baffbd97a83069e82de8be92d3145f0db87d922f6",
+    "src/__tests__/services/vibratoApproximation.test.ts": "9b1f370ee0fbdca8c17047dbe1b5986d3895fcf8a1f18c74838bcab89aea6538",
+    "src/__tests__/stores/instrument.test.ts": "8a7b66b9f509d55d8c7da31754fafcf3d68db93085a78d3023de72187e33a4e7",
+    "src/__tests__/stores/keyboardDrawer.test.ts": "a564e508b06b495127e3ae40eee16787bd489cb63976a8386fc20ca4f17616e2",
+    "src/__tests__/stores/music-live-notes.test.ts": "57722fec61ade2bdecf12aa69110f2205e75df98b4bf21924434f11dec1c5743",
+    "src/__tests__/stores/music-midi.test.ts": "9b1d5b761be8bc3a998ff3eacbb8cccbb21fbed486e6eee8184564a11d2a7774",
+    "src/__tests__/stores/music-play-styles.test.ts": "820a4ac9b0e305306322abfbf378a2bc5eaeea232690c7c68392d4d7b4fa6c01",
+    "src/__tests__/stores/music.test.ts": "4104385c5f548d6eefca8a56ab9e11d6a0a1c5ae56030810af9c3e94b4dbeaed",
+    "src/__tests__/stores/musicWorklet.test.ts": "f72def4ab524b55fa179c5c09d33e2887ea0108b1d0fc18b31410bcb5100575f",
+    "src/__tests__/stores/musicalContext.test.ts": "37ed984684aa54ef5c8251294a3dfa9f4cb616e733c767e1feca3649ca6d997b",
+    "src/__tests__/stores/phrases.test.ts": "faec41e76be2a038a8205709996425456a7a12bd36e8eb2ca87811ef943c03a0",
+    "src/__tests__/stores/phrasesRetiredLibrary.test.ts": "aa6eafc9aae7577d2f86c735d3f4457c9cbf11d911b62d979ee51ad854fa5c07",
+    "src/__tests__/stores/visualConfig.test.ts": "455381be8a5b729eb3728a13f44797e813cee06f488f22927021d3b5946fd523",
+    "src/__tests__/style-guide/PrimitiveNote.test.ts": "06cd419dd6743998464524a5ad4181bf38ee5b1554191e998f46938130a1198b",
+    "src/__tests__/style-guide/SystemUIBeat.test.ts": "d693c59745949c075eb2747d79f381a564d39335c58634d5f228c9ef83da57db",
+    "src/__tests__/style-guide/TokenMotion.test.ts": "0d8cccec4eb6dae911558d2d2d37b5779277e00d4b9f33ad4ed6172026c5c6fb",
+    "src/__tests__/style-guide/TokenMusicColors.test.ts": "e0d0fcf60071ae6df5ebe4d4eec9e414371d4412071a34e0060fdb5b02072377",
+    "src/__tests__/style-guide/contrastFloor.test.ts": "bc868646eb7b2ba27207a597ec1b5fa7c9ee0f16032d93e76cdd03d19cd06b9d",
+    "src/__tests__/style-guide/guideRootTypography.test.ts": "18abc347813a54cb6e1fc15d4db1b7d95233ace94a067ddde6ad90a22c161f74",
+    "src/__tests__/style-guide/spacingScale.test.ts": "e9fd15e6ad5a0806acabc6e05d07828e6cfb2cf93e5cbf04b290d36393060e2b",
+    "src/__tests__/utils/hapticFeedback.test.ts": "a07b71cecacabd22fa5b491c37a056c76de99c285df0f5d122c3e3750f834d5d",
+    "src/__tests__/utils/performanceMonitor.test.ts": "1373896f088cc4e6296a73ee4cb355918c2f84c157f0069f8ec3248b218de21a",
+    "src/__tests__/utils/visualEffects.test.ts": "8b69df65eceefce70972c7d95d0271c3e64dc125eb0a7eff8ca25034f8c42a09",
+    "src/assets/fonts/lets-jazz-regular.otf": "11cb3b9c14d92091adea5f44c36288716991bda21b1c17d0f3f47463c4a62eb3",
+    "src/assets/fonts/lets-jazz-regular.woff2": "b82273955035fe7cf8accf6dc23a736da1ea1c8ecf032fa09c390f5d6bae6ec9",
+    "src/assets/new-sequencer.svg": "dc2b25498f1b3a15b73455df820b2e0733aefb053c96f31e2a46fec4f89fa632",
+    "src/audio/effects.ts": "df553d6a6396d8a30a220e1f5a5f020c5074eb01d1e9f0eeb706f1bec07a6002",
+    "src/audio/live/bridge.test.ts": "2d034d7914f6739e3cf56928b6a65be2394676655cc166c3005dff405220bdfc",
+    "src/audio/live/bridge.ts": "a340f7310751ebe3679ddd129ec4b678a4f8bab91d9b58dbd8da7b788ad8df70",
+    "src/audio/live/core.test.ts": "47bea88994ec4d9d60540d39f5dba72305aec65e488285e0efbed6eb28e6a20a",
+    "src/audio/live/core.ts": "f8c610054bbb4573617c3b4bc68858a1a9bf77a6912ce02dd4b9f7c4cb4990e8",
+    "src/audio/live/effects.test.ts": "a8136e367a88eeced85f2977def7464269c89405af6277974fb96e425195d033",
+    "src/audio/live/lowpass.ts": "db976881a4e459bccc59a83be8e1e8a4c88c8866462ee383c146ffa710ad184c",
+    "src/audio/live/oscillators.test.ts": "b5b5ccb0d3d59bf1dbe83db71cfe6299919aa93e3ce0ccd64e574adf67bb22ad",
+    "src/audio/live/pcm.ts": "83ac23a04c8623cdc5a57ffcdc814276a79a5cf93f0d5683e5b0cc147f86fdb7",
+    "src/audio/live/processor.test.ts": "4b7e19b0e390c27f5ccc7c9d9d50320acd6cf4d6fa7522565a0f2f7023d653f1",
+    "src/audio/live/processor.ts": "cad1f256a6b66cc40bed2a0fca39fe989e92bea1d4f09f6d4bf2540459044903",
+    "src/audio/live/resampler.ts": "57ac286011932f4adae1f360f66b19d1820346ee9eddadd52191ab9cea4a0eca",
+    "src/audio/live/types.ts": "20afb3b4af0923f294924789284ea167536520768bf3dabfada2ecc4230b0042",
+    "src/audio/liveRenderer.ts": "8b95a0d3ce0d74751f808bef455370431cc08feb473b172e5874cda717798ab9",
+    "src/audio/liveShaping.test.ts": "a1908427126bc4b0e41b5f258cf92041d7a5250e7a3d30af3957675743fe6ccb",
+    "src/audio/liveShaping.ts": "cf43231b8322192fdc099a708891c5014392f412903c2205d2521f581a0ab0d3",
+    "src/audio/sampleSources.ts": "3f7a99b194f57ea79a15e2536db307aee739dfeff867b7a0356ca4f9d0494a2e",
+    "src/audio/soundCatalog.ts": "211446609cc9f7a454385aced6a372daa8883fe740a1329136d8c32613839f09",
+    "src/audio/soundfontPreset.test.ts": "50e0790fae3087a667d2f99555d608a5743913d1d27f4da992d2380ea502a070",
+    "src/audio/soundfontPreset.ts": "3bb2fcdf421d38af52d43aa686a38d583c07dfdd7c0a0f509a8c07d3c35ec1e3",
+    "src/audio/velocity.ts": "fcf3ed76a2b626703bf70fa8bdac4d20e41f3109fef62aee09af30aa4dfd78b2",
+    "src/audio/voicePolicy.ts": "b3b3964b1969d7ee0f9c93f20af3ff41db11cd9ce777ec7d4117c16d13bc0370",
+    "src/components/ConfigPanel.vue": "f29ce7c3843dbaea724f852be0967a3eae4c7dc26c248447c04be79b892e4f8f",
+    "src/components/InstrumentSelector.vue": "2777ac57b7a024ef87ed3ad01119c8e45553adcf99c0034fb615e8b8790a7a22",
+    "src/components/LazyConfigPanel.vue": "0adc3918b6002109dcfd6d7b34a71246d17839d231dc2c2b5bd8c0f11bcd0b67",
+    "src/components/LazyInstrumentSelector.vue": "7d88a63339bb55aeb7de13506ccc4be88f05fcee663dc91403af7033850747d4",
+    "src/components/LazyPanelError.vue": "73e673c8c24505dc63f6273bf6616ddd940b10431501063f41207211573824f3",
+    "src/components/LazyPanelLoading.vue": "56721bdbb5731c6d6e843bedbefb01b28e9db8314d3c0e530b03ea85e9b8e6c0",
+    "src/components/LoadingSplash.vue": "e02a7dee7e11630019def8413a2c8618e7e11c2cf762c29dce86ecf29606db5c",
+    "src/components/MidiPermissionIcon.vue": "42dbe960975adbb64f7920fd27135ccc707d20f6549292aa75ef1df379d38169",
+    "src/components/OverlayPanelHeader.vue": "287f7ae9443be7766e6ad06c76aa6ed647063c35931cf7e3c5e28339b7d0faa4",
+    "src/components/OverlayPanelShell.vue": "f3661d43eca538811c73be1b0f7ce630d2f31bc4280d2250e0484f0748c2a8ff",
+    "src/components/PerformanceDeck.vue": "a52b7829d5d2567573a451c1468f05a09b769905805120ae42ce3347433829bb",
+    "src/components/TabbedOverlayPanel.vue": "9744da87718fdef6addd4a8a5734351f18bd4df89c8b91c1da281e994a60fdc5",
+    "src/components/TopDrawer.vue": "44ecc9bef57d08aefda29c5e720f62a83c0f64925793f854f39c159926dc61df",
+    "src/components/UnifiedVisualEffects.vue": "6719f845e5ebde728995feab2c1b933c3abd9fe9d74a8364bf1a37ba6d407da1",
+    "src/components/compositions/LoadingScreen.vue": "bae647bbfc73d8fff6d2b180ae2090246a4f7a4132e9da8cd1dcfb3839d2d936",
+    "src/components/compounds/BeatIndicator.vue": "5f275afca61bb739c6cc1b7bb574670f44fc9005757ee8c36433d31701f87602",
+    "src/components/compounds/Chord.vue": "f977f3bc2faa8068c69f1be82d9360373128b5d5a3eadfc961901194a9cb7e81",
+    "src/components/compounds/ChordKey.vue": "15fb2004a0e59b7fb6527f32195bedd34ac501426a0ab51b9753c35654e2ce39",
+    "src/components/compounds/CodeStripBar.vue": "fc61f3ffa79273eea22e941c69bb643511e944ca0552300d460634030d2aa733",
+    "src/components/compounds/ControlBar.vue": "6bbb3d6c9877bad675bf7a54660cb2ac0df716a9d3029e1b3a641dccb134e26f",
+    "src/components/compounds/Key.vue": "2a04a16f8db52818e87c6b2c102cc617dc45f04e7ce14a0928240b71405b6d58",
+    "src/components/compounds/Keyboard.vue": "4b515b9a906f80dd7f75616cc928642420a2697fb5d7ed00725519ffed086482",
+    "src/components/compounds/PatternReel.vue": "b5bd3d29c328808ea7b7c46649f34915adc4f473e6d8bcef5f9315a847541b63",
+    "src/components/compounds/PatternStrip.vue": "876a2e42909a423083702a9d0a6a6f2aff94cc07dfed39c74068960c4aa8b371",
+    "src/components/compounds/keyboardAccessibility.ts": "5285d445fb793dd1e161bbc6e91a7ef5d4cc4747d07bb565d00c08572bfe15eb",
+    "src/components/compounds/keyboardEdition.ts": "cdd2caba89d6339da4cb04e6a5c26f137e2d04e7f72297e0d73f1511b74da3b3",
+    "src/components/compounds/keyboardSizing.ts": "e6afbd7c5ec580836d1ac5d558b1c57bdd2cfd44f5d6d70a7e1119df3f3e91e4",
+    "src/components/compounds/pressableKey.css": "68644da048353bcb47b02ed2fa641f407b3d969c44a84f7b818b5ade10ec540c",
+    "src/components/humming/HummingCaptureTransport.vue": "bb38a32cfac44a2580c11cca5fbbf165ce58cf8ae33c17c230a03cc688cb2598",
+    "src/components/panelHeading.css": "304b8ef265b33980aaa6d398465d8fe019c63991ce41dc6f8330194bf2073e3e",
+    "src/components/patterns/PhraseShelf.vue": "11f425ef70fde2bcc55b29363c18186f8211a2ff5ebeb62e36d554b1afc2b4a1",
+    "src/components/primatives/Button.vue": "e3ed0c884da86ecfa01d155a06af0bc189e23b65fecdc7ce434877326592da27",
+    "src/components/primatives/Knob/BooleanKnob.vue": "47b43c8a73d04555f87ad8a73f78567bcfacc93fb806760ac30bc52c73cec05b",
+    "src/components/primatives/Knob/KnobFace.vue": "b499c01d580d6e1eac70d4b982fc00c3dfee15feb3c2e971e6cf42f400b421e6",
+    "src/components/primatives/Knob/OptionsKnob.vue": "23e19a2754e3adcb409f3717592d88314cfecc164857acf4c438574c1e14b066",
+    "src/components/primatives/Knob/RangeKnob.vue": "727281d1604c22b1140e0b92413b74617bec55f31ce699145c533e23d5977fbb",
+    "src/components/primatives/Knob/displayValue.ts": "818bf9267a4d9357f3a3dd65dab8b839554c1a13c55a32c440b8232add4c043b",
+    "src/components/primatives/Knob/edition.ts": "073696997e639f16443ad14050b319f107872caacc79680c626bbc8309734f66",
+    "src/components/primatives/Knob/index.vue": "50afcbd3f959e69226c018667fab6bfff1f588b71fb0495073a51245baddb692",
+    "src/components/primatives/Knob/types.ts": "af858f388ec7528a0a4048e31a7d09fd8de7bd7d8bc2d4d08dbcb12fad0b5257",
+    "src/components/primatives/LoopDial.vue": "97341a3f49d99b09ad434a4708e91217f86af23cfa1c0fe35517527a49b4f33e",
+    "src/components/primatives/Mark.vue": "287e30c6ae257ce0a1ae77d3b2e848572601ad5f06b589c8d9000773a46f9d56",
+    "src/components/primatives/MidiSettingsIcon.vue": "897c9fd1c5bdb4fcbe4d26bdcfe5f128b764a01fc3fba2e4910c148f1a0e9bc3",
+    "src/components/primatives/Note.vue": "20c328ae744c4bb762ff78e767e9f408bf5dff027112037b640925920a9dc251",
+    "src/components/primatives/Readout.vue": "f90efad8ec5f9e26329ba441e0aacfcf3b374fcf05b62ea1ad0a13b471f5ec5f",
+    "src/components/primatives/Sticker.ts": "2839883a47d55e822d73da1e2b978cb2314756c8fe806419a460f668379d5a30",
+    "src/components/primatives/Sticker.vue": "eb163f942c7b5808ac70462abdbe27e11c1ccf37eeb1bee902b210831499e3f9",
+    "src/components/primatives/Tabs.vue": "5d6dcc44adc496e756385f46bc228b25e3df46ea9c1b7296097a4736da96bfd5",
+    "src/components/primatives/TabsEdition.ts": "7d41c11db4202b2c0ab18c7a6a453cd68a8eb3ed20c3a88b862a87bd17dccec8",
+    "src/components/primatives/instrumentControl.css": "c89789d368618874b676e84346a793ec4d21a13a8165c3e343233f94aa1e02c3",
+    "src/components/primatives/instrumentIcon.ts": "3de29d3211967a92d58b7e1da7bea6c2281b22e494a75080e0d860b68dc4df65",
+    "src/components/primatives/marks.ts": "37c03dc4b4e6e96d5cb6bada49c685f63695d4f5483ac962f9392ba8ad1b10b1",
+    "src/components/primatives/noteColorContext.ts": "4ec3759c84f3e3385dd51a74d5253b2dc2e93374e1a345a866b8cd1be9ac278d",
+    "src/components/ui/SaveFailureNotice.vue": "68e2944c220053164c94af3534142b8f35e668efd5b433e1b70097a34e8f4ab1",
+    "src/components/ui/TabsContent.vue": "028a94970608837ea2d0673066128406198ffcde2a41f4212d9f3c6d28c1f114",
+    "src/components/ui/index.ts": "d81ca52bf89d440784e210a0ec0994224990b9da8f9fa7793e92528831a35176",
+    "src/components/uniques/BrandLogo.vue": "567da400ac400c2a47fe0e1e0c5606a785f6450d0adb5d4a6518bb1b26009c92",
+    "src/components/uniques/CodeStrip/HighlightStrip.vue": "35e29b0075bc3d8edc48a508a6962ec5b8b9c2336759acaabfb16a96b0285f9b",
+    "src/components/uniques/CodeStrip/HighlightStripEvent.vue": "4c962131e65ea61a2f9341870f2bc69b38b6f59005a211ee2183d1783935e5ac",
+    "src/components/uniques/CodeStrip/Sequence.vue": "fb0c24c9987360cb25752a597420ba25ead1dd9768da4ad8873549628137e51d",
+    "src/components/uniques/CodeStrip/eventName.ts": "3c57864369bc616e9b1b5204826eda1c8196c6ba34a75816ffe9718accae2b5e",
+    "src/components/uniques/CodeStrip/eventWindow.ts": "4f2ae15f6088a6393bedc57bf936da51af64b83f3810006210eb770fb975879d",
+    "src/components/uniques/CodeStrip/highlight.ts": "cedc6e233f3e91a42e7b942849be379d9838b4a6e33e972d7e987eb0cb0ec731",
+    "src/components/uniques/CodeStrip/index.vue": "c5391443d304ae286df356a029fdf3970e23b25854acebcf0e5dcbda8c8af711",
+    "src/components/uniques/CodeStrip/recordingTokens.ts": "954afeedfd9bf1da62e733720f659fff75bcb7e756824868cadfb70d6ef72666",
+    "src/components/uniques/CodeStrip/serialize.ts": "5744b93bc7ee9a800d2940161cb8913ef5f9e8ee4ad6886aa7da4e2848da5eff",
+    "src/components/uniques/CodeStrip/types.ts": "b90aafea8a36e093966a785d16428c80e010ea734137fdc678a12538286268d8",
+    "src/components/uniques/CodeStrip/viewport.ts": "30517d91497de92823abc8268d4064c88769939b0c759a3a91b1646bfb9c3670",
+    "src/components/uniques/Drawer/index.vue": "d127df28d442f670f71d57bc46d835d4a28668a698cc5a597bc871ec8194ce28",
+    "src/components/uniques/Drawer/topDrawerGroup.ts": "7dbf3143bd62381238f69fa86ba3d53d9b7e6425a57bb71778be052282aa73a7",
+    "src/components/uniques/Joystick/edition.ts": "8dc6151704c1da270612085a103eca8ea001eb56e627cd1eb06143bb9624051f",
+    "src/components/uniques/Joystick/index.vue": "cdf487e4d9b575953f74f56dc8fd0345bb38bbc280bb7821dc7646e29e3ead11",
+    "src/components/uniques/Joystick/joystickOptions.ts": "621fac7e25d3abf9550b2c14490df214ae9b2b3c70756d789652220ef9935ef0",
+    "src/components/uniques/SourceCredits.vue": "18fa77101a3af13341cfb351e1448b5e5b0823b96df4b8cafd017d9db7a44361",
+    "src/components/uniques/brandMark.ts": "0e2ca3db37314c3cf241f6828830ca26faab47f28499d2ce169f457b163e8a1c",
+    "src/composables/canvas/harmonicTypography.ts": "5c0f17a32b44eb32b01b3c5a54b7c20427234c0d946fe5176c30139dc1a7884e",
+    "src/composables/canvas/index.ts": "fd49c638a66aed11b981100b95dee43ec05069f9a169a96b9c00cf78e5dae0fe",
+    "src/composables/canvas/intervalLettering.ts": "7be57b63a64d1e71c33415e9cbd3f93a8148f4f3f3ae7bceb211d5ea0c2f25c4",
+    "src/composables/canvas/stageCanvas.ts": "726302653a5cec80ea7e62c3807e0997b6991fd54f629fc240e808552e944f9b",
+    "src/composables/canvas/stageNoteSources.ts": "67d09f55db2e06a74b2163aa7adf03b2ef50178f332aade86e376fdfa68b0ea3",
+    "src/composables/canvas/stageRuntime.ts": "0379ffa6c0b997df922e4cb4349d444b214e4383881f078ef1173d678177953b",
+    "src/composables/canvas/useAmbientRenderer.ts": "ff210234a366035f15494abad3ad85841dbdb8b3f6a7f8e3ce314503c9071392",
+    "src/composables/canvas/useBlobFieldRenderer.ts": "6672a8cf77a5aa0890e4444838a06c5f4b8407580b47249972c66d4a430f725f",
+    "src/composables/canvas/useBlobRenderer.ts": "6d29991f86fbca724064c04aa7e290a85a9e7fa29e8216a8be8376b04679d7aa",
+    "src/composables/canvas/useHarmonicGeometryRenderer.ts": "5bb486f30d2ec35e4b6472bf03a4b9f4a08051a3e5b7303700337da6d55dd7f9",
+    "src/composables/canvas/useHilbertScopeRenderer.ts": "f79c96b28f13e604f1ae0b777f3b0e6d2e8dc5e757b5fcb7f1073c6cb2ec3f6d",
+    "src/composables/canvas/useStringRenderer.ts": "7bdd26f20511bc7f81248e284e1950125fbdadc2e33e79b2b7d48db401ff447a",
+    "src/composables/canvas/useUnifiedCanvas.ts": "972c9f79e974c047f410558f9617da25bfea068a7d30ab9e27330b02d3e4913a",
+    "src/composables/index.ts": "8c711b0162edb6b4fa47c4bc209397b29a95e9218d136f1d03991cff19d19e5f",
+    "src/composables/useAnimationLifecycle.ts": "dea6da443ab3f45a97ba7f5ce17216d6d15a51a1fbcc691fdc327582b2dbf577",
+    "src/composables/useAppLoading.ts": "40eb842773b56ffabe27cb560b97803b7567f93b117178ee10fedcebcde1b0ce",
+    "src/composables/useCodeStripStrudel.ts": "b024432eb5a433bbc30be506fdd2906ccf29f1bd369271a73fa09d3596058ab7",
+    "src/composables/useConfigMidiStatus.ts": "655c87e9fc5ffa739fecb2da7ae3a9a30ebf654c5c6c25ab5095bcc1000120e0",
+    "src/composables/useGSAP.ts": "1be839537e0f57f45a0bf71ed95e3ba6bb8edb6735fa20e94f82c66cfc0277df",
+    "src/composables/useHarmonicAnalysis.ts": "795cf8dd080cc7618f9ba52533d5075df499d76d388339db80b2c0816ec9ecc9",
+    "src/composables/useHummingCapture.ts": "178802fff4e33f2f28030aadc7315a7c3bef3a5879cf73598ec08db2297478d8",
+    "src/composables/useKeyboardControls.ts": "2a21c513e90e7c541da7cac19b13a77fcc13652f52f614762ca2066e6414a74f",
+    "src/composables/useLiveListening.ts": "5f525b0d52ab78512e8ac12becfa82288fa7fcd6379a56a40c0ab14f12ff6220",
+    "src/composables/useMidiControls.ts": "b1594bc44289901dedacc83544cb74389b0b886b3e4b2488b495bd1442fd3869",
+    "src/composables/useMusicColor.ts": "8b10d37986f6219d442e0556dee9cd568561f087d1a3eb5b045248c0590f5564",
+    "src/composables/useMusicColorClock.ts": "5a4038e03a162264ea224331ca5c43553c06228e1ebe7954fd1f3406d7cb7adf",
+    "src/composables/useMusicColorConfig.ts": "b368981add5086b26174748188183c89c5eb39fa9c24587ea2e4b3cb7e60e1b3",
+    "src/composables/usePressableKey.ts": "18f639a518014e2887ecca0142d0ca4cefd473652dd86af2c929591f5996ba95",
+    "src/composables/useStageHostLayout.ts": "e22b1fa1b03460a0c44e70420e973ae590832e867b82cc28f46bc70823e45a76",
+    "src/composables/useStrudel.ts": "d679de6039dd2f19437bcc68d300ffef9f8abbcbab02563f54285acc2891299c",
+    "src/composables/useTopNoticeClearance.ts": "29bd992913cf1e0794f729d939f85ee86a678a83b3d17dfe815c0a122f3785bb",
+    "src/composables/useUIBeat.ts": "1e82ebd126a422dd7f90b0df7e2f279e8f2d727a15043c8b1da1098aac7d00ce",
+    "src/composables/useVisualConfig.ts": "da999cd16b7d5df1457d1dd8d9c2d7880730444950a43b7b8b94477dc9cd2f04",
+    "src/data/gmSoundfonts.ts": "d5ee4de059a67a949c3c6e1e6550c71805de4f1564cfd4ca276726c440e80e23",
+    "src/data/index.ts": "3bdb8931a5f5bd6373525adda7c6eb278b3923d1b689e7cdd29a8c05d2f67f34",
+    "src/data/instrumentCatalog.ts": "be0295f28aaf1405ec10a8db52e74f6449df78311781f315f315ee8c28cbb616",
+    "src/data/instrumentCategories.ts": "ec81074a67883781d1fe485a4028a7a3fa02cb77ba095c444c06b676f61f72f7",
+    "src/data/instruments.ts": "1ef8598ff9b73906aa1a292473231979719d5b7d0af45f5a55e240a1b899da5c",
+    "src/data/modes.ts": "4edf32a4cfd4a1ae38f54e4ebdc515e8434b5e0575309493a2532cd223770197",
+    "src/data/musicData.ts": "5ffdc3db2bdce946ece7eaf9fbefc40bb7ef0c6642b0e4195b289c2e7bbc1cca",
+    "src/data/notes.ts": "024fc6d4e42f94cb56cfe8936291e844f3311d7e169b60716e9f59bbfca8fc19",
+    "src/data/patterns.ts": "2d613601df92a9284815a8c38c39003b86e755a1ab977a6b89c1f3f2640b22d6",
+    "src/data/scales.ts": "b87d71bac0e0b3c8e4c8ee623f96f4f0ff2578a975e06f31da62b64732509a5f",
+    "src/data/solfege.ts": "5c909374c0ed93d5a28f70d1821fe9f418ac44916992c6f01ef4d6c00b6a811c",
+    "src/data/visual-config-metadata.ts": "d722e7d712d46a7d83fd39238f01bd1a4021cde0e06aebb99bbbb238057f7224",
+    "src/data/visual-config-presets.ts": "b9628b3814dfd87de12ddd28deea8c7fce3ad2b5873eb9c73c79db2833095ef5",
+    "src/domain/HARMONY.md": "c8061708d6c5bc1d331e71ca0dd2e69912b372fead41fe381e6224f23f17026f",
+    "src/domain/harmony.ts": "673d0a1fd6a94e263820259b6938940b2fbf970639508524e2a48885025f394f",
+    "src/domain/modeRemap.ts": "412f71bfee03e3d51320dc9892f88185294920a1443f084a45fa8ec7ec2e1991",
+    "src/domain/musicalIdentity.ts": "b6eb2f2fa27d763c70614d824f420bd189c533111290b2e3aad0a0ffa8743cf4",
+    "src/domain/phraseBook.ts": "fd7e978080791a170872fc61f3584dc97777cb1897d151ee932b33fb26783df3",
+    "src/domain/phraseMigration.ts": "f68d53947b3beaaa254fd1732e121cbebe0027c935fac0367d0737e4981de065",
+    "src/domain/solfege.ts": "6b9c14dc532a72774897e7f14c6bce9a76bdf51f9992d5fd63a6593a6c2299e6",
+    "src/emotitone-design-system.css": "b5489bf4602b4e3441d4d816d0a25b0a2e6d585db97ef9a24fa26244b9b15578",
+    "src/main.ts": "b45e4d92ad0fd2a5fb1dbb2abe48a61d2d6ef5fa9667fd1678ad862c835b56fa",
+    "src/services/StrudelNotation.ts": "738201a38c152a4fb3f8e7af349aa0abe6ece8fe2a01250c6f7947eaa00e6965",
+    "src/services/audibleStageTimeline.ts": "5beb060979630586c2e0e5fb04e1c79f052ab60bd5aea73ea322e0657bb1ebc2",
+    "src/services/audioDiagnostics.ts": "f04855647d36db9bd85631508e0793332f180c6d181dd2b50bc85ea695f3c5a9",
+    "src/services/audioFailures.ts": "d48ad168c0454e7ae1220c76cbac5576e985237871f08b5dd331245021e3fef5",
+    "src/services/audioLifecycle.ts": "a470fe5e0e39ad4fa398eaaa88fec2460cd2c54ebbec0c5a35cad923e5505c81",
+    "src/services/audioRuntime.ts": "d162fbcdf262d24eb4a054d8160af30a44860f80af68c1110f3ceb2deae50825",
+    "src/services/configPublicSurface.ts": "1afed3a4dbda92bb117861beeec8f80876ddf79d31c1cd6c43ce50f3a4b99618",
+    "src/services/harmonicEmotion.ts": "3e4f02e806f9909f9a89b6a37e8236cf1880861f43e11da4aba35eddebc59108",
+    "src/services/hummingStage.ts": "0571d6a9ca25d89c1344e8074eaf910da8499660e138fa56a1efd514a492c55e",
+    "src/services/inputVoiceGroups.ts": "ae2db62f58372d3957abf2688f65971dcb20a54f56ee9e9d157bf40f7e45ad1c",
+    "src/services/instrumentPersistence.ts": "e55c6d81b105a3f88730620181f9be239516a71c8fb0c02c99ac7d6fa8125ab8",
+    "src/services/keySurfaceColor.ts": "6e49db343c8c75d54beb94b10cfd36755eab2f40c2910a57f4b9f814168217b2",
+    "src/services/liveArticulation.ts": "a0aa515a2a9011fcaaf5b9d3eb209a4c3b2f0fbd4f39430c6a83ddaa736eac30",
+    "src/services/liveAudio.ts": "b320ebe119ca013c5c3aa3a24b4a754f0faa90cf1b08214c95c08a3b8e536549",
+    "src/services/liveAudioClock.ts": "8ac9a30c4f0873178a413e8a7f5ecb5497dfb515d3414539a9e4f5e31034ec83",
+    "src/services/liveAudioTiming.ts": "47fac95be9524a53228d98a5d5db5747e0109d7afad54b4dee71f88782c5fa95",
+    "src/services/liveInstrumentNames.ts": "42a5d623b330b5718c717ff56281282022a7f555dd363a0a0d5c19f50c44add2",
+    "src/services/livePerformance.ts": "56670dbb7d94391ec035a18e3265767dd8383853b330a881a7fda8c5beabb2de",
+    "src/services/livePitch.ts": "35ad6e8b99189cbab3df8e6a40eae2a0118c7d7ac0d1dc8cf8a5c172a0da4603",
+    "src/services/livePlayback.ts": "f499838a3b1083fd8afbe9462f5cbac74985f5b5f297b22951359cf88d7618c1",
+    "src/services/microphoneCapture.ts": "c1945fc2a9988e4711501ea7176963e0e8009e987c314ee7b638ac73e1872c1b",
+    "src/services/music.ts": "6eee67146975628d195b2e20cc6ed39fff3326a2d5cde611c50c3a55eaa7bc0a",
+    "src/services/musicColor.ts": "a9cc134451dd3e412670589e03d6ac01ed9fd892ce8f72a80e76270e8dfee584",
+    "src/services/musicColorCore.ts": "0a3640426e2bc09db45093a04998477a02cf56717605d31d869d9242bd9c0bec",
+    "src/services/notationSpans.ts": "23f7e2811eadd98f36999e09e6152ee3dfa0d0e62457dcf7f8fbf6a8171ceca8",
+    "src/services/patternPersistence.ts": "7448f4b733e2582b4f52a9d8b7b2686135aa8d135a562670cef65dd19524574e",
+    "src/services/patternPlayback.ts": "c79512defbc0f05f3073631e6ac6d65e35157e227158e668a6f381a453fc3cc0",
+    "src/services/persistenceCodec.ts": "4847ee6f654993d540bae9e549b1f025937ad89b1f5406d042a35d2ac55fab82",
+    "src/services/pitchAnalysis.ts": "b5632c377bbcab3735815c06d1ece65e4ae3c1b2c23d83ac3e92ebcc8466a135",
+    "src/services/playStyles.ts": "b3ba55b50fe1c51b81ee73a5b22103583505519c9c69b07f4bb7a87f90dd4c92",
+    "src/services/preparedLiveInstrument.ts": "e2d4393bb964feebfcb7eba822c7a06dd60db05cd43517f12bf67935659f7b4a",
+    "src/services/preparedNativeInstrument.ts": "ec6cdf6ef87cf455f3e7e951be2a2322e209a24462aaa1b259e06011535ec0c5",
+    "src/services/recordedTiming.ts": "b76ae59f4e5bee1cc936bfadc8090eb2cc389f3313d3cc8b069d01801ab471fe",
+    "src/services/roliLiveSync.ts": "f20df15d7e1bfefba0138003a4fb6a2edb02905fc6a02dd6bdee5e7fb04ebe67",
+    "src/services/roliPianoExport.ts": "1fd7680ab196fe72b6ae822fadb5dda9ac5eb7b32b6c654a50caa080b00f1cf1",
+    "src/services/safeStorage.ts": "4c5318be791439465db0479f945a8e10ebc811bbbb3e4d17feb509dc4373856c",
+    "src/services/scalePitch.ts": "b5bb380b32d54a373646de82bfd16316d76743996f69e058018d27224b6d0c04",
+    "src/services/scheduledLiveVoice.ts": "fff238421301d3279c58f13070fa03e87660e555ef2c058a2112cd565e7fdf66",
+    "src/services/shape.ts": "43cd8068f506f9971a9a6252addb6042dfaaa0a864446b2f9d4c75ad4da156db",
+    "src/services/soundfontFallback.ts": "f60dfef5023ace2103cc5540e5f8fea22cfa28a5808a364a7c200e6773bbffe8",
+    "src/services/stageAppearance.ts": "7b9f8d5976a7d07aa0861073631f2eb16ced64ba60741e00630c4416f7af4d84",
+    "src/services/stageAudio.ts": "76c23b1b0fbc044db71a8882abb8c7de51cff530f6a653fcdd4a294e50d5be59",
+    "src/services/strudelLink.ts": "b6c4b7326620b354ad9868d0b45e245d0d1305be05ef2c79239431364c57c687",
+    "src/services/superdoughAudio.ts": "98e652dfc6b3e263cf2ad73f623ba752ec7b1a9904c60e6284e525e9b5938ed7",
+    "src/services/tremoloApproximation.ts": "271436ab3066a6ece08f2450caa1fabe0e9d48ac1949512116017bdf50620129",
+    "src/services/vibratoApproximation.ts": "c3f0d9ea9a12a03646425b84c2fa8f30be2f5b8abbde29b792cbf92175795bcb",
+    "src/services/voiceDynamics.ts": "aed7d4ed652511124fd4273778b23716a27ef53f2ff7b5ac80ffde0b6c463b90",
+    "src/stores/instrument.ts": "35b73ff1f10054ea9d6915504f91b8790dc69cca42d91206399fe3bede933d7f",
+    "src/stores/keyboardDrawer.ts": "b2647f6d1d21dccbdc95bd1342212290bffddcc8d6a9a76e6bfaff2b52531fd1",
+    "src/stores/music.ts": "632d6c4a8b1385b0e84e7eef45c41adcccebd2c5dccf97cdd2bc6e27606db930",
+    "src/stores/phrases.ts": "da2a2054190ee751f01e1ee4c60114aa5e4faead6726b3e37a9d4203e2d6e273",
+    "src/stores/visualConfig.ts": "a55279b33756ca707f44ffc0ad2f2714dc7da95f08a0e1470a48a74131723135",
+    "src/style-guide/ConfigMenuPage.vue": "03fbd70b6d9d45efd968185c9908940197cf1cbe19fc7bcb4aba6997edbe2087",
+    "src/style-guide/DESIGN_LOG.md": "9c271c46364b87f5969229d06ac67b7d73489f864feb732594aa620b4d3aa58b",
+    "src/style-guide/DESIGN_SYSTEM_TRACKER.md": "b7786b092707f7e3f5420c736b97872a1a470c19e0cb7b96061b12905ed77ac1",
+    "src/style-guide/InstrumentPickerPage.vue": "44cf250a0bccf17ee6db86d5cdba008f32f1fd75ba95af7be1f6e55324c307ed",
+    "src/style-guide/PatternReelPage.vue": "e5a6081c7120420a02ba5c18f4a27385dd222de430def579b6574b88ba3322df",
+    "src/style-guide/PerformanceDeckPage.vue": "ff5015ba566ba3e61785d311a3cc8d520674bde2a19537114e695b388f11b3ca",
+    "src/style-guide/StagePage.vue": "3be499a618a1b9374b295bcdb46e611dc5e67ba1f640cca3cdede8aaa4ba6ddb",
+    "src/style-guide/StyleGuide.vue": "7f2c942c59620b58b5d216cfdc171afa70b818508b593770b5e48d3be26e71cb",
+    "src/style-guide/TabsPage.vue": "b44ff6e672335d883998f2ea4a485ea7c3095004486b29033c65e818e8f0e962",
+    "src/style-guide/WIP-bible.md": "16b26bfb006b929ac72164ddc4ce3e59cc2ae99572d2209632288a9ff19f7f48",
+    "src/style-guide/assets/jazz-collage.png": "526ec7212cc5fc4f2e4859b61ceaf2d49394d518ddb8e139877b9fb4639f94ab",
+    "src/style-guide/compositions/CompositionLoadingScreen.vue": "1acaeb6b7008eada0d65bb8837babb55acb7d24dc023499b032c9565439956fe",
+    "src/style-guide/compounds/CodeStripBarFixture.vue": "76d7836b2eebb4308553f3696c270c9f7479f6e2892e04633ccd0b0add9233c5",
+    "src/style-guide/compounds/CompoundBeatIndicator.vue": "75e1161f140b7db38afbd447d701f6281f3d990858a8773d5d52aaed80a92c3c",
+    "src/style-guide/compounds/CompoundChord.vue": "f2ce15caedd6d29543b667cfa0515b91e174176fd30de3190efc21f671e2df8c",
+    "src/style-guide/compounds/CompoundCodeStripBar.vue": "ad0c3c74f397bf640cced5cf28a6d42f4407006ad3adf55ddf911bc5e14238c4",
+    "src/style-guide/compounds/CompoundControlBar.vue": "aa8ec89127155828568dc18ac315a0bd84d9911cb408264d9e85251d3ec9b7e8",
+    "src/style-guide/compounds/CompoundKey.vue": "73f9395b575d68eb0b4569efbfc2b4527c9d278711e822b9fc130da9e948639e",
+    "src/style-guide/compounds/CompoundKeyboard.vue": "f82e344cf6511c77230da0457a58da81021701ae1cb3eff8f8597ce137e10b7a",
+    "src/style-guide/compounds/CompoundPatternReel.vue": "a6e5fc53af2e962898cc4e066caf2bc2616703a57a8e56c9524c0abcdf0274c8",
+    "src/style-guide/compounds/CompoundPatternStrip.vue": "323dbf403aa49fe135d57fc355633191f46ce33a72548c0144da066711035e8b",
+    "src/style-guide/compounds/CompoundPhraseShelf.vue": "53e9f0ea1076b67d22a04e85b784cb0044cadcc495710cafe07876f102bee634",
+    "src/style-guide/evidence/beat-brass-2026-09-26/brass-comparison.png": "f7dbff0ac949cbe2b3c1857ee5f93369215f80d54e9bbbc0f9f04c0c39bb18e4",
+    "src/style-guide/evidence/beat-brass-2026-09-26/brass-forced-colors.png": "c0a3db3b8a6c8394e4fb8346b6a87c2839afa94642285d47711ce85faceebbb5",
+    "src/style-guide/evidence/beat-brass-2026-09-26/brass-reduced-motion.png": "820f7c3f84d02dcbad7cc67dbd9c89ec0e94971ac3953eff516f687b91f95a8e",
+    "src/style-guide/evidence/beat-brass-2026-09-26/browser-checks.json": "df9f785306e039a0b643c68da45d616b468c5ea28622dd345b5af598f3cc1775",
+    "src/style-guide/evidence/beat-brass-2026-09-26/production-desktop.png": "75db6d302a5593ef04479e36aba18d325b2bbb7f09b0afb7857e06b7005f2f51",
+    "src/style-guide/evidence/beat-brass-2026-09-26/production-phone.png": "50e99f31fcee6d87fb2851f3fd838b983a83caf22c203a7e48cae9e5cc07cd20",
+    "src/style-guide/evidence/contrast-2026-10-10/after-beat-indicator.jpg": "755bdb6a5fbeb68232e022992236f94d43749b512350f81bb3bf8ba94cb4377a",
+    "src/style-guide/evidence/contrast-2026-10-10/after-button-focus.jpg": "0f9a9a538176e6857a628a297c6a40e321076da6f7eab66d3cdfb45bfe8bc273",
+    "src/style-guide/evidence/contrast-2026-10-10/after-knob-ring.jpg": "0097aa3c198b8ea37fbd46646005cbcefca86ee12442c7338b3a260c03d5389c",
+    "src/style-guide/evidence/contrast-2026-10-10/after-tabs-brass-focus.jpg": "b213b1cc7486089ae83ca5743f7f40baaddd0d376dd875b271919b7bfb92a321",
+    "src/style-guide/evidence/contrast-2026-10-10/after-tabs-brass.jpg": "ea92c263d4e7cb26ff4c113438f50bed57e530f210695e4fc60a1e0da85b2466",
+    "src/style-guide/evidence/contrast-2026-10-10/after-tabs-marquee-focus.jpg": "4d68244fbdf0119803b72e73f5a068a1c55141c3117dfb1ec259bf5f9754ff66",
+    "src/style-guide/evidence/contrast-2026-10-10/after-tabs-marquee.jpg": "ac83cae19da4460fa2b1d8a0f629a99397a63ede2b381b88d6bb0db4a4edd746",
+    "src/style-guide/evidence/contrast-2026-10-10/before-beat-indicator.jpg": "8a4ae23435b0a798ff670a8db456eacda7d80fc0e4d77adcf3cd59fe4415811d",
+    "src/style-guide/evidence/contrast-2026-10-10/before-button-focus.jpg": "fc91af261068e3b65459dad0b8c787350e9bfaf78207596e6f06165862e017a8",
+    "src/style-guide/evidence/contrast-2026-10-10/before-knob-ring.jpg": "7aa3531b17996ef54b64e54f6329e691f27c5d885d0cf8ca4d2fc6b8edac3d4d",
+    "src/style-guide/evidence/contrast-2026-10-10/before-tabs-brass-focus.jpg": "416b6f4e15e8f7e87c4271b9f2d93166edd1d24d344e530ea20e848113a21519",
+    "src/style-guide/evidence/contrast-2026-10-10/before-tabs-brass.jpg": "d5fe5a5643204718cf88dc94cca32aa5b1e388abe1e2070e3d55aa9d8f51a7a1",
+    "src/style-guide/evidence/contrast-2026-10-10/before-tabs-marquee-focus.jpg": "1e623f3b52926e6ec70bc1c1af0578762770b18b33a6aa783abc2ac877ce82c4",
+    "src/style-guide/evidence/contrast-2026-10-10/before-tabs-marquee.jpg": "ffede4d95beaeccc1954c2bd1fc6e92babac9493f9b9f33c692c9435dd9ec026",
+    "src/style-guide/evidence/token-polish-2026-09-27/chord-390.png": "03379f5e409c5d259e95b43f68fda12c7dbf185d67bc54b87259d48482b72a4c",
+    "src/style-guide/evidence/token-polish-2026-09-27/geometry-390.png": "514c818a5ad540599f21d090a599c04176857eb34af6e3d85d6c8df9c3b52310",
+    "src/style-guide/evidence/token-polish-2026-09-27/motion-390.png": "13109ecb3fb00c056dab7897fa4efe97b64cd2c4496ab33f8f28cc76717db974",
+    "src/style-guide/evidence/token-polish-2026-09-27/production-root-390.png": "ee13109ec974e2689925fb758c842a450b206ebd4677c4aebb94efdf9aa11658",
+    "src/style-guide/evidence/token-polish-2026-09-27/typography-1440.png": "b02ab6de5211b6ed9934cb623b3e6ac255ed6bc42845aac8b71eab73647002e9",
+    "src/style-guide/evidence/touch-targets-2026-10-10/after-config.jpg": "5cecf3553f0164a1c990f2f0dbde07f1c27c3b7550cb546860a4b25fdde3cb68",
+    "src/style-guide/evidence/touch-targets-2026-10-10/after-deck.jpg": "8923f6308886c0190618145dc51fbe061d05d65a6320f231b6df0c953b4991b7",
+    "src/style-guide/evidence/touch-targets-2026-10-10/after-instrument-picker.jpg": "4f6ff122ccb1280770b3e0ab48dbdf690c1f37d72892d84fda1886b06d6e4b77",
+    "src/style-guide/evidence/touch-targets-2026-10-10/before-config.jpg": "0a93fbab30323da83beb94df2d859fb7eb2b16d4d1b4307d77c98d3a35434cf9",
+    "src/style-guide/evidence/touch-targets-2026-10-10/before-deck.jpg": "3c17c0a97c2459f413ecf7e4ec69703a66a5781ea5ef9cedf1cce3dd2cf8dc2c",
+    "src/style-guide/evidence/touch-targets-2026-10-10/before-instrument-picker.jpg": "e8bc08aa3274e1eb8623b71afedc8f54430cf1b25d595cc322dc546755b12adc",
+    "src/style-guide/evidence/touch-targets-2026-10-10/browser-checks.json": "69a7573cb99cd5c21a61efa7deea20c7ef9ea4a840a1f1c85f9a943b899206ec",
+    "src/style-guide/evidence/touch-targets-2026-10-10/corner-checks.json": "c2cfa4fb8ee1b8a31f5b99b089d54b28769d495b40e994d7f570e28dadd1f294",
+    "src/style-guide/focused/FocusedPoster.vue": "33f095c34cef7c5035168c4f546143013460a463c389cda5368615553f2efc8f",
+    "src/style-guide/focused/focused-page.css": "4c4b41554f052ec5ecc5827b3e0f828145245efa89c62ac10fe7b81161a3b54b",
+    "src/style-guide/guide-defaults.css": "c8fcbfafa1803916ff62458b1620c75f2339037c9672e8a627351515e795295d",
+    "src/style-guide/guide/AnatomyDisplay.vue": "dc7287af375734112efd95123e4f5f34ee31f8036c30f246f7003903e789f698",
+    "src/style-guide/guide/VariantCell.vue": "2ecdcc52d392ce2cc0d6e67928b6fac639281a866b17e67de48ab0902fc55a6b",
+    "src/style-guide/guide/VariantGrid.vue": "a078ad53eb971e24f86dc7b130f633e8ebd45b1304d02fb7181ef733cf5a6459",
+    "src/style-guide/guide/useUIBeatFixture.ts": "6ee171c57087ae0f245852e2b0f420813970d1bbd0f37f5c550769d0230df768",
+    "src/style-guide/guideCatalog.ts": "7405b58cc015f469f49f04af506a5a2dc461b23466f4ff3968cff12070a02fdf",
+    "src/style-guide/lab-prompts/05-compositions.md": "ac6ac1b98fb166f29524987c3b1c20fdef6c6ab2f4ca8f5a4da35cf248a6fa09",
+    "src/style-guide/preview-card.css": "980ad3cc2f53125fc26ed58329a2e82466156a8695465f29fc25e0640fa45536",
+    "src/style-guide/primatives/PrimitiveButtons.vue": "c77616ecf67cd386752b906145cb9398e51e59665f214079fac9d02bc79b188e",
+    "src/style-guide/primatives/PrimitiveKnobsAnalog.vue": "bbc61dd6e6e73c7bae736a842d30226cf7e1e266972a6a76265ddb350c3c2a64",
+    "src/style-guide/primatives/PrimitiveKnobsDigital.vue": "41cef081d1721ed1286f369d3f4c9e2e031bc772852c5f75b5e33a8f2c73e844",
+    "src/style-guide/primatives/PrimitiveLoopDial.vue": "8ed25320410d25e8e2274cbc32e81a3c1c63440b38899703853c1752a79735af",
+    "src/style-guide/primatives/PrimitiveMarks.vue": "0ca22fc10a0266e1f6426ced5d2e990aa7a5e2dcc059e3c2f4c41e3032095a51",
+    "src/style-guide/primatives/PrimitiveNote.vue": "da489f842e7d5d04b9985ffd164c195871ea2249d35a1d1836fd1d69c86b5266",
+    "src/style-guide/primatives/PrimitiveSticker.vue": "6c29f432ffe1dfa73b2d072ddabe03a6563148f7cd7ebe3fdae73183a2ca6caf",
+    "src/style-guide/primatives/PrimitiveTabs.vue": "52a397c69ee1c01886184b1e342202ca433fb31aed3d7736814ee461fe8117d8",
+    "src/style-guide/shell/CutHeadline.vue": "162e6b16aa4cf870614bf9e9b63f1f60e6b35b8463fbdfdeeb6129d8ec5e3df5",
+    "src/style-guide/shell/FloatingMarks.vue": "8e14221b596d6829dee6b7ddb19810700ac071626e1e430027883ad2eed13890",
+    "src/style-guide/shell/GuideIndex.vue": "35796a17dc50b860c7dfac6a5d82a582fef1542012848d9d15df0c92daca1598",
+    "src/style-guide/shell/GuideLayerPage.vue": "d4d4eaa04b71146f23a34d42a15ab5c352c9ea390313446bdc2702f0aa2e1dd1",
+    "src/style-guide/shell/GuideShell.vue": "6c14a89f659e77650987475b2241e1744d79d71231c431e05d8fbe9d1368bdde",
+    "src/style-guide/shell/GuideUnitSection.vue": "9527204100f895170b7bc5b9cb1635e75aca235f0ef9a61313deaa4579fca6eb",
+    "src/style-guide/shell/guide-paper.css": "fb84cf0a4e4ecf895dc4165f51d83f808b22b3e0986b359d054550697ad5dcaa",
+    "src/style-guide/shell/guideContext.ts": "bb88e9eaefea2ceec7558420736eaed7eaed733d142ece83bdbd27b8abf97be2",
+    "src/style-guide/stage/StageSpecimenCanvas.vue": "c5c97002b39416048060dd8c278b466f20d41e7a4eee4adf91c8e1c4e58ef895",
+    "src/style-guide/stage/stageSpecimenAudio.ts": "1cad02f73c6e7113576a938932da3436e72b2528d41bd2e8daeae648335c342a",
+    "src/style-guide/systems/SystemUIBeat.vue": "427554dca89c49421f99e0434aa52ffc4b81e7dcce08679bd93985c9d50e189c",
+    "src/style-guide/tokens/TokenBrandColors.vue": "4912c331f68034bba7dd6d724b1fc90abccab0d73c77fb7cf6f22ad430c728af",
+    "src/style-guide/tokens/TokenGeometry.vue": "f58923f800ec35a993f619ce1c22fd3b6ccd5826ebbdd1ddd7c86ecbc0fdbcff",
+    "src/style-guide/tokens/TokenMotion.vue": "95fc41e1fddb17ea12daea4a856a5058025cf7e0f3eee384bb45394bd00dc18b",
+    "src/style-guide/tokens/TokenMusicColors.vue": "ffc7e22328262e19a85e0f2fdbbc596ada0a25493a8b7d62fe3cb6c60767bcea",
+    "src/style-guide/tokens/TokenSpacingRadius.vue": "ea7c227b58bc53b4fb8afb2994924554217fbe650cbe2ce3420120f4ff7b3b72",
+    "src/style-guide/tokens/TokenSpacingScale.vue": "5877cd4134c452ad6c19eebf11929506f946bb57eb464b56538bae512ba56819",
+    "src/style-guide/tokens/TokenTypography.vue": "543436f43df46cab3c19e667b4081f5899ac09c5dfc0d9be3a64bd29e4ece511",
+    "src/style-guide/tokens/TokenUiColors.vue": "9b9b8f394b2fdbaca08c7364c3a46c1f76a2908d8ebb5805b69f6fb2abef7f98",
+    "src/style-guide/tokens/spacingScale.ts": "48e419eee29bf4d921bb6ee9c331871dd9ac4fcef854f8acb450fc7499ea13c8",
+    "src/style-guide/uniques/UniqueBrandLogo.vue": "0a7afef9a3352ee5a826134e8396bf9825c8fd091d9e40a0ee14e02f9d41313d",
+    "src/style-guide/uniques/UniqueCodeStrip.vue": "5bf2f13b21c8b8a9cd423061d78b4a5e707e0ec382f547d2d6217e3bfbe3adaf",
+    "src/style-guide/uniques/UniqueDrawer.vue": "4e44c6df2f1c74649fa44d2d9a87550e6e2b78e19a9f3954bed09b1040f17666",
+    "src/style-guide/uniques/UniqueHarmonicGeometry.vue": "8aecb24f0e3086beb9cf0fc471d948951cf3a6980bd32b77e8baf851f017532b",
+    "src/style-guide/uniques/UniqueJoystick.vue": "9cbfafd5637af74c09cc507a731db66ac028b1e527bf1e0c696a4db243f9b9d6",
+    "src/style.css": "4724fd34f243dc9c6b61e4be4efb6a9ed837030f40f255a6938e184956e3206b",
+    "src/styleGuideRoutes.ts": "2df7b91984393640e1f48ff0f19d1d5825ac36443c735fcb3c8e1520add1bbbf",
+    "src/test-setup.ts": "0e55b49529b0d728335c35225fd06e0ab3d5c55936c74cb8ff8a1febaed9845b",
+    "src/types/StickerContract.typecheck.ts": "4c807633c9f0c1081d1d5e8ba409d63cceb1d37d440be152dc631840d1c18c10",
+    "src/types/StickerContract.typecheck.vue": "d6da96b13b4a28e80bb9c575b261a459b4090b5fba7cdbec98abb471e519c83b",
+    "src/types/audio.ts": "6cbefc989b0655b119a96532c6e9690bbbfde332e6c3fb8122f784abb7ab4e7a",
+    "src/types/audioSession.d.ts": "f211ab609675a6c3cc79784d174b7464449dadec7720f511379ef4ae28d19372",
+    "src/types/canvas.ts": "d165d3b7ed67e240718f478ce23832fd5388d49b973b7fae1f9e422244ce9872",
+    "src/types/expression.ts": "f3bc435b79ae07c3b080a442047f1ea63d8c40b7bcc0bad4b201d7b657033c7a",
+    "src/types/index.ts": "fe9cda7e4a4a4c8a49826be833363cd95b9763c66ba43613ef6aede9f8505199",
+    "src/types/instrument.ts": "1e27ad6192c4f22e54b61552dc7df9fcacccf22b6ca2de51c32f1c841cf63f47",
+    "src/types/loading.ts": "d643df222a1690c6733777845e2ddcbb19d231796ca93cab9caada34bb938a56",
+    "src/types/music.ts": "b5ee124ad828471b2339bc611cea1a00e044a7d391ec986a90254248e97bea24",
+    "src/types/notation.ts": "d7f3904b100ca4ed7676b63eb82ede9859de9b49c8c56a679ca6bbda303b630b",
+    "src/types/patterns.ts": "977fabf0c16e812681e0be66f2aaf7657a2b366cd20e27c3e91f28fd1d24ddbe",
+    "src/types/phrases.ts": "ac11b084ad5df502fadad3e0ea95a7f02c04af805b94bed1c52560ac072c97db",
+    "src/types/pwa.d.ts": "425584a193237fc148b255b5167f661c83bbac14e669511a88802089833bf146",
+    "src/types/strudel.d.ts": "f822ddf8f1b790a63b06d545ea04a0f2192bce6abdd85a58ffb5cdf7ab0c712a",
+    "src/types/styleGuide.ts": "083748ed5e62b3648bb8cde67c74c3b31bf7ec43940f751022a455d494444ba4",
+    "src/types/visual.ts": "38ab918c7d44ab150589e441335fc2a9b362062f43d8c434bf2bd6dfeea2b632",
+    "src/utils/abortable.ts": "db0731d15c9c61bd5979d46560c27003deff443a8b6f610164921e8b84eb13c1",
+    "src/utils/hapticFeedback.ts": "166fcff46dc89e7689c2f41d56b84579bf565c9c8ee2f9fa5cdcde776b84cc85",
+    "src/utils/index.ts": "4a6ec540da3578c20652f9a566c29e0b69a66c3ddbe5cdca7e911abe1a27e72b",
+    "src/utils/musicNotationConverter.js": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "src/utils/performanceMonitor.ts": "34293c239bf18d35b8923edbb9fb2bb47258b441a90fdd5a70c43c6c9c57ed85",
+    "src/utils/randomGeometry.ts": "416a8a6041dc37197bdee0e930137634c3ea21b9e7419e76a88bb0a49e489e5e",
+    "src/utils/reloadPage.ts": "57743bd204a0d58066dadb127c001268b2943e79cda315d7303d3c489bba9984",
+    "src/utils/sourceLink.ts": "d5ec9350c6b20977e27888992d5fe3a0dbf7c2f7b0bd7c33a6dfed594f5586d2",
+    "src/utils/visualEffects.ts": "5e239faad728c72fd0152457c21725d6ba79c9bcff85751cf2f37964604ff4af"
+  },
+  "dependencyHashes": {
+    "@codemirror/view/dist/index.js": null,
+    "superdough/dist/index.mjs": "0fd8d71a890902aff433f19201145f001f522634ebfe92b56f2252753945dc1d"
+  },
+  "rows": [
+    {
+      "n": 512,
+      "hue": false,
+      "logging": true,
+      "samples": [
+        {
+          "downMs": 147.0559030000004,
+          "upMs": 132.39016300000367
+        },
+        {
+          "downMs": 197.557679000005,
+          "upMs": 23.621466000004148
+        },
+        {
+          "downMs": 123.69465399999899,
+          "upMs": 124.81363799999963
+        },
+        {
+          "downMs": 89.5013270000054,
+          "upMs": 110.35134400000243
+        },
+        {
+          "downMs": 90.55371400000149,
+          "upMs": 107.81294899999921
+        },
+        {
+          "downMs": 131.95485700000427,
+          "upMs": 28.61900500000047
+        }
+      ],
+      "colors": null,
+      "domBefore": {
+        "notes": 85,
+        "codeNotes": 64,
+        "widgets": 65,
+        "stripElements": 1297,
+        "stripNodes": 2853,
+        "loopArcs": 556,
+        "elements": 2683
+      },
+      "logged": 518,
+      "working": 518,
+      "longTasks": [
+        {
+          "start": 23182.799999952316,
+          "duration": 134
+        },
+        {
+          "start": 23325.700000047684,
+          "duration": 113
+        },
+        {
+          "start": 23460.599999904633,
+          "duration": 60
+        },
+        {
+          "start": 23525.799999952316,
+          "duration": 104
+        },
+        {
+          "start": 23671.400000095367,
+          "duration": 186
+        },
+        {
+          "start": 23883.700000047684,
+          "duration": 123
+        },
+        {
+          "start": 24008.299999952316,
+          "duration": 66
+        },
+        {
+          "start": 24075.799999952316,
+          "duration": 557
+        },
+        {
+          "start": 24633.200000047684,
+          "duration": 123
+        },
+        {
+          "start": 24758.799999952316,
+          "duration": 348
+        },
+        {
+          "start": 25139.299999952316,
+          "duration": 108
+        },
+        {
+          "start": 25267.700000047684,
+          "duration": 130
+        },
+        {
+          "start": 25446.400000095367,
+          "duration": 102
+        },
+        {
+          "start": 25570.599999904633,
+          "duration": 93
+        },
+        {
+          "start": 25669.900000095367,
+          "duration": 64
+        },
+        {
+          "start": 25734.799999952316,
+          "duration": 61
+        },
+        {
+          "start": 25802,
+          "duration": 393
+        },
+        {
+          "start": 26195.799999952316,
+          "duration": 105
+        },
+        {
+          "start": 26306.700000047684,
+          "duration": 182
+        },
+        {
+          "start": 26523.5,
+          "duration": 99
+        },
+        {
+          "start": 26630.299999952316,
+          "duration": 91
+        },
+        {
+          "start": 26740,
+          "duration": 99
+        },
+        {
+          "start": 26846.200000047684,
+          "duration": 90
+        },
+        {
+          "start": 26971.5,
+          "duration": 104
+        },
+        {
+          "start": 27080.5,
+          "duration": 140
+        },
+        {
+          "start": 27270.400000095367,
+          "duration": 211
+        },
+        {
+          "start": 27482.799999952316,
+          "duration": 449
+        },
+        {
+          "start": 27932.299999952316,
+          "duration": 102
+        },
+        {
+          "start": 28035.5,
+          "duration": 160
+        },
+        {
+          "start": 28228,
+          "duration": 137
+        },
+        {
+          "start": 28369.099999904633,
+          "duration": 67
+        },
+        {
+          "start": 28448.200000047684,
+          "duration": 83
+        },
+        {
+          "start": 28536,
+          "duration": 88
+        },
+        {
+          "start": 28647.400000095367,
+          "duration": 94
+        },
+        {
+          "start": 28743.099999904633,
+          "duration": 69
+        },
+        {
+          "start": 28813,
+          "duration": 118
+        },
+        {
+          "start": 28932.099999904633,
+          "duration": 177
+        },
+        {
+          "start": 29109.799999952316,
+          "duration": 157
+        },
+        {
+          "start": 29267.200000047684,
+          "duration": 369
+        },
+        {
+          "start": 29636.799999952316,
+          "duration": 159
+        },
+        {
+          "start": 29796.799999952316,
+          "duration": 151
+        },
+        {
+          "start": 29974.299999952316,
+          "duration": 80
+        },
+        {
+          "start": 30055,
+          "duration": 74
+        },
+        {
+          "start": 30142.900000095367,
+          "duration": 94
+        },
+        {
+          "start": 30238,
+          "duration": 77
+        },
+        {
+          "start": 30335.900000095367,
+          "duration": 129
+        },
+        {
+          "start": 30466.400000095367,
+          "duration": 88
+        },
+        {
+          "start": 30554.700000047684,
+          "duration": 52
+        },
+        {
+          "start": 30607.099999904633,
+          "duration": 170
+        },
+        {
+          "start": 30777.400000095367,
+          "duration": 400
+        },
+        {
+          "start": 31178.299999952316,
+          "duration": 93
+        },
+        {
+          "start": 31272.299999952316,
+          "duration": 176
+        },
+        {
+          "start": 31472,
+          "duration": 82
+        },
+        {
+          "start": 31555.599999904633,
+          "duration": 90
+        },
+        {
+          "start": 31670.700000047684,
+          "duration": 113
+        },
+        {
+          "start": 31804.200000047684,
+          "duration": 112
+        },
+        {
+          "start": 31919.900000095367,
+          "duration": 341
+        },
+        {
+          "start": 32260.900000095367,
+          "duration": 226
+        },
+        {
+          "start": 32487.400000095367,
+          "duration": 153
+        },
+        {
+          "start": 32644.299999952316,
+          "duration": 110
+        },
+        {
+          "start": 32755.200000047684,
+          "duration": 94
+        },
+        {
+          "start": 32850.09999990463,
+          "duration": 102
+        },
+        {
+          "start": 32952.59999990463,
+          "duration": 50
+        },
+        {
+          "start": 33010.09999990463,
+          "duration": 54
+        },
+        {
+          "start": 33066,
+          "duration": 62
+        },
+        {
+          "start": 33128.90000009537,
+          "duration": 57
+        },
+        {
+          "start": 33187.5,
+          "duration": 66
+        },
+        {
+          "start": 33303.700000047684,
+          "duration": 59
+        },
+        {
+          "start": 33363.700000047684,
+          "duration": 62
+        },
+        {
+          "start": 33426,
+          "duration": 62
+        },
+        {
+          "start": 33488.90000009537,
+          "duration": 59
+        },
+        {
+          "start": 33549.09999990463,
+          "duration": 66
+        },
+        {
+          "start": 33615.90000009537,
+          "duration": 56
+        },
+        {
+          "start": 33672.40000009537,
+          "duration": 60
+        },
+        {
+          "start": 33732.799999952316,
+          "duration": 69
+        },
+        {
+          "start": 33802.299999952316,
+          "duration": 59
+        },
+        {
+          "start": 33862.90000009537,
+          "duration": 66
+        }
+      ],
+      "frames": [
+        {
+          "start": 23172.7,
+          "duration": 150.09999999999854
+        },
+        {
+          "start": 23322.8,
+          "duration": 100
+        },
+        {
+          "start": 23422.8,
+          "duration": 83.29999999999927
+        },
+        {
+          "start": 23506.1,
+          "duration": 116.60000000000218
+        },
+        {
+          "start": 23622.7,
+          "duration": 216.70000000000073
+        },
+        {
+          "start": 23839.4,
+          "duration": 149.89999999999782
+        },
+        {
+          "start": 23989.3,
+          "duration": 66.79999999999927
+        },
+        {
+          "start": 24056.1,
+          "duration": 683.3000000000029
+        },
+        {
+          "start": 24739.4,
+          "duration": 349.8999999999978
+        },
+        {
+          "start": 25089.3,
+          "duration": 150
+        },
+        {
+          "start": 25239.3,
+          "duration": 150
+        },
+        {
+          "start": 25389.3,
+          "duration": 150
+        },
+        {
+          "start": 25539.3,
+          "duration": 116.70000000000073
+        },
+        {
+          "start": 25656,
+          "duration": 66.70000000000073
+        },
+        {
+          "start": 25722.7,
+          "duration": 66.59999999999854
+        },
+        {
+          "start": 25789.3,
+          "duration": 500
+        },
+        {
+          "start": 26289.3,
+          "duration": 183.29999999999927
+        },
+        {
+          "start": 26472.6,
+          "duration": 133.3000000000029
+        },
+        {
+          "start": 26605.9,
+          "duration": 100
+        },
+        {
+          "start": 26705.9,
+          "duration": 116.69999999999709
+        },
+        {
+          "start": 26822.6,
+          "duration": 116.70000000000073
+        },
+        {
+          "start": 26939.3,
+          "duration": 116.60000000000218
+        },
+        {
+          "start": 27055.9,
+          "duration": 150
+        },
+        {
+          "start": 27205.9,
+          "duration": 266.59999999999854
+        },
+        {
+          "start": 27472.5,
+          "duration": 550
+        },
+        {
+          "start": 28022.5,
+          "duration": 166.70000000000073
+        },
+        {
+          "start": 28189.2,
+          "duration": 166.70000000000073
+        },
+        {
+          "start": 28355.9,
+          "duration": 66.59999999999854
+        },
+        {
+          "start": 28422.5,
+          "duration": 100
+        },
+        {
+          "start": 28522.5,
+          "duration": 100
+        },
+        {
+          "start": 28622.5,
+          "duration": 100
+        },
+        {
+          "start": 28722.5,
+          "duration": 133.40000000000146
+        },
+        {
+          "start": 28855.9,
+          "duration": 250
+        },
+        {
+          "start": 29105.9,
+          "duration": 149.89999999999782
+        },
+        {
+          "start": 29255.8,
+          "duration": 533.2999999999993
+        },
+        {
+          "start": 29789.1,
+          "duration": 150
+        },
+        {
+          "start": 29939.1,
+          "duration": 100
+        },
+        {
+          "start": 30039.1,
+          "duration": 83.30000000000291
+        },
+        {
+          "start": 30122.4,
+          "duration": 100.09999999999854
+        },
+        {
+          "start": 30222.5,
+          "duration": 99.90000000000146
+        },
+        {
+          "start": 30322.4,
+          "duration": 133.39999999999782
+        },
+        {
+          "start": 30455.8,
+          "duration": 83.20000000000073
+        },
+        {
+          "start": 30539,
+          "duration": 233.40000000000146
+        },
+        {
+          "start": 30772.4,
+          "duration": 483.2999999999993
+        },
+        {
+          "start": 31255.7,
+          "duration": 183.29999999999927
+        },
+        {
+          "start": 31439,
+          "duration": 100
+        },
+        {
+          "start": 31539,
+          "duration": 100.09999999999854
+        },
+        {
+          "start": 31639.1,
+          "duration": 133.3000000000029
+        },
+        {
+          "start": 31772.4,
+          "duration": 150
+        },
+        {
+          "start": 31922.4,
+          "duration": 550
+        },
+        {
+          "start": 32472.4,
+          "duration": 149.89999999999782
+        },
+        {
+          "start": 32622.3,
+          "duration": 116.79999999999927
+        },
+        {
+          "start": 32739.1,
+          "duration": 99.90000000000146
+        },
+        {
+          "start": 32839,
+          "duration": 100
+        },
+        {
+          "start": 32939,
+          "duration": 66.59999999999854
+        },
+        {
+          "start": 33005.6,
+          "duration": 50
+        },
+        {
+          "start": 33055.6,
+          "duration": 66.80000000000291
+        },
+        {
+          "start": 33122.4,
+          "duration": 49.900000000001455
+        },
+        {
+          "start": 33172.3,
+          "duration": 66.69999999999709
+        },
+        {
+          "start": 33239,
+          "duration": 50
+        },
+        {
+          "start": 33289,
+          "duration": 66.69999999999709
+        },
+        {
+          "start": 33355.7,
+          "duration": 66.60000000000582
+        },
+        {
+          "start": 33422.3,
+          "duration": 50
+        },
+        {
+          "start": 33472.3,
+          "duration": 66.69999999999709
+        },
+        {
+          "start": 33539,
+          "duration": 66.59999999999854
+        },
+        {
+          "start": 33605.6,
+          "duration": 50.099999999998545
+        },
+        {
+          "start": 33655.7,
+          "duration": 66.60000000000582
+        },
+        {
+          "start": 33722.3,
+          "duration": 66.69999999999709
+        },
+        {
+          "start": 33789,
+          "duration": 66.69999999999709
+        },
+        {
+          "start": 33855.7,
+          "duration": 66.60000000000582
+        }
+      ],
+      "appendObservations": [
+        {
+          "notes": 513,
+          "domMs": 769.2999999523163,
+          "scrollWidth": 17370
+        },
+        {
+          "notes": 514,
+          "domMs": 642.6000001430511,
+          "scrollWidth": 17429
+        },
+        {
+          "notes": 515,
+          "domMs": 987.7000000476837,
+          "scrollWidth": 17488
+        },
+        {
+          "notes": 516,
+          "domMs": 1008,
+          "scrollWidth": 17545
+        },
+        {
+          "notes": 517,
+          "domMs": 858.9000000953674,
+          "scrollWidth": 17600
+        },
+        {
+          "notes": 518,
+          "domMs": 468,
+          "scrollWidth": 17654
+        }
+      ],
+      "inputLog": [
+        {
+          "type": "keydown",
+          "at": 23631.299999952316,
+          "trusted": true,
+          "eventTime": 23532.700000047684
+        },
+        {
+          "type": "keyup",
+          "at": 23857.599999904633,
+          "trusted": true,
+          "eventTime": 23769.5
+        },
+        {
+          "type": "keydown",
+          "at": 25398.099999904633,
+          "trusted": true,
+          "eventTime": 25261.200000047684
+        },
+        {
+          "type": "keyup",
+          "at": 25548.799999952316,
+          "trusted": true,
+          "eventTime": 25546.799999952316
+        },
+        {
+          "type": "keydown",
+          "at": 26722.099999904633,
+          "trusted": true,
+          "eventTime": 26633.599999904633
+        },
+        {
+          "type": "keyup",
+          "at": 26937.099999904633,
+          "trusted": true,
+          "eventTime": 26847.299999952316
+        },
+        {
+          "type": "keydown",
+          "at": 28436.599999904633,
+          "trusted": true,
+          "eventTime": 28368.299999952316
+        },
+        {
+          "type": "keyup",
+          "at": 28624.599999904633,
+          "trusted": true,
+          "eventTime": 28559.599999904633
+        },
+        {
+          "type": "keydown",
+          "at": 30129.799999952316,
+          "trusted": true,
+          "eventTime": 30062.700000047684
+        },
+        {
+          "type": "keyup",
+          "at": 30315.799999952316,
+          "trusted": true,
+          "eventTime": 30248.599999904633
+        },
+        {
+          "type": "keydown",
+          "at": 31647.5,
+          "trusted": true,
+          "eventTime": 31560.200000047684
+        },
+        {
+          "type": "keyup",
+          "at": 31788.599999904633,
+          "trusted": true,
+          "eventTime": 31783.599999904633
+        }
+      ],
+      "notes": 81,
+      "codeNotes": 60,
+      "widgets": 67,
+      "stripElements": 1326,
+      "stripNodes": 2896,
+      "loopArcs": 562,
+      "elements": 2718
+    },
+    {
+      "n": 512,
+      "hue": true,
+      "logging": true,
+      "samples": [
+        {
+          "downMs": 99.7478409999967,
+          "upMs": 74.8249250000008
+        },
+        {
+          "downMs": 144.60145600000396,
+          "upMs": 56.33284000000276
+        },
+        {
+          "downMs": 206.09943599999679,
+          "upMs": 50.450449999996636
+        },
+        {
+          "downMs": 136.3145829999994,
+          "upMs": 79.06194099999993
+        },
+        {
+          "downMs": 175.78063899999688,
+          "upMs": 67.03575499999715
+        },
+        {
+          "downMs": 169.2779470000023,
+          "upMs": 104.2878189999974
+        }
+      ],
+      "colors": null,
+      "domBefore": {
+        "notes": 85,
+        "codeNotes": 64,
+        "widgets": 65,
+        "stripElements": 1297,
+        "stripNodes": 2853,
+        "loopArcs": 556,
+        "elements": 2683
+      },
+      "logged": 518,
+      "working": 518,
+      "longTasks": [
+        {
+          "start": 37637.200000047684,
+          "duration": 86
+        },
+        {
+          "start": 37723.59999990463,
+          "duration": 92
+        },
+        {
+          "start": 37849.299999952316,
+          "duration": 90
+        },
+        {
+          "start": 37941.700000047684,
+          "duration": 91
+        },
+        {
+          "start": 38048.700000047684,
+          "duration": 91
+        },
+        {
+          "start": 38204.40000009537,
+          "duration": 243
+        },
+        {
+          "start": 38448.40000009537,
+          "duration": 238
+        },
+        {
+          "start": 38686.700000047684,
+          "duration": 433
+        },
+        {
+          "start": 39120.299999952316,
+          "duration": 148
+        },
+        {
+          "start": 39269.09999990463,
+          "duration": 248
+        },
+        {
+          "start": 39553.40000009537,
+          "duration": 125
+        },
+        {
+          "start": 39679.59999990463,
+          "duration": 116
+        },
+        {
+          "start": 39813.90000009537,
+          "duration": 138
+        },
+        {
+          "start": 39974.299999952316,
+          "duration": 131
+        },
+        {
+          "start": 40106.299999952316,
+          "duration": 666
+        },
+        {
+          "start": 40773.200000047684,
+          "duration": 228
+        },
+        {
+          "start": 41049.09999990463,
+          "duration": 274
+        },
+        {
+          "start": 41332.40000009537,
+          "duration": 194
+        },
+        {
+          "start": 41536.40000009537,
+          "duration": 123
+        },
+        {
+          "start": 41684.799999952316,
+          "duration": 125
+        },
+        {
+          "start": 41816.799999952316,
+          "duration": 115
+        },
+        {
+          "start": 41933,
+          "duration": 103
+        },
+        {
+          "start": 42041.40000009537,
+          "duration": 285
+        },
+        {
+          "start": 42326.90000009537,
+          "duration": 204
+        },
+        {
+          "start": 42537.299999952316,
+          "duration": 194
+        },
+        {
+          "start": 42757.799999952316,
+          "duration": 135
+        },
+        {
+          "start": 42899.59999990463,
+          "duration": 127
+        },
+        {
+          "start": 43036.700000047684,
+          "duration": 150
+        },
+        {
+          "start": 43206.09999990463,
+          "duration": 177
+        },
+        {
+          "start": 43391.59999990463,
+          "duration": 136
+        },
+        {
+          "start": 43528.5,
+          "duration": 132
+        },
+        {
+          "start": 43668.90000009537,
+          "duration": 309
+        },
+        {
+          "start": 43978.299999952316,
+          "duration": 246
+        },
+        {
+          "start": 44236.299999952316,
+          "duration": 212
+        },
+        {
+          "start": 44486.299999952316,
+          "duration": 186
+        },
+        {
+          "start": 44679.09999990463,
+          "duration": 163
+        },
+        {
+          "start": 44853.59999990463,
+          "duration": 139
+        },
+        {
+          "start": 45015.200000047684,
+          "duration": 151
+        },
+        {
+          "start": 45175.59999990463,
+          "duration": 156
+        },
+        {
+          "start": 45340.40000009537,
+          "duration": 131
+        },
+        {
+          "start": 45472.59999990463,
+          "duration": 375
+        },
+        {
+          "start": 45848.40000009537,
+          "duration": 219
+        },
+        {
+          "start": 46074.799999952316,
+          "duration": 258
+        },
+        {
+          "start": 46367.90000009537,
+          "duration": 132
+        },
+        {
+          "start": 46509.90000009537,
+          "duration": 126
+        },
+        {
+          "start": 46668.09999990463,
+          "duration": 157
+        },
+        {
+          "start": 46868.90000009537,
+          "duration": 170
+        },
+        {
+          "start": 47052.90000009537,
+          "duration": 115
+        },
+        {
+          "start": 47174.09999990463,
+          "duration": 352
+        },
+        {
+          "start": 47526.40000009537,
+          "duration": 202
+        },
+        {
+          "start": 47741.90000009537,
+          "duration": 222
+        },
+        {
+          "start": 47966.299999952316,
+          "duration": 121
+        },
+        {
+          "start": 48096.5,
+          "duration": 129
+        },
+        {
+          "start": 48228.09999990463,
+          "duration": 128
+        },
+        {
+          "start": 48356.700000047684,
+          "duration": 121
+        },
+        {
+          "start": 48478.200000047684,
+          "duration": 118
+        },
+        {
+          "start": 48596.5,
+          "duration": 140
+        },
+        {
+          "start": 48737.299999952316,
+          "duration": 122
+        },
+        {
+          "start": 48859.700000047684,
+          "duration": 148
+        },
+        {
+          "start": 49011,
+          "duration": 158
+        },
+        {
+          "start": 49169.700000047684,
+          "duration": 233
+        }
+      ],
+      "frames": [
+        {
+          "start": 37622.1,
+          "duration": 100
+        },
+        {
+          "start": 37722.1,
+          "duration": 83.40000000000146
+        },
+        {
+          "start": 37805.5,
+          "duration": 116.59999999999854
+        },
+        {
+          "start": 37922.1,
+          "duration": 100.09999999999854
+        },
+        {
+          "start": 38022.2,
+          "duration": 116.60000000000582
+        },
+        {
+          "start": 38138.8,
+          "duration": 300
+        },
+        {
+          "start": 38438.8,
+          "duration": 250
+        },
+        {
+          "start": 38688.8,
+          "duration": 566.5999999999985
+        },
+        {
+          "start": 39255.4,
+          "duration": 250
+        },
+        {
+          "start": 39505.4,
+          "duration": 166.6999999999971
+        },
+        {
+          "start": 39672.1,
+          "duration": 116.70000000000437
+        },
+        {
+          "start": 39788.8,
+          "duration": 150
+        },
+        {
+          "start": 39938.8,
+          "duration": 166.59999999999854
+        },
+        {
+          "start": 40105.4,
+          "duration": 883.2999999999956
+        },
+        {
+          "start": 40988.7,
+          "duration": 333.3000000000029
+        },
+        {
+          "start": 41322,
+          "duration": 200
+        },
+        {
+          "start": 41522,
+          "duration": 133.3000000000029
+        },
+        {
+          "start": 41655.3,
+          "duration": 150
+        },
+        {
+          "start": 41805.3,
+          "duration": 116.69999999999709
+        },
+        {
+          "start": 41922,
+          "duration": 100
+        },
+        {
+          "start": 42022,
+          "duration": 499.90000000000146
+        },
+        {
+          "start": 42521.9,
+          "duration": 200.09999999999854
+        },
+        {
+          "start": 42722,
+          "duration": 166.59999999999854
+        },
+        {
+          "start": 42888.6,
+          "duration": 133.3000000000029
+        },
+        {
+          "start": 43021.9,
+          "duration": 150
+        },
+        {
+          "start": 43171.9,
+          "duration": 200
+        },
+        {
+          "start": 43371.9,
+          "duration": 150
+        },
+        {
+          "start": 43521.9,
+          "duration": 133.40000000000146
+        },
+        {
+          "start": 43655.3,
+          "duration": 549.8999999999942
+        },
+        {
+          "start": 44205.2,
+          "duration": 233.3000000000029
+        },
+        {
+          "start": 44438.5,
+          "duration": 233.3000000000029
+        },
+        {
+          "start": 44671.8,
+          "duration": 166.6999999999971
+        },
+        {
+          "start": 44838.5,
+          "duration": 150
+        },
+        {
+          "start": 44988.5,
+          "duration": 166.59999999999854
+        },
+        {
+          "start": 45155.1,
+          "duration": 166.8000000000029
+        },
+        {
+          "start": 45321.9,
+          "duration": 133.1999999999971
+        },
+        {
+          "start": 45455.1,
+          "duration": 600
+        },
+        {
+          "start": 46055.1,
+          "duration": 266.70000000000437
+        },
+        {
+          "start": 46321.8,
+          "duration": 166.6999999999971
+        },
+        {
+          "start": 46488.5,
+          "duration": 133.3000000000029
+        },
+        {
+          "start": 46621.8,
+          "duration": 199.89999999999418
+        },
+        {
+          "start": 46821.7,
+          "duration": 200
+        },
+        {
+          "start": 47021.7,
+          "duration": 133.40000000000146
+        },
+        {
+          "start": 47155.1,
+          "duration": 566.7000000000044
+        },
+        {
+          "start": 47721.8,
+          "duration": 233.1999999999971
+        },
+        {
+          "start": 47955,
+          "duration": 116.80000000000291
+        },
+        {
+          "start": 48071.8,
+          "duration": 149.89999999999418
+        },
+        {
+          "start": 48221.7,
+          "duration": 133.3000000000029
+        },
+        {
+          "start": 48355,
+          "duration": 116.69999999999709
+        },
+        {
+          "start": 48471.7,
+          "duration": 116.60000000000582
+        },
+        {
+          "start": 48588.3,
+          "duration": 133.39999999999418
+        },
+        {
+          "start": 48721.7,
+          "duration": 133.3000000000029
+        },
+        {
+          "start": 48855,
+          "duration": 150.09999999999854
+        },
+        {
+          "start": 49005.1,
+          "duration": 150
+        }
+      ],
+      "appendObservations": [
+        {
+          "notes": 513,
+          "domMs": 925.5999999046326,
+          "scrollWidth": 17367
+        },
+        {
+          "notes": 514,
+          "domMs": 783.8999998569489,
+          "scrollWidth": 17423
+        },
+        {
+          "notes": 515,
+          "domMs": 663,
+          "scrollWidth": 17486
+        },
+        {
+          "notes": 516,
+          "domMs": 785.7000000476837,
+          "scrollWidth": 17541
+        },
+        {
+          "notes": 517,
+          "domMs": 851.5,
+          "scrollWidth": 17599
+        },
+        {
+          "notes": 518,
+          "domMs": 697.1999998092651,
+          "scrollWidth": 17655
+        }
+      ],
+      "inputLog": [
+        {
+          "type": "keydown",
+          "at": 38033.90000009537,
+          "trusted": true,
+          "eventTime": 37949.90000009537
+        },
+        {
+          "type": "keyup",
+          "at": 38190.5,
+          "trusted": true,
+          "eventTime": 38141.799999952316
+        },
+        {
+          "type": "keydown",
+          "at": 39796.700000047684,
+          "trusted": true,
+          "eventTime": 39690.799999952316
+        },
+        {
+          "type": "keyup",
+          "at": 39952.200000047684,
+          "trusted": true,
+          "eventTime": 39929.09999990463
+        },
+        {
+          "type": "keydown",
+          "at": 41526.59999990463,
+          "trusted": true,
+          "eventTime": 41342.200000047684
+        },
+        {
+          "type": "keyup",
+          "at": 41660,
+          "trusted": true,
+          "eventTime": 41639.09999990463
+        },
+        {
+          "type": "keydown",
+          "at": 43026.799999952316,
+          "trusted": true,
+          "eventTime": 42903.40000009537
+        },
+        {
+          "type": "keyup",
+          "at": 43187.5,
+          "trusted": true,
+          "eventTime": 43132.59999990463
+        },
+        {
+          "type": "keydown",
+          "at": 44842.59999990463,
+          "trusted": true,
+          "eventTime": 44684
+        },
+        {
+          "type": "keyup",
+          "at": 44993.200000047684,
+          "trusted": true,
+          "eventTime": 44958.40000009537
+        },
+        {
+          "type": "keydown",
+          "at": 46636.299999952316,
+          "trusted": true,
+          "eventTime": 46512.200000047684
+        },
+        {
+          "type": "keyup",
+          "at": 46825.40000009537,
+          "trusted": true,
+          "eventTime": 46771
+        }
+      ],
+      "notes": 81,
+      "codeNotes": 60,
+      "widgets": 67,
+      "stripElements": 1326,
+      "stripNodes": 2896,
+      "loopArcs": 562,
+      "elements": 2718
+    }
+  ],
+  "warnings": []
+}

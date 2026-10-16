@@ -768,7 +768,7 @@ export const UNIFIED_CONFIG = {
     _meta: {
       label: "Code Strip",
       icon: "🎼",
-      description: "Workspace CodeStrip and editable Strudel-line settings",
+      description: "Workspace CodeStrip and read-only Strudel-line settings",
     },
     enabled: {
       value: true,
@@ -794,11 +794,6 @@ export const UNIFIED_CONFIG = {
       value: "solfege",
       options: ["solfege", "note", "degree"],
       label: "Notation Mode",
-    },
-    durationMode: {
-      value: "bar" as const,
-      options: ["stacked", "bar", "hidden"],
-      label: "Duration Display",
     },
     showRests: {
       value: true,

@@ -33,17 +33,16 @@ covered below, not by LICENSE.
 Runtime dependencies, all by the Strudel / TidalCycles community (Alex McLean,
 Felix Roos and contributors), https://strudel.cc, https://codeberg.org/uzu/strudel:
 
-  @strudel/codemirror 1.3.0   @strudel/core 1.2.6       @strudel/mini 1.2.6
-  @strudel/soundfonts 1.3.0   @strudel/tonal 1.2.6      @strudel/transpiler 1.2.6
-  @strudel/webaudio 1.3.0     superdough 1.3.0
+  @strudel/core 1.2.6         @strudel/mini 1.2.6       @strudel/soundfonts 1.3.0
+  @strudel/tonal 1.2.6        @strudel/transpiler 1.2.6 @strudel/webaudio 1.3.0
+  superdough 1.3.0
 
 The app ships a patched superdough 1.3.0 and a patched @strudel/soundfonts
-1.3.0 (and a patched @codemirror/view 6.40.0, which is MIT). The patches are in
-this repository under patches/ and are applied at install time through the
-"patchedDependencies" field in package.json. Together with the unmodified
-upstream package versions named above, they are the corresponding source of
-what is served. The superdough patch is a diff of the published dist build, not
-of the upstream source tree.
+1.3.0. The patches are in this repository under patches/ and are applied at
+install time through the "patchedDependencies" field in package.json. Together
+with the unmodified upstream package versions named above, they are the
+corresponding source of what is served. The superdough patch is a diff of the
+published dist build, not of the upstream source tree.
 
 src/data/gmSoundfonts.ts copies the General MIDI name-to-font map from
 @strudel/soundfonts 1.3.0 gm.mjs (as patched), under the same licence.

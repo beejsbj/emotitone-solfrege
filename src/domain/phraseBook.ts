@@ -13,6 +13,7 @@ import {
   getSemitoneShift,
   transposePatternNotes,
 } from "@/data/patterns";
+import { loopLengthMs } from "@/services/recordedTiming";
 import { isSameShape, NEUTRAL_SHAPE, resolveLiveEnvelope } from "@/services/shape";
 import type { Shape } from "@/types/instrument";
 import type { ChromaticNote } from "@/types/music";
@@ -410,10 +411,13 @@ export function pressNote(
   numberTake(book, take);
   // A reload keeps the take's live notes but drops its wall-clock anchor, so a
   // live take can arrive here unanchored; anchor it too, or every press lands at 0.
-  if (!takeIsLive(book, held) || book.recorder.wallOrigin === null) {
+  const reloaded = takeIsLive(book, held) && book.recorder.wallOrigin === null;
+  if (!takeIsLive(book, held) || reloaded) {
     if (take.notes.length === 0) take.context = cloneContext(press.context);
     // Seam: live input continues at the phrase's end, whenever it arrives.
-    book.recorder.wallOrigin = press.wallTime - take.duration;
+    // After a reload the silence since the last note is unknown, so the take
+    // continues where its loop wraps: after the rest it plays at its end.
+    book.recorder.wallOrigin = press.wallTime - (reloaded ? loopLengthMs(take) : take.duration);
   }
 
   const phraseTime = press.wallTime - (book.recorder.wallOrigin ?? press.wallTime);

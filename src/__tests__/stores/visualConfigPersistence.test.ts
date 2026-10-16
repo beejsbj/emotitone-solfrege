@@ -52,19 +52,40 @@ describe('visual config codec and performance ownership', () => {
   it('reconciles known old defaults only once, preserving customized values', () => {
     localStorage.setItem(key, JSON.stringify({ config: {
       blobs: { oscillationAmplitude: 0.4, driftSpeed: 8, vibrationAmplitude: 10, vibrationFrequencyDivisor: 10, fieldSoftness: 12, baseSizeRatio: 0.31 },
-      codeStrip: { durationMode: 'stacked' },
     } }));
     const store = fresh();
     expect(store.config.blobs.oscillationAmplitude).toBe(DEFAULT_CONFIG.blobs.oscillationAmplitude);
-    expect(store.config.codeStrip.durationMode).toBe('bar');
     expect(saved().data.config).toEqual({ blobs: { baseSizeRatio: 0.31 } });
     store.updateConfig('blobs', { driftSpeed: 8 });
-    store.updateConfig('codeStrip', { durationMode: 'stacked' });
     store.saveToStorage();
     const reloaded = fresh();
     expect(reloaded.config.blobs.driftSpeed).toBe(8);
-    expect(reloaded.config.codeStrip.durationMode).toBe('stacked');
   });
+
+  it.each(['stacked', 'hidden', 'bar', 'sparkles'])(
+    'silently drops a stored %s duration override without a reload rewrite loop', async (durationMode) => {
+      localStorage.setItem(key, JSON.stringify({ $version: 1, data: { config: {
+        codeStrip: { durationMode, showRests: false },
+      } } }));
+      const store = fresh();
+      expect(store.config.codeStrip).not.toHaveProperty('durationMode');
+      expect(store.config.codeStrip.showRests).toBe(false);
+      expect(saveFailureNotice.value).toBeNull();
+      store.saveToStorage();
+      expect(saved().data.config).toEqual({ codeStrip: { showRests: false } });
+      const bytes = localStorage.getItem(key);
+      expect(fresh().config.codeStrip).toEqual(store.config.codeStrip);
+      await nextTick();
+      vi.runAllTimers();
+      expect(localStorage.getItem(key)).toBe(bytes);
+      const write = vi.spyOn(localStorage, 'setItem');
+      await nextTick();
+      vi.advanceTimersByTime(10_000);
+      expect(write.mock.calls.filter(([name]) => name === key)).toHaveLength(0);
+      expect(listBackups(persistentStorage, key)).toHaveLength(0);
+      expect(saveFailureNotice.value).toBeNull();
+    },
+  );
 
   it.each([
     ['4141b1fb', {

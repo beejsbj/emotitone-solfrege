@@ -33,7 +33,10 @@ export interface PatternNoteContext {
   mode: MusicalMode;
   key: ChromaticNote;
   instrument: string;
+  /** The velocity as played; what the phrase stores and the recorder reads. */
   velocity?: number;
+  /** The level the take plays this note at (BJS-556); what MIDI out sends. */
+  playbackVelocity?: number;
   articulation: LiveArticulation;
 }
 
@@ -119,7 +122,8 @@ export function buildPatternMember(request: PatternMemberRequest): PatternMember
     table.begin[index] = note.beginBars;
     table.gate[index] = note.gateBars;
     table.pitch[index] = note.midi;
-    table.velocity[index] = note.velocity ?? NaN;
+    // The take's level, not the raw velocity: the worklet plays the loudest note at full gain.
+    table.velocity[index] = note.playbackVelocity ?? NaN;
     table.attack[index] = note.attack;
     table.decay[index] = note.decay;
     table.sustain[index] = note.sustain;
@@ -142,6 +146,7 @@ export function buildPatternMember(request: PatternMemberRequest): PatternMember
       key: request.key,
       instrument: request.instrument,
       ...(note.velocity === undefined ? {} : { velocity: note.velocity }),
+      ...(note.playbackVelocity === undefined ? {} : { playbackVelocity: note.playbackVelocity }),
       articulation: { attack: note.attack, decay: note.decay, sustain: note.sustain, release: note.release },
     });
   });

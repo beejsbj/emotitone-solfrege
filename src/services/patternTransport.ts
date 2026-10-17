@@ -124,7 +124,10 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
       key: note.key,
       instrument: note.instrument,
       instrumentConfig: null,
+      // `velocity` stays as performed (the phrase store reads it); MIDI out reads
+      // `playbackVelocity`, the level the take is heard at.
       velocity: note.velocity,
+      playbackVelocity: note.playbackVelocity,
       articulation: { ...note.articulation },
       durationMs: event.length / sampleRate * 1000,
       audibleAt,

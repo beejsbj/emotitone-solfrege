@@ -8,7 +8,7 @@
  * // >`.as("note").sound("sine").cpm(120 / 4)
  */
 
-import { velocityToGain } from "@/audio/velocity";
+import { takePlaybackGain, velocityToGain } from "@/audio/velocity";
 import type { LogNote } from "@/types/patterns";
 import type { Shape } from "@/types/instrument";
 import type { MusicalMode } from "@/types/music";
@@ -126,7 +126,10 @@ export interface PlannedPatternNote {
   gateBars: number;
   /** MIDI pitch the text sounds (relative degrees resolve to the same pitch). */
   midi: number;
+  /** The velocity as recorded, for note events. */
   velocity?: number;
+  /** The level the take plays this note at: recorded velocity ÷ the take's loudest (BJS-556). */
+  playbackVelocity?: number;
   attack: number;
   decay: number;
   sustain: number;
@@ -198,6 +201,8 @@ export class StrudelNotation {
   private vibratoByNote = new Map<LogNote, VibratoApproximation>();
   private tremoloByNote = new Map<LogNote, TremoloApproximation>();
   private fallbackEnvelope: LiveArticulation = resolveLiveEnvelope(DEFAULT_CONFIG.sound);
+  /** Normalises recorded velocity across the whole take, chord lanes included. */
+  private playbackGain: (velocity?: number) => number = velocityToGain;
   /** The top-level tokens of the last render, with their printed weights. */
   private renderedTokens: SpannedText[] = [];
 
@@ -210,6 +215,7 @@ export class StrudelNotation {
         a.note.localeCompare(b.note)
     );
     this.config = { ...DEFAULT_CONFIG, ...config };
+    this.playbackGain = takePlaybackGain(this.notes.map(note => note.velocity));
   }
 
   toString(): string {
@@ -226,8 +232,9 @@ export class StrudelNotation {
     // Uniform recorded articulation becomes a global modifier; only varying
     // controls need a per-note column alongside the expression columns.
     // Superdough's existing unity-velocity gain is 0.8. Only emit gain when
-    // a note needs attenuation, preserving legacy notation and loudness.
-    const recordedControls: RecordedControl[] = this.notes.some(note => velocityToGain(note.velocity) !== 1)
+    // a note needs attenuation, preserving legacy notation and loudness. The
+    // take is normalised first: its loudest note is full level (BJS-556).
+    const recordedControls: RecordedControl[] = this.notes.some(note => this.playbackGain(note.velocity) !== 1)
       ? [...RECORDED_CONTROLS, 'gain'] : RECORDED_CONTROLS;
     const values = new Map(recordedControls.map(control =>
       [control, this.notes.map(note => this.noteControl(note, control))] as const));
@@ -337,7 +344,7 @@ export class StrudelNotation {
         notes.push({
           noteId: note.id, note, beginBars: cursor + begin, slotBars: slot, gateBars: slot * clip,
           midi: TonalNote.midi(note.note) ?? 60,
-          ...(velocity === undefined ? {} : { velocity }),
+          ...(velocity === undefined ? {} : { velocity, playbackVelocity: this.playbackGain(velocity) }),
           attack: this.noteControl(note, "attack"), decay: this.noteControl(note, "decay"),
           sustain: this.noteControl(note, "sustain"), release: this.noteControl(note, "release"),
         });
@@ -498,7 +505,7 @@ export class StrudelNotation {
   }
 
   private noteControl(note: PreparedRecordedNote<LogNote>, control: RecordedControl): number {
-    if (control === 'gain') return 0.8 * velocityToGain(note.velocity);
+    if (control === 'gain') return 0.8 * this.playbackGain(note.velocity);
     if (control === 'clip') {
       const ratio = (note.gateDuration ?? this.noteDuration(note)) / this.noteDuration(note);
       return Number.isFinite(ratio) && ratio > 0 ? ratio : 1;

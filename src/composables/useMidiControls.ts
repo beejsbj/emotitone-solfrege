@@ -97,6 +97,8 @@ interface MirroredNoteEventDetail {
   /** Monotonic performance.now deadline; independent of system date changes. */
   midiTimestamp?: number;
   velocity?: number;
+  /** The level a recorded take is heard at (BJS-556); live events omit it. */
+  playbackVelocity?: number;
   source?: string;
   mirrorMidi?: boolean;
   duration?: string;
@@ -1094,7 +1096,7 @@ export function useMidiControls() {
         ownerId: `mirrored:${detail.noteId}`,
         midiNote,
         phase: "attack",
-        velocity: detail?.velocity,
+        velocity: detail?.playbackVelocity ?? detail?.velocity,
         timestamp: resolveMidiEventTimestamp(detail),
       });
       return;
@@ -1110,7 +1112,7 @@ export function useMidiControls() {
       ownerId,
       midiNote,
       phase: "attack",
-      velocity: detail?.velocity,
+      velocity: detail?.playbackVelocity ?? detail?.velocity,
       timestamp: resolveMidiEventTimestamp(detail),
     });
     const timeoutId = window.setTimeout(() => {

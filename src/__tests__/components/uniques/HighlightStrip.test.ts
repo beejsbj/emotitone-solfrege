@@ -146,6 +146,19 @@ describe("HighlightStrip", () => {
     expect([0, 2].map((index) => fill(wrapper, index))).toEqual([0, 0]);
   });
 
+  it("lights only the followed Looper member's notes while others sound", async () => {
+    // A Kept phrase and its copy share note ids: identity is the member, not the note.
+    const wrapper = mountStrip({ memberId: "desk" });
+    play("mi", "loop-1", { memberId: "other" });
+    await flushPromises();
+    expect(wrapper.findAll("[data-active]")).toHaveLength(0);
+    expect(fill(wrapper, 2)).toBe(0);
+
+    play("mi", "loop-2", { memberId: "desk" });
+    await flushPromises();
+    expect(event(wrapper, 2).attributes("data-active")).toBe("true");
+  });
+
   it("lights a note on the frame it is heard, not when its event arrives", async () => {
     const wrapper = mountStrip();
     // Strudel dispatches a hap ahead of its audio time.

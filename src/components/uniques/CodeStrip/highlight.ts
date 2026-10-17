@@ -33,6 +33,11 @@ export interface NotationHighlightOptions {
   unitMs?: () => number | undefined;
   /** Light from note events only while this is true. */
   listening: () => boolean;
+  /**
+   * Only note events of this transport member light the phrase (a Looper
+   * plays several; a phrase's copy shares its note ids). Any member when unset.
+   */
+  memberId?: () => string | undefined;
   /** Reduced Motion: a sounding note reads full at once; nothing sweeps. */
   still?: () => boolean;
   /** Where note events are dispatched; the window by default. */
@@ -175,6 +180,8 @@ export function useNotationHighlight(options: NotationHighlightOptions) {
     const detail = (event as CustomEvent<NotationNoteEventDetail>).detail;
     const id = detail?.sourceNoteId;
     if (!id) return;
+    const member = options.memberId?.();
+    if (member !== undefined && detail.memberId !== member) return;
     const index = indexOf(id);
     if (index < 0) return;
     const key = `${id}\u0000${String(detail.noteId ?? id)}`;

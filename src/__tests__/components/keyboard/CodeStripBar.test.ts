@@ -118,4 +118,39 @@ describe("CodeStripBar.vue", () => {
     expect(wrapper.emitted("return")).toHaveLength(1);
   });
 
+  it("latches on a held Play, swallowing the click that ends the hold", async () => {
+    vi.useFakeTimers();
+    try {
+      wrapper = render();
+      const play = wrapper.get('button[aria-label="Play"]');
+      await play.trigger("pointerdown");
+      vi.advanceTimersByTime(500);
+      await play.trigger("pointerup");
+      await play.trigger("click");
+      expect(wrapper.emitted("playHold")).toHaveLength(1);
+      expect(wrapper.emitted("togglePlayback")).toBeUndefined();
+
+      // A quick tap after it is an ordinary Play.
+      vi.advanceTimersByTime(100);
+      await play.trigger("pointerdown");
+      vi.advanceTimersByTime(120);
+      await play.trigger("pointerup");
+      await play.trigger("click");
+      expect(wrapper.emitted("togglePlayback")).toHaveLength(1);
+      expect(wrapper.emitted("playHold")).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("shows the latch on the Play key: its lip orbits and its name says so", async () => {
+    wrapper = render({ playLatched: true });
+    const play = wrapper.get("button[data-latched]");
+    expect(play.classes()).toContain("paper-button--loading");
+    expect(play.attributes("aria-label")).toBe("Play (latched; hold to release)");
+    // Busy is the Button's own state; the latched key must still answer a tap.
+    await play.trigger("click");
+    expect(wrapper.emitted("togglePlayback")).toHaveLength(1);
+  });
+
 });

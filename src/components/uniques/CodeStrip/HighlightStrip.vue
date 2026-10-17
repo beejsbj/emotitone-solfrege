@@ -53,6 +53,8 @@ const props = withDefaults(
     unitMs?: number;
     /** The clock of what is heard: the highlight stands still while it does. */
     clock?: HeardClock;
+    /** Light only this transport member's notes (the Looper's desk pattern). */
+    memberId?: string;
   }>(),
   {
     code: undefined,
@@ -70,6 +72,7 @@ const props = withDefaults(
     noteEventTarget: undefined,
     unitMs: undefined,
     clock: undefined,
+    memberId: undefined,
   },
 );
 
@@ -98,6 +101,7 @@ const highlight = useNotationHighlight({
   eventUnits: () => eventUnits.value,
   unitMs: () => props.unitMs,
   listening: () => props.listening && props.playing,
+  memberId: () => props.memberId,
   still: () => reducedMotion.value,
   target: () => props.noteEventTarget,
   // Fixed at mount: the owner gives one clock for the strip's whole life.

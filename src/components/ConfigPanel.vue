@@ -419,6 +419,20 @@
                     label="La-based minor"
                   />
                 </div>
+                <div class="config-panel__group">
+                  <p class="config-panel__group-label panel-heading panel-heading--tape">Looper</p>
+                  <p class="config-panel__group-copy">If notes you play over a loop land late, turn this up until they sit where you played them. This device only.</p>
+                  <Knob
+                    v-model="loopTiming"
+                    data-testid="deck-control-loopTiming"
+                    type="range"
+                    :min="LOOP_TIMING_RANGE.min"
+                    :max="LOOP_TIMING_RANGE.max"
+                    :step="LOOP_TIMING_RANGE.step"
+                    label="Loop Timing"
+                    :format-value="formatLoopTiming"
+                  />
+                </div>
                 <div
                   v-for="group in DECK_CONTROL_GROUPS"
                   :key="group.label"
@@ -567,6 +581,7 @@ import "./panelHeading.css";
 import { storeToRefs, type Pinia } from "pinia";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
+import { LOOP_TIMING_RANGE, useLoopTimingStore } from "@/stores/performanceSettings";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { BUILT_IN_STAGE_LOOKS } from "@/data/visual-config-presets";
 import {
@@ -674,6 +689,17 @@ const MIDI_TAB = {
 };
 
 const visualConfigStore = useVisualConfigStore(props.visualConfigPinia);
+const loopTimingStore = useLoopTimingStore(props.visualConfigPinia);
+// This device's Looper calibration, in ms (never part of a Look).
+const loopTiming = computed<number | string | boolean>({
+  get: () => loopTimingStore.value,
+  set: (next: number | string | boolean) => {
+    const value = Number(next);
+    if (typeof next === "boolean" || !Number.isFinite(value)) return;
+    loopTimingStore.value = Math.max(LOOP_TIMING_RANGE.min, Math.min(LOOP_TIMING_RANGE.max, Math.round(value)));
+  },
+});
+const formatLoopTiming = (value: number) => `${value} ms`;
 const keyboardDrawerStore = useKeyboardDrawerStore();
 const musicStore = useMusicStore();
 const activeTab = ref("global");

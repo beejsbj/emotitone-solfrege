@@ -61,8 +61,14 @@ const props = withDefaults(defineProps<{
   barMs?: number;
   /** This phrase is the one the transport plays, so the masthead follows playback. */
   live?: boolean;
+  /** The bar on the UIBeat clock where this loop's time 0 sits (a Looper member's place). */
+  originBars?: number;
+  /** Playback rate against the bar clock (a Looper member's half or double time). */
+  rate?: number;
   ariaLabel?: string;
 }>(), {
+  originBars: 0,
+  rate: 1,
   lengthMs: undefined,
   barMs: undefined,
   live: false,
@@ -149,7 +155,8 @@ function applyFrame(snapshot: UIBeatSnapshot) {
     return;
   }
 
-  const phase = ((snapshot.barPosition / bars) % 1 + 1) % 1;
+  const local = (snapshot.barPosition - props.originBars) * props.rate;
+  const phase = ((local / bars) % 1 + 1) % 1;
   sweeping = true;
   rootRef.value?.setAttribute("data-loop-dial-state", "sweeping");
   if (handRef.value) handRef.value.style.transform = `rotate(${(phase * 360).toFixed(2)}deg)`;
@@ -167,7 +174,7 @@ function syncSubscription() {
 
 onMounted(syncSubscription);
 watch(() => props.live, syncSubscription, { flush: "post" });
-watch(loopBars, () => applyFrame(clock.snapshot), { flush: "post" });
+watch([loopBars, () => props.originBars, () => props.rate], () => applyFrame(clock.snapshot), { flush: "post" });
 onBeforeUnmount(() => unsubscribe?.());
 </script>
 

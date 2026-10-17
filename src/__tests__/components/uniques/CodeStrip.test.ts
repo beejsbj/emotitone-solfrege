@@ -14,6 +14,7 @@ import { TRANSPORT_EVENT_FIELDS, TransportEventKind } from "@/audio/live/transpo
  */
 const mocks = vi.hoisted(() => ({
   phrasesStore: null as any,
+  looperStore: null as any,
   instrumentStore: null as any,
   visualConfigStore: null as any,
   commands: [] as any[],
@@ -51,6 +52,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/stores/phrases", () => ({ usePhrasesStore: mocks.usePhrasesStore }));
 vi.mock("@/stores/instrument", () => ({ useInstrumentStore: mocks.useInstrumentStore }));
+vi.mock("@/stores/looper", () => ({ useLooperStore: () => mocks.looperStore }));
 vi.mock("@/stores/visualConfig", () => ({ useVisualConfigStore: mocks.useVisualConfigStore }));
 vi.mock("@/composables/useCodeStripStrudel", () => ({ useCodeStripStrudel: mocks.useCodeStripStrudel }));
 
@@ -228,6 +230,7 @@ beforeEach(() => {
     takeId: "take-1",
   });
   mocks.instrumentStore = reactive({ isInteractionLocked: false });
+  mocks.looperStore = reactive({ deskMemberId: null as string | null });
   mocks.visualConfigStore = reactive({
     laBasedMinor: false,
     config: {
@@ -417,6 +420,39 @@ describe("CodeStrip production pattern transport", () => {
     } finally {
       window.removeEventListener("note-played", onPlayed);
       window.removeEventListener("note-released", onReleased);
+      wrapper.unmount();
+    }
+  });
+
+  it("follows the desk's pattern while the Looper plays it, lighting only that member", async () => {
+    const wrapper = mount(CodeStrip);
+    await flushPromises();
+    const strip = () => wrapper.get(".highlight-strip");
+    const note = () => wrapper.get('[data-event-index="0"]');
+    const send = (memberId: string, noteId: string) => window.dispatchEvent(new CustomEvent("note-played", {
+      detail: { noteId, sourceNoteId: "c", memberId, phraseId: memberId, audibleAt: performance.now(), durationMs: 500,
+        source: "pattern-playback", record: false },
+    }));
+    try {
+      // Not a sounding member: the strip rests and ignores the loop.
+      send("take-1", "loop-0");
+      await nextTick();
+      expect(strip().classes()).not.toContain("highlight-strip--playing");
+      expect(note().attributes("data-active")).toBeUndefined();
+
+      mocks.looperStore.deskMemberId = "take-1";
+      await nextTick();
+      expect(strip().classes()).toContain("highlight-strip--playing");
+      // Another member with the same note ids (a copy) does not light the desk.
+      send("kept-1", "loop-1");
+      await nextTick();
+      expect(note().attributes("data-active")).toBeUndefined();
+      send("take-1", "loop-2");
+      await nextTick();
+      expect(note().attributes("data-active")).toBe("true");
+      // The Code Strip's own Play never ran: the Looper owns the transport.
+      expect(commandsOf("transport-start")).toEqual([]);
+    } finally {
       wrapper.unmount();
     }
   });

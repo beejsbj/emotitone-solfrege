@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPlayStyleEngine, PLAY_STYLE_SCHEDULING_LEAD_MS, type PlayStyle } from '@/services/playStyles'
+import type { TransportGrid } from '@/services/transportGrid'
 
 function setup(style: PlayStyle = 'together', schedulingLeadMs = 0, initialLeadMs?: number) {
   let clockOffset = 0
@@ -450,6 +451,66 @@ describe('live play styles', () => {
     engine.press('new', notes(72))
     vi.advanceTimersByTime(30)
     expect(calls.map(call => [call.pitch, call.at])).toEqual([[72, 130]])
+    engine.clear()
+  })
+})
+
+describe('live play styles on the transport grid (S111)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(0)
+  })
+  afterEach(() => vi.useRealTimers())
+
+  function gridSetup(style: PlayStyle) {
+    // Bar 0 fell 137 ms ago, at 120 BPM: a 1/8 step is 250 ms.
+    let grid: TransportGrid | undefined = { at: -137, bar: 0, bpm: 120 }
+    const calls: { pitch: number; at: number }[] = []
+    const engine = createPlayStyleEngine<number>({
+      now: () => Date.now(), schedulingLeadMs: 20, initialLeadMs: 5, grid: () => grid,
+      start: (pitch, at) => { calls.push({ pitch, at }); return { release: vi.fn() } },
+    })
+    // The configured tempo differs from the transport's: the grid wins.
+    engine.configure({ style, rate: 8, bpm: 90 })
+    const runTo = (time: number) => { while (Date.now() < time) vi.advanceTimersByTime(20) }
+    return { engine, calls, runTo, setGrid(next: TransportGrid | undefined) { grid = next } }
+  }
+
+  it.each(['repeat', 'arp-up', 'arp-up-down'] as const)('starts %s on the next subdivision and follows a tempo change', style => {
+    const { engine, calls, runTo, setGrid } = gridSetup(style)
+    engine.press('chord', notes(60, 64))
+    runTo(1700)
+    // Bar 1 is at 1863 ms; switch to 240 BPM there before any pulse past it is queued.
+    expect(Math.max(...calls.map(call => call.at))).toBeLessThan(1863)
+    setGrid({ at: 1863, bar: 1, bpm: 240 })
+    runTo(2600)
+    const times = [...new Set(calls.map(call => call.at))]
+    const expected = [113, 363, 613, 863, 1113, 1363, 1613, 1863, 1988, 2113, 2238, 2363, 2488, 2613, 2738]
+    expect(times).toEqual(expected.slice(0, times.length))
+    expect(times.length).toBeGreaterThan(12)
+    engine.clear()
+  })
+
+  it('continues a held Repeat on the new division\'s grid and frees it when the transport stops', () => {
+    const { engine, calls, runTo, setGrid } = gridSetup('repeat')
+    engine.press('key', notes(72))
+    runTo(700)
+    engine.configure({ rate: 16 })
+    runTo(1300)
+    setGrid(undefined)
+    runTo(1800)
+    const times = calls.map(call => call.at)
+    const onGrid = (at: number, rate: number) => Math.abs(((at + 137) / 2000 * rate) - Math.round((at + 137) / 2000 * rate)) < 1e-9
+    // Before the division change: 1/8 steps. After it: 1/16 steps on the same grid.
+    expect(times.filter(at => at < 700).every(at => onGrid(at, 8))).toBe(true)
+    const sixteenths = times.filter(at => at > 870 && at < 1300)
+    expect(sixteenths.length).toBeGreaterThan(2)
+    expect(sixteenths.every(at => onGrid(at, 16))).toBe(true)
+    expect(sixteenths.some(at => !onGrid(at, 8))).toBe(true)
+    // Without a transport the pulse continues at the configured tempo (90 BPM, 1/16 = 166.7 ms).
+    const free = times.filter(at => at > 1500)
+    expect(free.length).toBeGreaterThan(1)
+    expect(free[1] - free[0]).toBeCloseTo(60_000 / 90 * 4 / 16, 6)
     engine.clear()
   })
 })

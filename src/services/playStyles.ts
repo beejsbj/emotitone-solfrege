@@ -1,3 +1,5 @@
+import { gridTime, nextSubdivision, type TransportGrid } from './transportGrid'
+
 export const PLAY_STYLE_OPTIONS = [
   { value: 'together', label: 'Together' },
   { value: 'strum-up', label: 'Strum ↑' },
@@ -92,6 +94,12 @@ export function createPlayStyleEngine<T>(deps: {
   initialLeadMs?: number
   /** Future audio to queue; independent of the first-note lead. */
   lookaheadMs?: number
+  /**
+   * The running transport's bar grid on the deps.now clock (S111). While it
+   * exists, Repeat and Arp start on its next subdivision and follow its tempo
+   * instead of anchoring their phase at the press.
+   */
+  grid?(): TransportGrid | undefined
 }) {
   let config: PlayStyleConfig = { style: 'together', bpm: 120, rate: 8 }
   const held = new Map<string, readonly HeldNote<T>[]>()
@@ -102,6 +110,8 @@ export function createPlayStyleEngine<T>(deps: {
   let strumBatch: OwnedNote<T>[] = []
   let strumQueue: (OwnedNote<T> & { at: number })[] = []
   let nextAt: number | undefined
+  /** The transport bar of `nextAt` while pulses are locked to the grid. */
+  let gridBar: number | undefined
   let stepIndex = 0
   const schedulingLeadMs = Math.max(0, deps.schedulingLeadMs ?? 0)
   const initialLeadMs = Number.isFinite(deps.initialLeadMs)
@@ -180,6 +190,7 @@ export function createPlayStyleEngine<T>(deps: {
     strumBatch = []
     strumQueue = []
     nextAt = undefined
+    gridBar = undefined
     stepIndex = 0
     const now = deps.now()
     for (const item of playing) {
@@ -190,7 +201,9 @@ export function createPlayStyleEngine<T>(deps: {
   }
 
   function changeRhythm(next: PlayStyleConfig) {
-    if (stepMs() === 60_000 / next.bpm * 4 / next.rate) {
+    const grid = deps.grid?.()
+    // On the grid the transport owns the tempo; only the division matters.
+    if (grid ? next.rate === config.rate : stepMs() === 60_000 / next.bpm * 4 / next.rate) {
       config = next
       return
     }
@@ -212,7 +225,8 @@ export function createPlayStyleEngine<T>(deps: {
         pendingPulses.delete(pulse)
       }
       config = next
-      nextAt = boundary.at + stepMs()
+      // Locked pulses continue on the new division's next subdivision after it.
+      nextAt = grid ? boundary.at + 1e-3 : boundary.at + stepMs()
       stepIndex = boundary.step + 1
     } else {
       // The boundary may be outside the lookahead, or a stalled timer may
@@ -225,6 +239,7 @@ export function createPlayStyleEngine<T>(deps: {
       }
       config = next
     }
+    gridBar = undefined
     tick()
   }
 
@@ -251,7 +266,19 @@ export function createPlayStyleEngine<T>(deps: {
     }
     if (isRhythmic() && held.size) {
       const notes = pool()
-      const interval = stepMs()
+      const grid = deps.grid?.()
+      const division = 1 / config.rate
+      const interval = grid ? 240_000 / grid.bpm * division : stepMs()
+      // On the grid each pulse sits on its bar's time under the current tempo.
+      const advance = (steps: number) => {
+        if (grid) { gridBar! += steps * division; nextAt = gridTime(grid, gridBar!) }
+        else nextAt! += steps * interval
+      }
+      const lock = () => {
+        if (!grid) { gridBar = undefined; return }
+        if (gridBar === undefined) gridBar = nextSubdivision(grid, nextAt!, config.rate)
+        nextAt = gridTime(grid, gridBar)
+      }
       const queuePulse = () => {
         const pulse: RhythmicPulse = { at: nextAt!, step: stepIndex, duration: interval * GATE, voices: new Map() }
         for (const { note, owners } of pulseNotes(notes, stepIndex)) {
@@ -259,23 +286,25 @@ export function createPlayStyleEngine<T>(deps: {
         }
         pendingPulses.add(pulse)
         stepIndex += 1
-        nextAt = pulse.at + interval
+        advance(1)
       }
       // An input-turn attack needs only the adapter's preparation lead. The
       // recurring queue keeps its larger safety margin for timer delivery.
+      // With a running transport it waits for the grid's next subdivision.
       if (nextAt === undefined) {
         nextAt = now + initialLeadMs
+        lock()
         if (notes.length) queuePulse()
-      }
+      } else lock()
       // Keep the musical grid after a suspended/background timer, dropping
       // missed pulses instead of emitting them all on resume.
       const earliestSafeAt = now + schedulingLeadMs
-      if (nextAt < earliestSafeAt) {
-        const missed = Math.ceil((earliestSafeAt - nextAt) / interval)
-        nextAt += missed * interval
+      if (nextAt! < earliestSafeAt) {
+        const missed = Math.ceil((earliestSafeAt - nextAt!) / interval)
+        advance(missed)
         stepIndex += missed
       }
-      while (notes.length && nextAt <= now + lookaheadMs) {
+      while (notes.length && nextAt! <= now + lookaheadMs) {
         queuePulse()
       }
     }

@@ -16,6 +16,7 @@ import { useVisualConfigStore } from "@/stores/visualConfig";
 import { createPlayStyleEngine, PLAY_STYLE_OPTIONS, PLAY_MODE_OPTIONS, PLAY_STYLE_SCHEDULING_LEAD_MS, playModeValue, type PlayStyle, type PlayStyleRate } from "@/services/playStyles";
 import { audioTimeToOutputTime, LIVE_AUDIO_SCHEDULING_LEAD_MS } from "@/services/liveAudioTiming";
 import { createLiveAudioClock } from "@/services/liveAudioClock";
+import { getTransportGrid } from "@/services/transportGrid";
 import { getLivePlayback, waitForLivePlayback } from "@/services/livePlayback";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import type { LiveVoiceEvent } from "@/audio/liveRenderer";
@@ -214,6 +215,8 @@ export const useMusicStore = defineStore(
       now,
       schedulingLeadMs: PLAY_STYLE_SCHEDULING_LEAD_MS,
       initialLeadMs: LIVE_AUDIO_SCHEDULING_LEAD_MS,
+      // Repeat/Arp follow a running pattern transport's bar grid (S111).
+      grid: getTransportGrid,
       start(held, at, style) {
         if (held.isCancelled() || instrumentStore.isInteractionLocked) {
           return { release() {} };

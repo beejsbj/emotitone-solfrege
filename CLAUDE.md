@@ -28,7 +28,7 @@ Use only the package scripts for checks (shared lock across worktrees; see AGENT
 
 **Phrase book.** `src/domain/phraseBook.ts` and `src/stores/phrases.ts`: one noun (Phrase) on four shelves with one open take. Everything played is kept; there is no record button. Rules: `docs/pattern-system-reimagined.md`. UI: `PhraseShelf`, `PatternReel`, `PatternStrip`.
 
-**Code Strip.** `src/components/uniques/CodeStrip/` is still a Strudel CodeMirror editor. The decision is to replace it with a read-only HighlightStrip plus "Open in Strudel"; `StrudelNotation.ts` writes the code text.
+**Code Strip.** `src/components/uniques/CodeStrip/` contains the read-only HighlightStrip with note-event highlighting and "Open in Strudel"; `StrudelNotation.ts` writes the code text.
 
 **Looper ("Play is the loop").** In flight, not on `main`: brief in `docs/looper.md` (PR #138; until it merges, `git show origin/docs/looper-brief:docs/looper.md`), domain #139, transport #140, Stage part #141, Play wiring #142. #137 and #140's Strudel transport are research under Decision 3; their receipts become the acceptance tests for a worklet transport. Check the open PRs before touching playback or phrase timing.
 

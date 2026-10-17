@@ -232,12 +232,25 @@ continuity claim. PCM finiteness and silence after release are required in both
 cases. Worklet continuity is required for both stalls. This distinction makes
 the native renderer's scheduling tradeoff explicit.
 
-`LAB_UI_ARCHITECTURE=1` additionally exercises the real CodeStrip. Chrome sends
-trusted text input to its CodeMirror editor, clicks Play, edits the sounding
-pattern and evaluates with Ctrl+Enter, temporarily mutes/restores the shared
-master gain, then clicks Stop. PCM must sound before and after editing, disappear
-when the shared master is muted, return when restored, and be silent after
-stopping. The whole sequence must retain one audio context. This checks the
-pattern/editor/audio integration; it does not merely call the live backend.
+`LAB_UI_ARCHITECTURE=1` additionally exercises the read-only HighlightStrip.
+Chrome records three notes with trusted keyboard input, checks rendered events
+and the real Open in Strudel button's URL handoff, then clicks Play. The receipt
+requires audible PCM and multiple highlighted events, silence while the shared
+master is muted, sound after restoring it, and silence after Stop, all in one
+audio context. Delete must reduce the displayed events and change the exported
+code; Return must restore the empty prompt, remove the handoff and disable Play.
+The external `window.open` boundary is intercepted: no remote Strudel editor is
+loaded. No text is inserted into the strip and no audio renderer is called by
+this scenario.
+
+Run just this scenario (live-input latency and stress trials remain unexercised):
+
+```sh
+LAB_UI_TRIALS=0 LAB_UI_FILTER='^$' LAB_UI_ARCHITECTURE=1 bun run test:audio-ui /tmp/highlightstrip-ui.json
+```
+
+The JSON includes each UI snapshot, exported code, observed active event indices,
+PCM captures and individual pass/fail checks. This is browser-rendered audio,
+not a physical-device latency or remote Strudel playback measurement.
 
 For recorded-history growth, hue animation, and consecutive recording releases, see [the pattern-growth benchmark](pattern-growth.md). It uses corrected sequential fixtures and includes post-release LongTasks.

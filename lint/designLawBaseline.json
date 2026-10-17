@@ -1,10 +1,9 @@
 {
   "no-store-imports": {
-    "src/components/compounds/Keyboard.vue": 3
+    "src/components/compounds/Keyboard.vue": 2
   },
   "no-production-service-imports": {
-    "src/components/compounds/ControlBar.vue": 1,
-    "src/components/compounds/Keyboard.vue": 1
+    "src/components/compounds/ControlBar.vue": 1
   },
   "no-brand-colour": {
     "src/components/primatives/Mark.vue": 4,

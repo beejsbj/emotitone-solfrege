@@ -1,14 +1,15 @@
 /**
- * Keyboard Controls Composable
- * Handles keyboard mapping and event handling for solfege note playback
+ * QWERTY and number-row adapter for the performer.
+ * Letter rows press scale degrees; the number row presses the chord row's
+ * chords. Every physical key is one performer owner (`keyboard:<code>`).
  */
 
-import { ref, computed, onMounted, onUnmounted, watch, type Ref } from "vue";
-import { useInstrumentStore } from "@/stores/instrument";
+import { onMounted, onUnmounted, type Ref } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { usePhrasesStore } from "@/stores/phrases";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
-import { createVoiceGroupLifecycle } from "@/services/inputVoiceGroups";
+import { usePerformer } from "@/composables/usePerformer";
+import type { PerformerReleaseReason } from "@/services/performer";
 import { buildHarmony, type HarmonyAlteration } from "@/domain/harmony";
 import type { ChromaticNote } from "@/types/music";
 
@@ -96,6 +97,30 @@ const BOTTOM_KEY_ROW = [
 ] as const;
 
 /**
+ * How long a held key may go without key-repeat evidence once Cmd is down.
+ * macOS delivers no key-up for a key released while Cmd is held, and stops
+ * repeating it, so after this window the key is treated as released.
+ *
+ * Known cost: a drone held on QWERTY is cut one window after a Cmd tap
+ * (Cmd+Z, say), even once Cmd is up. There is no safe disarm on Cmd's key-up:
+ * a key lifted while Cmd was down and a key still held look the same from
+ * then on (no key-up, no repeat), and disarming would leave the lifted one
+ * sounding forever. A cut drone is replayed by pressing again; a stuck note
+ * has no recovery, so the watch stays armed.
+ */
+export const KEY_REPEAT_WINDOW_MS = 1000;
+
+const KEYBOARD_OWNER_SCOPE = "keyboard";
+
+/**
+ * Releases the performer made on its own while the key may still be down.
+ * Its key repeat must not revive the note; a fresh press always plays.
+ */
+const BLOCKING_RELEASES = new Set<PerformerReleaseReason>([
+  "locked", "silent", "missing-key-up", "instrument-change",
+]);
+
+/**
  * Composable for handling keyboard controls for solfege notes
  */
 export function useKeyboardControls(
@@ -107,28 +132,18 @@ export function useKeyboardControls(
    */
   harmonyAlteration?: Ref<HarmonyAlteration>,
 ) {
-  const instrumentStore = useInstrumentStore();
   const musicStore = useMusicStore();
   const phrasesStore = usePhrasesStore();
   const keyboardDrawerStore = useKeyboardDrawerStore();
-  const voiceGroups = createVoiceGroupLifecycle((noteId) => musicStore.releaseNote(noteId));
+  const performer = usePerformer();
 
-  // --- chord row (number keys) ---
-  const chordKeyMapping = new Map<string, number>(
+  const chordKeyIndex = new Map<string, number>(
     CHORD_ROW_KEYS.map((key, index) => [key.code, index]),
   );
-  const chordKeyLabels = new Map<string, string>(
-    CHORD_ROW_KEYS.map((key) => [key.code, key.label]),
-  );
 
-  // Track which keys are currently pressed to prevent key repeat
-  const pressedKeys = ref<Set<string>>(new Set());
-  // Ignored mapped keys must see a physical keyup before they may attack.
-  // Otherwise OS key-repeat can start a note after a lock or modifier clears.
-  const blockedKeys = ref<Set<string>>(new Set());
-
-  // Track keyboard-triggered notes separately from mouse-triggered notes
-  const keyboardNoteIds = ref<Map<string, string>>(new Map());
+  // Ignored mapped keys must not start a note from OS key repeat after a lock
+  // or modifier clears; a key-up or a fresh (non-repeat) keydown lifts it.
+  const blockedKeys = new Set<string>();
 
   const getKeyboardMapping = (): KeyboardMapping => {
     const degreeCount = musicStore.currentScale.degreeCount;
@@ -164,10 +179,7 @@ export function useKeyboardControls(
     return mapping;
   };
 
-  /**
-   * Build the current set of harmony chords to map onto the number row.
-   * Returns an array of HarmonyChord objects (one per scale degree).
-   */
+  /** The chord row's harmony, under the same Joystick alteration. */
   const getCurrentChords = () =>
     buildHarmony({
       tonic: musicStore.currentKey as ChromaticNote,
@@ -175,40 +187,6 @@ export function useKeyboardControls(
       octave: mainOctave.value,
       alteration: harmonyAlteration?.value ?? "auto",
     });
-
-  /**
-   * Map a key code to a chord mapping entry (chord index + label),
-   * or undefined if the code is not a chord key.
-   */
-  const getChordForCode = (code: string) => {
-    const index = chordKeyMapping.get(code);
-    if (index === undefined) return undefined;
-    const label = chordKeyLabels.get(code);
-    return { index, label: label ?? code };
-  };
-
-  /**
-   * Get the keyboard letter for a given solfege index and octave
-   * Returns the key that would trigger this note, or null if not mapped
-   */
-  const getKeyboardLetterForNote = (
-    solfegeIndex: number,
-    octave: number
-  ): string | null => {
-    const mapping = getKeyboardMapping();
-
-    // Find the key that maps to this solfege index and octave
-    for (const [key, noteMapping] of Object.entries(mapping)) {
-      if (
-        noteMapping.solfegeIndex === solfegeIndex &&
-        noteMapping.octave === octave
-      ) {
-        return noteMapping.label;
-      }
-    }
-
-    return null; // No keyboard mapping for this note
-  };
 
   const isEditableTarget = (target: EventTarget | null): boolean => {
     if (!(target instanceof HTMLElement)) return false;
@@ -221,175 +199,102 @@ export function useKeyboardControls(
     );
   };
 
-  const getKeyboardPressId = (key: string) => `keyboard:${key}`;
-  const getNoteKey = (solfegeIndex: number, octave: number) =>
-    `${solfegeIndex}_${octave}`;
+  const ownerFor = (code: string) => `${KEYBOARD_OWNER_SCOPE}:${code}`;
+  const codeFor = (owner: string) => owner.slice(KEYBOARD_OWNER_SCOPE.length + 1);
 
-  // Keyboard event handlers
-  const handleKeyDown = async (event: KeyboardEvent) => {
-    if (isEditableTarget(event.target)) {
-      return;
+  /** While Cmd is down, every held key must prove it is still held. */
+  const watchForMissingKeyUps = () => {
+    for (const owner of performer.owners(KEYBOARD_OWNER_SCOPE)) {
+      performer.expectRenewal(owner, KEY_REPEAT_WINDOW_MS);
     }
+  };
+
+  /** Resolves once the press this key started has settled. */
+  const handleKeyDown = (event: KeyboardEvent): Promise<void> => {
+    if (isEditableTarget(event.target)) return Promise.resolve();
 
     const key = event.code;
-    const isChordKey = chordKeyMapping.has(key);
+    const owner = ownerFor(key);
+    const chordIndex = chordKeyIndex.get(key);
 
     if (event.key === "Backspace" || event.key === "Delete") {
       event.preventDefault();
       phrasesStore.undoLastNote();
-      return;
+      return Promise.resolve();
     }
 
-    // Get current keyboard mapping (skip for chord keys)
-    const keyboardMapping = isChordKey ? null : getKeyboardMapping();
-    const isMappedNoteKey = keyboardMapping !== null && key in keyboardMapping;
+    if (event.metaKey) watchForMissingKeyUps();
+
+    const noteMapping = chordIndex === undefined ? getKeyboardMapping()[key] : undefined;
+    if (chordIndex === undefined && !noteMapping) return Promise.resolve();
+
+    if (performer.isHeld(owner)) {
+      // Key repeat of a held key is evidence that it is still down.
+      performer.renew(owner);
+      return Promise.resolve();
+    }
 
     if (event.ctrlKey || event.metaKey || event.altKey) {
-      if ((isChordKey || isMappedNoteKey) && !pressedKeys.value.has(key)) {
-        blockedKeys.value.add(key);
-      }
-      return;
+      blockedKeys.add(key);
+      return Promise.resolve();
     }
 
-    if (isChordKey || isMappedNoteKey) {
-      if (blockedKeys.value.has(key)) {
+    if (blockedKeys.has(key)) {
+      // A block only stops key repeat. A fresh keydown proves the key was
+      // lifted, even when the key-up was lost (macOS under Cmd), so it plays.
+      if (event.repeat) {
         event.preventDefault();
-        return;
+        return Promise.resolve();
       }
+      blockedKeys.delete(key);
+    }
 
-      if (instrumentStore.isInteractionLocked) {
-        event.preventDefault();
-        blockedKeys.value.add(key);
-        return;
-      }
-
-      // Ignore if key is already pressed (prevents key repeat)
-      if (pressedKeys.value.has(key)) {
-        return;
-      }
-
+    if (performer.isLocked) {
       event.preventDefault();
-      pressedKeys.value.add(key);
-
-      if (isChordKey) {
-        // --- chord attack ---
-        const chordEntry = getChordForCode(key)!;
-        const chords = getCurrentChords();
-        const chord = chords[chordEntry.index];
-        if (!chord) return;
-
-        const ownerId = getKeyboardPressId(key);
-        void voiceGroups.attack(
-          ownerId,
-          chord.voicing.pitches.map((pitch) =>
-            (isCancelled) => musicStore.attackExactPitch(pitch.name, isCancelled),
-          ),
-        ).then((noteIds) => {
-          if (
-            pressedKeys.value.has(key)
-            && !blockedKeys.value.has(key)
-            && !instrumentStore.isInteractionLocked
-          ) {
-            for (const noteId of noteIds) {
-              if (noteId) keyboardNoteIds.value.set(`${key}:${noteId}`, noteId);
-            }
-          }
-        });
-        keyboardDrawerStore.addTouch(ownerId, `chord:degree-${chordEntry.index + 1}`);
-        window.dispatchEvent(
-          new CustomEvent("keyboard-chord-pressed", {
-            detail: { chordIndex: chordEntry.index, symbol: chord.symbol, key: chordEntry.label },
-          })
-        );
-      } else {
-        // --- single note attack ---
-        const { solfegeIndex, octave, label } =
-          keyboardMapping![key as keyof typeof keyboardMapping];
-
-        const ownerId = getKeyboardPressId(key);
-        void voiceGroups.attack(ownerId, [
-          (isCancelled) => musicStore.attackNoteWithOctave(
-            solfegeIndex,
-            octave,
-            isCancelled,
-          ),
-        ]).then(([noteId]) => {
-          if (
-            noteId
-            && pressedKeys.value.has(key)
-            && !blockedKeys.value.has(key)
-            && !instrumentStore.isInteractionLocked
-          ) {
-            keyboardNoteIds.value.set(key, noteId);
-          }
-        });
-        keyboardDrawerStore.addTouch(ownerId, getNoteKey(solfegeIndex, octave));
-        window.dispatchEvent(
-          new CustomEvent("keyboard-note-pressed", {
-            detail: { solfegeIndex, octave, key: label },
-          })
-        );
-      }
+      blockedKeys.add(key);
+      return Promise.resolve();
     }
+
+    event.preventDefault();
+
+    if (chordIndex !== undefined) {
+      const chord = getCurrentChords()[chordIndex];
+      if (!chord) return Promise.resolve();
+      return performer.press({
+        owner,
+        kind: "chord",
+        voices: chord.voicing.pitches.map((pitch) => ({ kind: "pitch" as const, pitch: pitch.name })),
+        touchKey: `chord:degree-${chordIndex + 1}`,
+      }).then(() => undefined);
+    }
+
+    const { solfegeIndex, octave } = noteMapping!;
+    return performer.press({
+      owner,
+      kind: "note",
+      voices: [{ kind: "degree", scaleIndex: solfegeIndex, octave }],
+      touchKey: `${solfegeIndex}_${octave}`,
+    }).then(() => undefined);
   };
 
   const handleKeyUp = (event: KeyboardEvent) => {
     const key = event.code;
-
-    if (blockedKeys.value.delete(key)) {
-      return;
-    }
-
-    if (pressedKeys.value.has(key)) {
-      pressedKeys.value.delete(key);
-
-      const ownerId = getKeyboardPressId(key);
-      voiceGroups.release(ownerId);
-      keyboardNoteIds.value.delete(key);
-      window.dispatchEvent(
-        new CustomEvent("keyboard-note-released", {
-          detail: { key: keyboardMappingLabel(key) },
-        })
-      );
-      keyboardDrawerStore.removeTouch(ownerId);
-    }
+    if (blockedKeys.delete(key)) return;
+    performer.release(ownerFor(key));
   };
 
-  const keyboardMappingLabel = (code: string): string => {
-    return getKeyboardMapping()[code]?.label ?? chordKeyLabels.get(code) ?? code;
-  };
+  // The performer releases held keys on blur; a blocked key's key-up may
+  // never arrive while the window is away, so forget it too.
+  const handleWindowBlur = () => blockedKeys.clear();
 
-  // Handle window blur to release all keyboard notes (safety mechanism)
-  const handleWindowBlur = () => {
-    // Release all keyboard-triggered notes when window loses focus
-    for (const key of pressedKeys.value) {
-      keyboardDrawerStore.removeTouch(getKeyboardPressId(key));
-    }
-    voiceGroups.releaseAll();
+  let unsubscribe: (() => void) | undefined;
 
-    // Clear tracking maps
-    pressedKeys.value.clear();
-    keyboardNoteIds.value.clear();
-    blockedKeys.value.clear();
-  };
-
-  watch(
-    () => instrumentStore.isInteractionLocked,
-    (locked) => {
-      if (!locked) return;
-
-      for (const key of pressedKeys.value) {
-        blockedKeys.value.add(key);
-        keyboardDrawerStore.removeTouch(getKeyboardPressId(key));
-      }
-      voiceGroups.releaseAll();
-      pressedKeys.value.clear();
-      keyboardNoteIds.value.clear();
-    },
-  );
-
-  // Setup and cleanup
   const setupKeyboardListeners = () => {
+    unsubscribe?.();
+    unsubscribe = performer.subscribe((intent) => {
+      if (intent.type !== "release" || !intent.owner.startsWith(`${KEYBOARD_OWNER_SCOPE}:`)) return;
+      if (BLOCKING_RELEASES.has(intent.reason)) blockedKeys.add(codeFor(intent.owner));
+    });
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
     window.addEventListener("blur", handleWindowBlur);
@@ -399,32 +304,20 @@ export function useKeyboardControls(
     window.removeEventListener("keydown", handleKeyDown);
     window.removeEventListener("keyup", handleKeyUp);
     window.removeEventListener("blur", handleWindowBlur);
-
-    // Release any keyboard-triggered notes that are still active
-    for (const key of pressedKeys.value) {
-      keyboardDrawerStore.removeTouch(getKeyboardPressId(key));
-    }
-    voiceGroups.releaseAll();
-
-    // Clear tracking maps
-    pressedKeys.value.clear();
-    keyboardNoteIds.value.clear();
-    blockedKeys.value.clear();
+    unsubscribe?.();
+    unsubscribe = undefined;
+    performer.releaseAllFor(KEYBOARD_OWNER_SCOPE, "teardown");
+    blockedKeys.clear();
   };
 
-  // Auto-setup when used in a component
   onMounted(setupKeyboardListeners);
   onUnmounted(cleanupKeyboardListeners);
 
   return {
-    pressedKeys: computed(() => pressedKeys.value),
-    keyboardNoteIds: computed(() => keyboardNoteIds.value),
     getKeyboardMapping,
-    getKeyboardLetterForNote,
     handleKeyDown,
     handleKeyUp,
     setupKeyboardListeners,
     cleanupKeyboardListeners,
   };
 }
-

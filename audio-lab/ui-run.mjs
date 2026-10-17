@@ -276,7 +276,7 @@ try {
       passed:false,error:String(error.stack ?? error),
     }));
     architecture.push(patterns);
-    const transport = await evaluate("import('/src/services/patternPlayback.ts').then(module=>module.getPatternPlaybackDiagnostics())",true);
+    const transport = await evaluate("import('/src/services/patternTransport.ts').then(module=>module.getPatternPlaybackDiagnostics())",true);
     architecture.push({scenario:'One mounted application pattern transport',...transport,passed:transport.activeTransports===1});
     console.log('Pattern UI:', JSON.stringify({passed:patterns.passed,contexts:patterns.contextCount,playback:patterns.playback?.peak,activeEvents:patterns.activeEvents,checks:patterns.checks,muted:patterns.muted?.peak,restored:patterns.restored?.peak,stopped:patterns.stopped?.peak,error:patterns.error}));
   }

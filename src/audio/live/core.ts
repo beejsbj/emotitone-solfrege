@@ -5,6 +5,8 @@ import { VoiceEffects } from './lowpass'
 import { velocityToGain } from '../velocity'
 import { OPEN_CUTOFF_HZ, type LiveShaping } from '../liveShaping'
 import { MAX_AUDIO_VOICES, VOICE_RETIRE_SECONDS } from '../voicePolicy'
+import { AudioTransport, type TransportCommand, type TransportMemberTable, type TransportOnset } from './transport'
+import { TransportEventKind, TransportEventWriter, type TransportEventBatch } from './transportEvents'
 
 const MAX_FADES = 8
 const PLAN_SECONDS = .15
@@ -14,8 +16,13 @@ const PITCH_SMOOTH_SECONDS = .007
 const MIN_GAIN_EXPRESSION = .25
 const MAX_GAIN_EXPRESSION = 1.75
 const GAIN_SMOOTH_SECONDS = .007
-// matches superdough's band-limited normalisation; remove when patterns render on the worklet (BJS-485)
-const SQUARE_SAW_PLAYBACK_GAIN = .85
+/**
+ * Voices a player's live notes can always claim: transport onsets never take
+ * the pool beyond MAX_AUDIO_VOICES minus this, and never steal a held live
+ * note. A live press over saturated playback steals a transport voice first.
+ */
+export const LIVE_RESERVED_VOICES = 16
+const TRANSPORT_COMMANDS = new Set(['transport-start', 'transport-stop', 'transport-change', 'transport-recycle'])
 function polyBlep(t: number, dt: number) {
   return t < dt ? 2 * t / dt - (t / dt) ** 2 - 1
     : t > 1 - dt ? ((t - 1) / dt) ** 2 + 2 * (t - 1) / dt + 1 : 0
@@ -36,8 +43,25 @@ interface Pulse {
   style: LiveConfig['style']
   notes: PlannedNote[]
 }
+/** Identity and expression of a voice started by the pattern transport. */
+interface TransportVoice {
+  serial: number
+  generation: number
+  noteIndex: number
+  memberId: string
+  /** The frame its release was announced for, if it has been announced. */
+  announcedRelease?: number
+  table: TransportMemberTable
+  framesPerTableBar: number
+  pitchPoint: number
+  gainPoint: number
+}
 interface Voice extends PlannedNote {
   effects: VoiceEffects
+  attack: number
+  decay: number
+  sustain: number
+  transport?: TransportVoice
   expressionOwnerId: string
   instrument: PreparedLiveInstrument
   zone?: LiveSampleZone
@@ -85,9 +109,64 @@ export class LiveAudioCore {
   private forgetting = new Map<number, string>()
   private pitchBends = new Map<string, number>()
   private gainExpressions = new Map<string, number>()
+  readonly transport: AudioTransport
+  private readonly transportEvents = new TransportEventWriter()
+  private readonly postEvents = (batch: TransportEventBatch) => this.send(batch)
 
   constructor(private sampleRate: number, private send: (message: LiveResponse) => void, private notePrefix = 'worklet') {
     this.effectPool = Array.from({ length: MAX_AUDIO_VOICES + MAX_FADES }, () => new VoiceEffects(sampleRate))
+    this.transport = new AudioTransport(sampleRate, send, this.transportEvents, {
+      silence: (memberId, frame) => this.silenceMember(memberId, frame),
+    })
+  }
+
+  /** Forced fade of transport voices (mute, solo, stop): one release at the fade boundary. */
+  private silenceMember(memberId: string | null, frame: number) {
+    for (const voice of this.voices) if (voice.transport && !voice.released
+      && (memberId === null || voice.transport.memberId === memberId)) {
+      this.releaseVoice(voice, frame, VOICE_RETIRE_SECONDS * this.sampleRate)
+    }
+  }
+
+  private transportEvent(kind: TransportEventKind, voice: Voice, frame: number, length: number) {
+    const transport = voice.transport!
+    this.transportEvents.write(kind, transport.serial, transport.generation, transport.noteIndex,
+      frame, this.transport.isRunning ? this.transport.barAt(frame) : 0, length, this.postEvents)
+  }
+
+  /**
+   * After overflow, describe every active transport note once a batch is free
+   * again, then repeat the gate ends already announced for them (those
+   * announcements may be among the dropped records and are not sent twice).
+   */
+  private recoverTransportEvents() {
+    const writer = this.transportEvents
+    if (!writer.overflowed) return
+    let active = 0
+    let announced = 0
+    this.transport.forEachAnnounced(() => { active++ })
+    for (const voice of this.voices) if (voice.transport && !voice.released) {
+      active++
+      if (voice.transport.announcedRelease !== undefined) announced++
+    }
+    if (writer.capacity < active + announced + 1) return
+    writer.overflowed = false
+    writer.write(TransportEventKind.SnapshotBegin, active, 0, 0, 0, 0, 0, this.postEvents)
+    this.transport.forEachAnnounced(onset => writer.write(TransportEventKind.Active, onset.serial,
+      onset.member!.table.generation, onset.noteIndex, onset.frame, onset.bar, onset.gateFrames, this.postEvents))
+    for (const voice of this.voices) if (voice.transport && !voice.released) {
+      const transport = voice.transport
+      writer.write(TransportEventKind.Active, transport.serial, transport.generation, transport.noteIndex,
+        voice.start, this.transport.isRunning ? this.transport.barAt(voice.start) : 0, voice.end - voice.start, this.postEvents)
+    }
+    for (const voice of this.voices) if (voice.transport && !voice.released && voice.transport.announcedRelease !== undefined) {
+      this.transportEvent(TransportEventKind.Release, voice, voice.transport.announcedRelease, voice.releaseLength / this.sampleRate)
+    }
+  }
+
+  private flushTransportEvents() {
+    this.recoverTransportEvents()
+    this.transportEvents.flush(this.postEvents)
   }
 
   get voiceCount() { return this.voices.length + this.fades.length }
@@ -126,6 +205,11 @@ export class LiveAudioCore {
   }
 
   command(command: LiveCommand, frame: number) {
+    if (TRANSPORT_COMMANDS.has(command.type)) {
+      this.transport.command(command as TransportCommand, frame)
+      this.flushTransportEvents()
+      return
+    }
     const endedOwners = command.type === 'clear' ? [...this.held.keys()]
       : command.type === 'release' ? [command.ownerId] : []
     switch (command.type) {
@@ -278,7 +362,8 @@ export class LiveAudioCore {
     this.strum = []
     this.strumAt = this.nextFrame = this.boundaryDuration = undefined
     this.step = 0
-    for (const voice of this.voices) this.releaseVoice(voice, frame)
+    // Live input never ends the pattern transport's voices.
+    for (const voice of this.voices) if (!voice.transport) this.releaseVoice(voice, frame)
     this.planDirty = true
   }
 
@@ -346,7 +431,7 @@ export class LiveAudioCore {
       instrumentId: note.instrumentId, velocity: note.velocity, style, at: Math.ceil(frame) / this.sampleRate }
   }
   private voiceEvent(voice: Voice, phase: LiveVoiceEvent['phase'], frame: number): LiveVoiceEvent {
-    const { attack, decay, sustain } = voice.instrument
+    const { attack, decay, sustain } = voice
     return { ...this.event(voice, phase, frame, voice.style),
       articulation: { attack, decay, sustain, release: voice.releaseLength / this.sampleRate } }
   }
@@ -358,7 +443,7 @@ export class LiveAudioCore {
       events.push(this.event(note, 'attack', pulse.frame, pulse.style))
       if (pulse.duration !== undefined) events.push(this.event(note, 'release', pulse.frame + pulse.duration, pulse.style))
     }
-    for (const voice of this.voices) if (!voice.released && Number.isFinite(voice.end) && voice.end >= frame) {
+    for (const voice of this.voices) if (!voice.transport && !voice.released && Number.isFinite(voice.end) && voice.end >= frame) {
       events.push(this.event(voice, 'release', voice.end, voice.style))
     }
     events.sort((a, b) => a.at - b.at || (a.phase === 'release' ? -1 : 1))
@@ -384,44 +469,120 @@ export class LiveAudioCore {
     }
     return shaped
   }
-  private start(note: PlannedNote, pulse: Pulse, frame: number) {
-    const instrument = this.instrument(note.instrumentId)
-    if (!instrument) return
-    const zone = this.zone(instrument, note.pitch)
-    if (instrument.kind === 'sample-bank' && (!zone || !zone.channels[0]?.length)) return
-    if (this.voices.length >= MAX_AUDIO_VOICES) {
-      // Prefer an already releasing voice, otherwise the oldest held voice.
-      const index = Math.max(0, this.voices.findIndex(voice => voice.released))
-      const [stolen] = this.voices.splice(index, 1)
-      if (stolen.published) {
-        this.releaseVoice(stolen, frame, VOICE_RETIRE_SECONDS * this.sampleRate)
-        this.fades.push(stolen)
-        if (this.fades.length > MAX_FADES) this.fades.shift()!.effects.inUse = false
-      } else stolen.effects.inUse = false
+  /**
+   * Make room for one more voice. Live input prefers a releasing voice, then
+   * the oldest transport voice, then the oldest held live voice. Transport
+   * onsets stay below the live reserve and never steal a live voice; false
+   * means the onset is refused.
+   */
+  private admit(transport: boolean, frame: number): boolean {
+    const full = this.voices.length >= MAX_AUDIO_VOICES
+    let index = -1
+    if (transport) {
+      let transportVoices = 0
+      for (const voice of this.voices) if (voice.transport) transportVoices++
+      if (!full && transportVoices < MAX_AUDIO_VOICES - LIVE_RESERVED_VOICES) return true
+      index = this.voices.findIndex(voice => voice.transport && voice.released)
+      if (index < 0) index = this.voices.findIndex(voice => voice.transport)
+      if (index < 0) return false
+    } else {
+      if (!full) return true
+      index = this.voices.findIndex(voice => voice.released)
+      if (index < 0) index = this.voices.findIndex(voice => voice.transport)
+      if (index < 0) index = 0
     }
+    const [stolen] = this.voices.splice(index, 1)
+    if (stolen.published) {
+      this.releaseVoice(stolen, frame, VOICE_RETIRE_SECONDS * this.sampleRate)
+      this.fades.push(stolen)
+      if (this.fades.length > MAX_FADES) this.fades.shift()!.effects.inUse = false
+    } else stolen.effects.inUse = false
+    return true
+  }
+
+  private createVoice(note: PlannedNote, instrument: PreparedLiveInstrument, zone: LiveSampleZone | undefined,
+    frame: number, style: LiveConfig['style'], end: number, releaseSeconds: number,
+    envelope: { attack: number; decay: number; sustain: number }, transport?: TransportVoice): Voice {
     const increment = zone ? 2 ** ((note.pitch - zone.rootMidi) / 12) * zone.sampleRate / this.sampleRate
       : 440 * 2 ** ((note.pitch - 69) / 12) / this.sampleRate
-    const pitchIncrement = increment * 2 ** ((this.pitchBends.get(note.ownerId) ?? 0) / 1200)
-    const gainExpression = this.gainExpressions.get(note.ownerId) ?? 1
+    const pitchIncrement = increment * 2 ** ((transport ? 0 : this.pitchBends.get(note.ownerId) ?? 0) / 1200)
+    const gainExpression = transport ? 1 : this.gainExpressions.get(note.ownerId) ?? 1
     let effectIndex = 0
     while (this.effectPool[effectIndex].inUse) effectIndex++
     const effects = this.effectPool[effectIndex]
     effects.inUse = true
     effects.reset(note.shaping ?? this.effectShape)
     const voice: Voice = { ...note, effects, owners: new Set(note.owners), expressionOwnerId: note.ownerId, instrument, zone,
+      ...envelope, transport,
       resampler: zone ? createSampleResampler(zone, increment) : undefined,
-      style: pulse.style, start: frame, end: pulse.duration === undefined ? Infinity : Math.ceil(pulse.frame + pulse.duration),
+      style, start: frame, end,
       position: 0, increment, pitchIncrement, pitchTarget: pitchIncrement, pitchRampRemaining: 0,
       gainExpression, gainTarget: gainExpression, gainRampRemaining: 0,
-      releaseLength: (pulse.duration === undefined ? Math.max(0, instrument.release) : .03) * this.sampleRate,
-      releaseLevel: 0, released: false, published: false }
+      releaseLength: Math.max(0, releaseSeconds) * this.sampleRate,
+      releaseLevel: 0, released: false, published: Boolean(transport) }
     this.voices.push(voice)
+    return voice
+  }
+
+  private start(note: PlannedNote, pulse: Pulse, frame: number) {
+    const instrument = this.instrument(note.instrumentId)
+    if (!instrument) return
+    const zone = this.zone(instrument, note.pitch)
+    if (instrument.kind === 'sample-bank' && (!zone || !zone.channels[0]?.length)) return
+    this.admit(false, frame)
+    const { attack, decay, sustain } = instrument
+    this.createVoice(note, instrument, zone, frame, pulse.style,
+      pulse.duration === undefined ? Infinity : Math.ceil(pulse.frame + pulse.duration),
+      pulse.duration === undefined ? instrument.release : .03, { attack, decay, sustain })
+  }
+
+  /** Start a transport onset with its table's own articulation; false if it cannot sound. */
+  private startScheduled(onset: TransportOnset, frame: number): boolean {
+    const member = onset.member!
+    const { table } = member
+    const index = onset.noteIndex
+    // The member's own instrument, without the live Shape tab's envelope override.
+    const instrument = this.instruments.get(table.instrumentId)
+    if (!instrument) return false
+    const pitch = table.pitch[index]
+    const zone = this.zone(instrument, pitch)
+    if (instrument.kind === 'sample-bank' && (!zone || !zone.channels[0]?.length)) return false
+    if (!this.admit(true, frame)) return false
+    const velocity = table.velocity[index]
+    const note: PlannedNote = { pitch, instrumentId: table.instrumentId, velocity: Number.isFinite(velocity) ? velocity : undefined,
+      shaping: table.shaping, noteId: '', ownerId: member.id, owners: new Set([member.id]) }
+    this.createVoice(note, instrument, zone, frame, 'together', onset.frame + onset.gateFrames, table.release[index],
+      { attack: table.attack[index], decay: table.decay[index], sustain: table.sustain[index] },
+      { serial: onset.serial, generation: table.generation, noteIndex: index, memberId: member.id, table,
+        framesPerTableBar: onset.framesPerTableBar, pitchPoint: 0, gainPoint: 0 })
+    return true
+  }
+
+  /** Recorded pitch and gain curves at `frame`, ramped to over the coming span. */
+  private followExpression(voice: Voice, frame: number, span: number) {
+    const transport = voice.transport!
+    const { table, noteIndex } = transport
+    const at = (frame + span - voice.start) / transport.framesPerTableBar
+    const pitchCount = table.pitchCount[noteIndex]
+    if (pitchCount) {
+      const start = table.pitchStart[noteIndex]
+      const cents = curveAt(table.pitchTime, table.pitchCents, start, pitchCount, at, transport, 'pitchPoint')
+      voice.pitchTarget = voice.increment * 2 ** (Math.max(-MAX_PITCH_BEND_CENTS, Math.min(MAX_PITCH_BEND_CENTS, cents)) / 1200)
+      voice.pitchRampRemaining = span
+    }
+    const gainCount = table.gainCount[noteIndex]
+    if (gainCount) {
+      const start = table.gainStart[noteIndex]
+      const gain = curveAt(table.gainTime, table.gainValue, start, gainCount, at, transport, 'gainPoint')
+      voice.gainTarget = Math.max(MIN_GAIN_EXPRESSION, Math.min(MAX_GAIN_EXPRESSION, gain))
+      voice.gainRampRemaining = span
+    }
   }
   private envelope(voice: Voice, frame: number): number {
     if (voice.releaseStart !== undefined) return voice.releaseLength > 0
       ? voice.releaseLevel * Math.max(0, 1 - (frame - voice.releaseStart) / voice.releaseLength) : 0
     const elapsed = (frame - voice.start) / this.sampleRate
-    const { attack, decay, sustain } = voice.instrument
+    const { attack, decay, sustain } = voice
     if (attack > 0 && elapsed < attack) return elapsed / attack
     if (decay > 0 && elapsed < attack + decay) return 1 + (sustain - 1) * (elapsed - attack) / decay
     return sustain
@@ -437,7 +598,15 @@ export class LiveAudioCore {
     // releasing tails may be shortened, but retain their single note-off.
     voice.releaseLength = Math.min(releaseLength ?? voice.releaseLength, remaining)
     voice.released = true
-    if (voice.published && !wasReleased) this.send({ type: 'event', event: this.voiceEvent(voice, 'release', frame) })
+    if (voice.published && !wasReleased) {
+      const transport = voice.transport
+      // An announced gate end stands; only an earlier (forced) release is news.
+      if (!transport) this.send({ type: 'event', event: this.voiceEvent(voice, 'release', frame) })
+      else if (transport.announcedRelease === undefined || frame < transport.announcedRelease) {
+        transport.announcedRelease = frame
+        this.transportEvent(TransportEventKind.Release, voice, frame, voice.releaseLength / this.sampleRate)
+      }
+    }
     this.planDirty = true
   }
 
@@ -451,8 +620,8 @@ export class LiveAudioCore {
       case 'sine': return Math.sin(2 * Math.PI * phase)
       case 'triangle': return 1 - 4 * Math.abs(phase - .5)
         + 4 * dt * (polyBlamp(phase, dt) - polyBlamp((phase + .5) % 1, dt))
-      case 'sawtooth': return SQUARE_SAW_PLAYBACK_GAIN * (2 * phase - 1 - polyBlep(phase, dt))
-      case 'square': return SQUARE_SAW_PLAYBACK_GAIN * ((phase < .5 ? 1 : -1) + polyBlep(phase, dt) - polyBlep((phase + .5) % 1, dt))
+      case 'sawtooth': return 2 * phase - 1 - polyBlep(phase, dt)
+      case 'square': return (phase < .5 ? 1 : -1) + polyBlep(phase, dt) - polyBlep((phase + .5) % 1, dt)
     }
   }
 
@@ -474,14 +643,14 @@ export class LiveAudioCore {
           if (frame >= boundary) { voice.effects.inUse = false; collection.splice(index, 1); break }
           envelopeStep = -voice.releaseLevel / voice.releaseLength
         } else {
-          const attackEnd = voice.start + instrument.attack * this.sampleRate
-          const decayEnd = attackEnd + instrument.decay * this.sampleRate
+          const attackEnd = voice.start + voice.attack * this.sampleRate
+          const decayEnd = attackEnd + voice.decay * this.sampleRate
           if (frame < attackEnd) {
             boundary = Math.min(boundary, Math.ceil(attackEnd))
-            envelopeStep = 1 / (instrument.attack * this.sampleRate)
+            envelopeStep = 1 / (voice.attack * this.sampleRate)
           } else if (frame < decayEnd) {
             boundary = Math.min(boundary, Math.ceil(decayEnd))
-            envelopeStep = (instrument.sustain - 1) / (instrument.decay * this.sampleRate)
+            envelopeStep = (voice.sustain - 1) / (voice.decay * this.sampleRate)
           }
         }
         if (voice.pitchRampRemaining) boundary = Math.min(boundary, frame + voice.pitchRampRemaining)
@@ -561,8 +730,21 @@ export class LiveAudioCore {
     for (const channel of output) channel.fill(0)
     if (room) for (const channel of room) channel.fill(0)
     if (delay) for (const channel of delay) channel.fill(0)
+    this.transport.beginQuantum(firstFrame, endFrame)
+    const announceUntil = endFrame + this.transport.lookahead
+    this.announceReleases(announceUntil)
     let frame = firstFrame
     while (frame < endFrame) {
+      let onset: TransportOnset | undefined
+      let started = false
+      while ((onset = this.transport.takeDue(frame))) {
+        if (onset.kind === 'silence') this.silenceMember(onset.member?.id ?? null, frame)
+        else if (this.startScheduled(onset, frame)) started = true
+        else this.transportEvents.write(TransportEventKind.Cancel, onset.serial, onset.member!.table.generation,
+          onset.noteIndex, onset.frame, onset.bar, onset.gateFrames, this.postEvents)
+        this.transport.recycle(onset)
+      }
+      if (started) this.announceReleases(announceUntil)
       this.fill(frame)
       while (this.pulses.length && this.pulses.some(pulse => pulse.frame <= frame)) {
         const index = this.pulses.findIndex(pulse => pulse.frame <= frame)
@@ -581,11 +763,13 @@ export class LiveAudioCore {
       for (const pulse of this.pulses) if (pulse.frame > frame) boundary = Math.min(boundary, Math.ceil(pulse.frame))
       for (const voice of this.voices) if (!voice.released && voice.end > frame) boundary = Math.min(boundary, Math.ceil(voice.end))
       if (this.strumAt !== undefined) boundary = Math.min(boundary, Math.ceil(this.strumAt))
+      boundary = Math.min(boundary, Math.max(frame + 1, this.transport.nextFrame))
       if (this.nextFrame !== undefined) {
         const planningBoundary = Math.ceil(this.nextFrame - PLAN_SECONDS * this.sampleRate)
         if (planningBoundary > frame) boundary = Math.min(boundary, planningBoundary)
       }
       const span = Math.max(1, boundary - frame)
+      for (const voice of this.voices) if (voice.transport && !voice.released) this.followExpression(voice, frame, span)
       this.mix(this.voices, output, frame - firstFrame, span, frame, room, delay)
       this.mix(this.fades, output, frame - firstFrame, span, frame, room, delay)
       frame += span
@@ -593,5 +777,29 @@ export class LiveAudioCore {
     this.publishPlan(endFrame)
     this.finishOwners()
     this.finishForgetting()
+    this.flushTransportEvents()
   }
+
+  /** Announce gate ends inside the lookahead, so visual releases arrive before they are heard. */
+  private announceReleases(until: number) {
+    for (const voice of this.voices) {
+      const transport = voice.transport
+      if (!transport || voice.released || transport.announcedRelease !== undefined || voice.end > until) continue
+      transport.announcedRelease = voice.end
+      this.transportEvent(TransportEventKind.Release, voice, voice.end, voice.releaseLength / this.sampleRate)
+    }
+  }
+}
+
+/** Linear interpolation of a recorded curve; the cursor only moves forward. */
+function curveAt(times: Float32Array, values: Float32Array, start: number, count: number, at: number,
+  cursor: { pitchPoint: number; gainPoint: number }, key: 'pitchPoint' | 'gainPoint'): number {
+  let point = cursor[key]
+  while (point + 1 < count && times[start + point + 1] <= at) point++
+  cursor[key] = point
+  const time = times[start + point]
+  if (at <= time || point + 1 >= count) return values[start + point]
+  const nextTime = times[start + point + 1]
+  const mix = (at - time) / (nextTime - time)
+  return values[start + point] + (values[start + point + 1] - values[start + point]) * mix
 }

@@ -405,6 +405,30 @@ describe("instrument persistence", () => {
     expect(store.shape).toEqual(NEUTRAL);
   });
 
+  it("starts on the nearest working sound when the saved one cannot render on the worklet", () => {
+    const nearest = {
+      kawai: "piano", steinway: "piano", supersaw: "sawtooth", pulse: "square",
+      z_sine: "sine", z_square: "square", z_sawtooth: "sawtooth", z_triangle: "triangle",
+    };
+    for (const [removed, replacement] of Object.entries(nearest)) {
+      saved.set(KEY, JSON.stringify({
+        $version: 1,
+        data: {
+          currentInstrument: removed,
+          instrumentShapes: { [removed]: { ...NEUTRAL, cutoff: 900 }, piano: { ...NEUTRAL, room: 0.3 } },
+        },
+      }));
+      const store = freshStore();
+      expect(store.currentInstrument, removed).toBe(replacement);
+      expect(store.instrumentShapes, removed).toEqual({ piano: { ...NEUTRAL, room: 0.3 } });
+    }
+    // The working oscillators, aliases included, are left alone.
+    for (const working of ["sawtooth", "tri", "sin"]) {
+      saved.set(KEY, JSON.stringify({ $version: 1, data: { currentInstrument: working, instrumentShapes: {} } }));
+      expect(freshStore().currentInstrument).toBe(working);
+    }
+  });
+
   it("sanitizes persisted Shapes: clamps ranges and drops malformed entries", () => {
     const state = decodeInstrumentState({
       currentInstrument: "piano",

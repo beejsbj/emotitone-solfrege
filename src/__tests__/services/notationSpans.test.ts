@@ -4,11 +4,7 @@ import { m } from '@strudel/mini';
 import { transpiler } from '@strudel/transpiler';
 import '@strudel/tonal';
 import { renderStrudelNotation, type StrudelConfig } from '@/services/StrudelNotation';
-import {
-  noteIdAtLocations,
-  setSoundingNotationSpans,
-  soundingNoteIdForHap,
-} from '@/services/notationSpans';
+import { noteIdAtLocations } from '@/services/notationSpans';
 import type { LogNote } from '@/types/patterns';
 
 function note(id: string, pitch: string, start: number, duration: number, extra: Partial<LogNote> = {}): LogNote {
@@ -98,13 +94,5 @@ describe('sounding note resolution', () => {
   it('names nothing when no location falls inside a note span', () => {
     expect(noteIdAtLocations(spans, [{ start: 20, end: 24 }])).toBeUndefined();
     expect(noteIdAtLocations(spans, undefined)).toBeUndefined();
-  });
-
-  it('reads the spans of the code that is sounding now', () => {
-    const hap = { context: { locations: [{ start: 3, end: 5 }] } };
-    setSoundingNotationSpans(spans);
-    expect(soundingNoteIdForHap(hap)).toBe('a');
-    setSoundingNotationSpans(null);
-    expect(soundingNoteIdForHap(hap)).toBeUndefined();
   });
 });

@@ -32,7 +32,11 @@ class LivePlaybackProcessor extends AudioWorkletProcessor {
     this.responses = []
     // Preserve each exact response while sharing its existing synchronous
     // command/render boundary. Quiet quanta create no replacement batch.
-    this.port.postMessage(batch)
+    // Transport event batches move, never copy; the main thread returns them.
+    let transfer: ArrayBuffer[] | undefined
+    for (const response of batch) if (response.type === 'transport-events') (transfer ??= []).push(response.buffer)
+    if (transfer) this.port.postMessage(batch, transfer)
+    else this.port.postMessage(batch)
   }
   process(_inputs: Float32Array[][], outputs: Float32Array[][]) {
     if (!this.core) return false

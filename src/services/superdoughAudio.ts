@@ -1,34 +1,24 @@
 import { velocityToGain } from "@/audio/velocity";
-import { pitchSolfegeData } from "@/domain/musicalIdentity";
 import { resumeAudioContext } from "@/services/audioLifecycle";
 /**
  * superdoughAudio.ts
  * Audio startup, instrument warmup and the Superdough playback adapter.
  * The app's sound catalog (src/audio/soundCatalog.ts) and loader
  * (preparedNativeInstrument.ts) put sample and soundfont PCM into the live
- * worklet; superdough keeps only what patterns and the fallback renderer need,
- * loaded when they need it. audioRuntime owns the shared graph; patternPlayback
- * owns the sole pattern transport; livePlayback selects the live renderer.
+ * worklet; superdough keeps only what the fallback renderer needs, loaded
+ * when it needs it. audioRuntime owns the shared graph; patternTransport plays
+ * patterns on the worklet; livePlayback selects the live renderer.
  */
 
 // superdough has no bundled TypeScript declarations
 // @ts-ignore
 import { superdough, registerSynthSounds, samples, loadBuffer, getSound, soundMap, hasVoice, stopVoice, cancelVoice, releaseVoice, releaseAllVoices } from "superdough";
-import { webaudioOutput } from "@strudel/webaudio";
-import { musicTheory, CHROMATIC_NOTES } from "@/services/music";
-import type {
-  ActiveNote,
-  ChromaticNote,
-  MusicalMode,
-  SolfegeData,
-} from "@/types/music";
-import { Note as TonalNote } from "@tonaljs/tonal";
 import { DEFAULT_INSTRUMENT, isSynthSound } from "@/data/instruments";
 import { getLivePlaybackFailure, prepareLivePlayback } from "@/services/livePlayback";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import { resolveLiveEnvelope } from "@/services/shape";
 import type { Shape } from "@/types/instrument";
-import { audioTimeToOutputTime, LIVE_AUDIO_SCHEDULING_LEAD_MS } from "@/services/liveAudioTiming";
+import { LIVE_AUDIO_SCHEDULING_LEAD_MS } from "@/services/liveAudioTiming";
 import { getAudioContext, getMasterGain, initializeAudio, LIVE_ORBIT } from "@/services/audioRuntime";
 import { setLivePlaybackShaping } from "@/services/livePlayback";
 import { LIVE_DELAY_FEEDBACK, LIVE_DELAY_TIME_SECONDS } from "@/audio/liveShaping";
@@ -37,7 +27,6 @@ import { catalogSoundNames, getCatalogSound, registerSampleMap, registerSoundfon
 import { SAMPLE_PACKS, sampleMapUrl } from "@/audio/sampleSources";
 import { fetchInstrumentFile } from "@/audio/instrumentAssetCache";
 import { prewarmFallbackSoundfont, registerFallbackSoundfonts } from "@/services/soundfontFallback";
-import { soundingNoteIdForHap } from "@/services/notationSpans";
 
 /** Compatibility facade: the playback graph is owned by audioRuntime. */
 export { getAudioContext };
@@ -110,48 +99,12 @@ function liveEnvelopeShape(sound: string): Pick<Shape, "attack" | "release"> {
   return { attack: stage("attack"), release: stage("release") };
 }
 
-const STRUDEL_PLAYBACK_SOURCE = "strudel-playback";
 const LIVE_NOTE_PLACEHOLDER_DURATION_SECONDS = 0.25;
-const _activeStrudelVisuals = new Map<
-  string,
-  {
-    note: SolfegeData;
-    noteName: string;
-    frequency: number;
-    octave: number;
-    keyboardOctave: number;
-    solfegeIndex: number;
-    pitchClassIndex: number;
-    mode: MusicalMode;
-    key: ChromaticNote;
-    instrument: string;
-    releaseTimeout: number;
-    audibleAt: number;
-    sourceNoteId?: string;
-  }
->();
-let _strudelVisualCounter = 0;
-
-export function getActiveStrudelStageNotes(): readonly ActiveNote[] {
-  return Array.from(_activeStrudelVisuals, ([noteId, active]) => ({
-    noteId,
-    noteName: active.noteName,
-    solfege: active.note,
-    frequency: active.frequency,
-    octave: active.octave,
-    keyboardOctave: active.keyboardOctave,
-    solfegeIndex: active.solfegeIndex,
-    pitchClassIndex: active.pitchClassIndex,
-    mode: active.mode,
-    key: active.key,
-    audibleAt: active.audibleAt,
-  }));
-}
 
 /**
  * Fetch one sample map and register it twice: in the app catalog, which the
- * worklet loader reads, and in superdough's sound map, which patterns and the
- * fallback renderer still read until BJS-485. Registration downloads no audio.
+ * worklet loader reads, and in superdough's sound map, which the fallback
+ * renderer still reads until BJS-495. Registration downloads no audio.
  */
 async function loadSamplePack(pack: string): Promise<void> {
   const response = await fetchInstrumentFile(sampleMapUrl(pack));
@@ -185,18 +138,13 @@ function isRegisteredSynth(name: string): boolean {
 
 /**
  * Warm the fallback renderer's own copy of a sound. Used only when the worklet
- * cannot hold the bank, and before patterns play (superdough renders them
- * until BJS-485). The live worklet never reads these buffers.
+ * cannot hold the bank; patterns play on the worklet (BJS-485) and never warm
+ * a superdough copy. The live worklet never reads these buffers.
  */
-async function prewarmFallbackSound(sound: CatalogSound, allVariants = false): Promise<void> {
+async function prewarmFallbackSound(sound: CatalogSound): Promise<void> {
   const ac = getAudioContext();
   if (sound.kind === "soundfont") {
-    for (const font of allVariants ? sound.fonts : sound.fonts.slice(0, 1)) {
-      await prewarmFallbackSoundfont(font, ac).catch(error => {
-        if (!allVariants) throw error;
-        console.warn(`[superdoughAudio] could not warm soundfont ${font} for patterns:`, error);
-      });
-    }
+    await prewarmFallbackSoundfont(sound.fonts[0], ac);
     return;
   }
   const urls = Array.isArray(sound.bank) ? sound.bank : Object.values(sound.bank).flat();
@@ -268,26 +216,6 @@ export function isPrewarmed(soundName: string): boolean {
   if (_prewarmedSounds.has(resolved)) return true;
   if (getCatalogSound(resolved)) return false;
   return isRegisteredSynth(resolved);
-}
-
-/**
- * Warm the sounds a pattern names before it plays. superdough renders patterns
- * until BJS-485 and drops onsets whose sample is still loading, so it loads its
- * own copy here, once per sound, rather than when the first note is due.
- */
-export async function preparePatternSounds(code: string | undefined): Promise<void> {
-  if (!code) return;
-  if (code.includes("gm_")) await ensureSoundfontCatalog();
-  const names = new Set<string>();
-  for (const [, , value] of code.matchAll(/(?:^|[^\w$])(?:sound|s)\s*\(\s*(["'`])(.*?)\1/gs)) {
-    for (const token of value.split(/[^\w-]+/)) {
-      const sound = getCatalogSound(resolveLiveSoundName(token));
-      if (sound) names.add(resolveLiveSoundName(token));
-    }
-  }
-  await Promise.all([...names].map(name => prewarmFallbackSound(getCatalogSound(name)!, true).catch(error => {
-    console.warn(`[superdoughAudio] could not warm ${name} for patterns:`, error);
-  })));
 }
 
 /**
@@ -405,249 +333,6 @@ export async function initSynthOnlyAudio(): Promise<void> {
   }
   _initialized = true;
   _startupStage = "ready";
-}
-
-function normalizeChromaticNote(noteName: string): ChromaticNote | null {
-  const candidates = [noteName, TonalNote.enharmonic(noteName)]
-    .map((candidate) => TonalNote.get(candidate).pc)
-    .filter(Boolean);
-
-  for (const candidate of candidates) {
-    if (CHROMATIC_NOTES.includes(candidate as ChromaticNote)) {
-      return candidate as ChromaticNote;
-    }
-  }
-
-  return null;
-}
-
-function resolveSolfegeIndex(noteName: string): number | null {
-  const chromaticNote = normalizeChromaticNote(noteName);
-  if (!chromaticNote) {
-    return null;
-  }
-
-  return musicTheory.getCurrentScaleNotes().indexOf(chromaticNote);
-}
-
-function extractHapNoteName(hap: unknown): string | null {
-  const value = (hap as { value?: unknown })?.value;
-
-  if (typeof value === "string") {
-    return value;
-  }
-
-  if (value && typeof value === "object" && !Array.isArray(value)) {
-    const candidate = (value as { note?: unknown; value?: unknown }).note
-      ?? (value as { note?: unknown; value?: unknown }).value;
-    return typeof candidate === "string" ? candidate : null;
-  }
-
-  return null;
-}
-
-function extractHapFrequency(hap: unknown, noteName: string): number {
-  const value = (hap as { value?: unknown })?.value;
-
-  if (value && typeof value === "object" && !Array.isArray(value)) {
-    const freq = (value as { freq?: unknown }).freq;
-    if (typeof freq === "number") {
-      return freq;
-    }
-  }
-
-  return TonalNote.get(noteName).freq || 0;
-}
-
-let strudelLaBasedMinor = false;
-
-/** The music store supplies the presentation preference; audio never reads Pinia. */
-export function setStrudelLaBasedMinor(value: boolean): void {
-  strudelLaBasedMinor = value;
-}
-
-function buildStrudelVisualPayload(hap: unknown) {
-  try {
-    const noteValue = extractHapNoteName(hap);
-    if (!noteValue) {
-      return null;
-    }
-
-    const parsedNote = TonalNote.get(noteValue);
-    if (parsedNote.empty || parsedNote.oct === undefined) {
-      return null;
-    }
-
-    const solfegeIndex = resolveSolfegeIndex(noteValue);
-    const chromaticNote = normalizeChromaticNote(noteValue);
-    if (solfegeIndex === null || !chromaticNote) {
-      return null;
-    }
-
-    const pitchClassIndex = CHROMATIC_NOTES.indexOf(chromaticNote);
-    if (pitchClassIndex === -1) {
-      return null;
-    }
-
-    const note = pitchSolfegeData(chromaticNote, {
-      tonic: musicTheory.getCurrentKey(), mode: musicTheory.getCurrentMode(),
-    }, strudelLaBasedMinor);
-    if (!note) {
-      return null;
-    }
-
-    const tonicIndex = CHROMATIC_NOTES.indexOf(
-      musicTheory.getCurrentKey() as ChromaticNote,
-    );
-    const keyboardOctave = solfegeIndex === -1 || tonicIndex === -1
-      ? parsedNote.oct
-      : parsedNote.oct - Number(pitchClassIndex < tonicIndex);
-
-    return {
-      note,
-      solfegeIndex,
-      pitchClassIndex,
-      isBorrowed: solfegeIndex === -1,
-      noteName: parsedNote.name,
-      octave: parsedNote.oct,
-      keyboardOctave,
-      frequency: extractHapFrequency(hap, noteValue),
-      mode: musicTheory.getCurrentMode(),
-      key: musicTheory.getCurrentKey() as ChromaticNote,
-      instrument:
-        typeof (hap as { value?: { s?: unknown } })?.value?.s === "string"
-          ? String((hap as { value?: { s?: unknown } }).value?.s)
-          : "sine",
-    };
-  } catch {
-    return null;
-  }
-}
-
-function releaseStrudelVisual(noteId: string, audibleAt = audioTimeToOutputTime(getAudioContext(), getAudioContext().currentTime)) {
-  const active = _activeStrudelVisuals.get(noteId);
-  if (!active || typeof window === "undefined") {
-    return;
-  }
-
-  window.clearTimeout(active.releaseTimeout);
-  window.dispatchEvent(
-    new CustomEvent("note-released", {
-      detail: {
-        note: active.note.name,
-        noteId,
-        noteName: active.noteName,
-        frequency: active.frequency,
-        octave: active.octave,
-        keyboardOctave: active.keyboardOctave,
-        solfegeIndex: active.solfegeIndex,
-        pitchClassIndex: active.pitchClassIndex,
-        isBorrowed: active.solfegeIndex === -1,
-        mode: active.mode,
-        key: active.key,
-        instrument: active.instrument,
-        instrumentConfig: null,
-        source: STRUDEL_PLAYBACK_SOURCE,
-        audibleAt,
-        sourceNoteId: active.sourceNoteId,
-      },
-    })
-  );
-  _activeStrudelVisuals.delete(noteId);
-}
-
-const pendingStageWakes = new Set<number>();
-export function stopStrudelVisuals(): void {
-  pendingStageWakes.forEach(timer => clearTimeout(timer));
-  pendingStageWakes.clear();
-  if (typeof window === "undefined") {
-    _activeStrudelVisuals.clear();
-    return;
-  }
-
-  for (const noteId of Array.from(_activeStrudelVisuals.keys())) {
-    releaseStrudelVisual(noteId);
-  }
-}
-
-export async function emotitoneStrudelOutput(
-  hap: unknown,
-  deadline: number,
-  hapDuration: number,
-  cps: number,
-  t: number
-): Promise<void> {
-  const context = getAudioContext();
-  const submittedAt = context.currentTime;
-  // Submit audio before preparing presentation events. Strudel passes the
-  // absolute audio-clock onset as t; its legacy deadline argument is unused.
-  const output = webaudioOutput(hap as never, deadline, hapDuration, cps, t);
-  const visualPayload = buildStrudelVisualPayload(hap);
-
-  if (!visualPayload && typeof window !== "undefined" && t >= submittedAt) {
-    const timer = window.setTimeout(() => {
-      pendingStageWakes.delete(timer);
-      if (context.state === "running") window.dispatchEvent(new Event("stage-audio"));
-    }, Math.max(0, audioTimeToOutputTime(context, t) - performance.now()));
-    pendingStageWakes.add(timer);
-  }
-
-  if (visualPayload && typeof window !== "undefined" && t >= submittedAt) {
-    const noteId = `strudel_${++_strudelVisualCounter}`;
-    // The phrase note this hap came from, named by the span its source
-    // location falls in, so the HighlightStrip can light it.
-    const sourceNoteId = soundingNoteIdForHap(hap);
-    // The scheduler supplies the clipped gate. Presentation must not invent a
-    // longer hold for short notes; release tails are separate from key-down.
-    const durationMs = Math.max(0, hapDuration * 1000);
-    const audibleAt = audioTimeToOutputTime(context, t);
-    const releaseAt = audioTimeToOutputTime(context, t + durationMs / 1000);
-    const releaseTimeout = window.setTimeout(() => {
-      releaseStrudelVisual(noteId, releaseAt);
-    }, Math.max(0, (t - submittedAt) * 1000) + durationMs);
-
-    _activeStrudelVisuals.set(noteId, {
-      note: visualPayload.note,
-      noteName: visualPayload.noteName,
-      frequency: visualPayload.frequency,
-      octave: visualPayload.octave,
-      keyboardOctave: visualPayload.keyboardOctave,
-      solfegeIndex: visualPayload.solfegeIndex,
-      pitchClassIndex: visualPayload.pitchClassIndex,
-      mode: visualPayload.mode,
-      key: visualPayload.key,
-      instrument: visualPayload.instrument,
-      releaseTimeout,
-      audibleAt,
-      sourceNoteId,
-    });
-
-    window.dispatchEvent(
-      new CustomEvent("note-played", {
-        detail: {
-          note: visualPayload.note,
-          frequency: visualPayload.frequency,
-          solfegeIndex: visualPayload.solfegeIndex,
-          pitchClassIndex: visualPayload.pitchClassIndex,
-          isBorrowed: visualPayload.isBorrowed,
-          octave: visualPayload.octave,
-          keyboardOctave: visualPayload.keyboardOctave,
-          noteId,
-          noteName: visualPayload.noteName,
-          mode: visualPayload.mode,
-          key: visualPayload.key,
-          instrument: visualPayload.instrument,
-          instrumentConfig: null,
-          durationMs,
-          audibleAt,
-          source: STRUDEL_PLAYBACK_SOURCE,
-          sourceNoteId,
-        },
-      })
-    );
-  }
-
-  await output;
 }
 
 // ---------------------------------------------------------------------------

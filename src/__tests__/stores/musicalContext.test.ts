@@ -3,13 +3,15 @@ import { createApp } from "vue";
 import { createPinia, disposePinia, setActivePinia, type Pinia } from "pinia";
 import piniaPluginPersistedstate from "pinia-plugin-persistedstate";
 import { useMusicStore } from "@/stores/music";
-import * as audio from "@/services/superdoughAudio";
+import { patternNoteIdentity } from "@/services/patternMember";
+import type { ChromaticNote } from "@/types/music";
 import { musicTheory } from "@/services/music";
 
 vi.unmock("@/services/superdoughAudio");
 
-// Keep the store, theory, and audio presentation adapter real; replace only
-// the browser audio graph and the external sound engine.
+// Keep the store and theory real; replace only the browser audio graph and
+// the external sound engine. The audio-side probe is the identity a pattern
+// note gets from the shared theory context at the moment it is built.
 vi.mock("@/services/audioRuntime", () => ({
   getAudioContext: () => ({ state: "running", currentTime: 12 }),
   getMasterGain: () => null,
@@ -36,7 +38,6 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  audio.stopStrudelVisuals();
   disposePinia(pinia);
   vi.clearAllTimers();
   vi.useRealTimers();
@@ -51,8 +52,15 @@ function expectDisplayContext(music: ReturnType<typeof useMusicStore>) {
   expect(music.getNoteName(2, 4)).toBe("F4");
 }
 
+/** What a pattern note built now would carry: the shared theory context. */
+function probe(noteName: string) {
+  const key = musicTheory.getCurrentKey() as ChromaticNote;
+  const mode = musicTheory.getCurrentMode();
+  return { key, mode, ...patternNoteIdentity(noteName, key, mode) };
+}
+
 function expectAudioContext() {
-  expect(audio.getActiveStrudelStageNotes()).toEqual([
+  expect([probe("F4")]).toEqual([
     expect.objectContaining({
       key: "D", mode: "harmonic minor", noteName: "F4", solfegeIndex: 2,
       solfege: expect.objectContaining({ name: "Me" }),
@@ -66,8 +74,8 @@ describe("shared musical context", () => {
     async (key, expectedKey) => {
       localStorage.setItem("music", JSON.stringify({ currentKey: key, currentMode: "harmonic minor" }));
       const music = useMusicStore();
-      const output = audio.emotitoneStrudelOutput({ value: { note: `${expectedKey}4`, s: "piano" } }, 12, .25, 1, 12);
-      expect(audio.getActiveStrudelStageNotes()[0]).toMatchObject({
+      const output = probe(`${expectedKey}4`);
+      expect(output).toMatchObject({
         key: expectedKey, mode: "harmonic minor", solfege: { name: "Do" },
       });
       expect(music.currentKey).toBe(expectedKey);
@@ -76,7 +84,6 @@ describe("shared musical context", () => {
       expect(musicTheory.getCurrentMode()).toBe("harmonic minor");
       expect(music.currentKeyDisplay).toBe(`${expectedKey} Harmonic Minor`);
       expect(music.currentScaleNotes[0]).toBe(expectedKey);
-      await output;
     },
   );
 
@@ -86,24 +93,22 @@ describe("shared musical context", () => {
     expect(music.currentScale.degreeCount).toBe(7);
 
     music.setKey("G");
-    const firstOutput = audio.emotitoneStrudelOutput({ value: { note: "C5", s: "piano" } }, 12, .25, 1, 12);
-    expect(audio.getActiveStrudelStageNotes()[0]).toMatchObject({
+    const firstOutput = probe("C5");
+    expect(firstOutput).toMatchObject({
       key: "G", mode: "major", solfegeIndex: 3, keyboardOctave: 4, solfege: { name: "Fa" },
     });
     expect(music.currentKeyDisplay).toBe("G Major");
     expect(music.currentScaleNotes).toEqual(["G", "A", "B", "C", "D", "E", "F#"]);
-    audio.stopStrudelVisuals();
 
     music.setMode("major pentatonic");
-    const secondOutput = audio.emotitoneStrudelOutput({ value: { note: "C5", s: "piano" } }, 12, .25, 1, 12);
-    expect(audio.getActiveStrudelStageNotes()[0]).toMatchObject({
+    const secondOutput = probe("C5");
+    expect(secondOutput).toMatchObject({
       key: "G", mode: "major pentatonic", solfegeIndex: -1, solfege: { name: "Fa" },
     });
     expect(music.currentKeyDisplay).toBe("G Major Pentatonic");
     expect(music.currentScale.degreeCount).toBe(5);
     expect(music.currentScaleNotes).toEqual(["G", "A", "B", "D", "E"]);
     expect(music.solfegeData.map(note => note.name)).toEqual(["Do", "Re", "Mi", "Sol", "La"]);
-    await Promise.all([firstOutput, secondOutput]);
   });
 
   it.each(["actions", "patch", "direct"] as const)(
@@ -128,10 +133,9 @@ describe("shared musical context", () => {
 
       // Audio must see the new context before any display getter can run.
       // The adapter publishes its Stage payload synchronously on submission.
-      const output = audio.emotitoneStrudelOutput({ value: { note: "F4", s: "piano" } }, 12, .25, 1, 12);
+      const output = probe("F4");
       expectAudioContext();
       expectDisplayContext(music);
-      await output;
     },
   );
 
@@ -139,9 +143,8 @@ describe("shared musical context", () => {
     localStorage.setItem("music", JSON.stringify({ currentKey: "D", currentMode: "harmonic minor" }));
     const music = useMusicStore();
 
-    const output = audio.emotitoneStrudelOutput({ value: { note: "F4", s: "piano" } }, 12, .25, 1, 12);
+    const output = probe("F4");
     expectAudioContext();
     expectDisplayContext(music);
-    await output;
   });
 });

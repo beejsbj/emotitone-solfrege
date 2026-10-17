@@ -6,6 +6,7 @@ import { createTestPinia } from "../helpers/test-utils";
 import { usePhrasesStore, libraryPhrases } from "@/stores/phrases";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
+import { useInstrumentStore } from "@/stores/instrument";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { isPrewarmed, prewarmSoundSamples } from "@/services/superdoughAudio";
 import {
@@ -72,6 +73,8 @@ describe("phrases store", () => {
   it("ignores playback and explicitly unrecorded notes", () => {
     tap(store, "p", 0, START, { source: "strudel-playback" });
     tap(store, "q", 0, START + 300, { record: false });
+    // The worklet pattern transport's own attacks never enter the open take.
+    tap(store, "t", 0, START + 600, { source: "pattern-playback" });
     expect(store.takeNotes).toEqual([]);
   });
 
@@ -100,6 +103,45 @@ describe("phrases store", () => {
     expect(store.take.derivedFrom?.id).toBe(golden.id);
     // The controls moving to the phrase's own context must not re-skin it.
     expect(store.takeNotes.map((note) => note.note)).toEqual(golden.notes.map((note) => note.note));
+  });
+
+  describe("a phrase recorded on a sound the worklet cannot render", () => {
+    function keptOn(instrument: string, id: string) {
+      const source = JSON.parse(JSON.stringify(libraryPhrases.find((phrase) => phrase.id === "pattern-twinkle-1")!));
+      source.id = id;
+      source.shelf = "kept";
+      source.context.instrument = instrument;
+      store.book.phrases.push(source);
+      return source;
+    }
+
+    it.each([["kawai", "piano"], ["steinway", "piano"], ["supersaw", "sawtooth"], ["pulse", "square"], ["z_sine", "sine"]])(
+      "opens on the nearest working sound: %s becomes %s",
+      async (dead, alive) => {
+        const source = keptOn(dead, `dead-${dead}`);
+        const notes = JSON.parse(JSON.stringify(source.notes));
+        store.openPhrase(source.id);
+        await nextTick();
+        await nextTick();
+        expect(useInstrumentStore().currentInstrument).toBe(alive);
+        // The copy on the desk will Play on the working sound; its notes are untouched.
+        expect(store.takeContext.instrument).toBe(alive);
+        expect(store.takeNotes.map((note) => note.note)).toEqual(notes.map((note: { note: string }) => note.note));
+        // The kept phrase itself keeps the id it was recorded on.
+        expect(store.book.phrases.find((phrase) => phrase.id === source.id)!.context.instrument).toBe(dead);
+      },
+    );
+
+    it("reopens a Recent phrase in place on the working sound", async () => {
+      const source = keptOn("kawai", "dead-recent");
+      source.shelf = "recent";
+      source.closedAt = START;
+      store.openPhrase(source.id);
+      await nextTick();
+      await nextTick();
+      expect(useInstrumentStore().currentInstrument).toBe("piano");
+      expect(store.takeContext.instrument).toBe("piano");
+    });
   });
 
   it("re-skins an untouched loaded take when the key changes", async () => {

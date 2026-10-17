@@ -1,15 +1,15 @@
 /**
  * Instrument Catalog
- * Name-based classification of registered Superdough sounds into the pitched
- * categories the Instrument Picker offers. Drums, SFX, and noise are excluded.
+ * Name-based classification of registered sounds into the pitched categories
+ * the Instrument Picker offers. Drums, SFX, noise and synths the worklet cannot
+ * render are excluded.
  */
 
 import type { InstrumentCategory } from "@/types/instrument";
+import { DEFAULT_INSTRUMENT } from "@/data/instruments";
 
 const KEYBOARD_SOUNDS = new Set([
   "piano",
-  "steinway",
-  "kawai",
   "fmpiano",
   "clavisynth",
   "piano1",
@@ -150,16 +150,10 @@ const SYNTH_SOUNDS = new Set([
   "sine",
   "square",
   "sawtooth",
-  "pulse",
-  "supersaw",
-  "tri",
-  "sin",
   "sqr",
   "saw",
-  "z_sine",
-  "z_square",
-  "z_sawtooth",
-  "z_triangle",
+  "tri",
+  "sin",
   "gm_lead_1_square",
   "gm_lead_2_sawtooth",
   "gm_lead_3_calliope",
@@ -184,6 +178,22 @@ const SYNTH_SOUNDS = new Set([
 ]);
 
 const EXCLUDED_SOUNDS = new Set([
+  // Synths the worklet cannot render (Burooj, 2026-10-17: "we remove stuff from
+  // list that cannot work"). Patterns and takes play only on the worklet, which
+  // renders sine, triangle, square and sawtooth (plus the Strudel short names
+  // sqr, saw, tri and sin, aliased in liveInstrumentNames.ts) and sample banks.
+  // Superdough's fallback still played these live; it goes with superdough (BJS-495).
+  "supersaw",
+  "pulse",
+  "z_sine",
+  "z_square",
+  "z_sawtooth",
+  "z_triangle",
+  // Sample banks over the worklet's 192 MiB budget (kawai 309 MB, steinway 372 MB
+  // of PCM; audio-lab/results/loader-bjs-488.json). The worklet refuses them
+  // and only superdough's live fallback played them.
+  "kawai",
+  "steinway",
   // Unpitched noise / non-melodic synths
   "brown",
   "white",
@@ -295,4 +305,27 @@ export function categoriseInstrument(name: string): InstrumentCategory | null {
 /** Whether a sound name is one the Instrument Picker lets you select. */
 export function isSelectableInstrument(name: unknown): name is string {
   return typeof name === "string" && categoriseInstrument(name) !== null;
+}
+
+/**
+ * The nearest sound still on offer for one that no longer is, so a sketch
+ * stays close to what was played. Used wherever a saved or recorded id meets
+ * the picker: the instrument store's saved selection and opening a phrase.
+ */
+const NEAREST_SELECTABLE: Record<string, string> = {
+  supersaw: "sawtooth",
+  pulse: "square",
+  z_sine: "sine",
+  z_square: "square",
+  z_sawtooth: "sawtooth",
+  z_triangle: "triangle",
+  kawai: "piano",
+  steinway: "piano",
+};
+
+/** The id itself when it is selectable, else its nearest working sound, else the default. */
+export function selectableReplacement(name: unknown): string {
+  if (isSelectableInstrument(name)) return name;
+  return (typeof name === "string" && Object.prototype.hasOwnProperty.call(NEAREST_SELECTABLE, name)
+    ? NEAREST_SELECTABLE[name] : undefined) ?? DEFAULT_INSTRUMENT;
 }

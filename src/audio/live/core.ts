@@ -42,6 +42,8 @@ interface Pulse {
   duration?: number
   style: LiveConfig['style']
   notes: PlannedNote[]
+  /** The transport bar a grid-locked pulse sits on; it moves with the tempo map. */
+  gridBar?: number
 }
 /** Identity and expression of a voice started by the pattern transport. */
 interface TransportVoice {
@@ -99,6 +101,9 @@ export class LiveAudioCore {
   private pulses: Pulse[] = []
   private config: LiveConfig = { style: 'together', bpm: 120, rate: 8 }
   private nextFrame?: number
+  /** The transport bar of the next grid-locked pulse; undefined while unlocked. */
+  private gridBar?: number
+  private gridTempoVersion = -1
   private boundaryDuration?: number
   private step = 0
   private serial = 0
@@ -171,6 +176,9 @@ export class LiveAudioCore {
 
   get voiceCount() { return this.voices.length + this.fades.length }
   private rhythmic() { return this.config.style === 'repeat' || this.config.style.startsWith('arp-') }
+  /** Repeat/Arp follow the transport's bar grid while it runs (S111). */
+  private locked() { return this.transport.isRunning && this.config.phase !== 'press' }
+  private gridFrame(bar: number) { return Math.ceil(this.transport.frameAt(bar) - 1e-6) }
   private interval() { return this.sampleRate * 60 / this.config.bpm * 4 / this.config.rate }
   private note(note: LiveInputNote, ownerId: string, owners = new Set([ownerId])): PlannedNote {
     return { ...note, ownerId, owners: new Set(owners), noteId: `${this.notePrefix}-${++this.serial}` }
@@ -271,12 +279,25 @@ export class LiveAudioCore {
       case 'configure': {
         const next = { ...this.config, ...command.config }
         if (!Number.isFinite(next.bpm) || next.bpm < 1 || next.bpm > 1000 || ![4, 8, 16].includes(next.rate)
-          || !['together', 'repeat', 'arp-up', 'arp-up-down', 'strum-up', 'strum-down'].includes(next.style)) return
+          || !['together', 'repeat', 'arp-up', 'arp-up-down', 'strum-up', 'strum-down'].includes(next.style)
+          || ![undefined, 'grid', 'press'].includes(next.phase)) return
         if (next.style !== this.config.style) {
           this.cancel(frame)
           this.config = next
           for (const [owner, notes] of this.held) this.add(owner, notes, frame)
-        } else if (this.rhythmic() && (next.bpm !== this.config.bpm || next.rate !== this.config.rate)) {
+        } else if (this.rhythmic() && this.locked() && next.rate !== this.config.rate) {
+          // On the grid the transport owns the tempo. A new division keeps the
+          // next pulse and continues on the new division's next subdivision.
+          const boundary = this.pulses.find(pulse => pulse.frame >= frame)
+          this.config = next
+          if (boundary) {
+            this.pulses = this.pulses.filter(pulse => pulse.frame <= boundary.frame)
+            this.nextFrame = boundary.frame + 1
+            this.step = boundary.step + 1
+          }
+          this.gridBar = undefined
+          this.planDirty = true
+        } else if (this.rhythmic() && !this.locked() && (next.bpm !== this.config.bpm || next.rate !== this.config.rate)) {
           // The next pulse keeps its old timestamp and gate; the new interval
           // begins after it, preserving sequence phase without a retrigger.
           const boundary = this.pulses.find(pulse => pulse.frame >= frame)
@@ -360,7 +381,7 @@ export class LiveAudioCore {
   private cancel(frame: number) {
     this.pulses = []
     this.strum = []
-    this.strumAt = this.nextFrame = this.boundaryDuration = undefined
+    this.strumAt = this.nextFrame = this.boundaryDuration = this.gridBar = undefined
     this.step = 0
     // Live input never ends the pattern transport's voices.
     for (const voice of this.voices) if (!voice.transport) this.releaseVoice(voice, frame)
@@ -415,12 +436,52 @@ export class LiveAudioCore {
       this.planDirty = true
     }
     if (!this.rhythmic() || !this.held.size || this.nextFrame === undefined) return
+    if (this.locked()) {
+      this.fillOnGrid(frame)
+      return
+    }
+    this.gridBar = undefined
     while (this.nextFrame <= frame + PLAN_SECONDS * this.sampleRate) {
       this.pulses.push({ frame: this.nextFrame, step: this.step, style: this.config.style,
         duration: this.boundaryDuration ?? this.interval() * GATE,
         notes: this.selection(this.step).map(({ note, ownerId, owners }) => this.note(note, ownerId, owners)) })
       this.boundaryDuration = undefined
       this.nextFrame += this.interval()
+      this.step++
+      this.planDirty = true
+    }
+  }
+
+  /**
+   * Repeat/Arp on the transport's bar grid: the first pulse waits for the next
+   * subdivision (1/rate of a bar) at or after it is due, and every pulse sits
+   * on the frame the transport would give a note on that bar. Unstarted pulses
+   * move when the tempo map changes, so they stay on the grid through a tempo
+   * change.
+   */
+  private fillOnGrid(frame: number) {
+    const division = 1 / this.config.rate
+    if (this.gridTempoVersion !== this.transport.tempoVersion) {
+      this.gridTempoVersion = this.transport.tempoVersion
+      for (const pulse of this.pulses) if (pulse.gridBar !== undefined && pulse.frame > frame) {
+        pulse.frame = Math.max(frame, this.gridFrame(pulse.gridBar))
+        pulse.duration = (this.transport.frameAt(pulse.gridBar + division) - pulse.frame) * GATE
+        this.planDirty = true
+      }
+      if (this.gridBar !== undefined) this.nextFrame = this.gridFrame(this.gridBar)
+    }
+    if (this.gridBar === undefined) {
+      const due = this.transport.barAt(Math.max(frame, this.nextFrame!))
+      this.gridBar = Math.ceil(due / division - 1e-9) * division
+      this.nextFrame = this.gridFrame(this.gridBar)
+    }
+    while (this.nextFrame! <= frame + PLAN_SECONDS * this.sampleRate) {
+      const at = this.nextFrame!
+      this.pulses.push({ frame: at, step: this.step, style: this.config.style, gridBar: this.gridBar,
+        duration: (this.transport.frameAt(this.gridBar + division) - at) * GATE,
+        notes: this.selection(this.step).map(({ note, ownerId, owners }) => this.note(note, ownerId, owners)) })
+      this.gridBar += division
+      this.nextFrame = this.gridFrame(this.gridBar)
       this.step++
       this.planDirty = true
     }

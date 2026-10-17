@@ -432,3 +432,185 @@ describe('pattern transport timing receipts', () => {
     expect(window(.55, .75) / window(.1, .35)).toBeCloseTo(.5, 1)
   })
 })
+
+describe('pending bar changes (BJS-491)', () => {
+  const lookahead = TRANSPORT_LOOKAHEAD_SECONDS * RATE
+
+  it('announces notes on and after a pending bar a full lookahead ahead, against the state it will make', () => {
+    const rig = setup()
+    rig.join(table('m', melody, 1))
+    rig.start(120)
+    rig.render(.5)
+    const bent = table('m', melody.map(note => ({ ...note, pitch: note.pitch + 1 })), 1)
+    rig.change({ type: 'replace', table: bent }, { bar: 2 })
+    rig.change({ type: 'tempo', bpm: 150 }, { bar: 3 })
+    rig.render(8)
+    const boundary = 2 * fpb(120)
+    const attacks = sounded(rig.events)
+    // Every note from the bar on is the new table, announced ahead, never withdrawn.
+    expect(rig.events.some(event => event.kind === TransportEventKind.Cancel)).toBe(false)
+    for (const attack of attacks.filter(event => event.frame >= boundary)) {
+      expect(attack.generation).toBe(bent.generation)
+      expect(attack.frame - attack.deliveredAt).toBeGreaterThanOrEqual(lookahead - QUANTUM)
+    }
+    // The tempo bar is placed on the old tempo, and later notes on the new one.
+    const tempoFrame = 3 * fpb(120)
+    const expected = oracle(melody, 1, 120, 3).map(onset => onset.frame)
+    for (let loop = 3; loop < 8; loop++) for (const note of melody) {
+      const frame = Math.ceil(tempoFrame + (loop + note.begin - 3) * fpb(150) - 1e-6)
+      if (frame < rig.frame) expected.push(frame)
+    }
+    expect(attacks.filter(event => event.frame < rig.frame).map(event => event.frame)).toEqual(expected)
+  })
+
+  it('withdraws previewed notes when an immediate change lands before the bar', () => {
+    const rig = setup()
+    rig.join(table('m', melody, 1))
+    rig.start(120)
+    rig.render(.5)
+    const bent = table('m', melody.map(note => ({ ...note, pitch: note.pitch + 1 })), 1)
+    rig.change({ type: 'replace', table: bent }, { bar: 2 })
+    // Inside the lookahead of bar 2: the bent note on the bar is already announced.
+    rig.render(3.98 - .5)
+    expect(rig.events.some(event => event.kind === TransportEventKind.Attack && event.generation === bent.generation)).toBe(true)
+    rig.change({ type: 'update', memberId: 'm', patch: { muted: true } })
+    rig.render(1)
+    expect(rig.events.some(event => event.kind === TransportEventKind.Cancel && event.generation === bent.generation)).toBe(true)
+    // The muted member stays muted through the replacement: replace swaps the table only.
+    expect(sounded(rig.events).filter(event => event.frame >= 2 * fpb(120))).toEqual([])
+    rig.change({ type: 'update', memberId: 'm', patch: { muted: false } })
+    rig.render(1)
+    const resumed = sounded(rig.events).filter(event => event.frame >= 2 * fpb(120))
+    expect(resumed.length).toBeGreaterThan(0)
+    expect(resumed.every(event => event.generation === bent.generation)).toBe(true)
+  })
+
+  it.each([['immediate'], ['bar']] as const)('retunes every member at one frame with a batch (%s)', boundary => {
+    const rig = setup()
+    // Two members with a note exactly on every bar and on every half bar.
+    const notes = (pitch: number) => [{ begin: 0, gate: .2, pitch }, { begin: .5, gate: .2, pitch: pitch + 2 }]
+    const a = table('a', notes(60), 1)
+    const b = table('b', notes(67), 1)
+    rig.join(a)
+    rig.join(b)
+    rig.start(120)
+    rig.render(1.3)
+    const a2 = table('a', notes(62), 1)
+    const b2 = table('b', notes(69), 1)
+    const id = rig.change({ type: 'batch', changes: [{ type: 'replace', table: a2 }, { type: 'replace', table: b2 }] },
+      boundary === 'immediate' ? 'immediate' : { bar: 2 })
+    rig.render(4)
+    const receipt = rig.receipts.find(entry => entry.requestId === id)!
+    expect(receipt.late).toBe(false)
+    const at = receipt.appliedFrame
+    const attacks = sounded(rig.events)
+    const old = new Set([a.generation, b.generation])
+    const fresh = new Set([a2.generation, b2.generation])
+    // No frame plays old harmony beside new: before the batch frame every
+    // attack is old, from it every attack is new, for both members.
+    expect(attacks.filter(event => event.frame < at).every(event => old.has(event.generation))).toBe(true)
+    const after = attacks.filter(event => event.frame >= at)
+    expect(after.length).toBeGreaterThanOrEqual(4)
+    expect(after.every(event => fresh.has(event.generation))).toBe(true)
+    // Same-frame notes of both members change together.
+    const firstAfter = after[0].frame
+    expect(new Set(after.filter(event => event.frame === firstAfter).map(event => event.generation))).toEqual(fresh)
+  })
+
+  it('refuses a whole batch when one part is invalid', () => {
+    const rig = setup()
+    rig.join(table('m', melody, 1))
+    rig.start(120)
+    rig.render(.2)
+    const before = rig.receipts.length
+    rig.change({ type: 'batch', changes: [{ type: 'update', memberId: 'm', patch: { muted: true } }, { type: 'tempo', bpm: -1 }] })
+    expect(rig.receipts).toHaveLength(before)
+    rig.render(1)
+    expect(sounded(rig.events).length).toBeGreaterThan(2)
+  })
+
+  it('starts a recovered run at the bar it stopped on, on the same grid', () => {
+    const rig = setup()
+    rig.join(table('m', rests, 1.75))
+    rig.core.command({ type: 'transport-start', requestId: 99, run: 2, bpm: 150, bar: 3.6 }, rig.frame)
+    rig.render(5)
+    expect(rig.receipts.at(-1)).toMatchObject({ requestId: 99, appliedBar: 3.6 })
+    // The oracle from bar 0, shifted so bar 3.6 lands on frame 0.
+    const expected = oracle(rests, 1.75, 150, 20, -3.6 * fpb(150))
+      .filter(onset => onset.frame >= 0 && onset.frame < rig.frame).map(onset => onset.frame)
+    expect(expected.length).toBeGreaterThan(2)
+    expect(sounded(rig.events).filter(event => event.frame < rig.frame).map(event => event.frame)).toEqual(expected)
+  })
+})
+
+describe('live Repeat and Arp on the transport grid (S111)', () => {
+  /** Frames of live (non-transport) attacks, in order. */
+  const liveAttacks = (live: LiveResponse[]) => live.flatMap(response =>
+    response.type === 'event' && response.event.phase === 'attack' ? [Math.round(response.event.at * RATE)] : [])
+
+  it.each([4, 8, 16] as const)('starts Repeat on the next 1/%i subdivision and stays frame-exact on the grid', rate => {
+    const rig = setup()
+    rig.join(table('m', Array.from({ length: rate }, (_, index) => ({ begin: index / rate, gate: .02, pitch: 48 })), 1))
+    rig.start(120)
+    rig.render(.37)
+    const pressBar = rig.core.transport.barAt(rig.frame)
+    rig.core.command({ type: 'configure', config: { style: 'repeat', bpm: 120, rate } }, rig.frame)
+    rig.core.command({ type: 'press', ownerId: 'key', notes: [{ pitch: 72, instrumentId: 'sine' }] }, rig.frame)
+    rig.render(4)
+    const first = Math.ceil(pressBar * rate - 1e-9) / rate
+    const attacks = liveAttacks(rig.live)
+    expect(attacks.length).toBeGreaterThan(4)
+    expect(attacks).toEqual(attacks.map((_, index) => Math.ceil((first + index / rate) * fpb(120) - 1e-6)))
+    // Each live pulse lands on the same frame as the transport's note on that subdivision.
+    const transportFrames = new Set(sounded(rig.events).map(event => event.frame))
+    expect(attacks.filter(frame => frame < rig.frame - fpb(120) / rate).every(frame => transportFrames.has(frame))).toBe(true)
+  })
+
+  it('keeps Arp on the grid through a tempo change and a division change', () => {
+    const rig = setup()
+    rig.join(table('m', [{ begin: 0, gate: .1, pitch: 48 }], 1))
+    rig.start(120)
+    rig.render(.2)
+    rig.core.command({ type: 'configure', config: { style: 'arp-up', bpm: 120, rate: 8 } }, rig.frame)
+    rig.core.command({ type: 'press', ownerId: 'a', notes: [{ pitch: 60, instrumentId: 'sine' }] }, rig.frame)
+    rig.core.command({ type: 'press', ownerId: 'b', notes: [{ pitch: 64, instrumentId: 'sine' }] }, rig.frame)
+    rig.render(.9)
+    const tempoFrame = rig.frame
+    const tempoBar = rig.core.transport.barAt(tempoFrame)
+    rig.change({ type: 'tempo', bpm: 180 })
+    rig.render(1)
+    const divisionFrame = rig.frame
+    rig.core.command({ type: 'configure', config: { style: 'arp-up', bpm: 180, rate: 16 } }, divisionFrame)
+    rig.render(1)
+    const barOf = (frame: number) => frame < tempoFrame ? frame / fpb(120) : tempoBar + (frame - tempoFrame) / fpb(180)
+    const frameOf = (bar: number) => bar <= tempoBar ? bar * fpb(120) : tempoFrame + (bar - tempoBar) * fpb(180)
+    const offGrid = (frame: number) => {
+      const division = frame < divisionFrame ? 8 : 16
+      // The onset is the subdivision's exact frame rounded up.
+      return frame !== Math.ceil(frameOf(Math.round(barOf(frame) * division) / division) - 1e-6)
+    }
+    const attacks = liveAttacks(rig.live)
+    expect(attacks.length).toBeGreaterThan(20)
+    expect(attacks.filter(offGrid)).toEqual([])
+    expect(attacks.some(frame => frame > divisionFrame && Math.round(barOf(frame) * 16) % 2 === 1)).toBe(true)
+    // The pitches still alternate up the held chord.
+    const pitches = rig.live.flatMap(response => response.type === 'event' && response.event.phase === 'attack' ? [response.event.pitch] : [])
+    expect(pitches.slice(0, 4)).toEqual([60, 64, 60, 64])
+  })
+
+  it('anchors at the press when phase is "press", and when no transport runs', () => {
+    for (const running of [true, false]) {
+      const rig = setup()
+      if (running) {
+        rig.join(table('m', [{ begin: 0, gate: .1, pitch: 48 }], 1))
+        rig.start(120)
+      }
+      rig.render(.37)
+      const pressFrame = rig.frame
+      rig.core.command({ type: 'configure', config: { style: 'repeat', bpm: 120, rate: 8, ...(running ? { phase: 'press' as const } : {}) } }, pressFrame)
+      rig.core.command({ type: 'press', ownerId: 'key', notes: [{ pitch: 72, instrumentId: 'sine' }] }, pressFrame)
+      rig.render(.2)
+      expect(liveAttacks(rig.live)[0]).toBe(pressFrame)
+    }
+  })
+})

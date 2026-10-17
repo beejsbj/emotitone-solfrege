@@ -1,17 +1,19 @@
 /**
- * The pattern transport on the audio thread (BJS-485; design in
+ * The pattern transport on the audio thread (BJS-485, BJS-491; design in
  * docs/research/worklet-engine.md §2).
  *
  * One bar grid owned by the render clock. Members are flat event tables built
  * on the main thread from note data, so the audio thread never parses and
  * never waits on the main thread. A change takes effect at the next render
- * quantum or at an exact future bar.
+ * quantum or at an exact future bar; a batch of changes takes effect together.
  *
  * Note onsets are collected a short lookahead ahead of rendering and
  * announced at once, so visual edges reach the main thread before the note is
- * heard even on outputs with almost no latency. A later change that removes
- * an announced onset cancels it; an onset that survives a change keeps its
- * serial, so nothing is announced twice.
+ * heard even on outputs with almost no latency. Collection runs on past a
+ * pending bar change against a preview of the state that change will make, so
+ * notes on and after the bar are announced a full lookahead ahead too. A later
+ * change that removes an announced onset cancels it; an onset that survives a
+ * change keeps its serial, so nothing is announced twice.
  */
 import type { LiveShaping } from '../liveShaping'
 import { barAtFrame, bpmAtFrame, frameAtBar, framesPerBar, type TempoAnchor } from './tempoMap'
@@ -28,7 +30,7 @@ export interface TransportMemberTable {
   /** Unique per built table; the main thread resolves note identity from it. */
   generation: number
   instrumentId: string
-  /** Authored loop length in bars, not padded to whole bars. */
+  /** Loop length in bars at rate 1: the authored length, or whole bars when the caller rounds. */
   lengthBars: number
   /** The member's own Shape filter and sends. */
   shaping: LiveShaping
@@ -62,15 +64,21 @@ export interface TransportMemberSpec {
 
 export type TransportBoundary = 'immediate' | { bar: number }
 
-export type TransportChange =
+/** One change; a batch applies several at the same frame (a key or mode bend retunes every member at once). */
+export type TransportSingleChange =
   | { type: 'join'; member: TransportMemberSpec }
+  /** Swap a member's table (a bend or pin), keeping its offset, rate and mute; ignored for a non-member. */
+  | { type: 'replace'; table: TransportMemberTable }
   | { type: 'leave'; memberId: string }
   | { type: 'update'; memberId: string; patch: Partial<Pick<TransportMemberSpec, 'muted' | 'offsetBars' | 'rate'>> }
   | { type: 'solo'; memberId: string | null }
   | { type: 'tempo'; bpm: number }
 
+export type TransportChange = TransportSingleChange | { type: 'batch'; changes: TransportSingleChange[] }
+
 export type TransportCommand =
-  | { type: 'transport-start'; requestId: number; run: number; bpm: number }
+  /** `bar` (default 0) is the bar at the start frame: a recovered run continues where it stopped. */
+  | { type: 'transport-start'; requestId: number; run: number; bpm: number; bar?: number }
   | { type: 'transport-stop'; requestId: number }
   | { type: 'transport-change'; requestId: number; change: TransportChange; boundary: TransportBoundary }
   | { type: 'transport-recycle'; buffer: ArrayBuffer }
@@ -122,34 +130,58 @@ export interface TransportOnset {
 
 interface Pending { requestId: number; bar: number; arrivalFrame: number; change: TransportChange }
 
+/** Membership, solo and clock: the real state, or a preview of it after pending changes. */
+interface TransportState {
+  members: Map<string, TransportMember>
+  soloId: string | null
+  anchors: TempoAnchor[]
+}
+
 /** What the transport asks of the render core. */
 export interface TransportHost {
   /** Fade the sounding voices of one member (or all, for null) from `frame`. */
   silence(memberId: string | null, frame: number): void
 }
 
-const validChange = (change: TransportChange) => {
+const validSingle = (change: TransportSingleChange) => {
   switch (change.type) {
     case 'join': {
       const { table, offsetBars, rate } = change.member
       return Number.isFinite(offsetBars) && Number.isFinite(rate) && rate > 0
         && Number.isFinite(table.lengthBars) && table.lengthBars > 0
     }
+    case 'replace': return Number.isFinite(change.table.lengthBars) && change.table.lengthBars > 0
     case 'update': {
       const { offsetBars, rate } = change.patch
       return (offsetBars === undefined || Number.isFinite(offsetBars))
         && (rate === undefined || (Number.isFinite(rate) && rate > 0))
     }
     case 'tempo': return Number.isFinite(change.bpm) && change.bpm >= 1 && change.bpm <= MAX_BPM
-    default: return true
+    case 'leave': case 'solo': return true
+    default: return false
   }
 }
+// A batch is all or nothing: one invalid part refuses the whole batch.
+const validChange = (change: TransportChange) => change.type === 'batch'
+  ? Array.isArray(change.changes) && change.changes.length > 0 && change.changes.every(validSingle)
+  : validSingle(change)
+
+/** The last tempo a change sets, if any. */
+const tempoOf = (change: TransportChange): number | undefined => {
+  if (change.type === 'tempo') return change.bpm
+  if (change.type !== 'batch') return undefined
+  let bpm: number | undefined
+  for (const part of change.changes) if (part.type === 'tempo') bpm = part.bpm
+  return bpm
+}
+
+const noSilence = () => {}
 
 export class AudioTransport {
-  private anchors: TempoAnchor[] = []
-  private members = new Map<string, TransportMember>()
-  private soloId: string | null = null
+  private state: TransportState = { members: new Map(), soloId: null, anchors: [] }
   private pending: Pending[] = []
+  /** The preview in force at `collectedUntil` and the pending changes it includes; reset by any change. */
+  private frontier: { state: TransportState; applied: number } | undefined
   private running = false
   private run = 0
   /** Collected, announced onsets in frame order. */
@@ -159,6 +191,8 @@ export class AudioTransport {
   private spare: TransportOnset[] = []
   private collectedUntil = 0
   private serial = 0
+  /** Increments whenever the tempo map changes, so the core can re-place grid-locked pulses. */
+  private anchorVersion = 0
   /** Frames of lookahead in which onsets are collected and announced. */
   readonly lookahead: number
   private readonly post = (batch: TransportEventBatch) => this.send(batch)
@@ -169,10 +203,12 @@ export class AudioTransport {
   }
 
   get isRunning() { return this.running }
-  get memberCount() { return this.members.size }
-  get tempoAnchors(): readonly TempoAnchor[] { return this.anchors }
+  get memberCount() { return this.state.members.size }
+  get tempoAnchors(): readonly TempoAnchor[] { return this.state.anchors }
+  get tempoVersion() { return this.anchorVersion }
 
-  barAt(frame: number) { return barAtFrame(this.anchors, frame, this.sampleRate) }
+  barAt(frame: number) { return barAtFrame(this.state.anchors, frame, this.sampleRate) }
+  frameAt(bar: number) { return frameAtBar(this.state.anchors, bar, this.sampleRate) }
 
   /** The next queued onset or silence due at or before `frame`, removed from the queue. */
   takeDue(frame: number): TransportOnset | undefined {
@@ -208,13 +244,16 @@ export class AudioTransport {
   }
 
   private publishAnchors(provisional = false) {
-    let anchors = this.anchors.map(anchor => ({ ...anchor }))
+    this.anchorVersion++
+    let anchors = this.state.anchors.map(anchor => ({ ...anchor }))
     if (provisional) {
       // Requested future tempos are known now. Publish the piecewise map before
       // it bites, so the UI never extrapolates past a change and steps back.
-      for (const pending of this.pending) if (pending.change.type === 'tempo') {
+      for (const pending of this.pending) {
+        const bpm = tempoOf(pending.change)
+        if (bpm === undefined) continue
         const frame = frameAtBar(anchors, pending.bar, this.sampleRate)
-        anchors = [...anchors.filter(anchor => anchor.bar < pending.bar), { frame, bar: pending.bar, bpm: pending.change.bpm }]
+        anchors = [...anchors.filter(anchor => anchor.bar < pending.bar), { frame, bar: pending.bar, bpm }]
       }
     }
     this.send({ type: 'transport-anchors', run: this.run, anchors, provisional })
@@ -225,14 +264,16 @@ export class AudioTransport {
     switch (command.type) {
       case 'transport-recycle': this.events.recycle(command.buffer); return
       case 'transport-start': {
-        if (!Number.isFinite(command.bpm) || command.bpm < 1 || command.bpm > MAX_BPM) return
+        const bar = command.bar ?? 0
+        if (!Number.isFinite(command.bpm) || command.bpm < 1 || command.bpm > MAX_BPM || !Number.isFinite(bar)) return
         if (this.running) this.halt(frame, false)
-        this.anchors = [{ frame, bar: 0, bpm: command.bpm }]
+        this.state.anchors = [{ frame, bar, bpm: command.bpm }]
+        this.frontier = undefined
         this.run = command.run
         this.running = true
         this.collectedUntil = frame
         this.publishAnchors()
-        this.receipt(command.requestId, frame, frame, 0, false)
+        this.receipt(command.requestId, frame, frame, bar, false)
         this.collectTo(frame + this.lookahead)
         return
       }
@@ -244,8 +285,8 @@ export class AudioTransport {
         const { change, boundary, requestId } = command
         if (!validChange(change)) return
         if (!this.running) {
-          // Before Start, membership is staged for bar 0.
-          this.apply(change, frame, (memberId, at) => this.host.silence(memberId, at))
+          // Before Start, membership is staged for the start bar.
+          this.apply(this.state, change, frame, (memberId, at) => this.host.silence(memberId, at))
           this.receipt(requestId, frame, frame, null, false)
           return
         }
@@ -261,17 +302,32 @@ export class AudioTransport {
         let index = this.pending.findIndex(entry => entry.bar > requested)
         if (index < 0) index = this.pending.length
         this.pending.splice(index, 0, { requestId, bar: requested, arrivalFrame: frame, change })
-        // An onset already collected at or after the boundary belongs to the
-        // new membership: withdraw it until the change applies.
-        const boundaryFrame = frameAtBar(this.anchors, requested, this.sampleRate)
+        this.frontier = undefined
+        // An onset already collected at or after the boundary was collected
+        // without this change: withdraw it and collect again with it.
+        const boundaryFrame = this.boundaryFrame(requested)
         if (boundaryFrame < this.collectedUntil) {
           this.retractFrom(boundaryFrame)
-          this.collectedUntil = boundaryFrame
+          this.collectedUntil = Math.max(frame, boundaryFrame)
         }
-        if (change.type === 'tempo') this.publishAnchors(true)
+        if (tempoOf(change) !== undefined) this.publishAnchors(true)
+        this.collectTo(frame + this.lookahead)
         return
       }
     }
+  }
+
+  /** The frame of a future bar once every earlier pending tempo has applied. */
+  private boundaryFrame(bar: number) {
+    let anchors = this.state.anchors
+    for (const pending of this.pending) {
+      if (pending.bar >= bar) break
+      const bpm = tempoOf(pending.change)
+      if (bpm === undefined) continue
+      anchors = [...anchors.filter(anchor => anchor.bar < pending.bar),
+        { frame: frameAtBar(anchors, pending.bar, this.sampleRate), bar: pending.bar, bpm }]
+    }
+    return frameAtBar(anchors, bar, this.sampleRate)
   }
 
   /** Stop: cancel announced onsets, fade every member's voices, forget membership. */
@@ -286,9 +342,10 @@ export class AudioTransport {
     // Every request is answered: a caller awaiting a pending change's receipt must not hang.
     for (const pending of this.pending) this.receipt(pending.requestId, pending.arrivalFrame, frame, null, false, true)
     this.pending = []
-    this.soloId = null
+    this.frontier = undefined
+    this.state.soloId = null
     this.running = false
-    if (clearMembers) this.members.clear()
+    if (clearMembers) this.state.members.clear()
   }
 
   private applyNow(change: TransportChange, frame: number) {
@@ -296,22 +353,43 @@ export class AudioTransport {
     // lookahead, apply, and collect again; survivors keep their serials.
     this.retractFrom(frame)
     this.collectedUntil = frame
-    this.apply(change, frame, (memberId, at) => this.host.silence(memberId, at))
-    if (change.type === 'tempo') this.publishAnchors()
+    this.frontier = undefined
+    this.apply(this.state, change, frame, (memberId, at) => this.host.silence(memberId, at))
+    if (tempoOf(change) !== undefined) this.publishAnchors(this.pending.some(entry => tempoOf(entry.change) !== undefined))
     this.collectTo(frame + this.lookahead)
   }
 
-  private apply(change: TransportChange, frame: number, silence: (memberId: string, frame: number) => void) {
+  private apply(state: TransportState, change: TransportChange, frame: number,
+    silence: (memberId: string, frame: number) => void) {
+    if (change.type === 'batch') {
+      for (const part of change.changes) this.applySingle(state, part, frame, silence)
+    } else this.applySingle(state, change, frame, silence)
+  }
+
+  private applySingle(state: TransportState, change: TransportSingleChange, frame: number,
+    silence: (memberId: string, frame: number) => void) {
     switch (change.type) {
       case 'join': {
         const { table, offsetBars, rate, muted } = change.member
-        // Replacing a member lets its sounding notes finish their gates.
-        this.members.set(table.id, { id: table.id, table, offsetBars, rate, muted })
+        const previous = state.members.get(table.id)
+        // Replacing a member lets its sounding notes finish their gates; a
+        // replacement that mutes it fades them, as an update would.
+        if (previous && muted && !previous.muted) silence(table.id, frame)
+        state.members.set(table.id, { id: table.id, table, offsetBars, rate, muted })
         return
       }
-      case 'leave': this.members.delete(change.memberId); return
+      case 'replace': {
+        const member = state.members.get(change.table.id)
+        // A new object: onsets queued before this frame still name the old table.
+        if (member) state.members.set(member.id, { ...member, table: change.table })
+        return
+      }
+      case 'leave':
+        state.members.delete(change.memberId)
+        if (state.soloId === change.memberId) state.soloId = null
+        return
       case 'update': {
-        const member = this.members.get(change.memberId)
+        const member = state.members.get(change.memberId)
         if (!member) return
         const { muted, offsetBars, rate } = change.patch
         if (offsetBars !== undefined) member.offsetBars = offsetBars
@@ -323,17 +401,17 @@ export class AudioTransport {
         return
       }
       case 'solo': {
-        this.soloId = change.memberId !== null && this.members.has(change.memberId) ? change.memberId : null
-        if (this.soloId !== null) for (const id of this.members.keys()) if (id !== this.soloId) silence(id, frame)
+        state.soloId = change.memberId !== null && state.members.has(change.memberId) ? change.memberId : null
+        if (state.soloId !== null) for (const id of state.members.keys()) if (id !== state.soloId) silence(id, frame)
         return
       }
       case 'tempo': {
         if (!this.running) {
-          if (this.anchors.length) this.anchors = [{ ...this.anchors[0], bpm: change.bpm }]
+          if (state.anchors.length) state.anchors = [{ ...state.anchors[0], bpm: change.bpm }]
           return
         }
-        const bar = this.barAt(frame)
-        this.anchors = [...this.anchors.filter(anchor => anchor.frame < frame), { frame, bar, bpm: change.bpm }]
+        const bar = barAtFrame(state.anchors, frame, this.sampleRate)
+        state.anchors = [...state.anchors.filter(anchor => anchor.frame < frame), { frame, bar, bpm: change.bpm }]
         return
       }
     }
@@ -347,14 +425,18 @@ export class AudioTransport {
     if (!this.running) return
     while (this.pending.length) {
       const next = this.pending[0]
-      const boundaryFrame = frameAtBar(this.anchors, next.bar, this.sampleRate)
+      const boundaryFrame = this.frameAt(next.bar)
       if (boundaryFrame >= endFrame) break
       this.pending.shift()
+      this.frontier = undefined
       const at = Math.max(firstFrame, boundaryFrame)
-      // Collection stopped at this boundary, so everything before it is queued.
-      this.apply(next.change, at, (memberId, silenceAt) => this.enqueueSilence(memberId, silenceAt))
+      // Onsets on and after the boundary were collected against the preview of
+      // this change; onsets before it are already queued.
+      this.apply(this.state, next.change, at, (memberId, silenceAt) => this.enqueueSilence(memberId, silenceAt))
       this.receipt(next.requestId, next.arrivalFrame, at, next.bar, false)
-      if (next.change.type === 'tempo') this.publishAnchors(this.pending.some(entry => entry.change.type === 'tempo'))
+      if (tempoOf(next.change) !== undefined) {
+        this.publishAnchors(this.pending.some(entry => tempoOf(entry.change) !== undefined))
+      }
       this.collectedUntil = Math.max(this.collectedUntil, at)
     }
     this.collectTo(endFrame + this.lookahead)
@@ -383,7 +465,7 @@ export class AudioTransport {
   private enqueueSilence(memberId: string, frame: number) {
     const onset = this.take()
     onset.kind = 'silence'
-    onset.member = this.members.get(memberId) ?? null
+    onset.member = this.state.members.get(memberId) ?? null
     onset.serial = 0
     onset.exactFrame = frame
     onset.frame = Math.ceil(frame - 1e-6)
@@ -399,24 +481,43 @@ export class AudioTransport {
     }
   }
 
-  private audible(member: TransportMember) {
-    return !member.muted && (this.soloId === null || this.soloId === member.id)
+  private audible(state: TransportState, member: TransportMember) {
+    return !member.muted && (state.soloId === null || state.soloId === member.id)
+  }
+
+  /** A preview copy: members are copied so a pending update never touches the real ones. */
+  private copy(state: TransportState): TransportState {
+    const members = new Map<string, TransportMember>()
+    for (const [id, member] of state.members) members.set(id, { ...member })
+    return { members, soloId: state.soloId, anchors: state.anchors.slice() }
   }
 
   private collectTo(target: number) {
-    // TODO(BJS-491): announce across a pending bar boundary. Collection stops
-    // at the next `{ bar }` change, so onsets on and after that bar are
-    // announced only as rendering reaches it (no lookahead), and notes the
-    // change removes stay lit until cancelled. Fix by collecting past the
-    // boundary against a preview of the post-change state (stable member
-    // objects held in `pending`, preview anchors for tempo), retracting as
-    // usual if an immediate change intervenes. BJS-485 only issues immediate
-    // changes, so the reel pattern never takes this path.
-    const boundary = this.pending.length ? frameAtBar(this.anchors, this.pending[0].bar, this.sampleRate) : Infinity
-    const to = Math.min(target, boundary)
-    if (to > this.collectedUntil) {
-      for (const member of this.members.values()) if (this.audible(member)) this.collectMember(member, this.collectedUntil, to)
-      this.collectedUntil = to
+    if (target > this.collectedUntil) {
+      // Start from the state in force at the frontier: the real state, or a
+      // preview that includes the pending changes whose bars lie behind it.
+      let state = this.frontier?.state ?? this.state
+      let applied = this.frontier?.applied ?? 0
+      let from = this.collectedUntil
+      for (;;) {
+        while (applied < this.pending.length) {
+          const bar = this.pending[applied].bar
+          const boundary = frameAtBar(state.anchors, bar, this.sampleRate)
+          if (boundary > from) break
+          if (state === this.state) state = this.copy(state)
+          while (applied < this.pending.length && this.pending[applied].bar === bar) {
+            this.apply(state, this.pending[applied++].change, boundary, noSilence)
+          }
+        }
+        const boundary = applied < this.pending.length
+          ? frameAtBar(state.anchors, this.pending[applied].bar, this.sampleRate) : Infinity
+        const to = Math.min(target, boundary)
+        for (const member of state.members.values()) if (this.audible(state, member)) this.collectMember(state, member, from, to)
+        from = to
+        if (to >= target) break
+      }
+      this.collectedUntil = target
+      this.frontier = state === this.state ? undefined : { state, applied }
     }
     // Withdrawn onsets whose time has been collected again without them are gone.
     for (let index = this.retracted.length - 1; index >= 0; index--) {
@@ -428,12 +529,12 @@ export class AudioTransport {
     }
   }
 
-  private collectMember(member: TransportMember, from: number, to: number) {
+  private collectMember(state: TransportState, member: TransportMember, from: number, to: number) {
     const { table, offsetBars, rate } = member
     const count = table.begin.length
     if (!count) return
-    const b0 = this.barAt(from)
-    const b1 = this.barAt(to)
+    const b0 = barAtFrame(state.anchors, from, this.sampleRate)
+    const b1 = barAtFrame(state.anchors, to, this.sampleRate)
     const period = table.lengthBars / rate
     const firstLoop = Math.floor((b0 - offsetBars) / period) - 1
     const lastLoop = Math.floor((b1 - offsetBars) / period)
@@ -450,22 +551,27 @@ export class AudioTransport {
       }
       for (let index = low; index < count; index++) {
         const bar = loopStart + table.begin[index] / rate
-        const exactFrame = frameAtBar(this.anchors, bar, this.sampleRate)
+        const exactFrame = frameAtBar(state.anchors, bar, this.sampleRate)
         if (exactFrame < from) continue
         if (exactFrame >= to) break
-        this.collectOnset(member, index, loop, bar, exactFrame)
+        this.collectOnset(state, member, index, loop, bar, exactFrame)
       }
     }
   }
 
-  private collectOnset(member: TransportMember, noteIndex: number, loop: number, bar: number, exactFrame: number) {
+  private collectOnset(state: TransportState, member: TransportMember, noteIndex: number, loop: number, bar: number,
+    exactFrame: number) {
     const frame = Math.ceil(exactFrame - 1e-6)
     const { table, rate } = member
-    // A survivor of a change keeps its announced serial.
+    // A survivor of a change keeps its announced serial. Identity is the
+    // member, its table, the note, the pass and the frame: a preview's member
+    // copy and the real member it becomes are the same note source.
     for (let index = 0; index < this.retracted.length; index++) {
       const old = this.retracted[index]
-      if (old.member === member && old.noteIndex === noteIndex && old.loop === loop && old.frame === frame) {
+      if (old.member!.id === member.id && old.member!.table === table && old.noteIndex === noteIndex
+        && old.loop === loop && old.frame === frame) {
         this.retracted.splice(index, 1)
+        old.member = member
         this.insert(old)
         return
       }
@@ -480,8 +586,8 @@ export class AudioTransport {
     onset.exactFrame = exactFrame
     onset.bar = bar
     // A tempo change during the note does not rescale its gate (design §Risks).
-    onset.gateFrames = Math.max(1, Math.round(frameAtBar(this.anchors, bar + table.gate[noteIndex] / rate, this.sampleRate) - exactFrame))
-    onset.framesPerTableBar = framesPerBar(bpmAtFrame(this.anchors, exactFrame), this.sampleRate) / rate
+    onset.gateFrames = Math.max(1, Math.round(frameAtBar(state.anchors, bar + table.gate[noteIndex] / rate, this.sampleRate) - exactFrame))
+    onset.framesPerTableBar = framesPerBar(bpmAtFrame(state.anchors, exactFrame), this.sampleRate) / rate
     this.insert(onset)
     this.write(TransportEventKind.Attack, onset)
   }

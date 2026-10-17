@@ -11,7 +11,18 @@ export interface LiveInputNote {
   /** Playback/member snapshot; omitted live notes follow the current Shape. */
   shaping?: LiveShaping
 }
-export interface LiveConfig { style: PlayStyle; bpm: number; rate: PlayStyleRate }
+export interface LiveConfig {
+  style: PlayStyle
+  bpm: number
+  rate: PlayStyleRate
+  /**
+   * Where Repeat and Arp pulses fall while the pattern transport runs:
+   * 'grid' (the default) starts them on the transport's next subdivision and
+   * keeps them on its bar grid; 'press' anchors them at the press, as when
+   * nothing is playing.
+   */
+  phase?: 'grid' | 'press'
+}
 export interface LiveVoiceEvent extends LiveInputNote {
   phase: 'attack' | 'release'
   noteId: string

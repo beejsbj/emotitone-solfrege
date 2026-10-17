@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  MONOCHROME_ACCIDENTAL_KEY_SURFACE,
+  MONOCHROME_NATURAL_KEY_SURFACE,
   resolveKeySurfaceColor,
   resolveMusicColorKeySurface,
 } from "@/services/keySurfaceColor";
 import { resolveMusicColorSampleByScaleIndex } from "@/services/musicColor";
+import { readTokenDeclarations } from "../helpers/designTokens";
 import { DEFAULT_CONFIG } from "@/data/visual-config-metadata";
 
 describe("key surface color projection", () => {
@@ -38,14 +41,32 @@ describe("key surface color projection", () => {
     });
   });
 
-  it("owns the natural and accidental monochrome bases", () => {
+  it("owns the natural and accidental monochrome bases as Ink and Ivory", () => {
     expect(resolveKeySurfaceColor("ignored", "monochrome", false)).toEqual({
-      background: "hsla(0, 0%, 44%, 1)",
-      primaryColor: "hsla(0, 0%, 44%, 1)",
+      background: "#1C1916",
+      primaryColor: "#1C1916",
     });
     expect(resolveKeySurfaceColor("ignored", "monochrome", true)).toEqual({
-      background: "hsla(0, 0%, 100%, 1)",
-      primaryColor: "hsla(0, 0%, 100%, 1)",
+      background: "#F4EFE6",
+      primaryColor: "#F4EFE6",
     });
+  });
+
+  it("tunes monochrome bases in HSL without leaving the Ink or Ivory hue", () => {
+    const dimmed = resolveKeySurfaceColor("ignored", "monochrome", true, {
+      keyBrightness: 0.5,
+      keySaturation: 0,
+    });
+    expect(dimmed.background).toMatch(/^hsla\(\d+(\.\d+)?, 0%, 46\.\d+%, 1\)$/);
+    const muted = resolveKeySurfaceColor("ignored", "monochrome", false, {
+      keyBrightness: 1.5,
+    });
+    expect(muted.background).toMatch(/^hsla\(30, 1\d(\.\d+)?%, 1\d(\.\d+)?%, 1\)$/);
+  });
+
+  it("takes the monochrome bases from the design-system tokens", () => {
+    const tokens = readTokenDeclarations();
+    expect(MONOCHROME_NATURAL_KEY_SURFACE.toLowerCase()).toBe(tokens.get("--ink-3")?.toLowerCase());
+    expect(MONOCHROME_ACCIDENTAL_KEY_SURFACE.toLowerCase()).toBe(tokens.get("--ivory")?.toLowerCase());
   });
 });

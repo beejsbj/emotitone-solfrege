@@ -135,34 +135,49 @@ describe("edition-specific marks", () => {
 
 /*
  * Monochrome keys (BJS-561): edition families Rip and Sharp show monochrome
- * keys by default, so their faces and state rings must meet the floor on the
- * Ink keyboard surface. Note labels are exempt by decision (see above).
+ * keys by default. Burooj, 2026-10-17: the playing zone wears only Ink, Ivory
+ * or Music Color, so the faces are an Ink step and Ivory, not a lifted grey.
+ * That leaves the natural face about 1.1-1.3:1 on the Ink keyboard surface;
+ * key edges, depth and labels carry the boundary. The state rings and the
+ * focus ring still meet the floor on their own faces. Note labels are exempt
+ * by decision (see above).
  */
 describe("monochrome key marks", () => {
-  const gray = (css: string): Rgb => {
-    const match = css.match(/^hsla\(0, 0%, ([\d.]+)%, 1\)$/);
-    if (!match) throw new Error(`Not a neutral monochrome surface: ${css}`);
-    const channel = Number(match[1]) / 100;
-    return { r: channel, g: channel, b: channel };
-  };
+  const hex = ({ r, g, b }: Rgb) =>
+    `#${[r, g, b].map((c) => Math.round(c * 255).toString(16).padStart(2, "0")).join("")}`.toUpperCase();
   const over = (top: Rgb, alpha: number, bottom: Rgb): Rgb => ({
     r: top.r * alpha + bottom.r * (1 - alpha),
     g: top.g * alpha + bottom.g * (1 - alpha),
     b: top.b * alpha + bottom.b * (1 - alpha),
   });
-  const natural = gray(resolveMonochromeKeySurface(false).background);
-  const accidental = gray(resolveMonochromeKeySurface(true).background);
+  const faceToken = (css: string) => {
+    const match = css.match(/^#[0-9a-f]{6}$/i);
+    if (!match) throw new Error(`Monochrome faces are token hex, got ${css}`);
+    return css.toUpperCase();
+  };
+  const naturalCss = faceToken(resolveMonochromeKeySurface(false).background);
+  const accidentalCss = faceToken(resolveMonochromeKeySurface(true).background);
+  const ink = Object.fromEntries(
+    INK_SURFACES.map((name) => [name, hex(token(name))]),
+  );
+  const natural = token("--ink-3");
+  const accidental = ivory;
 
-  it("draws natural and accidental faces at 3:1 on every Ink surface", () => {
+  it("resolves natural faces to an Ink step and accidental faces to --ivory", () => {
+    expect(Object.values(ink)).toContain(naturalCss);
+    expect(naturalCss).toBe(hex(natural));
+    expect(accidentalCss).toBe(hex(accidental));
+  });
+
+  it("keeps the accidental face at 3:1 on every Ink surface", () => {
     for (const surface of INK_SURFACES) {
-      expectContrast(`natural face on ${surface}`, natural, token(surface), MARK);
       expectContrast(`accidental face on ${surface}`, accidental, token(surface), MARK);
     }
   });
 
   it("keeps the sounding ring at 3:1 on its own face", () => {
-    // Note.vue: a 72% white ring on naturals, a 72% Ink ring on white accidentals.
-    expectContrast("sounding ring on natural", over({ r: 1, g: 1, b: 1 }, 0.72, natural), natural, MARK);
+    // Note.vue: a 72% Ivory ring on Ink naturals, a 72% Ink ring on Ivory accidentals.
+    expectContrast("sounding ring on natural", over(ivory, 0.72, natural), natural, MARK);
     expectContrast("sounding ring on accidental", over(token("--ink"), 0.72, accidental), accidental, MARK);
   });
 

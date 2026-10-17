@@ -107,19 +107,18 @@ export const usePhrasesStore = defineStore(
     }));
 
     // ─── State ───────────────────────────────────────────────────────────────
+    // Measured by the save path itself (one encode per save), not re-encoded here.
+    const encodedBytes = ref(0);
     const persistence = createPhrasePersistence(() => ({
       book: readLegacyBook(liveContext.value) ?? createPhraseBook(liveContext.value, Date.now()),
       isRecordingEnabled: true,
-    }), () => liveContext.value);
+    }), () => liveContext.value, { onMeasure: (bytes) => { encodedBytes.value = bytes; } });
     const restored = persistence.load();
     const book = ref<PhraseBook>(restored.book);
     const isRecordingEnabled = ref(restored.isRecordingEnabled);
     const savedState = () => ({ book: book.value, isRecordingEnabled: isRecordingEnabled.value });
-    const encodedBytes = computed(() => {
-      // Track nested edits even though the encoder unwraps proxies.
-      JSON.stringify(savedState());
-      return encodedPhraseBytes(persistence.encode(savedState()));
-    });
+    // An oversized shelf loads intact, so measure once before any save happens.
+    encodedBytes.value = encodedPhraseBytes(persistence.encode(savedState()));
     const isShelfFull = computed(() => encodedBytes.value > PHRASE_BUDGET_BYTES);
     const releaseCandidates = computed(() => book.value.phrases
       .filter((phrase) => phrase.shelf === "recent")

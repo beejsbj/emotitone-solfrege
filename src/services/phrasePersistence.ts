@@ -75,15 +75,20 @@ export function phraseCodec(defaults: () => PersistedPhraseState, context: () =>
 }
 
 export function createPhrasePersistence(
-  defaults: () => PersistedPhraseState, context: () => PhraseContext, options: BindingOptions = {},
+  defaults: () => PersistedPhraseState,
+  context: () => PhraseContext,
+  options: BindingOptions & { onMeasure?: (bytes: number) => void } = {},
 ) {
+  const { onMeasure, ...binding } = options;
   return createPersistedBinding(phraseCodec(defaults, context), {
     backup: writePhraseBackup,
     accept(encoded) {
-      if (encodedPhraseBytes(encoded) <= PHRASE_BUDGET_BYTES) return true;
+      const bytes = encodedPhraseBytes(encoded);
+      onMeasure?.(bytes);
+      if (bytes <= PHRASE_BUDGET_BYTES) return true;
       reportSaveFailure("shelf", "phrases");
       return false;
     },
-    ...options,
+    ...binding,
   });
 }

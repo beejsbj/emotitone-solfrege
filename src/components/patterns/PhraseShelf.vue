@@ -1,5 +1,5 @@
 <template>
-  <section v-if="phrasesStore.isShelfFull" aria-label="Shelf full" class="space-y-2">
+  <section v-if="phrasesStore.isShelfFull" aria-label="Shelf full" class="space-y-2 px-3 py-2">
     <p role="status">Shelf full. New changes stay in this tab until there is room to save.</p>
     <template v-if="oldestRecent">
       <p>Oldest Recent: {{ phraseTitle(oldestRecent) }}</p>
@@ -12,6 +12,7 @@
     <p v-else>No Recent phrases to release. Copy any phrases you want to save before deleting them from the reel.</p>
   </section>
   <PatternReel
+    v-bind="$attrs"
     class="phrase-shelf"
     :items="reelItems"
     :selected-id="deskItemId"
@@ -61,6 +62,9 @@ import type { LogNote, PatternNote } from "@/types/patterns";
 import type { Phrase } from "@/types/phrases";
 
 type PatternControl = "key" | "mode" | "bpm" | "octave";
+
+// The banner makes this a fragment; keep class, data-* and listeners on the reel.
+defineOptions({ inheritAttrs: false });
 
 const emit = defineEmits<{
   contextChange: [controls: PatternControl[]];

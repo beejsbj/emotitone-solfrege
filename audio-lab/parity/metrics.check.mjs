@@ -46,9 +46,7 @@ for (const sound of ['square', 'sawtooth']) {
     }
   });
   test(`${sound} divergence bounds still reject new harmonic drift`, () => {
-    // Native square/saw sit at .85 of the unscaled worklet; keep that level
-    // and add harmonic drift, so only the spectrum check may fail.
-    const checks = oscillatorParityChecks(compare(fixture({ gain: .85, harmonic: .3 })), sound, 105);
+    const checks = oscillatorParityChecks(compare(fixture({ harmonic: .3 })), sound, 105);
     assert.equal(checks.fundamental, true);
     assert.equal(checks.spectrum, false);
   });

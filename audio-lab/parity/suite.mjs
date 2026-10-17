@@ -19,6 +19,8 @@ import { runVoiceBudgetParity } from './voice-budget.mjs';
 
 const RATE = 48000, START = .05, HOLD = .4;
 const SOUNDS = ['piano', 'sine', 'triangle', 'square', 'sawtooth'];
+/** Superdough's native square/saw level relative to the unscaled worklet polyBLEP. */
+const NATIVE_SQUARE_SAW_LEVEL = .85;
 const all = checks => Object.values(checks).every(Boolean);
 
 async function createContext(length) {
@@ -82,7 +84,13 @@ async function render(sound, code, fixture = {}) {
   for (const hap of scheduled) await dough.superdough({ ...hap.value }, START + hap.start, hap.duration, 1);
   const rendered = await context.startRendering();
   const actual = rendered.getChannelData(0);
-  const metrics = comparePcm(reference, actual, { rate: RATE, frequency: 440 * 2 ** ((pitch - 69) / 12),
+  // BJS-485 removed the worklet's fixed .85 square/saw scalar: live and
+  // patterns now share one renderer and one level, about 1.4 dB above
+  // Superdough's native oscillators. Compare their shape at the native level;
+  // oscillator-bounds.mjs keeps BJS-487's pinned bounds for that comparison.
+  const scaled = sound === 'square' || sound === 'sawtooth'
+    ? reference.map(sample => sample * NATIVE_SQUARE_SAW_LEVEL) : reference;
+  const metrics = comparePcm(scaled, actual, { rate: RATE, frequency: 440 * 2 ** ((pitch - 69) / 12),
     // Short-gate checks compare the release segment because no sustain plateau
     // exists. Both paths must begin release from the same partial attack level.
     steadyStart: START + (hold < .1 ? .015 : .12), steadyEnd: START + (hold < .1 ? .08 : .32) });

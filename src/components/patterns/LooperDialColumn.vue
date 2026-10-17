@@ -141,7 +141,8 @@ onBeforeUnmount(() => clearTimeout(holdTimer));
 .looper-dials__column {
   position: absolute;
   left: var(--s-4);
-  bottom: var(--s-5);
+  /* Clear of the reel's deeper strips, which rise above the desk strip. */
+  bottom: var(--s-10);
   display: flex;
   flex-direction: column-reverse;
   align-items: center;

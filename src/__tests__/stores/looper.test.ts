@@ -377,6 +377,12 @@ describe("Play is the loop on the worklet transport", () => {
     const tables = rig.commands.filter((command) => command.type === "transport-change").length;
     expect(tables).toBeGreaterThanOrEqual(2);
     expect(latest.loading).toBe(false);
+    // Half a bar of quiet is not a bar, even if the wall clock has drifted
+    // from the audio clock the note stamps are on.
+    spies[1].mockRestore();
+    spies[1] = vi.spyOn(Date, "now").mockImplementation(() => EPOCH + rig.frame / RATE * 1000 + 10_000);
+    looper.checkLatch();
+    expect(phrases.take.id).toBe(open);
     render(2.5);
     expect(new Set(attacksOf(open).map((attack) => attack.noteName))).toEqual(new Set(["C4", "E4"]));
 

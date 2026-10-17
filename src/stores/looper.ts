@@ -512,12 +512,17 @@ export const useLooperStore = defineStore("looper", () => {
     rejoin(take.id);
   }
 
+  /**
+   * When live input last moved, on the main thread's own clock. Note stamps
+   * are on the audio clock, whose wall anchor drifts from `performance.now()`.
+   */
+  let lastLiveActivity = 0;
+
   /** While latched, one bar of silence closes the open take; the next note opens another. */
-  function checkLatch(now = Date.now()): void {
+  function checkLatch(now = performance.now()): void {
     const take = phrases.take;
     if (!looper.value.latched || openTakeId.value !== take.id || phrases.isTakeSounding) return;
-    const lastRelease = phrases.book.recorder.lastReleaseWall;
-    if (lastRelease === null || now - lastRelease < barMsAt(loopBpm())) return;
+    if (now - lastLiveActivity < barMsAt(loopBpm())) return;
     openTakeId.value = null;
     phrases.startBlankTake();
   }
@@ -661,9 +666,15 @@ export const useLooperStore = defineStore("looper", () => {
 
   // Registered after the phrases store's own listener, so the press has
   // already landed in its take when its audio time is recorded against it.
+  const isLive = (detail: { noteId?: string; record?: boolean; source?: string } | undefined) =>
+    Boolean(detail?.noteId) && detail!.record !== false && !NON_LIVE_SOURCES.has(detail!.source ?? "");
+  const onNoteReleased = (event: Event) => {
+    if (isLive((event as CustomEvent).detail)) lastLiveActivity = performance.now();
+  };
   const onNotePlayed = (event: Event) => {
     const detail = (event as CustomEvent).detail;
-    if (!detail?.noteId || detail.record === false || NON_LIVE_SOURCES.has(detail.source)) return;
+    if (!isLive(detail)) return;
+    lastLiveActivity = performance.now();
     const wallTime = Number.isFinite(detail.timestamp) ? detail.timestamp : Date.now();
     let audioTime: number;
     try {
@@ -677,12 +688,18 @@ export const useLooperStore = defineStore("looper", () => {
     }
     if (Number.isFinite(audioTime)) lastAttack = { takeId: phrases.takeId, wallTime, audioTime };
   };
-  if (typeof window !== "undefined") window.addEventListener("note-played", onNotePlayed);
+  if (typeof window !== "undefined") {
+    window.addEventListener("note-played", onNotePlayed);
+    window.addEventListener("note-released", onNoteReleased);
+  }
 
   /** Detach from the window, the recorder and the player (tests, HMR). */
   function dispose(): void {
     stopAll();
-    if (typeof window !== "undefined") window.removeEventListener("note-played", onNotePlayed);
+    if (typeof window !== "undefined") {
+      window.removeEventListener("note-played", onNotePlayed);
+      window.removeEventListener("note-released", onNoteReleased);
+    }
     phrases.setLivePressGuard(null);
     phrases.setProtectedIds(null);
     stopWatchingPlayer();

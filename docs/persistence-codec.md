@@ -114,9 +114,9 @@ This is deliberately more conservative than UTF-8 file size. Browser quota
 failures below this limit still go through the existing save-failure notice.
 
 Both pitch and gain curves, including `modeBase` copies, are reduced only in
-the encoded snapshot. Samples are at least 10 ms apart and capped at 100 points per second,
-including endpoints (rounded up for a partial second). Both endpoints survive
-when that cap allows two points; shorter curves keep their final value.
+the encoded snapshot. Samples are picked at uniform time targets, at least 10 ms
+apart and capped at 100 points per second (rounded up for a partial second).
+Both endpoints always survive, including on very short curves.
 Live state is unchanged. Reduction is lossy;
 no new smoothing or playback behavior is introduced.
 
@@ -127,7 +127,17 @@ phrase with a second tap to confirm release. Candidates sort by `closedAt`,
 falling back to `createdAt`. Kept, Library and the open take are never release
 candidates. When no Recent remain the UI explains the manual copy/delete path.
 Saving resumes once the encoded payload fits. An already oversized shelf is
-loaded intact; it is not automatically trimmed to fit.
+loaded intact; it is not automatically trimmed to fit. The refusal rule lives
+in one function, `shelfRefuses(bytes)`; the save path and the banner both ask it.
+
+On load, `decode` drops any phrase without `notes` or `context` and keeps the
+rest of the shelf; it throws (unreadable, backed up first) only when there is
+no book at all. A save skips the re-read and re-decode of stored bytes when
+they equal the payload this binding last produced; bytes from anywhere else
+get the full check. The payload is built as plain data (no JSON round-trip).
+An IndexedDB open that has not settled within 10 s is a failed backup: it
+reports a save failure and the stored shelf stays as it was. The first
+accepted save asks the browser, best effort, for persistent storage.
 
 **Measurement (generated data, 2026-10-16):** the regression fixture uses 200
 phrases adapted from a real built-in pattern, eight notes per phrase, 50 Kept,

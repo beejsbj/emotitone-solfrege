@@ -33,7 +33,7 @@ import {
   type PhraseCandidate,
 } from "@/domain/phraseBook";
 import { migrateLegacyPatterns } from "@/domain/phraseMigration";
-import { createPhrasePersistence, encodedPhraseBytes, shelfRefuses } from "@/services/phrasePersistence";
+import { createPhrasePersistence, encodedPhraseBytes, shelfOverBudget } from "@/services/phrasePersistence";
 import { installPhraseBackupConsole } from "@/services/phraseBackups";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 import type { HeldNote, Phrase, PhraseBook, PhraseContext } from "@/types/phrases";
@@ -109,17 +109,30 @@ export const usePhrasesStore = defineStore(
     // ─── State ───────────────────────────────────────────────────────────────
     // Measured by the save path itself (one encode per save), not re-encoded here.
     const encodedBytes = ref(0);
+    // The browser refused the last write of the shelf (or the backup it needs).
+    const saveFailed = ref(false);
     const persistence = createPhrasePersistence(() => ({
       book: readLegacyBook(liveContext.value) ?? createPhraseBook(liveContext.value, Date.now()),
       isRecordingEnabled: true,
-    }), () => liveContext.value, { onMeasure: (bytes) => { encodedBytes.value = bytes; } });
+    }), () => liveContext.value, {
+      onMeasure: (bytes) => { encodedBytes.value = bytes; },
+      onStored: (stored) => { saveFailed.value = !stored; },
+    });
     const restored = persistence.load();
     const book = ref<PhraseBook>(restored.book);
     const isRecordingEnabled = ref(restored.isRecordingEnabled);
     const savedState = () => ({ book: book.value, isRecordingEnabled: isRecordingEnabled.value });
     // An oversized shelf loads intact, so measure once before any save happens.
     encodedBytes.value = encodedPhraseBytes(persistence.encode(savedState()));
-    const isShelfFull = computed(() => shelfRefuses(encodedBytes.value));
+    /**
+     * What the shelf notice says, if anything. Over budget only warns and keeps
+     * saving; "failed" means storage itself refused, so new sketches live only
+     * in this tab until a write succeeds.
+     */
+    const shelfNotice = computed<"failed" | "over-budget" | null>(() => {
+      if (saveFailed.value) return "failed";
+      return shelfOverBudget(encodedBytes.value) ? "over-budget" : null;
+    });
     const releaseCandidates = computed(() => book.value.phrases
       .filter((phrase) => phrase.shelf === "recent")
       .sort((a, b) => (a.closedAt ?? a.createdAt) - (b.closedAt ?? b.createdAt)));
@@ -391,7 +404,7 @@ export const usePhrasesStore = defineStore(
       isRecordingEnabled,
 
       encodedBytes,
-      isShelfFull,
+      shelfNotice,
       releaseCandidates,
       releaseRecent,
 

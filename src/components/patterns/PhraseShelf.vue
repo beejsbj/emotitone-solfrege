@@ -12,44 +12,25 @@
       @copy="copyNotation"
       @open-strudel="openInStrudel"
       @rename="renamePhrase"
-      @interaction-change="emit('interactionChange', $event)"
+      @interaction-change="reelInteraction"
     />
-    <!-- Below the reel: older strips stack upward over whatever sits above it. -->
-    <section
-      v-if="phrasesStore.isShelfFull"
-      class="phrase-shelf__banner"
-      aria-label="Shelf full"
-    >
-      <p class="phrase-shelf__banner-text" role="status">
-        Shelf full. New changes stay in this tab until there is room to save.
-      </p>
-      <template v-if="oldestRecent">
-        <p class="phrase-shelf__banner-detail">Oldest Recent: {{ phraseTitle(oldestRecent) }}</p>
-        <div class="phrase-shelf__banner-action">
-          <Button
-            size="sm"
-            :tone="releaseArmed ? 'brass' : 'ink'"
-            :accessible-name="releaseArmed ? 'Confirm release oldest Recent' : 'Release oldest Recent'"
-            :title="releaseArmed ? 'Confirm release oldest Recent' : 'Release oldest Recent'"
-            @click="releaseOldest"
-          >
-            <Check v-if="releaseArmed" />
-            <Trash2 v-else />
-          </Button>
-          <span class="phrase-shelf__banner-detail">{{ releaseArmed ? 'Tap again to release' : 'Release it' }}</span>
-        </div>
-      </template>
-      <p v-else class="phrase-shelf__banner-detail">
-        No Recent phrases to release. Copy any phrases you want to save before deleting them from the reel.
-      </p>
-    </section>
+    <!-- Floats above the deck's top edge, over the Stage. Not an occlusion
+         part: a passing notice must not resize the Stage's composition. -->
+    <ShelfNotice
+      v-if="phrasesStore.shelfNotice"
+      class="phrase-shelf__notice"
+      :state="phrasesStore.shelfNotice"
+      :oldest-title="oldestRecent ? phraseTitle(oldestRecent) : undefined"
+      :armed="releaseArmed"
+      :busy="reelBusy"
+      @release="releaseOldest"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from "vue";
-import { Check, Trash2 } from "lucide-vue-next";
-import Button from "@/components/primatives/Button.vue";
+import ShelfNotice from "@/components/patterns/ShelfNotice.vue";
 import PatternReel from "@/components/compounds/PatternReel.vue";
 import type { PatternReelItem } from "@/components/compounds/PatternReel.vue";
 import type {
@@ -98,6 +79,12 @@ const {
 } = useMusicColor();
 
 const oldestRecent = computed(() => phrasesStore.releaseCandidates[0]);
+// While the reel scrolls, its wheel unwinds upward into the notice's place.
+const reelBusy = ref(false);
+function reelInteraction(active: boolean) {
+  reelBusy.value = active;
+  emit("interactionChange", active);
+}
 const releaseArmed = ref(false);
 let releaseTimer: ReturnType<typeof setTimeout> | undefined;
 function disarmRelease() {
@@ -424,37 +411,19 @@ function openInStrudel(id: string) {
 
 <style scoped>
 .phrase-shelf {
+  position: relative;
   width: 100%;
   min-width: 0;
 }
 
-/* Chrome hardware, not music: design-system tokens only, no note colour. */
-.phrase-shelf__banner {
-  display: grid;
-  justify-items: start;
-  gap: var(--s-3);
-  margin: var(--s-4) var(--s-4) 0;
-  padding: var(--s-4);
-  border: 1px solid var(--hairline);
-  border-radius: var(--r-xs);
-  background: var(--ink-3);
-  color: var(--ivory-2);
-}
-
-.phrase-shelf__banner-text {
-  font: var(--t-body);
-  color: var(--ivory);
-}
-
-.phrase-shelf__banner-action {
-  display: flex;
-  align-items: center;
-  gap: var(--s-4);
-}
-
-.phrase-shelf__banner-detail {
-  font: var(--t-mono);
-  font-size: 9px;
-  overflow-wrap: anywhere;
+/* Anchored to the deck's top edge and lifted clear of the reel's resting
+   stack and the drawer handle's --hit-min touch, so it covers only Stage. */
+.phrase-shelf__notice {
+  position: absolute;
+  z-index: 4;
+  bottom: calc(100% + var(--hit-min));
+  inset-inline: var(--s-6);
+  max-inline-size: 26rem;
+  margin-inline: auto;
 }
 </style>

@@ -2,7 +2,7 @@ import { toRaw } from "vue";
 import { ensureSingleTake } from "@/domain/phraseBook";
 import { createPersistedBinding, defineCodec, type BindingOptions } from "@/services/persistenceCodec";
 import { writePhraseBackup } from "@/services/phraseBackups";
-import { reportSaveFailure } from "@/services/safeStorage";
+import { persistentStorage, type SafeStorage } from "@/services/safeStorage";
 import type { PhraseBook, PhraseContext } from "@/types/phrases";
 import type { PatternNote } from "@/types/patterns";
 
@@ -13,10 +13,11 @@ export const encodedPhraseBytes = (encoded: string): number => encoded.length * 
 export interface PersistedPhraseState { book: PhraseBook; isRecordingEnabled: boolean }
 
 /**
- * The one place that decides when the shelf is too big to save. Both the save
- * path (`accept`) and the banner (`isShelfFull` in the store) ask this.
+ * The one place that decides when the shelf is over budget. Over budget only
+ * warns: the save still goes ahead (Burooj, 2026-10-17). A save is refused only
+ * when the browser's storage itself fails, such as a QuotaExceededError.
  */
-export const shelfRefuses = (bytes: number): boolean => bytes > PHRASE_BUDGET_BYTES;
+export const shelfOverBudget = (bytes: number): boolean => bytes > PHRASE_BUDGET_BYTES;
 
 const MIN_SAMPLE_GAP_MS = 10;
 
@@ -106,22 +107,41 @@ function askBrowserToKeepStorage(): void {
   }
 }
 
+export interface PhrasePersistenceOptions extends BindingOptions {
+  /** The UTF-16 size of every payload the save path encodes. */
+  onMeasure?: (bytes: number) => void;
+  /**
+   * Whether the shelf actually reached storage: false when a write of the
+   * shelf, or the backup it waits on, failed; true when a write succeeded.
+   */
+  onStored?: (stored: boolean) => void;
+}
+
 export function createPhrasePersistence(
   defaults: () => PersistedPhraseState,
   context: () => PhraseContext,
-  options: BindingOptions & { onMeasure?: (bytes: number) => void } = {},
+  options: PhrasePersistenceOptions = {},
 ) {
-  const { onMeasure, ...binding } = options;
+  const { onMeasure, onStored, storage: base = persistentStorage, ...binding } = options;
   let asked = false;
+  // Watch the shelf's own writes, wherever the binding makes them (a save, the
+  // eager migration rewrite, or the save queued behind a backup).
+  const storage: SafeStorage = {
+    ...base,
+    write(key, value, writeOptions) {
+      const stored = base.write(key, value, writeOptions);
+      if (key === "phrases") onStored?.(stored);
+      return stored;
+    },
+  };
   return createPersistedBinding(phraseCodec(defaults, context), {
-    backup: writePhraseBackup,
+    storage,
+    backup: (...args) => writePhraseBackup(...args).catch((error: unknown) => {
+      onStored?.(false);
+      throw error;
+    }),
     accept(encoded) {
-      const bytes = encodedPhraseBytes(encoded);
-      onMeasure?.(bytes);
-      if (shelfRefuses(bytes)) {
-        reportSaveFailure("shelf", "phrases");
-        return false;
-      }
+      onMeasure?.(encodedPhraseBytes(encoded));
       if (!asked) {
         asked = true;
         askBrowserToKeepStorage();

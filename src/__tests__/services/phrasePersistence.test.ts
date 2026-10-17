@@ -4,7 +4,7 @@ import { createPhraseBook, phraseFromPattern } from "@/domain/phraseBook";
 import { defaultPatterns } from "@/data/patterns";
 import { NEUTRAL_SHAPE } from "@/services/shape";
 import {
-  createPhrasePersistence, decimateCurve, encodedPhraseBytes, PHRASE_BUDGET_BYTES, phraseCodec,
+  createPhrasePersistence, decimateCurve, encodedPhraseBytes, PHRASE_BUDGET_BYTES, phraseCodec, shelfOverBudget,
   type PersistedPhraseState,
 } from "@/services/phrasePersistence";
 import { encodePayload, readPayload } from "@/services/persistenceCodec";
@@ -99,34 +99,49 @@ describe("phrase payload budget and curve fidelity", () => {
     console.info(`BJS-513 generated shelf: ${encodedPhraseBytes(raw)} bytes before, ${encodedPhraseBytes(encoded)} bytes saved, ${state.book.phrases.length - 1} phrases`);
     expect(encodedPhraseBytes(encoded)).toBeGreaterThan(PHRASE_BUDGET_BYTES);
     expect(encodedPhraseBytes(encoded)).toBeLessThan(encodedPhraseBytes(raw));
+    // Over budget only warns (Burooj, 2026-10-17): the whole shelf saves.
     const store = binding();
-    expect(store.save(state)).toBe(false);
-    expect(localStorage.getItem("phrases")).toBeNull();
-    // Explicitly release ten Recent; all fifty Kept still fit and survive.
-    const release = new Set(state.book.phrases.filter((phrase) => phrase.shelf === "recent").slice(0, 10).map((phrase) => phrase.id));
-    state.book.phrases = state.book.phrases.filter((phrase) => !release.has(phrase.id));
     expect(store.save(state)).toBe(true);
     expect(readPayload(codec(), localStorage.getItem("phrases")).state.book.phrases.filter((phrase) => phrase.shelf === "kept")).toHaveLength(50);
   });
 
-  it("refuses over-budget saves without dropping Kept, then saves after explicit Recent release", () => {
-    const store = binding();
+  it("saves over budget with no save-failure notice, measures it, and reports a real write failure", () => {
+    const sizes: number[] = [];
+    const stored: boolean[] = [];
+    const store = createPhrasePersistence(defaults, () => context, {
+      onMeasure: (bytes) => sizes.push(bytes),
+      onStored: (ok) => stored.push(ok),
+    });
+    active.push(store);
     const state = store.load();
-    expect(store.save(state)).toBe(true);
-    const before = localStorage.getItem("phrases");
     const kept = realisticShelf(1).book.phrases[1];
-    state.book.phrases.push(kept);
     const recent = { ...structuredClone(kept), id: "big-recent", shelf: "recent" as const, name: "曲".repeat(PHRASE_BUDGET_BYTES / 2) };
-    state.book.phrases.push(recent);
-    expect(store.save(state)).toBe(false);
-    expect(saveFailureNotice.value?.message).toBe("Shelf full");
-    expect(localStorage.getItem("phrases")).toBe(before);
-    expect(state.book.phrases).toContain(kept);
-    expect(state.book.phrases).toContain(recent);
-    state.book.phrases = state.book.phrases.filter((phrase) => phrase.id !== recent.id);
+    state.book.phrases.push(kept, recent);
     expect(store.save(state)).toBe(true);
+    expect(sizes.at(-1)).toBeGreaterThan(PHRASE_BUDGET_BYTES);
+    expect(shelfOverBudget(sizes.at(-1)!)).toBe(true);
     expect(saveFailureNotice.value).toBeNull();
-    expect(binding().load().book.phrases.find((phrase) => phrase.id === kept.id)?.shelf).toBe("kept");
+    expect(stored).toEqual([true]);
+    expect(binding().load().book.phrases.map((phrase) => phrase.id)).toEqual(expect.arrayContaining([kept.id, recent.id]));
+
+    // The browser refuses: the previous bytes stay, and the failure is reported.
+    const before = localStorage.getItem("phrases");
+    const setItem = localStorage.setItem as unknown as ReturnType<typeof vi.fn>;
+    const working = setItem.getMockImplementation()!;
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    setItem.mockImplementation(() => { throw new DOMException("full", "QuotaExceededError"); });
+    try {
+      state.book.phrases = state.book.phrases.filter((phrase) => phrase.id !== recent.id);
+      expect(store.save(state)).toBe(false);
+    } finally {
+      setItem.mockImplementation(working);
+    }
+    expect(localStorage.getItem("phrases")).toBe(before);
+    expect(stored).toEqual([true, false]);
+    expect(saveFailureNotice.value?.message).toBe("Can't save — storage full");
+    expect(store.save(state)).toBe(true);
+    expect(stored).toEqual([true, false, true]);
+    expect(saveFailureNotice.value).toBeNull();
   });
 });
 
@@ -224,19 +239,24 @@ describe("IndexedDB backup before phrase rewrites", () => {
     const old = JSON.stringify(realisticShelf(1));
     localStorage.setItem("phrases", old);
     vi.stubGlobal("indexedDB", undefined);
-    const store = binding();
+    const stored: boolean[] = [];
+    const store = createPhrasePersistence(defaults, () => context, { onStored: (ok) => stored.push(ok) });
+    active.push(store);
     const state = store.load();
     await store.settled();
     expect(store.save(state)).toBe(false);
     await store.settled();
     expect(localStorage.getItem("phrases")).toBe(old);
     expect(saveFailureNotice.value?.message).toBe("Can't save");
+    // The shelf is not reaching storage, so its notice can say so.
+    expect(stored.at(-1)).toBe(false);
     vi.stubGlobal("indexedDB", new IDBFactory());
     store.save(state);
     await store.settled();
     expect((await listPhraseBackups())[0].raw).toBe(old);
     expect(JSON.parse(localStorage.getItem("phrases")!).$version).toBe(1);
     expect(saveFailureNotice.value).toBeNull();
+    expect(stored.at(-1)).toBe(true);
   });
 
   it("keeps live bytes and prior backups when the IndexedDB transaction aborts", async () => {

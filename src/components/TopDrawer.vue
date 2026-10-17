@@ -9,11 +9,15 @@ const props = withDefaults(defineProps<{
   handleLabel?: string;
   ariaLabel?: string;
   handleTestId?: string;
+  /** Render only the panel when an eager drawer owns the handle/session. */
+  embedded?: boolean;
+  close?: () => void;
 }>(), {
   anchor: "top-right",
   handleLabel: "",
   ariaLabel: "Settings",
 });
+const emit = defineEmits<{ intent: [] }>();
 const identity = Symbol("top-drawer");
 const showPanel = ref(false);
 const renderPanel = ref(false);
@@ -39,9 +43,12 @@ defineExpose({ showPanel, openSession, closePanel, openPanel, togglePanel });
 </script>
 
 <template>
-  <Teleport to="body">
+  <slot v-if="embedded" name="panel" :close="close" />
+  <Teleport v-else to="body">
     <Drawer
       ref="drawer"
+      @pointerdown.capture="emit('intent')"
+      @focusin="emit('intent')"
       v-model="showPanel"
       @closed="renderPanel = showPanel"
       class="top-drawer"

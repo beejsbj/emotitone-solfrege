@@ -2,7 +2,7 @@
   <AnatomyDisplay
     title="Marks &middot; Decoration Primitive"
     :features="features"
-    caption="Mark is one flat poster family. Structural silhouettes and musical glyphs are equal members of the same renderer-neutral geometry registry; context decides whether a Mark is displayed, beaten, or released as a particle."
+    caption="Mark is one flat poster family. Structural silhouettes and musical glyphs are equal members of the same geometry registry, displayed through the SVG Mark source."
   >
     <template #hero>
       <div class="hero-pair">
@@ -93,7 +93,7 @@ const features = [
   { label: "Family", value: "structural and musical Marks together" },
   { label: "Name", value: "one named glyph per source path set" },
   { label: "Tone", value: "ivory, brass, and brand poster colors" },
-  { label: "Build", value: "one path registry feeds SVG and canvas renderers" },
+  { label: "Build", value: "one path registry feeds the SVG Mark source" },
   { label: "Treatment", value: "fill or wire; wire uses butt caps and miter joins" },
   { label: "Scale", value: "size prop covers inline through hero usage" },
   { label: "Rule", value: "one mark per slot" },

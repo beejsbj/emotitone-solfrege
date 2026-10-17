@@ -27,5 +27,5 @@ export const CHROMATIC_NOTES: ChromaticNote[] = [
   "B",
 ];
 
-export const SOLFEGE_NOTES = ["Do", "Re", "Mi", "Fa", "Sol", "La", "Ti"];
+export { SOLFEGE_NOTES } from "@/domain/solfege";
 export const ALL_SOLFEGE_NOTES = MOVABLE_DO_SOLFEGE_NOTES;

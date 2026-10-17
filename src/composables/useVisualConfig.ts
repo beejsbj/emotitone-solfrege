@@ -8,7 +8,6 @@ import {
 import type {
   BlobConfig,
   AmbientConfig,
-  ParticleConfig,
   StringConfig,
   AnimationConfig,
   FrequencyMappingConfig,
@@ -34,7 +33,6 @@ import type {
 export type {
   BlobConfig,
   AmbientConfig,
-  ParticleConfig,
   StringConfig,
   AnimationConfig,
   FrequencyMappingConfig,
@@ -62,7 +60,6 @@ export function useVisualConfig() {
   const stageConfig = computed(() => store.effectiveConfig.stage);
   const blobConfig = computed(() => store.effectiveConfig.blobs);
   const ambientConfig = computed(() => store.effectiveConfig.ambient);
-  const particleConfig = computed(() => store.effectiveConfig.particles);
   const stringConfig = computed(() => store.effectiveConfig.strings);
   const animationConfig = computed(() => store.effectiveConfig.animation);
   const frequencyMappingConfig = computed(() => store.effectiveConfig.frequencyMapping);
@@ -84,7 +81,6 @@ export function useVisualConfig() {
     stageConfig,
     blobConfig,
     ambientConfig,
-    particleConfig,
     stringConfig,
     animationConfig,
     frequencyMappingConfig,

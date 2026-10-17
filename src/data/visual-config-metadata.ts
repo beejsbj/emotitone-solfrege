@@ -313,78 +313,6 @@ export const UNIFIED_CONFIG = {
     },
   },
 
-  particles: {
-    _meta: {
-      label: "Particles",
-      icon: "✨",
-      description: "Particle system for note events",
-    },
-    isEnabled: {
-      value: true,
-      label: "Enable Particles",
-    },
-    count: {
-      value: 3,
-      min: 0,
-      max: 40,
-      step: 1,
-      label: "Particle Count",
-    },
-    sizeMin: {
-      value: 2,
-      min: 1,
-      max: 20,
-      step: 1,
-      label: "Min Size",
-      format: (v: number) => `${v}px`,
-    },
-    sizeMax: {
-      value: 6,
-      min: 1,
-      max: 20,
-      step: 1,
-      label: "Max Size",
-      format: (v: number) => `${v}px`,
-    },
-    lifetimeMin: {
-      value: 2000,
-      min: 500,
-      max: 10000,
-      step: 250,
-      label: "Min Lifetime",
-      format: (v: number) => `${v}ms`,
-    },
-    lifetimeMax: {
-      value: 3000,
-      min: 500,
-      max: 10000,
-      step: 250,
-      label: "Max Lifetime",
-      format: (v: number) => `${v}ms`,
-    },
-    speed: {
-      value: 4.2,
-      min: 0,
-      max: 20,
-      step: 0.5,
-      label: "Speed",
-    },
-    gravity: {
-      value: 0.175,
-      min: -2,
-      max: 2,
-      step: 0.1,
-      label: "Gravity",
-    },
-    airResistance: {
-      value: 0.97875,
-      min: 0.9,
-      max: 1,
-      step: 0.01,
-      label: "Air Resistance",
-    },
-  },
-
   strings: {
     _meta: {
       label: "Strings",
@@ -714,6 +642,18 @@ export const UNIFIED_CONFIG = {
     },
   },
 
+  editions: {
+    _meta: {
+      label: "Edition",
+      icon: "◐",
+      description: "Shuffle picks one edition family per load; or keep one",
+    },
+    family: {
+      value: "shuffle",
+      label: "Edition family",
+    },
+  },
+
   patterns: {
     _meta: {
       label: "Pattern Recording",
@@ -865,7 +805,7 @@ export const UNIFIED_CONFIG = {
     _meta: {
       label: "Code Strip",
       icon: "🎼",
-      description: "Workspace CodeStrip and editable Strudel-line settings",
+      description: "Workspace CodeStrip and read-only Strudel-line settings",
     },
     enabled: {
       value: true,
@@ -891,11 +831,6 @@ export const UNIFIED_CONFIG = {
       value: "solfege",
       options: ["solfege", "note", "degree"],
       label: "Notation Mode",
-    },
-    durationMode: {
-      value: "bar" as const,
-      options: ["stacked", "bar", "hidden"],
-      label: "Duration Display",
     },
     showRests: {
       value: true,

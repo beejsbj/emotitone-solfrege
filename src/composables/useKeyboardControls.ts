@@ -9,7 +9,7 @@ import { useMusicStore } from "@/stores/music";
 import { usePhrasesStore } from "@/stores/phrases";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { createVoiceGroupLifecycle } from "@/services/inputVoiceGroups";
-import { buildHarmony } from "@/domain/harmony";
+import { buildHarmony, type HarmonyAlteration } from "@/domain/harmony";
 import type { ChromaticNote } from "@/types/music";
 
 /**
@@ -98,7 +98,15 @@ const BOTTOM_KEY_ROW = [
 /**
  * Composable for handling keyboard controls for solfege notes
  */
-export function useKeyboardControls(mainOctave: Ref<number>) {
+export function useKeyboardControls(
+  mainOctave: Ref<number>,
+  /**
+   * The Joystick's effective alteration, as the on-screen chord keys receive
+   * it. The number row builds the same harmony, so it must be given the same
+   * value; omission means "auto".
+   */
+  harmonyAlteration?: Ref<HarmonyAlteration>,
+) {
   const instrumentStore = useInstrumentStore();
   const musicStore = useMusicStore();
   const phrasesStore = usePhrasesStore();
@@ -165,6 +173,7 @@ export function useKeyboardControls(mainOctave: Ref<number>) {
       tonic: musicStore.currentKey as ChromaticNote,
       scaleType: musicStore.currentMode,
       octave: mainOctave.value,
+      alteration: harmonyAlteration?.value ?? "auto",
     });
 
   /**

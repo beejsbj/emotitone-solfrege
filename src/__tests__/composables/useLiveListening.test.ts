@@ -3,6 +3,7 @@ import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useLiveListening } from "@/composables/useLiveListening";
 import { startLivePitchMonitor } from "@/services/livePitch";
+import { createLivePitchStageBridge } from "@/services/hummingStage";
 
 const mocks = vi.hoisted(() => ({
   acquire: vi.fn(),
@@ -11,7 +12,7 @@ const mocks = vi.hoisted(() => ({
   pushPitch: vi.fn(),
   stopBridge: vi.fn(),
   updateBridgeContext: vi.fn(),
-  musicStore: null as unknown as { currentKey: string; currentMode: string },
+  musicStore: null as unknown as { currentKey: string; currentMode: string; laBasedMinor: boolean },
   instrumentStore: null as unknown as { currentInstrument: string },
   sourceListener: null as ((source: unknown) => void) | null,
 }));
@@ -62,7 +63,7 @@ describe("useLiveListening", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.musicStore = reactive({ currentKey: "C", currentMode: "major" });
+    mocks.musicStore = reactive({ currentKey: "C", currentMode: "major", laBasedMinor: false });
     mocks.instrumentStore = reactive({ currentInstrument: "piano" });
     mocks.sourceListener = null;
     mocks.release.mockResolvedValue(undefined);
@@ -158,6 +159,7 @@ describe("useLiveListening", () => {
   });
 
   it("updates pending and active bridges without restarting live audio", async () => {
+    mocks.musicStore.laBasedMinor = true;
     let resolveMonitor!: (monitor: { stop: () => Promise<void> }) => void;
     vi.mocked(startLivePitchMonitor).mockImplementationOnce(
       () => new Promise((resolve) => { resolveMonitor = resolve; }),
@@ -166,17 +168,24 @@ describe("useLiveListening", () => {
 
     const starting = listening.start();
     await vi.waitFor(() => expect(startLivePitchMonitor).toHaveBeenCalledTimes(1));
+    expect(createLivePitchStageBridge).toHaveBeenCalledWith(expect.objectContaining({ laBasedMinor: true }));
+    mocks.musicStore.laBasedMinor = false;
     mocks.musicStore.currentKey = "D";
     mocks.instrumentStore.currentInstrument = "organ";
 
     expect(mocks.updateBridgeContext).toHaveBeenLastCalledWith({
       key: "D",
       mode: "major",
+      laBasedMinor: false,
       instrument: "organ",
     });
 
     resolveMonitor({ stop: mocks.stopMonitor });
     await starting;
+    mocks.updateBridgeContext.mockClear();
+    mocks.musicStore.laBasedMinor = true;
+    expect(mocks.updateBridgeContext).toHaveBeenCalledOnce();
+    expect(mocks.updateBridgeContext).toHaveBeenCalledWith(expect.objectContaining({ laBasedMinor: true }));
     mocks.updateBridgeContext.mockClear();
     mocks.musicStore.currentMode = "dorian";
 
@@ -184,6 +193,7 @@ describe("useLiveListening", () => {
     expect(mocks.updateBridgeContext).toHaveBeenCalledWith({
       key: "D",
       mode: "dorian",
+      laBasedMinor: true,
       instrument: "organ",
     });
     expect(mocks.acquire).toHaveBeenCalledOnce();

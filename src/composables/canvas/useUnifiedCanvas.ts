@@ -1,7 +1,10 @@
+import { sizeStageCanvas, stagePixelRatio } from "./stageCanvas";
+import { liveAudioInput } from "@/services/liveAudio";
 import { computed, ref, watch, type Ref } from "vue";
 import { useMusicStore } from "@/stores/music";
 import { useVisualConfig } from "@/composables/useVisualConfig";
 import { useHarmonicAnalysis } from "@/composables/useHarmonicAnalysis";
+import { spokenPitchName, spelledPitchSolfege, pitchSolfege, spellPitch } from "@/domain/musicalIdentity";
 import { useAnimationLifecycle } from "@/composables/useAnimationLifecycle";
 import type {
   ActiveNote,
@@ -10,7 +13,6 @@ import type {
   SolfegeData,
 } from "@/types/music";
 import { useBlobRenderer } from "./useBlobRenderer";
-import { useParticleSystem } from "./useParticleSystem";
 import { useStringRenderer } from "./useStringRenderer";
 import { useAmbientRenderer } from "./useAmbientRenderer";
 import { useHarmonicGeometryRenderer } from "./useHarmonicGeometryRenderer";
@@ -27,7 +29,7 @@ import {
   type StageAudioFeatures,
 } from "@/services/stageAudio";
 import { getActiveLivePitchStageNotes } from "@/services/hummingStage";
-import { getActiveStrudelStageNotes } from "@/services/superdoughAudio";
+import { getActiveStrudelStageNotes, getAudioContext } from "@/services/superdoughAudio";
 import {
   STAGE_BODY_SIZE_BASE_RATIO,
   STAGE_BODY_SIZE_MAX_RATIO,
@@ -43,7 +45,7 @@ import { createAudibleStageTimeline } from "@/services/audibleStageTimeline";
 
 /**
  * Unified Canvas Management System
- * Manages a single canvas for all visual effects: blobs, particles, strings, and ambient
+ * Manages a single canvas for all visual effects: blobs, strings, and ambient
  * Now modularized into separate rendering systems for better maintainability
  */
 
@@ -81,7 +83,6 @@ export function useUnifiedCanvas(
     stageConfig,
     blobConfig,
     ambientConfig,
-    particleConfig,
     stringConfig,
     animationConfig,
     hilbertScopeConfig,
@@ -99,6 +100,13 @@ export function useUnifiedCanvas(
   const canvasWidth = ref(window.innerWidth);
   const canvasHeight = ref(window.innerHeight);
   let ctx: CanvasRenderingContext2D | null = null;
+  let resolutionQuery: MediaQueryList | null = null;
+  let canvasObserver: ResizeObserver | null = null;
+  let loopEnabled = false;
+  let disposed = false;
+  let liveInputActive = false;
+  let previousTimestamp: number | null = null;
+  let motionElapsed = 0;
 
   // Performance optimization: Cache colors
   const colorCache = new Map<string, string>();
@@ -107,20 +115,21 @@ export function useUnifiedCanvas(
   let cachedConfigs = {
     blob: blobConfig.value,
     ambient: ambientConfig.value,
-    particle: particleConfig.value,
     string: stringConfig.value,
     hilbertScope: hilbertScopeConfig.value,
     looper: looperConfig.value,
   };
 
+  const colorAnimationActive = ref(false);
+  const animateColors = () => colorAnimationActive.value;
+
   // Rendering systems
-  const blobRenderer = useBlobRenderer();
-  const particleSystem = useParticleSystem();
-  const stringRenderer = useStringRenderer();
-  const ambientRenderer = useAmbientRenderer();
+  const blobRenderer = useBlobRenderer(animateColors);
+  const stringRenderer = useStringRenderer(animateColors);
+  const ambientRenderer = useAmbientRenderer(animateColors);
   const harmonicGeometryRenderer = useHarmonicGeometryRenderer();
   const blobFieldRenderer = useBlobFieldRenderer();
-  const hilbertScopeRenderer = useHilbertScopeRenderer();
+  const hilbertScopeRenderer = useHilbertScopeRenderer(animateColors);
   const looperRenderer = useLooperRenderer();
   const looperSource = runtime?.looperSource ?? NULL_LOOPER_STAGE_SOURCE;
   const stageAudio = runtime?.audioFeatures ?? createStageAudioFeatures();
@@ -129,23 +138,14 @@ export function useUnifiedCanvas(
   let oneShotSequence = 0;
   let wasCompositionSuspended = false;
   const clearTransientStageState = () => {
-    particleSystem.clearAllParticles();
     hilbertScopeRenderer.clearHistory();
   };
-  const stopReducedMotionWatch = runtime
-    ? watch(
-        runtime.reducedMotion,
-        (reducedMotion) => {
-          if (reducedMotion) particleSystem.clearAllParticles();
-        },
-        { flush: "sync" },
-      )
-    : () => undefined;
   const stopStageEnabledWatch = watch(
     () => stageConfig.value.isEnabled,
     (isEnabled) => {
       if (isEnabled) return;
       clearTransientStageState();
+      clearCanvas();
     },
     { flush: "sync" },
   );
@@ -168,7 +168,7 @@ export function useUnifiedCanvas(
     const announcements: string[] = [];
 
     if (config.showChordLabel && snapshot.chordLabel) {
-      announcements.push(`Chord: ${snapshot.chordLabel}`);
+      announcements.push(`Chord: ${snapshot.chordSpoken ?? snapshot.chordLabel}`);
     }
 
     if (config.showIntervalLabels) {
@@ -176,8 +176,20 @@ export function useUnifiedCanvas(
         const from = notesById.get(edge.fromNoteId);
         const to = notesById.get(edge.toNoteId);
         if (from && to) {
+          // Spoken from the key's spelling; stored sharps never reach a label.
+          const spoken = (note: typeof from) => {
+            const latest = snapshot.displayedNotes[snapshot.displayedNotes.length - 1];
+            const context = snapshot.chordSymbol
+              ? { tonic: latest.key, mode: latest.mode }
+              : { tonic: note.key, mode: note.mode };
+            const spelling = snapshot.noteSpellings?.[note.noteId] ?? spellPitch(note.noteName, context) ?? note.noteName;
+            const syllable = snapshot.chordSymbol
+              ? spelledPitchSolfege(spelling, context, musicStore.laBasedMinor)
+              : pitchSolfege(note.noteName, context, { laBasedMinor: musicStore.laBasedMinor });
+            return `${syllable} (${spokenPitchName(spelling)})`;
+          };
           announcements.push(
-            `Interval ${from.noteName} to ${to.noteName}: ${edge.interval}`
+            `Interval ${spoken(from)} to ${spoken(to)}: ${edge.spokenInterval || edge.interval}`
           );
         }
       });
@@ -218,7 +230,6 @@ export function useUnifiedCanvas(
     cachedConfigs = {
       blob: blobConfig.value,
       ambient: ambientConfig.value,
-      particle: particleConfig.value,
       string: stringConfig.value,
       hilbertScope: hilbertScopeConfig.value,
       looper: looperConfig.value,
@@ -228,7 +239,7 @@ export function useUnifiedCanvas(
   /**
    * Reconcile sounding store and live-input notes with renderer-owned Blob
    * anchors. This restores notes that began while Stage or Note Bodies was
-   * disabled without replaying their audio, timers, or flecks.
+   * disabled without replaying their audio or timers.
    */
   const hydrateMissingBlobAnchors = (
     activeNotes: readonly ActiveNote[] = getStageActiveNotes(),
@@ -259,12 +270,16 @@ export function useUnifiedCanvas(
    * Handle window resize
    */
   const handleResize = () => {
-    canvasWidth.value = window.innerWidth;
-    canvasHeight.value = window.innerHeight;
+    const bounds = canvasRef.value?.getBoundingClientRect();
+    canvasWidth.value = bounds?.width || window.innerWidth;
+    canvasHeight.value = bounds?.height || window.innerHeight;
 
     if (canvasRef.value) {
-      canvasRef.value.width = canvasWidth.value;
-      canvasRef.value.height = canvasHeight.value;
+      sizeStageCanvas(canvasRef.value, ctx, canvasWidth.value, canvasHeight.value);
+      if (ctx) {
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+      }
     }
 
     // Resize Hilbert Scope
@@ -273,7 +288,20 @@ export function useUnifiedCanvas(
       canvasHeight.value,
       hilbertScopeConfig.value,
       getComposition(),
+      stagePixelRatio(),
     );
+    stringRenderer.initializeStrings(stringConfig.value, canvasWidth.value, canvasHeight.value, musicStore.solfegeData);
+    wakeAnimation();
+  };
+
+  const watchResolution = () => {
+    resolutionQuery?.removeEventListener("change", onResolutionChange);
+    resolutionQuery = window.matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`);
+    resolutionQuery.addEventListener("change", onResolutionChange);
+  };
+  const onResolutionChange = () => {
+    handleResize();
+    watchResolution();
   };
 
   /**
@@ -300,8 +328,10 @@ export function useUnifiedCanvas(
     }
 
     // Set canvas size
-    canvasRef.value.width = canvasWidth.value;
-    canvasRef.value.height = canvasHeight.value;
+    handleResize();
+    watchResolution();
+    canvasObserver = new ResizeObserver(handleResize);
+    canvasObserver.observe(canvasRef.value);
 
     // Set canvas style for crisp rendering
     ctx.imageSmoothingEnabled = true;
@@ -322,34 +352,31 @@ export function useUnifiedCanvas(
       );
     }
 
-    // Initialize strings
-    stringRenderer.initializeStrings(
-      stringConfig.value,
-      canvasWidth.value,
-      canvasHeight.value,
-      musicStore.solfegeData
-    );
-
     // Add string event listeners for sequencer integration
     stringRenderer.addEventListeners(noteEventTarget);
 
     // Initialize Hilbert Scope
     const waveformSource = stageAudio.initialize();
-    hilbertScopeRenderer.initializeHilbertScope(
+    void hilbertScopeRenderer.initializeHilbertScope(
       canvasWidth.value,
       canvasHeight.value,
       hilbertScopeConfig.value,
       waveformSource,
-    );
+    ).then(() => {
+      if (disposed) return;
+      hilbertScopeRenderer.resizeHilbertScope(canvasWidth.value, canvasHeight.value,
+        hilbertScopeConfig.value, getComposition(), stagePixelRatio());
+      wakeAnimation();
+    });
 
   };
 
   /**
    * Main render frame function - coordinates all visual effects
    */
-  const renderFrame = (elapsed: number, timestamp = performance.now()) => {
+  const renderFrame = (elapsed: number, timestamp: number, deltaSeconds: number) => {
     if (!ctx) {
-      return;
+      return false;
     }
 
     // Update cached configurations for performance
@@ -385,7 +412,7 @@ export function useUnifiedCanvas(
       stageActiveNotes,
     );
 
-    if (composition.suspended) return;
+    if (composition.suspended || !stageConfig.value.isEnabled) return false;
 
     // The Looper's light turns over the Atmosphere, behind every musical body.
     looperRenderer.renderLooper(
@@ -408,6 +435,7 @@ export function useUnifiedCanvas(
         audioFrame,
         reducedMotion,
         stageActiveNotes,
+        deltaSeconds,
       );
       stringRenderer.renderStrings(
         ctx,
@@ -429,15 +457,18 @@ export function useUnifiedCanvas(
         audioFrame,
         reducedMotion,
         stageActiveNotes,
+        deltaSeconds,
       );
     }
 
     if (cachedConfigs.blob.isEnabled) {
-      blobRenderer.reprojectBlobs(composition, cachedConfigs.blob, reducedMotion);
+      blobRenderer.reprojectBlobs(composition, cachedConfigs.blob, reducedMotion, deltaSeconds);
       blobRenderer.prepareBlobs(ctx, cachedConfigs.blob, {
         reducedMotion,
         bounds: composition.usable,
         elapsed,
+        deltaSeconds,
+        driftIntegrated: true,
       });
     }
 
@@ -469,30 +500,41 @@ export function useUnifiedCanvas(
       );
     }
 
-    if (cachedConfigs.particle.isEnabled && !reducedMotion) {
-      particleSystem.renderParticles(ctx, elapsed, cachedConfigs.particle);
-    }
-
     harmonicGeometryRenderer.renderLabels(
       ctx,
       harmonicScene,
       cachedConfigs.blob,
       { now: timestamp, reducedMotion, bounds: composition.usable }
     );
+
+    // Each animated layer owns its release lifetime. The unpitched microphone
+    // meter stays live even before pitch detection produces a note event.
+    return stageActiveNotes.length > 0 || liveInputActive
+      || audioFrame.hasSignal || audioFrame.envelope >= 0.001
+      || (cachedConfigs.blob.isEnabled && blobRenderer.hasPendingAnimation())
+      || (cachedConfigs.string.isEnabled && stringRenderer.hasPendingAnimation(cachedConfigs.string))
+      || (cachedConfigs.hilbertScope.isEnabled && hilbertScopeRenderer.hasPendingAnimation())
+      || (cachedConfigs.looper.isEnabled && looperRenderer.hasPendingAnimation());
   };
 
   // Setup animation with performance monitoring
   const getActiveObjectCount = () => {
     return (
       blobRenderer.getActiveBlobCount() +
-      particleSystem.getActiveParticleCount() +
       stringRenderer.getActiveStringCount()
     );
   };
 
-  const { startAnimation, stopAnimation, isAnimating } = useAnimationLifecycle({
-    onFrame: (timestamp: number, elapsed: number) => {
-      renderFrame(elapsed, timestamp);
+  const animation = useAnimationLifecycle({
+    onStart: () => { colorAnimationActive.value = true; },
+    onStop: () => { colorAnimationActive.value = false; },
+    onFrame: (timestamp: number) => {
+      const deltaSeconds = previousTimestamp === null ? 0
+        : Math.min(0.05, Math.max(0, (timestamp - previousTimestamp) / 1000));
+      previousTimestamp = timestamp;
+      motionElapsed += deltaSeconds;
+      const pending = renderFrame(motionElapsed, timestamp, deltaSeconds);
+      if (!pending) animation.stopAnimation();
 
       // Update performance metrics
       const activeObjectCount = getActiveObjectCount();
@@ -503,6 +545,57 @@ export function useUnifiedCanvas(
     },
     autoCleanup: true,
   });
+
+  const isAnimating = animation.isAnimating;
+  const canAnimate = () => !disposed && !!ctx && loopEnabled && !document.hidden && stageConfig.value.isEnabled;
+  const wakeAnimation = () => {
+    if (!canAnimate()) return;
+    if (!isAnimating.value) {
+      previousTimestamp = null;
+      animation.startAnimation();
+    }
+  };
+  const startAnimation = () => {
+    loopEnabled = true;
+    wakeAnimation();
+  };
+  const stopAnimation = () => {
+    loopEnabled = false;
+    animation.stopAnimation();
+    previousTimestamp = null;
+  };
+  const onVisibilityChange = () => {
+    if (document.hidden) animation.stopAnimation();
+    else wakeAnimation();
+  };
+  document.addEventListener("visibilitychange", onVisibilityChange);
+  const wakeEvents = ["note-played", "note-released", "note-expression"];
+  wakeEvents.forEach(event => noteEventTarget.addEventListener(event, wakeAnimation));
+  const audioEventTarget = runtime?.eventTarget ?? window;
+  audioEventTarget.addEventListener("stage-audio", wakeAnimation);
+  // Soundfonts, unpitched samples and late-connected audio taps need no pitch
+  // event. Probe only idle, visible Stages with a running audio clock; never draw
+  // silent transport frames just to discover a later onset.
+  const idleAudioTimer = window.setInterval(() => {
+    if (!canAnimate() || isAnimating.value || getComposition().suspended
+      || getAudioContext().state !== "running") return;
+    const frame = stageAudio.sample(performance.now());
+    if (frame.hasSignal || frame.envelope >= 0.001 || getStageActiveNotes().length) wakeAnimation();
+  }, 50);
+  const unsubscribeLiveInput = runtime?.audioFeatures ? () => {} : liveAudioInput.subscribe(source => {
+    liveInputActive = source !== null;
+    wakeAnimation();
+  });
+  const stopPresentationWatch = watch(
+    () => [stageConfig.value, blobConfig.value, ambientConfig.value, stringConfig.value,
+      hilbertScopeConfig.value, looperConfig.value, animationConfig.value, runtime?.usableRect.value,
+      runtime?.reducedMotion.value, getStageActiveNotes()],
+    () => {
+      if (!stageConfig.value.isEnabled) animation.stopAnimation();
+      else wakeAnimation();
+    },
+    { deep: true },
+  );
 
   /**
    * Handle note played event - enhanced for polyphonic support with Circle of Fifths positioning
@@ -590,32 +683,11 @@ export function useUnifiedCanvas(
         releaseHarmonicNote(harmonicNoteId);
         blobRenderer.startBlobFadeOutById(harmonicNoteId);
         scheduleHarmonicExpiry(harmonicNoteId);
+        wakeAnimation();
       }, Math.max(0, durationMs));
       oneShotReleaseTimers.set(harmonicNoteId, releaseTimer);
     }
-
-    // Create particles with reduced count for polyphonic scenarios
-    const activeNoteCount = getStageActiveNotes().length;
-    const particleCount = Math.max(
-      5,
-      Math.floor(particleConfig.value.count / Math.max(1, activeNoteCount - 1))
-    );
-
-    if (
-      !(runtime?.reducedMotion.value ?? false)
-      && !composition.suspended
-    ) {
-      particleSystem.createParticles(
-        note,
-        particleConfig.value,
-        canvasWidth.value,
-        composition.usable.height,
-        noteMode,
-        noteKey,
-        particleCount,
-        { pitchClassIndex, octave },
-      );
-    }
+    wakeAnimation();
   };
 
   /**
@@ -659,6 +731,7 @@ export function useUnifiedCanvas(
     }
 
     scheduleHarmonicExpiry(harmonicNoteId);
+    wakeAnimation();
   };
 
   /**
@@ -679,10 +752,18 @@ export function useUnifiedCanvas(
    * Cleanup function
    */
   const cleanup = () => {
+    disposed = true;
     stopAnimation();
+    stopPresentationWatch();
+    unsubscribeLiveInput();
+    canvasObserver?.disconnect();
+    resolutionQuery?.removeEventListener("change", onResolutionChange);
+    document.removeEventListener("visibilitychange", onVisibilityChange);
+    wakeEvents.forEach(event => noteEventTarget.removeEventListener(event, wakeAnimation));
+    audioEventTarget.removeEventListener("stage-audio", wakeAnimation);
+    window.clearInterval(idleAudioTimer);
     audibleTimeline?.dispose();
     blobRenderer.clearAllBlobs();
-    particleSystem.clearAllParticles();
     stringRenderer.clearAllStrings();
     stringRenderer.removeEventListeners(); // Clean up string event listeners
     hilbertScopeRenderer.cleanup(); // Clean up Hilbert Scope
@@ -694,7 +775,6 @@ export function useUnifiedCanvas(
     harmonicExpiryTimers.forEach((timer) => window.clearTimeout(timer));
     oneShotReleaseTimers.clear();
     harmonicExpiryTimers.clear();
-    stopReducedMotionWatch();
     stopStageEnabledWatch();
     clearCaches();
     window.removeEventListener("resize", handleResize);
@@ -721,7 +801,6 @@ export function useUnifiedCanvas(
     // Effect management
     createBlob: blobRenderer.createBlob,
     removeBlob: blobRenderer.removeBlob,
-    createParticles: particleSystem.createParticles,
     handleNotePlayed,
     handleNoteReleased,
 

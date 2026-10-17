@@ -1,6 +1,9 @@
 import type { LiveCommand, LiveConfig, LiveEnvelopeOverride, LiveInputNote, LiveResponse, LiveSampleZone,
   LiveVoiceEvent, PreparedLiveInstrument } from './types'
 import { createSampleResampler, type SampleResampler } from './resampler'
+import { VoiceEffects } from './lowpass'
+import { velocityToGain } from '../velocity'
+import { OPEN_CUTOFF_HZ, type LiveShaping } from '../liveShaping'
 import { MAX_AUDIO_VOICES, VOICE_RETIRE_SECONDS } from '../voicePolicy'
 
 const MAX_FADES = 8
@@ -11,6 +14,8 @@ const PITCH_SMOOTH_SECONDS = .007
 const MIN_GAIN_EXPRESSION = .25
 const MAX_GAIN_EXPRESSION = 1.75
 const GAIN_SMOOTH_SECONDS = .007
+// matches superdough's band-limited normalisation; remove when patterns render on the worklet (BJS-485)
+const SQUARE_SAW_PLAYBACK_GAIN = .85
 function polyBlep(t: number, dt: number) {
   return t < dt ? 2 * t / dt - (t / dt) ** 2 - 1
     : t > 1 - dt ? ((t - 1) / dt) ** 2 + 2 * (t - 1) / dt + 1 : 0
@@ -32,6 +37,7 @@ interface Pulse {
   notes: PlannedNote[]
 }
 interface Voice extends PlannedNote {
+  effects: VoiceEffects
   expressionOwnerId: string
   instrument: PreparedLiveInstrument
   zone?: LiveSampleZone
@@ -56,6 +62,9 @@ interface Voice extends PlannedNote {
 
 /** Audio-thread musical transport and PCM mixer. No DOM, timers, or promises. */
 export class LiveAudioCore {
+  private effectShape: LiveShaping = { cutoff: OPEN_CUTOFF_HZ, resonance: 0, room: 0, delay: 0 }
+  private effectPool: VoiceEffects[]
+  private scratch = [new Float32Array(128), new Float32Array(128)]
   private instruments = new Map<string, PreparedLiveInstrument>()
   private envelopeOverride: LiveEnvelopeOverride = {}
   // Shaped copies are built once per shape change, not per voice.
@@ -77,7 +86,9 @@ export class LiveAudioCore {
   private pitchBends = new Map<string, number>()
   private gainExpressions = new Map<string, number>()
 
-  constructor(private sampleRate: number, private send: (message: LiveResponse) => void, private notePrefix = 'worklet') {}
+  constructor(private sampleRate: number, private send: (message: LiveResponse) => void, private notePrefix = 'worklet') {
+    this.effectPool = Array.from({ length: MAX_AUDIO_VOICES + MAX_FADES }, () => new VoiceEffects(sampleRate))
+  }
 
   get voiceCount() { return this.voices.length + this.fades.length }
   private rhythmic() { return this.config.style === 'repeat' || this.config.style.startsWith('arp-') }
@@ -108,7 +119,7 @@ export class LiveAudioCore {
       const previous = pulse.notes
       pulse.notes = this.selection(pulse.step).map(({ note, ownerId, owners }) => {
         const match = previous.find(old => old.pitch === note.pitch && old.instrumentId === note.instrumentId)
-        return match ? { ...match, ownerId, owners: new Set(owners) } : this.note(note, ownerId, owners)
+        return match ? { ...match, velocity: note.velocity, ownerId, owners: new Set(owners) } : this.note(note, ownerId, owners)
       })
     }
     this.planDirty = true
@@ -138,10 +149,18 @@ export class LiveAudioCore {
           const voice = collection[index]
           if (voice.instrumentId !== command.instrumentId) continue
           this.releaseVoice(voice, frame, command.instant ? 0 : VOICE_RETIRE_SECONDS * this.sampleRate)
-          if (command.instant) collection.splice(index, 1)
+          if (command.instant) { voice.effects.inUse = false; collection.splice(index, 1) }
         }
         this.planDirty = true
         break
+      }
+      case 'effects': {
+        const shape = command.shaping
+        if (![shape.cutoff, shape.resonance, shape.room, shape.delay].every(Number.isFinite)) return
+        this.effectShape = shape
+        for (const voice of this.voices) if (!voice.shaping) voice.effects.set(shape)
+        for (const voice of this.fades) if (!voice.shaping) voice.effects.set(shape)
+        return
       }
       case 'shape': {
         // Sounding voices keep their envelope; the next attack uses the new one.
@@ -324,7 +343,7 @@ export class LiveAudioCore {
 
   private event(note: PlannedNote, phase: LiveVoiceEvent['phase'], frame: number, style: LiveConfig['style']): LiveVoiceEvent {
     return { phase, noteId: note.noteId, ownerId: note.ownerId, pitch: note.pitch,
-      instrumentId: note.instrumentId, style, at: Math.ceil(frame) / this.sampleRate }
+      instrumentId: note.instrumentId, velocity: note.velocity, style, at: Math.ceil(frame) / this.sampleRate }
   }
   private voiceEvent(voice: Voice, phase: LiveVoiceEvent['phase'], frame: number): LiveVoiceEvent {
     const { attack, decay, sustain } = voice.instrument
@@ -377,14 +396,19 @@ export class LiveAudioCore {
       if (stolen.published) {
         this.releaseVoice(stolen, frame, VOICE_RETIRE_SECONDS * this.sampleRate)
         this.fades.push(stolen)
-        if (this.fades.length > MAX_FADES) this.fades.shift()
-      }
+        if (this.fades.length > MAX_FADES) this.fades.shift()!.effects.inUse = false
+      } else stolen.effects.inUse = false
     }
     const increment = zone ? 2 ** ((note.pitch - zone.rootMidi) / 12) * zone.sampleRate / this.sampleRate
       : 440 * 2 ** ((note.pitch - 69) / 12) / this.sampleRate
     const pitchIncrement = increment * 2 ** ((this.pitchBends.get(note.ownerId) ?? 0) / 1200)
     const gainExpression = this.gainExpressions.get(note.ownerId) ?? 1
-    const voice: Voice = { ...note, owners: new Set(note.owners), expressionOwnerId: note.ownerId, instrument, zone,
+    let effectIndex = 0
+    while (this.effectPool[effectIndex].inUse) effectIndex++
+    const effects = this.effectPool[effectIndex]
+    effects.inUse = true
+    effects.reset(note.shaping ?? this.effectShape)
+    const voice: Voice = { ...note, effects, owners: new Set(note.owners), expressionOwnerId: note.ownerId, instrument, zone,
       resampler: zone ? createSampleResampler(zone, increment) : undefined,
       style: pulse.style, start: frame, end: pulse.duration === undefined ? Infinity : Math.ceil(pulse.frame + pulse.duration),
       position: 0, increment, pitchIncrement, pitchTarget: pitchIncrement, pitchRampRemaining: 0,
@@ -427,26 +451,27 @@ export class LiveAudioCore {
       case 'sine': return Math.sin(2 * Math.PI * phase)
       case 'triangle': return 1 - 4 * Math.abs(phase - .5)
         + 4 * dt * (polyBlamp(phase, dt) - polyBlamp((phase + .5) % 1, dt))
-      case 'sawtooth': return 2 * phase - 1 - polyBlep(phase, dt)
-      case 'square': return (phase < .5 ? 1 : -1) + polyBlep(phase, dt) - polyBlep((phase + .5) % 1, dt)
+      case 'sawtooth': return SQUARE_SAW_PLAYBACK_GAIN * (2 * phase - 1 - polyBlep(phase, dt))
+      case 'square': return SQUARE_SAW_PLAYBACK_GAIN * ((phase < .5 ? 1 : -1) + polyBlep(phase, dt) - polyBlep((phase + .5) % 1, dt))
     }
   }
 
-  private mix(collection: Voice[], output: Float32Array[], offset: number, length: number, firstFrame: number) {
+  private mix(collection: Voice[], output: Float32Array[], offset: number, length: number, firstFrame: number, room?: Float32Array[], delay?: Float32Array[]) {
     // Each envelope section is affine. The sampler can mix a contiguous block
     // with one coefficient lookup per stereo frame and no virtual calls in its
     // inner filter loop; source/filter state stays local for the whole span.
     for (let index = collection.length - 1; index >= 0; index--) {
       const voice = collection[index]
       const instrument = voice.instrument
+      const velocityGain = velocityToGain(voice.velocity)
       let sampleOffset = 0
       while (sampleOffset < length) {
         const frame = firstFrame + sampleOffset
-        let boundary = firstFrame + length
+        let boundary = Math.min(firstFrame + length, frame + 128)
         let envelopeStep = 0
         if (voice.released) {
           boundary = Math.min(boundary, Math.ceil(voice.releaseStart! + voice.releaseLength))
-          if (frame >= boundary) { collection.splice(index, 1); break }
+          if (frame >= boundary) { voice.effects.inUse = false; collection.splice(index, 1); break }
           envelopeStep = -voice.releaseLevel / voice.releaseLength
         } else {
           const attackEnd = voice.start + instrument.attack * this.sampleRate
@@ -463,8 +488,11 @@ export class LiveAudioCore {
         if (voice.gainRampRemaining) boundary = Math.min(boundary, frame + voice.gainRampRemaining)
         const span = boundary - frame
         let envelope = this.envelope(voice, frame)
-        let gain = envelope * instrument.gain * voice.gainExpression
-        const gainStep = envelopeStep * instrument.gain * voice.gainExpression
+        let gain = envelope * instrument.gain * velocityGain * voice.gainExpression
+        const gainStep = envelopeStep * instrument.gain * velocityGain * voice.gainExpression
+        this.scratch[0].fill(0)
+        this.scratch[1].fill(0)
+        let rendered = span
         if (voice.resampler) {
           if (voice.pitchRampRemaining || voice.gainRampRemaining) {
             let consumed = 0
@@ -473,12 +501,12 @@ export class LiveAudioCore {
                 ? (voice.pitchTarget - voice.pitchIncrement) / voice.pitchRampRemaining : 0
               const gainExpressionStep = voice.gainRampRemaining
                 ? (voice.gainTarget - voice.gainExpression) / voice.gainRampRemaining : 0
-              gain = envelope * instrument.gain * voice.gainExpression
-              const mixed = voice.resampler.mix(output[0], output[1], offset + sampleOffset + consumed, 1,
+              gain = envelope * instrument.gain * velocityGain * voice.gainExpression
+              const mixed = voice.resampler.mix(this.scratch[0], this.scratch[1], consumed, 1,
                 voice.position, gain, 0, voice.pitchIncrement)
               if (!mixed) {
                 this.releaseVoice(voice, frame + consumed, 0)
-                collection.splice(index, 1); break
+                voice.effects.inUse = false; collection.splice(index, 1); break
               }
               voice.position += voice.pitchIncrement
               if (voice.pitchRampRemaining) {
@@ -492,20 +520,21 @@ export class LiveAudioCore {
               envelope += envelopeStep
               consumed++
             }
-            if (consumed < span) break
+            rendered = consumed
           } else {
-            const consumed = voice.resampler.mix(output[0], output[1], offset + sampleOffset, span, voice.position, gain, gainStep, voice.pitchIncrement)
+            const consumed = voice.resampler.mix(this.scratch[0], this.scratch[1], 0, span, voice.position, gain, gainStep, voice.pitchIncrement)
             voice.position += consumed * voice.pitchIncrement
             if (consumed < span) {
               this.releaseVoice(voice, frame + consumed, 0)
-              collection.splice(index, 1); break
+              voice.effects.inUse = false; collection.splice(index, 1)
             }
+            rendered = consumed
           }
         } else {
           for (let i = 0; i < span; i++) {
             const sample = this.oscillator(voice) * (voice.gainRampRemaining
-              ? envelope * instrument.gain * voice.gainExpression : gain)
-            for (let channel = 0; channel < output.length; channel++) output[channel][offset + sampleOffset + i] += sample
+              ? envelope * instrument.gain * velocityGain * voice.gainExpression : gain)
+            this.scratch[0][i] = this.scratch[1][i] = sample
             voice.position += voice.pitchIncrement
             if (voice.pitchRampRemaining) {
               voice.pitchIncrement += (voice.pitchTarget - voice.pitchIncrement) / voice.pitchRampRemaining
@@ -519,15 +548,19 @@ export class LiveAudioCore {
             gain += gainStep
           }
         }
+        voice.effects.process(this.scratch[0], this.scratch[1], output, room, delay, offset + sampleOffset, rendered)
+        if (rendered < span) break
         sampleOffset += span
       }
     }
   }
 
-  render(output: Float32Array[], firstFrame: number) {
+  render(output: Float32Array[], firstFrame: number, room?: Float32Array[], delay?: Float32Array[]) {
     const length = output[0]?.length ?? 0
     const endFrame = firstFrame + length
     for (const channel of output) channel.fill(0)
+    if (room) for (const channel of room) channel.fill(0)
+    if (delay) for (const channel of delay) channel.fill(0)
     let frame = firstFrame
     while (frame < endFrame) {
       this.fill(frame)
@@ -553,8 +586,8 @@ export class LiveAudioCore {
         if (planningBoundary > frame) boundary = Math.min(boundary, planningBoundary)
       }
       const span = Math.max(1, boundary - frame)
-      this.mix(this.voices, output, frame - firstFrame, span, frame)
-      this.mix(this.fades, output, frame - firstFrame, span, frame)
+      this.mix(this.voices, output, frame - firstFrame, span, frame, room, delay)
+      this.mix(this.fades, output, frame - firstFrame, span, frame, room, delay)
       frame += span
     }
     this.publishPlan(endFrame)

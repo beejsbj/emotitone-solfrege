@@ -27,6 +27,8 @@ Watch/UI sessions hold the lock until closed. A waiting command reports the lock
 
 The default compiler heap is 1536 MiB of V8 old-space. This is **not a total RSS cap**. A legitimately larger project can use `EMOTITONE_TYPECHECK_HEAP_MB=<positive integer>` on a host with sufficient headroom. Compiler failure under this budget is visible; the launcher never silently skips checking. Vitest defaults to two workers, trading some elapsed time for lower peak memory. A dedicated CI host can explicitly override that worker count.
 
+Isolated machines have nothing to serialise against. GitHub Actions (`.github/workflows/ci.yml`) and Vercel (`vercel.json`) set `EMOTITONE_VERIFY_BYPASS_LOCK=1`, which runs the same steps in order without taking the lock or needing Git. Leave it unset on bjslab and other shared hosts.
+
 Direct `vue-tsc`, `vitest`, `bunx`, and separate Git clones bypass this repository lock. `bun test` invokes Bun's own runner; use `bun run test` for this project's Vitest suite. Browser audio measurements have their own runner; schedule them separately from CPU-heavy verification. This code coordinates cooperating project commands, not every process on the host.
 
 ## What each test proves
@@ -34,6 +36,8 @@ Direct `vue-tsc`, `vitest`, `bunx`, and separate Git clones bypass this reposito
 The `node` project exercises pure calculations, real audio-core rendering, and adapter-driven logic without DOM globals or application setup. The `dom` project uses happy-dom plus browser/API shims and external-effect mocks. Music theory, catalog/config data, and normal DOM events remain real by default. Tests needing a controlled event sink or a particular dependency mock declare it in that suite and restore it afterward.
 
 Add a test for an observable behavior, failure boundary, resource lifetime, or meaningful architecture contract. Prefer changing an existing regression test when it already owns that behavior. Audio timing, voice budgets, cleanup, recording fidelity, actual persistence, and rendered output deserve protection. Assertions about a source comment, a variable's spelling, duplicate shell presence, or a mock's canned answer usually do not. Missing prerequisites must fail, not return successfully before any assertion.
+
+Source assertions may protect meaningful architecture contracts (imports, routing, lineage) when those boundaries are not directly observable through runtime behavior. Existing examples are `src/__tests__/components/core/App.test.ts` and `src/__tests__/components/PatternStrip.test.ts`; keep assertions focused on the boundary rather than incidental implementation text.
 
 The retired `test:e2e` collection used happy-dom, mocked shells, and direct store calls. It did not exercise multiple browsers. Its useful behavior is covered by current component/store tests and the separately named browser audio lab. Old palette suites and their scaffolding were retired with their removed production APIs; Git retains the history. Canvas lifetime tests use current APIs alongside the existing harmonic and pixel-rendering suites.
 

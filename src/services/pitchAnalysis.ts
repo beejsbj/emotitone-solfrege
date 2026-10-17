@@ -1,5 +1,6 @@
 import { CHROMATIC_NOTES } from "@/data";
-import { findScaleIndexForPitchClass } from "@/services/scalePitch";
+import { classifyDetectedPitch } from "@/domain/musicalIdentity";
+import { DEFAULT_VOICE_VELOCITY, voiceRmsToVelocity } from "@/services/voiceDynamics";
 import type { PhraseCandidate } from "@/domain/phraseBook";
 import type { PatternNote } from "@/types/patterns";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
@@ -14,7 +15,7 @@ export interface PitchAnalysisFrame {
   midi_processed: number | null;
   confidence: number;
   voiced: boolean;
-  rms_db: number;
+  rms_db: number; // Amplitude dBFS, confirmed against captured Melograph PCM analysis.
 }
 
 export interface PitchAnalysisNoteEvent {
@@ -106,11 +107,16 @@ export async function analyzePitchRecording(
   return payload;
 }
 
-export async function preparePitchAnalysisAudio(input: Blob): Promise<Blob> {
+export async function preparePitchAnalysisAudio(
+  input: Blob,
+  maximumDurationSeconds = Infinity,
+): Promise<Blob> {
   const context = new AudioContext();
   try {
     const decoded = await context.decodeAudioData(await input.arrayBuffer());
-    const frameCount = Math.ceil(decoded.duration * OUTPUT_SAMPLE_RATE);
+    // Timer callbacks can be delayed by backgrounding or a main-thread stall.
+    // Bound the retained audio too, while keeping the beginning of the take.
+    const frameCount = Math.ceil(Math.min(decoded.duration, maximumDurationSeconds) * OUTPUT_SAMPLE_RATE);
     const offline = new OfflineAudioContext(1, frameCount, OUTPUT_SAMPLE_RATE);
     const source = offline.createBufferSource();
     source.buffer = decoded;
@@ -173,6 +179,7 @@ export function pitchAnalysisToPatternCandidates(
         eventIndex,
         captureId,
         context,
+        analysis.frames,
       );
       return note ? [note] : [];
     });
@@ -202,33 +209,33 @@ function eventToPatternNote(
   eventIndex: number,
   captureId: string,
   context: PitchAnalysisContext,
+  frames: PitchAnalysisFrame[],
 ): PatternNote | null {
   if (
-    !Number.isFinite(event.midi)
-    || !Number.isFinite(event.start_seconds)
+    !Number.isFinite(event.start_seconds)
     || !Number.isFinite(event.end_seconds)
     || event.end_seconds <= event.start_seconds
   ) {
     return null;
   }
 
-  const midi = Math.round(event.midi);
-  const pitchClass = CHROMATIC_NOTES[((midi % 12) + 12) % 12];
+  // The analyser may round event.midi; use measured Hz for nearest-semitone rounding.
+  const pitch = classifyDetectedPitch(
+    Number.isFinite(event.pitch_hz) && event.pitch_hz! > 0
+      ? { frequencyHz: event.pitch_hz! }
+      : { midi: event.midi },
+    { tonic: context.key, mode: context.mode },
+  );
+  if (!pitch) return null;
+  const { midi } = pitch;
+  const pitchClass = CHROMATIC_NOTES[pitch.pitchClass];
   const octave = Math.floor(midi / 12) - 1;
   if (!pitchClass || !Number.isFinite(octave)) {
     return null;
   }
   const canonicalName = `${pitchClass}${octave}`;
 
-  const scaleIndex = findScaleIndexForPitchClass(
-    pitchClass,
-    context,
-  );
-  if (scaleIndex == null) {
-    throw new Error(
-      `Pitch analysis detected ${canonicalName}, which is outside ${context.key} ${context.mode}.`,
-    );
-  }
+  const scaleIndex = pitch.scaleIndex ?? -1;
   const pressTime = Math.max(
     0,
     Math.round((event.start_seconds - phrase.start_seconds) * 1000),
@@ -243,15 +250,32 @@ function eventToPatternNote(
     note: canonicalName,
     scaleDegree: scaleIndex + 1,
     scaleIndex,
+    pitchClassIndex: pitch.pitchClass,
+    isBorrowed: pitch.borrowed,
     octave,
-    frequency: Number.isFinite(event.pitch_hz)
-      ? event.pitch_hz
-      : 440 * 2 ** ((event.midi - 69) / 12),
-    velocity: clamp(event.confidence ?? 1, 0, 1),
+    frequency: pitch.frequency,
+    velocity: noteVelocity(event, frames),
     pressTime,
     releaseTime,
     duration: releaseTime - pressTime,
   };
+}
+
+function noteVelocity(event: PitchAnalysisNoteEvent, frames: PitchAnalysisFrame[]): number {
+  let energy = 0;
+  let count = 0;
+  for (const frame of frames) {
+    if (
+      !frame.voiced || !Number.isFinite(frame.rms_db)
+      || frame.time_seconds < event.start_seconds
+      || frame.time_seconds >= event.end_seconds
+    ) continue;
+    // Melograph reports amplitude dBFS (not Praat intensity); see the captured
+    // two-level sine fixture. Average energy, then recover linear RMS.
+    energy += 10 ** (frame.rms_db / 10);
+    count += 1;
+  }
+  return count ? voiceRmsToVelocity(Math.sqrt(energy / count)) : DEFAULT_VOICE_VELOCITY;
 }
 
 function isPitchAnalysisResult(value: unknown): value is PitchAnalysisResult {
@@ -278,10 +302,6 @@ async function readJson(response: Response): Promise<unknown> {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
-}
-
-function clamp(value: number, minimum: number, maximum: number): number {
-  return Math.min(maximum, Math.max(minimum, value));
 }
 
 function writeAscii(view: DataView, offset: number, text: string) {

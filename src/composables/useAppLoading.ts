@@ -1,9 +1,11 @@
+import { abortable } from "@/utils/abortable";
+import { resumeAudioContext } from "@/services/audioLifecycle";
 /**
  * App Loading State Composable
  * Manages the overall loading state and coordination between different initialization phases
  */
 
-import { ref, reactive, computed, watch, readonly } from "vue";
+import { reactive, computed, watch, readonly } from "vue";
 import type {
   LoadingPhase,
   LoadingState,
@@ -35,12 +37,12 @@ const AUDIO_RESUME_TIMEOUT_MS = 1500;
 const ENGINE_START_TIMEOUT_MS = 15_000;
 
 /** Rejects with `error()` after `ms`, so a hung promise becomes a named failure. */
-function within<T>(promise: Promise<T>, ms: number, error: () => Error): Promise<T> {
+function within<T>(promise: Promise<T>, ms: number, error: () => Error, signal: AbortSignal): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const expiry = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(error()), ms);
   });
-  return Promise.race([promise, expiry]).finally(() => clearTimeout(timer));
+  return abortable(Promise.race([promise, expiry]), signal).finally(() => clearTimeout(timer));
 }
 
 /**
@@ -78,11 +80,29 @@ const createDefaultLoadingState = (
 
 // Global loading state (singleton pattern)
 let globalLoadingState: AppLoadingState | null = null;
+let generationController = new AbortController();
+
+/** Each phase belongs to the current generation, and releases its callbacks
+ * when it settles (including timeouts). The shared audio engine is not reset. */
+function loadingStep() {
+  const parent = generationController.signal;
+  const controller = new AbortController();
+  const cancel = () => controller.abort();
+  parent.addEventListener("abort", cancel, { once: true });
+  return {
+    signal: controller.signal,
+    finish() {
+      parent.removeEventListener("abort", cancel);
+      controller.abort();
+    },
+  };
+}
 
 export function useAppLoading() {
   // Initialize global state if it doesn't exist
   if (!globalLoadingState) {
     globalLoadingState = reactive<AppLoadingState>({
+      generation: 0,
       isLoading: true,
       isVisible: true,
       progress: {
@@ -142,33 +162,62 @@ export function useAppLoading() {
   const initializeAudioContext = async (
     { synthsOnly = false }: { synthsOnly?: boolean } = {}
   ): Promise<boolean> => {
+    const step = loadingStep();
     updatePhase("audioContext", {
       phase: "audio-context",
       progress: 10,
       message: "Enabling audio context...",
     });
 
+    let selectedInstrumentTimedOut = false;
     try {
       await within(
         synthsOnly ? initSynthOnlyAudio() : initSuperdoughAudio(),
         ENGINE_START_TIMEOUT_MS,
         () => new Error("The audio engine did not start in time"),
+        step.signal,
       );
+      step.signal.throwIfAborted();
       if (synthsOnly) {
         // Whatever is selected (a persisted sampled instrument, say) may never
         // have loaded; the synth entry plays the synth that was just prepared.
         const { useInstrumentStore } = await import("@/stores/instrument");
+        step.signal.throwIfAborted();
         useInstrumentStore().fallBackToSynth();
       }
 
       const context = getAudioContext();
-      if (context.state !== "running") {
-        await Promise.race([
-          context.resume(),
-          new Promise((resolve) => setTimeout(resolve, AUDIO_RESUME_TIMEOUT_MS)),
-        ]);
+      const resumption = resumeAudioContext(context);
+      if (resumption) {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        try {
+          await abortable(Promise.race([
+            resumption,
+            new Promise(resolve => { timer = setTimeout(resolve, AUDIO_RESUME_TIMEOUT_MS); }),
+          ]), step.signal);
+        } finally {
+          clearTimeout(timer);
+        }
       }
+      step.signal.throwIfAborted();
       if (context.state !== "running") throw new AudioBlockedError();
+      if (!synthsOnly) {
+        const { useInstrumentStore } = await import("@/stores/instrument");
+        step.signal.throwIfAborted();
+        updatePhase("instruments", { isComplete: false, progress: 0, message: "Preparing instrument…" });
+        await within(
+          useInstrumentStore().initializeInstruments((progress, message) => {
+            if (step.signal.aborted) return;
+            loadingState.progress.instruments.progress = progress;
+            loadingState.progress.instruments.message = message;
+          }, { signal: step.signal }),
+          INSTRUMENT_LOAD_TIMEOUT_MS,
+          () => { selectedInstrumentTimedOut = true; return instrumentLoadTimeout(); },
+          step.signal,
+        );
+        step.signal.throwIfAborted();
+        updatePhase("instruments", { isComplete: true, progress: 100 });
+      }
 
       updatePhase("audioContext", {
         progress: 100,
@@ -179,8 +228,18 @@ export function useAppLoading() {
       });
       return true;
     } catch (error) {
-      // Only a context the browser refused is a cue; anything the initializers
-      // throw is an engine fault, which a tap cannot fix.
+      if (step.signal.aborted) return false;
+      if (error instanceof SampleLoadError) {
+        updatePhase("instruments", {
+          message: "Instrument samples failed to load",
+          isComplete: false,
+          error: error.message,
+          failure: "samples",
+          timedOut: selectedInstrumentTimedOut,
+        });
+        return false;
+      }
+      // Only a context the browser refused is a cue. Engine faults keep the splash.
       const blocked = error instanceof AudioBlockedError;
       updatePhase("audioContext", {
         progress: 0,
@@ -190,11 +249,14 @@ export function useAppLoading() {
         failure: blocked ? "blocked" : "engine",
       });
       return false;
+    } finally {
+      step.finish();
     }
   };
 
   // Initialize instruments (coordinates with instrument store)
   const initializeInstruments = async () => {
+    const step = loadingStep();
     updatePhase("instruments", {
       phase: "instruments",
       progress: 0,
@@ -205,12 +267,14 @@ export function useAppLoading() {
     try {
       // Lazy import to avoid circular dependencies
       const { useInstrumentStore } = await import("@/stores/instrument");
+      step.signal.throwIfAborted();
       const instrumentStore = useInstrumentStore();
 
       // Granular callback: update instruments phase with the step detail but
       // keep overall.message as a stable header ("Loading audio samples…")
       // so the two message lines don't echo each other in the UI.
       const progressCallback = (progress: number, message: string) => {
+        if (step.signal.aborted) return;
         loadingState.progress.instruments.progress = Math.min(progress, 99);
         loadingState.progress.instruments.message = message;
         loadingState.progress.overall.progress = overallProgress.value;
@@ -219,20 +283,23 @@ export function useAppLoading() {
 
       // A load that hangs stops the count; the timeout is named by the step that hung.
       await within(
-        instrumentStore.initializeInstruments(progressCallback),
+        instrumentStore.initializeInstruments(progressCallback, { prepareSelected: false, signal: step.signal }),
         INSTRUMENT_LOAD_TIMEOUT_MS,
         () => {
           timedOut = true;
           return instrumentLoadTimeout();
         },
+        step.signal,
       );
+      step.signal.throwIfAborted();
 
       updatePhase("instruments", {
         progress: 100,
-        message: "All instruments ready",
+        message: "Audio engine ready; selected sound prepares on Play",
         isComplete: true,
       });
     } catch (error) {
+      if (step.signal.aborted) return;
       console.error("Instrument initialization error:", error);
 
       // A failed load holds the count: the phase stays incomplete so loading
@@ -247,25 +314,35 @@ export function useAppLoading() {
         failure: samples ? "samples" : "engine",
         timedOut,
       });
+    } finally {
+      step.finish();
     }
   };
 
   // Initialize visual effects
   const initializeVisualEffects = async () => {
+    const step = loadingStep();
     updatePhase("visualEffects", {
       phase: "visual-effects",
       progress: 10,
       message: "Initializing visual effects...",
     });
 
-    // Simulate visual effects initialization
-    await new Promise((resolve) => setTimeout(resolve, 300));
-
-    updatePhase("visualEffects", {
-      progress: 100,
-      message: "Visual effects ready",
-      isComplete: true,
-    });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await abortable(new Promise<void>(resolve => { timer = setTimeout(resolve, 300); }), step.signal);
+      step.signal.throwIfAborted();
+      updatePhase("visualEffects", {
+        progress: 100,
+        message: "Visual effects ready",
+        isComplete: true,
+      });
+    } catch (error) {
+      if (!step.signal.aborted) throw error;
+    } finally {
+      clearTimeout(timer);
+      step.finish();
+    }
   };
 
   // Complete loading process
@@ -326,12 +403,14 @@ export function useAppLoading() {
 
   // Hide the splash screen
   const hideSplash = (delayMs = 500) => {
+    const generation = loadingState.generation;
     loadingState.isVisible = false;
     if (delayMs <= 0) {
       loadingState.isLoading = false;
       return;
     }
     setTimeout(() => {
+      if (generation !== loadingState.generation) return;
       loadingState.isLoading = false;
     }, delayMs); // Allow for the visual fade-out when motion is enabled.
   };
@@ -342,8 +421,11 @@ export function useAppLoading() {
     loadingState.isLoading = false;
   };
 
-  // Reset loading state (for development/testing)
+  // Cancel every phase before replacing state, including pending Play/recovery.
   const resetLoading = () => {
+    generationController.abort();
+    generationController = new AbortController();
+    loadingState.generation += 1;
     loadingState.isLoading = true;
     loadingState.isVisible = true;
     loadingState.progress.audioContext = createDefaultLoadingState("initial");

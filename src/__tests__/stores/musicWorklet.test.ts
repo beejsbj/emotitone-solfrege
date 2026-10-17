@@ -17,6 +17,7 @@ const worklet = vi.hoisted(() => ({
 }));
 vi.mock("@/services/livePlayback", () => ({
   getLivePlayback: vi.fn(() => worklet.engine),
+  waitForLivePlayback: vi.fn(),
   subscribeLivePlayback: vi.fn(listener => { worklet.listener = listener; return worklet.unsubscribe; }),
   needsLivePlaybackPreparation: vi.fn(() => false),
 }));
@@ -26,6 +27,7 @@ import { usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { useInstrumentStore } from "@/stores/instrument";
 import * as audio from "@/services/superdoughAudio";
+import { manageAudioLifecycle, onAudioRunning } from "@/services/audioLifecycle";
 import { getLivePlayback } from "@/services/livePlayback";
 import { SCHEDULED_LIVE_MIDI_EVENT } from "@/services/scheduledLiveVoice";
 
@@ -78,6 +80,132 @@ afterEach(() => {
 });
 
 describe("music store production worklet integration", () => {
+  it.each([true, false])('records performed velocity through the prepared/fallback path (prepared: %s)', async prepared => {
+    if (!prepared) vi.mocked(getLivePlayback).mockReturnValue(null);
+    const phrases = recorder();
+    const music = useMusicStore();
+    for (const [index, velocity] of [19 / 127, 113 / 127].entries()) {
+      const owner = await music.attackExactPitch('C4', () => false, velocity);
+      expect(owner).toBeTruthy();
+      if (prepared) {
+        worklet.listener!.onEvent({ ...event(owner!, `velocity-${index}`, 'attack', 12 + index * .3), velocity });
+        worklet.listener!.onEvent({ ...event(owner!, `velocity-${index}`, 'release', 12 + index * .3 + .2), velocity });
+      } else {
+        await vi.advanceTimersByTimeAsync(200);
+      }
+      await music.releaseNote(owner!);
+      await vi.advanceTimersByTimeAsync(100);
+    }
+    expect(phrases.takeNotes.map(note => note.velocity)).toEqual([19 / 127, 113 / 127]);
+    expect(events('note-played').map(event => event.velocity)).toEqual([19 / 127, 113 / 127]);
+  });
+
+  it.each(["suspended", "interrupted"])("resumes once per wake event including holdPitch from %s", async state => {
+    Object.defineProperty(context, "state", { configurable: true, value: state, writable: true });
+    let finish!: () => void;
+    context.resume = vi.fn(() => new Promise<void>(resolve => { finish = () => {
+      Object.assign(context, { state: "running" });
+      context.dispatchEvent(new Event("statechange"));
+      resolve();
+    }; }));
+    const stop = manageAudioLifecycle(context, { isSounding: () => false });
+    const music = useMusicStore();
+    try {
+      for (const [index, type] of ["pointerdown", "keydown", "touchend", "visibilitychange"].entries()) {
+        Object.assign(context, { state });
+        let pending!: ReturnType<typeof music.attackExactPitch>;
+        const press = () => { pending = music.attackExactPitch("C4"); };
+        document.addEventListener(type, press, { once: true });
+        document.dispatchEvent(new Event(type));
+        expect(context.resume).toHaveBeenCalledTimes(index + 1);
+        expect(worklet.engine.press).toHaveBeenCalledTimes(index);
+        finish();
+        const owner = await pending;
+        expect(worklet.engine.press).toHaveBeenCalledTimes(index + 1);
+        await music.releaseNote(owner!);
+      }
+    } finally { stop(); }
+  });
+
+  it("keeps the first note waiting through an interruption during bank recovery", async () => {
+    Object.assign(context, { state: "interrupted" });
+    let finishResume!: () => void;
+    context.resume = vi.fn(() => new Promise<void>(resolve => { finishResume = () => {
+      Object.assign(context, { state: "running" }); resolve();
+    }; }));
+    let finishBanks!: () => void;
+    const rebuilding = new Promise<void>(resolve => { finishBanks = resolve; });
+    let banksReady = false;
+    const stopRecovery = onAudioRunning(context, () => banksReady ? undefined : rebuilding);
+    const stop = manageAudioLifecycle(context, { isSounding: () => false });
+    const music = useMusicStore();
+    try {
+      const first = music.attackExactPitch("C4");
+      finishResume();
+      await vi.advanceTimersByTimeAsync(0);
+      Object.assign(context, { state: "interrupted" });
+      context.dispatchEvent(new Event("statechange"));
+      document.dispatchEvent(new Event("pointerdown"));
+      const second = music.attackExactPitch("E4");
+      banksReady = true;
+      finishBanks();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(context.resume).toHaveBeenCalledTimes(2);
+      expect(worklet.engine.press).not.toHaveBeenCalled();
+      finishResume();
+      const owners = await Promise.all([first, second]);
+      expect(context.state).toBe("running");
+      expect(worklet.engine.press.mock.calls).toEqual([
+        [owners[0], [{ pitch: 60, instrumentId: "piano" }]],
+        [owners[1], [{ pitch: 64, instrumentId: "piano" }]],
+      ]);
+      for (const owner of owners) await music.releaseNote(owner!);
+    } finally { stop(); stopRecovery(); }
+  });
+
+  it("never idles a held worklet input even when its output is silent", async () => {
+    context.suspend = vi.fn().mockResolvedValue(undefined);
+    const stop = manageAudioLifecycle(context, { isSounding: () => false });
+    const music = useMusicStore();
+    try {
+      const owner = await music.attackExactPitch("C4");
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(context.suspend).not.toHaveBeenCalled();
+      await music.releaseNote(owner!);
+      await vi.advanceTimersByTimeAsync(30_250);
+      expect(context.suspend).toHaveBeenCalledOnce();
+    } finally { stop(); }
+  });
+
+  it.each(["suspended", "interrupted"])("waits for %s recovery before submitting the first attack", async state => {
+    Object.defineProperty(context, "state", { configurable: true, value: state, writable: true });
+    let finish!: () => void;
+    context.resume = vi.fn(() => new Promise<void>(resolve => { finish = () => {
+      Object.defineProperty(context, "state", { value: "running" }); resolve();
+    }; }));
+    const music = useMusicStore();
+    const pending = music.attackExactPitch("C4");
+    expect(worklet.engine.press).not.toHaveBeenCalled();
+    finish();
+    const owner = await pending;
+    expect(worklet.engine.press).toHaveBeenCalledWith(owner, [{ pitch: 60, instrumentId: "piano" }]);
+    await music.releaseNote(owner!);
+  });
+
+  it("drops an input released while recovery is pending", async () => {
+    Object.defineProperty(context, "state", { configurable: true, value: "interrupted" });
+    let finish!: () => void;
+    context.resume = vi.fn(() => new Promise<void>(resolve => { finish = () => {
+      Object.defineProperty(context, "state", { value: "running" }); resolve();
+    }; }));
+    let cancelled = false;
+    const pending = useMusicStore().attackExactPitch("C4", () => cancelled);
+    cancelled = true;
+    finish();
+    expect(await pending).toBeNull();
+    expect(worklet.engine.press).not.toHaveBeenCalled();
+  });
+
   it("records the renderer envelope and final release override as independent snapshots", async () => {
     const music = useMusicStore(); const patterns = recorder();
     const owner = await music.attackExactPitch("C4");

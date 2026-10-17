@@ -141,6 +141,7 @@ vi.mock('@/services/superdoughAudio', () => ({
   stopNote: vi.fn(),
   playNoteWithDuration: vi.fn().mockResolvedValue(undefined),
   releaseAll: vi.fn(),
+  getActiveStrudelStageNotes: vi.fn(() => []),
   getAudioContext: vi.fn(() => ({
     currentTime: 0,
     state: 'running',
@@ -150,6 +151,7 @@ vi.mock('@/services/superdoughAudio', () => ({
   getRegisteredSounds: vi.fn().mockReturnValue(['piano', 'triangle']),
   setLiveSynthControls: vi.fn(),
   stopStrudelVisuals: vi.fn(),
+  setStrudelLaBasedMinor: vi.fn(),
   emotitoneStrudelOutput: vi.fn().mockResolvedValue(undefined),
   playStrudelCode: vi.fn().mockResolvedValue(undefined),
   stopStrudelPlayback: vi.fn(),

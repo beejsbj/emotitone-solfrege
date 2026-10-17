@@ -78,6 +78,20 @@
      so separators sit in the same warm ramp as the Ink they cut. */
   --hairline:   color-mix(in srgb, var(--ivory) 10%, transparent);
 
+  /* Unlit LED — the off state of every hand-cut chad and bulb (Knob collar,
+     Beat Indicator crown, Tabs Marquee). A step between --ivory-3 and
+     --ivory-4, it is the dimmest that keeps 3:1 on --ink through --ink-4, so
+     an unlit mark still reads as a mark and lit ones still outshine it. */
+  --led-off:    color-mix(in srgb, var(--ivory-3) 55%, var(--ivory-4));
+
+  /* Focus ring — two rings, so focus reads on every material: the inner Ink
+     ring carries it against light caps (Ivory, Brass), the outer Ivory ring
+     against the dark stage. Draw the outer ring as an outline and fill the
+     outline offset with the inner ring (see Button and Tabs). */
+  --focus-ring-inner: var(--ink);
+  --focus-ring-outer: var(--ivory);
+  --focus-ring-width: 2px;
+
   /* CodeStrip Bar and Control Bar share one opaque instrument plane. */
   --instrument-bar-surface: var(--ink);
 
@@ -104,6 +118,17 @@
   --s-1: 2px;  --s-2: 4px;  --s-3: 6px;  --s-4: 8px;
   --s-5: 12px; --s-6: 16px; --s-7: 20px; --s-8: 24px;
   --s-9: 32px; --s-10: 48px; --s-11: 64px;
+
+  /* Touch floor: every control takes at least this much touch, whatever its
+     face looks like. Smaller faces carry an invisible hit area centred on
+     them (.touch-floor); dense rows make room for it with spacing, never by
+     overlapping. --control-sm is the small control face (Button sm, Config's
+     toggles); --hit-gap-sm is the gap at which two of them have touches that
+     meet (with a 1px seam that absorbs hit-test pixel snapping), and half of
+     it is the room one needs from an edge that clips. */
+  --hit-min: 44px;
+  --control-sm: 32px;
+  --hit-gap-sm: calc(var(--hit-min) - var(--control-sm) + 1px);
 
   /* Edges are crisp. The poster aesthetic doesn't bevel, blur or round much. */
   --r-xs: 4px;
@@ -285,6 +310,10 @@
   --t-body-mono:  450 14px/1.55 var(--font-mono);     /* long body */
   --t-body-s-mono:450 12px/1.50 var(--font-mono);     /* long small body */
 
+  /* Text fields never render under this: iOS zooms the page when a focused
+     field's text is smaller. */
+  --input-text-min: 16px;
+
   --tracking-display: 0.01em;
   --tracking-label:   0.14em;
 }
@@ -361,6 +390,26 @@
       close
     );
   }
+}
+
+/* Touch floor. A control drawn smaller than --hit-min takes a --hit-min touch
+   through an invisible layer centred on its face; the face keeps its look.
+   --block grows only the height, for controls that sit edge to edge in a
+   row. The layer is the control's own ::before. */
+.touch-floor { position: relative; }
+.touch-floor::before {
+  content: "";
+  position: absolute;
+  inset: min(0px, (100% - var(--hit-min)) / 2);
+}
+.touch-floor--block::before { inset-inline: 0; }
+
+/* Bare text fields start at the no-zoom floor; a component that styles its
+   field sets the size itself and must stay at or above the token. */
+input,
+select,
+textarea {
+  font-size: max(var(--input-text-min), 1em);
 }
 
 /* Cut-tab slide (Persona-5 style swap) */

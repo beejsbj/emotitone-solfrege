@@ -19,19 +19,13 @@ vi.mock("@/stores/visualConfig", () => ({ useVisualConfigStore: mocks.useVisualC
 vi.mock("@/composables/useCodeStripStrudel", () => ({
   useCodeStripStrudel: mocks.useCodeStripStrudel,
 }));
-vi.mock("@strudel/codemirror", async () => {
-  const { StateEffect } = await import("@codemirror/state");
-  return {
-    showMiniLocations: StateEffect.define(),
-    setMiniLocations: StateEffect.define(),
-    StrudelMirror: class {
-      constructor() {
-        mocks.mirrorConstructor();
-      }
-    },
-  };
-});
-vi.mock("@strudel/core", () => ({ evalScope: vi.fn() }));
+vi.mock("@strudel/core", () => ({
+  evalScope: vi.fn(),
+  repl: () => {
+    mocks.mirrorConstructor();
+    return { scheduler: { stop: vi.fn() }, evaluate: vi.fn() };
+  },
+}));
 vi.mock("@strudel/mini", () => ({}));
 vi.mock("@strudel/tonal", () => ({}));
 vi.mock("@strudel/webaudio", () => ({}));
@@ -73,7 +67,7 @@ describe("CodeStrip controlled color isolation", () => {
     });
     await flushPromises();
 
-    expect(wrapper.findAll(".cm-code-strip-event")).toHaveLength(2);
+    expect(wrapper.findAll("[data-event-index]")).toHaveLength(2);
     expect(wrapper.findAll(".note").length).toBeGreaterThan(1);
     expect(mocks.useMusicColor).not.toHaveBeenCalled();
     expect(mocks.usePhrasesStore).not.toHaveBeenCalled();

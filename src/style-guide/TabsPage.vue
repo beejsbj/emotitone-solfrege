@@ -30,7 +30,7 @@
             <div><dt>Active</dt><dd>A sliding chip or seven lit bulbs mark the selected label.</dd></div>
             <div><dt>Rail</dt><dd>The chip editions use a framed streak; Marquee is unboxed.</dd></div>
             <div><dt>Motion</dt><dd>The chip slides and smears; Marquee bulbs chase in the direction of travel.</dd></div>
-            <div><dt>Edition</dt><dd>One of seven editions—six chips or the Marquee bulb chase—is shared across unpinned Tabs per app load.</dd></div>
+            <div><dt>Edition</dt><dd>Each of the seven editions—six chips or the Marquee bulb chase—belongs to one edition family with a Knob and Joystick edition. Shuffle picks a family per app load; Config or <code>?edition=</code> pins one.</dd></div>
           </dl>
         </article>
 
@@ -76,7 +76,7 @@
         <header class="focused-sheet__head">
           <div>
             <p class="focused-sheet__source">Production stress case · same source</p>
-            <h2 class="focused-sheet__title">Fifteen destinations</h2>
+            <h2 class="focused-sheet__title">Fourteen destinations</h2>
           </div>
           <Sticker variant="fill" color="ivory">Live recipe</Sticker>
         </header>
@@ -107,8 +107,9 @@
         <h2>One selector, seven editions</h2>
         <p>
           Tabs remain one selector and content viewport. Six cut-paper chip editions and one Marquee
-          edition rotate between page loads; swiped or tapped pages move as a pair, and explicit guide
-          specimens stay pinned so every allowed variant remains inspectable.
+          edition each lead an edition family that Shuffle picks between per app load; swiped or
+          tapped pages move as a pair, and explicit guide specimens stay pinned so every allowed
+          variant remains inspectable. Add <code>?edition=marquee</code> (or any family) to review one.
         </p>
       </aside>
     </div>
@@ -145,7 +146,6 @@ const configLabels = [
   ["home", "Scenes", "Home"],
   ["blobs", "Blobs", "Blobs"],
   ["ambient", "Ambient Glow", "Glow"],
-  ["particles", "Particles", "Dust"],
   ["strings", "Strings", "Lines"],
   ["animation", "Animation", "Anim"],
   ["frequencyMapping", "Frequency Mapping", "Freq"],

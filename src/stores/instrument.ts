@@ -1,3 +1,4 @@
+import { abortable } from "@/utils/abortable";
 import { computed, ref, watch } from "vue";
 import { defineStore } from "pinia";
 import { DEFAULT_INSTRUMENT, displayInstrumentName } from "@/data/instruments";
@@ -12,7 +13,8 @@ import {
 import { needsLivePlaybackPreparation } from "@/services/livePlayback";
 import { getLiveArticulation } from "@/services/liveArticulation";
 import { canonicalShape, isSameShape, NEUTRAL_SHAPE } from "@/services/shape";
-import { deserializeInstrumentState } from "@/services/instrumentPersistence";
+import { instrumentPersistence } from "@/services/instrumentPersistence";
+import { codecPersist } from "@/services/persistenceCodec";
 import type { Shape } from "@/types/instrument";
 
 export type InstrumentSelectionResult =
@@ -64,6 +66,7 @@ export const useInstrumentStore = defineStore("instrument", () => {
   const lastWarmupError = ref<string | null>(null);
   const lastWarmupErrorInstrument = ref<string | null>(null);
   const isInitializing = ref(false);
+  let initializationGeneration = 0;
   const warmupPromises = new Map<string, Promise<void>>();
   const selectionEpoch = ref(0);
   const synthControls = ref<SynthControls>({ ...DEFAULT_SYNTH_CONTROLS });
@@ -146,9 +149,25 @@ export const useInstrumentStore = defineStore("instrument", () => {
   // Shape before anything reads the new instrument.
   watch(currentInstrument, recallShape, { flush: "sync" });
 
+  // Recovery keeps held intent alive; only a new selection locks input.
+  const recoveries = ref(new Map<number, number>());
+  const displayedWarmingInstrument = computed({
+    get: () => warmingInstrument.value ?? (recoveries.value.has(selectionEpoch.value) ? currentInstrument.value : null),
+    set: (name: string | null) => { warmingInstrument.value = name; },
+  });
+  function waitForRecovery(pending: Promise<void>): Promise<void> {
+    const epoch = selectionEpoch.value;
+    recoveries.value.set(epoch, (recoveries.value.get(epoch) ?? 0) + 1);
+    return pending.finally(() => {
+      const remaining = recoveries.value.get(epoch)! - 1;
+      if (remaining) recoveries.value.set(epoch, remaining);
+      else recoveries.value.delete(epoch);
+    });
+  }
+
   const isInteractionLocked = computed(() => warmingInstrument.value !== null);
   const isLoading = computed(
-    () => isInitializing.value || isInteractionLocked.value
+    () => isInitializing.value || displayedWarmingInstrument.value !== null
   );
 
   const clearWarmupError = () => {
@@ -187,13 +206,13 @@ export const useInstrumentStore = defineStore("instrument", () => {
     );
   };
 
-  const syncReadyInstrumentsFromAudio = (warmed: string[] = []) => {
+  const syncReadyInstrumentsFromAudio = (warmed: string[] = [], preserveSelection = false) => {
     readyInstruments.value = new Set([...getReadySounds(), ...warmed]);
 
     const fallback = findReadyFallback([currentInstrument.value]);
     if (fallback) {
       markInstrumentReady(fallback);
-      currentInstrument.value = fallback;
+      if (!preserveSelection) currentInstrument.value = fallback;
       lastReadyInstrument.value = fallback;
     } else {
       lastReadyInstrument.value = null;
@@ -201,27 +220,40 @@ export const useInstrumentStore = defineStore("instrument", () => {
   };
 
   const isInstrumentWarming = (instrumentName: string) =>
-    warmingInstrument.value === instrumentName;
+    displayedWarmingInstrument.value === instrumentName;
 
   // Initialize — boots superdough and reports granular sample-pack progress
   // through the optional callback so loading screens can show real steps.
   const initializeInstruments = async (
-    progressCallback?: (progress: number, message: string) => void
+    progressCallback?: (progress: number, message: string) => void,
+    { prepareSelected = true, signal }: { prepareSelected?: boolean; signal?: AbortSignal } = {},
   ) => {
+    if (signal?.aborted) return;
+    const generation = ++initializationGeneration;
+    let settled = false;
+    const isCurrent = () => generation === initializationGeneration && !signal?.aborted;
+    const report = (progress: number, message: string) => {
+      if (!settled && isCurrent()) progressCallback?.(progress, message);
+    };
     isInitializing.value = true;
     try {
-      await initSuperdoughAudio(progressCallback);
-      // A persisted sampled instrument is still cold here. Warm it during
-      // loading rather than silently replacing it with a ready fallback; if
-      // it fails, the sync below falls back and recalls that one's Shape.
+      // Keep the engine's single-flight promise intact: cancellation releases
+      // this caller, while the next generation can reuse the same graph.
+      await abortable(initSuperdoughAudio(report), signal);
+      if (!isCurrent()) return;
+      // Boot preserves the saved selection without downloading its bank.
+      // Play calls this again after the gesture and keeps the splash up until
+      // the live renderer is prepared (or the established fallback is ready).
       const preferred = currentInstrument.value;
       const warmed: string[] = [];
-      if (preferred !== DEFAULT_INSTRUMENT && !isInstrumentReady(preferred)) {
-        progressCallback?.(99, `Preparing ${displayInstrumentName(preferred)}…`);
+      if (prepareSelected && preferred !== DEFAULT_INSTRUMENT && !isInstrumentReady(preferred)) {
+        report(99, `Preparing ${displayInstrumentName(preferred)}…`);
         try {
-          await prewarmSoundSamples(preferred);
+          await abortable(prewarmSoundSamples(preferred), signal);
+          if (!isCurrent()) return;
           warmed.push(preferred);
         } catch (error) {
+          if (!isCurrent()) return;
           lastWarmupError.value =
             error instanceof Error && error.message
               ? error.message
@@ -229,21 +261,24 @@ export const useInstrumentStore = defineStore("instrument", () => {
           lastWarmupErrorInstrument.value = preferred;
         }
       }
-      syncReadyInstrumentsFromAudio(warmed);
+      syncReadyInstrumentsFromAudio(warmed, !prepareSelected);
       // Prewarming above already prepared the live renderer for that sound.
-      if (!warmed.includes(currentInstrument.value) && needsLivePlaybackPreparation(currentInstrument.value)) {
-        await prewarmSoundSamples(currentInstrument.value);
+      if (prepareSelected && !warmed.includes(currentInstrument.value) && needsLivePlaybackPreparation(currentInstrument.value)) {
+        await abortable(prewarmSoundSamples(currentInstrument.value), signal);
+        if (!isCurrent()) return;
       }
       // Guarantee a 100% call even when already initialized (early return path)
-      progressCallback?.(100, "Audio engine ready");
+      report(100, "Audio engine ready");
     } catch (error) {
+      if (!isCurrent()) return;
       console.error("Error initializing superdough:", error);
       // Synth registration can succeed before a sample pack fails. Reconcile
       // that partial success so the app falls back to something truly playable.
       syncReadyInstrumentsFromAudio();
       throw error;
     } finally {
-      isInitializing.value = false;
+      settled = true;
+      if (generation === initializationGeneration) isInitializing.value = false;
     }
   };
 
@@ -251,7 +286,8 @@ export const useInstrumentStore = defineStore("instrument", () => {
    * Entering with basic synths after a failed or hung sample load: select the
    * default synth the synth-only start prepared, whatever was selected or
    * persisted, and supersede any warmup still pending so it cannot win later.
-   * A load that finishes afterwards reconciles from this synth and keeps it.
+   * A cancelled load may finish caching resources, but cannot reconcile the
+   * store or change this selection; a later active load can reuse its cache.
    */
   const fallBackToSynth = () => {
     selectionEpoch.value += 1;
@@ -327,7 +363,8 @@ export const useInstrumentStore = defineStore("instrument", () => {
     // State
     currentInstrument,
     readyInstruments,
-    warmingInstrument,
+    warmingInstrument: displayedWarmingInstrument,
+    waitForRecovery,
     warmupMessage,
     lastWarmupError,
     lastWarmupErrorInstrument,
@@ -351,15 +388,14 @@ export const useInstrumentStore = defineStore("instrument", () => {
     recallShape,
   };
 }, {
-  persist: {
-    key: "emotitone-instrument",
+  // Saved through the versioned codec: decoding validates the instrument and
+  // sanitizes every Shape, and older formats are backed up before migrating.
+  // afterHydrate then pushes the restored Shape to live audio, since setup
+  // synced defaults before hydration ran.
+  persist: codecPersist(instrumentPersistence, {
     pick: ["currentInstrument", "instrumentShapes"],
-    // Deserialization validates the instrument and sanitizes every Shape;
-    // afterHydrate then pushes the restored Shape to live audio, since setup
-    // synced defaults before hydration ran.
-    serializer: { serialize: JSON.stringify, deserialize: deserializeInstrumentState },
     afterHydrate: ({ store }) => {
       (store as unknown as { recallShape: () => void }).recallShape();
     },
-  },
+  }),
 });

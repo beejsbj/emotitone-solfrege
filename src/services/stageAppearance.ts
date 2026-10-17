@@ -21,8 +21,6 @@ export type StageControlId =
   | "atmosphereColorDepth"
   | "stringPresence"
   | "stringResponse"
-  | "fleckAmount"
-  | "fleckEnergy"
   | "looperStrength"
   | "looperDefinition"
   | "looperSpread"
@@ -49,8 +47,6 @@ export interface StageControls {
   atmosphereColorDepth: number;
   stringPresence: number;
   stringResponse: number;
-  fleckAmount: number;
-  fleckEnergy: number;
   looperStrength: number;
   looperDefinition: number;
   looperSpread: number;
@@ -101,7 +97,6 @@ export interface TransientStageLook {
 type StageLookSection =
   | "blobs"
   | "ambient"
-  | "particles"
   | "strings"
   | "hilbertScope"
   | "looper";
@@ -161,7 +156,6 @@ const STAGE_LOOK_FIELDS: Record<StageLookSection, readonly string[]> = {
     "saturationMajor",
     "saturationMinor",
   ],
-  particles: ["isEnabled", "count", "speed", "gravity", "airResistance"],
   strings: [
     "isEnabled",
     "baseOpacity",
@@ -244,14 +238,6 @@ export const STAGE_CONTROL_GROUPS: StageControlGroup[] = [
     ],
   },
   {
-    label: "Note Flecks",
-    description: "Brief Mark fragments released by note events.",
-    controls: [
-      { id: "fleckAmount", label: "Amount", type: "range", min: 0, max: 40, step: 1, format: (value) => `${Math.round(value)}` },
-      { id: "fleckEnergy", label: "Energy", type: "range", min: 0, max: 1, step: 0.05, format: percent },
-    ],
-  },
-  {
     label: "Explanations",
     description: "Learning labels layered over musical relationships.",
     controls: [
@@ -298,7 +284,6 @@ function cloneConfig(config: VisualEffectsConfig): VisualEffectsConfig {
     stage: { ...config.stage },
     blobs: { ...config.blobs },
     ambient: { ...config.ambient },
-    particles: { ...config.particles },
     strings: { ...config.strings },
     hilbertScope: { ...config.hilbertScope },
     looper: { ...config.looper },
@@ -413,7 +398,6 @@ export function resolveStageConfig(
   if (!stageEnabled) {
     effective.blobs.isEnabled = false;
     effective.ambient.isEnabled = false;
-    effective.particles.isEnabled = false;
     effective.strings.isEnabled = false;
     effective.looper.isEnabled = false;
   }
@@ -469,10 +453,6 @@ export function readStageControls(config: VisualEffectsConfig): StageControls {
       ? clamp(config.strings.baseOpacity / 0.12)
       : 0,
     stringResponse: readStringResponse(config.strings),
-    fleckAmount: config.particles.isEnabled
-      ? clamp(config.particles.count, 0, 40)
-      : 0,
-    fleckEnergy: clamp(config.particles.speed / 12),
     looperStrength: config.looper.isEnabled ? clamp(config.looper.strength) : 0,
     looperDefinition: clamp(config.looper.definition),
     looperSpread: clamp(config.looper.spread),
@@ -587,19 +567,6 @@ export function patchStageControl(
       next.strings.dampingFactor = 0.14 - amount * 0.1;
       next.strings.interpolationSpeed = 0.05 + amount * 0.25;
       next.strings.opacityInterpolationSpeed = 0.05 + amount * 0.15;
-      break;
-    }
-    case "fleckAmount": {
-      const amount = Math.round(clamp(value, 0, 40));
-      next.particles.isEnabled = amount > 0;
-      next.particles.count = amount;
-      break;
-    }
-    case "fleckEnergy": {
-      const amount = clamp(value);
-      next.particles.speed = amount * 12;
-      next.particles.gravity = amount * 0.5;
-      next.particles.airResistance = 0.97 + amount * 0.025;
       break;
     }
     case "looperStrength": {
@@ -732,8 +699,6 @@ function applyNumericVariation(
   vary("atmosphereColorDepth", controls.atmosphereColorDepth, 0.08);
   vary("stringPresence", controls.stringPresence, 0.1);
   vary("stringResponse", controls.stringResponse, 0.08);
-  vary("fleckAmount", controls.fleckAmount, 0.18, 0, 40);
-  vary("fleckEnergy", controls.fleckEnergy, 0.1);
   vary("looperStrength", controls.looperStrength, 0.08);
   vary("looperDefinition", controls.looperDefinition, 0.1);
   vary("looperSpread", controls.looperSpread, 0.08);

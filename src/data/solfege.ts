@@ -1,121 +1,79 @@
 /**
  * Solfege Data
- * Interval-driven movable-do identities with major/minor legacy overrides.
+ * Interval emotion data. Syllables come only from the identity vocabulary.
  */
 
 import type { MusicalMode, SolfegeData } from "@/types/music";
+import { getSolfegeLabelForInterval } from "@/domain/solfege";
 
 export type { SolfegeData };
 
-type SolfegeIdentity = Omit<SolfegeData, "number" | "intervalName" | "semitones">;
+type SolfegeIdentity = Omit<SolfegeData, "name" | "number" | "intervalName" | "semitones">;
 
-export const INTERVAL_TO_SOLFEGE: Record<string, string> = {
-  "1P": "Do",
-  "2m": "Ra",
-  "2M": "Re",
-  "3m": "Me",
-  "3M": "Mi",
-  "4P": "Fa",
-  "4A": "Fi",
-  "5d": "Se",
-  "5P": "Sol",
-  "6m": "Le",
-  "6M": "La",
-  "7m": "Te",
-  "7M": "Ti",
-};
-
-export const MOVABLE_DO_SOLFEGE_NOTES = [
-  "Do",
-  "Ra",
-  "Re",
-  "Me",
-  "Mi",
-  "Fa",
-  "Fi",
-  "Se",
-  "Sol",
-  "Le",
-  "La",
-  "Te",
-  "Ti",
-];
+export { INTERVAL_TO_SOLFEGE, MOVABLE_DO_SOLFEGE_NOTES, getSolfegeLabelForInterval } from "@/domain/solfege";
 
 export const INTERVAL_IDENTITY_MAP: Record<string, SolfegeIdentity> = {
   "1P": {
-    name: "Do",
     emotion: "Home, rest, stability",
     description: "The tonic center. It makes the rest of the mode make sense.",
     texture: "foundation, trust, warmth from peace",
   },
   "2m": {
-    name: "Ra",
     emotion: "Close friction, raw ache",
     description: "A tight rub above home. It glows with uneasy closeness.",
     texture: "grainy tension, urgent nearness",
   },
   "2M": {
-    name: "Re",
     emotion: "Forward motion, stepping up",
     description: "Movement away from home with momentum and curiosity.",
     texture: "hopeful lift, gentle curiosity",
   },
   "3m": {
-    name: "Me",
     emotion: "Melancholy, introspection",
     description: "A tender inward turn that darkens the tonic without breaking it.",
     texture: "tender vulnerability",
   },
   "3M": {
-    name: "Mi",
     emotion: "Bright, joyful optimism",
     description: "A clear brightening that opens the mode into warmth.",
     texture: "clarity and rising joy",
   },
   "4P": {
-    name: "Fa",
     emotion: "Tension, unease",
     description: "A leaning tone that wants to fall or resolve.",
     texture: "inward pull, leaning fall, yearning",
   },
   "4A": {
-    name: "Fi",
     emotion: "Lift, shimmer, surprise",
     description: "A sharpened fourth that opens a bright suspended skylight.",
     texture: "electric lift, suspended shine",
   },
   "5d": {
-    name: "Se",
     emotion: "Blue strain, instability",
     description: "A narrowed fifth that sounds split, smoky, and unresolved.",
     texture: "smoke, grit, bent tension",
   },
   "5P": {
-    name: "Sol",
     emotion: "Strength, confidence, dominance",
     description: "Stable and outward-facing. It gathers energy without landing home.",
     texture: "a triumphant beacon",
   },
   "6m": {
-    name: "Le",
     emotion: "Deep longing, sorrow",
     description: "A dark reach outward, full of memory and ache.",
     texture: "grounded grief, ancient ache",
   },
   "6M": {
-    name: "La",
     emotion: "Longing, wistfulness",
     description: "Open yearning with tenderness and reach.",
     texture: "emotional openness, romantic ache",
   },
   "7m": {
-    name: "Te",
     emotion: "Shadowed anticipation",
     description: "A softer leading pull that circles the tonic instead of piercing it.",
     texture: "shadowed anticipation",
   },
   "7M": {
-    name: "Ti",
     emotion: "Urgency, restlessness",
     description: "A bright leading edge that urgently resolves upward to home.",
     texture: "spiritual tension, strong upward pull",
@@ -124,43 +82,36 @@ export const INTERVAL_IDENTITY_MAP: Record<string, SolfegeIdentity> = {
 
 const MAJOR_INTERVAL_OVERRIDES: Record<string, SolfegeIdentity> = {
   "1P": {
-    name: "Do",
     emotion: "Home, rest, stability",
     description: "The foundation. Complete resolution.",
     texture: "foundation, trust, warmth from peace",
   },
   "2M": {
-    name: "Re",
     emotion: "Forward motion, stepping up",
     description: "Moving away from home with purpose.",
     texture: "hopeful lift, gentle curiosity",
   },
   "3M": {
-    name: "Mi",
     emotion: "Bright, joyful optimism",
     description: "Sunny and optimistic, wants to rise.",
     texture: "clarity and rising joy",
   },
   "4P": {
-    name: "Fa",
     emotion: "Tension, unease",
     description: "Unstable, wants to fall back to Mi.",
     texture: "inward pull, leaning fall, yearning",
   },
   "5P": {
-    name: "Sol",
     emotion: "Strength, confidence, dominance",
     description: "Confident and stable, but not quite home.",
     texture: "a triumphant beacon",
   },
   "6M": {
-    name: "La",
     emotion: "Longing, wistfulness",
     description: "Beautiful sadness, reaching for Do.",
     texture: "emotional openness, romantic ache",
   },
   "7M": {
-    name: "Ti",
     emotion: "Urgency, restlessness",
     description: "Restless, must resolve up to Do!",
     texture: "spiritual tension, strong upward pull",
@@ -169,43 +120,36 @@ const MAJOR_INTERVAL_OVERRIDES: Record<string, SolfegeIdentity> = {
 
 const MINOR_INTERVAL_OVERRIDES: Record<string, SolfegeIdentity> = {
   "1P": {
-    name: "Do",
     emotion: "Grounded, somber home",
     description: "Dark but stable foundation.",
     texture: "dignified stability with emotional weight",
   },
   "2M": {
-    name: "Re",
     emotion: "Gentle, uncertain step",
     description: "Cautious movement forward.",
     texture: "cautious, introverted motion",
   },
   "3m": {
-    name: "Me",
     emotion: "Melancholy, introspection",
     description: "Minor third - tender sadness.",
     texture: "tender vulnerability",
   },
   "4P": {
-    name: "Fa",
     emotion: "Tension, yearning",
     description: "Same tension, deeper in minor.",
     texture: "a shadowed inward pull",
   },
   "5P": {
-    name: "Sol",
     emotion: "Bittersweet strength",
     description: "Strong but tinged with sadness.",
     texture: "noble sorrow with resilience",
   },
   "6m": {
-    name: "Le",
     emotion: "Deep longing, sorrow",
     description: "Minor sixth - profound yearning.",
     texture: "grounded grief, ancient ache",
   },
   "7m": {
-    name: "Te",
     emotion: "Gentle leading, subdued",
     description: "Softer leading tone than Ti.",
     texture: "shadowed anticipation",
@@ -231,10 +175,6 @@ function getIdentityForInterval(
     INTERVAL_IDENTITY_MAP[intervalName] ||
     INTERVAL_IDENTITY_MAP["1P"]
   );
-}
-
-export function getSolfegeLabelForInterval(intervalName: string): string {
-  return INTERVAL_TO_SOLFEGE[intervalName] || INTERVAL_TO_SOLFEGE["1P"];
 }
 
 export function createSolfegeData(

@@ -1,6 +1,11 @@
 import { computed, onScopeDispose, reactive, readonly, ref, watch } from "vue";
-import { Chord, Interval, Note } from "@tonaljs/tonal";
+import { Note } from "@tonaljs/tonal";
 import { useVisualConfig } from "@/composables/useVisualConfig";
+import {
+  identifyChord,
+  intervalBetween,
+  spellPitch,
+} from "@/domain/musicalIdentity";
 import { describeHarmonicEmotion } from "@/services/harmonicEmotion";
 import type {
   ActiveNote,
@@ -13,27 +18,12 @@ function createEmptySnapshot(): HarmonicAnalysisSnapshot {
     isVisible: false,
     displayedNotes: [],
     intervalEdges: [],
+    noteSpellings: {},
     chordSymbol: null,
+    chordSpoken: null,
     chordLabel: null,
     emotionalDescription: "",
   };
-}
-
-function detectChordLabel(notes: readonly string[]): string | null {
-  const notesByPitch = [...notes].sort(
-    (first, second) => Note.get(first).height - Note.get(second).height
-  );
-  const detectedChords = Chord.detect(notesByPitch);
-  return (
-    detectedChords.find((candidate) => {
-      // Chord.get does not parse slash notation, so inspect the plain chord.
-      // Prefer ordinary triads over Tonal's augmented respelling for inversions;
-      // preserve Tonal's ranking for every other chord type or ambiguity.
-      const plainChord = candidate.split("/")[0];
-      const type = Chord.get(plainChord).type;
-      return type === "major" || type === "minor";
-    }) ?? detectedChords[0] ?? null
-  );
 }
 
 export function useHarmonicAnalysis(
@@ -87,11 +77,34 @@ export function useHarmonicAnalysis(
       .filter((note): note is ActiveNote => Boolean(note))
   );
 
+  // Identity is derived at read time: stored sharps-only names are spelled
+  // in the newest note's key, and a detected chord spells its own members.
+  const identifiedChord = computed(() => {
+    const notes = displayedNotes.value;
+    const latest = notes[notes.length - 1];
+    if (!latest || notes.length < 2) return null;
+    return identifyChord(
+      notes.map((note) => note.noteName),
+      { tonic: latest.key, mode: latest.mode },
+    );
+  });
+
+  const noteSpellings = computed<Record<string, string>>(() => {
+    const chord = identifiedChord.value;
+    return Object.fromEntries(displayedNotes.value.map((note, index) => [
+      note.noteId,
+      chord?.pitchSpellings[index]
+        ?? spellPitch(note.noteName, { tonic: note.key, mode: note.mode })
+        ?? note.noteName,
+    ]));
+  });
+
   const intervalEdges = computed<HarmonicIntervalEdge[]>(() => {
     const notes = displayedNotes.value;
     if (notes.length < 2) {
       return [];
     }
+    const spellings = noteSpellings.value;
 
     const result: HarmonicIntervalEdge[] = [];
 
@@ -101,15 +114,23 @@ export function useHarmonicAnalysis(
         compareIndex < notes.length;
         compareIndex += 1
       ) {
+        const first = Note.get(spellings[notes[index].noteId]);
+        const second = Note.get(spellings[notes[compareIndex].noteId]);
+        const letterRank = (note: typeof first) => (note.oct ?? 0) * 7 + note.step;
+        const [fromIndex, toIndex] = (first.height - second.height
+          || letterRank(first) - letterRank(second)) <= 0
+          ? [index, compareIndex] : [compareIndex, index];
+        const interval = intervalBetween(
+          spellings[notes[fromIndex].noteId],
+          spellings[notes[toIndex].noteId],
+        );
         result.push({
-          fromNoteId: notes[index].noteId,
-          toNoteId: notes[compareIndex].noteId,
-          fromIndex: index,
-          toIndex: compareIndex,
-          interval: Interval.distance(
-            notes[index].noteName,
-            notes[compareIndex].noteName
-          ),
+          fromNoteId: notes[fromIndex].noteId,
+          toNoteId: notes[toIndex].noteId,
+          fromIndex,
+          toIndex,
+          interval: interval?.label ?? "",
+          spokenInterval: interval?.spoken ?? "",
         });
       }
     }
@@ -117,14 +138,7 @@ export function useHarmonicAnalysis(
     return result;
   });
 
-  const detectedChord = computed(() => {
-    const notes = displayedNotes.value.map((note) => note.noteName);
-    if (notes.length < 2) {
-      return null;
-    }
-
-    return detectChordLabel(notes);
-  });
+  const detectedChord = computed(() => identifiedChord.value?.symbol ?? null);
 
   const chordLabel = computed(() =>
     blobConfig.value.showChordLabel ? detectedChord.value : null
@@ -144,7 +158,7 @@ export function useHarmonicAnalysis(
     if (pitches.size >= 3) {
       return describeHarmonicEmotion(
         notes.map((note) => note.noteName),
-        detectedChord.value
+        identifiedChord.value?.tonalName ?? null
       );
     }
 
@@ -171,7 +185,9 @@ export function useHarmonicAnalysis(
         displayedNotes.value.length > 0,
       displayedNotes: [...displayedNotes.value],
       intervalEdges: [...intervalEdges.value],
+      noteSpellings: { ...noteSpellings.value },
       chordSymbol: detectedChord.value,
+      chordSpoken: identifiedChord.value?.spoken ?? null,
       chordLabel: chordLabel.value,
       emotionalDescription: emotionalDescription.value,
     };

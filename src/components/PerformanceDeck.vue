@@ -64,6 +64,7 @@
           :status="hummingStatus"
           :error="hummingError"
           :status-message="hummingStatusMessage"
+          :remaining-seconds="hummingRemainingSeconds"
           :take-labels="hummingTakeLabels"
           :selected-take-index="selectedHummingTake"
           haptic
@@ -294,6 +295,7 @@ const initialKeyboardHeight = computed(() =>
 const hummingStatus = computed(() => humming?.status.value ?? "idle");
 const hummingError = computed(() => humming?.error.value ?? null);
 const hummingStatusMessage = computed(() => humming?.statusMessage.value ?? "");
+const hummingRemainingSeconds = computed(() => humming?.remainingSeconds.value ?? 60);
 const hummingTakeLabels = computed(() => humming?.takeLabels.value ?? []);
 const selectedHummingTake = computed(() => humming?.selectedTakeIndex.value ?? 0);
 const resolvedWarmupMessage = computed(() =>

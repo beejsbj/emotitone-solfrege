@@ -15,9 +15,9 @@ function freshConfig(): VisualEffectsConfig {
 }
 
 describe("Config public surface", () => {
-  it("publishes four Global and eight Deck controls", () => {
+  it("publishes five Global and seven Deck controls", () => {
     expect(GLOBAL_CONTROL_GROUPS.flatMap((group) => group.controls).map((control) => control.id))
-      .toEqual(["musicColorMapping", "colorIntensity", "colorMotion", "uiRhythm"]);
+      .toEqual(["musicColorMapping", "colorIntensity", "colorMotion", "uiRhythm", "edition"]);
     expect(DECK_CONTROL_GROUPS.flatMap((group) => group.controls).map((control) => control.id))
       .toEqual([
         "notation",
@@ -26,7 +26,6 @@ describe("Config public surface", () => {
         "noteSurface",
         "touchFeedback",
         "codeStrip",
-        "durationMode",
         "showRests",
       ]);
   });
@@ -94,17 +93,6 @@ describe("Config public surface", () => {
     expect(readDeckControls(config).keyboardSpacing).toBe("open");
   });
 
-  it("maps all three Code Strip duration treatments", () => {
-    const config = freshConfig();
-    expect(readDeckControls(config).durationMode).toBe("bar");
-
-    updateDeckControl(config, "durationMode", "bar");
-    expect(config.codeStrip.durationMode).toBe("bar");
-    expect(readDeckControls(config).durationMode).toBe("bar");
-
-    updateDeckControl(config, "durationMode", "hidden");
-    expect(config.codeStrip.durationMode).toBe("hidden");
-  });
 
   it("reads legacy mixed notation without normalizing stored values", () => {
     const config = freshConfig();

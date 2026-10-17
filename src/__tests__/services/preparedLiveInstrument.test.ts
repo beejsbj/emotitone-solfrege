@@ -1,206 +1,232 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+// superdough is still installed: its sampler is the reference for zone roots.
+// @ts-ignore — superdough ships no TypeScript declarations.
+import { getSampleInfo } from "superdough";
 
-const mocks = vi.hoisted(() => ({ sounds: new Map<string, object>(), loaded: new Map<string, AudioBuffer>(), load: vi.fn(), font: vi.fn(), mipmaps: vi.fn() }));
-vi.mock("superdough", async importOriginal => ({
-  ...await importOriginal<typeof import("superdough")>(),
-  getSound: (name: string) => mocks.sounds.get(name),
-  getLoadedBuffer: (url: string) => mocks.loaded.get(url),
-  loadBuffer: mocks.load,
-}));
-vi.mock("@strudel/soundfonts", () => ({ getPreparedSoundfont: mocks.font }));
+const mocks = vi.hoisted(() => ({ mipmaps: vi.fn() }));
 vi.mock("@/audio/live/resampler", async importOriginal => {
   const actual = await importOriginal<typeof import("@/audio/live/resampler")>();
   return { ...actual, prepareSampleMipmapsAsync: (...args: Parameters<typeof actual.prepareSampleMipmapsAsync>) =>
     mocks.mipmaps.getMockImplementation() ? mocks.mipmaps(...args) : actual.prepareSampleMipmapsAsync(...args) };
 });
 import { prepareLiveInstrument, releasePreparedLiveInstrument, getPreparedLiveInstrumentDiagnostics } from "../../services/preparedLiveInstrument";
-import { prepareNativeInstrument } from "../../services/preparedNativeInstrument";
+import { clearSoundCatalog, registerSampleMap, registerSoundfonts } from "../../audio/soundCatalog";
+import type { PreparedLiveInstrument } from "../../audio/live/types";
 
-function buffer(sampleRate = 48000, stereo = false) {
-  const data = [new Float32Array(480), ...(stereo ? [new Float32Array(480)] : [])];
-  return { sampleRate, length: 480, numberOfChannels: data.length,
-    getChannelData: (channel: number) => data[channel] } as AudioBuffer;
+/** A decoded buffer; the loader must copy out of it and keep no reference. */
+class DecodedBuffer {
+  readonly channels: Float32Array[];
+  constructor(readonly sampleRate: number, readonly length: number, readonly numberOfChannels: number) {
+    this.channels = Array.from({ length: numberOfChannels }, (_, channel) =>
+      Float32Array.from({ length }, (_, frame) => (channel + 1) * 0.001 * (frame % 100)));
+  }
+  getChannelData(channel: number) { return this.channels[channel]; }
+  copyFromChannel(target: Float32Array, channel: number) { target.set(this.channels[channel]); }
 }
-const context = () => ({}) as AudioContext;
 
-beforeEach(() => { mocks.sounds.clear(); mocks.loaded.clear(); mocks.load.mockReset(); mocks.font.mockReset(); mocks.mipmaps.mockReset(); });
+interface Decode { url: string; buffer: DecodedBuffer }
+let decoded: Decode[] = [];
+let received: number[] = [];
+let decoding = 0, maxDecoding = 0;
+let shapes = new Map<string, () => DecodedBuffer>();
+const fetchMock = vi.fn(async (url: string) => {
+  if (url.endsWith(".js")) return new Response(fonts.get(url.split("/").pop()!.replace(/\.js$/, "")) ?? "", { status: fonts.has(url.split("/").pop()!.replace(/\.js$/, "")) ? 200 : 404 });
+  return new Response(new TextEncoder().encode(url));
+});
+const fonts = new Map<string, string>();
+function context(sampleRate = 48000) {
+  return { sampleRate, decodeAudioData: vi.fn(async (bytes: ArrayBuffer) => {
+    received.push(bytes.byteLength);
+    const url = new TextDecoder().decode(bytes).replace(/\0+$/, "");
+    maxDecoding = Math.max(maxDecoding, ++decoding);
+    await new Promise(resolve => setTimeout(resolve, 1));
+    decoding--;
+    const buffer = (shapes.get(url) ?? (() => new DecodedBuffer(48000, 480, 1)))();
+    decoded.push({ url, buffer });
+    return buffer;
+  }) } as unknown as AudioContext;
+}
+function font(zones: string) {
+  return `console.log('load');\nvar _tone_font={zones:[${zones}]};\n`;
+}
+function bank(result: Awaited<ReturnType<typeof prepareLiveInstrument>>) {
+  if (result.kind !== "sample-bank") throw new Error(`Expected a sample bank, got ${JSON.stringify(result)}`);
+  return result;
+}
 
-describe("prepared live instrument catalog", () => {
-  it("prepares native banks using only original AudioBuffer references and shares catalog resolution with the worklet", async () => {
-    const pcm = buffer(48000, true);
-    const read = vi.spyOn(pcm, "getChannelData");
-    mocks.sounds.set("piano", { data: { type: "sample", samples: { C4: ["shared.wav"] } } });
-    mocks.loaded.set("shared.wav", pcm);
+beforeEach(() => {
+  clearSoundCatalog(); fonts.clear(); shapes = new Map(); decoded = []; received = []; decoding = maxDecoding = 0;
+  mocks.mipmaps.mockReset(); fetchMock.mockClear();
+  vi.stubGlobal("fetch", fetchMock);
+});
+afterEach(() => { vi.unstubAllGlobals(); });
+
+describe("instrument loader for the live worklet", () => {
+  it("roots keyed banks exactly as superdough's sampler does, playing the first sample of each note", async () => {
+    const map = { _base: "https://samples.test/piano/", piano: { A0: "A0v8.mp3", Ds1: ["Ds1v8.mp3", "alt.mp3"], Fs5: "Fs5v8.mp3", Bb2: "Bb2.mp3", C: "C.mp3" } };
+    registerSampleMap(map);
+    const result = bank(await prepareLiveInstrument(context(), "piano"));
+    const reference = Object.entries(map.piano).map(([key, urls]) => -getSampleInfo({ s: "piano", note: 0 }, { [key]: [urls].flat() }).transpose);
+    expect(result.zones.map(zone => zone.rootMidi)).toEqual(reference);
+    expect(result).toMatchObject({ zoneSelection: "nearest-root", gain: 0.8, attack: 0.001, release: 0.2 });
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(["A0v8.mp3", "Ds1v8.mp3", "Fs5v8.mp3", "Bb2.mp3", "C.mp3"]
+      .map(file => `https://samples.test/piano/${file}`));
+  });
+
+  it("plays an array bank's first sample at superdough's root MIDI 36, escaping '#'", async () => {
+    registerSampleMap({ _base: "https://samples.test/", kalimba: ["one#1.wav", "two.wav"] });
+    const result = bank(await prepareLiveInstrument(context(), "kalimba"));
+    expect(result.zones).toHaveLength(1);
+    expect(result.zones[0].rootMidi).toBe(-getSampleInfo({ s: "kalimba", note: 0 }, ["one#1.wav", "two.wav"]).transpose);
+    expect(fetchMock).toHaveBeenCalledWith("https://samples.test/one%231.wav");
+  });
+
+  it("holds one owned copy of each zone: its own ArrayBuffer per channel, and no decoded buffer kept", async () => {
+    shapes.set("https://samples.test/c.wav", () => new DecodedBuffer(44100, 480, 2));
+    registerSampleMap({ _base: "https://samples.test/", piano: { C4: "c.wav", E4: "e.wav" } });
+    const result = bank(await prepareLiveInstrument(context(), "piano"));
+    const channels = result.zones.flatMap(zone => zone.channels);
+    expect(channels).toHaveLength(3);
+    expect(new Set(channels.map(channel => channel.buffer)).size).toBe(3);
+    for (const [index, zone] of result.zones.entries()) {
+      const source = decoded.find(entry => entry.url.endsWith(index ? "e.wav" : "c.wav"))!.buffer;
+      expect(zone.sampleRate).toBe(source.sampleRate);
+      zone.channels.forEach((channel, number) => {
+        expect(channel).toEqual(source.getChannelData(number));
+        expect(channel.buffer).not.toBe(source.getChannelData(number).buffer);
+      });
+    }
+    const seen = new Set<unknown>();
+    const visit = (value: unknown): void => {
+      if (!value || typeof value !== "object" || seen.has(value) || ArrayBuffer.isView(value)) return;
+      seen.add(value);
+      expect(value).not.toBeInstanceOf(DecodedBuffer);
+      Object.values(value).forEach(visit);
+    };
+    visit(result);
+  });
+
+  it("decodes one zone at a time and lets queued input run between zones", async () => {
+    registerSampleMap({ _base: "https://samples.test/", piano: Object.fromEntries(["C2", "C3", "C4", "C5", "C6", "C7"].map(key => [key, `${key}.mp3`])) });
+    const pending = prepareLiveInstrument(context(), "piano");
+    // A key press queued as a task while the bank loads.
+    let decodedWhenInputRan = -1;
+    await new Promise(resolve => setTimeout(resolve, 0));
+    setTimeout(() => { decodedWhenInputRan = decoded.length; }, 0);
+    await pending;
+    expect(maxDecoding).toBe(1);
+    expect(decodedWhenInputRan).toBeGreaterThanOrEqual(0);
+    expect(decodedWhenInputRan).toBeLessThan(6);
+    // Encoded files are fetched only a bounded window ahead of decoding.
+    expect(fetchMock).toHaveBeenCalledTimes(6);
+  });
+
+  it("loads soundfont zones with their tuning, ranges and loops scaled to the decoded rate, without eval", async () => {
+    const evaluate = vi.spyOn(globalThis, "eval");
+    registerSoundfonts({ gm_violin: ["violin-default", "unused"] });
+    fonts.set("violin-default", font(`
+      {midi:40,originalPitch:6050,coarseTune:1,fineTune:25,keyRangeLow:48,keyRangeHigh:60,loopStart:44.1,loopEnd:220.5,sampleRate:44100,file:'${btoa("zone-a")}'}
+      ,{midi:40,originalPitch:6050,coarseTune:1,fineTune:25,keyRangeLow:60,keyRangeHigh:72,loopStart:0,loopEnd:0,sampleRate:44100,file:'${btoa("zone-b")}'} // tail
+    `));
+    shapes.set("zone-a", () => new DecodedBuffer(48000, 480, 2));
+    const result = bank(await prepareLiveInstrument(context(), "gm_violin"));
+    expect(fetchMock).toHaveBeenCalledWith("https://felixroos.github.io/webaudiofontdata/sound/violin-default.js");
+    expect(result).toMatchObject({ zoneSelection: "first-range", gain: 0.24, attack: 0.01, release: 0.4,
+      zones: [{ rootMidi: 59.25, lowMidi: 48, highMidi: 61, loopStartFrame: 48, loopEndFrame: 240, sampleRate: 48000 },
+        { rootMidi: 59.25, lowMidi: 60, highMidi: 73, sampleRate: 48000 }] });
+    expect(result.zones[1].loopStartFrame).toBeUndefined();
+    // Encoded zones are zero-padded to their base64 length, as webaudiofont sized them,
+    // so the decoder flushes the final frame and the PCM matches what played before.
+    expect(received).toEqual([btoa("zone-a").length, btoa("zone-b").length]);
+    expect(decoded.map(entry => entry.url)).toEqual(["zone-a", "zone-b"]);
+    expect(evaluate).not.toHaveBeenCalled();
+    evaluate.mockRestore();
+  });
+
+  it("reads raw 16-bit soundfont PCM at the preset rate, scaled as webaudiofont scaled it", async () => {
+    registerSoundfonts({ gm_old: ["old"] });
+    const pcm = new Uint8Array(new Int16Array([0, 16384, -32768]).buffer);
+    fonts.set("old", font(`{originalPitch:6000,keyRangeLow:0,keyRangeHigh:127,sampleRate:22050,sample:'${btoa(String.fromCharCode(...pcm))}'}`));
+    const result = bank(await prepareLiveInstrument(context(), "gm_old"));
+    expect(result.zones[0]).toMatchObject({ sampleRate: 22050, rootMidi: 60 });
+    expect([...result.zones[0].channels[0]]).toEqual([0, 0.25, -0.5]);
+  });
+
+  it("refuses a soundfont that contains code, and retries a failed download", async () => {
+    registerSoundfonts({ gm_bad: ["bad"], gm_later: ["later"] });
+    fonts.set("bad", font(`{originalPitch:6000,keyRangeLow:0,keyRangeHigh:127,sampleRate:1,file:(globalThis.__fontRan=1,'AAAA')}`));
+    expect(await prepareLiveInstrument(context(), "gm_bad")).toMatchObject({ kind: "unsupported" });
+    expect((globalThis as Record<string, unknown>).__fontRan).toBeUndefined();
+
     const ctx = context();
-    const pending = prepareNativeInstrument(ctx, "piano");
-    expect(prepareNativeInstrument(ctx, "piano")).toBe(pending);
-    const native = await pending;
-    expect(native).toMatchObject({ kind: "sample-bank", zoneSelection: "nearest-root", zones: [{ rootMidi: 60 }] });
-    if (native.kind !== "sample-bank") throw new Error("Expected samples");
-    expect(native.zones[0].buffer).toBe(pcm);
-    expect(read).not.toHaveBeenCalled();
-    const worklet = await prepareLiveInstrument(ctx, "piano");
-    if (worklet.kind !== "sample-bank") throw new Error("Expected worklet samples");
-    expect(worklet.zones[0].channels[0]).toBe(pcm.getChannelData(0));
-    expect(mocks.load).not.toHaveBeenCalled();
+    expect(await prepareLiveInstrument(ctx, "gm_later")).toMatchObject({ kind: "retryable", reason: expect.stringContaining("HTTP 404") });
+    fonts.set("later", font(`{originalPitch:6000,keyRangeLow:0,keyRangeHigh:127,sampleRate:44100,file:'${btoa("later")}'}`));
+    expect(await prepareLiveInstrument(ctx, "gm_later")).toMatchObject({ kind: "sample-bank" });
   });
 
-  it("preserves keyed piano roots, stereo PCM, insertion order and warm cache without allocation or loading", async () => {
-    const a = buffer(48000, true), b = buffer(44100);
-    mocks.sounds.set("piano", { data: { type: "sample", samples: { C4: ["c.wav", "unused.wav"], E4: ["e.wav"], _base: "ignored" } } });
-    mocks.loaded.set("c.wav", a); mocks.loaded.set("e.wav", b);
-    const ctx = context();
-    const pending = prepareLiveInstrument(ctx, "piano");
-    expect(prepareLiveInstrument(ctx, "piano")).toBe(pending);
-    const result = await pending;
-    expect(result).toMatchObject({ kind: "sample-bank", zoneSelection: "nearest-root", gain: 0.8, attack: 0.001, release: 0.2,
-      zones: [{ rootMidi: 60, sampleRate: 48000 }, { rootMidi: 64, sampleRate: 44100 }] });
-    if (result.kind !== "sample-bank") throw new Error("Expected samples");
-    expect(result.zones[0].channels).toHaveLength(2);
-    expect(result.zones[0].channels[0]).toBe(a.getChannelData(0));
-    expect(result.zones[0].channels[1]).toBe(a.getChannelData(1));
-    expect(result.zones[0].loopStartFrame).toBeUndefined();
-    expect(result.zones[0].mipmaps).toEqual([]);
-    expect(result.zones[1].mipmaps?.[0][0].length).toBe(240);
-    expect(result.zones[1].mipmaps?.[0]).toHaveLength(1);
-    expect(result.zones[1].mipmaps?.[0][0].buffer).not.toBe(b.getChannelData(0).buffer);
-    expect(mocks.load).not.toHaveBeenCalled();
-  });
-
-  it("matches the installed sampler's array-bank root and n=0 selection", async () => {
-    mocks.sounds.set("kalimba", { data: { type: "sample", samples: ["one#1.wav", "two.wav"] } });
-    mocks.load.mockResolvedValue(buffer());
-    expect(await prepareLiveInstrument(context(), "kalimba")).toMatchObject({ kind: "sample-bank", zones: [{ rootMidi: 36 }] });
-    expect(mocks.load).toHaveBeenCalledTimes(1);
-    expect(mocks.load.mock.calls[0][0]).toBe("one#1.wav");
-  });
-
-  it("preserves soundfont ordering, tuning, overlapping ranges and loop seconds after decoding resamples", async () => {
-    mocks.sounds.set("gm_violin", { data: { type: "soundfont", fonts: ["violin-default", "unused"] } });
-    const pcm = buffer(48000, true);
-    const zone = { buffer: pcm, originalPitch: 6050, coarseTune: 1, fineTune: 25,
-      keyRangeLow: 48, keyRangeHigh: 60, loopStart: 44.1, loopEnd: 220.5, sampleRate: 44100 };
-    mocks.font.mockResolvedValue([zone, { ...zone, keyRangeLow: 60, keyRangeHigh: 72, loopStart: 0 }]);
-    const ctx = context();
-    const result = await prepareLiveInstrument(ctx, "gm_violin");
-    expect(mocks.font).toHaveBeenCalledWith("violin-default", ctx);
-    expect(result).toMatchObject({ kind: "sample-bank", zoneSelection: "first-range", gain: 0.24, attack: 0.01, release: 0.4,
-      zones: [{ rootMidi: 59.25, lowMidi: 48, highMidi: 61, loopStartFrame: 48, loopEndFrame: 240 },
-        { rootMidi: 59.25, lowMidi: 60, highMidi: 73 }] });
-  });
-
-  it.each(["sine", "triangle"])("prepares %s without sample work and keeps the explicit live envelope", async name => {
-    mocks.sounds.set(name, { data: { type: "synth" } });
+  it.each(["sine", "triangle", "square", "sawtooth"])("prepares %s without sample work and keeps the explicit live envelope", async name => {
     expect(await prepareLiveInstrument(context(), name)).toEqual({ kind: "oscillator", instrumentId: name, waveform: name,
       gain: 0.24, attack: 0.003, decay: 0.001, sustain: 1, release: 0.12 });
-    expect(mocks.font).not.toHaveBeenCalled(); expect(mocks.load).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it.each(["square", "sawtooth"])("keeps %s on the native renderer before allocating worklet preparation", async name => {
-    mocks.sounds.set(name, { data: { type: "synth" } });
-    const ctx = context();
-    expect(await prepareLiveInstrument(ctx, name)).toMatchObject({ kind: "unsupported", instrumentId: name,
-      reason: expect.stringContaining("native oscillator") });
-    expect(mocks.font).not.toHaveBeenCalled(); expect(mocks.load).not.toHaveBeenCalled();
-    expect(mocks.mipmaps).not.toHaveBeenCalled();
-    expect(getPreparedLiveInstrumentDiagnostics(ctx)).toMatchObject({ cachedPreparationPcmBytes: 0, preparingPcmBytes: 0 });
-    // This restriction belongs to worklet preparation, not the native catalog.
-    expect(await prepareNativeInstrument(ctx, name)).toMatchObject({ kind: "oscillator", waveform: name, gain: 0.24,
-      attack: 0.003, decay: 0.001, sustain: 1, release: 0.12 });
-  });
-
-  it("prepares only octave levels reachable through each root's actual MIDI selection range", async () => {
-    const samples = Object.fromEntries(["C4", "C5", "C6", "C7", "C8"].map(root => {
-      mocks.loaded.set(`${root}.wav`, buffer());
-      return [root, [`${root}.wav`]];
-    }));
-    mocks.sounds.set("piano", { data: { type: "sample", samples } });
-    const result = await prepareLiveInstrument(context(), "piano");
-    expect(result.kind).toBe("sample-bank");
-    if (result.kind !== "sample-bank") return;
-    expect(result.zones.map(zone => zone.mipmaps?.length)).toEqual([0, 0, 0, 0, 1]);
-  });
-
-  it("includes decoded/context sample-rate differences when selecting required filter octaves", async () => {
-    mocks.sounds.set("gm_test", { data: { type: "soundfont", fonts: ["rate-test"] } });
-    mocks.font.mockResolvedValue([{ buffer: buffer(48000), originalPitch: 11600, coarseTune: 0, fineTune: 0,
-      keyRangeLow: 116, keyRangeHigh: 127, sampleRate: 48000, loopStart: 0, loopEnd: 0 }]);
-    const result = await prepareLiveInstrument({ sampleRate: 44100 } as AudioContext, "gm_test");
-    expect(result.kind).toBe("sample-bank");
-    if (result.kind === "sample-bank") expect(result.zones[0].mipmaps).toHaveLength(1);
-  });
-
-  it("reports unsupported synthesis and invalid samples instead of substituting an instrument", async () => {
-    mocks.sounds.set("supersaw", { data: { type: "synth" } });
-    expect(await prepareLiveInstrument(context(), "supersaw")).toMatchObject({ kind: "unsupported", reason: expect.stringContaining("supersaw") });
-    mocks.sounds.set("bad", { data: { type: "sample", samples: ["bad.wav"] } });
-    mocks.load.mockResolvedValue({ ...buffer(), numberOfChannels: 6 });
+  it("reports synthesis the worklet cannot render and invalid PCM as unsupported", async () => {
+    for (const name of ["supersaw", "pulse", "z_square", "z_sawtooth"]) {
+      expect(await prepareLiveInstrument(context(), name)).toMatchObject({ kind: "unsupported", reason: expect.stringContaining(name) });
+    }
+    registerSampleMap({ bad: ["bad.wav"] });
+    shapes.set("bad.wav", () => new DecodedBuffer(48000, 480, 6));
     expect(await prepareLiveInstrument(context(), "bad")).toMatchObject({ kind: "unsupported", reason: expect.stringContaining("mono/stereo") });
   });
 
-  it("retries transient failures and follows re-registration and context changes", async () => {
-    const register = (url: string) => mocks.sounds.set("piano", { data: { type: "sample", samples: [url] } });
-    register("old.wav");
-    mocks.load.mockRejectedValueOnce(new Error("offline")).mockResolvedValue(buffer());
-    const ctx = context();
-    expect(await prepareLiveInstrument(ctx, "piano")).toMatchObject({ kind: "retryable", reason: "offline" });
-    const first = await prepareLiveInstrument(ctx, "piano");
-    expect(first.kind).toBe("sample-bank");
-    expect(await prepareLiveInstrument(ctx, "piano")).toBe(first);
-    register("new.wav");
-    expect(await prepareLiveInstrument(ctx, "piano")).not.toBe(first);
-    expect(mocks.load.mock.calls.at(-1)?.[0]).toBe("new.wav");
-    await prepareLiveInstrument(context(), "piano");
-    expect(mocks.load).toHaveBeenCalledTimes(4);
+  it("prepares only octave levels reachable through each root's actual MIDI selection range", async () => {
+    registerSampleMap({ piano: Object.fromEntries(["C4", "C5", "C6", "C7", "C8"].map(root => [root, `${root}.wav`])) });
+    const result = bank(await prepareLiveInstrument(context(), "piano"));
+    expect(result.zones.map(zone => zone.mipmaps?.length)).toEqual([0, 0, 0, 0, 1]);
+    expect(result.zones[4].mipmaps![0][0].buffer).not.toBe(result.zones[4].channels[0].buffer);
   });
 
-  it("evicts the least recently used descriptor after eight selections", async () => {
-    const ctx = context(); mocks.load.mockResolvedValue(buffer());
-    for (let i = 0; i < 9; i++) {
-      mocks.sounds.set(`bank${i}`, { data: { type: "sample", samples: [`${i}.wav`] } });
-      await prepareLiveInstrument(ctx, `bank${i}`);
-    }
-    await prepareLiveInstrument(ctx, "bank0");
-    expect(mocks.load).toHaveBeenCalledTimes(10);
+  it("recomputes filter octaves when the rate changes during a pending preparation", async () => {
+    registerSampleMap({ piano: { C4: "pending.wav" } });
+    const ctx = context(48000);
+    const old = prepareLiveInstrument(ctx, "piano");
+    Object.assign(ctx, { sampleRate: 24000 });
+    const next = prepareLiveInstrument(ctx, "piano");
+    expect(next).not.toBe(old);
+    const [oldBank, newBank] = (await Promise.all([old, next])).map(bank);
+    expect(oldBank.zones[0].mipmaps).toHaveLength(5);
+    expect(newBank.zones[0].mipmaps).toHaveLength(6);
   });
 
-  it("charges new pyramids, releases them after installation, and leaves borrowed source PCM attached", async () => {
-    const pcm = buffer();
-    mocks.sounds.set("piano", { data: { type: "sample", samples: ["one.wav"] } });
-    mocks.loaded.set("one.wav", pcm);
+  it("shares a pending preparation, and holds a prepared bank only until its installer releases it", async () => {
+    registerSampleMap({ piano: { C8: "one.wav" } });
     const ctx = context();
-    const prepared = await prepareLiveInstrument(ctx, "piano");
-    if (prepared.kind !== "sample-bank") throw new Error("Expected sample bank");
-    const bytes = prepared.zones[0].mipmaps!.flat().reduce((sum, channel) => sum + channel.byteLength, 0);
-    expect(bytes).toBeGreaterThan(0);
+    const pending = prepareLiveInstrument(ctx, "piano");
+    expect(prepareLiveInstrument(ctx, "piano")).toBe(pending);
+    const prepared = bank(await pending);
+    const bytes = [...prepared.zones[0].channels, ...prepared.zones[0].mipmaps!.flat()].reduce((sum, channel) => sum + channel.byteLength, 0);
     expect(getPreparedLiveInstrumentDiagnostics(ctx)).toMatchObject({ cachedPreparationPcmBytes: bytes, preparingPcmBytes: 0 });
     releasePreparedLiveInstrument(ctx, "piano", prepared);
     expect(getPreparedLiveInstrumentDiagnostics(ctx).cachedPreparationPcmBytes).toBe(0);
-    expect(pcm.getChannelData(0).byteLength).toBe(480 * 4);
-    expect((await prepareNativeInstrument(ctx, "piano"))).toMatchObject({ zones: [{ buffer: pcm }] });
+    // Once released (transferred), the next selection loads again rather than reuse detached PCM.
+    expect(prepareLiveInstrument(ctx, "piano")).not.toBe(pending);
   });
 
-  it("evicts retained pyramids by bytes before allocating another large bank", async () => {
-    // Metadata-only sample buffers exercise the preflight reservation without
-    // allocating hundreds of MiB or filtering them in the unit-test process.
-    const channel = { length: 2 ** 24, buffer: { byteLength: 2 ** 26 } } as Float32Array;
-    const pcm = { length: channel.length, numberOfChannels: 1, sampleRate: 48000, getChannelData: () => channel } as AudioBuffer;
-    const ctx = context();
-    mocks.mipmaps.mockImplementation(async () => {
-      if (typeof getPreparedLiveInstrumentDiagnostics === "function") {
-        const diagnostics = getPreparedLiveInstrumentDiagnostics(ctx);
-        expect(diagnostics.cachedPreparationPcmBytes + diagnostics.preparingPcmBytes).toBeLessThanOrEqual(diagnostics.preparationPcmBudgetBytes);
-      }
-      return [];
-    });
-    for (let i = 0; i < 4; i++) {
-      mocks.sounds.set(`large${i}`, { data: { type: "sample", samples: [`${i}.wav`] } });
-      mocks.loaded.set(`${i}.wav`, pcm);
-      await prepareLiveInstrument(ctx, `large${i}`);
-    }
-    expect(mocks.mipmaps).toHaveBeenCalledTimes(4);
-    await prepareLiveInstrument(ctx, "large0");
-    expect(mocks.mipmaps).toHaveBeenCalledTimes(5);
-    expect(getPreparedLiveInstrumentDiagnostics(ctx).cachedPreparationPcmBytes).toBeLessThanOrEqual(192 * 1024 * 1024);
+  it("refuses a bank whose source and pyramid exceed the 192 MiB worklet budget before building the pyramid", async () => {
+    // A metadata-only buffer: the budget check must not need hundreds of MiB in the test process.
+    const length = 2 ** 25;
+    const huge = { sampleRate: 48000, length, numberOfChannels: 2, copyFromChannel() {}, getChannelData: () => new Float32Array(0) };
+    shapes.set("huge.wav", () => huge as unknown as DecodedBuffer);
+    registerSampleMap({ huge: { C8: "huge.wav" } });
+    mocks.mipmaps.mockImplementation(async () => { throw new Error("pyramid must not be built"); });
+    expect(await prepareLiveInstrument(context(), "huge")).toMatchObject({ kind: "unsupported", reason: expect.stringContaining("192 MiB") });
+  });
+});
+
+describe("prepared bank shape", () => {
+  it("is a plain PreparedLiveInstrument the bridge can transfer", async () => {
+    registerSampleMap({ piano: { C4: "c.wav" } });
+    const result: PreparedLiveInstrument = bank(await prepareLiveInstrument(context(), "piano"));
+    expect(structuredClone(result)).toEqual(result);
   });
 });

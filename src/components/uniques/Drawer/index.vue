@@ -91,14 +91,19 @@ function observeClippedControls() {
   if (!props.scroll && props.minContentHeight > 0) {
     content.value?.querySelectorAll<HTMLElement>(selector).forEach(element => controls.add(element));
   }
+  const targets = new Set([...controls].map(element =>
+    element.matches('.sr-only[role="radio"]')
+      ? element.closest<HTMLElement>('[role="radiogroup"]') ?? element
+      : element,
+  ));
   for (const [element, originallyInert] of observedControls) {
-    if (!controls.has(element)) {
+    if (!targets.has(element)) {
       visibilityObserver.unobserve(element);
       element.inert = originallyInert;
       observedControls.delete(element);
     }
   }
-  for (const element of controls) {
+  for (const element of targets) {
     if (observedControls.has(element)) continue;
     observedControls.set(element, Boolean(element.inert));
     visibilityObserver.observe(element);
@@ -382,7 +387,9 @@ onMounted(async () => {
   }
   // A partly collapsed stack must not retain invisible tab stops.
   // Observe focus targets rather than whole bars: labels can remain visible after
-  // their button faces have left the clip. Consumer-owned inert state is retained.
+  // their button faces have left the clip. Screen-reader-only radios use their
+  // visible radio group (Joystick); their own clipped pixels never intersect.
+  // Consumer-owned inert state is retained.
   if (root.value && clip.value && typeof IntersectionObserver !== "undefined") {
     visibilityObserver = new IntersectionObserver(entries => {
       for (const entry of entries) {
@@ -517,7 +524,9 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
 .drawer__content { min-width: 0; overflow: hidden; }
 .drawer--top .drawer__content {
   box-sizing: border-box;
-  padding-top: var(--drawer-handle-height);
+  /* Clear the handle row at the top of the screen, including the handles'
+     touch extension, so no control inside sits under another drawer's handle. */
+  padding-top: max(var(--drawer-handle-height), var(--hit-min));
 }
 .drawer__content--scroll { overflow-y: auto; overscroll-behavior: contain; }
 .drawer__handle {
@@ -540,12 +549,24 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
   user-select: none;
   -webkit-user-select: none;
 }
-.drawer__handle::before { content: ""; position: absolute; inset: -6px 0; }
+/*
+ * Touch extension: the handle takes at least a --hit-min touch, grown toward
+ * its exposed edge (away from the drawer body and its controls). A top
+ * handle that sits at the very top of the screen would lose any upward
+ * extension off-screen.
+ */
+.drawer__handle::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.drawer--top .drawer__handle::before { bottom: min(0px, 100% - var(--hit-min)); }
+.drawer--bottom .drawer__handle::before { top: min(0px, 100% - var(--hit-min)); }
 /*
  * The lip: the handle paints as a trapezoid continuous with the drawer, wide
  * where it meets the body and chamfered toward its exposed edge. It is a
  * layer, not a clip on the handle, so the full rectangular hit area and the
- * -6px touch extension stay intact. Side-aligned handles keep a square outer corner.
+ * touch extension stay intact. Side-aligned handles keep a square outer corner.
  */
 .drawer__lip {
   --drawer-lip-chamfer: 14px;

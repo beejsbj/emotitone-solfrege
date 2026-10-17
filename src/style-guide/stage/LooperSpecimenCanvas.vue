@@ -40,7 +40,6 @@ const SILENCED: ReadonlyArray<readonly [StageControlId, number | boolean]> = [
   ["scopeStrength", 0],
   ["stringPresence", 0],
   ["bodiesVisible", false],
-  ["fleckAmount", 0],
 ];
 
 const mountPoint = ref<HTMLElement | null>(null);

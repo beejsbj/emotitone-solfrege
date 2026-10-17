@@ -362,6 +362,7 @@ export function useLooperRenderer() {
   let positionMs = 0;
   let turnPhase = 0;
   let presence = 0;
+  let needsFrame = false;
   let lastNow = 0;
 
   // Phases of the few distinct periods in play, refreshed once per frame.
@@ -679,7 +680,8 @@ export function useLooperRenderer() {
     presence = reducedMotion
       ? target
       : presence + (target - presence) * (1 - Math.exp(-dt / (FADE_S / 3)));
-    if (presence < 0.004 && !live) {
+    needsFrame = live || presence >= 0.004;
+    if (!needsFrame) {
       presence = 0;
       return;
     }
@@ -828,5 +830,8 @@ export function useLooperRenderer() {
     turnMs = 0;
   }
 
-  return { renderLooper, dispose };
+  /** A running loop, or one still fading out, needs the next frame. */
+  const hasPendingAnimation = () => needsFrame;
+
+  return { renderLooper, hasPendingAnimation, dispose };
 }

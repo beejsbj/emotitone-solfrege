@@ -1,0 +1,35 @@
+[
+  {
+    "name": "filter",
+    "shape": {
+      "cutoff": 1000,
+      "resonance": 10,
+      "room": 0,
+      "delay": 0
+    },
+    "maxError": 5.513429641723633e-7,
+    "rmsError": 3.0167011601011614e-8
+  },
+  {
+    "name": "delay",
+    "shape": {
+      "cutoff": 12000,
+      "resonance": 0,
+      "room": 0,
+      "delay": 0.6
+    },
+    "maxError": 3.7602148950099945e-8,
+    "rmsError": 5.59298320977673e-9
+  },
+  {
+    "name": "room",
+    "shape": {
+      "cutoff": 12000,
+      "resonance": 0,
+      "room": 1,
+      "delay": 0
+    },
+    "maxError": 0.1838400438427925,
+    "rmsError": 0.0260591815638827
+  }
+]

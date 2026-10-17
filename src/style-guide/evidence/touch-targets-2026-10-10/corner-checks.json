@@ -1,0 +1,165 @@
+{
+ "method": "Headless Chromium, 390x844, DPR 2, touch/mobile, reduced motion. For each enabled control: elementFromPoint at the four corners and four edge midpoints of a 44x44 square centred on its drawn face (offsets +-21.5px); owns44 = every point resolves to the control or a descendant, misses names the element that took the point instead. expandedReel: fresh profile, Play, tap the current phrase identity to unwind history, sampled 450ms later (the farthest ghost row is inert). hummingTwoTakes: the real HummingCaptureTransport mounted with status idle and two take labels.",
+ "results": {
+  "expandedReel": [
+   {
+    "control": "Select Mary Had a Little Lamb, acoustic guitar nylon, root F4",
+    "face": [
+     194.5,
+     37.8
+    ],
+    "centre": [
+     135.7,
+     359.9
+    ],
+    "owns44": true,
+    "misses": {}
+   },
+   {
+    "control": "Copy Mary Had a Little Lamb Strudel code",
+    "face": [
+     27.5,
+     27.5
+    ],
+    "centre": [
+     294.9,
+     359.9
+    ],
+    "owns44": true,
+    "misses": {}
+   },
+   {
+    "control": "Open Mary Had a Little Lamb in Strudel",
+    "face": [
+     27.5,
+     27.5
+    ],
+    "centre": [
+     339.8,
+     359.9
+    ],
+    "owns44": true,
+    "misses": {}
+   },
+   {
+    "control": "Select Twinkle Twinkle Little Star, celesta, root G4",
+    "face": [
+     221.8,
+     41.8
+    ],
+    "centre": [
+     133,
+     408.2
+    ],
+    "owns44": true,
+    "misses": {}
+   },
+   {
+    "control": "Copy Twinkle Twinkle Little Star Strudel code",
+    "face": [
+     30.4,
+     30.4
+    ],
+    "centre": [
+     312.3,
+     408.2
+    ],
+    "owns44": true,
+    "misses": {}
+   },
+   {
+    "control": "Open Twinkle Twinkle Little Star in Strudel",
+    "face": [
+     30.4,
+     30.4
+    ],
+    "centre": [
+     357.3,
+     408.2
+    ],
+    "owns44": true,
+    "misses": {}
+   },
+   {
+    "control": "Unwind patterns around New take, on the desk, yours, triangle, root C4",
+    "face": [
+     192,
+     44
+    ],
+    "centre": [
+     109,
+     457.5
+    ],
+    "owns44": true,
+    "misses": {}
+   },
+   {
+    "control": "Delete this take",
+    "face": [
+     32,
+     32
+    ],
+    "centre": [
+     277,
+     457.5
+    ],
+    "owns44": true,
+    "misses": {}
+   },
+   {
+    "control": "Copy New take Strudel code",
+    "face": [
+     32,
+     32
+    ],
+    "centre": [
+     322,
+     457.5
+    ],
+    "owns44": true,
+    "misses": {}
+   },
+   {
+    "control": "Open New take in Strudel",
+    "face": [
+     32,
+     32
+    ],
+    "centre": [
+     367,
+     457.5
+    ],
+    "owns44": true,
+    "misses": {}
+   }
+  ],
+  "hummingTwoTakes": [
+   {
+    "control": "Start humming capture",
+    "face": [
+     28,
+     28
+    ],
+    "centre": [
+     195,
+     22
+    ],
+    "owns44": true,
+    "misses": {}
+   },
+   {
+    "control": "Hummed take",
+    "face": [
+     92,
+     44
+    ],
+    "centre": [
+     195,
+     70
+    ],
+    "owns44": true,
+    "misses": {}
+   }
+  ]
+ }
+}

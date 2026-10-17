@@ -57,6 +57,7 @@ export interface SplashConfig {
  * Complete app loading state
  */
 export interface AppLoadingState {
+  generation: number;
   isLoading: boolean;
   isVisible: boolean;           // Whether splash is visible
   progress: InitializationProgress;

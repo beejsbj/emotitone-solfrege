@@ -20,10 +20,12 @@ const mocks = vi.hoisted(() => {
 
   return {
     blobConfig,
+    minorBlues: false,
     stageConfig: null as unknown as Ref<{ isEnabled: boolean }>,
     ambientConfig: { value: { isEnabled: false } },
     hilbertScopeConfig: { value: { isEnabled: false, sizeRatio: 0.6 } },
     musicStore: {
+      laBasedMinor: false,
       currentMode: "major",
       currentKey: "C",
       solfegeData: [],
@@ -43,9 +45,6 @@ const mocks = vi.hoisted(() => {
     startBlobFadeOutById: vi.fn(),
     buildScene: vi.fn(() => null),
     renderBlobField: vi.fn(() => false),
-    createParticles: vi.fn(),
-    renderParticles: vi.fn(),
-    clearAllParticles: vi.fn(),
     clearAllBlobs: vi.fn(),
     clearHilbertHistory: vi.fn(),
     renderAmbientBackground: vi.fn(),
@@ -65,7 +64,9 @@ vi.mock("@/services/hummingStage", () => ({
 }));
 
 vi.mock("@/services/superdoughAudio", () => ({
+  setStrudelLaBasedMinor: vi.fn(),
   getActiveStrudelStageNotes: () => mocks.strudelStageNotes,
+  getAudioContext: () => null,
 }));
 
 vi.mock("@/services/stageAudio", () => ({
@@ -81,7 +82,6 @@ vi.mock("@/composables/useVisualConfig", () => ({
     stageConfig: mocks.stageConfig,
     blobConfig: mocks.blobConfig,
     ambientConfig: mocks.ambientConfig,
-    particleConfig: { value: { isEnabled: false, count: 0 } },
     stringConfig: { value: { isEnabled: false } },
     animationConfig: { value: {} },
     hilbertScopeConfig: mocks.hilbertScopeConfig,
@@ -96,14 +96,26 @@ vi.mock("@/composables/useHarmonicAnalysis", () => ({
       snapshot: {
         value: {
           isVisible: true,
-          displayedNotes: [
-            { noteId: "c4", noteName: "C4" },
-            { noteId: "e4", noteName: "E4" },
+          // Stored names stay sharps-only; the analysis supplies spellings.
+          displayedNotes: mocks.minorBlues ? [
+            { noteId: "c4", noteName: "D#4", key: "D#", mode: "minor blues" },
+            { noteId: "eb4", noteName: "A4", key: "D#", mode: "minor blues" },
+          ] : [
+            { noteId: "c4", noteName: "C4", key: "C", mode: "major" },
+            { noteId: "eb4", noteName: "D#4", key: "C", mode: "major" },
           ],
+          noteSpellings: mocks.minorBlues ? { c4: "Eb4", eb4: "A4" } : { c4: "C4", eb4: "Eb4" },
           intervalEdges: [
-            { fromNoteId: "c4", toNoteId: "e4", interval: "3M" },
+            {
+              fromNoteId: "c4",
+              toNoteId: "eb4",
+              interval: "m3",
+              spokenInterval: "minor third",
+            },
           ],
-          chordLabel: "C major",
+          chordSymbol: mocks.minorBlues ? null : "Cm",
+          chordLabel: mocks.minorBlues ? null : "Cm",
+          chordSpoken: "C minor",
           emotionalDescription: "Grounded & radiant",
         },
       },
@@ -128,6 +140,7 @@ vi.mock("@/composables/useAnimationLifecycle", () => ({
 
 vi.mock("@/composables/canvas/useBlobRenderer", () => ({
   useBlobRenderer: () => ({
+    hasPendingAnimation: () => mocks.activeBlobs.size > 0,
     activeBlobs: mocks.activeBlobs,
     createBlob: mocks.createBlob,
     startBlobFadeOut: mocks.startBlobFadeOut,
@@ -142,17 +155,9 @@ vi.mock("@/composables/canvas/useBlobRenderer", () => ({
   }),
 }));
 
-vi.mock("@/composables/canvas/useParticleSystem", () => ({
-  useParticleSystem: () => ({
-    createParticles: mocks.createParticles,
-    renderParticles: mocks.renderParticles,
-    getActiveParticleCount: vi.fn(() => 0),
-    clearAllParticles: mocks.clearAllParticles,
-  }),
-}));
-
 vi.mock("@/composables/canvas/useStringRenderer", () => ({
   useStringRenderer: () => ({
+    hasPendingAnimation: () => false,
     initializeStrings: vi.fn(),
     addEventListeners: vi.fn((target: EventTarget) => { mocks.stringEventTarget = target; }),
     removeEventListeners: vi.fn(),
@@ -185,7 +190,8 @@ vi.mock("@/composables/canvas/useBlobFieldRenderer", () => ({
 
 vi.mock("@/composables/canvas/useHilbertScopeRenderer", () => ({
   useHilbertScopeRenderer: () => ({
-    initializeHilbertScope: vi.fn(),
+    hasPendingAnimation: () => false,
+    initializeHilbertScope: vi.fn(async () => {}),
     resizeHilbertScope: vi.fn(),
     renderHilbertScope: mocks.renderHilbertScope,
     clearHistory: mocks.clearHilbertHistory,
@@ -214,6 +220,7 @@ const note = {
 
 function createCanvasRef() {
   const canvas = {
+    getBoundingClientRect: () => ({ width: window.innerWidth, height: window.innerHeight }),
     width: 800,
     height: 600,
     getContext: vi.fn(() => mockCanvasContext),
@@ -226,6 +233,8 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
+    mocks.minorBlues = false;
+    mocks.musicStore.laBasedMinor = false;
     mocks.stageConfig = ref({ isEnabled: true });
     mocks.ambientConfig.value.isEnabled = false;
     mocks.hilbertScopeConfig.value.isEnabled = false;
@@ -394,7 +403,6 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
       "C#4",
     );
     expect(mocks.recordHarmonicNote).not.toHaveBeenCalled();
-    expect(mocks.createParticles).not.toHaveBeenCalled();
   });
 
   it("rehydrates an unchanged live pitch that is absent from the music store", () => {
@@ -437,7 +445,6 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
       "C#4",
     );
     expect(mocks.recordHarmonicNote).not.toHaveBeenCalled();
-    expect(mocks.createParticles).not.toHaveBeenCalled();
   });
 
   it("rehydrates an active Strudel note that began while bodies were hidden", () => {
@@ -478,31 +485,6 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
       "C#4",
     );
     expect(mocks.recordHarmonicNote).not.toHaveBeenCalled();
-    expect(mocks.createParticles).not.toHaveBeenCalled();
-  });
-
-  it("clears in-flight flecks immediately when Reduced Motion turns on", () => {
-    const reducedMotion = ref(false);
-    const canvas = useUnifiedCanvas(createCanvasRef(), {
-      usableRect: ref({ x: 0, y: 0, width: 800, height: 600 }),
-      reducedMotion,
-    });
-    canvas.initializeCanvas();
-
-    canvas.handleNotePlayed(note, 261.63, "first", 4, "C4", "major", "C", 0);
-    expect(mocks.createParticles).toHaveBeenCalledTimes(1);
-
-    reducedMotion.value = true;
-    reducedMotion.value = false;
-    expect(mocks.clearAllParticles).toHaveBeenCalledTimes(1);
-
-    reducedMotion.value = true;
-    canvas.handleNotePlayed(note, 293.66, "hidden", 4, "D4", "major", "C", 2);
-    expect(mocks.createParticles).toHaveBeenCalledTimes(1);
-
-    reducedMotion.value = false;
-    canvas.handleNotePlayed(note, 329.63, "resumed", 4, "E4", "major", "C", 4);
-    expect(mocks.createParticles).toHaveBeenCalledTimes(2);
   });
 
   it("clears only transient Stage layers when Stage is disabled", () => {
@@ -511,7 +493,6 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
 
     mocks.stageConfig.value.isEnabled = false;
 
-    expect(mocks.clearAllParticles).toHaveBeenCalledOnce();
     expect(mocks.clearHilbertHistory).toHaveBeenCalledOnce();
     expect(mocks.clearAllBlobs).not.toHaveBeenCalled();
   });
@@ -524,7 +505,6 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
     });
     canvas.initializeCanvas();
     mocks.animationOptions?.onFrame(1_000, 1);
-    mocks.clearAllParticles.mockClear();
     mocks.clearHilbertHistory.mockClear();
 
     usableRect.value = { x: 0, y: 0, width: 800, height: 80 };
@@ -532,14 +512,11 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
     canvas.handleNotePlayed(note, 293.66, "suspended", 4, "D4", "major", "C", 2);
     mocks.animationOptions?.onFrame(1_032, 1.032);
 
-    expect(mocks.clearAllParticles).toHaveBeenCalledOnce();
     expect(mocks.clearHilbertHistory).toHaveBeenCalledOnce();
     expect(mocks.clearAllBlobs).not.toHaveBeenCalled();
-    expect(mocks.createParticles).not.toHaveBeenCalled();
 
     usableRect.value = { x: 0, y: 0, width: 800, height: 600 };
     mocks.animationOptions?.onFrame(1_048, 1.048);
-    expect(mocks.clearAllParticles).toHaveBeenCalledOnce();
     expect(mocks.clearHilbertHistory).toHaveBeenCalledOnce();
   });
 
@@ -589,7 +566,7 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
     expect(mocks.renderAmbientBackground.mock.calls.at(-1)?.at(-1)).toEqual([
       liveNote,
     ]);
-    expect(mocks.renderHilbertScope.mock.calls.at(-1)?.at(-1)).toEqual([
+    expect(mocks.renderHilbertScope.mock.calls.at(-1)?.at(-2)).toEqual([
       liveNote,
     ]);
   });
@@ -644,10 +621,21 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
     );
   });
 
+  it.each([[false, "Do", "Se"], [true, "La", "Me"]] as const)("announces Eb minor-blues scale function despite respelling (la-based=%s)", (laBasedMinor, tonic, blue) => {
+    mocks.minorBlues = true;
+    mocks.musicStore.laBasedMinor = laBasedMinor;
+    const canvas = useUnifiedCanvas(createCanvasRef());
+    try {
+      expect(canvas.harmonicAccessibleText.value).toContain(`Interval ${tonic} (E flat 4) to ${blue} (A 4)`);
+    } finally {
+      canvas.cleanup();
+    }
+  });
+
   it("exposes only enabled harmonic labels as accessible text", () => {
     const canvas = useUnifiedCanvas(createCanvasRef());
 
-    const fullText = "Chord: C major. Interval C4 to E4: 3M. Emotion: Grounded & radiant";
+    const fullText = "Chord: C minor. Interval Do (C 4) to Me (E flat 4): minor third. Emotion: Grounded & radiant";
     expect(canvas.harmonicAccessibleText.value).toBe(fullText);
   });
 
@@ -656,7 +644,7 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
     mocks.blobConfig.value.showEmotionLabel = false;
     const canvas = useUnifiedCanvas(createCanvasRef());
 
-    expect(canvas.harmonicAccessibleText.value).toBe("Chord: C major");
+    expect(canvas.harmonicAccessibleText.value).toBe("Chord: C minor");
   });
 
   it("selectively exposes only enabled interval label in accessible text", () => {
@@ -664,7 +652,7 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
     mocks.blobConfig.value.showEmotionLabel = false;
     const canvas = useUnifiedCanvas(createCanvasRef());
 
-    expect(canvas.harmonicAccessibleText.value).toBe("Interval C4 to E4: 3M");
+    expect(canvas.harmonicAccessibleText.value).toBe("Interval Do (C 4) to Me (E flat 4): minor third");
   });
 
   it("selectively exposes only enabled emotion label in accessible text", () => {

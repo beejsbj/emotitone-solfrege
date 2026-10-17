@@ -1,0 +1,13 @@
+# Worker rules (EmotiTone, retrospective spec)
+
+You are a bounded executor dispatched by the orchestrator. Do the ticket below cleanly; don't expand scope.
+
+**Product context (settled decisions — do not reopen):** EmotiTone (Vue 3 + TS, mobile-first) is "an instrument that teaches through its moats and cues"; moats = feeling first, sketch speed, loops as play, a pocket instrument. The app is moving off Strudel/superdough to its own AudioWorklet engine (`src/audio/live/`). The Code Strip becomes a read-only HighlightStrip with "Open in Strudel". Editions become families, Shuffle default. Licence AGPL-3.0-or-later. The full spec is `docs/retrospective-spec.md` on main (merged 2026-10-15, PR #143). Root CLAUDE.md/WARP.md are stale (they describe a Tone.js sequencer) — trust the code.
+
+**Where to work:** only on the branch named below, created from current `origin/main` (in your own worktree or checkout if your environment gives you one). Don't touch other branches. Never use bare `git stash`.
+
+**Verification:** use only the package scripts — `bun run type-check`, `bun run test:run <files>`, `bun run build` (and `bun run lint` once it works). They take a shared lock across worktrees on a shared host, so they may wait for another worker; that's normal (set `EMOTITONE_VERIFY_BYPASS_LOCK=1` if you're alone in an isolated environment). Never invoke `vue-tsc`, `vitest` or `vite build` directly. Never run `bun run test` (watch mode) or `bun run test:ui`: they hold the shared lock until stopped and block every other worker. Give long verify commands a timeout. Don't run dev servers or browsers longer than needed, and stop them when done. Write tests that observe behaviour at the highest seam and fail when the behaviour breaks; never assert source text or a mock's canned answer.
+
+**Git:** small coherent commits; every commit message ends with the Co-Authored-By attribution line your own harness specifies (it names the model doing the work). No force-push, no history rewrites, no amend of pushed commits. When done, push the branch and open ONE PR to `main` with `gh pr create`. PR body: Summary; `Linear: BJS-NNN` link; what changed and why; a **Verification** section listing the exact commands run and their results (and anything not verified); end the body with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`. Do NOT merge. Do NOT write to Linear (the orchestrator does).
+
+**Your final report** (to the orchestrator): PR URL; what is done and verified (with command results); what is unverified or deferred; any judgement calls or deviations from the ticket and why; anything Burooj must decide.

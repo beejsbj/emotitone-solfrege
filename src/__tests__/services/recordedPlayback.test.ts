@@ -54,12 +54,13 @@ describe('recording to actual Strudel playback', () => {
         { timeMs: 300, gain: 1.5 }, { timeMs: 400, gain: .5 }],
       articulation: { attack: .02, decay: .03, sustain: .6, release: .1 } };
     const { controls } = playback([expressive, { ...note('D4', 520, 500), velocity: .75 }]);
-    expect(controls[0]).toMatchObject({ gain: .2, attack: .02, decay: .03, sustain: .6, release: .1 });
+    // Normalised across the take (BJS-556): the .75 note is full level, the .25 note a third of it.
+    expect(controls[0]).toMatchObject({ gain: expect.closeTo(.8 / 3), attack: .02, decay: .03, sustain: .6, release: .1 });
     expect(controls[0].clip).toBeCloseTo(500 / 520);
     expect(controls[0].vib).toBeGreaterThan(0);
     expect(controls[0].tremolo).toBeGreaterThan(0);
     const second = controls.find((value) => value.note === 'D4');
-    expect(second).toMatchObject({ gain: expect.closeTo(.6), vib: 0 });
+    expect(second).toMatchObject({ gain: expect.closeTo(.8), vib: 0 });
     expect(second.tremolo).toBeUndefined();
   });
 

@@ -178,6 +178,11 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
   /** Released notes, kept briefly so a forced earlier release can still correct them. */
   const released = new Map<string, { audibleAt: number; detail: Record<string, unknown> }>();
   const receipts = new Map<number, (receipt: TransportReceipt) => void>();
+  const interruptedListeners = new Set<(error: Error) => void>();
+  function interrupted(error: Error) {
+    options.onInterrupted?.(error);
+    for (const listener of [...interruptedListeners]) listener(error);
+  }
   let anchors: TempoAnchor[] = [];
   let snapshot: { remaining: number; present: Set<string> } | undefined;
   let beatGeneration: number | undefined;
@@ -380,7 +385,7 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
         return;
       }
       halt(false);
-      options.onInterrupted?.(new Error("The audio engine restarted; playback stopped"));
+      interrupted(new Error("The audio engine restarted; playback stopped"));
     },
   });
 
@@ -635,7 +640,7 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
       } catch (error) {
         if (attempt === run) {
           halt(false);
-          options.onInterrupted?.(error instanceof Error ? error : new Error(String(error)));
+          interrupted(error instanceof Error ? error : new Error(String(error)));
         }
       } finally {
         restoring = undefined;
@@ -763,9 +768,23 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
      * The tap that calls this is the unlock gesture. Every member's bank is
      * prepared first; then all join and the transport starts at bar 0.
      */
-    async start(request: { bpm: number; target: LooperKeyMode; members: readonly LooperMemberRequest[] }): Promise<TransportReceipt> {
+    async start(request: {
+      bpm: number;
+      target: LooperKeyMode;
+      members: readonly LooperMemberRequest[];
+      /**
+       * Where the run starts: a fixed bar, or the bar that makes `originAudioTime`
+       * (an AudioContext time, seconds) bar 0, read when the start is sent.
+       * Default bar 0, now.
+       */
+      at?: { bar: number } | { originAudioTime: number };
+    }): Promise<TransportReceipt> {
       // Checked before anything stops or changes, as join is.
       checkBpm(request.bpm);
+      const at = request.at;
+      if (at && !("bar" in at ? Number.isFinite(at.bar) : Number.isFinite(at.originAudioTime))) {
+        throw new RangeError("A start is at a finite bar or origin time");
+      }
       for (const memberRequest of request.members) { checkSettings(memberRequest); checkLoops(memberRequest); }
       halt(true);
       const attempt = run;
@@ -792,7 +811,10 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
         if (joins.length) void change({ type: "batch", changes: joins });
         const id = ++requestId;
         const started = new Promise<TransportReceipt>(resolve => receipts.set(id, resolve));
-        send({ type: "transport-start", requestId: id, run, bpm: request.bpm });
+        // Read after every bank has loaded, so a cold start still lands on its origin.
+        startBar = !at ? 0 : "bar" in at ? at.bar
+          : (audioContext.currentTime - at.originAudioTime) * request.bpm / (60 * BEATS_PER_BAR);
+        send({ type: "transport-start", requestId: id, run, bpm: request.bpm, bar: startBar });
         startBeat(request.bpm);
         return started;
       } catch (error) {
@@ -972,6 +994,22 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
       return parts.length ? change({ type: "batch", changes: parts }, boundary) : Promise.resolve(null);
     },
 
+    /**
+     * The transport bar sounding at `audioTime` (AudioContext seconds) on the
+     * published tempo map; null while no run plays or its map has not arrived.
+     * A live attack's audio time gives the bar it was played on.
+     */
+    barAtAudioTime(audioTime: number): number | null {
+      if (!playing || recovery || !port || !anchors.length || !Number.isFinite(audioTime)) return null;
+      return barAtFrame(anchors, audioTime * port.sampleRate, port.sampleRate);
+    },
+
+    /** Listen for the transport stopping without being asked; returns the unsubscribe. */
+    onInterrupted(listener: (error: Error) => void): () => void {
+      interruptedListeners.add(listener);
+      return () => { interruptedListeners.delete(listener); };
+    },
+
     /** The Looper as the transport plays it, for UI and tests. */
     getLooper() {
       return {
@@ -998,8 +1036,19 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
 export type PatternPlayer = ReturnType<typeof createPatternPlayer>;
 
 let productionPlayer: PatternPlayer | undefined;
+const productionListeners = new Set<(player: PatternPlayer | undefined) => void>();
 /** The app's single pattern player, created by the first Code Strip. */
-export function setProductionPatternPlayer(player: PatternPlayer | undefined) { productionPlayer = player; }
+export function setProductionPatternPlayer(player: PatternPlayer | undefined) {
+  if (player === productionPlayer) return;
+  productionPlayer = player;
+  for (const listener of [...productionListeners]) listener(player);
+}
+export function getProductionPatternPlayer(): PatternPlayer | undefined { return productionPlayer; }
+/** Called when the production player is created or released (the Code Strip mounts or unmounts). */
+export function onProductionPatternPlayer(listener: (player: PatternPlayer | undefined) => void): () => void {
+  productionListeners.add(listener);
+  return () => { productionListeners.delete(listener); };
+}
 /** Sounding pattern notes, for the Stage's production note sources. */
 export function getActivePatternStageNotes(): readonly ActiveNote[] {
   return productionPlayer?.getActiveNotes() ?? [];

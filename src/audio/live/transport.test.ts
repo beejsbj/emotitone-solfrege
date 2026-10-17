@@ -175,14 +175,18 @@ describe('pattern transport timing receipts', () => {
       rig.start(bpm)
       rig.render(4 * 240 / bpm)
       const expected = oracle([note], 1, bpm, 4).filter(onset => onset.frame < rig.frame)
-      expect(pcmOnsets(rig.pcm), `stem ${index}`).toEqual(expected.map(onset => onset.frame))
+      const heard = pcmOnsets(rig.pcm)
+      expect(heard, `stem ${index}`).toHaveLength(expected.length)
+      // A sine starts at phase zero, so its first audible sample is one frame in.
+      heard.forEach((at, onset) => expect(Math.abs(at - expected[onset].frame)).toBeLessThanOrEqual(1))
     }
     // Together, the events still carry every lane and every voice.
     const rig = setup()
     rig.join(table('chord', chord, 1))
     rig.start(bpm)
     rig.render(4 * 240 / bpm)
-    expect(sounded(rig.events).map(event => event.frame)).toEqual(oracle(chord, 1, bpm, 4).map(onset => onset.frame))
+    expect(sounded(rig.events).filter(event => event.frame < rig.frame).map(event => event.frame))
+      .toEqual(oracle(chord, 1, bpm, 4).map(onset => onset.frame))
   })
 
   it('announces attacks and gate ends a lookahead before they are rendered', () => {
@@ -191,7 +195,8 @@ describe('pattern transport timing receipts', () => {
     rig.start(120)
     rig.render(4)
     const lookahead = TRANSPORT_LOOKAHEAD_SECONDS * RATE
-    for (const event of rig.events) if (event.kind !== TransportEventKind.Cancel) {
+    // Only onsets inside the first lookahead after Start can be announced late.
+    for (const event of rig.events) if (event.kind !== TransportEventKind.Cancel && event.frame >= lookahead + QUANTUM) {
       // Delivered by the end of a quantum at least lookahead − one quantum ahead.
       expect(event.frame - event.deliveredAt).toBeGreaterThanOrEqual(lookahead - QUANTUM)
     }
@@ -201,7 +206,8 @@ describe('pattern transport timing receipts', () => {
     const rig = setup()
     rig.join(table('m', melody, 1))
     rig.start(120)
-    rig.render(2.1)
+    // Change between notes: a gate already sounding keeps its old-tempo length.
+    rig.render(2.45)
     const changeFrame = rig.frame
     const changeBar = rig.core.transport.barAt(changeFrame)
     rig.change({ type: 'tempo', bpm: 240 })
@@ -218,7 +224,8 @@ describe('pattern transport timing receipts', () => {
       const frame = Math.ceil(changeFrame + (bar - changeBar) * fpb(240) - 1e-6)
       if (frame < rig.frame) afterFrames.push(frame)
     }
-    expect(sounded(rig.events).map(event => event.frame)).toEqual([...before, ...afterFrames])
+    expect(sounded(rig.events).filter(event => event.frame < rig.frame).map(event => event.frame))
+      .toEqual([...before, ...afterFrames])
     expect(pcmOnsets(rig.pcm)).toHaveLength(before.length + afterFrames.length)
     // The published map has exactly the start anchor and the change anchor.
     expect(rig.anchors.at(-1)!.anchors).toEqual([
@@ -296,8 +303,17 @@ describe('pattern transport timing receipts', () => {
     rig.stop()
     rig.render(2)
     const releases = rig.events.filter(event => event.kind === TransportEventKind.Release && event.serial === 1)
-    expect(releases.map(event => event.frame)).toEqual([stopFrame])
-    expect(rig.events.filter(event => event.kind === TransportEventKind.Cancel)).toHaveLength(1)
+    // The gate end was announced ahead; Stop corrects it once, to the fade
+    // boundary, and nothing for the note follows.
+    expect(releases.filter(event => event.deliveredAt >= stopFrame).map(event => event.frame)).toEqual([stopFrame])
+    expect(Math.min(...releases.map(event => event.frame))).toBe(stopFrame)
+    // Both onsets inside the lookahead (the last note and the next pass) are withdrawn.
+    const cancels = rig.events.filter(event => event.kind === TransportEventKind.Cancel)
+    expect(cancels).toHaveLength(2)
+    for (const cancel of cancels) {
+      expect(cancel.frame).toBeGreaterThan(stopFrame)
+      expect(rig.events.some(event => event.kind === TransportEventKind.Attack && event.serial === cancel.serial)).toBe(true)
+    }
     expect(rig.pcm.slice(stopFrame + .01 * RATE + 1).every(sample => sample === 0)).toBe(true)
     expect(rig.core.voiceCount).toBe(0)
   })
@@ -332,8 +348,9 @@ describe('pattern transport timing receipts', () => {
     // A long gate is sounding across the overflow.
     rig.join(table('long', [{ begin: 0, gate: 3.5, pitch: 72 }], 4))
     rig.start(240)
+    // About 1,100 edges a second for five seconds overflows the 4,032-edge pool.
     rig.stall(true)
-    rig.render(3)
+    rig.render(5)
     rig.stall(false)
     rig.render(.2)
     // A consumer registry that applies every record it received.
@@ -351,7 +368,12 @@ describe('pattern transport timing receipts', () => {
     const truth = (rig.core as unknown as { voices: { transport?: { serial: number }; released: boolean }[] }).voices
       .filter(voice => voice.transport && !voice.released).map(voice => voice.transport!.serial)
     for (const serial of truth) expect(active.has(serial)).toBe(true)
-    expect(active.size).toBeLessThanOrEqual(truth.length + 16 * 2 + 2)
+    // Beyond the sounding voices, only onsets announced inside the lookahead remain.
+    const announced = [...active.keys()].filter(serial => !truth.includes(serial))
+    const queued = new Set<number>()
+    ;(rig.core.transport as unknown as { forEachAnnounced(visit: (onset: { serial: number }) => void): void })
+      .forEachAnnounced(onset => queued.add(onset.serial))
+    expect(announced.every(serial => queued.has(serial))).toBe(true)
   })
 
   it('keeps a held live note over saturated playback', () => {

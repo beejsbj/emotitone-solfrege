@@ -5,8 +5,21 @@ import { createLiveShapingChain, type LiveShaping } from "@/audio/liveShaping";
 import { getLiveOrbit } from "@/services/audioRuntime";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import { preparedPcmBytes } from "@/audio/live/pcm";
+import type { TransportCommand } from "@/audio/live/transport";
 
-type Listener = LiveRendererCallbacks & { onLoadError?(instrumentId: string, reason: string): void };
+type Listener = LiveRendererCallbacks & {
+  onLoadError?(instrumentId: string, reason: string): void;
+  /** The renderer generation ended (failure, rebuild or a new context): its transport state is gone. */
+  onRendererReset?(): void;
+};
+
+/** Commands for the pattern transport inside the current live worklet. */
+export interface LiveTransportPort {
+  send(command: TransportCommand): void;
+  readonly sampleRate: number;
+  /** The renderer generation this port belongs to; stale ports drop commands. */
+  readonly generation: number;
+}
 
 const MAX_BANKS = 4;
 const MAX_PCM_BYTES = 192 * 1024 * 1024;
@@ -84,6 +97,7 @@ function invalidate(error?: unknown) {
   retiring.clear();
   installingPcmBytes = 0;
   unsupported.clear();
+  listeners.forEach(listener => listener.onRendererReset?.());
   // Allow five seconds to drain, then unwind stalled native fetch/decode waits.
   // Keep the queue serialized: bypassing it could leave retired owned PCM alive.
   const retired = preparationAbort;
@@ -175,6 +189,7 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
         onExpressionOwner: change => { if (run === generation) listeners.forEach(listener => listener.onExpressionOwner?.(change)); },
         onError: error => { if (run === generation) invalidate(error); },
         onOwnerEnded: ownerId => { if (run === generation) listeners.forEach(listener => listener.onOwnerEnded?.(ownerId)); },
+        onTransport: response => { if (run === generation) listeners.forEach(listener => listener.onTransport?.(response)); },
       };
       enginePromise ??= (async () => {
         const { createLiveWorklet } = await import("@/audio/live/bridge");
@@ -306,6 +321,21 @@ export function waitForLivePlayback(name: string): Promise<void> | undefined {
       throw new Error(reason);
     }
   })();
+}
+
+/**
+ * The pattern transport of the live worklet that holds `name`, once that
+ * instrument is installed. Undefined while it is not (prepare it first).
+ */
+export function getLiveTransport(name: string): LiveTransportPort | undefined {
+  const instrumentId = resolveLiveSoundName(name);
+  if (!engine || !context || !installed.has(instrumentId) || retiring.has(instrumentId)) return undefined;
+  const ready = engine, run = generation, sampleRate = context.sampleRate;
+  return {
+    send(command) { if (run === generation) ready.transport(command); },
+    sampleRate,
+    generation: run,
+  };
 }
 
 export function needsLivePlaybackPreparation(name: string): boolean {

@@ -51,15 +51,6 @@ describe("music store", () => {
     }
   });
 
-  it("supplies the restored and changing learn preference to Strudel", () => {
-    const visual = useVisualConfigStore();
-    visual.laBasedMinor = true;
-    useMusicStore();
-    expect(superdoughMocks.setStrudelLaBasedMinor).toHaveBeenLastCalledWith(true);
-    visual.laBasedMinor = false;
-    expect(superdoughMocks.setStrudelLaBasedMinor).toHaveBeenLastCalledWith(false);
-  });
-
   it("exposes expanded mode metadata through computed state", () => {
     const musicStore = useMusicStore();
 

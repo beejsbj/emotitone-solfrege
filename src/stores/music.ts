@@ -550,11 +550,6 @@ export const useMusicStore = defineStore(
       currentMode.value = mode;
     }
 
-    watch(
-      () => visualConfigStore.laBasedMinor,
-      (value) => superdoughAudio.setStrudelLaBasedMinor(value),
-      { immediate: true, flush: "sync" },
-    );
 
     // Play note with either format
     async function playNoteWithFormat(

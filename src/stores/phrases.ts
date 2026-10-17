@@ -42,7 +42,8 @@ import type { HeldNote, Phrase, PhraseBook, PhraseContext } from "@/types/phrase
 
 const LEGACY_STORAGE_KEY = "patterns";
 const STORAGE_KEY = "phrases";
-const NON_RECORDING_EVENT_SOURCES = new Set(["strudel-playback", "live-pitch"]);
+// Transport notes also carry record: false; the source keeps older senders out.
+const NON_RECORDING_EVENT_SOURCES = new Set(["pattern-playback", "strudel-playback", "live-pitch"]);
 const MAX_EXPRESSION_POINTS = 8192;
 
 /** Built-in phrases. Static data: never stored, never edited. */

@@ -134,14 +134,22 @@ export class LiveAudioCore {
       frame, this.transport.isRunning ? this.transport.barAt(frame) : 0, length, this.postEvents)
   }
 
-  /** After overflow, describe every active transport note once a batch is free again. */
+  /**
+   * After overflow, describe every active transport note once a batch is free
+   * again, then repeat the gate ends already announced for them (those
+   * announcements may be among the dropped records and are not sent twice).
+   */
   private recoverTransportEvents() {
     const writer = this.transportEvents
     if (!writer.overflowed) return
     let active = 0
+    let announced = 0
     this.transport.forEachAnnounced(() => { active++ })
-    for (const voice of this.voices) if (voice.transport && !voice.released) active++
-    if (writer.capacity < active + 1) return
+    for (const voice of this.voices) if (voice.transport && !voice.released) {
+      active++
+      if (voice.transport.announcedRelease !== undefined) announced++
+    }
+    if (writer.capacity < active + announced + 1) return
     writer.overflowed = false
     writer.write(TransportEventKind.SnapshotBegin, active, 0, 0, 0, 0, 0, this.postEvents)
     this.transport.forEachAnnounced(onset => writer.write(TransportEventKind.Active, onset.serial,
@@ -150,6 +158,9 @@ export class LiveAudioCore {
       const transport = voice.transport
       writer.write(TransportEventKind.Active, transport.serial, transport.generation, transport.noteIndex,
         voice.start, this.transport.isRunning ? this.transport.barAt(voice.start) : 0, voice.end - voice.start, this.postEvents)
+    }
+    for (const voice of this.voices) if (voice.transport && !voice.released && voice.transport.announcedRelease !== undefined) {
+      this.transportEvent(TransportEventKind.Release, voice, voice.transport.announcedRelease, voice.releaseLength / this.sampleRate)
     }
   }
 

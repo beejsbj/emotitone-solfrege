@@ -51,9 +51,11 @@ describe.each(['square', 'sawtooth'] as const)('%s worklet PCM', waveform => {
     voice.press(); voice.render(.1)
     const pcm = voice.render(.5)
     const fundamental = magnitude(pcm, 440)
-    // Native Superdough A4 fundamental measured by the browser parity lab.
-    // This absolute level catches removal/double application of the .85 scalar.
-    expect(fundamental).toBeCloseTo(waveform === 'square' ? .25919 : .12965, 2)
+    // Unscaled polyBLEP A4 fundamental: the browser lab's native Superdough
+    // level (.25919 square, .12965 saw) divided by the retired .85 scalar,
+    // which BJS-485 removed once patterns render on the worklet. This absolute
+    // level catches a scalar coming back.
+    expect(fundamental).toBeCloseTo(waveform === 'square' ? .25919 / .85 : .12965 / .85, 2)
     for (let harmonic = 2; harmonic <= 8; harmonic++) {
       const level = magnitude(pcm, 440 * harmonic) / fundamental
       if (waveform === 'square' && harmonic % 2 === 0) expect(level).toBeLessThan(.001)

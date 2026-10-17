@@ -1,26 +1,5 @@
 <template>
   <div class="phrase-shelf">
-    <section
-      v-if="phrasesStore.isShelfFull"
-      class="phrase-shelf__banner"
-      aria-label="Shelf full"
-    >
-      <p class="phrase-shelf__banner-text" role="status">
-        Shelf full. New changes stay in this tab until there is room to save.
-      </p>
-      <template v-if="oldestRecent">
-        <p class="phrase-shelf__banner-detail">Oldest Recent: {{ phraseTitle(oldestRecent) }}</p>
-        <Button
-          size="sm"
-          :tone="releaseArmed ? 'brass' : 'ink'"
-          :accessible-name="releaseArmed ? 'Confirm release oldest Recent' : 'Release oldest Recent'"
-          @click="releaseOldest"
-        >{{ releaseArmed ? 'Confirm release' : 'Release oldest Recent' }}</Button>
-      </template>
-      <p v-else class="phrase-shelf__banner-detail">
-        No Recent phrases to release. Copy any phrases you want to save before deleting them from the reel.
-      </p>
-    </section>
     <PatternReel
       class="phrase-shelf__reel"
       :items="reelItems"
@@ -35,11 +14,41 @@
       @rename="renamePhrase"
       @interaction-change="emit('interactionChange', $event)"
     />
+    <!-- Below the reel: older strips stack upward over whatever sits above it. -->
+    <section
+      v-if="phrasesStore.isShelfFull"
+      class="phrase-shelf__banner"
+      aria-label="Shelf full"
+    >
+      <p class="phrase-shelf__banner-text" role="status">
+        Shelf full. New changes stay in this tab until there is room to save.
+      </p>
+      <template v-if="oldestRecent">
+        <p class="phrase-shelf__banner-detail">Oldest Recent: {{ phraseTitle(oldestRecent) }}</p>
+        <div class="phrase-shelf__banner-action">
+          <Button
+            size="sm"
+            :tone="releaseArmed ? 'brass' : 'ink'"
+            :accessible-name="releaseArmed ? 'Confirm release oldest Recent' : 'Release oldest Recent'"
+            :title="releaseArmed ? 'Confirm release oldest Recent' : 'Release oldest Recent'"
+            @click="releaseOldest"
+          >
+            <Check v-if="releaseArmed" />
+            <Trash2 v-else />
+          </Button>
+          <span class="phrase-shelf__banner-detail">{{ releaseArmed ? 'Tap again to release' : 'Release it' }}</span>
+        </div>
+      </template>
+      <p v-else class="phrase-shelf__banner-detail">
+        No Recent phrases to release. Copy any phrases you want to save before deleting them from the reel.
+      </p>
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { Check, Trash2 } from "lucide-vue-next";
 import Button from "@/components/primatives/Button.vue";
 import PatternReel from "@/components/compounds/PatternReel.vue";
 import type { PatternReelItem } from "@/components/compounds/PatternReel.vue";
@@ -424,7 +433,7 @@ function openInStrudel(id: string) {
   display: grid;
   justify-items: start;
   gap: var(--s-3);
-  margin: var(--s-4);
+  margin: var(--s-4) var(--s-4) 0;
   padding: var(--s-4);
   border: 1px solid var(--hairline);
   border-radius: var(--r-xs);
@@ -435,6 +444,12 @@ function openInStrudel(id: string) {
 .phrase-shelf__banner-text {
   font: var(--t-body);
   color: var(--ivory);
+}
+
+.phrase-shelf__banner-action {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
 }
 
 .phrase-shelf__banner-detail {

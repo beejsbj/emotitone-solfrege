@@ -96,10 +96,17 @@ describe('take level at the playback seam', () => {
     const [solo] = slotLevels([note('E4', 0, 400, .3)], 1);
     // Alone, a .3 note is the whole take and plays at full level; in the chord it is full level too.
     expect(solo / reference()).toBeCloseTo(1, 2);
-    expect(second / first).toBeGreaterThan(0);
-    // The two slots are one chord (E4 full, C4 a third of it) and a single C4 at half of full.
-    expect(first).toBeGreaterThan(reference() * .9);
-    expect(second / reference()).toBeCloseTo(.5, 1);
+    // Slot 1 is the chord: two unrelated sines, E4 at full level and C4 at a third of it,
+    // whose powers add: RMS = full × sqrt(1 + 1/9). Slot 2 is a single C4 at half of full.
+    expect(first / reference()).toBeCloseTo(Math.sqrt(1 + 1 / 9), 1);
+    expect(Math.abs(first / reference() - Math.sqrt(1 + 1 / 9))).toBeLessThan(.03);
+    expect(second / reference()).toBeCloseTo(.5, 2);
+  });
+
+  it('does not raise a take that has a velocity-less note, which counts as full level', () => {
+    const [plain, soft] = slotLevels(take([undefined, .3]));
+    expect(plain / reference()).toBeCloseTo(1, 2);
+    expect(soft / reference()).toBeCloseTo(.3, 2);
   });
 
   it('keeps a recorded gain curve as a multiplier on the normalised note', () => {

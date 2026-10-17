@@ -33,7 +33,10 @@ export interface PatternNoteContext {
   mode: MusicalMode;
   key: ChromaticNote;
   instrument: string;
+  /** The velocity as played; what the phrase stores and the recorder reads. */
   velocity?: number;
+  /** The level the take plays this note at (BJS-556); what MIDI out sends. */
+  playbackVelocity?: number;
   articulation: LiveArticulation;
 }
 
@@ -143,6 +146,7 @@ export function buildPatternMember(request: PatternMemberRequest): PatternMember
       key: request.key,
       instrument: request.instrument,
       ...(note.velocity === undefined ? {} : { velocity: note.velocity }),
+      ...(note.playbackVelocity === undefined ? {} : { playbackVelocity: note.playbackVelocity }),
       articulation: { attack: note.attack, decay: note.decay, sustain: note.sustain, release: note.release },
     });
   });

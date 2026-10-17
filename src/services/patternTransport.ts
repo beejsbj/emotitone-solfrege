@@ -106,8 +106,11 @@ interface Membership {
   request: LooperMemberRequest;
   settings: LooperMemberSettings;
   instrumentId?: string;
-  /** The table the transport plays; undefined while the instrument loads (a cold join). */
+  /** The newest table sent for it; undefined while the instrument loads (a cold join). */
   member?: PatternMember;
+  /** The generation the transport is known to play (from the last applied receipt), and the one before. */
+  applied?: number;
+  previous?: number;
   releasePin?: () => void;
 }
 
@@ -148,16 +151,27 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
   let playing = false;
   /** A Looper session recovers from a renderer rebuild; a lone pattern (the Code Strip) stops. */
   let session: { looper: boolean; bpm: number; target?: LooperKeyMode; soloId: string | null } | undefined;
-  /** Set while a rebuilt renderer is awaited: the bar to continue from. */
-  let recovery: { bar: number } | undefined;
+  /** Set while a rebuilt renderer is awaited: the bar to continue from, and which rebuild it is. */
+  let recovery: { bar: number; epoch: number } | undefined;
+  let recoveryEpoch = 0;
+  let pinSerial = 0;
   /** The bar the current run started at (0, or where a recovered run continued). */
   let startBar = 0;
   let stopRecovery: (() => void) | undefined;
   let releaseActivity: (() => void) | undefined;
   let releaseGrid: (() => void) | undefined;
   const memberships = new Map<string, Membership>();
-  /** Every table of the current run, by generation: events resolve identity here. */
+  /** Members whose leave or replacing re-join has been sent but not applied: they still play until then. */
+  const leaving = new Set<Membership>();
+  /**
+   * Tables events may still name, by generation: each member's newest and
+   * applied tables, tables in changes not yet answered, and tables with a
+   * sounding note. Others are dropped as receipts arrive, so bends and pins
+   * do not grow memory over a session.
+   */
   const members = new Map<number, PatternMember>();
+  /** Tables carried by changes awaiting their receipt, by request id. */
+  const carried = new Map<number, { id: string; generation: number }[]>();
   const registry = new Map<string, Registered>();
   /** Released notes, kept briefly so a forced earlier release can still correct them. */
   const released = new Map<string, { audibleAt: number; detail: Record<string, unknown> }>();
@@ -178,6 +192,9 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
   function change(change: TransportChange, boundary: TransportBoundary = "immediate"): Promise<TransportReceipt> {
     const id = ++requestId;
     const receipt = new Promise<TransportReceipt>(resolve => receipts.set(id, resolve));
+    const tables = (change.type === "batch" ? change.changes : [change]).flatMap(part =>
+      part.type === "join" ? [part.member.table] : part.type === "replace" ? [part.table] : []);
+    if (tables.length) carried.set(id, tables.map(table => ({ id: table.id, generation: table.generation })));
     send({ type: "transport-change", requestId: id, change, boundary });
     return receipt;
   }
@@ -185,7 +202,28 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
   function settle(receipt: TransportReceipt) {
     const resolve = receipts.get(receipt.requestId);
     receipts.delete(receipt.requestId);
+    const tables = carried.get(receipt.requestId);
+    carried.delete(receipt.requestId);
+    if (tables && !receipt.cancelled) for (const { id, generation: applied } of tables) {
+      const entry = memberships.get(id) ?? [...leaving].find(old => old.request.id === id);
+      if (entry && (entry.applied === undefined || applied > entry.applied)) {
+        // One step of history: an event batch held back by a stalled main thread may still name it.
+        entry.previous = entry.applied;
+        entry.applied = applied;
+      }
+    }
+    if (tables) prune();
     resolve?.(receipt);
+  }
+
+  function prune() {
+    const keep = new Set<number>();
+    for (const entry of [...memberships.values(), ...leaving.values()]) {
+      for (const held of [entry.previous, entry.applied, entry.member?.table.generation]) if (held !== undefined) keep.add(held);
+    }
+    for (const tables of carried.values()) for (const { generation: held } of tables) keep.add(held);
+    for (const entry of registry.values()) keep.add(entry.generation);
+    for (const held of [...members.keys()]) if (!keep.has(held)) members.delete(held);
   }
 
   function dispatch(type: "note-played" | "note-released", detail: Record<string, unknown>) {
@@ -314,15 +352,16 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
   }
 
   function onTransport(response: TransportResponse) {
-    if (!playing || recovery) return;
+    if (!playing) return;
+    // A receipt is always answered; ids from before a rebuild were already settled.
+    if (response.type === "transport-applied") { settle(response); return; }
+    if (recovery) return;
     if (response.type === "transport-events") {
       readTransportEvents(response, onEvent);
       // Keep only recent release corrections.
       if (released.size > 256) for (const noteId of [...released.keys()].slice(0, released.size - 256)) released.delete(noteId);
     } else if (response.type === "transport-anchors" && response.run === run) {
       anchors = response.anchors;
-    } else if (response.type === "transport-applied") {
-      settle(response);
     }
   }
 
@@ -453,10 +492,12 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
 
   function pin(id: string, entry: Membership, instrumentId: string) {
     // Resting and muted members keep their bank: a member must come back on
-    // its next note, and a reload cannot fit inside the lookahead.
+    // its next note, and a reload cannot fit inside the lookahead. Each pin
+    // has its own holder, so a re-join can hold the new bank while the old
+    // one plays on until the re-join's bar.
     entry.releasePin?.();
     entry.instrumentId = instrumentId;
-    entry.releasePin = pinLivePlayback(`${PIN_HOLDER}:${id}`, [instrumentId]);
+    entry.releasePin = pinLivePlayback(`${PIN_HOLDER}:${id}:${++pinSerial}`, [instrumentId]);
   }
 
   function settingsOf(request: LooperMemberRequest, previous?: LooperMemberSettings): LooperMemberSettings {
@@ -484,9 +525,10 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
     registry.clear();
     released.clear();
     members.clear();
-    for (const entry of memberships.values()) entry.releasePin?.();
-    memberships.clear();
     resolvePending();
+    for (const entry of [...memberships.values(), ...leaving.values()]) entry.releasePin?.();
+    memberships.clear();
+    leaving.clear();
     snapshot = undefined;
     anchors = [];
     session = undefined;
@@ -508,15 +550,17 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
    * the rebuild's own) runs every `onAudioRunning` recovery.
    */
   function suspendForRecovery() {
-    // Before the new run's anchors arrive, the bar it was told to start from stands.
-    const bar = anchors.length && context && port
-      ? barAtFrame(anchors, context.currentTime * port.sampleRate, port.sampleRate) : recovery?.bar ?? startBar;
+    // A rebuild during a restore keeps the bar the first outage stopped at (the
+    // old anchors would skip ahead by the outage); before the new run's anchors
+    // arrive, the bar it was told to start from stands.
+    const bar = recovery?.bar ?? (anchors.length && context && port
+      ? barAtFrame(anchors, context.currentTime * port.sampleRate, port.sampleRate) : startBar);
     for (const noteId of [...registry.keys()]) endNow(noteId);
     registry.clear();
     released.clear();
     snapshot = undefined;
     resolvePending();
-    recovery = { bar };
+    recovery = { bar, epoch: ++recoveryEpoch };
     if (beatGeneration !== undefined) uiBeat.suspend(beatGeneration);
     watchRecovery();
     // Knock on the gate rather than unlocking here: inside a rebuild it joins
@@ -536,27 +580,41 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
     return restoring ??= (async () => {
       const attempt = run;
       try {
-        const entries = [...memberships.entries()].filter(([, entry]) => entry.member);
-        let ready: LiveTransportPort | undefined;
-        // Every bank first (each instrument once), then playback: the rebuilt
-        // processor starts empty and the one-copy contract moved the PCM away.
-        for (const instrument of new Set(entries.map(([, entry]) => entry.request.instrument))) {
-          ready = (await prepare(instrument)).port;
-          if (attempt !== run) return;
+        // A further rebuild while banks load starts the restore again on the newest renderer.
+        for (let epoch = recovery?.epoch; recovery && epoch !== undefined; epoch = recovery?.epoch) {
+          const entries = [...memberships.entries()].filter(([, entry]) => entry.member);
+          let ready: LiveTransportPort | undefined;
+          try {
+            // Every bank first (each instrument once), then playback: the rebuilt
+            // processor starts empty and the one-copy contract moved the PCM away.
+            for (const instrument of new Set(entries.map(([, entry]) => entry.request.instrument))) {
+              ready = (await prepare(instrument)).port;
+              if (attempt !== run || recovery?.epoch !== epoch) break;
+            }
+          } catch (error) {
+            if (attempt === run && recovery && recovery.epoch !== epoch) continue;
+            throw error;
+          }
+          if (attempt !== run || !session || !recovery) return;
+          if (recovery.epoch !== epoch) continue;
+          if (!ready) return;
+          port = ready;
+          anchors = [];
+          run++;
+          // Tables are rebuilt so their generations belong to the new run.
+          members.clear();
+          const joins = entries.map(([, entry]) => {
+            entry.applied = entry.previous = undefined;
+            build(entry);
+            return joinChange(entry);
+          });
+          const solo = session.soloId;
+          if (joins.length) void change({ type: "batch", changes: solo ? [...joins, { type: "solo", memberId: solo }] : joins });
+          startBar = recovery.bar;
+          recovery = undefined;
+          send({ type: "transport-start", requestId: ++requestId, run, bpm: session.bpm, bar: startBar });
+          return;
         }
-        if (!ready || !session || !recovery) return;
-        port = ready;
-        anchors = [];
-        run++;
-        // Tables are rebuilt so their generations belong to the new run.
-        members.clear();
-        const joins = entries.map(([, entry]) => { build(entry); return joinChange(entry); });
-        const solo = session.soloId;
-        if (joins.length) send({ type: "transport-change", requestId: ++requestId, boundary: "immediate",
-          change: { type: "batch", changes: solo ? [...joins, { type: "solo", memberId: solo }] : joins } });
-        startBar = recovery.bar;
-        send({ type: "transport-start", requestId: ++requestId, run, bpm: session.bpm, bar: startBar });
-        recovery = undefined;
       } catch (error) {
         if (attempt === run) {
           halt(false);
@@ -703,13 +761,19 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
       requireSession();
       const attempt = run;
       const previous = memberships.get(request.id);
-      const entry: Membership = { request, settings: settingsOf(request, previous?.settings),
-        releasePin: previous?.releasePin, instrumentId: previous?.instrumentId };
+      const entry: Membership = { request, settings: settingsOf(request, previous?.settings), instrumentId: previous?.instrumentId };
       memberships.set(request.id, entry);
       const undo = () => {
         if (memberships.get(request.id) !== entry) return;
         if (previous) memberships.set(request.id, previous);
-        else memberships.delete(request.id);
+        else {
+          memberships.delete(request.id);
+          // A solo tapped while it loaded named a member that never came: lift it.
+          if (session?.soloId === request.id && playing) {
+            session.soloId = null;
+            void change({ type: "solo", memberId: null });
+          }
+        }
       };
       let prepared: Awaited<ReturnType<typeof prepare>>;
       try {
@@ -726,8 +790,23 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
       }
       pin(request.id, entry, prepared.instrumentId);
       build(entry);
+      // A re-join replaces the member only at its boundary: until then the
+      // previous one plays on with its bank pinned and its tables known.
+      if (previous) leaving.add(previous);
       const solo = session!.soloId === request.id ? [{ type: "solo", memberId: request.id } as const] : [];
-      return change(solo.length ? { type: "batch", changes: [joinChange(entry), ...solo] } : joinChange(entry), boundary);
+      const receipt = change(solo.length ? { type: "batch", changes: [joinChange(entry), ...solo] } : joinChange(entry), boundary);
+      if (previous) void receipt.then(applied => {
+        leaving.delete(previous);
+        if (applied.refused && memberships.get(request.id) === entry) {
+          // The re-join never happened: the previous member plays on.
+          memberships.set(request.id, previous);
+          entry.releasePin?.();
+          return;
+        }
+        if (memberships.get(request.id) !== previous) previous.releasePin?.();
+        prune();
+      });
+      return receipt;
     },
 
     /** Leave: the member's sounding notes finish their gates; its bank is unpinned. */
@@ -735,10 +814,16 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
       const looper = requireSession();
       const entry = memberships.get(id);
       memberships.delete(id);
+      if (entry) leaving.add(entry);
       if (looper.soloId === id) looper.soloId = null;
       const receipt = change({ type: "leave", memberId: id }, boundary);
       // Unpin once the leave has applied: until then the member still sounds.
-      void receipt.then(() => { if (memberships.get(id) !== entry) entry?.releasePin?.(); });
+      void receipt.then(() => {
+        if (!entry) return;
+        leaving.delete(entry);
+        if (memberships.get(id) !== entry) entry.releasePin?.();
+        prune();
+      });
       return receipt;
     },
 
@@ -752,7 +837,8 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
       if (!entry) return Promise.resolve(cancelledReceipt(0));
       const silencing = patch.muted === true && !entry.settings.muted;
       const repin = patch.pinned !== undefined && patch.pinned !== entry.settings.pinned;
-      entry.settings = { ...entry.settings, ...patch };
+      const before = { settings: entry.settings, member: entry.member };
+      const next = entry.settings = { ...entry.settings, ...patch };
       // Still loading: the join carries the new settings when it is sent.
       if (!entry.member) return Promise.resolve(cancelledReceipt(0));
       const parts: TransportSingleChange[] = [];
@@ -764,7 +850,11 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
       }
       if (repin) parts.push({ type: "replace", table: build(entry).table });
       if (!parts.length) return Promise.resolve(cancelledReceipt(0));
-      const receipt = change(parts.length === 1 ? parts[0] : { type: "batch", changes: parts }, boundary);
+      const receipt = change(parts.length === 1 ? parts[0] : { type: "batch", changes: parts }, boundary).then(applied => {
+        // A refused change (an invalid offset or rate) changed nothing: say so locally too.
+        if (applied.refused && entry.settings === next) Object.assign(entry, before);
+        return applied;
+      });
       return silencing ? afterSilence(receipt) : receipt;
     },
 
@@ -778,8 +868,12 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
 
     setTempo(bpm: number, boundary: TransportBoundary = "immediate"): Promise<TransportReceipt> {
       const looper = requireSession();
+      const before = looper.bpm;
       looper.bpm = bpm;
-      return change({ type: "tempo", bpm }, boundary);
+      return change({ type: "tempo", bpm }, boundary).then(applied => {
+        if (applied.refused && Object.is(looper.bpm, bpm)) looper.bpm = before;
+        return applied;
+      });
     },
 
     /**
@@ -808,6 +902,8 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
         soloId: session?.soloId ?? null,
         members: [...memberships.entries()].map(([id, entry]) => ({ id, ...entry.settings,
           generation: entry.member?.table.generation ?? null, loading: !entry.member })),
+        /** Member tables held for event identity (bounded: see `members`). */
+        tables: members.size,
       };
     },
 

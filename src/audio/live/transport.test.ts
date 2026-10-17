@@ -684,9 +684,7 @@ describe('#140 receipts on the worklet transport (BJS-491)', () => {
         })
       },
       solo(id, boundary = 'immediate') {
-        record(rig.change({ type: 'solo', memberId: id }, boundary), state => {
-          state.solo = id !== null && state.members.has(id) ? id : null
-        })
+        record(rig.change({ type: 'solo', memberId: id }, boundary), state => { state.solo = id })
       },
       nextBar: () => ({ bar: Math.floor(rig.core.transport.barAt(rig.frame)) + 1 }),
     }

@@ -22,6 +22,10 @@ const rig = vi.hoisted(() => ({
   pins: new Map<string, string[]>(),
   refused: new Set<string>(),
   gates: new Map<string, Promise<void>>(),
+  /** Rendered left channel, from frame 0. */
+  pcm: [] as number[],
+  /** The renderer is down for this many more transport lookups (between an invalidation and its reinstall). */
+  down: 0,
   commands: [] as TransportCommand[],
   deliver() {
     while (rig.queued.length) {
@@ -43,6 +47,7 @@ vi.mock("@/services/livePlayback", () => ({
   },
   getLiveTransport(instrumentId: string) {
     if (rig.refused.has(instrumentId)) return undefined;
+    if (rig.down > 0) { rig.down--; return undefined; }
     const generation = rig.generation;
     return {
       send(command: TransportCommand) {
@@ -84,10 +89,23 @@ function newCore() {
 function render(seconds: number) {
   const quanta = Math.round(seconds * RATE / QUANTUM);
   for (let index = 0; index < quanta; index++) {
-    rig.core.render([new Float32Array(QUANTUM), new Float32Array(QUANTUM)], rig.frame);
+    const output = [new Float32Array(QUANTUM), new Float32Array(QUANTUM)];
+    rig.core.render(output, rig.frame);
     rig.frame += QUANTUM;
+    for (const sample of output[0]) rig.pcm.push(sample);
     rig.deliver();
   }
+}
+
+/** The MIDI pitch heard in a window of the rendered output, from interpolated rising zero crossings. */
+function heardMidi(from: number, to: number) {
+  const crossings: number[] = [];
+  for (let index = from + 1; index < to; index++) {
+    const [a, b] = [rig.pcm[index - 1], rig.pcm[index]];
+    if (a < 0 && b >= 0) crossings.push(index - 1 + a / (a - b));
+  }
+  const hz = (crossings.length - 1) / ((crossings.at(-1)! - crossings[0]) / RATE);
+  return 69 + 12 * Math.log2(hz / 440);
 }
 
 const context = {
@@ -164,6 +182,8 @@ describe("the Looper on the worklet transport", () => {
     rig.pins.clear();
     rig.refused.clear();
     rig.gates.clear();
+    rig.pcm = [];
+    rig.down = 0;
     newCore();
   });
   afterEach(() => { rig.listeners.clear(); });
@@ -367,6 +387,200 @@ describe("the Looper on the worklet transport", () => {
     expect(after.filter(event => event.phraseId === "a").every(event => event.key === "D" && event.mode === "minor")).toBe(true);
     expect(new Set(after.map(event => event.noteId)).size).toBe(after.length);
     expect(after.every(event => !played.slice(0, before).some(old => old.noteId === event.noteId))).toBe(true);
+    player.dispose();
+  });
+});
+
+/** Review round on #199, at the player's seam with the real core behind it. */
+describe("the Looper after review", () => {
+  beforeEach(() => {
+    rig.frame = 0;
+    rig.generation = 1;
+    rig.queued = [];
+    rig.commands = [];
+    rig.pins.clear();
+    rig.refused.clear();
+    rig.gates.clear();
+    rig.pcm = [];
+    rig.down = 0;
+    newCore();
+  });
+  afterEach(() => { rig.listeners.clear(); });
+
+  const start = (player: ReturnType<typeof setup>["player"], members: LooperMemberRequest[], target = { key: "C" as ChromaticNote, mode: "major" as MusicalMode }) =>
+    player.start({ bpm: 120, target, members });
+
+  it("keeps what getLooper reports and what plays in agreement for a member whose join waits for its bar", async () => {
+    const { player, played } = setup();
+    await start(player, [member("a", melody), member("c", bass)]);
+    render(.6);
+    void player.join(member("b", pinned), { bar: 2 });
+    // Mute it, then bend everyone, then solo it, all before its bar.
+    await player.setMember("b", { muted: true });
+    await player.bend({ key: "D", mode: "minor" });
+    await player.solo("b");
+    render(5);
+    expect(player.getLooper()).toMatchObject({ soloId: "b" });
+    expect(player.getLooper().members.find(entry => entry.id === "b")).toMatchObject({ muted: true });
+    // Soloed and muted: nothing sounds after the solo, b included (mute wins).
+    const soloFrame = .6 * RATE;
+    expect(played.filter(event => event.frame > soloFrame + .05 * RATE)).toEqual([]);
+    await player.setMember("b", { muted: false });
+    render(2.5);
+    const b = played.filter(event => event.phraseId === "b");
+    expect(b.length).toBeGreaterThan(2);
+    // b plays alone, and with the table the bend built for it (b is not pinned here).
+    expect(played.filter(event => event.frame > rig.frame - 2 * RATE).every(event => event.phraseId === "b")).toBe(true);
+    expect(b.every(event => event.key === "D" && event.mode === "minor")).toBe(true);
+    player.dispose();
+  });
+
+  it("answers an invalid change with a refused receipt and leaves its own state unchanged", async () => {
+    const { player } = setup();
+    await start(player, [member("a", melody)]);
+    render(.2);
+    await expect(player.setTempo(Number.NaN)).resolves.toMatchObject({ refused: true });
+    await expect(player.setTempo(0, { bar: 2 })).resolves.toMatchObject({ refused: true });
+    expect(player.getLooper().bpm).toBe(120);
+    await expect(player.setMember("a", { rate: 0, muted: true })).resolves.toMatchObject({ refused: true });
+    expect(player.getLooper().members[0]).toMatchObject({ rate: 1, muted: false });
+    player.dispose();
+  });
+
+  it("keeps the old bank pinned until a re-join at a bar lands", async () => {
+    const { player, played } = setup();
+    await start(player, [member("a", melody), member("c", bass, { instrument: "triangle" })]);
+    render(.3);
+    const rejoined = player.join(member("c", bass, { instrument: "cello" }), { bar: 1 });
+    await vi.waitFor(() => expect([...rig.pins.values()].flat()).toContain("cello"));
+    expect([...rig.pins.values()].flat().sort()).toEqual(["cello", "sine", "triangle"]);
+    render(1);
+    // Until the bar the old member still plays: on its old instrument, its table still known.
+    expect([...rig.pins.values()].flat()).toContain("triangle");
+    render(1.5);
+    await rejoined;
+    expect([...rig.pins.values()].flat().sort()).toEqual(["cello", "sine"]);
+    expect(played.some(event => event.phraseId === "c" && event.frame >= 2 * RATE)).toBe(true);
+    player.dispose();
+  });
+
+  it("drops tables no member plays, so a long session of bends does not grow", async () => {
+    const { player } = setup();
+    await start(player, [member("a", melody), member("c", bass)]);
+    for (let bend = 0; bend < 30; bend++) {
+      await player.bend(bend % 2 ? { key: "C", mode: "major" } : { key: "D", mode: "minor" });
+      render(.1);
+    }
+    // Two members: at most the newest, applied and previous table each, plus any sounding note's.
+    expect(player.getLooper().tables).toBeLessThanOrEqual(8);
+    player.dispose();
+  });
+
+  it("recovers from a second rebuild during its restore, at the bar the first outage stopped at", async () => {
+    const { player, played } = setup();
+    await start(player, [member("a", melody)], { key: "D", mode: "minor" });
+    render(2.6);
+    const reachedBar = rig.frame / RATE / 2;
+    const before = played.length;
+    let arrive!: () => void;
+    rig.gates.set("sine", new Promise<void>(resolve => { arrive = resolve; }));
+    rig.generation++;
+    newCore();
+    for (const listener of [...rig.listeners]) listener.onRendererReset?.();
+    const gate = resumeAudioContext(context as unknown as AudioContext);
+    // The outage goes on: time passes, then the renderer is rebuilt again,
+    // and the bank load in flight finds no renderer.
+    render(.7);
+    rig.generation++;
+    newCore();
+    rig.down = 1;
+    for (const listener of [...rig.listeners]) listener.onRendererReset?.();
+    arrive();
+    rig.gates.delete("sine");
+    await gate;
+    await vi.waitFor(() => expect(player.getLooper().running).toBe(true));
+    expect(player.isPlaying).toBe(true);
+    const resumedFrame = rig.frame;
+    render(2.2);
+    const after = played.slice(before);
+    expect(after.length).toBeGreaterThan(3);
+    expect(after[0].bar).toBeGreaterThanOrEqual(reachedBar - 1e-9);
+    expect(after[0].bar - reachedBar).toBeLessThan(.25 + 1e-9);
+    for (const event of after) expect(event.frame).toBe(Math.ceil(resumedFrame + (event.bar - reachedBar) * 2 * RATE - 1e-6));
+    player.dispose();
+  });
+
+  it("bends from G major to A minor with the #165 rule, heard in the PCM, and keeps a pinned member's pitch", async () => {
+    // Recorded in G major. C#5 is borrowed, between degrees 4 (C5) and 5 (D5).
+    const g = (id: string, name: string, at: number) => note(id, name, at, "G", "major");
+    const tune = [g("g1", "G4", 0), g("g2", "B4", 250), g("g3", "C5", 500), g("g4", "C#5", 750), g("g5", "D5", 1000), g("g6", "F#5", 1250)];
+    // Hand-worked: degrees map major to minor (B→Bb, F#→F); C# keeps between
+    // the images of C and D, and the tie goes down to C; then up a tone to A.
+    const expected: Record<string, number> = { g1: 69, g2: 72, g3: 74, g4: 74, g5: 76, g6: 79 };
+    const kept = [g("p1", "D5", 1600)];
+    const { player, played } = setup();
+    // A take starts at its first note: the pinned member sits 0.8 bar in, clear of the tune.
+    await start(player, [member("a", tune, { key: "G", mode: "major" }),
+      member("p", kept, { key: "G", mode: "major", pinned: true, offsetBars: .8 })],
+      { key: "A", mode: "minor" });
+    render(2.2);
+    const heard = played.filter(event => event.bar < 1);
+    expect(heard.filter(event => event.phraseId === "a")).toHaveLength(6);
+    for (const event of heard) {
+      const wanted = event.phraseId === "a" ? expected[event.sourceNoteId] : 74;
+      expect(Note.midi(event.noteName), event.sourceNoteId).toBe(wanted);
+      // The sound itself: the pitch in the PCM while the note holds.
+      expect(heardMidi(event.frame + 200, event.frame + 1100), event.sourceNoteId).toBeCloseTo(wanted, 1);
+    }
+    // Contour can collapse but never reverse (#165).
+    const bent = heard.filter(event => event.phraseId === "a").map(event => Note.midi(event.noteName)!);
+    expect(bent).toEqual([...bent].sort((x, y) => x - y));
+    expect(heard.filter(event => event.phraseId === "p").every(event => event.key === "G" && event.mode === "major")).toBe(true);
+    player.dispose();
+  });
+
+  it("never steps the UIBeat cursor backward across a bar change and tempo changes, and tracks the transport", async () => {
+    const { player, uiBeat, tick } = setup();
+    await start(player, [member("a", melody)]);
+    const positions: number[] = [];
+    const step = (seconds: number) => {
+      for (let index = 0; index < seconds / .05; index++) {
+        render(.05);
+        tick();
+        positions.push(uiBeat.snapshot.barPosition!);
+      }
+    };
+    step(.6);
+    void player.join(member("c", bass), { bar: 1 });
+    void player.setTempo(90, { bar: 1 });
+    step(1.5);
+    await player.setTempo(180);
+    step(1);
+    expect(positions.every(position => Number.isFinite(position))).toBe(true);
+    expect(positions.every((position, index) => !index || position >= positions[index - 1])).toBe(true);
+    expect(positions.at(-1)!).toBeCloseTo(rig.core.transport.barAt(rig.frame), 2);
+    player.dispose();
+  });
+
+  it("keeps every surviving attack while a cold 512-note member loads and joins", async () => {
+    // Table building is on the main thread; the audio thread never waits for it.
+    const dense = Array.from({ length: 512 }, (_, index) => note(`d${index}`, ["C4", "E4", "G4", "B4"][index % 4], index * 3.9));
+    const { player, played } = setup();
+    await start(player, [member("a", melody)]);
+    let arrive!: () => void;
+    rig.gates.set("cello", new Promise<void>(resolve => { arrive = resolve; }));
+    const joining = player.join(member("big", dense, { instrument: "cello" }));
+    render(1.3);
+    arrive();
+    const receipt = await joining;
+    render(2.5);
+    // a's notes sit on every quarter bar, from bar 0 to the end, with none lost.
+    const bars = played.filter(event => event.phraseId === "a" && event.frame < rig.frame).map(event => event.bar);
+    const quarters = Math.ceil(rig.frame / (RATE / 2));
+    expect(bars).toEqual(Array.from({ length: quarters }, (_, index) => index / 4));
+    const big = played.filter(event => event.phraseId === "big");
+    expect(big.length).toBeGreaterThan(500);
+    expect(big[0].bar).toBeGreaterThanOrEqual(receipt.appliedBar!);
     player.dispose();
   });
 });

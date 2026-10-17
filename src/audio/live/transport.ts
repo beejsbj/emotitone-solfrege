@@ -405,12 +405,6 @@ export class AudioTransport {
     return earliest
   }
 
-  /** A join of `id` waits in the pending list. */
-  private joinPending(id: string) {
-    return this.pending.some(entry => (entry.change.type === 'batch' ? entry.change.changes : [entry.change])
-      .some(part => part.type === 'join' && part.member.table.id === id))
-  }
-
   private apply(state: TransportState, change: TransportChange, frame: number,
     silence: (memberId: string, frame: number) => void) {
     if (change.type === 'batch') {
@@ -453,10 +447,10 @@ export class AudioTransport {
         return
       }
       case 'solo': {
-        // A member whose join waits for its bar can be soloed: the others fade
-        // now and it sounds alone when it arrives.
-        state.soloId = change.memberId !== null
-          && (state.members.has(change.memberId) || this.joinPending(change.memberId)) ? change.memberId : null
+        // A member not here yet (its join waits for its bar, or is still on its
+        // way from a bank load) can be soloed: the others fade now and it
+        // sounds alone when it arrives. Its leave clears the solo.
+        state.soloId = change.memberId
         if (state.soloId !== null) for (const id of state.members.keys()) if (id !== state.soloId) silence(id, frame)
         return
       }

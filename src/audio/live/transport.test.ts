@@ -20,7 +20,8 @@ interface RawNote { begin: number; gate: number; pitch: number; velocity?: numbe
   attack?: number; release?: number; gain?: [number, number][] }
 
 let generation = 0
-function table(id: string, notes: RawNote[], lengthBars: number): TransportMemberTable {
+function table(id: string, notes: RawNote[], lengthBars: number,
+  shaping = { cutoff: 12000, resonance: 0, room: 0, delay: 0 }): TransportMemberTable {
   const sorted = [...notes].sort((a, b) => a.begin - b.begin)
   const column = <T extends Float32Array | Float64Array | Uint32Array>(Type: new (n: number) => T, read: (note: RawNote, index: number) => number) => {
     const values = new Type(sorted.length)
@@ -31,8 +32,7 @@ function table(id: string, notes: RawNote[], lengthBars: number): TransportMembe
   let cursor = 0
   const gainStart = column(Uint32Array, note => { const start = cursor; cursor += note.gain?.length ?? 0; return start })
   return {
-    id, generation: ++generation, instrumentId: 'sine', lengthBars,
-    shaping: { cutoff: 12000, resonance: 0, room: 0, delay: 0 },
+    id, generation: ++generation, instrumentId: 'sine', lengthBars, shaping,
     begin: column(Float64Array, note => note.begin), gate: column(Float64Array, note => note.gate),
     pitch: column(Float32Array, note => note.pitch), velocity: column(Float32Array, note => note.velocity ?? 1),
     attack: column(Float32Array, note => note.attack ?? .001), decay: column(Float32Array, () => .01),
@@ -45,7 +45,7 @@ function table(id: string, notes: RawNote[], lengthBars: number): TransportMembe
   }
 }
 
-function setup() {
+function setup(rate = RATE) {
   const events: (DecodedTransportEvent & { deliveredAt: number })[] = []
   const receipts: TransportReceipt[] = []
   const anchors: Extract<LiveResponse, { type: 'transport-anchors' }>[] = []
@@ -54,7 +54,7 @@ function setup() {
   let frame = 0
   let stalled = false
   let requestId = 0
-  const core = new LiveAudioCore(RATE, response => {
+  const core = new LiveAudioCore(rate, response => {
     if (response.type === 'transport-events') queued.push({ buffer: response.buffer, count: response.count })
     else if (response.type === 'transport-applied') receipts.push(response)
     else if (response.type === 'transport-anchors') anchors.push(response)
@@ -71,8 +71,9 @@ function setup() {
   }
   core.command({ type: 'prepare', requestId: 0, instrument: sine }, 0)
   const pcm: number[] = []
+  const wet: number[] = []
   return {
-    core, events, receipts, anchors, live, pcm,
+    core, events, receipts, anchors, live, pcm, wet,
     get frame() { return frame },
     stall(value: boolean) { stalled = value; deliver() },
     start(bpm: number) { core.command({ type: 'transport-start', requestId: ++requestId, run: 1, bpm }, frame); deliver(); return requestId },
@@ -86,14 +87,22 @@ function setup() {
       return this.change({ type: 'join', member: { table: member, offsetBars, rate, muted: false } }, boundary)
     },
     render(seconds: number) {
-      const quanta = Math.round(seconds * RATE / QUANTUM)
+      const quanta = Math.round(seconds * rate / QUANTUM)
       for (let index = 0; index < quanta; index++) {
         const output = [new Float32Array(QUANTUM), new Float32Array(QUANTUM)]
-        core.render(output, frame)
+        // The room and delay sends: what reaches the shared native buses.
+        const room = [new Float32Array(QUANTUM), new Float32Array(QUANTUM)]
+        const delay = [new Float32Array(QUANTUM), new Float32Array(QUANTUM)]
+        core.render(output, frame, room, delay)
         frame += QUANTUM
         for (const sample of output[0]) pcm.push(sample)
+        for (let sample = 0; sample < QUANTUM; sample++) wet.push(Math.abs(room[0][sample]) + Math.abs(delay[0][sample]))
         deliver()
       }
+    },
+    /** Render whole quanta until the transport reaches `bar`. */
+    until(bar: number) {
+      while (core.transport.barAt(frame) < bar) this.render(QUANTUM / rate)
     },
   }
 }
@@ -612,5 +621,272 @@ describe('live Repeat and Arp on the transport grid (S111)', () => {
       rig.render(.2)
       expect(liveAttacks(rig.live)[0]).toBe(pressFrame)
     }
+  })
+})
+
+/**
+ * PR #140's receipt scenarios, run on the worklet transport (BJS-491). The
+ * oracle is #140's: a member's notes sound at `offset + loop × (length /
+ * rate) + begin / rate` while it is a member, unmuted and not silenced by a
+ * solo, with each change taking effect at the bar its receipt reports. As
+ * #140 captured one orbit per member, each member's PCM is checked on a stem:
+ * the same script with every other member's notes removed.
+ */
+describe('#140 receipts on the worklet transport (BJS-491)', () => {
+  interface Plan { notes: RawNote[]; length: number; offsetBars: number; rate: number; muted: boolean }
+  interface State { members: Map<string, Plan>; solo: string | null }
+  type Boundary = 'immediate' | { bar: number }
+  interface Control {
+    rig: ReturnType<typeof setup>
+    join(id: string, plan: Partial<Plan> & Pick<Plan, 'notes' | 'length'>, boundary?: Boundary): void
+    leave(id: string, boundary?: Boundary): void
+    update(id: string, patch: Partial<Pick<Plan, 'muted' | 'offsetBars' | 'rate'>>, boundary?: Boundary): void
+    solo(id: string | null, boundary?: Boundary): void
+    nextBar(): { bar: number }
+  }
+
+  // Short gates leave the detector its silence; distinct pitches per member.
+  const p0: RawNote[] = [{ begin: 0, gate: .1, pitch: 60 }, { begin: .5, gate: .1, pitch: 62 }]
+  const p1: RawNote[] = [{ begin: 0, gate: .1, pitch: 64 }, { begin: .25, gate: .08, pitch: 65 }]
+  const p2: RawNote[] = [{ begin: .125, gate: .1, pitch: 67 }, { begin: .625, gate: .1, pitch: 69 }]
+  const p3: RawNote[] = [{ begin: .3, gate: .1, pitch: 71 }, { begin: .8, gate: .1, pitch: 72 }]
+
+  /** Run `script`; with `stem`, every other member plays an empty table of the same length. */
+  function run(bpm: number, script: (control: Control) => void, stem?: string) {
+    const rig = setup()
+    const generations = new Map<string, Set<number>>()
+    const changes: { requestId: number; mutate(state: State): void }[] = []
+    const record = (requestId: number, mutate: (state: State) => void) => changes.push({ requestId, mutate })
+    const control: Control = {
+      rig,
+      join(id, plan, boundary = 'immediate') {
+        const full: Plan = { offsetBars: 0, rate: 1, muted: false, ...plan }
+        const member = table(id, stem === undefined || stem === id ? full.notes : [], full.length)
+        if (!generations.has(id)) generations.set(id, new Set())
+        generations.get(id)!.add(member.generation)
+        record(rig.change({ type: 'join', member: { table: member, offsetBars: full.offsetBars, rate: full.rate, muted: full.muted } },
+          boundary), state => { state.members.set(id, full) })
+      },
+      leave(id, boundary = 'immediate') {
+        record(rig.change({ type: 'leave', memberId: id }, boundary), state => {
+          state.members.delete(id)
+          if (state.solo === id) state.solo = null
+        })
+      },
+      update(id, patch, boundary = 'immediate') {
+        record(rig.change({ type: 'update', memberId: id, patch }, boundary), state => {
+          const member = state.members.get(id)
+          if (member) state.members.set(id, { ...member, ...patch })
+        })
+      },
+      solo(id, boundary = 'immediate') {
+        record(rig.change({ type: 'solo', memberId: id }, boundary), state => {
+          state.solo = id !== null && state.members.has(id) ? id : null
+        })
+      },
+      nextBar: () => ({ bar: Math.floor(rig.core.transport.barAt(rig.frame)) + 1 }),
+    }
+    script(control)
+    // Segments from the receipts: each change from the bar it reports (staged changes from bar 0).
+    const applied = changes.map(entry => ({ ...entry, receipt: rig.receipts.find(receipt => receipt.requestId === entry.requestId)! }))
+    applied.sort((a, b) => (a.receipt.appliedBar ?? 0) - (b.receipt.appliedBar ?? 0) || a.requestId - b.requestId)
+    const segments: { from: number; state: State }[] = []
+    let state: State = { members: new Map(), solo: null }
+    for (const entry of applied) {
+      state = { members: new Map(state.members), solo: state.solo }
+      entry.mutate(state)
+      segments.push({ from: entry.receipt.appliedBar ?? 0, state })
+    }
+    const fpbBpm = fpb(bpm)
+    /** Expected onset frames of one member up to the rendered frame. */
+    const expected = (id: string) => {
+      const frames: number[] = []
+      segments.forEach((segment, index) => {
+        const to = segments[index + 1]?.from ?? Infinity
+        const member = segment.state.members.get(id)
+        if (!member || member.muted || (segment.state.solo !== null && segment.state.solo !== id)) return
+        const period = member.length / member.rate
+        for (let loop = Math.floor((segment.from - member.offsetBars) / period) - 1; ; loop++) {
+          const start = member.offsetBars + loop * period
+          if (start >= to || start * fpbBpm >= rig.frame) break
+          for (const note of member.notes) {
+            const bar = start + note.begin / member.rate
+            if (bar < segment.from - 1e-9 || bar >= to - 1e-9) continue
+            const frame = Math.ceil(bar * fpbBpm - 1e-6)
+            if (frame < rig.frame) frames.push(frame)
+          }
+        }
+      })
+      return frames.sort((a, b) => a - b)
+    }
+    const heard = (id: string) => sounded(rig.events)
+      .filter(event => generations.get(id)?.has(event.generation) && event.frame < rig.frame).map(event => event.frame)
+    return { rig, expected, heard, ids: [...generations.keys()] }
+  }
+
+  /** Every member's attacks match the oracle exactly, and its stem's PCM onsets within a frame. */
+  function check(bpm: number, script: (control: Control) => void, pcmIds?: string[]) {
+    const full = run(bpm, script)
+    for (const id of full.ids) {
+      const expected = full.expected(id)
+      expect(full.heard(id), `attacks of ${id}`).toEqual(expected)
+      if (pcmIds && !pcmIds.includes(id)) continue
+      const stem = run(bpm, script, id)
+      const end = stem.rig.frame - .02 * RATE
+      const onsets = pcmOnsets(stem.rig.pcm).filter(frame => frame < end)
+      const wanted = expected.filter(frame => frame < end)
+      expect(onsets, `PCM onsets of ${id}`).toHaveLength(wanted.length)
+      onsets.forEach((frame, index) => expect(Math.abs(frame - wanted[index])).toBeLessThanOrEqual(1))
+    }
+    return full
+  }
+
+  it.each([[90, 'immediate'], [150, 'immediate'], [90, 'bar'], [150, 'bar']] as const)(
+    'joins at an offset, leaves, and joins at half and double time without lost or extra attacks (%i BPM, %s)', (bpm, policy) => {
+      const full = check(bpm, control => {
+        control.join('p0', { notes: p0, length: 1 })
+        control.rig.start(bpm)
+        control.rig.until(.53)
+        control.join('p1', { notes: p1, length: 1, offsetBars: .375 }, policy === 'bar' ? control.nextBar() : 'immediate')
+        control.rig.until(1.13)
+        const at = policy === 'bar' ? control.nextBar() : 'immediate'
+        control.leave('p1', at)
+        control.join('p2', { notes: p2, length: 1, rate: .5 }, at)
+        control.join('p3', { notes: p3, length: 1, rate: 2 }, at)
+        control.rig.until(3.6)
+      })
+      expect(full.expected('p1').length).toBeGreaterThan(0)
+      expect(full.expected('p3').length).toBeGreaterThan(4)
+      // Every immediate change applied at the quantum it arrived in.
+      for (const receipt of full.rig.receipts) if (receipt.appliedBar !== null && !receipt.late) {
+        expect(receipt.appliedFrame === receipt.arrivalFrame || policy === 'bar').toBe(true)
+      }
+    })
+
+  it.each([90, 150])('mutes, solos, unmutes and restores at bars, keeping every member\'s phase (%i BPM)', bpm => {
+    const full = check(bpm, control => {
+      control.join('p0', { notes: p0, length: 1 })
+      control.join('p1', { notes: p1, length: 1, offsetBars: .375 })
+      control.join('p2', { notes: p2, length: 1, rate: .5 })
+      control.join('p3', { notes: p3, length: 1, rate: 2 })
+      control.rig.start(bpm)
+      control.rig.until(.53)
+      control.update('p1', { muted: true }, control.nextBar())
+      control.rig.until(1.13)
+      // Solo a muted member: mute wins, so nothing sounds until it is unmuted at the same bar.
+      control.solo('p1', control.nextBar())
+      control.update('p1', { muted: false }, control.nextBar())
+      control.rig.until(2.13)
+      control.solo(null, control.nextBar())
+      control.rig.until(3.4)
+    })
+    const bars = (id: string) => full.expected(id).map(frame => frame / fpb(bpm))
+    expect(bars('p0').some(bar => bar >= 2 && bar < 3)).toBe(false)
+    expect(bars('p1').some(bar => bar >= 1 && bar < 2)).toBe(false)
+    expect(bars('p1').some(bar => bar >= 2 && bar < 3)).toBe(true)
+    expect(bars('p0').some(bar => bar >= 3)).toBe(true)
+  })
+
+  it('keeps a held gate sounding, with one attack and no gap, while another member joins and leaves', () => {
+    const held: RawNote[] = [{ begin: 0, gate: 3.4, pitch: 57 }]
+    const script = (control: Control) => {
+      control.join('p0', { notes: held, length: 4 })
+      control.rig.start(150)
+      control.rig.until(.4)
+      control.join('p1', { notes: p1, length: 1, offsetBars: .375 })
+      control.rig.until(1.2)
+      control.leave('p1')
+      control.rig.until(1.8)
+    }
+    check(150, script, ['p1'])
+    const stem = run(150, script, 'p0')
+    expect(pcmOnsets(stem.rig.pcm)).toEqual([1])
+    // No 10 ms of silence anywhere from bar 0.2 to 1.5.
+    const from = Math.round(.2 * fpb(150))
+    const to = Math.round(1.5 * fpb(150))
+    let silent = 0
+    let longest = 0
+    for (let index = from; index < to; index++) {
+      silent = Math.abs(stem.rig.pcm[index]) > .0005 ? 0 : silent + 1
+      longest = Math.max(longest, silent)
+    }
+    expect(longest).toBeLessThan(.01 * RATE)
+  })
+
+  it('joins a cold 512-note member while every surviving attack plays', () => {
+    const dense: RawNote[] = Array.from({ length: 512 }, (_, index) => ({ begin: index / 256, gate: 1 / 600, pitch: 48 + index % 24 }))
+    const full = check(150, control => {
+      control.join('p0', { notes: p0, length: 1 })
+      control.join('p2', { notes: p2, length: 1, rate: .5 })
+      control.rig.start(150)
+      control.rig.until(.53)
+      control.join('big', { notes: dense, length: 2 })
+      control.rig.until(3)
+    }, ['p0', 'p2'])
+    expect(full.heard('big').length).toBeGreaterThan(500)
+  })
+
+  it('keeps a pending handoff on its bar while an immediate tempo change stretches both sides', () => {
+    const rig = setup()
+    rig.join(table('a', p0, 1))
+    rig.start(120)
+    rig.until(.6)
+    const joined = table('b', p1, 1)
+    const join = rig.change({ type: 'join', member: { table: joined, offsetBars: .375, rate: 1, muted: false } }, { bar: 2 })
+    rig.until(1.4)
+    const tempoFrame = rig.frame
+    const tempoBar = rig.core.transport.barAt(tempoFrame)
+    rig.change({ type: 'tempo', bpm: 180 })
+    rig.until(2.8)
+    const receipt = rig.receipts.find(entry => entry.requestId === join)!
+    expect(receipt.appliedBar).toBe(2)
+    expect(receipt.appliedFrame).toBeCloseTo(tempoFrame + (2 - tempoBar) * fpb(180), 6)
+    const first = sounded(rig.events).find(event => event.generation === joined.generation)!
+    expect(first.frame).toBe(Math.ceil(tempoFrame + (2.375 - tempoBar) * fpb(180) - 1e-6))
+  })
+
+  it.each([[90, 1], [150, 1], [90, 2], [150, 2]] as const)('stretches a recorded gain curve with tempo and rate (%i BPM, rate %i)', (bpm, rate) => {
+    const rig = setup()
+    // Gain 1, then 0.5 from 0.225 table bars after the onset.
+    rig.join(table('m', [{ begin: 0, gate: .5, pitch: 69, gain: [[0, 1], [.2, 1], [.25, .5], [.5, .5]] }], 1), 0, rate)
+    rig.start(bpm)
+    rig.render(.6 * 240 / bpm / rate)
+    const seconds = (tableBars: number) => tableBars / rate * 240 / bpm
+    const window = (from: number, to: number) => {
+      let sum = 0
+      const first = Math.round(seconds(from) * RATE)
+      const last = Math.round(seconds(to) * RATE)
+      for (let index = first; index < last; index++) sum += rig.pcm[index] ** 2
+      return Math.sqrt(sum / (last - first))
+    }
+    expect(window(.27, .45) / window(.06, .18)).toBeCloseTo(.5, 1)
+  })
+
+  it.each([['mute'], ['solo']] as const)('silences the dry output and its sends within 150 ms of a %s at 48 kHz', kind => {
+    const rate = 48_000
+    const rig = setup(rate)
+    const reverb = { cutoff: 12000, resonance: 0, room: .5, delay: .5 }
+    rig.join(table('held', [{ begin: 0, gate: .95, pitch: 60 }], 1, reverb))
+    rig.join(table('other', [], 1))
+    rig.start(120)
+    rig.render(.5)
+    const arrival = rig.frame
+    if (kind === 'mute') rig.change({ type: 'update', memberId: 'held', patch: { muted: true } })
+    else rig.change({ type: 'solo', memberId: 'other' })
+    rig.render(.3)
+    const lastAbove = (samples: number[], threshold: number) => {
+      for (let index = samples.length - 1; index >= 0; index--) if (Math.abs(samples[index]) > threshold) return index
+      return -1
+    }
+    // −60 dB below the held note's level before the change.
+    const level = Math.max(...rig.pcm.slice(arrival - 4800, arrival).map(Math.abs))
+    const dryMs = (lastAbove(rig.pcm, level / 1000) + 1 - arrival) / rate * 1000
+    const sendMs = (lastAbove(rig.wet, level / 1000) + 1 - arrival) / rate * 1000
+    // Applied at the quantum it arrived in, then the 10 ms fade. A post that
+    // just missed a quantum waits one more (2.7 ms at 48 kHz).
+    expect(dryMs).toBeGreaterThan(0)
+    expect(dryMs + QUANTUM / rate * 1000).toBeLessThan(150)
+    expect(dryMs).toBeLessThanOrEqual(10.1)
+    expect(sendMs).toBeLessThanOrEqual(dryMs + 1e-9)
   })
 })

@@ -1,5 +1,11 @@
 # Strudel as the Looper's single transport — 2026-10-05
 
+> **Superseded by [the worklet engine](worklet-engine.md).** On 2026-10-09
+> Burooj decided to move off Strudel and superdough; the Looper's transport
+> runs on the app's own AudioWorklet engine. This document is kept as
+> research: its semantics and receipts are the worklet transport's acceptance
+> tests (BJS-491).
+
 The harness, receipts and phone page this document cites live on the spike
 branch `spike/strudel-single-transport` (PR #137), which is not merged.
 

@@ -119,7 +119,8 @@ export function buildPatternMember(request: PatternMemberRequest): PatternMember
     table.begin[index] = note.beginBars;
     table.gate[index] = note.gateBars;
     table.pitch[index] = note.midi;
-    table.velocity[index] = note.velocity ?? NaN;
+    // The take's level, not the raw velocity: the worklet plays the loudest note at full gain.
+    table.velocity[index] = note.playbackVelocity ?? NaN;
     table.attack[index] = note.attack;
     table.decay[index] = note.decay;
     table.sustain[index] = note.sustain;

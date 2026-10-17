@@ -265,6 +265,30 @@ describe('InstrumentSelector.vue', () => {
     expect(wrapper.find('[data-testid="instrument-option-gm_trumpet"]').exists()).toBe(true)
   })
 
+  it('offers only sounds the worklet can render, even when more are registered', async () => {
+    getRegisteredSounds.mockReturnValue([
+      'triangle', 'sine', 'square', 'sawtooth', 'sqr', 'saw',
+      'supersaw', 'pulse', 'tri', 'sin', 'z_sine', 'z_square', 'z_sawtooth', 'z_triangle',
+      'piano', 'kawai', 'steinway',
+    ])
+    wrapper = await mountSelector({ currentInstrument: 'triangle' })
+
+    await wrapper.get('[data-testid="instrument-tab-synths"]').trigger('click')
+    await nextTick()
+    const offered = wrapper
+      .findAll('[data-testid^="instrument-option-"]')
+      .map((choice) => choice.attributes('data-testid')!.replace('instrument-option-', ''))
+      .sort()
+
+    expect(offered).toEqual(['saw', 'sawtooth', 'sine', 'sqr', 'square', 'triangle'])
+
+    await wrapper.get('[data-testid="instrument-tab-keyboards"]').trigger('click')
+    await nextTick()
+    // The two piano banks over the worklet's memory budget are gone; the rest stay.
+    expect(wrapper.findAll('[data-testid^="instrument-option-"]').map((choice) => choice.attributes('data-testid')))
+      .toEqual(['instrument-option-piano'])
+  })
+
   it('filters sounds by search query and shows an empty state when nothing matches', async () => {
     wrapper = await mountSelector()
 
@@ -321,7 +345,7 @@ describe('InstrumentSelector.vue', () => {
   })
 
   it('moves a cold instrument to the front while warming and keeps it ahead once ready', async () => {
-    getRegisteredSounds.mockReturnValue(['fmpiano', 'steinway', 'piano'])
+    getRegisteredSounds.mockReturnValue(['fmpiano', 'piano1', 'piano'])
     wrapper = await mountSelector({ currentInstrument: 'piano' })
 
     const orderedChoices = () => wrapper!
@@ -331,27 +355,27 @@ describe('InstrumentSelector.vue', () => {
     expect(orderedChoices()).toEqual([
       'instrument-option-piano',
       'instrument-option-fmpiano',
-      'instrument-option-steinway',
+      'instrument-option-piano1',
     ])
 
-    instrumentStore.warmingInstrument = 'steinway'
-    await wrapper.setProps({ currentInstrument: 'steinway' })
+    instrumentStore.warmingInstrument = 'piano1'
+    await wrapper.setProps({ currentInstrument: 'piano1' })
 
-    expect(wrapper.get('[data-testid="instrument-option-steinway"]').attributes('data-state')).toBe('warming')
+    expect(wrapper.get('[data-testid="instrument-option-piano1"]').attributes('data-state')).toBe('warming')
     expect(orderedChoices()).toEqual([
-      'instrument-option-steinway',
+      'instrument-option-piano1',
       'instrument-option-piano',
       'instrument-option-fmpiano',
     ])
 
     instrumentStore.warmingInstrument = null
-    instrumentStore.readySounds.add('steinway')
+    instrumentStore.readySounds.add('piano1')
     await wrapper.setProps({ currentInstrument: 'piano' })
 
-    expect(wrapper.get('[data-testid="instrument-option-steinway"]').attributes('data-state')).toBe('ready')
+    expect(wrapper.get('[data-testid="instrument-option-piano1"]').attributes('data-state')).toBe('ready')
     expect(orderedChoices()).toEqual([
       'instrument-option-piano',
-      'instrument-option-steinway',
+      'instrument-option-piano1',
       'instrument-option-fmpiano',
     ])
   })

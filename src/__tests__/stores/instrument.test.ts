@@ -405,6 +405,25 @@ describe("instrument persistence", () => {
     expect(store.shape).toEqual(NEUTRAL);
   });
 
+  it("starts on the default instrument when the saved one is a synth the worklet cannot render", () => {
+    for (const removed of ["kawai", "steinway", "supersaw", "pulse", "tri", "sin", "z_sine", "z_square", "z_sawtooth", "z_triangle"]) {
+      saved.set(KEY, JSON.stringify({
+        $version: 1,
+        data: {
+          currentInstrument: removed,
+          instrumentShapes: { [removed]: { ...NEUTRAL, cutoff: 900 }, piano: { ...NEUTRAL, room: 0.3 } },
+        },
+      }));
+      const store = freshStore();
+      expect(store.currentInstrument, removed).toBe(DEFAULT_INSTRUMENT);
+      expect(store.instrumentShapes, removed).toEqual({ piano: { ...NEUTRAL, room: 0.3 } });
+      expect(store.shape, removed).toEqual(NEUTRAL);
+    }
+    // A saved working oscillator is left alone.
+    saved.set(KEY, JSON.stringify({ $version: 1, data: { currentInstrument: "sawtooth", instrumentShapes: {} } }));
+    expect(freshStore().currentInstrument).toBe("sawtooth");
+  });
+
   it("sanitizes persisted Shapes: clamps ranges and drops malformed entries", () => {
     const state = decodeInstrumentState({
       currentInstrument: "piano",

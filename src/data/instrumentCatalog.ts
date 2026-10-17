@@ -1,15 +1,14 @@
 /**
  * Instrument Catalog
- * Name-based classification of registered Superdough sounds into the pitched
- * categories the Instrument Picker offers. Drums, SFX, and noise are excluded.
+ * Name-based classification of registered sounds into the pitched categories
+ * the Instrument Picker offers. Drums, SFX, noise and synths the worklet cannot
+ * render are excluded.
  */
 
 import type { InstrumentCategory } from "@/types/instrument";
 
 const KEYBOARD_SOUNDS = new Set([
   "piano",
-  "steinway",
-  "kawai",
   "fmpiano",
   "clavisynth",
   "piano1",
@@ -150,16 +149,8 @@ const SYNTH_SOUNDS = new Set([
   "sine",
   "square",
   "sawtooth",
-  "pulse",
-  "supersaw",
-  "tri",
-  "sin",
   "sqr",
   "saw",
-  "z_sine",
-  "z_square",
-  "z_sawtooth",
-  "z_triangle",
   "gm_lead_1_square",
   "gm_lead_2_sawtooth",
   "gm_lead_3_calliope",
@@ -184,6 +175,24 @@ const SYNTH_SOUNDS = new Set([
 ]);
 
 const EXCLUDED_SOUNDS = new Set([
+  // Synths the worklet cannot render (Burooj, 2026-10-17: "we remove stuff from
+  // list that cannot work"). Patterns and takes play only on the worklet, which
+  // renders sine, triangle, square and sawtooth (plus the sqr and saw aliases)
+  // and sample banks. Superdough's fallback still played these live; it goes
+  // with superdough (BJS-495). `tri` and `sin` have no alias to an oscillator.
+  "supersaw",
+  "pulse",
+  "tri",
+  "sin",
+  "z_sine",
+  "z_square",
+  "z_sawtooth",
+  "z_triangle",
+  // Sample banks over the worklet's 192 MiB budget (kawai 309 MB, steinway 372 MB
+  // of PCM; audio-lab/results/loader-bjs-488.json). The worklet refuses them
+  // and only superdough's live fallback played them.
+  "kawai",
+  "steinway",
   // Unpitched noise / non-melodic synths
   "brown",
   "white",

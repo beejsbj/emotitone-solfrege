@@ -37,7 +37,7 @@
 
 import { Note as TonalNote } from "@tonaljs/tonal";
 import { CHROMATIC_NOTES } from "@/data";
-import { resolveMusicColorSampleByPitchClass } from "@/services/musicColor";
+import { resolveMusicColorSampleByPitchClass, srgbToCss } from "@/services/musicColor";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 import type { DynamicColorConfig, LooperConfig } from "@/types/visual";
 import { useMusicColorProvider } from "../useMusicColorConfig";
@@ -159,16 +159,21 @@ function readTokens(ctx: CanvasRenderingContext2D): { ivory: Rgb; ink: Rgb } {
   };
 }
 
-function rgbString(rgb: Rgb): string {
-  return `${rgb[0]}, ${rgb[1]}, ${rgb[2]}`;
+/** Music Color or a token, as CSS, through the Music Color adapter. */
+function css(rgb: Rgb, alpha = 1): string {
+  return srgbToCss({ r: rgb[0] / 255, g: rgb[1] / 255, b: rgb[2] / 255, alpha });
 }
 
-function mixToward(rgb: Rgb, target: Rgb, amount: number): string {
-  return rgbString([
+/** A mask stop: destination-in keeps only alpha, so the channels are unused. */
+const MASK: Rgb = [0, 0, 0];
+const mask = (alpha: number) => css(MASK, alpha);
+
+function mixToward(rgb: Rgb, target: Rgb, amount: number): Rgb {
+  return [
     Math.round(rgb[0] + (target[0] - rgb[0]) * amount),
     Math.round(rgb[1] + (target[1] - rgb[1]) * amount),
     Math.round(rgb[2] + (target[2] - rgb[2]) * amount),
-  ]);
+  ];
 }
 
 function createSprite(width: number, height: number) {
@@ -186,11 +191,11 @@ function headSprite(rgb: Rgb, ivory: Rgb): HTMLCanvasElement {
   const core = mixToward(rgb, ivory, 0.6);
   const tint = mixToward(rgb, ivory, 0.2);
   const gradient = ctx.createRadialGradient(half, half, 0, half, half, half);
-  gradient.addColorStop(0, `rgba(${core}, 1)`);
-  gradient.addColorStop(0.1, `rgba(${core}, 0.85)`);
-  gradient.addColorStop(0.24, `rgba(${tint}, 0.3)`);
-  gradient.addColorStop(0.5, `rgba(${tint}, 0.07)`);
-  gradient.addColorStop(1, `rgba(${tint}, 0)`);
+  gradient.addColorStop(0, css(core, 1));
+  gradient.addColorStop(0.1, css(core, 0.85));
+  gradient.addColorStop(0.24, css(tint, 0.3));
+  gradient.addColorStop(0.5, css(tint, 0.07));
+  gradient.addColorStop(1, css(tint, 0));
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, SPRITE, SPRITE);
   return canvas;
@@ -205,17 +210,17 @@ function arcSprite(rgb: Rgb, ivory: Rgb): HTMLCanvasElement {
   if (!ctx) return canvas;
   const tint = mixToward(rgb, ivory, 0.3);
   const along = ctx.createLinearGradient(0, 0, SPRITE, 0);
-  along.addColorStop(0, `rgba(${tint}, 0)`);
-  along.addColorStop(0.25, `rgba(${tint}, 0.6)`);
-  along.addColorStop(0.75, `rgba(${tint}, 0.6)`);
-  along.addColorStop(1, `rgba(${tint}, 0)`);
+  along.addColorStop(0, css(tint, 0));
+  along.addColorStop(0.25, css(tint, 0.6));
+  along.addColorStop(0.75, css(tint, 0.6));
+  along.addColorStop(1, css(tint, 0));
   ctx.fillStyle = along;
   ctx.fillRect(0, 0, SPRITE, 16);
   ctx.globalCompositeOperation = "destination-in";
   const across = ctx.createLinearGradient(0, 0, 0, 16);
-  across.addColorStop(0, "rgba(0,0,0,0)");
-  across.addColorStop(0.5, "rgba(0,0,0,1)");
-  across.addColorStop(1, "rgba(0,0,0,0)");
+  across.addColorStop(0, mask(0));
+  across.addColorStop(0.5, mask(1));
+  across.addColorStop(1, mask(0));
   ctx.fillStyle = across;
   ctx.fillRect(0, 0, SPRITE, 16);
   return canvas;
@@ -255,7 +260,7 @@ function getFanMask(): HTMLCanvasElement {
 function fanSprite(rgb: Rgb): HTMLCanvasElement {
   const { canvas, ctx } = createSprite(FAN, FAN);
   if (!ctx) return canvas;
-  ctx.fillStyle = `rgb(${rgbString(rgb)})`;
+  ctx.fillStyle = css(rgb);
   ctx.fillRect(0, 0, FAN, FAN);
   ctx.globalCompositeOperation = "destination-in";
   ctx.drawImage(getFanMask(), 0, 0);
@@ -268,10 +273,8 @@ function frontSprite(size: number, ivory: Rgb, ink: Rgb): HTMLCanvasElement | nu
   // Conic gradients are missing from older WebKit; the front is then omitted.
   if (!ctx || typeof ctx.createConicGradient !== "function") return null;
   const half = size / 2;
-  const lightRgb = rgbString(ivory);
-  const shadeRgb = rgbString(ink);
-  const light = (alpha: number) => `rgba(${lightRgb}, ${alpha})`;
-  const shade = (alpha: number) => `rgba(${shadeRgb}, ${alpha})`;
+  const light = (alpha: number) => css(ivory, alpha);
+  const shade = (alpha: number) => css(ink, alpha);
   const conic = ctx.createConicGradient(0, half, half);
   // Offsets run clockwise from the turning point; it moves toward +offset.
   conic.addColorStop(0, light(0.26));
@@ -289,11 +292,11 @@ function frontSprite(size: number, ivory: Rgb, ink: Rgb): HTMLCanvasElement | nu
   // Fade toward the hub and the far edge, so there is no point to find.
   ctx.globalCompositeOperation = "destination-in";
   const falloff = ctx.createRadialGradient(half, half, 0, half, half, half);
-  falloff.addColorStop(0, "rgba(0,0,0,0.15)");
-  falloff.addColorStop(0.22, "rgba(0,0,0,0.8)");
-  falloff.addColorStop(0.45, "rgba(0,0,0,1)");
-  falloff.addColorStop(0.8, "rgba(0,0,0,0.55)");
-  falloff.addColorStop(1, "rgba(0,0,0,0)");
+  falloff.addColorStop(0, mask(0.15));
+  falloff.addColorStop(0.22, mask(0.8));
+  falloff.addColorStop(0.45, mask(1));
+  falloff.addColorStop(0.8, mask(0.55));
+  falloff.addColorStop(1, mask(0));
   ctx.fillStyle = falloff;
   ctx.fillRect(0, 0, size, size);
   return canvas;

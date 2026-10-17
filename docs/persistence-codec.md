@@ -110,8 +110,16 @@ There is no in-app UI for this.
 `src/services/phrasePersistence.ts` owns the 3,000,000-byte budget. It measures
 **UTF-16 bytes** (`encoded.length * 2`) of the entire saved envelope, matching
 localStorage's DOMString representation and reserving room for other keys.
-This is deliberately more conservative than UTF-8 file size. Browser quota
-failures below this limit still go through the existing save-failure notice.
+This is deliberately more conservative than UTF-8 file size.
+
+**The budget warns; it never refuses** (Burooj, 2026-10-17). Above 3 MB every
+save still goes ahead: new takes, Keeps, renames and deletes all reach storage.
+The one rule is `shelfOverBudget(bytes)`, and it only decides when the shelf
+notice appears. A save is refused only when the browser's storage itself
+fails: a `QuotaExceededError` or any other failed `setItem` of the shelf, or a
+failed IndexedDB backup that a rewrite waits on. Then the previous stored
+payload and every in-memory phrase stay as they were, the existing
+save-failure notice reports it, and the next successful write clears it.
 
 Both pitch and gain curves, including `modeBase` copies, are reduced only in
 the encoded snapshot. Samples are picked at uniform time targets, at least 10 ms
@@ -120,15 +128,18 @@ Both endpoints always survive, including on very short curves.
 Live state is unchanged. Reduction is lossy;
 no new smoothing or playback behavior is introduced.
 
-There is no default phrase-count cap. An oversized save leaves both the old
-stored bytes and every in-memory phrase intact. The reel shows **Shelf full**,
-explains that new changes are only in this tab, and offers the oldest Recent
-phrase with a second tap to confirm release. Candidates sort by `closedAt`,
-falling back to `createdAt`. Kept, Library and the open take are never release
-candidates. When no Recent remain the UI explains the manual copy/delete path.
-Saving resumes once the encoded payload fits. An already oversized shelf is
-loaded intact; it is not automatically trimmed to fit. The refusal rule lives
-in one function, `shelfRefuses(bytes)`; the save path and the banner both ask it.
+There is no default phrase-count cap. The store's `shelfNotice` has two honest
+states, shown by a floating notice anchored above the Performance Deck:
+
+- **over budget** ("Shelf full"): still saving; free some space soon.
+- **failed** ("Not saving"): the browser refused the last write; new sketches
+  are not being saved and stay in this tab until a write succeeds.
+
+Both offer the oldest Recent phrase, with a second tap to confirm release.
+Candidates sort by `closedAt`, falling back to `createdAt`. Kept, Library and
+the open take are never release candidates. When no Recent remain the notice
+explains the manual copy/delete path. An oversized shelf is loaded intact; it
+is never automatically trimmed.
 
 On load, `decode` drops any phrase without `notes` or `context` and keeps the
 rest of the shelf; it throws (unreadable, backed up first) only when there is
@@ -143,11 +154,11 @@ accepted save asks the browser, best effort, for persistent storage.
 phrases adapted from a real built-in pattern, eight notes per phrase, 50 Kept,
 and one one-second note per phrase carrying both pitch and gain at 240 Hz.
 The whole envelope is **9,145,426 UTF-16 bytes** before reduction and
-**3,037,026 bytes** after. It correctly trips the budget; releasing ten Recent
-allows all fifty Kept and the remaining Recent to save. This supports retaining
-the initial 3 MB budget, while showing that expression-heavy shelves can fill
-before 200 phrases. This is not a capture from Burooj's phone; device data and
-actual browser quota headroom remain to be measured.
+**3,037,026 bytes** after, so it shows the over-budget warning and still saves.
+Expression-heavy shelves can pass the budget before 200 phrases. This is not a
+capture from Burooj's phone. Because the figure only times a warning, it is
+provisional: re-measuring on his real shelf, and the browser's actual quota
+headroom, remains a follow-up.
 
 As decided by Burooj on 2026-10-15, phrase **backups go to IndexedDB**, database
 `emotitone-phrase-backups`, object store `backups`. The active shelf stays in

@@ -2,6 +2,9 @@
  * QWERTY and number-row adapter for the performer.
  * Letter rows press scale degrees; the number row presses the chord row's
  * chords. Every physical key is one performer owner (`keyboard:<code>`).
+ * The layout itself is data in `@/utils/qwertyLayout`. The performance
+ * surface registers it (through `useKeyboardPerformance`), not the Keyboard
+ * view, so it works whenever the instrument is on screen.
  */
 
 import { onMounted, onUnmounted, type Ref } from "vue";
@@ -10,91 +13,14 @@ import { usePhrasesStore } from "@/stores/phrases";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { usePerformer } from "@/composables/usePerformer";
 import type { PerformerReleaseReason } from "@/services/performer";
-import { buildHarmony, type HarmonyAlteration } from "@/domain/harmony";
-import type { ChromaticNote } from "@/types/music";
+import {
+  CHORD_ROW_KEYS,
+  qwertyNoteMapping,
+  type QwertyNote,
+} from "@/utils/qwertyLayout";
 
-/**
- * Keyboard mapping interface
- */
-interface KeyboardMapping {
-  [key: string]: {
-    solfegeIndex: number;
-    octave: number;
-    label: string;
-  };
-}
-
-/**
- * The number row triggers chords (one per scale degree) rather than
- * individual notes. The remaining letter rows keep single-note behaviour.
- */
-const CHORD_ROW_KEYS = [
-  { code: "Digit1", label: "1" },
-  { code: "Digit2", label: "2" },
-  { code: "Digit3", label: "3" },
-  { code: "Digit4", label: "4" },
-  { code: "Digit5", label: "5" },
-  { code: "Digit6", label: "6" },
-  { code: "Digit7", label: "7" },
-  { code: "Digit8", label: "8" },
-  { code: "Digit9", label: "9" },
-  { code: "Digit0", label: "0" },
-  { code: "Minus", label: "-" },
-  { code: "Equal", label: "=" },
-] as const;
-
-const KEY_ROWS = [
-  {
-    octaveOffset: 1,
-    keys: [
-      { code: "KeyQ", label: "Q" },
-      { code: "KeyW", label: "W" },
-      { code: "KeyE", label: "E" },
-      { code: "KeyR", label: "R" },
-      { code: "KeyT", label: "T" },
-      { code: "KeyY", label: "Y" },
-      { code: "KeyU", label: "U" },
-      { code: "KeyI", label: "I" },
-      { code: "KeyO", label: "O" },
-      { code: "KeyP", label: "P" },
-      { code: "BracketLeft", label: "[" },
-      { code: "BracketRight", label: "]" },
-    ],
-  },
-  {
-    octaveOffset: 0,
-    keys: [
-      { code: "KeyA", label: "A" },
-      { code: "KeyS", label: "S" },
-      { code: "KeyD", label: "D" },
-      { code: "KeyF", label: "F" },
-      { code: "KeyG", label: "G" },
-      { code: "KeyH", label: "H" },
-      { code: "KeyJ", label: "J" },
-      { code: "KeyK", label: "K" },
-      { code: "KeyL", label: "L" },
-      { code: "Semicolon", label: ";" },
-      { code: "Quote", label: "'" },
-      { code: "Backslash", label: "\\" },
-    ],
-  },
-] as const;
-
-// The physical bottom row has ten printable keys, so it covers the first ten
-// degrees below the main A row. The 12-key rows above it retain complete
-// chromatic coverage.
-const BOTTOM_KEY_ROW = [
-  { code: "KeyZ", label: "Z" },
-  { code: "KeyX", label: "X" },
-  { code: "KeyC", label: "C" },
-  { code: "KeyV", label: "V" },
-  { code: "KeyB", label: "B" },
-  { code: "KeyN", label: "N" },
-  { code: "KeyM", label: "M" },
-  { code: "Comma", label: "," },
-  { code: "Period", label: "." },
-  { code: "Slash", label: "/" },
-] as const;
+/** Letter keys by `KeyboardEvent.code`; see `qwertyNoteMapping`. */
+type KeyboardMapping = Record<string, QwertyNote>;
 
 /**
  * How long a held key may go without key-repeat evidence once Cmd is down.
@@ -123,15 +49,7 @@ const BLOCKING_RELEASES = new Set<PerformerReleaseReason>([
 /**
  * Composable for handling keyboard controls for solfege notes
  */
-export function useKeyboardControls(
-  mainOctave: Ref<number>,
-  /**
-   * The Joystick's effective alteration, as the on-screen chord keys receive
-   * it. The number row builds the same harmony, so it must be given the same
-   * value; omission means "auto".
-   */
-  harmonyAlteration?: Ref<HarmonyAlteration>,
-) {
+export function useKeyboardControls(mainOctave: Ref<number>) {
   const musicStore = useMusicStore();
   const phrasesStore = usePhrasesStore();
   const keyboardDrawerStore = useKeyboardDrawerStore();
@@ -145,48 +63,17 @@ export function useKeyboardControls(
   // or modifier clears; a key-up or a fresh (non-repeat) keydown lifts it.
   const blockedKeys = new Set<string>();
 
-  const getKeyboardMapping = (): KeyboardMapping => {
-    const degreeCount = musicStore.currentScale.degreeCount;
-    const visibleOctaves = keyboardDrawerStore.visibleOctaves;
-    const mapping: KeyboardMapping = {};
+  const getKeyboardMapping = (): KeyboardMapping => qwertyNoteMapping({
+    degreeCount: musicStore.currentScale.degreeCount,
+    mainOctave: mainOctave.value,
+    visibleOctaves: keyboardDrawerStore.visibleOctaves,
+  });
 
-    const addKeyRow = (
-      keys: readonly { code: string; label: string }[],
-      octave: number,
-    ) => {
-      if (
-        octave < 1
-        || octave > 8
-        || !visibleOctaves.includes(octave)
-      ) {
-        return;
-      }
-
-      keys.slice(0, degreeCount).forEach((key, index) => {
-        mapping[key.code] = {
-          solfegeIndex: index,
-          octave,
-          label: key.label,
-        };
-      });
-    };
-
-    KEY_ROWS.forEach((row) => {
-      addKeyRow(row.keys, mainOctave.value + row.octaveOffset);
-    });
-    addKeyRow(BOTTOM_KEY_ROW, mainOctave.value - 1);
-
-    return mapping;
-  };
-
-  /** The chord row's harmony, under the same Joystick alteration. */
-  const getCurrentChords = () =>
-    buildHarmony({
-      tonic: musicStore.currentKey as ChromaticNote,
-      scaleType: musicStore.currentMode,
-      octave: mainOctave.value,
-      alteration: harmonyAlteration?.value ?? "auto",
-    });
+  /**
+   * The chord row's harmony under the Joystick's alteration, read through the
+   * performer from the one store that holds it.
+   */
+  const getCurrentChords = () => performer.chordsAt(mainOctave.value);
 
   const isEditableTarget = (target: EventTarget | null): boolean => {
     if (!(target instanceof HTMLElement)) return false;

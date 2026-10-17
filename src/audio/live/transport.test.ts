@@ -275,6 +275,20 @@ describe('pattern transport timing receipts', () => {
     expect(rig.anchors.some(entry => entry.provisional && entry.anchors.at(-1)!.bar === 2)).toBe(true)
   })
 
+  it('answers a pending bar change that Stop drops, so no caller waits forever', () => {
+    const rig = setup()
+    rig.join(table('m', melody, 1))
+    rig.start(120)
+    rig.render(.5)
+    const pending = rig.change({ type: 'tempo', bpm: 90 }, { bar: 4 })
+    const stopFrame = rig.frame
+    rig.stop()
+    expect(rig.receipts.find(entry => entry.requestId === pending))
+      .toMatchObject({ appliedFrame: stopFrame, appliedBar: null, cancelled: true })
+    rig.render(10)
+    expect(rig.receipts.filter(entry => entry.requestId === pending)).toHaveLength(1)
+  })
+
   it('mutes within the 10 ms fade, cancels announced onsets, and resumes on unmute', () => {
     const rig = setup()
     rig.join(table('m', [{ begin: 0, gate: .9, pitch: 60 }], 1))
@@ -376,22 +390,31 @@ describe('pattern transport timing receipts', () => {
     expect(announced.every(serial => queued.has(serial))).toBe(true)
   })
 
-  it('keeps a held live note over saturated playback', () => {
+  it('keeps every held live note when live and transport voices fill the whole pool', () => {
     const rig = setup()
+    const voices = (rig.core as unknown as { voices: { transport?: unknown; ownerId: string; released: boolean }[] }).voices
+    // Sixteen held live notes take the live reserve...
+    for (let key = 0; key < LIVE_RESERVED_VOICES; key++) {
+      rig.core.command({ type: 'press', ownerId: `key${key}`, notes: [{ pitch: 70 + key, instrumentId: 'sine' }] }, rig.frame)
+    }
+    // ...and dense, long transport notes fill the rest of the 64-voice pool.
     const thick = Array.from({ length: 16 }, (_, index) => ({ begin: index / 64, gate: .9, pitch: 40 + index }))
     for (let member = 0; member < 8; member++) rig.join(table(`m${member}`, thick, 1))
     rig.start(120)
     rig.render(1)
-    const voices = (rig.core as unknown as { voices: { transport?: unknown; ownerId: string; released: boolean }[] }).voices
+    expect(voices).toHaveLength(MAX_AUDIO_VOICES)
     expect(voices.filter(voice => voice.transport)).toHaveLength(MAX_AUDIO_VOICES - LIVE_RESERVED_VOICES)
-    rig.core.command({ type: 'press', ownerId: 'key', notes: [{ pitch: 84, instrumentId: 'sine' }] }, rig.frame)
+    // A full pool: a further live press steals a transport voice, not a live one...
+    rig.core.command({ type: 'press', ownerId: 'extra', notes: [{ pitch: 100, instrumentId: 'sine' }] }, rig.frame)
+    // ...and later transport onsets steal transport voices, never the held keys.
     rig.render(4)
-    const held = voices.filter(voice => voice.ownerId === 'key')
-    expect(held).toHaveLength(1)
-    expect(held[0].released).toBe(false)
+    const live = voices.filter(voice => !voice.transport)
+    expect(live.map(voice => voice.ownerId).sort()).toEqual([...Array.from({ length: 16 }, (_, key) => `key${key}`), 'extra'].sort())
+    expect(live.every(voice => !voice.released)).toBe(true)
     expect(voices.length).toBeLessThanOrEqual(MAX_AUDIO_VOICES)
+    expect(sounded(rig.events).length).toBeGreaterThan(8 * 16 * 2)
     // Live input never ends the transport's voices.
-    rig.core.command({ type: 'release', ownerId: 'key' }, rig.frame)
+    rig.core.command({ type: 'release', ownerId: 'extra' }, rig.frame)
     expect(voices.filter(voice => voice.transport && !voice.released).length).toBeGreaterThan(0)
   })
 

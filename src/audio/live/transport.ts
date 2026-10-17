@@ -84,6 +84,8 @@ export interface TransportReceipt {
   appliedBar: number | null
   /** The requested bar had already passed when the command arrived. */
   late: boolean
+  /** Stop (or a restart) dropped this pending change before its bar: it never applied. */
+  cancelled?: true
 }
 
 export type TransportResponse =
@@ -199,8 +201,10 @@ export class AudioTransport {
       onset.frame, onset.bar, onset.gateFrames, this.post)
   }
 
-  private receipt(requestId: number, arrivalFrame: number, appliedFrame: number, appliedBar: number | null, late: boolean) {
-    this.send({ type: 'transport-applied', requestId, arrivalFrame, appliedFrame, appliedBar, late })
+  private receipt(requestId: number, arrivalFrame: number, appliedFrame: number, appliedBar: number | null, late: boolean,
+    cancelled = false) {
+    this.send({ type: 'transport-applied', requestId, arrivalFrame, appliedFrame, appliedBar, late,
+      ...(cancelled ? { cancelled: true as const } : {}) })
   }
 
   private publishAnchors(provisional = false) {
@@ -279,6 +283,8 @@ export class AudioTransport {
     this.queue.length = 0
     this.retracted.length = 0
     this.host.silence(null, frame)
+    // Every request is answered: a caller awaiting a pending change's receipt must not hang.
+    for (const pending of this.pending) this.receipt(pending.requestId, pending.arrivalFrame, frame, null, false, true)
     this.pending = []
     this.soloId = null
     this.running = false
@@ -398,6 +404,14 @@ export class AudioTransport {
   }
 
   private collectTo(target: number) {
+    // TODO(BJS-491): announce across a pending bar boundary. Collection stops
+    // at the next `{ bar }` change, so onsets on and after that bar are
+    // announced only as rendering reaches it (no lookahead), and notes the
+    // change removes stay lit until cancelled. Fix by collecting past the
+    // boundary against a preview of the post-change state (stable member
+    // objects held in `pending`, preview anchors for tempo), retracting as
+    // usual if an immediate change intervenes. BJS-485 only issues immediate
+    // changes, so the reel pattern never takes this path.
     const boundary = this.pending.length ? frameAtBar(this.anchors, this.pending[0].bar, this.sampleRate) : Infinity
     const to = Math.min(target, boundary)
     if (to > this.collectedUntil) {

@@ -310,6 +310,33 @@ describe("Play is the loop on the worklet transport", () => {
     }
   });
 
+  it("keeps a take played while the engine restarts unjoined, and says so, instead of placing it at bar one", async () => {
+    const { phrases, looper } = setup();
+    playTake(.5);
+    looper.togglePlay();
+    await flush();
+    await looper.settled();
+    render(1.3);
+    // The renderer is rebuilt; its banks are slow to come back.
+    let restored!: () => void;
+    for (const instrument of rig.prepared) rig.gates.set(instrument, new Promise<void>((resolve) => { restored = resolve; }));
+    rig.generation++;
+    for (const listener of [...rig.listeners]) listener.onRendererReset?.();
+    await flush();
+    expect(player.getLooper().recovering).toBe(true);
+    const onFrame = Math.round(5.3 * RATE);
+    live("F4", 3, onFrame, onFrame + 800);
+    live("A4", 5, onFrame + 2400, onFrame + 3200);
+    const overdub = phrases.take;
+    looper.togglePlay();
+    await flush();
+    expect(looper.members.map((member) => member.phraseId)).not.toContain(overdub.id);
+    expect(player.getLooper().members.map((member) => member.id)).not.toContain(overdub.id);
+    expect(looper.lastError).toMatch(/restarting/);
+    expect(phrases.findPhrase(overdub.id)?.notes).toHaveLength(2);
+    restored();
+  });
+
   it("places a take by its attacks' own audio time when the live path sends it", async () => {
     const { phrases, looper } = setup();
     playTake(.5);

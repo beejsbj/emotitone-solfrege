@@ -382,7 +382,16 @@ export const useLooperStore = defineStore("looper", () => {
     const origin = origins.get(phraseId);
     if (origin !== undefined) {
       const bar = playedOriginBar(origin);
-      if (bar !== null) setOffset(looper.value, phraseId, bar - (looper.value.barOriginBars ?? 0));
+      if (bar === null) {
+        // The engine is restarting: there is no bar to place it on. It stays
+        // unjoined (and kept) rather than landing silently at bar one.
+        leave(looper.value, phraseId);
+        intents.delete(phraseId);
+        origins.delete(phraseId);
+        report(new Error("Audio is restarting, so this take could not join where you played it. Tap Play again."));
+        return;
+      }
+      setOffset(looper.value, phraseId, bar - (looper.value.barOriginBars ?? 0));
     }
     await sendJoin(current, phrase, memberFor(phraseId)!, captured, token);
   }

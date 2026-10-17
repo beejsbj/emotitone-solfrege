@@ -525,3 +525,45 @@ describe("looper: retention and deletion", () => {
     expect(openLoop(book, soloLoop)).toEqual(createLooper()); // keep the now-empty named Loop
   });
 });
+
+describe("a looped take is kept whenever it stops (BJS-493 review)", () => {
+  async function twoNoteTake(mark: boolean) {
+    const { pressNote, releaseNote, markLooped, getTake, ensureSingleTake, closeTake } = await import("@/domain/phraseBook");
+    const { serializePatternsState, deserializePatternsState } = await import("@/services/patternPersistence");
+    const held = new Map();
+    let id = 0;
+    const ids = (prefix: "phrase" | "note") => `${prefix}-x${++id}`;
+    const fresh = createPhraseBook(C_MAJOR, clock, ids);
+    for (const [index, note] of ["C4", "E4"].entries()) {
+      const at = clock + index * 500;
+      pressNote(fresh, held, { noteId: `n${index}`, wallTime: at, context: C_MAJOR, note,
+        scaleDegree: 1, scaleIndex: 0, octave: 4 }, DEFAULT_PHRASE_BOOK_CONFIG, ids);
+      releaseNote(fresh, held, `n${index}`, at + 200, {}, ids);
+    }
+    const takeId = getTake(fresh).id;
+    if (mark) expect(markLooped(fresh, takeId)).toBe(true);
+    // A reload: through the phrase book's storage and its hydration repair.
+    const reloaded = deserializePatternsState(serializePatternsState({ book: fresh, isRecordingEnabled: true })).book as PhraseBook;
+    ensureSingleTake(reloaded, C_MAJOR, clock + 10_000, ids);
+    // The next boundary (silence, then a note) closes it.
+    closeTake(reloaded, clock + 20_000, C_MAJOR, ids, DEFAULT_PHRASE_BOOK_CONFIG, "boundary");
+    return findPhrase(reloaded, takeId);
+  }
+
+  it("keeps a two-note looped take through a reload and the next boundary", async () => {
+    expect((await twoNoteTake(true))?.shelf).toBe("recent");
+    expect((await twoNoteTake(true))?.looped).toBe(true);
+  });
+
+  it("still drops an unlooped two-note stray tap", async () => {
+    expect(await twoNoteTake(false)).toBeUndefined();
+  });
+
+  it("marks only stored takes and Recent phrases", async () => {
+    const { markLooped } = await import("@/domain/phraseBook");
+    book.phrases.push(phrase({ id: "kept-1", shelf: "kept" }));
+    expect(markLooped(book, "kept-1")).toBe(false);
+    expect(markLooped(book, "library-missing")).toBe(false);
+    expect(markLooped(book, book.takeId)).toBe(true);
+  });
+});

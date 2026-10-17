@@ -436,6 +436,8 @@ export const useLooperStore = defineStore("looper", () => {
       ? { kind: "pinned-to-bar-one" }
       : { kind: "played", phraseOriginBars: first ? 0 : (looper.value.barOriginBars ?? 0) });
     member.lengthBars = loopLengthBars(phrase);
+    // Looping is deliberate: the take is kept even after it stops playing.
+    phrases.markLooped(phrase.id);
     bringIn(phrase.id);
   }
 

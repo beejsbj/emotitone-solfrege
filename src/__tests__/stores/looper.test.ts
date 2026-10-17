@@ -531,6 +531,45 @@ describe("Play is the loop on the worklet transport", () => {
     looper.togglePlay();
   });
 
+  describe("a looped short take is kept after it stops (review blocker)", () => {
+    it("Play, Play to stop, the silence, one note: the take is still there", async () => {
+      const { phrases, looper } = setup();
+      live("C4", 0, 4000, 5000);
+      live("E4", 2, 8000, 9000);
+      const id = phrases.take.id;
+      looper.togglePlay();
+      await flush();
+      await looper.settled();
+      render(1);
+      looper.togglePlay();
+      await flush();
+      expect(looper.members).toEqual([]);
+      render(4);
+      live("G4", 4, rig.frame + 400, rig.frame + 1200);
+      expect(phrases.take.id).not.toBe(id);
+      expect(phrases.findPhrase(id)).toMatchObject({ shelf: "recent", looped: true });
+      expect(phrases.findPhrase(id)!.notes.map((note) => note.note)).toEqual(["C4", "E4"]);
+    });
+
+    it("latch, two notes, Stop All, the next note: the take is still there", async () => {
+      const { phrases, looper } = setup();
+      looper.toggleLatch();
+      live("C4", 0, 4000, 5000);
+      await flush();
+      await looper.settled();
+      live("E4", 2, 8000, 9000);
+      await flush();
+      const id = phrases.take.id;
+      expect(looper.openTakeId).toBe(id);
+      looper.stopAll();
+      await flush();
+      render(4);
+      live("G4", 4, rig.frame + 400, rig.frame + 1200);
+      expect(phrases.take.id).not.toBe(id);
+      expect(phrases.findPhrase(id)).toMatchObject({ shelf: "recent", looped: true });
+    });
+  });
+
   describe("a take edited while it loops (carried note 4)", () => {
     async function editedWhilePlaying() {
       const parts = setup();

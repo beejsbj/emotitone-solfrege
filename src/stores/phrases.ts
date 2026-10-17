@@ -21,6 +21,7 @@ import {
   isTakeTouched as isBookTakeTouched,
   untouchedCopySource,
   keepPhrase as keepBookPhrase,
+  markLooped as markBookLooped,
   keepTake as keepBookTake,
   openPhrase as openBookPhrase,
   phraseFromPattern,
@@ -272,6 +273,11 @@ export const usePhrasesStore = defineStore(
       return deleteBookPhrase(book.value, target, protectedIds);
     }
 
+    /** Play set this phrase looping: it is kept from now on (see `Phrase.looped`). */
+    function markLooped(id: string): boolean {
+      return markBookLooped(book.value, id);
+    }
+
     function renamePhrase(id: string, name: string): boolean {
       const target = lookedAtSource(id)?.id ?? id;
       return renameBookPhrase(book.value, target, name, libraryPhrases);
@@ -434,6 +440,7 @@ export const usePhrasesStore = defineStore(
       importPhrases,
       setLivePressGuard,
       setProtectedIds,
+      markLooped,
 
       // Recorder plumbing (exposed for tests)
       handleNotePressed,

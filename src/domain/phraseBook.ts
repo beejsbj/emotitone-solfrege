@@ -514,6 +514,8 @@ function closingShelf(
   reason: CloseReason,
 ): "recent" | null {
   if (!take.notes.length) return null;
+  // A phrase you set looping is yours to keep, whether or not it still plays.
+  if (take.looped) return "recent";
   switch (recorder.origin) {
     case "fresh":
       return reason === "navigate" || take.notes.length >= MIN_FRESH_PHRASE_NOTES || take.source
@@ -665,6 +667,18 @@ export function openPhrase(
   book.takeId = fork.id;
   book.recorder = freshRecorder(origin, fork.duration);
   return fork;
+}
+
+/**
+ * Mark a stored phrase as looped (Play set it looping): from then on it is
+ * kept like a played phrase. Library phrases are static and Kept ones are
+ * kept already, so only a take or a Recent phrase takes the mark.
+ */
+export function markLooped(book: PhraseBook, id: string): boolean {
+  const phrase = book.phrases.find((candidate) => candidate.id === id);
+  if (!phrase || (phrase.shelf !== "take" && phrase.shelf !== "recent")) return false;
+  phrase.looped = true;
+  return true;
 }
 
 /** Keep a phrase straight from the reel without disturbing the take. */

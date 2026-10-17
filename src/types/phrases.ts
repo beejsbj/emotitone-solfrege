@@ -60,6 +60,12 @@ export interface Phrase {
   source?: PatternSource;
   /** Original loaded material for reversible control changes, including reloads. */
   modeBase?: { notes: PatternNote[]; context: PhraseContext };
+  /**
+   * The phrase was set looping (Play). Looping is a deliberate act: such a
+   * phrase is never a stray tap and always closes into Recent, whenever it
+   * stops. Absent in older storage, which reads as not looped.
+   */
+  looped?: true;
 }
 
 /** How the open take came to be; decides its fate when it closes. */

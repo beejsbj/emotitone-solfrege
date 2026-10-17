@@ -106,7 +106,8 @@ worklet transport's acceptance tests.
   applies at once and says so.
 - **Leave** lets sounding notes finish their gates. **Mute and solo** stop
   future onsets and fade the member's dry sound over 10 ms; what it already
-  sent to the shared reverb and delay rings out (see Open).
+  sent to the shared reverb and delay rings out. That tail is accepted
+  (Burooj, 2026-10-17), so there is no wet bus per member.
 - **Events** for every transport voice carry the member and the source note,
   so the Stage, the keys, the HighlightStrip and the Looper Stage part follow
   loop notes. They are not recordable: playback never writes into the open
@@ -181,8 +182,6 @@ further Looper slice merges before the phone gate passes.
   gives a Loop a place to be edited pattern by pattern; it needs a horizontal
   gesture that does not fight the strips' own.
 - Whether the latch needs to be visible beyond the Play key's own state.
-- Whether a muted or soloed-out member's reverb and delay tail is acceptable.
-  The alternative is a wet bus per member, which costs render time on a phone.
 - Rule 2 rounds each pattern's length to whole bars, as the domain (#139)
   does. The worklet design (§2, Data model) instead keeps a take's authored,
   fractional length. One of them has to change before BJS-491.

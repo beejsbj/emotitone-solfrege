@@ -575,6 +575,16 @@ const ariaLabel = computed(() => {
   background: var(--paper-surface-sheen-monochrome);
 }
 
+/* A white monochrome accidental would swallow the white sounding ring and
+   its own-colour flash; both turn Ink so the state still reads. */
+.note--surface-monochrome.note--accidental::before {
+  border-color: var(--ink);
+}
+
+.note--surface-monochrome.note--accidental::after {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--ink) 72%, transparent);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .note::before {
     animation: none;

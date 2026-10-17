@@ -340,8 +340,10 @@ describe("Key", () => {
     expect(pressableKeyCss).toMatch(/min-width:\s*44px/);
     expect(pressableKeyCss).toMatch(/min-height:\s*44px/);
     expect(pressableKeyCss).toContain("touch-action: manipulation");
-    expect(pressableKeyCss).toMatch(/\.pressable-key:focus-visible\s*{[^}]*outline:\s*2px/);
-    expect(pressableKeyCss).toContain("outline-offset: 2px");
+    expect(pressableKeyCss).toMatch(
+      /\.pressable-key:focus-visible\s*{[^}]*outline:\s*var\(--focus-ring-width\) solid var\(--focus-ring-outer\)[^}]*box-shadow:\s*0 0 0 var\(--focus-ring-width\) var\(--focus-ring-inner\)/,
+    );
+    expect(pressableKeyCss).toContain("outline-offset: var(--focus-ring-width)");
     expect(pressableKeyCss).toContain("@media (hover: hover) and (pointer: fine)");
     expect(pressableKeyCss).toContain("--key-face-hover-y: -1px");
     expect(pressableKeyCss).toContain("--key-face-press-y: 2px");

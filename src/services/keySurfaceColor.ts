@@ -54,13 +54,21 @@ function adjustColorHSL(
   return `hsla(${hue}, ${adjustedSaturation}%, ${adjustedLightness}%, ${alpha})`;
 }
 
+/**
+ * Monochrome bases. The natural is graphite rather than near-black so every
+ * key face reads at 3:1 against the Ink keyboard surface (BJS-561: monochrome
+ * edition families must meet the floor); the accidental stays white.
+ */
+export const MONOCHROME_NATURAL_KEY_SURFACE = "hsla(0, 0%, 44%, 1)";
+export const MONOCHROME_ACCIDENTAL_KEY_SURFACE = "hsla(0, 0%, 100%, 1)";
+
 /** Single natural/accidental monochrome projection for every key surface. */
 export function resolveMonochromeKeySurface(
   isAccidental: boolean,
   tuning: KeySurfaceTuning = {},
 ): KeySurfaceColor {
   const color = adjustColorHSL(
-    isAccidental ? "hsla(0, 0%, 100%, 1)" : "hsla(0, 0%, 10%, 1)",
+    isAccidental ? MONOCHROME_ACCIDENTAL_KEY_SURFACE : MONOCHROME_NATURAL_KEY_SURFACE,
     tuning.keyBrightness,
     tuning.keySaturation,
   );

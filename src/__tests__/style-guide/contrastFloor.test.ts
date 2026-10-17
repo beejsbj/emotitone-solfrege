@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { contrastRatio, relativeLuminance } from "@/services/musicColorCore";
+import { resolveMonochromeKeySurface } from "@/services/keySurfaceColor";
 import {
   readTokenDeclarations,
   tokenColor,
@@ -128,6 +129,49 @@ describe("edition-specific marks", () => {
     expectContrast("effective detent", token("--brass-hi"), plate, MARK);
     for (const [index, stop] of brassFillStops.entries()) {
       expectContrast(`cap stop ${index}`, stop, plate, MARK);
+    }
+  });
+});
+
+/*
+ * Monochrome keys (BJS-561): edition families Rip and Sharp show monochrome
+ * keys by default, so their faces and state rings must meet the floor on the
+ * Ink keyboard surface. Note labels are exempt by decision (see above).
+ */
+describe("monochrome key marks", () => {
+  const gray = (css: string): Rgb => {
+    const match = css.match(/^hsla\(0, 0%, ([\d.]+)%, 1\)$/);
+    if (!match) throw new Error(`Not a neutral monochrome surface: ${css}`);
+    const channel = Number(match[1]) / 100;
+    return { r: channel, g: channel, b: channel };
+  };
+  const over = (top: Rgb, alpha: number, bottom: Rgb): Rgb => ({
+    r: top.r * alpha + bottom.r * (1 - alpha),
+    g: top.g * alpha + bottom.g * (1 - alpha),
+    b: top.b * alpha + bottom.b * (1 - alpha),
+  });
+  const natural = gray(resolveMonochromeKeySurface(false).background);
+  const accidental = gray(resolveMonochromeKeySurface(true).background);
+
+  it("draws natural and accidental faces at 3:1 on every Ink surface", () => {
+    for (const surface of INK_SURFACES) {
+      expectContrast(`natural face on ${surface}`, natural, token(surface), MARK);
+      expectContrast(`accidental face on ${surface}`, accidental, token(surface), MARK);
+    }
+  });
+
+  it("keeps the sounding ring at 3:1 on its own face", () => {
+    // Note.vue: a 72% white ring on naturals, a 72% Ink ring on white accidentals.
+    expectContrast("sounding ring on natural", over({ r: 1, g: 1, b: 1 }, 0.72, natural), natural, MARK);
+    expectContrast("sounding ring on accidental", over(token("--ink"), 0.72, accidental), accidental, MARK);
+  });
+
+  it("keeps the two-tone focus ring at 3:1 beside either face", () => {
+    const outer = token("--focus-ring-outer");
+    const inner = token("--focus-ring-inner");
+    for (const [name, face] of [["natural", natural], ["accidental", accidental]] as const) {
+      const best = Math.max(contrastRatio(outer, face), contrastRatio(inner, face));
+      expect(best, `focus ring beside ${name}: ${best.toFixed(2)}:1`).toBeGreaterThanOrEqual(MARK);
     }
   });
 });

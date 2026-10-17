@@ -17,9 +17,12 @@
   -webkit-touch-callout: none;
 }
 
+/* Two-tone ring: the Ink band under the Ivory outline keeps the ring at 3:1
+   whatever face sits next to it, white monochrome accidentals included. */
 .pressable-key:focus-visible {
-  outline: 2px solid var(--ivory, currentColor);
-  outline-offset: 2px;
+  outline: var(--focus-ring-width) solid var(--focus-ring-outer);
+  outline-offset: var(--focus-ring-width);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring-inner);
 }
 
 .pressable-key__face {

@@ -40,8 +40,8 @@ describe("key surface color projection", () => {
 
   it("owns the natural and accidental monochrome bases", () => {
     expect(resolveKeySurfaceColor("ignored", "monochrome", false)).toEqual({
-      background: "hsla(0, 0%, 10%, 1)",
-      primaryColor: "hsla(0, 0%, 10%, 1)",
+      background: "hsla(0, 0%, 44%, 1)",
+      primaryColor: "hsla(0, 0%, 44%, 1)",
     });
     expect(resolveKeySurfaceColor("ignored", "monochrome", true)).toEqual({
       background: "hsla(0, 0%, 100%, 1)",

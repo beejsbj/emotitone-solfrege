@@ -374,7 +374,8 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
     onTransport,
     onRendererReset() {
       if (!playing) return;
-      if (session?.looper && context && port) {
+      // A Looper recovers, an empty one (after a rebuild with nobody to restore) included.
+      if (session?.looper && context) {
         suspendForRecovery();
         return;
       }
@@ -558,8 +559,9 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
     // A rebuild during a restore keeps the bar the first outage stopped at (the
     // old anchors would skip ahead by the outage); before the new run's anchors
     // arrive, the bar it was told to start from stands.
-    const bar = recovery?.bar ?? (anchors.length && context && port
+    const bar = recovery?.bar ?? idleBar ?? (anchors.length && context && port
       ? barAtFrame(anchors, context.currentTime * port.sampleRate, port.sampleRate) : startBar);
+    idleBar = undefined;
     for (const noteId of [...registry.keys()]) endNow(noteId);
     registry.clear();
     released.clear();
@@ -583,6 +585,9 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
   let restoring: Promise<void> | undefined;
   function restore(): Promise<void> {
     return restoring ??= (async () => {
+      // Always settle after `restoring` is set, so `finally` can clear it
+      // (with no bank to load the body would otherwise finish synchronously).
+      await Promise.resolve();
       const attempt = run;
       try {
         // A further rebuild while banks load starts the restore again on the newest renderer.
@@ -657,6 +662,12 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
     if (muted !== undefined && typeof muted !== "boolean") throw new TypeError("muted must be true or false");
     if (pinned !== undefined && typeof pinned !== "boolean") throw new TypeError("pinned must be true or false");
     if (lengthBars !== undefined && !(Number.isFinite(lengthBars) && lengthBars > 0)) throw new RangeError("lengthBars must be a positive number");
+  }
+  /** A member must have a length to loop: its own, or its take's (an empty take has none). */
+  function checkLoops(request: LooperMemberRequest) {
+    if (request.lengthBars !== undefined) return;
+    const { table } = buildPatternMember({ ...request, generation: 0, instrumentId: request.instrument });
+    if (!(table.lengthBars > 0)) throw new RangeError(`${request.id} has no length to loop`);
   }
   function checkBpm(bpm: number) {
     if (!(Number.isFinite(bpm) && bpm >= 1 && bpm <= 1000)) throw new RangeError("bpm must be between 1 and 1000");
@@ -753,8 +764,9 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
      * prepared first; then all join and the transport starts at bar 0.
      */
     async start(request: { bpm: number; target: LooperKeyMode; members: readonly LooperMemberRequest[] }): Promise<TransportReceipt> {
+      // Checked before anything stops or changes, as join is.
       checkBpm(request.bpm);
-      for (const memberRequest of request.members) checkSettings(memberRequest);
+      for (const memberRequest of request.members) { checkSettings(memberRequest); checkLoops(memberRequest); }
       halt(true);
       const attempt = run;
       const audioContext = options.audio.getContext();
@@ -798,7 +810,7 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
       requireSession();
       checkSettings(request);
       checkBoundary(boundary);
-      const attempt = run;
+      checkLoops(request);
       const previous = memberships.get(request.id);
       const entry: Membership = { request, settings: settingsOf(request, previous?.settings), instrumentId: previous?.instrumentId };
       memberships.set(request.id, entry);
@@ -817,33 +829,41 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
           }
         }
       };
-      let prepared: Awaited<ReturnType<typeof prepare>>;
-      try {
-        prepared = await prepare(request.instrument);
-      } catch (error) {
-        undo();
-        throw error;
-      }
-      // Left, replaced or stopped while loading: nothing to join.
-      if (attempt !== run || memberships.get(request.id) !== entry) return cancelledReceipt(0);
-      // After a rebuild with nobody to restore, this join starts the new run.
-      const restart = idleBar !== undefined && !recovery;
-      if (restart) port = prepared.port;
-      if (prepared.port.generation !== port?.generation || recovery) {
-        undo();
-        throw new PatternLoadError("The audio engine restarted", true);
+      // Still ours, in a live Looper: not left, replaced or stopped while loading.
+      const ours = () => playing && Boolean(session?.looper) && memberships.get(request.id) === entry;
+      let prepared!: Awaited<ReturnType<typeof prepare>>;
+      let restart = false;
+      // A rebuild (or another join restarting the run) while the bank loads is
+      // not the end of this join: load again against the renderer now current.
+      for (let attempt = 0; ; attempt++) {
+        const epoch = recoveryEpoch;
+        try {
+          prepared = await prepare(request.instrument);
+        } catch (error) {
+          if (attempt < 3 && ours() && recoveryEpoch !== epoch) { await restoring?.catch(() => {}); continue; }
+          undo();
+          throw error;
+        }
+        if (!ours()) { undo(); return cancelledReceipt(0); }
+        if (recovery) {
+          if (attempt < 3 && restoring) { await restoring.catch(() => {}); continue; }
+          undo();
+          throw new PatternLoadError("The audio engine restarted", true);
+        }
+        // After a rebuild with nobody to restore, this join starts the new run.
+        restart = idleBar !== undefined;
+        if (restart) port = prepared.port;
+        if (prepared.port.generation === port?.generation) break;
+        if (attempt >= 3) { undo(); throw new PatternLoadError("The audio engine restarted", true); }
       }
       pin(request.id, entry, prepared.instrumentId);
-      if (!(build(entry).table.lengthBars > 0)) {
-        undo();
-        throw new RangeError(`${request.id} has no length to loop`);
-      }
+      build(entry);
       // A re-join replaces the member only at its boundary: until then the
       // previous one plays on with its bank pinned and its tables known.
       if (previous) leaving.add(previous);
-      const solo = session!.soloId === request.id ? [{ type: "solo", memberId: request.id } as const] : [];
-      const receipt = change(solo.length ? { type: "batch", changes: [joinChange(entry), ...solo] } : joinChange(entry),
-        restart ? "immediate" : boundary);
+      // A solo naming it was sent as its own change (the transport keeps a
+      // solo on a member not here yet), so a later un-solo always wins.
+      const receipt = change(joinChange(entry), restart ? "immediate" : boundary);
       if (restart) {
         startBar = idleBar!;
         idleBar = undefined;

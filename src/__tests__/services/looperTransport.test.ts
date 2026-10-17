@@ -586,6 +586,8 @@ describe("the Looper after review", () => {
     newCore();
     for (const listener of [...rig.listeners]) listener.onRendererReset?.();
     const gate = resumeAudioContext(context as unknown as AudioContext);
+    // The restore's bank load is in flight (held at the gate).
+    await new Promise(resolve => setTimeout(resolve, 0));
     // The outage goes on: time passes, then the renderer is rebuilt again,
     // and the bank load in flight finds no renderer.
     render(.7);
@@ -679,6 +681,131 @@ describe("the Looper after review", () => {
     const big = played.filter(event => event.phraseId === "big");
     expect(big.length).toBeGreaterThan(500);
     expect(big[0].bar).toBeGreaterThanOrEqual(receipt.appliedBar!);
+    player.dispose();
+  });
+});
+
+/** Third review of #199. */
+describe("the Looper after the third review", () => {
+  beforeEach(() => {
+    rig.frame = 0;
+    rig.generation = 1;
+    rig.queued = [];
+    rig.commands = [];
+    rig.pins.clear();
+    rig.refused.clear();
+    rig.gates.clear();
+    rig.pcm = [];
+    rig.down = 0;
+    newCore();
+  });
+  afterEach(() => { rig.listeners.clear(); });
+
+  const begin = (player: ReturnType<typeof setup>["player"], members: LooperMemberRequest[]) =>
+    player.start({ bpm: 120, target: { key: "C", mode: "major" }, members });
+  async function rebuild() {
+    rig.generation++;
+    newCore();
+    for (const listener of [...rig.listeners]) listener.onRendererReset?.();
+    await resumeAudioContext(context as unknown as AudioContext);
+  }
+
+  it("joins two members at once after a rebuild with no members: neither is left loading", async () => {
+    const { player, played } = setup();
+    await begin(player, [member("a", melody)]);
+    render(.5);
+    await player.leave("a");
+    render(.2);
+    await rebuild();
+    await vi.waitFor(() => expect(player.getLooper().recovering).toBe(false));
+    await Promise.all([player.join(member("a", melody)), player.join(member("c", bass))]);
+    render(2.2);
+    expect(player.getLooper().members.map(entry => [entry.id, entry.loading])).toEqual([["a", false], ["c", false]]);
+    expect(played.some(event => event.phraseId === "a" && event.frame > 1.5 * RATE)).toBe(true);
+    expect(played.some(event => event.phraseId === "c" && event.frame > 1.5 * RATE)).toBe(true);
+    player.dispose();
+  });
+
+  it("joins a member whose bank finishes loading during a restore, on the restored renderer", async () => {
+    const { player, played } = setup();
+    await begin(player, [member("a", melody)]);
+    render(.5);
+    let arrive!: () => void;
+    rig.gates.set("cello", new Promise<void>(resolve => { arrive = resolve; }));
+    const joining = player.join(member("c", bass, { instrument: "cello" }));
+    render(.3);
+    await rebuild();
+    await vi.waitFor(() => expect(player.getLooper().running).toBe(true));
+    arrive();
+    rig.gates.delete("cello");
+    const receipt = await joining;
+    expect(receipt.cancelled).toBeUndefined();
+    render(2.2);
+    expect(player.getLooper().members.find(entry => entry.id === "c")).toMatchObject({ loading: false });
+    expect(played.some(event => event.phraseId === "c")).toBe(true);
+    expect([...rig.pins.values()].flat().sort()).toEqual(["cello", "sine"]);
+    player.dispose();
+  });
+
+  it("refuses to start with a member that has no length, changing nothing, and a rebuild still restores", async () => {
+    const { player, played } = setup();
+    await begin(player, [member("a", melody)]);
+    render(.5);
+    const empty = member("e", [], { lengthBars: undefined, config: { sourceBpm: 120, bpm: 120 } });
+    await expect(begin(player, [member("a", melody), empty])).rejects.toThrow(RangeError);
+    await expect(player.join(empty)).rejects.toThrow(RangeError);
+    expect(player.getLooper()).toMatchObject({ running: true });
+    expect(player.getLooper().members.map(entry => entry.id)).toEqual(["a"]);
+    const before = played.length;
+    render(1);
+    expect(played.length).toBeGreaterThan(before);
+    await rebuild();
+    await vi.waitFor(() => expect(player.getLooper().running).toBe(true));
+    const restored = played.length;
+    render(1.2);
+    expect(played.slice(restored).some(event => event.phraseId === "a")).toBe(true);
+    player.dispose();
+  });
+
+  it("lets a later un-solo beat the solo of a member re-joining at a bar", async () => {
+    const { player, played } = setup();
+    await begin(player, [member("a", melody), member("b", pinned)]);
+    render(.3);
+    await player.solo("b");
+    void player.join(member("b", pinned), { bar: 2 });
+    await vi.waitFor(() => expect(rig.commands.some(command => command.type === "transport-change"
+      && command.boundary !== "immediate")).toBe(true));
+    await player.solo(null);
+    render(6);
+    expect(player.getLooper().soloId).toBeNull();
+    expect(played.filter(event => event.phraseId === "a" && event.frame >= 2 * 2 * RATE).length).toBeGreaterThan(2);
+    player.dispose();
+  });
+
+  it("recovers from a second rebuild while the Looper is empty, instead of stopping", async () => {
+    const interrupted: Error[] = [];
+    const target = new EventTarget();
+    const played: Played[] = [];
+    target.addEventListener("note-played", event => played.push((event as CustomEvent).detail));
+    const player = createPatternPlayer({
+      audio: { getContext: () => context as unknown as AudioContext, ensureReady: async () => ({}) as AudioNode },
+      uiBeat: new UIBeatClock({ observeEnvironment: false }), target,
+      requestFrame: () => 1, cancelFrame: () => {}, onInterrupted: error => interrupted.push(error),
+    });
+    await begin(player, [member("a", melody)]);
+    render(.6);
+    await player.leave("a");
+    render(.2);
+    await rebuild();
+    await vi.waitFor(() => expect(player.getLooper().recovering).toBe(false));
+    render(.2);
+    await rebuild();
+    await vi.waitFor(() => expect(player.getLooper().recovering).toBe(false));
+    expect(interrupted).toEqual([]);
+    expect(player.isPlaying).toBe(true);
+    await player.join(member("a", melody));
+    render(1.2);
+    expect(played.some(event => event.phraseId === "a" && event.frame > rig.frame - RATE)).toBe(true);
     player.dispose();
   });
 });

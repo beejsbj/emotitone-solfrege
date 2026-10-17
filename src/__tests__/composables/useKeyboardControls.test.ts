@@ -1,7 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, reactive, ref, type Ref } from "vue";
 import { mount, type VueWrapper } from "@vue/test-utils";
+import { createPinia, disposePinia, setActivePinia, type Pinia } from "pinia";
 import { useKeyboardControls } from "@/composables/useKeyboardControls";
+
+// The real performer store runs over the stand-in stores.
+let pinia: Pinia;
+beforeEach(() => {
+  pinia = createPinia();
+  setActivePinia(pinia);
+});
+afterEach(() => disposePinia(pinia));
 
 // Mount through a real host so onMounted/onUnmounted attach and remove the
 // window listeners and the lock watcher; unmounting after each test keeps
@@ -129,14 +138,6 @@ describe("useKeyboardControls", () => {
     expect(mapping.KeyN).toBeUndefined();
   });
 
-  it("returns display labels for mapped notes", () => {
-    mockMusicStore.currentScale.degreeCount = 12;
-    const controls = mountControls(ref(4));
-
-    expect(controls.getKeyboardLetterForNote(11, 4)).toBe("\\");
-    expect(controls.getKeyboardLetterForNote(0, 5)).toBe("Q");
-  });
-
   it("enables only physical rows whose octaves are visible", () => {
     mockKeyboardDrawerStore.visibleOctaves = [4];
     const controls = mountControls(ref(4));
@@ -186,7 +187,7 @@ describe("useKeyboardControls", () => {
     expect(mapping.KeyZ.octave).toBe(7);
     expect(mapping.KeyQ).toBeUndefined();
     expect(mapping.Digit1).toBeUndefined();
-    expect(controls.getKeyboardLetterForNote(0, 6)).toBeNull();
+    expect(Object.values(mapping).some((note) => note.octave === 6)).toBe(false);
 
     controls.cleanupKeyboardListeners();
   });

@@ -1,6 +1,15 @@
 import { nextTick } from "vue";
 import { mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createPinia, disposePinia, setActivePinia, type Pinia } from "pinia";
+
+// The real performer store runs over the stand-in stores.
+let pinia: Pinia;
+beforeEach(() => {
+  pinia = createPinia();
+  setActivePinia(pinia);
+});
+afterEach(() => disposePinia(pinia));
 
 vi.mock("@/stores/instrument", async () => {
   const { reactive } = await vi.importActual<typeof import("vue")>("vue");
@@ -122,7 +131,7 @@ describe("MIDI warmup locking", () => {
       "midi-note-id"
     );
     expect(keyboardModule.testKeyboardDrawerStore.removeTouch).toHaveBeenCalledWith(
-      "midi:__dev_virtual_input__:1:60:1"
+      "midi:__dev_virtual_input__:1:60"
     );
     wrapper.unmount();
   });

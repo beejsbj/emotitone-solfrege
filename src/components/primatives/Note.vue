@@ -250,9 +250,20 @@ const noteClasses = computed(() => [
 
 const noteStyles = computed(() => {
   const isAccidental = inferredAccidental.value;
-  const labelMain = isAccidental ? "rgba(0, 0, 0, .88)" : "rgba(255, 255, 255, .94)";
-  const labelSoft = isAccidental ? "rgba(0, 0, 0, .62)" : "rgba(255, 255, 255, .74)";
-  const labelMuted = isAccidental ? "rgba(0, 0, 0, .5)" : "rgba(255, 255, 255, .58)";
+  const monochrome = props.surfaceStyle === "monochrome";
+  // Monochrome faces are Ink naturals and Ivory accidentals, so their labels
+  // are the opposite token; coloured faces keep the neutral black/white labels.
+  const tone = (token: string, percent: number) =>
+    `color-mix(in srgb, var(${token}) ${percent}%, transparent)`;
+  const labelMain = monochrome
+    ? tone(isAccidental ? "--ink" : "--ivory", 94)
+    : isAccidental ? "rgba(0, 0, 0, .88)" : "rgba(255, 255, 255, .94)";
+  const labelSoft = monochrome
+    ? tone(isAccidental ? "--ink" : "--ivory", 70)
+    : isAccidental ? "rgba(0, 0, 0, .62)" : "rgba(255, 255, 255, .74)";
+  const labelMuted = monochrome
+    ? tone(isAccidental ? "--ink" : "--ivory", 56)
+    : isAccidental ? "rgba(0, 0, 0, .5)" : "rgba(255, 255, 255, .58)";
   const innerBorder =
     props.surfaceStyle === "monochrome"
       ? isAccidental
@@ -573,6 +584,25 @@ const ariaLabel = computed(() => {
 
 .note--surface-monochrome .note__surface::after {
   background: var(--paper-surface-sheen-monochrome);
+}
+
+/* The flash borders in the face's own colour, which vanishes on a monochrome
+   face. Ivory accidentals flash and ring in Ink; Ink naturals flash in Ivory
+   and keep the 72% Ivory ring. */
+.note--surface-monochrome.note--accidental::before {
+  border-color: var(--ink);
+}
+
+.note--surface-monochrome.note--natural::before {
+  border-color: var(--ivory);
+}
+
+.note--surface-monochrome.note--natural::after {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--ivory) 72%, transparent);
+}
+
+.note--surface-monochrome.note--accidental::after {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--ink) 72%, transparent);
 }
 
 @media (prefers-reduced-motion: reduce) {

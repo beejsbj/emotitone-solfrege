@@ -295,6 +295,22 @@ describe("Note", () => {
     );
   });
 
+  it("prints monochrome labels in Ivory on Ink naturals and Ink on Ivory accidentals", () => {
+    const natural = mount(Note, {
+      props: { rawPitch: "C4", scaleIndex: 0, surfaceStyle: "monochrome" },
+    });
+    const accidental = mount(Note, {
+      props: { rawPitch: "Db4", scaleIndex: 1, surfaceStyle: "monochrome" },
+    });
+
+    expect(natural.attributes("style")).toContain(
+      "--note-label-main: color-mix(in srgb, var(--ivory) 94%, transparent)",
+    );
+    expect(accidental.attributes("style")).toContain(
+      "--note-label-main: color-mix(in srgb, var(--ink) 94%, transparent)",
+    );
+  });
+
   it("keeps all five geometries independent from all five proportions", () => {
     const geometries = ["standard", "tile", "offcut", "tab", "pill"] as const;
     const proportions = ["glyph", "tall", "medium", "stocky", "wide"] as const;

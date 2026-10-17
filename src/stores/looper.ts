@@ -167,7 +167,6 @@ export const useLooperStore = defineStore("looper", () => {
 
   function report(error: unknown) {
     lastError.value = error instanceof Error ? error.message : String(error);
-    console.error("[Looper]", error);
   }
 
   function attach(next: PatternPlayer | undefined) {

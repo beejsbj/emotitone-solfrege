@@ -1,0 +1,496 @@
+import { mount, type VueWrapper } from "@vue/test-utils";
+import { createPinia, disposePinia, setActivePinia, type Pinia } from "pinia";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { defineComponent, ref } from "vue";
+import { LiveAudioCore } from "@/audio/live/core";
+import type { LiveRenderer, LiveRendererCallbacks } from "@/audio/liveRenderer";
+
+vi.unmock("@/services/music");
+vi.unmock("@/data");
+vi.unmock("@/composables/useVisualConfig");
+const playback = vi.hoisted(() => ({
+  renderer: null as LiveRenderer | null,
+  listener: undefined as LiveRendererCallbacks | undefined,
+}));
+vi.mock("@/services/livePlayback", () => ({
+  getLivePlayback: () => playback.renderer,
+  waitForLivePlayback: () => undefined,
+  subscribeLivePlayback: (listener: LiveRendererCallbacks) => {
+    playback.listener = listener;
+    return () => { playback.listener = undefined; };
+  },
+  needsLivePlaybackPreparation: () => false,
+}));
+
+import Keyboard from "@/components/compounds/Keyboard.vue";
+import { noteColorResolverKey, staticNoteColorResolver } from "@/components/primatives/noteColorContext";
+import { KEY_REPEAT_WINDOW_MS, useKeyboardControls } from "@/composables/useKeyboardControls";
+import { useMidiControls } from "@/composables/useMidiControls";
+import { usePerformerStore } from "@/stores/performer";
+import { useMusicStore } from "@/stores/music";
+import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
+import { useInstrumentStore } from "@/stores/instrument";
+import { useVisualConfigStore } from "@/stores/visualConfig";
+import type { PerformerIntent } from "@/services/performer";
+import * as audio from "@/services/superdoughAudio";
+
+/*
+ * W3 acceptance at the performer seam. The stores, the performer, the
+ * adapters and DOM events are real. Audio below the music store is either the
+ * superdough boundary the suite already stubs (fallback path) or the real
+ * worklet core rendered offline (live path). MIDI ports are fakes.
+ */
+
+const EPOCH = 1_800_000_000_000;
+let pinia: Pinia;
+const hosts: VueWrapper[] = [];
+let midiDescriptor: PropertyDescriptor | undefined;
+
+interface FakeInput {
+  id: string;
+  name: string;
+  state: string;
+  onmidimessage: ((event: { data: Uint8Array }) => void) | null;
+}
+let inputs: FakeInput[];
+let access: { inputs: Map<string, FakeInput>; outputs: Map<string, unknown>; onstatechange: ((event: unknown) => void) | null };
+let roliSend: ReturnType<typeof vi.fn>;
+
+const settle = () => vi.advanceTimersByTimeAsync(0);
+type KeyInit = NonNullable<ConstructorParameters<typeof KeyboardEvent>[1]>;
+const key = (type: "keydown" | "keyup", code: string, init: KeyInit = {}) =>
+  window.dispatchEvent(new KeyboardEvent(type, { code, key: code, cancelable: true, ...init }));
+const midi = (input: FakeInput, status: number, pitch: number, velocity = 100) =>
+  input.onmidimessage!({ data: new Uint8Array([status, pitch, velocity]) });
+const events = (type: string) => vi.mocked(window.dispatchEvent).mock.calls
+  .map(([event]) => event as CustomEvent).filter((event) => event.type === type).map((event) => event.detail);
+const attackedIds = () => vi.mocked(audio.attackNote).mock.calls.map(([noteId]) => noteId as string);
+const touches = () => Array.from(useKeyboardDrawerStore().touch.activeTouches.keys()).sort();
+
+/** The next superdough attack waits until the returned function is called. */
+function deferNextAttack() {
+  let resolve!: () => void;
+  vi.mocked(audio.attackNote).mockImplementationOnce(() => new Promise<void>((done) => { resolve = done; }));
+  return () => resolve();
+}
+
+function mountHost(setup: () => void) {
+  const host = mount(defineComponent({ setup() { setup(); return () => null; } }), {
+    global: { plugins: [pinia] },
+  });
+  hosts.push(host);
+  return host;
+}
+const mountQwerty = () => mountHost(() => { useKeyboardControls(ref(4)); });
+async function mountMidi() {
+  const host = mountHost(() => { useMidiControls(); });
+  await settle();
+  return host;
+}
+
+function addInput(id: string, name: string) {
+  const input: FakeInput = { id, name, state: "connected", onmidimessage: null };
+  inputs.push(input);
+  access.inputs.set(id, input);
+  return input;
+}
+
+/** A renderer over the real worklet core, as the live path drives it. */
+function liveCore() {
+  const sampleRate = 1000;
+  let frame = 0;
+  const core = new LiveAudioCore(sampleRate, (response) => {
+    if (response.type === "event") playback.listener?.onEvent(response.event);
+    else if (response.type === "plan") playback.listener?.onPlan?.(response.events);
+    else if (response.type === "expression-owner") playback.listener?.onExpressionOwner?.(response);
+    else if (response.type === "owner-ended") playback.listener?.onOwnerEnded?.(response.ownerId);
+  });
+  core.command({ type: "prepare", requestId: 1, instrument: {
+    kind: "oscillator", waveform: "sine", instrumentId: "piano", gain: 1, attack: 0, decay: 0, sustain: 1, release: 0,
+  } }, frame);
+  playback.renderer = {
+    press: (ownerId, notes) => core.command({ type: "press", ownerId, notes }, frame),
+    release: (ownerId) => core.command({ type: "release", ownerId }, frame),
+    setPitchBend: (ownerId, cents) => core.command({ type: "pitch-bend", ownerId, cents }, frame),
+    configure: (config) => core.command({ type: "configure", config }, frame),
+    clear: () => core.command({ type: "clear" }, frame),
+    dispose: () => {}, forget: async () => {},
+  };
+  return {
+    core,
+    render(length: number) {
+      const output = [new Float32Array(length), new Float32Array(length)];
+      core.render(output, frame);
+      frame += length;
+      return output[0];
+    },
+  };
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.useFakeTimers();
+  vi.setSystemTime(EPOCH);
+  vi.spyOn(performance, "now").mockImplementation(() => Date.now() - EPOCH);
+  vi.spyOn(window, "dispatchEvent");
+  vi.mocked(audio.attackNote).mockResolvedValue(undefined);
+  vi.mocked(audio.getAudioContext).mockImplementation(() => ({
+    state: "running", currentTime: performance.now() / 1000,
+  } as AudioContext));
+  playback.renderer = null;
+  inputs = [];
+  roliSend = vi.fn();
+  access = {
+    inputs: new Map(),
+    outputs: new Map([["roli-out", { id: "roli-out", name: "LUMI Keys", state: "connected", send: roliSend, clear: vi.fn() }]]),
+    onstatechange: null,
+  };
+  midiDescriptor = Object.getOwnPropertyDescriptor(navigator, "requestMIDIAccess");
+  Object.defineProperty(navigator, "requestMIDIAccess", {
+    configurable: true,
+    value: vi.fn().mockResolvedValue(access),
+  });
+  pinia = createPinia();
+  setActivePinia(pinia);
+  useVisualConfigStore().useEphemeralDefaults();
+  useInstrumentStore().currentInstrument = "piano";
+});
+
+afterEach(() => {
+  hosts.splice(0).forEach((host) => host.unmount());
+  disposePinia(pinia);
+  if (midiDescriptor) Object.defineProperty(navigator, "requestMIDIAccess", midiDescriptor);
+  else Reflect.deleteProperty(navigator, "requestMIDIAccess");
+  vi.clearAllTimers();
+  vi.restoreAllMocks();
+  vi.useRealTimers();
+});
+
+describe("one performer: #35's held-note behaviour list", () => {
+  it("releases a note whose attack completes after its key-up, without ever publishing it", async () => {
+    mountQwerty();
+    const finishAttack = deferNextAttack();
+    key("keydown", "KeyA");
+    await settle();
+    expect(touches()).toEqual(["keyboard:KeyA"]);
+    key("keyup", "KeyA");
+    expect(touches()).toEqual([]);
+
+    finishAttack();
+    await settle();
+    expect(audio.stopNote).toHaveBeenCalledExactlyOnceWith(attackedIds()[0]);
+    expect(events("note-played")).toEqual([]);
+    expect(useMusicStore().activeNotes.size).toBe(0);
+    expect(usePerformerStore().owners()).toEqual([]);
+  });
+
+  it.each([
+    ["window blur", () => window.dispatchEvent(new Event("blur"))],
+    ["page hide", () => window.dispatchEvent(new Event("pagehide"))],
+  ])("%s while an attack is pending cancels it and clears its key", async (_name, leave) => {
+    mountQwerty();
+    const finishAttack = deferNextAttack();
+    key("keydown", "KeyA");
+    await settle();
+    leave();
+    expect(touches()).toEqual([]);
+    finishAttack();
+    await settle();
+    expect(audio.stopNote).toHaveBeenCalledExactlyOnceWith(attackedIds()[0]);
+    expect(events("note-played")).toEqual([]);
+    expect(useMusicStore().activeNotes.size).toBe(0);
+  });
+
+  it("MIDI teardown while an attack is pending neither publishes nor strands the note", async () => {
+    const keys = addInput("keys", "MIDI keyboard");
+    const host = await mountMidi();
+    const finishAttack = deferNextAttack();
+    midi(keys, 0x90, 60);
+    await settle();
+    expect(touches()).toEqual(["midi:keys:1:60"]);
+
+    host.unmount();
+    hosts.splice(hosts.indexOf(host), 1);
+    finishAttack();
+    await settle();
+    expect(audio.stopNote).toHaveBeenCalledExactlyOnceWith(attackedIds()[0]);
+    expect(events("note-played")).toEqual([]);
+    expect(useMusicStore().activeNotes.size).toBe(0);
+    expect(touches()).toEqual([]);
+  });
+
+  it.each(["stale first", "current first"] as const)(
+    "keeps a rapid re-press current when the attacks complete %s",
+    async (order) => {
+      mountQwerty();
+      const finishStale = deferNextAttack();
+      key("keydown", "KeyA");
+      await settle();
+      key("keyup", "KeyA");
+      const finishCurrent = deferNextAttack();
+      key("keydown", "KeyA");
+      await settle();
+      const [staleId, currentId] = attackedIds();
+
+      if (order === "stale first") finishStale(); else finishCurrent();
+      await settle();
+      if (order === "stale first") finishCurrent(); else finishStale();
+      await settle();
+
+      expect(audio.stopNote).toHaveBeenCalledExactlyOnceWith(staleId);
+      expect(useMusicStore().getActiveNotes().map((note) => note.noteId)).toEqual([currentId]);
+      expect(touches()).toEqual(["keyboard:KeyA"]);
+      key("keyup", "KeyA");
+      expect(audio.releaseNote).toHaveBeenCalledExactlyOnceWith(currentId);
+      expect(useMusicStore().activeNotes.size).toBe(0);
+      expect(touches()).toEqual([]);
+    },
+  );
+
+  it("keeps same-pitch owners from QWERTY and two MIDI channels independent", async () => {
+    mountQwerty();
+    const keys = addInput("keys", "MIDI keyboard");
+    await mountMidi();
+    key("keydown", "KeyA"); // Do in octave 4: C4
+    midi(keys, 0x90, 60);
+    midi(keys, 0x91, 60);
+    await settle();
+    const [qwertyId, firstChannelId, secondChannelId] = attackedIds();
+    expect(new Set([qwertyId, firstChannelId, secondChannelId]).size).toBe(3);
+    expect(useMusicStore().getActiveNoteNames()).toEqual(["C4", "C4", "C4"]);
+
+    key("keyup", "KeyA");
+    expect(audio.releaseNote).toHaveBeenCalledExactlyOnceWith(qwertyId);
+    midi(keys, 0x80, 60);
+    expect(audio.releaseNote).toHaveBeenLastCalledWith(firstChannelId);
+    expect(useMusicStore().getActiveNotes().map((note) => note.noteId)).toEqual([secondChannelId]);
+    // The lit key stays lit while any owner still holds it.
+    expect(useKeyboardDrawerStore().isKeyPressed("0_4")).toBe(true);
+    midi(keys, 0x81, 60);
+    expect(useKeyboardDrawerStore().isKeyPressed("0_4")).toBe(false);
+    expect(useMusicStore().activeNotes.size).toBe(0);
+  });
+
+  const midiNotes = (status: number) => roliSend.mock.calls
+    .map(([message]) => message as number[])
+    .filter(([messageStatus, pitch]) => (messageStatus & 0xf0) === status && pitch === 60);
+
+  it("does not echo an ordinary ROLI press back to the ROLI, but mirrors other controllers", async () => {
+    const roli = addInput("roli-in", "LUMI Keys");
+    const keys = addInput("keys", "MIDI keyboard");
+    await mountMidi();
+    roliSend.mockClear();
+
+    midi(roli, 0x90, 60);
+    await settle();
+    expect(useMusicStore().getActiveNoteNames()).toEqual(["C4"]);
+    midi(roli, 0x80, 60);
+    await settle();
+    expect(midiNotes(0x90)).toEqual([]);
+    expect(midiNotes(0x80)).toEqual([]);
+
+    // Not vacuous: the same pitch from a controller without its own lights mirrors.
+    midi(keys, 0x90, 60);
+    await settle();
+    midi(keys, 0x80, 60);
+    await settle();
+    expect(midiNotes(0x90)).toHaveLength(1);
+    expect(midiNotes(0x80)).toHaveLength(1);
+  });
+
+  it("does not echo an ordinary ROLI press on the live worklet path either", async () => {
+    const live = liveCore();
+    const roli = addInput("roli-in", "LUMI Keys");
+    const keys = addInput("keys", "MIDI keyboard");
+    await mountMidi();
+    roliSend.mockClear();
+
+    midi(roli, 0x90, 60);
+    await settle();
+    expect(Math.max(...live.render(100).map(Math.abs))).toBeGreaterThan(0.2);
+    midi(roli, 0x80, 60);
+    await settle();
+    live.render(100);
+    await settle();
+    expect(midiNotes(0x90)).toEqual([]);
+
+    midi(keys, 0x90, 60);
+    await settle();
+    live.render(100);
+    await vi.advanceTimersByTimeAsync(200);
+    expect(midiNotes(0x90)).toHaveLength(1);
+    midi(keys, 0x80, 60);
+    await settle();
+    live.render(100);
+    expect(audio.attackNote).not.toHaveBeenCalled();
+  });
+});
+
+describe("one performer: W3 releases and ownership", () => {
+  it("window blur releases pointer, QWERTY and MIDI owners together", async () => {
+    const keys = addInput("keys", "MIDI keyboard");
+    await mountMidi();
+    const keyboard = mount(Keyboard, {
+      attachTo: document.body,
+      global: { plugins: [pinia], provide: { [noteColorResolverKey as symbol]: staticNoteColorResolver } },
+    });
+    hosts.push(keyboard);
+    const target = keyboard.get<HTMLElement>('[data-key-id="2_4"]');
+    vi.spyOn(document, "elementFromPoint").mockReturnValue(target.element);
+    const pointer = new Event("pointerdown", { bubbles: true, cancelable: true });
+    Object.defineProperties(pointer, {
+      pointerId: { value: 9 }, pointerType: { value: "touch" }, clientX: { value: 5 },
+      clientY: { value: 5 }, button: { value: 0 }, isPrimary: { value: true },
+    });
+    target.element.dispatchEvent(pointer);
+    key("keydown", "KeyA");
+    midi(keys, 0x90, 67);
+    await settle();
+    expect(touches()).toEqual(["keyboard:KeyA", "melody:touch:9:2_4", "midi:keys:1:67"]);
+    expect(useMusicStore().getActiveNoteNames().sort()).toEqual(["C4", "E4", "G4"]);
+
+    window.dispatchEvent(new Event("blur"));
+    expect(touches()).toEqual([]);
+    expect(useMusicStore().activeNotes.size).toBe(0);
+    expect(vi.mocked(audio.releaseNote).mock.calls.map(([noteId]) => noteId).sort())
+      .toEqual([...attackedIds()].sort());
+  });
+
+  it("a hidden page releases every owner", async () => {
+    mountQwerty();
+    key("keydown", "KeyA");
+    key("keydown", "Digit5");
+    await settle();
+    expect(touches()).toEqual(["keyboard:Digit5", "keyboard:KeyA"]);
+    const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    document.dispatchEvent(new Event("visibilitychange"));
+    visibility.mockRestore();
+    expect(touches()).toEqual([]);
+    expect(useMusicStore().activeNotes.size).toBe(0);
+  });
+
+  it("releases a key whose key-up never arrives after Cmd goes down (the macOS case)", async () => {
+    mountQwerty();
+    key("keydown", "KeyA");
+    key("keydown", "KeyS");
+    await settle();
+    const [doId, reId] = attackedIds();
+
+    // Holding without Cmd is never cut short, however long.
+    await vi.advanceTimersByTimeAsync(KEY_REPEAT_WINDOW_MS * 5);
+    expect(useMusicStore().activeNotes.size).toBe(2);
+
+    key("keydown", "MetaLeft", { key: "Meta", metaKey: true });
+    // Key repeat is evidence that S is still down; A sends none.
+    for (let elapsed = 0; elapsed < KEY_REPEAT_WINDOW_MS * 2; elapsed += KEY_REPEAT_WINDOW_MS / 2) {
+      key("keydown", "KeyS", { metaKey: true, repeat: true });
+      await vi.advanceTimersByTimeAsync(KEY_REPEAT_WINDOW_MS / 2);
+    }
+    expect(audio.releaseNote).toHaveBeenCalledExactlyOnceWith(doId);
+    expect(touches()).toEqual(["keyboard:KeyS"]);
+
+    await vi.advanceTimersByTimeAsync(KEY_REPEAT_WINDOW_MS);
+    expect(audio.releaseNote).toHaveBeenLastCalledWith(reId);
+    expect(useMusicStore().activeNotes.size).toBe(0);
+
+    // The late key-up only clears the block; the next real press plays again.
+    key("keyup", "MetaLeft", { key: "Meta" });
+    key("keydown", "KeyA", { repeat: true });
+    await settle();
+    expect(attackedIds()).toHaveLength(2);
+    key("keyup", "KeyA");
+    key("keydown", "KeyA");
+    await settle();
+    expect(attackedIds()).toHaveLength(3);
+  });
+
+  it("an instrument lock releases every input and refuses new presses until it lifts", async () => {
+    mountQwerty();
+    const keys = addInput("keys", "MIDI keyboard");
+    await mountMidi();
+    key("keydown", "KeyA");
+    midi(keys, 0x90, 62);
+    await settle();
+    const instrument = useInstrumentStore();
+    instrument.warmingInstrument = "piano";
+    expect(touches()).toEqual([]);
+    expect(useMusicStore().activeNotes.size).toBe(0);
+
+    midi(keys, 0x90, 64);
+    key("keydown", "KeyS");
+    await settle();
+    expect(attackedIds()).toHaveLength(2);
+    instrument.warmingInstrument = null;
+    midi(keys, 0x90, 64);
+    await settle();
+    expect(attackedIds()).toHaveLength(3);
+  });
+
+  it("a disconnected MIDI port releases only its own notes, pending or sounding", async () => {
+    mountQwerty();
+    const left = addInput("left", "MIDI keyboard");
+    const right = addInput("right", "MIDI pads");
+    await mountMidi();
+    midi(left, 0x90, 60);
+    midi(right, 0x90, 62);
+    key("keydown", "KeyD"); // Mi
+    await settle();
+    const finishPending = deferNextAttack();
+    midi(left, 0x90, 64);
+    await settle();
+    const [leftId, rightId, qwertyId, pendingId] = attackedIds();
+
+    left.state = "disconnected";
+    access.onstatechange?.({ port: { type: "input", id: "left", state: "disconnected" } });
+    finishPending();
+    await settle();
+
+    expect(audio.releaseNote).toHaveBeenCalledExactlyOnceWith(leftId);
+    expect(audio.stopNote).toHaveBeenCalledExactlyOnceWith(pendingId);
+    expect(useMusicStore().getActiveNotes().map((note) => note.noteId).sort()).toEqual([qwertyId, rightId].sort());
+    expect(touches()).toEqual(["keyboard:KeyD", "midi:right:1:62"]);
+  });
+
+  it("presses and releases a chord as one owner, with release-all scoped by owner", async () => {
+    const performer = usePerformerStore();
+    const intents: PerformerIntent[] = [];
+    performer.subscribe((intent) => intents.push(intent));
+    void performer.press({
+      owner: "latch:loop-1", kind: "chord", touchKey: "chord:degree-1",
+      voices: ["C4", "E4", "G4"].map((pitch) => ({ kind: "pitch" as const, pitch })),
+    });
+    void performer.press({ owner: "keyboard:KeyF", kind: "note", voices: [{ kind: "degree", scaleIndex: 3, octave: 4 }] });
+    await settle();
+    expect(useMusicStore().getActiveNoteNames().sort()).toEqual(["C4", "E4", "F4", "G4"]);
+
+    // An owner holds until released: here, a latch-style scope.
+    performer.releaseAllFor("latch");
+    expect(useMusicStore().getActiveNoteNames()).toEqual(["F4"]);
+    expect(intents.map((intent) => [intent.type, intent.owner])).toEqual([
+      ["press", "latch:loop-1"], ["press", "keyboard:KeyF"], ["release", "latch:loop-1"],
+    ]);
+    performer.release("keyboard:KeyF");
+    expect(useMusicStore().activeNotes.size).toBe(0);
+  });
+
+  it("forwards bends to the worklet core's per-note expression, including a voice that resolves late", async () => {
+    const live = liveCore();
+    const performer = usePerformerStore();
+    void performer.press({ owner: "melody:touch:1:0_4", kind: "note", voices: [{ kind: "degree", scaleIndex: 0, octave: 4 }] });
+    // The gesture starts before the voice exists; the core still receives it.
+    performer.pitchBend("melody:touch:1:0_4", 40);
+    await settle();
+    live.render(50);
+    await settle();
+    expect(useMusicStore().getActiveNotes().map((note) => note.pitchBendCents)).toEqual([40]);
+
+    performer.pitchBend("melody:touch:1:0_4", -30);
+    live.render(50);
+    await settle();
+    expect(useMusicStore().getActiveNotes().map((note) => note.pitchBendCents)).toEqual([-30]);
+    performer.release("melody:touch:1:0_4");
+    live.render(100);
+    await settle();
+    expect(live.core.voiceCount).toBe(0);
+  });
+});

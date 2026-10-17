@@ -63,7 +63,10 @@ export function createHeardClock(wallNow: () => number = () => performance.now()
     attach(next) {
       if (next === context) return;
       detach();
-      // A context the clock did not see stop is taken as running from here.
+      // A pause in progress on the old context is dropped here. Harmless:
+      // this runs only when a Play prepares its context, and a renderer reset
+      // has already stopped playback. A context the clock did not see stop is
+      // taken as running from here.
       pausedAt = null;
       context = next;
       context.addEventListener?.("statechange", sync);

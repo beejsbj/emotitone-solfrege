@@ -100,6 +100,7 @@ const highlight = useNotationHighlight({
   listening: () => props.listening && props.playing,
   still: () => reducedMotion.value,
   target: () => props.noteEventTarget,
+  // Fixed at mount: the owner gives one clock for the strip's whole life.
   clock: props.clock,
   onActivate: (index) => {
     eventWindow.pin(index);

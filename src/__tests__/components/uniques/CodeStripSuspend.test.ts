@@ -196,10 +196,31 @@ describe.each(["suspended", "interrupted"] as const)("the highlight while audio 
     await elapse(300);
     expect(readStrip(wrapper)).toEqual({ fill: expect.closeTo(0.7, 1), sounding: true });
 
-    // The note's own release lands where the audio does: at the end of its gate.
-    emit(batch([TransportEventKind.Release, 1, generation, 0, 1000, 0.5, 0.01]));
-    await elapse(300);
+    // A forced fade ends the note at 800 ms of its audio, 100 ms past the point
+    // the sound has reached: the light follows the release, not the 1 s gate.
+    emit(batch([TransportEventKind.Release, 1, generation, 0, 800, 0.4, 0.01]));
+    await elapse(50);
+    expect(readStrip(wrapper)).toMatchObject({ sounding: true });
+    await elapse(100);
     expect(readStrip(wrapper)).toEqual({ fill: 1, sounding: false });
+    wrapper.unmount();
+  });
+
+  it("times a note announced after the resume on the sound, not on the pause", async () => {
+    const wrapper = await startPlaying();
+    const generation = await play(wrapper);
+    await elapse(100);
+    mocks.context.setState(cause);
+    await elapse(5000);
+    mocks.context.setState("running");
+    await elapse(50);
+
+    // The next pass is announced 100 ms of audio ahead, on the fresh mapping.
+    emit(batch([TransportEventKind.Attack, 1, generation, 0, mocks.context.currentTime * 1000 + 100, 0, 500]));
+    await elapse(60);
+    expect(readStrip(wrapper)).toEqual({ fill: 0, sounding: false });
+    await elapse(80);
+    expect(readStrip(wrapper)).toMatchObject({ sounding: true });
     wrapper.unmount();
   });
 

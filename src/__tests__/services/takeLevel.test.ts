@@ -74,9 +74,10 @@ describe('take level at the playback seam', () => {
     quiet.forEach((peak, index) => expect(peak).toBeCloseTo(loud[index], 4));
   });
 
-  it('leaves a uniform-velocity take as it was played', () => {
-    const [uniform] = slotLevels(take([.3, .3]), 1);
-    expect(uniform / reference()).toBeCloseTo(.3, 2);
+  it('plays an evenly soft take at full level', () => {
+    const [first, second] = slotLevels(take([.3, .3]));
+    expect(first / reference()).toBeCloseTo(1, 2);
+    expect(second / reference()).toBeCloseTo(1, 2);
   });
 
   it('leaves a take without velocity, or with a full-level note, as it was played', () => {
@@ -93,8 +94,8 @@ describe('take level at the playback seam', () => {
     const chord = [note('C4', 0, 400, .1), note('E4', 0, 400, .3), note('C4', 500, 400, .15)];
     const [first, second] = slotLevels(chord, 2);
     const [solo] = slotLevels([note('E4', 0, 400, .3)], 1);
-    // Alone, a .3 note plays at .3 of full level (uniform take); in the chord, the same note is full level.
-    expect(solo / reference()).toBeCloseTo(.3, 2);
+    // Alone, a .3 note is the whole take and plays at full level; in the chord it is full level too.
+    expect(solo / reference()).toBeCloseTo(1, 2);
     expect(second / first).toBeGreaterThan(0);
     // The two slots are one chord (E4 full, C4 a third of it) and a single C4 at half of full.
     expect(first).toBeGreaterThan(reference() * .9);
@@ -140,8 +141,11 @@ describe('take level in the exported Strudel text', () => {
     expect(b / a).toBeCloseTo(exported[1]! / exported[0]!, 2);
   });
 
-  it('keeps a uniform or velocity-free take as it is today', () => {
+  it('keeps a velocity-free take as it is today', () => {
     expect(logNotesToStrudel(take([undefined, undefined]))).not.toContain('gain');
-    expect(gains(take([.3, .3])).slice(0, 2)).toEqual([expect.closeTo(.24), expect.closeTo(.24)]);
+  });
+
+  it('writes an evenly soft take as the full-level text, with no gain column', () => {
+    expect(logNotesToStrudel(take([.3, .3]))).toBe(logNotesToStrudel(take([undefined, undefined])));
   });
 });

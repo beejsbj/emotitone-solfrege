@@ -11,14 +11,14 @@ export function velocityToGain(velocity?: number): number {
  * every other note at the same fraction of it that it was played at
  * (gain = v / max v). Stored velocities are never rewritten; this runs when a
  * take is played or written out as Strudel text. A note without velocity counts
- * as full level, and a take whose notes all sound equally loud has no
- * soft-to-loud shape to keep, so it plays as it was played. Live input never
- * comes through here.
+ * as full level, so a take with such a note, or a note at 1, plays as it was
+ * played; an evenly soft take is raised to full level too. An all-silent take
+ * stays silent. Live input never comes through here.
  */
 export function takePlaybackGain(velocities: readonly (number | undefined)[]): (velocity?: number) => number {
   const gains = velocities.map(velocityToGain)
   const loudest = Math.max(...gains)
-  if (!(loudest > 0) || gains.every(gain => gain === gains[0])) return velocityToGain
+  if (!(loudest > 0)) return velocityToGain
   return velocity => velocityToGain(velocity) / loudest
 }
 

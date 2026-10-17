@@ -22,8 +22,8 @@ button: **Play is the loop.**
    is playing opens a fresh take on top of it. Nothing writes into a pattern
    that is sounding.
 4. **A Loop is a saved set of pointers.** It names the patterns that were
-   playing together and how each sat in the loop. It lives in the reel as a
-   Kept strip; opening it sets its patterns playing.
+   playing together and how each sat in the loop; opening it sets its
+   patterns playing. Where a Loop lives in the reel is still open (see Open).
 
 Everything else in the pattern system holds: whatever you play is captured,
 silence closes a take into Recent, Return keeps.
@@ -32,8 +32,11 @@ silence closes a take into Recent, Return keeps.
 
 - **Tap Play** joins the desk's pattern. This is the default, so you can
   practise over a loop without adding to it.
-- **Hold Play** latches: each take you play joins by itself once it has been
-  silent for a bar. Hold again to release.
+- **Hold Play** latches, pedal-style. The open take joins as its first note
+  lands and grows as you play; it is the one take that may sound while it is
+  still being written. While latched, one bar of silence closes it (not the
+  usual 1.5-bar take boundary), and the next note opens another. Hold again
+  to release.
 - A take **played over the loop** joins where it was played. The recorder
   knows each note's position in the loop; the join stores that as an offset.
 - A pattern **from the reel** has no position, so its start is pinned to bar
@@ -51,7 +54,9 @@ pattern is never changed; bending happens at play time.
 - **Pin** (per pattern in a loop): plays in its recorded key and mode
   regardless. Unpitched instruments are always pinned.
 - **Half / double time** (per pattern in a loop). There is one clock; two
-  free tempos at once are out of scope.
+  free tempos at once are out of scope. Rate scales the cycle after
+  rounding: a 3-bar pattern at double time repeats every 1.5 shared bars, as
+  the domain (#139) does. The whole-bar rule applies to the recorded length.
 
 ## Model
 
@@ -131,9 +136,13 @@ stalls. Phone numbers come from the phone gate.
 
 These are design-system units and go through that process, not this document:
 
-- **Loop dial** (a Unique): one per playing pattern, climbing the left edge.
-  Tap mutes, double-tap solos, hold removes, drag turns the pattern within the
-  loop (changes its offset). The disc turns under a fixed brass hand.
+- **Loop dial**: one per playing pattern, climbing the left edge. Tap mutes,
+  double-tap solos, hold removes, drag turns the pattern within the loop
+  (changes its offset). The disc turns under a fixed brass hand. This is
+  direction, not an accepted unit: the accepted Loop Dial is a
+  noninteractive Primitive whose hand sweeps over fixed notes, so this
+  reopens it (or defines a new Unique beside it) through the design-system
+  process before it is built.
 - **Stop All** on top of the dial column.
 - **Looper** (a Stage part, its own config tab): the turning light a running
   loop casts, with Strength, Definition and Spread. Haze at low Definition,

@@ -7,7 +7,8 @@
 > tests (BJS-491).
 
 The harness, receipts and phone page this document cites live on the spike
-branch `spike/strudel-single-transport` (PR #137), which is not merged.
+branch `spike/strudel-single-transport` (PR #137), which is not merged. Links
+to them are pinned to its commit `3c31c5e2`.
 
 **Verdict: yes with conditions.** Keep one Strudel scheduler, prepare phrases
 without blocking the scheduler’s main thread, and swap cached Pattern objects
@@ -33,9 +34,9 @@ candidates.
 
 ## Evidence and scope
 
-The [harness](../../audio-lab/spike-strudel/README.md) imports the installed
-packages, real [StrudelNotation](../../src/services/StrudelNotation.ts) and real
-[EmotiTone output](../../src/services/superdoughAudio.ts). There is no substituted
+The [harness](https://github.com/beejsbj/emotitone-solfrege/blob/3c31c5e2e08f6474fe3a1d0bbc45c247b4b19872/audio-lab/spike-strudel/README.md) imports the installed
+packages, real [StrudelNotation](https://github.com/beejsbj/emotitone-solfrege/blob/3c31c5e2e08f6474fe3a1d0bbc45c247b4b19872/src/services/StrudelNotation.ts) and real
+[EmotiTone output](https://github.com/beejsbj/emotitone-solfrege/blob/3c31c5e2e08f6474fe3a1d0bbc45c247b4b19872/src/services/superdoughAudio.ts). There is no substituted
 audio boundary. It uses `StrudelMirror` with one REPL/Cyclist and the production
 AudioContext, with synth-only initialization to avoid sample downloads. Its
 membership and timing fixtures take pitches from the first four built-in
@@ -46,10 +47,10 @@ timing, rounded to 3/4-bar periods.
 Installed versions: core/mini/tonal/transpiler **1.2.6**;
 CodeMirror/webaudio/superdough **1.3.0**, with the repository's Superdough patch.
 Source and shipped distribution hashes accompany the receipts. The independent
-[source inspection](../../audio-lab/spike-strudel/source-scout.md) distinguishes
+[source inspection](https://github.com/beejsbj/emotitone-solfrege/blob/3c31c5e2e08f6474fe3a1d0bbc45c247b4b19872/audio-lab/spike-strudel/source-scout.md) distinguishes
 source-supported behavior from runtime measurements.
 
-The [transport receipt](../../audio-lab/results/spike-strudel-trials.json)
+The [transport receipt](https://github.com/beejsbj/emotitone-solfrege/blob/3c31c5e2e08f6474fe3a1d0bbc45c247b4b19872/audio-lab/results/spike-strudel-trials.json)
 contains every submitted hap's phrase id, whole onset, absolute audio onset,
 submission time, gate, controls and source locations, plus before/after swap
 snapshots and draw frames. Four separate Superdough orbits feed the existing
@@ -62,7 +63,7 @@ Another 18 trials compared tempo approaches; six tested a long sounding note
 through joins/removals; four rendered recorded expression at both tempos and
 rates. There were **58 audio cases**, twelve passing required checks and zero
 browser warnings. Twelve measured compiler trials per size
-follow three warmups in the [cost receipt](../../audio-lab/results/spike-strudel-cost.json).
+follow three warmups in the [cost receipt](https://github.com/beejsbj/emotitone-solfrege/blob/3c31c5e2e08f6474fe3a1d0bbc45c247b4b19872/audio-lab/results/spike-strudel-cost.json).
 
 Chrome 147 on Linux rendered at **44,100 Hz**. PCM attack detection uses amplitude
 0.0005 after 10 ms silence, matching within 12 ms; hap matching allows 3 ms.
@@ -350,7 +351,7 @@ local locations avoids that remap. Display edits/whitespace normalization still
 need a fresh location map; keep the exact compiled source as the canonical
 editor document.
 
-The production [rich Code Strip extension](../../src/components/uniques/CodeStrip/strudelExtension.ts)
+The production [rich Code Strip extension](https://github.com/beejsbj/emotitone-solfrege/blob/3c31c5e2e08f6474fe3a1d0bbc45c247b4b19872/src/components/uniques/CodeStrip/strudelExtension.ts)
 needs one more adaptation. Notes use hap source ranges, while rests and played
 history derive position from the displayed flat grammar. Feed the desk's local
 time `(sharedBar - offsetBars) * rate`, and transform filtered hap whole spans
@@ -404,8 +405,8 @@ Verification completed in this worktree:
 - `node audio-lab/spike-strudel/phone-check.mjs` passed **five checks** on the
   production bundle: installed-PWA navigation, real playback/control events,
   whole-bar periods, stop cleanup and no browser warnings. The
-  [receipt](../../audio-lab/results/spike-strudel-phone.json) and inspected
-  [screenshot](../../audio-lab/results/spike-strudel-phone.png) use a 390×844
+  [receipt](https://github.com/beejsbj/emotitone-solfrege/blob/3c31c5e2e08f6474fe3a1d0bbc45c247b4b19872/audio-lab/results/spike-strudel-phone.json) and inspected
+  [screenshot](https://github.com/beejsbj/emotitone-solfrege/blob/3c31c5e2e08f6474fe3a1d0bbc45c247b4b19872/audio-lab/results/spike-strudel-phone.png) use a 390×844
   desktop Chrome viewport. They are not real-phone timing evidence.
 
 Before committing to slice 4, listen and collect the same timing receipts on

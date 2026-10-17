@@ -33,6 +33,8 @@ export type PerformerReleaseReason =
   | "hidden"
   /** The instrument locked for warmup or recovery. */
   | "locked"
+  /** A new instrument was selected; the old one's voices were silenced. */
+  | "instrument-change"
   /** No key-repeat renewal arrived inside the window (the macOS Cmd case). */
   | "missing-key-up"
   /** Every voice failed or was refused, so nothing can sound. */

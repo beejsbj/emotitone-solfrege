@@ -66,6 +66,24 @@ const events = (type: string) => vi.mocked(window.dispatchEvent).mock.calls
   .map(([event]) => event as CustomEvent).filter((event) => event.type === type).map((event) => event.detail);
 const attackedIds = () => vi.mocked(audio.attackNote).mock.calls.map(([noteId]) => noteId as string);
 const touches = () => Array.from(useKeyboardDrawerStore().touch.activeTouches.keys()).sort();
+/**
+ * What the ROLI shows for a pitch now: replay its delivered queue. `clear()`
+ * drops packets still waiting for their deadline, as Web MIDI does.
+ */
+let roliQueue: Array<{ message: number[]; at: number; index: number }>;
+function roliShows(pitch: number) {
+  let on = false;
+  roliQueue
+    .filter(({ message: [status, note], at }) => note === pitch && at <= performance.now()
+      && ((status & 0xf0) === 0x90 || (status & 0xf0) === 0x80))
+    .sort((a, b) => a.at - b.at || a.index - b.index)
+    .forEach(({ message: [status] }) => { on = (status & 0xf0) === 0x90; });
+  return on;
+}
+/** Middle C note-ons or note-offs sent to the ROLI output. */
+const midiNotes = (status: number) => roliSend.mock.calls
+  .map(([message]) => message as number[])
+  .filter(([messageStatus, pitch]) => (messageStatus & 0xf0) === status && pitch === 60);
 
 /** The next superdough attack waits until the returned function is called. */
 function deferNextAttack() {
@@ -139,10 +157,16 @@ beforeEach(() => {
   } as AudioContext));
   playback.renderer = null;
   inputs = [];
-  roliSend = vi.fn();
+  roliQueue = [];
+  roliSend = vi.fn((message: number[], timestamp?: number) => {
+    roliQueue.push({ message, at: timestamp ?? performance.now(), index: roliQueue.length });
+  });
+  const roliClear = () => {
+    roliQueue = roliQueue.filter(({ at }) => at <= performance.now());
+  };
   access = {
     inputs: new Map(),
-    outputs: new Map([["roli-out", { id: "roli-out", name: "LUMI Keys", state: "connected", send: roliSend, clear: vi.fn() }]]),
+    outputs: new Map([["roli-out", { id: "roli-out", name: "LUMI Keys", state: "connected", send: roliSend, clear: roliClear }]]),
     onstatechange: null,
   };
   midiDescriptor = Object.getOwnPropertyDescriptor(navigator, "requestMIDIAccess");
@@ -270,10 +294,6 @@ describe("one performer: #35's held-note behaviour list", () => {
     expect(useKeyboardDrawerStore().isKeyPressed("0_4")).toBe(false);
     expect(useMusicStore().activeNotes.size).toBe(0);
   });
-
-  const midiNotes = (status: number) => roliSend.mock.calls
-    .map(([message]) => message as number[])
-    .filter(([messageStatus, pitch]) => (messageStatus & 0xf0) === status && pitch === 60);
 
   it("does not echo an ordinary ROLI press back to the ROLI, but mirrors other controllers", async () => {
     const roli = addInput("roli-in", "LUMI Keys");
@@ -403,6 +423,108 @@ describe("one performer: W3 releases and ownership", () => {
     await settle();
     expect(attackedIds()).toHaveLength(3);
   });
+
+  it("plays the next fresh press of a key whose key-up Cmd swallowed", async () => {
+    mountQwerty();
+    key("keydown", "KeyA");
+    await settle();
+    key("keydown", "MetaLeft", { key: "Meta", metaKey: true });
+    // A is lifted while Cmd is down: macOS sends no key-up for it.
+    await vi.advanceTimersByTimeAsync(KEY_REPEAT_WINDOW_MS + 1);
+    expect(useMusicStore().activeNotes.size).toBe(0);
+    key("keyup", "MetaLeft", { key: "Meta" });
+
+    key("keydown", "KeyA");
+    await settle();
+    expect(attackedIds()).toHaveLength(2);
+    expect(touches()).toEqual(["keyboard:KeyA"]);
+    key("keyup", "KeyA");
+    expect(useMusicStore().activeNotes.size).toBe(0);
+  });
+
+  it.each(["KeyZ", "KeyC", "KeyV"])("plays a fresh %s after a Cmd shortcut on it, but not its key repeat", async (code) => {
+    mountQwerty();
+    key("keydown", "MetaLeft", { key: "Meta", metaKey: true });
+    key("keydown", code, { metaKey: true });
+    key("keyup", "MetaLeft", { key: "Meta" }); // The shortcut key's own key-up never came.
+    key("keydown", code, { repeat: true });
+    await settle();
+    expect(attackedIds()).toHaveLength(0);
+
+    key("keydown", code);
+    await settle();
+    expect(attackedIds()).toHaveLength(1);
+    key("keyup", code);
+    expect(useMusicStore().activeNotes.size).toBe(0);
+  });
+
+  it("an instrument change releases held QWERTY and MIDI owners; the next fresh press sounds on the new one", async () => {
+    mountQwerty();
+    const keys = addInput("keys", "MIDI keyboard");
+    await mountMidi();
+    const instrument = useInstrumentStore();
+    vi.mocked(audio.prewarmSoundSamples).mockResolvedValue(undefined);
+    await instrument.setInstrument("sine");
+    await instrument.setInstrument("piano");
+    key("keydown", "KeyA");
+    midi(keys, 0x90, 62);
+    await settle();
+    expect(touches()).toEqual(["keyboard:KeyA", "midi:keys:1:62"]);
+
+    // An already prepared instrument switches without a lock.
+    void instrument.setInstrument("sine");
+    expect(instrument.isInteractionLocked).toBe(false);
+    expect(touches()).toEqual([]);
+    expect(usePerformerStore().owners()).toEqual([]);
+    expect(useMusicStore().activeNotes.size).toBe(0);
+
+    // A's key repeat does not revive the silenced note.
+    key("keydown", "KeyA", { repeat: true });
+    await settle();
+    expect(attackedIds()).toHaveLength(2);
+
+    midi(keys, 0x90, 62);
+    await settle();
+    expect(vi.mocked(audio.attackNote).mock.calls.at(-1)?.slice(1, 3)).toEqual(["D4", "sine"]);
+    expect(touches()).toEqual(["midi:keys:1:62"]);
+  });
+
+  it.each(["live", "fallback"] as const)(
+    "mirrors a ROLI note's new Together voice after a styled detour (%s path)",
+    async (path) => {
+      const live = path === "live" ? liveCore() : null;
+      const roli = addInput("roli-in", "LUMI Keys");
+      await mountMidi();
+      const music = useMusicStore();
+      roliSend.mockClear();
+      midi(roli, 0x90, 60);
+      await settle();
+      live?.render(50);
+      await settle();
+      expect(midiNotes(0x90)).toEqual([]);
+
+      music.setPlayStyle("arp-up");
+      for (let step = 0; step < 4; step++) {
+        live?.render(100);
+        await vi.advanceTimersByTimeAsync(100);
+      }
+      expect(midiNotes(0x90).length).toBeGreaterThan(0);
+
+      music.setPlayStyle("together");
+      for (let step = 0; step < 6; step++) {
+        live?.render(100);
+        await vi.advanceTimersByTimeAsync(100);
+      }
+      // The held note sounds Together again, so the ROLI is left showing it.
+      expect(music.activeNotes.size).toBe(1);
+      expect(roliShows(60)).toBe(true);
+      midi(roli, 0x80, 60);
+      await settle();
+      live?.render(100);
+      await vi.advanceTimersByTimeAsync(300);
+      expect(roliShows(60)).toBe(false);
+    },
+  );
 
   it("an instrument lock releases every input and refuses new presses until it lifts", async () => {
     mountQwerty();

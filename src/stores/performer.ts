@@ -9,7 +9,8 @@ import { createPerformer } from "@/services/performer";
  * The app's one performer (W3). Pointer, QWERTY, number row, MIDI and the
  * chord row press and release through it; it lights their touches, routes
  * their voices through the music store, and releases every owner when the
- * window blurs, the page hides, or the instrument locks.
+ * window blurs, the page hides, the instrument locks, or a new instrument is
+ * selected.
  */
 export const usePerformerStore = defineStore("performer", () => {
   const musicStore = useMusicStore();
@@ -46,6 +47,11 @@ export const usePerformerStore = defineStore("performer", () => {
 
   watch(() => instrumentStore.isInteractionLocked, (locked) => {
     if (locked) performer.releaseAllFor(undefined, "locked");
+  }, { flush: "sync" });
+  // Selecting an instrument (even one already prepared) silences every live
+  // input in the music store; held state and lit keys must end with the sound.
+  watch(() => instrumentStore.selectionEpoch, () => {
+    performer.releaseAllFor(undefined, "instrument-change");
   }, { flush: "sync" });
 
   const onBlur = () => performer.releaseAllFor(undefined, "blur");

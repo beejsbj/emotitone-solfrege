@@ -170,8 +170,13 @@ export const useMusicStore = defineStore(
       now: () => superdoughAudio.getAudioContext().currentTime,
       onMirror(event, held, phase) {
         // An ordinary press from a controller that shows its own keys is not
-        // echoed back to it. Styled pulses are a new performance and mirror.
-        if (held.mirrorMidi === false && event.style === "together") return;
+        // echoed back to it. Styled pulses are a new performance and mirror,
+        // and so is any Together voice after them, as on the fallback path.
+        // (A late off for the unmirrored first voice is ignored downstream.)
+        if (held.mirrorMidi === false) {
+          if (event.style === "together") return;
+          delete held.mirrorMidi;
+        }
         window.dispatchEvent(new CustomEvent(SCHEDULED_LIVE_MIDI_EVENT, {
           detail: { ...liveDetail(event, held), phase },
         }));

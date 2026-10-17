@@ -100,13 +100,25 @@ const BOTTOM_KEY_ROW = [
  * How long a held key may go without key-repeat evidence once Cmd is down.
  * macOS delivers no key-up for a key released while Cmd is held, and stops
  * repeating it, so after this window the key is treated as released.
+ *
+ * Known cost: a drone held on QWERTY is cut one window after a Cmd tap
+ * (Cmd+Z, say), even once Cmd is up. There is no safe disarm on Cmd's key-up:
+ * a key lifted while Cmd was down and a key still held look the same from
+ * then on (no key-up, no repeat), and disarming would leave the lifted one
+ * sounding forever. A cut drone is replayed by pressing again; a stuck note
+ * has no recovery, so the watch stays armed.
  */
 export const KEY_REPEAT_WINDOW_MS = 1000;
 
 const KEYBOARD_OWNER_SCOPE = "keyboard";
 
-/** Releases the performer made on its own; the key must lift before replaying. */
-const BLOCKING_RELEASES = new Set<PerformerReleaseReason>(["locked", "silent", "missing-key-up"]);
+/**
+ * Releases the performer made on its own while the key may still be down.
+ * Its key repeat must not revive the note; a fresh press always plays.
+ */
+const BLOCKING_RELEASES = new Set<PerformerReleaseReason>([
+  "locked", "silent", "missing-key-up", "instrument-change",
+]);
 
 /**
  * Composable for handling keyboard controls for solfege notes
@@ -129,8 +141,8 @@ export function useKeyboardControls(
     CHORD_ROW_KEYS.map((key, index) => [key.code, index]),
   );
 
-  // Ignored mapped keys must see a physical keyup before they may attack.
-  // Otherwise OS key-repeat can start a note after a lock or modifier clears.
+  // Ignored mapped keys must not start a note from OS key repeat after a lock
+  // or modifier clears; a key-up or a fresh (non-repeat) keydown lifts it.
   const blockedKeys = new Set<string>();
 
   const getKeyboardMapping = (): KeyboardMapping => {
@@ -228,8 +240,13 @@ export function useKeyboardControls(
     }
 
     if (blockedKeys.has(key)) {
-      event.preventDefault();
-      return Promise.resolve();
+      // A block only stops key repeat. A fresh keydown proves the key was
+      // lifted, even when the key-up was lost (macOS under Cmd), so it plays.
+      if (event.repeat) {
+        event.preventDefault();
+        return Promise.resolve();
+      }
+      blockedKeys.delete(key);
     }
 
     if (performer.isLocked) {

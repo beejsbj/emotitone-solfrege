@@ -2,6 +2,7 @@ import type { PersistenceOptions } from "pinia-plugin-persistedstate";
 import type { PiniaPluginContext, StateTree } from "pinia";
 import {
   persistentStorage,
+  isQuotaExceeded,
   reportSaveFailure,
   reportSaveSuccess,
   type SafeStorage,
@@ -271,11 +272,17 @@ export interface PersistedBinding<T> {
   holdUntilReload(): void;
   /** Remove a disposed or ephemeral store from the support restore registry. */
   unregister(): void;
+  /** Wait for an asynchronous backup and its queued save, if any. */
+  settled(): Promise<void>;
 }
 
 export interface BindingOptions {
   storage?: SafeStorage;
   now?: () => number;
+  /** An alternate backup destination. Resolves only after the copy is durable. */
+  backup?: (key: string, label: string, raw: string, time: number, retention: number) => Promise<void>;
+  /** Refuse an encoded payload before writing; the caller reports the reason. */
+  accept?: (encoded: string) => boolean;
 }
 
 // Live bindings by key, so a restore can stop the running store from
@@ -290,12 +297,18 @@ export function bindingFor(key: string): PersistedBinding<unknown> | undefined {
 
 export function createPersistedBinding<T>(
   codecDefinition: PersistenceCodec<T>,
-  { storage = persistentStorage, now = () => Date.now() }: BindingOptions = {},
+  { storage = persistentStorage, now = () => Date.now(), backup, accept }: BindingOptions = {},
 ): PersistedBinding<T> {
   const codec = defineCodec(codecDefinition);
   const retention = codec.backupRetention ?? BACKUP_RETENTION;
   let outcome: ReadOutcome<T>["kind"] | null = null;
   let hold: WriteHold | null = null;
+  let pendingBackup: Promise<void> | null = null;
+  let queuedState: { state: T } | null = null;
+  let backedUpRaw: string | null = null;
+  // The last payload `prepare` handed out. Stored bytes equal to it are bytes
+  // this binding produced: current, readable, nothing to classify or back up.
+  let lastEncoded: string | null = null;
 
   /** Try to clear the hold. True when writes may proceed. */
   const releaseHold = (): boolean => {
@@ -310,6 +323,34 @@ export function createPersistedBinding<T>(
       case "restored":
         return false;
       case "needs-backup": {
+        if (backup) {
+          if (hold.raw === backedUpRaw) {
+            hold = null;
+            return true;
+          }
+          if (!pendingBackup) {
+            const waiting = hold;
+            const failureKey = `${codec.key}.backup`;
+            pendingBackup = backup(codec.key, waiting.label, waiting.raw, now(), retention)
+              .then(() => {
+                backedUpRaw = waiting.raw;
+                reportSaveSuccess(failureKey);
+                if (hold === waiting) hold = null;
+              })
+              .catch((error) => {
+                reportSaveFailure(isQuotaExceeded(error) ? "quota" : "unknown", failureKey);
+              })
+              .finally(() => {
+                pendingBackup = null;
+                if (!hold && queuedState) {
+                  const latest = queuedState.state;
+                  queuedState = null;
+                  binding.save(latest);
+                }
+              });
+          }
+          return false;
+        }
         const { backupKey, stored } = writeBackup(storage, codec.key, hold.label, hold.raw, now());
         if (!stored) {
           hold.failedKey = backupKey;
@@ -325,6 +366,7 @@ export function createPersistedBinding<T>(
   };
 
   const prepare = (state: T): string | null => {
+    if (backup) queuedState = { state };
     // Another tab may have replaced the bytes since hydration. Classify them
     // again so legacy and unreadable payloads get the same backup protection.
     const stored = storage.read(codec.key);
@@ -334,18 +376,24 @@ export function createPersistedBinding<T>(
       return null;
     }
     if (!releaseHold()) return null;
-    const read = readPayload(codec, stored.value);
-    if (read.kind === "newer") {
-      hold = { reason: "newer", found: read.found };
-    } else if (read.kind === "migrated" || read.kind === "unreadable") {
-      hold = {
-        reason: "needs-backup", raw: stored.value as string,
-        label: read.kind === "migrated" ? `v${read.from}` : "unreadable",
-      };
+    if (stored.value === null || stored.value !== lastEncoded) {
+      const read = readPayload(codec, stored.value);
+      if (read.kind === "newer") {
+        hold = { reason: "newer", found: read.found };
+      } else if (read.kind === "migrated" || read.kind === "unreadable") {
+        hold = {
+          reason: "needs-backup", raw: stored.value as string,
+          label: read.kind === "migrated" ? `v${read.from}` : "unreadable",
+        };
+      }
     }
     if (!releaseHold()) return null;
     try {
-      return encodePayload(codec, state);
+      const encoded = encodePayload(codec, state);
+      queuedState = null;
+      if (accept && !accept(encoded)) return null;
+      lastEncoded = encoded;
+      return encoded;
     } catch (error) {
       console.error(`Failed to encode "${codec.key}" for saving:`, error);
       reportSaveFailure("unknown", codec.key);
@@ -356,7 +404,11 @@ export function createPersistedBinding<T>(
   const binding: PersistedBinding<T> = {
     codec,
     storage,
+    async settled() {
+      while (pendingBackup) await pendingBackup;
+    },
     unregister() {
+      queuedState = null;
       const live = bindings.get(codec.key);
       live?.delete(binding as PersistedBinding<unknown>);
       if (live?.size === 0) bindings.delete(codec.key);
@@ -368,6 +420,7 @@ export function createPersistedBinding<T>(
       return hold;
     },
     holdUntilReload() {
+      queuedState = null;
       hold = { reason: "restored" };
     },
     prepare,

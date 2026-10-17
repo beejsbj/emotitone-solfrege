@@ -1,6 +1,7 @@
 import { defineComponent, nextTick } from "vue";
 import { mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createPinia, disposePinia, setActivePinia, type Pinia } from "pinia";
 import Keyboard from "@/components/compounds/Keyboard.vue";
 import { HARMONY_ALTERATIONS, buildHarmony } from "@/domain/harmony";
 
@@ -53,6 +54,14 @@ vi.mock("@/stores/music", () => ({ useMusicStore: () => mocks.musicStore }));
 vi.mock("@/stores/instrument", () => ({ useInstrumentStore: () => mocks.instrumentStore }));
 vi.mock("@/stores/phrases", () => ({ usePhrasesStore: () => mocks.phrasesStore }));
 vi.mock("@/utils/hapticFeedback", () => ({ triggerNoteHaptic: vi.fn() }));
+
+// The real performer store runs over the stand-in stores.
+let pinia: Pinia;
+beforeEach(() => {
+  pinia = createPinia();
+  setActivePinia(pinia);
+});
+afterEach(() => disposePinia(pinia));
 
 const ChordKeyStub = defineComponent({
   name: "ChordKey",

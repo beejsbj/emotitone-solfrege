@@ -128,6 +128,8 @@ export const useMusicStore = defineStore(
       /** Shape at input onset: pattern context for every note this hold logs. */
       shape: Shape;
       velocity?: number;
+      /** False for a controller press that already shows itself (ROLI echo). */
+      mirrorMidi?: false;
       isCancelled: () => boolean;
       firstAttack?: (cancelled: () => boolean) => Promise<string | null>;
       initialVoice?: Promise<string | null>;
@@ -167,6 +169,14 @@ export const useMusicStore = defineStore(
     const livePerformance = createLivePerformance<HeldPitch>({
       now: () => superdoughAudio.getAudioContext().currentTime,
       onMirror(event, held, phase) {
+        // An ordinary press from a controller that shows its own keys is not
+        // echoed back to it. Styled pulses are a new performance and mirror,
+        // and so is any Together voice after them, as on the fallback path.
+        // (A late off for the unmirrored first voice is ignored downstream.)
+        if (held.mirrorMidi === false) {
+          if (event.style === "together") return;
+          delete held.mirrorMidi;
+        }
         window.dispatchEvent(new CustomEvent(SCHEDULED_LIVE_MIDI_EVENT, {
           detail: { ...liveDetail(event, held), phase },
         }));
@@ -366,6 +376,7 @@ export const useMusicStore = defineStore(
       isCancelled: () => boolean,
       exactInput = false,
       velocity?: number,
+      mirrorMidi = true,
     ): Promise<string | null> {
       if (instrumentStore.isInteractionLocked || isCancelled()) return null;
       const parsed = parseNoteWithOctave(noteName);
@@ -410,9 +421,10 @@ export const useMusicStore = defineStore(
         instrument: instrumentStore.currentInstrument,
         shape: instrumentStore.shape,
         velocity,
+        ...(mirrorMidi ? {} : { mirrorMidi: false as const }),
         isCancelled,
       };
-      held.firstAttack = (cancelled) => attackPreparedPitch(held.snapshot, held.instrument, held.shape, exactInput, cancelled, velocity);
+      held.firstAttack = (cancelled) => attackPreparedPitch(held.snapshot, held.instrument, held.shape, exactInput, cancelled, velocity, mirrorMidi);
       heldOwners.add(owner);
       const renderer = getLivePlayback(held.instrument);
       if (renderer) {
@@ -455,8 +467,13 @@ export const useMusicStore = defineStore(
       );
     }
 
-    function attackExactPitch(note: string, isCancelled: () => boolean = () => false, velocity?: number) {
-      return holdPitch(note, isCancelled, true, velocity);
+    function attackExactPitch(
+      note: string,
+      isCancelled: () => boolean = () => false,
+      velocity?: number,
+      options: { mirrorMidi?: boolean } = {},
+    ) {
+      return holdPitch(note, isCancelled, true, velocity, options.mirrorMidi !== false);
     }
 
     // Getters
@@ -630,6 +647,7 @@ export const useMusicStore = defineStore(
       exactInput: boolean,
       isCancelled: () => boolean,
       velocity?: number,
+      mirrorMidi = true,
     ): Promise<string | null> {
       if (instrumentStore.isInteractionLocked || isCancelled()) return null;
       const selectionEpoch = instrumentStore.selectionEpoch;
@@ -672,6 +690,7 @@ export const useMusicStore = defineStore(
           articulation: { ...articulation },
           instrumentConfig: null,
           timestamp,
+          ...(mirrorMidi ? {} : { mirrorMidi: false }),
         },
       }));
       return noteId;

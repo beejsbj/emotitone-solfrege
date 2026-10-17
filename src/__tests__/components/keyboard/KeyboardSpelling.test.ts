@@ -1,5 +1,6 @@
 import { mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createPinia, disposePinia, setActivePinia, type Pinia } from "pinia";
 import Chord from "@/components/compounds/Chord.vue";
 import Keyboard from "@/components/compounds/Keyboard.vue";
 import {
@@ -59,6 +60,13 @@ vi.mock("@/stores/instrument", () => ({
 }));
 vi.mock("@/composables/useKeyboardControls", () => ({ useKeyboardControls: () => undefined }));
 vi.mock("@/utils/hapticFeedback", () => ({ triggerNoteHaptic: () => undefined }));
+
+let pinia: Pinia;
+beforeEach(() => {
+  pinia = createPinia();
+  setActivePinia(pinia);
+});
+afterEach(() => disposePinia(pinia));
 
 function playIn(key: ChromaticNote, mode: MusicalMode, laBasedMinor = false) {
   const theory = new MusicTheoryService();

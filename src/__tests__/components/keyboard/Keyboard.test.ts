@@ -1,6 +1,7 @@
 import { defineComponent, nextTick } from "vue";
 import { mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createPinia, disposePinia, setActivePinia, type Pinia } from "pinia";
 import Keyboard from "@/components/compounds/Keyboard.vue";
 import performanceDeckSource from "@/components/PerformanceDeck.vue?raw";
 import keyboardSource from "@/components/compounds/Keyboard.vue?raw";
@@ -68,6 +69,14 @@ const mocks = vi.hoisted(() => {
 vi.mock("@/stores/keyboardDrawer", () => ({
   useKeyboardDrawerStore: () => mocks.keyboardStore,
 }));
+
+// The real performer store runs over the stand-in stores.
+let pinia: Pinia;
+beforeEach(() => {
+  pinia = createPinia();
+  setActivePinia(pinia);
+});
+afterEach(() => disposePinia(pinia));
 
 vi.mock("@/stores/music", () => ({
   useMusicStore: () => mocks.musicStore,
@@ -713,43 +722,35 @@ describe("Keyboard production usage", () => {
     wrapper.unmount();
   });
 
-  it("keeps a shared key sounding until every pointer leaves", async () => {
+  it("gives each contact on a shared key its own owner and voice", async () => {
+    mocks.musicStore.attackNoteWithOctave
+      .mockResolvedValueOnce("first-finger")
+      .mockResolvedValueOnce("second-finger");
     const wrapper = mountKeyboard();
     const root = wrapper.get<HTMLElement>(".keyboard");
     const key = wrapper.get<HTMLButtonElement>('[data-key-id="0_4"]');
     vi.spyOn(document, "elementFromPoint").mockReturnValue(key.element);
+    const send = (type: string, pointerId: number) => (type === "pointerdown" ? key : root)
+      .element.dispatchEvent(pointerEvent(type, { pointerId, pointerType: "touch", clientX: 20 }));
 
-    key.element.dispatchEvent(pointerEvent("pointerdown", {
-      pointerId: 21,
-      pointerType: "touch",
-      clientX: 20,
-    }));
-    key.element.dispatchEvent(pointerEvent("pointerdown", {
-      pointerId: 22,
-      pointerType: "touch",
-      clientX: 20,
-    }));
-    await nextTick();
+    send("pointerdown", 21);
+    send("pointerdown", 22);
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(mocks.musicStore.attackNoteWithOctave).toHaveBeenCalledOnce();
+    expect(mocks.musicStore.attackNoteWithOctave).toHaveBeenCalledTimes(2);
+    expect(mocks.keyboardStore.addTouch.mock.calls).toEqual([
+      ["melody:touch:21:0_4", "0_4"],
+      ["melody:touch:22:0_4", "0_4"],
+    ]);
 
-    root.element.dispatchEvent(pointerEvent("pointerup", {
-      pointerId: 21,
-      pointerType: "touch",
-      clientX: 20,
-    }));
-    await nextTick();
-    expect(mocks.musicStore.releaseNote).not.toHaveBeenCalled();
+    // Lifting the first finger ends only the voice it started.
+    send("pointerup", 21);
+    expect(mocks.musicStore.releaseNote.mock.calls).toEqual([["first-finger"]]);
+    expect(mocks.keyboardStore.removeTouch.mock.calls).toEqual([["melody:touch:21:0_4"]]);
 
-    root.element.dispatchEvent(pointerEvent("pointerup", {
-      pointerId: 22,
-      pointerType: "touch",
-      clientX: 20,
-    }));
-    await nextTick();
-    await Promise.resolve();
-    expect(mocks.musicStore.releaseNote).toHaveBeenCalledOnce();
-    expect(mocks.musicStore.releaseNote).toHaveBeenCalledWith("melody-note");
+    send("pointerup", 22);
+    expect(mocks.musicStore.releaseNote.mock.calls).toEqual([["first-finger"], ["second-finger"]]);
+    wrapper.unmount();
   });
 
   it("disables keys and chords and ignores presses while samples are warming", async () => {
@@ -777,15 +778,28 @@ describe("Keyboard production usage", () => {
     expect(mocks.musicStore.attackExactPitch).not.toHaveBeenCalled();
   });
 
-  it("installs one global QWERTY route and clears held pointers on teardown", () => {
+  it("installs one global QWERTY route and releases its own held owners on teardown", async () => {
     const wrapper = mountKeyboard();
 
     expect(mocks.useKeyboardControls).toHaveBeenCalledOnce();
     expect(mocks.useKeyboardControls.mock.calls[0][0].value).toBe(4);
 
+    wrapper.findAllComponents(KeyStub)[2].vm.$emit("press", {
+      inputId: "touch:3", event: new MouseEvent("mousedown"),
+    });
+    wrapper.findAllComponents(ChordKeyStub)[0].vm.$emit("press", {
+      inputId: "touch:4", event: new MouseEvent("mousedown"),
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
     wrapper.unmount();
 
-    expect(mocks.keyboardStore.clearAllTouches).toHaveBeenCalledOnce();
+    expect(mocks.musicStore.releaseNote.mock.calls.map(([voiceId]) => voiceId).sort())
+      .toEqual(["exact-C4", "exact-E4", "exact-G4", "melody-note"]);
+    expect(mocks.keyboardStore.removeTouch.mock.calls.map(([owner]) => owner).sort())
+      .toEqual(["chord:touch:4:degree-1", "melody:touch:3:0_4"]);
+    // Teardown is scoped to the Keyboard's owners: other inputs' touches stay.
+    expect(mocks.keyboardStore.clearAllTouches).not.toHaveBeenCalled();
   });
 
   it("keeps PerformanceDeck thin and leaves removed legacy Key APIs behind", () => {
@@ -906,7 +920,10 @@ describe("Keyboard pointer gestures", () => {
     wrapper.unmount();
   });
 
-  it("routes expression to the resolved voice and gives a shared key one controlling finger", async () => {
+  it("routes each contact's expression to its own voice on a shared key", async () => {
+    mocks.musicStore.attackNoteWithOctave
+      .mockResolvedValueOnce("first-finger")
+      .mockResolvedValueOnce("second-finger");
     const wrapper = mountKeyboard();
     const first = wrapper.findAll<HTMLButtonElement>(".keyboard__key")[0];
     vi.spyOn(document, "elementFromPoint").mockReturnValue(first.element);
@@ -918,25 +935,19 @@ describe("Keyboard pointer gestures", () => {
     send("pointerdown", 2, 50);
     await new Promise((resolve) => setTimeout(resolve, 0));
     send("pointermove", 2, 73, 0);
-    expect(mocks.musicStore.setNotePitchBend).not.toHaveBeenCalled();
+    expect(mocks.musicStore.setNotePitchBend.mock.calls).toEqual([["second-finger", 50, expect.any(Number)]]);
+    expect(mocks.musicStore.setNoteGain).toHaveBeenLastCalledWith("second-finger", 1.425, expect.any(Number));
     send("pointermove", 1, 27);
-    expect(mocks.musicStore.setNotePitchBend).toHaveBeenLastCalledWith("melody-note", -50, expect.any(Number));
+    expect(mocks.musicStore.setNotePitchBend).toHaveBeenLastCalledWith("first-finger", -50, expect.any(Number));
+
+    // Lifting one finger neither silences nor resets the other's bend.
     send("pointerup", 1, 27);
-    expect(mocks.musicStore.releaseNote).not.toHaveBeenCalled();
-    expect(mocks.musicStore.setNotePitchBend).toHaveBeenLastCalledWith("melody-note", 0);
-    expect(mocks.musicStore.setNoteGain).toHaveBeenLastCalledWith("melody-note", 1);
-    const callsAfterTransfer = {
-      pitch: mocks.musicStore.setNotePitchBend.mock.calls.length,
-      gain: mocks.musicStore.setNoteGain.mock.calls.length,
-    };
-    send("pointermove", 2, 73, 0);
-    expect(mocks.musicStore.setNotePitchBend.mock.calls).toHaveLength(callsAfterTransfer.pitch);
-    expect(mocks.musicStore.setNoteGain.mock.calls).toHaveLength(callsAfterTransfer.gain);
-    send("pointermove", 2, 60, 20);
-    expect(mocks.musicStore.setNotePitchBend).toHaveBeenLastCalledWith("melody-note", -25, expect.any(Number));
-    expect(mocks.musicStore.setNoteGain).toHaveBeenLastCalledWith("melody-note", .575, expect.any(Number));
-    send("pointercancel", 2, 60, 20);
-    expect(mocks.musicStore.releaseNote).toHaveBeenCalledWith("melody-note");
+    expect(mocks.musicStore.releaseNote.mock.calls).toEqual([["first-finger"]]);
+    expect(mocks.musicStore.setNotePitchBend).not.toHaveBeenCalledWith("second-finger", 0);
+    send("pointermove", 2, 63, 20);
+    expect(mocks.musicStore.setNotePitchBend).toHaveBeenLastCalledWith("second-finger", 25, expect.any(Number));
+    send("pointercancel", 2, 63, 20);
+    expect(mocks.musicStore.releaseNote.mock.calls).toEqual([["first-finger"], ["second-finger"]]);
     wrapper.unmount();
   });
 
@@ -1199,7 +1210,8 @@ describe("Keyboard pointer gestures", () => {
     chord.element.dispatchEvent(touchEvent("touchstart", 72, 50, 20));
     root.element.dispatchEvent(pointer("pointercancel", 72));
     chord.element.dispatchEvent(touchEvent("touchcancel", 72, 50, 20));
-    await Promise.resolve();
+    // Voices cancelled before they resolved are released as they arrive.
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(mocks.musicStore.attackExactPitch).toHaveBeenCalledTimes(6);
     expect(mocks.musicStore.releaseNote).toHaveBeenCalledTimes(6);
     wrapper.unmount();

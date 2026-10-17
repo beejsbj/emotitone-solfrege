@@ -1,0 +1,17 @@
+import { chromium } from 'playwright';
+const b = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
+const p = await b.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+const errs = []; p.on('pageerror', e => errs.push(String(e).slice(0,200)));
+await p.goto('http://localhost:5175/'); await p.getByRole('button', { name: /Play EmotiTone/ }).waitFor({ timeout: 120000 });
+await p.getByRole('button', { name: /Play EmotiTone/ }).click(); await p.waitForTimeout(3000);
+const tap = async (k) => { await p.keyboard.down(k); await p.waitForTimeout(200); await p.keyboard.up(k); await p.waitForTimeout(250); };
+const turns = () => p.evaluate(() => ({ left: [...document.querySelectorAll('.loop-platter__layer')].map(e => Math.round(parseFloat(e.style.getPropertyValue('--turn')))), strips: [...document.querySelectorAll('.pattern-strip__dial')].map(e => [e.getAttribute('data-loop-dial-state'), e.querySelector('.loop-dial__disc').style.transform, e.querySelector('.loop-dial__hand').style.transform]).filter(x => x[0] !== 'still' || x[1] || x[2]) }));
+for (const k of ['KeyA','KeyS','KeyD','KeyF']) await tap(k);
+console.log('before play', JSON.stringify(await turns()));
+await p.locator('.code-strip-bar__play').click(); await p.waitForTimeout(700);
+console.log('playing', JSON.stringify(await turns()));
+await p.screenshot({ path: 'k-dials.png' });
+for (const k of ['KeyG','KeyH']) await tap(k);
+await p.waitForTimeout(300);
+console.log('fresh take on desk', JSON.stringify(await turns()), errs);
+await b.close();

@@ -1,0 +1,23 @@
+import { chromium } from 'playwright';
+const b = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
+const p = await b.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+const errs = []; p.on('pageerror', e => errs.push(String(e))); p.on('console', m => m.type()==='error' && errs.push(m.text()));
+await p.goto('http://localhost:5175/'); await p.waitForTimeout(6000); if (!(await p.getByRole('button', { name: /Play EmotiTone/ }).count())) { await p.screenshot({ path: 'x-fail.png' }); console.log('no gate', errs); }
+await p.getByRole('button', { name: /Play EmotiTone/ }).click(); await p.waitForTimeout(3000);
+const state = () => p.evaluate(() => { const s = document.querySelector('#app').__vue_app__.config.globalProperties.$pinia._s; const l = s.get('loopPrototype'); const ph = s.get('phrases'); return { armed: l.armed, running: l.running, layers: l.layers.length, take: ph.takeNotes.length, kept: ph.shelves.kept.length, recent: ph.shelves.recent.length }; });
+const play = async (keys) => { for (const k of keys) { await p.keyboard.down(k); await p.waitForTimeout(200); await p.keyboard.up(k); await p.waitForTimeout(250); } };
+const hold = async (name) => { const box = await p.getByRole('button', { name }).boundingBox(); await p.mouse.move(box.x + box.width/2, box.y + box.height/2); await p.mouse.down(); await p.waitForTimeout(650); await p.mouse.up(); await p.waitForTimeout(400); };
+await play(['KeyA','KeyS','KeyD','KeyF']);
+await p.getByRole('button', { name: 'Return' }).click(); await p.waitForTimeout(300);
+console.log('tap return (keep)', JSON.stringify(await state()));
+await play(['KeyA','KeyS','KeyD','KeyF']);
+await hold('Return');
+console.log('hold return', JSON.stringify(await state()));
+await play(['KeyG','KeyH']);
+await p.getByRole('button', { name: 'Add to loop' }).click(); await p.waitForTimeout(400);
+console.log('tap plus', JSON.stringify(await state()));
+await p.screenshot({ path: 'h-looper.png' }); await p.screenshot({ path: 'h-idle-check.png' });
+await p.getByRole('button', { name: 'Stop all loops' }).click(); await p.waitForTimeout(400);
+console.log('stop all', JSON.stringify(await state()), 'returnLabel', await p.getByRole('button', { name: 'Return' }).count());
+console.log(errs.slice(0,6));
+await b.close();

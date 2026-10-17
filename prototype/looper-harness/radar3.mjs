@@ -1,0 +1,35 @@
+import { chromium } from 'playwright';
+const OUT = '/tmp/looper-pw/radar3/';
+const b = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
+const p = await b.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, deviceScaleFactor: 2 });
+const errs = []; p.on('pageerror', e => errs.push(String(e))); p.on('console', m => m.type()==='error' && errs.push(m.text()));
+await p.goto('http://localhost:5183/');
+await p.getByRole('button', { name: /Play EmotiTone/ }).click({ timeout: 90000 });
+await p.waitForTimeout(3000);
+const S = (fn) => p.evaluate(`(() => { const s = document.querySelector('#app').__vue_app__.config.globalProperties.$pinia._s; return (${fn})(s.get('loopPrototype'), s.get('visualConfig')); })()`);
+const play = async (keys, gap = 380) => { for (const k of keys) { await p.keyboard.down(k); await p.waitForTimeout(180); await p.keyboard.up(k); await p.waitForTimeout(gap - 180); } };
+const shotAt = async (name, target) => { for (let i = 0; i < 400; i++) { const ph = await S('l => l.phase()'); if (Math.abs(ph - target) < 0.02) break; await p.waitForTimeout(15); } await p.screenshot({ path: OUT + name + '.png', clip: { x: 0, y: 0, width: 390, height: 420 } }); };
+await play(['KeyA','KeyD','KeyG','KeyJ','KeyG','KeyD']);
+await p.getByRole('button', { name: 'Loop mode' }).click(); await p.waitForTimeout(300);
+await p.getByRole('button', { name: 'Add to loop' }).click(); await p.waitForTimeout(300);
+await play(['KeyS','KeyF','KeyH','KeyF'], 300); await play(['KeyK','KeyJ','KeyH','KeyG'], 250);
+await p.getByRole('button', { name: 'Add to loop' }).click(); await p.waitForTimeout(300);
+await play(['KeyA','KeyA','KeyS','KeyA'], 500);
+await p.getByRole('button', { name: 'Add to loop' }).click(); await p.waitForTimeout(1500);
+console.log(await S('l => l.layers.length'));
+await shotAt('a-defaults', 0.3);
+const DEF = { loopStrength: 0.5, loopDefinition: 0.25, loopSpread: 0.5 };
+const set = async (id, v) => S(`(l, v) => { v.config.ambient.${id} = ${v}; return [v.effectiveConfig.ambient.${id}, v.config.ambient.${id}]; }`);
+for (const id of Object.keys(DEF)) for (const v of [0, 1]) {
+  console.log(id, v, await set(id, v));
+  await p.waitForTimeout(200);
+  await shotAt(`${id}-${v}`, 0.3);
+  await set(id, DEF[id]);
+}
+await set('loopDefinition', 0.8); await p.waitForTimeout(1500); await p.reload();
+await p.waitForTimeout(3000);
+console.log('after reload', await p.evaluate(() => { const v = document.querySelector('#app').__vue_app__.config.globalProperties.$pinia._s.get('visualConfig'); return [v.config.ambient.loopDefinition, v.effectiveConfig.ambient.loopDefinition]; }));
+await p.evaluate(() => { document.querySelector('#app').__vue_app__.config.globalProperties.$pinia._s.get('visualConfig').config.ambient.loopDefinition = 0.25; });
+await p.waitForTimeout(500);
+console.log(errs.slice(0, 8));
+await b.close();

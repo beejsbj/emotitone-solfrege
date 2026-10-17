@@ -1,0 +1,12 @@
+import { chromium } from 'playwright';
+const b = await chromium.launch();
+const p = await b.newPage({ viewport: { width: 390, height: 844 } });
+const errs = []; p.on('pageerror', e => errs.push(String(e)));
+await p.goto('http://localhost:5175/'); await p.waitForTimeout(3500);
+const get = () => p.evaluate(() => { const s = document.querySelector('#app').__vue_app__.config.globalProperties.$pinia._s.get('visualConfig'); const a = s.config.ambient; return [a.loopStrength, a.loopDefinition, a.loopSpread]; });
+await p.evaluate(() => { const s = document.querySelector('#app').__vue_app__.config.globalProperties.$pinia._s.get('visualConfig'); s.updateStageControl('loopDefinition', 0.9); s.updateStageControl('loopSpread', 0.2); });
+await p.waitForTimeout(1500);
+console.log('set', await get());
+await p.reload(); await p.waitForTimeout(3500);
+console.log('after reload', await get(), errs);
+await b.close();

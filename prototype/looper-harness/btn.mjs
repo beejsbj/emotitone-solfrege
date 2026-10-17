@@ -1,0 +1,13 @@
+import { chromium } from 'playwright';
+const b = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
+const p = await b.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, deviceScaleFactor: 2 });
+const errs = []; p.on('pageerror', e => errs.push(String(e)));
+await p.goto('http://localhost:5175/'); await p.waitForTimeout(3500);
+await p.getByRole('button', { name: /Play EmotiTone/ }).click(); await p.waitForTimeout(2500);
+await p.getByRole('button', { name: 'Loop mode' }).click(); await p.waitForTimeout(500);
+await p.screenshot({ path: 'g-active.png', clip: { x: 110, y: 0, width: 170, height: 60 } });
+const anim = await p.evaluate(() => getComputedStyle(document.querySelector('.loop-mode-button .paper-button__lip')).animationName);
+await p.getByRole('button', { name: 'Leave loop mode' }).click(); await p.waitForTimeout(300);
+const off = await p.evaluate(() => document.querySelector('#app').__vue_app__.config.globalProperties.$pinia._s.get('loopPrototype').armed);
+console.log({ anim, armedAfterSecondClick: off, errs });
+await b.close();

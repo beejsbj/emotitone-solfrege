@@ -1,0 +1,16 @@
+import { chromium } from 'playwright';
+const b = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
+const p = await b.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+await p.goto('http://localhost:5189/');
+await p.getByRole('button', { name: /Play EmotiTone/ }).waitFor({ timeout: 180000 });
+await p.getByRole('button', { name: /Play EmotiTone/ }).click(); await p.waitForTimeout(3000);
+const latched = () => p.evaluate(() => document.querySelector('#app').__vue_app__.config.globalProperties.$pinia._s.get('looper').latched);
+const hold = async () => { const hb = await p.locator('.code-strip-bar__play').boundingBox(); await p.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2); await p.mouse.down(); await p.waitForTimeout(650); await p.mouse.up(); await p.waitForTimeout(300); };
+const play = async (keys, gap = 450) => { for (const k of keys) { await p.keyboard.down(k); await p.waitForTimeout(200); await p.keyboard.up(k); await p.waitForTimeout(gap - 200); } };
+await hold(); console.log('after hold 1', await latched());
+await play(['KeyA','KeyD','KeyG']); await p.waitForTimeout(3200);
+await play(['KeyS','KeyF']); await p.waitForTimeout(3300);
+p.on('console', m => console.log('  page:', m.text()));
+await p.evaluate(() => { const l = document.querySelector('#app').__vue_app__.config.globalProperties.$pinia._s.get('looper'); const orig = l.toggleLatch; window.__t = 0; document.querySelector('.code-strip-bar__play').addEventListener('pointerdown', () => console.log('pd')); document.querySelector('.code-strip-bar__play').addEventListener('click', () => console.log('click')); });
+await hold(); console.log('after hold 2', await latched());
+await b.close();

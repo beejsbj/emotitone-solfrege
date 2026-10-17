@@ -1,0 +1,15 @@
+import { chromium } from 'playwright';
+const b = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
+const p = await b.newPage({ viewport: { width: 390, height: 844 } });
+await p.goto('http://localhost:5175/'); await p.getByRole('button', { name: /Play EmotiTone/ }).waitFor({ timeout: 120000 });
+await p.getByRole('button', { name: /Play EmotiTone/ }).click(); await p.waitForTimeout(3000);
+const st = (tag) => p.evaluate((tag) => { const s = document.querySelector('#app').__vue_app__.config.globalProperties.$pinia._s; const l = s.get('loopPrototype'); const ph = s.get('phrases'); return tag + ' ' + JSON.stringify({ takeId: ph.takeId.slice(-5), take: ph.takeNotes.length, origin: ph.book.recorder.origin, deskPlaying: l.isDeskPlaying, phrases: ph.book.phrases.map(x => x.id.slice(-5) + ':' + x.shelf + ':' + x.notes.length) }); }, tag);
+const tap = async (k) => { await p.keyboard.down(k); await p.waitForTimeout(200); await p.keyboard.up(k); await p.waitForTimeout(250); };
+for (const k of ['KeyA','KeyS','KeyD','KeyF']) await tap(k);
+console.log(await st('played'));
+await p.locator('.code-strip-bar__play').click(); await p.waitForTimeout(300);
+console.log(await st('play'));
+await p.keyboard.down('KeyG'); await p.waitForTimeout(100); console.log(await st('G down')); await p.waitForTimeout(100); await p.keyboard.up('KeyG'); await p.waitForTimeout(250);
+console.log(await st('G up'));
+await tap('KeyH'); console.log(await st('H'));
+await b.close();

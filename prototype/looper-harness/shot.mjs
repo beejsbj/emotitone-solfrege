@@ -1,0 +1,10 @@
+import { chromium } from 'playwright';
+const b = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
+const p = await b.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true });
+const errs = []; p.on('pageerror', e => errs.push(String(e))); p.on('console', m => m.type()==='error' && errs.push(m.text()));
+await p.goto('http://localhost:5175/');
+await p.waitForTimeout(4000);
+await p.screenshot({ path: 'a-load.png' });
+console.log(await p.evaluate(() => [...document.querySelectorAll('button')].slice(0,40).map(x => (x.getAttribute('aria-label')||x.textContent||'').trim().slice(0,30)).join(' | ')));
+console.log(errs.slice(0,5));
+await b.close();

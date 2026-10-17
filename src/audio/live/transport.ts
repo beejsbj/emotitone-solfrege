@@ -92,8 +92,13 @@ export interface TransportReceipt {
   appliedBar: number | null
   /** The requested bar had already passed when the command arrived. */
   late: boolean
-  /** Stop (or a restart) dropped this pending change before its bar: it never applied. */
+  /**
+   * It never applied: Stop (or a restart) dropped it before its bar, a later
+   * leave withdrew the join it carried, or it was refused.
+   */
   cancelled?: true
+  /** The change was invalid (a bad tempo, offset, rate or length, or a bad batch part). */
+  refused?: true
 }
 
 export type TransportResponse =
@@ -238,9 +243,9 @@ export class AudioTransport {
   }
 
   private receipt(requestId: number, arrivalFrame: number, appliedFrame: number, appliedBar: number | null, late: boolean,
-    cancelled = false) {
+    cancelled = false, refused = false) {
     this.send({ type: 'transport-applied', requestId, arrivalFrame, appliedFrame, appliedBar, late,
-      ...(cancelled ? { cancelled: true as const } : {}) })
+      ...(cancelled ? { cancelled: true as const } : {}), ...(refused ? { refused: true as const } : {}) })
   }
 
   private publishAnchors(provisional = false) {
@@ -283,7 +288,11 @@ export class AudioTransport {
         return
       case 'transport-change': {
         const { change, boundary, requestId } = command
-        if (!validChange(change)) return
+        // Every request is answered, an invalid one too, so no caller waits forever.
+        if (!validChange(change) || (boundary !== 'immediate' && !Number.isFinite(boundary?.bar))) {
+          this.receipt(requestId, frame, frame, null, false, true, true)
+          return
+        }
         if (!this.running) {
           // Before Start, membership is staged for the start bar.
           this.apply(this.state, change, frame, (memberId, at) => this.host.silence(memberId, at))
@@ -295,7 +304,7 @@ export class AudioTransport {
         // A bar already passed is never honoured retroactively: apply now and say so.
         const late = boundary !== 'immediate' && requested < arrivalBar - 1e-9
         if (requested <= arrivalBar + 1e-9) {
-          this.applyNow(change, frame)
+          this.applyNow(change, frame, requestId)
           this.receipt(requestId, frame, frame, arrivalBar, late)
           return
         }
@@ -348,15 +357,58 @@ export class AudioTransport {
     if (clearMembers) this.state.members.clear()
   }
 
-  private applyNow(change: TransportChange, frame: number) {
+  private applyNow(change: TransportChange, frame: number, requestId: number) {
     // Any immediate change can alter what sounds from `frame` on. Withdraw the
     // lookahead, apply, and collect again; survivors keep their serials.
     this.retractFrom(frame)
     this.collectedUntil = frame
     this.frontier = undefined
     this.apply(this.state, change, frame, (memberId, at) => this.host.silence(memberId, at))
+    this.foldIntoPendingJoins(change, requestId, frame)
     if (tempoOf(change) !== undefined) this.publishAnchors(this.pending.some(entry => tempoOf(entry.change) !== undefined))
     this.collectTo(frame + this.lookahead)
+  }
+
+  /**
+   * A member whose join (or re-join) waits for its bar is already a member to
+   * the caller. A change that names it, applied now, also reaches every join
+   * of it submitted before that change: an update patches the join's
+   * settings, a replace swaps its table, a leave withdraws it (its receipt
+   * says cancelled). So a mute, bend or pin tapped after "join at the next
+   * bar" holds when the member arrives, and later submissions win.
+   * Returns the earliest bar whose pending change was altered.
+   */
+  private foldIntoPendingJoins(change: TransportChange, requestId: number, frame: number): number {
+    let earliest = Infinity
+    for (const part of change.type === 'batch' ? change.changes : [change]) {
+      const id = part.type === 'update' || part.type === 'leave' ? part.memberId : part.type === 'replace' ? part.table.id : undefined
+      if (id === undefined) continue
+      for (let index = this.pending.length - 1; index >= 0; index--) {
+        const entry = this.pending[index]
+        if (entry.requestId > requestId) continue
+        const parts = entry.change.type === 'batch' ? entry.change.changes : [entry.change]
+        if (!parts.some(own => own.type === 'join' && own.member.table.id === id)) continue
+        const folded: TransportSingleChange[] = []
+        for (const own of parts) {
+          if (own.type !== 'join' || own.member.table.id !== id) folded.push(own)
+          else if (part.type === 'update') folded.push({ type: 'join', member: { ...own.member, ...part.patch } })
+          else if (part.type === 'replace') folded.push({ type: 'join', member: { ...own.member, table: part.table } })
+        }
+        earliest = Math.min(earliest, entry.bar)
+        if (!folded.length) {
+          this.pending.splice(index, 1)
+          this.receipt(entry.requestId, entry.arrivalFrame, frame, null, false, true)
+        } else entry.change = folded.length === 1 && entry.change.type !== 'batch' ? folded[0] : { type: 'batch', changes: folded }
+      }
+    }
+    if (earliest !== Infinity) this.frontier = undefined
+    return earliest
+  }
+
+  /** A join of `id` waits in the pending list. */
+  private joinPending(id: string) {
+    return this.pending.some(entry => (entry.change.type === 'batch' ? entry.change.changes : [entry.change])
+      .some(part => part.type === 'join' && part.member.table.id === id))
   }
 
   private apply(state: TransportState, change: TransportChange, frame: number,
@@ -401,7 +453,10 @@ export class AudioTransport {
         return
       }
       case 'solo': {
-        state.soloId = change.memberId !== null && state.members.has(change.memberId) ? change.memberId : null
+        // A member whose join waits for its bar can be soloed: the others fade
+        // now and it sounds alone when it arrives.
+        state.soloId = change.memberId !== null
+          && (state.members.has(change.memberId) || this.joinPending(change.memberId)) ? change.memberId : null
         if (state.soloId !== null) for (const id of state.members.keys()) if (id !== state.soloId) silence(id, frame)
         return
       }
@@ -433,6 +488,15 @@ export class AudioTransport {
       // Onsets on and after the boundary were collected against the preview of
       // this change; onsets before it are already queued.
       this.apply(this.state, next.change, at, (memberId, silenceAt) => this.enqueueSilence(memberId, silenceAt))
+      const folded = this.foldIntoPendingJoins(next.change, next.requestId, at)
+      if (folded !== Infinity) {
+        // A later join was collected with its old settings: collect it again.
+        const foldedFrame = Math.max(at, this.boundaryFrame(folded))
+        if (foldedFrame < this.collectedUntil) {
+          this.retractFrom(foldedFrame)
+          this.collectedUntil = foldedFrame
+        }
+      }
       this.receipt(next.requestId, next.arrivalFrame, at, next.bar, false)
       if (tempoOf(next.change) !== undefined) {
         this.publishAnchors(this.pending.some(entry => tempoOf(entry.change) !== undefined))
@@ -563,13 +627,20 @@ export class AudioTransport {
     exactFrame: number) {
     const frame = Math.ceil(exactFrame - 1e-6)
     const { table, rate } = member
+    // A tempo change during the note does not rescale its gate (design §Risks).
+    const gateFrames = Math.max(1, Math.round(frameAtBar(state.anchors, bar + table.gate[noteIndex] / rate, this.sampleRate) - exactFrame))
+    const framesPerTableBar = framesPerBar(bpmAtFrame(state.anchors, exactFrame), this.sampleRate) / rate
     // A survivor of a change keeps its announced serial. Identity is the
     // member, its table, the note, the pass and the frame: a preview's member
-    // copy and the real member it becomes are the same note source.
+    // copy and the real member it becomes are the same note source. A change
+    // of gate or stretch (a tempo or rate change after the onset was
+    // announced) is a different note: the old one is cancelled and this one
+    // announced, so sound and consumers get the new length.
     for (let index = 0; index < this.retracted.length; index++) {
       const old = this.retracted[index]
       if (old.member!.id === member.id && old.member!.table === table && old.noteIndex === noteIndex
-        && old.loop === loop && old.frame === frame) {
+        && old.loop === loop && old.frame === frame && old.gateFrames === gateFrames
+        && old.framesPerTableBar === framesPerTableBar) {
         this.retracted.splice(index, 1)
         old.member = member
         this.insert(old)
@@ -585,9 +656,8 @@ export class AudioTransport {
     onset.frame = frame
     onset.exactFrame = exactFrame
     onset.bar = bar
-    // A tempo change during the note does not rescale its gate (design §Risks).
-    onset.gateFrames = Math.max(1, Math.round(frameAtBar(state.anchors, bar + table.gate[noteIndex] / rate, this.sampleRate) - exactFrame))
-    onset.framesPerTableBar = framesPerBar(bpmAtFrame(state.anchors, exactFrame), this.sampleRate) / rate
+    onset.gateFrames = gateFrames
+    onset.framesPerTableBar = framesPerTableBar
     this.insert(onset)
     this.write(TransportEventKind.Attack, onset)
   }

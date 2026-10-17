@@ -17,7 +17,7 @@ const sine: PreparedLiveInstrument = { kind: 'oscillator', instrumentId: 'sine',
   gain: 1, attack: .001, decay: .01, sustain: .5, release: .01 }
 
 interface RawNote { begin: number; gate: number; pitch: number; velocity?: number
-  attack?: number; release?: number; gain?: [number, number][] }
+  attack?: number; release?: number; gain?: [number, number][]; cents?: [number, number][] }
 
 let generation = 0
 function table(id: string, notes: RawNote[], lengthBars: number,
@@ -31,14 +31,18 @@ function table(id: string, notes: RawNote[], lengthBars: number,
   const gainPoints = sorted.flatMap(note => note.gain ?? [])
   let cursor = 0
   const gainStart = column(Uint32Array, note => { const start = cursor; cursor += note.gain?.length ?? 0; return start })
+  const pitchPoints = sorted.flatMap(note => note.cents ?? [])
+  let pitchCursor = 0
+  const pitchStart = column(Uint32Array, note => { const start = pitchCursor; pitchCursor += note.cents?.length ?? 0; return start })
   return {
     id, generation: ++generation, instrumentId: 'sine', lengthBars, shaping,
     begin: column(Float64Array, note => note.begin), gate: column(Float64Array, note => note.gate),
     pitch: column(Float32Array, note => note.pitch), velocity: column(Float32Array, note => note.velocity ?? 1),
     attack: column(Float32Array, note => note.attack ?? .001), decay: column(Float32Array, () => .01),
     sustain: column(Float32Array, () => .5), release: column(Float32Array, note => note.release ?? .01),
-    pitchStart: new Uint32Array(sorted.length), pitchCount: new Uint32Array(sorted.length),
-    pitchTime: new Float32Array(0), pitchCents: new Float32Array(0),
+    pitchStart, pitchCount: column(Uint32Array, note => note.cents?.length ?? 0),
+    pitchTime: Float32Array.from(pitchPoints.map(([time]) => time)),
+    pitchCents: Float32Array.from(pitchPoints.map(([, value]) => value)),
     gainStart, gainCount: column(Uint32Array, note => note.gain?.length ?? 0),
     gainTime: Float32Array.from(gainPoints.map(([time]) => time)),
     gainValue: Float32Array.from(gainPoints.map(([, value]) => value)),
@@ -531,9 +535,9 @@ describe('pending bar changes (BJS-491)', () => {
     rig.join(table('m', melody, 1))
     rig.start(120)
     rig.render(.2)
-    const before = rig.receipts.length
-    rig.change({ type: 'batch', changes: [{ type: 'update', memberId: 'm', patch: { muted: true } }, { type: 'tempo', bpm: -1 }] })
-    expect(rig.receipts).toHaveLength(before)
+    const id = rig.change({ type: 'batch', changes: [{ type: 'update', memberId: 'm', patch: { muted: true } }, { type: 'tempo', bpm: -1 }] })
+    // Answered, but nothing of it applied: the valid mute did not either.
+    expect(rig.receipts.find(entry => entry.requestId === id)).toMatchObject({ refused: true, cancelled: true })
     rig.render(1)
     expect(sounded(rig.events).length).toBeGreaterThan(2)
   })
@@ -888,5 +892,169 @@ describe('#140 receipts on the worklet transport (BJS-491)', () => {
     expect(dryMs + QUANTUM / rate * 1000).toBeLessThan(150)
     expect(dryMs).toBeLessThanOrEqual(10.1)
     expect(sendMs).toBeLessThanOrEqual(dryMs + 1e-9)
+  })
+
+  it.each([[90, 1], [150, 2]] as const)('stretches a recorded pitch curve with tempo and rate (%i BPM, rate %i)', (bpm, rate) => {
+    const rig = setup()
+    // In tune, then +50 cents from 0.225 table bars after the onset.
+    rig.join(table('m', [{ begin: 0, gate: .5, pitch: 69, cents: [[0, 0], [.2, 0], [.25, 50], [.5, 50]] }], 1), 0, rate)
+    rig.start(bpm)
+    rig.render(.6 * 240 / bpm / rate)
+    const at = (tableBars: number) => Math.round(tableBars / rate * 240 / bpm * RATE)
+    const ratio = frequency(rig.pcm, at(.27), at(.45)) / frequency(rig.pcm, at(.04), at(.18))
+    expect(ratio).toBeCloseTo(2 ** (50 / 1200), 3)
+  })
+})
+
+/** Frequency from the interpolated rising zero crossings of a window. */
+function frequency(pcm: ArrayLike<number>, from: number, to: number) {
+  const crossings: number[] = []
+  for (let index = from + 1; index < to; index++) {
+    if (pcm[index - 1] < 0 && pcm[index] >= 0) crossings.push(index - 1 + pcm[index - 1] / (pcm[index - 1] - pcm[index]))
+  }
+  return (crossings.length - 1) / ((crossings.at(-1)! - crossings[0]) / RATE)
+}
+
+/**
+ * Review round on #199: changes aimed at a member whose join waits for its
+ * bar, kept onsets after a tempo change, and receipts for invalid changes.
+ */
+describe('changes to a member whose join waits for its bar (review of #199)', () => {
+  const b: RawNote[] = [{ begin: 0, gate: .1, pitch: 64 }, { begin: .5, gate: .1, pitch: 66 }]
+  const quiet = () => table('a', [], 1)
+
+  it('keeps a member muted when the mute comes right after its { bar } join, and plays it when unmuted', () => {
+    const rig = setup()
+    rig.join(quiet())
+    rig.start(120)
+    rig.render(.5)
+    const member = table('b', b, 1)
+    rig.join(member, 0, 1, { bar: 2 })
+    const mute = rig.change({ type: 'update', memberId: 'b', patch: { muted: true } })
+    rig.render(5.5)
+    expect(rig.receipts.find(entry => entry.requestId === mute)).toMatchObject({ late: false })
+    expect(sounded(rig.events).filter(event => event.generation === member.generation)).toEqual([])
+    expect(rig.pcm.every(sample => sample === 0)).toBe(true)
+    const unmuteFrame = rig.frame
+    rig.change({ type: 'update', memberId: 'b', patch: { muted: false } })
+    rig.render(2)
+    const heard = pcmOnsets(rig.pcm)
+    expect(heard.length).toBeGreaterThan(1)
+    expect(heard[0]).toBeGreaterThanOrEqual(unmuteFrame)
+  })
+
+  it('joins with the bent table when a bend comes right after its { bar } join', () => {
+    const rig = setup()
+    const a = table('a', [{ begin: .25, gate: .1, pitch: 60 }], 1)
+    rig.join(a)
+    rig.start(120)
+    rig.render(.5)
+    const old = table('b', b, 1)
+    rig.join(old, 0, 1, { bar: 2 })
+    const bentA = table('a', [{ begin: .25, gate: .1, pitch: 62 }], 1)
+    const bentB = table('b', b.map(note => ({ ...note, pitch: note.pitch + 2 })), 1)
+    rig.change({ type: 'batch', changes: [{ type: 'replace', table: bentA }, { type: 'replace', table: bentB }] })
+    rig.render(6)
+    const attacks = sounded(rig.events)
+    expect(attacks.filter(event => event.generation === old.generation)).toEqual([])
+    const joined = attacks.filter(event => event.generation === bentB.generation)
+    expect(joined.length).toBeGreaterThan(2)
+    expect(joined[0].frame).toBe(2 * fpb(120))
+    // PCM: the bent member's first note sounds at the bent pitch (66 Hz above 64 = E4 → F#4).
+    const onset = joined[0].frame
+    expect(12 * Math.log2(frequency(rig.pcm, onset + 200, onset + 1400) / 440) + 69).toBeCloseTo(66, 1)
+  })
+
+  it('solos a member whose join is pending: the others fade now and it sounds alone when it arrives', () => {
+    const rig = setup()
+    const a = table('a', [{ begin: 0, gate: .1, pitch: 60 }, { begin: .5, gate: .1, pitch: 62 }], 1)
+    const c = table('c', [{ begin: .25, gate: .1, pitch: 67 }, { begin: .75, gate: .1, pitch: 69 }], 1)
+    rig.join(a)
+    rig.join(c)
+    rig.start(120)
+    rig.render(.3)
+    rig.change({ type: 'solo', memberId: 'a' })
+    const soloA = rig.frame
+    rig.render(1)
+    const member = table('b', b.map(note => ({ ...note, begin: note.begin + .125 })), 1)
+    rig.join(member, 0, 1, { bar: 2 })
+    const soloB = rig.frame
+    rig.change({ type: 'solo', memberId: 'b' })
+    rig.render(5)
+    const attacks = sounded(rig.events)
+    // c stayed silent from the first solo on; a went silent at the second.
+    expect(attacks.filter(event => event.generation === c.generation && event.frame >= soloA)).toEqual([])
+    expect(attacks.filter(event => event.generation === a.generation && event.frame >= soloB)).toEqual([])
+    const joined = attacks.filter(event => event.generation === member.generation)
+    expect(joined.length).toBeGreaterThan(2)
+    expect(joined.every(event => event.frame >= 2 * fpb(120))).toBe(true)
+    // Only b is heard after the bar: its onsets and nothing else.
+    const heard = pcmOnsets(rig.pcm).filter(frame => frame >= soloB + .02 * RATE)
+    expect(heard).toEqual(joined.filter(event => event.frame < rig.frame - .02 * RATE).map(event => event.frame + 1))
+  })
+
+  it('withdraws a pending join when its member leaves before the bar, answering the join as cancelled', () => {
+    const rig = setup()
+    rig.join(quiet())
+    rig.start(120)
+    rig.render(.5)
+    const member = table('b', b, 1)
+    const join = rig.join(member, 0, 1, { bar: 2 })
+    rig.change({ type: 'leave', memberId: 'b' })
+    rig.render(6)
+    expect(rig.receipts.find(entry => entry.requestId === join)).toMatchObject({ cancelled: true, appliedBar: null })
+    expect(sounded(rig.events).filter(event => event.generation === member.generation)).toEqual([])
+  })
+
+  it('lets a later re-join win over an earlier mute', () => {
+    const rig = setup()
+    rig.join(quiet())
+    rig.start(120)
+    rig.render(.5)
+    rig.join(table('b', b, 1), 0, 1, { bar: 1 })
+    rig.change({ type: 'update', memberId: 'b', patch: { muted: true } })
+    // Submitted after the mute: its own settings stand.
+    const again = table('b', b, 1)
+    rig.join(again, 0, 1, { bar: 2 })
+    rig.render(6)
+    expect(sounded(rig.events).filter(event => event.generation === again.generation).length).toBeGreaterThan(2)
+  })
+
+  it('gives a note on a tempo bar its new gate when the tempo change arrives inside the lookahead', () => {
+    const rig = setup()
+    const member = table('m', [{ begin: 0, gate: .5, pitch: 60 }], 1)
+    rig.join(member)
+    rig.start(120)
+    rig.until(1.99)
+    // The note on bar 2 is already announced with its 120 BPM gate.
+    expect(rig.events.some(event => event.kind === TransportEventKind.Attack && event.frame === 2 * fpb(120))).toBe(true)
+    rig.change({ type: 'tempo', bpm: 60 }, { bar: 2 })
+    rig.render(6)
+    const onBar = sounded(rig.events).find(event => event.frame === 2 * fpb(120))!
+    expect(onBar.length).toBe(Math.round(.5 * fpb(60)))
+    const release = rig.events.find(event => event.kind === TransportEventKind.Release && event.serial === onBar.serial)!
+    expect(release.frame - onBar.frame).toBe(Math.round(.5 * fpb(60)))
+    // The note still sounds past its old 120 BPM gate.
+    expect(Math.max(...rig.pcm.slice(onBar.frame + .5 * fpb(120) + 400, onBar.frame + .5 * fpb(120) + 800).map(Math.abs)))
+      .toBeGreaterThan(.1)
+    // The bar-3 note has the same gate.
+    const onBar3 = sounded(rig.events).find(event => event.frame === 2 * fpb(120) + fpb(60))!
+    expect(onBar3.length).toBe(onBar.length)
+  })
+
+  it.each([
+    ['a zero tempo', { type: 'tempo', bpm: 0 }, 'immediate'],
+    ['a NaN tempo at a bar', { type: 'tempo', bpm: NaN }, { bar: 3 }],
+    ['a batch with one bad part', { type: 'batch', changes: [{ type: 'update', memberId: 'a', patch: { muted: true } }, { type: 'update', memberId: 'a', patch: { rate: 0 } }] }, 'immediate'],
+    ['a NaN bar', { type: 'solo', memberId: null }, { bar: NaN }],
+  ] as const)('answers %s with a refused receipt', (_name, change, boundary) => {
+    const rig = setup()
+    rig.join(table('a', b, 1))
+    rig.start(120)
+    rig.render(.2)
+    const id = rig.change(change as TransportChange, boundary as 'immediate' | { bar: number })
+    expect(rig.receipts.find(entry => entry.requestId === id)).toMatchObject({ refused: true, cancelled: true, appliedBar: null })
+    rig.render(2)
+    expect(sounded(rig.events).length).toBeGreaterThan(2)
   })
 })

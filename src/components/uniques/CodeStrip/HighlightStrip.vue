@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { ExternalLink } from "lucide-vue-next";
 import Button from "@/components/primatives/Button.vue";
+import type { HeardClock } from "@/services/heardClock";
 import { strudelUrl } from "@/services/strudelLink";
 import type { NoteColorResolver } from "@/components/primatives/noteColorContext";
 import HighlightStripEvent from "./HighlightStripEvent.vue";
@@ -50,6 +51,8 @@ const props = withDefaults(
     noteEventTarget?: EventTarget;
     /** Milliseconds per notation unit (`@1`) at the playing tempo. */
     unitMs?: number;
+    /** The clock of what is heard: the highlight stands still while it does. */
+    clock?: HeardClock;
   }>(),
   {
     code: undefined,
@@ -66,6 +69,7 @@ const props = withDefaults(
     stillColorResolver: undefined,
     noteEventTarget: undefined,
     unitMs: undefined,
+    clock: undefined,
   },
 );
 
@@ -96,6 +100,7 @@ const highlight = useNotationHighlight({
   listening: () => props.listening && props.playing,
   still: () => reducedMotion.value,
   target: () => props.noteEventTarget,
+  clock: props.clock,
   onActivate: (index) => {
     eventWindow.pin(index);
     void nextTick(() => followEvent(index));

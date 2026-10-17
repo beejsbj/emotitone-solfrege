@@ -679,11 +679,13 @@ export const useLooperStore = defineStore("looper", () => {
     const wallTime = Number.isFinite(detail.timestamp) ? detail.timestamp : Date.now();
     let audioTime: number;
     try {
+      // The attack's own audio time when the live path sends it; otherwise its
+      // heard time, read in the event's own task, gives it back; otherwise the
+      // event is the attack, now, on the same audio clock.
       const context = getAudioContext();
-      // Read in the event's own task, the heard time gives back the attack's audio time.
-      audioTime = Number.isFinite(detail.audibleAt)
-        ? outputTimeToAudioTime(context, detail.audibleAt)
-        : context.currentTime - (Date.now() - wallTime) / 1000;
+      audioTime = Number.isFinite(detail.audioTime) ? detail.audioTime
+        : Number.isFinite(detail.audibleAt) ? outputTimeToAudioTime(context, detail.audibleAt)
+          : context.currentTime;
     } catch {
       return;
     }

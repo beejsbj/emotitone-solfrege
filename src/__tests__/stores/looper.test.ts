@@ -124,13 +124,15 @@ let liveSerial = 0;
  * dispatched then, carrying the audio clock's wall stamp and its heard time,
  * as the music store's live path does.
  */
-function live(noteName: string, solfegeIndex: number, onFrame: number, offFrame: number) {
+function live(noteName: string, solfegeIndex: number, onFrame: number, offFrame: number,
+  clocks: { audioTime?: boolean; heardSkewMs?: number } = {}) {
   const noteId = `live-${++liveSerial}`;
   renderTo(onFrame);
   const at = onFrame / RATE;
   const detail = { noteId, noteName, solfegeIndex, octave: Number(noteName.at(-1)), key: "C", mode: "major",
     source: "live-play-style", timestamp: EPOCH + at * 1000,
-    audibleAt: audioTimeToOutputTime(rig.context as never, at) };
+    audibleAt: audioTimeToOutputTime(rig.context as never, at) + (clocks.heardSkewMs ?? 0),
+    ...(clocks.audioTime ? { audioTime: at } : {}) };
   window.dispatchEvent(new CustomEvent("note-played", { detail }));
   renderTo(offFrame);
   window.dispatchEvent(new CustomEvent("note-released", { detail: { ...detail,
@@ -306,6 +308,24 @@ describe("Play is the loop on the worklet transport", () => {
     for (const attack of back) {
       expect(Math.abs(mod(attack.frame - (onFrame - calibrationFrames) + 1, FRAMES_PER_BAR) - 1)).toBeLessThanOrEqual(1);
     }
+  });
+
+  it("places a take by its attacks' own audio time when the live path sends it", async () => {
+    const { phrases, looper } = setup();
+    playTake(.5);
+    looper.togglePlay();
+    await flush();
+    await looper.settled();
+    render(1.3);
+    // The heard estimate is 300 ms off (a bad latency report); the audio time is exact.
+    const onFrame = Math.round(5.3 * RATE);
+    live("F4", 3, onFrame, onFrame + 800, { audioTime: true, heardSkewMs: 300 });
+    live("A4", 5, onFrame + 2400, onFrame + 3200, { audioTime: true, heardSkewMs: 300 });
+    const overdub = phrases.take;
+    looper.togglePlay();
+    await flush();
+    expect(looper.memberFor(overdub.id)!.offsetBars + looper.looper.barOriginBars!)
+      .toBeCloseTo(player.barAtAudioTime(onFrame / RATE)!, 6);
   });
 
   it("rule 4: a saved Loop is pointers, and opening it sets its patterns playing as they sat", async () => {

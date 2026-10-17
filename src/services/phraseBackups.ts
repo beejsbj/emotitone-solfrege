@@ -6,6 +6,8 @@ import { persistentStorage, reportSaveFailure, reportSaveSuccess } from "@/servi
 
 const DATABASE = "emotitone-phrase-backups";
 const STORE = "backups";
+/** An open that never settles (a stuck upgrade, a wedged browser) must not stall saves silently. */
+export const IDB_OPEN_DEADLINE_MS = 10_000;
 export interface PhraseBackup extends BackupEntry { raw: string }
 
 /** Close each connection, including on failure; never block a future DB upgrade. */
@@ -15,10 +17,20 @@ async function transaction<T>(
 ): Promise<T> {
   const db = await new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(DATABASE, 1);
+    let late = false;
+    const deadline = setTimeout(() => {
+      late = true;
+      reject(new Error("Phrase backup database did not open in time"));
+    }, IDB_OPEN_DEADLINE_MS);
     request.onupgradeneeded = () => request.result.createObjectStore(STORE, { keyPath: "backupKey" });
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      clearTimeout(deadline);
+      if (late) request.result.close();
+      else resolve(request.result);
+    };
+    request.onerror = () => { clearTimeout(deadline); reject(request.error); };
     request.onblocked = () => {
+      clearTimeout(deadline);
       request.onsuccess = () => request.result.close();
       reject(new Error("Phrase backup database is blocked"));
     };

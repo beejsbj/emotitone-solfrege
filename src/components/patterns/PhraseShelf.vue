@@ -1,31 +1,41 @@
 <template>
-  <section v-if="phrasesStore.isShelfFull" aria-label="Shelf full" class="space-y-2 px-3 py-2">
-    <p role="status">Shelf full. New changes stay in this tab until there is room to save.</p>
-    <template v-if="oldestRecent">
-      <p>Oldest Recent: {{ phraseTitle(oldestRecent) }}</p>
-      <Button
-        size="sm"
-        :accessible-name="releaseArmed ? 'Confirm release oldest Recent' : 'Release oldest Recent'"
-        @click="releaseOldest"
-      >{{ releaseArmed ? 'Confirm release' : 'Release oldest Recent' }}</Button>
-    </template>
-    <p v-else>No Recent phrases to release. Copy any phrases you want to save before deleting them from the reel.</p>
-  </section>
-  <PatternReel
-    v-bind="$attrs"
-    class="phrase-shelf"
-    :items="reelItems"
-    :selected-id="deskItemId"
-    :entry-signal="entrySignal"
-    :cyclic="false"
-    label="Phrase reel. The selected strip is what you play into. Up and down arrows load older phrases; the front slot starts a new take."
-    @commit="choose"
-    @delete="deletePhrase"
-    @copy="copyNotation"
-    @open-strudel="openInStrudel"
-    @rename="renamePhrase"
-    @interaction-change="emit('interactionChange', $event)"
-  />
+  <div class="phrase-shelf">
+    <section
+      v-if="phrasesStore.isShelfFull"
+      class="phrase-shelf__banner"
+      aria-label="Shelf full"
+    >
+      <p class="phrase-shelf__banner-text" role="status">
+        Shelf full. New changes stay in this tab until there is room to save.
+      </p>
+      <template v-if="oldestRecent">
+        <p class="phrase-shelf__banner-detail">Oldest Recent: {{ phraseTitle(oldestRecent) }}</p>
+        <Button
+          size="sm"
+          :tone="releaseArmed ? 'brass' : 'ink'"
+          :accessible-name="releaseArmed ? 'Confirm release oldest Recent' : 'Release oldest Recent'"
+          @click="releaseOldest"
+        >{{ releaseArmed ? 'Confirm release' : 'Release oldest Recent' }}</Button>
+      </template>
+      <p v-else class="phrase-shelf__banner-detail">
+        No Recent phrases to release. Copy any phrases you want to save before deleting them from the reel.
+      </p>
+    </section>
+    <PatternReel
+      class="phrase-shelf__reel"
+      :items="reelItems"
+      :selected-id="deskItemId"
+      :entry-signal="entrySignal"
+      :cyclic="false"
+      label="Phrase reel. The selected strip is what you play into. Up and down arrows load older phrases; the front slot starts a new take."
+      @commit="choose"
+      @delete="deletePhrase"
+      @copy="copyNotation"
+      @open-strudel="openInStrudel"
+      @rename="renamePhrase"
+      @interaction-change="emit('interactionChange', $event)"
+    />
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -63,9 +73,6 @@ import type { Phrase } from "@/types/phrases";
 
 type PatternControl = "key" | "mode" | "bpm" | "octave";
 
-// The banner makes this a fragment; keep class, data-* and listeners on the reel.
-defineOptions({ inheritAttrs: false });
-
 const emit = defineEmits<{
   contextChange: [controls: PatternControl[]];
   interactionChange: [active: boolean];
@@ -83,11 +90,21 @@ const {
 
 const oldestRecent = computed(() => phrasesStore.releaseCandidates[0]);
 const releaseArmed = ref(false);
-watch(() => oldestRecent.value?.id, () => { releaseArmed.value = false; });
-function releaseOldest() {
-  if (!releaseArmed.value) { releaseArmed.value = true; return; }
-  if (oldestRecent.value) phrasesStore.releaseRecent(oldestRecent.value.id);
+let releaseTimer: ReturnType<typeof setTimeout> | undefined;
+function disarmRelease() {
+  clearTimeout(releaseTimer);
   releaseArmed.value = false;
+}
+watch(() => oldestRecent.value?.id, disarmRelease);
+function releaseOldest() {
+  if (!releaseArmed.value) {
+    releaseArmed.value = true;
+    clearTimeout(releaseTimer);
+    releaseTimer = setTimeout(disarmRelease, 2500);
+    return;
+  }
+  if (oldestRecent.value) phrasesStore.releaseRecent(oldestRecent.value.id);
+  disarmRelease();
 }
 
 const copiedId = ref<string | null>(null);
@@ -98,6 +115,7 @@ let deleteTimer: ReturnType<typeof setTimeout> | undefined;
 const clockTimer = setInterval(() => { now.value = Date.now(); }, 30_000);
 
 onBeforeUnmount(() => {
+  clearTimeout(releaseTimer);
   clearTimeout(copyTimer);
   clearTimeout(deleteTimer);
   clearInterval(clockTimer);
@@ -399,5 +417,29 @@ function openInStrudel(id: string) {
 .phrase-shelf {
   width: 100%;
   min-width: 0;
+}
+
+/* Chrome hardware, not music: design-system tokens only, no note colour. */
+.phrase-shelf__banner {
+  display: grid;
+  justify-items: start;
+  gap: var(--s-3);
+  margin: var(--s-4);
+  padding: var(--s-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-xs);
+  background: var(--ink-3);
+  color: var(--ivory-2);
+}
+
+.phrase-shelf__banner-text {
+  font: var(--t-body);
+  color: var(--ivory);
+}
+
+.phrase-shelf__banner-detail {
+  font: var(--t-mono);
+  font-size: 9px;
+  overflow-wrap: anywhere;
 }
 </style>

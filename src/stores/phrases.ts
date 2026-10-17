@@ -33,7 +33,7 @@ import {
   type PhraseCandidate,
 } from "@/domain/phraseBook";
 import { migrateLegacyPatterns } from "@/domain/phraseMigration";
-import { createPhrasePersistence, encodedPhraseBytes, PHRASE_BUDGET_BYTES } from "@/services/phrasePersistence";
+import { createPhrasePersistence, encodedPhraseBytes, shelfRefuses } from "@/services/phrasePersistence";
 import { installPhraseBackupConsole } from "@/services/phraseBackups";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 import type { HeldNote, Phrase, PhraseBook, PhraseContext } from "@/types/phrases";
@@ -119,7 +119,7 @@ export const usePhrasesStore = defineStore(
     const savedState = () => ({ book: book.value, isRecordingEnabled: isRecordingEnabled.value });
     // An oversized shelf loads intact, so measure once before any save happens.
     encodedBytes.value = encodedPhraseBytes(persistence.encode(savedState()));
-    const isShelfFull = computed(() => encodedBytes.value > PHRASE_BUDGET_BYTES);
+    const isShelfFull = computed(() => shelfRefuses(encodedBytes.value));
     const releaseCandidates = computed(() => book.value.phrases
       .filter((phrase) => phrase.shelf === "recent")
       .sort((a, b) => (a.closedAt ?? a.createdAt) - (b.closedAt ?? b.createdAt)));

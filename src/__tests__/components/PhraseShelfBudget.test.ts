@@ -32,8 +32,8 @@ afterEach(() => {
 function phrase(id: string, shelf: "recent" | "kept", stamp: number, name = id) {
   return { ...structuredClone(libraryPhrases[0]), id, shelf, name, createdAt: stamp, closedAt: stamp };
 }
-function render() {
-  wrapper = mount(PhraseShelf, { global: { stubs: { PatternReel: true } } });
+function render(attrs: Record<string, string> = {}) {
+  wrapper = mount(PhraseShelf, { attrs, global: { stubs: { PatternReel: true } } });
   return wrapper;
 }
 
@@ -61,6 +61,40 @@ describe("Shelf full in the phrase reel", () => {
     expect(saved.find((phrase: { id: string }) => phrase.id === "oldest")).toBeUndefined();
     expect(saved.find((phrase: { id: string }) => phrase.id === "kept").shelf).toBe("kept");
     expect(saved.find((phrase: { id: string }) => phrase.id === "newer")).toBeDefined();
+  });
+
+  it("disarms the release confirmation after 2.5 seconds", async () => {
+    vi.useFakeTimers();
+    try {
+      store.book.phrases.push(phrase("oldest", "recent", 100, "x".repeat(PHRASE_BUDGET_BYTES)));
+      await nextTick();
+      const page = render();
+      await page.get('button[aria-label="Release oldest Recent"]').trigger("click");
+      expect(page.find('button[aria-label="Confirm release oldest Recent"]').exists()).toBe(true);
+      await vi.advanceTimersByTimeAsync(2499);
+      expect(page.find('button[aria-label="Confirm release oldest Recent"]').exists()).toBe(true);
+      await vi.advanceTimersByTimeAsync(2);
+      expect(page.find('button[aria-label="Confirm release oldest Recent"]').exists()).toBe(false);
+      await page.get('button[aria-label="Release oldest Recent"]').trigger("click");
+      expect(store.findPhrase("oldest")).toBeDefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("wraps the banner and the reel in one root that takes the stage occluder attribute", async () => {
+    store.book.phrases.push(phrase("oldest", "recent", 100, "x".repeat(PHRASE_BUDGET_BYTES)));
+    await nextTick();
+    const page = render({ "data-stage-occluder": "" });
+    const root = page.element as HTMLElement;
+    expect(root.hasAttribute("data-stage-occluder")).toBe(true);
+    expect(root.contains(page.get('[role="status"]').element)).toBe(true);
+    expect(root.contains(page.findComponent({ name: "PatternReel" }).element)).toBe(true);
+    // Not full: still one root around the reel.
+    store.book.phrases.pop();
+    await nextTick();
+    expect(page.element).toBe(root);
+    expect(page.find('[role="status"]').exists()).toBe(false);
   });
 
   it("keeps an over-budget all-Kept shelf and explains when no Recent can be released", async () => {

@@ -8,7 +8,7 @@ import {
   type PersistedPhraseState,
 } from "@/services/phrasePersistence";
 import { encodePayload, readPayload } from "@/services/persistenceCodec";
-import { listPhraseBackups, restorePhraseBackup, writePhraseBackup } from "@/services/phraseBackups";
+import { IDB_OPEN_DEADLINE_MS, listPhraseBackups, restorePhraseBackup, writePhraseBackup } from "@/services/phraseBackups";
 import { resetSaveFailure, saveFailureNotice } from "@/services/safeStorage";
 import type { PhraseContext } from "@/types/phrases";
 
@@ -55,14 +55,21 @@ afterEach(() => {
 });
 
 describe("phrase payload budget and curve fidelity", () => {
-  it("keeps no more than 100 points per second, including endpoints, and handles short/sparse curves", () => {
+  it("keeps no more than 100 points per second at uniform time targets, with both endpoints", () => {
     const dense = Array.from({ length: 1001 }, (_, timeMs) => ({ timeMs, cents: timeMs % 50 }));
     const saved = decimateCurve(dense);
     expect(saved.length).toBeLessThanOrEqual(100);
+    // Uniform targets use the allowance: not roughly half of it.
+    expect(saved.length).toBeGreaterThanOrEqual(98);
     expect(saved[0]).toEqual(dense[0]);
     expect(saved.at(-1)).toEqual(dense.at(-1));
-    expect(decimateCurve(dense.slice(0, 6))).toEqual([dense[5]]);
+    const gaps = saved.slice(1).map((point, index) => point.timeMs - saved[index].timeMs);
+    expect(Math.min(...gaps)).toBeGreaterThanOrEqual(10);
+    expect(Math.max(...gaps)).toBeLessThanOrEqual(11);
+    // A very short curve keeps both endpoints, not just the last point.
+    expect(decimateCurve(dense.slice(0, 6))).toEqual([dense[0], dense[5]]);
     expect(decimateCurve([dense[0], dense[500], dense[1000]])).toEqual([dense[0], dense[500], dense[1000]]);
+    expect(decimateCurve([dense[7]])).toEqual([dense[7]]);
   });
   it("reduces both curves and modeBase only in saved bytes; reload retains endpoints and sparse samples", () => {
     const state = realisticShelf(1);
@@ -123,7 +130,82 @@ describe("phrase payload budget and curve fidelity", () => {
   });
 });
 
+describe("shelf reads and saves", () => {
+  it("drops an invalid phrase and keeps the rest of the shelf", () => {
+    const state = realisticShelf(3);
+    const [, good, broken, nothing] = state.book.phrases;
+    const stored = JSON.parse(encodePayload(codec(), state));
+    const bad = stored.data.book.phrases.find((phrase: { id: string }) => phrase.id === broken.id);
+    delete bad.notes;
+    stored.data.book.phrases[stored.data.book.phrases.findIndex((phrase: { id: string }) => phrase.id === nothing.id)] = null;
+    localStorage.setItem("phrases", JSON.stringify(stored));
+    const store = binding();
+    const loaded = store.load();
+    const ids = loaded.book.phrases.map((phrase) => phrase.id);
+    expect(ids).toContain(good.id);
+    expect(ids).not.toContain(broken.id);
+    expect(ids).not.toContain(nothing.id);
+    expect(store.hold).toBeNull();
+    expect(store.save(loaded)).toBe(true);
+    expect(JSON.parse(localStorage.getItem("phrases")!).data.book.phrases.map((phrase: { id: string }) => phrase.id)).toContain(good.id);
+  });
+
+  it("does not re-read or re-parse the shelf when saving over its own last write", () => {
+    const state = realisticShelf(20);
+    const store = binding();
+    expect(store.save(state)).toBe(true);
+    const parse = vi.spyOn(JSON, "parse");
+    state.book.phrases[1].name = "changed";
+    expect(store.save(state)).toBe(true);
+    expect(parse).not.toHaveBeenCalled();
+    parse.mockRestore();
+    expect(JSON.parse(localStorage.getItem("phrases")!).data.book.phrases[1].name).toBe("changed");
+  });
+
+  it("still re-checks bytes another tab wrote", () => {
+    const state = realisticShelf(1);
+    const store = binding();
+    expect(store.save(state)).toBe(true);
+    localStorage.setItem("phrases", JSON.stringify({ $version: 99, data: {} }));
+    expect(store.save(state)).toBe(false);
+    expect(saveFailureNotice.value?.message).toBe("Can't save — reload to update");
+  });
+
+  it("asks the browser to keep storage once, and ignores a refusal", async () => {
+    const persist = vi.fn().mockRejectedValue(new Error("denied"));
+    Object.defineProperty(navigator, "storage", { value: { persist }, configurable: true });
+    try {
+      const state = realisticShelf(1);
+      const store = binding();
+      expect(store.save(state)).toBe(true);
+      expect(store.save(state)).toBe(true);
+      await Promise.resolve();
+      expect(persist).toHaveBeenCalledTimes(1);
+    } finally {
+      Reflect.deleteProperty(navigator, "storage");
+    }
+  });
+});
+
 describe("IndexedDB backup before phrase rewrites", () => {
+  it("reports a save failure when IndexedDB never finishes opening, and leaves the stored shelf alone", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.stubGlobal("indexedDB", { open: () => ({}) });
+      const old = JSON.stringify(realisticShelf(1));
+      localStorage.setItem("phrases", old);
+      const store = binding();
+      store.load();
+      expect(saveFailureNotice.value).toBeNull();
+      await vi.advanceTimersByTimeAsync(IDB_OPEN_DEADLINE_MS + 1);
+      await store.settled();
+      expect(saveFailureNotice.value?.message).toBe("Can't save");
+      expect(localStorage.getItem("phrases")).toBe(old);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("backs up exact legacy bytes outside localStorage before migration, including latest edits while pending", async () => {
     const old = JSON.stringify(realisticShelf(190));
     localStorage.setItem("phrases", old);

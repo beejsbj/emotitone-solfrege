@@ -1,7 +1,6 @@
 import { toRaw } from "vue";
 import { ensureSingleTake } from "@/domain/phraseBook";
 import { createPersistedBinding, defineCodec, type BindingOptions } from "@/services/persistenceCodec";
-import { serializePatternsState } from "@/services/patternPersistence";
 import { writePhraseBackup } from "@/services/phraseBackups";
 import { reportSaveFailure } from "@/services/safeStorage";
 import type { PhraseBook, PhraseContext } from "@/types/phrases";
@@ -13,19 +12,40 @@ export const encodedPhraseBytes = (encoded: string): number => encoded.length * 
 
 export interface PersistedPhraseState { book: PhraseBook; isRecordingEnabled: boolean }
 
-/** Keep endpoints and at least 10 ms between samples (100 Hz). Never change live curves. */
+/**
+ * The one place that decides when the shelf is too big to save. Both the save
+ * path (`accept`) and the banner (`isShelfFull` in the store) ask this.
+ */
+export const shelfRefuses = (bytes: number): boolean => bytes > PHRASE_BUDGET_BYTES;
+
+const MIN_SAMPLE_GAP_MS = 10;
+
+/**
+ * Keep both endpoints and at most 100 points per second, spaced at uniform
+ * time targets (each target takes the nearest sample, never closer than 10 ms
+ * to the last one kept). Never changes live curves.
+ */
 export function decimateCurve<T extends { timeMs: number }>(points: readonly T[]): T[] {
   if (points.length < 2) return [...points];
+  const first = points[0];
   const last = points[points.length - 1];
-  const duration = last.timeMs - points[0].timeMs;
-  const limit = Math.max(1, Math.ceil(duration / 10));
-  if (limit === 1) return [last];
-  const spacing = Math.max(10, duration / (limit - 1));
-  const kept = [points[0]];
-  for (let index = 1; index < points.length - 1; index++) {
-    const point = points[index];
-    if (point.timeMs - kept[kept.length - 1].timeMs >= spacing && last.timeMs - point.timeMs >= spacing) kept.push(point);
+  const duration = last.timeMs - first.timeMs;
+  const limit = Math.max(2, Math.ceil(duration / MIN_SAMPLE_GAP_MS));
+  if (points.length <= limit) return [...points];
+  const kept = [first];
+  let cursor = 0;
+  for (let target = 1; target < limit - 1; target++) {
+    const at = first.timeMs + (duration * target) / (limit - 1);
+    while (cursor < points.length - 2 && points[cursor + 1].timeMs <= at) cursor++;
+    let pick = at - points[cursor].timeMs <= points[cursor + 1].timeMs - at ? cursor : cursor + 1;
+    // Too close to the last kept sample: take the next one that clears the gap.
+    const earliest = kept[kept.length - 1].timeMs + MIN_SAMPLE_GAP_MS;
+    while (pick < points.length - 1 && points[pick].timeMs < earliest) pick++;
+    if (pick >= points.length - 1) break;
+    kept.push(points[pick]);
   }
+  // The end point wins over a neighbour that sits too close to it.
+  if (kept.length > 1 && last.timeMs - kept[kept.length - 1].timeMs < MIN_SAMPLE_GAP_MS) kept.pop();
   kept.push(last);
   return kept;
 }
@@ -46,16 +66,19 @@ export function phraseCodec(defaults: () => PersistedPhraseState, context: () =>
     defaults,
     decode(data) {
       const state = data as PersistedPhraseState;
-      if (!state?.book || !Array.isArray(state.book.phrases)
-        || state.book.phrases.some((phrase) => !phrase || !Array.isArray(phrase.notes) || !phrase.context)) {
-        throw new Error("Invalid phrase book");
-      }
-      ensureSingleTake(state.book, context(), Date.now());
-      return { book: state.book, isRecordingEnabled: state.isRecordingEnabled !== false };
+      if (!state?.book || !Array.isArray(state.book.phrases)) throw new Error("Invalid phrase book");
+      // An entry the app can't use is dropped; the rest of the shelf survives.
+      const book = {
+        ...state.book,
+        phrases: state.book.phrases.filter((phrase) => phrase && Array.isArray(phrase.notes) && phrase.context),
+      };
+      ensureSingleTake(book, context(), Date.now());
+      return { book, isRecordingEnabled: state.isRecordingEnabled !== false };
     },
+    // Plain data for the envelope; JSON.stringify unwraps reactive proxies itself.
     encode(state) {
       const book = toRaw(state.book);
-      return JSON.parse(serializePatternsState({
+      return {
         isRecordingEnabled: state.isRecordingEnabled,
         book: {
           ...book,
@@ -68,10 +91,19 @@ export function phraseCodec(defaults: () => PersistedPhraseState, context: () =>
             };
           }),
         },
-      }));
+      };
     },
     migrations: { 0: (data) => data },
   });
+}
+
+/** Best effort, once: a shelf worth keeping should survive storage pressure. */
+function askBrowserToKeepStorage(): void {
+  try {
+    void navigator.storage?.persist?.().catch(() => {});
+  } catch {
+    // Unsupported or refused: nothing to do.
+  }
 }
 
 export function createPhrasePersistence(
@@ -80,14 +112,21 @@ export function createPhrasePersistence(
   options: BindingOptions & { onMeasure?: (bytes: number) => void } = {},
 ) {
   const { onMeasure, ...binding } = options;
+  let asked = false;
   return createPersistedBinding(phraseCodec(defaults, context), {
     backup: writePhraseBackup,
     accept(encoded) {
       const bytes = encodedPhraseBytes(encoded);
       onMeasure?.(bytes);
-      if (bytes <= PHRASE_BUDGET_BYTES) return true;
-      reportSaveFailure("shelf", "phrases");
-      return false;
+      if (shelfRefuses(bytes)) {
+        reportSaveFailure("shelf", "phrases");
+        return false;
+      }
+      if (!asked) {
+        asked = true;
+        askBrowserToKeepStorage();
+      }
+      return true;
     },
     ...binding,
   });

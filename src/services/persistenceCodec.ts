@@ -306,6 +306,9 @@ export function createPersistedBinding<T>(
   let pendingBackup: Promise<void> | null = null;
   let queuedState: { state: T } | null = null;
   let backedUpRaw: string | null = null;
+  // The last payload `prepare` handed out. Stored bytes equal to it are bytes
+  // this binding produced: current, readable, nothing to classify or back up.
+  let lastEncoded: string | null = null;
 
   /** Try to clear the hold. True when writes may proceed. */
   const releaseHold = (): boolean => {
@@ -373,20 +376,24 @@ export function createPersistedBinding<T>(
       return null;
     }
     if (!releaseHold()) return null;
-    const read = readPayload(codec, stored.value);
-    if (read.kind === "newer") {
-      hold = { reason: "newer", found: read.found };
-    } else if (read.kind === "migrated" || read.kind === "unreadable") {
-      hold = {
-        reason: "needs-backup", raw: stored.value as string,
-        label: read.kind === "migrated" ? `v${read.from}` : "unreadable",
-      };
+    if (stored.value === null || stored.value !== lastEncoded) {
+      const read = readPayload(codec, stored.value);
+      if (read.kind === "newer") {
+        hold = { reason: "newer", found: read.found };
+      } else if (read.kind === "migrated" || read.kind === "unreadable") {
+        hold = {
+          reason: "needs-backup", raw: stored.value as string,
+          label: read.kind === "migrated" ? `v${read.from}` : "unreadable",
+        };
+      }
     }
     if (!releaseHold()) return null;
     try {
       const encoded = encodePayload(codec, state);
       queuedState = null;
-      return !accept || accept(encoded) ? encoded : null;
+      if (accept && !accept(encoded)) return null;
+      lastEncoded = encoded;
+      return encoded;
     } catch (error) {
       console.error(`Failed to encode "${codec.key}" for saving:`, error);
       reportSaveFailure("unknown", codec.key);

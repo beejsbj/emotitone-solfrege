@@ -7,9 +7,9 @@
     <template #hero>
       <div class="keyboard-specimen__hero">
         <div class="keyboard-specimen__edition-mark">
-          <span>Daily edition</span>
+          <span>{{ editionFamily.name }} family</span>
           <strong>{{ family }}</strong>
-          <code>{{ dateKey }} / load {{ editionNumber }}</code>
+          <code>{{ surfaceStyle }} / load {{ editionNumber }}</code>
         </div>
         <div class="keyboard-specimen__mini" :style="{ '--mini-width': `${Math.min(width, 390)}px` }">
           <Keyboard
@@ -243,11 +243,10 @@ import type { HarmonyAlteration } from "@/domain/harmony";
 import { JOYSTICK_OPTIONS } from "@/components/uniques/Joystick/joystickOptions";
 import {
   KEYBOARD_GEOMETRY_FAMILIES,
-  keyboardFamilyForDate,
-  localDateKey,
   visibleKeyboardOctaves,
   type KeyboardGeometryFamily,
 } from "@/components/compounds/keyboardEdition";
+import { useEditionFamily } from "@/composables/useEditionFamily";
 import type { NoteLabel, NoteSurfaceStyle } from "@/components/primatives/Note.vue";
 import type { MusicalMode } from "@/types/music";
 import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
@@ -271,9 +270,11 @@ const harmonyScales: readonly { value: MusicalMode; label: string }[] = [
 const width = ref<(typeof widths)[number]>(960);
 const rowCount = ref<(typeof rowCounts)[number]>(3);
 const mainOctave = ref(4);
-const family = ref<KeyboardGeometryFamily>(keyboardFamilyForDate(new Date()));
+// Starts on the edition family's keys (the guide holds Tab unless `?edition=`).
+const editionFamily = useEditionFamily();
+const family = ref<KeyboardGeometryFamily>(editionFamily.value.keys.geometry);
 const primaryLabel = ref<NoteLabel>("syllable");
-const surfaceStyle = ref<NoteSurfaceStyle>("colored");
+const surfaceStyle = ref<NoteSurfaceStyle>(editionFamily.value.keys.surface);
 const state = ref<SpecimenState>("resting");
 const showLabels = ref(true);
 const keyboardPadding = ref(false);
@@ -288,8 +289,7 @@ const outerInset = ref(0);
 const variationAmplitude = ref(1);
 const editionNumber = ref(1);
 const lastIntent = ref("inert · no input yet");
-const dateKey = localDateKey(new Date());
-const editionSeed = computed(() => `style-guide:${dateKey}:${editionNumber.value}`);
+const editionSeed = computed(() => `style-guide:${editionNumber.value}`);
 
 const rows = computed<KeyboardRowView[]>(() =>
   visibleKeyboardOctaves(mainOctave.value, rowCount.value).map((octave) => ({
@@ -337,7 +337,7 @@ function handleChordRelease(intent: KeyboardChordIntent) {
 const features = [
   { label: "Children", value: "one fused ChordKey per active scale degree, then accepted melody Keys" },
   { label: "Layout", value: "5/6/7/12-degree melody and chord rows fit their host without horizontal overflow" },
-  { label: "Edition", value: "one local-date family; authored per-load cut, tilt, shadow, and layer variants" },
+  { label: "Edition", value: "the edition family's key geometry and surface; chords take a derangement of that geometry; authored per-load cut, tilt, shadow, and layer variants" },
   { label: "State", value: "physical pressed and musical sounding remain independent" },
   { label: "Focus", value: "separate chord and melody roving entries; arrows move spatially; Space/Enter emit held intents" },
   { label: "Boundary", value: "no store, persistence, audio, haptic, MIDI, Drawer, or CodeStrip ownership" },

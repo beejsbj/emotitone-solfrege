@@ -152,9 +152,9 @@ import {
   keyboardEditionVariation,
   keyboardEditionRowVariations,
   keyboardChordFamily,
-  keyboardFamilyForDate,
   type KeyboardGeometryFamily,
 } from "./keyboardEdition";
+import { resolveNoteSurface, useEditionFamily } from "@/composables/useEditionFamily";
 import {
   accessiblePitch,
   accessibleScaleDegree,
@@ -250,7 +250,7 @@ const props = withDefaults(
     primaryLabel: "syllable",
     showLabels: true,
     keyboardPadding: false,
-    surfaceStyle: "colored",
+    surfaceStyle: undefined,
     geometryFamily: undefined,
     editionSeed: undefined,
     gap: 2,
@@ -319,6 +319,9 @@ function chordMembers(
   });
 }
 
+// Keys without an explicit geometry or surface take the edition family's.
+const editionFamily = useEditionFamily();
+
 function createProductionWiring() {
   const store = useKeyboardDrawerStore();
   const instrumentStore = useInstrumentStore();
@@ -327,7 +330,7 @@ function createProductionWiring() {
   const currentMusicKey = computed(() => musicStore.currentKey as ChromaticNote);
   const currentMode = computed(() => musicStore.currentMode);
   const surfaceStyle = computed<NoteSurfaceStyle>(() =>
-    config.value.surfaceStyle === "monochrome" ? "monochrome" : "colored",
+    resolveNoteSurface(config.value.surfaceStyle, editionFamily.value),
   );
   const gap = computed(() => ({
     none: 0,
@@ -667,8 +670,10 @@ const resolvedPrimaryLabel = computed(
 const resolvedShowLabels = computed(
   () => productionWiring?.config.value.showLabels ?? props.showLabels,
 );
-const resolvedSurfaceStyle = computed(
-  () => productionWiring?.surfaceStyle.value ?? props.surfaceStyle,
+const resolvedSurfaceStyle = computed<NoteSurfaceStyle>(
+  () => productionWiring?.surfaceStyle.value
+    ?? props.surfaceStyle
+    ?? editionFamily.value.keys.surface,
 );
 const resolvedGap = computed(() => productionWiring?.gap.value ?? props.gap);
 const resolvedKeyboardPadding = computed(
@@ -717,8 +722,9 @@ const renderChords = computed<KeyboardChordView[]>(() =>
   })),
 );
 
-const mountFamily = keyboardFamilyForDate(new Date());
-const resolvedFamily = computed(() => props.geometryFamily ?? mountFamily);
+const resolvedFamily = computed<KeyboardGeometryFamily>(
+  () => props.geometryFamily ?? editionFamily.value.keys.geometry,
+);
 const resolvedChordFamily = computed(() => keyboardChordFamily(resolvedFamily.value));
 const resolvedEditionSeed = computed(
   () => props.editionSeed ?? KEYBOARD_PAGE_EDITION_SEED,
@@ -1654,8 +1660,16 @@ onBeforeUnmount(() => {
 }
 
 .keyboard__key--focus-preview {
-  outline: 2px solid var(--ivory, currentColor);
-  outline-offset: 2px;
+  outline: var(--focus-ring-width) solid var(--focus-ring-outer);
+  outline-offset: var(--focus-ring-width);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring-inner);
+}
+
+/* A focused key's ring sits above its neighbours' faces. */
+.keyboard__key:focus-visible,
+.keyboard__chord-key:focus-visible,
+.keyboard__key--focus-preview {
+  z-index: 10002 !important;
 }
 
 .keyboard__key--pressed {

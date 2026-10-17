@@ -234,9 +234,10 @@ function migrateLegacySectionKeys(
     ) {
       mergedSection.surfaceStyle = incomingSection.colorMode;
     }
-    // Daily geometry owns key shape; legacy glass settings now use colored paper.
+    // Retired glass settings were already treated as the default surface;
+    // they now follow the edition family like any other default.
     if (mergedSection.surfaceStyle === "glassmorphism") {
-      mergedSection.surfaceStyle = "colored";
+      mergedSection.surfaceStyle = DEFAULT_CONFIG.keyboard.surfaceStyle;
     }
     delete mergedSection.colorMode;
   }

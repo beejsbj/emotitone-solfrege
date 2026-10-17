@@ -83,3 +83,10 @@ function numericSetting(id: string, key: string, fallback: number, section: stri
 export const useTempoStore = numericSetting("tempo", "emotitone-tempo", 120, "codeStrip", "bpm");
 export const useOctaveStore = numericSetting("octave", "emotitone-octave", 4, "keyboard", "mainOctave");
 export const useDrawerRowsStore = numericSetting("drawerRows", "emotitone-drawer-rows", 3, "keyboard", "rowCount");
+/**
+ * Loop Timing: this device's calibration, in ms, for notes played over a loop.
+ * A note's attack converts to the transport bar it sounded on; this much is
+ * taken off, for a player who hears the loop late. Per device, never in a Look.
+ */
+export const LOOP_TIMING_RANGE = { min: -100, max: 200, step: 5 } as const;
+export const useLoopTimingStore = numericSetting("loopTiming", "emotitone-loop-timing", 0, "codeStrip", "looperCalibrationMs");

@@ -1,5 +1,6 @@
 import { Note } from "@tonaljs/tonal";
 import { CHROMATIC_NOTES } from "@/data/notes";
+import { getSemitoneShift, transposePatternNotes } from "@/data/patterns";
 import { getScaleForMode } from "@/data/scales";
 import { cloneNote } from "@/domain/phraseBook";
 import { identifyPitch, pitchHeightOf } from "@/domain/musicalIdentity";
@@ -66,4 +67,19 @@ export function remap(
       frequency: Note.freq(`${CHROMATIC_NOTES[next.pitchClass]}${octave}`) ?? undefined,
     };
   });
+}
+
+/**
+ * Looper bending (S35): play an ORIGINAL melody in another key and mode
+ * without changing it. The mode moves through `remap` above, the same rule as
+ * the mode switch and phrase-book follow; the key then transposes exactly, by
+ * the nearer direction. Octave, timing and articulation are never bent.
+ */
+export function bendNotes<T extends PatternNote>(
+  baseNotes: readonly T[],
+  from: { key: ChromaticNote; mode: MusicalMode },
+  to: { key: ChromaticNote; mode: MusicalMode },
+): T[] {
+  const remapped = remap(baseNotes, from.mode, to.mode, from.key);
+  return transposePatternNotes(remapped, getSemitoneShift(from.key, to.key)) as T[];
 }

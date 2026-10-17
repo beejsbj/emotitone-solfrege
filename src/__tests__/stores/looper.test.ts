@@ -343,19 +343,27 @@ describe("Play is the loop on the worklet transport", () => {
     expect(attacksOf(second).length).toBeGreaterThan(0);
   });
 
-  it("never records the loop's own notes into the take (overdub)", async () => {
+  it.each([false, true])("never records the loop's own notes into the book over eight bars (overdub; latched %s)", async (latched) => {
     const { phrases, looper } = setup();
     playTake(.5);
     looper.togglePlay();
     await flush();
     await looper.settled();
     phrases.startBlankTake();
-    const before = JSON.stringify(phrases.book.phrases);
-    render(8);
-    expect(attacks.length).toBeGreaterThan(6);
+    // Latched, the recorder's lastLiveNoteId watch is live: still nothing may land.
+    if (latched) looper.toggleLatch();
+    const before = JSON.stringify(phrases.book);
+    for (let bar = 0; bar < 8; bar++) {
+      render(2);
+      await flush();
+      looper.checkLatch();
+    }
+    expect(attacks.length).toBeGreaterThanOrEqual(24);
     expect(attacks.every((attack) => attack.record === false)).toBe(true);
-    expect(JSON.stringify(phrases.book.phrases)).toBe(before);
+    // The whole book, recorder included (its live ids and last release drive take boundaries).
+    expect(JSON.stringify(phrases.book)).toBe(before);
     expect(phrases.takeNotes).toEqual([]);
+    expect(looper.members).toHaveLength(1);
   });
 
   it("latch: held Play joins each note as it lands; a silent bar closes the take and the next note opens another", async () => {
@@ -431,6 +439,25 @@ describe("Play is the loop on the worklet transport", () => {
       expect(player.getLooper().running).toBe(false);
       expect(looper.members).toEqual([]);
       expect(attacks).toEqual([]);
+    });
+
+    it("after Stop, even when the player finishes its start anyway (the store's own guard)", async () => {
+      const { phrases, looper } = setup();
+      const id = await keptOn(phrases, "sawtooth", .5);
+      phrases.openPhrase(id);
+      const release = cold("sawtooth");
+      // A player that ignores Stop: only the store's session epoch can drop its start.
+      vi.spyOn(player, "stop").mockImplementation(() => {});
+      looper.togglePlay();
+      await flush();
+      looper.stopAll();
+      release();
+      await vi.waitFor(() => expect(rig.commands.some((command) => command.type === "transport-start")).toBe(true));
+      await flush();
+      expect(looper.running).toBe(false);
+      expect(looper.members).toEqual([]);
+      expect(looper.deskMemberId).toBeNull();
+      expect(looper.isDeskPlaying).toBe(false);
     });
 
     it("after the Code Strip unmounts (the player is released)", async () => {

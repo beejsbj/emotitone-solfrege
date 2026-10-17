@@ -5,6 +5,7 @@
     <ConfigMenuPage v-else-if="page === 'config-menu'" />
     <PatternReelPage v-else-if="page === 'pattern-reel'" />
     <StagePage v-else-if="page === 'stage'" />
+    <LooperPage v-else-if="page === 'looper'" />
     <PerformanceDeckPage v-else-if="page === 'performance-deck'" />
     <GuideLayerPage v-else-if="layer" :key="layer.id" :layer="layer" />
     <GuideIndex v-else />
@@ -21,7 +22,7 @@ import GuideShell from "./shell/GuideShell.vue";
 import GuideIndex from "./shell/GuideIndex.vue";
 import GuideLayerPage from "./shell/GuideLayerPage.vue";
 
-type FocusedPage = "tabs" | "instrument-picker" | "config-menu" | "pattern-reel" | "stage" | "performance-deck";
+type FocusedPage = "tabs" | "instrument-picker" | "config-menu" | "pattern-reel" | "stage" | "looper" | "performance-deck";
 
 const props = defineProps<{
   page?: FocusedPage | GuideLayerId;
@@ -33,6 +34,7 @@ const FOCUSED_PAGE_LAYERS: Record<FocusedPage, GuideLayerId> = {
   "instrument-picker": "compositions",
   "config-menu": "compositions",
   stage: "compositions",
+  looper: "compositions",
   "performance-deck": "compositions",
 };
 
@@ -48,6 +50,7 @@ const InstrumentPickerPage = defineAsyncComponent(() => import("./InstrumentPick
 const ConfigMenuPage = defineAsyncComponent(() => import("./ConfigMenuPage.vue"));
 const PatternReelPage = defineAsyncComponent(() => import("./PatternReelPage.vue"));
 const StagePage = defineAsyncComponent(() => import("./StagePage.vue"));
+const LooperPage = defineAsyncComponent(() => import("./LooperPage.vue"));
 const PerformanceDeckPage = defineAsyncComponent(() => import("./PerformanceDeckPage.vue"));
 
 // Unit specimens load asynchronously, so retry the hash target briefly.

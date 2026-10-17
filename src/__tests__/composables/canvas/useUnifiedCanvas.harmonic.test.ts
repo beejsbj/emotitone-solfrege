@@ -85,6 +85,7 @@ vi.mock("@/composables/useVisualConfig", () => ({
     stringConfig: { value: { isEnabled: false } },
     animationConfig: { value: {} },
     hilbertScopeConfig: mocks.hilbertScopeConfig,
+    looperConfig: { value: { isEnabled: true, strength: 0.5, definition: 0.25, spread: 0.5 } },
   }),
 }));
 

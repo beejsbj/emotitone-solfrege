@@ -16,6 +16,7 @@ import type {
   BlobRelationshipConfig,
   BlobConnectionMode,
   HilbertScopeConfig,
+  LooperConfig,
   StageConfig,
   UIBeatConfig,
   PatternConfig,
@@ -40,6 +41,7 @@ export type {
   BlobRelationshipConfig,
   BlobConnectionMode,
   HilbertScopeConfig,
+  LooperConfig,
   StageConfig,
   UIBeatConfig,
   CodeStripConfig,
@@ -63,6 +65,7 @@ export function useVisualConfig() {
   const frequencyMappingConfig = computed(() => store.effectiveConfig.frequencyMapping);
   const dynamicColorConfig = computed(() => store.config.dynamicColors);
   const hilbertScopeConfig = computed(() => store.effectiveConfig.hilbertScope);
+  const looperConfig = computed(() => store.effectiveConfig.looper);
   const uiBeatConfig = computed(() => store.config.uiBeat);
   const patternsConfig = computed(() => store.config.patterns);
   const keyboardConfig = computed(() => store.config.keyboard);
@@ -83,6 +86,7 @@ export function useVisualConfig() {
     frequencyMappingConfig,
     dynamicColorConfig,
     hilbertScopeConfig,
+    looperConfig,
     uiBeatConfig,
     patternsConfig,
     keyboardConfig,

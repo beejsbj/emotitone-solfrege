@@ -241,6 +241,20 @@ function migrateLegacySectionKeys(
     delete mergedSection.colorMode;
   }
 
+  if (sectionName === "looper") {
+    // A Look or an import may carry anything; the knobs are 0..1 numbers.
+    for (const field of ["strength", "definition", "spread"] as const) {
+      mergedSection[field] = clampNumber(
+        mergedSection[field],
+        DEFAULT_CONFIG.looper[field],
+        0,
+        1,
+      );
+    }
+    if (typeof mergedSection.isEnabled !== "boolean") {
+      mergedSection.isEnabled = DEFAULT_CONFIG.looper.isEnabled;
+    }
+  }
 }
 
 export function migrateVisualConfig(

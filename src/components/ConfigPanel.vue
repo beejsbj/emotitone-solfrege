@@ -570,7 +570,7 @@ import { useMusicStore } from "@/stores/music";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { BUILT_IN_STAGE_LOOKS } from "@/data/visual-config-presets";
 import {
-  STAGE_CONTROL_GROUPS,
+  stageControlGroup,
   type StageControlId,
 } from "@/services/stageAppearance";
 import {
@@ -632,21 +632,21 @@ const STAGE_DETAIL_TABS = [
     label: "Scope",
     shortLabel: "Scope",
     description: "Shape the primary musical body and raw-waveform surface.",
-    groups: [STAGE_CONTROL_GROUPS[0]],
+    groups: [stageControlGroup("Scope")],
   },
   {
     value: "bodies",
     label: "Note Bodies",
     shortLabel: "Bodies",
     description: "Tune the Circle-of-Fifths bodies and how simultaneous notes join.",
-    groups: [STAGE_CONTROL_GROUPS[1]],
+    groups: [stageControlGroup("Note Bodies")],
   },
   {
     value: "relations",
     label: "Relations",
     shortLabel: "Relations",
     description: "Choose what the Stage explains about simultaneous notes.",
-    groups: [STAGE_CONTROL_GROUPS[4]],
+    groups: [stageControlGroup("Explanations")],
   },
   {
     value: "layers",
@@ -654,9 +654,16 @@ const STAGE_DETAIL_TABS = [
     shortLabel: "Layers",
     description: "Balance atmosphere and pitch strings.",
     groups: [
-      STAGE_CONTROL_GROUPS[2],
-      STAGE_CONTROL_GROUPS[3],
+      stageControlGroup("Atmosphere"),
+      stageControlGroup("Pitch Strings"),
     ],
+  },
+  {
+    value: "looper",
+    label: "Looper",
+    shortLabel: "Looper",
+    description: "Shape the turning light a running loop casts on the Stage.",
+    groups: [stageControlGroup("Looper")],
   },
 ];
 
@@ -758,6 +765,10 @@ const isStageControlDisabled = (control: StageControlId) => {
   if (
     control === "atmosphereColorDepth"
     && stageControls.value.atmosphereStrength <= 0.01
+  ) return true;
+  if (
+    (control === "looperDefinition" || control === "looperSpread")
+    && stageControls.value.looperStrength <= 0
   ) return true;
   return false;
 };

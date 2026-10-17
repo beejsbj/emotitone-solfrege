@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { flushPromises, mount } from "@vue/test-utils";
 import { nextTick, reactive } from "vue";
 import type { PatternNote } from "@/types/patterns";
@@ -448,6 +448,31 @@ describe("CodeStrip production pattern transport", () => {
     }
   });
 
+  it("corrects an announced gate end to an earlier forced fade, with the full payload", async () => {
+    const clock = vi.spyOn(performance, "now").mockReturnValue(5000);
+    onTestFinished(() => clock.mockRestore());
+    const wrapper = mount(CodeStrip);
+    await flushPromises();
+    await controllerOf().evaluate();
+    const generation = joinedTable().generation;
+    const released: CustomEvent[] = [];
+    const record = (event: Event) => released.push(event as CustomEvent);
+    window.addEventListener("note-released", record);
+    try {
+      emit(batch([TransportEventKind.Attack, 1, generation, 0, 0, 0, 3000],
+        [TransportEventKind.Release, 1, generation, 0, 3000, 1.5, .01],
+        // Muted before its gate ended: the release moves earlier, once.
+        [TransportEventKind.Release, 1, generation, 0, 1000, .5, .01],
+        [TransportEventKind.Release, 1, generation, 0, 2000, 1, .01]));
+      expect(released.map(event => event.detail.audibleAt - released[0].detail.audibleAt)).toEqual([0, -2000]);
+      expect(released[1].detail).toMatchObject({ noteId: "pattern-1-1", sourceNoteId: "c", noteName: "C4", note: "Do",
+        source: "pattern-playback", record: false });
+    } finally {
+      window.removeEventListener("note-released", record);
+      wrapper.unmount();
+    }
+  });
+
   it("recovers the registry from an overflow snapshot", async () => {
     const wrapper = mount(CodeStrip);
     await flushPromises();
@@ -465,6 +490,9 @@ describe("CodeStrip production pattern transport", () => {
   });
 
   it("drives UIBeat from the worklet tempo map at the heard time, never stepping backward", async () => {
+    // Freeze the presentation clock: the output timestamp is read at this instant.
+    const clock = vi.spyOn(performance, "now").mockReturnValue(5000);
+    onTestFinished(() => clock.mockRestore());
     const wrapper = mount(CodeStrip);
     await flushPromises();
     await controllerOf().evaluate();

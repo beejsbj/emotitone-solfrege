@@ -99,6 +99,8 @@ function liveEnvelopeShape(sound: string): Pick<Shape, "attack" | "release"> {
   return { attack: stage("attack"), release: stage("release") };
 }
 
+const LIVE_NOTE_PLACEHOLDER_DURATION_SECONDS = 0.25;
+
 /**
  * Fetch one sample map and register it twice: in the app catalog, which the
  * worklet loader reads, and in superdough's sound map, which the fallback

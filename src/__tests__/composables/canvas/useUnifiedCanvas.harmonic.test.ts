@@ -479,7 +479,7 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
       window.innerWidth,
       window.innerHeight,
       mocks.blobConfig.value,
-      "strudel-1",
+      "pattern-1-1",
       "C",
       "major",
       4,

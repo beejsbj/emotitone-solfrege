@@ -72,6 +72,8 @@ describe("phrases store", () => {
   it("ignores playback and explicitly unrecorded notes", () => {
     tap(store, "p", 0, START, { source: "strudel-playback" });
     tap(store, "q", 0, START + 300, { record: false });
+    // The worklet pattern transport's own attacks never enter the open take.
+    tap(store, "t", 0, START + 600, { source: "pattern-playback" });
     expect(store.takeNotes).toEqual([]);
   });
 

@@ -90,7 +90,7 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
   const members = new Map<number, PatternMember>();
   const registry = new Map<string, Registered>();
   /** Released notes, kept briefly so a forced earlier release can still correct them. */
-  const released = new Map<string, number>();
+  const released = new Map<string, { audibleAt: number; detail: Record<string, unknown> }>();
   let anchors: TempoAnchor[] = [];
   let snapshot: { remaining: number; present: Set<string> } | undefined;
   let beatGeneration: number | undefined;
@@ -162,18 +162,20 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
 
   function release(noteId: string, audibleAt: number, extra: Record<string, unknown> = {}) {
     const entry = registry.get(noteId);
+    const timing = { audibleAt, midiTimestamp: audibleAt, timestamp: Date.now() + (audibleAt - now()) };
     if (entry) {
       registry.delete(noteId);
-      released.set(noteId, audibleAt);
-      dispatch("note-released", { ...entry.detail, note: entry.note.solfege.name, ...extra,
-        audibleAt, midiTimestamp: audibleAt, timestamp: Date.now() + (audibleAt - now()) });
+      const detail = { ...entry.detail, note: entry.note.solfege.name, ...extra };
+      released.set(noteId, { audibleAt, detail });
+      dispatch("note-released", { ...detail, ...timing });
       return;
     }
-    // An earlier release than the one already announced (a forced fade).
+    // An earlier release than the one already announced (a forced fade):
+    // consumers keep the earliest ending they are told.
     const previous = released.get(noteId);
-    if (previous !== undefined && audibleAt < previous) {
-      released.set(noteId, audibleAt);
-      dispatch("note-released", { noteId, audibleAt, midiTimestamp: audibleAt, source: PATTERN_PLAYBACK_SOURCE, record: false });
+    if (previous && audibleAt < previous.audibleAt) {
+      previous.audibleAt = audibleAt;
+      dispatch("note-released", { ...previous.detail, ...extra, ...timing });
     }
   }
 

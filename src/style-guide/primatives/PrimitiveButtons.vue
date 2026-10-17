@@ -50,6 +50,9 @@
       <VariantCell caption="Loading &middot; the lit lip rotates">
         <Button loading accessible-name="Loading" title="Loading"><RefreshCw :size="16" /></Button>
       </VariantCell>
+      <VariantCell caption="Latched &middot; the lip orbits, the key stays live (Play's latch)">
+        <Button latched tone="ivory" accessible-name="Play (latched; hold to release)" title="Latched"><Play :size="16" /></Button>
+      </VariantCell>
       <VariantCell caption="Disabled &middot; dim and still">
         <Button disabled accessible-name="Disabled" title="Disabled"><X :size="16" /></Button>
       </VariantCell>
@@ -92,7 +95,7 @@ const features = [
   { label: "Material", value: "ink / ivory everyday · four canonical brass finishes" },
   { label: "Icon", value: "44% of the key · exact centered SVG box" },
   { label: "Sizes", value: "32 / 40 / 48px · contextual --button-size override" },
-  { label: "States", value: "loading rotates the lip · disabled dims and drops the light · Reduced Motion holds still" },
+  { label: "States", value: "loading rotates the lip (busy) · latched rotates it with the key still live, a full ring under Reduced Motion · disabled dims and drops the light · Reduced Motion holds still" },
   { label: "Source", value: "components/primatives/Button.vue" },
 ];
 </script>

@@ -8,6 +8,7 @@
       tone === 'brass' ? `paper-button--brass-${brassFinish}` : undefined,
       {
         'paper-button--loading': loading,
+        'paper-button--latched': latched && !loading,
         'paper-button--hit-a': hitPhase === 'a',
         'paper-button--hit-b': hitPhase === 'b',
       },
@@ -15,6 +16,7 @@
     :disabled="disabled"
     :aria-label="accessibleName"
     :aria-busy="loading || undefined"
+    :data-latched="latched || undefined"
     :title="title"
     @pointerdown="strike"
     @click="handleClick"
@@ -41,7 +43,8 @@ import { triggerUIHaptic } from "@/utils/hapticFeedback";
  * from inside the switch. A lit lip sits under the cap at rest; every hit
  * bottoms the cap out, opens the lip into a full ring, lights the face, and
  * closes back down into the lip like a note's release. Loading rotates the
- * lip around the cap. The native button keeps an invariant hit box; the face
+ * lip around the cap. Latched (a pedal held through the key, such as Play's
+ * latch) rotates the same lip but is not busy: the key reads and answers. The native button keeps an invariant hit box; the face
  * inside carries UIBeat scale, and the cap owns press travel. However small
  * the cap, the button takes at least a --hit-min touch.
  */
@@ -56,6 +59,8 @@ const props = withDefaults(
     tone?: ButtonTone;
     brassFinish?: ButtonBrassFinish;
     loading?: boolean;
+    /** A mode the key engages and releases (Play's latch): the lip orbits; the key stays live. */
+    latched?: boolean;
     disabled?: boolean;
     uiBeat?: boolean;
     haptic?: boolean;
@@ -68,6 +73,7 @@ const props = withDefaults(
     tone: "ink",
     brassFinish: "sheen-glow",
     loading: false,
+    latched: false,
     disabled: false,
     uiBeat: true,
     haptic: false,
@@ -323,6 +329,8 @@ function handleClick(event: MouseEvent) {
 .paper-button--loading { cursor: progress; }
 .paper-button--loading .paper-button__content { opacity: .3; }
 .paper-button--loading .paper-button__lip { animation: paper-button-orbit 900ms linear infinite; }
+/* Latched orbits the lip too, but the face stays lit and readable. */
+.paper-button--latched .paper-button__lip { animation: paper-button-orbit 900ms linear infinite; }
 
 @keyframes paper-button-orbit {
   from { --paper-button-lip-angle: 180deg; }
@@ -358,7 +366,11 @@ function handleClick(event: MouseEvent) {
   .paper-button__lip,
   .paper-button__switch,
   .paper-button__lamp,
-  .paper-button__cap::after { animation: none; }
+  .paper-button__cap::after,
+  .paper-button--loading .paper-button__lip,
+  .paper-button--latched .paper-button__lip { animation: none; }
+  /* Still, the latch reads as a full lit ring instead of an orbit. */
+  .paper-button--latched .paper-button__lip { --paper-button-lip-span: 360deg; }
 }
 
 @media (forced-colors: active) {

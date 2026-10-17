@@ -11,8 +11,7 @@
           :tone="isPlaying ? 'ink' : 'ivory'"
           :haptic="haptic"
           :disabled="playDisabled"
-          :class="{ 'paper-button--loading code-strip-bar__play--latched': playLatched }"
-          :data-latched="playLatched || undefined"
+          :latched="playLatched"
           :accessible-name="playName"
           :title="playName"
           @pointerdown="playDown"
@@ -158,18 +157,6 @@ onBeforeUnmount(() => clearTimeout(playHoldTimer));
 </script>
 
 <style scoped>
-/* Latched: the key keeps its icon readable under the orbiting lip. */
-.code-strip-bar__play--latched :deep(.paper-button__content) {
-  opacity: 1;
-}
-
-/* Reduced Motion stills the orbit: a full lit ring marks the latch instead. */
-@media (prefers-reduced-motion: reduce) {
-  .code-strip-bar__play--latched :deep(.paper-button__lip) {
-    --paper-button-lip-span: 360deg;
-  }
-}
-
 .code-strip-bar {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;

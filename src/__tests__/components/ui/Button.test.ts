@@ -155,6 +155,24 @@ describe("Button", () => {
     expect(buttonSource).toMatch(/@media \(prefers-reduced-motion: reduce\) \{[\s\S]*\.paper-button__lip,/);
   });
 
+  it("latches without being busy: the lip orbits, the key still answers, and Reduced Motion stills it", async () => {
+    const wrapper = mount(Button, { props: { latched: true, haptic: true, accessibleName: "Play" } });
+    expect(wrapper.classes()).toContain("paper-button--latched");
+    expect(wrapper.classes()).not.toContain("paper-button--loading");
+    expect(wrapper.attributes("aria-busy")).toBeUndefined();
+    expect(wrapper.attributes("data-latched")).toBe("true");
+    await wrapper.trigger("click", { detail: 1 });
+    expect(wrapper.emitted("click")).toHaveLength(1);
+    // Busy outranks the latch.
+    await wrapper.setProps({ loading: true });
+    expect(wrapper.classes()).not.toContain("paper-button--latched");
+    expect(buttonSource).toContain(".paper-button--latched .paper-button__lip { animation: paper-button-orbit");
+    // Under Reduced Motion neither orbit runs; the latch is a still, full ring.
+    const reduced = buttonSource.slice(buttonSource.indexOf("@media (prefers-reduced-motion: reduce)"));
+    expect(reduced).toMatch(/\.paper-button--loading \.paper-button__lip,\s*\.paper-button--latched \.paper-button__lip \{ animation: none; \}/);
+    expect(reduced).toContain(".paper-button--latched .paper-button__lip { --paper-button-lip-span: 360deg; }");
+  });
+
   it("shares the promoted Boolean Knob rebound with non-brass buttons", () => {
     expect(buttonSource).toContain(
       ".paper-button:not(.paper-button--brass):not(:disabled)",

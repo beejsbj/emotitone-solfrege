@@ -280,7 +280,7 @@ describe('InstrumentSelector.vue', () => {
       .map((choice) => choice.attributes('data-testid')!.replace('instrument-option-', ''))
       .sort()
 
-    expect(offered).toEqual(['saw', 'sawtooth', 'sine', 'sqr', 'square', 'triangle'])
+    expect(offered).toEqual(['saw', 'sawtooth', 'sin', 'sine', 'sqr', 'square', 'tri', 'triangle'])
 
     await wrapper.get('[data-testid="instrument-tab-keyboards"]').trigger('click')
     await nextTick()

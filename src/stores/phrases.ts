@@ -5,6 +5,7 @@ import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { defaultPatterns, retiredDefaultPatternIds } from "@/data/patterns";
+import { selectableReplacement } from "@/data/instrumentCatalog";
 import {
   arrangeReel,
   closeTake as closeBookTake,
@@ -160,6 +161,12 @@ export const usePhrasesStore = defineStore(
     /** Point the live controls at a phrase that just landed on the desk. */
     function syncControlsTo(phrase: Phrase): void {
       const { context } = phrase;
+      // A phrase recorded on a sound the picker no longer offers opens on its
+      // nearest working one, so Play can sound it. The saved phrase (its Kept
+      // or Library source) is not rewritten; only the copy on the desk, or a
+      // Recent phrase opened in place, takes the working id. Notes are untouched.
+      const instrument = selectableReplacement(context.instrument);
+      if (context.instrument !== instrument) context.instrument = instrument;
       isContextSyncing = true;
       try {
         musicStore.setKey(context.key);

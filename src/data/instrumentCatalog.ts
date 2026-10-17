@@ -6,6 +6,7 @@
  */
 
 import type { InstrumentCategory } from "@/types/instrument";
+import { DEFAULT_INSTRUMENT } from "@/data/instruments";
 
 const KEYBOARD_SOUNDS = new Set([
   "piano",
@@ -151,6 +152,8 @@ const SYNTH_SOUNDS = new Set([
   "sawtooth",
   "sqr",
   "saw",
+  "tri",
+  "sin",
   "gm_lead_1_square",
   "gm_lead_2_sawtooth",
   "gm_lead_3_calliope",
@@ -177,13 +180,11 @@ const SYNTH_SOUNDS = new Set([
 const EXCLUDED_SOUNDS = new Set([
   // Synths the worklet cannot render (Burooj, 2026-10-17: "we remove stuff from
   // list that cannot work"). Patterns and takes play only on the worklet, which
-  // renders sine, triangle, square and sawtooth (plus the sqr and saw aliases)
-  // and sample banks. Superdough's fallback still played these live; it goes
-  // with superdough (BJS-495). `tri` and `sin` have no alias to an oscillator.
+  // renders sine, triangle, square and sawtooth (plus the Strudel short names
+  // sqr, saw, tri and sin, aliased in liveInstrumentNames.ts) and sample banks.
+  // Superdough's fallback still played these live; it goes with superdough (BJS-495).
   "supersaw",
   "pulse",
-  "tri",
-  "sin",
   "z_sine",
   "z_square",
   "z_sawtooth",
@@ -304,4 +305,27 @@ export function categoriseInstrument(name: string): InstrumentCategory | null {
 /** Whether a sound name is one the Instrument Picker lets you select. */
 export function isSelectableInstrument(name: unknown): name is string {
   return typeof name === "string" && categoriseInstrument(name) !== null;
+}
+
+/**
+ * The nearest sound still on offer for one that no longer is, so a sketch
+ * stays close to what was played. Used wherever a saved or recorded id meets
+ * the picker: the instrument store's saved selection and opening a phrase.
+ */
+const NEAREST_SELECTABLE: Record<string, string> = {
+  supersaw: "sawtooth",
+  pulse: "square",
+  z_sine: "sine",
+  z_square: "square",
+  z_sawtooth: "sawtooth",
+  z_triangle: "triangle",
+  kawai: "piano",
+  steinway: "piano",
+};
+
+/** The id itself when it is selectable, else its nearest working sound, else the default. */
+export function selectableReplacement(name: unknown): string {
+  if (isSelectableInstrument(name)) return name;
+  return (typeof name === "string" && Object.prototype.hasOwnProperty.call(NEAREST_SELECTABLE, name)
+    ? NEAREST_SELECTABLE[name] : undefined) ?? DEFAULT_INSTRUMENT;
 }

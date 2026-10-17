@@ -132,7 +132,6 @@ const {
   syncCode,
   setPlaying,
   setError,
-  isPlaying,
 } = productionWiring?.playback ?? controlledPlayback;
 
 const initError = ref<string | null>(null);

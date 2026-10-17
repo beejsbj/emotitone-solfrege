@@ -6,7 +6,7 @@ import type { LogNote } from "@/types/patterns";
  * is never idle, even through a long silent or muted stretch, and the idle
  * suspend resumes its normal course after Stop.
  */
-const mocks = vi.hoisted(() => ({ commands: [] as any[] }));
+const mocks = vi.hoisted(() => ({ commands: [] as unknown[] }));
 
 vi.mock("@/services/livePlayback", () => ({
   prepareLivePlayback: vi.fn().mockResolvedValue(undefined),

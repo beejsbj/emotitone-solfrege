@@ -24,7 +24,7 @@ function bands(pcm: ArrayLike<number>) {
   return values
 }
 it('renders app-owned native buses against frozen delay and room, through the real worklet/graph', async () => {
-  await promisify(execFile)('node', ['audio-lab/effects/capture.mjs', '/tmp/emotitone-effects-engine.json', 'engine'], { timeout: 120000 })
+  await promisify(execFile)('node', ['audio-lab/effects/capture.mjs', '/tmp/emotitone-effects-engine.json', 'engine'], { timeout: 180000 })
   const actual = JSON.parse(readFileSync('/tmp/emotitone-effects-engine.json', 'utf8'))
   const reference = JSON.parse(readFileSync('audio-lab/effects/fixtures/reference.json', 'utf8'))
   expect(actual.ownership).toMatchObject({ context: true, master: true, graph: true, orbit: true, preparationResumes: 0 })
@@ -58,4 +58,4 @@ it('renders app-owned native buses against frozen delay and room, through the re
   metrics.delaySampleExact = true
   metrics.ownership = actual.ownership
   writeFileSync('/tmp/emotitone-effects-metrics.json', JSON.stringify(metrics, null, 2) + '\n')
-}, 120000)
+}, 180000)

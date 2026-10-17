@@ -407,9 +407,10 @@ describe("Keyboard production usage", () => {
       const monochrome = mountKeyboard();
       expect(monochrome.findAllComponents(KeyStub).every((key) => key.props("surfaceStyle") === "monochrome")).toBe(true);
 
+      pinEditionLook("sharp");
       config.surfaceStyle = "family";
       const family = mountKeyboard();
-      expect(family.findAllComponents(KeyStub).every((key) => key.props("surfaceStyle") === "colored")).toBe(true);
+      expect(family.findAllComponents(KeyStub).every((key) => key.props("surfaceStyle") === "monochrome")).toBe(true);
     } finally {
       config.surfaceStyle = original;
       pinEditionLook("shuffle");

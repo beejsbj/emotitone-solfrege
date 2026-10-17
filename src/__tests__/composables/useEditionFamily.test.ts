@@ -241,6 +241,21 @@ describe("pinning", () => {
       store.saveToStorage();
       expect(JSON.parse(localStorage.getItem("emotitone-visual-config")!).data.config)
         .not.toHaveProperty("keyboard");
+
+      // A retired or unknown stored surface follows the family again.
+      for (const stored of ["glassmorphism", "neon"]) {
+        localStorage.setItem("emotitone-visual-config", JSON.stringify({
+          $version: 1, data: { config: { keyboard: { surfaceStyle: stored } } },
+        }));
+        const reload = createPinia();
+        setActivePinia(reload);
+        const reloaded = useVisualConfigStore();
+        expect(reloaded.deckControls.noteSurface, stored).toBe("family");
+        reloaded.updateDeckControl("noteSurface", "monochrome");
+        expect(reloaded.importConfig(JSON.stringify({ config: { keyboard: { surfaceStyle: stored } } }))).toBe(true);
+        expect(reloaded.deckControls.noteSurface, `imported ${stored}`).toBe("family");
+        disposePinia(reload);
+      }
     } finally {
       disposePinia(pinia);
       localStorage.clear();

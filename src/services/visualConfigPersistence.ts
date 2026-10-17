@@ -47,6 +47,15 @@ type LegacyVisualEffectsConfig = Partial<VisualEffectsConfig> & {
   beatingShapes?: LegacyBeatingShapesConfig;
 };
 
+const NOTE_SURFACES: readonly unknown[] = ["family", "colored", "monochrome"];
+
+/** Retired or unknown Note Surface values follow the edition family (the default). */
+function normalizeNoteSurface(keyboard: Record<string, unknown>) {
+  if (!NOTE_SURFACES.includes(keyboard.surfaceStyle)) {
+    keyboard.surfaceStyle = DEFAULT_CONFIG.keyboard.surfaceStyle;
+  }
+}
+
 const LEGACY_HARMONIC_DEFAULTS = {
   accumulationWindow: 500,
   hideDelay: 2000,
@@ -236,9 +245,7 @@ function migrateLegacySectionKeys(
     }
     // Retired glass settings were already treated as the default surface;
     // they now follow the edition family like any other default.
-    if (mergedSection.surfaceStyle === "glassmorphism") {
-      mergedSection.surfaceStyle = DEFAULT_CONFIG.keyboard.surfaceStyle;
-    }
+    normalizeNoteSurface(mergedSection);
     delete mergedSection.colorMode;
   }
 
@@ -367,6 +374,7 @@ export const visualConfigCodec = defineCodec<VisualState>({
       }
     }
     if (!isEditionLook(config.editions.family)) config.editions.family = SHUFFLE;
+    normalizeNoteSurface(config.keyboard as unknown as Record<string, unknown>);
     return { config, visualsEnabled: data.visualsEnabled !== false, laBasedMinor: data.laBasedMinor === true };
   },
   encode(state) {

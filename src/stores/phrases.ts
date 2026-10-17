@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { computed, ref, watch } from "vue";
+import { computed, ref, shallowRef, watch } from "vue";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
@@ -39,13 +39,21 @@ import {
   serializePatternsState,
 } from "@/services/patternPersistence";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
-import type { HeldNote, Phrase, PhraseBook, PhraseContext } from "@/types/phrases";
+import type { HeldNote, Phrase, PhraseBook, PhraseBookConfig, PhraseContext } from "@/types/phrases";
 
 const LEGACY_STORAGE_KEY = "patterns";
 const STORAGE_KEY = "phrases";
 // Transport notes also carry record: false; the source keeps older senders out.
 const NON_RECORDING_EVENT_SOURCES = new Set(["pattern-playback", "strudel-playback", "live-pitch"]);
 const MAX_EXPRESSION_POINTS = 8192;
+
+/**
+ * Asked at every live press, before the recorder writes anything. Returning
+ * true opens a fresh take first: the Looper's rule 3, a playing pattern is
+ * read-only. `deskPhraseId` is what the desk stands for (an untouched
+ * Kept/Library copy stands for its source); `wallTime` is the press stamp.
+ */
+export type LivePressGuard = (press: { deskPhraseId: string; wallTime: number }) => boolean;
 
 /** Built-in phrases. Static data: never stored, never edited. */
 export const libraryPhrases: readonly Phrase[] = Object.freeze(
@@ -99,7 +107,14 @@ export const usePhrasesStore = defineStore(
     const instrumentStore = useInstrumentStore();
     const keyboardStore = useKeyboardDrawerStore();
     const visualConfigStore = useVisualConfigStore();
-    const config = { ...DEFAULT_PHRASE_BOOK_CONFIG };
+    // Phrases another part of the app still points at (the playing set).
+    const protectedIdsProvider = shallowRef<() => ReadonlySet<string>>(() => new Set());
+    const config: PhraseBookConfig = Object.defineProperty(
+      { ...DEFAULT_PHRASE_BOOK_CONFIG },
+      "protectedIds",
+      { get: () => protectedIdsProvider.value(), enumerable: true },
+    );
+    const livePressGuard = shallowRef<LivePressGuard | null>(null);
 
     const liveContext = computed<PhraseContext>(() => ({
       key: musicStore.currentKey as ChromaticNote,
@@ -138,6 +153,9 @@ export const usePhrasesStore = defineStore(
       void heldCount.value;
       return isBookTakeTouched(book.value, held);
     });
+    /** What the desk stands for: an untouched Kept/Library copy is its source. */
+    const deskPhraseId = computed(() =>
+      untouchedCopySource(book.value, isTakeTouched.value) ?? book.value.takeId);
     /** The reel, deepest first; the desk is drawn where you found it. */
     const reel = computed(() => arrangeReel(book.value, libraryPhrases, isTakeTouched.value));
 
@@ -237,6 +255,8 @@ export const usePhrasesStore = defineStore(
     }
 
     function deletePhrase(id: string): boolean {
+      const protectedIds = protectedIdsProvider.value();
+      if (protectedIds.has(id)) return false;
       if (id === book.value.takeId && isTakeTouched.value) {
         // A confirmed delete of the take you played into: gone, fresh desk.
         discardTake(book.value, Date.now(), liveContext.value);
@@ -246,9 +266,10 @@ export const usePhrasesStore = defineStore(
       const lookedAt = !isTakeTouched.value
         && (target === book.value.takeId
           || target === untouchedCopySource(book.value, isTakeTouched.value));
+      if (protectedIds.has(target)) return false;
       // Deleting what you're looking at clears the desk first.
       if (lookedAt) startBlankTake();
-      return deleteBookPhrase(book.value, target);
+      return deleteBookPhrase(book.value, target, protectedIds);
     }
 
     function renamePhrase(id: string, name: string): boolean {
@@ -281,11 +302,13 @@ export const usePhrasesStore = defineStore(
       if (!isRecordable(event)) return;
       const detail = event.detail;
       if (!detail?.noteId) return;
+      const wallTime = Number.isFinite(detail.timestamp) ? detail.timestamp : Date.now();
+      if (livePressGuard.value?.({ deskPhraseId: deskPhraseId.value, wallTime })) startBlankTake();
       const isBorrowed = detail.isBorrowed === true || detail.solfegeIndex < 0;
       const live = liveContext.value;
       pressNote(book.value, held, {
         noteId: detail.noteId,
-        wallTime: Number.isFinite(detail.timestamp) ? detail.timestamp : Date.now(),
+        wallTime,
         context: {
           key: (detail.key ?? live.key) as ChromaticNote,
           mode: (detail.mode ?? live.mode) as MusicalMode,
@@ -362,6 +385,15 @@ export const usePhrasesStore = defineStore(
       listeners = [];
     }
 
+    // ─── Seams for the Looper ────────────────────────────────────────────────
+    function setLivePressGuard(guard: LivePressGuard | null): void {
+      livePressGuard.value = guard;
+    }
+
+    function setProtectedIds(provider: (() => ReadonlySet<string>) | null): void {
+      protectedIdsProvider.value = provider ?? (() => new Set());
+    }
+
     /** Hydration hook: repair "exactly one take" and expire Recent. */
     function repairAfterHydrate(): void {
       ensureSingleTake(book.value, liveContext.value, Date.now());
@@ -381,6 +413,7 @@ export const usePhrasesStore = defineStore(
       shelves,
       reel,
       isTakeTouched,
+      deskPhraseId,
       take,
       takeId,
       takeNotes,
@@ -399,6 +432,8 @@ export const usePhrasesStore = defineStore(
       renamePhrase,
       undoLastNote,
       importPhrases,
+      setLivePressGuard,
+      setProtectedIds,
 
       // Recorder plumbing (exposed for tests)
       handleNotePressed,

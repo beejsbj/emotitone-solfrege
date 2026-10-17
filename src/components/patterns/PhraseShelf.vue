@@ -40,7 +40,9 @@ import { logNotesToStrudel } from "@/services/StrudelNotation";
 import { loopLengthMs } from "@/services/recordedTiming";
 import { strudelUrl } from "@/services/strudelLink";
 import { chromaticPitchHeight } from "@/services/scalePitch";
+import { looperDialProps } from "@/components/patterns/looperDial";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
+import { useLooperStore } from "@/stores/looper";
 import { useMusicStore } from "@/stores/music";
 import { usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
@@ -55,6 +57,7 @@ const emit = defineEmits<{
 }>();
 
 const phrasesStore = usePhrasesStore();
+const looperStore = useLooperStore();
 const keyboardStore = useKeyboardDrawerStore();
 const musicStore = useMusicStore();
 const visualConfigStore = useVisualConfigStore();
@@ -220,6 +223,14 @@ function reelItem(entry: ReelEntry, isFront: boolean): PatternReelItem {
   const title = source?.name || phraseTitle(phrase);
   const { key, mode, instrument, octave } = phrase.context;
   const ordered = [...phrase.notes].sort((left, right) => left.pressTime - right.pressTime);
+  // A pattern playing in the Looper shows what its loop dial shows (the same
+  // notes, length and place in the loop) and sweeps with it; one that is not
+  // playing rests. On the desk an untouched copy stands for its source.
+  const member = looperStore.viewFor(isDesk ? phrasesStore.deskPhraseId : phrase.id);
+  const playing = member && looperDialProps(member, {
+    byPitchClass: getStaticPrimaryColorByPitchClass,
+    byScaleIndex: getStaticPrimaryColorByScaleIndex,
+  });
   // The same loop the generated code plays: one 4/4 bar per cycle at the
   // phrase's tempo, notes at their onsets, authored trailing silence kept.
   return {
@@ -236,19 +247,19 @@ function reelItem(entry: ReelEntry, isFront: boolean): PatternReelItem {
       key,
       octave,
     ),
-    loopDial: ordered.map((note) => ({
+    loopDial: playing ? playing.segments : ordered.map((note) => ({
       color: noteColor(note, phrase),
       startMs: note.pressTime,
       durationMs: note.duration,
       height: chromaticPitchHeight(note, { key, mode }),
     })),
-    loopLengthMs: loopLengthMs({
+    loopLengthMs: playing ? playing.lengthMs : loopLengthMs({
       ...phrase,
       notes: ordered.map((note) => ({ releaseTime: note.pressTime + Math.max(1, note.duration) })),
     }),
-    loopBarMs: phrase.context.bpm > 0 ? (60000 / phrase.context.bpm) * 4 : undefined,
-    // The desk holds the phrase the Code Strip plays.
-    loopLive: isDesk,
+    loopBarMs: playing ? playing.barMs : phrase.context.bpm > 0 ? (60000 / phrase.context.bpm) * 4 : undefined,
+    loopLive: Boolean(playing),
+    ...(playing ? { loopOriginBars: playing.originBars, loopRate: playing.rate } : {}),
     tone: isDesk ? "take" : phrase.shelf as PatternStripTone,
     shelfTag: shelfTag(phrase, inPlace),
     lamp: isDesk ? (inPlace ? "armed" : "live") : undefined,
@@ -295,6 +306,13 @@ function loadPhrase(id: string) {
     octave: keyboardStore.keyboardConfig.mainOctave,
   };
   if (!phrasesStore.openPhrase(id)) return;
+  // A running loop owns key, mode and tempo: the phrase you scroll to is
+  // re-skinned into them instead of dragging the whole loop to its own.
+  if (looperStore.hasMembers) {
+    musicStore.setKey(before.key);
+    musicStore.setMode(before.mode);
+    visualConfigStore.updateConfig("codeStrip", { bpm: before.bpm });
+  }
   const changed: PatternControl[] = [];
   if (musicStore.currentKey !== before.key) changed.push("key");
   if (musicStore.currentMode !== before.mode) changed.push("mode");

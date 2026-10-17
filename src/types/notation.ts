@@ -43,4 +43,6 @@ export interface NotationNoteEventDetail {
   audibleAt?: number;
   durationMs?: number;
   source?: string;
+  /** The transport member (a Looper pattern) that played it. */
+  memberId?: string;
 }

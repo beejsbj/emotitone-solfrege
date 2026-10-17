@@ -28,6 +28,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/stores/phrases", () => ({ usePhrasesStore: () => mocks.phrasesStore }));
 vi.mock("@/stores/instrument", () => ({ useInstrumentStore: () => mocks.instrumentStore }));
+vi.mock("@/stores/looper", () => ({ useLooperStore: () => ({ deskMemberId: null }) }));
 vi.mock("@/stores/visualConfig", () => ({ useVisualConfigStore: () => mocks.visualConfigStore }));
 vi.mock("@/composables/useCodeStripStrudel", () => ({
   useCodeStripStrudel: () => ({

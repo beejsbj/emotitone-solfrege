@@ -1,3 +1,4 @@
+import { velocityToMidi } from "@/audio/velocity";
 import { onMounted, onUnmounted, ref, watch } from "vue";
 import { Note as TonalNote } from "@tonaljs/tonal";
 import type { ChromaticNote } from "@/types";
@@ -95,6 +96,7 @@ interface MidiNoteResolver {
 interface MirroredNoteEventDetail {
   /** Monotonic performance.now deadline; independent of system date changes. */
   midiTimestamp?: number;
+  velocity?: number;
   source?: string;
   mirrorMidi?: boolean;
   duration?: string;
@@ -116,6 +118,8 @@ interface ScheduledMidiNoteEventDetail extends MirroredNoteEventDetail {
 
 export interface MidiOwnerTransition {
   midiNote: number;
+  /** Normalized input velocity, preserved until packet encoding. */
+  velocity?: number;
   phase: "attack" | "release";
   timestamp: number;
 }
@@ -125,6 +129,7 @@ interface ScheduledMidiOwnerEvent extends MidiOwnerTransition {
 }
 
 interface PendingMidiOwnerUpdate {
+  velocity?: number;
   ownerId: string;
   midiNote: number;
   phase: "attack" | "release" | "cancel";
@@ -199,7 +204,7 @@ export function createMidiNoteOwnerScheduler(
 
   const apply = (
     ownersByNote: Map<number, Set<string>>,
-    event: Pick<ScheduledMidiOwnerEvent, "ownerId" | "midiNote" | "phase">,
+    event: Pick<ScheduledMidiOwnerEvent, "ownerId" | "midiNote" | "phase" | "velocity">,
   ): Omit<MidiOwnerTransition, "timestamp"> | null => {
     const owners = ownersByNote.get(event.midiNote) ?? new Set<string>();
     const before = owners.size;
@@ -213,7 +218,7 @@ export function createMidiNoteOwnerScheduler(
     }
 
     if (before === 0 && owners.size > 0) {
-      return { midiNote: event.midiNote, phase: "attack" };
+      return { midiNote: event.midiNote, phase: "attack", ...(event.velocity === undefined ? {} : { velocity: event.velocity }) };
     }
     if (before > 0 && owners.size === 0) {
       return { midiNote: event.midiNote, phase: "release" };
@@ -244,7 +249,8 @@ export function createMidiNoteOwnerScheduler(
         const queued = queuedTransitions[index];
         return transition.midiNote === queued.midiNote
           && transition.phase === queued.phase
-          && transition.timestamp === queued.timestamp;
+          && transition.timestamp === queued.timestamp
+          && transition.velocity === queued.velocity;
       });
     if (unchanged) return;
     queuedTransitions = transitions;
@@ -256,6 +262,7 @@ export function createMidiNoteOwnerScheduler(
     midiNote: number,
     phase: ScheduledMidiOwnerEvent["phase"],
     timestamp?: number,
+    velocity?: number,
   ) => {
     const currentTime = isBatching ? batchTime : now();
     if (!isBatching || !advancedCurrentBatch) {
@@ -267,9 +274,9 @@ export function createMidiNoteOwnerScheduler(
     let immediateTransition: Omit<MidiOwnerTransition, "timestamp"> | null = null;
 
     if (timestamp === undefined || timestamp < currentTime) {
-      immediateTransition = apply(activeOwners, { ownerId, midiNote, phase });
+      immediateTransition = apply(activeOwners, { ownerId, midiNote, phase, velocity });
     } else {
-      scheduledEvents.set(key, { ownerId, midiNote, phase, timestamp });
+      scheduledEvents.set(key, { ownerId, midiNote, phase, timestamp, velocity });
     }
     if (isBatching) {
       if (immediateTransition) batchImmediateTransitions.push(immediateTransition);
@@ -294,8 +301,8 @@ export function createMidiNoteOwnerScheduler(
       batchImmediateTransitions = [];
       immediate.forEach(sendNow);
     },
-    attack(ownerId: string, midiNote: number, timestamp?: number) {
-      update(ownerId, midiNote, "attack", timestamp);
+    attack(ownerId: string, midiNote: number, timestamp?: number, velocity?: number) {
+      update(ownerId, midiNote, "attack", timestamp, velocity);
     },
     release(ownerId: string, midiNote: number, timestamp?: number) {
       update(ownerId, midiNote, "release", timestamp);
@@ -411,25 +418,6 @@ export function midiNoteNumberToName(noteNumber: number) {
   return `${noteName}${octave}`;
 }
 
-export function resolvePlayableMidiNote(
-  noteNumber: number,
-  noteResolver: MidiNoteResolver
-) {
-  const chromaticNote = midiNoteNumberToName(noteNumber);
-  const parsed = noteResolver.parseNoteInput(chromaticNote);
-
-  if (!parsed) {
-    return null;
-  }
-
-  // Only accept notes that round-trip exactly into the current scale.
-  if (noteResolver.getNoteName(parsed.solfegeIndex, parsed.octave) !== chromaticNote) {
-    return null;
-  }
-
-  return parsed;
-}
-
 export function resolveMirroredEventDurationMs(
   detail?: MirroredNoteEventDetail
 ) {
@@ -518,6 +506,9 @@ export function useMidiControls() {
   const roliInputIds = ref<Set<string>>(new Set());
   const activeMidiNotes = ref<Map<string, ActiveMidiNote>>(new Map());
   const pendingMidiPresses = ref<Map<string, PendingMidiPress>>(new Map());
+  // One held press per input/channel/pitch; duplicate note-ons retrigger it.
+  const midiPressIds = new Map<string, string>();
+  let midiPressSerial = 0;
   const pendingReleasedPressIds = ref<Set<string>>(new Set());
   const pendingInputNoteOns = ref<Map<string, number>>(new Map());
   const pendingInputNoteOffs = ref<Set<string>>(new Set());
@@ -592,6 +583,29 @@ export function useMidiControls() {
     keyboardDrawerStore.releaseVisualNote(detail.noteId);
   };
 
+  const releaseMidiPress = (inputNoteId: string) => {
+    const pressId = midiPressIds.get(inputNoteId);
+    midiPressIds.delete(inputNoteId);
+    if (!pressId) return;
+    const activeNote = activeMidiNotes.value.get(pressId);
+    if (!activeNote) {
+      if (pendingMidiPresses.value.has(pressId)) {
+        pendingReleasedPressIds.value.add(pressId);
+        keyboardDrawerStore.removeTouch(pressId);
+      }
+      return;
+    }
+
+    if (activeNote.isRoliInput) {
+      pendingInputNoteOffs.value.add(activeNote.noteId);
+    }
+    musicStore.releaseNote(activeNote.noteId);
+    pendingInputNoteOffs.value.delete(activeNote.noteId);
+    keyboardDrawerStore.removeTouch(activeNote.pressId);
+    activeMidiNotes.value.delete(pressId);
+    pendingReleasedPressIds.value.delete(pressId);
+  };
+
   const handleMidiPacket = (inputId: string, rawData: ArrayLike<number>) => {
     const data = Array.from(rawData).slice(0, 3);
     if (data.length < 2) {
@@ -601,7 +615,7 @@ export function useMidiControls() {
     const [status, noteNumber, velocity = 0] = data;
     const messageType = status & MIDI_STATUS_MASK;
     const channel = (status & MIDI_CHANNEL_MASK) + 1;
-    const pressId = buildMidiPressId(inputId, channel, noteNumber);
+    const inputNoteId = buildMidiPressId(inputId, channel, noteNumber);
     const noteName = midiNoteNumberToName(noteNumber);
     // Only suppress the immediate echo of an ordinary ROLI press. Styled
     // output is a new performance and must reach the MIDI mirror in full.
@@ -612,30 +626,23 @@ export function useMidiControls() {
         return;
       }
 
-      if (
-        activeMidiNotes.value.has(pressId)
-        || pendingMidiPresses.value.has(pressId)
-        || hasActiveTouchPress(keyboardDrawerStore.touch.activeTouches, pressId)
-      ) {
-        return;
-      }
+      releaseMidiPress(inputNoteId);
+      const pressId = `${inputNoteId}:${++midiPressSerial}`;
+      midiPressIds.set(inputNoteId, pressId);
 
-      const parsed = resolvePlayableMidiNote(noteNumber, musicStore);
-      if (!parsed) {
-        return;
+      // Exact pitches share the on-screen performer, including identity and
+      // borrowed-note metadata. Only in-scale pitches have a key to light.
+      const parsed = musicStore.parseNoteInput(noteName);
+      if (parsed && TonalNote.midi(musicStore.getNoteName(parsed.solfegeIndex, parsed.octave)) === noteNumber) {
+        keyboardDrawerStore.addTouch(pressId, `${parsed.solfegeIndex}_${parsed.octave}`);
       }
-
-      keyboardDrawerStore.addTouch(
-        pressId,
-        `${parsed.solfegeIndex}_${parsed.octave}`
-      );
       pendingMidiPresses.value.set(pressId, { noteName, isRoliInput });
       if (isRoliInput) {
         incrementPendingNoteCount(pendingInputNoteOns.value, noteName);
       }
 
       void musicStore
-        .attackNoteWithOctave(parsed.solfegeIndex, parsed.octave)
+        .attackExactPitch(noteName, () => pendingReleasedPressIds.value.has(pressId), velocity / 127)
         .then((noteId) => {
           const pendingPress = pendingMidiPresses.value.get(pressId);
           pendingMidiPresses.value.delete(pressId);
@@ -684,23 +691,7 @@ export function useMidiControls() {
       messageType === MIDI_NOTE_OFF
       || (messageType === MIDI_NOTE_ON && velocity === 0)
     ) {
-      const activeNote = activeMidiNotes.value.get(pressId);
-      if (!activeNote) {
-        if (pendingMidiPresses.value.has(pressId)) {
-          pendingReleasedPressIds.value.add(pressId);
-          keyboardDrawerStore.removeTouch(pressId);
-        }
-        return;
-      }
-
-      if (activeNote.isRoliInput) {
-        pendingInputNoteOffs.value.add(activeNote.noteId);
-      }
-      musicStore.releaseNote(activeNote.noteId);
-      pendingInputNoteOffs.value.delete(activeNote.noteId);
-      keyboardDrawerStore.removeTouch(activeNote.pressId);
-      activeMidiNotes.value.delete(pressId);
-      pendingReleasedPressIds.value.delete(pressId);
+      releaseMidiPress(inputNoteId);
     }
   };
 
@@ -867,18 +858,18 @@ export function useMidiControls() {
       if (replaceScheduled) {
         clearRoliQueue();
       }
-      immediate.forEach(({ midiNote, phase }) => {
+      immediate.forEach(({ midiNote, phase, velocity }) => {
         sendToRoliOutput(
           phase === "attack"
-            ? buildRoliNoteOnMessage(midiNote)
+            ? buildRoliNoteOnMessage(midiNote, velocityToMidi(velocity))
             : buildRoliNoteOffMessage(midiNote),
         );
       });
       if (replaceScheduled) {
-        scheduled.forEach(({ midiNote, phase, timestamp }) => {
+        scheduled.forEach(({ midiNote, phase, timestamp, velocity }) => {
           sendToRoliOutput(
             phase === "attack"
-              ? buildRoliNoteOnMessage(midiNote)
+              ? buildRoliNoteOnMessage(midiNote, velocityToMidi(velocity))
               : buildRoliNoteOffMessage(midiNote),
             timestamp,
           );
@@ -920,9 +911,9 @@ export function useMidiControls() {
       pendingMidiOwnerUpdates = [];
       midiOwnerScheduler.beginBatch();
       try {
-        updates.forEach(({ ownerId, midiNote, phase, timestamp }) => {
+        updates.forEach(({ ownerId, midiNote, phase, timestamp, velocity }) => {
           if (phase === "attack") {
-            midiOwnerScheduler.attack(ownerId, midiNote, timestamp);
+            midiOwnerScheduler.attack(ownerId, midiNote, timestamp, velocity);
           } else if (phase === "cancel") {
             midiOwnerScheduler.cancel(ownerId, midiNote);
           } else {
@@ -974,6 +965,9 @@ export function useMidiControls() {
   };
 
   const releaseMidiNotes = (inputId?: string) => {
+    for (const inputNoteId of midiPressIds.keys()) {
+      if (!inputId || inputNoteId.startsWith(`midi:${inputId}:`)) midiPressIds.delete(inputNoteId);
+    }
     for (const [pressId, activeNote] of activeMidiNotes.value.entries()) {
       if (!inputId || pressId.startsWith(`midi:${inputId}:`)) {
         if (activeNote.isRoliInput) {
@@ -1100,6 +1094,7 @@ export function useMidiControls() {
         ownerId: `mirrored:${detail.noteId}`,
         midiNote,
         phase: "attack",
+        velocity: detail?.velocity,
         timestamp: resolveMidiEventTimestamp(detail),
       });
       return;
@@ -1115,6 +1110,7 @@ export function useMidiControls() {
       ownerId,
       midiNote,
       phase: "attack",
+      velocity: detail?.velocity,
       timestamp: resolveMidiEventTimestamp(detail),
     });
     const timeoutId = window.setTimeout(() => {
@@ -1212,12 +1208,11 @@ export function useMidiControls() {
     const timestamp = resolveMidiEventTimestamp(detail);
     if (timestamp === undefined) return;
     const ownerId = `scheduled:${detail.noteId}`;
-    queueMidiOwnerUpdate({ ownerId, midiNote, phase: detail.phase, timestamp });
+    queueMidiOwnerUpdate({ ownerId, midiNote, phase: detail.phase, timestamp, velocity: detail.velocity });
   };
 
   const disconnectMidi = () => {
     releaseMidiNotes();
-    pendingReleasedPressIds.value.clear();
     pendingInputNoteOns.value.clear();
     pendingInputNoteOffs.value.clear();
     flushRoliOutput();

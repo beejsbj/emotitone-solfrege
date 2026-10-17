@@ -37,7 +37,8 @@ import {
   type ReelEntry,
 } from "@/domain/phraseBook";
 import { logNotesToStrudel } from "@/services/StrudelNotation";
-import { recordedLoopTailMs } from "@/services/recordedTiming";
+import { loopLengthMs } from "@/services/recordedTiming";
+import { strudelUrl } from "@/services/strudelLink";
 import { chromaticPitchHeight } from "@/services/scalePitch";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
@@ -214,15 +215,13 @@ function reelItem(entry: ReelEntry, isFront: boolean): PatternReelItem {
   const source = inPlace && phrase.derivedFrom
     ? phrasesStore.findPhrase(phrase.derivedFrom.id)
     : undefined;
-  const contour = phrase.notes.length ? phraseContour(phrase) : "";
+  const contour = phrase.notes.length ? phraseContour(phrase, visualConfigStore.laBasedMinor) : "";
   // A stable title; the solfège contour lives on the meta line below it.
   const title = source?.name || phraseTitle(phrase);
   const { key, mode, instrument, octave } = phrase.context;
   const ordered = [...phrase.notes].sort((left, right) => left.pressTime - right.pressTime);
   // The same loop the generated code plays: one 4/4 bar per cycle at the
   // phrase's tempo, notes at their onsets, authored trailing silence kept.
-  const lastEnd = Math.max(0, ...ordered.map((note) => note.pressTime + Math.max(1, note.duration)));
-  const loopLengthMs = phrase.duration > lastEnd ? phrase.duration : lastEnd + recordedLoopTailMs(phrase.context.bpm);
   return {
     id: phrase.id,
     presentationKey: entry.key,
@@ -243,7 +242,10 @@ function reelItem(entry: ReelEntry, isFront: boolean): PatternReelItem {
       durationMs: note.duration,
       height: chromaticPitchHeight(note, { key, mode }),
     })),
-    loopLengthMs,
+    loopLengthMs: loopLengthMs({
+      ...phrase,
+      notes: ordered.map((note) => ({ releaseTime: note.pressTime + Math.max(1, note.duration) })),
+    }),
     loopBarMs: phrase.context.bpm > 0 ? (60000 / phrase.context.bpm) * 4 : undefined,
     // The desk holds the phrase the Code Strip plays.
     loopLive: isDesk,
@@ -363,10 +365,7 @@ async function copyNotation(id: string) {
 function openInStrudel(id: string) {
   const source = notationFor(id);
   if (!source) return;
-  const bytes = new TextEncoder().encode(source);
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  window.open(`https://strudel.cc/#${btoa(binary)}`, "_blank", "noopener,noreferrer");
+  window.open(strudelUrl(source), "_blank", "noopener,noreferrer");
 }
 </script>
 

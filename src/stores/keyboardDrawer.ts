@@ -413,7 +413,6 @@ export const useKeyboardDrawerStore = defineStore(
   {
     persist: {
       key: "emotitone-keyboard-drawer",
-      storage: localStorage,
       pick: ["drawer.isOpen"],
     },
   }

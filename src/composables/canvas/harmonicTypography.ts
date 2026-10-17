@@ -1,4 +1,4 @@
-import { Chord } from "@tonaljs/tonal";
+import { parseChordSymbol } from "@/domain/musicalIdentity";
 import type { HarmonicGeometryScene } from "@/types/canvas";
 import type { StageRect } from "./stageRuntime";
 import { layoutIntervalLettering, paintIntervalLettering, type IntervalLettering } from "./intervalLettering";
@@ -69,9 +69,10 @@ export function createHarmonicTypography() {
     const still = !frame || frame.reducedMotion;
     if (state.identity !== identity) {
       state.identity = identity; state.started = now;
-      const chord = Chord.get(chordSymbol.split("/")[0]);
-      state.gesture = chord.quality === "Augmented" ? "open"
-        : chord.intervals.includes("4P") || chord.intervals.includes("2M") ? "hang" : "settle";
+      // Read the lead-sheet symbol back through the one formatter (C+, Bø7).
+      const intervals = parseChordSymbol(chordSymbol)?.intervals ?? [];
+      state.gesture = intervals.includes("5A") ? "open"
+        : intervals.includes("4P") || intervals.includes("2M") ? "hang" : "settle";
       state.x = label?.x ?? 0; state.y = label?.y ?? 0;
     }
     if (state.key !== layoutKey) {

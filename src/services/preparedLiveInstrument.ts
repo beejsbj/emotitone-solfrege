@@ -1,47 +1,56 @@
-// @ts-ignore — superdough ships no TypeScript declarations.
-import { getSound } from "superdough";
 import type { LiveSampleZone, PreparedLiveInstrument } from "../audio/live/types";
 import { prepareSampleMipmapsAsync } from "../audio/live/resampler";
+import { preparedPcmBytes } from "../audio/live/pcm";
+import { getCatalogSound } from "../audio/soundCatalog";
 import { prepareNativeInstrument, UnsupportedLiveInstrumentError } from "./preparedNativeInstrument";
 import type { UnsupportedLiveInstrument, RetryableLiveInstrument } from "./preparedNativeInstrument";
 export type { UnsupportedLiveInstrument } from "./preparedNativeInstrument";
 export type LiveInstrumentPreparation = PreparedLiveInstrument | UnsupportedLiveInstrument | RetryableLiveInstrument;
-interface CacheEntry { registration: object; pending: Promise<LiveInstrumentPreparation>; additionalPcmBytes: number; result?: LiveInstrumentPreparation }
-const caches = new WeakMap<AudioContext, Map<string, CacheEntry>>();
+
+/**
+ * Selection-time preparation for the live worklet: load the owned source PCM,
+ * then build the anti-alias pyramid (derived PCM) it needs. The result is
+ * handed to the bridge, which transfers every buffer to the worklet, so this
+ * module keeps a prepared bank only until its installer releases it.
+ */
+interface Entry {
+  registration: object | undefined;
+  sampleRate: number;
+  pending: Promise<LiveInstrumentPreparation>;
+  result?: LiveInstrumentPreparation;
+  sourcePcmBytes: number;
+  derivedPcmBytes: number;
+}
+const entries = new WeakMap<AudioContext, Map<string, Entry>>();
 const queues = new WeakMap<AudioContext, Promise<void>>();
-const preparingBytes = new WeakMap<AudioContext, number>();
-const MAX_CACHED_BANKS = 8;
+const preparing = new WeakMap<AudioContext, { source: number; derived: number }>();
 const MAX_BANK_BYTES = 192 * 1024 * 1024;
 export const MAX_PREPARATION_PCM_BYTES = 192 * 1024 * 1024;
 
 export function getPreparedLiveInstrumentDiagnostics(context: AudioContext) {
+  const held = [...(entries.get(context)?.values() ?? [])].filter(entry => entry.result);
+  const inFlight = preparing.get(context) ?? { source: 0, derived: 0 };
   return {
-    cachedPreparationPcmBytes: [...(caches.get(context)?.values() ?? [])].reduce((sum, entry) => sum + entry.additionalPcmBytes, 0),
-    preparingPcmBytes: preparingBytes.get(context) ?? 0,
+    cachedPreparationPcmBytes: held.reduce((sum, entry) => sum + entry.sourcePcmBytes + entry.derivedPcmBytes, 0),
+    preparingPcmBytes: inFlight.source + inFlight.derived,
     preparationPcmBudgetBytes: MAX_PREPARATION_PCM_BYTES,
   };
 }
 
-/** Release only our descriptor/pyramids. Superdough owns the borrowed source PCM. */
+/** Drop a prepared bank once it has been transferred (or refused). Its buffers are no longer ours. */
 export function releasePreparedLiveInstrument(context: AudioContext, instrumentId: string, expected: LiveInstrumentPreparation) {
-  const cache = caches.get(context);
-  if (cache?.get(instrumentId)?.result === expected) cache.delete(instrumentId);
+  const map = entries.get(context);
+  if (map?.get(instrumentId)?.result === expected) map.delete(instrumentId);
 }
 
-async function prepare(context: AudioContext, instrumentId: string, reserve: (bytes: number) => void): Promise<LiveInstrumentPreparation> {
-  // Native square/saw bandlimiting differs from the worklet's polyBLEP shape,
-  // especially at high pitches. Preserve native timbre via existing fallback.
-  if (instrumentId === "square" || instrumentId === "sawtooth") {
-    return { kind: "unsupported", instrumentId, reason: "Use the native oscillator to preserve square/saw timbre" };
-  }
-  const raw = await prepareNativeInstrument(context, instrumentId);
+async function prepare(context: AudioContext, instrumentId: string, sampleRate: number, signal?: AbortSignal): Promise<LiveInstrumentPreparation> {
+  const raw = await prepareNativeInstrument(context, instrumentId, signal);
   if (raw.kind !== "sample-bank") return raw;
-  const { zoneSelection } = raw;
-  const zones: LiveSampleZone[] = raw.zones.map(({ buffer, ...zone }) => ({
-    ...zone, sampleRate: buffer.sampleRate,
-    // Borrow read-only views. The bridge clones once and never detaches them.
-    channels: Array.from({ length: buffer.numberOfChannels }, (_, channel) => buffer.getChannelData(channel)),
-  }));
+  const { zoneSelection, zones } = raw;
+  const sourceBytes = preparedPcmBytes(raw).source;
+  if (sourceBytes > MAX_BANK_BYTES) {
+    throw new UnsupportedLiveInstrumentError(`Prepared bank requires ${sourceBytes} bytes; worklet budget is ${MAX_BANK_BYTES} bytes (192 MiB)`);
+  }
   // Only prepare octaves this zone can actually play across MIDI 0..127.
   // Dense piano banks need no pyramid for nearly every root; preparing every
   // possible octave would double a 138 MiB bank for no audible benefit.
@@ -51,83 +60,53 @@ async function prepare(context: AudioContext, instrumentId: string, reserve: (by
       ? zones.find(zone => pitch >= zone.lowMidi! && pitch <= zone.highMidi!)
       : zones.reduce((best, zone) => Math.abs(zone.rootMidi - pitch) < Math.abs(best.rootMidi - pitch) ? zone : best);
     if (!selected) continue;
-    const ratio = 2 ** ((pitch - selected.rootMidi) / 12) * selected.sampleRate / (context.sampleRate || selected.sampleRate);
+    const ratio = 2 ** ((pitch - selected.rootMidi) / 12) * selected.sampleRate / (sampleRate || selected.sampleRate);
     needed.set(selected, Math.max(needed.get(selected)!, Math.max(0, Math.floor(Math.log2(ratio)))));
   }
-  const originalBuffers = new Set(zones.flatMap(zone => zone.channels.map(channel => channel.buffer)));
-  let preparedBytes = [...originalBuffers].reduce((total, buffer) => total + buffer.byteLength, 0);
-  const borrowedBytes = preparedBytes;
-  const assertBudget = () => {
-    if (preparedBytes > MAX_BANK_BYTES) throw new UnsupportedLiveInstrumentError(`Prepared bank requires ${preparedBytes} bytes; worklet budget is ${MAX_BANK_BYTES} bytes (192 MiB)`);
-  };
-  assertBudget();
-  // Preflight every required level before allocating/filtering. Identical
-  // source/loop zones share a pyramid covering their combined pitch range.
-  const pyramids = new Map<Float32Array, Map<string, { levels: number; mipmaps?: Float32Array[][] }>>();
+  let derivedBytes = 0;
   for (const zone of zones) {
-    const loops = `${zone.loopStartFrame ?? 0}:${zone.loopEndFrame ?? 0}`;
-    let cached = pyramids.get(zone.channels[0]);
-    if (!cached) { cached = new Map(); pyramids.set(zone.channels[0], cached); }
-    const levels = Math.max(needed.get(zone)!, cached.get(loops)?.levels ?? 0);
-    cached.set(loops, { levels });
-  }
-  for (const [source, loops] of pyramids) for (const entry of loops.values()) {
-    const channelCount = zones.find(zone => zone.channels[0] === source)!.channels.length;
-    let frames = source.length;
-    for (let level = 0; frames > 1 && level < Math.min(16, entry.levels); level++) {
+    let frames = zone.channels[0].length;
+    for (let level = 0; frames > 1 && level < Math.min(16, needed.get(zone)!); level++) {
       frames = Math.ceil(frames / 2);
-      preparedBytes += frames * Float32Array.BYTES_PER_ELEMENT * channelCount;
+      derivedBytes += frames * Float32Array.BYTES_PER_ELEMENT * zone.channels.length;
     }
   }
-  assertBudget();
-  // Charge only new filtering PCM. Source channels remain Superdough-owned.
-  reserve(preparedBytes - borrowedBytes);
-  for (const zone of zones) {
-    const loops = `${zone.loopStartFrame ?? 0}:${zone.loopEndFrame ?? 0}`;
-    const entry = pyramids.get(zone.channels[0])!.get(loops)!;
-    entry.mipmaps ??= await prepareSampleMipmapsAsync(zone.channels, zone.loopStartFrame, zone.loopEndFrame, entry.levels);
-    zone.mipmaps = entry.mipmaps;
+  // Preflight the pyramid before allocating it: source plus derived PCM is one bank's budget.
+  if (sourceBytes + derivedBytes > MAX_BANK_BYTES) {
+    throw new UnsupportedLiveInstrumentError(`Prepared bank requires ${sourceBytes + derivedBytes} bytes; worklet budget is ${MAX_BANK_BYTES} bytes (192 MiB)`);
   }
-  return { ...raw, zones };
+  preparing.set(context, { source: sourceBytes, derived: derivedBytes });
+  for (const zone of zones) {
+    zone.mipmaps = await prepareSampleMipmapsAsync(zone.channels, zone.loopStartFrame, zone.loopEndFrame, needed.get(zone));
+  }
+  return raw;
 }
 
-/** Prepare selection-time PCM; unsupported/failed preparations preserve the existing renderer.
- * The bounded cache shares concurrent requests and follows sound re-registration.
- * Rejections are evicted so a transient download/decode failure can retry.
+/**
+ * Prepare one instrument for the worklet. Concurrent requests share one
+ * preparation; preparations run one at a time per context, which bounds peak
+ * loading memory to one bank. Failures are not kept, so a later call retries.
  */
-export function prepareLiveInstrument(context: AudioContext, instrumentId: string): Promise<LiveInstrumentPreparation> {
-  const sound = getSound(instrumentId) as object | undefined;
-  if (!sound) return Promise.resolve({ kind: "retryable", instrumentId, reason: "Sound is not registered" });
-  const cache = caches.get(context) ?? new Map<string, CacheEntry>();
-  caches.set(context, cache);
-  const existing = cache.get(instrumentId);
-  if (existing?.registration === sound) {
-    cache.delete(instrumentId); cache.set(instrumentId, existing);
-    return existing.pending;
-  }
-  const entry: CacheEntry = { registration: sound, pending: undefined!, additionalPcmBytes: 0 };
-  const reserve = (bytes: number) => {
-    // Preparation is serialized per context; evict before allocating so
-    // cached plus currently-being-built pyramids share this byte budget.
-    for (const [id, candidate] of cache) {
-      if (getPreparedLiveInstrumentDiagnostics(context).cachedPreparationPcmBytes + bytes <= MAX_PREPARATION_PCM_BYTES) break;
-      if (candidate !== entry) cache.delete(id);
-    }
-    preparingBytes.set(context, bytes);
-  };
-  entry.pending = (queues.get(context) ?? Promise.resolve()).then(() => prepare(context, instrumentId, reserve)).then(result => {
-    entry.result = result;
-    entry.additionalPcmBytes = preparingBytes.get(context) ?? 0;
-    preparingBytes.delete(context);
-    if ((result.kind === "unsupported" || result.kind === "retryable") && cache.get(instrumentId) === entry) cache.delete(instrumentId);
-    return result;
-  }).catch(error => {
-    if (cache.get(instrumentId) === entry) cache.delete(instrumentId);
-    return { kind: error instanceof UnsupportedLiveInstrumentError ? "unsupported" : "retryable",
-      instrumentId, reason: error instanceof Error ? error.message : String(error) } as const;
-  }).finally(() => { preparingBytes.delete(context); });
+export function prepareLiveInstrument(context: AudioContext, instrumentId: string, signal?: AbortSignal): Promise<LiveInstrumentPreparation> {
+  const registration = getCatalogSound(instrumentId);
+  const map = entries.get(context) ?? new Map<string, Entry>();
+  entries.set(context, map);
+  const existing = map.get(instrumentId);
+  if (existing && existing.registration === registration && existing.sampleRate === context.sampleRate) return existing.pending;
+  const entry: Entry = { registration, sampleRate: context.sampleRate, pending: undefined!, sourcePcmBytes: 0, derivedPcmBytes: 0 };
+  entry.pending = (queues.get(context) ?? Promise.resolve())
+    .then(() => prepare(context, instrumentId, entry.sampleRate, signal))
+    .catch(error => ({ kind: error instanceof UnsupportedLiveInstrumentError ? "unsupported" : "retryable",
+      instrumentId, reason: error instanceof Error ? error.message : String(error) }) as const)
+    .then(result => {
+      preparing.delete(context);
+      if (result.kind === "sample-bank" || result.kind === "oscillator") {
+        const bytes = preparedPcmBytes(result);
+        Object.assign(entry, { result, sourcePcmBytes: bytes.source, derivedPcmBytes: bytes.derived });
+      } else if (map.get(instrumentId) === entry) map.delete(instrumentId);
+      return result;
+    });
   queues.set(context, entry.pending.then(() => {}));
-  cache.set(instrumentId, entry);
-  while (cache.size > MAX_CACHED_BANKS) cache.delete(cache.keys().next().value!);
+  map.set(instrumentId, entry);
   return entry.pending;
 }

@@ -4,7 +4,7 @@ import { useInstrumentStore } from "@/stores/instrument";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
 import { useVisualConfigStore } from "@/stores/visualConfig";
-import { defaultPatterns } from "@/data/patterns";
+import { defaultPatterns, retiredDefaultPatternIds } from "@/data/patterns";
 import {
   arrangeReel,
   closeTake as closeBookTake,
@@ -81,6 +81,7 @@ function readLegacyBook(liveContext: PhraseContext): PhraseBook | null {
     if (!raw) return null;
     return migrateLegacyPatterns(JSON.parse(raw), {
       libraryIds,
+      retiredLibraryIds: retiredDefaultPatternIds,
       liveContext,
       now: Date.now(),
     });
@@ -298,6 +299,7 @@ export const usePhrasesStore = defineStore(
         isBorrowed,
         octave: detail.octave,
         frequency: detail.frequency,
+        velocity: detail.velocity,
         articulation: detail.articulation ? { ...detail.articulation } : undefined,
       }, config);
       heldCount.value = held.size;

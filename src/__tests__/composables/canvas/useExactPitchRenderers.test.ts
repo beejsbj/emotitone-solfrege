@@ -43,8 +43,6 @@ vi.mock("@/stores/music", () => ({
 vi.mock("@/composables/useMusicColor", () => ({
   useMusicColor: () => ({
     getPrimaryColorForPitch: vi.fn(() => "#ff6b9d"),
-    getFleckColor: vi.fn(() => "#e0a93a"),
-    getFleckColorByPitchClass: vi.fn(() => "#e0a93a"),
     sampleHuePhase: vi.fn(() => null),
   }),
 }));

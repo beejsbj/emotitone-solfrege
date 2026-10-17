@@ -1,3 +1,4 @@
+import { frameBlend, stageCanvasSize } from "./stageCanvas";
 /**
  * Blob Rendering System
  * Handles blob creation, rendering, and management with fluid animations
@@ -50,12 +51,12 @@ interface BlobRenderState {
   reducedMotion: boolean;
 }
 
-export function useBlobRenderer() {
+export function useBlobRenderer(animationActive?: () => boolean) {
   const {
     getPrimaryColorForPitch,
     getStaticPrimaryColorForPitch,
     withAlpha,
-  } = useMusicColor({ animated: true });
+  } = useMusicColor({ animated: true, animationActive });
   const keyboardDrawerStore = useKeyboardDrawerStore();
 
   // Circle of Fifths progression (starting from C at position 0)
@@ -332,7 +333,7 @@ export function useBlobRenderer() {
   const prepareBlobs = (
     ctx: CanvasRenderingContext2D,
     blobConfig: BlobConfig,
-    options: { reducedMotion?: boolean; bounds?: StageRect; elapsed?: number } = {},
+    options: { reducedMotion?: boolean; bounds?: StageRect; elapsed?: number; deltaSeconds?: number; driftIntegrated?: boolean } = {},
   ) => {
     if (!ctx) return;
 
@@ -346,16 +347,16 @@ export function useBlobRenderer() {
       const blobElapsed = (Date.now() - blob.startTime) / 1000;
       const motionElapsed = options.elapsed !== undefined ? options.elapsed : blobElapsed;
 
-      if (!options.reducedMotion) {
-        blob.x += blob.driftVx * (1 / 60);
-        blob.y += blob.driftVy * (1 / 60);
+      if (!options.reducedMotion && !options.driftIntegrated) {
+        blob.x += blob.driftVx * (options.deltaSeconds ?? 1 / 60);
+        blob.y += blob.driftVy * (options.deltaSeconds ?? 1 / 60);
       }
 
       const bounds = options.bounds ?? {
         x: 0,
         y: 0,
-        width: ctx.canvas.width,
-        height: ctx.canvas.height,
+        width: stageCanvasSize(ctx.canvas).width,
+        height: stageCanvasSize(ctx.canvas).height,
       };
       const fittedRadius = blob.baseRadius * compositionFitScale;
       const left = bounds.x + fittedRadius;
@@ -496,6 +497,7 @@ export function useBlobRenderer() {
     composition: StageComposition,
     blobConfig: BlobConfig,
     reducedMotion = false,
+    deltaSeconds = 1 / 60,
   ) => {
     compositionFitScale = composition.blobFitScale;
     activeBlobs.forEach((blob, key) => {
@@ -521,8 +523,11 @@ export function useBlobRenderer() {
         blob.x = targetX;
         blob.y = targetY;
       } else {
-        blob.x += (targetX - blob.x) * 0.12;
-        blob.y += (targetY - blob.y) * 0.12;
+        const blend = frameBlend(0.12, deltaSeconds);
+        // Integrate attraction and constant drift together. At 60 Hz this is
+        // the original follow-then-drift step; subdividing it gives the same path.
+        blob.x += (targetX - blob.x + blob.driftVx / (60 * 0.12)) * blend;
+        blob.y += (targetY - blob.y + blob.driftVy / (60 * 0.12)) * blend;
       }
     });
   };
@@ -656,7 +661,7 @@ export function useBlobRenderer() {
     gradient.addColorStop(1, "transparent");
 
     if (blobConfig.blurRadius > 0) {
-      ctx.filter = `blur(${blobConfig.blurRadius}px)`;
+      ctx.filter = `blur(${blobConfig.blurRadius * stageCanvasSize(ctx.canvas).dpr}px)`;
     }
 
     if (blobConfig.glowEnabled && blobConfig.glowIntensity > 0) {
@@ -666,7 +671,7 @@ export function useBlobRenderer() {
           : glowIntensity * bounceScale;
 
       ctx.shadowColor = primaryWithOpacity;
-      ctx.shadowBlur = bounceGlow;
+      ctx.shadowBlur = bounceGlow * stageCanvasSize(ctx.canvas).dpr;
       ctx.shadowOffsetX = 0;
       ctx.shadowOffsetY = 0;
     }
@@ -756,6 +761,7 @@ export function useBlobRenderer() {
   };
 
   return {
+    hasPendingAnimation: () => activeBlobs.size > 0,
     // State
     activeBlobs,
 

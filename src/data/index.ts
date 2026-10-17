@@ -35,7 +35,6 @@ export {
   SCALE_MAP,
   getScaleForMode,
   normalizeScaleIndex,
-  getSolfegeNameForMode,
 } from "./scales";
 export type { Scale } from "./scales";
 

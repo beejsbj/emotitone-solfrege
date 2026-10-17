@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import LoadingScreen from "@/components/compositions/LoadingScreen.vue";
 import { useAppLoading } from "@/composables/useAppLoading";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
@@ -30,6 +30,10 @@ const {
 const audioInitializing = ref(false);
 /** Set once the listener chooses to play on after a failed sample load. */
 const basicSynths = ref(false);
+watch(() => loadingState.generation, () => {
+  audioInitializing.value = false;
+  basicSynths.value = false;
+}, { flush: "sync" });
 const isDev = import.meta.env.DEV;
 
 const isComplete = computed(() => loadingState.progress.overall.isComplete);
@@ -71,11 +75,14 @@ const midiMessage = computed(() => {
 });
 
 const phase = computed(() => {
+  if (audioInitializing.value) return "Preparing sound";
   if (isComplete.value) return "Ready to play";
   return loadingState.progress.overall.message || "Starting soundcheck";
 });
 
 const message = computed(() => {
+  if (audioInitializing.value) return loadingState.progress.instruments.isComplete
+    ? "Starting audio…" : loadingState.progress.instruments.message;
   if (isComplete.value) return "Everything is tuned. Your first note is waiting.";
 
   const instrumentMessage = loadingState.progress.instruments.message;
@@ -96,7 +103,7 @@ const STAGE_PHASES = ["visualEffects", "instruments", "audioContext"] as const;
 const stages = computed(() => {
   const { visualEffects, instruments, audioContext } = loadingState.progress;
   // Each tile reports its own phase, so a held phase (a failed load, blocked audio) stays the active beat.
-  const ready = isComplete.value && audioContext.isComplete && !hasError.value;
+  const ready = isComplete.value && !audioInitializing.value && audioContext.isComplete && !hasError.value;
   const midi = keyboardDrawerStore.midi;
   const midiCheckComplete = ready && !midi.isConnecting;
   const midiStamp = !midi.isSupported ? "N/A" : midi.lastError ? "SKIP" : "SET";
@@ -156,6 +163,7 @@ const recovery = computed(() => (
  */
 async function startAudioThenEnter() {
   if (audioInitializing.value) return;
+  const generation = loadingState.generation;
   audioInitializing.value = true;
   let started = false;
   try {
@@ -163,9 +171,9 @@ async function startAudioThenEnter() {
   } catch (error) {
     console.error("Error enabling audio:", error);
   } finally {
-    audioInitializing.value = false;
+    if (generation === loadingState.generation) audioInitializing.value = false;
   }
-  if (!started) return; // needsAudioInteraction now holds the splash on the Enable Audio cue.
+  if (generation !== loadingState.generation || !started) return; // needsAudioInteraction now holds the splash on the Enable Audio cue.
 
   const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
   hideSplash(reducedMotion ? 0 : 500);
@@ -178,10 +186,13 @@ function handleEnableAudio() {
 function startInitialization() {
   if (!props.autoStart) return;
 
+  const generation = loadingState.generation;
   void (async () => {
     try {
       await initializeVisualEffects();
+      if (generation !== loadingState.generation) return;
       await initializeInstruments();
+      if (generation !== loadingState.generation) return;
       // A failed load holds the count on its own beat; the audio beat waits for the retry.
       if (loadingState.progress.instruments.error) return;
       updatePhase("audioContext", {

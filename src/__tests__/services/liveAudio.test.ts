@@ -1,5 +1,13 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createLiveAudioInput } from "@/services/liveAudio";
+import { resumeAudioContext } from "@/services/audioLifecycle";
+
+let session: { type: string };
+beforeEach(() => {
+  session = { type: "auto" };
+  vi.stubGlobal("navigator", { audioSession: session });
+});
+afterEach(() => { vi.unstubAllGlobals(); });
 
 function fixture() {
   let ended: (() => void) | undefined;
@@ -39,12 +47,21 @@ function fixture() {
 
 describe("live audio input", () => {
   it("shares one source and releases hardware after the final lease", async () => {
-    const { getUserMedia, input, node, track } = fixture();
+    const { context, getUserMedia, input, node, track, stream } = fixture();
+    await resumeAudioContext(context);
+    expect(session.type).toBe("playback");
+    getUserMedia.mockImplementation(async () => {
+      expect(session.type).toBe("play-and-record");
+      return stream;
+    });
+    track.stop.mockImplementation(() => { expect(session.type).toBe("play-and-record"); });
     const observed: Array<MediaStream | null> = [];
     input.subscribe((source) => observed.push(source?.stream ?? null));
 
     const first = await input.acquire();
     const second = await input.acquire();
+    await resumeAudioContext(context);
+    expect(session.type).toBe("play-and-record");
 
     expect(getUserMedia).toHaveBeenCalledTimes(1);
     expect(first.source).toBe(second.source);
@@ -52,11 +69,44 @@ describe("live audio input", () => {
 
     await first.release();
     expect(track.stop).not.toHaveBeenCalled();
+    expect(session.type).toBe("play-and-record");
 
     await second.release();
     expect(track.stop).toHaveBeenCalledTimes(1);
     expect(node.disconnect).toHaveBeenCalledTimes(1);
     expect(observed).toEqual([null, first.source.stream, null]);
+    expect(session.type).toBe("playback");
+    await second.release();
+    expect(track.stop).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps capture mode while another source still holds a microphone", async () => {
+    const first = await fixture().input.acquire();
+    const second = await fixture().input.acquire();
+    await first.release();
+    expect(session.type).toBe("play-and-record");
+    await second.release();
+    expect(session.type).toBe("playback");
+  });
+
+  it("restores playback after permission is rejected", async () => {
+    const { input, getUserMedia } = fixture();
+    getUserMedia.mockRejectedValueOnce(new Error("denied"));
+    await expect(input.acquire()).rejects.toThrow("denied");
+    expect(session.type).toBe("playback");
+    const lease = await input.acquire();
+    expect(session.type).toBe("play-and-record");
+    await lease.release();
+    expect(session.type).toBe("playback");
+  });
+
+  it("stops the stream before restoring playback when graph creation fails", async () => {
+    const { input, context, track } = fixture();
+    vi.mocked(context.createMediaStreamSource).mockImplementationOnce(() => { throw new Error("graph failed"); });
+    track.stop.mockImplementation(() => { expect(session.type).toBe("play-and-record"); });
+    await expect(input.acquire()).rejects.toThrow("graph failed");
+    expect(track.stop).toHaveBeenCalledOnce();
+    expect(session.type).toBe("playback");
   });
 
   it("publishes source loss and permits a fresh acquisition", async () => {
@@ -68,8 +118,11 @@ describe("live audio input", () => {
     endTrack();
 
     expect(observed).toEqual([null, stream, null]);
-    await input.acquire();
+    expect(session.type).toBe("playback");
+    const lease = await input.acquire();
     expect(getUserMedia).toHaveBeenCalledTimes(2);
+    expect(session.type).toBe("play-and-record");
+    await lease.release();
   });
 
   it("tears down a late source when its permission request was cancelled", async () => {
@@ -89,6 +142,7 @@ describe("live audio input", () => {
     });
     const controller = new AbortController();
     const acquisition = input.acquire(controller.signal);
+    expect(session.type).toBe("play-and-record");
     controller.abort();
     resolvePermission(stream);
 
@@ -97,5 +151,6 @@ describe("live audio input", () => {
     });
     expect(track.stop).toHaveBeenCalledTimes(1);
     expect(node.disconnect).toHaveBeenCalledTimes(1);
+    expect(session.type).toBe("playback");
   });
 });

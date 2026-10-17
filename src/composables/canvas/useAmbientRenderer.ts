@@ -76,9 +76,9 @@ function knobRatio(value: number, canonical: number) {
   return canonical > 0 ? Math.max(0, value) / canonical : 1;
 }
 
-export function useAmbientRenderer() {
+export function useAmbientRenderer(animationActive?: () => boolean) {
   const { config: dynamicColorConfig } = useMusicColorProvider();
-  const { sampleHuePhase } = useMusicColor({ animated: true });
+  const { sampleHuePhase } = useMusicColor({ animated: true, animationActive });
   const tokensByCanvas = new WeakMap<object, AtmosphereTokens>();
   let softCanvas: HTMLCanvasElement | null = null;
   let softCtx: CanvasRenderingContext2D | null = null;

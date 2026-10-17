@@ -20,7 +20,7 @@ export function getLiveArticulation(instrument: string): Readonly<LiveArticulati
     return PERCUSSIVE;
   }
   // The store also calls this before the audio wrapper resolves legacy names.
-  if (["sine", "triangle", "square", "sawtooth", "buzz", "supersaw", "synth", "amsynth", "fmsynth", "membranesynth", "metalsynth"].includes(name)) return OSCILLATOR;
+  if (["sine", "triangle", "square", "sawtooth", "sqr", "saw", "buzz", "supersaw", "synth", "amsynth", "fmsynth", "membranesynth", "metalsynth"].includes(name)) return OSCILLATOR;
   if (["organ", "pipeorgan", "recorder", "drawbar_organ", "percussive_organ", "rock_organ", "church_organ", "reed_organ"].includes(name)) return SUSTAINED;
   if (/^(organ_|pipeorgan_|recorder_|violin|viola|cello|contrabass|flute|oboe|clarinet|bassoon|pad_)/.test(name)) return SUSTAINED;
   return DEFAULT;

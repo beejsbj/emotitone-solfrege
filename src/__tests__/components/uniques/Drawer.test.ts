@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { flushPromises, mount } from "@vue/test-utils";
+import { h, ref } from "vue";
 import Drawer from "@/components/uniques/Drawer/index.vue";
+import Joystick from "@/components/uniques/Joystick/index.vue";
+import type { HarmonyAlteration } from "@/domain/harmony";
 
 const { triggerUIHaptic } = vi.hoisted(() => ({ triggerUIHaptic: vi.fn() }));
 vi.mock("@/utils/hapticFeedback", () => ({ triggerUIHaptic }));
@@ -346,6 +349,82 @@ describe("Drawer continuous height contract", () => {
     expect(unavailable.inert).toBe(true);
     w.unmount();
     expect(disconnect).toHaveBeenCalled();
+  });
+
+  it.each([
+    ["persistent", "analog"], ["persistent", "digital"],
+    ["default", "analog"], ["default", "digital"],
+  ] as const)("keeps the %s Joystick keyboard accessible in %s until clipped", async (slot, visual) => {
+    let notify: IntersectionObserverCallback = () => {};
+    const observed = new Set<Element>();
+    vi.stubGlobal("IntersectionObserver", class {
+      constructor(callback: IntersectionObserverCallback) { notify = callback; }
+      observe(element: Element) { observed.add(element); }
+      unobserve(element: Element) { observed.delete(element); }
+      disconnect() { observed.clear(); }
+    });
+    // Real layout reports no intersection for clipped sr-only radios even when
+    // their visible Joystick face is fully inside the drawer.
+    function intersect(visible: boolean) {
+      notify([...observed].map(target => {
+        const intersects = visible && !target.matches(".sr-only, [data-hidden]");
+        return { target, isIntersecting: intersects,
+          intersectionRect: { height: intersects ? 40 : 0, width: intersects ? 40 : 0 },
+        } as IntersectionObserverEntry;
+      }), {} as IntersectionObserver);
+    }
+    const selection = ref<HarmonyAlteration>("auto");
+    const w = mount(Drawer, {
+      attachTo: document.body,
+      props: { accessibleName: "Keyboard", defaultOpen: true, scroll: false,
+        minContentHeight: 100, persistentOverflow: "visible" },
+      slots: { [slot]: () => [
+        h(Joystick, { modelValue: selection.value, visual, haptic: false,
+          "onUpdate:modelValue": value => { selection.value = value; } }),
+        h("button", { class: "sr-only", "data-hidden": "" }, "Clipped ordinary control"),
+      ] },
+    });
+    mounted.push(w);
+    await flushPromises();
+    const radios = w.findAll<HTMLButtonElement>('[role="radio"]');
+    expect(radios).toHaveLength(9);
+    const tabStops = () => radios.filter(radio => radio.element.tabIndex === 0
+      && !radio.element.closest("[inert]"));
+    intersect(true);
+    expect(radios.every(radio => !radio.element.closest("[inert]"))).toBe(true);
+    expect((w.get("[data-hidden]").element as HTMLElement).inert).toBe(true);
+    expect(tabStops()).toHaveLength(1);
+    tabStops()[0].element.focus();
+    expect(document.activeElement).toBe(tabStops()[0].element);
+
+    for (const [key, value] of [
+      ["ArrowUp", "flip"], ["ArrowRight", "dominant7"],
+      ["ArrowDown", "jazzy7"], ["ArrowLeft", "auto"],
+    ] as const) {
+      await tabStops()[0].trigger("keydown", { key });
+      expect(selection.value).toBe(value);
+      expect(tabStops()).toHaveLength(1);
+      expect(document.activeElement).toBe(tabStops()[0].element);
+      expect(tabStops()[0].attributes("aria-checked")).toBe("true");
+    }
+
+    // A partly clipped persistent deck must guard the whole Joystick too.
+    intersect(false);
+    expect(radios.every(radio => radio.element.closest("[inert]"))).toBe(true);
+    expect(tabStops()).toHaveLength(0);
+    intersect(true);
+    expect(tabStops()).toHaveLength(1);
+
+    // Collapse all persistent bars as well as the expandable content.
+    await drag(w, 1000);
+    expect(height(w)).toBe(0);
+    // Even a stale visible intersection cannot override the closed container.
+    intersect(true);
+    expect(radios.every(radio => radio.element.closest("[inert]"))).toBe(true);
+    expect(tabStops()).toHaveLength(0);
+    await w.get(".drawer__handle").trigger("click");
+    intersect(true);
+    expect(tabStops()).toHaveLength(1);
   });
 
   it("leaves overflowing leading controls interactive while guarding the remaining deck", async () => {

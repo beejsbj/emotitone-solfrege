@@ -257,7 +257,6 @@ export function musicColorRelationships(
 ): NoteColorRelationships {
   return {
     primary: musicColorValueToCss(sample.primary),
-    accent: musicColorValueToCss(sample.accent),
   };
 }
 

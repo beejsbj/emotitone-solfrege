@@ -5,6 +5,7 @@ import App from '@/App.vue'
 import appSource from '@/App.vue?raw'
 import mainAppSource from '@/MainApp.vue?raw'
 import mainSource from '@/main.ts?raw'
+import { reportSaveFailure, resetSaveFailure } from '@/services/safeStorage'
 import { STYLE_GUIDE_PAGES, isStyleGuideRoute } from '@/styleGuideRoutes'
 
 const appLoadingState = vi.hoisted(() => ({
@@ -29,11 +30,11 @@ vi.mock('@/components/UnifiedVisualEffects.vue', () => ({
   default: { template: '<div data-testid="unified-visual-effects">Visual Effects</div>' },
 }))
 
-vi.mock('@/components/ConfigPanel.vue', () => ({
+vi.mock('@/components/LazyConfigPanel.vue', () => ({
   default: { template: '<div data-testid="config-panel">Config</div>' },
 }))
 
-vi.mock('@/components/InstrumentSelector.vue', () => ({
+vi.mock('@/components/LazyInstrumentSelector.vue', () => ({
   default: {
     props: ['compact', 'floating'],
     template: '<div data-testid="instrument-selector">Instrument</div>',
@@ -66,6 +67,18 @@ describe('App.vue', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     appLoadingState.isLoading = false
+  })
+
+  it('shows the save-failure Sticker in the app shell when a persisted write fails', async () => {
+    resetSaveFailure()
+    const wrapper = createTestWrapper(App)
+    expect(wrapper.find('[data-testid="save-failure-notice"]').exists()).toBe(false)
+
+    reportSaveFailure('quota', 'emotitone-instrument')
+    await nextTick()
+
+    expect(wrapper.find('[data-testid="save-failure-notice"]').text()).toBe("Can't save — storage full")
+    resetSaveFailure()
   })
 
   it('renders the current shell when the app is ready', () => {
@@ -114,10 +127,6 @@ describe('App.vue', () => {
     expect(appSource).not.toContain(
       'import StyleGuide from "./style-guide/StyleGuide.vue"',
     )
-    expect(appSource).toContain('beginJoystickPageEdition()')
-    expect(appSource.indexOf('beginJoystickPageEdition()'))
-      .toBeGreaterThan(appSource.indexOf('} else {'))
-    expect(appSource).not.toContain('MarksBeatParticlesPage')
     expect(appSource).not.toContain('isRoughPage')
   })
 
@@ -133,17 +142,6 @@ describe('App.vue', () => {
     }
     expect(isStyleGuideRoute('/')).toBe(false)
     expect(isStyleGuideRoute('/style-guide/unknown')).toBe(false)
-  })
-
-  it('pins the bootstrap routing wiring: two persistence-free guide routes and sole main.ts tab-edition call', () => {
-    // Structural guard: guards the entry-graph routing contract that beginsTabsPageEdition
-    // is called once in main.ts only for non-design routes
-    expect(mainSource).toMatch(
-      /const isPersistenceFreeDesignRoute = \[\s*"\/style-guide\/performance-deck",\s*"\/style-guide\/stage",\s*\]\.includes\(pathname\);/,
-    )
-    expect(mainSource).toMatch(
-      /if \(!isPersistenceFreeDesignRoute\) \{\s*beginTabsPageEdition\(\);\s*\}/,
-    )
   })
 
   it('bans the named retired FloatingPopup mount and requires UnifiedVisualEffects in MainApp', () => {

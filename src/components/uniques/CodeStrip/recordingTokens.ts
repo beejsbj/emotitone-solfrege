@@ -1,4 +1,5 @@
-import { getSolfegeNameForMode, normalizeScaleIndex } from "@/data";
+import { identifyChord, pitchSolfege, spelledPitchSolfege } from "@/domain/musicalIdentity";
+import { normalizeScaleIndex } from "@/data";
 import type { ChordMember } from "@/components/compounds/Chord.vue";
 import type { NoteSurfaceStyle } from "@/components/primatives/Note.vue";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
@@ -6,7 +7,7 @@ import type { PatternNote } from "@/types/patterns";
 import type { KeyboardConfig, CodeStripConfig } from "@/types/visual";
 import type { CodeStripNote, CodeStripToken } from "./types";
 import { Note as TonalNote } from "@tonaljs/tonal";
-import { prepareRecordedNotes, recordedLoopTailMs } from "@/services/recordedTiming";
+import { loopLengthMs, prepareRecordedNotes } from "@/services/recordedTiming";
 
 const OVERLAP_EPSILON_MS = 0;
 const NOTE_NAMES: CodeStripNote[] = ["do", "re", "mi", "fa", "sol", "la", "ti"];
@@ -46,11 +47,14 @@ type ScheduledEvent = ScheduledNote | ScheduledChord | ScheduledRest;
 
 export interface RecordedCodeStripInput {
   notes: PatternNote[];
+  laBasedMinor?: boolean;
   mode: MusicalMode;
   musicKey: ChromaticNote;
   notation: CodeStripConfig["notation"];
   barMs: number;
   sourceBpm: number;
+  /** The phrase's length; past its last note, that silence is its authored tail. */
+  durationMs?: number;
   surfaceStyle: KeyboardConfig["surfaceStyle"];
   keyBrightness: number;
   keySaturation: number;
@@ -97,16 +101,20 @@ export function buildRecordedCodeStripTokens(input: RecordedCodeStripInput): Cod
     const pressRanks = new Map(
       pressOrdered.map((span, pressOrder) => [span.indexed.note.id, pressOrder]),
     );
-    const members = pressOrdered.map((span): ChordMember => {
+    const context = { tonic: input.musicKey, mode: input.mode };
+    const chord = identifyChord(pressOrdered.map((span) => span.indexed.note.note), context);
+    const members = pressOrdered.map((span, index): ChordMember => {
       const note = span.indexed.note;
       const borrowed = isBorrowedNote(note);
       return {
         id: note.id,
-        syllable: borrowed ? undefined : solfegeLabel(note, input.mode),
+        syllable: chord
+          ? spelledPitchSolfege(chord.pitchSpellings[index], context, input.laBasedMinor)
+          : solfegeLabel(note, input),
         degree: borrowed ? undefined : degreeLabel(note, input.mode),
         rawPitch: note.note,
-        primary: borrowed ? "raw" : undefined,
-        visibleLabels: borrowed ? ["raw"] : undefined,
+        primary: input.notation === "degree" ? (borrowed ? "raw" : "degree") : input.notation === "note" ? "raw" : "syllable",
+        visibleLabels: [input.notation === "degree" ? (borrowed ? "raw" : "degree") : input.notation === "note" ? "raw" : "syllable"],
         scaleIndex: note.scaleIndex,
         pitchClassIndex: borrowed ? exactPitchClassIndex(note) : undefined,
         octave: note.octave,
@@ -133,7 +141,16 @@ export function buildRecordedCodeStripTokens(input: RecordedCodeStripInput): Cod
     });
   }
 
-  tokens.push({ type: "rest", duration: formatDuration(recordedLoopTailMs(input.sourceBpm), input.barMs) });
+  // The loop's closing rest, as the generated code plays it: a loaded phrase
+  // keeps its authored trailing silence; a fresh take, ending at its last
+  // note, gets one beat.
+  const end = schedule.length ? schedule[schedule.length - 1].end : 0;
+  const tail = loopLengthMs({
+    notes: [{ releaseTime: end }],
+    duration: input.durationMs,
+    context: { bpm: input.sourceBpm },
+  }) - end;
+  tokens.push({ type: "rest", duration: formatDuration(tail, input.barMs) });
   return tokens;
 }
 
@@ -212,17 +229,18 @@ function noteToken(
   const borrowed = isBorrowedNote(note);
   const normalizedIndex = borrowed ? 0 : normalizeScaleIndex(input.mode, note.scaleIndex);
   const codeStripNote = NOTE_NAMES[positiveModulo(normalizedIndex, NOTE_NAMES.length)];
-  const syllable = borrowed ? undefined : solfegeLabel(note, input.mode);
+  const syllable = solfegeLabel(note, input);
   const degree = borrowed ? undefined : degreeLabel(note, input.mode);
-  const glyph = borrowed || input.notation === "note"
+  const glyph = input.notation === "note"
     ? "raw"
-    : input.notation === "degree" ? "deg" : "syl";
+    : input.notation === "degree" ? (borrowed ? "raw" : "deg") : "syl";
   const text = glyph === "raw"
     ? note.note
     : glyph === "deg" ? degree ?? note.note : syllable ?? note.note;
 
   return {
     type: "note",
+    noteId: note.id,
     note: codeStripNote,
     text,
     glyph,
@@ -251,8 +269,8 @@ function exactPitchClassIndex(note: PatternNote) {
   return TonalNote.get(note.note).chroma ?? undefined;
 }
 
-function solfegeLabel(note: PatternNote, mode: MusicalMode) {
-  return getSolfegeNameForMode(mode, note.scaleIndex);
+function solfegeLabel(note: PatternNote, input: RecordedCodeStripInput) {
+  return pitchSolfege(note.note, { tonic: input.musicKey, mode: input.mode }, { laBasedMinor: input.laBasedMinor });
 }
 
 function degreeLabel(note: PatternNote, mode: MusicalMode) {

@@ -27,7 +27,6 @@
         :tokens="tokens"
         :source="source"
         :density="density"
-        :duration-mode="durationMode"
         :time-signature="timeSignature"
         :aria-label="ariaLabel"
         :framed="false"
@@ -73,7 +72,6 @@ import CodeStrip from "@/components/uniques/CodeStrip/index.vue";
 import BeatIndicator from "@/components/compounds/BeatIndicator.vue";
 import type {
   CodeStripDensity,
-  CodeStripDurationMode,
   CodeStripToken,
 } from "@/components/uniques/CodeStrip/index.vue";
 
@@ -86,7 +84,6 @@ const props = withDefaults(
     tokens?: CodeStripToken[];
     source?: string;
     density?: CodeStripDensity;
-    durationMode?: CodeStripDurationMode;
     timeSignature?: string;
     ariaLabel?: string;
   }>(),
@@ -98,9 +95,8 @@ const props = withDefaults(
     tokens: undefined,
     source: undefined,
     density: "dense",
-    durationMode: "bar",
     timeSignature: "4/4",
-    ariaLabel: "Editable Strudel pattern",
+    ariaLabel: "Pattern code, read-only",
   },
 );
 
@@ -146,6 +142,8 @@ const emit = defineEmits<{
 
 .code-strip-bar__right {
   min-width: 0;
+  /* Small keys sit --hit-gap-sm apart so their touches meet, not overlap. */
+  gap: var(--hit-gap-sm);
 }
 
 .code-strip-bar__beat {

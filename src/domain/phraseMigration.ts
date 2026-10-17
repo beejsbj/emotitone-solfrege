@@ -88,6 +88,8 @@ export function migrateLegacyPatterns(
   legacy: unknown,
   options: {
     libraryIds: ReadonlySet<string>;
+    /** Built-ins that have left the library: dropped, never migrated as the player's own. */
+    retiredLibraryIds?: ReadonlySet<string>;
     liveContext: PhraseContext;
     now: number;
     newId?: NewId;
@@ -104,6 +106,7 @@ export function migrateLegacyPatterns(
   for (const pattern of savedPatterns) {
     if (!isRecord(pattern) || typeof pattern.id !== "string" || !Array.isArray(pattern.notes)) continue;
     savedIds.add(pattern.id);
+    if (options.retiredLibraryIds?.has(pattern.id)) continue;
     if (options.libraryIds.has(pattern.id)) {
       if (pattern.name) book.libraryNames[pattern.id] = pattern.name;
       continue;

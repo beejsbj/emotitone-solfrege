@@ -220,7 +220,7 @@ onBeforeUnmount(() => unsubscribe?.());
   inline-size: var(--s-2);
   block-size: var(--s-2);
   border-radius: 0.6px;
-  background: var(--ink-5);
+  background: var(--led-off);
   rotate: var(--beat-tilt);
   transition:
     background-color var(--dur-tap) var(--ease-stab),

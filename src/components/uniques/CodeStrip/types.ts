@@ -1,15 +1,15 @@
 import type { ChordDisplay, ChordMember } from "@/components/compounds/Chord.vue";
 import type { NoteGeometry, NoteSurfaceStyle } from "@/components/primatives/Note.vue";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
-import type { CodeStripDurationMode as ConfiguredCodeStripDurationMode } from "@/types/visual";
 
 export type CodeStripNote = "do" | "re" | "mi" | "fa" | "sol" | "la" | "ti";
 export type CodeStripGlyph = "syl" | "deg" | "raw";
 export type CodeStripDensity = "dense" | "default" | "spaced";
-export type CodeStripDurationMode = ConfiguredCodeStripDurationMode;
 
 export interface CodeStripNoteToken {
   type: "note";
+  /** The phrase note this event plays; note events light it by this id. */
+  noteId?: string;
   note: CodeStripNote;
   text: string;
   glyph?: CodeStripGlyph;

@@ -157,6 +157,8 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
   let pinSerial = 0;
   /** The bar the current run started at (0, or where a recovered run continued). */
   let startBar = 0;
+  /** After a rebuild with no member to restore: the bar the next join starts the new run at. */
+  let idleBar: number | undefined;
   let stopRecovery: (() => void) | undefined;
   let releaseActivity: (() => void) | undefined;
   let releaseGrid: (() => void) | undefined;
@@ -191,6 +193,8 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
   /** Send a change; resolves with its receipt (matched by request id, never by order). */
   function change(change: TransportChange, boundary: TransportBoundary = "immediate"): Promise<TransportReceipt> {
     const id = ++requestId;
+    // No renderer to tell (an empty Looper after a rebuild): nothing applied.
+    if (!port) return Promise.resolve(cancelledReceipt(id));
     const receipt = new Promise<TransportReceipt>(resolve => receipts.set(id, resolve));
     const tables = (change.type === "batch" ? change.changes : [change]).flatMap(part =>
       part.type === "join" ? [part.member.table] : part.type === "replace" ? [part.table] : []);
@@ -534,6 +538,7 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
     session = undefined;
     recovery = undefined;
     startBar = 0;
+    idleBar = undefined;
     stopRecovery?.();
     stopRecovery = undefined;
     stopBeat();
@@ -597,7 +602,14 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
           }
           if (attempt !== run || !session || !recovery) return;
           if (recovery.epoch !== epoch) continue;
-          if (!ready) return;
+          if (!ready) {
+            // No member to bring back: the next join starts the new run at this bar.
+            idleBar = recovery.bar;
+            recovery = undefined;
+            port = undefined;
+            anchors = [];
+            return;
+          }
           port = ready;
           anchors = [];
           run++;
@@ -629,6 +641,29 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
   function requireSession(): NonNullable<typeof session> {
     if (!playing || !session?.looper) throw new Error("The Looper is not running");
     return session;
+  }
+
+  // Validated before any state changes, so a bad value is refused at once and
+  // the player, the worklet and the pins never disagree about it.
+  function checkBoundary(boundary: TransportBoundary) {
+    if (boundary !== "immediate" && !(typeof boundary === "object" && Number.isFinite(boundary?.bar))) {
+      throw new RangeError("A boundary is 'immediate' or { bar } with a finite bar");
+    }
+  }
+  function checkSettings(patch: Partial<LooperMemberSettings> & { lengthBars?: number }) {
+    const { offsetBars, rate, muted, pinned, lengthBars } = patch;
+    if (offsetBars !== undefined && !Number.isFinite(offsetBars)) throw new RangeError("offsetBars must be finite");
+    if (rate !== undefined && !(Number.isFinite(rate) && rate > 0)) throw new RangeError("rate must be a positive number");
+    if (muted !== undefined && typeof muted !== "boolean") throw new TypeError("muted must be true or false");
+    if (pinned !== undefined && typeof pinned !== "boolean") throw new TypeError("pinned must be true or false");
+    if (lengthBars !== undefined && !(Number.isFinite(lengthBars) && lengthBars > 0)) throw new RangeError("lengthBars must be a positive number");
+  }
+  function checkBpm(bpm: number) {
+    if (!(Number.isFinite(bpm) && bpm >= 1 && bpm <= 1000)) throw new RangeError("bpm must be between 1 and 1000");
+  }
+  /** Run `check`; a failure becomes a rejected promise before anything changes. */
+  function refusal(check: () => void): Promise<never> | undefined {
+    try { check(); return undefined; } catch (error) { return Promise.reject(error); }
   }
 
   /** After a receipt that silenced members, apply the tail policy. */
@@ -718,6 +753,8 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
      * prepared first; then all join and the transport starts at bar 0.
      */
     async start(request: { bpm: number; target: LooperKeyMode; members: readonly LooperMemberRequest[] }): Promise<TransportReceipt> {
+      checkBpm(request.bpm);
+      for (const memberRequest of request.members) checkSettings(memberRequest);
       halt(true);
       const attempt = run;
       const audioContext = options.audio.getContext();
@@ -759,12 +796,17 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
      */
     async join(request: LooperMemberRequest, boundary: TransportBoundary = "immediate"): Promise<TransportReceipt> {
       requireSession();
+      checkSettings(request);
+      checkBoundary(boundary);
       const attempt = run;
       const previous = memberships.get(request.id);
       const entry: Membership = { request, settings: settingsOf(request, previous?.settings), instrumentId: previous?.instrumentId };
       memberships.set(request.id, entry);
+      /** The join never happened: no member, no pin of its own, no solo naming it. */
       const undo = () => {
         if (memberships.get(request.id) !== entry) return;
+        entry.releasePin?.();
+        entry.releasePin = undefined;
         if (previous) memberships.set(request.id, previous);
         else {
           memberships.delete(request.id);
@@ -784,26 +826,40 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
       }
       // Left, replaced or stopped while loading: nothing to join.
       if (attempt !== run || memberships.get(request.id) !== entry) return cancelledReceipt(0);
+      // After a rebuild with nobody to restore, this join starts the new run.
+      const restart = idleBar !== undefined && !recovery;
+      if (restart) port = prepared.port;
       if (prepared.port.generation !== port?.generation || recovery) {
         undo();
         throw new PatternLoadError("The audio engine restarted", true);
       }
       pin(request.id, entry, prepared.instrumentId);
-      build(entry);
+      if (!(build(entry).table.lengthBars > 0)) {
+        undo();
+        throw new RangeError(`${request.id} has no length to loop`);
+      }
       // A re-join replaces the member only at its boundary: until then the
       // previous one plays on with its bank pinned and its tables known.
       if (previous) leaving.add(previous);
       const solo = session!.soloId === request.id ? [{ type: "solo", memberId: request.id } as const] : [];
-      const receipt = change(solo.length ? { type: "batch", changes: [joinChange(entry), ...solo] } : joinChange(entry), boundary);
-      if (previous) void receipt.then(applied => {
-        leaving.delete(previous);
-        if (applied.refused && memberships.get(request.id) === entry) {
-          // The re-join never happened: the previous member plays on.
-          memberships.set(request.id, previous);
-          entry.releasePin?.();
+      const receipt = change(solo.length ? { type: "batch", changes: [joinChange(entry), ...solo] } : joinChange(entry),
+        restart ? "immediate" : boundary);
+      if (restart) {
+        startBar = idleBar!;
+        idleBar = undefined;
+        anchors = [];
+        send({ type: "transport-start", requestId: ++requestId, run: ++run, bpm: session!.bpm, bar: startBar });
+      }
+      void receipt.then(applied => {
+        if (previous) leaving.delete(previous);
+        if (applied.refused) {
+          // Refused for any reason: it never happened (the previous member, if any, plays on).
+          undo();
           return;
         }
-        if (memberships.get(request.id) !== previous) previous.releasePin?.();
+        // The previous member's bank is released once it has stopped playing: when this join
+        // applied, or when it was withdrawn (a leave or a later join), never while it sounds.
+        if (previous && memberships.get(request.id) !== previous) previous.releasePin?.();
         prune();
       });
       return receipt;
@@ -812,6 +868,8 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
     /** Leave: the member's sounding notes finish their gates; its bank is unpinned. */
     leave(id: string, boundary: TransportBoundary = "immediate"): Promise<TransportReceipt> {
       const looper = requireSession();
+      const refused = refusal(() => checkBoundary(boundary));
+      if (refused) return refused;
       const entry = memberships.get(id);
       memberships.delete(id);
       if (entry) leaving.add(entry);
@@ -833,12 +891,13 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
      */
     setMember(id: string, patch: Partial<LooperMemberSettings>, boundary: TransportBoundary = "immediate"): Promise<TransportReceipt> {
       requireSession();
+      const refused = refusal(() => { checkSettings(patch); checkBoundary(boundary); });
+      if (refused) return refused;
       const entry = memberships.get(id);
       if (!entry) return Promise.resolve(cancelledReceipt(0));
       const silencing = patch.muted === true && !entry.settings.muted;
       const repin = patch.pinned !== undefined && patch.pinned !== entry.settings.pinned;
-      const before = { settings: entry.settings, member: entry.member };
-      const next = entry.settings = { ...entry.settings, ...patch };
+      entry.settings = { ...entry.settings, ...patch };
       // Still loading: the join carries the new settings when it is sent.
       if (!entry.member) return Promise.resolve(cancelledReceipt(0));
       const parts: TransportSingleChange[] = [];
@@ -850,17 +909,18 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
       }
       if (repin) parts.push({ type: "replace", table: build(entry).table });
       if (!parts.length) return Promise.resolve(cancelledReceipt(0));
-      const receipt = change(parts.length === 1 ? parts[0] : { type: "batch", changes: parts }, boundary).then(applied => {
-        // A refused change (an invalid offset or rate) changed nothing: say so locally too.
-        if (applied.refused && entry.settings === next) Object.assign(entry, before);
-        return applied;
-      });
+      const receipt = change(parts.length === 1 ? parts[0] : { type: "batch", changes: parts }, boundary);
       return silencing ? afterSilence(receipt) : receipt;
     },
 
     /** Solo one member (others fade, keeping phase), or null to restore all. */
     solo(id: string | null, boundary: TransportBoundary = "immediate"): Promise<TransportReceipt> {
       const looper = requireSession();
+      const refused = refusal(() => {
+        checkBoundary(boundary);
+        if (id !== null && !memberships.has(id)) throw new RangeError(`${id} is not a member`);
+      });
+      if (refused) return refused;
       looper.soloId = id;
       const receipt = change({ type: "solo", memberId: id }, boundary);
       return id === null ? receipt : afterSilence(receipt);
@@ -868,12 +928,10 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
 
     setTempo(bpm: number, boundary: TransportBoundary = "immediate"): Promise<TransportReceipt> {
       const looper = requireSession();
-      const before = looper.bpm;
+      const refused = refusal(() => { checkBpm(bpm); checkBoundary(boundary); });
+      if (refused) return refused;
       looper.bpm = bpm;
-      return change({ type: "tempo", bpm }, boundary).then(applied => {
-        if (applied.refused && Object.is(looper.bpm, bpm)) looper.bpm = before;
-        return applied;
-      });
+      return change({ type: "tempo", bpm }, boundary);
     },
 
     /**
@@ -883,6 +941,8 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
      */
     bend(target: LooperKeyMode, boundary: TransportBoundary = "immediate"): Promise<TransportReceipt | null> {
       const looper = requireSession();
+      const refused = refusal(() => checkBoundary(boundary));
+      if (refused) return refused;
       looper.target = { ...target };
       const parts: TransportSingleChange[] = [];
       for (const entry of memberships.values()) {

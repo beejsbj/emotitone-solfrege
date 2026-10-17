@@ -373,15 +373,16 @@ export class AudioTransport {
    * A member whose join (or re-join) waits for its bar is already a member to
    * the caller. A change that names it, applied now, also reaches every join
    * of it submitted before that change: an update patches the join's
-   * settings, a replace swaps its table, a leave withdraws it (its receipt
-   * says cancelled). So a mute, bend or pin tapped after "join at the next
+   * settings, a replace swaps its table, a leave or a newer join withdraws it
+   * (its receipt says cancelled). So a mute, bend or pin tapped after "join at the next
    * bar" holds when the member arrives, and later submissions win.
    * Returns the earliest bar whose pending change was altered.
    */
   private foldIntoPendingJoins(change: TransportChange, requestId: number, frame: number): number {
     let earliest = Infinity
     for (const part of change.type === 'batch' ? change.changes : [change]) {
-      const id = part.type === 'update' || part.type === 'leave' ? part.memberId : part.type === 'replace' ? part.table.id : undefined
+      const id = part.type === 'update' || part.type === 'leave' ? part.memberId
+        : part.type === 'replace' ? part.table.id : part.type === 'join' ? part.member.table.id : undefined
       if (id === undefined) continue
       for (let index = this.pending.length - 1; index >= 0; index--) {
         const entry = this.pending[index]
@@ -393,6 +394,7 @@ export class AudioTransport {
           if (own.type !== 'join' || own.member.table.id !== id) folded.push(own)
           else if (part.type === 'update') folded.push({ type: 'join', member: { ...own.member, ...part.patch } })
           else if (part.type === 'replace') folded.push({ type: 'join', member: { ...own.member, table: part.table } })
+          // A leave or a later join withdraws it: the later submission wins.
         }
         earliest = Math.min(earliest, entry.bar)
         if (!folded.length) {
@@ -632,14 +634,18 @@ export class AudioTransport {
     // announced, so sound and consumers get the new length.
     for (let index = 0; index < this.retracted.length; index++) {
       const old = this.retracted[index]
-      if (old.member!.id === member.id && old.member!.table === table && old.noteIndex === noteIndex
-        && old.loop === loop && old.frame === frame && old.gateFrames === gateFrames
-        && old.framesPerTableBar === framesPerTableBar) {
-        this.retracted.splice(index, 1)
+      if (old.member!.id !== member.id || old.member!.table !== table || old.noteIndex !== noteIndex
+        || old.loop !== loop || old.frame !== frame) continue
+      this.retracted.splice(index, 1)
+      if (old.gateFrames === gateFrames && old.framesPerTableBar === framesPerTableBar) {
         old.member = member
         this.insert(old)
         return
       }
+      // Withdraw the old announcement first, so no consumer holds both.
+      this.write(TransportEventKind.Cancel, old)
+      this.recycle(old)
+      break
     }
     const onset = this.take()
     onset.kind = 'note'

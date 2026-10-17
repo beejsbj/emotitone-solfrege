@@ -1004,6 +1004,22 @@ describe('changes to a member whose join waits for its bar (review of #199)', ()
     expect(sounded(rig.events).filter(event => event.generation === member.generation)).toEqual([])
   })
 
+  it('lets an immediate re-join withdraw an earlier join still waiting for its bar', () => {
+    const rig = setup()
+    rig.join(quiet())
+    rig.start(120)
+    rig.render(.5)
+    const stale = table('b', b, 1)
+    const staleJoin = rig.join(stale, 0, 1, { bar: 2 })
+    const fresh = table('b', b.map(note => ({ ...note, pitch: note.pitch + 5 })), 1)
+    rig.join(fresh)
+    rig.render(6)
+    expect(rig.receipts.find(entry => entry.requestId === staleJoin)).toMatchObject({ cancelled: true, appliedBar: null })
+    const attacks = sounded(rig.events)
+    expect(attacks.filter(event => event.generation === stale.generation)).toEqual([])
+    expect(attacks.filter(event => event.generation === fresh.generation && event.frame >= 2 * fpb(120)).length).toBeGreaterThan(2)
+  })
+
   it('lets a later re-join win over an earlier mute', () => {
     const rig = setup()
     rig.join(quiet())
@@ -1030,6 +1046,11 @@ describe('changes to a member whose join waits for its bar (review of #199)', ()
     rig.render(6)
     const onBar = sounded(rig.events).find(event => event.frame === 2 * fpb(120))!
     expect(onBar.length).toBe(Math.round(.5 * fpb(60)))
+    // The old announcement is withdrawn before the new one is made: no consumer holds both.
+    const oldIndex = rig.events.findIndex(event => event.kind === TransportEventKind.Cancel && event.frame === onBar.frame)
+    const newIndex = rig.events.findIndex(event => event.kind === TransportEventKind.Attack && event.serial === onBar.serial)
+    expect(oldIndex).toBeGreaterThanOrEqual(0)
+    expect(oldIndex).toBeLessThan(newIndex)
     const release = rig.events.find(event => event.kind === TransportEventKind.Release && event.serial === onBar.serial)!
     expect(release.frame - onBar.frame).toBe(Math.round(.5 * fpb(60)))
     // The note still sounds past its old 120 BPM gate.

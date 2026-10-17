@@ -435,15 +435,113 @@ describe("the Looper after review", () => {
     player.dispose();
   });
 
-  it("answers an invalid change with a refused receipt and leaves its own state unchanged", async () => {
-    const { player } = setup();
+  it("refuses an invalid value at once and changes nothing", async () => {
+    const { player, played } = setup();
     await start(player, [member("a", melody)]);
     render(.2);
-    await expect(player.setTempo(Number.NaN)).resolves.toMatchObject({ refused: true });
-    await expect(player.setTempo(0, { bar: 2 })).resolves.toMatchObject({ refused: true });
-    expect(player.getLooper().bpm).toBe(120);
-    await expect(player.setMember("a", { rate: 0, muted: true })).resolves.toMatchObject({ refused: true });
-    expect(player.getLooper().members[0]).toMatchObject({ rate: 1, muted: false });
+    const sent = rig.commands.length;
+    await expect(player.setTempo(Number.NaN)).rejects.toThrow(RangeError);
+    await expect(player.setTempo(0, { bar: 2 })).rejects.toThrow(RangeError);
+    await expect(player.solo("a", { bar: Number.NaN })).rejects.toThrow(RangeError);
+    await expect(player.solo("nobody")).rejects.toThrow(RangeError);
+    await expect(player.bend({ key: "D", mode: "minor" }, { bar: Number.NaN })).rejects.toThrow(RangeError);
+    await expect(player.join(member("z", bass, { rate: -1 }))).rejects.toThrow(RangeError);
+    // A rate of 0, then a valid mute before any receipt: rate 0 is never reported.
+    const zero = player.setMember("a", { rate: 0 });
+    const mute = player.setMember("a", { muted: true });
+    await expect(zero).rejects.toThrow(RangeError);
+    await mute;
+    expect(player.getLooper()).toMatchObject({ bpm: 120, soloId: null, target: { key: "C", mode: "major" } });
+    expect(player.getLooper().members).toEqual([expect.objectContaining({ id: "a", rate: 1, muted: true })]);
+    // Only the valid mute reached the worklet.
+    expect(rig.commands.slice(sent)).toEqual([expect.objectContaining({ change: { type: "update", memberId: "a", patch: { muted: true } } })]);
+    await player.setMember("a", { muted: false });
+    // leave with a bad bar: still a member, still pinned, still playing.
+    await expect(player.leave("a", { bar: Number.NaN })).rejects.toThrow(RangeError);
+    expect(player.getLooper().members.map(entry => entry.id)).toEqual(["a"]);
+    expect([...rig.pins.values()].flat()).toEqual(["sine"]);
+    const before = played.length;
+    render(1);
+    expect(played.length).toBeGreaterThan(before);
+    player.dispose();
+  });
+
+  it("leaves no ghost, no stuck solo and no stuck pin when a loading member is refused, and a rebuild restores the rest", async () => {
+    const { player, played } = setup();
+    await start(player, [member("a", melody)]);
+    render(.3);
+    let arrive!: () => void;
+    rig.gates.set("cello", new Promise<void>(resolve => { arrive = resolve; }));
+    const joining = player.join(member("b", bass, { instrument: "cello" }));
+    // The reviewer's probe: an invalid rate is refused at once, the solo stands while it loads.
+    await expect(player.setMember("b", { rate: 0 })).rejects.toThrow(RangeError);
+    await player.solo("b");
+    render(.5);
+    // Its bank is then refused (every slot held): the join never happens.
+    rig.refused.add("cello");
+    arrive();
+    await expect(joining).rejects.toMatchObject({ budget: true });
+    expect(player.getLooper()).toMatchObject({ soloId: null });
+    expect(player.getLooper().members.map(entry => entry.id)).toEqual(["a"]);
+    expect([...rig.pins.values()].flat()).toEqual(["sine"]);
+    const lifted = rig.frame;
+    render(1.2);
+    expect(played.some(event => event.phraseId === "a" && event.frame >= lifted)).toBe(true);
+    // A renderer rebuild brings back the valid member, and only it.
+    rig.refused.clear();
+    rig.generation++;
+    newCore();
+    for (const listener of [...rig.listeners]) listener.onRendererReset?.();
+    await resumeAudioContext(context as unknown as AudioContext);
+    await vi.waitFor(() => expect(player.getLooper().running).toBe(true));
+    const resumed = played.length;
+    render(1.5);
+    const after = played.slice(resumed);
+    expect(after.length).toBeGreaterThan(2);
+    expect(after.every(event => event.phraseId === "a")).toBe(true);
+    player.dispose();
+  });
+
+  it("lets an immediate re-join withdraw a join still waiting for its bar, and pins only the bank that plays", async () => {
+    const { player, played } = setup();
+    await start(player, [member("a", melody)]);
+    render(.3);
+    const stale = player.join(member("b", pinned, { instrument: "triangle" }), { bar: 2 });
+    await vi.waitFor(() => expect([...rig.pins.values()].flat()).toContain("triangle"));
+    const fresh = [note("f1", "D4", 0), note("f2", "F4", 1000)];
+    await player.join(member("b", fresh, { instrument: "cello" }));
+    expect(await stale).toMatchObject({ cancelled: true });
+    render(5);
+    const b = played.filter(event => event.phraseId === "b");
+    expect(b.filter(event => event.frame >= 2 * 2 * RATE).length).toBeGreaterThan(1);
+    expect(b.every(event => event.sourceNoteId.startsWith("f"))).toBe(true);
+    expect(player.getLooper().members.find(entry => entry.id === "b")).toMatchObject({
+      generation: Math.max(...tables().filter(table => table.id === "b").map(table => table.generation)) });
+    expect([...rig.pins.values()].flat().sort()).toEqual(["cello", "sine"]);
+    player.dispose();
+  });
+
+  it("finishes recovering from a rebuild with no members, and the next join starts the loop again", async () => {
+    const { player, played } = setup();
+    await start(player, [member("a", melody)]);
+    render(1.1);
+    await player.leave("a");
+    render(.3);
+    rig.generation++;
+    newCore();
+    for (const listener of [...rig.listeners]) listener.onRendererReset?.();
+    await resumeAudioContext(context as unknown as AudioContext);
+    await vi.waitFor(() => expect(player.getLooper().recovering).toBe(false));
+    await expect(player.setTempo(120)).resolves.toMatchObject({ cancelled: true });
+    const joined = await player.join(member("a", melody));
+    expect(joined.cancelled).toBeUndefined();
+    const before = played.length;
+    render(1.5);
+    const after = played.slice(before);
+    expect(after.length).toBeGreaterThan(2);
+    // The new run continues from the bar the clock had reached, on the quarter-bar grid.
+    expect(after[0].bar).toBeGreaterThanOrEqual(1.4 / 2 - 1e-9);
+    expect(after.every(event => Math.abs(event.bar * 4 - Math.round(event.bar * 4)) < 1e-9)).toBe(true);
     player.dispose();
   });
 

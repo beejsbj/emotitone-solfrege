@@ -473,6 +473,34 @@ describe("CodeStrip production pattern transport", () => {
     }
   });
 
+  it.each(["Stop", "an engine restart"])("never ends an announced, not-yet-heard note before its onset on %s (MIDI would stick)", async (cause) => {
+    const clock = vi.spyOn(performance, "now").mockReturnValue(5000);
+    onTestFinished(() => clock.mockRestore());
+    const wrapper = mount(CodeStrip);
+    await flushPromises();
+    await controllerOf().evaluate();
+    const generation = joinedTable().generation;
+    const events: CustomEvent[] = [];
+    const record = (event: Event) => events.push(event as CustomEvent);
+    window.addEventListener("note-played", record);
+    window.addEventListener("note-released", record);
+    try {
+      // Announced 50 ms (plus output latency) ahead of being heard.
+      emit(batch([TransportEventKind.Attack, 1, generation, 0, 80, 0, 500]));
+      if (cause === "Stop") controllerOf().stop();
+      else for (const listener of [...mocks.listeners]) listener.onRendererReset?.();
+      const [played, released] = events;
+      expect([played.type, released.type]).toEqual(["note-played", "note-released"]);
+      // The MIDI scheduler ignores a note-off earlier than its pending note-on.
+      expect(released.detail.midiTimestamp).toBeGreaterThanOrEqual(played.detail.midiTimestamp);
+      expect(released.detail.audibleAt).toBeGreaterThanOrEqual(played.detail.audibleAt);
+    } finally {
+      window.removeEventListener("note-played", record);
+      window.removeEventListener("note-released", record);
+      wrapper.unmount();
+    }
+  });
+
   it("recovers the registry from an overflow snapshot", async () => {
     const wrapper = mount(CodeStrip);
     await flushPromises();
@@ -555,6 +583,28 @@ describe("CodeStrip production pattern transport", () => {
     expect(joinedTable().instrumentId).toBe("piano");
     expect(mocks.pins.at(-1)).toEqual(["piano"]);
     wrapper.unmount();
+  });
+
+  it("relabels the sounding notes when the la-based-minor convention changes while playing", async () => {
+    mocks.phrasesStore.takeContext.mode = "minor";
+    mocks.phrasesStore.takeNotes = [{ ...recordedNote, note: "A3", octave: 3, scaleIndex: 0 }];
+    mocks.phrasesStore.takeContext.key = "A";
+    const wrapper = mount(CodeStrip);
+    await flushPromises();
+    await controllerOf().evaluate();
+    const played: CustomEvent[] = [];
+    const record = (event: Event) => played.push(event as CustomEvent);
+    window.addEventListener("note-played", record);
+    try {
+      emit(batch([TransportEventKind.Attack, 1, joinedTable().generation, 0, 0, 0, 500]));
+      mocks.visualConfigStore.laBasedMinor = true;
+      await flushPromises();
+      emit(batch([TransportEventKind.Attack, 2, joinedTable().generation, 0, 1000, .5, 500]));
+      expect(played.map(event => event.detail.note.name)).toEqual(["Do", "La"]);
+    } finally {
+      window.removeEventListener("note-played", record);
+      wrapper.unmount();
+    }
   });
 
   it("keeps the old table playing when a changed instrument fails to load", async () => {

@@ -338,7 +338,7 @@ watch(generatedCode, (code) => {
   if (!isControlled.value) syncCode(code);
 });
 
-// Tempo, key, mode, octave and instrument changes rebuild the sounding table
+// Tempo, key, mode, octave, instrument and solfège-convention changes rebuild the sounding table
 // and swap it at the next quantum, keeping the bar phase. A new take does not
 // replace a playing loop by itself (main's behaviour): playing over a loop
 // records into the take, and swapping on every note would overdub.
@@ -350,6 +350,8 @@ watch(
     () => sketchMeta.value.key,
     () => sketchMeta.value.mode,
     () => keyboardConfig.value.mainOctave,
+    // Stage labels carry the la-based-minor convention, fixed per table.
+    () => productionWiring?.visualConfigStore.laBasedMinor,
   ],
   () => {
     const request = patternRequest();

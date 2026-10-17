@@ -183,7 +183,17 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
   function finishSnapshot() {
     const present = snapshot!.present;
     snapshot = undefined;
-    for (const noteId of [...registry.keys()]) if (!present.has(noteId)) release(noteId, now());
+    for (const noteId of [...registry.keys()]) if (!present.has(noteId)) endNow(noteId);
+  }
+
+  /**
+   * End a note now, but never before its own onset: an announced note may not
+   * be heard yet, and the MIDI scheduler ignores a note-off earlier than its
+   * pending note-on (it would stick).
+   */
+  function endNow(noteId: string) {
+    const onset = registry.get(noteId)?.note.audibleAt;
+    release(noteId, Math.max(now(), onset ?? -Infinity));
   }
 
   function onEvent(event: DecodedTransportEvent) {
@@ -316,8 +326,7 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
     if (command && port) send({ type: "transport-stop", requestId: ++requestId });
     playing = false;
     run++;
-    const at = now();
-    for (const noteId of [...registry.keys()]) release(noteId, at);
+    for (const noteId of [...registry.keys()]) endNow(noteId);
     registry.clear();
     released.clear();
     members.clear();

@@ -40,6 +40,7 @@ import {
   initSuperdoughAudio,
 } from "@/services/superdoughAudio";
 import { renderStrudelNotation, type StrudelConfig } from "@/services/StrudelNotation";
+import { createHeardClock } from "@/services/heardClock";
 import { useInstrumentStore } from "@/stores/instrument";
 import { usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
@@ -138,6 +139,8 @@ const initError = ref<string | null>(null);
 const visibleCode = ref("");
 // Play turns the strip to Ink at once, before the transport confirms.
 const stripPlaying = ref(false);
+// The highlight is timed on what is heard, so it stops while audio does.
+const heardClock = createHeardClock();
 let player: PatternPlayer | null = null;
 let attachedController: Parameters<typeof detachEditor>[0] | undefined;
 // Every Play and Stop moves this; a Play superseded while it prepares is dropped.
@@ -279,7 +282,11 @@ function initializeTransport() {
   visibleCode.value = generatedCode.value;
   player = markRaw(createPatternPlayer({
     audio: {
-      getContext: getAudioContext,
+      getContext() {
+        const context = getAudioContext();
+        heardClock.attach(context);
+        return context;
+      },
       async ensureReady(instrumentId) {
         await initSuperdoughAudio();
         if (instrumentId.startsWith("gm_")) await ensureSoundfontCatalog();
@@ -365,6 +372,7 @@ watch(
 
 onBeforeUnmount(() => {
   viewport?.destroy();
+  heardClock.dispose();
   if (!player) return;
   detachEditor(attachedController);
   playEpoch += 1;
@@ -402,6 +410,7 @@ onBeforeUnmount(() => {
       :viewport="viewport"
       :color-resolver="colorResolver"
       :still-color-resolver="stillColorResolver"
+      :clock="isControlled ? undefined : heardClock"
       :unit-ms="isControlled ? undefined : (60000 / codeStripConfig.bpm) * GENERATED_BEATS_PER_BAR"
       :follow-latest-key="productionWiring?.phrasesStore.lastLiveNoteId"
       :reset-scroll-key="productionWiring?.phrasesStore.takeId"

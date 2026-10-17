@@ -124,18 +124,21 @@ describe("useKeyboardControls", () => {
     });
   });
 
-  it("uses the leftmost keys for smaller mode sizes", () => {
+  it("continues smaller scales along each row into the next octave", () => {
     mockMusicStore.currentScale.degreeCount = 5;
     const controls = mountControls(ref(4));
     const mapping = controls.getKeyboardMapping();
+    const notes = (codes: string[]) => codes.map((code) =>
+      mapping[code] && [mapping[code].solfegeIndex, mapping[code].octave]);
 
-    // Two 5-key letter rows + one 5-key bottom row = 15 keys
-    expect(Object.keys(mapping)).toHaveLength(15);
-    expect(mapping.KeyT.solfegeIndex).toBe(4);
-    expect(mapping.KeyG.solfegeIndex).toBe(4);
-    expect(mapping.KeyB.solfegeIndex).toBe(4);
-    expect(mapping.KeyY).toBeUndefined();
-    expect(mapping.KeyN).toBeUndefined();
+    // Visible octaves 6-3: every letter key plays except the top row's last
+    // two, which would reach octave 7, off screen.
+    expect(Object.keys(mapping)).toHaveLength(32);
+    expect(notes(["KeyT", "KeyY", "KeyP", "BracketLeft", "BracketRight"]))
+      .toEqual([[4, 5], [0, 6], [4, 6], undefined, undefined]);
+    expect(notes(["KeyG", "KeyH", "Semicolon", "Quote", "Backslash"]))
+      .toEqual([[4, 4], [0, 5], [4, 5], [0, 6], [1, 6]]);
+    expect(notes(["KeyB", "KeyN", "Slash"])).toEqual([[4, 3], [0, 4], [4, 4]]);
   });
 
   it("enables only physical rows whose octaves are visible", () => {

@@ -28,6 +28,8 @@ const rig = vi.hoisted(() => ({
   listeners: new Set<{ onTransport?(response: TransportResponse): void; onRendererReset?(): void }>(),
   gates: new Map<string, Promise<void>>(),
   prepared: [] as string[],
+  /** Banks the worklet refuses (every instrument slot held). */
+  refused: new Set<string>(),
   commands: [] as TransportCommand[],
   context: undefined as unknown as Record<string, unknown>,
   deliver() {
@@ -48,7 +50,8 @@ vi.mock("@/services/livePlayback", () => ({
     rig.core.command({ type: "prepare", requestId: 0, instrument: { kind: "oscillator", instrumentId, waveform: "sine",
       gain: 1, attack: .001, decay: .01, sustain: .5, release: .01 } }, rig.frame);
   },
-  getLiveTransport() {
+  getLiveTransport(instrumentId: string) {
+    if (rig.refused.has(instrumentId)) return undefined;
     const generation = rig.generation;
     return {
       send(command: TransportCommand) {
@@ -61,7 +64,8 @@ vi.mock("@/services/livePlayback", () => ({
       generation,
     };
   },
-  getLivePlaybackFailure: () => undefined,
+  getLivePlaybackFailure: (instrumentId: string) => rig.refused.has(instrumentId)
+    ? { kind: "fallback", reason: "budget", budget: true } : undefined,
   needsLivePlaybackPreparation: () => false,
   getLivePlayback: () => undefined,
   waitForLivePlayback: () => undefined,
@@ -88,6 +92,8 @@ import { usePhrasesStore } from "@/stores/phrases";
 import { useMusicStore } from "@/stores/music";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { useLoopTimingStore } from "@/stores/performanceSettings";
+import { mount } from "@vue/test-utils";
+import PerformanceDeck from "@/components/PerformanceDeck.vue";
 
 type Attack = { phraseId: string; memberId: string; sourceNoteId: string; frame: number; noteName: string; record: boolean };
 
@@ -173,6 +179,7 @@ describe("Play is the loop on the worklet transport", () => {
     rig.commands = [];
     rig.gates.clear();
     rig.prepared = [];
+    rig.refused.clear();
     rig.core = new LiveAudioCore(RATE, (response) => { rig.queued.push(response); });
     rig.context = {
       state: "running",
@@ -677,6 +684,87 @@ describe("Play is the loop on the worklet transport", () => {
       expect(looper.swapPolicy).toBe("every-change");
       render(.2);
       expect(player.getLooper().members[0].generation).not.toBe(generation);
+    });
+  });
+
+  describe("from the Play key in the deck (DOM pointer events, real store, real transport)", () => {
+    const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    function mountDeck() {
+      return mount(PerformanceDeck, {
+        attachTo: document.body,
+        global: {
+          stubs: { Keyboard: true, ControlBar: true, PhraseShelf: true, HummingCaptureTransport: true, CodeStrip: true },
+        },
+      });
+    }
+
+    async function press(element: Element, holdMs: number) {
+      const options = { bubbles: true, pointerId: 1, pointerType: "touch", isPrimary: true };
+      element.dispatchEvent(new PointerEvent("pointerdown", options));
+      await wait(holdMs);
+      element.dispatchEvent(new PointerEvent("pointerup", options));
+      (element as HTMLElement).click();
+      await flush();
+    }
+
+    it("a tap plays the desk's take through to the transport's receipts; a hold past the threshold latches", async () => {
+      const { phrases, looper } = setup();
+      const deck = mountDeck();
+      try {
+        playTake(.5);
+        const take = phrases.take.id;
+        const play = deck.get(".code-strip-bar__play").element;
+        await press(play, 40);
+        await looper.settled();
+        // The start's receipt has come back: the Looper runs and the take joined.
+        expect(looper.running).toBe(true);
+        expect(player.getLooper().members.map((member) => member.id)).toEqual([take]);
+        const joined = rig.commands.find((command) => command.type === "transport-change"
+          && command.change.type === "batch" && command.change.changes.some((part) => part.type === "join" && part.member.table.id === take));
+        expect(joined).toBeDefined();
+        expect(rig.commands.some((command) => command.type === "transport-start")).toBe(true);
+        expect(deck.get(".code-strip-bar__play").attributes("aria-label")).toBe("Stop");
+        render(2.5);
+        expect(attacksOf(take).length).toBeGreaterThan(0);
+
+        // Hold past 450 ms: the latch, not a Stop.
+        await press(deck.get(".code-strip-bar__play").element, 520);
+        expect(looper.latched).toBe(true);
+        expect(looper.isDeskPlaying).toBe(true);
+        expect(deck.get(".code-strip-bar__play").classes()).toContain("paper-button--latched");
+
+        // A tap again stops the desk's pattern: its transport member leaves.
+        await press(deck.get(".code-strip-bar__play").element, 40);
+        expect(looper.members).toEqual([]);
+        expect(player.getLooper().running).toBe(false);
+      } finally {
+        deck.unmount();
+      }
+    });
+
+    it("a refused bank says so on the deck instead of doing nothing", async () => {
+      const { phrases, looper } = setup();
+      playTake(.5);
+      const id = phrases.keepTake()!;
+      phrases.findPhrase(id)!.context.instrument = "sawtooth";
+      rig.refused.add("sawtooth");
+      phrases.openPhrase(id);
+      const deck = mountDeck();
+      try {
+        expect(deck.find('[data-testid="looper-error"]').exists()).toBe(false);
+        await press(deck.get(".code-strip-bar__play").element, 40);
+        await looper.settled();
+        await flush();
+        const notice = deck.get('[data-testid="looper-error"]');
+        expect(notice.attributes("role")).toBe("alert");
+        expect(notice.text()).toMatch(/cannot join: every instrument slot is held/);
+        expect(looper.members).toEqual([]);
+        await notice.get('button[aria-label="Dismiss"]').trigger("click");
+        expect(deck.find('[data-testid="looper-error"]').exists()).toBe(false);
+      } finally {
+        deck.unmount();
+      }
     });
   });
 });

@@ -9,7 +9,7 @@
  * as it is, its hand sweeping from the member's own place in the loop.
  */
 import { computed, onBeforeUnmount } from "vue";
-import { Square } from "lucide-vue-next";
+import { Square, X } from "lucide-vue-next";
 import Button from "@/components/primatives/Button.vue";
 import LoopDial from "@/components/primatives/LoopDial.vue";
 import { looperDialProps } from "@/components/patterns/looperDial";
@@ -78,6 +78,20 @@ onBeforeUnmount(() => clearTimeout(holdTimer));
 <template>
   <!-- A zero-height anchor: the dials float over the Stage and take no Drawer height. -->
   <div class="looper-dials">
+    <!-- A Play that could not sound says why, instead of doing nothing. -->
+    <div v-if="looper.lastError" class="looper-dials__notice" role="alert" data-testid="looper-error">
+      <p class="looper-dials__notice-text">{{ looper.lastError }}</p>
+      <Button
+        size="sm"
+        tone="ink"
+        haptic
+        accessible-name="Dismiss"
+        title="Dismiss"
+        @click="looper.clearError()"
+      >
+        <X />
+      </Button>
+    </div>
     <div
       v-if="looper.hasMembers"
       class="looper-dials__column"
@@ -151,6 +165,29 @@ onBeforeUnmount(() => clearTimeout(holdTimer));
   touch-action: manipulation;
   user-select: none;
   -webkit-touch-callout: none;
+}
+
+/* Ink chassis, Ivory text: the playing zone's only non-music colours. */
+.looper-dials__notice {
+  position: absolute;
+  /* Beside the dial column, never over it. */
+  left: calc(var(--s-4) + var(--hit-min) + var(--s-4));
+  right: var(--s-4);
+  bottom: var(--s-10);
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  padding: var(--s-3) var(--s-3) var(--s-3) var(--s-5);
+  background: var(--ink);
+  color: var(--ivory);
+}
+
+.looper-dials__notice-text {
+  flex: 1 1 auto;
+  margin: 0;
+  font: var(--t-mono);
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 /* The dial fills the key's face: a record on the cap. */

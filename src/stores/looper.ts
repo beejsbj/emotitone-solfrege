@@ -169,6 +169,11 @@ export const useLooperStore = defineStore("looper", () => {
     lastError.value = error instanceof Error ? error.message : String(error);
   }
 
+  /** The player read the failure (the deck's notice was dismissed). */
+  function clearError() {
+    lastError.value = null;
+  }
+
   function attach(next: PatternPlayer | undefined) {
     if (next === player) return;
     // A different (or no) player: nothing this session started is playing any more.
@@ -782,6 +787,7 @@ export const useLooperStore = defineStore("looper", () => {
     toggleSolo: toggleMemberSolo,
     removeMember: leaveMember,
     stopAll,
+    clearError,
     saveLoop,
     openLoop,
     deleteLoop,

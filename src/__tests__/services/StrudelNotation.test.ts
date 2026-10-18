@@ -45,6 +45,33 @@ function makeNote(
 }
 
 describe('StrudelNotation', () => {
+  it.each(['absolute', 'relative'] as const)('preserves independent %s chord and overlapping-note velocities', notationType => {
+    const notes = [
+      { ...makeNote('c', 'C4', 0, 4, 0, 1000), velocity: 0.2 },
+      { ...makeNote('e', 'E4', 2, 4, 0, 500), velocity: 0.7 },
+      { ...makeNote('g', 'G4', 4, 4, 500, 500), velocity: 0 },
+    ]
+    const { output } = transpiler(logNotesToStrudel(notes, { notationType }))
+    const events = new Function('m', output)(m).queryArc(0, 1)
+      .filter((event: any) => event.hasOnset())
+    expect(events).toHaveLength(3)
+    for (const note of notes) {
+      expect(events.find((event: any) => event.value.note === note.note).value.gain).toBe(note.velocity)
+    }
+  })
+
+  it.each([
+    [undefined, undefined], [NaN, undefined], [Infinity, undefined],
+    [1.5, undefined], [-0.2, 0], [0.4, 0.4],
+  ])('sanitizes uniform velocity %s without changing neutral playback', (velocity, gain) => {
+    const { output } = transpiler(logNotesToStrudel([
+      { ...makeNote('c', 'C4', 0, 4, 0, 500), velocity },
+    ]))
+    const events = new Function('m', output)(m).queryArc(0, 0.5)
+    expect(events).toHaveLength(1)
+    expect(events[0].value.gain).toBe(gain)
+  })
+
   it('keeps plain pitches and timing with explicit playback gate and envelope', () => {
     const result = logNotesToStrudel([
       makeNote('c', 'C4', 0, 4, 1000, 500),

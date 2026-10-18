@@ -28,7 +28,7 @@ export interface StrudelConfig {
   beatsPerBar: number;
   /** 'absolute' uses note names (C4), 'relative' uses scale degrees (0-6). @default 'absolute' */
   notationType: "absolute" | "relative";
-  /** Decimal places for @x duration values. @default 4 */
+  /** Decimal places for @x duration values. @default 6 */
   precision: number;
   /** Sound/instrument name passed to .sound(). @default 'sine' */
   sound: string;
@@ -53,14 +53,16 @@ const DEFAULT_CONFIG: StrudelConfig = {
   sourceBpm: 120,
   beatsPerBar: 4,
   notationType: "absolute",
-  precision: 4,
+  // Long performances accumulate rounding across standalone notes and blocks.
+  // Match lane-boundary precision so that the complete phrase retains timing.
+  precision: 6,
   sound: "sine",
 };
 
 export const DEFAULT_SOURCE_BPM = DEFAULT_CONFIG.sourceBpm;
 
 const OVERLAP_EPSILON_MS = 0;
-type RecordedControl = 'clip' | keyof LiveArticulation;
+type RecordedControl = 'clip' | 'gain' | keyof LiveArticulation;
 const RECORDED_CONTROLS: RecordedControl[] = ['clip', 'attack', 'decay', 'sustain', 'release'];
 
 /** Length of one bar in milliseconds. */
@@ -128,9 +130,13 @@ export class StrudelNotation {
     this.fallbackEnvelope = resolveLiveEnvelope(this.config.sound, this.config.shape);
     // Uniform recorded articulation becomes a global modifier; only varying
     // controls need a per-note column alongside the expression columns.
-    const values = new Map(RECORDED_CONTROLS.map(control =>
+    // Legacy/neutral notes keep the existing output. Authored and recorded
+    // velocities need gain in every lane so chord members retain their balance.
+    const controlsToRender: RecordedControl[] = this.notes.some(note => this.noteControl(note, 'gain') !== 1)
+      ? [...RECORDED_CONTROLS, 'gain'] : RECORDED_CONTROLS;
+    const values = new Map(controlsToRender.map(control =>
       [control, this.notes.map(note => this.noteControl(note, control))] as const));
-    this.controlFields = RECORDED_CONTROLS.filter(control =>
+    this.controlFields = controlsToRender.filter(control =>
       new Set(values.get(control)).size > 1);
     this.vibratoByNote.clear();
     this.tremoloByNote.clear();
@@ -191,7 +197,7 @@ export class StrudelNotation {
     const inner = mergeStrudelRests(tokens, this.config.precision).join(" ");
     // Each mapped column is present on every note. Globals cover only the
     // unmapped controls so they cannot overwrite recorded per-note values.
-    const controls = RECORDED_CONTROLS.filter(control => !this.controlFields.includes(control))
+    const controls = controlsToRender.filter(control => !this.controlFields.includes(control))
       .map(control => `.${control}(${values.get(control)![0]})`).join('');
     const filters = this.filterModifiers();
     const effects = this.effectModifiers();
@@ -343,6 +349,10 @@ export class StrudelNotation {
   }
 
   private noteControl(note: PreparedRecordedNote<LogNote>, control: RecordedControl): number {
+    if (control === 'gain') {
+      return typeof note.velocity === 'number' && Number.isFinite(note.velocity)
+        ? Math.min(1, Math.max(0, note.velocity)) : 1;
+    }
     if (control === 'clip') {
       const ratio = (note.gateDuration ?? this.noteDuration(note)) / this.noteDuration(note);
       return Number.isFinite(ratio) && ratio > 0 ? ratio : 1;

@@ -4,6 +4,7 @@ import type { ChromaticNote, MusicalMode } from "@/types/music";
 import { CHROMATIC_NOTES } from "@/data/notes";
 import { getScaleForMode } from "@/data/scales";
 import { Note as TonalNote, Scale as TonalScale } from "@tonaljs/tonal";
+import { hijaqPerformance } from "./hijaqPerformance";
 
 export type MelodyStep = {
   note: string;
@@ -287,6 +288,7 @@ export function buildDefaultPattern(
 }
 
 export const defaultPatterns: Pattern[] = [
+  hijaqPerformance,
   buildDefaultPattern({
     id: "pattern-twinkle-1",
     name: "Twinkle Twinkle Little Star",

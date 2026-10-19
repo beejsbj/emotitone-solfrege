@@ -87,8 +87,13 @@ const DOUBLE_TAP_MS = 320;
 const HOLD_MS = 550;
 // The Knob's 5px tap threshold: past it the press is no longer a tap or a hold.
 const TAP_THRESHOLD_PX = 5;
-// A flick: leftward, mostly sideways, at least this far, and fast at the end.
+// A flick: leftward, mostly sideways, fast at the end, and far enough. The
+// dials sit at the left edge, so "far enough" is measured against the room
+// the finger has: 48px, or all the way to the glass's edge (within 4px of
+// x 0), whichever comes first. A press near the edge has little room, so the
+// speed and the sideways split are what keep a tap or a slow drag out.
 const FLICK_PX = 48;
+const EDGE_PX = 4;
 const FLICK_SPEED_PX_PER_MS = 0.5;
 const FLICK_WINDOW_MS = 100;
 
@@ -109,6 +114,8 @@ let gesture: {
   moved: "vertical" | "sideways" | null;
   /** Recent sideways positions, for the flick's speed at the end. */
   samples: { t: number; x: number }[];
+  /** Already thrown off: the lift that follows emits nothing more. */
+  flung: boolean;
 } | null = null;
 /** The click that ends a moved press is not a tap. */
 let dragged = false;
@@ -119,7 +126,7 @@ function down(event: PointerEvent) {
   held = false;
   dragged = false;
   gesture = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, moved: null,
-    samples: [{ t: performance.now(), x: event.clientX }] };
+    samples: [{ t: performance.now(), x: event.clientX }], flung: false };
   try {
     (event.currentTarget as Element | null)?.setPointerCapture?.(event.pointerId);
   } catch {
@@ -146,24 +153,37 @@ function move(event: PointerEvent) {
     gesture.moved = Math.abs(dy) > Math.abs(dx) * 1.05 ? "vertical" : "sideways";
   }
   // Vertical movement is kept for the loop's volume (a follow-up): nothing yet.
-  if (gesture.moved !== "sideways" || soloing) return;
+  if (gesture.moved !== "sideways" || soloing || gesture.flung) return;
   event.preventDefault();
   const now = performance.now();
   gesture.samples.push({ t: now, x: event.clientX });
   while (gesture.samples.length > 2 && now - gesture.samples[1].t > FLICK_WINDOW_MS) gesture.samples.shift();
+  // Thrown off as soon as it is: a finger that reaches the glass's edge may never lift there.
+  if (isFlick(event)) return fling();
   slideX.value = Math.min(0, dx);
 }
 
-/** A fast, mostly sideways throw to the left, far enough: never a slow drag or a tap. */
+/**
+ * A fast, mostly sideways throw to the left, as far as the room allows (48px,
+ * or to the screen's edge): never a vertical swipe, a slow drag or a tap.
+ */
 function isFlick(event: PointerEvent): boolean {
-  if (!gesture || gesture.moved !== "sideways" || soloing) return false;
+  if (!gesture || gesture.moved !== "sideways" || soloing || gesture.flung) return false;
   const dx = event.clientX - gesture.x;
   const dy = event.clientY - gesture.y;
-  if (dx > -FLICK_PX || Math.abs(dx) < Math.abs(dy) * 1.5) return false;
+  const room = Math.max(TAP_THRESHOLD_PX + 1, gesture.x - EDGE_PX);
+  if (dx > -Math.min(FLICK_PX, room) || Math.abs(dx) < Math.abs(dy) * 1.5) return false;
   const now = performance.now();
   const from = gesture.samples.find((sample) => now - sample.t <= FLICK_WINDOW_MS) ?? gesture.samples[gesture.samples.length - 1];
   const elapsed = Math.max(1, now - from.t);
   return (from.x - event.clientX) / elapsed >= FLICK_SPEED_PX_PER_MS;
+}
+
+function fling() {
+  gesture!.flung = true;
+  slideX.value = 0;
+  if (props.haptic) triggerUIHaptic();
+  emit("remove");
 }
 
 function endSolo() {
@@ -174,10 +194,7 @@ function endSolo() {
 
 function lift(event: PointerEvent) {
   clearTimeout(holdTimer);
-  if (gesture && event.pointerId === gesture.pointerId && isFlick(event)) {
-    if (props.haptic) triggerUIHaptic();
-    emit("remove");
-  }
+  if (gesture && event.pointerId === gesture.pointerId && isFlick(event)) fling();
   slideX.value = 0;
   endSolo();
   gesture = null;

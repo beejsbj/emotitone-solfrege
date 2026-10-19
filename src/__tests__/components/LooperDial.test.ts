@@ -120,59 +120,79 @@ describe("LooperDial", () => {
     wrapper.unmount();
   });
 
-  it("a fast flick off the left edge removes", async () => {
+  // Phone coordinates: the column sits at x 6, so a dial spans x 6 to 50 and a
+  // touchscreen never reports a clientX below 0.
+  /** A throw from `from` to `to` (clientX), in `steps` moves `everyMs` apart, then the lift. */
+  function throwDial(element: Element, from: number, to: number, steps: number, everyMs: number, y = (step: number) => 100 + step) {
+    pointer(element, "pointerdown", from, 100);
+    for (let step = 1; step <= steps; step++) {
+      vi.advanceTimersByTime(everyMs);
+      pointer(element, "pointermove", Math.round(from + (to - from) * step / steps), y(step));
+    }
+    pointer(element, "pointerup", to, y(steps));
+    click(element);
+  }
+
+  it("a flick off the left edge removes: from the dial's centre (x 28) to the glass's edge (x 0) in 48 ms", async () => {
     vi.useFakeTimers();
     const { wrapper, button, emitted } = mountDial();
     const element = button().element;
-    pointer(element, "pointerdown", 30, 100);
+    pointer(element, "pointerdown", 28, 100);
     vi.advanceTimersByTime(16);
-    pointer(element, "pointermove", 10, 101);
+    pointer(element, "pointermove", 18, 101);
     await nextTick();
     // The dial follows the throw.
     expect(button().classes()).toContain("looper-dial--flicking");
     vi.advanceTimersByTime(16);
-    pointer(element, "pointermove", -25, 103);
+    pointer(element, "pointermove", 8, 101);
     vi.advanceTimersByTime(16);
-    pointer(element, "pointerup", -45, 104);
+    pointer(element, "pointermove", 0, 102);
+    // Thrown at the edge, before any lift (a finger there may never lift on the glass).
+    expect(emitted).toEqual(["remove"]);
+    pointer(element, "pointerup", 0, 102);
     click(element);
     expect(emitted).toEqual(["remove"]);
     wrapper.unmount();
   });
 
-  it("a slow drag left, a short flick, a rightward flick and a tap remove nothing", () => {
+  it("a flick from the dial's right side (x 44) to the edge removes, as does one cancelled at the edge", () => {
     vi.useFakeTimers();
     const { wrapper, button, emitted } = mountDial();
     const element = button().element;
-    // Slow: 90px over 900ms.
-    pointer(element, "pointerdown", 100, 100);
-    for (let step = 1; step <= 9; step++) {
-      vi.advanceTimersByTime(100);
-      pointer(element, "pointermove", 100 - step * 10, 100);
-    }
-    pointer(element, "pointerup", 10, 100);
-    click(element);
-    expect(button().classes()).not.toContain("looper-dial--flicking");
-    // Fast but short: 30px.
+    throwDial(element, 44, 0, 4, 16);
+    expect(emitted).toEqual(["remove"]);
     vi.advanceTimersByTime(400);
-    pointer(element, "pointerdown", 100, 100);
+    pointer(element, "pointerdown", 30, 100);
     vi.advanceTimersByTime(20);
-    pointer(element, "pointermove", 85, 100);
+    pointer(element, "pointermove", 14, 100);
     vi.advanceTimersByTime(20);
-    pointer(element, "pointerup", 70, 100);
-    click(element);
+    pointer(element, "pointermove", 2, 100);
+    pointer(element, "pointercancel", 2, 100);
+    expect(emitted).toEqual(["remove", "remove"]);
+    wrapper.unmount();
+  });
+
+  it("a slow drag to the edge, a short throw, a vertical swipe, a rightward throw and a tap remove nothing", () => {
+    vi.useFakeTimers();
+    const { wrapper, button, emitted } = mountDial();
+    const element = button().element;
+    // Slow: x 28 to 0 over 560 ms.
+    throwDial(element, 28, 0, 7, 80);
+    expect(button().classes()).not.toContain("looper-dial--flicking");
+    // Fast but short: x 44 to 34 has 30px of room left.
+    vi.advanceTimersByTime(400);
+    throwDial(element, 44, 34, 2, 16);
+    // A fast vertical swipe drifting left (a reel scroll would look like this).
+    vi.advanceTimersByTime(400);
+    throwDial(element, 28, 14, 3, 16, (step) => 100 - step * 30);
     // Fast, but to the right.
     vi.advanceTimersByTime(400);
-    pointer(element, "pointerdown", 20, 100);
-    vi.advanceTimersByTime(20);
-    pointer(element, "pointermove", 60, 100);
-    vi.advanceTimersByTime(20);
-    pointer(element, "pointerup", 100, 100);
-    click(element);
+    throwDial(element, 20, 60, 2, 16);
     expect(emitted).toEqual([]);
     // A tap is a mute, never a removal.
     vi.advanceTimersByTime(400);
-    pointer(element, "pointerdown", 20, 100);
-    pointer(element, "pointerup", 20, 100);
+    pointer(element, "pointerdown", 28, 100);
+    pointer(element, "pointerup", 28, 100);
     click(element);
     expect(emitted).toEqual(["mute"]);
     wrapper.unmount();

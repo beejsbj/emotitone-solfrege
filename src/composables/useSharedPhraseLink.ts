@@ -1,4 +1,4 @@
-import { ref, watch, type Ref } from "vue";
+import { onScopeDispose, ref, watch, type Ref } from "vue";
 import { decodePhraseShare, phraseShareToken, type SharedPhrase } from "@/services/phraseShare";
 import { usePhrasesStore } from "@/stores/phrases";
 
@@ -25,29 +25,38 @@ function clearShareHash() {
 }
 
 /**
- * Open a phrase link (`#phrase=…`). Decoding starts at once; the phrase lands
- * on the desk once the app has started, so its instrument loads on a running
- * engine and the player's first tap of Play sounds it.
+ * Open a phrase link (`#phrase=…`), whether the app starts on it or it is
+ * pasted into a tab that already has the app open (only the hash changes, so
+ * the page does not reload). Decoding starts at once; the phrase lands on the
+ * desk once the app has started, so its instrument loads on a running engine
+ * and the player's first tap of Play sounds it.
  */
 export function useSharedPhraseLink(isLoading: Readonly<Ref<boolean>>) {
-  const token = phraseShareToken(window.location.hash);
-  if (!token) return;
-  const phrases = usePhrasesStore();
-  const decoded = decodePhraseShare(token);
+  let pending: Promise<SharedPhrase | null> | null = null;
 
-  let received = false;
   const receive = async () => {
-    if (received) return;
-    received = true;
-    const shared: SharedPhrase | null = await decoded;
+    if (isLoading.value || !pending) return;
+    const decoded = pending;
+    pending = null;
+    const shared = await decoded;
     clearShareHash();
     if (!shared) {
       announce("That phrase link could not be opened");
       return;
     }
-    phrases.receiveSharedPhrase(shared);
+    usePhrasesStore().receiveSharedPhrase(shared);
     announce(`${shared.name ?? "A shared phrase"} is on the desk. Press play.`);
   };
 
-  watch(isLoading, (loading) => { if (!loading) void receive(); }, { immediate: true });
+  const readHash = () => {
+    const token = phraseShareToken(window.location.hash);
+    if (!token) return;
+    pending = decodePhraseShare(token);
+    void receive();
+  };
+
+  readHash();
+  watch(isLoading, () => { void receive(); });
+  window.addEventListener("hashchange", readHash);
+  onScopeDispose(() => window.removeEventListener("hashchange", readHash));
 }

@@ -95,6 +95,34 @@ describe("sharing a phrase from the reel", () => {
     expect(writeText).not.toHaveBeenCalled();
   });
 
+  it("opens the share sheet inside the tap itself, so Safari still counts it as a tap", async () => {
+    const share = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "share", { value: share, configurable: true });
+    const wrapper = mount(PhraseShelf);
+    // The link for the strip in reach is built while the player looks at it.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    await flushPromises();
+
+    (shareButton(wrapper, library.name!).element as HTMLButtonElement).click();
+    // No await between the tap and the share sheet.
+    expect(share).toHaveBeenCalledTimes(1);
+    expect((await linkedPhrase(share.mock.calls[0][0].url))?.name).toBe(library.name);
+  });
+
+  it("shows the link when neither the share sheet nor the clipboard will take it", async () => {
+    Object.defineProperty(navigator, "share", {
+      value: vi.fn().mockRejectedValue(new DOMException("no tap", "NotAllowedError")),
+      configurable: true,
+    });
+    writeText.mockRejectedValue(new DOMException("no tap", "NotAllowedError"));
+    const prompt = vi.fn();
+    vi.stubGlobal("prompt", prompt);
+    const wrapper = mount(PhraseShelf);
+    await shareButton(wrapper, library.name!).trigger("click");
+    await vi.waitFor(() => expect(prompt).toHaveBeenCalledTimes(1));
+    expect((await linkedPhrase(prompt.mock.calls[0][1]))?.name).toBe(library.name);
+  });
+
   it("sends nothing when the player closes the share sheet", async () => {
     const share = vi.fn().mockRejectedValue(new DOMException("closed", "AbortError"));
     Object.defineProperty(navigator, "share", { value: share, configurable: true });

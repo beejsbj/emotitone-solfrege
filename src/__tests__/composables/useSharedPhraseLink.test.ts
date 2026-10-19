@@ -118,6 +118,23 @@ describe("opening a phrase link", () => {
     expect(phrases.findPhrase(id)?.name).toBe("Sunday hum");
   });
 
+  it("opens a link pasted into a tab that already has the app open", async () => {
+    const url = new URL(await phraseShareUrl(shared, "https://emotitone.app/"));
+    const phrases = usePhrasesStore();
+    const isLoading = await openLink("");
+    isLoading.value = false;
+    await settle();
+
+    // Only the hash changes, so the page does not reload.
+    window.history.replaceState(null, "", `/${url.hash}`);
+    window.dispatchEvent(new Event("hashchange"));
+    await settle();
+
+    expect(phrases.take.name).toBe("Sunday hum");
+    expect(useMusicStore().currentKey).toBe("D");
+    expect(window.location.hash).toBe("");
+  });
+
   it("says so, and changes nothing, when the link is broken", async () => {
     const phrases = usePhrasesStore();
     const before = { key: useMusicStore().currentKey, take: phrases.takeId };

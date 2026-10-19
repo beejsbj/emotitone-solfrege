@@ -385,15 +385,69 @@ function sharedName(phrase: Phrase) {
   return phrasesStore.findPhrase(lineage.id)?.name ?? lineage.name;
 }
 
-async function sharePhrase(id: string) {
-  const phrase = phrasesStore.findPhrase(id);
-  if (!phrase?.notes.length) return;
-  const name = sharedName(phrase);
-  const url = await phraseShareUrl({ ...phrase, name }, `${window.location.origin}/`);
+function shareTitle(name: string | undefined) {
+  return name ?? "A phrase on EmotiTone";
+}
+
+/** Changes whenever the link a phrase would make changes. */
+function shareSignature(phrase: Phrase) {
+  const last = phrase.notes[phrase.notes.length - 1];
+  return JSON.stringify([
+    sharedName(phrase), phrase.notes.length, phrase.duration, last?.id, last?.releaseTime, phrase.context,
+  ]);
+}
+
+// Links are built ahead of the tap: building one is async (compression), and
+// a browser may only open the share sheet or write the clipboard while the
+// tap that asked for it is still fresh. Safari is strict about that.
+const preparedLinks = new Map<string, { signature: string; url: string }>();
+
+async function buildLink(phrase: Phrase) {
+  return phraseShareUrl({ ...phrase, name: sharedName(phrase) }, `${window.location.origin}/`);
+}
+
+/** Strips either side of the desk: the only ones whose buttons are in reach. */
+const PREPARED_REACH = 3;
+
+watch(
+  () => {
+    const items = reelItems.value;
+    const desk = Math.max(0, items.findIndex((item) => item.id === deskItemId.value));
+    return items.slice(Math.max(0, desk - PREPARED_REACH), desk + PREPARED_REACH + 1);
+  },
+  (nearDesk) => prepareLinks(nearDesk.map((item) => item.id)),
+  { immediate: true },
+);
+
+function prepareLinks(ids: string[]) {
+  const entries = ids
+    .map((id) => phrasesStore.findPhrase(id))
+    .filter((phrase): phrase is Phrase => Boolean(phrase?.notes.length))
+    .map((phrase) => ({ phrase, signature: shareSignature(phrase) }));
+  const keep = new Set(entries.map((entry) => entry.phrase.id));
+  for (const id of preparedLinks.keys()) if (!keep.has(id)) preparedLinks.delete(id);
+  for (const { phrase, signature } of entries) {
+    if (preparedLinks.get(phrase.id)?.signature === signature) continue;
+    void buildLink(phrase).then((url) => {
+      // A newer edit may have landed while this one compressed.
+      if (shareSignature(phrase) === signature) preparedLinks.set(phrase.id, { signature, url });
+    });
+  }
+}
+
+function showLinkCopied(id: string) {
+  linkCopiedId.value = id;
+  clearTimeout(linkTimer);
+  linkTimer = setTimeout(() => {
+    if (linkCopiedId.value === id) linkCopiedId.value = null;
+  }, 1500);
+}
+
+async function deliverLink(id: string, url: string, title: string) {
   // The phone's share sheet where there is one; otherwise copy the link.
   if (typeof navigator.share === "function") {
     try {
-      await navigator.share({ title: name ?? "A phrase on EmotiTone", url });
+      await navigator.share({ title, url });
       return;
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
@@ -401,14 +455,25 @@ async function sharePhrase(id: string) {
   }
   try {
     await navigator.clipboard.writeText(url);
-    linkCopiedId.value = id;
-    clearTimeout(linkTimer);
-    linkTimer = setTimeout(() => {
-      if (linkCopiedId.value === id) linkCopiedId.value = null;
-    }, 1500);
+    showLinkCopied(id);
   } catch {
-    // Clipboard access is not available in every browser context.
+    // Neither the share sheet nor the clipboard would take it: show the link
+    // so it can be copied by hand rather than failing silently.
+    window.prompt("Copy this link to share the phrase", url);
   }
+}
+
+function sharePhrase(id: string) {
+  const phrase = phrasesStore.findPhrase(id);
+  if (!phrase?.notes.length) return;
+  const title = shareTitle(sharedName(phrase));
+  const prepared = preparedLinks.get(id);
+  // No await before handing the link over, so the tap is still fresh.
+  if (prepared?.signature === shareSignature(phrase)) {
+    void deliverLink(id, prepared.url, title);
+    return;
+  }
+  void buildLink(phrase).then((url) => deliverLink(id, url, title));
 }
 
 function openInStrudel(id: string) {

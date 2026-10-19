@@ -18,9 +18,11 @@ import type { Phrase, PhraseBook, PhraseContext } from "@/types/phrases";
  *  - both sides changed one phrase: field by field. Notes are joined by note
  *    id, Kept beats any other shelf, and otherwise this tab's value wins (it
  *    saves last; the other tab takes it in from the next storage event);
- *  - the open take and its recorder are per tab and never merged. If the other
- *    tab moved this tab's take off the desk (kept it, closed it, released it),
- *    that holds and this tab opens a fresh take.
+ *  - the open take and its recorder are per tab and never merged. A merge
+ *    never releases this tab's take or moves it off the desk, except for a
+ *    Keep from a tab sharing it, which holds (this tab opens a fresh take);
+ *  - `base` is null when the other tab's bytes came from another format
+ *    version: then nothing is read as released, and the merge is a union.
  */
 
 interface WithId { id: string }
@@ -218,8 +220,16 @@ export function mergePhraseStates(
   };
   if (loops) (book as PhraseBook & { loops: unknown }).loops = loops;
 
-  // The other tab moved this tab's take off the desk: that holds, and this tab
-  // opens a fresh take (the phrase itself stays wherever the merge put it).
+  // This tab's open take stays on its desk: another tab sharing it (or one
+  // that shelved it) never splits a sketch in progress. The one exception is
+  // a Keep: honouring it is the only way it survives, since this tab would
+  // otherwise close the take into Recent later and undo the Keep. Then this
+  // tab opens a fresh take.
+  const takeAt = book.phrases.findIndex((phrase) => phrase.id === book.takeId);
+  const take = book.phrases[takeAt];
+  if (take && take.shelf !== "take" && take.shelf !== "kept") {
+    book.phrases[takeAt] = { ...take, shelf: "take" };
+  }
   if (!book.phrases.some((phrase) => phrase.id === book.takeId && phrase.shelf === "take")) {
     const fresh = createPhraseBook(options.context(), options.now);
     book.phrases.push(...fresh.phrases);

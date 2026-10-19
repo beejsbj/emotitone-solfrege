@@ -443,10 +443,16 @@ export function createPersistedBinding<T>(
     }
   };
 
-  /** Merge another tab's lifted data into `ours`; null (logged) when theirs is unusable. */
-  const mergeIn = (ours: T, theirs: unknown): { state: T } | null => {
+  /**
+   * Merge another tab's lifted data into `ours`; null (logged) when theirs is
+   * unusable. Bytes written at another version came from a build that does
+   * not keep this base: what they lack is not known to be released, so they
+   * merge with no base (a plain union).
+   */
+  const mergeIn = (ours: T, theirs: { from: number; data: unknown }): { state: T } | null => {
     try {
-      return { state: codec.merge!(baseData(), ours, theirs) };
+      const base = theirs.from === codec.version ? baseData() : null;
+      return { state: codec.merge!(base, ours, theirs.data) };
     } catch (error) {
       console.error(`Saved "${codec.key}" from another tab could not be merged.`, error);
       return null;
@@ -482,7 +488,7 @@ export function createPersistedBinding<T>(
         if (lifted.kind === "newer") {
           hold = { reason: "newer", found: lifted.found };
         } else {
-          const result = lifted.kind === "lifted" ? mergeIn(state, lifted.data) : null;
+          const result = lifted.kind === "lifted" ? mergeIn(state, lifted) : null;
           if (!result || lifted.kind !== "lifted" || lifted.from !== codec.version) {
             hold = {
               reason: "needs-backup", raw,
@@ -612,6 +618,9 @@ export function createPersistedBinding<T>(
       if (!prepared) return false;
       if (changesNothingShared(prepared)) return true;
       if (!storage.write(codec.key, prepared.encoded)) return false;
+      // This tab's own write is a base too: without it, a sketch this tab
+      // saved and then released would come back from another tab that had only
+      // taken it in. Cost: the read-then-write race (docs, "Two tabs").
       synced = prepared.encoded;
       return true;
     },
@@ -628,7 +637,7 @@ export function createPersistedBinding<T>(
       }
       // An older format or unreadable bytes wait for the save path, which backs them up first.
       if (lifted.kind !== "lifted" || lifted.from !== codec.version) return null;
-      const merged = mergeIn(current, lifted.data);
+      const merged = mergeIn(current, lifted);
       if (!merged) return null;
       synced = stored.value;
       adopt!(merged.state);

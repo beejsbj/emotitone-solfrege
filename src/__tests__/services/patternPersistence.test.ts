@@ -7,6 +7,7 @@ import {
   deserializePatternsState,
   serializePatternsState,
 } from "@/services/patternPersistence";
+import { PHRASE_FORMAT_VERSION } from "@/services/phrasePersistence";
 
 function createStorage() {
   const values = new Map<string, string>();
@@ -72,7 +73,7 @@ describe("pattern persistence serializer", () => {
     seed.book.phrases.push({ ...seed.take, id: "kept-1", shelf: "kept", notes: [createNote(1)] });
     const existing = serializePatternsState({ book: seed.book, isRecordingEnabled: true });
     seed.removeEventListeners();
-    storage.setItem("phrases", JSON.stringify({ $version: 1, data: JSON.parse(existing) }));
+    storage.setItem("phrases", JSON.stringify({ $version: PHRASE_FORMAT_VERSION, data: JSON.parse(existing) }));
 
     const store = makeStore();
     expect(store.takeNotes).toHaveLength(512);

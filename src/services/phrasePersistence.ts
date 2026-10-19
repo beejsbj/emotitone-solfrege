@@ -8,6 +8,8 @@ import type { Phrase, PhraseBook, PhraseContext } from "@/types/phrases";
 import type { PatternNote } from "@/types/patterns";
 
 export const PHRASE_BUDGET_BYTES = 3_000_000;
+/** v2 (BJS-575): v1's shape, written only by builds that merge with other tabs. */
+export const PHRASE_FORMAT_VERSION = 2;
 /** localStorage stores DOMStrings. Budget UTF-16 code units, including the envelope. */
 export const encodedPhraseBytes = (encoded: string): number => encoded.length * 2;
 
@@ -103,19 +105,22 @@ export function phraseCodec(
 ) {
   return defineCodec<PersistedPhraseState>({
     key: "phrases",
-    version: 1,
+    // v2 (BJS-575) has v1's shape. The bump makes a tab still running a v1
+    // build, which writes over the shelf without merging, meet the "newer"
+    // hold instead of erasing what newer tabs saved.
+    version: PHRASE_FORMAT_VERSION,
     defaults,
     decode(data) {
+      // An entry the app can't use is dropped (in storedPhraseState); the rest
+      // of the shelf survives.
       const { book: stored, isRecordingEnabled } = storedPhraseState(data);
-      // An entry the app can't use is dropped; the rest of the shelf survives.
-      // An empty take left by another tab (open, or closed without moving on)
-      // holds nothing: drop it rather than shelve an empty phrase in Recent.
-      const book = {
-        ...stored,
-        phrases: stored.phrases.filter((phrase) =>
-          phrase.shelf !== "take" || phrase.id === stored.takeId || phrase.notes.length > 0),
-      };
+      // Another tab's open take is that tab's desk: shelving it here would
+      // split a sketch in progress. Only this page's take is repaired; takes
+      // no live tab holds are shelved later by the store (deskClaims).
+      const foreign = stored.phrases.filter((phrase) => phrase.shelf === "take" && phrase.id !== stored.takeId);
+      const book = { ...stored, phrases: stored.phrases.filter((phrase) => !foreign.includes(phrase)) };
       ensureSingleTake(book, context(), Date.now());
+      book.phrases.push(...foreign);
       return { book, isRecordingEnabled: isRecordingEnabled !== false };
     },
     // Plain data for the envelope; JSON.stringify unwraps reactive proxies itself.
@@ -130,7 +135,7 @@ export function phraseCodec(
       savedPhrase, savedNote, protectedIds, context, now: Date.now(),
     }),
     shared: sharedPhraseData,
-    migrations: { 0: (data) => data },
+    migrations: { 0: (data) => data, 1: (data) => data },
   });
 }
 
@@ -166,13 +171,16 @@ export function createPhrasePersistence(
     told = true;
     onStored?.(stored);
   };
+  // A storage event's read only looks for another tab's work: if it fails,
+  // nothing of this tab's went unsaved, so it is no save failure.
+  let syncing = false;
   // Watch the shelf's own reads and writes, wherever the binding makes them (a
   // save, the eager migration rewrite, or the save queued behind a backup).
   const storage: SafeStorage = {
     ...base,
     read(key) {
       const result = base.read(key);
-      if (key === "phrases" && !result.ok) report(false);
+      if (key === "phrases" && !result.ok && !syncing) report(false);
       return result;
     },
     write(key, value, writeOptions) {
@@ -214,7 +222,15 @@ export function createPhrasePersistence(
     const reason = persisted.hold?.reason;
     return reason !== "needs-backup" && reason !== "restored";
   };
-  const { load, save } = persisted;
+  const { load, save, sync } = persisted;
+  persisted.sync = (current) => {
+    syncing = true;
+    try {
+      return sync(current);
+    } finally {
+      syncing = false;
+    }
+  };
   persisted.load = () => {
     told = false;
     const state = load();

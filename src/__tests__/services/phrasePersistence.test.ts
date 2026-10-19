@@ -4,7 +4,7 @@ import { createPhraseBook, phraseFromPattern } from "@/domain/phraseBook";
 import { defaultPatterns } from "@/data/patterns";
 import { NEUTRAL_SHAPE } from "@/services/shape";
 import {
-  createPhrasePersistence, decimateCurve, encodedPhraseBytes, PHRASE_BUDGET_BYTES, phraseCodec, shelfOverBudget,
+  createPhrasePersistence, decimateCurve, encodedPhraseBytes, PHRASE_BUDGET_BYTES, PHRASE_FORMAT_VERSION, phraseCodec, shelfOverBudget,
   type PersistedPhraseState,
 } from "@/services/phrasePersistence";
 import { encodePayload, readPayload } from "@/services/persistenceCodec";
@@ -255,7 +255,7 @@ describe("IndexedDB backup before phrase rewrites", () => {
     store.save(state);
     await store.settled();
     expect((await listPhraseBackups())[0].raw).toBe(old);
-    expect(JSON.parse(localStorage.getItem("phrases")!).$version).toBe(1);
+    expect(JSON.parse(localStorage.getItem("phrases")!).$version).toBe(PHRASE_FORMAT_VERSION);
     expect(saveFailureNotice.value).toBeNull();
     expect(stored.at(-1)).toBe(true);
   });

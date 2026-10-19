@@ -1,9 +1,15 @@
 import { IDBFactory } from "fake-indexeddb";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { closeTake, createPhraseBook, deletePhrase, keepTake, phraseFromPattern } from "@/domain/phraseBook";
+import {
+  closeTake, createPhraseBook, deletePhrase, keepTake, phraseFromPattern, pressNote, releaseNote,
+} from "@/domain/phraseBook";
 import { defaultPatterns } from "@/data/patterns";
 import { NEUTRAL_SHAPE } from "@/services/shape";
-import { createPhrasePersistence, type PersistedPhraseState } from "@/services/phrasePersistence";
+import { defineCodec, readPayload } from "@/services/persistenceCodec";
+import { listPhraseBackups } from "@/services/phraseBackups";
+import {
+  createPhrasePersistence, phraseCodec, PHRASE_FORMAT_VERSION, type PersistedPhraseState,
+} from "@/services/phrasePersistence";
 import { resetSaveFailure, saveFailureNotice } from "@/services/safeStorage";
 import type { Phrase, PhraseContext } from "@/types/phrases";
 
@@ -22,7 +28,11 @@ interface Tab {
   state: PersistedPhraseState;
   protectedIds: Set<string>;
   events: EventTarget;
+  /** What the shelf notice was told: true for a landed write, false for a failure. */
+  stored: boolean[];
   save(): boolean;
+  /** Wait for a backup the save path is holding a write behind, and its queued save. */
+  settled(): Promise<void>;
   /** The browser delivers the other tab's write to this tab. */
   hear(): void;
   dispose(): void;
@@ -32,14 +42,16 @@ const tabs: Tab[] = [];
 
 /** `listening: false` is a tab whose storage events never arrive: only its own saves can notice. */
 function openTab({ listening = true } = {}): Tab {
-  const tab = { protectedIds: new Set<string>(), events: new EventTarget() } as Tab;
+  const tab = { protectedIds: new Set<string>(), events: new EventTarget(), stored: [] as boolean[] } as Tab;
   const binding = createPhrasePersistence(defaults, () => context, {
     adopt: (state) => { tab.state = state; },
     protectedIds: () => tab.protectedIds,
+    onStored: (ok) => tab.stored.push(ok),
   });
   tab.state = binding.load();
   const stop = listening ? binding.listen(() => tab.state, tab.events) : () => {};
   tab.save = () => binding.save(tab.state);
+  tab.settled = () => binding.settled();
   tab.hear = () => { tab.events.dispatchEvent(new StorageEvent("storage", { key: "phrases" })); };
   tab.dispose = () => { stop(); binding.unregister(); };
   tabs.push(tab);
@@ -108,6 +120,7 @@ describe("two tabs, one shelf", () => {
     // so the two tabs never trade writes back and forth.
     const setItem = vi.spyOn(localStorage, "setItem");
     expect(a.save()).toBe(true);
+    expect(setItem.mock.calls.filter(([key]) => key === "phrases")).toHaveLength(0);
     expect(localStorage.getItem("phrases")).toBe(written);
     setItem.mockRestore();
 
@@ -191,6 +204,23 @@ describe("two tabs, one shelf", () => {
     a.hear();
     expect(ids(a.state)).toEqual(expect.arrayContaining(["from-b"]));
     expect(ids(a.state)).not.toContain("shared");
+  });
+
+  it("holds a release of this tab's own saved sketch that the other tab only took in", () => {
+    const a = openTab();
+    a.save();
+    const b = openTab();
+    sketch(a, "mine");
+    a.save();
+    b.hear(); // B takes it in, unchanged
+    deletePhrase(a.state.book, "mine");
+    // B writes before A saves the release (B's write still carries "mine").
+    sketch(b, "from-b");
+    b.save();
+    a.save();
+    // A's base is its own write, which had "mine": B never changed it, so the release holds.
+    expect(ids(stored())).not.toContain("mine");
+    expect(ids(stored())).toContain("from-b");
   });
 
   it("lets an edit beat a concurrent release: the sketch comes back", () => {
@@ -305,6 +335,103 @@ describe("two tabs, one shelf", () => {
     expect(ids(a.state)).toContain("kept-safe");
     a.save();
     expect(ids(stored())).toContain("kept-safe");
+  });
+
+  it("keeps this tab's sketch when an old build's tab writes the shelf over it (v1, last-write-wins)", async () => {
+    const a = openTab();
+    a.save();
+    // An old-build tab, open across the deploy, saved its stale shelf (without
+    // A's sketch, with one of its own) after A's sketch was stored.
+    const stale = structuredClone(stored());
+    sketch(a, "mine");
+    a.save();
+    stale.book.phrases.push({ ...structuredClone(find(stored(), "mine")!), id: "old-tab-sketch" });
+    localStorage.setItem("phrases", JSON.stringify({ $version: 1, data: stale }));
+    a.hear(); // an older format waits for the save path, which backs it up first
+    expect(a.save()).toBe(false);
+    await a.settled();
+    expect(ids(a.state)).toEqual(expect.arrayContaining(["mine", "old-tab-sketch"]));
+    expect(JSON.parse(localStorage.getItem("phrases")!).$version).toBe(PHRASE_FORMAT_VERSION);
+    expect(ids(stored())).toEqual(expect.arrayContaining(["mine", "old-tab-sketch"]));
+    expect((await listPhraseBackups()).map((backup) => backup.label)).toContain("v1");
+    // And from now on an old build meets the "newer" hold instead of writing.
+    const oldBuild = defineCodec({ ...phraseCodec(defaults, () => context), version: 1, migrations: { 0: (data) => data } });
+    expect(readPayload(oldBuild, localStorage.getItem("phrases")).kind).toBe("newer");
+  });
+
+  it("keeps this tab's sketch when an unversioned (v0) shelf lands over it", async () => {
+    const a = openTab();
+    a.save();
+    const stale = structuredClone(stored());
+    sketch(a, "mine");
+    a.save();
+    localStorage.setItem("phrases", JSON.stringify(stale));
+    a.save();
+    await a.settled();
+    expect(ids(a.state)).toContain("mine");
+    expect(ids(stored())).toContain("mine");
+    expect((await listPhraseBackups()).map((backup) => backup.label)).toContain("v0");
+  });
+
+  it("backs up an unreadable payload from another tab before saving over it", async () => {
+    const a = openTab();
+    sketch(a, "mine");
+    a.save();
+    localStorage.setItem("phrases", "{not json");
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    a.hear(); // nothing to merge; the save path owns it
+    expect(ids(a.state)).toContain("mine");
+    expect(a.save()).toBe(false);
+    expect(localStorage.getItem("phrases")).toBe("{not json");
+    await a.settled();
+    const backups = await listPhraseBackups();
+    expect(backups.find((backup) => backup.label === "unreadable")?.raw).toBe("{not json");
+    expect(ids(stored())).toContain("mine");
+  });
+
+  it("never moves a tab that is playing off its desk when another tab loads and saves", () => {
+    const a = openTab();
+    a.save();
+    const b = openTab();
+    closeTake(b.state.book, NOW, context, undefined, undefined, "navigate");
+    const takeId = b.state.book.takeId;
+    const held = new Map();
+    const play = (noteId: string, at: number) => {
+      pressNote(b.state.book, held, {
+        noteId, wallTime: at, context, note: "C4", scaleDegree: 1, scaleIndex: 0, octave: 4,
+      });
+      releaseNote(b.state.book, held, noteId, at + 200);
+    };
+    play("b-1", NOW);
+    b.save();
+    // A saves after B, so B's take is not the stored take: a reload sees it as another tab's.
+    sketch(a, "from-a");
+    a.save();
+    b.hear();
+    const c = openTab();
+    expect(find(c.state, takeId)!.shelf).toBe("take");
+    sketch(c, "from-c");
+    c.save();
+    b.hear();
+    expect(b.state.book.takeId).toBe(takeId);
+    expect(find(b.state, takeId)!.shelf).toBe("take");
+    play("b-2", NOW + 300);
+    expect(find(b.state, takeId)!.notes).toHaveLength(2);
+    b.save();
+    expect(find(stored(), takeId)!.shelf).toBe("take");
+    expect(ids(stored())).toEqual(expect.arrayContaining(["from-a", "from-c"]));
+  });
+
+  it("does not report a save failure when a storage event's read fails", () => {
+    const a = openTab();
+    sketch(a, "mine");
+    a.save();
+    expect(a.stored).toEqual([true]);
+    const getItem = vi.spyOn(localStorage, "getItem").mockImplementation(() => { throw new DOMException("denied", "SecurityError"); });
+    a.hear();
+    getItem.mockRestore();
+    expect(a.stored).toEqual([true]);
+    expect(saveFailureNotice.value).toBeNull();
   });
 
   it("stops saving, and says so, when the other tab is a newer app", () => {

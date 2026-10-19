@@ -17,4 +17,11 @@ export function serializePatternsState(state: unknown): string {
   return JSON.stringify(snapshot, (_key, value) => toRaw(value));
 }
 
-export const deserializePatternsState = JSON.parse;
+/** Older phrase books predate saved Loops. Other store shapes stay untouched. */
+export function deserializePatternsState(serialized: string): ReturnType<typeof JSON.parse> {
+  const state = JSON.parse(serialized);
+  if (state?.book && typeof state.book === "object" && Array.isArray(state.book.phrases)) {
+    state.book.loops ??= [];
+  }
+  return state;
+}

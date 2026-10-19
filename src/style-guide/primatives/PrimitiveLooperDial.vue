@@ -82,7 +82,7 @@ function toggle(index: number, state: "muted" | "solo") {
 const features = [
   { label: "Meaning", value: "one playing pattern in the Looper, and its control" },
   { label: "Motion", value: "the disc turns under a fixed brass hand with the sounding bar position, from the member's own place and rate; Reduced Motion holds it still" },
-  { label: "Gestures", value: "tap mutes · double-tap solos · hold removes · drag up or down (the Knob's feel, 15px a step) turns the pattern a beat later or earlier · Enter mutes, Delete removes, Up/Down turn it a beat" },
+  { label: "Gestures", value: "tap mutes · double-tap solos · hold removes · drag up or down (the Knob's feel, 15px a step, one emit per 100 ms that may carry several steps, the rest on lift) turns the pattern a beat later or earlier; a sideways slide does nothing · Enter mutes, Delete removes, Up/Down turn it a beat" },
   { label: "States", value: "playing · muted (or silenced by a solo) at 30% · soloed with an Ivory ring" },
   { label: "Surface", value: "no keycap: the 34px Loop Dial on the Stage's Ink, inside a 44px touch target" },
   { label: "Colour", value: "Music Color notes, a brass hand, Ivory focus and solo" },

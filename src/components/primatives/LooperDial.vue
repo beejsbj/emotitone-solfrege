@@ -10,6 +10,7 @@
     @pointermove="move"
     @pointerup="lift"
     @pointercancel="cancel"
+    @lostpointercapture="cancel"
     @keydown.delete.prevent="emit('remove')"
     @keydown.backspace.prevent="emit('remove')"
     @keydown.up.prevent="emit('shift', 1)"
@@ -81,8 +82,10 @@ const emit = defineEmits<{
 
 const DOUBLE_TAP_MS = 320;
 const HOLD_MS = 550;
-// The Knob's options feel: past its 5px tap threshold a mostly vertical
-// movement is a drag, and every 15px of it is one step (here one beat).
+// The Knob's options feel: past its 5px tap threshold the press is no longer a
+// tap or a hold. A mostly vertical movement is a drag, and every 15px of it is
+// one step (here one beat), emitted at most once per 100ms (one emit may carry
+// several steps); a mostly sideways one does nothing.
 const TAP_THRESHOLD_PX = 5;
 const STEP_PX = 15;
 const MIN_STEP_INTERVAL_MS = 100;
@@ -95,7 +98,12 @@ const name = computed(() => {
 let holdTimer: ReturnType<typeof setTimeout> | undefined;
 let held = false;
 let lastTap = -Infinity;
-let gesture: { pointerId: number; x: number; y: number; lastY: number; dragging: boolean; accumulated: number; lastStep: number } | null = null;
+let gesture: {
+  pointerId: number; x: number; y: number; lastY: number;
+  /** Past the tap threshold: vertical (a drag) or sideways (nothing). */
+  moved: "vertical" | "sideways" | null;
+  accumulated: number; lastStep: number;
+} | null = null;
 /** The click that ends a drag is not a tap. */
 let dragged = false;
 
@@ -103,7 +111,7 @@ function down(event: PointerEvent) {
   held = false;
   dragged = false;
   gesture = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, lastY: event.clientY,
-    dragging: false, accumulated: 0, lastStep: -Infinity };
+    moved: null, accumulated: 0, lastStep: -Infinity };
   try {
     (event.currentTarget as Element | null)?.setPointerCapture?.(event.pointerId);
   } catch {
@@ -121,28 +129,43 @@ function move(event: PointerEvent) {
   if (!gesture || event.pointerId !== gesture.pointerId || held) return;
   const dx = event.clientX - gesture.x;
   const dy = event.clientY - gesture.y;
-  if (!gesture.dragging) {
-    if (Math.hypot(dx, dy) <= TAP_THRESHOLD_PX || Math.abs(dy) <= Math.abs(dx) * 1.05) return;
-    // A drag: no tap, double-tap or hold comes of this press.
-    gesture.dragging = true;
-    dragged = true;
+  if (!gesture.moved) {
+    if (Math.hypot(dx, dy) <= TAP_THRESHOLD_PX) return;
+    // Moved: no tap, double-tap or hold comes of this press, whichever way it went.
     clearTimeout(holdTimer);
+    dragged = true;
+    gesture.moved = Math.abs(dy) > Math.abs(dx) * 1.05 ? "vertical" : "sideways";
   }
+  if (gesture.moved !== "vertical") return;
   event.preventDefault();
-  // Up turns the pattern later, as up turns a Knob up.
-  gesture.accumulated += gesture.lastY - event.clientY;
-  gesture.lastY = event.clientY;
-  const steps = Math.trunc(gesture.accumulated / STEP_PX);
+  follow(event.clientY);
+  emitSteps(false);
+}
+
+/** Up turns the pattern later, as up turns a Knob up. */
+function follow(clientY: number) {
+  gesture!.accumulated += gesture!.lastY - clientY;
+  gesture!.lastY = clientY;
+}
+
+/** Emit the whole steps gathered so far; at most once per 100ms unless flushing. */
+function emitSteps(flush: boolean) {
+  const steps = Math.trunc(gesture!.accumulated / STEP_PX);
   const now = performance.now();
-  if (!steps || now - gesture.lastStep < MIN_STEP_INTERVAL_MS) return;
-  gesture.accumulated -= steps * STEP_PX;
-  gesture.lastStep = now;
+  if (!steps || (!flush && now - gesture!.lastStep < MIN_STEP_INTERVAL_MS)) return;
+  gesture!.accumulated -= steps * STEP_PX;
+  gesture!.lastStep = now;
   if (props.haptic) triggerUIHaptic();
   emit("shift", steps);
 }
 
-function lift() {
+function lift(event: PointerEvent) {
   clearTimeout(holdTimer);
+  // The finger lifts: whole steps still held back by the interval are not lost.
+  if (gesture?.moved === "vertical" && event.pointerId === gesture.pointerId) {
+    follow(event.clientY);
+    emitSteps(true);
+  }
   gesture = null;
 }
 

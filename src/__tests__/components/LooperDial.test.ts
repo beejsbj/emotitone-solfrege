@@ -100,7 +100,7 @@ describe("LooperDial", () => {
     // Up 16px: one beat later.
     pointer(element, "pointermove", 21, 84);
     expect(shifts).toEqual([1]);
-    // Steps are at least 100ms apart; the movement is not lost.
+    // One emit per 100ms at most (one may carry several steps); the movement is not lost.
     vi.advanceTimersByTime(120);
     pointer(element, "pointermove", 21, 69);
     expect(shifts).toEqual([1, 1]);
@@ -121,12 +121,53 @@ describe("LooperDial", () => {
     wrapper.unmount();
   });
 
-  it("a mostly sideways movement is not a drag", () => {
+  it("a lift flushes whole steps the 100ms interval held back (one emit may carry several)", () => {
+    vi.useFakeTimers();
     const shifts: number[] = [];
     const { wrapper, button } = mountDial({ onShift: (beats: number) => shifts.push(beats) });
-    pointer(button().element, "pointerdown", 20, 100);
-    pointer(button().element, "pointermove", 60, 90);
+    const element = button().element;
+    pointer(element, "pointerdown", 20, 100);
+    pointer(element, "pointermove", 20, 84);
+    expect(shifts).toEqual([1]);
+    // Another 16px within 100ms: held back, not lost.
+    vi.advanceTimersByTime(40);
+    pointer(element, "pointermove", 20, 68);
+    expect(shifts).toEqual([1]);
+    pointer(element, "pointerup", 20, 68);
+    expect(shifts).toEqual([1, 1]);
+    wrapper.unmount();
+  });
+
+  it("a sideways slide neither mutes nor removes, however long it is held", () => {
+    vi.useFakeTimers();
+    const shifts: number[] = [];
+    const { wrapper, button, emitted } = mountDial({ onShift: (beats: number) => shifts.push(beats) });
+    const element = button().element;
+    // A quick slide off sideways, then its click.
+    pointer(element, "pointerdown", 20, 100);
+    pointer(element, "pointermove", 60, 96);
+    pointer(element, "pointerup", 60, 96);
+    element.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
+    // A slide held past the hold time, then its click.
+    vi.advanceTimersByTime(400);
+    pointer(element, "pointerdown", 20, 100);
+    pointer(element, "pointermove", 30, 99);
+    vi.advanceTimersByTime(800);
+    pointer(element, "pointerup", 30, 99);
+    element.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
+    expect(emitted).toEqual([]);
     expect(shifts).toEqual([]);
+    wrapper.unmount();
+  });
+
+  it("a press whose pointer capture is lost (the page took the touch) is cancelled", () => {
+    vi.useFakeTimers();
+    const { wrapper, button, emitted } = mountDial();
+    const element = button().element;
+    pointer(element, "pointerdown", 20, 100);
+    pointer(element, "lostpointercapture", 20, 100);
+    vi.advanceTimersByTime(800);
+    expect(emitted).toEqual([]);
     wrapper.unmount();
   });
 

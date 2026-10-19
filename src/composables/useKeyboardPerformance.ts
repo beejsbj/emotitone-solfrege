@@ -13,6 +13,7 @@ import type { NoteSurfaceStyle } from "@/components/primatives/Note.vue";
 import { CHROMATIC_NOTES } from "@/data";
 import type { HarmonyChord } from "@/domain/harmony";
 import { spellPitch } from "@/domain/musicalIdentity";
+import { resolveNoteSurface, useEditionFamily } from "@/composables/useEditionFamily";
 import { useKeyboardControls } from "@/composables/useKeyboardControls";
 import { usePerformer } from "@/composables/usePerformer";
 import { getChromaticNoteForScaleIndex } from "@/services/musicColor";
@@ -56,8 +57,12 @@ export function useKeyboardPerformance() {
   const config = computed(() => store.keyboardConfig);
   const mainOctave = computed(() => config.value.mainOctave);
   const currentMusicKey = computed(() => musicStore.currentKey as ChromaticNote);
+  // Keys take the edition family's geometry and Note Surface (BJS-561); the
+  // player's own Color or Monochrome choice wins. Both follow a live re-pin.
+  const editionFamily = useEditionFamily();
+  const geometryFamily = computed(() => editionFamily.value.keys.geometry);
   const surfaceStyle = computed<NoteSurfaceStyle>(() =>
-    config.value.surfaceStyle === "monochrome" ? "monochrome" : "colored",
+    resolveNoteSurface(config.value.surfaceStyle, editionFamily.value),
   );
   const gap = computed(() => ({
     none: 0,
@@ -303,6 +308,7 @@ export function useKeyboardPerformance() {
     showLabels: config.value.showLabels,
     keyboardPadding: config.value.keyboardPadding,
     surfaceStyle: surfaceStyle.value,
+    geometryFamily: geometryFamily.value,
     gap: gap.value,
     interactionLocked: isInteractionLocked.value,
   }));

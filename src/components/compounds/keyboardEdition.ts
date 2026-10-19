@@ -14,9 +14,9 @@ export type KeyboardGeometryFamily =
 const CHORD_GEOMETRY_OFFSET = 2;
 
 /**
- * Chords follow the same daily edition as melody Keys while taking a visibly
- * different family from that edition. The offset is a full derangement of the
- * five-family deck, so neither surface can land on the other's geometry.
+ * Chords follow the edition family's melody Key geometry while taking a
+ * visibly different geometry from it. The offset is a full derangement of the
+ * five geometries, so neither row can land on the other's geometry.
  */
 export function keyboardChordFamily(
   melodyFamily: KeyboardGeometryFamily,
@@ -34,10 +34,6 @@ export interface KeyboardEditionVariation {
   layer: number;
   variant: number;
 }
-
-const EPOCH_UTC = Date.UTC(2000, 0, 1);
-const DAY_MS = 86_400_000;
-const deckCache = new Map<number, KeyboardGeometryFamily[]>();
 
 function hashString(value: string) {
   let hash = 2166136261;
@@ -60,68 +56,6 @@ function seededRandom(seed: number) {
     result ^= result + Math.imul(result ^ (result >>> 7), result | 61);
     return ((result ^ (result >>> 14)) >>> 0) / 4_294_967_296;
   };
-}
-
-function shuffleFamilies(seed: number) {
-  const result = [...KEYBOARD_GEOMETRY_FAMILIES];
-  const random = seededRandom(seed);
-
-  for (let index = result.length - 1; index > 0; index -= 1) {
-    const swapIndex = Math.floor(random() * (index + 1));
-    [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
-  }
-
-  return result;
-}
-
-function deckForBlock(block: number): KeyboardGeometryFamily[] {
-  const safeBlock = Math.max(0, block);
-  const cached = deckCache.get(safeBlock);
-  if (cached) return cached;
-
-  let previousLast: KeyboardGeometryFamily | undefined;
-
-  for (let index = 0; index <= safeBlock; index += 1) {
-    const knownDeck = deckCache.get(index);
-    if (knownDeck) {
-      previousLast = knownDeck[knownDeck.length - 1];
-      continue;
-    }
-
-    const deck = shuffleFamilies(hashString(`emotitone-keyboard-day:${index}`));
-    if (previousLast && deck[0] === previousLast) {
-      const swapIndex = deck.findIndex((family) => family !== previousLast);
-      [deck[0], deck[swapIndex]] = [deck[swapIndex], deck[0]];
-    }
-
-    deckCache.set(index, deck);
-    previousLast = deck[deck.length - 1];
-  }
-
-  return deckCache.get(safeBlock)!;
-}
-
-export function localDateKey(date = new Date()) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function localDayIndex(date: Date) {
-  const localMidnightAsUtc = Date.UTC(
-    date.getFullYear(),
-    date.getMonth(),
-    date.getDate(),
-  );
-  return Math.max(0, Math.floor((localMidnightAsUtc - EPOCH_UTC) / DAY_MS));
-}
-
-export function keyboardFamilyForDate(date = new Date()): KeyboardGeometryFamily {
-  const dayIndex = localDayIndex(date);
-  const block = Math.floor(dayIndex / KEYBOARD_GEOMETRY_FAMILIES.length);
-  const position = dayIndex % KEYBOARD_GEOMETRY_FAMILIES.length;
-  return deckForBlock(block)[position];
 }
 
 function pageSeed() {

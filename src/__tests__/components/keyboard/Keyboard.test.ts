@@ -7,6 +7,7 @@ import { KeyboardPerformanceHost } from "@/__tests__/helpers/keyboardPerformance
 import { useHarmonyAlterationStore } from "@/stores/harmonyAlteration";
 import performanceDeckSource from "@/components/PerformanceDeck.vue?raw";
 import keyboardSource from "@/components/compounds/Keyboard.vue?raw";
+import { pinEditionLook } from "@/composables/useEditionFamily";
 
 const mocks = vi.hoisted(() => {
   const keyboardStore = {
@@ -376,6 +377,84 @@ describe("Keyboard production usage", () => {
         .toBe("calc(var(--keyboard-edition-rotation) * var(--keyboard-variation-amplitude))");
       if (index > 0) expect(cuts[index]).not.toBe(cuts[index - 1]);
     });
+  });
+
+  it("takes key geometry and surface from the edition family and follows a new pin live", async () => {
+    try {
+      pinEditionLook("sharp");
+      const wrapper = mountKeyboard();
+      const read = () => ({
+        keys: wrapper.attributes("data-geometry-family"),
+        chords: wrapper.get(".keyboard__chord-row").attributes("data-geometry-family"),
+        keySurfaces: new Set(wrapper.findAllComponents(KeyStub).map((key) => key.props("surfaceStyle"))),
+        chordSurfaces: new Set(wrapper.findAllComponents(ChordKeyStub).flatMap(
+          (chord) => (chord.props("members") as Array<{ surfaceStyle: string }>).map((member) => member.surfaceStyle),
+        )),
+      });
+
+      expect(read()).toEqual({
+        keys: "tile",
+        chords: "tab",
+        keySurfaces: new Set(["monochrome"]),
+        chordSurfaces: new Set(["monochrome"]),
+      });
+
+      pinEditionLook("marquee");
+      await nextTick();
+      expect(read()).toEqual({
+        keys: "pill",
+        chords: "tile",
+        keySurfaces: new Set(["colored"]),
+        chordSurfaces: new Set(["colored"]),
+      });
+    } finally {
+      pinEditionLook("shuffle");
+    }
+  });
+
+  it("lets the player's own Note Surface win over the family's", async () => {
+    const config = mocks.keyboardStore.keyboardConfig as { surfaceStyle: string };
+    const original = config.surfaceStyle;
+    try {
+      pinEditionLook("sharp");
+      config.surfaceStyle = "colored";
+      const colored = mountKeyboard();
+      expect(colored.attributes("data-geometry-family")).toBe("tile");
+      expect(colored.findAllComponents(KeyStub).every((key) => key.props("surfaceStyle") === "colored")).toBe(true);
+
+      pinEditionLook("marquee");
+      config.surfaceStyle = "monochrome";
+      const monochrome = mountKeyboard();
+      expect(monochrome.findAllComponents(KeyStub).every((key) => key.props("surfaceStyle") === "monochrome")).toBe(true);
+
+      pinEditionLook("sharp");
+      config.surfaceStyle = "family";
+      const family = mountKeyboard();
+      expect(family.findAllComponents(KeyStub).every((key) => key.props("surfaceStyle") === "monochrome")).toBe(true);
+    } finally {
+      config.surfaceStyle = original;
+      pinEditionLook("shuffle");
+    }
+  });
+
+  it("pins a controlled specimen's geometry and surface, whatever family is active", async () => {
+    try {
+      pinEditionLook("sharp");
+      const mountSpecimen = (props: Record<string, unknown>) => mount(Keyboard, {
+        props: { usage: "controlled", rows: controlledRows(), ...props },
+        global: { stubs: { Key: KeyStub, ChordKey: ChordKeyStub } },
+      });
+      const pinned = mountSpecimen({ geometryFamily: "pill", surfaceStyle: "colored" });
+      expect(pinned.attributes("data-geometry-family")).toBe("pill");
+      expect(pinned.findAllComponents(KeyStub).every((key) => key.props("surfaceStyle") === "colored")).toBe(true);
+
+      // The view reads no family: unpinned, it shows the Tab fallback.
+      const bare = mountSpecimen({});
+      expect(bare.attributes("data-geometry-family")).toBe("tab");
+      expect(bare.findAllComponents(KeyStub).every((key) => key.props("surfaceStyle") === "colored")).toBe(true);
+    } finally {
+      pinEditionLook("shuffle");
+    }
   });
 
   it("owns fluid primary typography at the Keyboard layer", () => {

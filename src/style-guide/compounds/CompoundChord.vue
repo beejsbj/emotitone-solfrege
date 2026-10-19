@@ -265,7 +265,7 @@ onBeforeUnmount(() => {
 const features = [
   { label: "Display", value: "symbol means one fused surface; notes means a zero-gap Note cluster" },
   { label: "Material", value: "flat fused bands, hard Ink symbol offset; clustered Notes keep their paper material" },
-  { label: "Geometry", value: "whole-face geometry; Keyboard supplies its daily chord-family cut and rotation" },
+  { label: "Geometry", value: "whole-face geometry; Keyboard supplies its edition family's chord cut and rotation" },
   { label: "Color", value: "each fused band uses only its own flat Music Color, without neighbour blending" },
   { label: "Progress", value: "Ink reveals music color bottom-to-top, controlled 0–1 per member" },
   { label: "Order", value: "fused bands use voicing order; clustered Notes use press order" },

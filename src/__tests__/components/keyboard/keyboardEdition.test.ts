@@ -4,12 +4,11 @@ import {
   keyboardChordFamily,
   keyboardEditionVariation,
   keyboardEditionRowVariations,
-  keyboardFamilyForDate,
   visibleKeyboardOctaves,
 } from "@/components/compounds/keyboardEdition";
 
-describe("keyboard daily editions", () => {
-  it("gives chords a different family that still follows every daily edition", () => {
+describe("keyboard editions", () => {
+  it("gives chords a different geometry for every melody Key geometry", () => {
     const chordFamilies = KEYBOARD_GEOMETRY_FAMILIES.map(keyboardChordFamily);
 
     expect(chordFamilies).toHaveLength(KEYBOARD_GEOMETRY_FAMILIES.length);
@@ -17,18 +16,6 @@ describe("keyboard daily editions", () => {
     expect(chordFamilies.every(
       (family, index) => family !== KEYBOARD_GEOMETRY_FAMILIES[index],
     )).toBe(true);
-  });
-
-  it("uses every family once per five-day deck without boundary repeats", () => {
-    const families = Array.from({ length: 15 }, (_, offset) =>
-      keyboardFamilyForDate(new Date(2000, 0, offset + 1)),
-    );
-
-    for (let start = 0; start < 15; start += 5) {
-      expect(new Set(families.slice(start, start + 5)).size).toBe(5);
-    }
-    expect(families[4]).not.toBe(families[5]);
-    expect(families[9]).not.toBe(families[10]);
   });
 
   it("returns deterministic token references for a key inside one edition", () => {

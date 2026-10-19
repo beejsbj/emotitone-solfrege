@@ -359,8 +359,11 @@ export interface KeyboardConfig {
   primaryLabel: "syllable" | "degree" | "raw";
   /** Key gap style */
   keyGaps: "none" | "small" | "medium";
-  /** Presentation style for keys */
-  surfaceStyle: "colored" | "monochrome";
+  /**
+   * Note Surface for keys: follow the edition family's surface, or the
+   * player's own Color or Monochrome choice, which wins over the family.
+   */
+  surfaceStyle: "family" | "colored" | "monochrome";
   /** Number of visible octave rows */
   rowCount: number;
   /** Main octave number */

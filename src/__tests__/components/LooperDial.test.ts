@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { mount } from "@vue/test-utils";
-import { defineComponent, h } from "vue";
+import { defineComponent, h, nextTick } from "vue";
 import { provideUIBeat, UIBeatClock } from "@/composables/useUIBeat";
 import LooperDial from "@/components/primatives/LooperDial.vue";
 
 /**
  * The Looper Dial: one playing pattern as its own control. Observed through
- * DOM pointer, click and key events, and the gestures it emits.
+ * DOM pointer, click and key events, and the gestures it emits. The gesture
+ * map (Burooj, 2026-10-19): tap mutes, double-tap brings the pattern to the
+ * desk, hold solos while held, a flick off the left edge removes.
  */
 const segments = [{ color: "red", startMs: 0, durationMs: 1000, height: 55 }];
 const base = { segments, lengthMs: 4000, barMs: 2000, label: "Take 3" };
@@ -20,7 +22,8 @@ function mountDial(props: Record<string, unknown> = {}) {
       return () => h(LooperDial, {
         ...base, ...props,
         onMute: () => emitted.push("mute"),
-        onSolo: () => emitted.push("solo"),
+        onDesk: () => emitted.push("desk"),
+        onSolo: (held: boolean) => emitted.push(held ? "solo on" : "solo off"),
         onRemove: () => emitted.push("remove"),
       });
     },
@@ -30,13 +33,20 @@ function mountDial(props: Record<string, unknown> = {}) {
   return { wrapper, clock, generation, emitted, button: () => wrapper.get("button.looper-dial") };
 }
 
+function pointer(element: Element, type: string, clientX: number, clientY: number) {
+  element.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 7, pointerType: "touch", clientX, clientY }));
+}
+
+/** The click a pointer press ends with. */
+const click = (element: Element) => element.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
+
 describe("LooperDial", () => {
   afterEach(() => vi.useRealTimers());
 
   it("is the control itself: a bare dial, no keycap, named for its pattern and its gestures", () => {
     const { wrapper, button } = mountDial();
     expect(button().find(".paper-button__cap").exists()).toBe(false);
-    expect(button().attributes("aria-label")).toBe("Take 3, playing. Tap to mute, double-tap to solo, hold to remove, drag up or down to move it in the loop");
+    expect(button().attributes("aria-label")).toBe("Take 3, playing. Tap to mute, double-tap to bring it to the desk, hold to solo, flick left to remove");
     expect(button().find(".loop-dial").exists()).toBe(true);
     wrapper.unmount();
   });
@@ -53,7 +63,7 @@ describe("LooperDial", () => {
     clock.destroy();
   });
 
-  it("a tap mutes", async () => {
+  it("a tap mutes, at once", async () => {
     const { wrapper, button, emitted } = mountDial();
     await button().trigger("pointerdown");
     await button().trigger("pointerup");
@@ -62,111 +72,135 @@ describe("LooperDial", () => {
     wrapper.unmount();
   });
 
-  it("a double-tap solos: the second tap undoes its mute and solos", async () => {
+  it("a double-tap brings the pattern to the desk: its second tap undoes the first tap's mute", async () => {
     const { wrapper, button, emitted } = mountDial();
     for (let tap = 0; tap < 2; tap++) {
       await button().trigger("pointerdown");
       await button().trigger("pointerup");
       await button().trigger("click");
     }
-    expect(emitted).toEqual(["mute", "mute", "solo"]);
+    expect(emitted).toEqual(["mute", "mute", "desk"]);
+    expect(emitted).not.toContain("solo on");
     wrapper.unmount();
   });
 
-  it("a hold removes, and the click that ends it is not a tap", async () => {
+  it("a hold solos only while held: from the threshold to the lift, and its click is no tap", () => {
     vi.useFakeTimers();
     const { wrapper, button, emitted } = mountDial();
-    await button().trigger("pointerdown");
+    const element = button().element;
+    pointer(element, "pointerdown", 20, 100);
+    vi.advanceTimersByTime(400);
+    expect(emitted).toEqual([]);
+    vi.advanceTimersByTime(200);
+    expect(emitted).toEqual(["solo on"]);
+    // Still held: still soloed, a finger's wobble included.
+    vi.advanceTimersByTime(2000);
+    pointer(element, "pointermove", 30, 102);
+    expect(emitted).toEqual(["solo on"]);
+    pointer(element, "pointerup", 30, 102);
+    expect(emitted).toEqual(["solo on", "solo off"]);
+    click(element);
+    pointer(element, "lostpointercapture", 30, 102);
+    expect(emitted).toEqual(["solo on", "solo off"]);
+    wrapper.unmount();
+  });
+
+  it("a held solo ends when the press is cancelled or loses its capture", () => {
+    vi.useFakeTimers();
+    const { wrapper, button, emitted } = mountDial();
+    const element = button().element;
+    pointer(element, "pointerdown", 20, 100);
     vi.advanceTimersByTime(600);
-    await button().trigger("pointerup");
-    await button().trigger("click");
+    pointer(element, "pointercancel", 20, 100);
+    expect(emitted).toEqual(["solo on", "solo off"]);
+    pointer(element, "pointerdown", 20, 100);
+    vi.advanceTimersByTime(600);
+    pointer(element, "lostpointercapture", 20, 100);
+    expect(emitted).toEqual(["solo on", "solo off", "solo on", "solo off"]);
+    wrapper.unmount();
+  });
+
+  it("a fast flick off the left edge removes", async () => {
+    vi.useFakeTimers();
+    const { wrapper, button, emitted } = mountDial();
+    const element = button().element;
+    pointer(element, "pointerdown", 30, 100);
+    vi.advanceTimersByTime(16);
+    pointer(element, "pointermove", 10, 101);
+    await nextTick();
+    // The dial follows the throw.
+    expect(button().classes()).toContain("looper-dial--flicking");
+    vi.advanceTimersByTime(16);
+    pointer(element, "pointermove", -25, 103);
+    vi.advanceTimersByTime(16);
+    pointer(element, "pointerup", -45, 104);
+    click(element);
     expect(emitted).toEqual(["remove"]);
     wrapper.unmount();
   });
 
-  function pointer(element: Element, type: string, clientX: number, clientY: number) {
-    element.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 7, pointerType: "touch", clientX, clientY }));
-  }
-
-  it("a vertical drag turns the pattern a beat per 15px, Knob-style, and is no tap or hold", async () => {
+  it("a slow drag left, a short flick, a rightward flick and a tap remove nothing", () => {
     vi.useFakeTimers();
-    const shifts: number[] = [];
-    const { wrapper, button, emitted } = mountDial({ onShift: (beats: number) => shifts.push(beats) });
+    const { wrapper, button, emitted } = mountDial();
     const element = button().element;
+    // Slow: 90px over 900ms.
+    pointer(element, "pointerdown", 100, 100);
+    for (let step = 1; step <= 9; step++) {
+      vi.advanceTimersByTime(100);
+      pointer(element, "pointermove", 100 - step * 10, 100);
+    }
+    pointer(element, "pointerup", 10, 100);
+    click(element);
+    expect(button().classes()).not.toContain("looper-dial--flicking");
+    // Fast but short: 30px.
+    vi.advanceTimersByTime(400);
+    pointer(element, "pointerdown", 100, 100);
+    vi.advanceTimersByTime(20);
+    pointer(element, "pointermove", 85, 100);
+    vi.advanceTimersByTime(20);
+    pointer(element, "pointerup", 70, 100);
+    click(element);
+    // Fast, but to the right.
+    vi.advanceTimersByTime(400);
     pointer(element, "pointerdown", 20, 100);
-    // Within the tap threshold nothing happens.
-    pointer(element, "pointermove", 20, 97);
-    expect(shifts).toEqual([]);
-    // Up 16px: one beat later.
-    pointer(element, "pointermove", 21, 84);
-    expect(shifts).toEqual([1]);
-    // One emit per 100ms at most (one may carry several steps); the movement is not lost.
-    vi.advanceTimersByTime(120);
-    pointer(element, "pointermove", 21, 69);
-    expect(shifts).toEqual([1, 1]);
-    // Back down past both: earlier.
-    vi.advanceTimersByTime(120);
-    pointer(element, "pointermove", 21, 100);
-    expect(shifts).toEqual([1, 1, -2]);
-    // Holding still past the hold time mid-drag removes nothing; the ending click is no tap.
-    vi.advanceTimersByTime(800);
-    pointer(element, "pointerup", 21, 100);
-    element.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
+    vi.advanceTimersByTime(20);
+    pointer(element, "pointermove", 60, 100);
+    vi.advanceTimersByTime(20);
+    pointer(element, "pointerup", 100, 100);
+    click(element);
     expect(emitted).toEqual([]);
-    // The next press is an ordinary tap again.
-    await button().trigger("pointerdown");
-    await button().trigger("pointerup");
-    await button().trigger("click");
+    // A tap is a mute, never a removal.
+    vi.advanceTimersByTime(400);
+    pointer(element, "pointerdown", 20, 100);
+    pointer(element, "pointerup", 20, 100);
+    click(element);
     expect(emitted).toEqual(["mute"]);
     wrapper.unmount();
   });
 
-  it("a lift flushes whole steps the 100ms interval held back (one emit may carry several)", () => {
-    vi.useFakeTimers();
-    const shifts: number[] = [];
-    const { wrapper, button } = mountDial({ onShift: (beats: number) => shifts.push(beats) });
-    const element = button().element;
-    pointer(element, "pointerdown", 20, 100);
-    pointer(element, "pointermove", 20, 84);
-    expect(shifts).toEqual([1]);
-    // Another 16px within 100ms: held back, not lost.
-    vi.advanceTimersByTime(40);
-    pointer(element, "pointermove", 20, 68);
-    expect(shifts).toEqual([1]);
-    pointer(element, "pointerup", 20, 68);
-    expect(shifts).toEqual([1, 1]);
-    wrapper.unmount();
-  });
-
-  it("a sideways slide neither mutes nor removes, however long it is held", () => {
-    vi.useFakeTimers();
-    const shifts: number[] = [];
-    const { wrapper, button, emitted } = mountDial({ onShift: (beats: number) => shifts.push(beats) });
-    const element = button().element;
-    // A quick slide off sideways, then its click.
-    pointer(element, "pointerdown", 20, 100);
-    pointer(element, "pointermove", 60, 96);
-    pointer(element, "pointerup", 60, 96);
-    element.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
-    // A slide held past the hold time, then its click.
-    vi.advanceTimersByTime(400);
-    pointer(element, "pointerdown", 20, 100);
-    pointer(element, "pointermove", 30, 99);
-    vi.advanceTimersByTime(800);
-    pointer(element, "pointerup", 30, 99);
-    element.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
-    expect(emitted).toEqual([]);
-    expect(shifts).toEqual([]);
-    wrapper.unmount();
-  });
-
-  it("a press whose pointer capture is lost (the page took the touch) is cancelled", () => {
+  it("a vertical drag does nothing yet (kept for the loop's volume), and is no tap or hold", () => {
     vi.useFakeTimers();
     const { wrapper, button, emitted } = mountDial();
     const element = button().element;
     pointer(element, "pointerdown", 20, 100);
-    pointer(element, "lostpointercapture", 20, 100);
+    pointer(element, "pointermove", 21, 60);
     vi.advanceTimersByTime(800);
+    pointer(element, "pointermove", 21, 20);
+    pointer(element, "pointerup", 21, 20);
+    click(element);
+    expect(emitted).toEqual([]);
+    wrapper.unmount();
+  });
+
+  it("a sideways slide neither mutes nor solos, however long it is held", () => {
+    vi.useFakeTimers();
+    const { wrapper, button, emitted } = mountDial();
+    const element = button().element;
+    pointer(element, "pointerdown", 20, 100);
+    pointer(element, "pointermove", 30, 99);
+    vi.advanceTimersByTime(800);
+    pointer(element, "pointerup", 30, 99);
+    click(element);
     expect(emitted).toEqual([]);
     wrapper.unmount();
   });

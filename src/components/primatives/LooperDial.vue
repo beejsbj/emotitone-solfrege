@@ -2,7 +2,8 @@
   <button
     type="button"
     class="looper-dial touch-floor"
-    :class="`looper-dial--${state}`"
+    :class="[`looper-dial--${state}`, { 'looper-dial--flicking': slideX < 0 }]"
+    :style="slideX < 0 ? { transform: `translateX(${slideX}px)` } : undefined"
     :data-state="state"
     :aria-label="name"
     :title="name"
@@ -13,8 +14,6 @@
     @lostpointercapture="cancel"
     @keydown.delete.prevent="emit('remove')"
     @keydown.backspace.prevent="emit('remove')"
-    @keydown.up.prevent="emit('shift', 1)"
-    @keydown.down.prevent="emit('shift', -1)"
     @contextmenu.prevent
     @click="tap"
   >
@@ -32,7 +31,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount } from "vue";
+import { computed, onBeforeUnmount, ref } from "vue";
 import LoopDial, { type LoopDialSegment } from "./LoopDial.vue";
 import { triggerUIHaptic } from "@/utils/hapticFeedback";
 
@@ -40,11 +39,15 @@ import { triggerUIHaptic } from "@/utils/hapticFeedback";
  * The Looper Dial: one playing pattern in the Looper, as its own control (the
  * #132 prototype, carried by #142). The pattern's Loop Dial is the control
  * itself, not a keycap: its disc turns under a fixed brass hand, so the note at
- * twelve is the one sounding. Tap mutes, double-tap solos, hold removes, and a
- * vertical drag (the Knob's feel) turns the pattern within the loop a beat at
- * a time; from the keyboard, Enter or Space mutes, Delete removes, and Up or
- * Down turns it a beat. Props in, gestures out: the Looper decides what each
- * gesture does.
+ * twelve is the one sounding.
+ *
+ * The gesture map (Burooj, 2026-10-19): a tap mutes or unmutes at once, so it
+ * can be played in rhythm; a double-tap brings the pattern to the desk (its
+ * second tap undoes the first tap's mute); a hold solos it for as long as it is
+ * held; a fast flick off the left edge removes it. From the keyboard, Enter or
+ * Space mutes and Delete removes. Vertical movement is reserved for the loop's
+ * volume (a follow-up), so it does nothing yet. Props in, gestures out: the
+ * Looper decides what each gesture does.
  */
 export type LooperDialState = "playing" | "muted" | "solo";
 
@@ -72,46 +75,51 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   /** Every tap, including each of a double-tap's two. */
   mute: [];
-  /** The second tap of a double-tap (after its own mute). */
-  solo: [];
-  /** A hold, or Delete. */
+  /** The second tap of a double-tap (after its own mute, which undoes the first). */
+  desk: [];
+  /** A hold reached the threshold (true), and its release or cancel (false). */
+  solo: [held: boolean];
+  /** A flick off the left edge, or Delete. */
   remove: [];
-  /** A vertical drag (or Up/Down): turn the pattern this many beats later (+) or earlier (-). */
-  shift: [beats: number];
 }>();
 
 const DOUBLE_TAP_MS = 320;
 const HOLD_MS = 550;
-// The Knob's options feel: past its 5px tap threshold the press is no longer a
-// tap or a hold. A mostly vertical movement is a drag, and every 15px of it is
-// one step (here one beat), emitted at most once per 100ms (one emit may carry
-// several steps); a mostly sideways one does nothing.
+// The Knob's 5px tap threshold: past it the press is no longer a tap or a hold.
 const TAP_THRESHOLD_PX = 5;
-const STEP_PX = 15;
-const MIN_STEP_INTERVAL_MS = 100;
+// A flick: leftward, mostly sideways, at least this far, and fast at the end.
+const FLICK_PX = 48;
+const FLICK_SPEED_PX_PER_MS = 0.5;
+const FLICK_WINDOW_MS = 100;
 
 const name = computed(() => {
   const state = props.state === "solo" ? "solo" : props.state === "muted" ? "muted" : "playing";
-  return `${props.label}, ${state}. Tap to mute, double-tap to solo, hold to remove, drag up or down to move it in the loop`;
+  return `${props.label}, ${state}. Tap to mute, double-tap to bring it to the desk, hold to solo, flick left to remove`;
 });
 
 let holdTimer: ReturnType<typeof setTimeout> | undefined;
+/** The press reached the hold threshold: its click is not a tap. */
 let held = false;
+/** Soloed by this hold, until it lifts or is cancelled. */
+let soloing = false;
 let lastTap = -Infinity;
 let gesture: {
-  pointerId: number; x: number; y: number; lastY: number;
-  /** Past the tap threshold: vertical (a drag) or sideways (nothing). */
+  pointerId: number; x: number; y: number;
+  /** Past the tap threshold: vertical (reserved for volume) or sideways (a flick, perhaps). */
   moved: "vertical" | "sideways" | null;
-  accumulated: number; lastStep: number;
+  /** Recent sideways positions, for the flick's speed at the end. */
+  samples: { t: number; x: number }[];
 } | null = null;
-/** The click that ends a drag is not a tap. */
+/** The click that ends a moved press is not a tap. */
 let dragged = false;
+/** The dial follows a leftward slide, as a card about to be thrown off. */
+const slideX = ref(0);
 
 function down(event: PointerEvent) {
   held = false;
   dragged = false;
-  gesture = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, lastY: event.clientY,
-    moved: null, accumulated: 0, lastStep: -Infinity };
+  gesture = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, moved: null,
+    samples: [{ t: performance.now(), x: event.clientX }] };
   try {
     (event.currentTarget as Element | null)?.setPointerCapture?.(event.pointerId);
   } catch {
@@ -120,63 +128,71 @@ function down(event: PointerEvent) {
   clearTimeout(holdTimer);
   holdTimer = setTimeout(() => {
     held = true;
+    soloing = true;
     if (props.haptic) triggerUIHaptic();
-    emit("remove");
+    emit("solo", true);
   }, HOLD_MS);
 }
 
 function move(event: PointerEvent) {
-  if (!gesture || event.pointerId !== gesture.pointerId || held) return;
+  if (!gesture || event.pointerId !== gesture.pointerId) return;
   const dx = event.clientX - gesture.x;
   const dy = event.clientY - gesture.y;
   if (!gesture.moved) {
     if (Math.hypot(dx, dy) <= TAP_THRESHOLD_PX) return;
-    // Moved: no tap, double-tap or hold comes of this press, whichever way it went.
+    // Moved: no tap or double-tap comes of this press, and no hold starts.
     clearTimeout(holdTimer);
     dragged = true;
     gesture.moved = Math.abs(dy) > Math.abs(dx) * 1.05 ? "vertical" : "sideways";
   }
-  if (gesture.moved !== "vertical") return;
+  // Vertical movement is kept for the loop's volume (a follow-up): nothing yet.
+  if (gesture.moved !== "sideways" || soloing) return;
   event.preventDefault();
-  follow(event.clientY);
-  emitSteps(false);
-}
-
-/** Up turns the pattern later, as up turns a Knob up. */
-function follow(clientY: number) {
-  gesture!.accumulated += gesture!.lastY - clientY;
-  gesture!.lastY = clientY;
-}
-
-/** Emit the whole steps gathered so far; at most once per 100ms unless flushing. */
-function emitSteps(flush: boolean) {
-  const steps = Math.trunc(gesture!.accumulated / STEP_PX);
   const now = performance.now();
-  if (!steps || (!flush && now - gesture!.lastStep < MIN_STEP_INTERVAL_MS)) return;
-  gesture!.accumulated -= steps * STEP_PX;
-  gesture!.lastStep = now;
-  if (props.haptic) triggerUIHaptic();
-  emit("shift", steps);
+  gesture.samples.push({ t: now, x: event.clientX });
+  while (gesture.samples.length > 2 && now - gesture.samples[1].t > FLICK_WINDOW_MS) gesture.samples.shift();
+  slideX.value = Math.min(0, dx);
+}
+
+/** A fast, mostly sideways throw to the left, far enough: never a slow drag or a tap. */
+function isFlick(event: PointerEvent): boolean {
+  if (!gesture || gesture.moved !== "sideways" || soloing) return false;
+  const dx = event.clientX - gesture.x;
+  const dy = event.clientY - gesture.y;
+  if (dx > -FLICK_PX || Math.abs(dx) < Math.abs(dy) * 1.5) return false;
+  const now = performance.now();
+  const from = gesture.samples.find((sample) => now - sample.t <= FLICK_WINDOW_MS) ?? gesture.samples[gesture.samples.length - 1];
+  const elapsed = Math.max(1, now - from.t);
+  return (from.x - event.clientX) / elapsed >= FLICK_SPEED_PX_PER_MS;
+}
+
+function endSolo() {
+  if (!soloing) return;
+  soloing = false;
+  emit("solo", false);
 }
 
 function lift(event: PointerEvent) {
   clearTimeout(holdTimer);
-  // The finger lifts: whole steps still held back by the interval are not lost.
-  if (gesture?.moved === "vertical" && event.pointerId === gesture.pointerId) {
-    follow(event.clientY);
-    emitSteps(true);
+  if (gesture && event.pointerId === gesture.pointerId && isFlick(event)) {
+    if (props.haptic) triggerUIHaptic();
+    emit("remove");
   }
+  slideX.value = 0;
+  endSolo();
   gesture = null;
 }
 
 function cancel() {
   clearTimeout(holdTimer);
+  slideX.value = 0;
+  endSolo();
   gesture = null;
 }
 
 function tap() {
   clearTimeout(holdTimer);
-  // The click that ends a hold or a drag is not a tap.
+  // The click that ends a hold or a moved press is not a tap.
   if (held || dragged) {
     held = false;
     dragged = false;
@@ -186,12 +202,15 @@ function tap() {
   const now = performance.now();
   const double = now - lastTap < DOUBLE_TAP_MS;
   lastTap = double ? -Infinity : now;
-  // The first tap mutes at once; the second undoes that and solos instead.
+  // The first tap mutes at once; the second undoes that and brings the pattern to the desk.
   emit("mute");
-  if (double) emit("solo");
+  if (double) emit("desk");
 }
 
-onBeforeUnmount(() => clearTimeout(holdTimer));
+onBeforeUnmount(() => {
+  clearTimeout(holdTimer);
+  endSolo();
+});
 </script>
 
 <style scoped>
@@ -206,8 +225,8 @@ onBeforeUnmount(() => clearTimeout(holdTimer));
   border-radius: 50%;
   background: transparent;
   color: var(--ivory);
-  cursor: ns-resize;
-  /* The dial owns vertical movement, as a Knob does. */
+  cursor: pointer;
+  /* The dial owns its movement: a flick sideways, and (to come) volume vertically. */
   touch-action: none;
   user-select: none;
   -webkit-touch-callout: none;
@@ -217,6 +236,11 @@ onBeforeUnmount(() => clearTimeout(holdTimer));
 .looper-dial:focus-visible {
   outline: 2px solid var(--ivory);
   outline-offset: 1px;
+}
+
+/* Following a leftward slide: it fades as it nears a throw. */
+.looper-dial--flicking {
+  opacity: .6;
 }
 
 /* Muted, or silenced by another's solo: the record goes dark, its place stays. */

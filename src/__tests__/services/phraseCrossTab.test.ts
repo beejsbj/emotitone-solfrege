@@ -1,7 +1,7 @@
 import { IDBFactory } from "fake-indexeddb";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  closeTake, createPhraseBook, deletePhrase, keepTake, phraseFromPattern, pressNote, releaseNote,
+  closeTake, createPhraseBook, deletePhrase, followControls, getTake, keepTake, phraseFromPattern, pressNote, releaseNote,
 } from "@/domain/phraseBook";
 import { defaultPatterns } from "@/data/patterns";
 import { NEUTRAL_SHAPE } from "@/services/shape";
@@ -475,6 +475,31 @@ describe("two tabs, one shelf", () => {
     expect(merged.frequency).toBe(293.66);
     expect(merged.pitchExpression).toBe(curve);
     expect(merged.pitchExpression).toHaveLength(241);
+  });
+
+  it("keeps this tab's live curves in modeBase when the other tab changes key on a shared take", () => {
+    const a = openTab();
+    const take = getTake(a.state.book);
+    take.notes = phraseFromPattern(defaultPatterns[0], "recent").notes.slice(0, 3);
+    const note = take.notes[0];
+    note.releaseTime = note.pressTime + 1000;
+    note.duration = 1000;
+    note.pitchExpression = Array.from({ length: 241 }, (_, point) => ({ timeMs: point * 1000 / 240, cents: point % 40 }));
+    a.save();
+    // B opens on the same take and turns the key: followControls writes modeBase, whose saved curves are thinned.
+    const b = openTab();
+    expect(b.state.book.takeId).toBe(a.state.book.takeId);
+    expect(followControls(b.state.book, new Map(), { ...context, key: "D" })).toBe(true);
+    b.save();
+    expect(find(stored(), take.id)!.modeBase!.notes[0].pitchExpression!.length).toBeLessThan(241);
+    a.hear();
+    const merged = getTake(a.state.book);
+    expect(merged.context.key).toBe("D");
+    expect(merged.modeBase!.context.key).toBe("C");
+    expect(merged.modeBase!.notes[0].pitchExpression).toHaveLength(241);
+    // A's next control change rebuilds the notes from modeBase: the curve stays whole.
+    expect(followControls(a.state.book, new Map(), { ...context, key: "E" })).toBe(true);
+    expect(getTake(a.state.book).notes[0].pitchExpression).toHaveLength(241);
   });
 
   it("writes a restored older backup back at the current version", async () => {

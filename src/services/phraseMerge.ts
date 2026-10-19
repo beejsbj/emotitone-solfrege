@@ -1,5 +1,5 @@
 import { toRaw } from "vue";
-import { createPhraseBook } from "@/domain/phraseBook";
+import { cloneNote, createPhraseBook } from "@/domain/phraseBook";
 import { sameJson } from "@/services/persistenceCodec";
 import type { PatternNote } from "@/types/patterns";
 import type { Phrase, PhraseBook, PhraseContext } from "@/types/phrases";
@@ -104,10 +104,63 @@ function mergeNotes(base: unknown, ours: PatternNote[], theirs: PatternNote[], s
 }
 
 /**
+ * One list of notes, merged against its base. Notes the other tab did not
+ * change keep this tab's live objects: saved curves are thinned, so taking the
+ * other tab's stored copy of an unchanged note would swap live curves for
+ * lossy ones. `saved` is this tab's list as it would be saved.
+ */
+function mergeNoteList(
+  before: unknown, ours: PatternNote[], saved: unknown, theirs: PatternNote[], options: PhraseMergeOptions,
+): PatternNote[] {
+  const base = Array.isArray(before) ? (before as PatternNote[]) : undefined;
+  if (sameJson(saved, theirs) || (base && sameJson(theirs, base))) return ours;
+  if (!base || !sameJson(saved, base)) return mergeNotes(base, ours, theirs, options.savedNote);
+  // Only the other tab changed them: its notes, in its order, but each note
+  // it did not change keeps this tab's live object.
+  const mine = new Map(ours.map((note) => [note.id, note]));
+  const was = new Map(base.map((note) => [note.id, note]));
+  return theirs.map((note) => {
+    const live = mine.get(note.id);
+    if (!live || sameJson(options.savedNote(live), note)) return live ?? note;
+    // The other tab edited this note (a remap, re-skin or shift of a take
+    // both tabs are on): a field it left alone, such as a curve, keeps this
+    // tab's live value rather than the thinned saved one.
+    const before = was.get(note.id) as unknown as Record<string, unknown> | undefined;
+    if (!before) return note;
+    const edited: Record<string, unknown> = { ...note };
+    const own = toRaw(live) as unknown as Record<string, unknown>;
+    for (const field of Object.keys(own)) {
+      if (sameJson((note as unknown as Record<string, unknown>)[field], before[field])) edited[field] = own[field];
+    }
+    return edited as unknown as PatternNote;
+  });
+}
+
+type ModeBase = NonNullable<Phrase["modeBase"]>;
+const isModeBase = (value: unknown): value is ModeBase => isRecord(value) && Array.isArray(value.notes);
+
+/**
+ * The other tab's `modeBase` (written by followControls when it changed key,
+ * mode or instrument on a shared take), with its notes merged like the
+ * phrase's own: a later control change here rebuilds the notes from it, so its
+ * thinned curves must not replace this tab's live ones. Without a modeBase of
+ * its own, this tab's live take notes are what the other tab captured from.
+ */
+function mergeModeBase(base: Phrase | undefined, ours: Phrase, theirs: ModeBase, options: PhraseMergeOptions): ModeBase {
+  const own = toRaw(ours).modeBase;
+  const notes = own
+    ? mergeNoteList(base?.modeBase?.notes, own.notes, own.notes.map(options.savedNote), theirs.notes, options)
+    : mergeNoteList(
+      base?.modeBase?.notes ?? base?.notes, ours.notes, ours.notes.map(options.savedNote), theirs.notes, options,
+    // A copy: modeBase must never share a note object with the live take.
+    ).map((note) => cloneNote(toRaw(note)));
+  return { ...theirs, notes };
+}
+
+/**
  * Merge a phrase field by field, when either or both tabs changed it. Fields
- * the other tab did not change keep this tab's live values, and notes merge
- * note by note: saved curves are thinned, so taking the other tab's stored
- * copy of an unchanged note would swap this tab's live curves for lossy ones.
+ * the other tab did not change keep this tab's live values, and notes (the
+ * take's and its modeBase's) merge note by note (mergeNoteList).
  */
 function mergePhrase(base: Phrase | undefined, ours: Phrase, theirs: Phrase, options: PhraseMergeOptions): Phrase {
   const live = toRaw(ours) as unknown as Record<string, unknown>;
@@ -120,34 +173,10 @@ function mergePhrase(base: Phrase | undefined, ours: Phrase, theirs: Phrase, opt
     || (!sameJson(saved.notes, before.notes) && !sameJson(other.notes, before.notes));
   for (const key of new Set([...Object.keys(live), ...Object.keys(other), ...Object.keys(before ?? {})])) {
     if (key === "notes") {
-      if (sameJson(saved.notes, other.notes) || (before && sameJson(other.notes, before.notes))) {
-        merged.notes = ours.notes;
-      } else if (before && sameJson(saved.notes, before.notes)) {
-        // Only the other tab changed them: its notes, in its order, but each
-        // note it did not change keeps this tab's live object.
-        const mine = new Map(ours.notes.map((note) => [note.id, note]));
-        const was = new Map((before.notes as PatternNote[]).map((note) => [note.id, note]));
-        merged.notes = theirs.notes.map((note) => {
-          const live = mine.get(note.id);
-          if (!live || sameJson(options.savedNote(live), note)) return live ?? note;
-          // The other tab edited this note (a remap, re-skin or shift of a take
-          // both tabs are on): a field it left alone, such as a curve, keeps
-          // this tab's live value rather than the thinned saved one.
-          const base = was.get(note.id) as unknown as Record<string, unknown> | undefined;
-          if (!base) return note;
-          const edited: Record<string, unknown> = { ...note };
-          const own = toRaw(live) as unknown as Record<string, unknown>;
-          for (const field of Object.keys(own)) {
-            if (sameJson((note as unknown as Record<string, unknown>)[field], base[field])) edited[field] = own[field];
-          }
-          return edited as unknown as PatternNote;
-        });
-      } else {
-        merged.notes = mergeNotes(before?.notes, ours.notes, theirs.notes, options.savedNote);
-      }
+      merged.notes = mergeNoteList(before?.notes, ours.notes, saved.notes, theirs.notes, options);
       continue;
     }
-    const value = mergeValue(Boolean(before), before?.[key], saved[key], live[key], other[key], () => {
+    let value = mergeValue(Boolean(before), before?.[key], saved[key], live[key], other[key], () => {
       switch (key) {
         case "shelf":
           // A Keep is deliberate: never silently undone by the other tab.
@@ -158,6 +187,7 @@ function mergePhrase(base: Phrase | undefined, ours: Phrase, theirs: Phrase, opt
           return live[key];
       }
     });
+    if (key === "modeBase" && value === other.modeBase && isModeBase(value)) value = mergeModeBase(base, ours, value, options);
     if (value !== undefined) merged[key] = value;
   }
   const phrase = merged as unknown as Phrase;

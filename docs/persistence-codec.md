@@ -24,6 +24,8 @@ A store describes its saved format once:
 | `encode(state)` | State → current-version data. Optional (identity if absent). It may throw. |
 | `migrations` | Keyed by from-version: `migrations[n]` turns version-n data into version n+1. `migrations[0]` lifts data saved before codecs existed. `defineCodec` refuses gaps in the table. |
 | `backupRetention` | Optional per-store override of how many version-labelled migration backups to keep. |
+| `merge(base, ours, theirs)` | Optional. Reconciles with bytes another tab wrote, instead of writing over them; needs `adopt` on the binding. See "Two tabs". |
+| `shared(data)` | Optional, with `merge`. The part every tab shares; a save that changes none of it is skipped. |
 
 The stored string is an envelope, `{"$version":1,"data":{…}}`. A payload
 with no `$version` field is version 0, which means unversioned. A
@@ -298,11 +300,91 @@ and the restore path. Four points are real choices:
 - **Phrase book and quota:** its backups use IndexedDB, so a full shelf does
   not need another full copy in localStorage. IndexedDB denial or a failed
   transaction still prevents replacement; the backup-first rule is unchanged.
-- Two tabs running the same version still race (last write wins), as today.
-  Before every save or prepare, the binding rereads the stored
+- Before every save or prepare, the binding rereads the stored
   payload and classifies it again. Older or unreadable bytes are backed up
   before saving; this parses and decodes the small instrument payload on each save.
   If a newer tab has written a higher version, the older tab holds writes until reload and
   reports "Can't save — reload to update". A failed storage read also holds
   writes, even if access later recovers. The check and write are separate
-  storage operations; they do not make concurrent writes atomic.
+  storage operations; they do not make concurrent writes atomic. Two tabs of
+  the same version: see below.
+
+## Two tabs (BJS-575)
+
+Every open tab of the app saves to the same localStorage keys. Before this,
+nothing listened for another tab's writes and a save went straight over
+bytes another tab had written at the current version, so tab A's next save
+erased a sketch tab B had just saved.
+
+### The phrase shelf merges
+
+A codec may declare `merge(base, ours, theirs)`. The binding keeps the stored
+bytes it last agreed with (loaded, wrote, or merged in): the **base**. Bytes in
+storage that are neither that base nor this binding's own last write came from
+another tab, and are merged in, never written over:
+
+- **before every write** (the safety net, needing no event), and
+- **on the `storage` event** (`binding.listen`), so the other tab's sketch
+  shows up on this tab's shelves at once.
+
+Merged state is handed to the store (`adopt`) before it is written. Older
+formats are backed up first as before, then lifted and merged; unreadable or
+unmergeable bytes are backed up, then replaced (the unreadable rule); a newer
+version holds writes and now says so at the event, not only at the next save.
+Empty storage (cleared site data) is not read as "every phrase released": the
+tab writes what it holds. A save that would change nothing every tab shares
+(`shared`: the book minus `takeId` and `recorder`) is skipped, so two tabs never
+trade writes that differ only in their own desks.
+
+**Why merge, not refuse:** the shelf's promise is that everything played is
+kept with no record button. Refusing would put a "can't save" in front of the
+player for the ordinary act of having two tabs open. Merging keeps both tabs'
+sketches with no friction, and every case below resolves without losing a
+note.
+
+The rules, by phrase id against the base (`src/services/phraseMerge.ts`):
+
+| Case | Result |
+| --- | --- |
+| New in either tab | Kept. |
+| Changed in one tab only | That change wins. |
+| Released (deleted, or expired from Recent) in one tab, untouched in the other | **The release holds**, in every tab. |
+| Released in one tab, changed in the other since they last agreed | **Comes back** with the change: an edit beats a concurrent release. Resurrection is the safer failure; it only happens to a phrase someone touched. |
+| Changed in both | Field by field. Notes join by note id (nothing played in either tab is lost; duration grows to cover them). Kept beats any other shelf (a Keep is never silently undone). Any other field, such as a name: the tab that saves last wins, and the other takes it in from the event. |
+| A protected id (`setProtectedIds`, the Looper's playing set) or a saved Loop's member | Never released by a merge, whichever tab released it. |
+| Saved Loops (`book.loops`, BJS-493) | Merged by id like phrases, field by field, this tab winning a conflict. Nothing here depends on the Loop shape beyond `id` and `members[].phraseId`; a book without `loops` merges without one. |
+| `libraryNames` | Per library id, as above. |
+| `takeCounter` | The larger, so neither tab hands out a number the other has used from then on. Two tabs numbering takes in the same moment can still both say "Take 7". |
+| `isRecordingEnabled` | As a single field. |
+
+**The open take is per tab.** `takeId` and `recorder` are never merged. A tab's
+take keeps its own object, notes and recorder through a merge, and a merge never
+releases it. Another tab's open take is stored with shelf `take`, so it sits in
+this tab's book on no shelf, and appears in Recent when that tab moves on. A
+second tab opens on the take stored last, as a reload would; while two tabs
+share one take, notes played in either land in it. If the other tab moves that
+take off the desk (keeps or closes it), that holds, and this tab opens a fresh
+take. On load, an empty extra take (an open or abandoned desk of another tab)
+is dropped rather than shelved as an empty Recent phrase; an extra take with
+notes is shelved in Recent, as before.
+
+What is not covered: a tab's reload restores the take stored last, which can be
+the other tab's desk (its own take, if it had notes, is in Recent). Merging
+costs a parse of the base and the stored shelf whenever another tab has
+written; the own-write fast path is unchanged.
+
+### Other stores are last-write-wins, deliberately
+
+| Store | Key | Why last-write-wins is safe |
+| --- | --- | --- |
+| Instrument (codec) | `emotitone-instrument` | Settings: the current instrument and each instrument's remembered Shape. A stale tab can revert a Shape tweak made in another tab; the player can turn the knob again, and nothing they played is touched. Newer, older and unreadable bytes keep the hold and backup rules. |
+| Visual config (codec) | `emotitone-visual-config` | Appearance and Learn preferences. Same reasoning. |
+| Performance settings (codec) | `emotitone-tempo`, `emotitone-octave`, `emotitone-drawer-rows` | One value each; the last one set is the one wanted. |
+| Music, keyboard drawer (plugin, unversioned) | `music`, `emotitone-keyboard-drawer` | Current key, mode and drawer state: settings. |
+
+**Known gap:** named appearance presets (`emotitone-saved-configs`,
+`emotitone-saved-stage-looks`) are things the player made, not settings, and
+each save rewrites the whole list. A tab that saves a preset can still drop one
+the other tab saved since it loaded. They are small and outside the sketch
+path; a follow-up should give them the same merge (a list by id against a
+base).

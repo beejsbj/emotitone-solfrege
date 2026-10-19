@@ -88,7 +88,8 @@ function mergeNotes(base: unknown, ours: PatternNote[], theirs: PatternNote[], s
   return mergeById(
     Array.isArray(base) ? base : undefined, ours, theirs, savedNote,
     (_base, mine) => mine, () => false,
-  ).sort((left, right) => left.pressTime - right.pressTime);
+  // Ties (a chord) break by id, so both tabs join the same notes in the same order.
+  ).sort((left, right) => left.pressTime - right.pressTime || left.id.localeCompare(right.id));
 }
 
 /** Both tabs changed one phrase: merge it field by field. */

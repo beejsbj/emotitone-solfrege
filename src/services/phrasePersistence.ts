@@ -70,11 +70,25 @@ function savedPhrase(phrase: Phrase): Phrase {
   };
 }
 
-/** Everything but the open take's pointer and recorder, which are each tab's own. */
+const byId = (entries: unknown): unknown =>
+  Array.isArray(entries)
+    ? [...entries].sort((left, right) => String(left?.id).localeCompare(String(right?.id)))
+    : entries;
+
+/**
+ * Everything but the open take's pointer and recorder, which are each tab's
+ * own, with phrases and Loops in id order. A merge keeps each tab's own order,
+ * so two tabs can hold the same shelf in different orders; order alone must
+ * never count as a change, or each tab would write its order back for ever.
+ */
 function sharedPhraseData(data: unknown): unknown {
   const state = data as { book?: Record<string, unknown> } | null;
   if (!state?.book) return data;
-  return { ...state, book: { ...state.book, takeId: undefined, recorder: undefined } };
+  const { book } = state;
+  return {
+    ...state,
+    book: { ...book, phrases: byId(book.phrases), loops: byId(book.loops), takeId: undefined, recorder: undefined },
+  };
 }
 
 export interface PhraseCodecOptions {

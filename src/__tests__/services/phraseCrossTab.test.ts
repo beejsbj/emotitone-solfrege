@@ -106,7 +106,7 @@ describe("two tabs, one shelf", () => {
     expect(ids(a.state)).toContain("from-b");
     // A's autosave after taking it in changes nothing every tab shares: no write,
     // so the two tabs never trade writes back and forth.
-    const setItem = vi.spyOn(Storage.prototype, "setItem");
+    const setItem = vi.spyOn(localStorage, "setItem");
     expect(a.save()).toBe(true);
     expect(localStorage.getItem("phrases")).toBe(written);
     setItem.mockRestore();
@@ -118,6 +118,32 @@ describe("two tabs, one shelf", () => {
     // The tab that wrote hears nothing new.
     a.hear();
     expect(ids(a.state)).toEqual(expect.arrayContaining(["from-a", "from-b"]));
+  });
+
+  it("settles when the two tabs hold the same phrases in a different order", () => {
+    const a = openTab();
+    a.save();
+    const b = openTab();
+    // Sketched at the same moment: A ends up with [.., a1, b1], B with [.., b1, a1].
+    sketch(a, "a1");
+    sketch(b, "b1");
+    b.save();
+    a.save();
+    expect(ids(a.state).slice(-2)).toEqual(["a1", "b1"]);
+    b.hear();
+    expect(ids(b.state).slice(-2)).toEqual(["b1", "a1"]);
+    // Every write wakes the other tab, which then autosaves. Order alone is
+    // nothing every tab shares, so the exchange stops instead of ping-ponging.
+    const setItem = vi.spyOn(localStorage, "setItem");
+    let writer = b;
+    for (let round = 0; round < 6; round++) {
+      const reader = writer === a ? b : a;
+      writer.save();
+      reader.hear();
+      writer = reader;
+    }
+    expect(setItem.mock.calls.filter(([key]) => key === "phrases")).toHaveLength(0);
+    expect(ids(stored())).toEqual(expect.arrayContaining(["a1", "b1"]));
   });
 
   it("keeps each tab's own open take and recorder through a merge", () => {

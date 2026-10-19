@@ -135,6 +135,19 @@ export const usePhrasesStore = defineStore(
       if (saveFailed.value) return "failed";
       return shelfOverBudget(encodedBytes.value) ? "over-budget" : null;
     });
+    // While nothing saves, closing or reloading the tab loses what was played
+    // since: the browser asks first. The guard goes as soon as a save lands.
+    const askBeforeLeaving = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    const guardTab = (failed: boolean) => {
+      if (typeof window === "undefined") return;
+      if (failed) window.addEventListener("beforeunload", askBeforeLeaving);
+      else window.removeEventListener("beforeunload", askBeforeLeaving);
+    };
+    watch(saveFailed, guardTab, { immediate: true });
+    onScopeDispose(() => guardTab(false));
     // Phrases another part of the app still points at (the Looper's playing
     // set, PR 202). The shelf notice never offers or releases one of them.
     const protectedIdsProvider = shallowRef<() => ReadonlySet<string>>(() => new Set());

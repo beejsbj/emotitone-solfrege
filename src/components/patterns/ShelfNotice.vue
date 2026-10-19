@@ -18,7 +18,7 @@
       size="xs"
       :tone="armed ? 'ivory' : 'ink'"
       :accessible-name="armed ? 'Confirm release oldest Recent' : 'Release oldest Recent'"
-      :title="armed ? `Tap again to release ${oldestTitle}` : `Release ${oldestTitle}`"
+      :title="releaseTitle"
       @click="emit('release')"
     >
       <Check v-if="armed" />
@@ -55,13 +55,22 @@ const copy = computed(() => props.state === "failed"
   ? { label: "Not saving", line: "New sketches are not being saved" }
   : { label: "Shelf full", line: "Shelf full · still saving" });
 
+// While nothing saves, what was played lives only in this tab.
+const KEEP_TAB = "Keep this tab open: closing or reloading it loses new sketches.";
+
 // What the line can't fit, for screen readers only.
 const hint = computed(() => {
+  const keep = props.state === "failed" ? ` ${KEEP_TAB}` : "";
   if (!props.oldestTitle) {
-    return ". No Recent phrases to release. Copy any phrases you want to save before deleting them from the reel.";
+    return `.${keep} No Recent phrases to release. Copy any phrases you want to save before deleting them from the reel.`;
   }
   const ask = props.state === "failed" ? "Free space" : "Free some space soon";
-  return `. ${ask}: release the oldest Recent, ${props.oldestTitle}.`;
+  return `.${keep} ${ask}: release the oldest Recent, ${props.oldestTitle}.`;
+});
+
+const releaseTitle = computed(() => {
+  const action = props.armed ? `Tap again to release ${props.oldestTitle}` : `Release ${props.oldestTitle}`;
+  return props.state === "failed" ? `${action}. Not saving: keep this tab open` : action;
 });
 </script>
 

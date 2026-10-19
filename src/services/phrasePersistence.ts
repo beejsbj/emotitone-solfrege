@@ -124,18 +124,24 @@ export function createPhrasePersistence(
 ) {
   const { onMeasure, onStored, storage: base = persistentStorage, ...binding } = options;
   let asked = false;
+  // Whether the current load or save has already told onStored its outcome.
+  let told = false;
+  const report = (stored: boolean) => {
+    told = true;
+    onStored?.(stored);
+  };
   // Watch the shelf's own reads and writes, wherever the binding makes them (a
   // save, the eager migration rewrite, or the save queued behind a backup).
   const storage: SafeStorage = {
     ...base,
     read(key) {
       const result = base.read(key);
-      if (key === "phrases" && !result.ok) onStored?.(false);
+      if (key === "phrases" && !result.ok) report(false);
       return result;
     },
     write(key, value, writeOptions) {
       const stored = base.write(key, value, writeOptions);
-      if (key === "phrases") onStored?.(stored);
+      if (key === "phrases") report(stored);
       return stored;
     },
   };
@@ -145,7 +151,7 @@ export function createPhrasePersistence(
   const persisted = createPersistedBinding(phraseCodec(defaults, context), {
     storage,
     backup: (...args) => writePhraseBackup(...args).catch((error: unknown) => {
-      onStored?.(false);
+      report(false);
       throw error;
     }),
     accept(encoded) {
@@ -158,6 +164,29 @@ export function createPhrasePersistence(
     },
     ...binding,
   });
+  // A save can also be refused before any storage call: the shelf can't be
+  // encoded (JSON throws inside the envelope, past the codec's own encode),
+  // or a hold refuses every write (a newer app's shelf, an unread load). Each
+  // is a failure the player must see. A backup still in flight is not: its
+  // queued save follows, and a failed backup reports itself above. A support
+  // restore is not either: it asks for a reload, which this must not discourage.
+  const refusing = () => {
+    const reason = persisted.hold?.reason;
+    return reason !== "needs-backup" && reason !== "restored";
+  };
+  const { load, save } = persisted;
+  persisted.load = () => {
+    told = false;
+    const state = load();
+    if (!told && persisted.hold && refusing()) report(false);
+    return state;
+  };
+  persisted.save = (state) => {
+    told = false;
+    const saved = save(state);
+    if (!saved && !told && refusing()) report(false);
+    return saved;
+  };
   const unregister = persisted.unregister;
   persisted.unregister = () => {
     release();

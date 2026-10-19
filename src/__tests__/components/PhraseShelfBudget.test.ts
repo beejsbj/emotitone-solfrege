@@ -18,8 +18,9 @@ let store: ReturnType<typeof usePhrasesStore>;
 let wrapper: VueWrapper | undefined;
 let consoleError: { mockRestore(): void } | undefined;
 // The setup's localStorage keeps vi.fn methods so a suite can make the browser refuse a write.
-const storage = localStorage as unknown as { setItem: ReturnType<typeof vi.fn> };
+const storage = localStorage as unknown as { setItem: ReturnType<typeof vi.fn>; getItem: ReturnType<typeof vi.fn> };
 const workingSetItem = storage.setItem.getMockImplementation()!;
+const workingGetItem = storage.getItem.getMockImplementation()!;
 beforeEach(() => {
   localStorage.clear();
   resetSaveFailure();
@@ -32,6 +33,7 @@ afterEach(() => {
   wrapper = undefined;
   store.$dispose();
   storage.setItem.mockImplementation(workingSetItem);
+  storage.getItem.mockImplementation(workingGetItem);
   consoleError?.mockRestore();
   consoleError = undefined;
   vi.unstubAllGlobals();
@@ -228,5 +230,95 @@ describe("Shelf over budget: warn, keep saving (Burooj, 2026-10-17)", () => {
     setActivePinia(createPinia());
     store = usePhrasesStore();
     expect(store.shelves.recent.map((phrase) => phrase.id)).toEqual(ids);
+  });
+});
+
+describe("A shelf that isn't saving always says so (persistence review of #192)", () => {
+  const unload = () => {
+    const event = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(event);
+    return event.defaultPrevented;
+  };
+
+  it("shows the failed strip when a phrase can't be encoded, then clears once one saves", async () => {
+    store.book.phrases.push(phrase("oldest", "recent", 100));
+    await nextTick();
+    const page = render();
+    expect(notice(page).exists()).toBe(false);
+    consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const before = localStorage.getItem("phrases");
+    // JSON can't write a BigInt: the encode throws before anything reaches storage.
+    store.book.phrases.push(Object.assign(phrase("unencodable", "recent", 150), { probe: 10n }));
+    await nextTick();
+    expect(localStorage.getItem("phrases")).toBe(before);
+    expect(store.shelfNotice).toBe("failed");
+    expect(notice(page).attributes("data-shelf-notice")).toBe("failed");
+    expect(saveFailureNotice.value).toBeNull();
+    store.book.phrases.splice(store.book.phrases.findIndex((entry) => entry.id === "unencodable"), 1);
+    await nextTick();
+    expect(store.shelfNotice).toBeNull();
+    expect(savedPhrases().some((saved) => saved.id === "oldest")).toBe(true);
+  });
+
+  it("refuses only the save whose read failed: the next save writes every phrase held meanwhile", async () => {
+    store.book.phrases.push(phrase("oldest", "recent", 100));
+    await nextTick();
+    const page = render();
+    consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    let failedReads = 1;
+    storage.getItem.mockImplementation((key: string) => {
+      if (key === "phrases" && failedReads-- > 0) throw new Error("Read denied");
+      return workingGetItem(key);
+    });
+    [0, 2].forEach((degree, index) => tap(`r-${index}`, degree, Date.now() + index * 300));
+    await nextTick();
+    expect(failedReads).toBe(0);
+    expect(notice(page).attributes("data-shelf-notice")).toBe("failed");
+    expect(savedPhrases().find((saved) => saved.id === store.takeId)?.notes ?? []).toHaveLength(0);
+    // Storage reads again: the next save goes through with everything played.
+    tap("r-2", 4, Date.now() + 900);
+    await nextTick();
+    expect(store.shelfNotice).toBeNull();
+    expect(notice(page).exists()).toBe(false);
+    expect(savedPhrases().find((saved) => saved.id === store.takeId)?.notes).toHaveLength(3);
+    expect(savedPhrases().some((saved) => saved.id === "oldest")).toBe(true);
+  });
+
+  it("asks to keep the tab open while saving has failed, and lets it close once saving recovers", async () => {
+    store.book.phrases.push(phrase("oldest", "recent", 100));
+    await nextTick();
+    const page = render();
+    expect(unload()).toBe(false);
+    consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    storage.setItem.mockImplementation((key: string, value: string) => {
+      if (key === "phrases") throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+      workingSetItem(key, value);
+    });
+    tap("u-0", 0, Date.now());
+    await nextTick();
+    expect(notice(page).attributes("data-shelf-notice")).toBe("failed");
+    expect(notice(page).text()).toContain("Keep this tab open");
+    expect(page.get('button[aria-label="Release oldest Recent"]').attributes("title")).toContain("keep this tab open");
+    expect(unload()).toBe(true);
+    storage.setItem.mockImplementation(workingSetItem);
+    tap("u-1", 2, Date.now() + 300);
+    await nextTick();
+    expect(store.shelfNotice).toBeNull();
+    expect(unload()).toBe(false);
+  });
+
+  it("never says 'still saving' while a newer app version's shelf holds every write", async () => {
+    store.$dispose();
+    const newer = JSON.stringify({ $version: 99, data: { from: "a newer app" } });
+    localStorage.setItem("phrases", newer);
+    setActivePinia(createPinia());
+    store = usePhrasesStore();
+    const page = render();
+    store.book.phrases.push(overBudgetRecent());
+    await nextTick();
+    expect(localStorage.getItem("phrases")).toBe(newer);
+    expect(store.shelfNotice).toBe("failed");
+    expect(notice(page).text()).not.toContain("still saving");
+    expect(saveFailureNotice.value?.message).toBe("Can't save — reload to update");
   });
 });

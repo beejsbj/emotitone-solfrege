@@ -205,6 +205,18 @@ export interface BackupEntry {
 }
 
 const BACKUP_INFIX = ".backup.";
+
+/**
+ * A restore stamps `<key>.restored` before it puts the backup back, so every
+ * open tab, not only the one that restored, stops writing until it reloads
+ * (otherwise another tab would merge its shelf back over the restored bytes).
+ */
+export const restoredMarkerKey = (key: string): string => `${key}.restored`;
+
+/** Stamp a restore of `key` for every open tab. False when the stamp could not be written. */
+export function markRestored(storage: SafeStorage, key: string, time: number): boolean {
+  return storage.write(restoredMarkerKey(key), String(time), { oneOff: true });
+}
 const BACKUP_TAIL = /^([A-Za-z0-9-]+)\.(\d{4}-\d{2}-\d{2})(?:\.(\d+))?$/;
 
 /** `<key>.backup.<label>.<YYYY-MM-DD>`, with `.<n>` when the date repeats. */
@@ -384,6 +396,22 @@ export function createPersistedBinding<T>(
     const lifted = lift(synced);
     return lifted.kind === "lifted" ? lifted.data : null;
   };
+  const readMarker = (): string | null => {
+    const marker = storage.read(restoredMarkerKey(codec.key));
+    return marker.ok ? marker.value : null;
+  };
+  // The restore stamp this page started from (undefined until first looked at).
+  let restoreSeen: string | null | undefined;
+  /** Another tab restored a backup since: hold until reload, and say so. */
+  const restoredElsewhere = (): boolean => {
+    const marker = readMarker();
+    if (restoreSeen === undefined) restoreSeen = marker;
+    if (marker === restoreSeen) return false;
+    hold = { reason: "restored" };
+    queuedState = null;
+    reportSaveFailure("newer", codec.key);
+    return true;
+  };
   /** Stored bytes another tab wrote since this binding last agreed with storage. */
   const isForeign = (raw: string | null): raw is string =>
     raw !== null && raw !== lastEncoded && raw !== synced;
@@ -475,6 +503,7 @@ export function createPersistedBinding<T>(
       return null;
     }
     if (!releaseHold()) return null;
+    if (restoredElsewhere()) return null;
     const raw = stored.value;
     const own = raw !== null && raw === lastEncoded;
     if (own) synced = raw;
@@ -581,6 +610,8 @@ export function createPersistedBinding<T>(
         return codec.defaults();
       }
       const raw = stored.value;
+      // A restore stamped before this load is the payload this page runs on.
+      restoreSeen = readMarker();
       const read = readPayload(codec, raw);
       outcome = read.kind;
       hold = null;
@@ -625,7 +656,7 @@ export function createPersistedBinding<T>(
       return true;
     },
     sync(current) {
-      if (!codec.merge || hold) return null;
+      if (hold || restoredElsewhere() || !codec.merge) return null;
       const stored = storage.read(codec.key);
       if (!stored.ok || !isForeign(stored.value)) return null;
       const lifted = lift(stored.value);
@@ -647,7 +678,7 @@ export function createPersistedBinding<T>(
       const onStorage = (event: Event) => {
         const { key } = event as StorageEvent;
         // A null key is a clear(); the read in sync decides.
-        if (key === codec.key || key === null) binding.sync(current());
+        if (key === codec.key || key === restoredMarkerKey(codec.key) || key === null) binding.sync(current());
       };
       target.addEventListener("storage", onStorage);
       return () => target.removeEventListener("storage", onStorage);
@@ -744,10 +775,14 @@ export function restoreBackup(
     if (!kept.stored) return { ok: false, message: `Could not back up the current "${entry.of}"; nothing restored.` };
     preRestoreBackup = kept.backupKey;
   }
-  if (!storage.write(entry.of, saved)) {
-    return { ok: false, message: `Could not write "${entry.of}"; nothing restored.`, preRestoreBackup };
-  }
+  // Stamp first: no other tab may write between the restore and the stamp.
   live?.holdUntilReload();
+  if (!markRestored(storage, entry.of, now())) {
+    return { ok: false, message: `Could not tell other tabs about the restore of "${entry.of}"; nothing restored. Reload to save again.`, preRestoreBackup };
+  }
+  if (!storage.write(entry.of, saved)) {
+    return { ok: false, message: `Could not write "${entry.of}"; nothing restored. Reload to save again.`, preRestoreBackup };
+  }
   // Prune only after the swap: the restored bytes are live now.
   if (preRestoreBackup) {
     pruneBackups(storage, entry.of, live?.codec.backupRetention ?? BACKUP_RETENTION, preRestoreBackup);

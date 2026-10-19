@@ -1,5 +1,5 @@
 import {
-  BACKUP_RETENTION, backupKeyFor, bindingFor, parseBackupKey,
+  BACKUP_RETENTION, backupKeyFor, bindingFor, markRestored, parseBackupKey,
   type BackupEntry, type RestoreResult,
 } from "@/services/persistenceCodec";
 import { persistentStorage, reportSaveFailure, reportSaveSuccess } from "@/services/safeStorage";
@@ -96,8 +96,13 @@ export async function restorePhraseBackup(backupKey: string): Promise<RestoreRes
     if (!latest.ok || latest.value !== current.value) {
       return { ok: false, message: "Shelf changed during backup; retry restore." };
     }
-    if (!persistentStorage.write(entry.of, saved.raw)) return { ok: false, message: "Could not restore shelf." };
+    // This tab stops first, then every other open tab (the stamp), then the
+    // shelf goes back: no tab can merge its own shelf back over the restore.
     bindingFor(entry.of)?.holdUntilReload();
+    if (!markRestored(persistentStorage, entry.of, Date.now())) {
+      return { ok: false, message: "Could not tell other tabs about the restore; nothing restored. Reload to save again." };
+    }
+    if (!persistentStorage.write(entry.of, saved.raw)) return { ok: false, message: "Could not restore shelf." };
     return { ok: true, message: "Shelf restored. Reload now; saving is held until reload." };
   } catch {
     reportSaveFailure("unknown", "phrases.backup");

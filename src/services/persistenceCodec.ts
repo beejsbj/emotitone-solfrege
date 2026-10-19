@@ -158,6 +158,18 @@ function liftPayload(codec: PersistenceCodec<unknown>, raw: string): Lifted {
   }
 }
 
+/**
+ * `raw` as the current version would store it: an older payload is lifted
+ * through the migrations into a current envelope (data otherwise untouched);
+ * anything else (current, newer, unreadable) comes back as it is.
+ */
+export function asCurrentPayload<T>(codec: PersistenceCodec<T>, raw: string): string {
+  const lifted = liftPayload(codec as PersistenceCodec<unknown>, raw);
+  if (lifted.kind !== "lifted" || lifted.from === codec.version) return raw;
+  const envelope: Envelope = { [VERSION_FIELD]: codec.version, data: lifted.data };
+  return JSON.stringify(envelope);
+}
+
 /** Read a stored string. Pure: never touches storage, never throws. */
 export function readPayload<T>(codec: PersistenceCodec<T>, raw: string | null): ReadOutcome<T> {
   if (raw === null) return { kind: "empty", state: codec.defaults() };
@@ -432,15 +444,25 @@ export function createPersistedBinding<T>(
   };
   // The restore stamp this page started from (undefined until first looked at).
   let restoreSeen: string | null | undefined;
+  // The current `restored` hold came from another tab's stamp (not this page's own restore).
+  let heldByStamp = false;
   /** Another tab restored a backup since: hold until reload, and say so. */
   const restoredElsewhere = (): boolean => {
     const marker = readMarker();
     if (restoreSeen === undefined) restoreSeen = marker;
     if (marker === restoreSeen) return false;
     hold = { reason: "restored" };
+    heldByStamp = true;
     queuedState = null;
     reportSaveFailure("newer", codec.key);
     return true;
+  };
+  /** That restore failed and took its stamp back: nothing changed, so save again. */
+  const stampTakenBack = (): void => {
+    if (!heldByStamp || hold?.reason !== "restored" || readMarker() !== restoreSeen) return;
+    hold = null;
+    heldByStamp = false;
+    reportSaveSuccess(codec.key);
   };
   /** Stored bytes another tab wrote since this binding last agreed with storage. */
   const isForeign = (raw: string | null): raw is string =>
@@ -521,6 +543,7 @@ export function createPersistedBinding<T>(
   interface Prepared { encoded: string; stored: string | null; own: boolean }
 
   const prepareWrite = (state: T): Prepared | null => {
+    stampTakenBack();
     if (backup) queuedState = { state };
     // Another tab may have replaced the bytes since hydration. Classify them
     // again so legacy and unreadable payloads get the same backup protection.
@@ -628,9 +651,11 @@ export function createPersistedBinding<T>(
     holdUntilReload() {
       queuedState = null;
       hold = { reason: "restored" };
+      heldByStamp = false;
     },
     resume() {
       if (hold?.reason === "restored") hold = null;
+      heldByStamp = false;
     },
     prepare,
     encode: (state) => encodePayload(codec, state),
@@ -645,6 +670,7 @@ export function createPersistedBinding<T>(
       const raw = stored.value;
       // A restore stamped before this load is the payload this page runs on.
       restoreSeen = readMarker();
+      heldByStamp = false;
       const read = readPayload(codec, raw);
       outcome = read.kind;
       hold = null;
@@ -689,6 +715,7 @@ export function createPersistedBinding<T>(
       return true;
     },
     sync(current) {
+      stampTakenBack();
       if (hold || restoredElsewhere() || !codec.merge) return null;
       const stored = storage.read(codec.key);
       if (!stored.ok || !isForeign(stored.value)) return null;

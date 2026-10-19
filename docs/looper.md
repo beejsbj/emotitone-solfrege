@@ -23,7 +23,7 @@ button: **Play is the loop.**
    that is sounding.
 4. **A Loop is a saved set of pointers.** It names the patterns that were
    playing together and how each sat in the loop; opening it sets its
-   patterns playing. Where a Loop lives in the reel is still open (see Open).
+   patterns playing. A saved Loop gets its own reel (see Decided).
 
 Everything else in the pattern system holds: whatever you play is captured,
 silence closes a take into Recent, Return keeps.
@@ -228,3 +228,10 @@ The questions this section held are settled:
   volume. See Surfaces.
 - **The latch's closing bar shows on the beat dots** ("the beat indicator
   could visually show this").
+
+## Open
+
+- **One pattern or everything playing.** Key, mode, tempo and instrument are
+  set per pattern, and a pinned pattern keeps its own key. Burooj is weighing
+  a small toggle that decides whether a change applies to the selected pattern
+  or to everything playing. It is undecided, so nothing builds it yet.

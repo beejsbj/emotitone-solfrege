@@ -5,6 +5,8 @@ import { nextTick } from "vue";
 import Tabs from "@/components/primatives/Tabs.vue";
 import Knob from "@/components/primatives/Knob/index.vue";
 import Joystick from "@/components/uniques/Joystick/index.vue";
+import { KeyboardPerformanceHost } from "@/__tests__/helpers/keyboardPerformanceHost";
+import { KEYBOARD_GEOMETRY_FAMILIES, keyboardChordFamily } from "@/components/compounds/keyboardEdition";
 import {
   EDITION_FAMILIES,
   SHUFFLE_FAMILIES,
@@ -13,7 +15,7 @@ import {
   readEditionReviewPin,
   useEditionFamily,
 } from "@/composables/useEditionFamily";
-import { GLOBAL_CONTROL_GROUPS } from "@/services/configPublicSurface";
+import { DECK_CONTROL_GROUPS, GLOBAL_CONTROL_GROUPS } from "@/services/configPublicSurface";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 
 function memoryStorage(initial: Record<string, string> = {}) {
@@ -72,6 +74,47 @@ describe("edition families", () => {
       });
     }
     parts.unmount();
+  });
+
+  it("gives every family a key geometry and surface, namesakes first and most in colour", () => {
+    for (const candidate of EDITION_FAMILIES) {
+      expect(KEYBOARD_GEOMETRY_FAMILIES, candidate.id).toContain(candidate.keys.geometry);
+      expect(["colored", "monochrome"], candidate.id).toContain(candidate.keys.surface);
+    }
+    for (const namesake of ["tab", "offcut", "tile"] as const) {
+      expect(EDITION_FAMILIES.find(({ id }) => id === namesake)?.keys.geometry).toBe(namesake);
+    }
+    const monochrome = EDITION_FAMILIES.filter(({ keys }) => keys.surface === "monochrome");
+    expect(monochrome.length).toBeGreaterThan(0);
+    expect(monochrome.length).toBeLessThan(EDITION_FAMILIES.length / 2);
+    // No two families present the same keys.
+    expect(new Set(EDITION_FAMILIES.map(({ keys }) => `${keys.geometry}-${keys.surface}`)).size)
+      .toBe(EDITION_FAMILIES.length);
+  });
+
+  it("shows each family on the production Keyboard, through its container: its key geometry, a different chord geometry, its surface", async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const keyboard = mount(KeyboardPerformanceHost);
+    try {
+      for (const candidate of EDITION_FAMILIES) {
+        pinEditionLook(candidate.id);
+        await nextTick();
+        const chordGeometry = keyboard.get(".keyboard__chord-row").attributes("data-geometry-family");
+        expect(keyboard.attributes("data-geometry-family"), candidate.id).toBe(candidate.keys.geometry);
+        expect(chordGeometry, candidate.id).toBe(keyboardChordFamily(candidate.keys.geometry));
+        expect(chordGeometry, candidate.id).not.toBe(candidate.keys.geometry);
+        const notes = keyboard.findAll(".keyboard__row .note");
+        expect(notes.length, candidate.id).toBeGreaterThan(0);
+        for (const note of notes) {
+          expect(note.classes(), candidate.id).toContain(`note--geometry-${candidate.keys.geometry}`);
+          expect(note.classes(), candidate.id).toContain(`note--surface-${candidate.keys.surface}`);
+        }
+      }
+    } finally {
+      keyboard.unmount();
+      disposePinia(pinia);
+    }
   });
 
   it("leaves explicitly pinned specimens alone", async () => {
@@ -166,6 +209,46 @@ describe("pinning", () => {
     expect(family.value.id).toBe("marquee");
     expect(readEditionReviewPin("?edition=nope")).toBeNull();
     expect(family.value.id).toBe("brass");
+  });
+
+  it("Config's Note Surface follows the family by default; Color or Monochrome is saved and wins", async () => {
+    localStorage.clear();
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    try {
+      const store = useVisualConfigStore();
+      const control = DECK_CONTROL_GROUPS.flatMap(({ controls }) => controls).find(({ id }) => id === "noteSurface")!;
+      expect(control.options?.map(({ value }) => value)).toEqual(["family", "colored", "monochrome"]);
+      expect(store.deckControls.noteSurface).toBe("family");
+
+      store.updateDeckControl("noteSurface", "colored");
+      store.saveToStorage();
+      expect(JSON.parse(localStorage.getItem("emotitone-visual-config")!).data.config.keyboard)
+        .toEqual({ surfaceStyle: "colored" });
+
+      store.updateDeckControl("noteSurface", "family");
+      store.saveToStorage();
+      expect(JSON.parse(localStorage.getItem("emotitone-visual-config")!).data.config)
+        .not.toHaveProperty("keyboard");
+
+      // A retired or unknown stored surface follows the family again.
+      for (const stored of ["glassmorphism", "neon"]) {
+        localStorage.setItem("emotitone-visual-config", JSON.stringify({
+          $version: 1, data: { config: { keyboard: { surfaceStyle: stored } } },
+        }));
+        const reload = createPinia();
+        setActivePinia(reload);
+        const reloaded = useVisualConfigStore();
+        expect(reloaded.deckControls.noteSurface, stored).toBe("family");
+        reloaded.updateDeckControl("noteSurface", "monochrome");
+        expect(reloaded.importConfig(JSON.stringify({ config: { keyboard: { surfaceStyle: stored } } }))).toBe(true);
+        expect(reloaded.deckControls.noteSurface, `imported ${stored}`).toBe("family");
+        disposePinia(reload);
+      }
+    } finally {
+      disposePinia(pinia);
+      localStorage.clear();
+    }
   });
 
   it("Config's Global Edition control pins a family on every part and saves it", async () => {

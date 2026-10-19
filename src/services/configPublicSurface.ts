@@ -117,7 +117,7 @@ export const GLOBAL_CONTROL_GROUPS: PublicConfigControlGroup<GlobalControlId>[] 
   },
   {
     label: "Edition",
-    description: "Shuffle gives each visit one family of Tabs, Knobs and Joystick; pin a family to keep it. Keys keep their own daily shapes.",
+    description: "Shuffle gives each visit one family of Tabs, Knobs, Joystick and keys; pin a family to keep it.",
     controls: [
       {
         id: "edition",
@@ -170,6 +170,7 @@ export const DECK_CONTROL_GROUPS: PublicConfigControlGroup<DeckControlId>[] = [
         label: "Note Surface",
         type: "options",
         options: [
+          { label: "Family", value: "family" },
           { label: "Color", value: "colored" },
           { label: "Monochrome", value: "monochrome" },
         ],
@@ -327,7 +328,7 @@ export function updateDeckControl(
       }
       break;
     case "noteSurface":
-      if (value === "colored" || value === "monochrome") {
+      if (value === "family" || value === "colored" || value === "monochrome") {
         config.keyboard.surfaceStyle = value;
       }
       break;

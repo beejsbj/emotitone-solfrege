@@ -1,9 +1,12 @@
 import { defineStore } from "pinia";
 import { computed, onScopeDispose, watch } from "vue";
+import { useHarmonyAlterationStore } from "@/stores/harmonyAlteration";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
 import { createPerformer } from "@/services/performer";
+import { buildHarmony } from "@/domain/harmony";
+import type { ChromaticNote } from "@/types/music";
 
 /**
  * The app's one performer (W3). Pointer, QWERTY, number row, MIDI and the
@@ -11,11 +14,15 @@ import { createPerformer } from "@/services/performer";
  * their voices through the music store, and releases every owner when the
  * window blurs, the page hides, the instrument locks, or a new instrument is
  * selected.
+ *
+ * It reads the Joystick alteration from its store, so the chord row and the
+ * number row build the same chords from one place (`chordsAt`).
  */
 export const usePerformerStore = defineStore("performer", () => {
   const musicStore = useMusicStore();
   const instrumentStore = useInstrumentStore();
   const keyboardDrawerStore = useKeyboardDrawerStore();
+  const harmonyAlterationStore = useHarmonyAlterationStore();
 
   const performer = createPerformer({
     attack(voice, isCancelled) {
@@ -69,7 +76,20 @@ export const usePerformerStore = defineStore("performer", () => {
     performer.dispose();
   });
 
+  /**
+   * The chord row's chords rooted at `octave`, under the Joystick's current
+   * alteration. Reactive when read inside a computed. A chord already held
+   * keeps the voices it was pressed with: release goes by owner.
+   */
+  const chordsAt = (octave: number) => buildHarmony({
+    tonic: musicStore.currentKey as ChromaticNote,
+    scaleType: musicStore.currentMode,
+    octave,
+    alteration: harmonyAlterationStore.effective,
+  });
+
   return {
+    chordsAt,
     isLocked: computed(() => instrumentStore.isInteractionLocked),
     press: performer.press,
     release: performer.release,

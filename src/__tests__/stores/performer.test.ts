@@ -22,11 +22,14 @@ vi.mock("@/services/livePlayback", () => ({
   needsLivePlaybackPreparation: () => false,
 }));
 
-import Keyboard from "@/components/compounds/Keyboard.vue";
+import { KeyboardPerformanceHost } from "@/__tests__/helpers/keyboardPerformanceHost";
 import { noteColorResolverKey, staticNoteColorResolver } from "@/components/primatives/noteColorContext";
 import { KEY_REPEAT_WINDOW_MS, useKeyboardControls } from "@/composables/useKeyboardControls";
 import { useMidiControls } from "@/composables/useMidiControls";
 import { usePerformerStore } from "@/stores/performer";
+import { useHarmonyAlterationStore } from "@/stores/harmonyAlteration";
+import { buildHarmony } from "@/domain/harmony";
+import { CHORD_ROW_KEYS, NOTE_ROWS } from "@/utils/qwertyLayout";
 import { useMusicStore } from "@/stores/music";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useInstrumentStore } from "@/stores/instrument";
@@ -350,7 +353,7 @@ describe("one performer: W3 releases and ownership", () => {
   it("window blur releases pointer, QWERTY and MIDI owners together", async () => {
     const keys = addInput("keys", "MIDI keyboard");
     await mountMidi();
-    const keyboard = mount(Keyboard, {
+    const keyboard = mount(KeyboardPerformanceHost, {
       attachTo: document.body,
       global: { plugins: [pinia], provide: { [noteColorResolverKey as symbol]: staticNoteColorResolver } },
     });
@@ -614,5 +617,210 @@ describe("one performer: W3 releases and ownership", () => {
     live.render(100);
     await settle();
     expect(live.core.voiceCount).toBe(0);
+  });
+});
+
+describe("one performer, slice 2: one alteration, a pure view, QWERTY on the surface", () => {
+  const mountPerformanceKeyboard = (props: { showKeyboard?: boolean } = {}) => {
+    const keyboard = mount(KeyboardPerformanceHost, {
+      props,
+      attachTo: document.body,
+      global: { plugins: [pinia], provide: { [noteColorResolverKey as symbol]: staticNoteColorResolver } },
+    });
+    hosts.push(keyboard);
+    return keyboard;
+  };
+  const touchPointer = (type: string, pointerId: number) => {
+    const event = new Event(type, { bubbles: true, cancelable: true });
+    Object.defineProperties(event, {
+      pointerId: { value: pointerId }, pointerType: { value: "touch" }, clientX: { value: 5 },
+      clientY: { value: 5 }, button: { value: 0 }, isPrimary: { value: true },
+    });
+    return event;
+  };
+  const tonicChord = (alteration: "dark" | "jazzy7") =>
+    buildHarmony({ tonic: "C", scaleType: "major", octave: 4, alteration })[0]
+      .voicing.pitches.map((pitch) => pitch.name);
+
+  it("the chord row and the number row take the Joystick alteration from one store, and a held chord survives a change", async () => {
+    expect(tonicChord("dark")).not.toEqual(tonicChord("jazzy7"));
+    const keyboard = mountPerformanceKeyboard();
+    const alteration = useHarmonyAlterationStore();
+    alteration.latch("dark");
+    await settle();
+
+    // The number row and the on-screen chord key, both under "dark".
+    key("keydown", "Digit1");
+    const chordKey = keyboard.get<HTMLElement>('[data-chord-id="degree-1"]');
+    vi.spyOn(document, "elementFromPoint").mockReturnValue(chordKey.element);
+    chordKey.element.dispatchEvent(touchPointer("pointerdown", 31));
+    await settle();
+    expect(useMusicStore().getActiveNoteNames().sort())
+      .toEqual([...tonicChord("dark"), ...tonicChord("dark")].sort());
+
+    // The Joystick moves while both are held: the held chord keeps its
+    // snapshot on screen, and both release completely.
+    alteration.latch("jazzy7");
+    await settle();
+    expect(keyboard.get('[data-chord-id="degree-1"]').attributes("data-alteration")).toBe("dark");
+    key("keyup", "Digit1");
+    keyboard.get<HTMLElement>(".keyboard").element.dispatchEvent(touchPointer("pointerup", 31));
+    await settle();
+    expect(useMusicStore().activeNotes.size).toBe(0);
+    expect(touches()).toEqual([]);
+    expect(vi.mocked(audio.releaseNote).mock.calls.map(([noteId]) => noteId).sort())
+      .toEqual([...attackedIds()].sort());
+
+    // A fresh press on either input now plays the new alteration.
+    expect(keyboard.get('[data-chord-id="degree-1"]').attributes("data-alteration")).toBe("jazzy7");
+    key("keydown", "Digit1");
+    await settle();
+    expect(useMusicStore().getActiveNoteNames().sort()).toEqual([...tonicChord("jazzy7")].sort());
+    key("keyup", "Digit1");
+  });
+
+  /** A Keyboard Map API that reports `printed` (code → character) as the layout. */
+  const useLayout = (printed: Record<string, string> | null) => {
+    if (printed) {
+      Object.defineProperty(navigator, "keyboard", {
+        configurable: true,
+        value: { getLayoutMap: async () => new Map(Object.entries(printed)) },
+      });
+    } else {
+      Reflect.deleteProperty(navigator, "keyboard");
+    }
+  };
+  /** What a US layout prints for every key the layout uses. */
+  const US = Object.fromEntries([...NOTE_ROWS.flatMap((row) => row.keys), ...CHORD_ROW_KEYS]
+    .map(({ code, label }) => [code, label.toLowerCase()]));
+  beforeEach(() => useLayout(US));
+  afterEach(() => useLayout(null));
+
+  const plays = async (code: string) => {
+    key("keydown", code);
+    await settle();
+    const names = useMusicStore().getActiveNoteNames();
+    key("keyup", code);
+    await settle();
+    return names;
+  };
+  const shortcutOf = (keyboard: VueWrapper, id: string) =>
+    keyboard.get(`[data-key-id="${id}"]`).attributes("aria-keyshortcuts");
+  const chordShortcuts = (keyboard: VueWrapper) =>
+    keyboard.findAll(".keyboard__chord-row button").map((chord) => chord.attributes("aria-keyshortcuts"));
+
+  it("unused letter keys continue the scale into the next octave, and every key announces its shortcuts", async () => {
+    // Three rows (octaves 5, 4, 3) of C major: seven keys per row.
+    const keyboard = mountPerformanceKeyboard();
+    await settle();
+    const shortcut = (id: string) => shortcutOf(keyboard, id);
+
+    expect(shortcut("0_5")).toBe("Q K");
+    expect(shortcut("4_5")).toBe("T \\");
+    expect(shortcut("5_5")).toBe("Y");
+    expect(shortcut("0_4")).toBe("A ,");
+    expect(shortcut("1_4")).toBe("S .");
+    expect(shortcut("6_4")).toBe("J");
+    expect(shortcut("0_3")).toBe("Z");
+    // The browser keeps / and ' (Firefox Quick Find): no continued note.
+    expect(shortcut("2_4")).toBe("D");
+    expect(shortcut("3_5")).toBe("R");
+    expect(chordShortcuts(keyboard)).toEqual(["1", "2", "3", "4", "5", "6", "7"]);
+
+    expect(await plays("KeyK")).toEqual(["C5"]);
+    expect(await plays("Backslash")).toEqual(["G5"]);
+    expect(await plays("Comma")).toEqual(["C4"]);
+    expect(await plays("Period")).toEqual(["D4"]);
+    expect(await plays("Slash")).toEqual([]);
+    expect(await plays("Quote")).toEqual([]);
+    // Octave 6 is not on screen, so the top row's continuation is silent.
+    expect(await plays("KeyI")).toEqual([]);
+  });
+
+  it("announces each key by what it prints on the user's layout, and nothing where the layout is unknown", async () => {
+    // AZERTY: the Q position prints A, the A position prints Q, Comma prints ;,
+    // and the number row prints & é " ' ( - è unshifted.
+    useLayout({
+      ...US, KeyQ: "a", KeyA: "q", KeyW: "z", KeyZ: "w", Comma: ";", KeyM: ",", Semicolon: "m",
+      Digit1: "&", Digit2: "é", Digit3: "\"", Digit4: "'", Digit5: "(", Digit6: "-", Digit7: "è",
+    });
+    const azerty = mountPerformanceKeyboard();
+    await settle();
+    expect(shortcutOf(azerty, "0_5")).toBe("A K");
+    expect(shortcutOf(azerty, "0_4")).toBe("Q ;");
+    expect(shortcutOf(azerty, "0_3")).toBe("W");
+    expect(chordShortcuts(azerty)).toEqual(["&", "É", "\"", "'", "(", "-", "È"]);
+    // The notes still follow the physical key.
+    expect(await plays("KeyQ")).toEqual(["C5"]);
+    azerty.unmount();
+    hosts.splice(hosts.indexOf(azerty), 1);
+
+    useLayout(null);
+    const unknown = mountPerformanceKeyboard();
+    await settle();
+    expect(unknown.findAll("[aria-keyshortcuts]")).toHaveLength(0);
+    expect(await plays("KeyK")).toEqual(["C5"]);
+  });
+
+  it("two keys on one pitch are two owners: releasing one leaves the other sounding and lit", async () => {
+    const keyboard = mountPerformanceKeyboard();
+    await settle();
+    const lit = (id: string) => keyboard.get(`[data-key-id="${id}"]`).classes().includes("keyboard__key--pressed");
+
+    for (const [first, second, id, pitch] of [
+      ["KeyQ", "KeyK", "0_5", "C5"],
+      ["KeyA", "Comma", "0_4", "C4"],
+    ] as const) {
+      key("keydown", first);
+      key("keydown", second);
+      await settle();
+      expect(useMusicStore().getActiveNoteNames(), first).toEqual([pitch, pitch]);
+
+      key("keyup", first);
+      await settle();
+      expect(useMusicStore().getActiveNoteNames(), `${second} after ${first} lifts`).toEqual([pitch]);
+      expect(touches()).toEqual([`keyboard:${second}`]);
+      expect(lit(id)).toBe(true);
+
+      key("keyup", second);
+      await settle();
+      expect(useMusicStore().activeNotes.size).toBe(0);
+      expect(touches()).toEqual([]);
+      expect(lit(id)).toBe(false);
+    }
+    expect(vi.mocked(audio.releaseNote).mock.calls.map(([noteId]) => noteId).sort())
+      .toEqual([...attackedIds()].sort());
+  });
+
+  it("passes Ctrl+K and Cmd+L on the newly mapped keys through to the browser and plays nothing", async () => {
+    mountPerformanceKeyboard();
+    await settle();
+    for (const [code, modifier] of [["KeyK", { ctrlKey: true }], ["KeyL", { metaKey: true }]] as const) {
+      const shortcut = new KeyboardEvent("keydown", { code, key: code.slice(3).toLowerCase(), cancelable: true, ...modifier });
+      window.dispatchEvent(shortcut);
+      await settle();
+      expect(shortcut.defaultPrevented, code).toBe(false);
+      expect(touches(), code).toEqual([]);
+      expect(useMusicStore().activeNotes.size, code).toBe(0);
+      key("keyup", code);
+      await settle();
+    }
+    expect(audio.attackNote).not.toHaveBeenCalled();
+  });
+
+  it("the performance surface, not the Keyboard view, registers QWERTY", async () => {
+    const keyboard = mountPerformanceKeyboard({ showKeyboard: false });
+    expect(keyboard.find(".keyboard").exists()).toBe(false);
+
+    key("keydown", "KeyA");
+    await settle();
+    expect(touches()).toEqual(["keyboard:KeyA"]);
+    expect(useMusicStore().getActiveNoteNames()).toEqual(["C4"]);
+
+    // Unmounting the surface ends its QWERTY owners.
+    keyboard.unmount();
+    hosts.splice(hosts.indexOf(keyboard), 1);
+    expect(touches()).toEqual([]);
+    expect(useMusicStore().activeNotes.size).toBe(0);
   });
 });

@@ -706,8 +706,8 @@ export const UNIFIED_CONFIG = {
       label: "Key Gaps",
     },
     surfaceStyle: {
-      value: "colored",
-      options: ["colored", "monochrome"],
+      value: "family",
+      options: ["family", "colored", "monochrome"],
       label: "Surface Style",
     },
     rowCount: {

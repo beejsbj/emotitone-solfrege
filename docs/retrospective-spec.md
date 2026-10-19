@@ -215,6 +215,7 @@ From the player's side:
      - Shuffle is the default Look: each load picks one family for the whole instrument, not an independent roll per part.
      - Players can pin any family.
      - Keys keep their own key-shape variation as it is.
+     - **Revised 2026-10-16 (Burooj, BJS-561):** families now also set the keys: each family names a key geometry and a coloured or monochrome surface, and keys stop rotating daily. The player's own Note Surface choice still wins.
    - **What this does to the QA load:** it shrinks from about 140 independent combinations to the number of families.
    - **Costs:**
      - Since any family can appear by default, every edition must meet the accessibility floor: a 44px target, a visible focus ring, and contrast. Today only Tabs Marquee does, so the other Tabs editions need that work before Shuffle can include them.
@@ -777,7 +778,7 @@ This sequencing changes the plan proposed on 2026-10-06 in one place:
 - **Confirmed by Burooj on 2026-10-09:**
   - "Moats" means moats, and the four-moat list is correct.
   - Decision 4: leave the code editor; keep the highlight and "Open in Strudel".
-  - Decision 5: Shuffle is the default, families are consistent across parts, and Keys stay as they are.
+  - Decision 5: Shuffle is the default, families are consistent across parts, and Keys stay as they are (revised 2026-10-16, BJS-561: families also set key shape and surface).
   - #136 merges before anything.
 - **Still his to decide:**
   - The colour-wheel question (story 96) and the emotion-label default (story 95) are his.

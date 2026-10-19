@@ -101,19 +101,17 @@
         :aria-busy="interactionLocked || undefined"
       >
         <Keyboard
-          :usage="isProductionUsage ? 'production' : 'controlled'"
-          :rows="isProductionUsage ? undefined : keyboardRows"
-          :main-octave="octave"
-          :tonic="keyValue"
-          :scale-type="modeValue"
+          v-bind="keyboardView"
           :available-height="height"
-          :harmony-alteration="harmonyEffective"
-          :interaction-locked="interactionLocked"
           :class="{ 'pointer-events-none': interactionLocked }"
-          @press="(intent) => emit('keyboardPress', intent)"
-          @release="(intent) => emit('keyboardRelease', intent)"
-          @chord-press="(intent) => emit('chordPress', intent)"
-          @chord-release="(intent) => emit('chordRelease', intent)"
+          @press="pressKey"
+          @release="releaseKey"
+          @pitch-bend="(intent) => keyboardPerformance?.pitchBend(intent)"
+          @gain-change="(intent) => keyboardPerformance?.gainChange(intent)"
+          @chord-press="pressChord"
+          @chord-release="releaseChord"
+          @chord-pitch-bend="(intent) => keyboardPerformance?.chordPitchBend(intent)"
+          @chord-gain-change="(intent) => keyboardPerformance?.chordGainChange(intent)"
         />
         <div
           v-if="interactionLocked"
@@ -136,7 +134,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from "vue";
+import { computed, onScopeDispose, reactive, ref } from "vue";
 import { Keyboard as KeyboardIcon } from "lucide-vue-next";
 import CodeStripBar from "@/components/compounds/CodeStripBar.vue";
 import ControlBar from "@/components/compounds/ControlBar.vue";
@@ -165,8 +163,10 @@ import {
 } from "@/components/compounds/keyboardSizing";
 import { hasPlayableContent } from "@/composables/useCodeStripStrudel";
 import { useHummingCapture } from "@/composables/useHummingCapture";
+import { useKeyboardPerformance } from "@/composables/useKeyboardPerformance";
 import { displayInstrumentName } from "@/data/instruments";
 import type { HarmonyAlteration } from "@/domain/harmony";
+import { useHarmonyAlterationStore } from "@/stores/harmonyAlteration";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useLooperStore } from "@/stores/looper";
@@ -253,9 +253,25 @@ const visualConfigStore = isProductionUsage ? useVisualConfigStore() : undefined
 // Play is the loop: in production, Play goes to the Looper.
 const looper = isProductionUsage ? useLooperStore() : undefined;
 const humming = isProductionUsage ? useHummingCapture() : undefined;
+const harmonyAlterationStore = isProductionUsage ? useHarmonyAlterationStore() : undefined;
+// The stick springs back to its latch when the deck goes away (route change,
+// HMR), so the next deck never plays under a push nobody is holding.
+if (harmonyAlterationStore) {
+  onScopeDispose(() => harmonyAlterationStore.latch(harmonyAlterationStore.latched));
+}
+// The performance surface wires the Keyboard view and registers QWERTY.
+const keyboardPerformance = isProductionUsage ? useKeyboardPerformance() : undefined;
 
-const harmonyLatched = ref<HarmonyAlteration>(props.harmonyValue);
-const harmonyEffective = ref<HarmonyAlteration>(props.harmonyValue);
+// The Joystick alteration lives in its store in production; the guide keeps
+// its own copy.
+const localHarmonyLatched = ref<HarmonyAlteration>(props.harmonyValue);
+const localHarmonyEffective = ref<HarmonyAlteration>(props.harmonyValue);
+const harmonyLatched = computed(() =>
+  harmonyAlterationStore?.latched ?? localHarmonyLatched.value
+);
+const harmonyEffective = computed(() =>
+  harmonyAlterationStore?.effective ?? localHarmonyEffective.value
+);
 const patternReelGuardsHandle = ref(false);
 type PatternControl = "key" | "mode" | "bpm" | "octave";
 const patternControlSignals = reactive<Record<PatternControl, number>>({
@@ -297,6 +313,15 @@ const maximumHeight = computed(() => maximumKeyboardHeight(8) + keyboardPadding.
 const initialKeyboardHeight = computed(() =>
   defaultKeyboardHeight(rowCount.value) + keyboardPadding.value
 );
+const keyboardView = computed(() => keyboardPerformance?.view.value ?? {
+  usage: "controlled" as const,
+  rows: props.keyboardRows,
+  mainOctave: octave.value,
+  tonic: keyValue.value,
+  scaleType: modeValue.value,
+  harmonyAlteration: harmonyEffective.value,
+  interactionLocked: interactionLocked.value,
+});
 const hummingStatus = computed(() => humming?.status.value ?? "idle");
 const hummingError = computed(() => humming?.error.value ?? null);
 const hummingStatusMessage = computed(() => humming?.statusMessage.value ?? "");
@@ -386,14 +411,42 @@ function updatePlayMode(value: string) {
 }
 
 function updateHarmonyLatch(value: HarmonyAlteration) {
-  harmonyLatched.value = value;
-  harmonyEffective.value = value;
-  if (!isProductionUsage) emit("update:harmonyValue", value);
+  if (harmonyAlterationStore) {
+    harmonyAlterationStore.latch(value);
+    return;
+  }
+  localHarmonyLatched.value = value;
+  localHarmonyEffective.value = value;
+  emit("update:harmonyValue", value);
 }
 
 function updateHarmonyEffective(value: HarmonyAlteration) {
-  harmonyEffective.value = value;
-  if (!isProductionUsage) emit("harmonyEffective", value);
+  if (harmonyAlterationStore) {
+    harmonyAlterationStore.setEffective(value);
+    return;
+  }
+  localHarmonyEffective.value = value;
+  emit("harmonyEffective", value);
+}
+
+function pressKey(intent: KeyboardIntent) {
+  keyboardPerformance?.press(intent);
+  emit("keyboardPress", intent);
+}
+
+function releaseKey(intent: KeyboardIntent) {
+  keyboardPerformance?.release(intent);
+  emit("keyboardRelease", intent);
+}
+
+function pressChord(intent: KeyboardChordIntent) {
+  keyboardPerformance?.chordPress(intent);
+  emit("chordPress", intent);
+}
+
+function releaseChord(intent: KeyboardChordIntent) {
+  keyboardPerformance?.chordRelease(intent);
+  emit("chordRelease", intent);
 }
 
 function updateDrawerOpen(isOpen: boolean) {

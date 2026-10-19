@@ -775,7 +775,7 @@ describe("Play is the loop on the worklet transport", () => {
         await press(deck.get(".code-strip-bar__play").element, 520);
         expect(looper.latched).toBe(true);
         expect(looper.isDeskPlaying).toBe(true);
-        expect(deck.get(".code-strip-bar__play").classes()).toContain("paper-button--latched");
+        expect(deck.get(".code-strip-bar__play").classes()).toContain("paper-button--pressed");
 
         // A tap again stops the desk's pattern: its transport member leaves.
         await press(deck.get(".code-strip-bar__play").element, 40);

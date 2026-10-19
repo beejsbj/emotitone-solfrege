@@ -155,25 +155,19 @@ describe("Button", () => {
     expect(buttonSource).toMatch(/@media \(prefers-reduced-motion: reduce\) \{[\s\S]*\.paper-button__lip,/);
   });
 
-  it("latches without being busy: the lip orbits, the key still answers, and Reduced Motion stills it", async () => {
-    const wrapper = mount(Button, { props: { latched: true, haptic: true, accessibleName: "Play" } });
-    expect(wrapper.classes()).toContain("paper-button--latched");
-    expect(wrapper.classes()).not.toContain("paper-button--loading");
+  it("holds its pressed look on demand, still answering, with no orbit or ring of its own", async () => {
+    const wrapper = mount(Button, { props: { pressed: true, haptic: true, accessibleName: "Play" } });
+    expect(wrapper.classes()).toContain("paper-button--pressed");
+    expect(wrapper.attributes("data-pressed")).toBe("true");
     expect(wrapper.attributes("aria-busy")).toBeUndefined();
-    expect(wrapper.attributes("data-latched")).toBe("true");
     await wrapper.trigger("click", { detail: 1 });
     expect(wrapper.emitted("click")).toHaveLength(1);
-    // Busy outranks the latch.
-    await wrapper.setProps({ loading: true });
-    expect(wrapper.classes()).not.toContain("paper-button--latched");
-    expect(buttonSource).toContain(".paper-button--latched .paper-button__lip { animation: paper-button-orbit");
-    // Under Reduced Motion neither orbit runs; the latch is a still, full ring.
+    // The held look is the press itself: the cap travels down as under a finger.
+    expect(buttonSource).toMatch(/\.paper-button:not\(:disabled\):active \.paper-button__cap,\s*\.paper-button--pressed:not\(:disabled\) \.paper-button__cap \{/);
+    expect(buttonSource).not.toContain("paper-button--latched");
+    // Reduced Motion stills the loading orbit too.
     const reduced = buttonSource.slice(buttonSource.indexOf("@media (prefers-reduced-motion: reduce)"));
-    expect(reduced).toMatch(/\.paper-button--loading \.paper-button__lip,\s*\.paper-button--latched \.paper-button__lip \{ animation: none; \}/);
-    expect(reduced).toContain(".paper-button--latched .paper-button__lip { --paper-button-lip-span: 360deg; }");
-    // Forced colors hide the lip: the latch keeps a system-colour outline there.
-    const forced = buttonSource.slice(buttonSource.indexOf("@media (forced-colors: active)"));
-    expect(forced).toMatch(/\.paper-button--latched \{ outline: 2px solid Highlight;/);
+    expect(reduced).toContain(".paper-button--loading .paper-button__lip { animation: none; }");
   });
 
   it("shares the promoted Boolean Knob rebound with non-brass buttons", () => {

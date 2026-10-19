@@ -143,11 +143,11 @@ describe("CodeStripBar.vue", () => {
     }
   });
 
-  it("shows the latch on the Play key: its lip orbits and its name says so", async () => {
+  it("shows the latch as the Play key held down, and its name says so", async () => {
     wrapper = render({ playLatched: true });
-    const play = wrapper.get("button[data-latched]");
-    // The Button's own latched state, not its busy one borrowed from outside.
-    expect(play.classes()).toContain("paper-button--latched");
+    const play = wrapper.get("button[data-pressed]");
+    // The Button's own pressed look, held (Burooj, 2026-10-19).
+    expect(play.classes()).toContain("paper-button--pressed");
     expect(play.classes()).not.toContain("paper-button--loading");
     expect(play.attributes("aria-busy")).toBeUndefined();
     expect(play.attributes("aria-label")).toBe("Play (latched; hold to release)");

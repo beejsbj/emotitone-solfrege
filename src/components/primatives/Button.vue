@@ -8,7 +8,7 @@
       tone === 'brass' ? `paper-button--brass-${brassFinish}` : undefined,
       {
         'paper-button--loading': loading,
-        'paper-button--latched': latched && !loading,
+        'paper-button--pressed': pressed,
         'paper-button--hit-a': hitPhase === 'a',
         'paper-button--hit-b': hitPhase === 'b',
       },
@@ -16,7 +16,7 @@
     :disabled="disabled"
     :aria-label="accessibleName"
     :aria-busy="loading || undefined"
-    :data-latched="latched || undefined"
+    :data-pressed="pressed || undefined"
     :title="title"
     @pointerdown="strike"
     @click="handleClick"
@@ -43,8 +43,8 @@ import { triggerUIHaptic } from "@/utils/hapticFeedback";
  * from inside the switch. A lit lip sits under the cap at rest; every hit
  * bottoms the cap out, opens the lip into a full ring, lights the face, and
  * closes back down into the lip like a note's release. Loading rotates the
- * lip around the cap. Latched (a pedal held through the key, such as Play's
- * latch) rotates the same lip but is not busy: the key reads and answers. The native button keeps an invariant hit box; the face
+ * lip around the cap. Pressed holds the cap down in its pressed look (Play's
+ * latch: a pedal held through the key). The native button keeps an invariant hit box; the face
  * inside carries UIBeat scale, and the cap owns press travel. However small
  * the cap, the button takes at least a --hit-min touch.
  */
@@ -59,8 +59,8 @@ const props = withDefaults(
     tone?: ButtonTone;
     brassFinish?: ButtonBrassFinish;
     loading?: boolean;
-    /** A mode the key engages and releases (Play's latch): the lip orbits; the key stays live. */
-    latched?: boolean;
+    /** Held in its pressed look, as a key held down (Play's latch). The key stays live. */
+    pressed?: boolean;
     disabled?: boolean;
     uiBeat?: boolean;
     haptic?: boolean;
@@ -73,7 +73,7 @@ const props = withDefaults(
     tone: "ink",
     brassFinish: "sheen-glow",
     loading: false,
-    latched: false,
+    pressed: false,
     disabled: false,
     uiBeat: true,
     haptic: false,
@@ -285,7 +285,8 @@ function handleClick(event: MouseEvent) {
 }
 
 /* Press: the cap bottoms out on its travel. */
-.paper-button:not(:disabled):active .paper-button__cap {
+.paper-button:not(:disabled):active .paper-button__cap,
+.paper-button--pressed:not(:disabled) .paper-button__cap {
   transform: translateY(calc(var(--button-travel) - 1px));
 }
 
@@ -329,8 +330,6 @@ function handleClick(event: MouseEvent) {
 .paper-button--loading { cursor: progress; }
 .paper-button--loading .paper-button__content { opacity: .3; }
 .paper-button--loading .paper-button__lip { animation: paper-button-orbit 900ms linear infinite; }
-/* Latched orbits the lip too, but the face stays lit and readable. */
-.paper-button--latched .paper-button__lip { animation: paper-button-orbit 900ms linear infinite; }
 
 @keyframes paper-button-orbit {
   from { --paper-button-lip-angle: 180deg; }
@@ -367,10 +366,7 @@ function handleClick(event: MouseEvent) {
   .paper-button__switch,
   .paper-button__lamp,
   .paper-button__cap::after,
-  .paper-button--loading .paper-button__lip,
-  .paper-button--latched .paper-button__lip { animation: none; }
-  /* Still, the latch reads as a full lit ring instead of an orbit. */
-  .paper-button--latched .paper-button__lip { --paper-button-lip-span: 360deg; }
+  .paper-button--loading .paper-button__lip { animation: none; }
 }
 
 @media (forced-colors: active) {
@@ -383,7 +379,5 @@ function handleClick(event: MouseEvent) {
   .paper-button__cap { border: 1px solid ButtonText; background: ButtonFace; box-shadow: none; }
   .paper-button__lip,
   .paper-button__lamp { display: none; }
-  /* With the lip gone, the latch still reads: a system-colour outline. */
-  .paper-button--latched { outline: 2px solid Highlight; outline-offset: 2px; }
 }
 </style>

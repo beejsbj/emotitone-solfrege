@@ -11,7 +11,7 @@
           :tone="isPlaying ? 'ink' : 'ivory'"
           :haptic="haptic"
           :disabled="playDisabled"
-          :latched="playLatched"
+          :pressed="playLatched"
           :accessible-name="playName"
           :title="playName"
           @pointerdown="playDown"

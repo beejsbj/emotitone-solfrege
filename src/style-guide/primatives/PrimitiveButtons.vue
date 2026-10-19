@@ -1,6 +1,6 @@
 <template>
   <AnatomyDisplay
-    title="Button &middot; Momentary Primitive (a latched state is proposed, pending Burooj)"
+    title="Button &middot; Momentary Primitive"
     :features="features"
     caption="One icon-only momentary primitive: the Lit Keycap. A switch cap on visible walls with real travel, backlit from inside: a lit lip at rest, a full ring and lit face on every hit that close back down into the lip, and the lip rotating while loading. Every control shown is the production Button source."
   >
@@ -50,8 +50,8 @@
       <VariantCell caption="Loading &middot; the lit lip rotates">
         <Button loading accessible-name="Loading" title="Loading"><RefreshCw :size="16" /></Button>
       </VariantCell>
-      <VariantCell caption="Latched &middot; the lip orbits, the key stays live (Play's latch)">
-        <Button latched tone="ivory" accessible-name="Play (latched; hold to release)" title="Latched"><Play :size="16" /></Button>
+      <VariantCell caption="Pressed &middot; held down, as Play while latched">
+        <Button pressed tone="ivory" accessible-name="Play (latched; hold to release)" title="Pressed"><Play :size="16" /></Button>
       </VariantCell>
       <VariantCell caption="Disabled &middot; dim and still">
         <Button disabled accessible-name="Disabled" title="Disabled"><X :size="16" /></Button>
@@ -88,14 +88,14 @@ import VariantGrid from "../guide/VariantGrid.vue";
 
 const features = [
   { label: "Metaphor", value: "Lit Keycap · a switch cap on the chassis, backlit from inside" },
-  { label: "Role", value: "icon-only momentary action · never persistent state, except the proposed latch (pending Burooj's acceptance, BJS-493)" },
+  { label: "Role", value: "icon-only momentary action · never persistent state" },
   { label: "Shape", value: "rounded-square cap on visible side walls · hit box stays the native square" },
   { label: "Travel", value: "the cap bottoms out on press · non-brass elastic release · brass direct" },
   { label: "Light", value: "lit lip past a dark seam at rest · hit opens a full ring and lights the face, then closes down" },
   { label: "Material", value: "ink / ivory everyday · four canonical brass finishes" },
   { label: "Icon", value: "44% of the key · exact centered SVG box" },
   { label: "Sizes", value: "32 / 40 / 48px · contextual --button-size override" },
-  { label: "States", value: "loading rotates the lip (busy) · latched rotates it with the key still live, a full ring under Reduced Motion · disabled dims and drops the light · Reduced Motion holds still" },
+  { label: "States", value: "loading rotates the lip · pressed holds the cap down (Play's latch) · disabled dims and drops the light · Reduced Motion holds still" },
   { label: "Source", value: "components/primatives/Button.vue" },
 ];
 </script>

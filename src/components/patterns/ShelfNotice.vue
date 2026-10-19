@@ -6,33 +6,23 @@
     :data-reel-busy="busy ? 'true' : undefined"
     :aria-hidden="busy ? 'true' : undefined"
     :inert="busy || undefined"
-    :aria-label="copy.heading"
+    :aria-label="copy.label"
   >
     <span class="shelf-notice__lamp" aria-hidden="true" />
-    <div class="shelf-notice__text">
-      <p :role="state === 'failed' ? 'alert' : 'status'">
-        <span class="shelf-notice__heading">{{ copy.heading }}</span>
-        <span class="shelf-notice__body">{{ copy.body }}</span>
-      </p>
-      <p class="shelf-notice__detail">
-        {{ oldestTitle
-          ? `Oldest Recent: ${oldestTitle}`
-          : "No Recent phrases to release. Copy any phrases you want to save before deleting them from the reel." }}
-      </p>
-    </div>
-    <div v-if="oldestTitle" class="shelf-notice__action">
-      <Button
-        size="sm"
-        :tone="armed ? 'brass' : 'ink'"
-        :accessible-name="armed ? 'Confirm release oldest Recent' : 'Release oldest Recent'"
-        :title="armed ? 'Confirm release oldest Recent' : 'Release oldest Recent'"
-        @click="emit('release')"
-      >
-        <Check v-if="armed" />
-        <Trash2 v-else />
-      </Button>
-      <span class="shelf-notice__action-label" aria-hidden="true">{{ armed ? "Tap again" : "Release" }}</span>
-    </div>
+    <p class="shelf-notice__line" :role="state === 'failed' ? 'alert' : 'status'">
+      {{ copy.line }}<span class="shelf-notice__sr">{{ hint }}</span>
+    </p>
+    <Button
+      v-if="oldestTitle"
+      size="sm"
+      :tone="armed ? 'ivory' : 'ink'"
+      :accessible-name="armed ? 'Confirm release oldest Recent' : 'Release oldest Recent'"
+      :title="armed ? `Tap again to release ${oldestTitle}` : `Release ${oldestTitle}`"
+      @click="emit('release')"
+    >
+      <Check v-if="armed" />
+      <Trash2 v-else />
+    </Button>
   </section>
 </template>
 
@@ -42,8 +32,8 @@ import { Check, Trash2 } from "lucide-vue-next";
 import Button from "@/components/primatives/Button.vue";
 
 /*
- * The phrase shelf's storage notice: an Ink display floating over the Stage,
- * with Brass as the attention signal (Burooj, 2026-10-17). Two honest states:
+ * The phrase shelf's storage notice: one thin Ink strip floating over the
+ * Stage. Two honest states told by the lamp and the words, never by a border:
  * over budget still saves; failed means the browser refused the write.
  */
 export type ShelfNoticeState = "over-budget" | "failed";
@@ -61,43 +51,36 @@ const props = defineProps<{
 const emit = defineEmits<{ release: [] }>();
 
 const copy = computed(() => props.state === "failed"
-  ? {
-    heading: "Not saving",
-    body: "New sketches are not being saved. They stay in this tab until there is room.",
+  ? { label: "Not saving", line: "New sketches are not being saved" }
+  : { label: "Shelf full", line: "Shelf full · still saving" });
+
+// What the line can't fit, for screen readers only.
+const hint = computed(() => {
+  if (!props.oldestTitle) {
+    return ". No Recent phrases to release. Copy any phrases you want to save before deleting them from the reel.";
   }
-  : {
-    heading: "Shelf full",
-    body: "Still saving. Free some space soon.",
-  });
+  const ask = props.state === "failed" ? "Free space" : "Free some space soon";
+  return `. ${ask}: release the oldest Recent, ${props.oldestTitle}.`;
+});
 </script>
 
 <style scoped>
-/* Chassis, not music: an opaque Ink display with Ivory type. Brass is the
-   attention signal (bezel and lamp); no Music Color, no brand paper. */
+/* Chassis, not music: a flat opaque Ink strip with Ivory type and no border.
+   The only signal is a small Brass lamp; no Music Color, no brand paper. */
 .shelf-notice {
-  --notice-bezel: var(--brass-lo);
-  --notice-lamp: var(--brass);
-  --notice-lamp-glow: color-mix(in srgb, var(--brass) 45%, transparent);
-
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
-  column-gap: var(--s-5);
+  gap: var(--s-5);
   box-sizing: border-box;
-  padding: var(--s-5) var(--s-5) var(--s-5) var(--s-6);
-  background: var(--ink);
+  /* Thin: the 32px keycap plus a hairline inset. Its touch floor still
+     reaches --hit-min, overhanging the strip onto bare Stage. */
+  padding-block: var(--s-1);
+  padding-inline: var(--s-6) var(--s-3);
+  /* The deck's own panel Ink, so the strip reads as chassis over the Stage. */
+  background: var(--ink-3);
   color: var(--ivory);
   border-radius: var(--r-xs);
-  box-shadow: 0 0 0 2px var(--notice-bezel), inset 0 2px 5px color-mix(in srgb, var(--ink) 80%, transparent);
   transition: opacity var(--dur-ui) var(--ease-brush), visibility 0s;
-}
-
-.shelf-notice--failed {
-  --notice-bezel: var(--brass);
-  --notice-lamp: var(--brass-hi);
-  --notice-lamp-glow: color-mix(in srgb, var(--brass) 75%, transparent);
-
-  box-shadow: 0 0 0 3px var(--notice-bezel), var(--shadow-glow-brass);
 }
 
 .shelf-notice--busy {
@@ -106,56 +89,37 @@ const copy = computed(() => props.state === "failed"
   transition: opacity var(--dur-tap) var(--ease-brush), visibility 0s linear var(--dur-tap);
 }
 
+/* Over budget: an unlit Brass lamp, a warning. Failed: lit, with its glow. */
 .shelf-notice__lamp {
-  align-self: start;
-  inline-size: 10px;
-  block-size: 10px;
-  margin-block-start: 5px;
+  flex: 0 0 auto;
+  inline-size: 6px;
+  block-size: 6px;
   border-radius: 50%;
-  background: var(--notice-lamp);
-  box-shadow: 0 0 0 2px var(--brass-edge), 0 0 10px 2px var(--notice-lamp-glow);
+  background: var(--brass-lo);
 }
 
-.shelf-notice__text {
-  display: grid;
-  gap: var(--s-2);
+.shelf-notice--failed .shelf-notice__lamp {
+  background: var(--brass-hi);
+  box-shadow: var(--shadow-glow-brass);
+}
+
+.shelf-notice__line {
+  flex: 1 1 auto;
   min-width: 0;
-}
-
-.shelf-notice__text p {
   margin: 0;
-}
-
-.shelf-notice__heading {
-  display: block;
-  margin-block-end: var(--s-3);
-  font: var(--t-h2);
+  overflow: hidden;
+  font: var(--t-mono);
   color: var(--ivory);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.shelf-notice__body {
-  display: block;
-  font: var(--t-body-s-mono);
-  color: var(--ivory);
-}
-
-.shelf-notice__detail {
-  font: var(--t-caption);
-  color: var(--ivory-2);
-  overflow-wrap: anywhere;
-}
-
-.shelf-notice__action {
-  display: grid;
-  justify-items: center;
-  gap: var(--s-2);
-}
-
-.shelf-notice__action-label {
-  font: var(--t-label);
-  letter-spacing: var(--tracking-label);
-  color: var(--ivory-2);
-  text-transform: uppercase;
+.shelf-notice__sr {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
   white-space: nowrap;
 }
 
@@ -182,8 +146,7 @@ const copy = computed(() => props.state === "failed"
   .shelf-notice {
     background: Canvas;
     color: CanvasText;
-    box-shadow: none;
-    border: 2px solid CanvasText;
+    outline: 1px solid CanvasText;
   }
 
   .shelf-notice__lamp {

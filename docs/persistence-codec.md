@@ -118,8 +118,11 @@ The one rule is `shelfOverBudget(bytes)`, and it only decides when the shelf
 notice appears. A save is refused only when the browser's storage itself
 fails: a `QuotaExceededError` or any other failed `setItem` of the shelf, or a
 failed IndexedDB backup that a rewrite waits on. Then the previous stored
-payload and every in-memory phrase stay as they were, the existing
-save-failure notice reports it, and the next successful write clears it.
+payload and every in-memory phrase stay as they were, the shelf notice says
+so, and the next successful write clears it. A failed read of the shelf counts
+too. The phrase store claims these failures (`claimSaveFailureNotice`), so the
+shared "Can't save" Sticker does not repeat them; other saved data keeps the
+Sticker, and a newer app version's data still raises "reload to update".
 
 Both pitch and gain curves, including `modeBase` copies, are reduced only in
 the encoded snapshot. Samples are picked at uniform time targets, at least 10 ms
@@ -129,16 +132,19 @@ Live state is unchanged. Reduction is lossy;
 no new smoothing or playback behavior is introduced.
 
 There is no default phrase-count cap. The store's `shelfNotice` has two honest
-states, shown by a floating notice anchored above the Performance Deck:
+states, shown by one thin, one-line strip floating above the Performance Deck
+(not a Stage occluder). The states differ by a small Brass lamp and the words:
 
-- **over budget** ("Shelf full"): still saving; free some space soon.
-- **failed** ("Not saving"): the browser refused the last write; new sketches
-  are not being saved and stay in this tab until a write succeeds.
+- **over budget**, unlit lamp: "Shelf full · still saving".
+- **failed**, lit lamp: "New sketches are not being saved". They stay in this
+  tab until a write succeeds.
 
-Both offer the oldest Recent phrase, with a second tap to confirm release.
-Candidates sort by `closedAt`, falling back to `createdAt`. Kept, Library and
-the open take are never release candidates. When no Recent remain the notice
-explains the manual copy/delete path. An oversized shelf is loaded intact; it
+Both offer the oldest Recent phrase on an icon keycap, with a second tap to
+confirm release. Candidates sort by `closedAt`, falling back to `createdAt`.
+Kept, Library, the open take and any protected id (`setProtectedIds`, the
+Looper's playing set) are never release candidates, and `releaseRecent` passes
+the protected ids into `deletePhrase`. When no Recent remain the keycap is gone and the notice
+explains the manual copy/delete path to screen readers. An oversized shelf is loaded intact; it
 is never automatically trimmed.
 
 On load, `decode` drops any phrase without `notes` or `context` and keeps the

@@ -156,6 +156,12 @@ export interface PhrasePersistenceOptions extends BindingOptions<PersistedPhrase
    * shelf, or the backup it waits on, failed; true when a write succeeded.
    */
   onStored?: (stored: boolean) => void;
+  /**
+   * True while a save of this tab's changes waits on a backup still in flight
+   * (the first load of an older shelf). No failure: the queued save writes
+   * once the backup lands. False once a write (or a failure) is reported.
+   */
+  onPending?: (pending: boolean) => void;
 }
 
 export function createPhrasePersistence(
@@ -163,12 +169,19 @@ export function createPhrasePersistence(
   context: () => PhraseContext,
   options: PhrasePersistenceOptions = {},
 ) {
-  const { onMeasure, onStored, protectedIds, storage: base = persistentStorage, ...binding } = options;
+  const { onMeasure, onStored, onPending, protectedIds, storage: base = persistentStorage, ...binding } = options;
   let asked = false;
   // Whether the current load or save has already told onStored its outcome.
   let told = false;
+  let pending = false;
+  const wait = (waiting: boolean) => {
+    if (pending === waiting) return;
+    pending = waiting;
+    onPending?.(waiting);
+  };
   const report = (stored: boolean) => {
     told = true;
+    wait(false);
     onStored?.(stored);
   };
   // A storage event's read only looks for another tab's work: if it fails,
@@ -240,7 +253,10 @@ export function createPhrasePersistence(
   persisted.save = (state) => {
     told = false;
     const saved = save(state);
-    if (!saved && !told && refusing()) report(false);
+    // Queued behind the backup: unsaved until it lands, but not a failure.
+    // The other holds that refuse quietly ("restored") never write again.
+    if (!saved && !told && persisted.hold?.reason === "needs-backup") wait(true);
+    else if (!saved && !told && refusing()) report(false);
     // Nothing to write: storage already holds this shelf (another tab wrote it).
     if (saved && !told) report(true);
     return saved;

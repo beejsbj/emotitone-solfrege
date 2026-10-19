@@ -184,7 +184,12 @@ migration copies and permanent recovery copies follow the codec rule above.
 Insertion and pruning share one transaction; no rewrite proceeds until its
 commit. A failed or unavailable IndexedDB holds saves and reports a failure;
 a later edit/save retries. While a backup is pending, the latest save request
-wins in memory. After commit the codec rereads the live key before retrying,
+wins in memory. A save of new work queued behind it is not on disk yet, so it
+arms the leave-page guard (without the failure notice, since nothing failed)
+until the queued write lands; every player meets this window once, on the
+first load after a format bump. The holds that never write again keep their
+own rules: "newer" and "unread" are failures (notice and guard), a restore's
+hold asks for a reload and arms neither. After commit the codec rereads the live key before retrying,
 so a newer-version write from another tab is protected. Disposal cancels the
 queued rewrite while allowing the recovery copy to finish.
 

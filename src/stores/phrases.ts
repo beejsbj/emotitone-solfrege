@@ -116,6 +116,9 @@ export const usePhrasesStore = defineStore(
     const encodedBytes = ref(0);
     // The browser refused the last write of the shelf (or the backup it needs).
     const saveFailed = ref(false);
+    // A save of new work waits on the migration backup: not a failure, but
+    // not on disk yet either (the leave-page guard covers it).
+    const saveQueued = ref(false);
     // Phrases another part of the app still points at (the Looper's playing
     // set, PR 202). The shelf notice never offers or releases one of them, and
     // a merge with another tab's shelf never drops one.
@@ -126,6 +129,7 @@ export const usePhrasesStore = defineStore(
     }), () => liveContext.value, {
       onMeasure: (bytes) => { encodedBytes.value = bytes; },
       onStored: (stored) => { saveFailed.value = !stored; },
+      onPending: (pending) => { saveQueued.value = pending; },
       protectedIds: () => protectedIdsProvider.value(),
       // Another tab's sketches, merged in (BJS-575); see docs/persistence-codec.md.
       adopt: (state) => {
@@ -179,6 +183,7 @@ export const usePhrasesStore = defineStore(
     });
     // While nothing saves, closing or reloading the tab loses what was played
     // since: the browser asks first. The guard goes as soon as a save lands.
+    // A save queued behind the migration backup counts too, without the notice.
     const askBeforeLeaving = (event: BeforeUnloadEvent) => {
       event.preventDefault();
       event.returnValue = "";
@@ -188,7 +193,7 @@ export const usePhrasesStore = defineStore(
       if (failed) window.addEventListener("beforeunload", askBeforeLeaving);
       else window.removeEventListener("beforeunload", askBeforeLeaving);
     };
-    watch(saveFailed, guardTab, { immediate: true });
+    watch(() => saveFailed.value || saveQueued.value, guardTab, { immediate: true });
     onScopeDispose(() => guardTab(false));
     const releaseCandidates = computed(() => {
       const protectedIds = protectedIdsProvider.value();

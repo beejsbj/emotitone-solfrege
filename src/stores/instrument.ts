@@ -296,6 +296,15 @@ export const useInstrumentStore = defineStore("instrument", () => {
    * A cancelled load may finish caching resources, but cannot reconcile the
    * store or change this selection; a later active load can reuse its cache.
    */
+  /**
+   * The engine booted outside `initializeInstruments`: the sample-pack
+   * fallback starts the synths alone (`initSynthOnlyAudio`), and Play must
+   * not wait for a drawer that may never open.
+   */
+  const markEngineBooted = () => {
+    engineBooted.value = true;
+  };
+
   const fallBackToSynth = () => {
     selectionEpoch.value += 1;
     clearWarmupState();
@@ -387,6 +396,7 @@ export const useInstrumentStore = defineStore("instrument", () => {
     // Actions
     initializeInstruments,
     fallBackToSynth,
+    markEngineBooted,
     setInstrument,
     isInstrumentReady,
     isInstrumentWarming,

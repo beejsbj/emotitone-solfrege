@@ -80,6 +80,7 @@ export type TakeSwapPolicy = "next-change" | "every-change";
 const SWAP_STORAGE_KEY = "emotitone.looper.swap";
 
 const LATCH_POLL_MS = 100;
+const BEATS_PER_BAR = 4;
 const NON_LIVE_SOURCES = new Set([PATTERN_PLAYBACK_SOURCE, "strudel-playback", "live-pitch"]);
 const barMsAt = (bpm: number) => 240_000 / resolveBpm(bpm);
 
@@ -579,6 +580,20 @@ export const useLooperStore = defineStore("looper", () => {
     if (running.value && player) void player.solo(looper.value.soloId).catch(report);
   }
 
+  /**
+   * Turn a playing pattern within the loop (a Looper Dial drag): move its
+   * offset by whole beats from where it is, so a played take keeps its own
+   * timing against the beat. Applied at the next render quantum.
+   */
+  function shiftMember(phraseId: string, beats: number): void {
+    const member = memberFor(phraseId);
+    if (!member || !Number.isFinite(beats) || !beats) return;
+    if (!setOffset(looper.value, phraseId, member.offsetBars + beats / BEATS_PER_BAR)) return;
+    if (running.value && player && (joined.has(phraseId) || latestJoin.has(phraseId))) {
+      void player.setMember(phraseId, { offsetBars: (looper.value.barOriginBars ?? 0) + member.offsetBars }).catch(report);
+    }
+  }
+
   /** Stop All: nothing playing, and nothing joining by itself. */
   function stopAll(): void {
     stopLatchTimer();
@@ -807,6 +822,7 @@ export const useLooperStore = defineStore("looper", () => {
     checkLatch,
     toggleMute: toggleMemberMute,
     toggleSolo: toggleMemberSolo,
+    shiftMember,
     removeMember: leaveMember,
     stopAll,
     clearError,

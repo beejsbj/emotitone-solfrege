@@ -771,6 +771,21 @@ describe("Play is the loop on the worklet transport", () => {
         await press(dial.element, 30);
         expect(player.getLooper().members[0]).toMatchObject({ id: take, muted: false });
 
+        // A drag up turns the pattern a beat later in the loop, on the transport.
+        await wait(400);
+        const before = player.getLooper().members[0].offsetBars;
+        const drag = (type: string, clientY: number) => dial.element.dispatchEvent(new PointerEvent(type,
+          { bubbles: true, cancelable: true, pointerId: 3, pointerType: "touch", clientX: 10, clientY }));
+        drag("pointerdown", 200);
+        drag("pointermove", 184);
+        drag("pointerup", 184);
+        (dial.element as HTMLElement).click();
+        await flush();
+        expect(player.getLooper().members[0].offsetBars).toBeCloseTo(before + .25, 9);
+        expect(looper.memberFor(take)!.offsetBars + looper.looper.barOriginBars!).toBeCloseTo(before + .25, 9);
+        // The drag was no tap: the member is not muted.
+        expect(player.getLooper().members[0].muted).toBe(false);
+
         // Hold past 450 ms: the latch, not a Stop.
         await press(deck.get(".code-strip-bar__play").element, 520);
         expect(looper.latched).toBe(true);

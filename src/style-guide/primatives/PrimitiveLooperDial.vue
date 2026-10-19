@@ -2,7 +2,7 @@
   <AnatomyDisplay
     title="Looper Dial &middot; One Playing Pattern"
     :features="features"
-    caption="The Looper Dial is one playing pattern in the Looper, and it is the control itself: no keycap. Its Loop Dial's disc turns under a fixed brass hand, so the note at twelve is the one sounding. Tap mutes, double-tap solos, hold removes. The dials climb the left edge with Stop All on top; the mic moves to the Drawer's lip. Proposed in BJS-493 (from the #132 prototype, as #142 carried it), pending Burooj's acceptance."
+    caption="The Looper Dial is one playing pattern in the Looper, and it is the control itself: no keycap. Its Loop Dial's disc turns under a fixed brass hand, so the note at twelve is the one sounding. Tap mutes, double-tap solos, hold removes, and a vertical drag turns the pattern within the loop a beat at a time. The dials climb the left edge with Stop All on top; the mic moves to the Drawer's lip. Proposed in BJS-493 (from the #132 prototype, as #142 carried it), pending Burooj's acceptance."
   >
     <template #hero>
       <div class="looper-dial-specimen__column">
@@ -82,7 +82,7 @@ function toggle(index: number, state: "muted" | "solo") {
 const features = [
   { label: "Meaning", value: "one playing pattern in the Looper, and its control" },
   { label: "Motion", value: "the disc turns under a fixed brass hand with the sounding bar position, from the member's own place and rate; Reduced Motion holds it still" },
-  { label: "Gestures", value: "tap mutes · double-tap solos · hold removes · Enter mutes, Delete removes" },
+  { label: "Gestures", value: "tap mutes · double-tap solos · hold removes · drag up or down (the Knob's feel, 15px a step) turns the pattern a beat later or earlier · Enter mutes, Delete removes, Up/Down turn it a beat" },
   { label: "States", value: "playing · muted (or silenced by a solo) at 30% · soloed with an Ivory ring" },
   { label: "Surface", value: "no keycap: the 34px Loop Dial on the Stage's Ink, inside a 44px touch target" },
   { label: "Colour", value: "Music Color notes, a brass hand, Ivory focus and solo" },

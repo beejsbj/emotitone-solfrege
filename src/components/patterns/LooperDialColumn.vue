@@ -107,6 +107,7 @@ onBeforeUnmount(() => micOnLip(false));
         @mute="looper.toggleMute(view.phraseId)"
         @solo="looper.toggleSolo(view.phraseId)"
         @remove="looper.removeMember(view.phraseId)"
+        @shift="looper.shiftMember(view.phraseId, $event)"
       />
       <!-- Last in a reversed column: Stop All sits on top of the dials. -->
       <Button

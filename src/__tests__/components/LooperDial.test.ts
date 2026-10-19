@@ -36,7 +36,7 @@ describe("LooperDial", () => {
   it("is the control itself: a bare dial, no keycap, named for its pattern and its gestures", () => {
     const { wrapper, button } = mountDial();
     expect(button().find(".paper-button__cap").exists()).toBe(false);
-    expect(button().attributes("aria-label")).toBe("Take 3, playing. Tap to mute, double-tap to solo, hold to remove");
+    expect(button().attributes("aria-label")).toBe("Take 3, playing. Tap to mute, double-tap to solo, hold to remove, drag up or down to move it in the loop");
     expect(button().find(".loop-dial").exists()).toBe(true);
     wrapper.unmount();
   });
@@ -81,6 +81,52 @@ describe("LooperDial", () => {
     await button().trigger("pointerup");
     await button().trigger("click");
     expect(emitted).toEqual(["remove"]);
+    wrapper.unmount();
+  });
+
+  function pointer(element: Element, type: string, clientX: number, clientY: number) {
+    element.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 7, pointerType: "touch", clientX, clientY }));
+  }
+
+  it("a vertical drag turns the pattern a beat per 15px, Knob-style, and is no tap or hold", async () => {
+    vi.useFakeTimers();
+    const shifts: number[] = [];
+    const { wrapper, button, emitted } = mountDial({ onShift: (beats: number) => shifts.push(beats) });
+    const element = button().element;
+    pointer(element, "pointerdown", 20, 100);
+    // Within the tap threshold nothing happens.
+    pointer(element, "pointermove", 20, 97);
+    expect(shifts).toEqual([]);
+    // Up 16px: one beat later.
+    pointer(element, "pointermove", 21, 84);
+    expect(shifts).toEqual([1]);
+    // Steps are at least 100ms apart; the movement is not lost.
+    vi.advanceTimersByTime(120);
+    pointer(element, "pointermove", 21, 69);
+    expect(shifts).toEqual([1, 1]);
+    // Back down past both: earlier.
+    vi.advanceTimersByTime(120);
+    pointer(element, "pointermove", 21, 100);
+    expect(shifts).toEqual([1, 1, -2]);
+    // Holding still past the hold time mid-drag removes nothing; the ending click is no tap.
+    vi.advanceTimersByTime(800);
+    pointer(element, "pointerup", 21, 100);
+    element.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
+    expect(emitted).toEqual([]);
+    // The next press is an ordinary tap again.
+    await button().trigger("pointerdown");
+    await button().trigger("pointerup");
+    await button().trigger("click");
+    expect(emitted).toEqual(["mute"]);
+    wrapper.unmount();
+  });
+
+  it("a mostly sideways movement is not a drag", () => {
+    const shifts: number[] = [];
+    const { wrapper, button } = mountDial({ onShift: (beats: number) => shifts.push(beats) });
+    pointer(button().element, "pointerdown", 20, 100);
+    pointer(button().element, "pointermove", 60, 90);
+    expect(shifts).toEqual([]);
     wrapper.unmount();
   });
 

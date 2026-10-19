@@ -59,7 +59,12 @@ const props = withDefaults(
     tone?: ButtonTone;
     brassFinish?: ButtonBrassFinish;
     loading?: boolean;
-    /** Held in its pressed look, as a key held down (Play's latch). The key stays live. */
+    /**
+     * Visual only: hold the cap in its pressed look, as a key held down (Play's
+     * latch). It sets no `aria-pressed`; a consumer that means a toggle says so
+     * in its accessible name, as Play does ("latched; hold to release"). The
+     * key stays live.
+     */
     pressed?: boolean;
     disabled?: boolean;
     uiBeat?: boolean;
@@ -286,7 +291,7 @@ function handleClick(event: MouseEvent) {
 
 /* Press: the cap bottoms out on its travel. */
 .paper-button:not(:disabled):active .paper-button__cap,
-.paper-button--pressed:not(:disabled) .paper-button__cap {
+.paper-button--pressed .paper-button__cap {
   transform: translateY(calc(var(--button-travel) - 1px));
 }
 
@@ -379,5 +384,7 @@ function handleClick(event: MouseEvent) {
   .paper-button__cap { border: 1px solid ButtonText; background: ButtonFace; box-shadow: none; }
   .paper-button__lip,
   .paper-button__lamp { display: none; }
+  /* The cap's small travel is easy to miss here: a held key also gets an outline. */
+  .paper-button--pressed { outline: 2px solid Highlight; outline-offset: 2px; }
 }
 </style>

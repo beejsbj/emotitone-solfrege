@@ -126,9 +126,21 @@ function mergePhrase(base: Phrase | undefined, ours: Phrase, theirs: Phrase, opt
         // Only the other tab changed them: its notes, in its order, but each
         // note it did not change keeps this tab's live object.
         const mine = new Map(ours.notes.map((note) => [note.id, note]));
+        const was = new Map((before.notes as PatternNote[]).map((note) => [note.id, note]));
         merged.notes = theirs.notes.map((note) => {
           const live = mine.get(note.id);
-          return live && sameJson(options.savedNote(live), note) ? live : note;
+          if (!live || sameJson(options.savedNote(live), note)) return live ?? note;
+          // The other tab edited this note (a remap, re-skin or shift of a take
+          // both tabs are on): a field it left alone, such as a curve, keeps
+          // this tab's live value rather than the thinned saved one.
+          const base = was.get(note.id) as unknown as Record<string, unknown> | undefined;
+          if (!base) return note;
+          const edited: Record<string, unknown> = { ...note };
+          const own = toRaw(live) as unknown as Record<string, unknown>;
+          for (const field of Object.keys(own)) {
+            if (sameJson((note as unknown as Record<string, unknown>)[field], base[field])) edited[field] = own[field];
+          }
+          return edited as unknown as PatternNote;
         });
       } else {
         merged.notes = mergeNotes(before?.notes, ours.notes, theirs.notes, options.savedNote);

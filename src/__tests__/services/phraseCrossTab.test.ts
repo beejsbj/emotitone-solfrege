@@ -498,6 +498,39 @@ describe("two tabs, one shelf", () => {
     expect(reloaded.save()).toBe(true);
   });
 
+  it("leaves every tab saving when a restore's write fails (quota)", async () => {
+    const a = openTab();
+    sketch(a, "before-restore");
+    a.save();
+    await writePhraseBackup("phrases", "pre-restore", localStorage.getItem("phrases")!, NOW);
+    sketch(a, "after-backup");
+    a.save();
+    const current = localStorage.getItem("phrases");
+    const b = openTab(); // the tab whose console runs the restore
+    const [backup] = await listPhraseBackups();
+    const working = localStorage.setItem.bind(localStorage);
+    const setItem = vi.spyOn(localStorage, "setItem").mockImplementation((key: string, value: string) => {
+      if (key === "phrases") throw new DOMException("full", "QuotaExceededError");
+      working(key, value);
+    });
+    let result;
+    try {
+      result = await restorePhraseBackup(backup.backupKey);
+    } finally {
+      setItem.mockRestore();
+    }
+    expect(result.ok).toBe(false);
+    expect(localStorage.getItem("phrases")).toBe(current);
+    expect(localStorage.getItem("phrases.restored")).toBeNull();
+    // Nothing changed, so nothing is held: both tabs keep saving.
+    a.hear();
+    sketch(b, "from-b");
+    expect(b.save()).toBe(true);
+    sketch(a, "from-a");
+    expect(a.save()).toBe(true);
+    expect(ids(stored())).toEqual(expect.arrayContaining(["before-restore", "after-backup", "from-a", "from-b"]));
+  });
+
   it("stops saving, and says so, when the other tab is a newer app", () => {
     const a = openTab();
     sketch(a, "mine");

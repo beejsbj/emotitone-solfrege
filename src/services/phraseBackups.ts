@@ -1,5 +1,5 @@
 import {
-  BACKUP_RETENTION, backupKeyFor, bindingFor, markRestored, parseBackupKey,
+  abandonRestore, BACKUP_RETENTION, backupKeyFor, bindingFor, markRestored, parseBackupKey,
   type BackupEntry, type RestoreResult,
 } from "@/services/persistenceCodec";
 import { persistentStorage, reportSaveFailure, reportSaveSuccess } from "@/services/safeStorage";
@@ -98,11 +98,21 @@ export async function restorePhraseBackup(backupKey: string): Promise<RestoreRes
     }
     // This tab stops first, then every other open tab (the stamp), then the
     // shelf goes back: no tab can merge its own shelf back over the restore.
-    bindingFor(entry.of)?.holdUntilReload();
-    if (!markRestored(persistentStorage, entry.of, Date.now())) {
-      return { ok: false, message: "Could not tell other tabs about the restore; nothing restored. Reload to save again." };
+    const live = bindingFor(entry.of);
+    live?.holdUntilReload();
+    const unmark = markRestored(persistentStorage, entry.of, Date.now());
+    if (!unmark) {
+      abandonRestore(entry.of, null, live);
+      return { ok: false, message: "Could not tell other tabs about the restore; nothing restored." };
     }
-    if (!persistentStorage.write(entry.of, saved.raw)) return { ok: false, message: "Could not restore shelf." };
+    if (!persistentStorage.write(entry.of, saved.raw)) {
+      // The shelf is unchanged: take the stamp back so no tab is left not saving.
+      const undone = abandonRestore(entry.of, unmark, live);
+      return {
+        ok: false,
+        message: `Could not restore shelf; nothing changed.${undone ? "" : " Reload every open tab to save again."}`,
+      };
+    }
     return { ok: true, message: "Shelf restored. Reload now; saving is held until reload." };
   } catch {
     reportSaveFailure("unknown", "phrases.backup");

@@ -213,9 +213,37 @@ const BACKUP_INFIX = ".backup.";
  */
 export const restoredMarkerKey = (key: string): string => `${key}.restored`;
 
-/** Stamp a restore of `key` for every open tab. False when the stamp could not be written. */
-export function markRestored(storage: SafeStorage, key: string, time: number): boolean {
-  return storage.write(restoredMarkerKey(key), String(time), { oneOff: true });
+/**
+ * Stamp a restore of `key` for every open tab. Returns how to take the stamp
+ * back (for a restore whose payload then could not be written), or null when
+ * the stamp itself could not be written.
+ */
+export function markRestored(storage: SafeStorage, key: string, time: number): (() => boolean) | null {
+  const markerKey = restoredMarkerKey(key);
+  const previous = storage.read(markerKey);
+  if (!previous.ok || !storage.write(markerKey, String(time), { oneOff: true })) return null;
+  return () => {
+    if (previous.value !== null) return storage.write(markerKey, previous.value, { oneOff: true });
+    storage.removeItem(markerKey);
+    const now = storage.read(markerKey);
+    return now.ok && now.value === null;
+  };
+}
+
+/**
+ * A restore failed after this page stopped saving for it: take the stamp back
+ * and let `live` save again. If the stamp can't be taken back, every tab must
+ * reload, and this one says so like the others.
+ */
+export function abandonRestore(
+  key: string,
+  unmark: (() => boolean) | null,
+  live: PersistedBinding<unknown> | undefined,
+): boolean {
+  const undone = unmark ? unmark() : true;
+  if (undone) live?.resume();
+  else reportSaveFailure("newer", key);
+  return undone;
 }
 const BACKUP_TAIL = /^([A-Za-z0-9-]+)\.(\d{4}-\d{2}-\d{2})(?:\.(\d+))?$/;
 
@@ -329,6 +357,8 @@ export interface PersistedBinding<T> {
   readonly hold: WriteHold | null;
   /** Refuse writes until the page reloads (used by restore). */
   holdUntilReload(): void;
+  /** Undo `holdUntilReload` for a restore that did not happen. */
+  resume(): void;
   /** Remove a disposed or ephemeral store from the support restore registry. */
   unregister(): void;
   /** Wait for an asynchronous backup and its queued save, if any. */
@@ -599,6 +629,9 @@ export function createPersistedBinding<T>(
       queuedState = null;
       hold = { reason: "restored" };
     },
+    resume() {
+      if (hold?.reason === "restored") hold = null;
+    },
     prepare,
     encode: (state) => encodePayload(codec, state),
     load() {
@@ -777,11 +810,19 @@ export function restoreBackup(
   }
   // Stamp first: no other tab may write between the restore and the stamp.
   live?.holdUntilReload();
-  if (!markRestored(storage, entry.of, now())) {
-    return { ok: false, message: `Could not tell other tabs about the restore of "${entry.of}"; nothing restored. Reload to save again.`, preRestoreBackup };
+  const unmark = markRestored(storage, entry.of, now());
+  if (!unmark) {
+    abandonRestore(entry.of, null, live);
+    return { ok: false, message: `Could not tell other tabs about the restore of "${entry.of}"; nothing restored.`, preRestoreBackup };
   }
   if (!storage.write(entry.of, saved)) {
-    return { ok: false, message: `Could not write "${entry.of}"; nothing restored. Reload to save again.`, preRestoreBackup };
+    // Nothing changed: take the stamp back so no tab is left not saving.
+    const undone = abandonRestore(entry.of, unmark, live);
+    return {
+      ok: false,
+      message: `Could not write "${entry.of}"; nothing restored.${undone ? "" : " Reload every open tab to save again."}`,
+      preRestoreBackup,
+    };
   }
   // Prune only after the swap: the restored bytes are live now.
   if (preRestoreBackup) {

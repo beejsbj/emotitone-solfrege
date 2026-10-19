@@ -88,7 +88,11 @@ backup back under its store key and stops the running page from overwriting
 it. Every other open tab stops too: before the bytes go back, the restore
 stamps `<key>.restored`, and a tab that sees a stamp it did not load with holds
 writes and says "Can't save — reload to update" (BJS-575). Without the stamp, another
-tab would merge its own state back over the restore. Every open tab must then be reloaded. On reload the restored bytes are read like
+tab would merge its own state back over the restore. Every open tab must then be reloaded.
+If the bytes can't be written back (quota), nothing changed: the stamp is taken
+back and the restoring tab saves again. A tab that saw the stamp in between
+says "reload to update"; reloading is safe. If even the stamp can't be taken
+back, every tab says so. On reload the restored bytes are read like
 any other payload, so an old version is migrated again, under the backup rule.
 
 The support step:

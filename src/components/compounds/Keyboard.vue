@@ -30,7 +30,6 @@ import {
   keyboardEditionVariation,
   keyboardEditionRowVariations,
   keyboardChordFamily,
-  keyboardFamilyForDate,
   type KeyboardGeometryFamily,
 } from "./keyboardEdition";
 import {
@@ -134,7 +133,7 @@ const props = withDefaults(
     primaryLabel: "syllable",
     showLabels: true,
     keyboardPadding: false,
-    surfaceStyle: "colored",
+    surfaceStyle: undefined,
     geometryFamily: undefined,
     editionSeed: undefined,
     gap: 2,
@@ -173,7 +172,9 @@ const resolvedScaleType = computed(() => props.scaleType);
 const resolvedMainOctave = computed(() => props.mainOctave);
 const resolvedPrimaryLabel = computed(() => props.primaryLabel);
 const resolvedShowLabels = computed(() => props.showLabels);
-const resolvedSurfaceStyle = computed(() => props.surfaceStyle);
+// The view reads no store: the family's surface and geometry arrive as props
+// (the container resolves them); with neither, the Tab fallback shows.
+const resolvedSurfaceStyle = computed<NoteSurfaceStyle>(() => props.surfaceStyle ?? "colored");
 const resolvedGap = computed(() => props.gap);
 const resolvedKeyboardPadding = computed(() => props.keyboardPadding);
 const isInteractionLocked = computed(() => props.interactionLocked);
@@ -217,8 +218,9 @@ const renderChords = computed<KeyboardChordView[]>(() =>
   })),
 );
 
-const mountFamily = keyboardFamilyForDate(new Date());
-const resolvedFamily = computed(() => props.geometryFamily ?? mountFamily);
+const resolvedFamily = computed<KeyboardGeometryFamily>(
+  () => props.geometryFamily ?? "tab",
+);
 const resolvedChordFamily = computed(() => keyboardChordFamily(resolvedFamily.value));
 const resolvedEditionSeed = computed(
   () => props.editionSeed ?? KEYBOARD_PAGE_EDITION_SEED,
@@ -1234,8 +1236,16 @@ onBeforeUnmount(() => {
 }
 
 .keyboard__key--focus-preview {
-  outline: 2px solid var(--ivory, currentColor);
-  outline-offset: 2px;
+  outline: var(--focus-ring-width) solid var(--focus-ring-outer);
+  outline-offset: var(--focus-ring-width);
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring-inner);
+}
+
+/* A focused key's ring sits above its neighbours' faces. */
+.keyboard__key:focus-visible,
+.keyboard__chord-key:focus-visible,
+.keyboard__key--focus-preview {
+  z-index: 10002 !important;
 }
 
 .keyboard__key--pressed {

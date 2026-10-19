@@ -17,6 +17,7 @@ import {
 } from "@/components/compounds/keyboardSizing";
 import type { CodeStripToken } from "@/components/uniques/CodeStrip/index.vue";
 import { CHROMATIC_NOTES } from "@/data";
+import { useEditionFamily } from "@/composables/useEditionFamily";
 
 const top = ref<"instrument" | "config" | null>(null);
 const keyboardOpen = ref(true);
@@ -36,6 +37,9 @@ const midiStates = ["idle", "connecting", "connected", "error"] as const;
 function resizeKeyboard(contentHeight: number) {
   rowCount.value = resolveKeyboardLayout(contentHeight, rowCount.value).rowCount;
 }
+// The specimen keys follow the active edition family, as the deck's do.
+const editionFamily = useEditionFamily();
+
 const rows = computed(() => Array.from({ length: rowCount.value }, (_, index) => {
   const octave = 4 + Math.floor(rowCount.value / 2) - index;
   return { octave, keys: CHROMATIC_NOTES.map((pitch, degree) => ({
@@ -134,7 +138,13 @@ const tokens: CodeStripToken[] = [
             <ControlBar joystick-visual="analog" />
           </template>
           <template #default="{ height }">
-            <Keyboard usage="controlled" :rows="rows" :available-height="height" />
+            <Keyboard
+              usage="controlled"
+              :rows="rows"
+              :geometry-family="editionFamily.keys.geometry"
+              :surface-style="editionFamily.keys.surface"
+              :available-height="height"
+            />
           </template>
         </Drawer>
       </div>

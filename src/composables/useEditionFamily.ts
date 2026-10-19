@@ -1,12 +1,16 @@
 import { computed, ref } from "vue";
 import type { TabsGeometry, TabsTone } from "@/components/primatives/Tabs.vue";
 import type { KnobVisual } from "@/components/primatives/Knob/types";
+import type { NoteSurfaceStyle } from "@/components/primatives/Note.vue";
+import type { KeyboardGeometryFamily } from "@/components/compounds/keyboardEdition";
+import type { KeyboardConfig } from "@/types/visual";
 
 /**
  * Edition families: one design seen together across the parts that have
- * editions. Each family names its Tabs, Knob and Joystick edition; the
- * Keyboard's key shapes keep their own daily variation and are not part of a
- * family (Burooj, 2026-10-09).
+ * editions. Each family names its Tabs, Knob and Joystick edition and the
+ * Keyboard's key geometry and surface (Burooj, 2026-10-16, BJS-561: keys join
+ * the families and stop rotating daily). Chords take their own geometry from
+ * the family's key geometry (`keyboardChordFamily`).
  *
  * The family in force resolves in this order:
  *   1. a review pin from the `?edition=<family>` query parameter (any family,
@@ -27,6 +31,11 @@ export interface EditionFamily {
   knob: KnobVisual;
   joystick: JoystickVisual;
   /**
+   * Melody Key geometry and the family's Note Surface. A player's own Note
+   * Surface choice (Deck > Keyboard) wins over `surface`.
+   */
+  keys: { geometry: KeyboardGeometryFamily; surface: NoteSurfaceStyle };
+  /**
    * Every edition in the family meets the accessibility floor: 44px touch,
    * a visible focus ring, and 3:1 marks / 4.5:1 labels. Only these join
    * Shuffle or appear in Config.
@@ -41,17 +50,25 @@ export interface EditionFamily {
  * continuous strokes and solid metal — the Arc's single stroke, the Analog
  * Joystick's round brass puck, and the hand-cut and Brass chips.
  *
+ * Keys: Tab, Offcut and Tile take their namesake cuts. Marquee's round
+ * bulbs take the Pill; Brass takes the one radiused cut (Standard), soft like
+ * a machined metal cap. Rip and Sharp share a cut with their nearest namesake
+ * (Offcut's faceted corners are the closest key cut to a torn edge; Tile is
+ * the square-cornered cut that matches Sharp's unclipped chip) and are told
+ * apart by a monochrome surface: Rip as ink-on-newsprint paper, Sharp as
+ * maximum-contrast black and white. The other five keep Music Color.
+ *
  * The first family is the fallback when no load has been shuffled (the style
  * guide, tests): it is the pre-family default of all three parts.
  */
 export const EDITION_FAMILIES = [
-  { id: "tab", name: "Tab", tabs: { geometry: "tab", tone: "ivory" }, knob: "arc", joystick: "analog", meetsFloor: true },
-  { id: "offcut", name: "Offcut", tabs: { geometry: "offcut", tone: "ivory" }, knob: "arc", joystick: "analog", meetsFloor: true },
-  { id: "rip", name: "Rip", tabs: { geometry: "rip", tone: "ivory" }, knob: "arc", joystick: "analog", meetsFloor: true },
-  { id: "brass", name: "Brass", tabs: { geometry: "tab", tone: "brass" }, knob: "arc", joystick: "analog", meetsFloor: true },
-  { id: "tile", name: "Tile", tabs: { geometry: "tile", tone: "ivory" }, knob: "ring", joystick: "digital", meetsFloor: true },
-  { id: "sharp", name: "Sharp", tabs: { geometry: "sharp", tone: "ivory" }, knob: "ring", joystick: "digital", meetsFloor: true },
-  { id: "marquee", name: "Marquee", tabs: { geometry: "marquee", tone: "ivory" }, knob: "ring", joystick: "digital", meetsFloor: true },
+  { id: "tab", name: "Tab", tabs: { geometry: "tab", tone: "ivory" }, knob: "arc", joystick: "analog", keys: { geometry: "tab", surface: "colored" }, meetsFloor: true },
+  { id: "offcut", name: "Offcut", tabs: { geometry: "offcut", tone: "ivory" }, knob: "arc", joystick: "analog", keys: { geometry: "offcut", surface: "colored" }, meetsFloor: true },
+  { id: "rip", name: "Rip", tabs: { geometry: "rip", tone: "ivory" }, knob: "arc", joystick: "analog", keys: { geometry: "offcut", surface: "monochrome" }, meetsFloor: true },
+  { id: "brass", name: "Brass", tabs: { geometry: "tab", tone: "brass" }, knob: "arc", joystick: "analog", keys: { geometry: "standard", surface: "colored" }, meetsFloor: true },
+  { id: "tile", name: "Tile", tabs: { geometry: "tile", tone: "ivory" }, knob: "ring", joystick: "digital", keys: { geometry: "tile", surface: "colored" }, meetsFloor: true },
+  { id: "sharp", name: "Sharp", tabs: { geometry: "sharp", tone: "ivory" }, knob: "ring", joystick: "digital", keys: { geometry: "tile", surface: "monochrome" }, meetsFloor: true },
+  { id: "marquee", name: "Marquee", tabs: { geometry: "marquee", tone: "ivory" }, knob: "ring", joystick: "digital", keys: { geometry: "pill", surface: "colored" }, meetsFloor: true },
 ] as const satisfies readonly EditionFamily[];
 
 export type EditionFamilyId = (typeof EDITION_FAMILIES)[number]["id"];
@@ -161,7 +178,19 @@ export function pinEditionLook(look: unknown) {
   pinnedLook.value = isEditionLook(look) ? look : SHUFFLE;
 }
 
-/** The family every unpinned Tabs, Knob and Joystick presents right now. */
+/**
+ * The Note Surface the Keyboard shows: the player's own Color or Monochrome
+ * choice when they made one, otherwise the family's surface.
+ */
+export function resolveNoteSurface(
+  setting: KeyboardConfig["surfaceStyle"] | undefined,
+  family: EditionFamily,
+): NoteSurfaceStyle {
+  if (setting === "colored" || setting === "monochrome") return setting;
+  return family.keys.surface;
+}
+
+/** The family every unpinned Tabs, Knob, Joystick and Keyboard presents right now. */
 export function useEditionFamily() {
   return activeFamily;
 }

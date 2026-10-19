@@ -146,7 +146,7 @@ describe('Visual Config Store', () => {
       const newStore = createFreshStore()
 
       expect(newStore.config.dynamicColors.musicColorMode).toBe('fixed')
-      expect(newStore.config.keyboard.surfaceStyle).toBe('colored')
+      expect(newStore.config.keyboard.surfaceStyle).toBe('family')
     })
 
     it('migrates legacy HSL color intent into the versioned OKLCH recipe', () => {
@@ -360,7 +360,7 @@ describe('Visual Config Store', () => {
       ]))
       const store = createFreshStore()
       const assertMigrated = (keyboard: Record<string, unknown>) => {
-        expect(keyboard.surfaceStyle).toBe('colored')
+        expect(keyboard.surfaceStyle).toBe('family')
         expect(keyboard.keyboardPadding).toBe(true)
         expect(keyboard).not.toHaveProperty('glassmorphOpacity')
         expect(keyboard).not.toHaveProperty('keyShape')
@@ -776,7 +776,7 @@ describe('Visual Config Store', () => {
 
       expect(success).toBe(true)
       expect(visualConfigStore.config.dynamicColors.musicColorMode).toBe('fixed')
-      expect(visualConfigStore.config.keyboard.surfaceStyle).toBe('colored')
+      expect(visualConfigStore.config.keyboard.surfaceStyle).toBe('family')
       expect(visualConfigStore.visualsEnabled).toBe(false)
       expect(visualConfigStore.transientStageLook).toBeNull()
     })

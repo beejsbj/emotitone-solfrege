@@ -839,7 +839,8 @@ describe("Play is the loop on the worklet transport", () => {
         await looper.settled();
         await flush();
         const notice = deck.get('[data-testid="looper-error"]');
-        expect(notice.attributes("role")).toBe("alert");
+        expect(notice.get("[role=alert]").text()).toMatch(/cannot join/);
+        expect(notice.find(".looper-dials__notice-lamp").exists()).toBe(true);
         expect(notice.text()).toMatch(/cannot join: every instrument slot is held/);
         expect(looper.members).toEqual([]);
         await notice.get('button[aria-label="Dismiss"]').trigger("click");

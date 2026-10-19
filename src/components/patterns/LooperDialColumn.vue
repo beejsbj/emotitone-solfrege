@@ -69,9 +69,12 @@ onBeforeUnmount(() => micOnLip(false));
   <!-- A zero-height anchor: the dials float over the Stage and take no Drawer height. -->
   <div ref="lipRef" class="looper-dials">
     <!-- A Play that could not sound says why, instead of doing nothing. -->
-    <div v-if="looper.lastError" class="looper-dials__notice" role="alert" data-testid="looper-error">
-      <p class="looper-dials__notice-text">{{ looper.lastError }}</p>
+    <div v-if="looper.lastError" class="looper-dials__notice" data-testid="looper-error">
+      <span class="looper-dials__notice-lamp" aria-hidden="true" />
+      <!-- One line on screen; the whole message for assistive technology and the title. -->
+      <p class="looper-dials__notice-line" role="alert" :title="looper.lastError">{{ looper.lastError }}</p>
       <Button
+        class="looper-dials__notice-dismiss"
         size="sm"
         tone="ink"
         haptic
@@ -144,25 +147,62 @@ onBeforeUnmount(() => micOnLip(false));
   margin-bottom: var(--s-2);
 }
 
-/* Ink chassis, Ivory text: the playing zone's only non-music colours. */
+/* The shelf notice's grammar (#192): one thin Ink strip with Ivory type, a
+   small Brass lamp and an icon-only dismiss key, no border. The strip holds
+   the whole key: its 32px cap and the 4px lit lip around it sit 4px inside
+   every edge, and its invisible 44px touch floor stays within the strip. */
 .looper-dials__notice {
   position: absolute;
   /* Beside the dial column, never over it. */
-  left: calc(var(--s-4) + var(--hit-min) + var(--s-4));
+  left: calc(var(--s-3) + var(--hit-min) + var(--s-4));
   right: var(--s-4);
   bottom: var(--s-10);
   display: flex;
   align-items: center;
-  gap: var(--s-4);
-  padding: var(--s-3) var(--s-3) var(--s-3) var(--s-5);
-  background: var(--ink);
+  gap: var(--s-5);
+  box-sizing: border-box;
+  padding: var(--s-4) var(--s-4) var(--s-4) var(--s-6);
+  background: var(--ink-3);
   color: var(--ivory);
+  border-radius: var(--r-xs);
 }
 
-.looper-dials__notice-text {
+/* Lit Brass: the Looper could not do what was asked. */
+.looper-dials__notice-lamp {
+  flex: 0 0 auto;
+  inline-size: 6px;
+  block-size: 6px;
+  border-radius: 50%;
+  background: var(--brass-hi);
+  box-shadow: var(--shadow-glow-brass);
+}
+
+.looper-dials__notice-line {
   flex: 1 1 auto;
+  min-width: 0;
   margin: 0;
+  overflow: hidden;
   font: var(--t-mono);
+  color: var(--ivory);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.looper-dials__notice-dismiss {
+  flex: 0 0 auto;
+}
+
+@media (forced-colors: active) {
+  .looper-dials__notice {
+    background: Canvas;
+    color: CanvasText;
+    outline: 1px solid CanvasText;
+  }
+
+  .looper-dials__notice-lamp {
+    background: CanvasText;
+    box-shadow: none;
+  }
 }
 </style>
 

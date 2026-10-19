@@ -103,8 +103,10 @@ There is no in-app UI for this.
 - **Keyboard drawer, music:** small codecs whose `migrations[0]` is the
   identity, as for the instrument store.
 - **Phrase book (BJS-513):** v1 is `{ book, isRecordingEnabled }` inside
-  the envelope. The v0 migration preserves the book; decode repairs the single
-  take and resets dead wall-clock anchors. The separate legacy `patterns` import
+  the envelope; v2 (BJS-575) is the same shape, written only by builds that
+  merge with other tabs (see "Two tabs"). The v0 and v1 migrations preserve the
+  book; decode repairs this page's take, leaves other tabs' takes alone, and
+  resets dead wall-clock anchors. The separate legacy `patterns` import
   remains a store-level read and leaves its original key untouched.
 
 ### Phrase shelf budget and backups
@@ -328,7 +330,8 @@ another tab, and are merged in, never written over:
   shows up on this tab's shelves at once.
 
 Merged state is handed to the store (`adopt`) before it is written. Older
-formats are backed up first as before, then lifted and merged; unreadable or
+formats are backed up first as before, then lifted and merged with no base (see
+below); unreadable or
 unmergeable bytes are backed up, then replaced (the unreadable rule); a newer
 version holds writes and now says so at the event, not only at the next save.
 Empty storage (cleared site data) is not read as "every phrase released": the
@@ -357,21 +360,55 @@ The rules, by phrase id against the base (`src/services/phraseMerge.ts`):
 | `takeCounter` | The larger, so neither tab hands out a number the other has used from then on. Two tabs numbering takes in the same moment can still both say "Take 7". |
 | `isRecordingEnabled` | As a single field. |
 
+**Only bytes that follow this protocol have a base.** Reading a missing phrase
+as a release is only sound when the other writer kept the same base. A tab
+still running a v1 build (open across the deploy) writes the whole shelf over,
+last-write-wins. So the phrase format is **v2** (`PHRASE_FORMAT_VERSION`). It
+has v1's shape, with an identity step from 1. From the first v2 write, an
+old-build tab meets the "newer" hold instead of writing. Bytes from any other
+version (v1 from an old tab, v0) are backed up first, then merged with **no
+base**: a plain union in which nothing is read as released. Upgrading a device
+backs up the v1 shelf to IndexedDB once (the usual migration rule).
+
 **The open take is per tab.** `takeId` and `recorder` are never merged. A tab's
-take keeps its own object, notes and recorder through a merge, and a merge never
-releases it. Another tab's open take is stored with shelf `take`, so it sits in
-this tab's book on no shelf, and appears in Recent when that tab moves on. A
-second tab opens on the take stored last, as a reload would; while two tabs
-share one take, notes played in either land in it. If the other tab moves that
-take off the desk (keeps or closes it), that holds, and this tab opens a fresh
-take. On load, an empty extra take (an open or abandoned desk of another tab)
-is dropped rather than shelved as an empty Recent phrase; an extra take with
-notes is shelved in Recent, as before.
+take keeps its own object, notes and recorder through a merge. A merge never
+releases it, and never moves it off the desk: if another tab sharing it closed
+or shelved it, this tab writes it back as its take. The one exception is a
+**Keep** from a tab sharing the take. Honouring it is the only way it survives,
+since this tab would otherwise close the take into Recent later and undo the
+Keep. Then this tab opens a fresh take. Another tab's open take is stored with
+shelf `take`, so it sits in this tab's book on no shelf, and appears in Recent
+when that tab moves on. A second tab opens on the take stored last, as a reload
+would. While two tabs share one take, notes played in either land in it.
+
+**Takes left behind.** Load (decode) leaves every other tab's take alone: a
+reload or a third tab never shelves a take that a playing tab is sketching
+into. To tell a live desk from one left by a closed tab, each tab holds a Web
+Lock (`emotitone-desk:<takeId>`) on its open take (`src/services/deskClaims.ts`).
+The browser releases it when the tab closes or crashes. After load, the store
+shelves any other tab's take that no tab holds: into Recent if it has notes,
+dropped if it is empty. Without the Web Locks API nothing is shelved by
+guesswork. Such a take stays stored but off the shelves until its tab, or a
+browser with Web Locks, moves it.
+
+**The read-then-write race.** The check before a write and the write are two
+storage operations. If another tab writes between them, this tab writes over
+that write, and the other tab can later read what it lost as a release.
+localStorage gives no compare-and-swap. The base therefore also moves on this
+tab's own writes: without that, a sketch this tab saved and then released would
+come back from any tab that had only taken it in (a test covers this). The race
+window is a synchronous read and write in one task, far shorter than any player
+action.
+
+A storage event's read only looks for another tab's work, so a failed read
+there is no save failure: it neither lights the shelf notice nor arms the
+leave-page guard.
 
 What is not covered: a tab's reload restores the take stored last, which can be
-the other tab's desk (its own take, if it had notes, is in Recent). Merging
-costs a parse of the base and the stored shelf whenever another tab has
-written; the own-write fast path is unchanged.
+the other tab's desk (its own take stays its own: on no shelf while its tab
+holds it, in Recent once that tab is gone). Merging costs a parse of the base
+and the stored shelf whenever another tab has written; the own-write fast path
+is unchanged.
 
 ### Other stores are last-write-wins, deliberately
 

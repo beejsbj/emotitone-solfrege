@@ -1,6 +1,6 @@
 <template>
   <AnatomyDisplay
-    title="Button &middot; Momentary Primitive"
+    title="Button &middot; Momentary Primitive (a latched state is proposed, pending Burooj)"
     :features="features"
     caption="One icon-only momentary primitive: the Lit Keycap. A switch cap on visible walls with real travel, backlit from inside: a lit lip at rest, a full ring and lit face on every hit that close back down into the lip, and the lip rotating while loading. Every control shown is the production Button source."
   >
@@ -88,7 +88,7 @@ import VariantGrid from "../guide/VariantGrid.vue";
 
 const features = [
   { label: "Metaphor", value: "Lit Keycap · a switch cap on the chassis, backlit from inside" },
-  { label: "Role", value: "icon-only momentary action · never persistent state" },
+  { label: "Role", value: "icon-only momentary action · never persistent state, except the proposed latch (pending Burooj's acceptance, BJS-493)" },
   { label: "Shape", value: "rounded-square cap on visible side walls · hit box stays the native square" },
   { label: "Travel", value: "the cap bottoms out on press · non-brass elastic release · brass direct" },
   { label: "Light", value: "lit lip past a dark seam at rest · hit opens a full ring and lights the face, then closes down" },

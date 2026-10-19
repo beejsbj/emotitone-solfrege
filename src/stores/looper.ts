@@ -393,6 +393,8 @@ export const useLooperStore = defineStore("looper", () => {
         leave(looper.value, phraseId);
         intents.delete(phraseId);
         origins.delete(phraseId);
+        // A latched take is no longer the open one, so "Tap Play again" joins it.
+        if (openTakeId.value === phraseId) openTakeId.value = null;
         report(new Error("Audio is restarting, so this take could not join where you played it. Tap Play again."));
         return;
       }

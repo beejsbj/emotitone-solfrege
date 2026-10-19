@@ -317,6 +317,36 @@ describe("Play is the loop on the worklet transport", () => {
     }
   });
 
+  it("latched during an engine restart: the take waits unjoined, and Play then really rejoins it", async () => {
+    const { phrases, looper } = setup();
+    playTake(.5);
+    looper.togglePlay();
+    await flush();
+    await looper.settled();
+    render(1.3);
+    let restored!: () => void;
+    for (const instrument of rig.prepared) rig.gates.set(instrument, new Promise<void>((resolve) => { restored = resolve; }));
+    rig.generation++;
+    for (const listener of [...rig.listeners]) listener.onRendererReset?.();
+    await flush();
+    looper.toggleLatch();
+    const onFrame = Math.round(5.3 * RATE);
+    live("F4", 3, onFrame, onFrame + 800);
+    await flush();
+    const take = phrases.take.id;
+    expect(looper.members.map((member) => member.phraseId)).not.toContain(take);
+    expect(looper.lastError).toMatch(/Tap Play again/);
+    // The engine comes back; the advice holds: Play joins the take where it was played.
+    for (const instrument of [...rig.gates.keys()]) rig.gates.delete(instrument);
+    restored();
+    await flush();
+    await vi.waitFor(() => expect(player.getLooper().recovering).toBe(false));
+    looper.togglePlay();
+    await flush();
+    expect(looper.members.map((member) => member.phraseId)).toContain(take);
+    expect(player.getLooper().members.map((member) => member.id)).toContain(take);
+  });
+
   it("keeps a take played while the engine restarts unjoined, and says so, instead of placing it at bar one", async () => {
     const { phrases, looper } = setup();
     playTake(.5);

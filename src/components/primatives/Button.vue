@@ -383,5 +383,7 @@ function handleClick(event: MouseEvent) {
   .paper-button__cap { border: 1px solid ButtonText; background: ButtonFace; box-shadow: none; }
   .paper-button__lip,
   .paper-button__lamp { display: none; }
+  /* With the lip gone, the latch still reads: a system-colour outline. */
+  .paper-button--latched { outline: 2px solid Highlight; outline-offset: 2px; }
 }
 </style>

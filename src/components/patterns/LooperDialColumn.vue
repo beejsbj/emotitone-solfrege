@@ -186,8 +186,6 @@ onBeforeUnmount(() => clearTimeout(holdTimer));
   flex: 1 1 auto;
   margin: 0;
   font: var(--t-mono);
-  font-size: 11px;
-  line-height: 1.35;
 }
 
 /* The dial fills the key's face: a record on the cap. */

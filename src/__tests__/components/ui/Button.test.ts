@@ -171,6 +171,9 @@ describe("Button", () => {
     const reduced = buttonSource.slice(buttonSource.indexOf("@media (prefers-reduced-motion: reduce)"));
     expect(reduced).toMatch(/\.paper-button--loading \.paper-button__lip,\s*\.paper-button--latched \.paper-button__lip \{ animation: none; \}/);
     expect(reduced).toContain(".paper-button--latched .paper-button__lip { --paper-button-lip-span: 360deg; }");
+    // Forced colors hide the lip: the latch keeps a system-colour outline there.
+    const forced = buttonSource.slice(buttonSource.indexOf("@media (forced-colors: active)"));
+    expect(forced).toMatch(/\.paper-button--latched \{ outline: 2px solid Highlight;/);
   });
 
   it("shares the promoted Boolean Knob rebound with non-brass buttons", () => {

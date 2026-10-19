@@ -10,6 +10,7 @@
     @delete="deletePhrase"
     @copy="copyNotation"
     @open-strudel="openInStrudel"
+    @share="sharePhrase"
     @rename="renamePhrase"
     @interaction-change="emit('interactionChange', $event)"
   />
@@ -37,6 +38,7 @@ import {
   type ReelEntry,
 } from "@/domain/phraseBook";
 import { logNotesToStrudel } from "@/services/StrudelNotation";
+import { phraseShareUrl } from "@/services/phraseShare";
 import { loopLengthMs } from "@/services/recordedTiming";
 import { strudelUrl } from "@/services/strudelLink";
 import { chromaticPitchHeight } from "@/services/scalePitch";
@@ -65,14 +67,17 @@ const {
 } = useMusicColor();
 
 const copiedId = ref<string | null>(null);
+const linkCopiedId = ref<string | null>(null);
 const deleteArmedId = ref<string | null>(null);
 const now = ref(Date.now());
 let copyTimer: ReturnType<typeof setTimeout> | undefined;
+let linkTimer: ReturnType<typeof setTimeout> | undefined;
 let deleteTimer: ReturnType<typeof setTimeout> | undefined;
 const clockTimer = setInterval(() => { now.value = Date.now(); }, 30_000);
 
 onBeforeUnmount(() => {
   clearTimeout(copyTimer);
+  clearTimeout(linkTimer);
   clearTimeout(deleteTimer);
   clearInterval(clockTimer);
 });
@@ -172,12 +177,19 @@ function actionsFor(phrase: Phrase, title: string, inPlace: boolean): PatternStr
     label: `Open ${title} in Strudel`,
     disabled: !playable,
   };
+  const linkCopied = linkCopiedId.value === phrase.id;
+  const share: PatternStripAction = {
+    kind: "share",
+    label: linkCopied ? `Copied a link to ${title}` : `Share ${title} as a link`,
+    done: linkCopied,
+    disabled: !phrase.notes.length,
+  };
   const origin = phrase.shelf === "take" && inPlace
     ? phrasesStore.book.recorder.origin
     : phrase.shelf;
   // Everything you play is kept; the library is built in. So the one
   // curating action is delete, armed by the first tap and confirmed by the second.
-  if (origin === "library") return [copy, open];
+  if (origin === "library") return [share, copy, open];
   const remove: PatternStripAction = {
     kind: "delete",
     label: armed
@@ -186,7 +198,7 @@ function actionsFor(phrase: Phrase, title: string, inPlace: boolean): PatternStr
     done: armed,
     disabled: isYourTake && !phrase.notes.length,
   };
-  return [remove, copy, open];
+  return [remove, share, copy, open];
 }
 
 function blankItem(): PatternReelItem {
@@ -356,6 +368,43 @@ async function copyNotation(id: string) {
     clearTimeout(copyTimer);
     copyTimer = setTimeout(() => {
       if (copiedId.value === id) copiedId.value = null;
+    }, 1500);
+  } catch {
+    // Clipboard access is not available in every browser context.
+  }
+}
+
+/**
+ * The name a link carries: one you gave it, or its source's. "Take 7" is only
+ * a number in your own book, so an unnamed take travels without one.
+ */
+function sharedName(phrase: Phrase) {
+  if (phrase.name) return phrase.name;
+  const lineage = phrase.derivedFrom;
+  if (!lineage || lineage.named === false) return undefined;
+  return phrasesStore.findPhrase(lineage.id)?.name ?? lineage.name;
+}
+
+async function sharePhrase(id: string) {
+  const phrase = phrasesStore.findPhrase(id);
+  if (!phrase?.notes.length) return;
+  const name = sharedName(phrase);
+  const url = await phraseShareUrl({ ...phrase, name }, `${window.location.origin}/`);
+  // The phone's share sheet where there is one; otherwise copy the link.
+  if (typeof navigator.share === "function") {
+    try {
+      await navigator.share({ title: name ?? "A phrase on EmotiTone", url });
+      return;
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    linkCopiedId.value = id;
+    clearTimeout(linkTimer);
+    linkTimer = setTimeout(() => {
+      if (linkCopiedId.value === id) linkCopiedId.value = null;
     }, 1500);
   } catch {
     // Clipboard access is not available in every browser context.

@@ -162,19 +162,20 @@ import {
   Check,
   Copy,
   ExternalLink,
+  Share,
   Trash2,
 } from "lucide-vue-next";
 import LoopDial from "../primatives/LoopDial.vue";
 import Button from "../primatives/Button.vue";
 import type { LoopDialSegment } from "../primatives/LoopDial.vue";
 
-export type PatternStripActionKind = "keep" | "delete" | "copy" | "open" | "load";
+export type PatternStripActionKind = "keep" | "delete" | "copy" | "open" | "load" | "share";
 
 export interface PatternStripAction {
   kind: PatternStripActionKind;
   label: string;
   disabled?: boolean;
-  /** Show a check: delete armed, copied, kept. */
+  /** Show a check: delete armed, copied, kept, link copied. */
   done?: boolean;
 }
 
@@ -228,6 +229,7 @@ const ACTION_ICONS: Record<PatternStripActionKind, Component> = {
   copy: Copy,
   open: ExternalLink,
   load: ArrowDownToLine,
+  share: Share,
 };
 const ACTION_TONES: Record<PatternStripActionKind, "ink" | "ivory" | "brass"> = {
   keep: "ivory",
@@ -235,6 +237,7 @@ const ACTION_TONES: Record<PatternStripActionKind, "ink" | "ivory" | "brass"> = 
   copy: "ivory",
   open: "brass",
   load: "brass",
+  share: "ivory",
 };
 
 const props = withDefaults(defineProps<{
@@ -256,6 +259,7 @@ const emit = defineEmits<{
   rename: [name: string];
   keep: [];
   load: [];
+  share: [];
 }>();
 
 function runAction(kind: PatternStripActionKind) {
@@ -263,6 +267,7 @@ function runAction(kind: PatternStripActionKind) {
   else if (kind === "delete") emit("delete");
   else if (kind === "copy") emit("copy");
   else if (kind === "open") emit("openStrudel");
+  else if (kind === "share") emit("share");
   else emit("load");
 }
 

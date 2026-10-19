@@ -81,6 +81,10 @@ vi.mock("@/services/audioRuntime", async (importOriginal) => ({
   getAudioContext: () => rig.context,
 }));
 vi.unmock("@/services/audioLifecycle");
+// The mic opens without hardware: the capture records nothing until stopped.
+vi.mock("@/services/microphoneCapture", () => ({
+  startMicrophoneCapture: vi.fn(async () => ({ stop: async () => new Blob(), cancel: async () => {} })),
+}));
 
 import { LiveAudioCore } from "@/audio/live/core";
 import { createPatternPlayer, setProductionPatternPlayer, type PatternPlayer } from "@/services/patternTransport";
@@ -835,6 +839,29 @@ describe("Play is the loop on the worklet transport", () => {
         await flush();
         expect(play().attributes("disabled")).toBeUndefined();
         expect(phrases.take.notes.length).toBeGreaterThan(0);
+      } finally {
+        deck.unmount();
+      }
+    });
+
+    it("opening the mic over a running loop keeps the loop playing (humming over a loop)", async () => {
+      const { phrases, looper } = setup();
+      const deck = mountDeck();
+      try {
+        playTake(.5);
+        const take = phrases.take.id;
+        await press(deck.get(".code-strip-bar__play").element, 40);
+        await looper.settled();
+        render(2);
+        const before = attacksOf(take).length;
+        deck.getComponent({ name: "HummingCaptureTransport" }).vm.$emit("toggle");
+        await flush();
+        await vi.waitFor(() => expect(deck.getComponent({ name: "HummingCaptureTransport" }).props("status")).toBe("recording"));
+        render(4);
+        expect(looper.running).toBe(true);
+        expect(player.getLooper().members.map((member) => member.id)).toEqual([take]);
+        expect(attacksOf(take).length).toBeGreaterThan(before);
+        expect(rig.commands.filter((command) => command.type === "transport-stop")).toEqual([]);
       } finally {
         deck.unmount();
       }

@@ -180,17 +180,29 @@ further Looper slice merges before the phone gate passes.
    calibration setting carry forward onto it.
 7. **Surfaces**, each as its own design-system unit.
 
-## Open
+## Decided (Burooj, 2026-10-19)
 
-- Does a 3-bar pattern drifting against a 4-bar one read as music or as a bug?
-  Rule 2 allows it. The alternative is forcing lengths to nest, which pads
-  odd-length tunes with silence.
-- Where a saved Loop lives. Two candidates: a Kept strip in the home reel, or
-  (Burooj, 2026-10-05) **each Loop is its own reel**, reached by swiping left
-  and right from the home reel, holding only that Loop's patterns. The second
-  gives a Loop a place to be edited pattern by pattern; it needs a horizontal
-  gesture that does not fight the strips' own.
-- Whether the latch needs to be visible beyond the Play key's own state.
-- Rule 2 rounds each pattern's length to whole bars, as the domain (#139)
-  does. The worklet design (§2, Data model) instead keeps a take's authored,
-  fractional length. One of them has to change before BJS-491.
+The questions this section held are settled:
+
+- **A saved Loop is its own reel**, reached by swiping left and right from the
+  home reel and holding only that Loop's patterns, so a Loop can be edited
+  pattern by pattern. The surface (and its horizontal gesture, which must not
+  fight the strips' own) is deferred to its own ticket; until then saved Loops
+  exist in the store only (rule 4).
+- **Rule 2 uses whole bars.** Each pattern's length rounds up to whole bars
+  (#139's `phraseLengthBars`), so every loop cycles on bar lines; a 3-bar
+  pattern against a 4-bar one drifts, as rule 2 allows. The take's own
+  recorded length stays one switch away (`LOOP_LENGTH` in the Looper store).
+- **The latch shows as Play's pressed state**: while latched, the Play key is
+  held in the Button's pressed look. Nothing else marks it.
+- **Envelopes do not stretch with tempo.** Pitch and gain curves follow the
+  Looper's tempo; attack, decay and release stay in seconds, the instrument's
+  own touch.
+- **Humming keeps the loop playing.** Opening the mic over a running loop does
+  not pause or stop it.
+- **The wet tail rings out** after mute and solo (already recorded under
+  Engine, 2026-10-17).
+- **Play waits for the engine**: it cannot start until the pattern player and
+  the audio engine are ready, nor while a rebuilt renderer is being restored.
+- **The loop dial drags**: a vertical drag, with the Knob's feel, turns a
+  pattern within the loop a whole beat at a time.

@@ -10,7 +10,7 @@ import { createPersistedState } from "pinia-plugin-persistedstate";
 
 export type SaveFailureKind = "quota" | "unknown" | "newer";
 
-/** What the player reads. Later kinds (e.g. a full phrase shelf) add a row here. */
+/** What the player reads. */
 export const SAVE_FAILURE_MESSAGES: Record<SaveFailureKind, string> = {
   quota: "Can't save — storage full",
   unknown: "Can't save",
@@ -38,6 +38,28 @@ const failedKeys = new Map<string, SaveFailureKind>();
 const oneOffKeys = new Map<string, SaveFailureKind>();
 // Autosaved keys already failing when the player dismissed the notice.
 const dismissedKeys = new Set<string>();
+
+// Keys (and their `key.` sub-keys, such as `phrases.backup`) whose own
+// surface reports storage failures, so the shared Sticker doesn't repeat it.
+const ownNoticeKeys = new Map<string, number>();
+const ownsNotice = (key: string): boolean =>
+  [...ownNoticeKeys.keys()].some((owned) => key === owned || key.startsWith(`${owned}.`));
+
+/**
+ * Claim storage-failure reporting for `key`: its quota and write failures no
+ * longer raise the shared Sticker. Returns the release.
+ */
+export function claimSaveFailureNotice(key: string): () => void {
+  ownNoticeKeys.set(key, (ownNoticeKeys.get(key) ?? 0) + 1);
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    const count = (ownNoticeKeys.get(key) ?? 1) - 1;
+    if (count > 0) ownNoticeKeys.set(key, count);
+    else ownNoticeKeys.delete(key);
+  };
+}
 
 /** The failure the player should currently see, or null. */
 export const saveFailureNotice = computed(() => {
@@ -70,6 +92,9 @@ function closeIfSettled(): void {
  * it; `oneOff` marks an explicit save that nothing retries on its own.
  */
 export function reportSaveFailure(kind: SaveFailureKind, key: string, oneOff = false): void {
+  // A surface that carries its own notice for this key says so itself. A newer
+  // app version still goes to the Sticker: only it says "reload to update".
+  if (kind !== "newer" && ownsNotice(key)) return;
   let isNews: boolean;
   if (oneOff) {
     isNews = true;

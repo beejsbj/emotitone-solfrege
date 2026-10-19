@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { computed, ref, watch } from "vue";
+import { computed, onScopeDispose, ref, shallowRef, watch } from "vue";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
@@ -35,10 +35,8 @@ import {
   type PhraseCandidate,
 } from "@/domain/phraseBook";
 import { migrateLegacyPatterns } from "@/domain/phraseMigration";
-import {
-  deserializePatternsState,
-  serializePatternsState,
-} from "@/services/patternPersistence";
+import { createPhrasePersistence, encodedPhraseBytes, shelfOverBudget } from "@/services/phrasePersistence";
+import { installPhraseBackupConsole } from "@/services/phraseBackups";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 import type { HeldNote, Phrase, PhraseBook, PhraseContext } from "@/types/phrases";
 
@@ -112,11 +110,56 @@ export const usePhrasesStore = defineStore(
     }));
 
     // ─── State ───────────────────────────────────────────────────────────────
-    const book = ref<PhraseBook>(
-      readLegacyBook(liveContext.value)
-        ?? createPhraseBook(liveContext.value, Date.now()),
-    );
-    const isRecordingEnabled = ref(true);
+    // Measured by the save path itself (one encode per save), not re-encoded here.
+    const encodedBytes = ref(0);
+    // The browser refused the last write of the shelf (or the backup it needs).
+    const saveFailed = ref(false);
+    const persistence = createPhrasePersistence(() => ({
+      book: readLegacyBook(liveContext.value) ?? createPhraseBook(liveContext.value, Date.now()),
+      isRecordingEnabled: true,
+    }), () => liveContext.value, {
+      onMeasure: (bytes) => { encodedBytes.value = bytes; },
+      onStored: (stored) => { saveFailed.value = !stored; },
+    });
+    const restored = persistence.load();
+    const book = ref<PhraseBook>(restored.book);
+    const isRecordingEnabled = ref(restored.isRecordingEnabled);
+    const savedState = () => ({ book: book.value, isRecordingEnabled: isRecordingEnabled.value });
+    // An oversized shelf loads intact, so measure once before any save happens.
+    encodedBytes.value = encodedPhraseBytes(persistence.encode(savedState()));
+    /**
+     * What the shelf notice says, if anything. Over budget only warns and keeps
+     * saving; "failed" means storage itself refused, so new sketches live only
+     * in this tab until a write succeeds.
+     */
+    const shelfNotice = computed<"failed" | "over-budget" | null>(() => {
+      if (saveFailed.value) return "failed";
+      return shelfOverBudget(encodedBytes.value) ? "over-budget" : null;
+    });
+    // While nothing saves, closing or reloading the tab loses what was played
+    // since: the browser asks first. The guard goes as soon as a save lands.
+    const askBeforeLeaving = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    const guardTab = (failed: boolean) => {
+      if (typeof window === "undefined") return;
+      if (failed) window.addEventListener("beforeunload", askBeforeLeaving);
+      else window.removeEventListener("beforeunload", askBeforeLeaving);
+    };
+    watch(saveFailed, guardTab, { immediate: true });
+    onScopeDispose(() => guardTab(false));
+    // Phrases another part of the app still points at (the Looper's playing
+    // set, PR 202). The shelf notice never offers or releases one of them.
+    const protectedIdsProvider = shallowRef<() => ReadonlySet<string>>(() => new Set());
+    const releaseCandidates = computed(() => {
+      const protectedIds = protectedIdsProvider.value();
+      return book.value.phrases
+        .filter((phrase) => phrase.shelf === "recent" && !protectedIds.has(phrase.id))
+        .sort((a, b) => (a.closedAt ?? a.createdAt) - (b.closedAt ?? b.createdAt));
+    });
+    watch([book, isRecordingEnabled], () => persistence.save(savedState()), { deep: true });
+    if (typeof window !== "undefined") installPhraseBackupConsole(window);
     // Pressed-but-unreleased notes. Transient; `heldCount` makes it observable.
     const held = new Map<string, HeldNote>();
     const heldCount = ref(0);
@@ -252,6 +295,12 @@ export const usePhrasesStore = defineStore(
       return deleteBookPhrase(book.value, target);
     }
 
+    /** Explicit pressure relief only: never take, Kept, or Library. */
+    function releaseRecent(id: string): boolean {
+      if (!book.value.phrases.some((phrase) => phrase.id === id && phrase.shelf === "recent")) return false;
+      return deleteBookPhrase(book.value, id, protectedIdsProvider.value());
+    }
+
     function renamePhrase(id: string, name: string): boolean {
       const target = lookedAtSource(id)?.id ?? id;
       return renameBookPhrase(book.value, target, name, libraryPhrases);
@@ -372,6 +421,11 @@ export const usePhrasesStore = defineStore(
       listeners = [];
     }
 
+    /** Seam for the Looper (PR 202): phrases it is playing may not be released. */
+    function setProtectedIds(provider: (() => ReadonlySet<string>) | null): void {
+      protectedIdsProvider.value = provider ?? (() => new Set());
+    }
+
     /** Hydration hook: repair "exactly one take" and expire Recent. */
     function repairAfterHydrate(): void {
       ensureSingleTake(book.value, liveContext.value, Date.now());
@@ -379,12 +433,23 @@ export const usePhrasesStore = defineStore(
     }
 
     setupEventListeners();
+    onScopeDispose(() => {
+      removeEventListeners();
+      persistence.holdUntilReload();
+      persistence.unregister();
+    });
     pruneRecent(book.value, Date.now(), config);
 
     return {
       // Persisted
       book,
       isRecordingEnabled,
+
+      encodedBytes,
+      shelfNotice,
+      releaseCandidates,
+      releaseRecent,
+      setProtectedIds,
 
       // Shelves and the take
       library: libraryPhrases,
@@ -419,18 +484,5 @@ export const usePhrasesStore = defineStore(
       removeEventListeners,
       repairAfterHydrate,
     };
-  },
-  {
-    persist: {
-      key: STORAGE_KEY,
-      pick: ["book", "isRecordingEnabled"],
-      serializer: {
-        serialize: serializePatternsState,
-        deserialize: deserializePatternsState,
-      },
-      afterHydrate: ({ store }) => {
-        (store as unknown as { repairAfterHydrate: () => void }).repairAfterHydrate();
-      },
-    },
   },
 );

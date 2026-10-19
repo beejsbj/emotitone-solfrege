@@ -125,8 +125,11 @@
      overlapping. --control-sm is the small control face (Button sm, Config's
      toggles); --hit-gap-sm is the gap at which two of them have touches that
      meet (with a 1px seam that absorbs hit-test pixel snapping), and half of
-     it is the room one needs from an edge that clips. */
+     it is the room one needs from an edge that clips. --control-xs is the
+     inline face (Button xs) for a key that sits inside one thin line of type,
+     such as the shelf notice; its touch still reaches --hit-min. */
   --hit-min: 44px;
+  --control-xs: 24px;
   --control-sm: 32px;
   --hit-gap-sm: calc(var(--hit-min) - var(--control-sm) + 1px);
 

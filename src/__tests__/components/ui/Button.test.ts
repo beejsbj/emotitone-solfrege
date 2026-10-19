@@ -36,6 +36,11 @@ describe("Button", () => {
     );
   });
 
+  it("takes the shared touch floor at the inline xs size", () => {
+    const wrapper = mount(Button, { props: { size: "xs", accessibleName: "Release" } });
+    expect(wrapper.classes()).toEqual(expect.arrayContaining(["paper-button--xs", "touch-floor"]));
+  });
+
   it.each(["flat", "sheen", "glow", "sheen-glow"] as const)(
     "exposes the %s brass finish",
     (brassFinish) => {

@@ -171,6 +171,46 @@ describe("phrase stores in two tabs", () => {
     expect(storedShelf("old-empty")).toBeUndefined();
   });
 
+  it("without Web Locks, a live take misjudged as left behind comes back to its desk whole", async () => {
+    Object.defineProperty(navigator, "locks", { value: undefined, configurable: true });
+    onTestFinished(() => { delete (navigator as { locks?: unknown }).locks; });
+    const a = openTab();
+    const b = openTab();
+    playPhrase(b, "b", START);
+    const takeId = b.takeId;
+    b.take.modeBase = { notes: b.take.notes.map((note) => ({ ...note })), context: { ...b.take.context } };
+    await nextTick();
+    await sketch(a, "a", START + 1_000); // A saves last: B's take is another tab's
+    otherTabWrote();
+    // B has been sketching for over a day without moving on.
+    vi.mocked(Date.now).mockReturnValue(START + 25 * 60 * 60 * 1000);
+    const c = openTab();
+    await Promise.resolve();
+    await nextTick();
+    expect(c.book.phrases.find((phrase) => phrase.id === takeId)?.shelf).toBe("recent");
+    otherTabWrote();
+    await nextTick();
+    expect(b.takeId).toBe(takeId);
+    expect(b.take.shelf).toBe("take");
+    expect(b.take.modeBase?.notes).toHaveLength(3);
+  });
+
+  it("without Web Locks, leaves a Recent phrase reopened on another desk alone, whatever its age", async () => {
+    Object.defineProperty(navigator, "locks", { value: undefined, configurable: true });
+    onTestFinished(() => { delete (navigator as { locks?: unknown }).locks; });
+    const a = openTab();
+    const b = openTab();
+    const old = await sketch(b, "b", START);
+    vi.mocked(Date.now).mockReturnValue(START + 3 * 24 * 60 * 60 * 1000);
+    b.openPhrase(old); // reopened in place: its dates are from days ago
+    await nextTick();
+    await sketch(a, "a", START + 3 * 24 * 60 * 60 * 1000 + 1_000);
+    const c = openTab();
+    await Promise.resolve();
+    await nextTick();
+    expect(c.book.phrases.find((phrase) => phrase.id === old)?.shelf).toBe("take");
+  });
+
   it("keeps a phrase this tab's Looper protects when the other tab releases it", async () => {
     const a = openTab();
     const looping = await sketch(a, "a", START);

@@ -199,6 +199,10 @@ await emotitonePhraseBackups.restore(backupKey)
 
 Restore backs up current bytes to IndexedDB first and rechecks that the shelf
 has not changed during the transaction. On success it holds saves until reload.
+An older backup (v1, v0) goes back lifted into a current (v2) envelope, data
+untouched, and the backup itself keeps its original bytes. The live shelf never
+drops below v2, so a tab still running an older build keeps meeting the "newer"
+hold (BJS-575).
 Backups themselves do not count toward the active shelf budget.
 
 ## Visual config and performance settings (BJS-512)
@@ -396,9 +400,14 @@ Lock (`emotitone-desk:<takeId>`) on its open take (`src/services/deskClaims.ts`)
 The browser releases it when the tab closes or crashes. After load, the store
 shelves any other tab's take that no tab holds: into Recent if it has notes,
 dropped if it is empty. Without the Web Locks API it falls back to age: another
-tab's take more than a day old (or older than the Recent retention, if that is
-shorter) counts as left behind. Misjudging a live take is harmless: a merge never
-moves a tab's own take off its desk, so its tab writes it back.
+tab's fresh take opened more than a day ago (or longer than the Recent
+retention, if that is shorter) counts as left behind. A Recent phrase reopened
+on another desk carries its old dates, so it is left alone; without Web Locks it
+stays stored, off the shelves, until a tab moves it. Only the shelf changes
+(modeBase and the rest are kept), so misjudging a live take is harmless: a
+merge never moves a tab's own take off its desk, and its tab gets it back
+whole. If another tab's restore stamp is taken back (a failed restore), a tab
+that held for it saves again.
 
 Lock lifetime, accepted:
 

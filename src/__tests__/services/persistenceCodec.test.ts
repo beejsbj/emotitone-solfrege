@@ -483,6 +483,27 @@ describe("restoring a backup", () => {
     expect(binding.load()).toEqual({ takes: ["the good take"], tempo: 120 });
   });
 
+  it("stops every open tab of a last-write-wins store from writing over a restore", () => {
+    const { backend, storage, binding: otherTab } = setup();
+    const original = JSON.stringify(["the good take"]);
+    backend.items.set(KEY, original);
+    otherTab.load();
+    // The tab whose console runs the restore.
+    const restoringTab = createPersistedBinding(sketchCodec, { storage, now: () => DAY });
+    restoringTab.load();
+    restoringTab.save({ takes: ["after a bad migration"], tempo: 120 });
+
+    expect(restoreBackup(`${KEY}.backup.v0.2026-10-10`, { storage, now: () => DAY }).ok).toBe(true);
+    expect(backend.items.get(KEY)).toBe(original);
+
+    // The other tab never called restore, yet it holds and says to reload.
+    expect(otherTab.save({ takes: ["stale, from the other tab"], tempo: 120 })).toBe(false);
+    expect(restoringTab.save({ takes: ["still in memory"], tempo: 120 })).toBe(false);
+    expect(backend.items.get(KEY)).toBe(original);
+    expect(saveFailureNotice.value?.message).toBe("Can't save — reload to update");
+    restoringTab.unregister();
+  });
+
   it("restores nothing when the current payload can't be backed up first", () => {
     const { backend, storage, binding } = setup();
     backend.items.set(KEY, JSON.stringify(["old"]));

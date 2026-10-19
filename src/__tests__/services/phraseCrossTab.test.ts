@@ -454,6 +454,50 @@ describe("two tabs, one shelf", () => {
     expect(merged.notes[0]).toBe(note);
   });
 
+  it("keeps this tab's live curve when the other tab edits another field of the same note", () => {
+    const a = openTab();
+    const phrase = sketch(a, "expressive");
+    const note = phrase.notes[0];
+    note.releaseTime = note.pressTime + 1000;
+    note.duration = 1000;
+    note.pitchExpression = Array.from({ length: 241 }, (_, point) => ({ timeMs: point * 1000 / 240, cents: point % 40 }));
+    const curve = note.pitchExpression;
+    a.save();
+    const b = openTab();
+    // A remap in B (as followControls does on a shared take): pitch fields change, the curve does not.
+    const inB = find(b.state, "expressive")!.notes[0];
+    inB.note = "D4";
+    inB.frequency = 293.66;
+    b.save();
+    a.hear();
+    const merged = find(a.state, "expressive")!.notes[0];
+    expect(merged.note).toBe("D4");
+    expect(merged.frequency).toBe(293.66);
+    expect(merged.pitchExpression).toBe(curve);
+    expect(merged.pitchExpression).toHaveLength(241);
+  });
+
+  it("writes a restored older backup back at the current version", async () => {
+    const a = openTab();
+    sketch(a, "in-v1-backup");
+    a.save();
+    const data = stored();
+    const v1 = JSON.stringify({ $version: 1, data });
+    await writePhraseBackup("phrases", "v1", v1, NOW);
+    sketch(a, "later");
+    a.save();
+    const [backup] = (await listPhraseBackups()).filter((entry) => entry.label === "v1");
+    expect((await restorePhraseBackup(backup.backupKey)).ok).toBe(true);
+    const live = JSON.parse(localStorage.getItem("phrases")!);
+    expect(live.$version).toBe(PHRASE_FORMAT_VERSION);
+    expect(live.data).toEqual(data);
+    // A tab still on a v1 build keeps meeting the newer hold.
+    const oldBuild = defineCodec({ ...phraseCodec(defaults, () => context), version: 1, migrations: { 0: (value) => value } });
+    expect(readPayload(oldBuild, localStorage.getItem("phrases")).kind).toBe("newer");
+    // The backup itself keeps its original bytes.
+    expect((await listPhraseBackups()).find((entry) => entry.backupKey === backup.backupKey)!.raw).toBe(v1);
+  });
+
   it("lets a deleted Loop take its member with it", () => {
     type LoopBook = { loops: Array<{ id: string; members: Array<{ phraseId: string }> }> };
     const a = openTab();
@@ -529,6 +573,23 @@ describe("two tabs, one shelf", () => {
     sketch(a, "from-a");
     expect(a.save()).toBe(true);
     expect(ids(stored())).toEqual(expect.arrayContaining(["before-restore", "after-backup", "from-a", "from-b"]));
+  });
+
+  it("saves again once another tab's failed restore takes its stamp back", () => {
+    const a = openTab();
+    sketch(a, "mine");
+    a.save();
+    // Another tab stamps a restore, A hears it and holds...
+    localStorage.setItem("phrases.restored", "1");
+    a.hear();
+    sketch(a, "while-held");
+    expect(a.save()).toBe(false);
+    // ...then that restore's write fails and the stamp is taken back.
+    localStorage.removeItem("phrases.restored");
+    a.hear();
+    expect(saveFailureNotice.value).toBeNull();
+    expect(a.save()).toBe(true);
+    expect(ids(stored())).toEqual(expect.arrayContaining(["mine", "while-held"]));
   });
 
   it("stops saving, and says so, when the other tab is a newer app", () => {

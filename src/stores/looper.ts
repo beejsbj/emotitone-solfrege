@@ -80,7 +80,8 @@ export const LOOP_LENGTH: "whole-bars" | "recorded" = "whole-bars";
 export type TakeSwapPolicy = "next-change" | "every-change";
 const SWAP_STORAGE_KEY = "emotitone.looper.swap";
 
-const LATCH_POLL_MS = 100;
+// Fine enough that the closing bar's countdown steps on the beat you hear.
+const LATCH_POLL_MS = 25;
 const BEATS_PER_BAR = 4;
 const NON_LIVE_SOURCES = new Set([PATTERN_PLAYBACK_SOURCE, "strudel-playback", "live-pitch"]);
 const barMsAt = (bpm: number) => 240_000 / resolveBpm(bpm);
@@ -133,6 +134,12 @@ export const useLooperStore = defineStore("looper", () => {
   const looper = ref<Looper>(createLooper());
   /** The latch's take: a member that grows as its notes land. */
   const openTakeId = ref<string | null>(null);
+  /**
+   * While latched with a take open: the beats left of the closing bar, which
+   * the beat dots above Play show. Full while a note sounds, draining beat by
+   * beat across the silent bar, null once the take closes (or not latched).
+   */
+  const latchCountdown = ref<number | null>(null);
   /** The transport is running a Looper session. */
   const running = ref(false);
   const lastError = ref<string | null>(null);
@@ -544,7 +551,10 @@ export const useLooperStore = defineStore("looper", () => {
     looper.value.latched = !looper.value.latched;
     stopLatchTimer();
     if (looper.value.latched) latchTimer = setInterval(() => checkLatch(), LATCH_POLL_MS);
-    else openTakeId.value = null;
+    else {
+      openTakeId.value = null;
+      latchCountdown.value = null;
+    }
   }
 
   /** Each note that lands joins the open take, so it sounds from the next lap. */
@@ -555,6 +565,7 @@ export const useLooperStore = defineStore("looper", () => {
     if (openTakeId.value !== take.id) {
       if (isPlaying(looper.value, take.id)) return;
       openTakeId.value = take.id;
+      latchCountdown.value = BEATS_PER_BAR;
       joinPhrase(take, origin);
       return;
     }
@@ -569,12 +580,46 @@ export const useLooperStore = defineStore("looper", () => {
    * are on the audio clock, whose wall anchor drifts from `performance.now()`.
    */
   let lastLiveActivity = 0;
+  /** The bar the listener heard when live input last moved (null: no run then). */
+  let lastLiveBar: number | null = null;
 
-  /** While latched, one bar of silence closes the open take; the next note opens another. */
+  function liveActivity() {
+    lastLiveActivity = performance.now();
+    lastLiveBar = running.value ? player?.heardBar() ?? null : null;
+  }
+
+  /**
+   * Bars of silence since live input last moved, on the transport's heard bar
+   * (what UIBeat shows) while a run plays, else on the main thread's clock.
+   */
+  function silentBars(now: number): number {
+    const heard = lastLiveBar !== null && running.value ? player?.heardBar() ?? null : null;
+    if (heard !== null) return heard - lastLiveBar!;
+    return (now - lastLiveActivity) / barMsAt(loopBpm());
+  }
+
+  /**
+   * While latched, one bar of silence closes the open take; the next note
+   * opens another. The beat dots count that bar down as it passes.
+   */
   function checkLatch(now = performance.now()): void {
     const take = phrases.take;
-    if (!looper.value.latched || openTakeId.value !== take.id || phrases.isTakeSounding) return;
-    if (now - lastLiveActivity < barMsAt(loopBpm())) return;
+    if (!looper.value.latched || openTakeId.value !== take.id) {
+      latchCountdown.value = null;
+      return;
+    }
+    if (phrases.isTakeSounding) {
+      latchCountdown.value = BEATS_PER_BAR;
+      return;
+    }
+    const silent = silentBars(now);
+    if (silent < 1) {
+      // A beat drains as it passes: four left on the bar's first beat, one on its last.
+      latchCountdown.value = Math.min(BEATS_PER_BAR, Math.max(1, Math.ceil(BEATS_PER_BAR * (1 - silent) - 1e-9)));
+      return;
+    }
+    // Empty: the take closes, and the dots go back to the beat.
+    latchCountdown.value = null;
     openTakeId.value = null;
     phrases.startBlankTake();
   }
@@ -629,6 +674,7 @@ export const useLooperStore = defineStore("looper", () => {
   function stopAll(): void {
     stopLatchTimer();
     openTakeId.value = null;
+    latchCountdown.value = null;
     origins.clear();
     clearLooper(looper.value);
     stopTransport();
@@ -748,12 +794,14 @@ export const useLooperStore = defineStore("looper", () => {
   const isLive = (detail: { noteId?: string; record?: boolean; source?: string } | undefined) =>
     Boolean(detail?.noteId) && detail!.record !== false && !NON_LIVE_SOURCES.has(detail!.source ?? "");
   const onNoteReleased = (event: Event) => {
-    if (isLive((event as CustomEvent).detail)) lastLiveActivity = performance.now();
+    if (isLive((event as CustomEvent).detail)) liveActivity();
   };
   const onNotePlayed = (event: Event) => {
     const detail = (event as CustomEvent).detail;
     if (!isLive(detail)) return;
-    lastLiveActivity = performance.now();
+    liveActivity();
+    // A note before the closing bar ends refills the dots at once.
+    if (latchCountdown.value !== null) latchCountdown.value = BEATS_PER_BAR;
     const wallTime = Number.isFinite(detail.timestamp) ? detail.timestamp : Date.now();
     let audioTime: number;
     try {
@@ -836,6 +884,7 @@ export const useLooperStore = defineStore("looper", () => {
     latched,
     soloId,
     openTakeId,
+    latchCountdown,
     isDeskPlaying,
     deskMemberId,
     engineReady,

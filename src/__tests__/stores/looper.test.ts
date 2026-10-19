@@ -865,6 +865,113 @@ describe("Play is the loop on the worklet transport", () => {
       }
     });
 
+    describe("the latch's closing bar on the beat dots", () => {
+      const dots = (deck: ReturnType<typeof mountDeck>) => deck.get(".code-strip-bar__beat");
+      const shown = (deck: ReturnType<typeof mountDeck>) => ({
+        countdown: dots(deck).attributes("data-beat-countdown"),
+        lit: dots(deck).findAll(".beat-indicator__beat--lit").length,
+        drained: dots(deck).findAll(".beat-indicator__beat--drained").length,
+      });
+      /** Render until the transport's heard bar reaches `bar`, then poll the latch as its timer would (only while latched). */
+      async function hearUntil(bar: number) {
+        while (player.heardBar()! < bar) render(QUANTUM / RATE);
+        if (useLooperStore().latched) useLooperStore().checkLatch();
+        await flush();
+      }
+
+      /** Latch, open a take, and let it go silent with the transport running. */
+      async function silentLatchedTake(deck: ReturnType<typeof mountDeck>) {
+        const { phrases, looper } = { phrases: usePhrasesStore(), looper: useLooperStore() };
+        await press(deck.get(".code-strip-bar__play").element, 520);
+        expect(looper.latched).toBe(true);
+        live("C4", 0, 4000, 5600);
+        await flush();
+        await looper.settled();
+        expect(player.getLooper().running).toBe(true);
+        // The second note lands and lifts with the transport running.
+        live("E4", 2, 8000, 9600);
+        await flush();
+        // The main thread's clock runs off from the audio clock: only the heard beat counts.
+        spies[0].mockRestore();
+        spies[0] = vi.spyOn(performance, "now").mockImplementation(() => 1000 + rig.frame / RATE * 3000);
+        return { open: phrases.take.id, from: player.heardBar()! };
+      }
+
+      it("drain beat by beat on the heard beat, and are empty as the take closes", async () => {
+        const { phrases, looper } = setup();
+        const deck = mountDeck();
+        try {
+          const { open, from } = await silentLatchedTake(deck);
+          looper.checkLatch();
+          await flush();
+          expect(shown(deck)).toEqual({ countdown: "4", lit: 4, drained: 0 });
+          const seen: string[] = [];
+          for (const beat of [.1, .3, .55, .8, .97]) {
+            await hearUntil(from + beat);
+            seen.push(shown(deck).countdown!);
+            expect(phrases.take.id).toBe(open);
+          }
+          expect(seen).toEqual(["4", "3", "2", "1", "1"]);
+          expect(shown(deck)).toEqual({ countdown: "1", lit: 1, drained: 3 });
+          // The bar is out: the take closes as the last chad drains, and the dots are the beat again.
+          await hearUntil(from + 1);
+          expect(phrases.take.id).not.toBe(open);
+          expect(looper.openTakeId).toBeNull();
+          expect(shown(deck).countdown).toBeUndefined();
+          expect(shown(deck).drained).toBe(0);
+          expect(dots(deck).attributes("data-ui-beat-state")).not.toBe("countdown");
+        } finally {
+          deck.unmount();
+        }
+      });
+
+      it("refill at once when a note is played before the bar is out", async () => {
+        const { phrases, looper } = setup();
+        const deck = mountDeck();
+        try {
+          const { open, from } = await silentLatchedTake(deck);
+          await hearUntil(from + .6);
+          expect(shown(deck).countdown).toBe("2");
+          // A note: the dots are full at once, before any poll.
+          window.dispatchEvent(new CustomEvent("note-played", { detail: { noteId: "live-refill", noteName: "G4",
+            solfegeIndex: 4, octave: 4, key: "C", mode: "major", source: "live-play-style", timestamp: Date.now() } }));
+          await flush();
+          expect(shown(deck)).toEqual({ countdown: "4", lit: 4, drained: 0 });
+          window.dispatchEvent(new CustomEvent("note-released", { detail: { noteId: "live-refill", noteName: "G4",
+            source: "live-play-style", timestamp: Date.now() } }));
+          // The old bar's end passes and the take stays open: the bar starts again from the note.
+          await hearUntil(from + 1.05);
+          expect(phrases.take.id).toBe(open);
+          expect(Number(shown(deck).countdown)).toBeGreaterThan(1);
+        } finally {
+          deck.unmount();
+        }
+      });
+
+      it("change nothing when the Looper is not latched", async () => {
+        const { phrases, looper } = setup();
+        const deck = mountDeck();
+        try {
+          playTake(.5);
+          await press(deck.get(".code-strip-bar__play").element, 40);
+          await looper.settled();
+          expect(looper.latched).toBe(false);
+          live("A4", 5, rig.frame + 400, rig.frame + 1200);
+          await flush();
+          const from = player.heardBar()!;
+          for (const beat of [.3, .8, 1.2]) {
+            await hearUntil(from + beat);
+            expect(looper.latchCountdown).toBeNull();
+            expect(shown(deck)).toMatchObject({ countdown: undefined, drained: 0 });
+            expect(dots(deck).attributes("data-ui-beat-state")).not.toBe("countdown");
+          }
+          expect(phrases.take.notes.length).toBe(1);
+        } finally {
+          deck.unmount();
+        }
+      });
+    });
+
     /** The renderer is rebuilt and its banks do not come back (until `restore`). */
     function rebuildWithBanksHeld() {
       let restore!: () => void;

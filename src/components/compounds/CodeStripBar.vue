@@ -4,6 +4,7 @@
       <BeatIndicator
         class="code-strip-bar__beat"
         aria-label="Pattern beat"
+        :countdown="beatCountdown"
       >
         <Button
           class="code-strip-bar__play"
@@ -92,6 +93,8 @@ const props = withDefaults(
      * and the key stays pressable. Holding Play emits `playHold`.
      */
     playLatched?: boolean;
+    /** Beats left of the latch's closing bar, shown on the beat dots (null: the beat). */
+    beatCountdown?: number | null;
     tokens?: CodeStripToken[];
     source?: string;
     density?: CodeStripDensity;
@@ -104,6 +107,7 @@ const props = withDefaults(
     playDisabled: false,
     haptic: false,
     playLatched: false,
+    beatCountdown: null,
     tokens: undefined,
     source: undefined,
     density: "dense",

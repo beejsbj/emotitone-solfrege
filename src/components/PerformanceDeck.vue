@@ -58,6 +58,7 @@
           :play-disabled="playDisabled"
           :haptic="isProductionUsage"
           :play-latched="looper?.latched ?? false"
+          :beat-countdown="looper?.latchCountdown ?? null"
           @toggle-playback="toggleSketchPlayback"
           @play-hold="looper?.toggleLatch()"
           @backspace="handleBackspace"

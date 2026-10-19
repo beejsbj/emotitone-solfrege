@@ -1011,6 +1011,17 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
       return barAtFrame(anchors, audioTime * port.sampleRate, port.sampleRate);
     },
 
+    /**
+     * The bar the listener hears now: what the transport publishes to UIBeat
+     * each frame (the output timestamp, so output latency included); null
+     * while no run plays, the context is not running, or a restore is on.
+     */
+    heardBar(): number | null {
+      if (!playing || recovery || !port || !anchors.length || context?.state !== "running") return null;
+      const heard = heardFrame();
+      return heard === null ? null : barAtFrame(anchors, heard, port.sampleRate);
+    },
+
     /** Follow whether the engine is restoring a rebuilt renderer; returns the unsubscribe. */
     onRecoveryChange(listener: (recovering: boolean) => void): () => void {
       recoveryListeners.add(listener);

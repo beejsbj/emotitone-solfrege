@@ -1,22 +1,36 @@
 <template>
-  <PatternReel
-    class="phrase-shelf"
-    :items="reelItems"
-    :selected-id="deskItemId"
-    :entry-signal="entrySignal"
-    :cyclic="false"
-    label="Phrase reel. The selected strip is what you play into. Up and down arrows load older phrases; the front slot starts a new take."
-    @commit="choose"
-    @delete="deletePhrase"
-    @copy="copyNotation"
-    @open-strudel="openInStrudel"
-    @rename="renamePhrase"
-    @interaction-change="emit('interactionChange', $event)"
-  />
+  <div class="phrase-shelf">
+    <PatternReel
+      class="phrase-shelf__reel"
+      :items="reelItems"
+      :selected-id="deskItemId"
+      :entry-signal="entrySignal"
+      :cyclic="false"
+      label="Phrase reel. The selected strip is what you play into. Up and down arrows load older phrases; the front slot starts a new take."
+      @commit="choose"
+      @delete="deletePhrase"
+      @copy="copyNotation"
+      @open-strudel="openInStrudel"
+      @rename="renamePhrase"
+      @interaction-change="reelInteraction"
+    />
+    <!-- Floats above the deck's top edge, over the Stage. Not an occlusion
+         part: a passing notice must not resize the Stage's composition. -->
+    <ShelfNotice
+      v-if="phrasesStore.shelfNotice"
+      class="phrase-shelf__notice"
+      :state="phrasesStore.shelfNotice"
+      :oldest-title="oldestRecent ? phraseTitle(oldestRecent) : undefined"
+      :armed="releaseArmed"
+      :busy="reelBusy"
+      @release="releaseOldest"
+    />
+  </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from "vue";
+import ShelfNotice from "@/components/patterns/ShelfNotice.vue";
 import PatternReel from "@/components/compounds/PatternReel.vue";
 import type { PatternReelItem } from "@/components/compounds/PatternReel.vue";
 import type {
@@ -64,6 +78,31 @@ const {
   getStaticPrimaryColorByPitchClass,
 } = useMusicColor();
 
+const oldestRecent = computed(() => phrasesStore.releaseCandidates[0]);
+// While the reel scrolls, its wheel unwinds upward into the notice's place.
+const reelBusy = ref(false);
+function reelInteraction(active: boolean) {
+  reelBusy.value = active;
+  emit("interactionChange", active);
+}
+const releaseArmed = ref(false);
+let releaseTimer: ReturnType<typeof setTimeout> | undefined;
+function disarmRelease() {
+  clearTimeout(releaseTimer);
+  releaseArmed.value = false;
+}
+watch(() => oldestRecent.value?.id, disarmRelease);
+function releaseOldest() {
+  if (!releaseArmed.value) {
+    releaseArmed.value = true;
+    clearTimeout(releaseTimer);
+    releaseTimer = setTimeout(disarmRelease, 2500);
+    return;
+  }
+  if (oldestRecent.value) phrasesStore.releaseRecent(oldestRecent.value.id);
+  disarmRelease();
+}
+
 const copiedId = ref<string | null>(null);
 const deleteArmedId = ref<string | null>(null);
 const now = ref(Date.now());
@@ -72,6 +111,7 @@ let deleteTimer: ReturnType<typeof setTimeout> | undefined;
 const clockTimer = setInterval(() => { now.value = Date.now(); }, 30_000);
 
 onBeforeUnmount(() => {
+  clearTimeout(releaseTimer);
   clearTimeout(copyTimer);
   clearTimeout(deleteTimer);
   clearInterval(clockTimer);
@@ -371,7 +411,19 @@ function openInStrudel(id: string) {
 
 <style scoped>
 .phrase-shelf {
+  position: relative;
   width: 100%;
   min-width: 0;
+}
+
+/* Anchored to the deck's top edge and lifted clear of the reel's resting
+   stack and the drawer handle's --hit-min touch, so it covers only Stage. */
+.phrase-shelf__notice {
+  position: absolute;
+  z-index: 4;
+  bottom: calc(100% + var(--hit-min));
+  inset-inline: var(--s-6);
+  max-inline-size: 26rem;
+  margin-inline: auto;
 }
 </style>

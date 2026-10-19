@@ -385,7 +385,7 @@ describe("persistence codec", () => {
     expect(backend.items.get(KEY)).toBe(saved);
   });
 
-  it("refuses a save if the stored version cannot be read after hydration", () => {
+  it("refuses only the save whose read failed after hydration; the next save tries again", () => {
     const { backend, binding } = setup();
     const saved = envelope(2, { takes: ["safe"], tempo: 120 });
     backend.items.set(KEY, saved);
@@ -394,9 +394,14 @@ describe("persistence codec", () => {
 
     expect(binding.save({ takes: ["unsaved"], tempo: 120 })).toBe(false);
     expect(backend.items.get(KEY)).toBe(saved);
-    expect(binding.hold).toEqual({ reason: "unread" });
+    expect(binding.hold).toBeNull();
     expect(saveFailureNotice.value?.message).toBe("Can't save");
+
+    expect(binding.save({ takes: ["unsaved", "later"], tempo: 120 })).toBe(true);
+    expect(JSON.parse(backend.items.get(KEY)!).data).toEqual({ takes: ["unsaved", "later"], tempo: 120 });
+    expect(saveFailureNotice.value).toBeNull();
   });
+
 
   it(`keeps the newest ${BACKUP_RETENTION} backups per key and never prunes the one just written`, () => {
     const { backend, binding, setNow } = setup();

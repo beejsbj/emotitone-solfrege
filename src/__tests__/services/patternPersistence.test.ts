@@ -1,7 +1,7 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
 import { createApp, nextTick, reactive } from "vue";
-import piniaPluginPersistedstate from "pinia-plugin-persistedstate";
+import { IDBFactory } from "fake-indexeddb";
 import { usePhrasesStore } from "@/stores/phrases";
 import {
   deserializePatternsState,
@@ -43,6 +43,7 @@ describe("pattern persistence serializer", () => {
     const previous = window.localStorage;
     Object.defineProperty(window, "localStorage", { configurable: true, value: storage });
     vi.stubGlobal("localStorage", storage);
+    vi.stubGlobal("indexedDB", new IDBFactory());
     restoreLocalStorage = () => {
       Object.defineProperty(window, "localStorage", { configurable: true, value: previous });
       vi.unstubAllGlobals();
@@ -53,7 +54,6 @@ describe("pattern persistence serializer", () => {
 
   function makeStore() {
     const pinia = createPinia();
-    pinia.use(piniaPluginPersistedstate);
     createApp({}).use(pinia);
     setActivePinia(pinia);
     return usePhrasesStore();
@@ -72,7 +72,7 @@ describe("pattern persistence serializer", () => {
     seed.book.phrases.push({ ...seed.take, id: "kept-1", shelf: "kept", notes: [createNote(1)] });
     const existing = serializePatternsState({ book: seed.book, isRecordingEnabled: true });
     seed.removeEventListeners();
-    storage.setItem("phrases", existing);
+    storage.setItem("phrases", JSON.stringify({ $version: 1, data: JSON.parse(existing) }));
 
     const store = makeStore();
     expect(store.takeNotes).toHaveLength(512);
@@ -84,7 +84,7 @@ describe("pattern persistence serializer", () => {
 
     const persisted = storage.getItem("phrases");
     expect(persisted).not.toBeNull();
-    const parsed = JSON.parse(persisted!);
+    const parsed = JSON.parse(persisted!).data;
     expect(parsed).toEqual(JSON.parse(JSON.stringify({ book: store.book, isRecordingEnabled: store.isRecordingEnabled })));
     expect(persisted).not.toContain("__v_");
     expect(parsed.book.phrases.find((phrase: { id: string }) => phrase.id === store.takeId).notes).toHaveLength(514);
@@ -103,7 +103,9 @@ describe("pattern persistence serializer", () => {
 
     store.take.notes.push(createNote(0));
     await nextTick();
-    const parsed = JSON.parse(storage.getItem("phrases")!);
+    // The unreadable bytes are backed up to IndexedDB first; the save lands after.
+    await vi.waitFor(() => expect(storage.getItem("phrases")).not.toBe("{ malformed"));
+    const parsed = JSON.parse(storage.getItem("phrases")!).data;
     expect(parsed.book.phrases[0].notes[0].id).toBe("note-0");
     store.removeEventListeners();
   });

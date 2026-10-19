@@ -46,7 +46,7 @@ import { triggerUIHaptic } from "@/utils/hapticFeedback";
  * the cap, the button takes at least a --hit-min touch.
  */
 
-export type ButtonSize = "sm" | "md" | "lg";
+export type ButtonSize = "xs" | "sm" | "md" | "lg";
 export type ButtonTone = "ink" | "ivory" | "brass";
 export type ButtonBrassFinish = "flat" | "sheen" | "glow" | "sheen-glow";
 
@@ -152,6 +152,7 @@ function handleClick(event: MouseEvent) {
 /* The touch floor (.touch-floor) belongs to the native button, so it holds
    still while UIBeat scales the face; consumers leave room for it between
    neighbours with --hit-gap-sm. */
+.paper-button--xs { --button-size: var(--control-xs); --button-travel: 2px; }
 .paper-button--sm { --button-size: var(--control-sm); --button-travel: 3px; }
 .paper-button--md { --button-size: 40px; }
 .paper-button--lg { --button-size: 48px; --button-travel: 5px; }

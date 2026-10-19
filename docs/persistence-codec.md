@@ -85,7 +85,10 @@ emotitoneBackups.restore(backupKey)
 `restore` first backs up what is stored now (`pre-restore`), so a restore can
 itself be undone. If that copy fails, nothing is restored. It then writes the
 backup back under its store key and stops the running page from overwriting
-it. The page must then be reloaded. On reload the restored bytes are read like
+it. Every other open tab stops too: before the bytes go back, the restore
+stamps `<key>.restored`, and a tab that sees a stamp it did not load with holds
+writes and says "Can't save — reload to update" (BJS-575). Without the stamp, another
+tab would merge its own state back over the restore. Every open tab must then be reloaded. On reload the restored bytes are read like
 any other payload, so an old version is migrated again, under the backup rule.
 
 The support step:
@@ -353,8 +356,9 @@ The rules, by phrase id against the base (`src/services/phraseMerge.ts`):
 | Changed in one tab only | That change wins. |
 | Released (deleted, or expired from Recent) in one tab, untouched in the other | **The release holds**, in every tab. |
 | Released in one tab, changed in the other since they last agreed | **Comes back** with the change: an edit beats a concurrent release. Resurrection is the safer failure; it only happens to a phrase someone touched. |
+| Changed in the other tab only | Field by field and note by note: what the other tab changed comes in, and every note it did not change keeps this tab's live object (saved curves are thinned; this tab's live curves are not swapped for them). |
 | Changed in both | Field by field. Notes join by note id (nothing played in either tab is lost; duration grows to cover them). Kept beats any other shelf (a Keep is never silently undone). Any other field, such as a name: the tab that saves last wins, and the other takes it in from the event. |
-| A protected id (`setProtectedIds`, the Looper's playing set) or a saved Loop's member | Never released by a merge, whichever tab released it. |
+| A protected id (`setProtectedIds`, the Looper's playing set) or a member of a saved Loop that survives the merge | Never released by a merge, whichever tab released it. A Loop the other tab deleted no longer holds its members. |
 | Saved Loops (`book.loops`, BJS-493) | Merged by id like phrases, field by field, this tab winning a conflict. Nothing here depends on the Loop shape beyond `id` and `members[].phraseId`; a book without `loops` merges without one. |
 | `libraryNames` | Per library id, as above. |
 | `takeCounter` | The larger, so neither tab hands out a number the other has used from then on. Two tabs numbering takes in the same moment can still both say "Take 7". |
@@ -387,9 +391,21 @@ into. To tell a live desk from one left by a closed tab, each tab holds a Web
 Lock (`emotitone-desk:<takeId>`) on its open take (`src/services/deskClaims.ts`).
 The browser releases it when the tab closes or crashes. After load, the store
 shelves any other tab's take that no tab holds: into Recent if it has notes,
-dropped if it is empty. Without the Web Locks API nothing is shelved by
-guesswork. Such a take stays stored but off the shelves until its tab, or a
-browser with Web Locks, moves it.
+dropped if it is empty. Without the Web Locks API it falls back to age: another
+tab's take more than a day old (or older than the Recent retention, if that is
+shorter) counts as left behind. Misjudging a live take is harmless: a merge never
+moves a tab's own take off its desk, so its tab writes it back.
+
+Lock lifetime, accepted:
+
+- **Reload race.** A tab that reloads releases its lock for a moment. A tab
+  loading in that moment can shelve the reloading tab's take to Recent. The
+  sketch is kept; the reloaded tab opens on the stored take, as any reload does.
+- **iOS discarding a background tab** releases its lock like a close. Its take
+  goes to Recent in the next tab that loads, and nothing is lost.
+- **Back/forward cache.** A page holding a Web Lock is not kept in the
+  back/forward cache, so going back reloads it. That is harmless here: the app
+  is a single page, and a reload restores the shelf.
 
 **The read-then-write race.** The check before a write and the write are two
 storage operations. If another tab writes between them, this tab writes over

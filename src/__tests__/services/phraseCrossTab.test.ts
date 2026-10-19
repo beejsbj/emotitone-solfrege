@@ -6,7 +6,7 @@ import {
 import { defaultPatterns } from "@/data/patterns";
 import { NEUTRAL_SHAPE } from "@/services/shape";
 import { defineCodec, readPayload } from "@/services/persistenceCodec";
-import { listPhraseBackups } from "@/services/phraseBackups";
+import { listPhraseBackups, restorePhraseBackup, writePhraseBackup } from "@/services/phraseBackups";
 import {
   createPhrasePersistence, phraseCodec, PHRASE_FORMAT_VERSION, type PersistedPhraseState,
 } from "@/services/phrasePersistence";
@@ -432,6 +432,70 @@ describe("two tabs, one shelf", () => {
     getItem.mockRestore();
     expect(a.stored).toEqual([true]);
     expect(saveFailureNotice.value).toBeNull();
+  });
+
+  it("keeps this tab's live curves when the other tab only renames the phrase", () => {
+    const a = openTab();
+    const phrase = sketch(a, "expressive");
+    const note = phrase.notes[0];
+    note.releaseTime = note.pressTime + 1000;
+    note.duration = 1000;
+    note.pitchExpression = Array.from({ length: 241 }, (_, point) => ({ timeMs: point * 1000 / 240, cents: point % 40 }));
+    a.save();
+    // Saved curves are thinned; A's memory still has every point.
+    expect(find(stored(), "expressive")!.notes[0].pitchExpression!.length).toBeLessThan(241);
+    const b = openTab();
+    find(b.state, "expressive")!.name = "named in B";
+    b.save();
+    a.hear();
+    const merged = find(a.state, "expressive")!;
+    expect(merged.name).toBe("named in B");
+    expect(merged.notes[0].pitchExpression).toHaveLength(241);
+    expect(merged.notes[0]).toBe(note);
+  });
+
+  it("lets a deleted Loop take its member with it", () => {
+    type LoopBook = { loops: Array<{ id: string; members: Array<{ phraseId: string }> }> };
+    const a = openTab();
+    sketch(a, "member");
+    (a.state.book as unknown as LoopBook).loops = [{ id: "loop", members: [{ phraseId: "member" }] }];
+    a.save();
+    const b = openTab();
+    // B deletes the Loop and then the phrase it pointed at.
+    (b.state.book as unknown as LoopBook).loops = [];
+    b.state.book.phrases = b.state.book.phrases.filter((phrase) => phrase.id !== "member");
+    b.save();
+    a.hear();
+    expect((a.state.book as unknown as LoopBook).loops).toEqual([]);
+    expect(ids(a.state)).not.toContain("member");
+    expect(ids(stored())).not.toContain("member");
+  });
+
+  it("holds every open tab, not only the restoring one, when a backup is restored", async () => {
+    const a = openTab();
+    sketch(a, "before-restore");
+    a.save();
+    const old = localStorage.getItem("phrases")!;
+    sketch(a, "after-backup");
+    a.save();
+    await writePhraseBackup("phrases", "pre-restore", old, NOW);
+    const b = openTab(); // the tab whose console runs the restore
+    const [backup] = await listPhraseBackups();
+    expect((await restorePhraseBackup(backup.backupKey)).ok).toBe(true);
+    expect(localStorage.getItem("phrases")).toBe(old);
+    a.hear();
+    // A must not merge its shelf back over the restore.
+    sketch(a, "played-after-restore");
+    expect(a.save()).toBe(false);
+    expect(b.save()).toBe(false);
+    expect(localStorage.getItem("phrases")).toBe(old);
+    expect(saveFailureNotice.value?.message).toBe("Can't save — reload to update");
+    // After a reload the restored shelf is simply what the tab runs on.
+    const reloaded = openTab();
+    expect(ids(reloaded.state)).toContain("before-restore");
+    expect(ids(reloaded.state)).not.toContain("after-backup");
+    sketch(reloaded, "after-reload");
+    expect(reloaded.save()).toBe(true);
   });
 
   it("stops saving, and says so, when the other tab is a newer app", () => {

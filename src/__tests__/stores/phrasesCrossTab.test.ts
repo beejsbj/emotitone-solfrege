@@ -140,6 +140,37 @@ describe("phrase stores in two tabs", () => {
     expect(b.take.shelf).toBe("take");
   });
 
+  it("without Web Locks, shelves another tab's take only once it is a day old", async () => {
+    Object.defineProperty(navigator, "locks", { value: undefined, configurable: true });
+    onTestFinished(() => { delete (navigator as { locks?: unknown }).locks; });
+    const a = openTab();
+    const id = await sketch(a, "a", START);
+    const envelope = JSON.parse(localStorage.getItem("phrases")!);
+    const played = envelope.data.book.phrases.find((phrase: { id: string }) => phrase.id === id);
+    const day = 24 * 60 * 60 * 1000;
+    const desk = (deskId: string, createdAt: number, notes: unknown[]) =>
+      ({ ...played, id: deskId, shelf: "take", createdAt, closedAt: undefined, notes });
+    envelope.data.book.phrases.push(
+      desk("old-with-notes", START - day - 1, played.notes),
+      desk("old-empty", START - day - 1, []),
+      desk("fresh-desk", START - 60_000, played.notes),
+    );
+    localStorage.setItem("phrases", JSON.stringify(envelope));
+
+    const c = openTab();
+    await Promise.resolve();
+    await nextTick();
+    const shelf = (deskId: string) => c.book.phrases.find((phrase) => phrase.id === deskId)?.shelf;
+    expect(shelf("old-with-notes")).toBe("recent");
+    expect(shelf("old-empty")).toBeUndefined();
+    expect(shelf("fresh-desk")).toBe("take");
+    await nextTick();
+    const storedShelf = (deskId: string) => JSON.parse(localStorage.getItem("phrases")!).data.book.phrases
+      .find((phrase: { id: string }) => phrase.id === deskId)?.shelf;
+    expect(storedShelf("old-with-notes")).toBe("recent");
+    expect(storedShelf("old-empty")).toBeUndefined();
+  });
+
   it("keeps a phrase this tab's Looper protects when the other tab releases it", async () => {
     const a = openTab();
     const looping = await sketch(a, "a", START);

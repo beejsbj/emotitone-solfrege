@@ -30,14 +30,15 @@ interface Tab {
 
 const tabs: Tab[] = [];
 
-function openTab(): Tab {
+/** `listening: false` is a tab whose storage events never arrive: only its own saves can notice. */
+function openTab({ listening = true } = {}): Tab {
   const tab = { protectedIds: new Set<string>(), events: new EventTarget() } as Tab;
   const binding = createPhrasePersistence(defaults, () => context, {
     adopt: (state) => { tab.state = state; },
     protectedIds: () => tab.protectedIds,
   });
   tab.state = binding.load();
-  const stop = binding.listen(() => tab.state, tab.events);
+  const stop = listening ? binding.listen(() => tab.state, tab.events) : () => {};
   tab.save = () => binding.save(tab.state);
   tab.hear = () => { tab.events.dispatchEvent(new StorageEvent("storage", { key: "phrases" })); };
   tab.dispose = () => { stop(); binding.unregister(); };
@@ -73,8 +74,8 @@ afterEach(() => {
 
 describe("two tabs, one shelf", () => {
   it("never writes over a sketch the other tab saved, even when no storage event arrives", () => {
-    const a = openTab();
-    const b = openTab();
+    const a = openTab({ listening: false });
+    const b = openTab({ listening: false });
     sketch(b, "from-b");
     expect(b.save()).toBe(true);
     // Tab A has not heard about it and saves its own sketch.

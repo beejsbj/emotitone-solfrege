@@ -262,8 +262,32 @@ describe('live playback instrument manager', () => {
     expect(mocks.prepare).not.toHaveBeenCalled()
     expect(engine.forget).not.toHaveBeenCalled()
     expect(manager.getLivePlayback('e')).toBeUndefined()
-    expect(manager.getLivePlaybackFailure('e')).toEqual({ kind: 'fallback', reason: expect.stringContaining('pinned') })
+    expect(manager.getLivePlaybackFailure('e')).toEqual({ kind: 'fallback', reason: expect.stringContaining('pinned'), budget: true })
     expect(manager.getLivePlaybackFailure('a')).toBeUndefined()
+  })
+
+  it('lets live input on an evicted bank fall back when Looper pins refuse it, instead of dropping it', async () => {
+    const { manager, context } = await setup()
+    // 'e' was resident once, then evicted when four pinned members' banks loaded.
+    await manager.prepareLivePlayback(context, destination, 'e')
+    for (const name of ['a', 'b', 'c', 'd']) {
+      await manager.prepareLivePlayback(context, destination, name)
+      manager.pinLivePlayback(`looper:${name}`, [name])
+    }
+    expect(manager.getLivePlayback('e')).toBeUndefined()
+    const loadErrors: string[] = []
+    const stop = manager.subscribeLivePlayback({ onEvent() {}, onLoadError: instrumentId => loadErrors.push(instrumentId) })
+    // The press waits for recovery, is refused for budget, and goes on to the fallback renderer.
+    await expect(manager.waitForLivePlayback('e')).resolves.toBeUndefined()
+    expect(manager.getLivePlayback('e')).toBeUndefined()
+    expect(manager.getLivePlaybackFailure('e')).toMatchObject({ kind: 'fallback', budget: true })
+    expect(loadErrors).toEqual([])
+    // Once a member leaves, the next press brings the bank back to the worklet.
+    manager.pinLivePlayback('looper:a', [])
+    await manager.waitForLivePlayback('e')
+    expect(manager.getLivePlayback('e')).toBeDefined()
+    expect(manager.getLivePlaybackFailure('e')).toBeUndefined()
+    stop()
   })
 
   it('reports a failed download as a load failure until a retry installs the bank', async () => {

@@ -20,19 +20,3 @@ export function noteIdAtLocations(
   }
   return undefined;
 }
-
-// The spans of the code the pattern transport is playing now. The Strudel
-// output reads it to stamp each note event with the phrase note's id; an engine
-// that already knows its note ids never needs it.
-let soundingSpans: readonly NotationSpan[] = [];
-
-export function setSoundingNotationSpans(spans: readonly NotationSpan[] | null): void {
-  soundingSpans = spans ?? [];
-}
-
-/** The phrase note id for a Strudel hap, or undefined when it cannot be named. */
-export function soundingNoteIdForHap(hap: unknown): string | undefined {
-  const locations = (hap as { context?: { locations?: NotationLocation[] } } | null)
-    ?.context?.locations;
-  return noteIdAtLocations(soundingSpans, locations);
-}

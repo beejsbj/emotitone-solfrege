@@ -37,7 +37,7 @@ const mocks = vi.hoisted(() => {
     resetHarmonicAnalysis: vi.fn(),
     activeBlobs: new Map<string, { baseRadius: number }>(),
     liveStageNotes: [] as ActiveNote[],
-    strudelStageNotes: [] as ActiveNote[],
+    patternStageNotes: [] as ActiveNote[],
     stageActiveNotesProvider: null as null | (() => readonly ActiveNote[]),
     stringEventTarget: null as EventTarget | null,
     createBlob: vi.fn(),
@@ -64,9 +64,11 @@ vi.mock("@/services/hummingStage", () => ({
 }));
 
 vi.mock("@/services/superdoughAudio", () => ({
-  setStrudelLaBasedMinor: vi.fn(),
-  getActiveStrudelStageNotes: () => mocks.strudelStageNotes,
   getAudioContext: () => null,
+}));
+
+vi.mock("@/services/patternTransport", () => ({
+  getActivePatternStageNotes: () => mocks.patternStageNotes,
 }));
 
 vi.mock("@/services/stageAudio", () => ({
@@ -244,7 +246,7 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
     mocks.blobConfig.value.showEmotionLabel = true;
     mocks.activeBlobs.clear();
     mocks.liveStageNotes.length = 0;
-    mocks.strudelStageNotes.length = 0;
+    mocks.patternStageNotes.length = 0;
     mocks.stageActiveNotesProvider = null;
     mocks.createBlob.mockImplementation((...args: unknown[]) => {
       const config = args[6] as { isEnabled: boolean };
@@ -446,9 +448,9 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
     expect(mocks.recordHarmonicNote).not.toHaveBeenCalled();
   });
 
-  it("rehydrates an active Strudel note that began while bodies were hidden", () => {
-    mocks.strudelStageNotes.push({
-      noteId: "strudel-1",
+  it("rehydrates an active pattern note that began while bodies were hidden", () => {
+    mocks.patternStageNotes.push({
+      noteId: "pattern-1-1",
       noteName: "C#4",
       solfege: note,
       solfegeIndex: -1,
@@ -461,7 +463,7 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
     });
     mocks.blobConfig.value.isEnabled = false;
     const canvas = useUnifiedCanvas(createCanvasRef());
-    expect(mocks.stageActiveNotesProvider?.()).toEqual(mocks.strudelStageNotes);
+    expect(mocks.stageActiveNotesProvider?.()).toEqual(mocks.patternStageNotes);
     canvas.initializeCanvas();
     expect(mocks.createBlob).not.toHaveBeenCalled();
 
@@ -477,7 +479,7 @@ describe("useUnifiedCanvas harmonic lifecycle", () => {
       window.innerWidth,
       window.innerHeight,
       mocks.blobConfig.value,
-      "strudel-1",
+      "pattern-1-1",
       "C",
       "major",
       4,

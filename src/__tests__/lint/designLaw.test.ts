@@ -179,7 +179,7 @@ describe("use the primitives: no bespoke buttons", () => {
 
 describe("baseline: a file with debt may not gain more (bypass 2)", () => {
   it("passes a file with exactly its recorded debt", async () => {
-    for (const file of ["src/components/primatives/Note.vue", "src/components/compounds/Keyboard.vue", "src/composables/canvas/harmonicTypography.ts"]) {
+    for (const file of ["src/components/primatives/Note.vue", "src/components/compounds/ControlBar.vue", "src/composables/canvas/harmonicTypography.ts"]) {
       expect(await eslintRules(file, read(file)), file).toEqual([]);
     }
     expect(await styleProblems("src/components/primatives/Readout.vue", read("src/components/primatives/Readout.vue"))).toEqual([]);
@@ -194,10 +194,11 @@ describe("baseline: a file with debt may not gain more (bypass 2)", () => {
   });
 
   it("fails when a listed file gains another store or service import", async () => {
-    const keyboard = read("src/components/compounds/Keyboard.vue");
-    const path = "src/components/compounds/Keyboard.vue";
-    expect(await eslintRules(path, keyboard.replace("</script>", 'const more = () => import("@/stores/phrases");\nvoid more;\n</script>'))).toContain(STORES);
-    expect(await eslintRules(path, keyboard.replace("</script>", 'import("@/services/liveAudio");\n</script>'))).toContain(SERVICES);
+    // ControlBar still carries one service import (Keyboard paid its debt in W3).
+    const controlBar = read("src/components/compounds/ControlBar.vue");
+    const path = "src/components/compounds/ControlBar.vue";
+    expect(await eslintRules(path, controlBar.replace("</script>", 'const more = () => import("@/stores/phrases");\nvoid more;\n</script>'))).toContain(STORES);
+    expect(await eslintRules(path, controlBar.replace("</script>", 'import("@/services/liveAudio");\n</script>'))).toContain(SERVICES);
   });
 
   it("fails when a listed file gains a style violation", async () => {

@@ -1,7 +1,9 @@
 import { mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createPinia, disposePinia, setActivePinia, type Pinia } from "pinia";
 import Chord from "@/components/compounds/Chord.vue";
-import Keyboard from "@/components/compounds/Keyboard.vue";
+import { KeyboardPerformanceHost } from "@/__tests__/helpers/keyboardPerformanceHost";
+import { useHarmonyAlterationStore } from "@/stores/harmonyAlteration";
 import {
   noteColorResolverKey,
   staticNoteColorResolver,
@@ -42,6 +44,7 @@ const mocks = vi.hoisted(() => ({
     laBasedMinor: false,
     currentKey: "C",
     currentMode: "major",
+    currentScale: { degreeCount: 7 },
     getNoteName: (() => "C4") as (scaleIndex: number, octave: number) => string,
     getActiveNotes: () => [],
     attackExactPitch: async () => "note",
@@ -60,6 +63,13 @@ vi.mock("@/stores/instrument", () => ({
 vi.mock("@/composables/useKeyboardControls", () => ({ useKeyboardControls: () => undefined }));
 vi.mock("@/utils/hapticFeedback", () => ({ triggerNoteHaptic: () => undefined }));
 
+let pinia: Pinia;
+beforeEach(() => {
+  pinia = createPinia();
+  setActivePinia(pinia);
+});
+afterEach(() => disposePinia(pinia));
+
 function playIn(key: ChromaticNote, mode: MusicalMode, laBasedMinor = false) {
   const theory = new MusicTheoryService();
   theory.setCurrentKey(key);
@@ -68,12 +78,13 @@ function playIn(key: ChromaticNote, mode: MusicalMode, laBasedMinor = false) {
   mocks.musicStore.currentKey = key;
   mocks.musicStore.currentMode = mode;
   mocks.musicStore.getNoteName = (scaleIndex, octave) => theory.getNoteName(scaleIndex, octave);
+  mocks.musicStore.currentScale = { degreeCount: theory.getCurrentScaleNotes().length };
   mocks.keyboardStore.solfegeData = theory.getCurrentScaleNotes().map((pitch) => pitchSolfegeData(pitch, { tonic: key, mode }, laBasedMinor));
 }
 
 function mountKeyboard(harmonyAlteration: "auto" | "flip" = "auto") {
-  return mount(Keyboard, {
-    props: { harmonyAlteration },
+  useHarmonyAlterationStore().latch(harmonyAlteration);
+  return mount(KeyboardPerformanceHost, {
     global: { provide: { [noteColorResolverKey as symbol]: staticNoteColorResolver } },
   });
 }

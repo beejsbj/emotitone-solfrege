@@ -371,7 +371,9 @@ export function createPersistedBinding<T>(
     // again so legacy and unreadable payloads get the same backup protection.
     const stored = storage.read(codec.key);
     if (!stored.ok) {
-      if (hold?.reason !== "newer" && hold?.reason !== "restored") hold = { reason: "unread" };
+      // Can't see what is stored now, so this save can't go over it. Only a
+      // failed initial load holds every write (`unread`, set in load); after
+      // a good load the next save simply reads again.
       if (hold?.reason === "newer") reportSaveFailure("newer", codec.key);
       return null;
     }

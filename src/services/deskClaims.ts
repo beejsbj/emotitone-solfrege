@@ -5,9 +5,9 @@
  * with shelf "take" that no tab holds was left behind by a tab that is gone:
  * the store shelves it (Recent if it has notes) so the sketch is not hidden.
  *
- * Without the Web Locks API nothing is claimed and nothing is reported as
- * unclaimed: other tabs' takes are left alone (they surface in Recent once
- * their tab moves on, and a take left behind stays stored but off the shelves).
+ * Without the Web Locks API nothing is claimed and `unclaimed` reports
+ * nothing; the store then falls back to age (a take older than a day counts as
+ * left behind).
  */
 
 const PREFIX = "emotitone-desk:";
@@ -15,6 +15,8 @@ const PREFIX = "emotitone-desk:";
 type LockManagerLike = Pick<LockManager, "request" | "query">;
 
 export interface DeskClaims {
+  /** Whether the Web Locks API is there to tell live desks from abandoned ones. */
+  readonly available: boolean;
   /** Hold `takeId` for this tab, releasing the previous one. */
   claim(takeId: string): void;
   /** Of these take ids, those no live tab holds. Empty without Web Locks. */
@@ -34,6 +36,7 @@ export function createDeskClaims(locks: LockManagerLike | undefined = defaultLoc
   let held: string | null = null;
   let release: (() => void) | null = null;
   return {
+    available: Boolean(locks),
     claim(takeId) {
       if (takeId === held) return;
       release?.();

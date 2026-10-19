@@ -45,6 +45,8 @@ const STORAGE_KEY = "phrases";
 // Transport notes also carry record: false; the source keeps older senders out.
 const NON_RECORDING_EVENT_SOURCES = new Set(["pattern-playback", "strudel-playback", "live-pitch"]);
 const MAX_EXPRESSION_POINTS = 8192;
+/** Without Web Locks: another tab's take this old was left behind. */
+const ABANDONED_TAKE_MS = 24 * 60 * 60 * 1000;
 
 /** Built-in phrases. Static data: never stored, never edited. */
 export const libraryPhrases: readonly Phrase[] = Object.freeze(
@@ -140,10 +142,18 @@ export const usePhrasesStore = defineStore(
     // by tabs that are gone (src/services/deskClaims.ts).
     const desk = createDeskClaims();
     watch(() => book.value.takeId, (id) => desk.claim(id), { immediate: true });
-    const leftBehind = book.value.phrases
-      .filter((phrase) => phrase.shelf === "take" && phrase.id !== book.value.takeId)
-      .map((phrase) => phrase.id);
-    void desk.unclaimed(leftBehind).then((ids) => {
+    const otherDesks = book.value.phrases
+      .filter((phrase) => phrase.shelf === "take" && phrase.id !== book.value.takeId);
+    // Without Web Locks, a take older than a day (or the Recent retention, if
+    // shorter) counts as left behind. A misjudged live take is harmless: its
+    // own tab's merge puts it back on its desk.
+    const leftBehind = desk.available
+      ? desk.unclaimed(otherDesks.map((phrase) => phrase.id))
+      : Promise.resolve(otherDesks
+        .filter((phrase) => Date.now() - Math.max(phrase.createdAt, phrase.closedAt ?? 0)
+          > Math.min(config.recentRetentionMs, ABANDONED_TAKE_MS))
+        .map((phrase) => phrase.id));
+    void leftBehind.then((ids) => {
       const gone = new Set(ids);
       const now = Date.now();
       book.value.phrases = book.value.phrases.flatMap((phrase) => {

@@ -136,13 +136,24 @@ stalls. Phone numbers come from the phone gate.
 
 These are design-system units and go through that process, not this document:
 
-- **Loop dial**: one per playing pattern, climbing the left edge. Tap mutes,
-  double-tap solos, hold removes, drag turns the pattern within the loop
-  (changes its offset). The disc turns under a fixed brass hand. This is
-  direction, not an accepted unit: the accepted Loop Dial is a
-  noninteractive Primitive whose hand sweeps over fixed notes, so this
-  reopens it (or defines a new Unique beside it) through the design-system
-  process before it is built.
+- **Loop dial** (the Looper Dial primitive): one per playing pattern,
+  climbing the left edge; the disc turns under a fixed brass hand. Its
+  gesture map (Burooj, 2026-10-19):
+  - **Tap** mutes or unmutes, at once, so it can be played in rhythm.
+  - **Double-tap** brings that pattern to the desk (the front of the reel),
+    and the Code Strip follows it. The second tap undoes the first tap's
+    mute; double-tap no longer solos.
+  - **Hold** solos the pattern while held, from the hold threshold; letting
+    go (or a cancelled press) puts the mute and solo states back exactly as
+    they were before the hold, whatever changed in between. There is no
+    persistent solo on the dial.
+  - **Flick off the left edge** removes it: a fast, mostly sideways throw to
+    the left past a distance threshold, never a slow drag or a tap. Delete
+    still removes from the keyboard.
+  - **Vertical drag** is reserved for the loop's volume, which needs
+    per-member volume in the transport (a follow-up). Turning a pattern
+    within the loop (its offset) moves to the pattern strip dial at the desk,
+    also a follow-up; the store's offset path stays for it.
 - **Stop All** on top of the dial column.
 - **Looper** (a Stage part, its own config tab): the turning light a running
   loop casts, with Strength, Definition and Spread. Haze at low Definition,
@@ -150,6 +161,10 @@ These are design-system units and go through that process, not this document:
 - **Mic** rides the drawer's lip on the right; the left edge is the dials'.
 - **Pattern strip dial**: for a playing pattern it shows what its loop dial
   shows (same notes, length and place) and turns with it; otherwise it rests.
+  It will take the offset turn the small dial gave up (a follow-up).
+- **Beat dots** above Play: while latched with a take open, they count down
+  the bar of silence that closes it, draining beat by beat on the heard
+  beat; a note refills them; when the take closes they show the beat again.
 - **Code Strip**: when the pattern on the desk is playing, the HighlightStrip
   follows it, lighting that member's notes while the others sound. This comes
   from the single transport's events; the prototype cannot do it.
@@ -204,5 +219,9 @@ The questions this section held are settled:
   Engine, 2026-10-17).
 - **Play waits for the engine**: it cannot start until the pattern player and
   the audio engine are ready, nor while a rebuilt renderer is being restored.
-- **The loop dial drags**: a vertical drag, with the Knob's feel, turns a
-  pattern within the loop a whole beat at a time.
+- **The loop dial's gestures** (superseding the drag-to-offset decided
+  earlier the same day): tap mutes, double-tap brings to the desk, hold solos
+  while held, a flick off the left edge removes; vertical drag is kept for
+  volume. See Surfaces.
+- **The latch's closing bar shows on the beat dots** ("the beat indicator
+  could visually show this").

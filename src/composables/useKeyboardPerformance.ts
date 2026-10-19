@@ -1,4 +1,4 @@
-import { computed, onScopeDispose, reactive, watch } from "vue";
+import { computed, onScopeDispose, reactive, shallowRef, watch } from "vue";
 import type {
   KeyboardChordIntent,
   KeyboardIntent,
@@ -25,6 +25,8 @@ import {
   CHORD_ROW_KEYS,
   qwertyNoteMapping,
   qwertyShortcutsByKey,
+  readKeyLabels,
+  type KeyLabelFor,
 } from "@/utils/qwertyLayout";
 
 interface ActiveChordSnapshot {
@@ -104,12 +106,23 @@ export function useKeyboardPerformance() {
   const chordPressedPitches = computed(() => new Set(
     Array.from(activeChordSnapshots.values()).flatMap((snapshot) => snapshot.notePitches),
   ));
+  // What each physical key prints on the user's layout; until (or unless) the
+  // browser says, no key announces a shortcut.
+  const keyLabels = shallowRef<KeyLabelFor | null>(null);
+  let disposed = false;
+  void readKeyLabels().then((labels) => {
+    if (!disposed) keyLabels.value = labels;
+  });
   /** The same layout the QWERTY adapter plays, by on-screen key id. */
-  const keyShortcuts = computed(() => qwertyShortcutsByKey(qwertyNoteMapping({
-    degreeCount: musicStore.currentScale.degreeCount,
-    mainOctave: mainOctave.value,
-    visibleOctaves: store.visibleOctaves,
-  })));
+  const keyShortcuts = computed(() => {
+    const labelFor = keyLabels.value;
+    if (!labelFor) return new Map<string, string>();
+    return qwertyShortcutsByKey(qwertyNoteMapping({
+      degreeCount: musicStore.currentScale.degreeCount,
+      mainOctave: mainOctave.value,
+      visibleOctaves: store.visibleOctaves,
+    }), labelFor);
+  });
   const rows = computed<KeyboardRowView[]>(() =>
     store.visibleOctaves.map((octave) => ({
       octave,
@@ -162,7 +175,7 @@ export function useKeyboardPerformance() {
         ),
         pressed: Boolean(snapshot) || store.isKeyPressed(`chord:${harmony.id}`),
         orphaned: false,
-        shortcut: CHORD_ROW_KEYS[index]?.label,
+        shortcut: CHORD_ROW_KEYS[index] && keyLabels.value?.(CHORD_ROW_KEYS[index].code),
       };
     });
     const liveIds = new Set(liveHarmony.map((harmony) => harmony.id));
@@ -273,6 +286,7 @@ export function useKeyboardPerformance() {
   });
 
   onScopeDispose(() => {
+    disposed = true;
     clear();
     stopFollowingReleases();
   });

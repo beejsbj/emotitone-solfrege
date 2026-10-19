@@ -426,6 +426,31 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     wrapper.unmount();
   });
 
+  it("uses the Keyboard container only in production", () => {
+    mount(PerformanceDeck, {
+      props: { usage: "controlled" },
+      global: { stubs: { PatternReel: true, CodeStripBar: true } },
+    }).unmount();
+    expect(mocks.useKeyboardPerformance).not.toHaveBeenCalled();
+    mount(PerformanceDeck, { global: { stubs: { PhraseShelf: true, CodeStripBar: true } } }).unmount();
+    expect(mocks.useKeyboardPerformance).toHaveBeenCalledOnce();
+  });
+
+  it("springs the Joystick back to its latch when the deck goes away", async () => {
+    const wrapper = mount(PerformanceDeck, {
+      global: { stubs: { PhraseShelf: true, Keyboard: true, CodeStripBar: true } },
+    });
+    const controls = wrapper.getComponent({ name: "ControlBar" });
+    controls.vm.$emit("update:harmonyValue", "jazzy7");
+    controls.vm.$emit("harmonyEffective", "sus4");
+    const alteration = useHarmonyAlterationStore();
+    expect(alteration.effective).toBe("sus4");
+
+    wrapper.unmount();
+    expect(alteration.latched).toBe("jazzy7");
+    expect(alteration.effective).toBe("jazzy7");
+  });
+
   it("turns each usable drawer allocation into whole keyboard rows", async () => {
     const wrapper = mount(PerformanceDeck, {
       global: {

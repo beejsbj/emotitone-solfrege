@@ -808,16 +808,29 @@ describe("Keyboard production usage", () => {
     expect(mocks.keyboardStore.clearAllTouches).not.toHaveBeenCalled();
   });
 
-  it("is a pure view: the performance surface wires it and registers QWERTY", () => {
+  it("is a pure view: it reaches no store, even through a composable", () => {
     // The design-law lint forbids stores and production services here; these
-    // composables reach the stores too, so the view takes neither.
+    // composables reach the stores too, so the view takes neither. That the
+    // deck feeds it from its container is observed in PerformanceDeckActions.
     expect(keyboardSource).not.toMatch(/from "@\/stores\//);
     expect(keyboardSource).not.toContain("usePerformer");
     expect(keyboardSource).not.toContain("useKeyboardControls");
     expect(keyboardSource).not.toContain("@/utils/hapticFeedback");
-    expect(performanceDeckSource).toContain(
-      'import { useKeyboardPerformance } from "@/composables/useKeyboardPerformance"',
-    );
+  });
+
+  it("registers QWERTY once, from the container rather than the view", () => {
+    const wrapper = mount(KeyboardPerformanceHost, {
+      props: { showKeyboard: false },
+      global: { stubs: { Key: KeyStub, ChordKey: ChordKeyStub } },
+    });
+    expect(mocks.useKeyboardControls).toHaveBeenCalledOnce();
+    // The bare view, mounted alone, registers nothing.
+    mount(Keyboard, {
+      props: { usage: "controlled", rows: controlledRows() },
+      global: { stubs: { Key: KeyStub, ChordKey: ChordKeyStub } },
+    }).unmount();
+    expect(mocks.useKeyboardControls).toHaveBeenCalledOnce();
+    wrapper.unmount();
   });
 
   it("keeps PerformanceDeck thin and leaves removed legacy Key APIs behind", () => {

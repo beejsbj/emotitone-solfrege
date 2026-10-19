@@ -132,13 +132,33 @@ describe("useKeyboardControls", () => {
       mapping[code] && [mapping[code].solfegeIndex, mapping[code].octave]);
 
     // Visible octaves 6-3: every letter key plays except the top row's last
-    // two, which would reach octave 7, off screen.
-    expect(Object.keys(mapping)).toHaveLength(32);
+    // two, which would reach octave 7, off screen, and the browser's own
+    // Quote and Slash (Firefox Quick Find), which never take a continued note.
+    expect(Object.keys(mapping)).toHaveLength(30);
     expect(notes(["KeyT", "KeyY", "KeyP", "BracketLeft", "BracketRight"]))
       .toEqual([[4, 5], [0, 6], [4, 6], undefined, undefined]);
     expect(notes(["KeyG", "KeyH", "Semicolon", "Quote", "Backslash"]))
-      .toEqual([[4, 4], [0, 5], [4, 5], [0, 6], [1, 6]]);
-    expect(notes(["KeyB", "KeyN", "Slash"])).toEqual([[4, 3], [0, 4], [4, 4]]);
+      .toEqual([[4, 4], [0, 5], [4, 5], undefined, [1, 6]]);
+    expect(notes(["KeyB", "KeyN", "Period", "Slash"])).toEqual([[4, 3], [0, 4], [3, 4], undefined]);
+  });
+
+  it("leaves the browser its own / and ' unless they were already scale degrees", async () => {
+    mockMusicStore.currentScale.degreeCount = 7;
+    const controls = mountControls(ref(4));
+    for (const [code, key] of [["Slash", "/"], ["Quote", "'"]]) {
+      const keydown = new KeyboardEvent("keydown", { code, key, cancelable: true });
+      await controls.handleKeyDown(keydown);
+      expect(keydown.defaultPrevented, code).toBe(false);
+    }
+    expect(mockMusicStore.attackNoteWithOctave).not.toHaveBeenCalled();
+
+    // In a twelve-note scale they are among the first twelve keys, as before.
+    mockMusicStore.currentScale.degreeCount = 12;
+    expect(controls.getKeyboardMapping()).toMatchObject({
+      Quote: { solfegeIndex: 10, octave: 4 },
+      Slash: { solfegeIndex: 9, octave: 3 },
+    });
+    controls.cleanupKeyboardListeners();
   });
 
   it("enables only physical rows whose octaves are visible", () => {

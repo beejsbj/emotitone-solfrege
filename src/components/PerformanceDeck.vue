@@ -130,7 +130,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from "vue";
+import { computed, onScopeDispose, reactive, ref } from "vue";
 import { Keyboard as KeyboardIcon } from "lucide-vue-next";
 import CodeStripBar from "@/components/compounds/CodeStripBar.vue";
 import ControlBar from "@/components/compounds/ControlBar.vue";
@@ -250,6 +250,11 @@ const visualConfigStore = isProductionUsage ? useVisualConfigStore() : undefined
 const playback = isProductionUsage ? useCodeStripStrudel() : undefined;
 const humming = isProductionUsage ? useHummingCapture() : undefined;
 const harmonyAlterationStore = isProductionUsage ? useHarmonyAlterationStore() : undefined;
+// The stick springs back to its latch when the deck goes away (route change,
+// HMR), so the next deck never plays under a push nobody is holding.
+if (harmonyAlterationStore) {
+  onScopeDispose(() => harmonyAlterationStore.latch(harmonyAlterationStore.latched));
+}
 // The performance surface wires the Keyboard view and registers QWERTY.
 const keyboardPerformance = isProductionUsage ? useKeyboardPerformance() : undefined;
 

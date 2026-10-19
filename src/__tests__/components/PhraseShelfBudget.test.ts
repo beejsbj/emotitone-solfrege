@@ -6,7 +6,7 @@ import { IDBFactory } from "fake-indexeddb";
 import PhraseShelf from "@/components/patterns/PhraseShelf.vue";
 import { libraryPhrases, usePhrasesStore } from "@/stores/phrases";
 import { PHRASE_BUDGET_BYTES } from "@/services/phrasePersistence";
-import { resetSaveFailure } from "@/services/safeStorage";
+import { reportSaveFailure, resetSaveFailure, saveFailureNotice } from "@/services/safeStorage";
 
 // External code generation isn't involved in storage pressure or release.
 vi.mock("@/composables/useCodeStripStrudel", () => ({
@@ -63,7 +63,7 @@ describe("Shelf over budget: warn, keep saving (Burooj, 2026-10-17)", () => {
     expect(savedPhrases().find((saved) => saved.id === store.takeId)?.notes).toHaveLength(3);
     expect(savedPhrases().some((saved) => saved.id === "oldest")).toBe(true);
     expect(notice(page).attributes("data-shelf-notice")).toBe("over-budget");
-    expect(notice(page).text()).toContain("Still saving");
+    expect(notice(page).text()).toContain("still saving");
     expect(notice(page).text()).toContain("Free some space soon");
     expect(page.find('button[aria-label="Release oldest Recent"]').exists()).toBe(true);
   });
@@ -101,6 +101,12 @@ describe("Shelf over budget: warn, keep saving (Burooj, 2026-10-17)", () => {
     expect(notice(page).attributes("data-shelf-notice")).toBe("failed");
     expect(notice(page).text()).toContain("New sketches are not being saved");
     expect(page.find('button[aria-label="Release oldest Recent"]').exists()).toBe(true);
+    // One strip carries a phrase failure: the global storage Sticker stays away…
+    expect(saveFailureNotice.value).toBeNull();
+    // …while every other saved key still raises it.
+    reportSaveFailure("quota", "music");
+    expect(saveFailureNotice.value?.message).toBe("Can't save — storage full");
+    resetSaveFailure();
     // Storage recovers: the next save writes everything and the failed state clears.
     storage.setItem.mockImplementation(workingSetItem);
     await page.get('button[aria-label="Release oldest Recent"]').trigger("click");

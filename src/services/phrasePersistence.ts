@@ -2,7 +2,7 @@ import { toRaw } from "vue";
 import { ensureSingleTake } from "@/domain/phraseBook";
 import { createPersistedBinding, defineCodec, type BindingOptions } from "@/services/persistenceCodec";
 import { writePhraseBackup } from "@/services/phraseBackups";
-import { persistentStorage, type SafeStorage } from "@/services/safeStorage";
+import { claimSaveFailureNotice, persistentStorage, type SafeStorage } from "@/services/safeStorage";
 import type { PhraseBook, PhraseContext } from "@/types/phrases";
 import type { PatternNote } from "@/types/patterns";
 
@@ -124,17 +124,25 @@ export function createPhrasePersistence(
 ) {
   const { onMeasure, onStored, storage: base = persistentStorage, ...binding } = options;
   let asked = false;
-  // Watch the shelf's own writes, wherever the binding makes them (a save, the
-  // eager migration rewrite, or the save queued behind a backup).
+  // Watch the shelf's own reads and writes, wherever the binding makes them (a
+  // save, the eager migration rewrite, or the save queued behind a backup).
   const storage: SafeStorage = {
     ...base,
+    read(key) {
+      const result = base.read(key);
+      if (key === "phrases" && !result.ok) onStored?.(false);
+      return result;
+    },
     write(key, value, writeOptions) {
       const stored = base.write(key, value, writeOptions);
       if (key === "phrases") onStored?.(stored);
       return stored;
     },
   };
-  return createPersistedBinding(phraseCodec(defaults, context), {
+  // Whoever listens for the outcome shows it: the shelf notice carries a
+  // phrase failure, so the shared storage Sticker does not repeat it.
+  const release = onStored ? claimSaveFailureNotice("phrases") : () => {};
+  const persisted = createPersistedBinding(phraseCodec(defaults, context), {
     storage,
     backup: (...args) => writePhraseBackup(...args).catch((error: unknown) => {
       onStored?.(false);
@@ -150,4 +158,10 @@ export function createPhrasePersistence(
     },
     ...binding,
   });
+  const unregister = persisted.unregister;
+  persisted.unregister = () => {
+    release();
+    unregister();
+  };
+  return persisted;
 }

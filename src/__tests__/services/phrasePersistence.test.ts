@@ -138,7 +138,8 @@ describe("phrase payload budget and curve fidelity", () => {
     }
     expect(localStorage.getItem("phrases")).toBe(before);
     expect(stored).toEqual([true, false]);
-    expect(saveFailureNotice.value?.message).toBe("Can't save — storage full");
+    // The listener (the shelf notice) carries it; the shared Sticker stays away.
+    expect(saveFailureNotice.value).toBeNull();
     expect(store.save(state)).toBe(true);
     expect(stored).toEqual([true, false, true]);
     expect(saveFailureNotice.value).toBeNull();
@@ -247,7 +248,7 @@ describe("IndexedDB backup before phrase rewrites", () => {
     expect(store.save(state)).toBe(false);
     await store.settled();
     expect(localStorage.getItem("phrases")).toBe(old);
-    expect(saveFailureNotice.value?.message).toBe("Can't save");
+    expect(saveFailureNotice.value).toBeNull();
     // The shelf is not reaching storage, so its notice can say so.
     expect(stored.at(-1)).toBe(false);
     vi.stubGlobal("indexedDB", new IDBFactory());

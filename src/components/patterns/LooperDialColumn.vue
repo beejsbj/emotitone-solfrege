@@ -110,9 +110,9 @@ onBeforeUnmount(() => micOnLip(false));
         :state="stateOf(view)"
         haptic
         @mute="looper.toggleMute(view.phraseId)"
-        @solo="looper.toggleSolo(view.phraseId)"
+        @desk="looper.bringToDesk(view.phraseId)"
+        @solo="(held: boolean) => held ? looper.holdSolo(view.phraseId) : looper.releaseSolo(view.phraseId)"
         @remove="looper.removeMember(view.phraseId)"
-        @shift="looper.shiftMember(view.phraseId, $event)"
       />
       <!-- Last in a reversed column: Stop All sits on top of the dials. -->
       <Button

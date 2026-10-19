@@ -826,27 +826,23 @@ describe("Play is the loop on the worklet transport", () => {
         expect(dial.find(".loop-dial--disc").exists()).toBe(true);
         expect(dial.find(".paper-button__cap").exists()).toBe(false);
         expect(document.documentElement.dataset.looperMic).toBe("lip");
-        // A tap on it mutes the member on the transport; another tap restores it.
+        // A tap on it mutes the member on the transport; another tap, later, restores it.
         await press(dial.element, 30);
         expect(player.getLooper().members[0]).toMatchObject({ id: take, muted: true });
-        await wait(400);
+        render(.5);
         await press(dial.element, 30);
         expect(player.getLooper().members[0]).toMatchObject({ id: take, muted: false });
-
-        // A drag up turns the pattern a beat later in the loop, on the transport.
-        await wait(400);
+        // A vertical drag no longer turns the pattern (kept for the loop's volume).
+        render(.5);
         const before = player.getLooper().members[0].offsetBars;
         const drag = (type: string, clientY: number) => dial.element.dispatchEvent(new PointerEvent(type,
           { bubbles: true, cancelable: true, pointerId: 3, pointerType: "touch", clientX: 10, clientY }));
         drag("pointerdown", 200);
-        drag("pointermove", 184);
-        drag("pointerup", 184);
+        drag("pointermove", 150);
+        drag("pointerup", 150);
         (dial.element as HTMLElement).click();
         await flush();
-        expect(player.getLooper().members[0].offsetBars).toBeCloseTo(before + .25, 9);
-        expect(looper.memberFor(take)!.offsetBars + looper.looper.barOriginBars!).toBeCloseTo(before + .25, 9);
-        // The drag was no tap: the member is not muted.
-        expect(player.getLooper().members[0].muted).toBe(false);
+        expect(player.getLooper().members[0]).toMatchObject({ offsetBars: before, muted: false });
 
         // Hold past 450 ms: the latch, not a Stop.
         await press(deck.get(".code-strip-bar__play").element, 520);
@@ -863,6 +859,135 @@ describe("Play is the loop on the worklet transport", () => {
       } finally {
         deck.unmount();
       }
+    });
+
+    describe("the Looper Dial's gesture map (Burooj, 2026-10-19)", () => {
+      /** Two patterns looping: the first take, and a second played over it (now on the desk). */
+      async function twoLooping(deck: ReturnType<typeof mountDeck>) {
+        const phrases = usePhrasesStore();
+        const looper = useLooperStore();
+        playTake(.5);
+        const first = phrases.take.id;
+        await press(deck.get(".code-strip-bar__play").element, 40);
+        await looper.settled();
+        render(1);
+        live("A4", 5, rig.frame + 400, rig.frame + 1200);
+        await flush();
+        const second = phrases.take.id;
+        expect(second).not.toBe(first);
+        await press(deck.get(".code-strip-bar__play").element, 40);
+        await looper.settled();
+        await flush();
+        expect(player.getLooper().members.map((member) => member.id)).toEqual([first, second]);
+        const dial = (id: string) => deck.get(`button.looper-dial[data-phrase-id="${id}"]`).element as HTMLElement;
+        return { first, second, dial };
+      }
+      const onTransport = (id: string) => player.getLooper().members.find((member) => member.id === id)!;
+      const point = (element: Element, type: string, clientX: number, clientY = 100, pointerId = 5) =>
+        element.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId, pointerType: "touch", clientX, clientY }));
+
+      it("double-tap brings the pattern to the desk, not muted, and the Code Strip follows it", async () => {
+        const { phrases, looper } = setup();
+        const deck = mountDeck();
+        try {
+          const { first, dial } = await twoLooping(deck);
+          expect(phrases.deskPhraseId).not.toBe(first);
+          await press(dial(first), 20);
+          expect(onTransport(first).muted).toBe(true);
+          await press(dial(first), 20);
+          await flush();
+          expect(phrases.deskPhraseId).toBe(first);
+          expect(looper.deskMemberId).toBe(first);
+          expect(onTransport(first).muted).toBe(false);
+          expect(looper.memberFor(first)!.muted).toBe(false);
+          // No persistent solo any more.
+          expect(player.getLooper().soloId).toBeNull();
+          // At the desk, Play is its Stop.
+          expect(deck.get(".code-strip-bar__play").attributes("aria-label")).toBe("Stop");
+        } finally {
+          deck.unmount();
+        }
+      });
+
+      it("hold solos only while held, and the release puts back mute and solo exactly, whatever changed meanwhile", async () => {
+        const { looper } = setup();
+        const deck = mountDeck();
+        try {
+          const { first, second, dial } = await twoLooping(deck);
+          // Before: the first is muted.
+          await press(dial(first), 20);
+          render(.5);
+          expect(onTransport(first).muted).toBe(true);
+          point(dial(first), "pointerdown", 20);
+          await wait(620);
+          await flush();
+          // Held: the first sounds alone, unmuted.
+          expect(player.getLooper().soloId).toBe(first);
+          expect(onTransport(first).muted).toBe(false);
+          expect(deck.get(`button.looper-dial[data-phrase-id="${first}"]`).classes()).toContain("looper-dial--solo");
+          // Meanwhile another finger mutes the second.
+          await press(dial(second), 20);
+          expect(onTransport(second).muted).toBe(true);
+          point(dial(first), "pointerup", 20);
+          dial(first).click();
+          await flush();
+          // Back exactly as before the hold: first muted, second not, no solo.
+          expect(player.getLooper().soloId).toBeNull();
+          expect(onTransport(first).muted).toBe(true);
+          expect(onTransport(second).muted).toBe(false);
+          expect(looper.members.map((member) => member.muted)).toEqual([true, false]);
+        } finally {
+          deck.unmount();
+        }
+      });
+
+      it("a held solo cancelled by the browser restores the same way", async () => {
+        const { looper } = setup();
+        const deck = mountDeck();
+        try {
+          const { second, dial } = await twoLooping(deck);
+          looper.toggleSolo(second);
+          await flush();
+          point(dial(second), "pointerdown", 20);
+          await wait(620);
+          expect(player.getLooper().soloId).toBe(second);
+          point(dial(second), "pointercancel", 20);
+          await flush();
+          // The solo from before the hold stays: the release put it back.
+          expect(player.getLooper().soloId).toBe(second);
+          looper.toggleSolo(second);
+          point(dial(second), "pointerdown", 20);
+          await wait(620);
+          point(dial(second), "pointercancel", 20);
+          await flush();
+          expect(player.getLooper().soloId).toBeNull();
+        } finally {
+          deck.unmount();
+        }
+      });
+
+      it("a flick off the left edge removes the pattern from the transport; Delete still removes", async () => {
+        const { looper } = setup();
+        const deck = mountDeck();
+        try {
+          const { first, second, dial } = await twoLooping(deck);
+          const element = dial(first);
+          point(element, "pointerdown", 30);
+          point(element, "pointermove", 0);
+          point(element, "pointermove", -40);
+          point(element, "pointerup", -60);
+          element.click();
+          await flush();
+          expect(looper.members.map((member) => member.phraseId)).toEqual([second]);
+          expect(player.getLooper().members.map((member) => member.id)).toEqual([second]);
+          await deck.get(`button.looper-dial[data-phrase-id="${second}"]`).trigger("keydown", { key: "Delete" });
+          await flush();
+          expect(looper.members).toEqual([]);
+          expect(player.getLooper().running).toBe(false);
+        } finally {
+          deck.unmount();
+        }
+      });
     });
 
     describe("the latch's closing bar on the beat dots", () => {
@@ -926,7 +1051,7 @@ describe("Play is the loop on the worklet transport", () => {
       });
 
       it("refill at once when a note is played before the bar is out", async () => {
-        const { phrases, looper } = setup();
+        const { phrases } = setup();
         const deck = mountDeck();
         try {
           const { open, from } = await silentLatchedTake(deck);

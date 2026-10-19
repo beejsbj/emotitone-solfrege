@@ -500,6 +500,7 @@ export const useLooperStore = defineStore("looper", () => {
   }
 
   function leaveMember(phraseId: string): void {
+    if (heldSolos.includes(phraseId)) releaseSolo(phraseId);
     if (!leave(looper.value, phraseId)) return;
     intents.delete(phraseId);
     origins.delete(phraseId);
@@ -643,6 +644,67 @@ export const useLooperStore = defineStore("looper", () => {
     if (running.value && player) void player.solo(looper.value.soloId).catch(report);
   }
 
+  function setMemberMuted(phraseId: string, muted: boolean): void {
+    if (memberFor(phraseId)?.muted !== muted) toggleMemberMute(phraseId);
+  }
+
+  function setSoloTo(phraseId: string | null): void {
+    const next = phraseId && memberFor(phraseId) ? phraseId : null;
+    if (looper.value.soloId === next) return;
+    looper.value.soloId = next;
+    if (running.value && player) void player.solo(next).catch(report);
+  }
+
+  // ─── Hold to solo (Burooj, 2026-10-19) ─────────────────────────────────────
+  // A held dial solos its pattern (unmuted) for as long as it is held; letting
+  // go puts back the mute and solo states from before the first hold exactly,
+  // whatever changed in between. Two held dials: the latest holds the solo.
+  const heldSolos: string[] = [];
+  let beforeHold: { soloId: string | null; muted: Map<string, boolean> } | null = null;
+
+  function holdSolo(phraseId: string): void {
+    if (!memberFor(phraseId)) return;
+    beforeHold ??= {
+      soloId: looper.value.soloId,
+      muted: new Map(looper.value.members.map((member) => [member.phraseId, member.muted])),
+    };
+    if (!heldSolos.includes(phraseId)) heldSolos.push(phraseId);
+    setMemberMuted(phraseId, false);
+    setSoloTo(phraseId);
+  }
+
+  function releaseSolo(phraseId: string): void {
+    const at = heldSolos.indexOf(phraseId);
+    if (at < 0) return;
+    heldSolos.splice(at, 1);
+    const before = beforeHold!;
+    if (heldSolos.length) {
+      // Another dial is still held: this one goes back, the other keeps the solo.
+      const muted = before.muted.get(phraseId);
+      if (muted !== undefined) setMemberMuted(phraseId, muted);
+      setSoloTo(heldSolos[heldSolos.length - 1]);
+      return;
+    }
+    beforeHold = null;
+    for (const [id, muted] of before.muted) setMemberMuted(id, muted);
+    setSoloTo(before.soloId);
+  }
+
+  function forgetHolds(): void {
+    heldSolos.length = 0;
+    beforeHold = null;
+  }
+
+  /**
+   * Bring a playing pattern to the desk, the front of the reel (a Looper Dial
+   * double-tap); the Code Strip then follows it.
+   */
+  function bringToDesk(phraseId: string): boolean {
+    if (!memberFor(phraseId)) return false;
+    if (phrases.deskPhraseId === phraseId) return true;
+    return phrases.openPhrase(phraseId) !== null;
+  }
+
   /**
    * An offset within the member's own cycle (its length at its rate): the
    * transport is phase-based, so this sounds the same, and saved Loops keep
@@ -657,7 +719,8 @@ export const useLooperStore = defineStore("looper", () => {
   }
 
   /**
-   * Turn a playing pattern within the loop (a Looper Dial drag): move its
+   * Turn a playing pattern within the loop (kept for the desk's pattern-strip
+   * dial, a follow-up; the small Looper Dial's drag is now reserved for volume): move its
    * offset by whole beats from where it is, so a played take keeps its own
    * timing against the beat. Applied at the next render quantum.
    */
@@ -673,6 +736,7 @@ export const useLooperStore = defineStore("looper", () => {
   /** Stop All: nothing playing, and nothing joining by itself. */
   function stopAll(): void {
     stopLatchTimer();
+    forgetHolds();
     openTakeId.value = null;
     latchCountdown.value = null;
     origins.clear();
@@ -902,6 +966,9 @@ export const useLooperStore = defineStore("looper", () => {
     checkLatch,
     toggleMute: toggleMemberMute,
     toggleSolo: toggleMemberSolo,
+    holdSolo,
+    releaseSolo,
+    bringToDesk,
     shiftMember,
     removeMember: leaveMember,
     stopAll,

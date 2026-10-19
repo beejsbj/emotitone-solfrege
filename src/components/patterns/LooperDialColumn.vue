@@ -69,7 +69,12 @@ onBeforeUnmount(() => micOnLip(false));
   <!-- A zero-height anchor: the dials float over the Stage and take no Drawer height. -->
   <div ref="lipRef" class="looper-dials">
     <!-- A Play that could not sound says why, instead of doing nothing. -->
-    <div v-if="looper.lastError" class="looper-dials__notice" data-testid="looper-error">
+    <div
+      v-if="looper.lastError"
+      class="looper-dials__notice"
+      :class="{ 'looper-dials__notice--over-mic': looper.hasMembers }"
+      data-testid="looper-error"
+    >
       <span class="looper-dials__notice-lamp" aria-hidden="true" />
       <!-- One line on screen; the whole message for assistive technology and the title. -->
       <p class="looper-dials__notice-line" role="alert" :title="looper.lastError">{{ looper.lastError }}</p>
@@ -169,6 +174,12 @@ onBeforeUnmount(() => micOnLip(false));
 }
 
 /* Lit Brass: the Looper could not do what was asked. */
+/* While the mic rides the Drawer's lip (its 44px touch floor 20px above the
+   lip), the strip sits clear above it, so the mic never covers Dismiss. */
+.looper-dials__notice--over-mic {
+  bottom: calc(var(--hit-min) + var(--s-7) + var(--s-2));
+}
+
 .looper-dials__notice-lamp {
   flex: 0 0 auto;
   inline-size: 6px;

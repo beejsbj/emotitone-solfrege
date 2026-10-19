@@ -96,6 +96,7 @@ import { usePhrasesStore } from "@/stores/phrases";
 import { useMusicStore } from "@/stores/music";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { useLoopTimingStore } from "@/stores/performanceSettings";
+import { useInstrumentStore } from "@/stores/instrument";
 import { mount } from "@vue/test-utils";
 import PerformanceDeck from "@/components/PerformanceDeck.vue";
 
@@ -159,6 +160,12 @@ function playTake(at: number, names = ["C4", "E4", "G4"]) {
 
 const attacksOf = (phraseId: string) => attacks.filter((attack) => attack.phraseId === phraseId);
 const mod = (value: number, length: number) => ((value % length) + length) % length;
+/** Two bar positions sound the same in a member's cycle (offsets are stored wrapped). */
+function expectSamePhase(cycleBars: number, actual: number, expected: number, digits = 6) {
+  const apart = mod(actual - expected + cycleBars / 2, cycleBars) - cycleBars / 2;
+  expect(apart).toBeCloseTo(0, digits);
+}
+const cycleOf = (member: { lengthBars: number; rate: number }) => member.lengthBars / member.rate;
 
 function setup() {
   setActivePinia(createTestPinia());
@@ -311,7 +318,8 @@ describe("Play is the loop on the worklet transport", () => {
     // The oracle: the bar the attack sounded on, minus this device's calibration.
     const barOf = (frame: number) => player.barAtAudioTime(frame / RATE)!;
     const expected = barOf(onFrame) - calibration / 2000;
-    expect(looper.memberFor(overdub.id)!.offsetBars + looper.looper.barOriginBars!).toBeCloseTo(expected, 6);
+    const member = looper.memberFor(overdub.id)!;
+    expectSamePhase(cycleOf(member), member.offsetBars + looper.looper.barOriginBars!, expected);
     render(6);
     const calibrationFrames = calibration / 1000 * RATE;
     const back = attacksOf(overdub.id).filter((attack) => attack.sourceNoteId === overdub.notes[0].id);
@@ -339,7 +347,7 @@ describe("Play is the loop on the worklet transport", () => {
     await flush();
     const take = phrases.take.id;
     expect(looper.members.map((member) => member.phraseId)).not.toContain(take);
-    expect(looper.lastError).toMatch(/Tap Play again/);
+    expect(looper.lastError).toBe("Audio restarted. Tap Play again.");
     // The engine comes back; the advice holds: Play joins the take where it was played.
     for (const instrument of [...rig.gates.keys()]) rig.gates.delete(instrument);
     restored();
@@ -373,7 +381,7 @@ describe("Play is the loop on the worklet transport", () => {
     await flush();
     expect(looper.members.map((member) => member.phraseId)).not.toContain(overdub.id);
     expect(player.getLooper().members.map((member) => member.id)).not.toContain(overdub.id);
-    expect(looper.lastError).toMatch(/restarting/);
+    expect(looper.lastError).toBe("Audio restarted. Tap Play again.");
     expect(phrases.findPhrase(overdub.id)?.notes).toHaveLength(2);
     restored();
   });
@@ -392,8 +400,8 @@ describe("Play is the loop on the worklet transport", () => {
     const overdub = phrases.take;
     looper.togglePlay();
     await flush();
-    expect(looper.memberFor(overdub.id)!.offsetBars + looper.looper.barOriginBars!)
-      .toBeCloseTo(player.barAtAudioTime(onFrame / RATE)!, 6);
+    const member = looper.memberFor(overdub.id)!;
+    expectSamePhase(cycleOf(member), member.offsetBars + looper.looper.barOriginBars!, player.barAtAudioTime(onFrame / RATE)!);
   });
 
   it("rule 4: a saved Loop is pointers, and opening it sets its patterns playing as they sat", async () => {
@@ -633,6 +641,54 @@ describe("Play is the loop on the worklet transport", () => {
     expect(player.getLooper().running).toBe(false);
   });
 
+  it("a dial turned while the first start's banks load reaches the transport once they do", async () => {
+    const { phrases, looper } = setup();
+    playTake(.5);
+    const id = phrases.keepTake()!;
+    phrases.findPhrase(id)!.context.instrument = "sawtooth";
+    phrases.openPhrase(id);
+    let release!: () => void;
+    rig.gates.set("sawtooth", new Promise<void>((resolve) => { release = resolve; }));
+    looper.togglePlay();
+    await flush();
+    // Cold: the dial shows and is turned a beat, then muted, before anything runs.
+    expect(player.getLooper().running).toBe(false);
+    looper.shiftMember(id, 1);
+    looper.toggleMute(id);
+    release();
+    rig.gates.delete("sawtooth");
+    await flush();
+    await looper.settled();
+    await flush();
+    const member = looper.memberFor(id)!;
+    expect(member.offsetBars).toBeCloseTo(.25, 9);
+    expect(player.getLooper().members[0]).toMatchObject({ id, muted: true });
+    expect(player.getLooper().members[0].offsetBars).toBeCloseTo(looper.looper.barOriginBars! + .25, 9);
+  });
+
+  it("keeps a turned pattern's offset within its own cycle, however far it is turned", async () => {
+    const { phrases, looper } = setup();
+    playTake(.5);
+    const id = phrases.take.id;
+    looper.togglePlay();
+    await flush();
+    await looper.settled();
+    const member = looper.memberFor(id)!;
+    const cycle = cycleOf(member);
+    for (let turn = 0; turn < 40; turn++) looper.shiftMember(id, 3);
+    await flush();
+    expect(member.offsetBars).toBeGreaterThanOrEqual(0);
+    expect(member.offsetBars).toBeLessThan(cycle);
+    // 120 beats later sounds where 120 beats would put it.
+    expectSamePhase(cycle, member.offsetBars, 120 / 4, 9);
+    for (let turn = 0; turn < 40; turn++) looper.shiftMember(id, -5);
+    await flush();
+    expect(member.offsetBars).toBeGreaterThanOrEqual(0);
+    expect(member.offsetBars).toBeLessThan(cycle);
+    expectSamePhase(cycle, member.offsetBars, (120 - 200) / 4, 9);
+    expect(player.getLooper().members[0].offsetBars).toBeCloseTo(looper.looper.barOriginBars! + member.offsetBars, 9);
+  });
+
   it("protects a playing take: it cannot be deleted, and a short one is kept when it closes", async () => {
     const { phrases, looper } = setup();
     live("C4", 0, 4000, 5000);
@@ -725,6 +781,8 @@ describe("Play is the loop on the worklet transport", () => {
     const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
     function mountDeck() {
+      // The app boots the engine before the deck shows.
+      useInstrumentStore().engineBooted = true;
       return mount(PerformanceDeck, {
         attachTo: document.body,
         global: {
@@ -807,8 +865,18 @@ describe("Play is the loop on the worklet transport", () => {
       }
     });
 
-    it("Play cannot start until the engine is ready, nor while it restores a rebuilt renderer", async () => {
-      const { phrases, looper } = setup();
+    /** The renderer is rebuilt and its banks do not come back (until `restore`). */
+    function rebuildWithBanksHeld() {
+      let restore!: () => void;
+      const held = new Promise<void>((resolve) => { restore = resolve; });
+      for (const instrument of rig.prepared) rig.gates.set(instrument, held);
+      rig.generation++;
+      for (const listener of [...rig.listeners]) listener.onRendererReset?.();
+      return () => { for (const instrument of [...rig.gates.keys()]) rig.gates.delete(instrument); restore(); };
+    }
+
+    it("Play cannot *start* until the engine is ready", async () => {
+      const { looper } = setup();
       const ready = player;
       // No pattern player yet (the Code Strip has not mounted).
       setProductionPatternPlayer(undefined);
@@ -821,26 +889,88 @@ describe("Play is the loop on the worklet transport", () => {
         await flush();
         expect(looper.engineReady).toBe(true);
         expect(play().attributes("disabled")).toBeUndefined();
+      } finally {
+        deck.unmount();
+      }
+    });
 
+    it("during a restore, Play still stops the desk's pattern; a new pattern waits; a bank that never returns leaves nothing stuck", async () => {
+      const { phrases, looper } = setup();
+      const deck = mountDeck();
+      try {
+        const play = () => deck.get(".code-strip-bar__play");
         playTake(.5);
+        const first = phrases.take.id;
         await press(play().element, 40);
         await looper.settled();
         render(1);
-        // The renderer is rebuilt and its banks are slow to return: Play waits.
-        let restored!: () => void;
-        for (const instrument of rig.prepared) rig.gates.set(instrument, new Promise<void>((resolve) => { restored = resolve; }));
-        rig.generation++;
-        for (const listener of [...rig.listeners]) listener.onRendererReset?.();
+        rebuildWithBanksHeld();
         await flush();
-        expect(play().attributes("disabled")).toBeDefined();
-        for (const instrument of [...rig.gates.keys()]) rig.gates.delete(instrument);
-        restored();
-        await vi.waitFor(() => expect(looper.engineReady).toBe(true));
-        await flush();
+        expect(looper.engineReady).toBe(false);
+        // The desk's pattern plays: Play is Stop, and works.
         expect(play().attributes("disabled")).toBeUndefined();
-        expect(phrases.take.notes.length).toBeGreaterThan(0);
+        expect(play().attributes("aria-label")).toBe("Stop");
+        await press(play().element, 40);
+        expect(looper.members).toEqual([]);
+        expect(phrases.findPhrase(first)).toBeDefined();
+        // Nothing is starting and nothing plays: the never-returning bank holds nothing up.
+        await flush();
+        expect(looper.engineReady).toBe(true);
+        expect(play().attributes("disabled")).toBeUndefined();
       } finally {
         deck.unmount();
+      }
+    });
+
+    it("during a restore, a new pattern cannot start, and holding Play still releases the latch", async () => {
+      const { looper } = setup();
+      const deck = mountDeck();
+      try {
+        const play = () => deck.get(".code-strip-bar__play");
+        playTake(.5);
+        await press(play().element, 40);
+        await looper.settled();
+        // A fresh take on the desk (rule 3): not playing, not latched.
+        live("A4", 5, rig.frame + 400, rig.frame + 1200);
+        render(.2);
+        const release = rebuildWithBanksHeld();
+        await flush();
+        expect(looper.isDeskPlaying).toBe(false);
+        expect(play().attributes("disabled")).toBeDefined();
+        // Latched (from the store, as a held Play would): Play is live and shows the latch.
+        looper.toggleLatch();
+        await flush();
+        expect(play().attributes("disabled")).toBeUndefined();
+        expect(play().classes()).toContain("paper-button--pressed");
+        await press(play().element, 520);
+        expect(looper.latched).toBe(false);
+        release();
+      } finally {
+        deck.unmount();
+      }
+    });
+
+    it("the instrument drawer re-initialising, or a hung sound fetch, never disables Play", async () => {
+      const { looper } = setup();
+      const instrument = useInstrumentStore();
+      const superdough = await import("@/services/superdoughAudio");
+      // A preferred sound that is not ready, whose download never finishes.
+      vi.mocked(superdough.isPrewarmed).mockReturnValue(false);
+      vi.mocked(superdough.prewarmSoundSamples).mockReturnValue(new Promise<void>(() => {}));
+      instrument.currentInstrument = "gm_piano";
+      try {
+        void instrument.initializeInstruments();
+        await flush();
+        // The engine booted; the fetch hangs.
+        expect(instrument.engineBooted).toBe(true);
+        expect(looper.engineReady).toBe(true);
+        // Opening the drawer runs it again: still ready.
+        void instrument.initializeInstruments();
+        await flush();
+        expect(looper.engineReady).toBe(true);
+      } finally {
+        vi.mocked(superdough.isPrewarmed).mockReturnValue(true);
+        vi.mocked(superdough.prewarmSoundSamples).mockResolvedValue(undefined);
       }
     });
 
@@ -881,12 +1011,30 @@ describe("Play is the loop on the worklet transport", () => {
         await looper.settled();
         await flush();
         const notice = deck.get('[data-testid="looper-error"]');
-        expect(notice.get("[role=alert]").text()).toMatch(/cannot join/);
+        expect(notice.get("[role=alert]").text()).toBe("Stop a loop to add Sawtooth.");
         expect(notice.find(".looper-dials__notice-lamp").exists()).toBe(true);
-        expect(notice.text()).toMatch(/cannot join: every instrument slot is held/);
         expect(looper.members).toEqual([]);
+        // No dials: the mic is at the top, and the strip keeps its place.
+        expect(notice.classes()).not.toContain("looper-dials__notice--over-mic");
         await notice.get('button[aria-label="Dismiss"]').trigger("click");
         expect(deck.find('[data-testid="looper-error"]').exists()).toBe(false);
+      } finally {
+        deck.unmount();
+      }
+    });
+
+    it("while the mic rides the Drawer's lip, the notice sits above it", async () => {
+      const { looper } = setup();
+      const deck = mountDeck();
+      try {
+        playTake(.5);
+        await press(deck.get(".code-strip-bar__play").element, 40);
+        await looper.settled();
+        expect(document.documentElement.dataset.looperMic).toBe("lip");
+        expect(looper.members.length).toBe(1);
+        looper.lastError = "Stop a loop to add Piano.";
+        await flush();
+        expect(deck.get('[data-testid="looper-error"]').classes()).toContain("looper-dials__notice--over-mic");
       } finally {
         deck.unmount();
       }

@@ -42,6 +42,7 @@ import { bendNotes } from "@/domain/modeRemap";
 import { resolveBpm } from "@/domain/phraseBook";
 import { getAudioContext } from "@/services/audioRuntime";
 import { outputTimeToAudioTime } from "@/services/liveAudioTiming";
+import { LooperNotReady, looperFailureOf, looperMessage, type LooperFailureKind } from "@/services/looperMessages";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import {
   getProductionPatternPlayer,
@@ -171,8 +172,13 @@ export const useLooperStore = defineStore("looper", () => {
     return Number.isFinite(value) ? value : 0;
   };
 
-  function report(error: unknown) {
-    lastError.value = error instanceof Error ? error.message : String(error);
+  /** Say why, in the one plain line its cause maps to (src/services/looperMessages.ts). */
+  function report(error: unknown, instrument?: string) {
+    lastError.value = looperMessage(looperFailureOf(error, instrument));
+  }
+
+  function reportKind(kind: LooperFailureKind) {
+    lastError.value = looperMessage({ kind });
   }
 
   /** The player read the failure (the deck's notice was dismissed). */
@@ -192,9 +198,9 @@ export const useLooperStore = defineStore("looper", () => {
     playerReady.value = Boolean(next);
     engineRecovering.value = Boolean(next?.getLooper().recovering);
     stopRecoveryWatch = player?.onRecoveryChange((recovering) => { engineRecovering.value = recovering; });
-    stopInterrupted = player?.onInterrupted((error) => {
+    stopInterrupted = player?.onInterrupted(() => {
       if (!looper.value.members.length && !starting) return;
-      report(error);
+      reportKind("interrupted");
       abandon();
     });
   }
@@ -222,7 +228,7 @@ export const useLooperStore = defineStore("looper", () => {
    * and no rebuilt renderer is being restored (Burooj, 2026-10-19: "play
    * shouldn't be startable if engine isn't started").
    */
-  const engineReady = computed(() => playerReady.value && !engineRecovering.value && !instrument.isInitializing);
+  const engineReady = computed(() => playerReady.value && !engineRecovering.value && instrument.engineBooted);
 
   function memberFor(phraseId: string): PlayingPattern | undefined {
     return looper.value.members.find((member) => member.phraseId === phraseId);
@@ -333,7 +339,7 @@ export const useLooperStore = defineStore("looper", () => {
       try {
         const phrase = phrases.findPhrase(phraseId);
         const member = memberFor(phraseId);
-        if (!current) throw new Error("The pattern player is not ready");
+        if (!current) throw new LooperNotReady();
         if (!phrase || !member) return false;
         const origin = origins.get(phraseId);
         const sent = requestFor(phrase, member);
@@ -365,7 +371,7 @@ export const useLooperStore = defineStore("looper", () => {
         return true;
       } catch (error) {
         if (epoch === captured) {
-          report(error);
+          report(error, phrases.findPhrase(phraseId)?.context.instrument);
           // Nothing started: every member waiting on this start is gone too.
           const keepLatch = looper.value.latched;
           abandon();
@@ -381,11 +387,23 @@ export const useLooperStore = defineStore("looper", () => {
     })();
   }
 
-  /** After a start: what was tapped while its banks loaded (mute, solo) reaches the transport. */
+  /**
+   * After a start: what was tapped or dragged while its banks loaded (mute,
+   * solo, a turn of the dial) reaches the transport, checked against what the
+   * transport now holds.
+   */
   function settleStarted(sent: readonly LooperMemberRequest[], current: PatternPlayer) {
+    const held = new Map(current.getLooper().members.map((settings) => [settings.id, settings]));
     for (const request of sent) {
       const member = memberFor(request.id);
-      if (member && member.muted !== request.muted) void current.setMember(request.id, { muted: member.muted }).catch(report);
+      const now = held.get(request.id);
+      if (!member || !now) continue;
+      const offsetBars = (looper.value.barOriginBars ?? 0) + member.offsetBars;
+      const patch = {
+        ...(member.muted !== now.muted ? { muted: member.muted } : {}),
+        ...(Math.abs(offsetBars - now.offsetBars) > 1e-9 ? { offsetBars } : {}),
+      };
+      if (Object.keys(patch).length) void current.setMember(request.id, patch).catch(report);
     }
     if (looper.value.soloId) void current.solo(looper.value.soloId).catch(report);
     // The knob shows the loop's tempo; turning it bends the loop from here on.
@@ -412,10 +430,10 @@ export const useLooperStore = defineStore("looper", () => {
         origins.delete(phraseId);
         // A latched take is no longer the open one, so "Tap Play again" joins it.
         if (openTakeId.value === phraseId) openTakeId.value = null;
-        report(new Error("Audio is restarting, so this take could not join where you played it. Tap Play again."));
+        reportKind("restarting");
         return;
       }
-      setOffset(looper.value, phraseId, bar - (looper.value.barOriginBars ?? 0));
+      setOffset(looper.value, phraseId, wrapOffset(member, bar - (looper.value.barOriginBars ?? 0)));
     }
     await sendJoin(current, phrase, memberFor(phraseId)!, captured, token);
   }
@@ -437,7 +455,7 @@ export const useLooperStore = defineStore("looper", () => {
       joined.add(phrase.id);
     } catch (error) {
       if (epoch !== captured || intents.get(phrase.id) !== token || latestJoin.get(phrase.id) !== serial) return;
-      report(error);
+      report(error, phrase.context.instrument);
       // A refused bank never sounds: the pattern is not playing.
       if (!joined.has(phrase.id)) {
         leave(looper.value, phrase.id);
@@ -581,6 +599,19 @@ export const useLooperStore = defineStore("looper", () => {
   }
 
   /**
+   * An offset within the member's own cycle (its length at its rate): the
+   * transport is phase-based, so this sounds the same, and saved Loops keep
+   * small numbers instead of growing ones.
+   */
+  function wrapOffset(member: PlayingPattern, offsetBars: number): number {
+    const cycle = member.lengthBars / member.rate;
+    if (!(cycle > 0)) return offsetBars;
+    const wrapped = ((offsetBars % cycle) + cycle) % cycle;
+    // Float noise right under a whole cycle is the cycle's start.
+    return cycle - wrapped < 1e-9 ? 0 : wrapped;
+  }
+
+  /**
    * Turn a playing pattern within the loop (a Looper Dial drag): move its
    * offset by whole beats from where it is, so a played take keeps its own
    * timing against the beat. Applied at the next render quantum.
@@ -588,7 +619,7 @@ export const useLooperStore = defineStore("looper", () => {
   function shiftMember(phraseId: string, beats: number): void {
     const member = memberFor(phraseId);
     if (!member || !Number.isFinite(beats) || !beats) return;
-    if (!setOffset(looper.value, phraseId, member.offsetBars + beats / BEATS_PER_BAR)) return;
+    if (!setOffset(looper.value, phraseId, wrapOffset(member, member.offsetBars + beats / BEATS_PER_BAR))) return;
     if (running.value && player && (joined.has(phraseId) || latestJoin.has(phraseId))) {
       void player.setMember(phraseId, { offsetBars: (looper.value.barOriginBars ?? 0) + member.offsetBars }).catch(report);
     }
@@ -624,7 +655,7 @@ export const useLooperStore = defineStore("looper", () => {
     startingId = order[0] ?? null;
     starting = (async () => {
       try {
-        if (!current) throw new Error("The pattern player is not ready");
+        if (!current) throw new LooperNotReady();
         const requests = order.flatMap((phraseId) => {
           const phrase = phrases.findPhrase(phraseId);
           const member = memberFor(phraseId);

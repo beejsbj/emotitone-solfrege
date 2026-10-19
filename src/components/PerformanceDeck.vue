@@ -291,10 +291,13 @@ const interactionLocked = computed(() =>
   instrumentStore?.isInteractionLocked ?? props.warming
 );
 const playDisabled = computed(() => isProductionUsage
-  // Play waits for the engine (the pattern player, the booted audio engine, no
-  // renderer being restored). Otherwise it is always pressable: it can be held
-  // to latch on an empty desk, and a loop plays on while an instrument warms up.
-  ? !looper!.engineReady
+  // Only *starting* waits for the engine (the pattern player, the booted audio
+  // engine, no renderer being restored). Stopping the desk's pattern and
+  // releasing the latch always work, a restore included: the tap is also the
+  // gesture that wakes audio after an interruption. Otherwise Play is always
+  // pressable: it can be held to latch on an empty desk, and a loop plays on
+  // while an instrument warms up.
+  ? !looper!.engineReady && !looper!.isDeskPlaying && !looper!.latched
   : props.playDisabled
     || !hasPlayableCode.value
     || (interactionLocked.value && !isPlaying.value)

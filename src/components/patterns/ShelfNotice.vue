@@ -14,7 +14,8 @@
     </p>
     <Button
       v-if="oldestTitle"
-      size="sm"
+      class="shelf-notice__release"
+      size="xs"
       :tone="armed ? 'ivory' : 'ink'"
       :accessible-name="armed ? 'Confirm release oldest Recent' : 'Release oldest Recent'"
       :title="armed ? `Tap again to release ${oldestTitle}` : `Release ${oldestTitle}`"
@@ -72,9 +73,11 @@ const hint = computed(() => {
   align-items: center;
   gap: var(--s-5);
   box-sizing: border-box;
-  /* Thin: the 32px keycap plus a hairline inset. Its touch floor still
-     reaches --hit-min, overhanging the strip onto bare Stage. */
-  padding-block: var(--s-1);
+  /* Thin: one line around the inline xs keycap, with the same --s-3 margin
+     above, below and beside it, wide enough to hold the lip's full hit ring
+     and the UIBeat swell. Its touch floor still reaches --hit-min,
+     overhanging the strip onto bare Stage. */
+  padding-block: var(--s-3);
   padding-inline: var(--s-6) var(--s-3);
   /* The deck's own panel Ink, so the strip reads as chassis over the Stage. */
   background: var(--ink-3);
@@ -112,6 +115,12 @@ const hint = computed(() => {
   color: var(--ivory);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Room under the key for its lit lip, which hangs --s-2 below the switch,
+   so cap and lip together sit centred on the line with even margins. */
+.shelf-notice__release {
+  margin-block-end: var(--s-2);
 }
 
 .shelf-notice__sr {

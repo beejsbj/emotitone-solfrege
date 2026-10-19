@@ -758,6 +758,19 @@ describe("Play is the loop on the worklet transport", () => {
         render(2.5);
         expect(attacksOf(take).length).toBeGreaterThan(0);
 
+        // The pattern's Looper Dial climbs the left edge (a bare dial, its disc
+        // turning), and the mic moves to the Drawer's lip while dials are there.
+        const dial = deck.get(`button.looper-dial[data-phrase-id="${take}"]`);
+        expect(dial.find(".loop-dial--disc").exists()).toBe(true);
+        expect(dial.find(".paper-button__cap").exists()).toBe(false);
+        expect(document.documentElement.dataset.looperMic).toBe("lip");
+        // A tap on it mutes the member on the transport; another tap restores it.
+        await press(dial.element, 30);
+        expect(player.getLooper().members[0]).toMatchObject({ id: take, muted: true });
+        await wait(400);
+        await press(dial.element, 30);
+        expect(player.getLooper().members[0]).toMatchObject({ id: take, muted: false });
+
         // Hold past 450 ms: the latch, not a Stop.
         await press(deck.get(".code-strip-bar__play").element, 520);
         expect(looper.latched).toBe(true);
@@ -768,6 +781,8 @@ describe("Play is the loop on the worklet transport", () => {
         await press(deck.get(".code-strip-bar__play").element, 40);
         expect(looper.members).toEqual([]);
         expect(player.getLooper().running).toBe(false);
+        // No dials: the mic goes back to the top centre.
+        expect(document.documentElement.dataset.looperMic).toBeUndefined();
       } finally {
         deck.unmount();
       }

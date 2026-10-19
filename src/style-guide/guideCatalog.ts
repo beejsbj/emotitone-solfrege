@@ -38,6 +38,7 @@ export const GUIDE_LAYERS: GuideLayer[] = [
       { id: "knob-arc", name: "Knob · Arc", density: "detailed", specimen: () => import("./primatives/PrimitiveKnobsDigital.vue") },
       { id: "marks", name: "Marks", density: "short", specimen: () => import("./primatives/PrimitiveMarks.vue") },
       { id: "loop-dial", name: "Loop Dial", density: "short", specimen: () => import("./primatives/PrimitiveLoopDial.vue") },
+      { id: "looper-dial", name: "Looper Dial", density: "short", specimen: () => import("./primatives/PrimitiveLooperDial.vue") },
       { id: "tabs", name: "Tabs", density: "detailed", specimen: () => import("./primatives/PrimitiveTabs.vue"), focusedHref: "/style-guide/tabs" },
     ],
   },

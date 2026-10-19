@@ -130,6 +130,25 @@ describe("Shelf over budget: warn, keep saving (Burooj, 2026-10-17)", () => {
     expect(saved.find((phrase) => phrase.id === "newer")).toBeDefined();
   });
 
+  it("never offers or releases a protected phrase (one the Looper is playing)", async () => {
+    store.book.phrases.push(phrase("newer", "recent", 200), overBudgetRecent());
+    store.setProtectedIds(() => new Set(["oldest"]));
+    await nextTick();
+    const page = render();
+    expect(store.releaseCandidates.map((phrase) => phrase.id)).toEqual(["newer"]);
+    expect(store.releaseRecent("oldest")).toBe(false);
+    expect(store.findPhrase("oldest")).toBeDefined();
+    await page.get('button[aria-label="Release oldest Recent"]').trigger("click");
+    await page.get('button[aria-label="Confirm release oldest Recent"]').trigger("click");
+    await nextTick();
+    expect(store.findPhrase("oldest")).toBeDefined();
+    expect(store.findPhrase("newer")).toBeUndefined();
+    // Every Recent protected: nothing to offer.
+    store.setProtectedIds(() => new Set(["oldest"]));
+    expect(store.releaseCandidates).toEqual([]);
+    expect(page.find('button[aria-label="Release oldest Recent"]').exists()).toBe(false);
+  });
+
   it("disarms the release confirmation after 2.5 seconds", async () => {
     vi.useFakeTimers();
     try {

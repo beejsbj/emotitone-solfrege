@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { computed, onScopeDispose, ref, watch } from "vue";
+import { computed, onScopeDispose, ref, shallowRef, watch } from "vue";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
@@ -135,9 +135,15 @@ export const usePhrasesStore = defineStore(
       if (saveFailed.value) return "failed";
       return shelfOverBudget(encodedBytes.value) ? "over-budget" : null;
     });
-    const releaseCandidates = computed(() => book.value.phrases
-      .filter((phrase) => phrase.shelf === "recent")
-      .sort((a, b) => (a.closedAt ?? a.createdAt) - (b.closedAt ?? b.createdAt)));
+    // Phrases another part of the app still points at (the Looper's playing
+    // set, PR 202). The shelf notice never offers or releases one of them.
+    const protectedIdsProvider = shallowRef<() => ReadonlySet<string>>(() => new Set());
+    const releaseCandidates = computed(() => {
+      const protectedIds = protectedIdsProvider.value();
+      return book.value.phrases
+        .filter((phrase) => phrase.shelf === "recent" && !protectedIds.has(phrase.id))
+        .sort((a, b) => (a.closedAt ?? a.createdAt) - (b.closedAt ?? b.createdAt));
+    });
     watch([book, isRecordingEnabled], () => persistence.save(savedState()), { deep: true });
     if (typeof window !== "undefined") installPhraseBackupConsole(window);
     // Pressed-but-unreleased notes. Transient; `heldCount` makes it observable.
@@ -278,7 +284,7 @@ export const usePhrasesStore = defineStore(
     /** Explicit pressure relief only: never take, Kept, or Library. */
     function releaseRecent(id: string): boolean {
       if (!book.value.phrases.some((phrase) => phrase.id === id && phrase.shelf === "recent")) return false;
-      return deleteBookPhrase(book.value, id);
+      return deleteBookPhrase(book.value, id, protectedIdsProvider.value());
     }
 
     function renamePhrase(id: string, name: string): boolean {
@@ -392,6 +398,11 @@ export const usePhrasesStore = defineStore(
       listeners = [];
     }
 
+    /** Seam for the Looper (PR 202): phrases it is playing may not be released. */
+    function setProtectedIds(provider: (() => ReadonlySet<string>) | null): void {
+      protectedIdsProvider.value = provider ?? (() => new Set());
+    }
+
     /** Hydration hook: repair "exactly one take" and expire Recent. */
     function repairAfterHydrate(): void {
       ensureSingleTake(book.value, liveContext.value, Date.now());
@@ -415,6 +426,7 @@ export const usePhrasesStore = defineStore(
       shelfNotice,
       releaseCandidates,
       releaseRecent,
+      setProtectedIds,
 
       // Shelves and the take
       library: libraryPhrases,

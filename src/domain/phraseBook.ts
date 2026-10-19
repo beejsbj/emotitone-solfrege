@@ -695,9 +695,13 @@ export function keepPhrase(
   return copy.id;
 }
 
-export function deletePhrase(book: PhraseBook, id: string): boolean {
+export function deletePhrase(
+  book: PhraseBook,
+  id: string,
+  protectedIds: ReadonlySet<string> = new Set(),
+): boolean {
   const target = book.phrases.find((phrase) => phrase.id === id);
-  if (!target || target.shelf === "take") return false;
+  if (!target || target.shelf === "take" || protectedIds.has(id)) return false;
   book.phrases = book.phrases.filter((phrase) => phrase !== target);
   return true;
 }

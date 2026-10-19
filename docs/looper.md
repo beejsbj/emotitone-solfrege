@@ -144,12 +144,15 @@ These are design-system units and go through that process, not this document:
     and the Code Strip follows it. The second tap undoes the first tap's
     mute; double-tap no longer solos.
   - **Hold** solos the pattern while held, from the hold threshold; letting
-    go (or a cancelled press) puts the mute and solo states back exactly as
-    they were before the hold, whatever changed in between. There is no
-    persistent solo on the dial.
+    go (or a cancelled press) puts back the solo from before the hold and the
+    held pattern's own mute. A mute or unmute tapped on another dial during
+    the hold is a deliberate act and is kept. There is no persistent solo on
+    the dial.
   - **Flick off the left edge** removes it: a fast, mostly sideways throw to
-    the left past a distance threshold, never a slow drag or a tap. Delete
-    still removes from the keyboard.
+    the left, as far as the room allows. The dials sit at the edge, so the
+    throw counts at 48 px or on reaching the screen's edge, whichever comes
+    first; never a slow drag, a vertical swipe or a tap. Delete still removes
+    from the keyboard.
   - **Vertical drag** is reserved for the loop's volume, which needs
     per-member volume in the transport (a follow-up). Turning a pattern
     within the loop (its offset) moves to the pattern strip dial at the desk,

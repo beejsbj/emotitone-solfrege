@@ -91,7 +91,7 @@ function hold(index: number, on: boolean) {
 const features = [
   { label: "Meaning", value: "one playing pattern in the Looper, and its control" },
   { label: "Motion", value: "the disc turns under a fixed brass hand with the sounding bar position, from the member's own place and rate; Reduced Motion holds it still" },
-  { label: "Gestures", value: "tap mutes or unmutes at once (playable in rhythm) · double-tap brings the pattern to the desk, its second tap undoing the first's mute · hold (550 ms) solos it while held, and letting go or a cancel puts mute and solo back as they were · a fast flick off the left edge (48px or more, 0.5 px/ms at the end) removes it, never a slow drag or a tap · vertical movement is kept for the loop's volume (to come) · Enter mutes, Delete removes" },
+  { label: "Gestures", value: "tap mutes or unmutes at once (playable in rhythm) · double-tap brings the pattern to the desk, its second tap undoing the first's mute · hold (550 ms) solos it while held, and letting go or a cancel puts back the solo and the held pattern's own mute (a mute tapped on another dial meanwhile is kept) · a fast flick off the left edge (48 px, or all the way to the screen's edge when there is less room, at 0.5 px/ms or faster at the end) removes it, never a slow drag, a vertical swipe or a tap · vertical movement is kept for the loop's volume (to come) · Enter mutes, Delete removes" },
   { label: "States", value: "playing · muted (or silenced by a solo) at 30% · soloed with an Ivory ring" },
   { label: "Surface", value: "no keycap: the 34px Loop Dial on the Stage's Ink, inside a 44px touch target" },
   { label: "Colour", value: "Music Color notes, a brass hand, Ivory focus and solo" },

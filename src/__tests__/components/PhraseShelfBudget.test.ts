@@ -170,6 +170,22 @@ describe("Shelf over budget: warn, keep saving (Burooj, 2026-10-17)", () => {
     expect(store.findPhrase("oldest")).toBeDefined();
   });
 
+  it("refuses the reel's delete of a saved Loop's member while it is on the desk, leaving the desk untouched", async () => {
+    store.book.phrases.push(phrase("looped", "recent", 200));
+    store.book.loops.push({ id: "loop-1", name: "Loop 1", createdAt: 1, updatedAt: 1,
+      members: [{ phraseId: "looped", offsetBars: 0, lengthBars: 1, muted: false, pinned: false, rate: 1 }] });
+    store.openPhrase("looped");
+    await nextTick();
+    const desk = store.deskPhraseId;
+    const takeId = store.takeId;
+    expect(desk).toBe("looped");
+    expect(store.deletePhrase("looped")).toBe(false);
+    await nextTick();
+    expect(store.deskPhraseId).toBe(desk);
+    expect(store.takeId).toBe(takeId);
+    expect(store.findPhrase("looped")).toBeDefined();
+  });
+
   it("disarms the release confirmation after 2.5 seconds", async () => {
     vi.useFakeTimers();
     try {

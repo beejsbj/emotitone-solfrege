@@ -40,8 +40,9 @@
     </VariantGrid>
 
     <VariantGrid title="Sizes and real states">
-      <VariantCell caption="SM / MD / LG &middot; 32 / 40 / 48px">
+      <VariantCell caption="XS / SM / MD / LG &middot; 24 / 32 / 40 / 48px">
         <div class="button-specimen__row">
+          <Button size="xs" accessible-name="Extra small" title="Extra small"><Play :size="11" /></Button>
           <Button size="sm" accessible-name="Small" title="Small"><Play :size="13" /></Button>
           <Button accessible-name="Medium" title="Medium"><Play :size="16" /></Button>
           <Button size="lg" accessible-name="Large" title="Large"><Play :size="19" /></Button>
@@ -94,7 +95,7 @@ const features = [
   { label: "Light", value: "lit lip past a dark seam at rest · hit opens a full ring and lights the face, then closes down" },
   { label: "Material", value: "ink / ivory everyday · four canonical brass finishes" },
   { label: "Icon", value: "44% of the key · exact centered SVG box" },
-  { label: "Sizes", value: "32 / 40 / 48px · contextual --button-size override" },
+  { label: "Sizes", value: "24 / 32 / 40 / 48px · xs is the inline key inside one thin line of type · every size takes at least a 44px touch · contextual --button-size override" },
   { label: "States", value: "loading rotates the lip · pressed holds the cap down (Play's latch) · disabled dims and drops the light · Reduced Motion holds still" },
   { label: "Source", value: "components/primatives/Button.vue" },
 ];

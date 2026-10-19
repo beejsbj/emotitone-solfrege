@@ -1,5 +1,5 @@
 // Browser-only shims and external-effect mocks. Pure logic tests use no setup.
-import { vi } from 'vitest'
+import { beforeEach, vi } from 'vitest'
 
 // Mock GSAP
 vi.mock('gsap', () => ({
@@ -123,6 +123,12 @@ Object.defineProperty(window, 'localStorage', {
   value: localStorageMock,
   writable: true,
   configurable: true,
+});
+
+// Stores persist themselves (the phrase book does, even without the Pinia
+// plugin), so one test's saved state must not seed the next test's store.
+beforeEach(() => {
+  localStorageMock.store.clear();
 });
 
 // Also add to global for environments that don't have window

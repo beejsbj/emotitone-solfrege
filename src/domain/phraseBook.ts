@@ -32,10 +32,9 @@ import type {
 
 export const DEFAULT_PHRASE_BOOK_CONFIG: PhraseBookConfig = {
   silenceGapThreshold: 4000,
-  // Everything you play is kept; delete is how you curate. The count cap only
-  // guards localStorage, and phrases you finished with Return are exempt.
+  // The encoded byte budget guards storage; releasing phrases is explicit.
   recentRetentionMs: Number.POSITIVE_INFINITY,
-  recentLimit: 200,
+  recentLimit: Number.POSITIVE_INFINITY,
 };
 
 /** Fresh takes shorter than this are stray taps, not phrases. */

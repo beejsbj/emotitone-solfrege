@@ -60,6 +60,8 @@ describe("phrases store", () => {
 
   afterEach(() => {
     store?.removeEventListeners();
+    store?.$dispose();
+    localStorage.clear();
     vi.restoreAllMocks();
   });
 

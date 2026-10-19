@@ -1,7 +1,7 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
 import { createApp, nextTick, reactive } from "vue";
-import piniaPluginPersistedstate from "pinia-plugin-persistedstate";
+import { IDBFactory } from "fake-indexeddb";
 import { usePhrasesStore } from "@/stores/phrases";
 import { createLooper, join, openLoop, saveLoop } from "@/domain/looper";
 import {
@@ -44,6 +44,7 @@ describe("pattern persistence serializer", () => {
     const previous = window.localStorage;
     Object.defineProperty(window, "localStorage", { configurable: true, value: storage });
     vi.stubGlobal("localStorage", storage);
+    vi.stubGlobal("indexedDB", new IDBFactory());
     restoreLocalStorage = () => {
       Object.defineProperty(window, "localStorage", { configurable: true, value: previous });
       vi.unstubAllGlobals();
@@ -54,7 +55,6 @@ describe("pattern persistence serializer", () => {
 
   function makeStore() {
     const pinia = createPinia();
-    pinia.use(piniaPluginPersistedstate);
     createApp({}).use(pinia);
     setActivePinia(pinia);
     return usePhrasesStore();
@@ -73,7 +73,7 @@ describe("pattern persistence serializer", () => {
     seed.book.phrases.push({ ...seed.take, id: "kept-1", shelf: "kept", notes: [createNote(1)] });
     const existing = serializePatternsState({ book: seed.book, isRecordingEnabled: true });
     seed.removeEventListeners();
-    storage.setItem("phrases", existing);
+    storage.setItem("phrases", JSON.stringify({ $version: 1, data: JSON.parse(existing) }));
 
     const store = makeStore();
     expect(store.takeNotes).toHaveLength(512);
@@ -85,7 +85,7 @@ describe("pattern persistence serializer", () => {
 
     const persisted = storage.getItem("phrases");
     expect(persisted).not.toBeNull();
-    const parsed = JSON.parse(persisted!);
+    const parsed = JSON.parse(persisted!).data;
     expect(parsed).toEqual(JSON.parse(JSON.stringify({ book: store.book, isRecordingEnabled: store.isRecordingEnabled })));
     expect(persisted).not.toContain("__v_");
     expect(parsed.book.phrases.find((phrase: { id: string }) => phrase.id === store.takeId).notes).toHaveLength(514);
@@ -104,7 +104,9 @@ describe("pattern persistence serializer", () => {
 
     store.take.notes.push(createNote(0));
     await nextTick();
-    const parsed = JSON.parse(storage.getItem("phrases")!);
+    // The unreadable bytes are backed up to IndexedDB first; the save lands after.
+    await vi.waitFor(() => expect(storage.getItem("phrases")).not.toBe("{ malformed"));
+    const parsed = JSON.parse(storage.getItem("phrases")!).data;
     expect(parsed.book.phrases[0].notes[0].id).toBe("note-0");
     store.removeEventListeners();
   });
@@ -118,17 +120,21 @@ describe("pattern persistence serializer", () => {
     const id = saveLoop(seed.book, looper, "Together", 1000, () => "loop-1")!;
     const serialized = serializePatternsState({ book: seed.book, isRecordingEnabled: true });
     const saved = JSON.parse(serialized).book.loops;
-    storage.setItem("phrases", serialized);
     seed.removeEventListeners();
+    // The seed is a previous session: it saves nothing more over what it left.
+    seed.$dispose();
+    storage.setItem("phrases", serialized);
 
     const store = makeStore();
     expect(store.book.loops).toEqual(saved);
     expect(openLoop(store.book, id)!.members).toEqual([member]);
     store.book.loops[0].name = "Persisted Loop";
     await nextTick();
-    const restored = deserializePatternsState(storage.getItem("phrases")!);
-    expect(restored.book.loops[0]).toEqual({ ...saved[0], name: "Persisted Loop" });
-    expect(restored.book.loops[0].members[0]).not.toHaveProperty("notes");
+    // The unversioned bytes are backed up to IndexedDB first; the versioned save lands after.
+    const loopsOnDisk = () => JSON.parse(storage.getItem("phrases")!).data?.book.loops;
+    await vi.waitFor(() => expect(loopsOnDisk()?.[0]?.name).toBe("Persisted Loop"));
+    expect(loopsOnDisk()[0]).toEqual({ ...saved[0], name: "Persisted Loop" });
+    expect(loopsOnDisk()[0].members[0]).not.toHaveProperty("notes");
     store.removeEventListeners();
   });
 

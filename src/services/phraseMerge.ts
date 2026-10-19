@@ -52,7 +52,12 @@ function mergeValue<V>(hasBase: boolean, base: unknown, oursSaved: unknown, ours
   return conflict();
 }
 
-/** Entries keyed by id: ours in our order, then entries only theirs has. */
+/**
+ * Entries keyed by id: ours in our order, then entries only theirs has.
+ * `both` merges an entry both tabs changed; `theirsChanged` takes in an entry
+ * only the other tab changed (by default its stored copy, but the phrase merge
+ * goes field by field so this tab's live data survives where nothing changed).
+ */
 function mergeById<E extends WithId>(
   base: readonly WithId[] | undefined,
   ours: readonly E[],
@@ -60,6 +65,7 @@ function mergeById<E extends WithId>(
   saved: (entry: E) => unknown,
   both: (base: E | undefined, ours: E, theirs: E) => E,
   keep: (id: string) => boolean,
+  theirsChanged: (base: E, ours: E, theirs: E) => E = (_base, _ours, other) => other,
 ): E[] {
   const baseById = new Map((base ?? []).map((entry) => [entry.id, entry as E]));
   const theirsById = new Map(theirs.map((entry) => [entry.id, entry]));
@@ -70,7 +76,10 @@ function mergeById<E extends WithId>(
     const other = theirsById.get(entry.id);
     const mine = saved(entry);
     if (other) {
-      merged.push(mergeValue(Boolean(before), before, mine, entry, other, () => both(before, entry, other)));
+      if (sameJson(mine, other)) merged.push(entry);
+      else if (before && sameJson(mine, before)) merged.push(theirsChanged(before, entry, other));
+      else if (before && sameJson(other, before)) merged.push(entry);
+      else merged.push(both(before, entry, other));
     } else if (!before || !sameJson(mine, before) || keep(entry.id)) {
       // New here, changed here since the other tab released it, or still needed here.
       merged.push(entry);
@@ -94,20 +103,40 @@ function mergeNotes(base: unknown, ours: PatternNote[], theirs: PatternNote[], s
   ).sort((left, right) => left.pressTime - right.pressTime || left.id.localeCompare(right.id));
 }
 
-/** Both tabs changed one phrase: merge it field by field. */
+/**
+ * Merge a phrase field by field, when either or both tabs changed it. Fields
+ * the other tab did not change keep this tab's live values, and notes merge
+ * note by note: saved curves are thinned, so taking the other tab's stored
+ * copy of an unchanged note would swap this tab's live curves for lossy ones.
+ */
 function mergePhrase(base: Phrase | undefined, ours: Phrase, theirs: Phrase, options: PhraseMergeOptions): Phrase {
   const live = toRaw(ours) as unknown as Record<string, unknown>;
   const saved = options.savedPhrase(ours) as Record<string, unknown>;
   const other = theirs as unknown as Record<string, unknown>;
   const before = base as unknown as Record<string, unknown> | undefined;
   const merged: Record<string, unknown> = {};
-  let joinedNotes = false;
+  // Both tabs changed the notes (or nothing is known): the joined notes may outrun either duration.
+  const joinedNotes = !before
+    || (!sameJson(saved.notes, before.notes) && !sameJson(other.notes, before.notes));
   for (const key of new Set([...Object.keys(live), ...Object.keys(other), ...Object.keys(before ?? {})])) {
+    if (key === "notes") {
+      if (sameJson(saved.notes, other.notes) || (before && sameJson(other.notes, before.notes))) {
+        merged.notes = ours.notes;
+      } else if (before && sameJson(saved.notes, before.notes)) {
+        // Only the other tab changed them: its notes, in its order, but each
+        // note it did not change keeps this tab's live object.
+        const mine = new Map(ours.notes.map((note) => [note.id, note]));
+        merged.notes = theirs.notes.map((note) => {
+          const live = mine.get(note.id);
+          return live && sameJson(options.savedNote(live), note) ? live : note;
+        });
+      } else {
+        merged.notes = mergeNotes(before?.notes, ours.notes, theirs.notes, options.savedNote);
+      }
+      continue;
+    }
     const value = mergeValue(Boolean(before), before?.[key], saved[key], live[key], other[key], () => {
       switch (key) {
-        case "notes":
-          joinedNotes = true;
-          return mergeNotes(before?.notes, ours.notes, theirs.notes, options.savedNote);
         case "shelf":
           // A Keep is deliberate: never silently undone by the other tab.
           return ours.shelf === "kept" || theirs.shelf === "kept" ? "kept" : ours.shelf;
@@ -120,7 +149,7 @@ function mergePhrase(base: Phrase | undefined, ours: Phrase, theirs: Phrase, opt
     if (value !== undefined) merged[key] = value;
   }
   const phrase = merged as unknown as Phrase;
-  if (joinedNotes) {
+  if (joinedNotes && !sameJson(saved.notes, other.notes)) {
     phrase.duration = Math.max(phrase.duration ?? 0, ...phrase.notes.map((note) => note.releaseTime));
   }
   return phrase;
@@ -198,18 +227,23 @@ export function mergePhraseStates(
   const loops = ourLoops || theirLoops
     ? mergeById(loopsOf(before?.book), ourLoops ?? [], theirLoops ?? [], (loop) => toRaw(loop), mergeFields, () => false)
     : undefined;
+  // Only Loops that survive the merge protect their members: a Loop the other
+  // tab deleted must not hold on to the phrases it pointed at.
   const pointedAt = new Set(
-    [...(loops ?? []), ...(ourLoops ?? [])].flatMap((loop) =>
+    (loops ?? []).flatMap((loop) =>
       (loop.members ?? []).map((member) => member.phraseId).filter((id): id is string => typeof id === "string")),
   );
   const protectedIds = options.protectedIds();
+  const fieldByField = (baseEntry: Phrase | undefined, entry: Phrase, theirsEntry: Phrase) =>
+    mergePhrase(baseEntry, entry, theirsEntry, options);
 
   const book: PhraseBook = {
     ...mine,
     phrases: mergeById(
       before?.book.phrases, mine.phrases, other.book.phrases, options.savedPhrase,
-      (baseEntry, entry, theirsEntry) => mergePhrase(baseEntry, entry, theirsEntry, options),
+      fieldByField,
       (id) => id === mine.takeId || protectedIds.has(id) || pointedAt.has(id),
+      fieldByField,
     ),
     libraryNames: mergeRecord(before?.book.libraryNames, mine.libraryNames ?? {}, other.book.libraryNames),
     // Numbers are handed out by both tabs; never hand one out twice from here on.

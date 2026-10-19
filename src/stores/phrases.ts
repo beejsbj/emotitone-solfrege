@@ -144,14 +144,16 @@ export const usePhrasesStore = defineStore(
     watch(() => book.value.takeId, (id) => desk.claim(id), { immediate: true });
     const otherDesks = book.value.phrases
       .filter((phrase) => phrase.shelf === "take" && phrase.id !== book.value.takeId);
-    // Without Web Locks, a take older than a day (or the Recent retention, if
-    // shorter) counts as left behind. A misjudged live take is harmless: its
-    // own tab's merge puts it back on its desk.
+    // Without Web Locks, a fresh take opened more than a day ago (or longer
+    // than the Recent retention, if shorter) counts as left behind. A Recent
+    // phrase reopened on another desk carries its old dates, so its age says
+    // nothing about its tab: it is left alone. A misjudged live take is
+    // harmless: its own tab's merge puts it back on its desk, unchanged.
     const leftBehind = desk.available
       ? desk.unclaimed(otherDesks.map((phrase) => phrase.id))
       : Promise.resolve(otherDesks
-        .filter((phrase) => Date.now() - Math.max(phrase.createdAt, phrase.closedAt ?? 0)
-          > Math.min(config.recentRetentionMs, ABANDONED_TAKE_MS))
+        .filter((phrase) => phrase.closedAt === undefined
+          && Date.now() - phrase.createdAt > Math.min(config.recentRetentionMs, ABANDONED_TAKE_MS))
         .map((phrase) => phrase.id));
     void leftBehind.then((ids) => {
       const gone = new Set(ids);
@@ -159,8 +161,9 @@ export const usePhrasesStore = defineStore(
       book.value.phrases = book.value.phrases.flatMap((phrase) => {
         if (!gone.has(phrase.id) || phrase.shelf !== "take" || phrase.id === book.value.takeId) return [phrase];
         if (!phrase.notes.length) return [];
-        delete phrase.modeBase;
-        return [{ ...phrase, shelf: "recent" as const, closedAt: now }];
+        // Only the shelf changes (and a fresh take's close time): if its tab is
+        // in fact alive, it gets its take back whole, modeBase included.
+        return [{ ...phrase, shelf: "recent" as const, closedAt: phrase.closedAt ?? now }];
       });
     });
     // An oversized shelf loads intact, so measure once before any save happens.

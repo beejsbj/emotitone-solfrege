@@ -36,6 +36,7 @@ import {
 import { migrateLegacyPatterns } from "@/domain/phraseMigration";
 import { createPhrasePersistence, encodedPhraseBytes, shelfOverBudget } from "@/services/phrasePersistence";
 import { installPhraseBackupConsole } from "@/services/phraseBackups";
+import { createDeskClaims } from "@/services/deskClaims";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 import type { HeldNote, Phrase, PhraseBook, PhraseContext } from "@/types/phrases";
 
@@ -135,6 +136,23 @@ export const usePhrasesStore = defineStore(
     const isRecordingEnabled = ref(restored.isRecordingEnabled);
     const savedState = () => ({ book: book.value, isRecordingEnabled: isRecordingEnabled.value });
     const stopListening = typeof window === "undefined" ? () => {} : persistence.listen(savedState, window);
+    // Hold this tab's take while it is on the desk; shelve takes left behind
+    // by tabs that are gone (src/services/deskClaims.ts).
+    const desk = createDeskClaims();
+    watch(() => book.value.takeId, (id) => desk.claim(id), { immediate: true });
+    const leftBehind = book.value.phrases
+      .filter((phrase) => phrase.shelf === "take" && phrase.id !== book.value.takeId)
+      .map((phrase) => phrase.id);
+    void desk.unclaimed(leftBehind).then((ids) => {
+      const gone = new Set(ids);
+      const now = Date.now();
+      book.value.phrases = book.value.phrases.flatMap((phrase) => {
+        if (!gone.has(phrase.id) || phrase.shelf !== "take" || phrase.id === book.value.takeId) return [phrase];
+        if (!phrase.notes.length) return [];
+        delete phrase.modeBase;
+        return [{ ...phrase, shelf: "recent" as const, closedAt: now }];
+      });
+    });
     // An oversized shelf loads intact, so measure once before any save happens.
     encodedBytes.value = encodedPhraseBytes(persistence.encode(savedState()));
     /**
@@ -434,6 +452,7 @@ export const usePhrasesStore = defineStore(
     onScopeDispose(() => {
       removeEventListeners();
       stopListening();
+      desk.dispose();
       persistence.holdUntilReload();
       persistence.unregister();
     });

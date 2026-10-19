@@ -1,10 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { nextTick } from "vue";
 import { setActivePinia } from "pinia";
 import { IDBFactory } from "fake-indexeddb";
 import { createTestPinia } from "../helpers/test-utils";
 import { usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
+import { fakeLocks } from "../helpers/fakeLocks";
 
 vi.mock("@/services/superdoughAudio", () => ({
   setStrudelLaBasedMinor: vi.fn(),
@@ -104,6 +105,39 @@ describe("phrase stores in two tabs", () => {
     const fromA = await sketch(a, "a", START + 10_000);
     expect(storedIds()).toEqual(expect.arrayContaining([fromA, fromB]));
     expect(a.shelves.recent.map((phrase) => phrase.id)).toEqual(expect.arrayContaining([fromA, fromB]));
+  });
+
+  it("shelves a take left behind by a closed tab, and leaves a live tab's take on its desk", async () => {
+    Object.defineProperty(navigator, "locks", { value: fakeLocks(), configurable: true });
+    onTestFinished(() => { delete (navigator as { locks?: unknown }).locks; });
+    const a = openTab();
+    // Tab B plays into its own take, then A saves last, so B's take is "another tab's".
+    const b = openTab();
+    b.startBlankTake();
+    playPhrase(b, "b", START);
+    await nextTick();
+    const live = b.takeId;
+    const gone = openTab();
+    gone.startBlankTake();
+    playPhrase(gone, "g", START + 5_000);
+    await nextTick();
+    const leftBehind = gone.takeId;
+    // The tab closes; the browser lets its lock go.
+    stores.splice(stores.indexOf(gone), 1);
+    gone.removeEventListeners();
+    gone.$dispose();
+    await sketch(a, "a", START + 10_000);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const c = openTab();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await nextTick();
+    expect(c.shelves.recent.map((phrase) => phrase.id)).toContain(leftBehind);
+    expect(c.shelves.recent.map((phrase) => phrase.id)).not.toContain(live);
+    expect(c.book.phrases.find((phrase) => phrase.id === live)?.shelf).toBe("take");
+    otherTabWrote();
+    expect(b.takeId).toBe(live);
+    expect(b.take.shelf).toBe("take");
   });
 
   it("keeps a phrase this tab's Looper protects when the other tab releases it", async () => {

@@ -20,7 +20,11 @@
           <span class="chord__fused-band"></span>
         </span>
       </span>
-      <span class="chord__symbol">{{ symbol }}</span>
+      <span
+        class="chord__symbol"
+        :class="{ 'chord__symbol--monochrome': symbolFill !== null }"
+        :style="symbolFill ? { '--chord-symbol-fill': symbolFill } : undefined"
+      >{{ symbol }}</span>
     </span>
 
     <span v-else class="chord__cluster" aria-hidden="true">
@@ -170,6 +174,24 @@ const resolvedMembers = computed(() =>
     };
   }),
 );
+
+/*
+ * In monochrome the symbol is the opposite token to the face it sits on: Ink
+ * on an Ivory accidental slip, Ivory on an Ink natural slip, the rule the
+ * melody keys follow. The symbol spans every slip of the face, so a mixed
+ * chord paints each slip's share of it in that slip's own contrast token.
+ */
+const symbolFill = computed(() => {
+  const members = orderedMembers.value;
+  if (!members.some((member) => member.surfaceStyle === "monochrome")) return null;
+  const tokens = members.map((member) =>
+    member.surfaceStyle === "monochrome" && isAccidental(member) ? "var(--ink)" : "var(--ivory)",
+  );
+  const stops = tokens.map((token, index) =>
+    `${token} ${(index / tokens.length) * 100}% ${((index + 1) / tokens.length) * 100}%`,
+  );
+  return `linear-gradient(to right, ${stops.join(", ")})`;
+});
 
 const noteProps = (member: ChordMember) => {
   const primary = member.primary ?? "syllable";
@@ -372,6 +394,16 @@ const resolvedAccessibleName = computed(() => {
   white-space: nowrap;
 }
 
+/* Monochrome: the symbol's colour follows the faces beneath it, slip by slip. */
+.chord__symbol--monochrome {
+  background-image: var(--chord-symbol-fill);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+}
+
 .chord__cluster-member {
   position: relative;
   display: inline-flex;
@@ -418,8 +450,11 @@ const resolvedAccessibleName = computed(() => {
     background: Highlight;
   }
 
-  .chord__symbol {
+  .chord__symbol,
+  .chord__symbol--monochrome {
+    background: none;
     color: CanvasText;
+    -webkit-text-fill-color: currentColor;
     text-shadow: none;
   }
 }

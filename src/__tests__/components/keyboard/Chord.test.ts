@@ -92,6 +92,46 @@ describe("Chord compound", () => {
     expect(chordSource).not.toContain("chord__member-label");
   });
 
+  it("paints a monochrome symbol in the opposite token to the face beneath it, slip by slip", () => {
+    const member = (id: string, rawPitch: string, accidental: boolean): ChordMember => ({
+      id,
+      rawPitch,
+      syllable: id,
+      primary: "raw",
+      scaleIndex: 0,
+      pitchClassIndex: 0,
+      octave: 4,
+      surfaceStyle: "monochrome",
+      accidental,
+      progress: 1,
+    });
+    const fillOf = (members: ChordMember[]) => mount(Chord, {
+      props: { members, display: "symbol", symbol: "Cm" },
+    }).get(".chord__symbol").attributes("style") ?? "";
+
+    // A natural face is Ink, so its label is Ivory; an accidental face is Ivory, so Ink.
+    expect(fillOf([member("c4", "C4", false)])).toContain("var(--ivory) 0% 100%");
+    expect(fillOf([member("c4", "C4", false)])).not.toContain("var(--ink)");
+    expect(fillOf([member("eb4", "D#4", true)])).toContain("var(--ink) 0% 100%");
+    expect(fillOf([member("eb4", "D#4", true)])).not.toContain("var(--ivory)");
+
+    // A split face: each slip's share of the symbol contrasts with that slip.
+    const split = fillOf([
+      member("c4", "C4", false),
+      member("eb4", "D#4", true),
+      member("g4", "G4", false),
+    ]);
+    const stops = split.match(/var\(--(?:ink|ivory)\) [\d.]+% [\d.]+%/g) ?? [];
+    expect(stops.map((stop) => stop.match(/--(ink|ivory)/)?.[1])).toEqual(["ivory", "ink", "ivory"]);
+
+    // Coloured chords keep the neutral symbol.
+    const coloured = mount(Chord, {
+      props: { members: triad, display: "symbol", symbol: "C" },
+    }).get(".chord__symbol");
+    expect(coloured.classes()).not.toContain("chord__symbol--monochrome");
+    expect(coloured.attributes("style")).toBeUndefined();
+  });
+
   it("composes zero-gap glyph Notes and shares the Note geometry family", () => {
     const wrapper = mount(Chord, {
       props: {
@@ -169,7 +209,8 @@ describe("Chord compound", () => {
     expect(chordSource).toContain("transform: scaleY(calc(1 - var(--chord-member-progress)))");
     expect(chordSource).toContain("transition: transform var(--dur-press) linear");
     expect(chordSource).not.toContain("color-mix(in srgb");
-    expect(chordSource).not.toContain("linear-gradient");
+    // The reveal is a clip, never a gradient (the monochrome symbol fill is a separate rule).
+    expect(chordSource.match(/\.chord__fused-progress\s*\{[^}]*\}/)?.[0]).not.toContain("gradient");
   });
 
   it("uses voicing order for fused bands and press order for clustered Notes", () => {

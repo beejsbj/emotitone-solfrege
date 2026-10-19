@@ -6,6 +6,7 @@ import { createTestPinia } from "../helpers/test-utils";
 import { usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { fakeLocks } from "../helpers/fakeLocks";
+import { prewarmSoundSamples } from "@/services/superdoughAudio";
 
 vi.mock("@/services/superdoughAudio", () => ({
   setStrudelLaBasedMinor: vi.fn(),
@@ -64,6 +65,9 @@ const storedIds = () =>
 const otherTabWrote = () => window.dispatchEvent(new StorageEvent("storage", { key: "phrases" }));
 
 beforeEach(() => {
+  // afterEach's restoreAllMocks clears the factory's resolved value, and the instrument
+  // store chains .then on what prewarmSoundSamples returns, as the real one is async.
+  vi.mocked(prewarmSoundSamples).mockResolvedValue(undefined);
   vi.stubGlobal("indexedDB", new IDBFactory());
   vi.spyOn(Date, "now").mockReturnValue(START);
   localStorage.clear();

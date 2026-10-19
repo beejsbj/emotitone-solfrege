@@ -320,6 +320,7 @@ export const useLooperStore = defineStore("looper", () => {
   function abandon() {
     resetSession();
     openTakeId.value = null;
+    latchCountdown.value = null;
     origins.clear();
     clearLooper(looper.value);
     stopLatchTimer();
@@ -656,18 +657,19 @@ export const useLooperStore = defineStore("looper", () => {
   }
 
   // ─── Hold to solo (Burooj, 2026-10-19) ─────────────────────────────────────
-  // A held dial solos its pattern (unmuted) for as long as it is held; letting
-  // go puts back the mute and solo states from before the first hold exactly,
-  // whatever changed in between. Two held dials: the latest holds the solo.
+  // A held dial solos its pattern (unmuted) for as long as it is held. Letting
+  // go puts back the solo from before the first hold, and the held pattern's
+  // own mute; a mute or unmute tapped on another dial meanwhile is a
+  // deliberate act and is kept (the orchestrator's call on review nit 5).
+  // Two held dials: the latest holds the solo.
   const heldSolos: string[] = [];
-  let beforeHold: { soloId: string | null; muted: Map<string, boolean> } | null = null;
+  let beforeHold: { soloId: string | null; heldMuted: Map<string, boolean> } | null = null;
 
   function holdSolo(phraseId: string): void {
-    if (!memberFor(phraseId)) return;
-    beforeHold ??= {
-      soloId: looper.value.soloId,
-      muted: new Map(looper.value.members.map((member) => [member.phraseId, member.muted])),
-    };
+    const member = memberFor(phraseId);
+    if (!member) return;
+    beforeHold ??= { soloId: looper.value.soloId, heldMuted: new Map() };
+    if (!beforeHold.heldMuted.has(phraseId)) beforeHold.heldMuted.set(phraseId, member.muted);
     if (!heldSolos.includes(phraseId)) heldSolos.push(phraseId);
     setMemberMuted(phraseId, false);
     setSoloTo(phraseId);
@@ -678,15 +680,15 @@ export const useLooperStore = defineStore("looper", () => {
     if (at < 0) return;
     heldSolos.splice(at, 1);
     const before = beforeHold!;
+    const muted = before.heldMuted.get(phraseId);
+    before.heldMuted.delete(phraseId);
+    if (muted !== undefined) setMemberMuted(phraseId, muted);
     if (heldSolos.length) {
-      // Another dial is still held: this one goes back, the other keeps the solo.
-      const muted = before.muted.get(phraseId);
-      if (muted !== undefined) setMemberMuted(phraseId, muted);
+      // Another dial is still held: it keeps the solo.
       setSoloTo(heldSolos[heldSolos.length - 1]);
       return;
     }
     beforeHold = null;
-    for (const [id, muted] of before.muted) setMemberMuted(id, muted);
     setSoloTo(before.soloId);
   }
 
@@ -864,8 +866,8 @@ export const useLooperStore = defineStore("looper", () => {
     const detail = (event as CustomEvent).detail;
     if (!isLive(detail)) return;
     liveActivity();
-    // A note before the closing bar ends refills the dots at once.
-    if (latchCountdown.value !== null) latchCountdown.value = BEATS_PER_BAR;
+    // A note before the closing bar ends refills the dots at once (only while latched).
+    if (looper.value.latched && latchCountdown.value !== null) latchCountdown.value = BEATS_PER_BAR;
     const wallTime = Number.isFinite(detail.timestamp) ? detail.timestamp : Date.now();
     let audioTime: number;
     try {

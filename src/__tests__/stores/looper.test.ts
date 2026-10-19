@@ -909,7 +909,7 @@ describe("Play is the loop on the worklet transport", () => {
         }
       });
 
-      it("hold solos only while held, and the release puts back mute and solo exactly, whatever changed meanwhile", async () => {
+      it("hold solos only while held; the release puts back the solo and the held pattern's mute, and keeps a mute tapped meanwhile", async () => {
         const { looper } = setup();
         const deck = mountDeck();
         try {
@@ -931,11 +931,12 @@ describe("Play is the loop on the worklet transport", () => {
           point(dial(first), "pointerup", 20);
           dial(first).click();
           await flush();
-          // Back exactly as before the hold: first muted, second not, no solo.
+          // The solo from before the hold (none) and the first's own mute come back;
+          // the second finger's deliberate mute is kept (the orchestrator's call on nit 5).
           expect(player.getLooper().soloId).toBeNull();
           expect(onTransport(first).muted).toBe(true);
-          expect(onTransport(second).muted).toBe(false);
-          expect(looper.members.map((member) => member.muted)).toEqual([true, false]);
+          expect(onTransport(second).muted).toBe(true);
+          expect(looper.members.map((member) => member.muted)).toEqual([true, true]);
         } finally {
           deck.unmount();
         }
@@ -972,10 +973,11 @@ describe("Play is the loop on the worklet transport", () => {
         try {
           const { first, second, dial } = await twoLooping(deck);
           const element = dial(first);
-          point(element, "pointerdown", 30);
+          // From the dial's centre to the glass's edge (a phone never reports x below 0).
+          point(element, "pointerdown", 28);
+          point(element, "pointermove", 14);
           point(element, "pointermove", 0);
-          point(element, "pointermove", -40);
-          point(element, "pointerup", -60);
+          point(element, "pointerup", 0);
           element.click();
           await flush();
           expect(looper.members.map((member) => member.phraseId)).toEqual([second]);
@@ -1068,6 +1070,30 @@ describe("Play is the loop on the worklet transport", () => {
           await hearUntil(from + 1.05);
           expect(phrases.take.id).toBe(open);
           expect(Number(shown(deck).countdown)).toBeGreaterThan(1);
+        } finally {
+          deck.unmount();
+        }
+      });
+
+      it("go when an interruption abandons the Looper mid-countdown, and a later note does not bring them back", async () => {
+        const { looper } = setup();
+        const deck = mountDeck();
+        try {
+          const { from } = await silentLatchedTake(deck);
+          await hearUntil(from + .6);
+          expect(shown(deck).countdown).toBe("2");
+          // The player is swapped out (as an interruption or a released Code Strip does): the Looper abandons.
+          setProductionPatternPlayer(undefined);
+          await flush();
+          expect(looper.latched).toBe(false);
+          expect(looper.latchCountdown).toBeNull();
+          expect(shown(deck)).toMatchObject({ countdown: undefined, drained: 0 });
+          // A note while not latched.
+          window.dispatchEvent(new CustomEvent("note-played", { detail: { noteId: "live-after", noteName: "G4",
+            solfegeIndex: 4, octave: 4, key: "C", mode: "major", source: "live-play-style", timestamp: Date.now() } }));
+          await flush();
+          expect(looper.latchCountdown).toBeNull();
+          expect(shown(deck)).toMatchObject({ countdown: undefined, drained: 0 });
         } finally {
           deck.unmount();
         }
@@ -1177,6 +1203,29 @@ describe("Play is the loop on the worklet transport", () => {
         await press(play().element, 520);
         expect(looper.latched).toBe(false);
         release();
+      } finally {
+        deck.unmount();
+      }
+    });
+
+    it("the sample-pack fallback boot (synths only) enables Play without opening the drawer", async () => {
+      const { looper } = setup();
+      const deck = mountDeck();
+      try {
+        const instrument = useInstrumentStore();
+        instrument.engineBooted = false;
+        await flush();
+        const play = () => deck.get(".code-strip-bar__play");
+        expect(play().attributes("disabled")).toBeDefined();
+        // The loading splash's "Play on with basic synths": initSynthOnlyAudio, never initializeInstruments.
+        const { useAppLoading } = await import("@/composables/useAppLoading");
+        const initializeInstruments = vi.spyOn(instrument, "initializeInstruments");
+        await useAppLoading().initializeAudioContext({ synthsOnly: true });
+        await flush();
+        expect(initializeInstruments).not.toHaveBeenCalled();
+        expect(looper.engineReady).toBe(true);
+        expect(play().attributes("disabled")).toBeUndefined();
+        initializeInstruments.mockRestore();
       } finally {
         deck.unmount();
       }

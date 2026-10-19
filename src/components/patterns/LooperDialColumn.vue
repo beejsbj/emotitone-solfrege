@@ -80,7 +80,7 @@ onBeforeUnmount(() => micOnLip(false));
       <p class="looper-dials__notice-line" role="alert" :title="looper.lastError">{{ looper.lastError }}</p>
       <Button
         class="looper-dials__notice-dismiss"
-        size="sm"
+        size="xs"
         tone="ink"
         haptic
         accessible-name="Dismiss"
@@ -153,10 +153,10 @@ onBeforeUnmount(() => micOnLip(false));
   margin-bottom: var(--s-2);
 }
 
-/* The shelf notice's grammar (#192): one thin Ink strip with Ivory type, a
-   small Brass lamp and an icon-only dismiss key, no border. The strip holds
-   the whole key: its 32px cap and the 4px lit lip around it sit 4px inside
-   every edge, and its invisible 44px touch floor stays within the strip. */
+/* The shelf notice's grammar (#192, ShelfNotice): one thin Ink strip with
+   Ivory type, a small Brass lamp and an inline xs dismiss key, no border, the
+   same --s-3 margin above, below and beside the key. Its 44px touch floor
+   overhangs the strip onto bare Stage, as the shelf's does. */
 .looper-dials__notice {
   position: absolute;
   /* Beside the dial column, never over it. */
@@ -167,7 +167,8 @@ onBeforeUnmount(() => micOnLip(false));
   align-items: center;
   gap: var(--s-5);
   box-sizing: border-box;
-  padding: var(--s-4) var(--s-4) var(--s-4) var(--s-6);
+  padding-block: var(--s-3);
+  padding-inline: var(--s-6) var(--s-3);
   background: var(--ink-3);
   color: var(--ivory);
   border-radius: var(--r-xs);
@@ -200,8 +201,11 @@ onBeforeUnmount(() => micOnLip(false));
   white-space: nowrap;
 }
 
+/* Room under the key for its lit lip, which hangs --s-2 below the switch,
+   so cap and lip together sit centred on the line with even margins. */
 .looper-dials__notice-dismiss {
   flex: 0 0 auto;
+  margin-block-end: var(--s-2);
 }
 
 @media (forced-colors: active) {

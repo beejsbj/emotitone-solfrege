@@ -1,4 +1,5 @@
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
+import type { HeardClock } from "@/services/heardClock";
 import type {
   NotationNoteEventDetail,
   NotationNoteEventName,
@@ -38,8 +39,12 @@ export interface NotationHighlightOptions {
   target?: () => EventTarget | undefined;
   /** Called when an event starts sounding, at its audible onset. */
   onActivate?: (eventIndex: number) => void;
-  /** The presentation clock; `performance.now()` by default. */
-  now?: () => number;
+  /**
+   * The presentation clock; `performance.now()` by default. Give the clock of
+   * what is heard (it stands still while audio is suspended) to keep the
+   * highlight with the sound.
+   */
+  clock?: Pick<HeardClock, "now" | "fromPerformance">;
 }
 
 /** What an event reads to show its own highlight state. */
@@ -66,7 +71,9 @@ export interface NotationHighlightSource {
  * any source of `note-played` / `note-released` events with phrase note ids works.
  */
 export function useNotationHighlight(options: NotationHighlightOptions) {
-  const now = options.now ?? (() => performance.now());
+  const now = () => options.clock?.now() ?? performance.now();
+  // An event's `audibleAt` is on the wall clock; the schedule is kept on `now`'s.
+  const onClock = (time: number) => options.clock?.fromPerformance(time) ?? time;
   // `version` moves when something starts, ends or a pass begins; `frame`
   // moves every painted frame. Only a value that sweeps with time reads
   // `frame`, so a long phrase re-renders just its sounding event per frame.
@@ -156,7 +163,9 @@ export function useNotationHighlight(options: NotationHighlightOptions) {
     if (frameRequest !== null || typeof requestAnimationFrame === "undefined") return;
     frameRequest = requestAnimationFrame(() => {
       frameRequest = null;
-      advance(now());
+      // A clock that stands still (audio suspended) changes nothing to repaint.
+      const time = now();
+      if (time !== frameTime) advance(time);
       if (needsFrames()) schedule();
     });
   }
@@ -171,7 +180,7 @@ export function useNotationHighlight(options: NotationHighlightOptions) {
     const key = `${id}\u0000${String(detail.noteId ?? id)}`;
     const time = now();
     const heard = typeof detail.audibleAt === "number" && Number.isFinite(detail.audibleAt)
-      ? Math.min(time + MAX_AUDIBLE_DELAY_MS, detail.audibleAt)
+      ? Math.min(time + MAX_AUDIBLE_DELAY_MS, onClock(detail.audibleAt))
       : time;
 
     if (event.type === "note-released") {

@@ -1,7 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, reactive, ref, type Ref } from "vue";
 import { mount, type VueWrapper } from "@vue/test-utils";
+import { createPinia, disposePinia, setActivePinia, type Pinia } from "pinia";
 import { useKeyboardControls } from "@/composables/useKeyboardControls";
+
+// The real performer store runs over the stand-in stores.
+let pinia: Pinia;
+beforeEach(() => {
+  pinia = createPinia();
+  setActivePinia(pinia);
+});
+afterEach(() => disposePinia(pinia));
 
 // Mount through a real host so onMounted/onUnmounted attach and remove the
 // window listeners and the lock watcher; unmounting after each test keeps
@@ -115,26 +124,41 @@ describe("useKeyboardControls", () => {
     });
   });
 
-  it("uses the leftmost keys for smaller mode sizes", () => {
+  it("continues smaller scales along each row into the next octave", () => {
     mockMusicStore.currentScale.degreeCount = 5;
     const controls = mountControls(ref(4));
     const mapping = controls.getKeyboardMapping();
+    const notes = (codes: string[]) => codes.map((code) =>
+      mapping[code] && [mapping[code].solfegeIndex, mapping[code].octave]);
 
-    // Two 5-key letter rows + one 5-key bottom row = 15 keys
-    expect(Object.keys(mapping)).toHaveLength(15);
-    expect(mapping.KeyT.solfegeIndex).toBe(4);
-    expect(mapping.KeyG.solfegeIndex).toBe(4);
-    expect(mapping.KeyB.solfegeIndex).toBe(4);
-    expect(mapping.KeyY).toBeUndefined();
-    expect(mapping.KeyN).toBeUndefined();
+    // Visible octaves 6-3: every letter key plays except the top row's last
+    // two, which would reach octave 7, off screen, and the browser's own
+    // Quote and Slash (Firefox Quick Find), which never take a continued note.
+    expect(Object.keys(mapping)).toHaveLength(30);
+    expect(notes(["KeyT", "KeyY", "KeyP", "BracketLeft", "BracketRight"]))
+      .toEqual([[4, 5], [0, 6], [4, 6], undefined, undefined]);
+    expect(notes(["KeyG", "KeyH", "Semicolon", "Quote", "Backslash"]))
+      .toEqual([[4, 4], [0, 5], [4, 5], undefined, [1, 6]]);
+    expect(notes(["KeyB", "KeyN", "Period", "Slash"])).toEqual([[4, 3], [0, 4], [3, 4], undefined]);
   });
 
-  it("returns display labels for mapped notes", () => {
-    mockMusicStore.currentScale.degreeCount = 12;
+  it("leaves the browser its own / and ' unless they were already scale degrees", async () => {
+    mockMusicStore.currentScale.degreeCount = 7;
     const controls = mountControls(ref(4));
+    for (const [code, key] of [["Slash", "/"], ["Quote", "'"]]) {
+      const keydown = new KeyboardEvent("keydown", { code, key, cancelable: true });
+      await controls.handleKeyDown(keydown);
+      expect(keydown.defaultPrevented, code).toBe(false);
+    }
+    expect(mockMusicStore.attackNoteWithOctave).not.toHaveBeenCalled();
 
-    expect(controls.getKeyboardLetterForNote(11, 4)).toBe("\\");
-    expect(controls.getKeyboardLetterForNote(0, 5)).toBe("Q");
+    // In a twelve-note scale they are among the first twelve keys, as before.
+    mockMusicStore.currentScale.degreeCount = 12;
+    expect(controls.getKeyboardMapping()).toMatchObject({
+      Quote: { solfegeIndex: 10, octave: 4 },
+      Slash: { solfegeIndex: 9, octave: 3 },
+    });
+    controls.cleanupKeyboardListeners();
   });
 
   it("enables only physical rows whose octaves are visible", () => {
@@ -186,7 +210,7 @@ describe("useKeyboardControls", () => {
     expect(mapping.KeyZ.octave).toBe(7);
     expect(mapping.KeyQ).toBeUndefined();
     expect(mapping.Digit1).toBeUndefined();
-    expect(controls.getKeyboardLetterForNote(0, 6)).toBeNull();
+    expect(Object.values(mapping).some((note) => note.octave === 6)).toBe(false);
 
     controls.cleanupKeyboardListeners();
   });

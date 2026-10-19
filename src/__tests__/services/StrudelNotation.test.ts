@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 vi.unmock('@strudel/core')
-import { logNotesToStrudel, mergeStrudelRests } from '@/services/StrudelNotation'
-import { buildDefaultPattern } from '@/data/patterns'
+import { logNotesToStrudel, mergeStrudelRests, planRecordedPattern } from '@/services/StrudelNotation'
+import { Note } from '@tonaljs/tonal'
+import { buildDefaultPattern, defaultPatterns } from '@/data/patterns'
 import { as } from '@strudel/core/controls.mjs'
 import { mini } from '@strudel/mini/mini.mjs'
 import { m } from '@strudel/mini'
@@ -509,5 +510,65 @@ describe('StrudelNotation', () => {
     })
 
     expect(result).toContain('G4@0.25 ~@0.25')
+  })
+})
+
+describe('recorded pattern plan parity (the transport table vs exported code)', () => {
+  // The worklet transport builds member tables from planRecordedPattern. Real
+  // Strudel evaluates the exported text over eight bars: every onset, gate and
+  // pitch must agree, so the sound and the code cannot drift apart. Frozen as
+  // a fixture for when Strudel is removed (BJS-495).
+  const lanes = [
+    makeNote('a', 'C4', 0, 4, 1000, 900),
+    makeNote('b', 'E4', 2, 4, 1100, 300),
+    makeNote('c', 'G4', 4, 4, 1500, 350),
+    makeNote('d', 'D4', 1, 4, 2300, 200),
+  ]
+  const chord = [
+    makeNote('c1', 'C4', 0, 4, 1000, 500),
+    makeNote('c2', 'E4', 2, 4, 1000, 500),
+    makeNote('c3', 'G4', 4, 4, 1000, 500),
+  ]
+  const rests = [
+    makeNote('r1', 'C4', 0, 4, 1000, 250),
+    makeNote('r2', 'A4', 5, 4, 1900, 120),
+    // A 20 ms silent gap: a display slot with a recorded gate below it.
+    makeNote('r3', 'B4', 6, 4, 2040, 300),
+  ]
+  const recorded = { key: 'C' as const, mode: 'major' as const, bpm: 100 }
+  const fixtures: [string, LogNote[], typeof recorded][] = [
+    ['brace lanes', lanes, recorded], ['a chord', chord, recorded], ['rests and a micro-gap', rests, recorded],
+    // The first four library melodies, as #140's receipts used.
+    ...defaultPatterns.slice(0, 4).map(pattern => [`library ${pattern.name}`,
+      pattern.notes as unknown as LogNote[], { key: pattern.key, mode: pattern.mode, bpm: pattern.bpm ?? 120 }] as [string, LogNote[], typeof recorded]),
+  ]
+  describe.each(fixtures)('%s', (_name, notes, context) => {
+    it.each(['absolute', 'relative'] as const)('%s notation: onsets, gates and pitches over eight bars', (notationType) => {
+      const config = { notationType, sourceBpm: context.bpm, bpm: 120, scaleKey: context.key, scaleMode: context.mode, scaleOctave: 4 }
+      const plan = planRecordedPattern(notes, config)
+      const code = logNotesToStrudel(notes, config)
+      const { output } = transpiler(code)
+      const pattern = new Function('m', output)(m)
+      const barSeconds = 240 / config.bpm
+      const haps = pattern.queryArc(0, 8 * barSeconds).filter((hap: any) => hap.hasOnset())
+        .map((hap: any) => ({
+          begin: Number(hap.whole.begin) / barSeconds,
+          gate: Number(hap.whole.duration) * (hap.value.clip ?? 1) / barSeconds,
+          midi: typeof hap.value.note === 'number' ? hap.value.note : Note.midi(hap.value.note),
+        }))
+        .sort((a: any, b: any) => a.begin - b.begin || a.midi - b.midi)
+      const expected: { begin: number; gate: number; midi: number }[] = []
+      for (let loop = 0; loop * plan.lengthBars < 8 - 1e-9; loop++) for (const note of plan.notes) {
+        const begin = loop * plan.lengthBars + note.beginBars
+        if (begin < 8 - 1e-9) expected.push({ begin, gate: note.gateBars, midi: note.midi })
+      }
+      expected.sort((a, b) => a.begin - b.begin || a.midi - b.midi)
+      expect(haps).toHaveLength(expected.length)
+      haps.forEach((hap: any, index: number) => {
+        expect(hap.begin).toBeCloseTo(expected[index].begin, 9)
+        expect(hap.gate).toBeCloseTo(expected[index].gate, 9)
+        expect(hap.midi).toBe(expected[index].midi)
+      })
+    })
   })
 })

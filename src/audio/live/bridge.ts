@@ -48,6 +48,13 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
     else if (data.type === 'plan') callbacks.onPlan?.(data.events)
     else if (data.type === 'expression-owner') callbacks.onExpressionOwner?.(data)
     else if (data.type === 'owner-ended') callbacks.onOwnerEnded?.(data.ownerId)
+    else if (data.type === 'transport-events') {
+      try { callbacks.onTransport?.(data) } finally {
+        // Return the batch to the worklet's pool once it has been decoded.
+        post({ type: 'transport-recycle', buffer: data.buffer }, [data.buffer])
+      }
+    }
+    else if (data.type === 'transport-applied' || data.type === 'transport-anchors') callbacks.onTransport?.(data)
     else if (data.type === 'prepared' || data.type === 'forgotten') {
       const entry = pending.get(data.requestId)
       if (entry) { clearTimeout(entry.timer); pending.delete(data.requestId); entry.resolve() }
@@ -169,6 +176,7 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
     effects: shaping => post({ type: 'effects', shaping }),
     shape: envelope => post({ type: 'shape', envelope }),
     clear: () => post({ type: 'clear' }),
+    transport: command => post(command),
     dispose,
   }
 }

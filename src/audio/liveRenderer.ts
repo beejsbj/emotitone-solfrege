@@ -1,6 +1,7 @@
 import type { LiveShaping } from './liveShaping'
 import type { PlayStyle, PlayStyleRate } from '@/services/playStyles'
 import type { LiveArticulation } from '@/services/liveArticulation'
+import type { TransportResponse } from './live/transport'
 
 export interface LiveInputNote {
   pitch: number
@@ -10,7 +11,18 @@ export interface LiveInputNote {
   /** Playback/member snapshot; omitted live notes follow the current Shape. */
   shaping?: LiveShaping
 }
-export interface LiveConfig { style: PlayStyle; bpm: number; rate: PlayStyleRate }
+export interface LiveConfig {
+  style: PlayStyle
+  bpm: number
+  rate: PlayStyleRate
+  /**
+   * Where Repeat and Arp pulses fall while the pattern transport runs:
+   * 'grid' (the default) starts them on the transport's next subdivision and
+   * keeps them on its bar grid; 'press' anchors them at the press, as when
+   * nothing is playing.
+   */
+  phase?: 'grid' | 'press'
+}
 export interface LiveVoiceEvent extends LiveInputNote {
   phase: 'attack' | 'release'
   noteId: string
@@ -34,6 +46,9 @@ export interface LiveRendererCallbacks {
   onExpressionOwner?(change: LiveExpressionOwner): void
   onError?(error: Error): void
   onOwnerEnded?(ownerId: string): void
+  /** Pattern transport receipts, tempo anchors and note-event batches. A
+   * `transport-events` batch is valid only during the call: decode it there. */
+  onTransport?(response: TransportResponse): void
 }
 /** Prepared renderers accept input synchronously; loading belongs to the manager. */
 export interface LiveRenderer {

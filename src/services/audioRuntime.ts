@@ -42,6 +42,11 @@ export function getLiveOrbit() {
   return graph!.getOrbit(LIVE_ORBIT);
 }
 
+/** The Looper's "cut" tail policy: fade what the live room and delay hold (PatternAudio.cutWetTails). */
+export function cutLiveWetTails() {
+  getLiveOrbit().cutTails();
+}
+
 /** Preparation never resumes: startup and interruption unlock belong to the
  * existing audioLifecycle gate and the user's Play/Start gesture. */
 export async function initializeAudio(): Promise<void> {

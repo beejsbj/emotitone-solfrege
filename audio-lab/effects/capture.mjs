@@ -14,6 +14,63 @@ const digest = async path => createHash('sha256').update(await readFile(path)).d
 const watched = [packagePath, ...['helpers.mjs', 'reverbGen.mjs', 'reverb.mjs', 'feedbackdelay.mjs'].map(name => resolve('node_modules/superdough', name))];
 const hashes = Object.fromEntries(await Promise.all(watched.map(async path => [path, await digest(path)])));
 let vite, chrome, socket;
+
+const chromeBin = process.env.CHROME_BIN || '/usr/bin/google-chrome';
+// A loaded CI runner (the whole suite runs in parallel workers) can make Chrome slow to
+// print its DevTools endpoint. Allow a generous deadline, then relaunch once from a clean profile.
+const devtoolsDeadlineMs = Number(process.env.CAPTURE_CHROME_DEADLINE_MS) || 30000;
+const launchAttempts = 2;
+const log = message => console.error(`[capture] ${message}`);
+
+/** Starts one Chrome and resolves with its DevTools port; rejects with `retryable` set when a relaunch could help. */
+function launchChrome(attempt) {
+  const started = performance.now();
+  const child = spawn(chromeBin, [
+    '--headless=new', '--no-sandbox', '--disable-dev-shm-usage', '--no-first-run',
+    '--autoplay-policy=no-user-gesture-required', '--disable-background-networking',
+    '--remote-debugging-port=0', `--user-data-dir=${join(directory, `chrome-${attempt}`)}`, 'about:blank',
+  ], { stdio: ['ignore', 'ignore', 'pipe'] });
+  let stderr = '';
+  const tail = () => stderr.trim().slice(-2000) || '(nothing)';
+  const ready = new Promise((done, reject) => {
+    const fail = (message, retryable) => { clearTimeout(timeout); reject(Object.assign(new Error(message), { retryable })); };
+    const timeout = setTimeout(() => fail(
+      `Chrome did not expose DevTools within ${devtoolsDeadlineMs} ms (${chromeBin}); Chrome stderr: ${tail()}`, true), devtoolsDeadlineMs);
+    child.stderr.on('data', chunk => {
+      stderr = (stderr + chunk).slice(-4000);
+      const match = stderr.match(/DevTools listening on ws:\/\/127\.0\.0\.1:(\d+)/);
+      if (match) { clearTimeout(timeout); done({ port: Number(match[1]), ms: Math.round(performance.now() - started) }); }
+    });
+    // A missing binary will not appear on a second try; a crash on start-up might.
+    child.once('error', error => fail(`Could not start Chrome (${chromeBin}): ${error.message}`, false));
+    child.once('exit', (code, signal) => fail(
+      `Chrome exited (${signal ?? `code ${code}`}) before exposing DevTools; Chrome stderr: ${tail()}`, true));
+  });
+  return { child, ready };
+}
+
+async function startChrome() {
+  for (let attempt = 1; ; attempt++) {
+    const launch = launchChrome(attempt);
+    chrome = launch.child;
+    try {
+      const { port, ms } = await launch.ready;
+      log(`Chrome DevTools ready in ${ms} ms (attempt ${attempt} of ${launchAttempts}, deadline ${devtoolsDeadlineMs} ms)`);
+      return port;
+    } catch (error) {
+      log(`Chrome launch attempt ${attempt} of ${launchAttempts} failed: ${error.message}`);
+      if (chrome.exitCode === null && chrome.signalCode === null) {
+        const exited = new Promise(done => chrome.once('exit', done));
+        chrome.kill('SIGKILL');
+        await exited;
+      }
+      if (!error.retryable || attempt === launchAttempts) {
+        throw new Error(`${error.message} [after ${attempt} launch attempt${attempt > 1 ? 's' : ''}]`);
+      }
+      log('Relaunching Chrome once with a fresh profile');
+    }
+  }
+}
 try {
   vite = await createServer({ configFile: false, root, cacheDir: join(directory, 'vite-cache'),
     optimizeDeps: { entries: ['audio-lab/effects/index.html'] },
@@ -22,21 +79,7 @@ try {
   });
   await vite.listen();
   const origin = `http://127.0.0.1:${vite.httpServer.address().port}`;
-  chrome = spawn(process.env.CHROME_BIN || '/usr/bin/google-chrome', [
-    '--headless=new', '--no-sandbox', '--disable-dev-shm-usage', '--no-first-run',
-    '--autoplay-policy=no-user-gesture-required', '--disable-background-networking',
-    '--remote-debugging-port=0', `--user-data-dir=${join(directory, 'chrome')}`, 'about:blank',
-  ], { stdio: ['ignore', 'ignore', 'pipe'] });
-  const debugPort = await new Promise((done, reject) => {
-    const timeout = setTimeout(() => reject(new Error('Chrome did not expose DevTools')), 15000);
-    let stderr = '';
-    chrome.stderr.on('data', chunk => {
-      stderr += chunk;
-      const match = stderr.match(/DevTools listening on ws:\/\/127\.0\.0\.1:(\d+)/);
-      if (match) { clearTimeout(timeout); done(Number(match[1])); }
-    });
-    chrome.once('error', error => { clearTimeout(timeout); reject(error); });
-  });
+  const debugPort = await startChrome();
   const page = await (await fetch(`http://127.0.0.1:${debugPort}/json/new?about:blank`, { method: 'PUT' })).json();
   socket = new WebSocket(page.webSocketDebuggerUrl);
   await new Promise((done, reject) => { socket.onopen = done; socket.onerror = reject; });

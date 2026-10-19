@@ -1,5 +1,5 @@
 import { DEFAULT_INSTRUMENT } from "@/data/instruments";
-import { isSelectableInstrument } from "@/data/instrumentCatalog";
+import { isSelectableInstrument, selectableReplacement } from "@/data/instrumentCatalog";
 import { createPersistedBinding, UNVERSIONED } from "@/services/persistenceCodec";
 import { isSameShape, NEUTRAL_SHAPE, sanitizeShape } from "@/services/shape";
 import type { Shape } from "@/types/instrument";
@@ -14,7 +14,7 @@ export interface PersistedInstrumentState {
 /**
  * Read the instrument store's saved data defensively. The catalog can change
  * between visits, so an instrument the picker no longer offers falls back to
- * the default, and malformed or unselectable Shape entries are dropped.
+ * its nearest working sound (else the default), and malformed or unselectable Shape entries are dropped.
  */
 export function decodeInstrumentState(data: unknown): PersistedInstrumentState {
   if (!data || typeof data !== "object" || Array.isArray(data)) throw new Error("Invalid instrument state");
@@ -30,9 +30,7 @@ export function decodeInstrumentState(data: unknown): PersistedInstrumentState {
   }
 
   return {
-    currentInstrument: isSelectableInstrument(record.currentInstrument)
-      ? record.currentInstrument
-      : DEFAULT_INSTRUMENT,
+    currentInstrument: selectableReplacement(record.currentInstrument),
     instrumentShapes,
   };
 }

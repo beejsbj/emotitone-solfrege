@@ -2,9 +2,9 @@ import { velocityToMidi } from "@/audio/velocity";
 import { onMounted, onUnmounted, ref, watch } from "vue";
 import { Note as TonalNote } from "@tonaljs/tonal";
 import type { ChromaticNote } from "@/types";
-import { useInstrumentStore } from "@/stores/instrument";
 import { useMusicStore } from "@/stores/music";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
+import { usePerformer } from "@/composables/usePerformer";
 import { useVisualConfig } from "@/composables/useVisualConfig";
 import { SCHEDULED_LIVE_MIDI_EVENT } from "@/services/scheduledLiveVoice";
 import {
@@ -75,17 +75,6 @@ function shouldExposeDevMidiSimulator() {
   );
 }
 
-interface ActiveMidiNote {
-  noteId: string;
-  pressId: string;
-  isRoliInput: boolean;
-}
-
-interface PendingMidiPress {
-  noteName: string;
-  isRoliInput: boolean;
-}
-
 interface MidiNoteResolver {
   parseNoteInput: (
     note: string
@@ -97,6 +86,8 @@ interface MirroredNoteEventDetail {
   /** Monotonic performance.now deadline; independent of system date changes. */
   midiTimestamp?: number;
   velocity?: number;
+  /** The level a recorded take is heard at (BJS-556); live events omit it. */
+  playbackVelocity?: number;
   source?: string;
   mirrorMidi?: boolean;
   duration?: string;
@@ -343,28 +334,16 @@ function resolveMidiEventTimestamp(detail: MirroredNoteEventDetail | undefined) 
     : undefined;
 }
 
-function buildMidiPressId(inputId: string, channel: number, noteNumber: number) {
-  return `midi:${inputId}:${channel}:${noteNumber}`;
+const MIDI_OWNER_SCOPE = "midi";
+
+/** Performer scope of one input port; port ids are opaque, so encode them. */
+function midiInputScope(inputId: string) {
+  return `${MIDI_OWNER_SCOPE}:${encodeURIComponent(inputId)}`;
 }
 
-function incrementPendingNoteCount(map: Map<string, number>, noteName: string) {
-  map.set(noteName, (map.get(noteName) || 0) + 1);
-}
-
-function consumePendingNoteCount(map: Map<string, number>, noteName: string) {
-  const count = map.get(noteName);
-
-  if (!count) {
-    return false;
-  }
-
-  if (count === 1) {
-    map.delete(noteName);
-  } else {
-    map.set(noteName, count - 1);
-  }
-
-  return true;
+/** One performer owner per input, channel and note: a physical key. */
+function midiOwner(inputId: string, channel: number, noteNumber: number) {
+  return `${midiInputScope(inputId)}:${channel}:${noteNumber}`;
 }
 
 function toneNotationToMs(notation: string, bpm: number = 120) {
@@ -496,22 +475,14 @@ export function resolveMirroredMidiNoteNumber(
 }
 
 export function useMidiControls() {
-  const instrumentStore = useInstrumentStore();
   const musicStore = useMusicStore();
   const keyboardDrawerStore = useKeyboardDrawerStore();
+  const performer = usePerformer();
   const { dynamicColorConfig } = useVisualConfig();
 
   const midiAccess = ref<MIDIAccess | null>(null);
   const selectedRoliOutput = ref<MIDIOutput | null>(null);
   const roliInputIds = ref<Set<string>>(new Set());
-  const activeMidiNotes = ref<Map<string, ActiveMidiNote>>(new Map());
-  const pendingMidiPresses = ref<Map<string, PendingMidiPress>>(new Map());
-  // One held press per input/channel/pitch; duplicate note-ons retrigger it.
-  const midiPressIds = new Map<string, string>();
-  let midiPressSerial = 0;
-  const pendingReleasedPressIds = ref<Set<string>>(new Set());
-  const pendingInputNoteOns = ref<Map<string, number>>(new Map());
-  const pendingInputNoteOffs = ref<Set<string>>(new Set());
   const mirroredNoteTimeouts = ref<Map<string, number>>(new Map());
   const mirroredEventNotes = ref<Map<string, number>>(new Map());
   const anonymousMirroredOwners = ref<Map<number, string[]>>(new Map());
@@ -583,29 +554,6 @@ export function useMidiControls() {
     keyboardDrawerStore.releaseVisualNote(detail.noteId);
   };
 
-  const releaseMidiPress = (inputNoteId: string) => {
-    const pressId = midiPressIds.get(inputNoteId);
-    midiPressIds.delete(inputNoteId);
-    if (!pressId) return;
-    const activeNote = activeMidiNotes.value.get(pressId);
-    if (!activeNote) {
-      if (pendingMidiPresses.value.has(pressId)) {
-        pendingReleasedPressIds.value.add(pressId);
-        keyboardDrawerStore.removeTouch(pressId);
-      }
-      return;
-    }
-
-    if (activeNote.isRoliInput) {
-      pendingInputNoteOffs.value.add(activeNote.noteId);
-    }
-    musicStore.releaseNote(activeNote.noteId);
-    pendingInputNoteOffs.value.delete(activeNote.noteId);
-    keyboardDrawerStore.removeTouch(activeNote.pressId);
-    activeMidiNotes.value.delete(pressId);
-    pendingReleasedPressIds.value.delete(pressId);
-  };
-
   const handleMidiPacket = (inputId: string, rawData: ArrayLike<number>) => {
     const data = Array.from(rawData).slice(0, 3);
     if (data.length < 2) {
@@ -615,75 +563,34 @@ export function useMidiControls() {
     const [status, noteNumber, velocity = 0] = data;
     const messageType = status & MIDI_STATUS_MASK;
     const channel = (status & MIDI_CHANNEL_MASK) + 1;
-    const inputNoteId = buildMidiPressId(inputId, channel, noteNumber);
-    const noteName = midiNoteNumberToName(noteNumber);
-    // Only suppress the immediate echo of an ordinary ROLI press. Styled
-    // output is a new performance and must reach the MIDI mirror in full.
-    const isRoliInput = roliInputIds.value.has(inputId) && (musicStore.playStyle ?? "together") === "together";
+    const owner = midiOwner(inputId, channel, noteNumber);
 
     if (messageType === MIDI_NOTE_ON && velocity > 0) {
-      if (instrumentStore.isInteractionLocked) {
-        return;
-      }
-
-      releaseMidiPress(inputNoteId);
-      const pressId = `${inputNoteId}:${++midiPressSerial}`;
-      midiPressIds.set(inputNoteId, pressId);
-
+      // A duplicate note-on retriggers: the old voice ends before the new one.
+      performer.release(owner, "retrigger");
+      const noteName = midiNoteNumberToName(noteNumber);
       // Exact pitches share the on-screen performer, including identity and
       // borrowed-note metadata. Only in-scale pitches have a key to light.
       const parsed = musicStore.parseNoteInput(noteName);
-      if (parsed && TonalNote.midi(musicStore.getNoteName(parsed.solfegeIndex, parsed.octave)) === noteNumber) {
-        keyboardDrawerStore.addTouch(pressId, `${parsed.solfegeIndex}_${parsed.octave}`);
-      }
-      pendingMidiPresses.value.set(pressId, { noteName, isRoliInput });
-      if (isRoliInput) {
-        incrementPendingNoteCount(pendingInputNoteOns.value, noteName);
-      }
-
-      void musicStore
-        .attackExactPitch(noteName, () => pendingReleasedPressIds.value.has(pressId), velocity / 127)
-        .then((noteId) => {
-          const pendingPress = pendingMidiPresses.value.get(pressId);
-          pendingMidiPresses.value.delete(pressId);
-          const replacedTogetherAttack = noteId?.startsWith("held_") && pendingPress?.isRoliInput;
-          if (replacedTogetherAttack) {
-            consumePendingNoteCount(pendingInputNoteOns.value, pendingPress.noteName);
-          }
-
-          if (!noteId) {
-            if (pendingPress?.isRoliInput) {
-              consumePendingNoteCount(pendingInputNoteOns.value, pendingPress.noteName);
-            }
-            pendingReleasedPressIds.value.delete(pressId);
-            keyboardDrawerStore.removeTouch(pressId);
-            return;
-          }
-
-          if (pendingReleasedPressIds.value.has(pressId)) {
-            pendingReleasedPressIds.value.delete(pressId);
-            if (pendingPress?.isRoliInput) {
-              pendingInputNoteOffs.value.add(noteId);
-            }
-            musicStore.releaseNote(noteId);
-            pendingInputNoteOffs.value.delete(noteId);
-            keyboardDrawerStore.removeTouch(pressId);
-            return;
-          }
-
-          activeMidiNotes.value.set(pressId, { noteId, pressId, isRoliInput: isRoliInput && !replacedTogetherAttack });
-        })
-        .catch(() => {
-          const pendingPress = pendingMidiPresses.value.get(pressId);
-          pendingMidiPresses.value.delete(pressId);
-
-          if (pendingPress?.isRoliInput) {
-            consumePendingNoteCount(pendingInputNoteOns.value, pendingPress.noteName);
-          }
-
-          pendingReleasedPressIds.value.delete(pressId);
-          keyboardDrawerStore.removeTouch(pressId);
-        });
+      const touchKey = parsed
+        && TonalNote.midi(musicStore.getNoteName(parsed.solfegeIndex, parsed.octave)) === noteNumber
+        ? `${parsed.solfegeIndex}_${parsed.octave}`
+        : undefined;
+      // A ROLI shows its own ordinary press, so that voice is not echoed back.
+      // Styled output is a new performance and still reaches the mirror.
+      const echoesToController = roliInputIds.value.has(inputId)
+        && (musicStore.playStyle ?? "together") === "together";
+      void performer.press({
+        owner,
+        kind: "note",
+        voices: [{
+          kind: "pitch",
+          pitch: noteName,
+          velocity: velocity / 127,
+          ...(echoesToController ? { mirrorMidi: false } : {}),
+        }],
+        ...(touchKey ? { touchKey } : {}),
+      });
       return;
     }
 
@@ -691,7 +598,7 @@ export function useMidiControls() {
       messageType === MIDI_NOTE_OFF
       || (messageType === MIDI_NOTE_ON && velocity === 0)
     ) {
-      releaseMidiPress(inputNoteId);
+      performer.release(owner);
     }
   };
 
@@ -964,28 +871,12 @@ export function useMidiControls() {
     midiOwnerScheduler.clear();
   };
 
+  /** A port (or all MIDI) went away: release every note it owns, pending or not. */
   const releaseMidiNotes = (inputId?: string) => {
-    for (const inputNoteId of midiPressIds.keys()) {
-      if (!inputId || inputNoteId.startsWith(`midi:${inputId}:`)) midiPressIds.delete(inputNoteId);
-    }
-    for (const [pressId, activeNote] of activeMidiNotes.value.entries()) {
-      if (!inputId || pressId.startsWith(`midi:${inputId}:`)) {
-        if (activeNote.isRoliInput) {
-          pendingInputNoteOffs.value.add(activeNote.noteId);
-        }
-        musicStore.releaseNote(activeNote.noteId);
-        pendingInputNoteOffs.value.delete(activeNote.noteId);
-        keyboardDrawerStore.removeTouch(activeNote.pressId);
-        activeMidiNotes.value.delete(pressId);
-      }
-    }
-
-    for (const [pressId] of pendingMidiPresses.value.entries()) {
-      if (!inputId || pressId.startsWith(`midi:${inputId}:`)) {
-        pendingReleasedPressIds.value.add(pressId);
-        keyboardDrawerStore.removeTouch(pressId);
-      }
-    }
+    performer.releaseAllFor(
+      inputId === undefined ? MIDI_OWNER_SCOPE : midiInputScope(inputId),
+      "teardown",
+    );
   };
 
   const syncInputs = () => {
@@ -1062,10 +953,6 @@ export function useMidiControls() {
     if (!shouldMirrorNoteEvent(detail)) return;
     const noteName = detail?.noteName;
 
-    if (detail?.source !== "live-play-style" && noteName && consumePendingNoteCount(pendingInputNoteOns.value, noteName)) {
-      return;
-    }
-
     if (!selectedRoliOutput.value) {
       return;
     }
@@ -1094,7 +981,7 @@ export function useMidiControls() {
         ownerId: `mirrored:${detail.noteId}`,
         midiNote,
         phase: "attack",
-        velocity: detail?.velocity,
+        velocity: detail?.playbackVelocity ?? detail?.velocity,
         timestamp: resolveMidiEventTimestamp(detail),
       });
       return;
@@ -1110,7 +997,7 @@ export function useMidiControls() {
       ownerId,
       midiNote,
       phase: "attack",
-      velocity: detail?.velocity,
+      velocity: detail?.playbackVelocity ?? detail?.velocity,
       timestamp: resolveMidiEventTimestamp(detail),
     });
     const timeoutId = window.setTimeout(() => {
@@ -1131,11 +1018,6 @@ export function useMidiControls() {
   const mirrorNoteReleased = (event: Event) => {
     const detail = (event as CustomEvent<MirroredNoteEventDetail>).detail;
     if (!shouldMirrorNoteEvent(detail)) return;
-
-    if (detail?.noteId && pendingInputNoteOffs.value.has(detail.noteId)) {
-      pendingInputNoteOffs.value.delete(detail.noteId);
-      return;
-    }
 
     if (!selectedRoliOutput.value) {
       return;
@@ -1213,8 +1095,6 @@ export function useMidiControls() {
 
   const disconnectMidi = () => {
     releaseMidiNotes();
-    pendingInputNoteOns.value.clear();
-    pendingInputNoteOffs.value.clear();
     flushRoliOutput();
 
     if (midiAccess.value) {
@@ -1301,16 +1181,6 @@ export function useMidiControls() {
     () => {
       syncRoliMainOctave();
     }
-  );
-
-  watch(
-    () => instrumentStore.isInteractionLocked,
-    (isLocked) => {
-      if (isLocked) {
-        releaseMidiNotes();
-      }
-    },
-    { flush: "sync" }
   );
 
   onMounted(() => {

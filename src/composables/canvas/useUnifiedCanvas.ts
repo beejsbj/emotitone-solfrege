@@ -24,7 +24,8 @@ import {
   type StageAudioFeatures,
 } from "@/services/stageAudio";
 import { getActiveLivePitchStageNotes } from "@/services/hummingStage";
-import { getActiveStrudelStageNotes, getAudioContext } from "@/services/superdoughAudio";
+import { getAudioContext } from "@/services/superdoughAudio";
+import { getActivePatternStageNotes } from "@/services/patternTransport";
 import {
   STAGE_BODY_SIZE_BASE_RATIO,
   STAGE_BODY_SIZE_MAX_RATIO,
@@ -64,7 +65,7 @@ export function useUnifiedCanvas(
     undefined,
     () => musicStore.getActiveNotes(),
     getActiveLivePitchStageNotes,
-    getActiveStrudelStageNotes,
+    getActivePatternStageNotes,
   );
   // Controlled specimens own their clock. Production receives a private
   // presentation projection, leaving the input, recording and MIDI paths alone.

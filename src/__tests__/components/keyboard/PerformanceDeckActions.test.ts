@@ -1,5 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mount } from "@vue/test-utils";
+import { createPinia, disposePinia, setActivePinia, type Pinia } from "pinia";
+import { useHarmonyAlterationStore } from "@/stores/harmonyAlteration";
 import PerformanceDeck from "@/components/PerformanceDeck.vue";
 import performanceDeckSource from "@/components/PerformanceDeck.vue?raw";
 import Drawer from "@/components/uniques/Drawer/index.vue";
@@ -41,7 +43,34 @@ const mocks = vi.hoisted(() => ({
     rowCount: 3,
     hapticFeedback: true,
   },
+  keyboardPerformance: {
+    view: { value: { usage: "production", rows: [], mainOctave: 4 }, __v_isRef: true },
+    press: vi.fn(),
+    release: vi.fn(),
+    pitchBend: vi.fn(),
+    gainChange: vi.fn(),
+    chordPress: vi.fn(),
+    chordRelease: vi.fn(),
+    chordPitchBend: vi.fn(),
+    chordGainChange: vi.fn(),
+  },
+  useKeyboardPerformance: vi.fn(),
 }));
+
+// The Keyboard container has its own tests (KeyboardPerformanceHost); here
+// it stands in so the deck's routing to it can be observed.
+vi.mock("@/composables/useKeyboardPerformance", () => ({
+  useKeyboardPerformance: mocks.useKeyboardPerformance,
+}));
+
+// The Joystick alteration store is real.
+let pinia: Pinia;
+beforeEach(() => {
+  pinia = createPinia();
+  setActivePinia(pinia);
+  mocks.useKeyboardPerformance.mockReturnValue(mocks.keyboardPerformance);
+});
+afterEach(() => disposePinia(pinia));
 
 vi.mock("@/stores/keyboardDrawer", () => ({
   useKeyboardDrawerStore: () => ({
@@ -139,7 +168,8 @@ vi.mock("@/components/humming/HummingCaptureTransport.vue", () => ({
 vi.mock("@/components/compounds/Keyboard.vue", () => ({
   default: {
     name: "Keyboard",
-    props: { harmonyAlteration: String, availableHeight: Number },
+    props: { usage: String, rows: Array, mainOctave: Number, harmonyAlteration: String, availableHeight: Number },
+    emits: ["press", "release", "pitchBend", "gainChange", "chordPress", "chordRelease", "chordPitchBend", "chordGainChange"],
     template: '<div data-testid="keyboard" />',
   },
 }));
@@ -368,9 +398,57 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     expect(mocks.setMainOctave).toHaveBeenCalledWith(5);
     expect(mocks.setPlayMode).toHaveBeenCalledWith("arp-up:16");
     expect(mocks.setRowCount).not.toHaveBeenCalled();
-    expect(wrapper.getComponent({ name: "Keyboard" }).props("harmonyAlteration"))
-      .toBe("sus4");
+    // The Joystick's latch and live direction land in their one store.
+    expect(useHarmonyAlterationStore().latched).toBe("jazzy7");
+    expect(useHarmonyAlterationStore().effective).toBe("sus4");
     wrapper.unmount();
+  });
+
+  it("feeds the Keyboard view from its container and routes every intent through it", async () => {
+    const wrapper = mount(PerformanceDeck, {
+      global: { stubs: { PhraseShelf: true, CodeStripBar: true } },
+    });
+    expect(mocks.useKeyboardPerformance).toHaveBeenCalledOnce();
+    const keyboard = wrapper.getComponent({ name: "Keyboard" });
+    expect(keyboard.props()).toMatchObject({ usage: "production", rows: [], mainOctave: 4 });
+
+    const intent = { inputId: "touch:1", keyId: "0_4" };
+    for (const [event, handler] of [
+      ["press", "press"], ["release", "release"], ["pitchBend", "pitchBend"], ["gainChange", "gainChange"],
+      ["chordPress", "chordPress"], ["chordRelease", "chordRelease"],
+      ["chordPitchBend", "chordPitchBend"], ["chordGainChange", "chordGainChange"],
+    ] as const) {
+      keyboard.vm.$emit(event, intent);
+      expect(mocks.keyboardPerformance[handler], event).toHaveBeenCalledWith(intent);
+    }
+    expect(wrapper.emitted("keyboardPress")).toEqual([[intent]]);
+    expect(wrapper.emitted("chordRelease")).toEqual([[intent]]);
+    wrapper.unmount();
+  });
+
+  it("uses the Keyboard container only in production", () => {
+    mount(PerformanceDeck, {
+      props: { usage: "controlled" },
+      global: { stubs: { PatternReel: true, CodeStripBar: true } },
+    }).unmount();
+    expect(mocks.useKeyboardPerformance).not.toHaveBeenCalled();
+    mount(PerformanceDeck, { global: { stubs: { PhraseShelf: true, CodeStripBar: true } } }).unmount();
+    expect(mocks.useKeyboardPerformance).toHaveBeenCalledOnce();
+  });
+
+  it("springs the Joystick back to its latch when the deck goes away", async () => {
+    const wrapper = mount(PerformanceDeck, {
+      global: { stubs: { PhraseShelf: true, Keyboard: true, CodeStripBar: true } },
+    });
+    const controls = wrapper.getComponent({ name: "ControlBar" });
+    controls.vm.$emit("update:harmonyValue", "jazzy7");
+    controls.vm.$emit("harmonyEffective", "sus4");
+    const alteration = useHarmonyAlterationStore();
+    expect(alteration.effective).toBe("sus4");
+
+    wrapper.unmount();
+    expect(alteration.latched).toBe("jazzy7");
+    expect(alteration.effective).toBe("jazzy7");
   });
 
   it("turns each usable drawer allocation into whole keyboard rows", async () => {

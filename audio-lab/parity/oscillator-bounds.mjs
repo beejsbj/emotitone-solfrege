@@ -1,7 +1,8 @@
 import { parityChecks } from './metrics.mjs';
 
-// BJS-487's 48 kHz Chrome receipt at bdd3b0cb, with RMS divided by the
-// fixed .85 worklet scalar. These are pinned observations, never rebaselined
+// BJS-487's 48 kHz Chrome receipt at bdd3b0cb, with RMS divided by .85. Since
+// BJS-485 the worklet has no scalar; suite.mjs scales its reference by the
+// same .85 (the native level) before comparing, so these bounds still apply. These are pinned observations, never rebaselined
 // from the render under test. Entries are MIDI pitch: [native/live RMS, shape].
 const baseline = {
   square: {

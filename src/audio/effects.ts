@@ -104,6 +104,40 @@ export class EffectOrbit implements LiveOrbitSends {
     from.connect(send).connect(to)
     return send
   }
+  /**
+   * Fade out everything the room and delay already hold, over `fadeSeconds`,
+   * and carry on with fresh nodes (same delay settings, same impulse). The
+   * "cut" alternative to letting a muted Looper member's tail ring (BJS-491):
+   * the buses are shared, so it cuts every source's tail at that moment.
+   */
+  cutTails(fadeSeconds = .01, at = this.context.currentTime) {
+    if (!this.delay && !this.convolver) return
+    const fade = new GainNode(this.context, { gain: 1 })
+    fade.connect(this.summingNode)
+    fade.gain.setValueAtTime(1, at)
+    fade.gain.linearRampToValueAtTime(0, at + fadeSeconds)
+    const old: AudioNode[] = []
+    for (const node of [this.delay, this.feedback, this.wet, this.convolver]) if (node) old.push(node)
+    // Graph changes made in one task take effect together: the old returns
+    // move behind the fade as the inputs move to the fresh nodes.
+    for (const node of [this.wet, this.convolver]) if (node) { node.disconnect(this.summingNode); node.connect(fade) }
+    const delay = this.delay ? { time: this.delay.delayTime.value, feedback: this.feedback!.gain.value } : undefined
+    const impulse = this.convolver?.buffer ?? null
+    const hadRoom = !!this.convolver
+    this.roomInput.disconnect()
+    this.delayInput.disconnect()
+    this.generation++
+    this.delay = this.feedback = this.wet = this.convolver = undefined
+    this.roomReady = undefined
+    if (delay) this.getDelay(delay.time, delay.feedback, at)
+    if (hadRoom && impulse) {
+      const convolver = this.convolver = new ConvolverNode(this.context, { buffer: impulse })
+      this.roomInput.connect(convolver).connect(this.summingNode)
+      this.roomReady = Promise.resolve()
+    } else if (hadRoom) this.getReverb()
+    old.push(fade)
+    setTimeout(() => { for (const node of old) node.disconnect() }, (fadeSeconds + .05) * 1000)
+  }
   async rebuild() {
     const hadDelay = !!this.delay
     const time = this.delay?.delayTime.value ?? .25

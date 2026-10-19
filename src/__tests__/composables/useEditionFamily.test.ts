@@ -5,7 +5,7 @@ import { nextTick } from "vue";
 import Tabs from "@/components/primatives/Tabs.vue";
 import Knob from "@/components/primatives/Knob/index.vue";
 import Joystick from "@/components/uniques/Joystick/index.vue";
-import Keyboard from "@/components/compounds/Keyboard.vue";
+import { KeyboardPerformanceHost } from "@/__tests__/helpers/keyboardPerformanceHost";
 import { KEYBOARD_GEOMETRY_FAMILIES, keyboardChordFamily } from "@/components/compounds/keyboardEdition";
 import {
   EDITION_FAMILIES,
@@ -92,21 +92,10 @@ describe("edition families", () => {
       .toBe(EDITION_FAMILIES.length);
   });
 
-  it("shows each family on an unpinned Keyboard: its key geometry, a different chord geometry, its surface", async () => {
+  it("shows each family on the production Keyboard, through its container: its key geometry, a different chord geometry, its surface", async () => {
     const pinia = createPinia();
     setActivePinia(pinia);
-    const keyboard = mount(Keyboard, {
-      props: {
-        usage: "controlled",
-        rows: [{
-          octave: 4,
-          keys: [
-            { id: "do-4", syllable: "Do", degree: "I", rawPitch: "C4", scaleIndex: 0 },
-            { id: "di-4", syllable: "Di", degree: "♯I", rawPitch: "C#4", scaleIndex: 0, accidental: true },
-          ],
-        }],
-      },
-    });
+    const keyboard = mount(KeyboardPerformanceHost);
     try {
       for (const candidate of EDITION_FAMILIES) {
         pinEditionLook(candidate.id);
@@ -116,7 +105,7 @@ describe("edition families", () => {
         expect(chordGeometry, candidate.id).toBe(keyboardChordFamily(candidate.keys.geometry));
         expect(chordGeometry, candidate.id).not.toBe(candidate.keys.geometry);
         const notes = keyboard.findAll(".keyboard__row .note");
-        expect(notes.length, candidate.id).toBe(2);
+        expect(notes.length, candidate.id).toBeGreaterThan(0);
         for (const note of notes) {
           expect(note.classes(), candidate.id).toContain(`note--geometry-${candidate.keys.geometry}`);
           expect(note.classes(), candidate.id).toContain(`note--surface-${candidate.keys.surface}`);

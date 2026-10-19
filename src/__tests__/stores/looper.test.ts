@@ -788,6 +788,43 @@ describe("Play is the loop on the worklet transport", () => {
       }
     });
 
+    it("Play cannot start until the engine is ready, nor while it restores a rebuilt renderer", async () => {
+      const { phrases, looper } = setup();
+      const ready = player;
+      // No pattern player yet (the Code Strip has not mounted).
+      setProductionPatternPlayer(undefined);
+      const deck = mountDeck();
+      try {
+        const play = () => deck.get(".code-strip-bar__play");
+        await flush();
+        expect(play().attributes("disabled")).toBeDefined();
+        setProductionPatternPlayer(ready);
+        await flush();
+        expect(looper.engineReady).toBe(true);
+        expect(play().attributes("disabled")).toBeUndefined();
+
+        playTake(.5);
+        await press(play().element, 40);
+        await looper.settled();
+        render(1);
+        // The renderer is rebuilt and its banks are slow to return: Play waits.
+        let restored!: () => void;
+        for (const instrument of rig.prepared) rig.gates.set(instrument, new Promise<void>((resolve) => { restored = resolve; }));
+        rig.generation++;
+        for (const listener of [...rig.listeners]) listener.onRendererReset?.();
+        await flush();
+        expect(play().attributes("disabled")).toBeDefined();
+        for (const instrument of [...rig.gates.keys()]) rig.gates.delete(instrument);
+        restored();
+        await vi.waitFor(() => expect(looper.engineReady).toBe(true));
+        await flush();
+        expect(play().attributes("disabled")).toBeUndefined();
+        expect(phrases.take.notes.length).toBeGreaterThan(0);
+      } finally {
+        deck.unmount();
+      }
+    });
+
     it("a refused bank says so on the deck instead of doing nothing", async () => {
       const { phrases, looper } = setup();
       playTake(.5);

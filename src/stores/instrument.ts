@@ -370,6 +370,8 @@ export const useInstrumentStore = defineStore("instrument", () => {
     lastWarmupErrorInstrument,
     selectionEpoch,
     isLoading,
+    // The audio engine is booting (superdough and the live renderer), before any instrument warms.
+    isInitializing,
     isInteractionLocked,
     synthControls,
     synthControlOverrides,

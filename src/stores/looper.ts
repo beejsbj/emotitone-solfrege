@@ -155,6 +155,11 @@ export const useLooperStore = defineStore("looper", () => {
   const builtFrom = new Map<string, string>();
   let player: PatternPlayer | undefined;
   let stopInterrupted: (() => void) | undefined;
+  let stopRecoveryWatch: (() => void) | undefined;
+  /** The pattern player exists (the Code Strip is mounted). */
+  const playerReady = ref(false);
+  /** The engine is restoring a rebuilt renderer. */
+  const engineRecovering = ref(false);
 
   const liveKey = () => music.currentKey as ChromaticNote;
   const liveMode = () => music.currentMode as MusicalMode;
@@ -180,7 +185,12 @@ export const useLooperStore = defineStore("looper", () => {
     if (player) abandon();
     stopInterrupted?.();
     stopInterrupted = undefined;
+    stopRecoveryWatch?.();
+    stopRecoveryWatch = undefined;
     player = next;
+    playerReady.value = Boolean(next);
+    engineRecovering.value = Boolean(next?.getLooper().recovering);
+    stopRecoveryWatch = player?.onRecoveryChange((recovering) => { engineRecovering.value = recovering; });
     stopInterrupted = player?.onInterrupted((error) => {
       if (!looper.value.members.length && !starting) return;
       report(error);
@@ -206,6 +216,12 @@ export const useLooperStore = defineStore("looper", () => {
     return running.value && joined.has(id) ? id : null;
   });
   const loops = computed(() => phrases.book.loops);
+  /**
+   * Play can start: the pattern player is there, the audio engine has booted,
+   * and no rebuilt renderer is being restored (Burooj, 2026-10-19: "play
+   * shouldn't be startable if engine isn't started").
+   */
+  const engineReady = computed(() => playerReady.value && !engineRecovering.value && !instrument.isInitializing);
 
   function memberFor(phraseId: string): PlayingPattern | undefined {
     return looper.value.members.find((member) => member.phraseId === phraseId);
@@ -724,7 +740,10 @@ export const useLooperStore = defineStore("looper", () => {
     stopWatchingPlayer();
     stopInterrupted?.();
     stopInterrupted = undefined;
+    stopRecoveryWatch?.();
+    stopRecoveryWatch = undefined;
     player = undefined;
+    playerReady.value = false;
   }
 
   // ─── What the surfaces draw ────────────────────────────────────────────────
@@ -773,6 +792,7 @@ export const useLooperStore = defineStore("looper", () => {
     openTakeId,
     isDeskPlaying,
     deskMemberId,
+    engineReady,
     loops,
     lastError,
     swapPolicy,

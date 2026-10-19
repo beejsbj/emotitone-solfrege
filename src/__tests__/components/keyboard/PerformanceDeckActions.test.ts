@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   looper: {
     isDeskPlaying: false,
     latched: false,
+    engineReady: true,
     togglePlay: vi.fn(),
     toggleLatch: vi.fn(),
   },
@@ -219,6 +220,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     mocks.isPlaying.value = false;
     mocks.looper.isDeskPlaying = false;
     mocks.looper.latched = false;
+    mocks.looper.engineReady = true;
     mocks.hasPlayableCode.value = true;
     mocks.instrumentStore.isInteractionLocked = false;
     mocks.instrumentStore.warmingInstrument = null;

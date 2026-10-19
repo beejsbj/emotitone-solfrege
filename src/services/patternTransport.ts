@@ -153,6 +153,13 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
   let session: { looper: boolean; bpm: number; target?: LooperKeyMode; soloId: string | null } | undefined;
   /** Set while a rebuilt renderer is awaited: the bar to continue from, and which rebuild it is. */
   let recovery: { bar: number; epoch: number } | undefined;
+  const recoveryListeners = new Set<(recovering: boolean) => void>();
+  /** Every change of recovery goes through here, so the UI can follow it. */
+  function setRecovery(next: { bar: number; epoch: number } | undefined) {
+    const was = Boolean(recovery);
+    recovery = next;
+    if (was !== Boolean(next)) for (const listener of [...recoveryListeners]) listener(Boolean(next));
+  }
   let recoveryEpoch = 0;
   let pinSerial = 0;
   /** The bar the current run started at (0, or where a recovered run continued). */
@@ -542,7 +549,7 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
     snapshot = undefined;
     anchors = [];
     session = undefined;
-    recovery = undefined;
+    setRecovery(undefined);
     startBar = 0;
     idleBar = undefined;
     stopRecovery?.();
@@ -572,7 +579,7 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
     released.clear();
     snapshot = undefined;
     resolvePending();
-    recovery = { bar, epoch: ++recoveryEpoch };
+    setRecovery({ bar, epoch: ++recoveryEpoch });
     if (beatGeneration !== undefined) uiBeat.suspend(beatGeneration);
     watchRecovery();
     // Knock on the gate rather than unlocking here: inside a rebuild it joins
@@ -615,7 +622,7 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
           if (!ready) {
             // No member to bring back: the next join starts the new run at this bar.
             idleBar = recovery.bar;
-            recovery = undefined;
+            setRecovery(undefined);
             port = undefined;
             anchors = [];
             return;
@@ -633,7 +640,7 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
           const solo = session.soloId;
           if (joins.length) void change({ type: "batch", changes: solo ? [...joins, { type: "solo", memberId: solo }] : joins });
           startBar = recovery.bar;
-          recovery = undefined;
+          setRecovery(undefined);
           send({ type: "transport-start", requestId: ++requestId, run, bpm: session.bpm, bar: startBar });
           return;
         }
@@ -1002,6 +1009,12 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
     barAtAudioTime(audioTime: number): number | null {
       if (!playing || recovery || !port || !anchors.length || !Number.isFinite(audioTime)) return null;
       return barAtFrame(anchors, audioTime * port.sampleRate, port.sampleRate);
+    },
+
+    /** Follow whether the engine is restoring a rebuilt renderer; returns the unsubscribe. */
+    onRecoveryChange(listener: (recovering: boolean) => void): () => void {
+      recoveryListeners.add(listener);
+      return () => { recoveryListeners.delete(listener); };
     },
 
     /** Listen for the transport stopping without being asked; returns the unsubscribe. */

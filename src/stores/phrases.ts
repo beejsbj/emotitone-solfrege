@@ -113,17 +113,28 @@ export const usePhrasesStore = defineStore(
     const encodedBytes = ref(0);
     // The browser refused the last write of the shelf (or the backup it needs).
     const saveFailed = ref(false);
+    // Phrases another part of the app still points at (the Looper's playing
+    // set, PR 202). The shelf notice never offers or releases one of them, and
+    // a merge with another tab's shelf never drops one.
+    const protectedIdsProvider = shallowRef<() => ReadonlySet<string>>(() => new Set());
     const persistence = createPhrasePersistence(() => ({
       book: readLegacyBook(liveContext.value) ?? createPhraseBook(liveContext.value, Date.now()),
       isRecordingEnabled: true,
     }), () => liveContext.value, {
       onMeasure: (bytes) => { encodedBytes.value = bytes; },
       onStored: (stored) => { saveFailed.value = !stored; },
+      protectedIds: () => protectedIdsProvider.value(),
+      // Another tab's sketches, merged in (BJS-575); see docs/persistence-codec.md.
+      adopt: (state) => {
+        book.value = state.book;
+        isRecordingEnabled.value = state.isRecordingEnabled;
+      },
     });
     const restored = persistence.load();
     const book = ref<PhraseBook>(restored.book);
     const isRecordingEnabled = ref(restored.isRecordingEnabled);
     const savedState = () => ({ book: book.value, isRecordingEnabled: isRecordingEnabled.value });
+    const stopListening = typeof window === "undefined" ? () => {} : persistence.listen(savedState, window);
     // An oversized shelf loads intact, so measure once before any save happens.
     encodedBytes.value = encodedPhraseBytes(persistence.encode(savedState()));
     /**
@@ -148,9 +159,6 @@ export const usePhrasesStore = defineStore(
     };
     watch(saveFailed, guardTab, { immediate: true });
     onScopeDispose(() => guardTab(false));
-    // Phrases another part of the app still points at (the Looper's playing
-    // set, PR 202). The shelf notice never offers or releases one of them.
-    const protectedIdsProvider = shallowRef<() => ReadonlySet<string>>(() => new Set());
     const releaseCandidates = computed(() => {
       const protectedIds = protectedIdsProvider.value();
       return book.value.phrases
@@ -425,6 +433,7 @@ export const usePhrasesStore = defineStore(
     setupEventListeners();
     onScopeDispose(() => {
       removeEventListeners();
+      stopListening();
       persistence.holdUntilReload();
       persistence.unregister();
     });

@@ -2,8 +2,9 @@ import { toRaw } from "vue";
 import { ensureSingleTake } from "@/domain/phraseBook";
 import { createPersistedBinding, defineCodec, type BindingOptions } from "@/services/persistenceCodec";
 import { writePhraseBackup } from "@/services/phraseBackups";
+import { mergePhraseStates, storedPhraseState } from "@/services/phraseMerge";
 import { claimSaveFailureNotice, persistentStorage, type SafeStorage } from "@/services/safeStorage";
-import type { PhraseBook, PhraseContext } from "@/types/phrases";
+import type { Phrase, PhraseBook, PhraseContext } from "@/types/phrases";
 import type { PatternNote } from "@/types/patterns";
 
 export const PHRASE_BUDGET_BYTES = 3_000_000;
@@ -60,40 +61,61 @@ function savedNote(note: PatternNote): PatternNote {
   };
 }
 
-export function phraseCodec(defaults: () => PersistedPhraseState, context: () => PhraseContext) {
+function savedPhrase(phrase: Phrase): Phrase {
+  const raw = toRaw(phrase);
+  return {
+    ...raw,
+    notes: raw.notes.map(savedNote),
+    ...(raw.modeBase && { modeBase: { ...raw.modeBase, notes: raw.modeBase.notes.map(savedNote) } }),
+  };
+}
+
+/** Everything but the open take's pointer and recorder, which are each tab's own. */
+function sharedPhraseData(data: unknown): unknown {
+  const state = data as { book?: Record<string, unknown> } | null;
+  if (!state?.book) return data;
+  return { ...state, book: { ...state.book, takeId: undefined, recorder: undefined } };
+}
+
+export interface PhraseCodecOptions {
+  /** Ids this tab still points at (the Looper's playing set); a merge never releases them. */
+  protectedIds?: () => ReadonlySet<string>;
+}
+
+export function phraseCodec(
+  defaults: () => PersistedPhraseState,
+  context: () => PhraseContext,
+  { protectedIds = () => new Set() }: PhraseCodecOptions = {},
+) {
   return defineCodec<PersistedPhraseState>({
     key: "phrases",
     version: 1,
     defaults,
     decode(data) {
-      const state = data as PersistedPhraseState;
-      if (!state?.book || !Array.isArray(state.book.phrases)) throw new Error("Invalid phrase book");
+      const { book: stored, isRecordingEnabled } = storedPhraseState(data);
       // An entry the app can't use is dropped; the rest of the shelf survives.
+      // An empty take left by another tab (open, or closed without moving on)
+      // holds nothing: drop it rather than shelve an empty phrase in Recent.
       const book = {
-        ...state.book,
-        phrases: state.book.phrases.filter((phrase) => phrase && Array.isArray(phrase.notes) && phrase.context),
+        ...stored,
+        phrases: stored.phrases.filter((phrase) =>
+          phrase.shelf !== "take" || phrase.id === stored.takeId || phrase.notes.length > 0),
       };
       ensureSingleTake(book, context(), Date.now());
-      return { book, isRecordingEnabled: state.isRecordingEnabled !== false };
+      return { book, isRecordingEnabled: isRecordingEnabled !== false };
     },
     // Plain data for the envelope; JSON.stringify unwraps reactive proxies itself.
     encode(state) {
       const book = toRaw(state.book);
       return {
         isRecordingEnabled: state.isRecordingEnabled,
-        book: {
-          ...book,
-          phrases: book.phrases.map((phrase) => {
-            const raw = toRaw(phrase);
-            return {
-              ...raw,
-              notes: raw.notes.map(savedNote),
-              ...(raw.modeBase && { modeBase: { ...raw.modeBase, notes: raw.modeBase.notes.map(savedNote) } }),
-            };
-          }),
-        },
+        book: { ...book, phrases: book.phrases.map(savedPhrase) },
       };
     },
+    merge: (base, ours, theirs) => mergePhraseStates(base, ours, theirs, {
+      savedPhrase, savedNote, protectedIds, context, now: Date.now(),
+    }),
+    shared: sharedPhraseData,
     migrations: { 0: (data) => data },
   });
 }
@@ -107,7 +129,7 @@ function askBrowserToKeepStorage(): void {
   }
 }
 
-export interface PhrasePersistenceOptions extends BindingOptions {
+export interface PhrasePersistenceOptions extends BindingOptions<PersistedPhraseState>, PhraseCodecOptions {
   /** The UTF-16 size of every payload the save path encodes. */
   onMeasure?: (bytes: number) => void;
   /**
@@ -122,7 +144,7 @@ export function createPhrasePersistence(
   context: () => PhraseContext,
   options: PhrasePersistenceOptions = {},
 ) {
-  const { onMeasure, onStored, storage: base = persistentStorage, ...binding } = options;
+  const { onMeasure, onStored, protectedIds, storage: base = persistentStorage, ...binding } = options;
   let asked = false;
   // Whether the current load or save has already told onStored its outcome.
   let told = false;
@@ -148,8 +170,12 @@ export function createPhrasePersistence(
   // Whoever listens for the outcome shows it: the shelf notice carries a
   // phrase failure, so the shared storage Sticker does not repeat it.
   const release = onStored ? claimSaveFailureNotice("phrases") : () => {};
-  const persisted = createPersistedBinding(phraseCodec(defaults, context), {
+  const persisted = createPersistedBinding(phraseCodec(defaults, context, { protectedIds }), {
     storage,
+    // A one-off save still writes the merged state. Anything that saves again
+    // from its own memory (the store) must pass adopt, or its next save would
+    // release what the merge brought in.
+    adopt: () => {},
     backup: (...args) => writePhraseBackup(...args).catch((error: unknown) => {
       report(false);
       throw error;
@@ -185,6 +211,8 @@ export function createPhrasePersistence(
     told = false;
     const saved = save(state);
     if (!saved && !told && refusing()) report(false);
+    // Nothing to write: storage already holds this shelf (another tab wrote it).
+    if (saved && !told) report(true);
     return saved;
   };
   const unregister = persisted.unregister;

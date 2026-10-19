@@ -55,6 +55,21 @@ export interface PersistenceCodec<T> {
   migrations: Readonly<Record<number, (data: unknown) => unknown>>;
   /** Version-labelled migration backups to keep; defaults to BACKUP_RETENTION. */
   backupRetention?: number;
+  /**
+   * Reconcile with a payload another tab saved (docs/persistence-codec.md,
+   * "Two tabs"). `base` is the current-version data this binding last agreed
+   * with storage on (null when it never did), `ours` the state in memory,
+   * `theirs` the stored data, lifted to the current version. Returns the state
+   * to keep and write. Throws when `theirs` is unusable as a whole. Without
+   * it the store is last-write-wins, which suits a setting.
+   */
+  merge?: (base: unknown, ours: T, theirs: unknown) => T;
+  /**
+   * The part of the data every tab shares (per-tab parts, such as the open
+   * take, left out). A save that would change none of it is skipped, so two
+   * tabs never trade writes that differ only per tab. Identity if absent.
+   */
+  shared?: (data: unknown) => unknown;
 }
 
 /** Check a codec's shape once, where it is defined. */
@@ -118,28 +133,60 @@ function storedVersion(parsed: unknown): { version: number; data: unknown } | { 
   return { version, data: record.data };
 }
 
-/** Read a stored string. Pure: never touches storage, never throws. */
-export function readPayload<T>(codec: PersistenceCodec<T>, raw: string | null): ReadOutcome<T> {
-  if (raw === null) return { kind: "empty", state: codec.defaults() };
+type Lifted =
+  | { kind: "lifted"; from: number; data: unknown }
+  | { kind: "newer"; found: number }
+  | { kind: "unreadable"; from: number | null; error: unknown };
+
+/** Parse a stored string and migrate its data to the current version, without decoding. */
+function liftPayload(codec: PersistenceCodec<unknown>, raw: string): Lifted {
   let from: number | null = null;
   try {
     const stored = storedVersion(JSON.parse(raw));
     if ("malformed" in stored) throw new Error(`Malformed ${VERSION_FIELD} envelope`);
     from = stored.version;
-    if (from > codec.version) return { kind: "newer", state: codec.defaults(), found: from };
+    if (from > codec.version) return { kind: "newer", found: from };
     let data = stored.data;
     for (let version = from; version < codec.version; version += 1) {
       const step = codec.migrations[version];
       if (!step) throw new Error(`No migration from version ${version}`);
       data = step(data);
     }
-    const state = codec.decode(data);
-    return from === codec.version
-      ? { kind: "current", state }
-      : { kind: "migrated", state, from };
+    return { kind: "lifted", from, data };
   } catch (error) {
-    return { kind: "unreadable", state: codec.defaults(), from, error };
+    return { kind: "unreadable", from, error };
   }
+}
+
+/** Read a stored string. Pure: never touches storage, never throws. */
+export function readPayload<T>(codec: PersistenceCodec<T>, raw: string | null): ReadOutcome<T> {
+  if (raw === null) return { kind: "empty", state: codec.defaults() };
+  const lifted = liftPayload(codec as PersistenceCodec<unknown>, raw);
+  if (lifted.kind === "newer") return { kind: "newer", state: codec.defaults(), found: lifted.found };
+  if (lifted.kind === "unreadable") return { kind: "unreadable", state: codec.defaults(), from: lifted.from, error: lifted.error };
+  try {
+    const state = codec.decode(lifted.data);
+    return lifted.from === codec.version
+      ? { kind: "current", state }
+      : { kind: "migrated", state, from: lifted.from };
+  } catch (error) {
+    return { kind: "unreadable", state: codec.defaults(), from: lifted.from, error };
+  }
+}
+
+/** JSON equality: a property holding undefined counts as absent, as JSON drops it. */
+export function sameJson(left: unknown, right: unknown): boolean {
+  if (left === right) return true;
+  if (typeof left !== "object" || typeof right !== "object" || left === null || right === null) return false;
+  if (Array.isArray(left) || Array.isArray(right)) {
+    if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) return false;
+    return left.every((value, index) => sameJson(value, right[index]));
+  }
+  const l = left as Record<string, unknown>;
+  const r = right as Record<string, unknown>;
+  for (const key of Object.keys(l)) if (!sameJson(l[key], r[key])) return false;
+  for (const key of Object.keys(r)) if (!(key in l) && r[key] !== undefined) return false;
+  return true;
 }
 
 // ─── Backups ────────────────────────────────────────────────────────────────
@@ -274,15 +321,32 @@ export interface PersistedBinding<T> {
   unregister(): void;
   /** Wait for an asynchronous backup and its queued save, if any. */
   settled(): Promise<void>;
+  /**
+   * For a codec with `merge`: reconcile with whatever another tab stored, now.
+   * Returns the merged state (also handed to `adopt`), or null when there was
+   * nothing to take in or the stored bytes must wait for the save path (a
+   * hold, an older format that needs its backup first, unreadable bytes).
+   */
+  sync(current: T): T | null;
+  /**
+   * Call `sync` on every `storage` event for this key. Returns the unsubscribe.
+   * `current` reads the state in memory at the time of the event.
+   */
+  listen(current: () => T, target?: EventTarget): () => void;
 }
 
-export interface BindingOptions {
+export interface BindingOptions<T = unknown> {
   storage?: SafeStorage;
   now?: () => number;
   /** An alternate backup destination. Resolves only after the copy is durable. */
   backup?: (key: string, label: string, raw: string, time: number, retention: number) => Promise<void>;
   /** Refuse an encoded payload before writing; the caller reports the reason. */
   accept?: (encoded: string) => boolean;
+  /**
+   * For a codec with `merge`: take a merged state into memory. Required for
+   * such a codec, or the next save would write over what was merged in.
+   */
+  adopt?: (state: T) => void;
 }
 
 // Live bindings by key, so a restore can stop the running store from
@@ -297,10 +361,11 @@ export function bindingFor(key: string): PersistedBinding<unknown> | undefined {
 
 export function createPersistedBinding<T>(
   codecDefinition: PersistenceCodec<T>,
-  { storage = persistentStorage, now = () => Date.now(), backup, accept }: BindingOptions = {},
+  { storage = persistentStorage, now = () => Date.now(), backup, accept, adopt }: BindingOptions<T> = {},
 ): PersistedBinding<T> {
   const codec = defineCodec(codecDefinition);
   const retention = codec.backupRetention ?? BACKUP_RETENTION;
+  if (codec.merge && !adopt) throw new Error(`Codec "${codec.key}": a merging codec needs adopt`);
   let outcome: ReadOutcome<T>["kind"] | null = null;
   let hold: WriteHold | null = null;
   let pendingBackup: Promise<void> | null = null;
@@ -309,6 +374,19 @@ export function createPersistedBinding<T>(
   // The last payload `prepare` handed out. Stored bytes equal to it are bytes
   // this binding produced: current, readable, nothing to classify or back up.
   let lastEncoded: string | null = null;
+  // The stored bytes this binding last agreed with: loaded, written, or merged
+  // in. A merge's base. Kept as the string and parsed when needed, so nothing
+  // in memory can alias (and silently edit) the base.
+  let synced: string | null = null;
+  const lift = (raw: string) => liftPayload(codec as PersistenceCodec<unknown>, raw);
+  const baseData = (): unknown => {
+    if (synced === null) return null;
+    const lifted = lift(synced);
+    return lifted.kind === "lifted" ? lifted.data : null;
+  };
+  /** Stored bytes another tab wrote since this binding last agreed with storage. */
+  const isForeign = (raw: string | null): raw is string =>
+    raw !== null && raw !== lastEncoded && raw !== synced;
 
   /** Try to clear the hold. True when writes may proceed. */
   const releaseHold = (): boolean => {
@@ -365,7 +443,20 @@ export function createPersistedBinding<T>(
     }
   };
 
-  const prepare = (state: T): string | null => {
+  /** Merge another tab's lifted data into `ours`; null (logged) when theirs is unusable. */
+  const mergeIn = (ours: T, theirs: unknown): { state: T } | null => {
+    try {
+      return { state: codec.merge!(baseData(), ours, theirs) };
+    } catch (error) {
+      console.error(`Saved "${codec.key}" from another tab could not be merged.`, error);
+      return null;
+    }
+  };
+
+  /** `own`: the stored bytes are this binding's last write. */
+  interface Prepared { encoded: string; stored: string | null; own: boolean }
+
+  const prepareWrite = (state: T): Prepared | null => {
     if (backup) queuedState = { state };
     // Another tab may have replaced the bytes since hydration. Classify them
     // again so legacy and unreadable payloads get the same backup protection.
@@ -378,29 +469,77 @@ export function createPersistedBinding<T>(
       return null;
     }
     if (!releaseHold()) return null;
-    if (stored.value === null || stored.value !== lastEncoded) {
-      const read = readPayload(codec, stored.value);
+    const raw = stored.value;
+    const own = raw !== null && raw === lastEncoded;
+    if (own) synced = raw;
+    let merged: { state: T; raw: string } | null = null;
+    if (codec.merge) {
+      // Bytes another tab wrote are merged in, never written over blindly.
+      // An older format is backed up first (the hold below); empty storage
+      // (cleared) is not a delete of everything, so this tab writes its own.
+      if (isForeign(raw)) {
+        const lifted = lift(raw);
+        if (lifted.kind === "newer") {
+          hold = { reason: "newer", found: lifted.found };
+        } else {
+          const result = lifted.kind === "lifted" ? mergeIn(state, lifted.data) : null;
+          if (!result || lifted.kind !== "lifted" || lifted.from !== codec.version) {
+            hold = {
+              reason: "needs-backup", raw,
+              label: result && lifted.kind === "lifted" ? `v${lifted.from}` : "unreadable",
+            };
+          }
+          if (result) merged = { state: result.state, raw };
+        }
+      }
+    } else if (raw === null || raw !== lastEncoded) {
+      const read = readPayload(codec, raw);
       if (read.kind === "newer") {
         hold = { reason: "newer", found: read.found };
       } else if (read.kind === "migrated" || read.kind === "unreadable") {
         hold = {
-          reason: "needs-backup", raw: stored.value as string,
+          reason: "needs-backup", raw: raw as string,
           label: read.kind === "migrated" ? `v${read.from}` : "unreadable",
         };
       }
     }
     if (!releaseHold()) return null;
+    if (merged) {
+      // Memory takes in the other tab's work whether or not this write lands.
+      synced = merged.raw;
+      state = merged.state;
+      adopt!(state);
+    }
     try {
       const encoded = encodePayload(codec, state);
       queuedState = null;
       if (accept && !accept(encoded)) return null;
       lastEncoded = encoded;
-      return encoded;
+      return { encoded, stored: raw, own };
     } catch (error) {
       console.error(`Failed to encode "${codec.key}" for saving:`, error);
       reportSaveFailure("unknown", codec.key);
       return null;
     }
+  };
+
+  const prepare = (state: T): string | null => prepareWrite(state)?.encoded ?? null;
+
+  /**
+   * The stored bytes, which this binding agrees with, already hold everything
+   * every tab shares: writing would only trade per-tab parts back and forth.
+   */
+  const changesNothingShared = ({ encoded, stored, own }: Prepared): boolean => {
+    if (!codec.merge || stored === null || stored !== synced) return false;
+    if (stored === encoded) return true;
+    // Over its own last write a change is this tab's to save; only bytes
+    // another tab wrote (loaded or merged in) are worth comparing.
+    if (own) return false;
+    const ours = lift(encoded);
+    const theirs = lift(stored);
+    if (ours.kind !== "lifted" || theirs.kind !== "lifted" || theirs.from !== codec.version) return false;
+    const shared = codec.shared ?? ((data: unknown) => data);
+    return sameJson(shared(ours.data), shared(theirs.data));
   };
 
   const binding: PersistedBinding<T> = {
@@ -439,6 +578,8 @@ export function createPersistedBinding<T>(
       const read = readPayload(codec, raw);
       outcome = read.kind;
       hold = null;
+      // What this page now agrees with; a migration's base is the old bytes, lifted.
+      synced = read.kind === "empty" || read.kind === "current" || read.kind === "migrated" ? raw : null;
       switch (read.kind) {
         case "empty":
         case "current":
@@ -461,14 +602,46 @@ export function createPersistedBinding<T>(
           // Eager rewrite: back up the prior bytes, then store the migrated
           // format. Without a backup the stored payload stays as it was.
           const encoded = prepare(read.state);
-          if (encoded !== null) storage.write(codec.key, encoded);
+          if (encoded !== null && storage.write(codec.key, encoded)) synced = encoded;
           return read.state;
         }
       }
     },
     save(state) {
-      const encoded = prepare(state);
-      return encoded !== null && storage.write(codec.key, encoded);
+      const prepared = prepareWrite(state);
+      if (!prepared) return false;
+      if (changesNothingShared(prepared)) return true;
+      if (!storage.write(codec.key, prepared.encoded)) return false;
+      synced = prepared.encoded;
+      return true;
+    },
+    sync(current) {
+      if (!codec.merge || hold) return null;
+      const stored = storage.read(codec.key);
+      if (!stored.ok || !isForeign(stored.value)) return null;
+      const lifted = lift(stored.value);
+      if (lifted.kind === "newer") {
+        // A newer app took over the payload: say so now, not at the next save.
+        hold = { reason: "newer", found: lifted.found };
+        reportSaveFailure("newer", codec.key);
+        return null;
+      }
+      // An older format or unreadable bytes wait for the save path, which backs them up first.
+      if (lifted.kind !== "lifted" || lifted.from !== codec.version) return null;
+      const merged = mergeIn(current, lifted.data);
+      if (!merged) return null;
+      synced = stored.value;
+      adopt!(merged.state);
+      return merged.state;
+    },
+    listen(current, target = globalThis) {
+      const onStorage = (event: Event) => {
+        const { key } = event as StorageEvent;
+        // A null key is a clear(); the read in sync decides.
+        if (key === codec.key || key === null) binding.sync(current());
+      };
+      target.addEventListener("storage", onStorage);
+      return () => target.removeEventListener("storage", onStorage);
     },
   };
 

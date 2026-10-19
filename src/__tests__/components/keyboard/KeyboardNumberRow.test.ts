@@ -2,13 +2,16 @@ import { defineComponent, nextTick } from "vue";
 import { mount } from "@vue/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createPinia, disposePinia, setActivePinia, type Pinia } from "pinia";
-import Keyboard from "@/components/compounds/Keyboard.vue";
+import { KeyboardPerformanceHost } from "@/__tests__/helpers/keyboardPerformanceHost";
 import { HARMONY_ALTERATIONS, buildHarmony } from "@/domain/harmony";
+import { useHarmonyAlterationStore } from "@/stores/harmonyAlteration";
 
-// The real Keyboard and the real number-row handler run together; only the
-// stores (the audio boundary) and the key art are stand-ins. The behaviour
-// under test: pressing a number-row key sounds the same pitches as pressing
-// the on-screen chord key for that degree, for every Joystick alteration.
+// The real Keyboard container and view, the real number-row handler, the real
+// performer and the real Joystick alteration store run together; only the
+// other stores (the audio boundary) and the key art are stand-ins. The
+// behaviour under test: pressing a number-row key sounds the same pitches as
+// pressing the on-screen chord key for that degree, for every Joystick
+// alteration, because both read it from one store.
 const mocks = vi.hoisted(() => ({
   keyboardStore: {
     keyboardConfig: {
@@ -111,8 +114,8 @@ describe("number-row chords follow the Joystick alteration", () => {
     it(`sounds the on-screen chord pitches for every degree in ${key} ${mode} under "${alteration}"`, async () => {
       mocks.musicStore.currentKey = key;
       mocks.musicStore.currentMode = mode;
-      const wrapper = mount(Keyboard, {
-        props: { harmonyAlteration: alteration },
+      useHarmonyAlterationStore().latch(alteration);
+      const wrapper = mount(KeyboardPerformanceHost, {
         global: { stubs: { Key: KeyStub, ChordKey: ChordKeyStub } },
       });
       const chordKeys = wrapper.findAllComponents(ChordKeyStub);
@@ -155,15 +158,14 @@ describe("number-row chords follow the Joystick alteration", () => {
   });
 
   it("re-reads the alteration when the Joystick changes it", async () => {
-    const wrapper = mount(Keyboard, {
-      props: { harmonyAlteration: "auto" },
+    const wrapper = mount(KeyboardPerformanceHost, {
       global: { stubs: { Key: KeyStub, ChordKey: ChordKeyStub } },
     });
     await pressNumberRow("Digit1");
     const auto = attackedPitches();
 
     mocks.musicStore.attackExactPitch.mockClear();
-    await wrapper.setProps({ harmonyAlteration: "dark" });
+    useHarmonyAlterationStore().setEffective("dark");
     await pressNumberRow("Digit1");
 
     expect(attackedPitches()).not.toEqual(auto);

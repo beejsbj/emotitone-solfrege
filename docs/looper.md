@@ -161,7 +161,13 @@ These are design-system units and go through that process, not this document:
 - **Looper** (a Stage part, its own config tab): the turning light a running
   loop casts, with Strength, Definition and Spread. Haze at low Definition,
   comets curving along their orbits at high.
-- **Mic** rides the drawer's lip on the right; the left edge is the dials'.
+- **Mic** keeps its place at the top centre whether or not anything plays
+  (Burooj, 2026-10-20; it used to ride the drawer's lip while dials showed).
+  The left edge is the dials'.
+- **Notices** (the Looper's error, the shelf's storage notice) are Edge
+  Notices: one right-aligned line of type on the Stage's right edge, with a
+  Brass lamp and no box or close key, swept off the right edge to dismiss:
+  the dial's flick, mirrored (Burooj, 2026-10-20; the look BJS-578 asked for).
 - **Pattern strip dial**: for a playing pattern it shows what its loop dial
   shows (same notes, length and place) and turns with it; otherwise it rests.
   It will take the offset turn the small dial gave up (a follow-up).
@@ -228,6 +234,17 @@ The questions this section held are settled:
   volume. See Surfaces.
 - **The latch's closing bar shows on the beat dots** ("the beat indicator
   could visually show this").
+
+## Decided (Burooj, 2026-10-20, from the preview)
+
+- **Hold Play must latch on the phone.** Play owns its touch while held (no
+  pan, callout or selection can cancel the hold), and the click that ends a
+  hold is never a tap, however late it arrives.
+- **The Code Strip bar has no Open in Strudel**; the pattern strip keeps it.
+- **Notices are text on the right edge**, swiped right to dismiss (Surfaces).
+- **The unwound reel sits above everything**: the deck lifts over the mic and
+  the dials while the reel is scrolled or held open.
+- **The mic stays where it is** while loops play.
 
 ## Open
 

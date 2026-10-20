@@ -1,6 +1,8 @@
 <template>
   <Drawer
     class="performance-deck-drawer"
+    :class="{ 'performance-deck-drawer--reel-open': patternReelGuardsHandle }"
+    :data-reel-open="patternReelGuardsHandle || undefined"
     data-stage-occlusion-host
     :model-value="drawerOpen"
     fixed
@@ -500,6 +502,14 @@ defineExpose({ openDrawer, closeDrawer, toggleDrawer, store });
 
 .performance-deck-drawer :deep(.drawer__handle) {
   z-index: 2;
+}
+
+/* While the reel is unwound (scrolled, held open or settling), the whole deck
+   lifts over the mic and the top drawers, so the reel sits above everything.
+   Inside the deck the reel's own layer (3, the PatternReel's guard) already
+   clears the handle (2), the dials (3, earlier in the slot) and the bars. */
+.performance-deck-drawer--reel-open {
+  z-index: var(--z-reel-open);
 }
 
 .performance-deck__instrument-surface,

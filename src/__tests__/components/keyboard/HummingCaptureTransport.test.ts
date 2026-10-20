@@ -29,7 +29,7 @@ describe("HummingCaptureTransport.vue", () => {
     await capture.trigger("click");
     expect(wrapper.emitted("toggle")).toHaveLength(1);
     expect(transportSource).toMatch(
-      /\.humming-capture-transport\s*{[^}]*position:\s*fixed;[^}]*z-index:\s*110;[^}]*top:[^}]*left:\s*50%;/,
+      /\.humming-capture-transport\s*{[^}]*position:\s*fixed;[^}]*z-index:\s*var\(--z-mic\);[^}]*top:[^}]*left:\s*50%;/,
     );
     expect(transportSource).toMatch(
       /\.humming-capture-transport \.humming-capture-transport__primary\s*{[^}]*--button-size:\s*var\(--humming-primary-size\);/,

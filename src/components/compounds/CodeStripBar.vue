@@ -15,6 +15,7 @@
           :pressed="playLatched"
           :accessible-name="playName"
           :title="playName"
+          :style="PLAY_OWNS_TOUCH"
           @pointerdown="playDown"
           @pointerup="playLift"
           @pointercancel="playLift"
@@ -133,7 +134,20 @@ const playName = computed(() => {
 
 // Holding Play latches the Looper; the click that ends a hold is swallowed.
 const PLAY_HOLD_MS = 450;
+/*
+ * A hold is a long, still touch, and a finger on glass drifts. Left to the
+ * browser (the Button's `touch-action: manipulation`), a drift past its slop
+ * becomes a pan: it cancels the pointer before the hold lands, and a long
+ * press opens the callout or a text selection. Play keeps the touch.
+ */
+const PLAY_OWNS_TOUCH = {
+  touchAction: "none",
+  userSelect: "none",
+  WebkitUserSelect: "none",
+  WebkitTouchCallout: "none",
+} as const;
 let playHoldTimer: ReturnType<typeof setTimeout> | undefined;
+/** This press reached the hold: the click that ends it is not a tap. */
 let playHeld = false;
 function playDown() {
   if (props.playDisabled) return;
@@ -148,13 +162,16 @@ function playDown() {
 // the hold; only lifting does.
 function playLift() {
   clearTimeout(playHoldTimer);
-  // A lift off the key sends no click: do not swallow the next one.
-  setTimeout(() => { playHeld = false; }, 80);
 }
-function playClick() {
+function playClick(event: MouseEvent) {
   clearTimeout(playHoldTimer);
-  if (playHeld) playHeld = false;
-  else emit("togglePlayback");
+  // However late the click that ends a hold arrives (a busy phone can deliver
+  // it well after the lift), it is not a tap. The next press clears the mark,
+  // so a hold that ends with no click never swallows a later tap; a keyboard
+  // click (detail 0) has no press and is always a tap.
+  const endsHold = playHeld && event.detail !== 0;
+  playHeld = false;
+  if (!endsHold) emit("togglePlayback");
 }
 onBeforeUnmount(() => clearTimeout(playHoldTimer));
 

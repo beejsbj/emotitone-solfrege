@@ -796,7 +796,8 @@ describe("Play is the loop on the worklet transport", () => {
       element.dispatchEvent(new PointerEvent("pointerdown", options));
       await wait(holdMs);
       element.dispatchEvent(new PointerEvent("pointerup", options));
-      (element as HTMLElement).click();
+      // A pointer's click counts its taps (detail 1); a keyboard's is 0.
+      element.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, detail: 1 }));
       await flush();
     }
 

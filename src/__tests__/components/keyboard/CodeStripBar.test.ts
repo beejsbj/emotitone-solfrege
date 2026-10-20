@@ -126,7 +126,7 @@ describe("CodeStripBar.vue", () => {
       await play.trigger("pointerdown");
       vi.advanceTimersByTime(500);
       await play.trigger("pointerup");
-      await play.trigger("click");
+      await play.trigger("click", { detail: 1 });
       expect(wrapper.emitted("playHold")).toHaveLength(1);
       expect(wrapper.emitted("togglePlayback")).toBeUndefined();
 
@@ -135,8 +135,58 @@ describe("CodeStripBar.vue", () => {
       await play.trigger("pointerdown");
       vi.advanceTimersByTime(120);
       await play.trigger("pointerup");
-      await play.trigger("click");
+      await play.trigger("click", { detail: 1 });
       expect(wrapper.emitted("togglePlayback")).toHaveLength(1);
+      expect(wrapper.emitted("playHold")).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps the touch a hold needs: no pan, callout or selection can take it from Play", () => {
+    wrapper = render();
+    const play = wrapper.get<HTMLButtonElement>('button[aria-label="Play"]');
+
+    // A drifting finger under the Button's own `manipulation` becomes a pan,
+    // and the browser cancels the pointer before the hold lands.
+    expect(play.element.style.touchAction).toBe("none");
+    expect(play.element.style.userSelect).toBe("none");
+  });
+
+  it("swallows the click that ends a hold however late a busy phone delivers it", async () => {
+    vi.useFakeTimers();
+    try {
+      wrapper = render();
+      const play = wrapper.get('button[aria-label="Play"]');
+      await play.trigger("pointerdown");
+      vi.advanceTimersByTime(500);
+      await play.trigger("pointerup");
+      // The click lands long after the lift: still the end of the hold, not a tap.
+      vi.advanceTimersByTime(250);
+      await play.trigger("click", { detail: 1 });
+      expect(wrapper.emitted("playHold")).toHaveLength(1);
+      expect(wrapper.emitted("togglePlayback")).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("never swallows a tap after a hold that ended with no click", async () => {
+    vi.useFakeTimers();
+    try {
+      wrapper = render();
+      const play = wrapper.get('button[aria-label="Play"]');
+      // A long press that the platform ends without a click (Android does).
+      await play.trigger("pointerdown");
+      vi.advanceTimersByTime(500);
+      await play.trigger("pointerup");
+      vi.advanceTimersByTime(1000);
+      // The next tap plays, and so does a keyboard Enter.
+      await play.trigger("pointerdown");
+      await play.trigger("pointerup");
+      await play.trigger("click", { detail: 1 });
+      await play.trigger("click", { detail: 0 });
+      expect(wrapper.emitted("togglePlayback")).toHaveLength(2);
       expect(wrapper.emitted("playHold")).toHaveLength(1);
     } finally {
       vi.useRealTimers();

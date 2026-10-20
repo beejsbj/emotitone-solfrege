@@ -2,7 +2,7 @@
   <AnatomyDisplay
     title="Code Strip &middot; Notation Unique"
     :features="features"
-    caption="CodeStrip is the HighlightStrip: the app's own read-only view of the pattern code, read as a Stave. One hairline staff runs through it and Notes, Chords and Rests sit on it. While the pattern plays, each note lights from the note events that name it and the strip follows; Open in Strudel hands the code to strudel.cc. Duration stems count each event's time out as it sounds; a rest is a slim gap in the staff that fills with Ivory."
+    caption="CodeStrip is the HighlightStrip: the app's own read-only view of the pattern code, read as a Stave. One hairline staff runs through it and Notes, Chords and Rests sit on it. While the pattern plays, each note lights from the note events that name it and the strip follows. It has no keys of its own: Open in Strudel lives on the pattern strip. Duration stems count each event's time out as it sounds; a rest is a slim gap in the staff that fills with Ivory."
   >
     <template #hero>
       <CodeStrip :tokens="animatedTokens" />

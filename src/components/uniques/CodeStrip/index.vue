@@ -405,7 +405,6 @@ onBeforeUnmount(() => {
     <HighlightStrip
       class="code-strip__view"
       :tokens="presentationTokens"
-      :code="visibleCode"
       :playing="isControlled ? false : stripPlaying || followsLooper"
       :listening="!isControlled"
       :density="density"

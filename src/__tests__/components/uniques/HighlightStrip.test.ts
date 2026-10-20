@@ -4,7 +4,6 @@ import HighlightStrip from "@/components/uniques/CodeStrip/HighlightStrip.vue";
 import type { CodeStripToken } from "@/components/uniques/CodeStrip/types";
 import { staticNoteColorResolver } from "@/components/primatives/noteColorContext";
 import type { NotationNoteEventDetail } from "@/types/notation";
-import { strudelUrl } from "@/services/strudelLink";
 
 const tokens: CodeStripToken[] = [
   { type: "note", noteId: "do", note: "do", text: "Do", rawPitch: "C4", scaleIndex: 0, duration: "@0.25" },
@@ -421,24 +420,12 @@ describe("HighlightStrip", () => {
     expect(fill(wrapper, 1)).toBe(0);
   });
 
-  it("offers Open in Strudel as a key that opens the code it shows in a new tab", async () => {
-    const code = '`< C4@0.25 ~@0.25 E4@0.5 >`.as("note").sound("sine")';
-    const open = vi.spyOn(window, "open").mockReturnValue(null);
-    const wrapper = mountStrip({ code });
-    const key = wrapper.get('button[aria-label="Open in Strudel"]');
-
-    // The design law's Button primitive, with its touch floor.
-    expect(key.classes()).toEqual(expect.arrayContaining(["paper-button", "touch-floor"]));
-    await key.trigger("click");
-
-    expect(open).toHaveBeenCalledWith(strudelUrl(code), "_blank", "noopener,noreferrer");
-    expect(wrapper.find("a").exists()).toBe(false);
-  });
-
-  it("offers nothing to open while the strip is empty", () => {
-    const wrapper = mountStrip({ tokens: [], code: "// Record a pattern" });
+  it("has no action keys of its own: Open in Strudel lives on the pattern strip", () => {
+    const wrapper = mountStrip({});
 
     expect(wrapper.find('[aria-label="Open in Strudel"]').exists()).toBe(false);
+    expect(wrapper.find("button").exists()).toBe(false);
+    expect(wrapper.find("a").exists()).toBe(false);
   });
 
   it("lights every stem of a played note whose duration is the implicit base 1", () => {

@@ -1,9 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
-import { ExternalLink } from "lucide-vue-next";
-import Button from "@/components/primatives/Button.vue";
 import type { HeardClock } from "@/services/heardClock";
-import { strudelUrl } from "@/services/strudelLink";
 import type { NoteColorResolver } from "@/components/primatives/noteColorContext";
 import HighlightStripEvent from "./HighlightStripEvent.vue";
 import { useNotationHighlight, useReducedMotion } from "./highlight";
@@ -28,8 +25,6 @@ type StripEvent = CodeStripNoteToken | CodeStripChordToken | Extract<CodeStripTo
 const props = withDefaults(
   defineProps<{
     tokens: CodeStripToken[];
-    /** The code the strip shows, handed to strudel.cc by Open in Strudel. */
-    code?: string;
     /** The pattern transport is playing: unplayed events read empty. */
     playing?: boolean;
     /** Light events from note events (production) instead of token progress. */
@@ -57,7 +52,6 @@ const props = withDefaults(
     memberId?: string;
   }>(),
   {
-    code: undefined,
     playing: false,
     listening: false,
     density: "default",
@@ -86,14 +80,6 @@ const reducedMotion = useReducedMotion();
 const events = computed(() => props.tokens.filter(isStripEvent));
 const eventNoteIds = computed(() => events.value.map(noteIdsOf));
 const isEmpty = computed(() => events.value.length === 0);
-const openHref = computed(() =>
-  !isEmpty.value && props.code?.trim() ? strudelUrl(props.code) : undefined);
-
-/** Hand the code to strudel.cc in a new tab that cannot reach back to this one. */
-function openInStrudel() {
-  if (openHref.value) window.open(openHref.value, "_blank", "noopener,noreferrer");
-}
-
 const eventUnits = computed(() => events.value.map((token) => durationUnits(token.duration)));
 
 const highlight = useNotationHighlight({
@@ -375,17 +361,6 @@ function clamp(value: number) {
         </template>
       </div>
     </div>
-    <Button
-      v-if="openHref"
-      class="highlight-strip__open"
-      size="sm"
-      tone="ink"
-      accessible-name="Open in Strudel"
-      title="Open in Strudel"
-      @click="openInStrudel"
-    >
-      <ExternalLink />
-    </Button>
   </div>
 </template>
 
@@ -497,13 +472,6 @@ function clamp(value: number) {
   text-align: center;
 }
 
-/* Open in Strudel: a small Ink key at the end of the line. Its 44px touch
-   floor stays inside the strip, never reaching toward its neighbours. */
-.highlight-strip__open {
-  align-self: center;
-  margin-inline: var(--s-2) calc(var(--hit-gap-sm) / 2);
-}
-
 @media (prefers-reduced-motion: reduce) {
   .highlight-strip {
     transition: none;
@@ -513,10 +481,6 @@ function clamp(value: number) {
 @media (forced-colors: active) {
   .highlight-strip:not(.highlight-strip--empty) .highlight-strip__line {
     background: none;
-  }
-
-  .highlight-strip__open {
-    color: LinkText;
   }
 }
 </style>

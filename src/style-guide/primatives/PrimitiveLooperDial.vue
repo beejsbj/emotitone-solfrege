@@ -2,7 +2,7 @@
   <AnatomyDisplay
     title="Looper Dial &middot; One Playing Pattern"
     :features="features"
-    caption="The Looper Dial is one playing pattern in the Looper, and it is the control itself: no keycap. Its Loop Dial's disc turns under a fixed brass hand, so the note at twelve is the one sounding. Tap mutes at once, double-tap brings the pattern to the desk, hold solos it while held, and a fast flick off the left edge removes it (Burooj's gesture map, 2026-10-19). The dials climb the left edge with Stop All on top; the mic moves to the Drawer's lip. Proposed in BJS-493 (from the #132 prototype, as #142 carried it), pending Burooj's acceptance."
+    caption="The Looper Dial is one playing pattern in the Looper, and it is the control itself: no keycap. Its Loop Dial's disc turns under a fixed brass hand, so the note at twelve is the one sounding. Tap mutes at once, double-tap brings the pattern to the desk, hold solos it while held, and a fast flick off the left edge removes it (Burooj's gesture map, 2026-10-19). The dials climb the left edge with Stop All on top; the mic keeps its place at the top. The flick is shared with the Edge Notice, which is swept off the right edge. Proposed in BJS-493 (from the #132 prototype, as #142 carried it), pending Burooj's acceptance."
   >
     <template #hero>
       <div class="looper-dial-specimen__column">

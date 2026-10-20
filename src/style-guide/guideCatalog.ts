@@ -58,6 +58,7 @@ export const GUIDE_LAYERS: GuideLayer[] = [
       { id: "control-bar", name: "Control Bar", density: "short", specimen: () => import("./compounds/CompoundControlBar.vue") },
       { id: "pattern-strip", name: "PatternStrip", density: "short", specimen: () => import("./compounds/CompoundPatternStrip.vue") },
       { id: "pattern-reel", name: "PatternReel", density: "detailed", specimen: () => import("./compounds/CompoundPatternReel.vue"), focusedHref: "/style-guide/pattern-reel" },
+      { id: "edge-notice", name: "Edge Notice", density: "short", specimen: () => import("./compounds/CompoundEdgeNotice.vue") },
     ],
   },
   {

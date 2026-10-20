@@ -33,6 +33,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from "vue";
 import LoopDial, { type LoopDialSegment } from "./LoopDial.vue";
+import { trackFlick, type FlickTracker } from "./flick";
 import { triggerUIHaptic } from "@/utils/hapticFeedback";
 
 /*
@@ -87,15 +88,8 @@ const DOUBLE_TAP_MS = 320;
 const HOLD_MS = 550;
 // The Knob's 5px tap threshold: past it the press is no longer a tap or a hold.
 const TAP_THRESHOLD_PX = 5;
-// A flick: leftward, mostly sideways, fast at the end, and far enough. The
-// dials sit at the left edge, so "far enough" is measured against the room
-// the finger has: 48px, or all the way to the glass's edge (within 4px of
-// x 0), whichever comes first. A press near the edge has little room, so the
-// speed and the sideways split are what keep a tap or a slow drag out.
-const FLICK_PX = 48;
-const EDGE_PX = 4;
-const FLICK_SPEED_PX_PER_MS = 0.5;
-const FLICK_WINDOW_MS = 100;
+// A flick off the left edge (./flick.ts): the dials sit at that edge, so the
+// throw counts at 48px or on reaching the glass's edge, whichever comes first.
 
 const name = computed(() => {
   const state = props.state === "solo" ? "solo" : props.state === "muted" ? "muted" : "playing";
@@ -112,8 +106,8 @@ let gesture: {
   pointerId: number; x: number; y: number;
   /** Past the tap threshold: vertical (reserved for volume) or sideways (a flick, perhaps). */
   moved: "vertical" | "sideways" | null;
-  /** Recent sideways positions, for the flick's speed at the end. */
-  samples: { t: number; x: number }[];
+  /** The throw toward the left edge, followed from the press. */
+  flick: FlickTracker;
   /** Already thrown off: the lift that follows emits nothing more. */
   flung: boolean;
 } | null = null;
@@ -125,8 +119,9 @@ const slideX = ref(0);
 function down(event: PointerEvent) {
   held = false;
   dragged = false;
-  gesture = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, moved: null,
-    samples: [{ t: performance.now(), x: event.clientX }], flung: false };
+  const start = { x: event.clientX, y: event.clientY, t: performance.now() };
+  gesture = { pointerId: event.pointerId, x: start.x, y: start.y, moved: null, flung: false,
+    flick: trackFlick("left", start, { minRoomPx: TAP_THRESHOLD_PX + 1 }) };
   try {
     (event.currentTarget as Element | null)?.setPointerCapture?.(event.pointerId);
   } catch {
@@ -155,9 +150,7 @@ function move(event: PointerEvent) {
   // Vertical movement is kept for the loop's volume (a follow-up): nothing yet.
   if (gesture.moved !== "sideways" || soloing || gesture.flung) return;
   event.preventDefault();
-  const now = performance.now();
-  gesture.samples.push({ t: now, x: event.clientX });
-  while (gesture.samples.length > 2 && now - gesture.samples[1].t > FLICK_WINDOW_MS) gesture.samples.shift();
+  gesture.flick.sample(event.clientX, performance.now());
   // Thrown off as soon as it is: a finger that reaches the glass's edge may never lift there.
   if (isFlick(event)) return fling();
   slideX.value = Math.min(0, dx);
@@ -169,14 +162,7 @@ function move(event: PointerEvent) {
  */
 function isFlick(event: PointerEvent): boolean {
   if (!gesture || gesture.moved !== "sideways" || soloing || gesture.flung) return false;
-  const dx = event.clientX - gesture.x;
-  const dy = event.clientY - gesture.y;
-  const room = Math.max(TAP_THRESHOLD_PX + 1, gesture.x - EDGE_PX);
-  if (dx > -Math.min(FLICK_PX, room) || Math.abs(dx) < Math.abs(dy) * 1.5) return false;
-  const now = performance.now();
-  const from = gesture.samples.find((sample) => now - sample.t <= FLICK_WINDOW_MS) ?? gesture.samples[gesture.samples.length - 1];
-  const elapsed = Math.max(1, now - from.t);
-  return (from.x - event.clientX) / elapsed >= FLICK_SPEED_PX_PER_MS;
+  return gesture.flick.isFlick(event.clientX, event.clientY, performance.now());
 }
 
 function fling() {

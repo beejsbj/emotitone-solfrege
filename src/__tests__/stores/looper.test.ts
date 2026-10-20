@@ -791,6 +791,22 @@ describe("Play is the loop on the worklet transport", () => {
       });
     }
 
+    /** A sideways touch from x to x2 at y 300, over `ms` (a quick sweep by default). */
+    function sweep(element: Element, x: number, x2: number, ms = 40) {
+      const at = (type: string, clientX: number) => element.dispatchEvent(new PointerEvent(type,
+        { bubbles: true, cancelable: true, pointerId: 7, pointerType: "touch", clientX, clientY: 300 }));
+      const now = vi.spyOn(performance, "now");
+      const t0 = 1_000_000;
+      now.mockReturnValue(t0);
+      at("pointerdown", x);
+      now.mockReturnValue(t0 + ms / 2);
+      at("pointermove", (x + x2) / 2);
+      now.mockReturnValue(t0 + ms);
+      at("pointermove", x2);
+      at("pointerup", x2);
+      now.mockRestore();
+    }
+
     async function press(element: Element, holdMs: number) {
       const options = { bubbles: true, pointerId: 1, pointerType: "touch", isPrimary: true };
       element.dispatchEvent(new PointerEvent("pointerdown", options));
@@ -822,11 +838,12 @@ describe("Play is the loop on the worklet transport", () => {
         expect(attacksOf(take).length).toBeGreaterThan(0);
 
         // The pattern's Looper Dial climbs the left edge (a bare dial, its disc
-        // turning), and the mic moves to the Drawer's lip while dials are there.
+        // turning). The mic keeps its place: nothing moves it while dials show.
         const dial = deck.get(`button.looper-dial[data-phrase-id="${take}"]`);
         expect(dial.find(".loop-dial--disc").exists()).toBe(true);
         expect(dial.find(".paper-button__cap").exists()).toBe(false);
-        expect(document.documentElement.dataset.looperMic).toBe("lip");
+        expect(document.documentElement.dataset.looperMic).toBeUndefined();
+        expect(document.documentElement.style.getPropertyValue("--looper-lip-top")).toBe("");
         // A tap on it mutes the member on the transport; another tap, later, restores it.
         await press(dial.element, 30);
         expect(player.getLooper().members[0]).toMatchObject({ id: take, muted: true });
@@ -855,7 +872,6 @@ describe("Play is the loop on the worklet transport", () => {
         await press(deck.get(".code-strip-bar__play").element, 40);
         expect(looper.members).toEqual([]);
         expect(player.getLooper().running).toBe(false);
-        // No dials: the mic goes back to the top centre.
         expect(document.documentElement.dataset.looperMic).toBeUndefined();
       } finally {
         deck.unmount();
@@ -1294,29 +1310,37 @@ describe("Play is the loop on the worklet transport", () => {
         await flush();
         const notice = deck.get('[data-testid="looper-error"]');
         expect(notice.get("[role=alert]").text()).toBe("Stop a loop to add Sawtooth.");
-        expect(notice.find(".looper-dials__notice-lamp").exists()).toBe(true);
+        // An Edge Notice: a lit Brass lamp and the line, with no key of its own.
+        expect(notice.find(".edge-notice__lamp").exists()).toBe(true);
+        expect(notice.find("button").exists()).toBe(false);
         expect(looper.members).toEqual([]);
-        // No dials: the mic is at the top, and the strip keeps its place.
-        expect(notice.classes()).not.toContain("looper-dials__notice--over-mic");
-        await notice.get('button[aria-label="Dismiss"]').trigger("click");
+        // Swept off the right edge, it goes, and the Looper's error with it.
+        sweep(notice.element, 330, 384);
+        await flush();
+        expect(looper.lastError).toBeNull();
         expect(deck.find('[data-testid="looper-error"]').exists()).toBe(false);
       } finally {
         deck.unmount();
       }
     });
 
-    it("while the mic rides the Drawer's lip, the notice sits above it", async () => {
+    it("while loops play the mic stays put, and a slow drag or a leftward sweep leaves the notice", async () => {
       const { looper } = setup();
       const deck = mountDeck();
       try {
         playTake(.5);
         await press(deck.get(".code-strip-bar__play").element, 40);
         await looper.settled();
-        expect(document.documentElement.dataset.looperMic).toBe("lip");
         expect(looper.members.length).toBe(1);
+        expect(document.documentElement.dataset.looperMic).toBeUndefined();
         looper.lastError = "Stop a loop to add Piano.";
         await flush();
-        expect(deck.get('[data-testid="looper-error"]').classes()).toContain("looper-dials__notice--over-mic");
+        const notice = deck.get('[data-testid="looper-error"]');
+        // A slow drag, or a sweep the wrong way, leaves it.
+        sweep(notice.element, 300, 340, 400);
+        sweep(notice.element, 330, 280);
+        await flush();
+        expect(looper.lastError).toBe("Stop a loop to add Piano.");
       } finally {
         deck.unmount();
       }

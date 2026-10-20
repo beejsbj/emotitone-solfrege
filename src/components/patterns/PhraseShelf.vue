@@ -17,13 +17,12 @@
     <!-- Floats above the deck's top edge, over the Stage. Not an occlusion
          part: a passing notice must not resize the Stage's composition. -->
     <ShelfNotice
-      v-if="phrasesStore.shelfNotice"
+      v-if="shownNotice"
       class="phrase-shelf__notice"
-      :state="phrasesStore.shelfNotice"
+      :state="shownNotice"
       :oldest-title="oldestRecent ? phraseTitle(oldestRecent) : undefined"
-      :armed="releaseArmed"
       :busy="reelBusy"
-      @release="releaseOldest"
+      @dismiss="dismissedNotice = shownNotice"
     />
   </div>
 </template>
@@ -88,23 +87,14 @@ function reelInteraction(active: boolean) {
   reelBusy.value = active;
   emit("interactionChange", active);
 }
-const releaseArmed = ref(false);
-let releaseTimer: ReturnType<typeof setTimeout> | undefined;
-function disarmRelease() {
-  clearTimeout(releaseTimer);
-  releaseArmed.value = false;
-}
-watch(() => oldestRecent.value?.id, disarmRelease);
-function releaseOldest() {
-  if (!releaseArmed.value) {
-    releaseArmed.value = true;
-    clearTimeout(releaseTimer);
-    releaseTimer = setTimeout(disarmRelease, 2500);
-    return;
-  }
-  if (oldestRecent.value) phrasesStore.releaseRecent(oldestRecent.value.id);
-  disarmRelease();
-}
+// A swipe puts the notice away until the shelf's state changes: it comes back
+// when a warning becomes a failure, or the next time the shelf fills.
+const dismissedNotice = ref<typeof phrasesStore.shelfNotice>(null);
+watch(() => phrasesStore.shelfNotice, (state) => {
+  if (state !== dismissedNotice.value) dismissedNotice.value = null;
+});
+const shownNotice = computed(() =>
+  phrasesStore.shelfNotice !== dismissedNotice.value ? phrasesStore.shelfNotice : null);
 
 const copiedId = ref<string | null>(null);
 const deleteArmedId = ref<string | null>(null);
@@ -114,7 +104,6 @@ let deleteTimer: ReturnType<typeof setTimeout> | undefined;
 const clockTimer = setInterval(() => { now.value = Date.now(); }, 30_000);
 
 onBeforeUnmount(() => {
-  clearTimeout(releaseTimer);
   clearTimeout(copyTimer);
   clearTimeout(deleteTimer);
   clearInterval(clockTimer);
@@ -434,14 +423,15 @@ function openInStrudel(id: string) {
   min-width: 0;
 }
 
-/* Anchored to the deck's top edge and lifted clear of the reel's resting
-   stack and the drawer handle's --hit-min touch, so it covers only Stage. */
+/* An Edge Notice on the right edge, anchored to the deck's top edge and
+   lifted clear of the reel's resting stack and the drawer handle's --hit-min
+   touch, so it covers only Stage. The line sizes to its words; the left edge
+   stays the dials'. */
 .phrase-shelf__notice {
   position: absolute;
   z-index: 4;
   bottom: calc(100% + var(--hit-min));
-  inset-inline: var(--s-6);
-  max-inline-size: 26rem;
-  margin-inline: auto;
+  right: var(--s-5);
+  max-inline-size: calc(100% - var(--hit-min) - var(--s-3) - var(--s-4) - var(--s-5));
 }
 </style>

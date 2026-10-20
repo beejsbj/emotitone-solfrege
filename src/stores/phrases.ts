@@ -164,8 +164,8 @@ export const usePhrasesStore = defineStore(
     };
     watch(saveFailed, guardTab, { immediate: true });
     onScopeDispose(() => guardTab(false));
-    // The shelf notice never offers or releases a phrase another part of the
-    // app still points at: the Looper's playing set (through the provider) and
+    // Release (and the notice's naming of the oldest Recent) never touches a
+    // phrase another part of the app still points at: the Looper's playing set (through the provider) and
     // every saved Loop's members (read from the book itself, so this holds
     // before the Looper store exists).
     const releaseCandidates = computed(() => {

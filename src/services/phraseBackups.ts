@@ -1,5 +1,5 @@
 import {
-  BACKUP_RETENTION, backupKeyFor, bindingFor, parseBackupKey,
+  abandonRestore, asCurrentPayload, BACKUP_RETENTION, backupKeyFor, bindingFor, markRestored, parseBackupKey,
   type BackupEntry, type RestoreResult,
 } from "@/services/persistenceCodec";
 import { persistentStorage, reportSaveFailure, reportSaveSuccess } from "@/services/safeStorage";
@@ -96,8 +96,29 @@ export async function restorePhraseBackup(backupKey: string): Promise<RestoreRes
     if (!latest.ok || latest.value !== current.value) {
       return { ok: false, message: "Shelf changed during backup; retry restore." };
     }
-    if (!persistentStorage.write(entry.of, saved.raw)) return { ok: false, message: "Could not restore shelf." };
-    bindingFor(entry.of)?.holdUntilReload();
+    // This tab stops first, then every other open tab (the stamp), then the
+    // shelf goes back: no tab can merge its own shelf back over the restore.
+    const live = bindingFor(entry.of);
+    live?.holdUntilReload();
+    const unmark = markRestored(persistentStorage, entry.of, Date.now());
+    if (!unmark) {
+      abandonRestore(entry.of, null, live);
+      return { ok: false, message: "Could not tell other tabs about the restore; nothing restored." };
+    }
+    // The live key never goes back below the current version: an older backup
+    // goes back lifted into a current envelope (its original bytes stay in
+    // IndexedDB), so a tab still running an older build keeps meeting the
+    // "newer" hold instead of saving its stale shelf over the restore.
+    const restored = live ? asCurrentPayload(live.codec, saved.raw) : saved.raw;
+    if (!persistentStorage.write(entry.of, restored)) {
+      // The shelf is unchanged: take the stamp back so no tab is left not saving.
+      const undone = abandonRestore(entry.of, unmark, live);
+      return {
+        ok: false,
+        message: `Could not restore shelf; nothing changed.${undone ? "" : " Reload every open tab to save again."}`,
+      };
+    }
+    live?.restoreLanded();
     return { ok: true, message: "Shelf restored. Reload now; saving is held until reload." };
   } catch {
     reportSaveFailure("unknown", "phrases.backup");

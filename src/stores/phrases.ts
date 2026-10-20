@@ -36,6 +36,7 @@ import {
 import { migrateLegacyPatterns } from "@/domain/phraseMigration";
 import { createPhrasePersistence, encodedPhraseBytes, shelfOverBudget } from "@/services/phrasePersistence";
 import { installPhraseBackupConsole } from "@/services/phraseBackups";
+import { createDeskClaims } from "@/services/deskClaims";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 import type { HeldNote, Phrase, PhraseBook, PhraseContext } from "@/types/phrases";
 
@@ -44,6 +45,8 @@ const STORAGE_KEY = "phrases";
 // Transport notes also carry record: false; the source keeps older senders out.
 const NON_RECORDING_EVENT_SOURCES = new Set(["pattern-playback", "strudel-playback", "live-pitch"]);
 const MAX_EXPRESSION_POINTS = 8192;
+/** Without Web Locks: another tab's take this old was left behind. */
+const ABANDONED_TAKE_MS = 24 * 60 * 60 * 1000;
 
 /** Built-in phrases. Static data: never stored, never edited. */
 export const libraryPhrases: readonly Phrase[] = Object.freeze(
@@ -113,17 +116,60 @@ export const usePhrasesStore = defineStore(
     const encodedBytes = ref(0);
     // The browser refused the last write of the shelf (or the backup it needs).
     const saveFailed = ref(false);
+    // A save of new work waits on the migration backup: not a failure, but
+    // not on disk yet either (the leave-page guard covers it).
+    const saveQueued = ref(false);
+    // Phrases another part of the app still points at (the Looper's playing
+    // set, PR 202). The shelf notice never offers or releases one of them, and
+    // a merge with another tab's shelf never drops one.
+    const protectedIdsProvider = shallowRef<() => ReadonlySet<string>>(() => new Set());
     const persistence = createPhrasePersistence(() => ({
       book: readLegacyBook(liveContext.value) ?? createPhraseBook(liveContext.value, Date.now()),
       isRecordingEnabled: true,
     }), () => liveContext.value, {
       onMeasure: (bytes) => { encodedBytes.value = bytes; },
       onStored: (stored) => { saveFailed.value = !stored; },
+      onPending: (pending) => { saveQueued.value = pending; },
+      protectedIds: () => protectedIdsProvider.value(),
+      // Another tab's sketches, merged in (BJS-575); see docs/persistence-codec.md.
+      adopt: (state) => {
+        book.value = state.book;
+        isRecordingEnabled.value = state.isRecordingEnabled;
+      },
     });
     const restored = persistence.load();
     const book = ref<PhraseBook>(restored.book);
     const isRecordingEnabled = ref(restored.isRecordingEnabled);
     const savedState = () => ({ book: book.value, isRecordingEnabled: isRecordingEnabled.value });
+    const stopListening = typeof window === "undefined" ? () => {} : persistence.listen(savedState, window);
+    // Hold this tab's take while it is on the desk; shelve takes left behind
+    // by tabs that are gone (src/services/deskClaims.ts).
+    const desk = createDeskClaims();
+    watch(() => book.value.takeId, (id) => desk.claim(id), { immediate: true });
+    const otherDesks = book.value.phrases
+      .filter((phrase) => phrase.shelf === "take" && phrase.id !== book.value.takeId);
+    // Without Web Locks, a fresh take opened more than a day ago (or longer
+    // than the Recent retention, if shorter) counts as left behind. A Recent
+    // phrase reopened on another desk carries its old dates, so its age says
+    // nothing about its tab: it is left alone. A misjudged live take is
+    // harmless: its own tab's merge puts it back on its desk, unchanged.
+    const leftBehind = desk.available
+      ? desk.unclaimed(otherDesks.map((phrase) => phrase.id))
+      : Promise.resolve(otherDesks
+        .filter((phrase) => phrase.closedAt === undefined
+          && Date.now() - phrase.createdAt > Math.min(config.recentRetentionMs, ABANDONED_TAKE_MS))
+        .map((phrase) => phrase.id));
+    void leftBehind.then((ids) => {
+      const gone = new Set(ids);
+      const now = Date.now();
+      book.value.phrases = book.value.phrases.flatMap((phrase) => {
+        if (!gone.has(phrase.id) || phrase.shelf !== "take" || phrase.id === book.value.takeId) return [phrase];
+        if (!phrase.notes.length) return [];
+        // Only the shelf changes (and a fresh take's close time): if its tab is
+        // in fact alive, it gets its take back whole, modeBase included.
+        return [{ ...phrase, shelf: "recent" as const, closedAt: phrase.closedAt ?? now }];
+      });
+    });
     // An oversized shelf loads intact, so measure once before any save happens.
     encodedBytes.value = encodedPhraseBytes(persistence.encode(savedState()));
     /**
@@ -137,6 +183,7 @@ export const usePhrasesStore = defineStore(
     });
     // While nothing saves, closing or reloading the tab loses what was played
     // since: the browser asks first. The guard goes as soon as a save lands.
+    // A save queued behind the migration backup counts too, without the notice.
     const askBeforeLeaving = (event: BeforeUnloadEvent) => {
       event.preventDefault();
       event.returnValue = "";
@@ -146,11 +193,8 @@ export const usePhrasesStore = defineStore(
       if (failed) window.addEventListener("beforeunload", askBeforeLeaving);
       else window.removeEventListener("beforeunload", askBeforeLeaving);
     };
-    watch(saveFailed, guardTab, { immediate: true });
+    watch(() => saveFailed.value || saveQueued.value, guardTab, { immediate: true });
     onScopeDispose(() => guardTab(false));
-    // Phrases another part of the app still points at (the Looper's playing
-    // set, PR 202). The shelf notice never offers or releases one of them.
-    const protectedIdsProvider = shallowRef<() => ReadonlySet<string>>(() => new Set());
     const releaseCandidates = computed(() => {
       const protectedIds = protectedIdsProvider.value();
       return book.value.phrases
@@ -425,6 +469,8 @@ export const usePhrasesStore = defineStore(
     setupEventListeners();
     onScopeDispose(() => {
       removeEventListeners();
+      stopListening();
+      desk.dispose();
       persistence.holdUntilReload();
       persistence.unregister();
     });

@@ -307,6 +307,43 @@ describe("A shelf that isn't saving always says so (persistence review of #192)"
     expect(unload()).toBe(false);
   });
 
+  it("asks before leaving while a sketch waits on the migration backup, without a failure notice (BJS-575)", async () => {
+    // A shelf saved by a v1 build: the first load backs it up to IndexedDB
+    // before anything is rewritten, so a sketch played meanwhile is queued.
+    store.book.phrases.push(phrase("oldest", "recent", 100));
+    await nextTick();
+    const envelope = JSON.parse(localStorage.getItem("phrases")!);
+    store.$dispose();
+    localStorage.setItem("phrases", JSON.stringify({ ...envelope, $version: 1 }));
+    setActivePinia(createPinia());
+    store = usePhrasesStore();
+    const page = render();
+    tap("m-0", 0, Date.now());
+    await nextTick();
+    expect(JSON.parse(localStorage.getItem("phrases")!).$version).toBe(1);
+    expect(unload()).toBe(true);
+    expect(store.shelfNotice).toBeNull();
+    expect(notice(page).exists()).toBe(false);
+    // The backup lands and the queued save writes the sketch: the tab may close.
+    await vi.waitFor(() => expect(JSON.parse(localStorage.getItem("phrases")!).$version).toBe(2));
+    expect(savedPhrases().find((saved) => saved.id === store.takeId)?.notes).toHaveLength(1);
+    expect(unload()).toBe(false);
+    expect(store.shelfNotice).toBeNull();
+  });
+
+  it("does not ask before leaving after a migration backup with nothing played meanwhile", async () => {
+    store.book.phrases.push(phrase("oldest", "recent", 100));
+    await nextTick();
+    const envelope = JSON.parse(localStorage.getItem("phrases")!);
+    store.$dispose();
+    localStorage.setItem("phrases", JSON.stringify({ ...envelope, $version: 1 }));
+    setActivePinia(createPinia());
+    store = usePhrasesStore();
+    expect(unload()).toBe(false);
+    await vi.waitFor(() => expect(JSON.parse(localStorage.getItem("phrases")!).$version).toBe(2));
+    expect(unload()).toBe(false);
+  });
+
   it("never says 'still saving' while a newer app version's shelf holds every write", async () => {
     store.$dispose();
     const newer = JSON.stringify({ $version: 99, data: { from: "a newer app" } });

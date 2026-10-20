@@ -37,6 +37,7 @@ import {
 import { migrateLegacyPatterns } from "@/domain/phraseMigration";
 import { createPhrasePersistence, encodedPhraseBytes, shelfOverBudget } from "@/services/phrasePersistence";
 import { installPhraseBackupConsole } from "@/services/phraseBackups";
+import { createDeskClaims } from "@/services/deskClaims";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
 import type { HeldNote, Phrase, PhraseBook, PhraseBookConfig, PhraseContext } from "@/types/phrases";
 
@@ -45,6 +46,8 @@ const STORAGE_KEY = "phrases";
 // Transport notes also carry record: false; the source keeps older senders out.
 const NON_RECORDING_EVENT_SOURCES = new Set(["pattern-playback", "strudel-playback", "live-pitch"]);
 const MAX_EXPRESSION_POINTS = 8192;
+/** Without Web Locks: another tab's take this old was left behind. */
+const ABANDONED_TAKE_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Asked at every live press, before the recorder writes anything. Returning
@@ -106,7 +109,10 @@ export const usePhrasesStore = defineStore(
     const instrumentStore = useInstrumentStore();
     const keyboardStore = useKeyboardDrawerStore();
     const visualConfigStore = useVisualConfigStore();
-    // Phrases another part of the app still points at (the playing set).
+    // Phrases another part of the app still points at (the Looper's playing
+    // set, PR 202). Retention and delete never drop one, the shelf notice never
+    // names or releases one, and a merge with another tab's shelf never drops
+    // one (BJS-575). Declared first: the book config reads it.
     const protectedIdsProvider = shallowRef<() => ReadonlySet<string>>(() => new Set());
     const config: PhraseBookConfig = Object.defineProperty(
       { ...DEFAULT_PHRASE_BOOK_CONFIG },
@@ -129,17 +135,56 @@ export const usePhrasesStore = defineStore(
     const encodedBytes = ref(0);
     // The browser refused the last write of the shelf (or the backup it needs).
     const saveFailed = ref(false);
+    // A save of new work waits on the migration backup: not a failure, but
+    // not on disk yet either (the leave-page guard covers it).
+    const saveQueued = ref(false);
     const persistence = createPhrasePersistence(() => ({
       book: readLegacyBook(liveContext.value) ?? createPhraseBook(liveContext.value, Date.now()),
       isRecordingEnabled: true,
     }), () => liveContext.value, {
       onMeasure: (bytes) => { encodedBytes.value = bytes; },
       onStored: (stored) => { saveFailed.value = !stored; },
+      onPending: (pending) => { saveQueued.value = pending; },
+      protectedIds: () => protectedIdsProvider.value(),
+      // Another tab's sketches, merged in (BJS-575); see docs/persistence-codec.md.
+      adopt: (state) => {
+        book.value = state.book;
+        isRecordingEnabled.value = state.isRecordingEnabled;
+      },
     });
     const restored = persistence.load();
     const book = ref<PhraseBook>(restored.book);
     const isRecordingEnabled = ref(restored.isRecordingEnabled);
     const savedState = () => ({ book: book.value, isRecordingEnabled: isRecordingEnabled.value });
+    const stopListening = typeof window === "undefined" ? () => {} : persistence.listen(savedState, window);
+    // Hold this tab's take while it is on the desk; shelve takes left behind
+    // by tabs that are gone (src/services/deskClaims.ts).
+    const desk = createDeskClaims();
+    watch(() => book.value.takeId, (id) => desk.claim(id), { immediate: true });
+    const otherDesks = book.value.phrases
+      .filter((phrase) => phrase.shelf === "take" && phrase.id !== book.value.takeId);
+    // Without Web Locks, a fresh take opened more than a day ago (or longer
+    // than the Recent retention, if shorter) counts as left behind. A Recent
+    // phrase reopened on another desk carries its old dates, so its age says
+    // nothing about its tab: it is left alone. A misjudged live take is
+    // harmless: its own tab's merge puts it back on its desk, unchanged.
+    const leftBehind = desk.available
+      ? desk.unclaimed(otherDesks.map((phrase) => phrase.id))
+      : Promise.resolve(otherDesks
+        .filter((phrase) => phrase.closedAt === undefined
+          && Date.now() - phrase.createdAt > Math.min(config.recentRetentionMs, ABANDONED_TAKE_MS))
+        .map((phrase) => phrase.id));
+    void leftBehind.then((ids) => {
+      const gone = new Set(ids);
+      const now = Date.now();
+      book.value.phrases = book.value.phrases.flatMap((phrase) => {
+        if (!gone.has(phrase.id) || phrase.shelf !== "take" || phrase.id === book.value.takeId) return [phrase];
+        if (!phrase.notes.length) return [];
+        // Only the shelf changes (and a fresh take's close time): if its tab is
+        // in fact alive, it gets its take back whole, modeBase included.
+        return [{ ...phrase, shelf: "recent" as const, closedAt: phrase.closedAt ?? now }];
+      });
+    });
     // An oversized shelf loads intact, so measure once before any save happens.
     encodedBytes.value = encodedPhraseBytes(persistence.encode(savedState()));
     /**
@@ -153,6 +198,7 @@ export const usePhrasesStore = defineStore(
     });
     // While nothing saves, closing or reloading the tab loses what was played
     // since: the browser asks first. The guard goes as soon as a save lands.
+    // A save queued behind the migration backup counts too, without the notice.
     const askBeforeLeaving = (event: BeforeUnloadEvent) => {
       event.preventDefault();
       event.returnValue = "";
@@ -162,12 +208,12 @@ export const usePhrasesStore = defineStore(
       if (failed) window.addEventListener("beforeunload", askBeforeLeaving);
       else window.removeEventListener("beforeunload", askBeforeLeaving);
     };
-    watch(saveFailed, guardTab, { immediate: true });
+    watch(() => saveFailed.value || saveQueued.value, guardTab, { immediate: true });
     onScopeDispose(() => guardTab(false));
     // Release (and the notice's naming of the oldest Recent) never touches a
-    // phrase another part of the app still points at: the Looper's playing set (through the provider) and
-    // every saved Loop's members (read from the book itself, so this holds
-    // before the Looper store exists).
+    // phrase another part of the app still points at: the Looper's playing
+    // set (through the provider) and every saved Loop's members (read from the
+    // book itself, so this holds before the Looper store exists).
     const releaseCandidates = computed(() => {
       const protectedIds = protectedIdsProvider.value();
       const inLoops = new Set(book.value.loops.flatMap((loop) => loop.members.map((member) => member.phraseId)));
@@ -463,6 +509,8 @@ export const usePhrasesStore = defineStore(
     setupEventListeners();
     onScopeDispose(() => {
       removeEventListeners();
+      stopListening();
+      desk.dispose();
       persistence.holdUntilReload();
       persistence.unregister();
     });

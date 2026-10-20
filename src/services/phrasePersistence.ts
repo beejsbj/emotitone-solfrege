@@ -2,11 +2,14 @@ import { toRaw } from "vue";
 import { ensureSingleTake } from "@/domain/phraseBook";
 import { createPersistedBinding, defineCodec, type BindingOptions } from "@/services/persistenceCodec";
 import { writePhraseBackup } from "@/services/phraseBackups";
+import { mergePhraseStates, storedPhraseState } from "@/services/phraseMerge";
 import { claimSaveFailureNotice, persistentStorage, type SafeStorage } from "@/services/safeStorage";
-import type { PhraseBook, PhraseContext } from "@/types/phrases";
+import type { Phrase, PhraseBook, PhraseContext } from "@/types/phrases";
 import type { PatternNote } from "@/types/patterns";
 
 export const PHRASE_BUDGET_BYTES = 3_000_000;
+/** v2 (BJS-575): v1's shape, written only by builds that merge with other tabs. */
+export const PHRASE_FORMAT_VERSION = 2;
 /** localStorage stores DOMStrings. Budget UTF-16 code units, including the envelope. */
 export const encodedPhraseBytes = (encoded: string): number => encoded.length * 2;
 
@@ -60,41 +63,79 @@ function savedNote(note: PatternNote): PatternNote {
   };
 }
 
-export function phraseCodec(defaults: () => PersistedPhraseState, context: () => PhraseContext) {
+function savedPhrase(phrase: Phrase): Phrase {
+  const raw = toRaw(phrase);
+  return {
+    ...raw,
+    notes: raw.notes.map(savedNote),
+    ...(raw.modeBase && { modeBase: { ...raw.modeBase, notes: raw.modeBase.notes.map(savedNote) } }),
+  };
+}
+
+const byId = (entries: unknown): unknown =>
+  Array.isArray(entries)
+    ? [...entries].sort((left, right) => String(left?.id).localeCompare(String(right?.id)))
+    : entries;
+
+/**
+ * Everything but the open take's pointer and recorder, which are each tab's
+ * own, with phrases and Loops in id order. A merge keeps each tab's own order,
+ * so two tabs can hold the same shelf in different orders; order alone must
+ * never count as a change, or each tab would write its order back for ever.
+ */
+function sharedPhraseData(data: unknown): unknown {
+  const state = data as { book?: Record<string, unknown> } | null;
+  if (!state?.book) return data;
+  const { book } = state;
+  return {
+    ...state,
+    book: { ...book, phrases: byId(book.phrases), loops: byId(book.loops), takeId: undefined, recorder: undefined },
+  };
+}
+
+export interface PhraseCodecOptions {
+  /** Ids this tab still points at (the Looper's playing set); a merge never releases them. */
+  protectedIds?: () => ReadonlySet<string>;
+}
+
+export function phraseCodec(
+  defaults: () => PersistedPhraseState,
+  context: () => PhraseContext,
+  { protectedIds = () => new Set() }: PhraseCodecOptions = {},
+) {
   return defineCodec<PersistedPhraseState>({
     key: "phrases",
-    version: 1,
+    // v2 (BJS-575) has v1's shape. The bump makes a tab still running a v1
+    // build, which writes over the shelf without merging, meet the "newer"
+    // hold instead of erasing what newer tabs saved.
+    version: PHRASE_FORMAT_VERSION,
     defaults,
     decode(data) {
-      const state = data as PersistedPhraseState;
-      if (!state?.book || !Array.isArray(state.book.phrases)) throw new Error("Invalid phrase book");
-      // An entry the app can't use is dropped; the rest of the shelf survives.
-      const book = {
-        ...state.book,
-        phrases: state.book.phrases.filter((phrase) => phrase && Array.isArray(phrase.notes) && phrase.context),
-      };
+      // An entry the app can't use is dropped (in storedPhraseState); the rest
+      // of the shelf survives.
+      const { book: stored, isRecordingEnabled } = storedPhraseState(data);
+      // Another tab's open take is that tab's desk: shelving it here would
+      // split a sketch in progress. Only this page's take is repaired; takes
+      // no live tab holds are shelved later by the store (deskClaims).
+      const foreign = stored.phrases.filter((phrase) => phrase.shelf === "take" && phrase.id !== stored.takeId);
+      const book = { ...stored, phrases: stored.phrases.filter((phrase) => !foreign.includes(phrase)) };
       ensureSingleTake(book, context(), Date.now());
-      return { book, isRecordingEnabled: state.isRecordingEnabled !== false };
+      book.phrases.push(...foreign);
+      return { book, isRecordingEnabled: isRecordingEnabled !== false };
     },
     // Plain data for the envelope; JSON.stringify unwraps reactive proxies itself.
     encode(state) {
       const book = toRaw(state.book);
       return {
         isRecordingEnabled: state.isRecordingEnabled,
-        book: {
-          ...book,
-          phrases: book.phrases.map((phrase) => {
-            const raw = toRaw(phrase);
-            return {
-              ...raw,
-              notes: raw.notes.map(savedNote),
-              ...(raw.modeBase && { modeBase: { ...raw.modeBase, notes: raw.modeBase.notes.map(savedNote) } }),
-            };
-          }),
-        },
+        book: { ...book, phrases: book.phrases.map(savedPhrase) },
       };
     },
-    migrations: { 0: (data) => data },
+    merge: (base, ours, theirs) => mergePhraseStates(base, ours, theirs, {
+      savedPhrase, savedNote, protectedIds, context, now: Date.now(),
+    }),
+    shared: sharedPhraseData,
+    migrations: { 0: (data) => data, 1: (data) => data },
   });
 }
 
@@ -107,7 +148,7 @@ function askBrowserToKeepStorage(): void {
   }
 }
 
-export interface PhrasePersistenceOptions extends BindingOptions {
+export interface PhrasePersistenceOptions extends BindingOptions<PersistedPhraseState>, PhraseCodecOptions {
   /** The UTF-16 size of every payload the save path encodes. */
   onMeasure?: (bytes: number) => void;
   /**
@@ -115,6 +156,12 @@ export interface PhrasePersistenceOptions extends BindingOptions {
    * shelf, or the backup it waits on, failed; true when a write succeeded.
    */
   onStored?: (stored: boolean) => void;
+  /**
+   * True while a save of this tab's changes waits on a backup still in flight
+   * (the first load of an older shelf). No failure: the queued save writes
+   * once the backup lands. False once a write (or a failure) is reported.
+   */
+  onPending?: (pending: boolean) => void;
 }
 
 export function createPhrasePersistence(
@@ -122,21 +169,31 @@ export function createPhrasePersistence(
   context: () => PhraseContext,
   options: PhrasePersistenceOptions = {},
 ) {
-  const { onMeasure, onStored, storage: base = persistentStorage, ...binding } = options;
+  const { onMeasure, onStored, onPending, protectedIds, storage: base = persistentStorage, ...binding } = options;
   let asked = false;
   // Whether the current load or save has already told onStored its outcome.
   let told = false;
+  let pending = false;
+  const wait = (waiting: boolean) => {
+    if (pending === waiting) return;
+    pending = waiting;
+    onPending?.(waiting);
+  };
   const report = (stored: boolean) => {
     told = true;
+    wait(false);
     onStored?.(stored);
   };
+  // A storage event's read only looks for another tab's work: if it fails,
+  // nothing of this tab's went unsaved, so it is no save failure.
+  let syncing = false;
   // Watch the shelf's own reads and writes, wherever the binding makes them (a
   // save, the eager migration rewrite, or the save queued behind a backup).
   const storage: SafeStorage = {
     ...base,
     read(key) {
       const result = base.read(key);
-      if (key === "phrases" && !result.ok) report(false);
+      if (key === "phrases" && !result.ok && !syncing) report(false);
       return result;
     },
     write(key, value, writeOptions) {
@@ -148,8 +205,12 @@ export function createPhrasePersistence(
   // Whoever listens for the outcome shows it: the shelf notice carries a
   // phrase failure, so the shared storage Sticker does not repeat it.
   const release = onStored ? claimSaveFailureNotice("phrases") : () => {};
-  const persisted = createPersistedBinding(phraseCodec(defaults, context), {
+  const persisted = createPersistedBinding(phraseCodec(defaults, context, { protectedIds }), {
     storage,
+    // A one-off save still writes the merged state. Anything that saves again
+    // from its own memory (the store) must pass adopt, or its next save would
+    // release what the merge brought in.
+    adopt: () => {},
     backup: (...args) => writePhraseBackup(...args).catch((error: unknown) => {
       report(false);
       throw error;
@@ -174,7 +235,23 @@ export function createPhrasePersistence(
     const reason = persisted.hold?.reason;
     return reason !== "needs-backup" && reason !== "restored";
   };
-  const { load, save } = persisted;
+  const { load, save, sync, restoreLanded } = persisted;
+  persisted.sync = (current) => {
+    syncing = true;
+    try {
+      return sync(current);
+    } finally {
+      syncing = false;
+    }
+  };
+  // A restore holds a save parked behind the migration backup, and it may
+  // still fail (its stamp is taken back, then the save is tried again), so the
+  // leave-page prompt stays until the restore lands: the shelf is replaced
+  // and the save will never run.
+  persisted.restoreLanded = () => {
+    restoreLanded();
+    wait(false);
+  };
   persisted.load = () => {
     told = false;
     const state = load();
@@ -184,7 +261,12 @@ export function createPhrasePersistence(
   persisted.save = (state) => {
     told = false;
     const saved = save(state);
-    if (!saved && !told && refusing()) report(false);
+    // Queued behind the backup: unsaved until it lands, but not a failure.
+    // The other holds that refuse quietly ("restored") never write again.
+    if (!saved && !told && persisted.hold?.reason === "needs-backup") wait(true);
+    else if (!saved && !told && refusing()) report(false);
+    // Nothing to write: storage already holds this shelf (another tab wrote it).
+    if (saved && !told) report(true);
     return saved;
   };
   const unregister = persisted.unregister;

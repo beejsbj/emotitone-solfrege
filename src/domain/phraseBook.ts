@@ -902,6 +902,36 @@ export function importPhrases(
   return imported.map((phrase) => phrase.id);
 }
 
+/**
+ * A phrase someone showed you by link arrives like a capture: in Recent, open
+ * on the desk, in the world it was played in. Unlike a capture it brings its
+ * own context whole (octave and authored silence included), because hearing
+ * it as they heard it is the point.
+ */
+export function receivePhrase(
+  book: PhraseBook,
+  shared: Pick<Phrase, "name" | "notes" | "context" | "duration">,
+  now: number,
+  newId: NewId = createId,
+  config: PhraseBookConfig = DEFAULT_PHRASE_BOOK_CONFIG,
+): string | null {
+  if (!shared.notes.length) return null;
+  const notes = normalizeNotes(shared.notes).map((note) => ({ ...note, id: newId("note") }));
+  const phrase: Phrase = {
+    id: newId("phrase"),
+    shelf: "recent",
+    name: shared.name?.trim().slice(0, MAX_NAME_LENGTH) || "Shared phrase",
+    notes,
+    context: cloneContext(shared.context),
+    duration: Math.max(shared.duration, soundingLength(notes)),
+    createdAt: now,
+    closedAt: now,
+  };
+  book.phrases.push(phrase);
+  openPhrase(book, phrase.id, [], now, newId, config);
+  return phrase.id;
+}
+
 export function patternDuration(pattern: Pick<Pattern, "duration" | "notes">): number {
   if (typeof pattern.duration === "number" && Number.isFinite(pattern.duration) && pattern.duration >= 0) {
     return pattern.duration;

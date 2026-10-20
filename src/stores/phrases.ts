@@ -26,6 +26,7 @@ import {
   phraseFromPattern,
   pressNote,
   pruneRecent,
+  receivePhrase as receiveBookPhrase,
   releaseNote,
   renamePhrase as renameBookPhrase,
   resolveBpm,
@@ -363,6 +364,15 @@ export const usePhrasesStore = defineStore(
       return ids;
     }
 
+    /** A phrase opened from a link lands on the desk and the controls follow it. */
+    function receiveSharedPhrase(
+      shared: Pick<Phrase, "name" | "notes" | "context" | "duration">,
+    ): string | null {
+      const id = receiveBookPhrase(book.value, shared, Date.now(), undefined, config);
+      if (id) syncControlsTo(take.value);
+      return id;
+    }
+
     // ─── Note events ─────────────────────────────────────────────────────────
     function isRecordable(event: CustomEvent): boolean {
       return isRecordingEnabled.value
@@ -510,6 +520,7 @@ export const usePhrasesStore = defineStore(
       renamePhrase,
       undoLastNote,
       importPhrases,
+      receiveSharedPhrase,
 
       // Recorder plumbing (exposed for tests)
       handleNotePressed,

@@ -302,7 +302,9 @@ export function mergePhraseStates(
     takeId: mine.takeId,
     recorder: mine.recorder,
   };
-  if (loops) (book as PhraseBook & { loops: unknown }).loops = loops;
+  // The merged entries are stored Loops, checked only as far as an id: the
+  // codec owns their shape.
+  if (loops) (book as unknown as { loops: unknown }).loops = loops;
 
   // This tab's open take stays on its desk: another tab sharing it (or one
   // that shelved it) never splits a sketch in progress. The one exception is

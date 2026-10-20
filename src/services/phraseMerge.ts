@@ -95,10 +95,28 @@ function mergeById<E extends WithId>(
   return merged;
 }
 
+/**
+ * A note only the other tab edited (a remap, re-skin or shift): a field it
+ * left alone, such as a curve, keeps this tab's live value rather than the
+ * thinned saved one.
+ */
+function editedByOther(was: PatternNote | undefined, live: PatternNote, note: PatternNote): PatternNote {
+  if (!was) return note;
+  const before = was as unknown as Record<string, unknown>;
+  const edited: Record<string, unknown> = { ...note };
+  const own = toRaw(live) as unknown as Record<string, unknown>;
+  for (const field of Object.keys(own)) {
+    if (sameJson((note as unknown as Record<string, unknown>)[field], before[field])) edited[field] = own[field];
+  }
+  return edited as unknown as PatternNote;
+}
+
 function mergeNotes(base: unknown, ours: PatternNote[], theirs: PatternNote[], savedNote: (note: PatternNote) => unknown) {
   return mergeById(
     Array.isArray(base) ? base : undefined, ours, theirs, savedNote,
     (_base, mine) => mine, () => false,
+    // Only the other tab edited this note (this tab edited others).
+    editedByOther,
   // Ties (a chord) break by id, so both tabs join the same notes in the same order.
   ).sort((left, right) => left.pressTime - right.pressTime || left.id.localeCompare(right.id));
 }
@@ -122,17 +140,7 @@ function mergeNoteList(
   return theirs.map((note) => {
     const live = mine.get(note.id);
     if (!live || sameJson(options.savedNote(live), note)) return live ?? note;
-    // The other tab edited this note (a remap, re-skin or shift of a take
-    // both tabs are on): a field it left alone, such as a curve, keeps this
-    // tab's live value rather than the thinned saved one.
-    const before = was.get(note.id) as unknown as Record<string, unknown> | undefined;
-    if (!before) return note;
-    const edited: Record<string, unknown> = { ...note };
-    const own = toRaw(live) as unknown as Record<string, unknown>;
-    for (const field of Object.keys(own)) {
-      if (sameJson((note as unknown as Record<string, unknown>)[field], before[field])) edited[field] = own[field];
-    }
-    return edited as unknown as PatternNote;
+    return editedByOther(was.get(note.id), live, note);
   });
 }
 

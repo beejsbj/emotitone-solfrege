@@ -412,7 +412,12 @@ stays stored, off the shelves, until a tab moves it. Only the shelf changes
 (modeBase and the rest are kept), so misjudging a live take is harmless: a
 merge never moves a tab's own take off its desk, and its tab gets it back
 whole. If another tab's restore stamp is taken back (a failed restore), a tab
-that held for it saves again.
+that held for it saves again, including a save the hold parked (an edit made
+under the stamp, or one waiting on the migration backup). That parked save,
+and the leave-page prompt for it, stay until the restore lands (its payload
+shows up under the stamp, or `restoreLanded` after this tab's own restore).
+A page reads the stamp before the shelf, so a restore landing between the two
+reads holds it.
 
 Lock lifetime, accepted:
 

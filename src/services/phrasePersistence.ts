@@ -235,24 +235,22 @@ export function createPhrasePersistence(
     const reason = persisted.hold?.reason;
     return reason !== "needs-backup" && reason !== "restored";
   };
-  // A restore drops the save that waited on a backup (it must not write over
-  // the restore), so nothing is left to wait for.
-  const droppedByRestore = () => {
-    if (persisted.hold?.reason === "restored") wait(false);
-  };
-  const { load, save, sync, holdUntilReload } = persisted;
+  const { load, save, sync, restoreLanded } = persisted;
   persisted.sync = (current) => {
     syncing = true;
     try {
       return sync(current);
     } finally {
       syncing = false;
-      droppedByRestore();
     }
   };
-  persisted.holdUntilReload = () => {
-    holdUntilReload();
-    droppedByRestore();
+  // A restore holds a save parked behind the migration backup, and it may
+  // still fail (its stamp is taken back, then the save is tried again), so the
+  // leave-page prompt stays until the restore lands: the shelf is replaced
+  // and the save will never run.
+  persisted.restoreLanded = () => {
+    restoreLanded();
+    wait(false);
   };
   persisted.load = () => {
     told = false;
@@ -269,7 +267,6 @@ export function createPhrasePersistence(
     else if (!saved && !told && refusing()) report(false);
     // Nothing to write: storage already holds this shelf (another tab wrote it).
     if (saved && !told) report(true);
-    droppedByRestore();
     return saved;
   };
   const unregister = persisted.unregister;

@@ -5,12 +5,12 @@ import {
 } from "@/domain/phraseBook";
 import { defaultPatterns } from "@/data/patterns";
 import { NEUTRAL_SHAPE } from "@/services/shape";
-import { defineCodec, readPayload } from "@/services/persistenceCodec";
+import { bindingFor, defineCodec, readPayload } from "@/services/persistenceCodec";
 import { listPhraseBackups, restorePhraseBackup, writePhraseBackup } from "@/services/phraseBackups";
 import {
   createPhrasePersistence, phraseCodec, PHRASE_FORMAT_VERSION, type PersistedPhraseState,
 } from "@/services/phrasePersistence";
-import { resetSaveFailure, saveFailureNotice } from "@/services/safeStorage";
+import { persistentStorage, resetSaveFailure, saveFailureNotice, type SafeStorage } from "@/services/safeStorage";
 import type { Phrase, PhraseContext } from "@/types/phrases";
 
 /**
@@ -483,6 +483,30 @@ describe("two tabs, one shelf", () => {
     expect(merged.pitchExpression).toHaveLength(241);
   });
 
+  it("keeps this tab's live curve on a note the other tab edited while this tab edited another", () => {
+    const a = openTab();
+    const phrase = sketch(a, "expressive");
+    const note = phrase.notes[1];
+    note.releaseTime = note.pressTime + 1000;
+    note.duration = 1000;
+    note.pitchExpression = Array.from({ length: 241 }, (_, point) => ({ timeMs: point * 1000 / 240, cents: point % 40 }));
+    const curve = note.pitchExpression;
+    a.save();
+    const b = openTab();
+    const inB = find(b.state, "expressive")!.notes[1];
+    inB.note = "D4";
+    inB.frequency = 293.66;
+    b.save();
+    // Before hearing B, A edits a different note of the same phrase.
+    find(a.state, "expressive")!.notes[2].frequency = 500;
+    a.hear();
+    const merged = find(a.state, "expressive")!;
+    expect(merged.notes[2].frequency).toBe(500);
+    expect(merged.notes[1].note).toBe("D4");
+    expect(merged.notes[1].pitchExpression).toBe(curve);
+    expect(merged.notes[1].pitchExpression).toHaveLength(241);
+  });
+
   it("keeps this tab's live curves in modeBase when the other tab changes key on a shared take", () => {
     const a = openTab();
     const take = getTake(a.state.book);
@@ -658,7 +682,8 @@ describe("two tabs, one shelf", () => {
     expect(ids(b.state)).toContain("from-a");
   });
 
-  it("stops waiting on a migration backup when another tab's restore stamp arrives meanwhile", async () => {
+  /** A tab with a sketch queued behind the migration backup of a v1 shelf (so the leave-page prompt is up). */
+  async function tabWaitingOnBackup(): Promise<Tab> {
     const a = openTab();
     a.save();
     const stale = structuredClone(stored());
@@ -668,27 +693,85 @@ describe("two tabs, one shelf", () => {
     a.hear();
     expect(a.save()).toBe(false);
     expect(a.pending).toBe(true);
-    // The restore lands before the backup does: the queued save must not write over it.
+    return a;
+  }
+
+  it("keeps a sketch queued behind the migration backup through a restore stamp that is taken back", async () => {
+    const a = await tabWaitingOnBackup();
+    // Another tab starts a restore before the backup lands: nothing is lost
+    // yet, so the prompt stays, and the queued sketch is not written over it.
     localStorage.setItem("phrases.restored", "1");
     await a.settled();
+    expect(a.pending).toBe(true);
+    expect(JSON.parse(localStorage.getItem("phrases")!).$version).toBe(1);
+    // The restore's write failed and its stamp is taken back.
+    localStorage.removeItem("phrases.restored");
+    a.hear();
+    expect(ids(stored())).toContain("mine");
+    expect(JSON.parse(localStorage.getItem("phrases")!).$version).toBe(PHRASE_FORMAT_VERSION);
     expect(a.pending).toBe(false);
+  });
+
+  it("stops waiting once another tab's restore lands, and leaves the restored shelf alone", async () => {
+    const a = await tabWaitingOnBackup();
+    localStorage.setItem("phrases.restored", "1");
+    await a.settled();
+    expect(a.pending).toBe(true);
+    const restored = JSON.stringify({ $version: PHRASE_FORMAT_VERSION, data: defaults() });
+    localStorage.setItem("phrases", restored);
+    a.hear();
+    expect(a.pending).toBe(false);
+    expect(a.save()).toBe(false);
+    expect(localStorage.getItem("phrases")).toBe(restored);
+  });
+
+  it("keeps a sketch queued behind the migration backup through this tab's own restore, and saves it if the restore is abandoned", async () => {
+    const a = await tabWaitingOnBackup();
+    const binding = bindingFor("phrases")!;
+    binding.holdUntilReload();
+    await a.settled();
+    expect(a.pending).toBe(true);
+    expect(JSON.parse(localStorage.getItem("phrases")!).$version).toBe(1);
+    binding.resume(); // the restore failed and was taken back
+    expect(ids(stored())).toContain("mine");
+    expect(a.pending).toBe(false);
+  });
+
+  it("stops waiting once this tab's own restore lands", async () => {
+    const a = await tabWaitingOnBackup();
+    const binding = bindingFor("phrases")!;
+    binding.holdUntilReload();
+    binding.restoreLanded();
+    expect(a.pending).toBe(false);
+    await a.settled();
     expect(JSON.parse(localStorage.getItem("phrases")!).$version).toBe(1);
   });
 
-  it("stops waiting on a migration backup when this tab's own restore holds it", async () => {
-    const a = openTab();
-    a.save();
-    const stale = structuredClone(stored());
-    sketch(a, "mine");
-    a.save();
-    localStorage.setItem("phrases", JSON.stringify({ $version: 1, data: stale }));
-    a.hear();
-    expect(a.save()).toBe(false);
-    expect(a.pending).toBe(true);
-    a.holdUntilReload();
-    expect(a.pending).toBe(false);
-    await a.settled();
-    expect(a.pending).toBe(false);
+  it("holds a page whose restore landed between its marker read and its shelf read", () => {
+    // The restoring tab stamps and writes just after this page read the shelf.
+    const restored = JSON.stringify({ $version: PHRASE_FORMAT_VERSION, data: defaults() });
+    let raced = false;
+    const racing: SafeStorage = {
+      ...persistentStorage,
+      read(key) {
+        const result = persistentStorage.read(key);
+        if (key === "phrases" && !raced) {
+          raced = true;
+          localStorage.setItem("phrases.restored", "1");
+          localStorage.setItem("phrases", restored);
+        }
+        return result;
+      },
+    };
+    const first = openTab();
+    sketch(first, "before");
+    first.save();
+    const binding = createPhrasePersistence(defaults, () => context, { adopt: () => {}, storage: racing });
+    const state = binding.load();
+    sketch({ state } as Tab, "after-load");
+    expect(binding.save(state)).toBe(false);
+    expect(localStorage.getItem("phrases")).toBe(restored);
+    binding.unregister();
   });
 
   it("stops saving, and says so, when the other tab is a newer app", () => {

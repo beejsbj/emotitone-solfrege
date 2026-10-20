@@ -369,8 +369,16 @@ export interface PersistedBinding<T> {
   readonly hold: WriteHold | null;
   /** Refuse writes until the page reloads (used by restore). */
   holdUntilReload(): void;
-  /** Undo `holdUntilReload` for a restore that did not happen. */
+  /**
+   * Undo `holdUntilReload` for a restore that did not happen; a save the hold
+   * refused meanwhile is tried again.
+   */
   resume(): void;
+  /**
+   * The restore this hold waited on has put its payload in storage: the hold
+   * is permanent now (reload), and a save it refused will never run.
+   */
+  restoreLanded(): void;
   /** Remove a disposed or ephemeral store from the support restore registry. */
   unregister(): void;
   /** Wait for an asynchronous backup and its queued save, if any. */
@@ -453,7 +461,8 @@ export function createPersistedBinding<T>(
     if (marker === restoreSeen) return false;
     hold = { reason: "restored" };
     heldByStamp = true;
-    queuedState = null;
+    // A save parked behind this hold (or a migration backup) stays: if the
+    // restore fails and its stamp is taken back, it is tried again.
     reportSaveFailure("newer", codec.key);
     return true;
   };
@@ -467,6 +476,13 @@ export function createPersistedBinding<T>(
     heldByStamp = false;
     reportSaveSuccess(codec.key);
     return true;
+  };
+  /** Try the save a hold refused, now that the hold is gone. */
+  const retryQueued = (): void => {
+    if (!queuedState) return;
+    const latest = queuedState.state;
+    queuedState = null;
+    binding.save(latest);
   };
   /** Stored bytes another tab wrote since this binding last agreed with storage. */
   const isForeign = (raw: string | null): raw is string =>
@@ -653,17 +669,25 @@ export function createPersistedBinding<T>(
       return hold;
     },
     holdUntilReload() {
-      queuedState = null;
+      // A save parked behind a hold stays until the restore lands or fails.
       hold = { reason: "restored" };
       heldByStamp = false;
     },
     resume() {
-      if (hold?.reason === "restored") hold = null;
+      const lifted = hold?.reason === "restored";
+      if (lifted) hold = null;
       heldByStamp = false;
+      if (lifted) retryQueued();
+    },
+    restoreLanded() {
+      queuedState = null;
     },
     prepare,
     encode: (state) => encodePayload(codec, state),
     load() {
+      // The stamp first: a restore that lands between the two reads then
+      // shows as a stamp this page did not start from, and holds it.
+      restoreSeen = readMarker();
       const stored = storage.read(codec.key);
       if (!stored.ok) {
         // Can't see what is stored, so nothing may be written over it.
@@ -672,8 +696,6 @@ export function createPersistedBinding<T>(
         return codec.defaults();
       }
       const raw = stored.value;
-      // A restore stamped before this load is the payload this page runs on.
-      restoreSeen = readMarker();
       heldByStamp = false;
       const read = readPayload(codec, raw);
       outcome = read.kind;
@@ -719,12 +741,14 @@ export function createPersistedBinding<T>(
       return true;
     },
     sync(current) {
-      if (stampTakenBack() && queuedState) {
-        // A save the hold refused is parked here; a storage event touches no
-        // state, so nothing else would try it again.
-        const latest = queuedState.state;
-        queuedState = null;
-        binding.save(latest);
+      // A save the hold refused is parked; a storage event touches no state,
+      // so nothing else would try it again.
+      if (stampTakenBack()) retryQueued();
+      if (heldByStamp && hold?.reason === "restored") {
+        // Under another tab's stamp, bytes this binding did not write are the
+        // restore's payload: it landed, so the parked save will never run.
+        const landed = storage.read(codec.key);
+        if (landed.ok && isForeign(landed.value)) binding.restoreLanded();
       }
       if (hold || restoredElsewhere() || !codec.merge) return null;
       const stored = storage.read(codec.key);
@@ -861,6 +885,7 @@ export function restoreBackup(
       preRestoreBackup,
     };
   }
+  live?.restoreLanded();
   // Prune only after the swap: the restored bytes are live now.
   if (preRestoreBackup) {
     pruneBackups(storage, entry.of, live?.codec.backupRetention ?? BACKUP_RETENTION, preRestoreBackup);

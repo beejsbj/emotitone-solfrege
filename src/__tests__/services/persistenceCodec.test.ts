@@ -245,9 +245,12 @@ describe("persistence codec", () => {
     const { backend, binding, storage } = setup();
     const saved = envelope(2, { takes: ["kept"], tempo: 90 });
     backend.items.set(KEY, saved);
-    const getItem = vi.spyOn(backend, "getItem")
-      .mockImplementationOnce((key) => backend.items.get(key) ?? null)
-      .mockImplementationOnce(() => { throw new Error("Transient read failure"); });
+    // The shelf's first read works; any later read of it (a second plugin read) throws.
+    let shelfReads = 0;
+    const getItem = vi.spyOn(backend, "getItem").mockImplementation((key) => {
+      if (key === KEY && ++shelfReads > 1) throw new Error("Transient read failure");
+      return backend.items.get(key) ?? null;
+    });
     const useStore = defineStore(KEY, { state: sketchCodec.defaults, persist: codecPersist(binding) });
     const pinia = createPinia();
     createApp({}).use(pinia);
@@ -360,8 +363,9 @@ describe("persistence codec", () => {
   it("refuses all writes when storage can't even be read", () => {
     const { backend, binding } = setup();
     backend.items.set(KEY, envelope(2, { takes: ["safe"], tempo: 120 }));
-    const getItem = vi.spyOn(backend, "getItem").mockImplementationOnce(() => {
-      throw new Error("SecurityError");
+    const getItem = vi.spyOn(backend, "getItem").mockImplementation((key) => {
+      if (key === KEY) throw new Error("SecurityError");
+      return backend.items.get(key) ?? null;
     });
 
     expect(binding.load()).toEqual({ takes: [], tempo: 120 });

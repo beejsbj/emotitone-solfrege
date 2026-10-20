@@ -118,6 +118,7 @@ export async function restorePhraseBackup(backupKey: string): Promise<RestoreRes
         message: `Could not restore shelf; nothing changed.${undone ? "" : " Reload every open tab to save again."}`,
       };
     }
+    live?.restoreLanded();
     return { ok: true, message: "Shelf restored. Reload now; saving is held until reload." };
   } catch {
     reportSaveFailure("unknown", "phrases.backup");

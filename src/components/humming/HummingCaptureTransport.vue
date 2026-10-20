@@ -163,7 +163,7 @@ function handleTakeSelection(event: Event) {
   --humming-cancel-size: 22.4px;
 
   position: fixed;
-  z-index: 110;
+  z-index: var(--z-mic);
   top: calc(env(safe-area-inset-top, 0px) + var(--s-5));
   left: 50%;
   display: inline-flex;

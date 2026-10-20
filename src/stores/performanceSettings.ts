@@ -27,7 +27,16 @@ function legacyPerformanceValue(section: string, field: string): unknown {
   }
 }
 
-function numericSetting(id: string, key: string, fallback: number, section: string, field: string) {
+function numericSetting(
+  id: string,
+  key: string,
+  fallback: number,
+  section: string,
+  field: string,
+  range?: { min: number; max: number },
+) {
+  // A stored value outside the setting's range (an old build, a hand edit) reads back clamped.
+  const inRange = (value: number) => range ? Math.min(range.max, Math.max(range.min, value)) : value;
   return defineStore(id, () => {
     const persistence = createPersistedBinding<{ value: number }>({
       key,
@@ -35,7 +44,7 @@ function numericSetting(id: string, key: string, fallback: number, section: stri
       defaults: () => ({ value: fallback }),
       decode(data) {
         if (!isRecord(data)) throw new Error(`Invalid ${id}`);
-        return { value: typeof data.value === "number" && Number.isFinite(data.value) ? data.value : fallback };
+        return { value: typeof data.value === "number" && Number.isFinite(data.value) ? inRange(data.value) : fallback };
       },
       migrations: {},
     });
@@ -43,7 +52,7 @@ function numericSetting(id: string, key: string, fallback: number, section: stri
     if (persistence.outcome === "empty") {
       const legacy = legacyPerformanceValue(section, field);
       if (typeof legacy === "number" && Number.isFinite(legacy)) {
-        loaded.value = legacy;
+        loaded.value = inRange(legacy);
         persistence.save(loaded);
       }
     }
@@ -83,3 +92,12 @@ function numericSetting(id: string, key: string, fallback: number, section: stri
 export const useTempoStore = numericSetting("tempo", "emotitone-tempo", 120, "codeStrip", "bpm");
 export const useOctaveStore = numericSetting("octave", "emotitone-octave", 4, "keyboard", "mainOctave");
 export const useDrawerRowsStore = numericSetting("drawerRows", "emotitone-drawer-rows", 3, "keyboard", "rowCount");
+/**
+ * Loop Timing: this device's calibration, in ms, for notes played over a loop.
+ * A note's attack converts to the transport bar it sounded on; this much is
+ * taken off, for a player who hears the loop late. Per device, never in a Look.
+ */
+export const LOOP_TIMING_RANGE = { min: -100, max: 200, step: 5 } as const;
+export const useLoopTimingStore = numericSetting(
+  "loopTiming", "emotitone-loop-timing", 0, "codeStrip", "looperCalibrationMs", LOOP_TIMING_RANGE,
+);

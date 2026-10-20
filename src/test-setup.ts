@@ -140,6 +140,7 @@ Object.defineProperty(global, 'localStorage', {
 
 vi.mock('@/services/superdoughAudio', () => ({
   initSuperdoughAudio: vi.fn().mockResolvedValue(undefined),
+  initSynthOnlyAudio: vi.fn().mockResolvedValue(undefined),
   prewarmSoundSamples: vi.fn().mockResolvedValue(undefined),
   isPrewarmed: vi.fn().mockReturnValue(true),
   attackNote: vi.fn().mockResolvedValue(undefined),

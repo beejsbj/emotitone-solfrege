@@ -8,6 +8,7 @@
       tone === 'brass' ? `paper-button--brass-${brassFinish}` : undefined,
       {
         'paper-button--loading': loading,
+        'paper-button--pressed': pressed,
         'paper-button--hit-a': hitPhase === 'a',
         'paper-button--hit-b': hitPhase === 'b',
       },
@@ -15,6 +16,7 @@
     :disabled="disabled"
     :aria-label="accessibleName"
     :aria-busy="loading || undefined"
+    :data-pressed="pressed || undefined"
     :title="title"
     @pointerdown="strike"
     @click="handleClick"
@@ -41,7 +43,8 @@ import { triggerUIHaptic } from "@/utils/hapticFeedback";
  * from inside the switch. A lit lip sits under the cap at rest; every hit
  * bottoms the cap out, opens the lip into a full ring, lights the face, and
  * closes back down into the lip like a note's release. Loading rotates the
- * lip around the cap. The native button keeps an invariant hit box; the face
+ * lip around the cap. Pressed holds the cap down in its pressed look (Play's
+ * latch: a pedal held through the key). The native button keeps an invariant hit box; the face
  * inside carries UIBeat scale, and the cap owns press travel. However small
  * the cap, the button takes at least a --hit-min touch.
  */
@@ -56,6 +59,13 @@ const props = withDefaults(
     tone?: ButtonTone;
     brassFinish?: ButtonBrassFinish;
     loading?: boolean;
+    /**
+     * Visual only: hold the cap in its pressed look, as a key held down (Play's
+     * latch). It sets no `aria-pressed`; a consumer that means a toggle says so
+     * in its accessible name, as Play does ("latched; hold to release"). The
+     * key stays live.
+     */
+    pressed?: boolean;
     disabled?: boolean;
     uiBeat?: boolean;
     haptic?: boolean;
@@ -68,6 +78,7 @@ const props = withDefaults(
     tone: "ink",
     brassFinish: "sheen-glow",
     loading: false,
+    pressed: false,
     disabled: false,
     uiBeat: true,
     haptic: false,
@@ -280,7 +291,8 @@ function handleClick(event: MouseEvent) {
 }
 
 /* Press: the cap bottoms out on its travel. */
-.paper-button:not(:disabled):active .paper-button__cap {
+.paper-button:not(:disabled):active .paper-button__cap,
+.paper-button--pressed .paper-button__cap {
   transform: translateY(calc(var(--button-travel) - 1px));
 }
 
@@ -359,7 +371,8 @@ function handleClick(event: MouseEvent) {
   .paper-button__lip,
   .paper-button__switch,
   .paper-button__lamp,
-  .paper-button__cap::after { animation: none; }
+  .paper-button__cap::after,
+  .paper-button--loading .paper-button__lip { animation: none; }
 }
 
 @media (forced-colors: active) {
@@ -372,5 +385,7 @@ function handleClick(event: MouseEvent) {
   .paper-button__cap { border: 1px solid ButtonText; background: ButtonFace; box-shadow: none; }
   .paper-button__lip,
   .paper-button__lamp { display: none; }
+  /* The cap's small travel is easy to miss here: a held key also gets an outline. */
+  .paper-button--pressed { outline: 2px solid Highlight; outline-offset: 2px; }
 }
 </style>

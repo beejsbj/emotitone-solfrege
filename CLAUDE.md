@@ -28,7 +28,7 @@ Use only the package scripts for checks (shared lock across worktrees; see AGENT
 
 **Phrase book.** `src/domain/phraseBook.ts` and `src/stores/phrases.ts`: one noun (Phrase) on four shelves with one open take. Everything played is kept; there is no record button. Rules: `docs/pattern-system-reimagined.md`. UI: `PhraseShelf`, `PatternReel`, `PatternStrip`.
 
-**Code Strip.** `src/components/uniques/CodeStrip/` contains the read-only HighlightStrip with note-event highlighting and "Open in Strudel"; `StrudelNotation.ts` writes the code text.
+**Code Strip.** `src/components/uniques/CodeStrip/` contains the read-only HighlightStrip with note-event highlighting ("Open in Strudel" is on the pattern strip); `StrudelNotation.ts` writes the code text.
 
 **Looper ("Play is the loop").** The engine layer is on `main` (BJS-491): the worklet transport (`src/audio/live/transport.ts`: join, leave, update, replace, solo, tempo and atomic batches, immediate or at a bar) and the pattern player's Looper API in `src/services/patternTransport.ts` (bending through `bendNotes` in `src/domain/modeRemap.ts`, per-member bank pins, recovery through the audio lifecycle gate). Live Repeat/Arp lock to the running transport's bar grid (`transportGrid.ts` for the main-thread engine). #140's receipts run headless in `src/audio/live/transport.test.ts`. Still in flight: brief `docs/looper.md` (PR #138; until it merges, `git show origin/docs/looper-brief:docs/looper.md`), domain #139, Stage part #141, and Play wiring (BJS-493, carrying #142). Check the open PRs before touching playback or phrase timing.
 

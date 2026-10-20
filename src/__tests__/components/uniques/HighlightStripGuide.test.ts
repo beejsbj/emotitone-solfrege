@@ -19,7 +19,7 @@ describe("HighlightStrip guide specimens", () => {
     for (const strip of strips) {
       expect(strip.findAll("[data-event-index]").length).toBeGreaterThan(0);
       expect(strip.find(".highlight-strip__empty").exists()).toBe(false);
-      expect(strip.find('[aria-label="Open in Strudel"]').exists()).toBe(true);
+      expect(strip.find('[aria-label="Open in Strudel"]').exists()).toBe(false);
       expect(strip.find('[contenteditable="true"], [role="textbox"]').exists()).toBe(false);
     }
     expect(wrapper.get("#code-strip-complete-anatomy").text()).toContain("Cmaj7");

@@ -23,7 +23,7 @@ button: **Play is the loop.**
    that is sounding.
 4. **A Loop is a saved set of pointers.** It names the patterns that were
    playing together and how each sat in the loop; opening it sets its
-   patterns playing. Where a Loop lives in the reel is still open (see Open).
+   patterns playing. A saved Loop gets its own reel (see Decided).
 
 Everything else in the pattern system holds: whatever you play is captured,
 silence closes a take into Recent, Return keeps.
@@ -136,20 +136,44 @@ stalls. Phone numbers come from the phone gate.
 
 These are design-system units and go through that process, not this document:
 
-- **Loop dial**: one per playing pattern, climbing the left edge. Tap mutes,
-  double-tap solos, hold removes, drag turns the pattern within the loop
-  (changes its offset). The disc turns under a fixed brass hand. This is
-  direction, not an accepted unit: the accepted Loop Dial is a
-  noninteractive Primitive whose hand sweeps over fixed notes, so this
-  reopens it (or defines a new Unique beside it) through the design-system
-  process before it is built.
+- **Loop dial** (the Looper Dial primitive): one per playing pattern,
+  climbing the left edge; the disc turns under a fixed brass hand. Its
+  gesture map (Burooj, 2026-10-19):
+  - **Tap** mutes or unmutes, at once, so it can be played in rhythm.
+  - **Double-tap** brings that pattern to the desk (the front of the reel),
+    and the Code Strip follows it. The second tap undoes the first tap's
+    mute; double-tap no longer solos.
+  - **Hold** solos the pattern while held, from the hold threshold; letting
+    go (or a cancelled press) puts back the solo from before the hold and the
+    held pattern's own mute. A mute or unmute tapped on another dial during
+    the hold is a deliberate act and is kept. There is no persistent solo on
+    the dial.
+  - **Flick off the left edge** removes it: a fast, mostly sideways throw to
+    the left, as far as the room allows. The dials sit at the edge, so the
+    throw counts at 48 px or on reaching the screen's edge, whichever comes
+    first; never a slow drag, a vertical swipe or a tap. Delete still removes
+    from the keyboard.
+  - **Vertical drag** is reserved for the loop's volume, which needs
+    per-member volume in the transport (a follow-up). Turning a pattern
+    within the loop (its offset) moves to the pattern strip dial at the desk,
+    also a follow-up; the store's offset path stays for it.
 - **Stop All** on top of the dial column.
 - **Looper** (a Stage part, its own config tab): the turning light a running
   loop casts, with Strength, Definition and Spread. Haze at low Definition,
   comets curving along their orbits at high.
-- **Mic** rides the drawer's lip on the right; the left edge is the dials'.
+- **Mic** keeps its place at the top centre whether or not anything plays
+  (Burooj, 2026-10-20; it used to ride the drawer's lip while dials showed).
+  The left edge is the dials'.
+- **Notices** (the Looper's error, the shelf's storage notice) are Edge
+  Notices: one right-aligned line of type on the Stage's right edge, with a
+  Brass lamp and no box or close key, swept off the right edge to dismiss:
+  the dial's flick, mirrored (Burooj, 2026-10-20; the look BJS-578 asked for).
 - **Pattern strip dial**: for a playing pattern it shows what its loop dial
   shows (same notes, length and place) and turns with it; otherwise it rests.
+  It will take the offset turn the small dial gave up (a follow-up).
+- **Beat dots** above Play: while latched with a take open, they count down
+  the bar of silence that closes it, draining beat by beat on the heard
+  beat; a note refills them; when the take closes they show the beat again.
 - **Code Strip**: when the pattern on the desk is playing, the HighlightStrip
   follows it, lighting that member's notes while the others sound. This comes
   from the single transport's events; the prototype cannot do it.
@@ -180,17 +204,51 @@ further Looper slice merges before the phone gate passes.
    calibration setting carry forward onto it.
 7. **Surfaces**, each as its own design-system unit.
 
+## Decided (Burooj, 2026-10-19)
+
+The questions this section held are settled:
+
+- **A saved Loop is its own reel**, reached by swiping left and right from the
+  home reel and holding only that Loop's patterns, so a Loop can be edited
+  pattern by pattern. The surface (and its horizontal gesture, which must not
+  fight the strips' own) is deferred to its own ticket; until then saved Loops
+  exist in the store only (rule 4).
+- **Rule 2 uses whole bars.** Each pattern's length rounds up to whole bars
+  (#139's `phraseLengthBars`), so every loop cycles on bar lines; a 3-bar
+  pattern against a 4-bar one drifts, as rule 2 allows. The take's own
+  recorded length stays one switch away (`LOOP_LENGTH` in the Looper store).
+- **The latch shows as Play's pressed state**: while latched, the Play key is
+  held in the Button's pressed look. Nothing else marks it.
+- **Envelopes do not stretch with tempo.** Pitch and gain curves follow the
+  Looper's tempo; attack, decay and release stay in seconds, the instrument's
+  own touch.
+- **Humming keeps the loop playing.** Opening the mic over a running loop does
+  not pause or stop it.
+- **The wet tail rings out** after mute and solo (already recorded under
+  Engine, 2026-10-17).
+- **Play waits for the engine**: it cannot start until the pattern player and
+  the audio engine are ready, nor while a rebuilt renderer is being restored.
+- **The loop dial's gestures** (superseding the drag-to-offset decided
+  earlier the same day): tap mutes, double-tap brings to the desk, hold solos
+  while held, a flick off the left edge removes; vertical drag is kept for
+  volume. See Surfaces.
+- **The latch's closing bar shows on the beat dots** ("the beat indicator
+  could visually show this").
+
+## Decided (Burooj, 2026-10-20, from the preview)
+
+- **Hold Play must latch on the phone.** Play owns its touch while held (no
+  pan, callout or selection can cancel the hold), and the click that ends a
+  hold is never a tap, however late it arrives.
+- **The Code Strip bar has no Open in Strudel**; the pattern strip keeps it.
+- **Notices are text on the right edge**, swiped right to dismiss (Surfaces).
+- **The unwound reel sits above everything**: the deck lifts over the mic and
+  the dials while the reel is scrolled or held open.
+- **The mic stays where it is** while loops play.
+
 ## Open
 
-- Does a 3-bar pattern drifting against a 4-bar one read as music or as a bug?
-  Rule 2 allows it. The alternative is forcing lengths to nest, which pads
-  odd-length tunes with silence.
-- Where a saved Loop lives. Two candidates: a Kept strip in the home reel, or
-  (Burooj, 2026-10-05) **each Loop is its own reel**, reached by swiping left
-  and right from the home reel, holding only that Loop's patterns. The second
-  gives a Loop a place to be edited pattern by pattern; it needs a horizontal
-  gesture that does not fight the strips' own.
-- Whether the latch needs to be visible beyond the Play key's own state.
-- Rule 2 rounds each pattern's length to whole bars, as the domain (#139)
-  does. The worklet design (§2, Data model) instead keeps a take's authored,
-  fractional length. One of them has to change before BJS-491.
+- **One pattern or everything playing.** Key, mode, tempo and instrument are
+  set per pattern, and a pinned pattern keeps its own key. Burooj is weighing
+  a small toggle that decides whether a change applies to the selected pattern
+  or to everything playing. It is undecided, so nothing builds it yet.

@@ -143,20 +143,22 @@ Live state is unchanged. Reduction is lossy;
 no new smoothing or playback behavior is introduced.
 
 There is no default phrase-count cap. The store's `shelfNotice` has two honest
-states, shown by one thin, one-line strip floating above the Performance Deck
-(not a Stage occluder). The states differ by a small Brass lamp and the words:
+states, shown as an Edge Notice: one right-aligned line of text on the Stage's
+right edge, above the Performance Deck (not a Stage occluder), with no key of
+its own (PR #202). The states differ by a small Brass lamp and the words:
 
 - **over budget**, unlit lamp: "Shelf full · still saving".
-- **failed**, lit lamp: "New sketches are not being saved". They stay in this
-  tab until a write succeeds.
+- **failed**, lit lamp: "Not saving. Delete old takes." New sketches stay in
+  this tab until a write succeeds.
 
-Both offer the oldest Recent phrase on an icon keycap, with a second tap to
-confirm release. Candidates sort by `closedAt`, falling back to `createdAt`.
-Kept, Library, the open take and any protected id (`setProtectedIds`, the
-Looper's playing set) are never release candidates, and `releaseRecent` passes
-the protected ids into `deletePhrase`. When no Recent remain the keycap is gone and the notice
-explains the manual copy/delete path to screen readers. An oversized shelf is loaded intact; it
-is never automatically trimmed.
+A swipe to the right puts the notice away until its state changes, and a
+failure comes back on the next refused save (`refusedSaves`). Deleting is the
+reel's own two-tap delete. The notice names the oldest Recent phrase for screen
+readers, from `releaseCandidates`: sorted by `closedAt`, falling back to
+`createdAt`, and never Kept, Library, the open take, a protected id
+(`setProtectedIds`, the Looper's playing set) or a saved Loop's member. When no
+Recent remain it explains the manual copy/delete path instead. An oversized
+shelf is loaded intact; it is never automatically trimmed.
 
 On load, `decode` drops any phrase without `notes` or `context` and keeps the
 rest of the shelf; it throws (unreadable, backed up first) only when there is

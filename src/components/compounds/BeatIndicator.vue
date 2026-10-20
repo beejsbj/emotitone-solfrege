@@ -20,6 +20,12 @@ const props = withDefaults(
     static?: boolean;
     enabled?: boolean;
     ariaLabel?: string;
+    /**
+     * A countdown in place of the beat: this many chads stay lit from the
+     * left and the rest are drained (the Looper's latch shows its closing
+     * bar this way). Null shows the beat.
+     */
+    countdown?: number | null;
   }>(),
   {
     beats: 4,
@@ -27,6 +33,7 @@ const props = withDefaults(
     static: false,
     enabled: true,
     ariaLabel: "Beat indicator",
+    countdown: null,
   },
 );
 
@@ -78,7 +85,42 @@ function applyStill(next: Exclude<Presentation, "running">) {
   });
 }
 
+const countdownLeft = () =>
+  props.countdown === null || props.countdown === undefined || !Number.isFinite(props.countdown)
+    ? null
+    : Math.max(0, Math.min(beatCount.value, Math.floor(props.countdown)));
+
+/*
+ * The countdown steps with its prop, not with frames, so it holds under
+ * Reduced Motion and on a hidden tab; the drained chads fade unless motion
+ * is reduced.
+ */
+function applyCountdown(left: number) {
+  presentation = null;
+  crownVisible.value = true;
+  if (rootRef.value) {
+    rootRef.value.dataset.uiBeatState = "countdown";
+    rootRef.value.dataset.beatTransport = "active";
+    rootRef.value.dataset.beatCountdown = String(left);
+  }
+  beatElements.forEach((element, index) => {
+    const lit = index < left;
+    element.classList.toggle("beat-indicator__beat--lit", lit);
+    element.classList.toggle("beat-indicator__beat--drained", !lit);
+    element.style.transform = "scale(1)";
+  });
+}
+
+function leaveCountdown() {
+  if (!rootRef.value || rootRef.value.dataset.beatCountdown === undefined) return;
+  delete rootRef.value.dataset.beatCountdown;
+  beatElements.forEach((element) => element.classList.remove("beat-indicator__beat--drained"));
+}
+
 function applyFrame(snapshot: UIBeatSnapshot) {
+  const left = countdownLeft();
+  if (left !== null) return applyCountdown(left);
+  leaveCountdown();
   // Static specimens hold a still bar; otherwise the crown only exists while
   // the transport is active, and only moves while UIBeat presents.
   if (props.static) return applyStill("rest");
@@ -146,7 +188,7 @@ watch(beatCount, async () => {
 
 watch(() => props.static, syncSubscription, { flush: "post" });
 
-watch([consumerEnabled, () => props.downbeat], () => {
+watch([consumerEnabled, () => props.downbeat, () => props.countdown], () => {
   presentation = null;
   applyFrame(clock.snapshot);
 }, { flush: "post" });
@@ -248,6 +290,15 @@ onBeforeUnmount(() => unsubscribe?.());
   transition: transform var(--dur-ui) var(--ease-brush);
 }
 
+/* A drained chad of a countdown goes dark, downbeat included, and fades as it does. */
+.beat-indicator .beat-indicator__beat--drained {
+  background: var(--led-off);
+  box-shadow: none;
+  transition:
+    background-color var(--dur-ui) var(--ease-brush),
+    box-shadow var(--dur-ui) var(--ease-brush);
+}
+
 .beat-indicator:not([data-ui-beat-state="running"]) .beat-indicator__beat--downbeat::after {
   animation: none;
 }
@@ -275,6 +326,7 @@ onBeforeUnmount(() => unsubscribe?.());
 
   .beat-indicator__beat--lit { background: CanvasText; }
   .beat-indicator__beat--downbeat { background: Highlight; }
+  .beat-indicator .beat-indicator__beat--drained { background: GrayText; }
   .beat-indicator__beat--downbeat::after { display: none; }
 }
 </style>

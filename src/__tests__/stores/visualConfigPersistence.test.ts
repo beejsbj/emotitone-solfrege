@@ -3,7 +3,7 @@ import { createPinia, disposePinia, setActivePinia, type Pinia } from 'pinia';
 import { nextTick } from 'vue';
 import capture from '../fixtures/persistence/visual-config.v0.store-capture.json?raw';
 import { useVisualConfigStore } from '@/stores/visualConfig';
-import { useTempoStore, useOctaveStore, useDrawerRowsStore } from '@/stores/performanceSettings';
+import { useTempoStore, useOctaveStore, useDrawerRowsStore, useLoopTimingStore } from '@/stores/performanceSettings';
 import { HISTORICAL_VISUAL_DEFAULTS } from '@/data/visual-config-default-history';
 import { visualConfigCodec, isPerformanceField } from '@/services/visualConfigPersistence';
 import { DEFAULT_CONFIG } from '@/data/visual-config-metadata';
@@ -282,5 +282,15 @@ describe('visual config codec and performance ownership', () => {
     expect(localStorage.getItem(key)).toBe(newer);
     expect(localStorage.getItem('emotitone-octave')).toBe(newer);
     expect(saveFailureNotice.value?.kind).toBe('newer');
+  });
+});
+
+describe('Loop Timing (BJS-493)', () => {
+  it.each([[5000, 200], [-5000, -100], [35, 35]])('reads a stored %i ms back as %i, inside its range', (stored, expected) => {
+    localStorage.setItem('emotitone-loop-timing', JSON.stringify({ $version: 1, data: { value: stored } }));
+    const instance = createPinia();
+    pinia.push(instance);
+    setActivePinia(instance);
+    expect(useLoopTimingStore().value).toBe(expected);
   });
 });

@@ -4,6 +4,7 @@
       <BeatIndicator
         class="code-strip-bar__beat"
         aria-label="Pattern beat"
+        :countdown="beatCountdown"
       >
         <Button
           class="code-strip-bar__play"
@@ -11,9 +12,15 @@
           :tone="isPlaying ? 'ink' : 'ivory'"
           :haptic="haptic"
           :disabled="playDisabled"
-          :accessible-name="isPlaying ? 'Stop' : 'Play'"
-          :title="isPlaying ? 'Stop' : 'Play'"
-          @click="emit('togglePlayback')"
+          :pressed="playLatched"
+          :accessible-name="playName"
+          :title="playName"
+          :style="PLAY_OWNS_TOUCH"
+          @pointerdown="playDown"
+          @pointerup="playLift"
+          @pointercancel="playLift"
+          @contextmenu.prevent
+          @click="playClick"
         >
           <Square v-if="isPlaying" />
           <Play v-else />
@@ -67,6 +74,7 @@ import {
   Play,
   Square,
 } from "lucide-vue-next";
+import { computed, onBeforeUnmount } from "vue";
 import Button from "@/components/primatives/Button.vue";
 import CodeStrip from "@/components/uniques/CodeStrip/index.vue";
 import BeatIndicator from "@/components/compounds/BeatIndicator.vue";
@@ -81,6 +89,13 @@ const props = withDefaults(
     isPlaying?: boolean;
     playDisabled?: boolean;
     haptic?: boolean;
+    /**
+     * The Looper's latch is on (hold Play): the key's lip orbits, pedal-style,
+     * and the key stays pressable. Holding Play emits `playHold`.
+     */
+    playLatched?: boolean;
+    /** Beats left of the latch's closing bar, shown on the beat dots (null: the beat). */
+    beatCountdown?: number | null;
     tokens?: CodeStripToken[];
     source?: string;
     density?: CodeStripDensity;
@@ -92,6 +107,8 @@ const props = withDefaults(
     isPlaying: false,
     playDisabled: false,
     haptic: false,
+    playLatched: false,
+    beatCountdown: null,
     tokens: undefined,
     source: undefined,
     density: "dense",
@@ -107,7 +124,56 @@ const emit = defineEmits<{
   togglePlayback: [];
   backspace: [];
   return: [];
+  playHold: [];
 }>();
+
+const playName = computed(() => {
+  const action = props.isPlaying ? "Stop" : "Play";
+  return props.playLatched ? `${action} (latched; hold to release)` : action;
+});
+
+// Holding Play latches the Looper; the click that ends a hold is swallowed.
+const PLAY_HOLD_MS = 450;
+/*
+ * A hold is a long, still touch, and a finger on glass drifts. Left to the
+ * browser (the Button's `touch-action: manipulation`), a drift past its slop
+ * becomes a pan: it cancels the pointer before the hold lands, and a long
+ * press opens the callout or a text selection. Play keeps the touch.
+ */
+const PLAY_OWNS_TOUCH = {
+  touchAction: "none",
+  userSelect: "none",
+  WebkitUserSelect: "none",
+  WebkitTouchCallout: "none",
+} as const;
+let playHoldTimer: ReturnType<typeof setTimeout> | undefined;
+/** This press reached the hold: the click that ends it is not a tap. */
+let playHeld = false;
+function playDown() {
+  if (props.playDisabled) return;
+  playHeld = false;
+  clearTimeout(playHoldTimer);
+  playHoldTimer = setTimeout(() => {
+    playHeld = true;
+    emit("playHold");
+  }, PLAY_HOLD_MS);
+}
+// The key moves under the finger when pressed, so leaving it does not cancel
+// the hold; only lifting does.
+function playLift() {
+  clearTimeout(playHoldTimer);
+}
+function playClick(event: MouseEvent) {
+  clearTimeout(playHoldTimer);
+  // However late the click that ends a hold arrives (a busy phone can deliver
+  // it well after the lift), it is not a tap. The next press clears the mark,
+  // so a hold that ends with no click never swallows a later tap; a keyboard
+  // click (detail 0) has no press and is always a tap.
+  const endsHold = playHeld && event.detail !== 0;
+  playHeld = false;
+  if (!endsHold) emit("togglePlayback");
+}
+onBeforeUnmount(() => clearTimeout(playHoldTimer));
 
 </script>
 

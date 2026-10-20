@@ -21,6 +21,7 @@ import {
   isTakeTouched as isBookTakeTouched,
   untouchedCopySource,
   keepPhrase as keepBookPhrase,
+  markLooped as markBookLooped,
   keepTake as keepBookTake,
   openPhrase as openBookPhrase,
   phraseFromPattern,
@@ -38,7 +39,7 @@ import { createPhrasePersistence, encodedPhraseBytes, shelfOverBudget } from "@/
 import { installPhraseBackupConsole } from "@/services/phraseBackups";
 import { createDeskClaims } from "@/services/deskClaims";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
-import type { HeldNote, Phrase, PhraseBook, PhraseContext } from "@/types/phrases";
+import type { HeldNote, Phrase, PhraseBook, PhraseBookConfig, PhraseContext } from "@/types/phrases";
 
 const LEGACY_STORAGE_KEY = "patterns";
 const STORAGE_KEY = "phrases";
@@ -47,6 +48,14 @@ const NON_RECORDING_EVENT_SOURCES = new Set(["pattern-playback", "strudel-playba
 const MAX_EXPRESSION_POINTS = 8192;
 /** Without Web Locks: another tab's take this old was left behind. */
 const ABANDONED_TAKE_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Asked at every live press, before the recorder writes anything. Returning
+ * true opens a fresh take first: the Looper's rule 3, a playing pattern is
+ * read-only. `deskPhraseId` is what the desk stands for (an untouched
+ * Kept/Library copy stands for its source); `wallTime` is the press stamp.
+ */
+export type LivePressGuard = (press: { deskPhraseId: string; wallTime: number }) => boolean;
 
 /** Built-in phrases. Static data: never stored, never edited. */
 export const libraryPhrases: readonly Phrase[] = Object.freeze(
@@ -100,7 +109,17 @@ export const usePhrasesStore = defineStore(
     const instrumentStore = useInstrumentStore();
     const keyboardStore = useKeyboardDrawerStore();
     const visualConfigStore = useVisualConfigStore();
-    const config = { ...DEFAULT_PHRASE_BOOK_CONFIG };
+    // Phrases another part of the app still points at (the Looper's playing
+    // set, PR 202). Retention and delete never drop one, the shelf notice never
+    // names or releases one, and a merge with another tab's shelf never drops
+    // one (BJS-575). Declared first: the book config reads it.
+    const protectedIdsProvider = shallowRef<() => ReadonlySet<string>>(() => new Set());
+    const config: PhraseBookConfig = Object.defineProperty(
+      { ...DEFAULT_PHRASE_BOOK_CONFIG },
+      "protectedIds",
+      { get: () => protectedIdsProvider.value(), enumerable: true },
+    );
+    const livePressGuard = shallowRef<LivePressGuard | null>(null);
 
     const liveContext = computed<PhraseContext>(() => ({
       key: musicStore.currentKey as ChromaticNote,
@@ -116,19 +135,20 @@ export const usePhrasesStore = defineStore(
     const encodedBytes = ref(0);
     // The browser refused the last write of the shelf (or the backup it needs).
     const saveFailed = ref(false);
+    // Counts every refused write, so a notice put away comes back on the next one.
+    const refusedSaves = ref(0);
     // A save of new work waits on the migration backup: not a failure, but
     // not on disk yet either (the leave-page guard covers it).
     const saveQueued = ref(false);
-    // Phrases another part of the app still points at (the Looper's playing
-    // set, PR 202). The shelf notice never offers or releases one of them, and
-    // a merge with another tab's shelf never drops one.
-    const protectedIdsProvider = shallowRef<() => ReadonlySet<string>>(() => new Set());
     const persistence = createPhrasePersistence(() => ({
       book: readLegacyBook(liveContext.value) ?? createPhraseBook(liveContext.value, Date.now()),
       isRecordingEnabled: true,
     }), () => liveContext.value, {
       onMeasure: (bytes) => { encodedBytes.value = bytes; },
-      onStored: (stored) => { saveFailed.value = !stored; },
+      onStored: (stored) => {
+        saveFailed.value = !stored;
+        if (!stored) refusedSaves.value += 1;
+      },
       onPending: (pending) => { saveQueued.value = pending; },
       protectedIds: () => protectedIdsProvider.value(),
       // Another tab's sketches, merged in (BJS-575); see docs/persistence-codec.md.
@@ -195,10 +215,16 @@ export const usePhrasesStore = defineStore(
     };
     watch(() => saveFailed.value || saveQueued.value, guardTab, { immediate: true });
     onScopeDispose(() => guardTab(false));
+    // The oldest Recent phrases, the ones to delete first when the shelf is
+    // full (the notice names the first). Never a phrase another part of the
+    // app still points at: the Looper's playing set (through the provider) and
+    // every saved Loop's members (read from the book itself, so this holds
+    // before the Looper store exists).
     const releaseCandidates = computed(() => {
       const protectedIds = protectedIdsProvider.value();
+      const inLoops = new Set(book.value.loops.flatMap((loop) => loop.members.map((member) => member.phraseId)));
       return book.value.phrases
-        .filter((phrase) => phrase.shelf === "recent" && !protectedIds.has(phrase.id))
+        .filter((phrase) => phrase.shelf === "recent" && !protectedIds.has(phrase.id) && !inLoops.has(phrase.id))
         .sort((a, b) => (a.closedAt ?? a.createdAt) - (b.closedAt ?? b.createdAt));
     });
     watch([book, isRecordingEnabled], () => persistence.save(savedState()), { deep: true });
@@ -225,6 +251,9 @@ export const usePhrasesStore = defineStore(
       void heldCount.value;
       return isBookTakeTouched(book.value, held);
     });
+    /** What the desk stands for: an untouched Kept/Library copy is its source. */
+    const deskPhraseId = computed(() =>
+      untouchedCopySource(book.value, isTakeTouched.value) ?? book.value.takeId);
     /** The reel, deepest first; the desk is drawn where you found it. */
     const reel = computed(() => arrangeReel(book.value, libraryPhrases, isTakeTouched.value));
 
@@ -324,6 +353,8 @@ export const usePhrasesStore = defineStore(
     }
 
     function deletePhrase(id: string): boolean {
+      const protectedIds = protectedIdsProvider.value();
+      if (protectedIds.has(id)) return false;
       if (id === book.value.takeId && isTakeTouched.value) {
         // A confirmed delete of the take you played into: gone, fresh desk.
         discardTake(book.value, Date.now(), liveContext.value);
@@ -333,15 +364,17 @@ export const usePhrasesStore = defineStore(
       const lookedAt = !isTakeTouched.value
         && (target === book.value.takeId
           || target === untouchedCopySource(book.value, isTakeTouched.value));
+      if (protectedIds.has(target)) return false;
+      // A saved Loop's member is refused before the desk is touched.
+      if (book.value.loops.some((loop) => loop.members.some((member) => member.phraseId === target))) return false;
       // Deleting what you're looking at clears the desk first.
       if (lookedAt) startBlankTake();
-      return deleteBookPhrase(book.value, target);
+      return deleteBookPhrase(book.value, target, protectedIds);
     }
 
-    /** Explicit pressure relief only: never take, Kept, or Library. */
-    function releaseRecent(id: string): boolean {
-      if (!book.value.phrases.some((phrase) => phrase.id === id && phrase.shelf === "recent")) return false;
-      return deleteBookPhrase(book.value, id, protectedIdsProvider.value());
+    /** Play set this phrase looping: it is kept from now on (see `Phrase.looped`). */
+    function markLooped(id: string): boolean {
+      return markBookLooped(book.value, id);
     }
 
     function renamePhrase(id: string, name: string): boolean {
@@ -374,11 +407,13 @@ export const usePhrasesStore = defineStore(
       if (!isRecordable(event)) return;
       const detail = event.detail;
       if (!detail?.noteId) return;
+      const wallTime = Number.isFinite(detail.timestamp) ? detail.timestamp : Date.now();
+      if (livePressGuard.value?.({ deskPhraseId: deskPhraseId.value, wallTime })) startBlankTake();
       const isBorrowed = detail.isBorrowed === true || detail.solfegeIndex < 0;
       const live = liveContext.value;
       pressNote(book.value, held, {
         noteId: detail.noteId,
-        wallTime: Number.isFinite(detail.timestamp) ? detail.timestamp : Date.now(),
+        wallTime,
         context: {
           key: (detail.key ?? live.key) as ChromaticNote,
           mode: (detail.mode ?? live.mode) as MusicalMode,
@@ -455,6 +490,11 @@ export const usePhrasesStore = defineStore(
       listeners = [];
     }
 
+    // ─── Seams for the Looper ────────────────────────────────────────────────
+    function setLivePressGuard(guard: LivePressGuard | null): void {
+      livePressGuard.value = guard;
+    }
+
     /** Seam for the Looper (PR 202): phrases it is playing may not be released. */
     function setProtectedIds(provider: (() => ReadonlySet<string>) | null): void {
       protectedIdsProvider.value = provider ?? (() => new Set());
@@ -483,15 +523,15 @@ export const usePhrasesStore = defineStore(
 
       encodedBytes,
       shelfNotice,
+      refusedSaves,
       releaseCandidates,
-      releaseRecent,
-      setProtectedIds,
 
       // Shelves and the take
       library: libraryPhrases,
       shelves,
       reel,
       isTakeTouched,
+      deskPhraseId,
       take,
       takeId,
       takeNotes,
@@ -510,6 +550,9 @@ export const usePhrasesStore = defineStore(
       renamePhrase,
       undoLastNote,
       importPhrases,
+      setLivePressGuard,
+      setProtectedIds,
+      markLooped,
 
       // Recorder plumbing (exposed for tests)
       handleNotePressed,

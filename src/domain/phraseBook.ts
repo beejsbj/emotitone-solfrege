@@ -97,6 +97,7 @@ export function createPhraseBook(
   const take = emptyTake(context, now, newId);
   return {
     phrases: [take],
+    loops: [],
     takeId: take.id,
     recorder: freshRecorder("fresh"),
     libraryNames: {},
@@ -127,6 +128,7 @@ export function ensureSingleTake(
   now: number,
   newId: NewId = createId,
 ): void {
+  book.loops ??= [];
   const takes = book.phrases.filter((phrase) => phrase.shelf === "take");
   const chosen = takes.find((phrase) => phrase.id === book.takeId) ?? takes[0];
   for (const extra of takes) {
@@ -511,6 +513,8 @@ function closingShelf(
   reason: CloseReason,
 ): "recent" | null {
   if (!take.notes.length) return null;
+  // A phrase you set looping is yours to keep, whether or not it still plays.
+  if (take.looped) return "recent";
   switch (recorder.origin) {
     case "fresh":
       return reason === "navigate" || take.notes.length >= MIN_FRESH_PHRASE_NOTES || take.source
@@ -534,7 +538,11 @@ function retireTake(
 ): void {
   const take = getTake(book);
   delete take.modeBase;
-  if (closingShelf(take, book.recorder, reason) === "recent") {
+  // A take the Looper is playing, or a saved Loop points at, stays findable
+  // even if it would be a stray tap.
+  const pointedAt = (book.loops ?? []).some((loop) => loop.members.some((member) => member.phraseId === take.id));
+  if (closingShelf(take, book.recorder, reason) === "recent"
+    || (take.notes.length > 0 && (config.protectedIds?.has(take.id) || pointedAt))) {
     // A Recent phrase that was only looked at goes back to its own place, so
     // scrolling through Recent never reshuffles it.
     const untouchedReopen = book.recorder.origin === "recent" && !book.recorder.edited;
@@ -662,6 +670,18 @@ export function openPhrase(
   return fork;
 }
 
+/**
+ * Mark a stored phrase as looped (Play set it looping): from then on it is
+ * kept like a played phrase. Library phrases are static and Kept ones are
+ * kept already, so only a take or a Recent phrase takes the mark.
+ */
+export function markLooped(book: PhraseBook, id: string): boolean {
+  const phrase = book.phrases.find((candidate) => candidate.id === id);
+  if (!phrase || (phrase.shelf !== "take" && phrase.shelf !== "recent")) return false;
+  phrase.looped = true;
+  return true;
+}
+
 /** Keep a phrase straight from the reel without disturbing the take. */
 export function keepPhrase(
   book: PhraseBook,
@@ -695,13 +715,23 @@ export function keepPhrase(
   return copy.id;
 }
 
+/**
+ * Saved Loop pointers are protected even without a caller-supplied set.
+ * Force detaches saved memberships; it never overrides supplied protection.
+ * For force, leave the live playing set first and supply its remaining ids
+ * (not the saved Loop ids this function will detach).
+ */
 export function deletePhrase(
   book: PhraseBook,
   id: string,
   protectedIds: ReadonlySet<string> = new Set(),
+  force = false,
 ): boolean {
   const target = book.phrases.find((phrase) => phrase.id === id);
   if (!target || target.shelf === "take" || protectedIds.has(id)) return false;
+  const loops = book.loops.filter((loop) => loop.members.some((member) => member.phraseId === id));
+  if (loops.length && !force) return false;
+  for (const loop of loops) loop.members = loop.members.filter((member) => member.phraseId !== id);
   book.phrases = book.phrases.filter((phrase) => phrase !== target);
   return true;
 }
@@ -827,13 +857,16 @@ export function pruneRecent(
   book: PhraseBook,
   now: number,
   config: PhraseBookConfig = DEFAULT_PHRASE_BOOK_CONFIG,
+  protectedIds: ReadonlySet<string> = config.protectedIds ?? new Set(),
 ): void {
+  const savedIds = new Set(book.loops.flatMap((loop) => loop.members.map((member) => member.phraseId)));
   const cutoff = now - config.recentRetentionMs;
   const recent = book.phrases
     .filter((phrase) => phrase.shelf === "recent")
     .sort((left, right) => (right.closedAt ?? right.createdAt) - (left.closedAt ?? left.createdAt));
   const expired = new Set(recent.filter((phrase, index) =>
-    (phrase.closedAt ?? phrase.createdAt) < cutoff || index >= config.recentLimit
+    !protectedIds.has(phrase.id) && !savedIds.has(phrase.id)
+    && ((phrase.closedAt ?? phrase.createdAt) < cutoff || index >= config.recentLimit)
   ));
   if (expired.size) book.phrases = book.phrases.filter((phrase) => !expired.has(phrase));
 }

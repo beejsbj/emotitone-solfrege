@@ -78,6 +78,8 @@
         :length-ms="item.loopLengthMs"
         :bar-ms="item.loopBarMs"
         :live="item.loopLive"
+        :origin-bars="item.loopOriginBars"
+        :rate="item.loopRate"
         :aria-label="`${item.name} note timeline`"
       />
 
@@ -195,6 +197,10 @@ export interface PatternStripItem {
   loopBarMs?: number;
   /** The transport plays this phrase: its Loop Dial's masthead sweeps with playback. */
   loopLive?: boolean;
+  /** A Looper member's place on the bar clock (where its time 0 sits). */
+  loopOriginBars?: number;
+  /** A Looper member's half or double time. */
+  loopRate?: number;
   copied?: boolean;
   canDelete?: boolean;
   canCopy?: boolean;

@@ -4,6 +4,7 @@ import { setActivePinia } from "pinia";
 import { IDBFactory } from "fake-indexeddb";
 import { createTestPinia } from "../helpers/test-utils";
 import { usePhrasesStore } from "@/stores/phrases";
+import { useLooperStore } from "@/stores/looper";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { fakeLocks } from "../helpers/fakeLocks";
 import { prewarmSoundSamples } from "@/services/superdoughAudio";
@@ -227,5 +228,31 @@ describe("phrase stores in two tabs", () => {
     expect(a.shelves.recent.map((phrase) => phrase.id)).toContain(looping);
     await nextTick();
     expect(storedIds()).toContain(looping);
+  });
+
+  it("lets a Loop deleted in the other tab take its member with it, past this tab's real Looper", async () => {
+    const a = openTab();
+    // The real Looper store wires this tab's protected ids, as the app does.
+    const looper = useLooperStore();
+    const member = await sketch(a, "a", START);
+    a.book.loops.push({ id: "loop-1", name: "Loop 1", createdAt: START, updatedAt: START,
+      members: [{ phraseId: member, offsetBars: 0, lengthBars: 1, muted: false, pinned: false, rate: 1 }] });
+    await nextTick();
+    expect(looper.members).toEqual([]);
+    const b = openTab();
+    expect(b.book.loops.map((loop) => loop.id)).toEqual(["loop-1"]);
+    // Tab B deletes the Loop, then the phrase it pointed at.
+    b.book.loops.splice(0);
+    expect(b.deletePhrase(member)).toBe(true);
+    await nextTick();
+    expect(storedIds()).not.toContain(member);
+    // Tab A hears it: its own copy of the Loop is gone too, and nothing it plays
+    // points at the phrase, so the merge lets it go and A never writes it back.
+    otherTabWrote();
+    await nextTick();
+    expect(a.book.loops).toEqual([]);
+    expect(a.findPhrase(member)).toBeUndefined();
+    await sketch(a, "a2", START + 10_000);
+    expect(storedIds()).not.toContain(member);
   });
 });

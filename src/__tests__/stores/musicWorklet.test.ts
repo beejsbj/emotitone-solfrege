@@ -440,6 +440,8 @@ describe("music store production worklet integration", () => {
     expect(played).toMatchObject({ noteName: "F#4", key: "C", mode: "major", isBorrowed: true,
       timestamp: EPOCH + 125, midiTimestamp: 1125, audibleAt: 1325, mirrorMidi: false });
     expect(music.getActiveNotes()[0].audibleAt).toBe(1325);
+    // The attack's own audio time, exactly: the Looper places overdubs by it (BJS-493).
+    expect(played.audioTime).toBe(12.125);
     worklet.listener!.onEvent(event(owner!, "live_borrowed", "release", 12.225, 66));
     expect(patterns.takeNotes.map(note => [note.note, note.pressTime, note.duration, note.isBorrowed]))
       .toEqual([["F#4", 0, 100, true]]);

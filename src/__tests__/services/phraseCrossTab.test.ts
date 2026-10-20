@@ -30,7 +30,11 @@ interface Tab {
   events: EventTarget;
   /** What the shelf notice was told: true for a landed write, false for a failure. */
   stored: boolean[];
+  /** Whether a save waits on a migration backup (the leave-page prompt). */
+  pending: boolean;
   save(): boolean;
+  /** A restore run from this tab stops its saves until reload. */
+  holdUntilReload(): void;
   /** Wait for a backup the save path is holding a write behind, and its queued save. */
   settled(): Promise<void>;
   /** The browser delivers the other tab's write to this tab. */
@@ -42,15 +46,17 @@ const tabs: Tab[] = [];
 
 /** `listening: false` is a tab whose storage events never arrive: only its own saves can notice. */
 function openTab({ listening = true } = {}): Tab {
-  const tab = { protectedIds: new Set<string>(), events: new EventTarget(), stored: [] as boolean[] } as Tab;
+  const tab = { protectedIds: new Set<string>(), events: new EventTarget(), stored: [] as boolean[], pending: false } as Tab;
   const binding = createPhrasePersistence(defaults, () => context, {
     adopt: (state) => { tab.state = state; },
     protectedIds: () => tab.protectedIds,
     onStored: (ok) => tab.stored.push(ok),
+    onPending: (waiting) => { tab.pending = waiting; },
   });
   tab.state = binding.load();
   const stop = listening ? binding.listen(() => tab.state, tab.events) : () => {};
   tab.save = () => binding.save(tab.state);
+  tab.holdUntilReload = () => binding.holdUntilReload();
   tab.settled = () => binding.settled();
   tab.hear = () => { tab.events.dispatchEvent(new StorageEvent("storage", { key: "phrases" })); };
   tab.dispose = () => { stop(); binding.unregister(); };
@@ -615,6 +621,74 @@ describe("two tabs, one shelf", () => {
     expect(saveFailureNotice.value).toBeNull();
     expect(a.save()).toBe(true);
     expect(ids(stored())).toEqual(expect.arrayContaining(["mine", "while-held"]));
+  });
+
+  it("saves what was played during a stamp once the stamp is taken back, with no further edit", () => {
+    const a = openTab();
+    sketch(a, "mine");
+    a.save();
+    // Another tab stamps a restore; A hears it and holds, and A's player keeps playing.
+    localStorage.setItem("phrases.restored", "1");
+    a.hear();
+    sketch(a, "played-while-held");
+    expect(a.save()).toBe(false);
+    expect(ids(stored())).not.toContain("played-while-held");
+    // The restore's write fails and its stamp is taken back. That is a storage
+    // event only: no state changes in A, so no autosave follows.
+    localStorage.removeItem("phrases.restored");
+    a.hear();
+    expect(ids(stored())).toEqual(expect.arrayContaining(["mine", "played-while-held"]));
+    expect(a.stored.at(-1)).toBe(true);
+    expect(saveFailureNotice.value).toBeNull();
+  });
+
+  it("keeps the other tab's work when it saves what was played during a stamp", () => {
+    const a = openTab();
+    const b = openTab();
+    a.save();
+    sketch(a, "from-a");
+    a.save(); // B has not heard this yet
+    localStorage.setItem("phrases.restored", "1");
+    b.hear();
+    sketch(b, "from-b");
+    expect(b.save()).toBe(false);
+    localStorage.removeItem("phrases.restored");
+    b.hear();
+    expect(ids(stored())).toEqual(expect.arrayContaining(["from-a", "from-b"]));
+    expect(ids(b.state)).toContain("from-a");
+  });
+
+  it("stops waiting on a migration backup when another tab's restore stamp arrives meanwhile", async () => {
+    const a = openTab();
+    a.save();
+    const stale = structuredClone(stored());
+    sketch(a, "mine");
+    a.save();
+    localStorage.setItem("phrases", JSON.stringify({ $version: 1, data: stale }));
+    a.hear();
+    expect(a.save()).toBe(false);
+    expect(a.pending).toBe(true);
+    // The restore lands before the backup does: the queued save must not write over it.
+    localStorage.setItem("phrases.restored", "1");
+    await a.settled();
+    expect(a.pending).toBe(false);
+    expect(JSON.parse(localStorage.getItem("phrases")!).$version).toBe(1);
+  });
+
+  it("stops waiting on a migration backup when this tab's own restore holds it", async () => {
+    const a = openTab();
+    a.save();
+    const stale = structuredClone(stored());
+    sketch(a, "mine");
+    a.save();
+    localStorage.setItem("phrases", JSON.stringify({ $version: 1, data: stale }));
+    a.hear();
+    expect(a.save()).toBe(false);
+    expect(a.pending).toBe(true);
+    a.holdUntilReload();
+    expect(a.pending).toBe(false);
+    await a.settled();
+    expect(a.pending).toBe(false);
   });
 
   it("stops saving, and says so, when the other tab is a newer app", () => {

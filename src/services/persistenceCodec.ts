@@ -457,12 +457,16 @@ export function createPersistedBinding<T>(
     reportSaveFailure("newer", codec.key);
     return true;
   };
-  /** That restore failed and took its stamp back: nothing changed, so save again. */
-  const stampTakenBack = (): void => {
-    if (!heldByStamp || hold?.reason !== "restored" || readMarker() !== restoreSeen) return;
+  /**
+   * That restore failed and took its stamp back: nothing changed, so save
+   * again. True when this call lifted the hold.
+   */
+  const stampTakenBack = (): boolean => {
+    if (!heldByStamp || hold?.reason !== "restored" || readMarker() !== restoreSeen) return false;
     hold = null;
     heldByStamp = false;
     reportSaveSuccess(codec.key);
+    return true;
   };
   /** Stored bytes another tab wrote since this binding last agreed with storage. */
   const isForeign = (raw: string | null): raw is string =>
@@ -715,7 +719,13 @@ export function createPersistedBinding<T>(
       return true;
     },
     sync(current) {
-      stampTakenBack();
+      if (stampTakenBack() && queuedState) {
+        // A save the hold refused is parked here; a storage event touches no
+        // state, so nothing else would try it again.
+        const latest = queuedState.state;
+        queuedState = null;
+        binding.save(latest);
+      }
       if (hold || restoredElsewhere() || !codec.merge) return null;
       const stored = storage.read(codec.key);
       if (!stored.ok || !isForeign(stored.value)) return null;

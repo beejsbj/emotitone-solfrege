@@ -235,14 +235,24 @@ export function createPhrasePersistence(
     const reason = persisted.hold?.reason;
     return reason !== "needs-backup" && reason !== "restored";
   };
-  const { load, save, sync } = persisted;
+  // A restore drops the save that waited on a backup (it must not write over
+  // the restore), so nothing is left to wait for.
+  const droppedByRestore = () => {
+    if (persisted.hold?.reason === "restored") wait(false);
+  };
+  const { load, save, sync, holdUntilReload } = persisted;
   persisted.sync = (current) => {
     syncing = true;
     try {
       return sync(current);
     } finally {
       syncing = false;
+      droppedByRestore();
     }
+  };
+  persisted.holdUntilReload = () => {
+    holdUntilReload();
+    droppedByRestore();
   };
   persisted.load = () => {
     told = false;
@@ -259,6 +269,7 @@ export function createPhrasePersistence(
     else if (!saved && !told && refusing()) report(false);
     // Nothing to write: storage already holds this shelf (another tab wrote it).
     if (saved && !told) report(true);
+    droppedByRestore();
     return saved;
   };
   const unregister = persisted.unregister;

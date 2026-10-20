@@ -36,7 +36,8 @@ const props = defineProps<{
 const emit = defineEmits<{ dismiss: [] }>();
 
 const copy = computed(() => props.state === "failed"
-  ? { label: "Not saving", line: "New sketches are not being saved" }
+  // The visible line says what to do; 32 characters fit one line at 390px.
+  ? { label: "Not saving", line: "Not saving. Delete old takes." }
   : { label: "Shelf full", line: "Shelf full · still saving" });
 
 // While nothing saves, what was played lives only in this tab.

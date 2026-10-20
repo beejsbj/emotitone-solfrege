@@ -80,9 +80,18 @@ describe("EdgeNotice", () => {
 
   it("near the right edge, reaching the glass's edge is far enough (the dial's flick, mirrored)", () => {
     const notice = render();
-    // x 370 has 16px of room to x 386: a quick throw to the edge counts.
-    swipe(notice.element, 370, 388, 2, 16);
+    // x 360 has 26px of room to x 386: a quick throw to the edge counts.
+    swipe(notice.element, 360, 388, 2, 16);
     expect(notice.emitted("dismiss")).toHaveLength(1);
+  });
+
+  it("a tap that drifts 12px toward the edge, however fast, never dismisses", () => {
+    const notice = render();
+    // Mid-line, and right at the edge, where 12px is all the room there is.
+    swipe(notice.element, 300, 312, 1, 16);
+    swipe(notice.element, 374, 386, 1, 16);
+    swipe(notice.element, 376, 388, 2, 8);
+    expect(notice.emitted("dismiss")).toBeUndefined();
   });
 
   it("a slow drag, a short throw, a vertical swipe, a leftward throw and a tap leave it", () => {

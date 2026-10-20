@@ -193,6 +193,25 @@ describe("CodeStripBar.vue", () => {
     }
   });
 
+  it("an assistive activation is a tap and never starts the hold", async () => {
+    vi.useFakeTimers();
+    try {
+      wrapper = render();
+      const play = wrapper.get('button[aria-label="Play"]');
+      // VoiceOver's double-tap, Switch Access and TalkBack send a click, at
+      // most after a pointer down and up back to back: the lift clears the hold.
+      await play.trigger("click", { detail: 0 });
+      await play.trigger("pointerdown");
+      await play.trigger("pointerup");
+      await play.trigger("click", { detail: 0 });
+      vi.advanceTimersByTime(1000);
+      expect(wrapper.emitted("togglePlayback")).toHaveLength(2);
+      expect(wrapper.emitted("playHold")).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("shows the latch as the Play key held down, and its name says so", async () => {
     wrapper = render({ playLatched: true });
     const play = wrapper.get("button[data-pressed]");

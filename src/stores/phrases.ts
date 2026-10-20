@@ -135,6 +135,8 @@ export const usePhrasesStore = defineStore(
     const encodedBytes = ref(0);
     // The browser refused the last write of the shelf (or the backup it needs).
     const saveFailed = ref(false);
+    // Counts every refused write, so a notice put away comes back on the next one.
+    const refusedSaves = ref(0);
     // A save of new work waits on the migration backup: not a failure, but
     // not on disk yet either (the leave-page guard covers it).
     const saveQueued = ref(false);
@@ -143,7 +145,10 @@ export const usePhrasesStore = defineStore(
       isRecordingEnabled: true,
     }), () => liveContext.value, {
       onMeasure: (bytes) => { encodedBytes.value = bytes; },
-      onStored: (stored) => { saveFailed.value = !stored; },
+      onStored: (stored) => {
+        saveFailed.value = !stored;
+        if (!stored) refusedSaves.value += 1;
+      },
       onPending: (pending) => { saveQueued.value = pending; },
       protectedIds: () => protectedIdsProvider.value(),
       // Another tab's sketches, merged in (BJS-575); see docs/persistence-codec.md.
@@ -210,10 +215,11 @@ export const usePhrasesStore = defineStore(
     };
     watch(() => saveFailed.value || saveQueued.value, guardTab, { immediate: true });
     onScopeDispose(() => guardTab(false));
-    // Release (and the notice's naming of the oldest Recent) never touches a
-    // phrase another part of the app still points at: the Looper's playing
-    // set (through the provider) and every saved Loop's members (read from the
-    // book itself, so this holds before the Looper store exists).
+    // The oldest Recent phrases, the ones to delete first when the shelf is
+    // full (the notice names the first). Never a phrase another part of the
+    // app still points at: the Looper's playing set (through the provider) and
+    // every saved Loop's members (read from the book itself, so this holds
+    // before the Looper store exists).
     const releaseCandidates = computed(() => {
       const protectedIds = protectedIdsProvider.value();
       const inLoops = new Set(book.value.loops.flatMap((loop) => loop.members.map((member) => member.phraseId)));
@@ -371,12 +377,6 @@ export const usePhrasesStore = defineStore(
       return markBookLooped(book.value, id);
     }
 
-    /** Explicit pressure relief only: never take, Kept, or Library. */
-    function releaseRecent(id: string): boolean {
-      if (!book.value.phrases.some((phrase) => phrase.id === id && phrase.shelf === "recent")) return false;
-      return deleteBookPhrase(book.value, id, protectedIdsProvider.value());
-    }
-
     function renamePhrase(id: string, name: string): boolean {
       const target = lookedAtSource(id)?.id ?? id;
       return renameBookPhrase(book.value, target, name, libraryPhrases);
@@ -523,8 +523,8 @@ export const usePhrasesStore = defineStore(
 
       encodedBytes,
       shelfNotice,
+      refusedSaves,
       releaseCandidates,
-      releaseRecent,
 
       // Shelves and the take
       library: libraryPhrases,

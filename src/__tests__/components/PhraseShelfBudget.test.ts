@@ -105,7 +105,8 @@ describe("Shelf over budget: warn, keep saving (Burooj, 2026-10-17)", () => {
     expect(store.takeNotes).toHaveLength(2);
     expect(store.book.phrases.map((phrase) => phrase.id)).toEqual(expect.arrayContaining(["kept", "oldest", "newer"]));
     expect(notice(page).attributes("data-shelf-notice")).toBe("failed");
-    expect(notice(page).text()).toContain("New sketches are not being saved");
+    // The visible line says what to do, within the 32-character budget.
+    expect(notice(page).get(".edge-notice__line").attributes("title")).toBe("Not saving. Delete old takes.");
     expect(notice(page).classes()).toContain("edge-notice--problem");
     // One strip carries a phrase failure: the global storage Sticker stays away…
     expect(saveFailureNotice.value).toBeNull();
@@ -115,23 +116,21 @@ describe("Shelf over budget: warn, keep saving (Burooj, 2026-10-17)", () => {
     resetSaveFailure();
     // Storage recovers: the next save writes everything and the failed state clears.
     storage.setItem.mockImplementation(workingSetItem);
-    expect(store.releaseRecent("oldest")).toBe(true);
+    expect(store.deletePhrase("oldest")).toBe(true);
     await nextTick();
     expect(store.findPhrase("oldest")).toBeUndefined();
     expect(savedPhrases().find((saved) => saved.id === store.takeId)?.notes).toHaveLength(2);
     expect(notice(page).exists()).toBe(false);
   });
 
-  it("releases the oldest Recent, never Kept or the take, then clears the warning", async () => {
+  it("names the oldest Recent first, never Kept or the take, and clears once it is deleted", async () => {
     store.book.phrases.push(phrase("kept", "kept", 0), phrase("newer", "recent", 200), overBudgetRecent());
     await nextTick();
     const page = render();
     expect(store.releaseCandidates.map((phrase) => phrase.id)).toEqual(["oldest", "newer"]);
-    expect(store.releaseRecent("kept")).toBe(false);
-    expect(store.releaseRecent(store.takeId)).toBe(false);
     // The notice names the oldest Recent for assistive technology.
     expect(notice(page).text()).toContain("oldest first");
-    expect(store.releaseRecent(store.releaseCandidates[0].id)).toBe(true);
+    expect(store.deletePhrase(store.releaseCandidates[0].id)).toBe(true);
     await nextTick();
     expect(store.shelfNotice).toBeNull();
     expect(notice(page).exists()).toBe(false);
@@ -141,17 +140,17 @@ describe("Shelf over budget: warn, keep saving (Burooj, 2026-10-17)", () => {
     expect(saved.find((phrase) => phrase.id === "newer")).toBeDefined();
   });
 
-  it("never offers or releases a protected phrase (one the Looper is playing)", async () => {
+  it("never names or deletes a protected phrase (one the Looper is playing)", async () => {
     store.book.phrases.push(phrase("newer", "recent", 200), overBudgetRecent());
     // The shelf brings the Looper store, which provides the playing set.
     const page = render();
     join(useLooperStore().looper, store.findPhrase("oldest")!, { kind: "pinned-to-bar-one" });
     await nextTick();
     expect(store.releaseCandidates.map((phrase) => phrase.id)).toEqual(["newer"]);
-    expect(store.releaseRecent("oldest")).toBe(false);
+    expect(store.deletePhrase("oldest")).toBe(false);
     expect(store.findPhrase("oldest")).toBeDefined();
     expect(notice(page).text()).toContain("newer");
-    expect(store.releaseRecent(store.releaseCandidates[0].id)).toBe(true);
+    expect(store.deletePhrase(store.releaseCandidates[0].id)).toBe(true);
     await nextTick();
     expect(store.findPhrase("oldest")).toBeDefined();
     expect(store.findPhrase("newer")).toBeUndefined();
@@ -160,13 +159,12 @@ describe("Shelf over budget: warn, keep saving (Burooj, 2026-10-17)", () => {
     expect(notice(page).text()).toContain("No Recent phrases to release");
   });
 
-  it("never offers, releases or deletes a saved Loop's member, even before the Looper exists", async () => {
+  it("never names or deletes a saved Loop's member, even before the Looper exists", async () => {
     store.book.phrases.push(phrase("newer", "recent", 200), overBudgetRecent());
     store.book.loops.push({ id: "loop-1", name: "Loop 1", createdAt: 1, updatedAt: 1,
       members: [{ phraseId: "oldest", offsetBars: 0, lengthBars: 1, muted: false, pinned: false, rate: 1 }] });
     await nextTick();
     expect(store.releaseCandidates.map((phrase) => phrase.id)).toEqual(["newer"]);
-    expect(store.releaseRecent("oldest")).toBe(false);
     expect(store.deletePhrase("oldest")).toBe(false);
     expect(store.findPhrase("oldest")).toBeDefined();
   });
@@ -237,6 +235,41 @@ describe("Shelf over budget: warn, keep saving (Burooj, 2026-10-17)", () => {
     }
   });
 
+  it("brings a put-away failure back on the next refused save", async () => {
+    vi.useFakeTimers();
+    try {
+      store.book.phrases.push(phrase("oldest", "recent", 100));
+      await nextTick();
+      const page = render();
+      consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+      storage.setItem.mockImplementation((key: string, value: string) => {
+        if (key === "phrases") throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+        workingSetItem(key, value);
+      });
+      tap("f-0", 0, Date.now());
+      await nextTick();
+      expect(notice(page).attributes("data-shelf-notice")).toBe("failed");
+      const element = notice(page).element;
+      const at = (type: string, clientX: number) => element.dispatchEvent(new PointerEvent(type,
+        { bubbles: true, cancelable: true, pointerId: 5, pointerType: "touch", clientX, clientY: 300 }));
+      at("pointerdown", 200);
+      vi.advanceTimersByTime(16);
+      at("pointermove", 230);
+      vi.advanceTimersByTime(16);
+      at("pointermove", 260);
+      at("pointerup", 260);
+      await nextTick();
+      expect(notice(page).exists()).toBe(false);
+      // Still failing, and the next write is refused too: it speaks again.
+      tap("f-1", 2, Date.now() + 300);
+      await nextTick();
+      expect(store.shelfNotice).toBe("failed");
+      expect(notice(page).attributes("data-shelf-notice")).toBe("failed");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("floats the notice over the Stage: inside the occluding root, but not an occlusion part", async () => {
     store.book.phrases.push(overBudgetRecent());
     await nextTick();
@@ -276,7 +309,6 @@ describe("Shelf over budget: warn, keep saving (Burooj, 2026-10-17)", () => {
     const page = render();
     expect(page.text()).toContain("No Recent phrases to release");
     expect(store.shelves.kept).toHaveLength(1);
-    expect(store.releaseRecent("kept")).toBe(false);
     expect(savedPhrases().find((saved) => saved.id === "kept")?.shelf).toBe("kept");
   });
 

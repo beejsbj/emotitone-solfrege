@@ -87,12 +87,14 @@ function reelInteraction(active: boolean) {
   reelBusy.value = active;
   emit("interactionChange", active);
 }
-// A swipe puts the notice away until the shelf's state changes: it comes back
-// when a warning becomes a failure, or the next time the shelf fills.
+// A swipe puts the notice away until the shelf's state changes (a warning
+// that becomes a failure, or the next time the shelf fills), or until the next
+// refused save: what is not being saved is never quietly hidden.
 const dismissedNotice = ref<typeof phrasesStore.shelfNotice>(null);
 watch(() => phrasesStore.shelfNotice, (state) => {
   if (state !== dismissedNotice.value) dismissedNotice.value = null;
 });
+watch(() => phrasesStore.refusedSaves, () => { dismissedNotice.value = null; });
 const shownNotice = computed(() =>
   phrasesStore.shelfNotice !== dismissedNotice.value ? phrasesStore.shelfNotice : null);
 

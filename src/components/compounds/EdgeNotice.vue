@@ -74,6 +74,11 @@ const emit = defineEmits<{
 
 // The Knob's 5px tap threshold: past it the press is a sweep, or nothing.
 const TAP_THRESHOLD_PX = 5;
+// A notice is read, then put away, and a finger lifting off it can drift: a
+// sweep travels at least this far, however close to the edge it starts, so a
+// tap that slides 12px never dismisses. (The dials, at the very edge, keep
+// the flick's smaller floor.)
+const SWEEP_MIN_PX = 24;
 
 let gesture: {
   pointerId: number; x: number; y: number;
@@ -90,7 +95,7 @@ function down(event: PointerEvent) {
   if (props.busy) return;
   const start = { x: event.clientX, y: event.clientY, t: performance.now() };
   gesture = { pointerId: event.pointerId, x: start.x, y: start.y, moved: null, flung: false,
-    flick: trackFlick("right", start, { minRoomPx: TAP_THRESHOLD_PX + 1 }) };
+    flick: trackFlick("right", start, { minRoomPx: SWEEP_MIN_PX }) };
   try {
     (event.currentTarget as Element | null)?.setPointerCapture?.(event.pointerId);
   } catch {

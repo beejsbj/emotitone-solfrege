@@ -32,7 +32,7 @@ import {
   mustOpenFreshTake,
   openLoop as openBookLoop,
   phraseLengthBars,
-  protectedPhraseIds,
+  playingPhraseIds,
   saveLoop as saveBookLoop,
   setOffset,
   toggleMute,
@@ -852,8 +852,11 @@ export const useLooperStore = defineStore("looper", () => {
   // Rule 3, decided at press time: a playing desk pattern is read-only.
   phrases.setLivePressGuard(({ deskPhraseId }) =>
     deskPhraseId !== openTakeId.value && mustOpenFreshTake(looper.value, deskPhraseId));
-  // Retention: a playing or saved-Loop phrase is never purged.
-  phrases.setProtectedIds(() => protectedPhraseIds(phrases.book, looper.value));
+  // What this tab is playing is never purged, deleted, released or dropped by
+  // a merge. Saved Loops protect their own members from the book itself
+  // (retention, delete, release and the take's close read `book.loops`), so
+  // a Loop another tab deleted lets its member go here too (BJS-575).
+  phrases.setProtectedIds(() => playingPhraseIds(looper.value));
 
   // Registered after the phrases store's own listener, so the press has
   // already landed in its take when its audio time is recorded against it.

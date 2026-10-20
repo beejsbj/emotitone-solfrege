@@ -193,6 +193,11 @@ export function deleteLoop(book: PhraseBook, id: string): boolean {
   return true;
 }
 
+/** The phrases this Looper is playing: the live half of `protectedPhraseIds`. */
+export function playingPhraseIds(looper: Looper): Set<string> {
+  return new Set(looper.members.map((member) => member.phraseId));
+}
+
 export function protectedPhraseIds(book: PhraseBook, looper: Looper): Set<string> {
   return new Set([
     ...looper.members.map((member) => member.phraseId),

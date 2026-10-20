@@ -57,8 +57,8 @@ const features = [
   { label: "Anatomy", value: "a 6px Brass lamp, then one line of Ivory --t-mono, right-aligned; an Ink halo keeps it legible over the Stage" },
   { label: "No panel", value: "no box, border, background or close key: type on the Stage" },
   { label: "Signals", value: "warning: unlit --brass-lo lamp · problem: lit --brass-hi with its glow" },
-  { label: "Dismiss", value: "a fast, mostly sideways sweep off the right edge (the Looper Dial's flick, mirrored, from flick.ts) · Escape or Delete" },
-  { label: "Never", value: "a slow drag, a vertical swipe, a leftward throw or a tap" },
+  { label: "Dismiss", value: "a fast, mostly sideways sweep off the right edge (the Looper Dial's flick, mirrored, from flick.ts), at least 24px · Escape or Delete" },
+  { label: "Never", value: "a slow drag, a vertical swipe, a leftward throw, or a tap that drifts 12px" },
   { label: "Copy", value: "32 characters fit one line at 390px; the full line is its title, the rest a hint for assistive technology" },
   { label: "Still", value: "Reduced Motion: no entrance, fade or follow transition" },
 ];

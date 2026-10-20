@@ -538,9 +538,11 @@ function retireTake(
 ): void {
   const take = getTake(book);
   delete take.modeBase;
-  // A take the Looper is playing stays findable even if it would be a stray tap.
+  // A take the Looper is playing, or a saved Loop points at, stays findable
+  // even if it would be a stray tap.
+  const pointedAt = (book.loops ?? []).some((loop) => loop.members.some((member) => member.phraseId === take.id));
   if (closingShelf(take, book.recorder, reason) === "recent"
-    || (take.notes.length > 0 && config.protectedIds?.has(take.id))) {
+    || (take.notes.length > 0 && (config.protectedIds?.has(take.id) || pointedAt))) {
     // A Recent phrase that was only looked at goes back to its own place, so
     // scrolling through Recent never reshuffles it.
     const untouchedReopen = book.recorder.origin === "recent" && !book.recorder.edited;

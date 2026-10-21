@@ -26,6 +26,7 @@ import type {
   SolfegeData,
 } from "@/types/music";
 import type { StageAudioFeatures } from "@/services/stageAudio";
+import type { LooperStageSource } from "@/composables/canvas/looperStageSource";
 
 const props = defineProps<{
   /** Caller-owned analysis source; omission selects the production audio bus. */
@@ -34,6 +35,8 @@ const props = defineProps<{
   activeNotes?: readonly ActiveNote[];
   /** Note lifecycle target; omission preserves production window events. */
   eventTarget?: EventTarget;
+  /** A running loop's view for the Looper part; omission means no Looper. */
+  looperSource?: LooperStageSource;
 }>();
 
 const musicStore = useMusicStore();
@@ -65,6 +68,7 @@ const {
     ? undefined
     : () => props.activeNotes ?? [],
   eventTarget: props.eventTarget,
+  looperSource: props.looperSource,
 });
 
 // Handle note played event - enhanced for polyphonic support

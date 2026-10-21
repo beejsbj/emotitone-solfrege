@@ -18,6 +18,11 @@ import { useAmbientRenderer } from "./useAmbientRenderer";
 import { useHarmonicGeometryRenderer } from "./useHarmonicGeometryRenderer";
 import { useBlobFieldRenderer } from "./useBlobFieldRenderer";
 import { useHilbertScopeRenderer } from "./useHilbertScopeRenderer";
+import { useLooperRenderer } from "./useLooperRenderer";
+import {
+  NULL_LOOPER_STAGE_SOURCE,
+  type LooperStageSource,
+} from "./looperStageSource";
 import { performanceMonitor } from "@/utils/performanceMonitor";
 import {
   createStageAudioFeatures,
@@ -54,6 +59,8 @@ interface StageRuntimeInputs {
   getActiveNotes?: () => readonly ActiveNote[];
   /** Note lifecycle target shared by the canvas and pitch String renderer. */
   eventTarget?: EventTarget;
+  /** What a running loop shows the Stage; omission means no Looper. */
+  looperSource?: LooperStageSource;
 }
 
 export function useUnifiedCanvas(
@@ -80,6 +87,7 @@ export function useUnifiedCanvas(
     stringConfig,
     animationConfig,
     hilbertScopeConfig,
+    looperConfig,
   } = useVisualConfig();
   const {
     snapshot: harmonicAnalysisSnapshot,
@@ -110,6 +118,7 @@ export function useUnifiedCanvas(
     ambient: ambientConfig.value,
     string: stringConfig.value,
     hilbertScope: hilbertScopeConfig.value,
+    looper: looperConfig.value,
   };
 
   const colorAnimationActive = ref(false);
@@ -122,6 +131,8 @@ export function useUnifiedCanvas(
   const harmonicGeometryRenderer = useHarmonicGeometryRenderer();
   const blobFieldRenderer = useBlobFieldRenderer();
   const hilbertScopeRenderer = useHilbertScopeRenderer(animateColors);
+  const looperRenderer = useLooperRenderer();
+  const looperSource = runtime?.looperSource ?? NULL_LOOPER_STAGE_SOURCE;
   const stageAudio = runtime?.audioFeatures ?? createStageAudioFeatures();
   const oneShotReleaseTimers = new Map<string, number>();
   const harmonicExpiryTimers = new Map<string, number>();
@@ -222,6 +233,7 @@ export function useUnifiedCanvas(
       ambient: ambientConfig.value,
       string: stringConfig.value,
       hilbertScope: hilbertScopeConfig.value,
+      looper: looperConfig.value,
     };
   };
 
@@ -403,6 +415,18 @@ export function useUnifiedCanvas(
 
     if (composition.suspended || !stageConfig.value.isEnabled) return false;
 
+    // The Looper's light turns over the Atmosphere, behind every musical body.
+    looperRenderer.renderLooper(
+      ctx,
+      cachedConfigs.looper,
+      composition,
+      looperSource,
+      musicStore.currentKey as ChromaticNote,
+      musicStore.currentMode as MusicalMode,
+      reducedMotion,
+      timestamp,
+    );
+
     // Strings are pitch-bearing atmospheric texture behind the focal system.
     if (cachedConfigs.string.isEnabled) {
       stringRenderer.updateStringProperties(
@@ -490,7 +514,8 @@ export function useUnifiedCanvas(
       || audioFrame.hasSignal || audioFrame.envelope >= 0.001
       || (cachedConfigs.blob.isEnabled && blobRenderer.hasPendingAnimation())
       || (cachedConfigs.string.isEnabled && stringRenderer.hasPendingAnimation(cachedConfigs.string))
-      || (cachedConfigs.hilbertScope.isEnabled && hilbertScopeRenderer.hasPendingAnimation());
+      || (cachedConfigs.hilbertScope.isEnabled && hilbertScopeRenderer.hasPendingAnimation())
+      || (cachedConfigs.looper.isEnabled && looperRenderer.hasPendingAnimation());
   };
 
   // Setup animation with performance monitoring
@@ -564,7 +589,7 @@ export function useUnifiedCanvas(
   });
   const stopPresentationWatch = watch(
     () => [stageConfig.value, blobConfig.value, ambientConfig.value, stringConfig.value,
-      hilbertScopeConfig.value, animationConfig.value, runtime?.usableRect.value,
+      hilbertScopeConfig.value, looperConfig.value, animationConfig.value, runtime?.usableRect.value,
       runtime?.reducedMotion.value, getStageActiveNotes()],
     () => {
       if (!stageConfig.value.isEnabled) animation.stopAnimation();
@@ -745,6 +770,7 @@ export function useUnifiedCanvas(
     hilbertScopeRenderer.cleanup(); // Clean up Hilbert Scope
     stageAudio.cleanup();
     blobFieldRenderer.dispose();
+    looperRenderer.dispose();
     resetHarmonicAnalysis();
     oneShotReleaseTimers.forEach((timer) => window.clearTimeout(timer));
     harmonicExpiryTimers.forEach((timer) => window.clearTimeout(timer));

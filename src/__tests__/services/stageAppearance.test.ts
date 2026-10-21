@@ -5,6 +5,7 @@ import {
   STAGE_CONTROL_GROUPS,
   STAGE_CONTROL_DEFINITIONS,
   applyStageLook,
+  stageControlGroup,
   createSeededStageVariation,
   patchStageControl,
   readStageControls,
@@ -37,17 +38,21 @@ function changedPaths(before: unknown, after: unknown, prefix = ""): string[] {
 }
 
 describe("Stage appearance domain", () => {
-  it("publishes exactly the accepted 21 controls", () => {
+  it("publishes exactly the accepted 24 controls", () => {
     const controls = STAGE_CONTROL_DEFINITIONS;
-    expect(controls).toHaveLength(21);
-    expect(new Set(controls.map((control) => control.id)).size).toBe(21);
+    expect(controls).toHaveLength(24);
+    expect(new Set(controls.map((control) => control.id)).size).toBe(24);
     expect(STAGE_CONTROL_GROUPS.map((group) => group.label)).toEqual([
       "Scope",
       "Note Bodies",
       "Atmosphere",
       "Pitch Strings",
       "Explanations",
+      "Looper",
     ]);
+    expect(stageControlGroup("Looper").controls.map((control) => control.label))
+      .toEqual(["Strength", "Definition", "Spread"]);
+    expect(() => stageControlGroup("Missing")).toThrow();
     expect(
       controls.find((control) => control.id === "connectionMode")?.options,
     ).toEqual(["merge", "web"]);
@@ -196,6 +201,9 @@ describe("Stage appearance domain", () => {
       atmosphereColorDepth: 0.6,
       stringPresence: 0.05,
       stringResponse: 0.5,
+      looperStrength: 0.5,
+      looperDefinition: 0.25,
+      looperSpread: 0.5,
       showChords: true,
       showIntervals: true,
       showEmotion: false,
@@ -289,7 +297,10 @@ describe("Stage appearance domain", () => {
         "ambient",
         "strings",
         "hilbertScope",
+        "looper",
       ]);
+      // No curated Look retunes the Looper yet: each carries its accepted look.
+      expect(look.patch.looper).toEqual(DEFAULT_CONFIG.looper);
       expect(look.patch.blobs).toHaveProperty("isEnabled");
       expect(look.patch.blobs).not.toHaveProperty("connectionMode");
       expect(look.patch.blobs).not.toHaveProperty("fusionStrength");
@@ -444,5 +455,43 @@ describe("Stage appearance domain", () => {
     );
     expect(rewritten.ambient.opacityMajor).toBe(0);
     expect(rewritten.ambient.saturationMajor).toBe(0);
+  });
+
+  it("gives the Looper its own section whose knobs round-trip and own only their fields", () => {
+    const backing = config();
+    const edited = patchStageControl(
+      patchStageControl(
+        patchStageControl(backing, "looperStrength", 0.8),
+        "looperDefinition",
+        0.9,
+      ),
+      "looperSpread",
+      0.1,
+    );
+    expect(changedPaths(backing, edited).toSorted()).toEqual([
+      "looper.definition",
+      "looper.spread",
+      "looper.strength",
+    ]);
+    expect(readStageControls(edited)).toMatchObject({
+      looperStrength: 0.8,
+      looperDefinition: 0.9,
+      looperSpread: 0.1,
+    });
+
+    const off = patchStageControl(edited, "looperStrength", 0);
+    expect(off.looper.isEnabled).toBe(false);
+    expect(readStageControls(off).looperStrength).toBe(0);
+    expect(patchStageControl(edited, "looperSpread", 7).looper.spread).toBe(1);
+  });
+
+  it("turns the Looper off with the Stage master and carries it in Looks", () => {
+    const backing = config();
+    backing.stage.isEnabled = false;
+    expect(resolveStageConfig(backing).looper.isEnabled).toBe(false);
+    expect(backing.looper.isEnabled).toBe(true);
+
+    const looked = applyStageLook(config(), { looper: { definition: 1 } });
+    expect(looked.looper.definition).toBe(1);
   });
 });

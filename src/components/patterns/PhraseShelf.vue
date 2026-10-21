@@ -51,6 +51,7 @@ import {
   type ReelEntry,
 } from "@/domain/phraseBook";
 import { logNotesToStrudel } from "@/services/StrudelNotation";
+import { sharedPhraseNotice } from "@/composables/useSharedPhraseLink";
 import { phraseShareUrl } from "@/services/phraseShare";
 import { loopLengthMs } from "@/services/recordedTiming";
 import { strudelUrl } from "@/services/strudelLink";
@@ -480,6 +481,9 @@ function prepareLinks(ids: string[]) {
     void buildLink(phrase).then((url) => {
       // A newer edit may have landed while this one compressed.
       if (shareSignature(phrase) === signature) preparedLinks.set(phrase.id, { signature, url });
+    }).catch(() => {
+      // Precomputation is silent; a tap reports an unsupported phrase.
+      if (shareSignature(phrase) === signature) preparedLinks.delete(phrase.id);
     });
   }
 }
@@ -522,7 +526,9 @@ function sharePhrase(id: string) {
     void deliverLink(id, prepared.url, title);
     return;
   }
-  void buildLink(phrase).then((url) => deliverLink(id, url, title));
+  void buildLink(phrase).then((url) => deliverLink(id, url, title)).catch(() => {
+    sharedPhraseNotice.value = "This phrase could not be shared as a link. It may be too large.";
+  });
 }
 
 function openInStrudel(id: string) {

@@ -198,9 +198,15 @@ async function inflate(bytes: Uint8Array, limit: number): Promise<Uint8Array | n
 export async function encodePhraseShare(
   phrase: Pick<Phrase, "name" | "notes" | "context" | "duration">,
 ): Promise<string> {
-  const json = new TextEncoder().encode(JSON.stringify(wirePhrase(phrase)));
-  if (!canCompress()) return `j${toBase64Url(json)}`;
-  return `z${toBase64Url(await deflate(json))}`;
+  const payload = wirePhrase(phrase);
+  // Apply the receiver's structural limits before promising a working link.
+  // Refuse the whole phrase rather than silently truncating notes or curves.
+  if (!readSharedPhrase(payload)) throw new Error("This phrase is too large or unsupported for a link");
+  const json = new TextEncoder().encode(JSON.stringify(payload));
+  if (json.byteLength > PHRASE_SHARE_LIMITS.payloadBytes) throw new Error("This phrase is too large for a link");
+  const token = canCompress() ? `z${toBase64Url(await deflate(json))}` : `j${toBase64Url(json)}`;
+  if (token.length > PHRASE_SHARE_LIMITS.tokenLength) throw new Error("This phrase is too large for a link");
+  return token;
 }
 
 /** A link that opens this app with the phrase on the desk. */

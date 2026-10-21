@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { flushPromises, mount } from "@vue/test-utils";
 import { setActivePinia } from "pinia";
 import { createTestPinia } from "../helpers/test-utils";
+import { sharedPhraseNotice } from "@/composables/useSharedPhraseLink";
 import PhraseShelf from "@/components/patterns/PhraseShelf.vue";
 import { decodePhraseShare, phraseShareToken } from "@/services/phraseShare";
 import { libraryPhrases, usePhrasesStore } from "@/stores/phrases";
@@ -59,6 +60,20 @@ describe("sharing a phrase from the reel", () => {
   afterEach(() => {
     usePhrasesStore().removeEventListeners();
     vi.unstubAllGlobals();
+  });
+
+  it("explains a phrase too large for a link and copies nothing", async () => {
+    const phrases = usePhrasesStore();
+    const id = phrases.receiveSharedPhrase({ ...library, name: "Long take",
+      notes: Array.from({ length: 1025 }, (_, index) => ({ ...library.notes[0], id: `long-${index}` })) });
+    expect(id).not.toBeNull();
+    sharedPhraseNotice.value = null;
+    const wrapper = mount(PhraseShelf);
+    await shareButton(wrapper, "Long take").trigger("click");
+    await vi.waitFor(() => expect(sharedPhraseNotice.value).toContain("could not be shared"));
+    expect(writeText).not.toHaveBeenCalled();
+    expect(phrases.take.notes).toHaveLength(1025);
+    wrapper.unmount();
   });
 
   it("copies a link that opens the same phrase, in its own key and sound", async () => {

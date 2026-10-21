@@ -59,6 +59,29 @@ const phrase: SharedPhrase = {
   duration: 2609,
 };
 
+it.each(["notes", "pitchExpression", "gainExpression"] as const)("refuses a sender exceeding the receiver's %s limit without dropping content", async (field) => {
+  const source = structuredClone(phrase);
+  if (field === "notes") source.notes = Array.from({ length: PHRASE_SHARE_LIMITS.notes + 1 }, () => structuredClone(phrase.notes[0]));
+  else if (field === "pitchExpression") source.notes[0].pitchExpression = Array.from({ length: PHRASE_SHARE_LIMITS.curvePoints + 1 }, (_, timeMs) => ({ timeMs, cents: 0 }));
+  else source.notes[0].gainExpression = Array.from({ length: PHRASE_SHARE_LIMITS.curvePoints + 1 }, (_, timeMs) => ({ timeMs, gain: 1 }));
+  const before = structuredClone(source);
+  await expect(phraseShareUrl(source, "https://emotitone.app/")).rejects.toThrow();
+  expect(source).toEqual(before);
+});
+
+it("round-trips a phrase at the receiver's note limit", async () => {
+  const source = { ...structuredClone(phrase), notes: Array.from({ length: PHRASE_SHARE_LIMITS.notes }, () => structuredClone(phrase.notes[0])) };
+  expect((await decodePhraseShare(await encodePhraseShare(source)))?.notes).toHaveLength(PHRASE_SHARE_LIMITS.notes);
+});
+
+it.each([120, 400])("refuses oversized uncompressed links with %s curve points per note", async (points) => {
+  vi.stubGlobal("CompressionStream", undefined);
+  const source = { ...structuredClone(phrase), notes: Array.from({ length: PHRASE_SHARE_LIMITS.notes }, () => ({
+    ...structuredClone(phrase.notes[0]), pitchExpression: Array.from({ length: points }, (_, timeMs) => ({ timeMs, cents: 12 })),
+  })) };
+  await expect(encodePhraseShare(source)).rejects.toThrow("too large");
+});
+
 describe("phrase links", () => {
   afterEach(() => {
     vi.unstubAllGlobals();

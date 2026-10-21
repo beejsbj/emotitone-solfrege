@@ -9,7 +9,6 @@
       label="Phrase reel. The selected strip is what you play into. Up and down arrows load older phrases; the front slot starts a new take."
       @commit="choose"
       @delete="deletePhrase"
-      @copy="copyNotation"
       @open-strudel="openInStrudel"
       @share="sharePhrase"
       @rename="renamePhrase"
@@ -51,7 +50,7 @@ import {
   type ReelEntry,
 } from "@/domain/phraseBook";
 import { logNotesToStrudel } from "@/services/StrudelNotation";
-import { sharedPhraseNotice } from "@/composables/useSharedPhraseLink";
+import { announceSharedPhrase } from "@/composables/useSharedPhraseLink";
 import { phraseShareUrl } from "@/services/phraseShare";
 import { loopLengthMs } from "@/services/recordedTiming";
 import { strudelUrl } from "@/services/strudelLink";
@@ -101,17 +100,14 @@ watch(() => phrasesStore.refusedSaves, () => { dismissedNotice.value = null; });
 const shownNotice = computed(() =>
   phrasesStore.shelfNotice !== dismissedNotice.value ? phrasesStore.shelfNotice : null);
 
-const copiedId = ref<string | null>(null);
 const linkCopiedId = ref<string | null>(null);
 const deleteArmedId = ref<string | null>(null);
 const now = ref(Date.now());
-let copyTimer: ReturnType<typeof setTimeout> | undefined;
 let linkTimer: ReturnType<typeof setTimeout> | undefined;
 let deleteTimer: ReturnType<typeof setTimeout> | undefined;
 const clockTimer = setInterval(() => { now.value = Date.now(); }, 30_000);
 
 onBeforeUnmount(() => {
-  clearTimeout(copyTimer);
   clearTimeout(linkTimer);
   clearTimeout(deleteTimer);
   clearInterval(clockTimer);
@@ -197,16 +193,9 @@ function instrumentLabel(instrument: string) {
 }
 
 function actionsFor(phrase: Phrase, title: string, inPlace: boolean): PatternStripAction[] {
-  const copied = copiedId.value === phrase.id;
   const armed = deleteArmedId.value === phrase.id;
   const isYourTake = phrase.shelf === "take" && !inPlace;
   const playable = isYourTake ? hasPlayableCode.value : phrase.notes.length > 0;
-  const copy: PatternStripAction = {
-    kind: "copy",
-    label: copied ? `Copied ${title}` : `Copy ${title} Strudel code`,
-    done: copied,
-    disabled: !playable,
-  };
   const open: PatternStripAction = {
     kind: "open",
     label: `Open ${title} in Strudel`,
@@ -224,7 +213,7 @@ function actionsFor(phrase: Phrase, title: string, inPlace: boolean): PatternStr
     : phrase.shelf;
   // Everything you play is kept; the library is built in. So the one
   // curating action is delete, armed by the first tap and confirmed by the second.
-  if (origin === "library") return [share, copy, open];
+  if (origin === "library") return [share, open];
   const remove: PatternStripAction = {
     kind: "delete",
     label: armed
@@ -233,7 +222,7 @@ function actionsFor(phrase: Phrase, title: string, inPlace: boolean): PatternStr
     done: armed,
     disabled: isYourTake && !phrase.notes.length,
   };
-  return [remove, share, copy, open];
+  return [remove, share, open];
 }
 
 function blankItem(): PatternReelItem {
@@ -264,7 +253,8 @@ function reelItem(entry: ReelEntry, isFront: boolean): PatternReelItem {
     : undefined;
   const contour = phrase.notes.length ? phraseContour(phrase, visualConfigStore.laBasedMinor) : "";
   // A stable title; the solfège contour lives on the meta line below it.
-  const title = source?.name || phraseTitle(phrase);
+  const title = phrasesStore.book.libraryNames[source?.id ?? phrase.id]
+    || source?.name || phraseTitle(phrase);
   const { key, mode, instrument, octave } = phrase.context;
   const ordered = [...phrase.notes].sort((left, right) => left.pressTime - right.pressTime);
   // A pattern playing in the Looper shows what its loop dial shows (the same
@@ -409,30 +399,21 @@ function notationFor(id: string) {
   });
 }
 
-async function copyNotation(id: string) {
-  const source = notationFor(id);
-  if (!source) return;
-  try {
-    await navigator.clipboard.writeText(source);
-    copiedId.value = id;
-    clearTimeout(copyTimer);
-    copyTimer = setTimeout(() => {
-      if (copiedId.value === id) copiedId.value = null;
-    }, 1500);
-  } catch {
-    // Clipboard access is not available in every browser context.
-  }
-}
-
 /**
  * The name a link carries: one you gave it, or its source's. "Take 7" is only
  * a number in your own book, so an unnamed take travels without one.
  */
 function sharedName(phrase: Phrase) {
+  const sourceId = phrase.id === phrasesStore.takeId
+    ? untouchedCopySource(phrasesStore.book, phrasesStore.isTakeTouched)
+    : undefined;
+  const libraryName = phrasesStore.book.libraryNames[sourceId ?? phrase.id];
+  if (libraryName) return libraryName;
   if (phrase.name) return phrase.name;
   const lineage = phrase.derivedFrom;
   if (!lineage || lineage.named === false) return undefined;
-  return phrasesStore.findPhrase(lineage.id)?.name ?? lineage.name;
+  return phrasesStore.book.libraryNames[lineage.id]
+    ?? phrasesStore.findPhrase(lineage.id)?.name ?? lineage.name;
 }
 
 function shareTitle(name: string | undefined) {
@@ -527,7 +508,7 @@ function sharePhrase(id: string) {
     return;
   }
   void buildLink(phrase).then((url) => deliverLink(id, url, title)).catch(() => {
-    sharedPhraseNotice.value = "This phrase could not be shared as a link. It may be too large.";
+    announceSharedPhrase("This phrase could not be shared as a link. It may be too large.");
   });
 }
 

@@ -76,6 +76,23 @@ describe("sharing a phrase from the reel", () => {
     wrapper.unmount();
   });
 
+  it.each(["library", "desk"])("shares a renamed library phrase from the %s with its displayed name", async (surface) => {
+    const phrases = usePhrasesStore();
+    phrases.renamePhrase(library.id, "My library melody");
+    if (surface === "library") phrases.startBlankTake();
+    const share = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "share", { value: share, configurable: true });
+    const wrapper = mount(PhraseShelf);
+    if (surface === "library") wrapper.getComponent({ name: "PatternReel" }).vm.$emit("share", library.id);
+    else await shareButton(wrapper, "My library melody").trigger("click");
+    await vi.waitFor(() => expect(share).toHaveBeenCalledTimes(1));
+    const delivery = share.mock.calls[0][0];
+    expect(delivery.title).toBe("My library melody");
+    expect((await linkedPhrase(delivery.url))?.name).toBe("My library melody");
+    expect(wrapper.find('[data-action="copy"]').exists()).toBe(false);
+    wrapper.unmount();
+  });
+
   it("copies a link that opens the same phrase, in its own key and sound", async () => {
     const wrapper = mount(PhraseShelf);
     await shareButton(wrapper, library.name!).trigger("click");

@@ -4,7 +4,7 @@ import type { ChromaticNote, MusicalMode } from "@/types/music";
 import { CHROMATIC_NOTES } from "@/data/notes";
 import { getScaleForMode } from "@/data/scales";
 import { Note as TonalNote, Scale as TonalScale } from "@tonaljs/tonal";
-import { hijaqPerformance } from "./hijaqPerformance";
+import { hijaqPatterns } from "./hijaqPerformance";
 
 export type MelodyStep = {
   note: string;
@@ -251,11 +251,12 @@ export function buildDefaultPattern(
 }
 
 /**
- * Ids of built-in patterns that have left the library (third-party song
- * transcriptions). Older saves may still mention them; nothing in the library
+ * Ids of built-in patterns that have left the library, including superseded
+ * arrangements. Older saves may still mention them; nothing in the library
  * resolves them any more.
  */
 export const retiredDefaultPatternIds: ReadonlySet<string> = new Set([
+  "pattern-hijaq-just-turn-it-on-1",
   "pattern-ruthlessness-melody-1",
   "pattern-warrior-theme-1",
   "pattern-warrior-chorus-1",
@@ -264,7 +265,7 @@ export const retiredDefaultPatternIds: ReadonlySet<string> = new Set([
 ]);
 
 export const defaultPatterns: Pattern[] = [
-  hijaqPerformance,
+  ...hijaqPatterns,
   buildDefaultPattern({
     id: "pattern-twinkle-1",
     name: "Twinkle Twinkle Little Star",

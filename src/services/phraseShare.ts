@@ -13,6 +13,7 @@
 import { CHROMATIC_NOTES } from "@/data/notes";
 import { MODE_DEFINITIONS } from "@/data/modes";
 import { selectableReplacement } from "@/data/instrumentCatalog";
+import { identifyPitch, pitchHeightOf } from "@/domain/musicalIdentity";
 import { NEUTRAL_SHAPE, sanitizeShape } from "@/services/shape";
 import type { GainExpressionPoint, PitchExpressionPoint } from "@/types/expression";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
@@ -156,16 +157,13 @@ function fromBase64Url(text: string): Uint8Array | null {
   }
 }
 
-const canCompress = () =>
-  typeof CompressionStream === "function" && typeof DecompressionStream === "function";
-
 async function deflate(bytes: Uint8Array): Promise<Uint8Array> {
   const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream("deflate-raw"));
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
 /** Inflate, giving up once the output passes `limit` bytes (a zip bomb, not a phrase). */
-async function inflate(bytes: Uint8Array, limit: number): Promise<Uint8Array | null> {
+async function inflateNative(bytes: Uint8Array, limit: number): Promise<Uint8Array | null> {
   const reader = new Blob([bytes]).stream()
     .pipeThrough(new DecompressionStream("deflate-raw"))
     .getReader();
@@ -194,6 +192,42 @@ async function inflate(bytes: Uint8Array, limit: number): Promise<Uint8Array | n
   return out;
 }
 
+async function inflate(bytes: Uint8Array, limit: number): Promise<Uint8Array | null> {
+  if (typeof DecompressionStream === "function") {
+    try {
+      return await inflateNative(bytes, limit);
+    } catch {
+      // Some browsers expose the constructor without supporting deflate-raw.
+    }
+  }
+  try {
+    // Load only on recipients missing native support; existing z links stay portable.
+    const { Inflate } = await import("fflate");
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    const decoder = new Inflate((chunk) => {
+      size += chunk.byteLength;
+      if (size > limit) throw new Error("Phrase payload exceeds its limit");
+      chunks.push(chunk);
+    });
+    // A DEFLATE run can expand roughly 1,000-fold. Small input chunks bound
+    // each allocation before the callback can enforce the total output limit.
+    const CHUNK = 1024;
+    for (let offset = 0; offset < bytes.length; offset += CHUNK) {
+      decoder.push(bytes.subarray(offset, offset + CHUNK), offset + CHUNK >= bytes.length);
+    }
+    const out = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) {
+      out.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return out;
+  } catch {
+    return null;
+  }
+}
+
 /** The hash token for a phrase. */
 export async function encodePhraseShare(
   phrase: Pick<Phrase, "name" | "notes" | "context" | "duration">,
@@ -204,7 +238,14 @@ export async function encodePhraseShare(
   if (!readSharedPhrase(payload)) throw new Error("This phrase is too large or unsupported for a link");
   const json = new TextEncoder().encode(JSON.stringify(payload));
   if (json.byteLength > PHRASE_SHARE_LIMITS.payloadBytes) throw new Error("This phrase is too large for a link");
-  const token = canCompress() ? `z${toBase64Url(await deflate(json))}` : `j${toBase64Url(json)}`;
+  let token = `j${toBase64Url(json)}`;
+  if (typeof CompressionStream === "function") {
+    try {
+      token = `z${toBase64Url(await deflate(json))}`;
+    } catch {
+      // An unavailable compression format still has a portable JSON link.
+    }
+  }
   if (token.length > PHRASE_SHARE_LIMITS.tokenLength) throw new Error("This phrase is too large for a link");
   return token;
 }
@@ -251,30 +292,40 @@ function readCurve<T extends { timeMs: number }>(
   return curve;
 }
 
-function readNote(raw: unknown, newId: (index: number) => string, index: number): PatternNote | null {
+function readNote(
+  raw: unknown,
+  context: { tonic: string; mode: MusicalMode },
+  newId: (index: number) => string,
+  index: number,
+): PatternNote | null {
   if (!isRecord(raw) || typeof raw.n !== "string") return null;
   const name = NOTE_NAME.exec(raw.n);
   if (!name || !finite(raw.o) || !Number.isInteger(raw.o)) return null;
   if (!finite(raw.t) || !finite(raw.l) || !finite(raw.d) || !finite(raw.i)) return null;
   if (!Number.isInteger(raw.d) || !Number.isInteger(raw.i)) return null;
+  if (raw.p !== undefined && (!finite(raw.p) || !Number.isInteger(raw.p) || raw.p < 0 || raw.p > 11)) return null;
+  const height = pitchHeightOf(raw.n);
+  const identity = identifyPitch(raw.n, context);
+  if (height === null || !identity) return null;
+  const octave = Math.floor(height / 12) - 1;
+  if (octave < -1 || octave > 10) return null;
 
   const pressTime = clamp(raw.t, 0, PHRASE_SHARE_LIMITS.durationMs);
-  const duration = clamp(raw.l, 0, PHRASE_SHARE_LIMITS.durationMs);
+  const duration = clamp(raw.l, 0, PHRASE_SHARE_LIMITS.durationMs - pressTime);
   const note: PatternNote = {
     id: newId(index),
-    note: raw.n,
-    octave: clamp(raw.o, -1, 10),
-    scaleDegree: clamp(raw.d, 0, 12),
-    scaleIndex: clamp(raw.i, -1, 11),
+    // Playback, colour and future edits must agree on the pitch. These wire
+    // fields are redundant hints, never authority over the scientific note.
+    note: `${CHROMATIC_NOTES[identity.pitchClass]}${octave}`,
+    octave,
+    scaleDegree: identity.scaleIndex === null ? 0 : identity.scaleIndex + 1,
+    scaleIndex: identity.scaleIndex ?? -1,
+    pitchClassIndex: identity.pitchClass,
+    isBorrowed: identity.borrowed,
     pressTime,
     releaseTime: pressTime + duration,
     duration,
   };
-  if (raw.p !== undefined) {
-    if (!finite(raw.p) || !Number.isInteger(raw.p) || raw.p < 0 || raw.p > 11) return null;
-    note.pitchClassIndex = raw.p;
-  }
-  if (raw.b === 1) note.isBorrowed = true;
   if (raw.v !== undefined) {
     if (!finite(raw.v)) return null;
     note.velocity = clamp(raw.v, 0, 1);
@@ -313,8 +364,9 @@ export function readSharedPhrase(
   if (!Array.isArray(raw.n) || !raw.n.length || raw.n.length > PHRASE_SHARE_LIMITS.notes) return null;
 
   const notes: PatternNote[] = [];
+  const context = { tonic: raw.k as ChromaticNote, mode: raw.m as MusicalMode };
   for (let index = 0; index < raw.n.length; index += 1) {
-    const note = readNote(raw.n[index], newId, index);
+    const note = readNote(raw.n[index], context, newId, index);
     if (!note) return null;
     notes.push(note);
   }
@@ -349,7 +401,7 @@ export async function decodePhraseShare(token: string): Promise<SharedPhrase | n
   if (!bytes) return null;
   let json: Uint8Array | null;
   if (format === "j") json = bytes.byteLength <= PHRASE_SHARE_LIMITS.payloadBytes ? bytes : null;
-  else if (format === "z" && canCompress()) json = await inflate(bytes, PHRASE_SHARE_LIMITS.payloadBytes);
+  else if (format === "z") json = await inflate(bytes, PHRASE_SHARE_LIMITS.payloadBytes);
   else return null;
   if (!json) return null;
   try {

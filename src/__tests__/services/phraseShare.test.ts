@@ -10,6 +10,10 @@ import {
 } from "@/services/phraseShare";
 import type { PatternNote } from "@/types/patterns";
 
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 function note(name: string, press: number, length: number, extra: Partial<PatternNote> = {}): PatternNote {
   const octave = Number(name.slice(-1));
   return {
@@ -83,10 +87,6 @@ it.each([120, 400])("refuses oversized uncompressed links with %s curve points p
 });
 
 describe("phrase links", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
   it("carries a phrase and the world it was played in through the link", async () => {
     const url = await phraseShareUrl(phrase, "https://emotitone.app/");
     expect(url.startsWith("https://emotitone.app/#phrase=")).toBe(true);
@@ -131,6 +131,28 @@ describe("phrase links", () => {
     expect((await decodePhraseShare(token))?.notes).toHaveLength(3);
   });
 
+  it.each(["CompressionStream", "DecompressionStream"])("opens an existing compressed link without %s", async (capability) => {
+    const token = await encodePhraseShare(phrase);
+    expect(token[0]).toBe("z");
+    vi.stubGlobal(capability, undefined);
+    const received = await decodePhraseShare(token);
+    expect(received?.context).toEqual(phrase.context);
+    expect(received?.notes.map((entry) => entry.note)).toEqual(["F#4", "A4", "C5"]);
+  });
+
+  it("falls back when native constructors reject the compression format", async () => {
+    const token = await encodePhraseShare(phrase);
+    const unsupported = class {
+      constructor() { throw new TypeError("Unsupported compression format"); }
+    };
+    vi.stubGlobal("CompressionStream", unsupported);
+    vi.stubGlobal("DecompressionStream", unsupported);
+    expect((await decodePhraseShare(token))?.notes).toHaveLength(3);
+    const plain = await encodePhraseShare(phrase);
+    expect(plain[0]).toBe("j");
+    expect((await decodePhraseShare(plain))?.notes).toHaveLength(3);
+  });
+
   it("opens a phrase on a sound this build does not offer on its nearest one", async () => {
     const token = await encodePhraseShare({
       ...phrase,
@@ -171,12 +193,45 @@ describe("phrase links", () => {
     });
 
     it.each([
+      ["C", "major", "F#4", 4, -1, 0, 6, true],
+      ["F#", "dorian", "A4", 4, 2, 3, 9, false],
+      ["C", "major pentatonic", "G4", 4, 3, 4, 7, false],
+      ["C", "chromatic", "F#4", 4, 6, 7, 6, false],
+      ["C", "major", "Cb5", 4, 6, 7, 11, false],
+    ])("derives %s %s's %s identity from the pitch rather than untrusted metadata", (key, mode, pitch, octave, scaleIndex, scaleDegree, pitchClassIndex, isBorrowed) => {
+      const raw = valid();
+      raw.k = key;
+      raw.m = mode;
+      raw.n[0] = { ...raw.n[0], n: pitch, o: 8, d: 12, i: 11, p: 1, b: 1 };
+      expect(readSharedPhrase(raw)?.notes[0]).toMatchObject({
+        octave, scaleIndex, scaleDegree, pitchClassIndex, isBorrowed,
+      });
+    });
+
+    it.each([
+      [PHRASE_SHARE_LIMITS.durationMs, PHRASE_SHARE_LIMITS.durationMs, 0],
+      [PHRASE_SHARE_LIMITS.durationMs - 100, 200, 100],
+      [PHRASE_SHARE_LIMITS.durationMs * 2, 200, 0],
+    ])("bounds a note starting at %s with length %s to the phrase endpoint", (press, length, expectedDuration) => {
+      const raw = valid();
+      raw.n[0].t = press;
+      raw.n[0].l = length;
+      raw.d = PHRASE_SHARE_LIMITS.durationMs * 2;
+      const received = readSharedPhrase(raw);
+      expect(received?.duration).toBe(PHRASE_SHARE_LIMITS.durationMs);
+      expect(received?.notes[0]).toMatchObject({
+        duration: expectedDuration, releaseTime: PHRASE_SHARE_LIMITS.durationMs,
+      });
+    });
+
+    it.each([
       ["a future version", (raw: Wire) => { raw.v = 2; }],
       ["an unknown key", (raw: Wire) => { raw.k = "H"; }],
       ["an unknown mode", (raw: Wire) => { raw.m = "hypermixolydian"; }],
       ["a malformed Shape", (raw: Wire) => { raw.s = { cutoff: "loud" }; }],
       ["no notes", (raw: Wire) => { raw.n = []; }],
       ["a note that is not a pitch", (raw: Wire) => { raw.n[0].n = "C4); alert(1"; }],
+      ["a pitch beyond the supported octave range", (raw: Wire) => { raw.n[0].n = "C99"; }],
       ["a non-finite time", (raw: Wire) => { raw.n[0].t = "soon"; }],
       ["a pitch class off the circle", (raw: Wire) => { raw.n[0].p = 12; }],
       ["a curve that runs backwards", (raw: Wire) => { raw.n[0].pe = [10, 5, 5, 0]; }],
@@ -187,15 +242,16 @@ describe("phrase links", () => {
       expect(readSharedPhrase(raw)).toBeNull();
     });
 
-    it("garbage and truncated tokens", async () => {
+    it.each([true, false])("rejects garbage and truncated tokens (native: %s)", async (native) => {
       const token = await encodePhraseShare(phrase);
+      if (!native) vi.stubGlobal("DecompressionStream", undefined);
       expect(await decodePhraseShare("")).toBeNull();
       expect(await decodePhraseShare("x123")).toBeNull();
       expect(await decodePhraseShare("z!!!")).toBeNull();
       expect(await decodePhraseShare(token.slice(0, token.length / 2))).toBeNull();
     });
 
-    it("a small link that inflates past the payload limit", async () => {
+    it.each([true, false])("rejects a small link that inflates past the payload limit (native: %s)", async (native) => {
       const huge = new TextEncoder().encode(" ".repeat(PHRASE_SHARE_LIMITS.payloadBytes + 1024));
       const stream = new Blob([huge]).stream().pipeThrough(new CompressionStream("deflate-raw"));
       const bytes = new Uint8Array(await new Response(stream).arrayBuffer());
@@ -203,6 +259,7 @@ describe("phrase links", () => {
       bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
       const token = `z${btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")}`;
       expect(token.length).toBeLessThan(10_000);
+      if (!native) vi.stubGlobal("DecompressionStream", undefined);
       expect(await decodePhraseShare(token)).toBeNull();
     });
   });

@@ -11,6 +11,7 @@
       @delete="deletePhrase"
       @copy="copyNotation"
       @open-strudel="openInStrudel"
+      @share="sharePhrase"
       @rename="renamePhrase"
       @interaction-change="reelInteraction"
     />
@@ -50,6 +51,7 @@ import {
   type ReelEntry,
 } from "@/domain/phraseBook";
 import { logNotesToStrudel } from "@/services/StrudelNotation";
+import { phraseShareUrl } from "@/services/phraseShare";
 import { loopLengthMs } from "@/services/recordedTiming";
 import { strudelUrl } from "@/services/strudelLink";
 import { chromaticPitchHeight } from "@/services/scalePitch";
@@ -99,14 +101,17 @@ const shownNotice = computed(() =>
   phrasesStore.shelfNotice !== dismissedNotice.value ? phrasesStore.shelfNotice : null);
 
 const copiedId = ref<string | null>(null);
+const linkCopiedId = ref<string | null>(null);
 const deleteArmedId = ref<string | null>(null);
 const now = ref(Date.now());
 let copyTimer: ReturnType<typeof setTimeout> | undefined;
+let linkTimer: ReturnType<typeof setTimeout> | undefined;
 let deleteTimer: ReturnType<typeof setTimeout> | undefined;
 const clockTimer = setInterval(() => { now.value = Date.now(); }, 30_000);
 
 onBeforeUnmount(() => {
   clearTimeout(copyTimer);
+  clearTimeout(linkTimer);
   clearTimeout(deleteTimer);
   clearInterval(clockTimer);
 });
@@ -206,12 +211,19 @@ function actionsFor(phrase: Phrase, title: string, inPlace: boolean): PatternStr
     label: `Open ${title} in Strudel`,
     disabled: !playable,
   };
+  const linkCopied = linkCopiedId.value === phrase.id;
+  const share: PatternStripAction = {
+    kind: "share",
+    label: linkCopied ? `Copied a link to ${title}` : `Share ${title} as a link`,
+    done: linkCopied,
+    disabled: !phrase.notes.length,
+  };
   const origin = phrase.shelf === "take" && inPlace
     ? phrasesStore.book.recorder.origin
     : phrase.shelf;
   // Everything you play is kept; the library is built in. So the one
   // curating action is delete, armed by the first tap and confirmed by the second.
-  if (origin === "library") return [copy, open];
+  if (origin === "library") return [share, copy, open];
   const remove: PatternStripAction = {
     kind: "delete",
     label: armed
@@ -220,7 +232,7 @@ function actionsFor(phrase: Phrase, title: string, inPlace: boolean): PatternStr
     done: armed,
     disabled: isYourTake && !phrase.notes.length,
   };
-  return [remove, copy, open];
+  return [remove, share, copy, open];
 }
 
 function blankItem(): PatternReelItem {
@@ -409,6 +421,108 @@ async function copyNotation(id: string) {
   } catch {
     // Clipboard access is not available in every browser context.
   }
+}
+
+/**
+ * The name a link carries: one you gave it, or its source's. "Take 7" is only
+ * a number in your own book, so an unnamed take travels without one.
+ */
+function sharedName(phrase: Phrase) {
+  if (phrase.name) return phrase.name;
+  const lineage = phrase.derivedFrom;
+  if (!lineage || lineage.named === false) return undefined;
+  return phrasesStore.findPhrase(lineage.id)?.name ?? lineage.name;
+}
+
+function shareTitle(name: string | undefined) {
+  return name ?? "A phrase on EmotiTone";
+}
+
+/** Changes whenever the link a phrase would make changes. */
+function shareSignature(phrase: Phrase) {
+  const last = phrase.notes[phrase.notes.length - 1];
+  return JSON.stringify([
+    sharedName(phrase), phrase.notes.length, phrase.duration, last?.id, last?.releaseTime, phrase.context,
+  ]);
+}
+
+// Links are built ahead of the tap: building one is async (compression), and
+// a browser may only open the share sheet or write the clipboard while the
+// tap that asked for it is still fresh. Safari is strict about that.
+const preparedLinks = new Map<string, { signature: string; url: string }>();
+
+async function buildLink(phrase: Phrase) {
+  return phraseShareUrl({ ...phrase, name: sharedName(phrase) }, `${window.location.origin}/`);
+}
+
+/** Strips either side of the desk: the only ones whose buttons are in reach. */
+const PREPARED_REACH = 3;
+
+watch(
+  () => {
+    const items = reelItems.value;
+    const desk = Math.max(0, items.findIndex((item) => item.id === deskItemId.value));
+    return items.slice(Math.max(0, desk - PREPARED_REACH), desk + PREPARED_REACH + 1);
+  },
+  (nearDesk) => prepareLinks(nearDesk.map((item) => item.id)),
+  { immediate: true },
+);
+
+function prepareLinks(ids: string[]) {
+  const entries = ids
+    .map((id) => phrasesStore.findPhrase(id))
+    .filter((phrase): phrase is Phrase => Boolean(phrase?.notes.length))
+    .map((phrase) => ({ phrase, signature: shareSignature(phrase) }));
+  const keep = new Set(entries.map((entry) => entry.phrase.id));
+  for (const id of preparedLinks.keys()) if (!keep.has(id)) preparedLinks.delete(id);
+  for (const { phrase, signature } of entries) {
+    if (preparedLinks.get(phrase.id)?.signature === signature) continue;
+    void buildLink(phrase).then((url) => {
+      // A newer edit may have landed while this one compressed.
+      if (shareSignature(phrase) === signature) preparedLinks.set(phrase.id, { signature, url });
+    });
+  }
+}
+
+function showLinkCopied(id: string) {
+  linkCopiedId.value = id;
+  clearTimeout(linkTimer);
+  linkTimer = setTimeout(() => {
+    if (linkCopiedId.value === id) linkCopiedId.value = null;
+  }, 1500);
+}
+
+async function deliverLink(id: string, url: string, title: string) {
+  // The phone's share sheet where there is one; otherwise copy the link.
+  if (typeof navigator.share === "function") {
+    try {
+      await navigator.share({ title, url });
+      return;
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    showLinkCopied(id);
+  } catch {
+    // Neither the share sheet nor the clipboard would take it: show the link
+    // so it can be copied by hand rather than failing silently.
+    window.prompt("Copy this link to share the phrase", url);
+  }
+}
+
+function sharePhrase(id: string) {
+  const phrase = phrasesStore.findPhrase(id);
+  if (!phrase?.notes.length) return;
+  const title = shareTitle(sharedName(phrase));
+  const prepared = preparedLinks.get(id);
+  // No await before handing the link over, so the tap is still fresh.
+  if (prepared?.signature === shareSignature(phrase)) {
+    void deliverLink(id, prepared.url, title);
+    return;
+  }
+  void buildLink(phrase).then((url) => deliverLink(id, url, title));
 }
 
 function openInStrudel(id: string) {

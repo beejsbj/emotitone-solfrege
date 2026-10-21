@@ -2,6 +2,7 @@
   <div id="app" class="min-h-screen">
     <LoadingSplash />
     <SaveFailureNotice />
+    <SharedPhraseNotice />
 
     <div v-if="!isLoading" class="relative isolate">
       <!-- Unmounted (not hidden) when Visuals is off, so its animation loop ends. -->
@@ -26,6 +27,8 @@ import PerformanceDeck from "@/components/PerformanceDeck.vue";
 import InstrumentSelector from "@/components/LazyInstrumentSelector.vue";
 import LoadingSplash from "@/components/LoadingSplash.vue";
 import SaveFailureNotice from "@/components/ui/SaveFailureNotice.vue";
+import SharedPhraseNotice from "@/components/ui/SharedPhraseNotice.vue";
+import { useSharedPhraseLink } from "@/composables/useSharedPhraseLink";
 import UnifiedVisualEffects from "@/components/UnifiedVisualEffects.vue";
 import { useMusicStore } from "@/stores/music";
 import { usePhrasesStore } from "@/stores/phrases";
@@ -40,5 +43,6 @@ provideUIBeat({
     visualConfigStore.visualsEnabled && visualConfigStore.config.uiBeat.isEnabled,
 });
 const { isLoading } = useAppLoading();
+useSharedPhraseLink(isLoading);
 useMidiControls();
 </script>

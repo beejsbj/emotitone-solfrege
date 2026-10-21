@@ -1,6 +1,6 @@
 <template>
   <div
-    v-if="sharedPhraseNotice"
+    v-if="sharedPhraseNotice && !saveFailureNotice"
     class="shared-phrase-notice"
     role="status"
     data-testid="shared-phrase-notice"
@@ -13,6 +13,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
+import { saveFailureNotice } from "@/services/safeStorage";
 import Sticker from "@/components/primatives/Sticker";
 import { topNoticeClearance } from "@/composables/useTopNoticeClearance";
 import {
@@ -26,7 +27,7 @@ const clearance = computed(() => topNoticeClearance.value);
 <style scoped>
 .shared-phrase-notice {
   position: fixed;
-  /* Where the save warning sits: below the humming key and its feedback. */
+  /* Save warnings have priority in this slot; shared results wait for them. */
   top: max(
     calc(env(safe-area-inset-top, 0px) + var(--s-5) + var(--hit-min)),
     var(--shared-notice-clearance, 0px)

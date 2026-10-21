@@ -1,17 +1,28 @@
 import { onScopeDispose, ref, watch, type Ref } from "vue";
 import { decodePhraseShare, phraseShareToken, type SharedPhrase } from "@/services/phraseShare";
 import { usePhrasesStore } from "@/stores/phrases";
+import { saveFailureNotice } from "@/services/safeStorage";
 
 /** What the arrival notice says, while it shows. */
 export const sharedPhraseNotice = ref<string | null>(null);
 const NOTICE_MS = 5000;
 let noticeTimer: ReturnType<typeof setTimeout> | undefined;
 
-function announce(message: string) {
+function scheduleNoticeExpiry() {
   clearTimeout(noticeTimer);
-  sharedPhraseNotice.value = message;
+  if (!sharedPhraseNotice.value || saveFailureNotice.value) return;
   noticeTimer = setTimeout(() => { sharedPhraseNotice.value = null; }, NOTICE_MS);
 }
+
+/** Every sharing result gets a fresh display period, after any save warning. */
+export function announceSharedPhrase(message: string) {
+  sharedPhraseNotice.value = message;
+  scheduleNoticeExpiry();
+}
+
+// Both notices use the same compact slot. Keep a hidden share result until the
+// save warning clears, then give it the full reading period.
+watch(saveFailureNotice, scheduleNoticeExpiry, { flush: "sync" });
 
 export function dismissSharedPhraseNotice() {
   clearTimeout(noticeTimer);
@@ -32,31 +43,45 @@ function clearShareHash() {
  * and the player's first tap of Play sounds it.
  */
 export function useSharedPhraseLink(isLoading: Readonly<Ref<boolean>>) {
-  let pending: Promise<SharedPhrase | null> | null = null;
+  let generation = 0;
+  let disposed = false;
+  let pending: {
+    decoded: Promise<SharedPhrase | null>;
+    generation: number;
+    hash: string;
+  } | null = null;
 
   const receive = async () => {
     if (isLoading.value || !pending) return;
-    const decoded = pending;
+    const arrival = pending;
     pending = null;
-    const shared = await decoded;
+    const shared = await arrival.decoded;
+    if (disposed || arrival.generation !== generation || window.location.hash !== arrival.hash) return;
     clearShareHash();
     if (!shared) {
-      announce("That phrase link could not be opened");
+      announceSharedPhrase("That phrase link could not be opened");
       return;
     }
     usePhrasesStore().receiveSharedPhrase(shared);
-    announce(`${shared.name ?? "A shared phrase"} is on the desk. Press play.`);
+    announceSharedPhrase(`${shared.name ?? "A shared phrase"} is on the desk. Press play.`);
   };
 
   const readHash = () => {
-    const token = phraseShareToken(window.location.hash);
+    generation += 1;
+    pending = null;
+    const hash = window.location.hash;
+    const token = phraseShareToken(hash);
     if (!token) return;
-    pending = decodePhraseShare(token);
+    pending = { decoded: decodePhraseShare(token), generation, hash };
     void receive();
   };
 
   readHash();
   watch(isLoading, () => { void receive(); });
   window.addEventListener("hashchange", readHash);
-  onScopeDispose(() => window.removeEventListener("hashchange", readHash));
+  onScopeDispose(() => {
+    disposed = true;
+    pending = null;
+    window.removeEventListener("hashchange", readHash);
+  });
 }

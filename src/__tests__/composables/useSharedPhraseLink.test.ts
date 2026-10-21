@@ -3,10 +3,12 @@ import { effectScope, nextTick, ref } from "vue";
 import { setActivePinia } from "pinia";
 import { createTestPinia } from "../helpers/test-utils";
 import {
+  dismissSharedPhraseNotice,
   sharedPhraseNotice,
   useSharedPhraseLink,
 } from "@/composables/useSharedPhraseLink";
 import { phraseShareUrl, type SharedPhrase } from "@/services/phraseShare";
+import * as phraseShare from "@/services/phraseShare";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
@@ -57,17 +59,21 @@ async function settle() {
 
 describe("opening a phrase link", () => {
   let scope = effectScope();
+  let decodeSpy: { mockRestore: () => void } | undefined;
 
   beforeEach(() => {
     scope = effectScope();
     localStorage.clear();
     setActivePinia(createTestPinia());
     useVisualConfigStore().updateConfig("codeStrip", { bpm: 120 });
-    sharedPhraseNotice.value = null;
+    dismissSharedPhraseNotice();
   });
 
   afterEach(() => {
     scope.stop();
+    decodeSpy?.mockRestore();
+    decodeSpy = undefined;
+    dismissSharedPhraseNotice();
     usePhrasesStore().removeEventListeners();
     window.history.replaceState(null, "", "/");
   });
@@ -146,6 +152,85 @@ describe("opening a phrase link", () => {
     expect(useMusicStore().currentKey).toBe(before.key);
     expect(window.location.hash).toBe("");
     expect(sharedPhraseNotice.value).toBe("That phrase link could not be opened");
+  });
+
+  function deferredDecode() {
+    let resolve!: (value: SharedPhrase | null) => void;
+    const promise = new Promise<SharedPhrase | null>((done) => { resolve = done; });
+    return { promise, resolve };
+  }
+
+  function changeHash(hash: string) {
+    window.history.replaceState(null, "", `/${hash}`);
+    window.dispatchEvent(new Event("hashchange"));
+  }
+
+  it("keeps the latest arrival when two decodes finish in reverse order", async () => {
+    const first = deferredDecode();
+    const second = deferredDecode();
+    decodeSpy = vi.spyOn(phraseShare, "decodePhraseShare")
+      .mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    const loading = await openLink("#phrase=first");
+    loading.value = false;
+    await nextTick();
+    changeHash("#phrase=second");
+    second.resolve({ ...shared, name: "Second phrase" });
+    await nextTick();
+    first.resolve(shared);
+    await nextTick();
+    expect(usePhrasesStore().take.name).toBe("Second phrase");
+    expect(sharedPhraseNotice.value).toContain("Second phrase");
+  });
+
+  it("does not clear a newer phrase hash while its decode is still pending", async () => {
+    const first = deferredDecode();
+    const second = deferredDecode();
+    decodeSpy = vi.spyOn(phraseShare, "decodePhraseShare")
+      .mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    const before = usePhrasesStore().takeId;
+    const loading = await openLink("#phrase=first");
+    loading.value = false;
+    await nextTick();
+    changeHash("#phrase=second");
+    first.resolve(null);
+    await nextTick();
+    expect(window.location.hash).toBe("#phrase=second");
+    expect(usePhrasesStore().takeId).toBe(before);
+    expect(sharedPhraseNotice.value).toBeNull();
+    second.resolve(shared);
+    await nextTick();
+    expect(usePhrasesStore().take.name).toBe("Sunday hum");
+  });
+
+  it.each([true, false])("cancels an arrival on ordinary navigation while loading is %s", async (initialLoading) => {
+    const decode = deferredDecode();
+    decodeSpy = vi.spyOn(phraseShare, "decodePhraseShare").mockReturnValue(decode.promise);
+    const before = usePhrasesStore().takeId;
+    const loading = await openLink("#phrase=first");
+    loading.value = initialLoading;
+    await nextTick();
+    changeHash("#settings");
+    loading.value = false;
+    decode.resolve(shared);
+    await nextTick();
+    expect(window.location.hash).toBe("#settings");
+    expect(usePhrasesStore().takeId).toBe(before);
+    expect(sharedPhraseNotice.value).toBeNull();
+  });
+
+  it("ignores a decode that finishes after its scope is disposed", async () => {
+    const decode = deferredDecode();
+    decodeSpy = vi.spyOn(phraseShare, "decodePhraseShare").mockReturnValue(decode.promise);
+    const before = usePhrasesStore().takeId;
+    const loading = await openLink("#phrase=first");
+    loading.value = false;
+    await nextTick();
+    scope.stop();
+    decode.resolve(shared);
+    await nextTick();
+    expect(window.location.hash).toBe("#phrase=first");
+    expect(usePhrasesStore().takeId).toBe(before);
+    expect(sharedPhraseNotice.value).toBeNull();
   });
 
   it("leaves an ordinary visit alone", async () => {

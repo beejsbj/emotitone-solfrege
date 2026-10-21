@@ -27,6 +27,8 @@ const props = withDefaults(defineProps<{
   closeOnOutside?: boolean;
   fitContentOnOpen?: boolean;
   naturalContentHeight?: number;
+  /** Lit pips along the handle's top edge, e.g. the Keyboard's complete rows. */
+  handleMeter?: { value: number; max: number };
 }>(), {
   modelValue: undefined,
   defaultOpen: false,
@@ -89,14 +91,19 @@ function observeClippedControls() {
   if (!props.scroll && props.minContentHeight > 0) {
     content.value?.querySelectorAll<HTMLElement>(selector).forEach(element => controls.add(element));
   }
+  const targets = new Set([...controls].map(element =>
+    element.matches('.sr-only[role="radio"]')
+      ? element.closest<HTMLElement>('[role="radiogroup"]') ?? element
+      : element,
+  ));
   for (const [element, originallyInert] of observedControls) {
-    if (!controls.has(element)) {
+    if (!targets.has(element)) {
       visibilityObserver.unobserve(element);
       element.inert = originallyInert;
       observedControls.delete(element);
     }
   }
-  for (const element of controls) {
+  for (const element of targets) {
     if (observedControls.has(element)) continue;
     observedControls.set(element, Boolean(element.inert));
     visibilityObserver.observe(element);
@@ -380,7 +387,9 @@ onMounted(async () => {
   }
   // A partly collapsed stack must not retain invisible tab stops.
   // Observe focus targets rather than whole bars: labels can remain visible after
-  // their button faces have left the clip. Consumer-owned inert state is retained.
+  // their button faces have left the clip. Screen-reader-only radios use their
+  // visible radio group (Joystick); their own clipped pixels never intersect.
+  // Consumer-owned inert state is retained.
   if (root.value && clip.value && typeof IntersectionObserver !== "undefined") {
     visibilityObserver = new IntersectionObserver(entries => {
       for (const entry of entries) {
@@ -432,7 +441,10 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
     <button
       type="button"
       class="drawer__handle"
-      :class="{ 'drawer__handle--pointer-disabled': handlePointerDisabled }"
+      :class="{
+        'drawer__handle--pointer-disabled': handlePointerDisabled,
+        'drawer__handle--metered': handleMeter,
+      }"
       :data-testid="handleTestId"
       :aria-label="accessibleName"
       :aria-expanded="expanded"
@@ -446,6 +458,16 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
       @pointercancel="pointerEnd"
       @lostpointercapture="pointerEnd"
     >
+      <span class="drawer__lip" aria-hidden="true" />
+      <span
+        v-if="handleMeter"
+        class="drawer__meter"
+        aria-hidden="true"
+        :style="{
+          '--drawer-meter-max': Math.max(1, handleMeter.max),
+          '--drawer-meter-lit': Math.min(Math.max(0, handleMeter.value), handleMeter.max),
+        }"
+      />
       <span class="drawer__grip" aria-hidden="true" />
       <span v-if="$slots.icon" class="drawer__icon" aria-hidden="true"><slot name="icon" /></span>
       <span v-if="handleLabel" class="drawer__label">{{ handleLabel }}</span>
@@ -502,7 +524,9 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
 .drawer__content { min-width: 0; overflow: hidden; }
 .drawer--top .drawer__content {
   box-sizing: border-box;
-  padding-top: var(--drawer-handle-height);
+  /* Clear the handle row at the top of the screen, including the handles'
+     touch extension, so no control inside sits under another drawer's handle. */
+  padding-top: max(var(--drawer-handle-height), var(--hit-min));
 }
 .drawer__content--scroll { overflow-y: auto; overscroll-behavior: contain; }
 .drawer__handle {
@@ -513,17 +537,75 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
   gap: 4px;
   max-width: min(240px, 65%);
   min-height: var(--drawer-handle-height);
-  padding: 4px;
+  justify-content: center;
+  min-inline-size: 88px;
+  padding: 4px 18px;
   border: 0;
   border-radius: 0;
-  background: var(--ink-3);
+  background: none;
   color: var(--ivory);
   cursor: ns-resize;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
 }
-.drawer__handle::before { content: ""; position: absolute; inset: -6px 0; }
+/*
+ * Touch extension: the handle takes at least a --hit-min touch, grown toward
+ * its exposed edge (away from the drawer body and its controls). A top
+ * handle that sits at the very top of the screen would lose any upward
+ * extension off-screen.
+ */
+.drawer__handle::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.drawer--top .drawer__handle::before { bottom: min(0px, 100% - var(--hit-min)); }
+.drawer--bottom .drawer__handle::before { top: min(0px, 100% - var(--hit-min)); }
+/*
+ * The lip: the handle paints as a trapezoid continuous with the drawer, wide
+ * where it meets the body and chamfered toward its exposed edge. It is a
+ * layer, not a clip on the handle, so the full rectangular hit area and the
+ * touch extension stay intact. Side-aligned handles keep a square outer corner.
+ */
+.drawer__lip {
+  --drawer-lip-chamfer: 14px;
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: var(--ink-3);
+  clip-path: polygon(var(--drawer-lip-chamfer) 0, calc(100% - var(--drawer-lip-chamfer)) 0, 100% 100%, 0 100%);
+  pointer-events: none;
+}
+.drawer--top .drawer__lip {
+  clip-path: polygon(0 0, 100% 0, calc(100% - var(--drawer-lip-chamfer)) 100%, var(--drawer-lip-chamfer) 100%);
+}
+.drawer--top.drawer--handle-left .drawer__handle { padding-inline-start: 6px; }
+.drawer--top.drawer--handle-left .drawer__lip {
+  clip-path: polygon(0 0, 100% 0, calc(100% - var(--drawer-lip-chamfer)) 100%, 0 100%);
+}
+.drawer--top.drawer--handle-right .drawer__handle { padding-inline-end: 6px; }
+.drawer--top.drawer--handle-right .drawer__lip {
+  clip-path: polygon(0 0, 100% 0, 100% 100%, var(--drawer-lip-chamfer) 100%);
+}
+/* Meter pips sit along the lip's top edge, lit Ivory up to the value. */
+.drawer__handle--metered { padding-top: 9px; }
+.drawer__meter {
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  inline-size: calc(var(--drawer-meter-max) * 5px - 2px);
+  block-size: 3px;
+  translate: -50% 0;
+  background: linear-gradient(90deg, var(--ivory) 0 calc(var(--drawer-meter-lit) / var(--drawer-meter-max) * 100%), var(--ink-5) 0);
+  -webkit-mask: repeating-linear-gradient(90deg, #000 0 3px, transparent 3px 5px);
+  mask: repeating-linear-gradient(90deg, #000 0 3px, transparent 3px 5px);
+  transition: filter var(--dur-tap) var(--ease-stab);
+}
+.drawer--dragging .drawer__meter,
+.drawer__handle:active .drawer__meter {
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--ivory) 70%, transparent));
+}
 .drawer__handle--pointer-disabled { pointer-events: none; }
 .drawer--top .drawer__handle { top: 100%; }
 .drawer--bottom .drawer__handle { bottom: 100%; }
@@ -551,11 +633,18 @@ defineExpose({ open, close, toggle, height, preferredContentHeight });
 }
 @media (prefers-reduced-motion: reduce) {
   .drawer--ready { transition: none; }
+  .drawer__meter { transition: none; }
 }
 @media (forced-colors: active) {
   .drawer { background: Canvas; color: CanvasText; }
   .drawer__handle { background: ButtonFace; color: ButtonText; border: 1px solid ButtonText; }
   .drawer__grip { background: ButtonText; }
+  .drawer__lip { display: none; }
+  .drawer__meter {
+    background: linear-gradient(90deg, Highlight 0 calc(var(--drawer-meter-lit) / var(--drawer-meter-max) * 100%), GrayText 0);
+    forced-color-adjust: none;
+    filter: none;
+  }
   .drawer__handle:focus-visible { outline-color: Highlight; }
 }
 </style>

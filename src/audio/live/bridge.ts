@@ -1,5 +1,6 @@
 import processorUrl from './processor.ts?worker&url'
-import type { LiveCommand, LiveResponse, LiveWorklet } from './types'
+import type { LiveProcessorCommand, LiveResponse, LiveWorklet } from './types'
+import { pcmTransferList } from './pcm'
 
 let engineSerial = 0
 
@@ -8,14 +9,16 @@ import type { LiveRendererCallbacks as LiveWorkletCallbacks } from '../liveRende
 
 /** Installs one persistent mixer. Input messages never wait for a beat timer. */
 export async function createLiveWorklet(context: AudioContext, destination: AudioNode,
-  callbacks: LiveWorkletCallbacks): Promise<LiveWorklet> {
+  callbacks: LiveWorkletCallbacks, sends?: { room: AudioNode; delay: AudioNode }): Promise<LiveWorklet> {
   await context.audioWorklet.addModule(processorUrl)
   const node = new AudioWorkletNode(context, 'emotitone-live', {
-    numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2], channelCount: 2,
+    numberOfInputs: 0, numberOfOutputs: 3, outputChannelCount: [2, 2, 2], channelCount: 2,
     processorOptions: { instanceId: `worklet-${Date.now()}-${++engineSerial}` },
   })
-  node.connect(destination)
+  node.connect(destination, 0)
+  if (sends) { node.connect(sends.room, 1); node.connect(sends.delay, 2) }
   let disposed = false
+  let disposalTimer: ReturnType<typeof setTimeout> | undefined
   let inbox: LiveResponse[] = []
   let drainQueued = false
   const drainChannel = new MessageChannel()
@@ -31,9 +34,12 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
     rejectPending(error)
     try { callbacks.onError?.(error) } finally { dispose() }
   }
-  function post(command: LiveCommand) {
+  function post(command: LiveProcessorCommand, transfer: Transferable[] = []) {
     if (disposed) return
-    try { node.port.postMessage(command) } catch (error) {
+    try {
+      if (transfer.length) node.port.postMessage(command, transfer)
+      else node.port.postMessage(command)
+    } catch (error) {
       fail(error instanceof Error ? error : new Error(String(error)))
     }
   }
@@ -42,6 +48,13 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
     else if (data.type === 'plan') callbacks.onPlan?.(data.events)
     else if (data.type === 'expression-owner') callbacks.onExpressionOwner?.(data)
     else if (data.type === 'owner-ended') callbacks.onOwnerEnded?.(data.ownerId)
+    else if (data.type === 'transport-events') {
+      try { callbacks.onTransport?.(data) } finally {
+        // Return the batch to the worklet's pool once it has been decoded.
+        post({ type: 'transport-recycle', buffer: data.buffer }, [data.buffer])
+      }
+    }
+    else if (data.type === 'transport-applied' || data.type === 'transport-anchors') callbacks.onTransport?.(data)
     else if (data.type === 'prepared' || data.type === 'forgotten') {
       const entry = pending.get(data.requestId)
       if (entry) { clearTimeout(entry.timer); pending.delete(data.requestId); entry.resolve() }
@@ -62,8 +75,11 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
     }
   }
   node.port.onmessage = ({ data }: MessageEvent<LiveResponse | LiveResponse[]>) => {
-    if (disposed) return
     const responses = Array.isArray(data) ? data : [data]
+    if (disposed) {
+      if (responses.some(response => response.type === 'disposed')) closePort()
+      return
+    }
     if (!responses.length) return
     for (const response of responses) {
       if (response.type === 'prepared' || response.type === 'forgotten') {
@@ -96,6 +112,12 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
   }
   context.addEventListener?.('statechange', onStateChange)
 
+  function closePort() {
+    clearTimeout(disposalTimer)
+    node.port.onmessage = node.port.onmessageerror = null
+    node.port.close()
+  }
+
   function dispose() {
     if (disposed) return
     disposed = true
@@ -104,14 +126,16 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
     drainChannel.port1.onmessage = null
     drainChannel.port1.close()
     drainChannel.port2.close()
-    // Disposal is also the terminal error path. A broken command port must
-    // not recursively report another failure while trying to clear voices.
-    try { node.port.postMessage({ type: 'clear' } satisfies LiveCommand) } catch { /* best-effort shutdown */ }
+    // Release banks as well as voices; disconnected processors must not keep
+    // their old PCM alive while the replacement generation is loaded.
+    // Closing immediately can discard the queued command. Keep delivery alive
+    // until receipt; a failed/closed processor still gets bounded port cleanup.
+    disposalTimer = setTimeout(closePort, 5000)
+    try { node.port.postMessage({ type: 'dispose' } satisfies LiveProcessorCommand) } catch { closePort() }
     rejectPending(new Error('Live audio worklet has been disposed'))
-    node.port.onmessage = node.port.onmessageerror = null
+    node.port.onmessageerror = null
     node.onprocessorerror = null
     context.removeEventListener?.('statechange', onStateChange)
-    node.port.close()
     node.disconnect()
   }
 
@@ -125,9 +149,11 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
           reject(new Error('Live audio instrument preparation was not acknowledged'))
         }, 5000)
         pending.set(id, { resolve, reject, timer })
-        // Structured cloning preserves borrowed AudioBuffer memory used by
-        // the fallback renderer and by the prepared instrument cache.
-        post({ type: 'prepare', requestId: id, instrument })
+        // Transfer, never clone: the worklet takes the loader's owned PCM and
+        // the main thread's views detach, leaving one copy. Every zone channel
+        // and pyramid level is its own ArrayBuffer, so no single buffer is
+        // larger than one channel of one zone.
+        post({ type: 'prepare', requestId: id, instrument }, pcmTransferList(instrument))
       })
     },
     forget(instrumentId) {
@@ -147,8 +173,10 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
     setGain: (ownerId, gain) => post({ type: 'gain-expression', ownerId, gain }),
     release: ownerId => post({ type: 'release', ownerId }),
     configure: config => post({ type: 'configure', config }),
+    effects: shaping => post({ type: 'effects', shaping }),
     shape: envelope => post({ type: 'shape', envelope }),
     clear: () => post({ type: 'clear' }),
+    transport: command => post(command),
     dispose,
   }
 }

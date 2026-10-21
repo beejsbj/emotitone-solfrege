@@ -5,6 +5,8 @@ import App from '@/App.vue'
 import appSource from '@/App.vue?raw'
 import mainAppSource from '@/MainApp.vue?raw'
 import mainSource from '@/main.ts?raw'
+import { reportSaveFailure, resetSaveFailure } from '@/services/safeStorage'
+import { STYLE_GUIDE_PAGES, isStyleGuideRoute } from '@/styleGuideRoutes'
 
 const appLoadingState = vi.hoisted(() => ({
   isLoading: false,
@@ -20,12 +22,6 @@ const patternsStore = vi.hoisted(() => ({
 
 const useMidiControls = vi.hoisted(() => vi.fn())
 
-const tooltipState = vi.hoisted(() => ({
-  tooltipState: { value: { id: 'tip-1' } },
-  rotation: { value: 12 },
-  translation: { value: { x: 10, y: 24 } },
-}))
-
 vi.mock('@/components/LoadingSplash.vue', () => ({
   default: { template: '<div data-testid="loading-splash">Loading...</div>' },
 }))
@@ -34,22 +30,14 @@ vi.mock('@/components/UnifiedVisualEffects.vue', () => ({
   default: { template: '<div data-testid="unified-visual-effects">Visual Effects</div>' },
 }))
 
-vi.mock('@/components/ConfigPanel.vue', () => ({
+vi.mock('@/components/LazyConfigPanel.vue', () => ({
   default: { template: '<div data-testid="config-panel">Config</div>' },
 }))
 
-vi.mock('@/components/InstrumentSelector.vue', () => ({
+vi.mock('@/components/LazyInstrumentSelector.vue', () => ({
   default: {
     props: ['compact', 'floating'],
     template: '<div data-testid="instrument-selector">Instrument</div>',
-  },
-}))
-
-vi.mock('@/components/TooltipRenderer.vue', () => ({
-  default: {
-    name: 'TooltipRenderer',
-    props: ['tooltipState', 'rotation', 'translation'],
-    template: '<div data-testid="tooltip-renderer">Tooltip</div>',
   },
 }))
 
@@ -67,22 +55,30 @@ vi.mock('@/stores/music', () => ({
   useMusicStore: () => musicStore,
 }))
 
-vi.mock('@/stores/patterns', () => ({
-  usePatternsStore: () => patternsStore,
+vi.mock('@/stores/phrases', () => ({
+  usePhrasesStore: () => patternsStore,
 }))
 
 vi.mock('@/composables/useMidiControls', () => ({
   useMidiControls,
 }))
 
-vi.mock('@/directives/tooltip', () => ({
-  globalTooltip: tooltipState,
-}))
-
 describe('App.vue', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     appLoadingState.isLoading = false
+  })
+
+  it('shows the save-failure Sticker in the app shell when a persisted write fails', async () => {
+    resetSaveFailure()
+    const wrapper = createTestWrapper(App)
+    expect(wrapper.find('[data-testid="save-failure-notice"]').exists()).toBe(false)
+
+    reportSaveFailure('quota', 'emotitone-instrument')
+    await nextTick()
+
+    expect(wrapper.find('[data-testid="save-failure-notice"]').text()).toBe("Can't save — storage full")
+    resetSaveFailure()
   })
 
   it('renders the current shell when the app is ready', () => {
@@ -93,7 +89,6 @@ describe('App.vue', () => {
     expect(wrapper.find('[data-testid="config-panel"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="instrument-selector"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="performance-deck"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="tooltip-renderer"]').exists()).toBe(true)
     expect(wrapper.find('.relative.z-50.min-h-screen.flex.flex-col').exists()).toBe(true)
     expect(useMidiControls).toHaveBeenCalledTimes(1)
   })
@@ -109,19 +104,11 @@ describe('App.vue', () => {
     expect(wrapper.find('[data-testid="config-panel"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="instrument-selector"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="performance-deck"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="tooltip-renderer"]').exists()).toBe(true)
   })
 
-  it('passes the tooltip state through to the renderer', () => {
-    const wrapper = createTestWrapper(App)
-
-    const renderer = wrapper.findComponent({ name: 'TooltipRenderer' })
-    expect(renderer.exists()).toBe(true)
-    expect(renderer.props()).toEqual({
-      tooltipState: tooltipState.tooltipState.value,
-      rotation: tooltipState.rotation.value,
-      translation: tooltipState.translation.value,
-    })
+  it('mounts no tooltip layer: the retired v-tooltip stack had no consumer', () => {
+    expect(mainAppSource).not.toContain('TooltipRenderer')
+    expect(mainSource).not.toContain('tooltipPlugin')
   })
 
   it('guards lazy StyleGuide import and guide CSS gating in production App entry', () => {
@@ -129,8 +116,9 @@ describe('App.vue', () => {
     expect(appSource).toContain('defineAsyncComponent')
     expect(appSource).toContain('import("./style-guide/StyleGuide.vue")')
     expect(appSource).toContain('import("./style-guide/guide-defaults.css")')
-    expect(appSource).toContain('"/style-guide/config-menu": "config-menu"')
-    expect(appSource).toContain('"/style-guide/performance-deck": "performance-deck"')
+    expect(appSource).toContain('from "./styleGuideRoutes"')
+    expect(STYLE_GUIDE_PAGES['/style-guide/config-menu']).toBe('config-menu')
+    expect(STYLE_GUIDE_PAGES['/style-guide/performance-deck']).toBe('performance-deck')
     expect(appSource).not.toContain('TabsLab')
     expect(appSource).not.toContain('InstrumentPickerLab')
     expect(appSource).not.toContain('TabsPage')
@@ -139,22 +127,21 @@ describe('App.vue', () => {
     expect(appSource).not.toContain(
       'import StyleGuide from "./style-guide/StyleGuide.vue"',
     )
-    expect(appSource).toContain('beginJoystickPageEdition()')
-    expect(appSource.indexOf('beginJoystickPageEdition()'))
-      .toBeGreaterThan(appSource.indexOf('} else {'))
-    expect(appSource).not.toContain('MarksBeatParticlesPage')
     expect(appSource).not.toContain('isRoughPage')
   })
 
-  it('pins the bootstrap routing wiring: two persistence-free guide routes and sole main.ts tab-edition call', () => {
-    // Structural guard: guards the entry-graph routing contract that beginsTabsPageEdition
-    // is called once in main.ts only for non-design routes
-    expect(mainSource).toMatch(
-      /const isPersistenceFreeDesignRoute = \[\s*"\/style-guide\/performance-deck",\s*"\/style-guide\/stage",\s*\]\.includes\(pathname\);/,
-    )
-    expect(mainSource).toMatch(
-      /if \(!isPersistenceFreeDesignRoute\) \{\s*beginTabsPageEdition\(\);\s*\}/,
-    )
+  it('routes and bootstraps the guide from one shared route list', () => {
+    // App.vue and main.ts once kept separate copies, and main.ts drifted
+    // behind (the six layer pages ran production bootstrap).
+    expect(mainSource).toContain('from "./styleGuideRoutes"')
+    expect(mainSource).toContain('const isDesignRoute = isStyleGuideRoute(pathname);')
+    expect(mainSource).not.toMatch(/"\/style-guide\/(tokens|primitives|tabs)"/)
+    expect(appSource).not.toMatch(/"\/style-guide\/(tokens|primitives|tabs)"/)
+    for (const page of ['tokens', 'primitives', 'compounds', 'uniques', 'compositions', 'systems']) {
+      expect(isStyleGuideRoute(`/style-guide/${page}`)).toBe(true)
+    }
+    expect(isStyleGuideRoute('/')).toBe(false)
+    expect(isStyleGuideRoute('/style-guide/unknown')).toBe(false)
   })
 
   it('bans the named retired FloatingPopup mount and requires UnifiedVisualEffects in MainApp', () => {

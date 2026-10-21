@@ -1,6 +1,7 @@
-import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
+import { classifyDetectedPitch } from "@/domain/musicalIdentity";
+import { CHROMATIC_NOTES } from "@/data";
 import { LIVE_PITCH_SOURCE } from "@/services/livePitch";
-import { findScaleIndexForPitchClass } from "@/services/scalePitch";
+import { voiceRmsToVelocity } from "@/services/voiceDynamics";
 import type { LivePitchFrame } from "@/services/livePitch";
 import type {
   ActiveNote,
@@ -9,6 +10,7 @@ import type {
 } from "@/types/music";
 
 export interface HummingStageContext {
+  laBasedMinor?: boolean;
   key: ChromaticNote;
   mode: MusicalMode;
   instrument: string;
@@ -26,61 +28,63 @@ export function getActiveLivePitchStageNotes(): readonly ActiveNote[] {
   return Array.from(activeLivePitchStageNotes.values());
 }
 
-/**
- * Converts noisy provisional frames into a monophonic note lifecycle. A new
- * pitch must hold for two frames, and one missing frame is tolerated so a
- * momentary clarity dip does not flash the Stage off.
+export const PITCH_HYSTERESIS_CENTS = 60;
+export const PITCH_CONFIRMATION_SECONDS = 0.05;
+export const PITCH_RELEASE_SECONDS = 0.05;
+const PITCH_COMPARISON_EPSILON = 1e-9;
+
+/** Audio-clock windows keep confirmation and silence independent of display rate.
+ * Every change (including an octave) needs sustained evidence: an isolated
+ * detector jump cannot release or replace the held note.
  */
 export class StablePitchGate {
   private candidateMidi: number | null = null;
-  private candidateFrames = 0;
-  private missingFrames = 0;
+  private candidateSince = 0;
+  private missingSince: number | null = null;
   private activeMidi: number | null = null;
 
   constructor(
     private readonly callbacks: StablePitchCallbacks,
-    private readonly stableFrameCount = 2,
-    private readonly releaseFrameCount = 2,
   ) {}
 
   push(frame: LivePitchFrame) {
     if (!frame.voiced || frame.midi == null || frame.frequencyHz == null) {
       this.candidateMidi = null;
-      this.candidateFrames = 0;
-      this.missingFrames += 1;
-      if (this.missingFrames >= this.releaseFrameCount) this.release();
+      this.missingSince ??= frame.timestampSeconds;
+      if (frame.timestampSeconds - this.missingSince + PITCH_COMPARISON_EPSILON >= PITCH_RELEASE_SECONDS) {
+        this.release();
+      }
       return;
     }
 
-    this.missingFrames = 0;
+    this.missingSince = null;
     const roundedMidi = Math.round(frame.midi);
-    if (roundedMidi === this.activeMidi) {
+    if (
+      this.activeMidi != null
+      && Math.abs(frame.midi - this.activeMidi) + PITCH_COMPARISON_EPSILON < PITCH_HYSTERESIS_CENTS / 100
+    ) {
       this.candidateMidi = null;
-      this.candidateFrames = 0;
       return;
     }
 
-    if (roundedMidi === this.candidateMidi) {
-      this.candidateFrames += 1;
-    } else {
+    if (roundedMidi !== this.candidateMidi) {
       this.candidateMidi = roundedMidi;
-      this.candidateFrames = 1;
+      this.candidateSince = frame.timestampSeconds;
+      return;
     }
 
-    if (this.candidateFrames < this.stableFrameCount) return;
+    if (frame.timestampSeconds - this.candidateSince + PITCH_COMPARISON_EPSILON < PITCH_CONFIRMATION_SECONDS) return;
 
     this.release();
     this.activeMidi = roundedMidi;
     this.candidateMidi = null;
-    this.candidateFrames = 0;
     this.callbacks.attack(roundedMidi, frame);
   }
 
   flush() {
     this.release();
     this.candidateMidi = null;
-    this.candidateFrames = 0;
-    this.missingFrames = 0;
+    this.missingSince = null;
   }
 
   private release() {
@@ -101,21 +105,22 @@ export function createLivePitchStageBridge(
 
   const gate = new StablePitchGate({
     attack(midi, frame) {
-      const pitchClass = CHROMATIC_NOTES[((midi % 12) + 12) % 12];
-      const pitchClassIndex = ((midi % 12) + 12) % 12;
+      const pitch = classifyDetectedPitch(
+        { midi },
+        { tonic: currentContext.key, mode: currentContext.mode },
+        currentContext.laBasedMinor,
+      );
+      if (!pitch) return;
+      const { pitchClass: pitchClassIndex } = pitch;
+      const pitchClass = CHROMATIC_NOTES[pitchClassIndex];
       const octave = Math.floor(midi / 12) - 1;
-      if (!pitchClass || !Number.isFinite(octave) || frame.frequencyHz == null) {
+      if (!pitchClass || !Number.isFinite(octave)) {
         return;
       }
       const noteName = `${pitchClass}${octave}`;
 
-      const solfegeIndex = findScaleIndexForPitchClass(
-        pitchClass,
-        currentContext,
-      );
-      if (solfegeIndex == null) return;
-      const note = getScaleForMode(currentContext.mode).solfege[solfegeIndex];
-      if (!note) return;
+      const solfegeIndex = pitch.scaleIndex ?? -1;
+      const note = pitch.solfege;
       const tonicIndex = CHROMATIC_NOTES.indexOf(currentContext.key);
       const keyboardOctave = tonicIndex === -1
         ? octave
@@ -125,7 +130,7 @@ export function createLivePitchStageBridge(
         noteId: `live-pitch-${sessionId}-${++noteCounter}`,
         noteName,
         solfege: note,
-        frequency: frame.frequencyHz,
+        frequency: pitch.frequency,
         octave,
         keyboardOctave,
         solfegeIndex,
@@ -144,6 +149,7 @@ export function createLivePitchStageBridge(
           source: LIVE_PITCH_SOURCE,
           record: false,
           mirrorMidi: false,
+          velocity: voiceRmsToVelocity(frame.rms),
         },
       }));
     },
@@ -173,6 +179,7 @@ export function createLivePitchStageBridge(
         nextContext.key === currentContext.key
         && nextContext.mode === currentContext.mode
         && nextContext.instrument === currentContext.instrument
+        && Boolean(nextContext.laBasedMinor) === Boolean(currentContext.laBasedMinor)
       ) return;
 
       // Release with the same musical identity used for the attack, then let

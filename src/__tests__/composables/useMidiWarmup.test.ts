@@ -1,6 +1,15 @@
 import { nextTick } from "vue";
 import { mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createPinia, disposePinia, setActivePinia, type Pinia } from "pinia";
+
+// The real performer store runs over the stand-in stores.
+let pinia: Pinia;
+beforeEach(() => {
+  pinia = createPinia();
+  setActivePinia(pinia);
+});
+afterEach(() => disposePinia(pinia));
 
 vi.mock("@/stores/instrument", async () => {
   const { reactive } = await vi.importActual<typeof import("vue")>("vue");
@@ -17,7 +26,7 @@ vi.mock("@/stores/music", () => {
     currentMode: "major",
     parseNoteInput: vi.fn(() => ({ solfegeIndex: 0, octave: 4 })),
     getNoteName: vi.fn(() => "C4"),
-    attackNoteWithOctave: vi.fn().mockResolvedValue("midi-note-id"),
+    attackExactPitch: vi.fn().mockResolvedValue("midi-note-id"),
     releaseNote: vi.fn(),
   };
   return {
@@ -64,7 +73,7 @@ describe("MIDI warmup locking", () => {
     };
     const musicModule = await import("@/stores/music") as unknown as {
       testMusicStore: {
-        attackNoteWithOctave: ReturnType<typeof vi.fn>;
+        attackExactPitch: ReturnType<typeof vi.fn>;
         releaseNote: ReturnType<typeof vi.fn>;
       };
     };
@@ -77,8 +86,8 @@ describe("MIDI warmup locking", () => {
     };
 
     instrumentModule.testInstrumentStore.isInteractionLocked = false;
-    musicModule.testMusicStore.attackNoteWithOctave.mockReset();
-    musicModule.testMusicStore.attackNoteWithOctave.mockResolvedValue("midi-note-id");
+    musicModule.testMusicStore.attackExactPitch.mockReset();
+    musicModule.testMusicStore.attackExactPitch.mockResolvedValue("midi-note-id");
     musicModule.testMusicStore.releaseNote.mockReset();
     keyboardModule.testKeyboardDrawerStore.touch.activeTouches.clear();
     keyboardModule.testKeyboardDrawerStore.addTouch.mockReset();
@@ -92,7 +101,7 @@ describe("MIDI warmup locking", () => {
     };
     const musicModule = await import("@/stores/music") as unknown as {
       testMusicStore: {
-        attackNoteWithOctave: ReturnType<typeof vi.fn>;
+        attackExactPitch: ReturnType<typeof vi.fn>;
         releaseNote: ReturnType<typeof vi.fn>;
       };
     };
@@ -112,7 +121,7 @@ describe("MIDI warmup locking", () => {
 
     simulator.noteOn(60);
     await vi.waitFor(() => {
-      expect(musicModule.testMusicStore.attackNoteWithOctave).toHaveBeenCalledOnce();
+      expect(musicModule.testMusicStore.attackExactPitch).toHaveBeenCalledOnce();
     });
     await nextTick();
 
@@ -138,11 +147,11 @@ describe("MIDI warmup locking", () => {
     };
     const musicModule = await import("@/stores/music") as unknown as {
       testMusicStore: {
-        attackNoteWithOctave: ReturnType<typeof vi.fn>;
+        attackExactPitch: ReturnType<typeof vi.fn>;
         releaseNote: ReturnType<typeof vi.fn>;
       };
     };
-    musicModule.testMusicStore.attackNoteWithOctave.mockReturnValueOnce(
+    musicModule.testMusicStore.attackExactPitch.mockReturnValueOnce(
       pendingAttack
     );
 

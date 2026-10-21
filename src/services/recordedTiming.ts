@@ -1,4 +1,5 @@
 import type { PatternNote } from '@/types/patterns';
+import type { PhraseContext } from '@/types/phrases';
 
 const MICRO_GAP_MS = 40;
 
@@ -8,6 +9,23 @@ export type PreparedRecordedNote<T> = T & { gateDuration?: number };
 /** One beat of breathing room; a take need not end on a measure boundary. */
 export function recordedLoopTailMs(sourceBpm: number): number {
   return 60000 / (Number.isFinite(sourceBpm) && sourceBpm > 0 ? sourceBpm : 120);
+}
+
+/** Phrase-relative endings, including any display slots prepared for notation. */
+interface RecordedLoopTiming {
+  notes: readonly Pick<PatternNote, 'releaseTime'>[];
+  duration?: number;
+  context: Pick<PhraseContext, 'bpm'>;
+}
+
+/** Keep authored trailing silence; otherwise close the loop with one beat. */
+export function loopLengthMs(phrase: RecordedLoopTiming): number {
+  const lastEnd = phrase.notes.reduce((end, note) => Math.max(end, note.releaseTime), 0);
+  const duration = phrase.duration ?? lastEnd;
+  const authoredTail = duration - lastEnd;
+  return Number.isFinite(authoredTail) && authoredTail > 0
+    ? duration
+    : lastEnd + recordedLoopTailMs(phrase.context.bpm);
 }
 
 /** Clean only globally silent micro-gaps, preserving every onset and overlap.

@@ -41,6 +41,7 @@ const visualConfigStore = reactive({
     },
   },
   visualsEnabled: true,
+  laBasedMinor: false,
   savedConfigs: [] as Array<{ id: string; name: string; updatedAt: string }>,
   savedStageLooks: [] as Array<{ id: string; name: string; updatedAt: string }>,
   transientStageLook: null as null | { name: string },
@@ -62,8 +63,6 @@ const visualConfigStore = reactive({
     atmosphereColorDepth: 0.8,
     stringPresence: 0.9,
     stringResponse: 0.25,
-    fleckAmount: 10,
-    fleckEnergy: 0.3,
     showChords: false,
     showIntervals: false,
     showEmotion: false,
@@ -82,7 +81,6 @@ const visualConfigStore = reactive({
     noteSurface: "colored",
     touchFeedback: true,
     codeStrip: true,
-    durationMode: "bar",
     showRests: true,
   },
   updateValue: vi.fn(),
@@ -100,7 +98,7 @@ const visualConfigStore = reactive({
   keepStageLook: vi.fn(),
   clearStageLook: vi.fn(),
   resetStage: vi.fn(),
-  saveStageLookAs: vi.fn(),
+  saveStageLookAs: vi.fn(() => ({ look: null, failure: null })),
   loadSavedStageLook: vi.fn(),
   deleteSavedStageLook: vi.fn(),
   updateGlobalControl: vi.fn(),
@@ -217,7 +215,6 @@ describe("ConfigPanel.vue", () => {
     visualConfigStore.stageControls.stageEnabled = true;
     visualConfigStore.stageControls.bodiesVisible = true;
     visualConfigStore.stageControls.atmosphereStrength = 0.3;
-    visualConfigStore.stageControls.fleckAmount = 3;
     visualConfigStore.stageControls.showChords = false;
     visualConfigStore.stageControls.showIntervals = false;
     visualConfigStore.stageControls.showEmotion = false;
@@ -246,9 +243,10 @@ describe("ConfigPanel.vue", () => {
       .vm.$emit("update:modelValue", "pitch");
     expect(visualConfigStore.updateDeckControl).toHaveBeenCalledWith("notation", "pitch");
 
-    wrapper.getComponent('[data-testid="deck-control-durationMode"]')
-      .vm.$emit("update:modelValue", "bar");
-    expect(visualConfigStore.updateDeckControl).toHaveBeenCalledWith("durationMode", "bar");
+    wrapper.getComponent('[data-testid="deck-control-showRests"]')
+      .vm.$emit("update:modelValue", false);
+    expect(visualConfigStore.updateDeckControl).toHaveBeenCalledWith("showRests", false);
+    expect(wrapper.find('[data-testid="deck-control-durationMode"]').exists()).toBe(false);
   });
 
   it("promotes each Stage group into a focused destination", () => {
@@ -286,9 +284,9 @@ describe("ConfigPanel.vue", () => {
       field: "connectionMode",
       values: ["web"],
     });
-    expect(STAGE_CONTROL_DEFINITIONS).toHaveLength(23);
-    expect(GLOBAL_CONTROL_GROUPS.flatMap((group) => group.controls)).toHaveLength(4);
-    expect(DECK_CONTROL_GROUPS.flatMap((group) => group.controls)).toHaveLength(8);
+    expect(STAGE_CONTROL_DEFINITIONS).toHaveLength(21);
+    expect(GLOBAL_CONTROL_GROUPS.flatMap((group) => group.controls)).toHaveLength(5);
+    expect(DECK_CONTROL_GROUPS.flatMap((group) => group.controls)).toHaveLength(7);
   });
 
   it("keeps Stage general and allocates every detail control exactly once", async () => {
@@ -305,7 +303,7 @@ describe("ConfigPanel.vue", () => {
       ["scope", 5],
       ["bodies", 7],
       ["relations", 4],
-      ["layers", 6],
+      ["layers", 4],
     ] as const;
     const allocatedControlIds: string[] = [];
 
@@ -323,8 +321,8 @@ describe("ConfigPanel.vue", () => {
       ));
     }
 
-    expect(allocatedControlIds).toHaveLength(22);
-    expect(new Set(allocatedControlIds).size).toBe(22);
+    expect(allocatedControlIds).toHaveLength(20);
+    expect(new Set(allocatedControlIds).size).toBe(20);
     expect(allocatedControlIds.toSorted()).toEqual(
       STAGE_CONTROL_DEFINITIONS
         .filter((control) => control.id !== "stageEnabled")
@@ -352,7 +350,7 @@ describe("ConfigPanel.vue", () => {
     wrapper.getComponent({ name: "TabbedOverlayPanel" }).vm.$emit("update:modelValue", "stage");
     await nextTick();
 
-    expect(wrapper.findAll('[data-testid^="preset-apply-"]')).toHaveLength(4);
+    expect(wrapper.findAll('[data-testid^="preset-apply-"]')).toHaveLength(7);
     expect(wrapper.get('[data-testid="preset-apply-still"]').text()).toContain("Still");
     const scene = wrapper.get('[data-testid="preset-apply-soft"]');
     expect(scene.element.tagName).toBe("BUTTON");
@@ -360,6 +358,21 @@ describe("ConfigPanel.vue", () => {
     expect(wrapper.find('[data-testid="stage-public-controls"]').exists()).toBe(true);
     expect(wrapper.find(".sticker--badge").exists()).toBe(false);
     expect(wrapper.find('[class*="sticker--color-brass"]').exists()).toBe(false);
+  });
+
+  it("offers the minor solfege convention in Deck's Learn group", async () => {
+    visualConfigStore.laBasedMinor = false;
+    const wrapper = createTestWrapper(ConfigPanel);
+    wrapper.getComponent({ name: "TabbedOverlayPanel" }).vm.$emit("update:modelValue", "deck");
+    await nextTick();
+    const preference = wrapper.getComponent('[data-testid="learn-la-based-minor"]');
+    expect(preference.props("modelValue")).toBe(false);
+    preference.vm.$emit("update:modelValue", true);
+    await nextTick();
+    expect(visualConfigStore.laBasedMinor).toBe(true);
+    expect(preference.props("modelValue")).toBe(true);
+    expect(wrapper.text()).toContain("Minor starts on Do by default");
+    wrapper.unmount();
   });
 
   it("keeps Deck controls available when the global Visuals presentation is off", async () => {
@@ -370,15 +383,12 @@ describe("ConfigPanel.vue", () => {
 
     const notation = wrapper.getComponent('[data-testid="deck-control-notation"]');
     const rests = wrapper.getComponent('[data-testid="deck-control-showRests"]');
-    const durations = wrapper.getComponent('[data-testid="deck-control-durationMode"]');
     expect(notation.props("isDisabled")).toBe(false);
     expect(rests.props("isDisabled")).toBe(false);
-    expect(durations.props("isDisabled")).toBe(false);
 
     visualConfigStore.deckControls.codeStrip = false;
     await nextTick();
     expect(rests.props("isDisabled")).toBe(true);
-    expect(durations.props("isDisabled")).toBe(true);
   });
 
   it("retires reload Looks and keeps transient actions visible across Stage tabs", async () => {
@@ -467,12 +477,9 @@ describe("ConfigPanel.vue", () => {
       .toBe(false);
 
     visualConfigStore.stageControls.atmosphereStrength = 0;
-    visualConfigStore.stageControls.fleckAmount = 0;
     panel.vm.$emit("update:modelValue", "layers");
     await nextTick();
     expect(wrapper.getComponent('[data-testid="stage-control-atmosphereColorDepth"]').props("isDisabled"))
-      .toBe(true);
-    expect(wrapper.getComponent('[data-testid="stage-control-fleckEnergy"]').props("isDisabled"))
       .toBe(true);
     expect(wrapper.getComponent('[data-testid="stage-control-stringResponse"]').props("isDisabled"))
       .toBe(false);
@@ -497,6 +504,8 @@ describe("ConfigPanel.vue", () => {
     expect(
       wrapper.findAllComponents({ name: "Knob" }).filter((knob) => knob.props("tone") === "brass")
     ).toHaveLength(2);
+    expect(wrapper.get('.config-panel__looks-header h2.panel-heading--band').text()).toBe("Looks");
+    expect(wrapper.get('.config-panel__looks-header .panel-heading--tape').text()).toBe("Stage only");
   });
 
   it("keeps Config chrome on the workhorse Ink and Ivory palette", () => {
@@ -509,7 +518,7 @@ describe("ConfigPanel.vue", () => {
   it("aligns action Knobs with small Buttons", () => {
     wrapper = createTestWrapper(ConfigPanel);
 
-    expect(configPanelSource).toContain("--knob-size: 32px");
+    expect(configPanelSource).toContain("--knob-size: var(--control-sm)");
     expect(configPanelSource).toMatch(
       /\.config-panel__section-controls\s*\{[^}]*align-items: flex-start;/s,
     );
@@ -517,6 +526,11 @@ describe("ConfigPanel.vue", () => {
       .toBe("Config");
     expect(wrapper.get('[data-testid="overlay-panel-header"] .overlay-panel-header__context').text())
       .toBe("Global");
+    expect(wrapper.get('.overlay-panel-header__title').classes()).toContain("panel-heading--band");
+    expect(wrapper.get('.overlay-panel-header__context').classes()).toContain("panel-heading--tape");
+    expect(wrapper.get('h2.panel-heading--band').text()).toBe("Global");
+    expect(wrapper.get('.config-panel__eyebrow.panel-heading--tape').text()).toBe("Across EmotiTone");
+    expect(wrapper.get('.config-panel__group-label').classes()).toContain("panel-heading--tape");
     expect(wrapper.get('button[aria-label="Close settings"]').classes())
       .toContain("paper-button--sm");
   });

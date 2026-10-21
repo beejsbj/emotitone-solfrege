@@ -37,16 +37,15 @@ function changedPaths(before: unknown, after: unknown, prefix = ""): string[] {
 }
 
 describe("Stage appearance domain", () => {
-  it("publishes exactly the accepted 23 controls", () => {
+  it("publishes exactly the accepted 21 controls", () => {
     const controls = STAGE_CONTROL_DEFINITIONS;
-    expect(controls).toHaveLength(23);
-    expect(new Set(controls.map((control) => control.id)).size).toBe(23);
+    expect(controls).toHaveLength(21);
+    expect(new Set(controls.map((control) => control.id)).size).toBe(21);
     expect(STAGE_CONTROL_GROUPS.map((group) => group.label)).toEqual([
       "Scope",
       "Note Bodies",
       "Atmosphere",
       "Pitch Strings",
-      "Note Flecks",
       "Explanations",
     ]);
     expect(
@@ -68,7 +67,6 @@ describe("Stage appearance domain", () => {
     expect(disabled.blobs.isEnabled).toBe(false);
     expect(disabled.ambient.isEnabled).toBe(false);
     expect(disabled.strings.isEnabled).toBe(false);
-    expect(disabled.particles.isEnabled).toBe(false);
   });
 
   it("rehydrates activation-capable Strings from a legacy zero-Presence config", () => {
@@ -198,8 +196,6 @@ describe("Stage appearance domain", () => {
       atmosphereColorDepth: 0.6,
       stringPresence: 0.05,
       stringResponse: 0.5,
-      fleckAmount: 3,
-      fleckEnergy: expect.closeTo(0.35),
       showChords: true,
       showIntervals: true,
       showEmotion: false,
@@ -262,31 +258,35 @@ describe("Stage appearance domain", () => {
     const applied = applyStageLook(backing, {
       hilbertScope: { opacity: 0.31 },
       ...({
+        particles: { isEnabled: true, count: 40, speed: 12 },
         dynamicColors: { musicColorMode: "movable-relative" },
         keyboard: { mainOctave: 1 },
       } as any),
     });
 
     expect(applied.hilbertScope.opacity).toBe(0.31);
+    expect(applied).not.toHaveProperty("particles");
     expect(applied.dynamicColors).toEqual(backing.dynamicColors);
     expect(applied.uiBeat).toEqual(backing.uiBeat);
     expect(applied.keyboard).toEqual(backing.keyboard);
     expect(applied.codeStrip).toEqual(backing.codeStrip);
   });
 
-  it("defines four complete built-ins while preserving learner preferences", () => {
+  it("defines seven complete built-ins while preserving learner preferences", () => {
     expect(BUILT_IN_STAGE_LOOKS.map((look) => look.name)).toEqual([
       "Clear",
       "Still",
       "Soft",
       "Luminous",
+      "Pop",
+      "Phosphor",
+      "Smoke",
     ]);
 
     for (const look of BUILT_IN_STAGE_LOOKS) {
       expect(Object.keys(look.patch)).toEqual([
         "blobs",
         "ambient",
-        "particles",
         "strings",
         "hilbertScope",
       ]);
@@ -309,6 +309,9 @@ describe("Stage appearance domain", () => {
       still: 0,
       soft: 0.6,
       luminous: 0.3,
+      pop: 0.12,
+      phosphor: 0.25,
+      smoke: 0.35,
     });
 
     const still = BUILT_IN_STAGE_LOOKS.find((look) => look.id === "still");
@@ -323,6 +326,32 @@ describe("Stage appearance domain", () => {
       blurRadius: 0,
       fieldSoftness: 0,
     });
+  });
+
+  it("carries body timing in a Look so Pop pops in and shrinks away", () => {
+    const pop = BUILT_IN_STAGE_LOOKS.find((look) => look.id === "pop");
+    const popConfig = applyStageLook(config(), pop?.patch);
+    // Firm, haloed bodies whose Merge stays gooey: fog off, rounding on.
+    expect(popConfig.blobs).toMatchObject({
+      blurRadius: 0,
+      fieldSoftness: 12,
+      glowEnabled: true,
+      glowIntensity: 18,
+      vibrationAmplitude: 0,
+      oscillationAmplitude: 0,
+      scaleInDuration: 0.1,
+      scaleOutDuration: 0.2,
+      fadeOutDuration: 0.2,
+    });
+
+    // Any other Look restores the default body timing.
+    const clear = BUILT_IN_STAGE_LOOKS.find((look) => look.id === "clear");
+    const restored = applyStageLook(popConfig, clear?.patch);
+    expect(restored.blobs.scaleInDuration).toBe(DEFAULT_CONFIG.blobs.scaleInDuration);
+    expect(restored.blobs.fadeOutDuration).toBe(DEFAULT_CONFIG.blobs.fadeOutDuration);
+
+    const phosphor = applyStageLook(config(), BUILT_IN_STAGE_LOOKS.find((look) => look.id === "phosphor")?.patch);
+    expect(phosphor.hilbertScope).toMatchObject({ history: 0.85, smear: 0, glowIntensity: 4, thickness: 1 });
   });
 
   it("creates deterministic small variations around one explicit root", () => {
@@ -358,6 +387,22 @@ describe("Stage appearance domain", () => {
     const variedConfig = applyStageLook(root, first.patch);
     const rootControls = readStageControls(root);
     const variedControls = readStageControls(variedConfig);
+    // Recorded before retiring Note Flecks: surviving controls must keep
+    // their positions in the seeded sequence.
+    expect(variedControls).toMatchObject({
+      scopeSize: 0.6133515945952386,
+      scopeStrength: 0.8049318226799369,
+      scopeLineWeight: 1.6295479671936481,
+      scopeGlow: 0.2516808561515063,
+      scopeTrail: 0.18954596826806666,
+      bodySize: 0.18651783464103938,
+      bodyStrength: 0.7957633269019424,
+      bodyMotion: 0,
+      atmosphereStrength: 0.2852445224896073,
+      atmosphereColorDepth: 0.5603296324387192,
+      stringPresence: 0.05360007300972939,
+      stringResponse: 0.5091801548935473,
+    });
     const boundedControls = [
       ["scopeSize", .08],
       ["scopeStrength", .08],
@@ -371,7 +416,6 @@ describe("Stage appearance domain", () => {
       ["atmosphereColorDepth", .08],
       ["stringPresence", .1],
       ["stringResponse", .08],
-      ["fleckEnergy", .1],
     ] as const;
     for (const [control, spread] of boundedControls) {
       expect(Math.abs(variedControls[control] - rootControls[control]))
@@ -379,7 +423,26 @@ describe("Stage appearance domain", () => {
     }
     expect(variedConfig.blobs.isEnabled).toBe(root.blobs.isEnabled);
     expect(variedConfig.ambient.isEnabled).toBe(root.ambient.isEnabled);
-    expect(variedConfig.particles.isEnabled).toBe(root.particles.isEnabled);
     expect(variedConfig.strings.isEnabled).toBe(root.strings.isEnabled);
+  });
+
+  it("reads Atmosphere from the fields the Diffused Band paints, so a value round-trips", () => {
+    const legacy = config();
+    legacy.ambient.opacityMajor = 0;
+    legacy.ambient.opacityMinor = 1;
+    legacy.ambient.saturationMajor = 0;
+    legacy.ambient.saturationMinor = 1;
+
+    const read = readStageControls(legacy);
+    expect(read.atmosphereStrength).toBe(0);
+    expect(read.atmosphereColorDepth).toBe(0);
+
+    const rewritten = patchStageControl(
+      patchStageControl(legacy, "atmosphereStrength", read.atmosphereStrength),
+      "atmosphereColorDepth",
+      read.atmosphereColorDepth,
+    );
+    expect(rewritten.ambient.opacityMajor).toBe(0);
+    expect(rewritten.ambient.saturationMajor).toBe(0);
   });
 });

@@ -1,41 +1,35 @@
+import { velocityToGain } from "@/audio/velocity";
+import { resumeAudioContext } from "@/services/audioLifecycle";
 /**
  * superdoughAudio.ts
- * Instrument catalog/preparation and the Superdough playback adapter.
- * audioRuntime owns the shared graph; patternPlayback owns the sole pattern
- * transport; livePlayback selects the prepared live renderer.
+ * Audio startup, instrument warmup and the Superdough playback adapter.
+ * The app's sound catalog (src/audio/soundCatalog.ts) and loader
+ * (preparedNativeInstrument.ts) put sample and soundfont PCM into the live
+ * worklet; superdough keeps only what the fallback renderer needs, loaded
+ * when it needs it. audioRuntime owns the shared graph; patternTransport plays
+ * patterns on the worklet; livePlayback selects the live renderer.
  */
 
 // superdough has no bundled TypeScript declarations
 // @ts-ignore
 import { superdough, registerSynthSounds, samples, loadBuffer, getSound, soundMap, hasVoice, stopVoice, cancelVoice, releaseVoice, releaseAllVoices } from "superdough";
-import { webaudioOutput } from "@strudel/webaudio";
-// @ts-ignore
-import { prewarmSoundfont, registerSoundfonts } from "@strudel/soundfonts";
-import { musicTheory, CHROMATIC_NOTES } from "@/services/music";
-import type {
-  ActiveNote,
-  ChromaticNote,
-  MusicalMode,
-  SolfegeData,
-} from "@/types/music";
-import { Note as TonalNote } from "@tonaljs/tonal";
 import { DEFAULT_INSTRUMENT, isSynthSound } from "@/data/instruments";
-import { prepareLivePlayback } from "@/services/livePlayback";
+import { getLivePlaybackFailure, prepareLivePlayback } from "@/services/livePlayback";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import { resolveLiveEnvelope } from "@/services/shape";
 import type { Shape } from "@/types/instrument";
-import { audioTimeToOutputTime, LIVE_AUDIO_SCHEDULING_LEAD_MS } from "@/services/liveAudioTiming";
+import { LIVE_AUDIO_SCHEDULING_LEAD_MS } from "@/services/liveAudioTiming";
 import { getAudioContext, getMasterGain, initializeAudio, LIVE_ORBIT } from "@/services/audioRuntime";
 import { setLivePlaybackShaping } from "@/services/livePlayback";
 import { LIVE_DELAY_FEEDBACK, LIVE_DELAY_TIME_SECONDS } from "@/audio/liveShaping";
+import { SampleLoadError } from "@/services/audioFailures";
+import { catalogSoundNames, getCatalogSound, registerSampleMap, registerSoundfonts, type CatalogSound, type SampleMap } from "@/audio/soundCatalog";
+import { SAMPLE_PACKS, sampleMapUrl } from "@/audio/sampleSources";
+import { fetchInstrumentFile } from "@/audio/instrumentAssetCache";
+import { prewarmFallbackSoundfont, registerFallbackSoundfonts } from "@/services/soundfontFallback";
 
 /** Compatibility facade: the playback graph is owned by audioRuntime. */
 export { getAudioContext };
-
-/** Oscillator-based sounds that have no sample bank — skip pre-warm for these. */
-const SYNTH_SOUNDS = new Set([
-  "triangle", "sawtooth", "square", "sine", "buzz", "supersaw",
-]);
 
 // ---------------------------------------------------------------------------
 // Module-level init state so we only set up once
@@ -43,6 +37,19 @@ const SYNTH_SOUNDS = new Set([
 
 let _initialized = false;
 let _initPromise: Promise<void> | null = null;
+let _initProgressCallback: ((progress: number, message: string) => void) | undefined;
+
+/**
+ * The startup step currently in flight, so a caller that gives up waiting can
+ * say what actually hung: the sample download, or the audio engine itself
+ * (graph initialisation and preparing the default synth).
+ */
+export type AudioStartupStage = "idle" | "samples" | "engine" | "ready";
+let _startupStage: AudioStartupStage = "idle";
+
+export function getAudioStartupStage(): AudioStartupStage {
+  return _startupStage;
+}
 const _prewarmedSounds = new Set<string>();
 type LiveSynthControls = {
   cutoff?: number;
@@ -92,48 +99,58 @@ function liveEnvelopeShape(sound: string): Pick<Shape, "attack" | "release"> {
   return { attack: stage("attack"), release: stage("release") };
 }
 
-const STRUDEL_PLAYBACK_SOURCE = "strudel-playback";
 const LIVE_NOTE_PLACEHOLDER_DURATION_SECONDS = 0.25;
-const _activeStrudelVisuals = new Map<
-  string,
-  {
-    note: SolfegeData;
-    noteName: string;
-    frequency: number;
-    octave: number;
-    keyboardOctave: number;
-    solfegeIndex: number;
-    pitchClassIndex: number;
-    mode: MusicalMode;
-    key: ChromaticNote;
-    instrument: string;
-    releaseTimeout: number;
-    audibleAt: number;
-  }
->();
-let _strudelVisualCounter = 0;
 
-export function getActiveStrudelStageNotes(): readonly ActiveNote[] {
-  return Array.from(_activeStrudelVisuals, ([noteId, active]) => ({
-    noteId,
-    noteName: active.noteName,
-    solfege: active.note,
-    frequency: active.frequency,
-    octave: active.octave,
-    keyboardOctave: active.keyboardOctave,
-    solfegeIndex: active.solfegeIndex,
-    pitchClassIndex: active.pitchClassIndex,
-    mode: active.mode,
-    key: active.key,
-    audibleAt: active.audibleAt,
-  }));
+/**
+ * Fetch one sample map and register it twice: in the app catalog, which the
+ * worklet loader reads, and in superdough's sound map, which the fallback
+ * renderer still reads until BJS-495. Registration downloads no audio.
+ */
+async function loadSamplePack(pack: string): Promise<void> {
+  const response = await fetchInstrumentFile(sampleMapUrl(pack));
+  if (!response.ok) throw new Error(`error loading "${sampleMapUrl(pack)}" (HTTP ${response.status})`);
+  const map = await response.json() as SampleMap;
+  registerSampleMap(map);
+  await samples(map, typeof map._base === "string" ? map._base : "");
 }
 
-// Sample packs with user-friendly labels for progress reporting
-const SAMPLE_PACKS = [
-  { key: "piano", label: "Piano" },
-  { key: "vcsl", label: "Orchestra" },
-] as const;
+/** Catalog data is needed only by the picker or a selected GM instrument. */
+let soundfontCatalog: Promise<void> | null = null;
+export function ensureSoundfontCatalog(): Promise<void> {
+  return soundfontCatalog ??= import("@/data/gmSoundfonts")
+    .then(({ GM_SOUNDFONTS }) => {
+      registerSoundfonts(GM_SOUNDFONTS);
+      registerFallbackSoundfonts(GM_SOUNDFONTS);
+    })
+    .catch(error => { soundfontCatalog = null; throw error; });
+}
+
+/** superdough still registers and renders the synths the worklet does not (supersaw, pulse, …). */
+function isRegisteredSynth(name: string): boolean {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sound = (getSound as any)(name);
+    return Boolean(sound) && sound.data?.type !== "soundfont" && !sound.data?.samples;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Warm the fallback renderer's own copy of a sound. Used only when the worklet
+ * cannot hold the bank; patterns play on the worklet (BJS-485) and never warm
+ * a superdough copy. The live worklet never reads these buffers.
+ */
+async function prewarmFallbackSound(sound: CatalogSound): Promise<void> {
+  const ac = getAudioContext();
+  if (sound.kind === "soundfont") {
+    await prewarmFallbackSoundfont(sound.fonts[0], ac);
+    return;
+  }
+  const urls = Array.isArray(sound.bank) ? sound.bank : Object.values(sound.bank).flat();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await Promise.all(urls.map((url) => (loadBuffer as any)(url, ac)));
+}
 
 /**
  * Core pre-warm logic — assumes superdough is already initialised.
@@ -145,78 +162,45 @@ async function _prewarmSoundCore(
   tolerateBufferFailures = false
 ): Promise<void> {
   const resolved = resolveLiveSoundName(soundName);
-  let sound;
-  try {
-    // Resolve the registered sound before treating synth names as ready. This
-    // prevents pre-init callers and typos from being reported as playable.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    sound = (getSound as any)(resolved);
-  } catch (error) {
-    if (tolerateBufferFailures) return;
-    throw error;
-  }
-
-  if (!sound) {
+  if (resolved.startsWith("gm_")) await ensureSoundfontCatalog();
+  const sound = getCatalogSound(resolved);
+  // Resolve the sound before treating it as ready. This prevents pre-init
+  // callers and typos from being reported as playable.
+  if (!sound && !isRegisteredSynth(resolved)) {
     if (tolerateBufferFailures) return;
     throw new Error(`Unknown sound: ${soundName}`);
   }
 
-  if (sound.data?.type === "soundfont") {
-    const font = Array.isArray(sound.data.fonts) ? sound.data.fonts[0] : null;
-    if (!font) {
-      if (tolerateBufferFailures) return;
-      throw new Error(`Soundfont has no preset: ${soundName}`);
-    }
+  await prepareLivePlayback(getAudioContext(), getSuperdoughMasterGain(), resolved);
+  if (!sound) {
+    _prewarmedSounds.add(resolved); // synths need no data → already "ready"
+    return;
+  }
 
+  const failure = getLivePlaybackFailure(resolved);
+  if (failure?.kind === "load") {
+    if (!tolerateBufferFailures) throw new Error(failure.reason);
+    return;
+  }
+  if (failure) {
+    // The worklet cannot hold this bank (no AudioWorklet, over budget, or its
+    // residency is held), so the fallback renderer plays it from its own copy.
     try {
-      await prewarmSoundfont(font, getAudioContext());
-      await prepareLivePlayback(getAudioContext(), getSuperdoughMasterGain(), resolved);
-      _prewarmedSounds.add(resolved);
+      await prewarmFallbackSound(sound);
     } catch (error) {
       if (!tolerateBufferFailures) throw error;
+      return;
     }
-    return;
   }
-
-  if (SYNTH_SOUNDS.has(resolved) || !sound?.data?.samples) {
-    await prepareLivePlayback(getAudioContext(), getSuperdoughMasterGain(), resolved);
-    _prewarmedSounds.add(resolved); // no samples needed → already "ready"
-    return;
-  }
-
-  const ac = getAudioContext();
-  const bank = sound.data.samples as Record<string, string[]> | string[];
-  const audioUrls: string[] = Array.isArray(bank)
-    ? bank
-    : (Object.values(bank) as string[][]).flat();
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const results = await Promise.allSettled(
-    audioUrls.map((url) => (loadBuffer as any)(url, ac))
-  );
-  const failedBuffer = results.find(
-    (result): result is PromiseRejectedResult => result.status === "rejected"
-  );
-
-  if (failedBuffer) {
-    if (!tolerateBufferFailures) {
-      throw failedBuffer.reason;
-    }
-    return;
-  }
-
-  await prepareLivePlayback(getAudioContext(), getSuperdoughMasterGain(), resolved);
   _prewarmedSounds.add(resolved);
 }
 
 /**
- * Pre-loads every AudioBuffer for any registered superdough sound into its
- * shared bufferCache.  Works for any sample-based instrument; oscillator
- * sounds (sine, triangle, etc.) are skipped immediately.
+ * Loads an instrument into the live worklet (or, when the worklet cannot hold
+ * it, the fallback renderer). Oscillator sounds need no data.
  *
- * Safe to call at any time — triggers audio init if not yet done,
- * then drives fetch → decodeAudioData for all samples in the bank
- * so the first keypress is never silently dropped.
+ * Safe to call at any time — triggers audio init if not yet done, then
+ * fetches and decodes the bank so the first keypress is never dropped.
  */
 export async function prewarmSoundSamples(soundName: string): Promise<void> {
   await initSuperdoughAudio(); // no-op if already initialised; safe for external callers
@@ -224,25 +208,14 @@ export async function prewarmSoundSamples(soundName: string): Promise<void> {
 }
 
 /**
- * Returns true when a sound can play immediately. Sample banks must already be
- * in the buffer cache; oscillator and other no-sample sounds are always ready.
+ * Returns true when a sound can play immediately. Sample and soundfont banks
+ * must already be loaded; oscillator and other no-sample sounds are always ready.
  */
 export function isPrewarmed(soundName: string): boolean {
   const resolved = resolveLiveSoundName(soundName);
-  if (_prewarmedSounds.has(resolved)) {
-    return true;
-  }
-
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sound = (getSound as any)(resolved);
-    if (sound?.data?.type === "soundfont") return false;
-    return Boolean(
-      sound && (SYNTH_SOUNDS.has(resolved) || !sound?.data?.samples)
-    );
-  } catch {
-    return false;
-  }
+  if (_prewarmedSounds.has(resolved)) return true;
+  if (getCatalogSound(resolved)) return false;
+  return isRegisteredSynth(resolved);
 }
 
 /**
@@ -268,286 +241,98 @@ export async function initSuperdoughAudio(
   progressCallback?: (progress: number, message: string) => void
 ): Promise<void> {
   if (_initialized) return;
+  // A replacement loading generation takes over reports from the shared load.
+  // Callers without a loading UI keep the existing callback.
+  if (progressCallback) _initProgressCallback = progressCallback;
   if (_initPromise) return _initPromise;
 
   _initPromise = (async () => {
+    let settled = false;
     try {
+      _startupStage = "samples";
       // Register built-in WebAudio oscillator sounds (sine, triangle, etc.)
       registerSynthSounds();
-      progressCallback?.(3, "Synth sounds registered");
+      _initProgressCallback?.(3, "Synth sounds registered");
 
-      // Load all sample packs from the dough-samples CDN + GM soundfonts.
+      // Load sample-pack maps only; audio files load on selection.
       // Track individual completions so the loading screen shows real steps.
-      const BASE = "https://raw.githubusercontent.com/felixroos/dough-samples/main/";
-      // 7 items total: 6 JSON packs + soundfonts
-      const total = SAMPLE_PACKS.length + 1;
+      const total = SAMPLE_PACKS.length;
       let done = 0;
 
       const reportPack = (label: string) => {
+        if (settled) return;
         done++;
         // Range: 5 % → 75 % across all packs
         const pct = Math.round(5 + (done / total) * 70);
-        progressCallback?.(pct, `${label} loaded (${done}/${total})`);
+        _initProgressCallback?.(pct, `${label} loaded (${done}/${total})`);
       };
 
-      await Promise.all([
-        ...SAMPLE_PACKS.map(({ key, label }) =>
-          Promise.resolve(samples(`${BASE}${key}.json`)).then(() => reportPack(label))
-        ),
-        Promise.resolve(registerSoundfonts()).then(() => reportPack("Soundfonts")),
-      ]);
+      try {
+        await Promise.all([
+          ...SAMPLE_PACKS.map(({ key, label }) =>
+            loadSamplePack(key).then(() => reportPack(label))
+          ),
+        ]);
+      } catch (error) {
+        // Tagged so the loading screen can offer the synths, which need no download.
+        throw new SampleLoadError(error instanceof Error ? error.message : String(error), { cause: error });
+      }
 
       // The editor creates the single pattern transport through patternPlayback.
       // Instrument startup only initializes the shared audio graph.
-      progressCallback?.(79, "Starting audio context…");
+      _startupStage = "engine";
+      _initProgressCallback?.(79, "Starting audio context…");
       await initializeAudio();
 
       // Only the default instrument is decoded eagerly. Other registered
       // instruments warm on selection so startup stays bounded on mobile.
-      progressCallback?.(80, `Preparing ${DEFAULT_INSTRUMENT}…`);
+      _initProgressCallback?.(80, `Preparing ${DEFAULT_INSTRUMENT}…`);
       await _prewarmDefaultInstrument();
-      progressCallback?.(98, `${DEFAULT_INSTRUMENT} ready`);
+      _initProgressCallback?.(98, `${DEFAULT_INSTRUMENT} ready`);
 
-      progressCallback?.(100, "Audio engine ready");
+      _initProgressCallback?.(100, "Audio engine ready");
       _initialized = true;
+      _startupStage = "ready";
     } catch (err) {
+      _startupStage = "idle";
       console.error("[superdoughAudio] init error:", err);
       // Reset so callers can retry after a user gesture
       _initPromise = null;
       throw err;
+    } finally {
+      settled = true;
+      _initProgressCallback = undefined;
     }
   })();
 
   return _initPromise;
 }
 
-function normalizeChromaticNote(noteName: string): ChromaticNote | null {
-  const candidates = [noteName, TonalNote.enharmonic(noteName)]
-    .map((candidate) => TonalNote.get(candidate).pc)
-    .filter(Boolean);
-
-  for (const candidate of candidates) {
-    if (CHROMATIC_NOTES.includes(candidate as ChromaticNote)) {
-      return candidate as ChromaticNote;
-    }
-  }
-
-  return null;
-}
-
-function resolveSolfegeIndex(noteName: string): number | null {
-  const chromaticNote = normalizeChromaticNote(noteName);
-  if (!chromaticNote) {
-    return null;
-  }
-
-  return musicTheory.getCurrentScaleNotes().indexOf(chromaticNote);
-}
-
-function borrowedPitchSolfege(noteName: ChromaticNote): SolfegeData {
-  return {
-    name: noteName,
-    number: 0,
-    emotion: "Borrowed harmony tone",
-    description: "An explicit chord alteration outside the active scale.",
-    texture: "harmonic",
-  };
-}
-
-function extractHapNoteName(hap: unknown): string | null {
-  const value = (hap as { value?: unknown })?.value;
-
-  if (typeof value === "string") {
-    return value;
-  }
-
-  if (value && typeof value === "object" && !Array.isArray(value)) {
-    const candidate = (value as { note?: unknown; value?: unknown }).note
-      ?? (value as { note?: unknown; value?: unknown }).value;
-    return typeof candidate === "string" ? candidate : null;
-  }
-
-  return null;
-}
-
-function extractHapFrequency(hap: unknown, noteName: string): number {
-  const value = (hap as { value?: unknown })?.value;
-
-  if (value && typeof value === "object" && !Array.isArray(value)) {
-    const freq = (value as { freq?: unknown }).freq;
-    if (typeof freq === "number") {
-      return freq;
-    }
-  }
-
-  return TonalNote.get(noteName).freq || 0;
-}
-
-function buildStrudelVisualPayload(hap: unknown) {
+/**
+ * Degraded start for when the sample packs cannot load: registers the built-in
+ * oscillator synths, starts the shared audio graph and prepares the default
+ * synth, then marks the engine initialised so notes stop retrying the sample
+ * download. Sampled instruments stay unavailable until a reload. A full load
+ * still in flight (a slow network) keeps caching its samples, but its cancelled
+ * loading generation does not reconcile them into the instrument store.
+ */
+export async function initSynthOnlyAudio(): Promise<void> {
+  if (_initialized) return;
+  // Never queue behind an engine start that is still pending: if it hung, the
+  // synths would hang with it. That is an engine fault, not a sample one.
+  if (_startupStage === "engine") throw new Error("The audio engine is still starting");
+  const resumeStage = _startupStage;
+  _startupStage = "engine";
   try {
-    const noteValue = extractHapNoteName(hap);
-    if (!noteValue) {
-      return null;
-    }
-
-    const parsedNote = TonalNote.get(noteValue);
-    if (parsedNote.empty || parsedNote.oct === undefined) {
-      return null;
-    }
-
-    const solfegeIndex = resolveSolfegeIndex(noteValue);
-    const chromaticNote = normalizeChromaticNote(noteValue);
-    if (solfegeIndex === null || !chromaticNote) {
-      return null;
-    }
-
-    const pitchClassIndex = CHROMATIC_NOTES.indexOf(chromaticNote);
-    if (pitchClassIndex === -1) {
-      return null;
-    }
-
-    const note = solfegeIndex === -1
-      ? borrowedPitchSolfege(chromaticNote)
-      : musicTheory.getCurrentScale().solfege[solfegeIndex];
-    if (!note) {
-      return null;
-    }
-
-    const tonicIndex = CHROMATIC_NOTES.indexOf(
-      musicTheory.getCurrentKey() as ChromaticNote,
-    );
-    const keyboardOctave = solfegeIndex === -1 || tonicIndex === -1
-      ? parsedNote.oct
-      : parsedNote.oct - Number(pitchClassIndex < tonicIndex);
-
-    return {
-      note,
-      solfegeIndex,
-      pitchClassIndex,
-      isBorrowed: solfegeIndex === -1,
-      noteName: parsedNote.name,
-      octave: parsedNote.oct,
-      keyboardOctave,
-      frequency: extractHapFrequency(hap, noteValue),
-      mode: musicTheory.getCurrentMode(),
-      key: musicTheory.getCurrentKey() as ChromaticNote,
-      instrument:
-        typeof (hap as { value?: { s?: unknown } })?.value?.s === "string"
-          ? String((hap as { value?: { s?: unknown } }).value?.s)
-          : "sine",
-    };
-  } catch {
-    return null;
+    registerSynthSounds();
+    await initializeAudio();
+    await _prewarmSoundCore(DEFAULT_INSTRUMENT, true);
+  } catch (error) {
+    _startupStage = resumeStage;
+    throw error;
   }
-}
-
-function releaseStrudelVisual(noteId: string, audibleAt = audioTimeToOutputTime(getAudioContext(), getAudioContext().currentTime)) {
-  const active = _activeStrudelVisuals.get(noteId);
-  if (!active || typeof window === "undefined") {
-    return;
-  }
-
-  window.clearTimeout(active.releaseTimeout);
-  window.dispatchEvent(
-    new CustomEvent("note-released", {
-      detail: {
-        note: active.note.name,
-        noteId,
-        noteName: active.noteName,
-        frequency: active.frequency,
-        octave: active.octave,
-        keyboardOctave: active.keyboardOctave,
-        solfegeIndex: active.solfegeIndex,
-        pitchClassIndex: active.pitchClassIndex,
-        isBorrowed: active.solfegeIndex === -1,
-        mode: active.mode,
-        key: active.key,
-        instrument: active.instrument,
-        instrumentConfig: null,
-        source: STRUDEL_PLAYBACK_SOURCE,
-        audibleAt,
-      },
-    })
-  );
-  _activeStrudelVisuals.delete(noteId);
-}
-
-export function stopStrudelVisuals(): void {
-  if (typeof window === "undefined") {
-    _activeStrudelVisuals.clear();
-    return;
-  }
-
-  for (const noteId of Array.from(_activeStrudelVisuals.keys())) {
-    releaseStrudelVisual(noteId);
-  }
-}
-
-export async function emotitoneStrudelOutput(
-  hap: unknown,
-  deadline: number,
-  hapDuration: number,
-  cps: number,
-  t: number
-): Promise<void> {
-  const context = getAudioContext();
-  const submittedAt = context.currentTime;
-  // Submit audio before preparing presentation events. Strudel passes the
-  // absolute audio-clock onset as t; its legacy deadline argument is unused.
-  const output = webaudioOutput(hap as never, deadline, hapDuration, cps, t);
-  const visualPayload = buildStrudelVisualPayload(hap);
-
-  if (visualPayload && typeof window !== "undefined" && t >= submittedAt) {
-    const noteId = `strudel_${++_strudelVisualCounter}`;
-    // The scheduler supplies the clipped gate. Presentation must not invent a
-    // longer hold for short notes; release tails are separate from key-down.
-    const durationMs = Math.max(0, hapDuration * 1000);
-    const audibleAt = audioTimeToOutputTime(context, t);
-    const releaseAt = audioTimeToOutputTime(context, t + durationMs / 1000);
-    const releaseTimeout = window.setTimeout(() => {
-      releaseStrudelVisual(noteId, releaseAt);
-    }, Math.max(0, (t - submittedAt) * 1000) + durationMs);
-
-    _activeStrudelVisuals.set(noteId, {
-      note: visualPayload.note,
-      noteName: visualPayload.noteName,
-      frequency: visualPayload.frequency,
-      octave: visualPayload.octave,
-      keyboardOctave: visualPayload.keyboardOctave,
-      solfegeIndex: visualPayload.solfegeIndex,
-      pitchClassIndex: visualPayload.pitchClassIndex,
-      mode: visualPayload.mode,
-      key: visualPayload.key,
-      instrument: visualPayload.instrument,
-      releaseTimeout,
-      audibleAt,
-    });
-
-    window.dispatchEvent(
-      new CustomEvent("note-played", {
-        detail: {
-          note: visualPayload.note,
-          frequency: visualPayload.frequency,
-          solfegeIndex: visualPayload.solfegeIndex,
-          pitchClassIndex: visualPayload.pitchClassIndex,
-          isBorrowed: visualPayload.isBorrowed,
-          octave: visualPayload.octave,
-          keyboardOctave: visualPayload.keyboardOctave,
-          noteId,
-          noteName: visualPayload.noteName,
-          mode: visualPayload.mode,
-          key: visualPayload.key,
-          instrument: visualPayload.instrument,
-          instrumentConfig: null,
-          durationMs,
-          audibleAt,
-          source: STRUDEL_PLAYBACK_SOURCE,
-        },
-      })
-    );
-  }
-
-  await output;
+  _initialized = true;
+  _startupStage = "ready";
 }
 
 // ---------------------------------------------------------------------------
@@ -580,6 +365,8 @@ export async function attackNote(
   instrument: string,
   options?: {
     atTime?: number;
+    /** Normalized input velocity; omitted on-screen input keeps unity. */
+    velocity?: number;
     attack?: number;
     release?: number;
     cutoff?: number;
@@ -594,9 +381,8 @@ export async function attackNote(
   // On first note the context may still be "suspended" from loading-screen init;
   // this call is a fast no-op on all subsequent notes.
   const ac = getAudioContext();
-  if (ac.state !== "running") {
-    await ac.resume();
-  }
+  const resumption = resumeAudioContext(ac);
+  if (resumption) await resumption;
 
   const sound = resolveLiveSoundName(instrument);
   const envelope = resolveLiveEnvelope(sound, liveEnvelopeShape(sound));
@@ -620,7 +406,7 @@ export async function attackNote(
   const payload: Record<string, unknown> = {
     s: sound,
     note: noteName,
-    gain: 0.8,
+    gain: 0.8 * velocityToGain(options?.velocity),
     attack,
     decay: envelope.decay,
     sustain: envelope.sustain,
@@ -686,9 +472,8 @@ export async function playNoteWithDuration(
   await initSuperdoughAudio();
 
   const ac = getAudioContext();
-  if (ac.state !== "running") {
-    await ac.resume();
-  }
+  const resumption = resumeAudioContext(ac);
+  if (resumption) await resumption;
 
   const sound = resolveLiveSoundName(instrument);
   const durationSeconds = durationMs / 1000;
@@ -743,16 +528,19 @@ export function getSuperdoughMasterGain(): GainNode | null {
 }
 
 /**
- * Returns all sound names currently registered in superdough's soundMap.
- * Available after initSuperdoughAudio() resolves.
+ * Returns every playable sound name: the synths superdough registers, then the
+ * app catalog's sample and soundfont instruments. Available after
+ * initSuperdoughAudio() resolves (GM names after ensureSoundfontCatalog()).
  * Excludes internal entries starting with "_".
  */
 export function getRegisteredSounds(): string[] {
+  let synths: string[] = [];
   try {
     // @ts-ignore — soundMap is a nanostores map
     const dict = (soundMap as any).get() as Record<string, unknown>;
-    return Object.keys(dict).filter((k) => !k.startsWith("_"));
+    synths = Object.keys(dict).filter((k) => !k.startsWith("_") && isRegisteredSynth(k));
   } catch {
-    return [];
+    synths = [];
   }
+  return [...new Set([...synths, ...catalogSoundNames()])];
 }

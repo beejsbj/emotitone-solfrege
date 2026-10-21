@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   projectCircleOfFifths,
-  resolveAmbientLevel,
+  resolveAtmosphereBand,
   resolveStageComposition,
 } from "@/composables/canvas/stageRuntime";
 import { UNIFIED_CONFIG } from "@/data/visual-config-metadata";
@@ -28,33 +28,44 @@ describe("Stage runtime", () => {
     },
   );
 
-  it("preserves the fitted range shape after doubling presentation size", () => {
-    const sizeControl = UNIFIED_CONFIG.hilbertScope.sizeRatio;
-    const smallerSize = resolveStageComposition(
-      { x: 0, y: 0, width: 900, height: 420 },
-      75,
-      sizeControl.value / 2,
-    );
-    const defaultSize = resolveStageComposition(
-      { x: 0, y: 0, width: 900, height: 420 },
-      75,
-      sizeControl.value,
-    );
-    const maximumSize = resolveStageComposition(
-      { x: 0, y: 0, width: 900, height: 420 },
-      75,
-      sizeControl.max,
-    );
+  it.each([
+    [900, 420],
+    [390, 180],
+    [390, 400],
+    [390, 640],
+  ])(
+    "grows the Scope radius monotonically across the whole Size range at %i×%i",
+    (width, height) => {
+      const sizeControl = UNIFIED_CONFIG.hilbertScope.sizeRatio;
+      const usable = { x: 0, y: 0, width, height };
+      const sizes: number[] = [];
+      for (let size = 0.15; size <= 1.5 + 1e-9; size += 0.05) {
+        sizes.push(Number(size.toFixed(2)));
+      }
+      const radii = sizes.map(
+        (size) => resolveStageComposition(usable, 75, size).hilbertRadius,
+      );
 
-    expect(smallerSize.hilbertRadius).toBeCloseTo(
-      defaultSize.hilbertRadius / 2,
-      6,
-    );
-    expect(maximumSize.hilbertRadius).toBeCloseTo(
-      defaultSize.hilbertRadius,
-      6,
-    );
-  });
+      for (let index = 1; index < radii.length; index += 1) {
+        expect(radii[index]).toBeGreaterThan(radii[index - 1]!);
+      }
+      // Below the default, Size is a straight scale on the accepted default.
+      const defaultRadius = resolveStageComposition(
+        usable,
+        75,
+        sizeControl.value,
+      ).hilbertRadius;
+      sizes.forEach((size, index) => {
+        if (size <= sizeControl.value) {
+          expect(radii[index]).toBeCloseTo(
+            (defaultRadius * size) / sizeControl.value,
+            6,
+          );
+        }
+      });
+      expect(radii.at(-1)).toBeGreaterThan(defaultRadius);
+    },
+  );
 
   it.each([150, 180, 240, 375, 600, 800])(
     "keeps blob size and orbit independent of Scope Size at a %ipx edge",
@@ -109,6 +120,60 @@ describe("Stage runtime", () => {
     expect(larger.orbitRadiusY).toBe(baseline.orbitRadiusY);
   });
 
+  it.each([
+    [900, 420],
+    [390, 180],
+    [390, 400],
+    [390, 640],
+  ])(
+    "reaches the usable diagonal at the top of the Size range at %i×%i",
+    (width, height) => {
+      const top = resolveStageComposition(
+        { x: 0, y: 0, width, height },
+        75,
+        UNIFIED_CONFIG.hilbertScope.sizeRatio.max,
+      ).hilbertRadius;
+
+      expect(top * 2).toBeCloseTo(Math.hypot(width, height), 6);
+    },
+  );
+
+  it.each([
+    [900, 420],
+    [390, 180],
+    [390, 400],
+    [390, 640],
+  ])(
+    "keeps the default Scope radius unchanged at %i×%i",
+    (width, height) => {
+      const paddedMinorAxis = Math.min(width - 40, height - 40);
+      const bodyExtent = Math.min(75 * 1.3, paddedMinorAxis * 0.115);
+      const orbit = paddedMinorAxis / 2 - bodyExtent;
+      const clearance = Math.max(18, orbit * 0.28);
+      const accepted = (orbit - bodyExtent - clearance) * 1.8 * 2;
+
+      expect(
+        resolveStageComposition(
+          { x: 0, y: 0, width, height },
+          75,
+          UNIFIED_CONFIG.hilbertScope.sizeRatio.value,
+        ).hilbertRadius,
+      ).toBeCloseTo(accepted, 6);
+    },
+  );
+
+  it("keeps Scope Size proportional and increasing when the default already exceeds the diagonal", () => {
+    const usable = { x: 0, y: 0, width: 1600, height: 1600 };
+    const at = (size: number) =>
+      resolveStageComposition(usable, 75, size).hilbertRadius;
+    const { value, max } = UNIFIED_CONFIG.hilbertScope.sizeRatio;
+
+    expect(at(value) * 2).toBeGreaterThan(Math.hypot(1600, 1600));
+    expect(at(max)).toBeCloseTo((at(value) * max) / value, 6);
+    expect(at(1.0)).toBeGreaterThan(at(value));
+    expect(at(max)).toBeGreaterThan(at(1.0));
+  });
+
   it("keeps Scope Size responsive at the maximum public Body Size", () => {
     const usable = { x: 0, y: 0, width: 1200, height: 375 };
     const canonicalRadius = Math.max(75, usable.height * 0.1);
@@ -117,7 +182,7 @@ describe("Stage runtime", () => {
     );
 
     expect(radii[0]).toBeLessThan(radii[1]!);
-    expect(radii[1]).toBeLessThanOrEqual(radii[2]!);
+    expect(radii[1]).toBeLessThan(radii[2]!);
   });
 
   it("preserves disabled and undersized Stage behavior", () => {
@@ -213,51 +278,32 @@ describe("Stage runtime", () => {
     expect(composition.orbitRadiusY + fittedExtent).toBeLessThanOrEqual(70);
   });
 
-  it("cycles the silent Ambient breath every ten elapsed seconds", () => {
+  it("breathes the silent Atmosphere band every ten elapsed seconds", () => {
     const silence = { envelope: 0, hasSignal: false };
-    expect(resolveAmbientLevel(silence, 0, false)).toBeCloseTo(0.68, 6);
-    expect(resolveAmbientLevel(silence, 2.5, false)).toBeCloseTo(0.72, 6);
-    expect(resolveAmbientLevel(silence, 5, false)).toBeCloseTo(0.76, 6);
-    expect(resolveAmbientLevel(silence, 10, false)).toBeCloseTo(0.68, 6);
-    expect(resolveAmbientLevel(silence, 0, true)).toBe(
-      resolveAmbientLevel(silence, 5, true),
-    );
-    expect(resolveAmbientLevel({ envelope: 1, hasSignal: true }, 0, true)).toBe(0.72);
-    expect(resolveAmbientLevel({ envelope: 0.5, hasSignal: true }, 0, false)).toBe(0.86);
+    expect(resolveAtmosphereBand(silence, 0, false)).toEqual({ halfHeight: 0.14, sounding: 0 });
+    expect(resolveAtmosphereBand(silence, 5, false).halfHeight).toBeCloseTo(0.152, 6);
+    expect(resolveAtmosphereBand(silence, 10, false).halfHeight).toBeCloseTo(0.14, 6);
+    expect(resolveAtmosphereBand({ envelope: 1, hasSignal: true }, 3, false))
+      .toEqual({ halfHeight: 0.24, sounding: 1 });
   });
 
-  it("hands the released audio envelope continuously back to the silent breath", () => {
-    const releaseThreshold = 0.08;
-    const audioLevelAtThreshold = 0.72 + releaseThreshold * 0.28;
+  it("hands the released envelope continuously back to the silent breath", () => {
+    const threshold = 0.08;
+    const at = (envelope: number, hasSignal = false) =>
+      resolveAtmosphereBand({ envelope, hasSignal }, 0, false);
 
-    expect(resolveAmbientLevel(
-      { envelope: 0.5, hasSignal: false },
-      0,
-      false,
-    )).toBeCloseTo(0.86, 6);
-    expect(resolveAmbientLevel(
-      { envelope: releaseThreshold, hasSignal: false },
-      0,
-      false,
-    )).toBeCloseTo(audioLevelAtThreshold, 6);
-    expect(resolveAmbientLevel(
-      { envelope: releaseThreshold - 0.000001, hasSignal: false },
-      0,
-      false,
-    )).toBeCloseTo(audioLevelAtThreshold, 5);
-    expect(resolveAmbientLevel(
-      { envelope: 0.04579, hasSignal: true },
-      2.272,
-      false,
-    )).toBeCloseTo(resolveAmbientLevel(
-      { envelope: 0.04579, hasSignal: false },
-      2.272,
-      false,
-    ), 8);
-    expect(resolveAmbientLevel(
-      { envelope: 0, hasSignal: false },
-      0,
-      false,
-    )).toBeCloseTo(0.68, 6);
+    expect(at(threshold).sounding).toBe(1);
+    expect(at(threshold).halfHeight).toBeCloseTo(0.15 + threshold * 0.09, 6);
+    expect(at(threshold - 0.000001).halfHeight).toBeCloseTo(at(threshold).halfHeight, 5);
+    expect(at(threshold / 2).sounding).toBeCloseTo(0.5, 6);
+    expect(at(0.04579, true)).toEqual(at(0.04579, false));
+    expect(at(0)).toEqual({ halfHeight: 0.14, sounding: 0 });
+  });
+
+  it("holds the band's height still under Reduced Motion while colour follows sound", () => {
+    expect(resolveAtmosphereBand({ envelope: 0, hasSignal: false }, 0, true))
+      .toEqual({ halfHeight: 0.15, sounding: 0 });
+    expect(resolveAtmosphereBand({ envelope: 1, hasSignal: true }, 5, true))
+      .toEqual({ halfHeight: 0.15, sounding: 1 });
   });
 });

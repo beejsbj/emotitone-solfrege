@@ -1,11 +1,16 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { flushPromises } from "@vue/test-utils";
 
 const hoisted = vi.hoisted(() => {
-  const mockAudioContext = {
+  const mockAudioContext = Object.assign(new EventTarget(), {
+    createAnalyser: () => ({ fftSize: 2048, getFloatTimeDomainData: vi.fn(), disconnect: vi.fn() }),
     state: "running",
     currentTime: 12,
+    sampleRate: 48000,
     resume: vi.fn().mockResolvedValue(undefined),
-  };
+    decodeAudioData: vi.fn(async () => ({ sampleRate: 48000, length: 4, numberOfChannels: 1,
+      getChannelData: () => new Float32Array(4) })),
+  });
 
   return {
     mockAudioContext,
@@ -15,7 +20,7 @@ const hoisted = vi.hoisted(() => {
     mockSamples: vi.fn().mockResolvedValue(undefined),
     mockGetSuperdoughAudioController: vi.fn(() => ({
       output: {
-        destinationGain: { id: "master-gain" },
+        destinationGain: { id: "master-gain", connect: vi.fn(), disconnect: vi.fn() },
       },
     })),
     mockLoadBuffer: vi.fn().mockResolvedValue(undefined),
@@ -29,8 +34,11 @@ const hoisted = vi.hoisted(() => {
     mockEvaluateStrudel: vi.fn().mockResolvedValue(undefined),
     mockHushStrudel: vi.fn(),
     mockWebaudioOutput: vi.fn().mockResolvedValue(undefined),
-    mockRegisterSoundfonts: vi.fn().mockResolvedValue(undefined),
-    mockPrewarmSoundfont: vi.fn().mockResolvedValue(undefined),
+    mockRegisterSound: vi.fn(),
+    mockPrepareLive: vi.fn().mockResolvedValue(undefined),
+    // Without a worklet, sampled sounds fall back to superdough's own copy.
+    mockLiveFailure: vi.fn((): { kind: "load" | "fallback"; reason: string } | undefined =>
+      ({ kind: "fallback", reason: "AudioWorklet is unavailable" })),
   };
 });
 
@@ -39,6 +47,7 @@ vi.mock("superdough", () => ({
   initAudio: hoisted.mockInitAudio,
   registerSynthSounds: hoisted.mockRegisterSynthSounds,
   samples: hoisted.mockSamples,
+  registerSound: hoisted.mockRegisterSound,
   getAudioContext: () => hoisted.mockAudioContext,
   getSuperdoughAudioController: hoisted.mockGetSuperdoughAudioController,
   loadBuffer: hoisted.mockLoadBuffer,
@@ -53,6 +62,13 @@ vi.mock("superdough", () => ({
   releaseAllVoices: hoisted.mockReleaseAllVoices,
 }));
 
+vi.mock("@/services/audioRuntime", () => ({
+  getAudioContext: () => hoisted.mockAudioContext,
+  getMasterGain: () => hoisted.mockGetSuperdoughAudioController().output.destinationGain,
+  initializeAudio: () => hoisted.mockInitAudio({ maxPolyphony: 64 }),
+  LIVE_ORBIT: 2,
+}));
+
 vi.mock("@strudel/web", () => ({
   initStrudel: hoisted.mockInitStrudel,
   evaluate: hoisted.mockEvaluateStrudel,
@@ -63,10 +79,31 @@ vi.mock("@strudel/webaudio", () => ({
   webaudioOutput: hoisted.mockWebaudioOutput,
 }));
 
-vi.mock("@strudel/soundfonts", () => ({
-  registerSoundfonts: hoisted.mockRegisterSoundfonts,
-  prewarmSoundfont: hoisted.mockPrewarmSoundfont,
+// The app loads soundfonts itself; importing the package (and its eval loader) is a failure.
+vi.mock("@strudel/soundfonts", () => { throw new Error("@strudel/soundfonts must not be imported"); });
+
+vi.mock("@/services/livePlayback", () => ({
+  prepareLivePlayback: hoisted.mockPrepareLive,
+  getLivePlaybackFailure: hoisted.mockLiveFailure,
+  setLivePlaybackShaping: vi.fn(),
 }));
+
+const SAMPLE_MAPS: Record<string, unknown> = {
+  "piano.json": { _base: "https://samples.test/piano/", piano: { A0: "A0v8.mp3", C4: "C4v8.mp3" } },
+  "vcsl.json": { _base: "https://samples.test/vcsl/", kalimba: ["kalimba-1.wav", "kalimba-2.wav"] },
+};
+const FONT = `console.log('load _tone_0080_JCLive_sf2_file');
+var _tone_0080_JCLive_sf2_file={
+	zones:[{midi:8,originalPitch:7200,keyRangeLow:0,keyRangeHigh:127,loopStart:0,loopEnd:0,
+	coarseTune:0,fineTune:0,sampleRate:44100,ahdsr:true,file:'AAAA'}]
+};`;
+const serveFixtures = async (url: string) => {
+  const name = url.split("/").pop()!;
+  if (SAMPLE_MAPS[name]) return new Response(JSON.stringify(SAMPLE_MAPS[name]));
+  if (name.endsWith("_sf2_file.js")) return new Response(FONT);
+  return new Response(new Uint8Array(8));
+};
+const fetchMock = vi.fn(serveFixtures);
 
 vi.mock("@/services/music", () => ({
   CHROMATIC_NOTES: ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"],
@@ -99,7 +136,16 @@ describe("superdoughAudio live note handling", () => {
     hoisted.mockHasVoice.mockReturnValue(false);
     hoisted.mockGetSound.mockReturnValue({ data: {} });
     hoisted.mockLoadBuffer.mockResolvedValue(undefined);
-    hoisted.mockPrewarmSoundfont.mockResolvedValue(undefined);
+    hoisted.mockSamples.mockResolvedValue(undefined);
+    hoisted.mockLiveFailure.mockImplementation(() => ({ kind: "fallback", reason: "AudioWorklet is unavailable" }));
+    fetchMock.mockReset().mockImplementation(serveFixtures);
+    vi.stubGlobal("fetch", fetchMock);
+    hoisted.mockInitAudio.mockReset().mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    hoisted.mockAudioContext.state = "closed"; hoisted.mockAudioContext.dispatchEvent(new Event("statechange"));
   });
 
   it("initializes the canonical audio graph once without bootstrapping a hidden Strudel REPL", async () => {
@@ -109,6 +155,137 @@ describe("superdoughAudio live note handling", () => {
 
     expect(hoisted.mockInitAudio).toHaveBeenCalledOnce();
     expect(hoisted.mockInitStrudel).not.toHaveBeenCalled();
+  });
+
+  it("reuses the pending engine across loading reset and reconciles only the new generation", async () => {
+    const { createPinia, setActivePinia, disposePinia } = await import("pinia");
+    const { effectScope } = await import("vue");
+    const { useAppLoading } = await import("@/composables/useAppLoading");
+    const { useInstrumentStore } = await import("@/stores/instrument");
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const scope = effectScope();
+    const loading = scope.run(useAppLoading)!;
+    const store = useInstrumentStore();
+    let finishEngine!: () => void;
+    let finishPreparation!: () => void;
+    hoisted.mockInitAudio.mockImplementationOnce(() => new Promise<void>(resolve => { finishEngine = resolve; }));
+    hoisted.mockPrepareLive.mockImplementationOnce(() => new Promise<void>(resolve => { finishPreparation = resolve; }));
+    try {
+      const first = loading.initializeInstruments();
+      await vi.waitFor(() => expect(hoisted.mockInitAudio).toHaveBeenCalledOnce());
+      loading.resetLoading();
+      await first;
+      expect(store.readyInstruments.size).toBe(0);
+      expect(store.isLoading).toBe(false);
+
+      const retry = loading.initializeInstruments();
+      await vi.waitFor(() => expect(store.isLoading).toBe(true));
+      const shared = (await import("@/services/superdoughAudio")).initSuperdoughAudio();
+      finishEngine();
+      await vi.waitFor(() => expect(hoisted.mockPrepareLive).toHaveBeenCalledOnce());
+      expect(loading.loadingState.progress.instruments.progress).toBe(80);
+      expect(loading.loadingState.progress.instruments.isComplete).toBe(false);
+      finishPreparation();
+      await Promise.all([retry, shared]);
+      expect(loading.loadingState.progress.instruments.isComplete).toBe(true);
+      expect(store.isLoading).toBe(false);
+      expect(store.isInstrumentReady("triangle")).toBe(true);
+      expect(hoisted.mockInitAudio).toHaveBeenCalledOnce();
+      expect(hoisted.mockPrepareLive).toHaveBeenCalledOnce();
+    } finally {
+      finishPreparation?.();
+      loading.resetLoading();
+      scope.stop();
+      disposePinia(pinia);
+    }
+  });
+
+  it("ignores a failed attempt's late sample progress after another caller retries", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    let finishOldPack!: () => void;
+    hoisted.mockSamples.mockRejectedValueOnce(new Error("Sample pack failed"))
+      .mockImplementationOnce(() => new Promise<void>(resolve => { finishOldPack = resolve; }));
+    await expect(audio.initSuperdoughAudio()).rejects.toThrow("Sample pack failed");
+    let finishEngine!: () => void;
+    hoisted.mockInitAudio.mockImplementationOnce(() => new Promise<void>(resolve => { finishEngine = resolve; }));
+    const progress: number[] = [];
+    const retry = audio.initSuperdoughAudio(value => progress.push(value));
+    try {
+      await vi.waitFor(() => expect(hoisted.mockInitAudio).toHaveBeenCalledOnce());
+      expect(progress.at(-1)).toBe(79);
+      finishOldPack();
+      await flushPromises();
+      expect(progress.at(-1)).toBe(79);
+    } finally {
+      finishEngine?.();
+      await retry;
+    }
+  });
+
+  it("tags only sample-pack failures as SampleLoadError, never a graph failure after the samples load", async () => {
+    const { SampleLoadError } = await import("@/services/audioFailures");
+    const audio = await import("@/services/superdoughAudio");
+
+    hoisted.mockSamples.mockRejectedValueOnce(new Error("error loading piano.json"));
+    await expect(audio.initSuperdoughAudio()).rejects.toBeInstanceOf(SampleLoadError);
+
+    hoisted.mockInitAudio.mockRejectedValueOnce(new Error("AudioWorklet failed"));
+    const graph = await audio.initSuperdoughAudio().catch((error: unknown) => error);
+    expect(graph).toBeInstanceOf(Error);
+    expect(graph).not.toBeInstanceOf(SampleLoadError);
+  });
+
+  it("reports which startup step is pending, and synth-only refuses rather than awaiting a hung engine", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    expect(audio.getAudioStartupStage()).toBe("idle");
+
+    const pendingPacks: Array<() => void> = [];
+    const finishSamples = () => pendingPacks.forEach((resolve) => resolve());
+    fetchMock.mockImplementation(async (url: string) => {
+      await new Promise<void>((resolve) => { pendingPacks.push(resolve); });
+      return new Response(JSON.stringify(SAMPLE_MAPS[url.split("/").pop()!]));
+    });
+    hoisted.mockInitAudio.mockImplementationOnce(() => new Promise(() => {})); // the engine hangs
+    void audio.initSuperdoughAudio();
+    await Promise.resolve();
+    expect(audio.getAudioStartupStage()).toBe("samples");
+
+    await vi.waitFor(() => expect(pendingPacks).toHaveLength(2));
+    finishSamples();
+    await vi.waitFor(() => expect(audio.getAudioStartupStage()).toBe("engine"));
+
+    const synthOnly = audio.initSynthOnlyAudio();
+    await expect(synthOnly).rejects.toThrow("still starting");
+    expect(hoisted.mockInitAudio).toHaveBeenCalledOnce(); // no second, queued engine start
+  });
+
+  it("marks startup ready once the synth-only start succeeds while samples are still pending", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    fetchMock.mockImplementation(() => new Promise(() => {})); // the download hangs
+    void audio.initSuperdoughAudio();
+    await Promise.resolve();
+    expect(audio.getAudioStartupStage()).toBe("samples");
+
+    await audio.initSynthOnlyAudio();
+    expect(audio.getAudioStartupStage()).toBe("ready");
+    expect(audio.isPrewarmed("triangle")).toBe(true);
+  });
+
+  it("starts basic synths without the sample packs after a failed load, so notes stop retrying the download", async () => {
+    hoisted.mockSamples.mockRejectedValue(new Error("error loading piano.json"));
+    const audio = await import("@/services/superdoughAudio");
+    await expect(audio.initSuperdoughAudio()).rejects.toThrow("piano.json");
+    const packFetches = hoisted.mockSamples.mock.calls.length;
+
+    await audio.initSynthOnlyAudio();
+    expect(hoisted.mockRegisterSynthSounds).toHaveBeenCalled();
+    expect(hoisted.mockInitAudio).toHaveBeenCalledOnce();
+    expect(audio.isPrewarmed("triangle")).toBe(true);
+
+    await audio.attackNote("basic-1", "C4", "triangle");
+    expect(hoisted.mockSuperdough).toHaveBeenCalledOnce();
+    expect(hoisted.mockSamples).toHaveBeenCalledTimes(packFetches);
   });
 
   it("schedules rhythmic attacks and releases on the audio clock and cancels queued voices", async () => {
@@ -139,6 +316,19 @@ describe("superdoughAudio live note handling", () => {
       0.25,
       1,
     );
+  });
+
+  it("scales held voice gain by normalized MIDI velocity", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    await audio.attackNote("quiet-midi", "F#4", "synth", { velocity: 1 / 127 });
+    expect(hoisted.mockSuperdough).toHaveBeenCalledWith(
+      expect.objectContaining({ note: "F#4", voiceId: "quiet-midi", gain: expect.closeTo(0.8 / 127, 10), sustainUntilRelease: true }),
+      12.005,
+      0.25,
+      1,
+    );
+    audio.releaseNote("quiet-midi");
+    expect(hoisted.mockReleaseVoice).toHaveBeenCalledWith("quiet-midi");
   });
 
   it("attacks a live note as a held voice with voice ownership", async () => {
@@ -344,32 +534,30 @@ describe("superdoughAudio live note handling", () => {
     expect(audio.isPrewarmed("not-a-sound")).toBe(false);
   });
 
-  it("warms real soundfont metadata before reporting a GM instrument ready", async () => {
+  it("lists GM instruments from the app catalog and warms a font without evaluating it", async () => {
+    const evaluate = vi.spyOn(globalThis, "eval");
     const audio = await import("@/services/superdoughAudio");
     await audio.initSuperdoughAudio();
-    hoisted.mockPrewarmSoundfont.mockClear();
-    hoisted.mockGetSound.mockReturnValue({
-      data: { type: "soundfont", fonts: ["0080_JCLive_sf2_file"] },
-    });
+    hoisted.mockGetSound.mockImplementation((name: string) =>
+      name.startsWith("gm_") ? { data: { type: "soundfont" } } : { data: { type: "synth" } });
 
+    await audio.ensureSoundfontCatalog();
+    expect(audio.getRegisteredSounds()).toEqual(expect.arrayContaining(["piano", "kalimba", "gm_celesta", "gm_piano"]));
     expect(audio.isPrewarmed("gm_celesta")).toBe(false);
+    // Patterns and the fallback renderer get the same names, voiced by the app's loader.
+    expect(hoisted.mockRegisterSound).toHaveBeenCalledWith("gm_celesta", expect.any(Function),
+      expect.objectContaining({ type: "soundfont" }));
+
     await audio.prewarmSoundSamples("gm_celesta");
 
-    expect(hoisted.mockPrewarmSoundfont).toHaveBeenCalledWith(
-      "0080_JCLive_sf2_file",
-      hoisted.mockAudioContext
-    );
+    expect(fetchMock).toHaveBeenCalledWith("https://felixroos.github.io/webaudiofontdata/sound/0080_JCLive_sf2_file.js");
+    expect(hoisted.mockAudioContext.decodeAudioData).toHaveBeenCalled();
+    expect(evaluate).not.toHaveBeenCalled();
+    evaluate.mockRestore();
     expect(audio.isPrewarmed("gm_celesta")).toBe(true);
   });
 
-  it("prepares only the default oscillator during startup, decoding no sample banks", async () => {
-    hoisted.mockGetSound.mockImplementation((name: string) => {
-      if (name === "triangle") return { data: { type: "synth" } };
-      if (name === "piano") {
-        return { data: { samples: ["https://example.test/piano.wav"] } };
-      }
-      return { data: { type: "soundfont", fonts: [`${name}_font`] } };
-    });
+  it("prepares only the default oscillator during startup, downloading no audio", async () => {
     const audio = await import("@/services/superdoughAudio");
     const { DEFAULT_INSTRUMENT } = await import("@/data/instruments");
 
@@ -377,125 +565,88 @@ describe("superdoughAudio live note handling", () => {
 
     expect(DEFAULT_INSTRUMENT).toBe("triangle");
     expect(audio.isPrewarmed("triangle")).toBe(true);
+    expect(hoisted.mockPrepareLive.mock.calls.map(([, , name]) => name)).toEqual(["triangle"]);
+    expect(fetchMock.mock.calls.map(([url]) => url).sort()).toEqual([
+      "https://raw.githubusercontent.com/felixroos/dough-samples/main/piano.json",
+      "https://raw.githubusercontent.com/felixroos/dough-samples/main/vcsl.json",
+    ]);
     expect(hoisted.mockLoadBuffer).not.toHaveBeenCalled();
-    expect(hoisted.mockPrewarmSoundfont).not.toHaveBeenCalled();
+    expect(hoisted.mockAudioContext.decodeAudioData).not.toHaveBeenCalled();
+    expect(audio.isPrewarmed("piano")).toBe(false);
+  });
+
+  it("keeps the loading-screen steps and reports each pack as it registers", async () => {
+    const audio = await import("@/services/superdoughAudio");
+    const steps: Array<[number, string]> = [];
+
+    await audio.initSuperdoughAudio((progress, message) => steps.push([progress, message]));
+
+    expect(steps).toEqual([
+      [3, "Synth sounds registered"],
+      [40, expect.stringMatching(/^(Piano|Orchestra) loaded \(1\/2\)$/)],
+      [75, expect.stringMatching(/^(Piano|Orchestra) loaded \(2\/2\)$/)],
+      [79, "Starting audio context…"],
+      [80, "Preparing triangle…"],
+      [98, "triangle ready"],
+      [100, "Audio engine ready"],
+    ]);
+    expect(audio.getAudioStartupStage()).toBe("ready");
+    // Patterns still render through superdough, so it sees the same maps without a second download.
+    expect(hoisted.mockSamples).toHaveBeenCalledWith(SAMPLE_MAPS["piano.json"], "https://samples.test/piano/");
+  });
+
+  it("raises SampleLoadError when a sample map cannot be downloaded, then starts the synths", async () => {
+    const { SampleLoadError } = await import("@/services/audioFailures");
+    fetchMock.mockImplementationOnce(async () => new Response("", { status: 503 }));
+    const audio = await import("@/services/superdoughAudio");
+
+    await expect(audio.initSuperdoughAudio()).rejects.toBeInstanceOf(SampleLoadError);
+    expect(audio.getAudioStartupStage()).toBe("idle");
+
+    await audio.initSynthOnlyAudio();
+    expect(audio.getAudioStartupStage()).toBe("ready");
+    expect(audio.isPrewarmed("triangle")).toBe(true);
+  });
+
+  it("loads a sampled instrument into the worklet without keeping a fallback copy", async () => {
+    hoisted.mockLiveFailure.mockImplementation(() => undefined);
+    const audio = await import("@/services/superdoughAudio");
+    await audio.initSuperdoughAudio();
+
+    await audio.prewarmSoundSamples("piano");
+
+    expect(hoisted.mockPrepareLive).toHaveBeenLastCalledWith(hoisted.mockAudioContext, expect.anything(), "piano");
+    expect(hoisted.mockLoadBuffer).not.toHaveBeenCalled();
+    expect(audio.isPrewarmed("piano")).toBe(true);
+  });
+
+  it("surfaces a failed worklet download and leaves the instrument cold", async () => {
+    hoisted.mockLiveFailure.mockImplementation(() => ({ kind: "load", reason: "Could not download C4v8.mp3 (HTTP 503)" }));
+    const audio = await import("@/services/superdoughAudio");
+    await audio.initSuperdoughAudio();
+
+    await expect(audio.prewarmSoundSamples("piano")).rejects.toThrow("HTTP 503");
+    expect(hoisted.mockLoadBuffer).not.toHaveBeenCalled();
     expect(audio.isPrewarmed("piano")).toBe(false);
   });
 
   it("leaves a soundfont cold when its preset fails to warm", async () => {
     const audio = await import("@/services/superdoughAudio");
     await audio.initSuperdoughAudio();
-    hoisted.mockGetSound.mockReturnValue({
-      data: { type: "soundfont", fonts: ["0080_JCLive_sf2_file"] },
-    });
-    hoisted.mockPrewarmSoundfont.mockRejectedValue(new Error("Font unavailable"));
+    fetchMock.mockImplementationOnce(async () => new Response("", { status: 404 }));
 
-    await expect(audio.prewarmSoundSamples("gm_celesta")).rejects.toThrow(
-      "Font unavailable"
-    );
+    await expect(audio.prewarmSoundSamples("gm_celesta")).rejects.toThrow("HTTP 404");
     expect(audio.isPrewarmed("gm_celesta")).toBe(false);
   });
 
-  it("emits exact borrowed-pitch lifecycle events during Strudel playback", async () => {
-    vi.useFakeTimers();
-    const dispatchEvent = vi.spyOn(window, "dispatchEvent");
-    const audio = await import("@/services/superdoughAudio");
-
-    await audio.emotitoneStrudelOutput(
-      { value: { note: "D#4", freq: 311.13, s: "piano" } },
-      12,
-      0.25,
-      1,
-      12.1,
-    );
-
-    const played = dispatchEvent.mock.calls
-      .map(([event]) => event)
-      .find((event) => event.type === "note-played") as CustomEvent;
-    expect(played.detail).toMatchObject({
-      note: expect.objectContaining({
-        name: "D#",
-        emotion: "Borrowed harmony tone",
-      }),
-      noteName: "D#4",
-      octave: 4,
-      keyboardOctave: 4,
-      solfegeIndex: -1,
-      pitchClassIndex: 3,
-      isBorrowed: true,
-      source: "strudel-playback",
-    });
-    expect(audio.getActiveStrudelStageNotes()).toEqual([
-      expect.objectContaining({
-        noteId: played.detail.noteId,
-        noteName: "D#4",
-        solfege: expect.objectContaining({ name: "D#" }),
-        frequency: 311.13,
-        octave: 4,
-        keyboardOctave: 4,
-        solfegeIndex: -1,
-        pitchClassIndex: 3,
-        mode: "major",
-        key: "C",
-      }),
-    ]);
-
-    await vi.advanceTimersByTimeAsync(250);
-    expect(audio.getActiveStrudelStageNotes()).toHaveLength(1);
-    await vi.advanceTimersByTimeAsync(100);
-    const released = dispatchEvent.mock.calls
-      .map(([event]) => event)
-      .find((event) => event.type === "note-released") as CustomEvent;
-    expect(released.detail.audibleAt - played.detail.audibleAt).toBeCloseTo(250);
-    expect(released.detail).toMatchObject({
-      note: "D#",
-      noteName: "D#4",
-      solfegeIndex: -1,
-      pitchClassIndex: 3,
-      isBorrowed: true,
-      source: "strudel-playback",
-    });
-    expect(audio.getActiveStrudelStageNotes()).toEqual([]);
-
-    vi.useRealTimers();
-  });
-
-  it("presents a short clipped gate without stretching its note-off to 40 ms", async () => {
-    vi.useFakeTimers();
-    try {
-      const dispatchEvent = vi.spyOn(window, "dispatchEvent");
-      const audio = await import("@/services/superdoughAudio");
-      await audio.emotitoneStrudelOutput({ value: { note: "C4", s: "piano", clip: 0.02 } }, 0, 0.005, 1, 12);
-      await vi.advanceTimersByTimeAsync(5);
-      expect(audio.getActiveStrudelStageNotes()).toEqual([]);
-      const events = dispatchEvent.mock.calls.map(([event]) => event as CustomEvent);
-      const played = events.find(event => event.type === "note-played")!;
-      const released = events.find(event => event.type === "note-released")!;
-      expect(released.detail.audibleAt - played.detail.audibleAt).toBeCloseTo(5);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("does not present a pattern event whose audio deadline was already missed", async () => {
-    const audio = await import("@/services/superdoughAudio");
-    const dispatchEvent = vi.spyOn(window, "dispatchEvent");
-    await audio.emotitoneStrudelOutput({ value: { note: "C4", s: "piano" } }, 0, 0.1, 1, 11);
-    expect(hoisted.mockWebaudioOutput).toHaveBeenCalled();
-    expect(dispatchEvent.mock.calls.some(([event]) => event.type === "note-played")).toBe(false);
-    expect(audio.getActiveStrudelStageNotes()).toEqual([]);
-  });
-
   it("surfaces explicit warmup failures and leaves the sound cold", async () => {
-    hoisted.mockGetSound.mockReturnValue({
-      data: { samples: ["https://example.test/sample.wav"] },
-    });
     hoisted.mockLoadBuffer.mockRejectedValue(new Error("Network down"));
     const audio = await import("@/services/superdoughAudio");
+    await audio.initSuperdoughAudio();
 
-    await expect(audio.prewarmSoundSamples("cold-bank")).rejects.toThrow(
+    await expect(audio.prewarmSoundSamples("kalimba")).rejects.toThrow(
       "Network down"
     );
-    expect(audio.isPrewarmed("cold-bank")).toBe(false);
+    expect(audio.isPrewarmed("kalimba")).toBe(false);
   });
 });

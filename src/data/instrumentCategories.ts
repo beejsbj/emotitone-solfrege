@@ -86,8 +86,7 @@ export const INSTRUMENT_CATEGORIES: InstrumentCategory[] = [
       'gm_pad_halo', 'gm_pad_metallic', 'gm_pad_new_age', 'gm_pad_poly',
       'gm_pad_sweep', 'gm_pad_warm', 'gm_synth_bass_1', 'gm_synth_bass_2',
       'gm_synth_choir',
-      'pulse', 'saw', 'sawtooth', 'sin', 'sine', 'sqr', 'square',
-      'supersaw', 'tri', 'triangle',
+      'saw', 'sawtooth', 'sine', 'sqr', 'square', 'triangle',
     ],
     // Built-in oscillators (sin, saw, etc.) skip gracefully — no sample bank
     preload: ['gm_pad_new_age', 'gm_lead_1_square', 'gm_synth_bass_1'],

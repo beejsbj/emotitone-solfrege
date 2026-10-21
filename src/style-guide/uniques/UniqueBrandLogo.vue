@@ -1,40 +1,3 @@
-<template>
-  <AnatomyDisplay
-    title="Brand Logo · Centered Cluster"
-    :features="features"
-    caption="The approved EmotiTone identity is one singular source: five smooth brand-colour circles behind a six-cut Ink/Ivory ET, with nine real Marks scattered across and around it."
-  >
-    <template #hero>
-      <div class="brand-logo-specimen brand-logo-specimen--ink">
-        <BrandLogo size="min(280px, 72vw)" />
-      </div>
-    </template>
-
-    <VariantGrid title="Responsive lockups">
-      <VariantCell caption="Canonical stacked lockup · Ink">
-        <div class="brand-logo-specimen brand-logo-specimen--ink">
-          <BrandLogo size="220px" />
-        </div>
-      </VariantCell>
-      <VariantCell caption="Canonical stacked lockup · Bone">
-        <div class="brand-logo-specimen brand-logo-specimen--bone">
-          <BrandLogo surface="bone" size="220px" />
-        </div>
-      </VariantCell>
-      <VariantCell caption="Compact horizontal lockup">
-        <div class="brand-logo-specimen brand-logo-specimen--ink">
-          <BrandLogo layout="compact" size="64px" />
-        </div>
-      </VariantCell>
-      <VariantCell caption="Mark only">
-        <div class="brand-logo-specimen brand-logo-specimen--bone">
-          <BrandLogo layout="mark" surface="bone" size="128px" />
-        </div>
-      </VariantCell>
-    </VariantGrid>
-  </AnatomyDisplay>
-</template>
-
 <script setup lang="ts">
 import BrandLogo from "../../components/uniques/BrandLogo.vue";
 import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
@@ -43,23 +6,85 @@ import VariantGrid from "../guide/VariantGrid.vue";
 
 const features = [
   { label: "Role", value: "singular EmotiTone identity artifact" },
-  { label: "Structure", value: "five circles → six ET paper cuts → nine Marks" },
-  { label: "Monogram", value: "E = four Ink cuts · T = two Ivory cuts" },
-  { label: "Scatter", value: "accepted Mark primitives on an expanded 180 × 160 field" },
-  { label: "Lockups", value: "stacked · compact · mark-only" },
-  { label: "Boundary", value: "circles and placement stay local to BrandLogo" },
+  { label: "Structure", value: "five circles → four beats → two paste-up scraps → seven Mark sprinkles" },
+  { label: "Silhouette", value: "the OG five-circle cluster: big Plum behind, Cobalt left, Mustard right, Tomato and Pine low" },
+  { label: "Monogram", value: "Ink E on an Ivory scrap · Ivory T on an Ink scrap · Ink cut-edges" },
+  { label: "Contrast", value: "Ink/Ivory scraps read on any blob; the colour belongs to the cluster" },
+  { label: "Small sizes", value: "beats and sprinkles drop out below 72px; cluster + ET carry the favicon" },
+  { label: "Lockups", value: "stacked · compact · mark-only · EMOTI + Tomato TONE tab" },
+  { label: "Source", value: "geometry in brandMark.ts, shared with the exported app icons" },
 ];
 </script>
+
+<template>
+  <AnatomyDisplay
+    title="Brand Logo · Count-In Cluster"
+    :features="features"
+    caption="The Count-In paste-up ET pasted onto the brand's original five-circle cluster. Static by design: motion belongs to the Loading Screen."
+  >
+    <template #hero>
+      <div class="brand-logo-specimen">
+        <BrandLogo size="min(280px, 64vw)" />
+      </div>
+    </template>
+
+    <div class="brand-logo-lockups">
+      <VariantGrid title="Responsive lockups">
+        <VariantCell caption="Stacked · Ink · the canonical lockup">
+          <div class="brand-logo-specimen">
+            <BrandLogo size="min(220px, 58vw)" />
+          </div>
+        </VariantCell>
+        <VariantCell caption="Stacked · Bone · wordmark turns Ink" stage="bone">
+          <div class="brand-logo-specimen">
+            <BrandLogo surface="bone" size="min(220px, 58vw)" />
+          </div>
+        </VariantCell>
+        <VariantCell caption="Compact · horizontal · 64px mark">
+          <div class="brand-logo-specimen">
+            <BrandLogo layout="compact" size="clamp(40px, 12vw, 64px)" />
+          </div>
+        </VariantCell>
+        <VariantCell caption="Mark only · Bone" stage="bone">
+          <div class="brand-logo-specimen">
+            <BrandLogo layout="mark" surface="bone" size="128px" />
+          </div>
+        </VariantCell>
+        <VariantCell caption="Mark · 48 · 32 · 16 · the favicon silhouette">
+          <div class="brand-logo-specimen brand-logo-specimen--small">
+            <BrandLogo layout="mark" :size="48" />
+            <BrandLogo layout="mark" :size="32" />
+            <BrandLogo layout="mark" :size="16" />
+          </div>
+        </VariantCell>
+      </VariantGrid>
+    </div>
+  </AnatomyDisplay>
+</template>
 
 <style scoped>
 .brand-logo-specimen {
   display: grid;
-  min-height: 220px;
-  padding: clamp(20px, 4vw, 48px);
-  overflow: hidden;
+  width: 100%;
+  min-width: 0;
+  padding-block: clamp(20px, 5vw, 40px) var(--s-4);
   place-items: center;
 }
 
-.brand-logo-specimen--ink { background: var(--ink); }
-.brand-logo-specimen--bone { background: var(--bone); }
+.brand-logo-specimen--small {
+  display: flex;
+  align-items: end;
+  justify-content: center;
+  gap: var(--s-6);
+}
+
+/* Lockups are wide artifacts: give each one a full-width well on a phone. */
+.brand-logo-lockups :deep(.variant-grid__items) {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+}
+
+.brand-logo-lockups :deep(.variant-cell__stage) {
+  min-height: 200px;
+  overflow: hidden;
+}
 </style>

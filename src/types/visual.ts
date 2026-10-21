@@ -49,7 +49,6 @@ export interface ConfigSectionMeta {
  */
 export interface NoteColorRelationships {
   primary: string;
-  accent: string;
 }
 
 export type MusicColorMode =
@@ -226,30 +225,6 @@ export interface AmbientConfig {
 }
 
 /**
- * Particle system configuration
- */
-export interface ParticleConfig {
-  /** Whether particle effects are enabled */
-  isEnabled: boolean;
-  /** Number of particles to generate */
-  count: number;
-  /** Minimum particle size */
-  sizeMin: number;
-  /** Maximum particle size */
-  sizeMax: number;
-  /** Minimum particle lifetime in milliseconds */
-  lifetimeMin: number;
-  /** Maximum particle lifetime in milliseconds */
-  lifetimeMax: number;
-  /** Particle movement speed */
-  speed: number;
-  /** Gravity effect on particles */
-  gravity: number;
-  /** Air resistance factor (0-1) */
-  airResistance: number;
-}
-
-/**
  * String visual effect configuration
  */
 export interface StringConfig {
@@ -342,6 +317,14 @@ export interface UIBeatConfig {
 }
 
 /**
+ * Edition family Look: Shuffle (the default) or one pinned family id.
+ * Unknown ids resolve to Shuffle (see `useEditionFamily`).
+ */
+export interface EditionsConfig {
+  family: string;
+}
+
+/**
  * Pattern recording and detection configuration
  */
 export interface PatternConfig {
@@ -376,8 +359,11 @@ export interface KeyboardConfig {
   primaryLabel: "syllable" | "degree" | "raw";
   /** Key gap style */
   keyGaps: "none" | "small" | "medium";
-  /** Presentation style for keys */
-  surfaceStyle: "colored" | "monochrome";
+  /**
+   * Note Surface for keys: follow the edition family's surface, or the
+   * player's own Color or Monochrome choice, which wins over the family.
+   */
+  surfaceStyle: "family" | "colored" | "monochrome";
   /** Number of visible octave rows */
   rowCount: number;
   /** Main octave number */
@@ -400,7 +386,6 @@ export interface KeyboardConfig {
 /**
  * CodeStrip presentation configuration
  */
-export type CodeStripDurationMode = "stacked" | "bar" | "hidden";
 
 export interface CodeStripConfig {
   /** Whether the CodeStrip-backed Strudel mirror is enabled */
@@ -411,8 +396,6 @@ export interface CodeStripConfig {
   bpm: number;
   /** Display notation mode for note tokens */
   notation: "solfege" | "note" | "degree";
-  /** Visual treatment for recorded event durations */
-  durationMode: CodeStripDurationMode;
   /** Whether to show rest tokens */
   showRests: boolean;
 }
@@ -467,8 +450,6 @@ export interface VisualEffectsConfig {
   blobs: BlobConfig;
   /** Ambient lighting configuration */
   ambient: AmbientConfig;
-  /** Particle system configuration */
-  particles: ParticleConfig;
   /** String effect configuration */
   strings: StringConfig;
   /** Animation configuration */
@@ -481,6 +462,8 @@ export interface VisualEffectsConfig {
   hilbertScope: HilbertScopeConfig;
   /** Shared transport-synchronized UI presentation configuration */
   uiBeat: UIBeatConfig;
+  /** Edition family Look shared by Tabs, Knob and Joystick */
+  editions: EditionsConfig;
   /** Pattern recording configuration */
   patterns: PatternConfig;
   /** Keyboard styling configuration */

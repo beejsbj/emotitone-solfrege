@@ -2,13 +2,43 @@
  * Typography defaults for the style-guide route only. The design-system token
  * file is imported by every production entry, so native elements stay
  * unstyled there until a production unit explicitly opts into a recipe.
+ *
+ * The root keeps production's inherited typography from style.css (display
+ * face, weight 600, small-caps/old-style features), so a real production
+ * source mounted as a specimen renders exactly as it does in the app. A
+ * root `font:` shorthand here would reset those features and the weight.
  */
 html.style-guide-route,
 body.style-guide-route {
-  background: var(--bg);
-  color: var(--fg);
-  font: var(--t-body);
+  background: var(--ink);
+  color: var(--ivory);
   -webkit-font-smoothing: antialiased;
+}
+
+/* Guide-authored fixture chrome that sets only its size keeps the guide's
+   quieter body voice (--t-body weight and leading, no feature settings)
+   instead of inheriting the production root. */
+.style-guide-route :where(
+  .music-recipe__wheel,
+  .note-specimen__controls,
+  .hero-head,
+  .key-specimen__live,
+  .keyboard-specimen__controls,
+  .keyboard-specimen__tuning,
+  .keyboard-specimen__readout,
+  .keyboard-specimen__note,
+  .code-strip-bar-specimen > output
+) {
+  font-weight: 450;
+  font-feature-settings: normal;
+  line-height: 1.55;
+}
+
+/* Guide copy blocks that hold no production source keep the whole guide
+   body recipe, so their line boxes (and inline-block links) keep the guide's
+   metrics rather than production's 16px root. */
+.style-guide-route :where(.focused-poster__copy, .scrap__meta) {
+  font: var(--t-body);
 }
 
 .style-guide-route h1,
@@ -39,12 +69,25 @@ body.style-guide-route {
   text-transform: uppercase;
 }
 
-.style-guide-route .label,
-.style-guide-route .ds-label {
-  font: var(--t-label);
-  letter-spacing: var(--tracking-label);
+/* Legacy specimen section labels read as the guide's taped headings. */
+.style-guide-route .label {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  font: 700 18px/1 var(--font-display);
+  letter-spacing: var(--tracking-display);
   text-transform: uppercase;
-  color: var(--fg-3);
+  color: var(--ivory);
+}
+
+.style-guide-route :is(.guide-unit, .focused-page) .label::before {
+  content: "";
+  flex: none;
+  width: 18px;
+  height: 8px;
+  background: var(--guide-paper, var(--brass));
+  clip-path: var(--clip-tab);
+  transform: rotate(var(--rot-tile-3));
 }
 
 .style-guide-route code,
@@ -53,10 +96,90 @@ body.style-guide-route {
 }
 
 .style-guide-route .caption {
-  font: var(--t-caption);
-  color: var(--fg-3);
+  font: var(--t-body-s-mono);
+  color: var(--ivory-3);
 }
 
-.style-guide-route .mono {
-  font: var(--t-mono);
+/* Guide controls: fixture inputs speak the guide's paper-and-ink voice
+   instead of the browser's default blue and grey. Opt-in via .guide-field,
+   so real production controls mounted as specimens (the InstrumentSelector
+   search, PatternStrip rename, ...) render exactly as they do in the app.
+   :where() keeps the original specificity, so fixture-local rules still win. */
+.style-guide-route select:where(.guide-field),
+.style-guide-route input:where(.guide-field)[type="text"],
+.style-guide-route input:where(.guide-field)[type="number"] {
+  min-height: 34px;
+  padding: 4px 30px 2px 10px;
+  border: 0;
+  border-radius: 0;
+  background-color: var(--ink);
+  color: var(--ivory);
+  box-shadow: inset 0 0 0 1.5px var(--ink-5);
+  font: 700 16px/1 var(--font-display);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+}
+
+.style-guide-route input:where(.guide-field)[type="text"],
+.style-guide-route input:where(.guide-field)[type="number"] { padding-right: 10px; }
+
+.style-guide-route select:where(.guide-field) {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--guide-paper, var(--brass)) 50%), linear-gradient(135deg, var(--guide-paper, var(--brass)) 50%, transparent 50%);
+  background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.style-guide-route select:where(.guide-field):focus-visible,
+.style-guide-route input:where(.guide-field):focus-visible {
+  outline: 2px solid var(--guide-paper, var(--ivory));
+  outline-offset: 2px;
+}
+
+.style-guide-route input:where(.guide-field)[type="range"],
+.style-guide-route input:where(.guide-field)[type="checkbox"],
+.style-guide-route input:where(.guide-field)[type="radio"] {
+  accent-color: var(--guide-paper, var(--brass));
+}
+
+
+/* The guide's one control chip: filled cut paper for specimen fixtures and
+   workbench toggles. Pressed takes the layer paper, like the masthead. */
+.style-guide-route .guide-chip {
+  min-height: 40px;
+  padding: 8px 14px 6px;
+  border: 0;
+  border-radius: 0;
+  background: var(--ink-3);
+  color: var(--ivory-2);
+  clip-path: var(--clip-tab);
+  font: 700 17px/1.1 var(--font-display);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color var(--dur-tap) var(--ease-stab), color var(--dur-tap) var(--ease-stab), transform var(--dur-ui) var(--ease-swing);
+}
+
+.style-guide-route .guide-chip:hover,
+.style-guide-route .guide-chip:focus-visible {
+  background: var(--ink-4);
+  color: var(--ivory);
+}
+
+.style-guide-route .guide-chip:focus-visible {
+  outline: 2px solid var(--guide-paper-text, var(--ivory));
+  outline-offset: 2px;
+}
+
+.style-guide-route .guide-chip[aria-pressed="true"] {
+  background: var(--guide-paper, var(--ivory));
+  color: var(--guide-paper-ink, var(--ink));
+  transform: rotate(var(--rot-tile-4));
+}
+
+.style-guide-route .guide-chip:disabled { cursor: default; opacity: .72; }
+
+@media (prefers-reduced-motion: reduce) {
+  .style-guide-route .guide-chip { transition: none; }
 }

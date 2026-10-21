@@ -1,14 +1,23 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mount } from "@vue/test-utils";
+import { createPinia, disposePinia, setActivePinia, type Pinia } from "pinia";
+import { useHarmonyAlterationStore } from "@/stores/harmonyAlteration";
 import PerformanceDeck from "@/components/PerformanceDeck.vue";
 import performanceDeckSource from "@/components/PerformanceDeck.vue?raw";
 import Drawer from "@/components/uniques/Drawer/index.vue";
 
 const mocks = vi.hoisted(() => ({
-  removeLastFromCurrentSketch: vi.fn(),
-  sendCurrentPattern: vi.fn(),
+  undoLastNote: vi.fn(),
+  keepTake: vi.fn(),
   toggle: vi.fn(),
   stop: vi.fn(),
+  looper: {
+    isDeskPlaying: false,
+    latched: false,
+    engineReady: true,
+    togglePlay: vi.fn(),
+    toggleLatch: vi.fn(),
+  },
   toggleHumming: vi.fn(),
   cancelHumming: vi.fn(),
   selectHummingTake: vi.fn(),
@@ -41,7 +50,34 @@ const mocks = vi.hoisted(() => ({
     rowCount: 3,
     hapticFeedback: true,
   },
+  keyboardPerformance: {
+    view: { value: { usage: "production", rows: [], mainOctave: 4 }, __v_isRef: true },
+    press: vi.fn(),
+    release: vi.fn(),
+    pitchBend: vi.fn(),
+    gainChange: vi.fn(),
+    chordPress: vi.fn(),
+    chordRelease: vi.fn(),
+    chordPitchBend: vi.fn(),
+    chordGainChange: vi.fn(),
+  },
+  useKeyboardPerformance: vi.fn(),
 }));
+
+// The Keyboard container has its own tests (KeyboardPerformanceHost); here
+// it stands in so the deck's routing to it can be observed.
+vi.mock("@/composables/useKeyboardPerformance", () => ({
+  useKeyboardPerformance: mocks.useKeyboardPerformance,
+}));
+
+// The Joystick alteration store is real.
+let pinia: Pinia;
+beforeEach(() => {
+  pinia = createPinia();
+  setActivePinia(pinia);
+  mocks.useKeyboardPerformance.mockReturnValue(mocks.keyboardPerformance);
+});
+afterEach(() => disposePinia(pinia));
 
 vi.mock("@/stores/keyboardDrawer", () => ({
   useKeyboardDrawerStore: () => ({
@@ -81,10 +117,10 @@ vi.mock("@/stores/visualConfig", () => ({
   }),
 }));
 
-vi.mock("@/stores/patterns", () => ({
-  usePatternsStore: () => ({
-    removeLastFromCurrentSketch: mocks.removeLastFromCurrentSketch,
-    sendCurrentPattern: mocks.sendCurrentPattern,
+vi.mock("@/stores/phrases", () => ({
+  usePhrasesStore: () => ({
+    undoLastNote: mocks.undoLastNote,
+    keepTake: mocks.keepTake,
   }),
 }));
 
@@ -98,11 +134,18 @@ vi.mock("@/composables/useCodeStripStrudel", () => ({
   }),
 }));
 
+vi.mock("@/stores/looper", () => ({ useLooperStore: () => mocks.looper }));
+
+vi.mock("@/components/patterns/LooperDialColumn.vue", () => ({
+  default: { name: "LooperDialColumn", template: '<div data-testid="looper-dials" />' },
+}));
+
 vi.mock("@/composables/useHummingCapture", () => ({
   useHummingCapture: () => ({
     status: mocks.hummingStatus,
     error: mocks.hummingError,
     statusMessage: mocks.hummingStatusMessage,
+    remainingSeconds: { value: 60, __v_isRef: true },
     takeLabels: mocks.hummingTakeLabels,
     selectedTakeIndex: mocks.selectedHummingTake,
     toggle: mocks.toggleHumming,
@@ -114,8 +157,8 @@ vi.mock("@/composables/useHummingCapture", () => ({
 vi.mock("@/components/compounds/CodeStripBar.vue", () => ({
   default: {
     name: "CodeStripBar",
-    props: ["isPlaying", "playDisabled"],
-    emits: ["togglePlayback", "backspace", "return"],
+    props: ["isPlaying", "playDisabled", "playLatched"],
+    emits: ["togglePlayback", "backspace", "return", "playHold"],
     template: '<div data-testid="code-strip-bar" />',
   },
 }));
@@ -138,14 +181,15 @@ vi.mock("@/components/humming/HummingCaptureTransport.vue", () => ({
 vi.mock("@/components/compounds/Keyboard.vue", () => ({
   default: {
     name: "Keyboard",
-    props: { harmonyAlteration: String, availableHeight: Number },
+    props: { usage: String, rows: Array, mainOctave: Number, harmonyAlteration: String, availableHeight: Number },
+    emits: ["press", "release", "pitchBend", "gainChange", "chordPress", "chordRelease", "chordPitchBend", "chordGainChange"],
     template: '<div data-testid="keyboard" />',
   },
 }));
 
-vi.mock("@/components/patterns/PatternList.vue", () => ({
+vi.mock("@/components/patterns/PhraseShelf.vue", () => ({
   default: {
-    name: "PatternList",
+    name: "PhraseShelf",
     emits: ["contextChange", "interactionChange"],
     template: '<div data-testid="pattern-list" />',
   },
@@ -174,6 +218,9 @@ describe("PerformanceDeck CodeStrip Bar", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.isPlaying.value = false;
+    mocks.looper.isDeskPlaying = false;
+    mocks.looper.latched = false;
+    mocks.looper.engineReady = true;
     mocks.hasPlayableCode.value = true;
     mocks.instrumentStore.isInteractionLocked = false;
     mocks.instrumentStore.warmingInstrument = null;
@@ -183,12 +230,12 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     mocks.keyboardConfig.hapticFeedback = true;
   });
 
-  it("stops Strudel before starting humming and wires take selection", async () => {
-    mocks.isPlaying.value = true;
+  it("hums over a running loop without stopping it, and wires take selection", async () => {
+    mocks.looper.isDeskPlaying = true;
     const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
-          PatternList: true,
+          PhraseShelf: true,
           Keyboard: true,
           CodeStripBar: true,
         },
@@ -201,22 +248,20 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     actions.vm.$emit("selectTake", 1);
     await wrapper.vm.$nextTick();
 
-    expect(mocks.stop).toHaveBeenCalledTimes(1);
+    expect(mocks.looper.togglePlay).not.toHaveBeenCalled();
+    expect(mocks.stop).not.toHaveBeenCalled();
     expect(mocks.toggleHumming).toHaveBeenCalledTimes(1);
     expect(mocks.cancelHumming).toHaveBeenCalledTimes(1);
-    expect(mocks.stop.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.toggleHumming.mock.invocationCallOrder[0],
-    );
     expect(mocks.selectHummingTake).toHaveBeenCalledWith(1);
     wrapper.unmount();
   });
 
-  it.each(["requesting", "recording", "preparing", "analyzing"])("cancels %s humming before starting Strudel playback", async (status) => {
+  it.each(["requesting", "recording", "preparing", "analyzing"])("cancels %s humming before Play joins the loop", async (status) => {
     mocks.hummingStatus.value = status;
     const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
-          PatternList: true,
+          PhraseShelf: true,
           Keyboard: true,
           CodeStripBar: true,
           HummingCaptureTransport: true,
@@ -225,20 +270,20 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     });
 
     wrapper.getComponent({ name: "CodeStripBar" }).vm.$emit("togglePlayback");
-    await vi.waitFor(() => expect(mocks.toggle).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(mocks.looper.togglePlay).toHaveBeenCalledTimes(1));
 
     expect(mocks.cancelHumming).toHaveBeenCalledTimes(1);
     expect(mocks.cancelHumming.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.toggle.mock.invocationCallOrder[0],
+      mocks.looper.togglePlay.mock.invocationCallOrder[0],
     );
     wrapper.unmount();
   });
 
-  it("preserves playback, remove-last, and commit-and-clear behavior", async () => {
+  it("sends Play to the Looper and keeps remove-last and commit-and-clear", async () => {
     const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
-          PatternList: true,
+          PhraseShelf: true,
           Keyboard: true,
           CodeStripBar: true,
         },
@@ -251,9 +296,10 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     actions.vm.$emit("return");
     await wrapper.vm.$nextTick();
 
-    expect(mocks.toggle).toHaveBeenCalledTimes(1);
-    expect(mocks.removeLastFromCurrentSketch).toHaveBeenCalledTimes(1);
-    expect(mocks.sendCurrentPattern).toHaveBeenCalledTimes(1);
+    expect(mocks.looper.togglePlay).toHaveBeenCalledTimes(1);
+    expect(mocks.toggle).not.toHaveBeenCalled();
+    expect(mocks.undoLastNote).toHaveBeenCalledTimes(1);
+    expect(mocks.keepTake).toHaveBeenCalledTimes(1);
     wrapper.unmount();
   });
 
@@ -267,7 +313,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
         },
       },
     });
-    const patternList = wrapper.getComponent({ name: "PatternList" });
+    const patternList = wrapper.getComponent({ name: "PhraseShelf" });
     const controlBar = wrapper.getComponent({ name: "ControlBar" });
 
     patternList.vm.$emit("contextChange", ["key", "octave"]);
@@ -300,31 +346,36 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     wrapper.unmount();
   });
 
-  it("does not start playback when CodeStrip has no playable document", async () => {
-    mocks.hasPlayableCode.value = false;
+  it("shows the desk's pattern playing, latches on a held Play, and mounts the Looper's dials", async () => {
+    mocks.looper.isDeskPlaying = true;
+    mocks.looper.latched = true;
     const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
-          PatternList: true,
+          PhraseShelf: true,
           Keyboard: true,
           CodeStripBar: true,
         },
       },
     });
+    const actions = wrapper.getComponent({ name: "CodeStripBar" });
+    expect(actions.props("isPlaying")).toBe(true);
+    expect(actions.props("playLatched")).toBe(true);
+    expect(wrapper.find('[data-testid="looper-dials"]').exists()).toBe(true);
 
-    wrapper.getComponent({ name: "CodeStripBar" }).vm.$emit("togglePlayback");
+    actions.vm.$emit("playHold");
     await wrapper.vm.$nextTick();
-
-    expect(mocks.toggle).not.toHaveBeenCalled();
+    expect(mocks.looper.toggleLatch).toHaveBeenCalledTimes(1);
+    expect(mocks.looper.togglePlay).not.toHaveBeenCalled();
     wrapper.unmount();
   });
 
-  it("disables and ignores pattern playback while samples are warming", async () => {
+  it("keeps Play pressable while samples are warming: a loop plays on through warmup", async () => {
     mocks.instrumentStore.isInteractionLocked = true;
     const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
-          PatternList: true,
+          PhraseShelf: true,
           Keyboard: true,
           CodeStripBar: true,
         },
@@ -332,11 +383,11 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     });
     const actions = wrapper.getComponent({ name: "CodeStripBar" });
 
-    expect(actions.props("playDisabled")).toBe(true);
+    expect(actions.props("playDisabled")).toBe(false);
     actions.vm.$emit("togglePlayback");
     await wrapper.vm.$nextTick();
 
-    expect(mocks.toggle).not.toHaveBeenCalled();
+    expect(mocks.looper.togglePlay).toHaveBeenCalledTimes(1);
     wrapper.unmount();
   });
 
@@ -344,7 +395,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
-          PatternList: true,
+          PhraseShelf: true,
           Keyboard: true,
           CodeStripBar: true,
         },
@@ -367,16 +418,64 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     expect(mocks.setMainOctave).toHaveBeenCalledWith(5);
     expect(mocks.setPlayMode).toHaveBeenCalledWith("arp-up:16");
     expect(mocks.setRowCount).not.toHaveBeenCalled();
-    expect(wrapper.getComponent({ name: "Keyboard" }).props("harmonyAlteration"))
-      .toBe("sus4");
+    // The Joystick's latch and live direction land in their one store.
+    expect(useHarmonyAlterationStore().latched).toBe("jazzy7");
+    expect(useHarmonyAlterationStore().effective).toBe("sus4");
     wrapper.unmount();
+  });
+
+  it("feeds the Keyboard view from its container and routes every intent through it", async () => {
+    const wrapper = mount(PerformanceDeck, {
+      global: { stubs: { PhraseShelf: true, CodeStripBar: true } },
+    });
+    expect(mocks.useKeyboardPerformance).toHaveBeenCalledOnce();
+    const keyboard = wrapper.getComponent({ name: "Keyboard" });
+    expect(keyboard.props()).toMatchObject({ usage: "production", rows: [], mainOctave: 4 });
+
+    const intent = { inputId: "touch:1", keyId: "0_4" };
+    for (const [event, handler] of [
+      ["press", "press"], ["release", "release"], ["pitchBend", "pitchBend"], ["gainChange", "gainChange"],
+      ["chordPress", "chordPress"], ["chordRelease", "chordRelease"],
+      ["chordPitchBend", "chordPitchBend"], ["chordGainChange", "chordGainChange"],
+    ] as const) {
+      keyboard.vm.$emit(event, intent);
+      expect(mocks.keyboardPerformance[handler], event).toHaveBeenCalledWith(intent);
+    }
+    expect(wrapper.emitted("keyboardPress")).toEqual([[intent]]);
+    expect(wrapper.emitted("chordRelease")).toEqual([[intent]]);
+    wrapper.unmount();
+  });
+
+  it("uses the Keyboard container only in production", () => {
+    mount(PerformanceDeck, {
+      props: { usage: "controlled" },
+      global: { stubs: { PatternReel: true, CodeStripBar: true } },
+    }).unmount();
+    expect(mocks.useKeyboardPerformance).not.toHaveBeenCalled();
+    mount(PerformanceDeck, { global: { stubs: { PhraseShelf: true, CodeStripBar: true } } }).unmount();
+    expect(mocks.useKeyboardPerformance).toHaveBeenCalledOnce();
+  });
+
+  it("springs the Joystick back to its latch when the deck goes away", async () => {
+    const wrapper = mount(PerformanceDeck, {
+      global: { stubs: { PhraseShelf: true, Keyboard: true, CodeStripBar: true } },
+    });
+    const controls = wrapper.getComponent({ name: "ControlBar" });
+    controls.vm.$emit("update:harmonyValue", "jazzy7");
+    controls.vm.$emit("harmonyEffective", "sus4");
+    const alteration = useHarmonyAlterationStore();
+    expect(alteration.effective).toBe("sus4");
+
+    wrapper.unmount();
+    expect(alteration.latched).toBe("jazzy7");
+    expect(alteration.effective).toBe("jazzy7");
   });
 
   it("turns each usable drawer allocation into whole keyboard rows", async () => {
     const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
-          PatternList: true,
+          PhraseShelf: true,
           Keyboard: true,
           CodeStripBar: true,
         },
@@ -402,7 +501,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
-          PatternList: true,
+          PhraseShelf: true,
           Keyboard: true,
           CodeStripBar: true,
         },
@@ -429,7 +528,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
     const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
-          PatternList: true,
+          PhraseShelf: true,
           Keyboard: true,
           CodeStripBar: true,
         },

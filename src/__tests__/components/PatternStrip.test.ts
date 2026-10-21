@@ -4,7 +4,7 @@ import PatternStrip from "@/components/compounds/PatternStrip.vue";
 import { instrumentIconFor } from "@/components/primatives/instrumentIcon";
 import patternStripSource from "@/components/compounds/PatternStrip.vue?raw";
 import patternReelSource from "@/components/compounds/PatternReel.vue?raw";
-import patternListSource from "@/components/patterns/PatternList.vue?raw";
+import patternListSource from "@/components/patterns/PhraseShelf.vue?raw";
 import stripSpecimenSource from "@/style-guide/compounds/CompoundPatternStrip.vue?raw";
 import reelSpecimenSource from "@/style-guide/compounds/CompoundPatternReel.vue?raw";
 import type { PatternStripItem } from "@/components/compounds/PatternStrip.vue";
@@ -16,16 +16,16 @@ const item: PatternStripItem = {
   instrumentLabel: "Rhodes",
   rootLabel: "F#4",
   spine: "rgb(255, 0, 0)",
-  barTape: [
-    { color: "rgb(255, 0, 0)", durationMs: 100 },
-    { color: "rgb(0, 255, 0)", durationMs: 200 },
+  loopDial: [
+    { color: "rgb(255, 0, 0)", durationMs: 100, height: 54 },
+    { color: "rgb(0, 255, 0)", durationMs: 200, height: 58 },
   ],
   canDelete: true,
   canRename: true,
 };
 
 describe("PatternStrip", () => {
-  it("renders the accepted 51.2px Ink row with spine, top Bar Tape, and actions", () => {
+  it("renders the accepted 51.2px Ink row with spine, inline Loop Dial, and actions", () => {
     const wrapper = mount(PatternStrip, { props: { item } });
 
     expect(wrapper.element.tagName).toBe("ARTICLE");
@@ -35,8 +35,8 @@ describe("PatternStrip", () => {
     expect(wrapper.get(".pattern-strip__identity small").text()).toBe("Rhodes");
     expect(wrapper.get(".pattern-strip__instrument-icon").classes()).toContain("lucide-piano");
     expect(wrapper.get(".pattern-strip__instrument-icon").attributes("aria-hidden")).toBe("true");
-    expect(wrapper.findAll(".bar-tape__segment")).toHaveLength(2);
-    expect(wrapper.find(".pattern-strip__tape").exists()).toBe(true);
+    expect(wrapper.findAll(".loop-dial__arc")).toHaveLength(2);
+    expect(wrapper.find(".pattern-strip__dial").exists()).toBe(true);
     expect(wrapper.findAll(".pattern-strip__actions button").map((button) => (
       button.attributes("aria-label")
     ))).toEqual([
@@ -51,7 +51,7 @@ describe("PatternStrip", () => {
     expect(patternStripSource).toContain("@media (forced-colors: active)");
   });
 
-  it("keeps the 1px Bar Tape present when a strip becomes Current", async () => {
+  it("keeps the Loop Dial present when a strip becomes Current", async () => {
     const wrapper = mount(PatternStrip, {
       props: {
         item: { ...item, copied: true, deleteArmed: true },
@@ -59,18 +59,17 @@ describe("PatternStrip", () => {
       },
     });
 
-    const tapeElement = wrapper.get(".bar-tape").element;
-    expect(wrapper.get(".bar-tape").attributes("aria-hidden")).toBeUndefined();
+    const dialElement = wrapper.get(".loop-dial").element;
+    expect(wrapper.get(".loop-dial").attributes("aria-hidden")).toBeUndefined();
     expect(wrapper.get(".pattern-strip__identity").attributes("aria-label"))
       .toBe("Unwind patterns around Evening Glass, Rhodes, root F#4");
     await wrapper.setProps({ active: false });
-    expect(wrapper.get(".bar-tape").element).toBe(tapeElement);
-    expect(wrapper.get(".bar-tape").attributes("aria-hidden")).toBeUndefined();
+    expect(wrapper.get(".loop-dial").element).toBe(dialElement);
+    expect(wrapper.get(".loop-dial").attributes("aria-hidden")).toBeUndefined();
     expect(patternStripSource).not.toContain('v-if="!active"');
-    expect(patternStripSource).toMatch(
-      /\.pattern-strip__tape\s*{[\s\S]*position: absolute;[\s\S]*inset: 0 0 auto 4px;/,
-    );
-    expect(patternStripSource).not.toContain(".pattern-strip--active .pattern-strip__tape");
+    expect(wrapper.get(".pattern-strip__dial").element.parentElement)
+      .toBe(wrapper.get(".pattern-strip__row").element);
+    expect(patternStripSource).not.toContain(".pattern-strip--active .pattern-strip__dial");
     expect(patternStripSource).not.toContain("transition: opacity");
     expect(wrapper.findAll(".pattern-strip__actions button").map((button) => (
       button.attributes("aria-label")
@@ -79,6 +78,22 @@ describe("PatternStrip", () => {
       "Copied Evening Glass",
       "Open Evening Glass in Strudel",
     ]);
+  });
+
+  it("keeps the dial between the identity editor and actions through rename", async () => {
+    const wrapper = mount(PatternStrip, { props: { item, active: true } });
+    const dial = wrapper.get(".pattern-strip__dial").element;
+    expect(dial.previousElementSibling).toBe(wrapper.get(".pattern-strip__identity").element);
+    expect(dial.nextElementSibling).toBe(wrapper.get(".pattern-strip__actions").element);
+    expect(wrapper.get(".pattern-strip__dial").attributes("aria-label"))
+      .toBe("Evening Glass note timeline");
+    expect(wrapper.get(".pattern-strip__dial").attributes("role")).toBe("img");
+
+    await wrapper.get(".pattern-strip__identity").trigger("keydown", { key: "F2" });
+    expect(wrapper.get(".pattern-strip__dial").element).toBe(dial);
+    expect(dial.previousElementSibling).toBe(wrapper.get(".pattern-strip__rename").element);
+    expect(dial.nextElementSibling).toBe(wrapper.get(".pattern-strip__actions").element);
+    expect(wrapper.findAll(".pattern-strip__actions button")).toHaveLength(3);
   });
 
   it("emits identity and action intent without owning effects", async () => {

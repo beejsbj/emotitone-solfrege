@@ -22,6 +22,7 @@ export type {
   BadgeColor,
   StickerColor,
   StickerMarkPosition,
+  StickerPaper,
   StickerPaperColor,
   StickerPaperVariant,
   StickerProps,

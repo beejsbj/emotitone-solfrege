@@ -4,12 +4,15 @@ import { createPinia, setActivePinia } from "pinia";
 vi.unmock("@/services/music");
 vi.unmock("@/data");
 
+import { useVisualConfigStore } from "@/stores/visualConfig";
 import { useMusicStore } from "@/stores/music";
-import { usePatternsStore } from "@/stores/patterns";
+import { usePhrasesStore } from "@/stores/phrases";
 import { useInstrumentStore } from "@/stores/instrument";
+import * as livePlayback from "@/services/livePlayback";
 import { DEFAULT_INSTRUMENT } from "@/data/instruments";
 
 const superdoughMocks = vi.hoisted(() => ({
+  setStrudelLaBasedMinor: vi.fn(),
   attackNote: vi.fn().mockResolvedValue(undefined),
   releaseNote: vi.fn(),
   stopNote: vi.fn(),
@@ -29,6 +32,7 @@ vi.mock("@/services/superdoughAudio", () => ({
   isPrewarmed: vi.fn().mockReturnValue(true),
   prewarmSoundSamples: vi.fn().mockResolvedValue(undefined),
   getAudioContext: vi.fn(() => superdoughMocks.audioContext),
+  setStrudelLaBasedMinor: superdoughMocks.setStrudelLaBasedMinor,
   emotitoneStrudelOutput: vi.fn(),
   stopStrudelVisuals: vi.fn(),
 }));
@@ -126,9 +130,22 @@ describe("music store", () => {
     });
   });
 
+  it("updates minor labels from the persisted learn preference without changing pitches", async () => {
+    const store = useMusicStore();
+    const display = useVisualConfigStore();
+    store.setKey("A");
+    store.setMode("minor");
+    expect(store.solfegeData.map((note) => note.name)).toEqual(["Do", "Re", "Me", "Fa", "Sol", "Le", "Te"]);
+    display.laBasedMinor = true;
+    expect(store.solfegeData.map((note) => note.name)).toEqual(["La", "Ti", "Do", "Re", "Mi", "Fa", "Sol"]);
+    const id = await store.attackExactPitch("G#4");
+    expect(store.getActiveNotes()[0]).toMatchObject({ noteName: "G#4", solfege: { name: "Si" } });
+    await store.releaseNote(id ?? undefined);
+  });
+
   it("attacks borrowed chord tones through the exact-pitch seam without scale flooring", async () => {
     const musicStore = useMusicStore();
-    const patternsStore = usePatternsStore();
+    const patternsStore = usePhrasesStore();
     const dispatchEventSpy = vi.spyOn(window, "dispatchEvent");
 
     musicStore.setKey("C");
@@ -143,6 +160,7 @@ describe("music store", () => {
     );
     expect(musicStore.getActiveNotes()[0]).toMatchObject({
       noteName: "D#4",
+      solfege: expect.objectContaining({ name: "Me" }),
       solfegeIndex: -1,
       pitchClassIndex: 3,
       octave: 4,
@@ -158,13 +176,13 @@ describe("music store", () => {
       .map(([event]) => event)
       .find((event) => event.type === "note-released") as CustomEvent;
     patternsStore.handleNoteReleased(releasedEvent);
-    expect(patternsStore.loggedNotes[0]).toMatchObject({
+    expect(patternsStore.takeNotes[0]).toMatchObject({
       note: "D#4",
       scaleDegree: 0,
       scaleIndex: -1,
       pitchClassIndex: 3,
       isBorrowed: true,
-      solfege: { name: "D#", number: 0 },
+      // Solfège display data is no longer stored on each recorded note.
     });
     patternsStore.removeEventListeners();
   });
@@ -232,6 +250,29 @@ describe("music store", () => {
     expect(noteReleasedEvent.detail.mode).toBe("chromatic");
     expect(noteReleasedEvent.detail.key).toBe("F#");
     dispatchEventSpy.mockRestore();
+  });
+
+  it("shows the selected instrument's failed rebuild in the warm-up error", () => {
+    let listener!: Parameters<typeof livePlayback.subscribeLivePlayback>[0];
+    const subscribe = vi.spyOn(livePlayback, "subscribeLivePlayback").mockImplementation(next => {
+      listener = next;
+      return () => {};
+    });
+    try {
+      const instrument = useInstrumentStore();
+      instrument.currentInstrument = "gm_violin";
+      useMusicStore();
+      listener.onLoadError?.("gm_violin", "Soundfont refetch failed (offline)");
+      expect(instrument.lastWarmupError).toBe("Soundfont refetch failed (offline)");
+      expect(instrument.lastWarmupErrorInstrument).toBe("gm_violin");
+      instrument.lastWarmupError = null;
+      instrument.lastWarmupErrorInstrument = null;
+      instrument.currentInstrument = "triangle";
+      listener.onLoadError?.("gm_violin", "Another instrument failed");
+      expect(instrument.lastWarmupError).toBeNull();
+    } finally {
+      subscribe.mockRestore();
+    }
   });
 
   it("refuses live note attacks while instrument samples are warming", async () => {

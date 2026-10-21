@@ -108,10 +108,26 @@ export function resolveStageComposition(
   const blobFitScale = fittedExtent / desiredBodyExtent;
   // Double the entire fitted range without feeding that enlargement back into
   // body fitting. The enlarged scope may cross the support orbit.
-  const hilbertRadius = HILBERT_PRESENTATION_SCALE * Math.min(
-    desiredHilbertRadius,
-    defaultHilbertRadius,
-  );
+  // Size maps in two strictly increasing pieces. At and below the default it
+  // scales the accepted radius proportionally, so the default is exactly the
+  // accepted fit. Above the default it interpolates toward half the usable
+  // region's diagonal at the control's maximum, so the top end can still run
+  // a little off the edge (the Stage canvas clips it) without ever running
+  // away. Past the maximum the same slope continues, keeping it monotonic.
+  // On very large near-square regions the default already exceeds the
+  // diagonal; there Size stays proportional (a phone never reaches this).
+  const defaultSize = UNIFIED_CONFIG.hilbertScope.sizeRatio.value;
+  const maxSize = UNIFIED_CONFIG.hilbertScope.sizeRatio.max;
+  const defaultPresentedRadius = HILBERT_PRESENTATION_SCALE * defaultHilbertRadius;
+  const sizeRadius = HILBERT_PRESENTATION_SCALE * desiredHilbertRadius;
+  const diagonalRadius = Math.hypot(width, height) / 2;
+  const sizeAboveDefault = Math.max(0, hilbertSizeRatio) - defaultSize;
+  const hilbertRadius =
+    sizeAboveDefault <= 0 || diagonalRadius <= defaultPresentedRadius
+      ? sizeRadius
+      : defaultPresentedRadius +
+        ((diagonalRadius - defaultPresentedRadius) * sizeAboveDefault) /
+          (maxSize - defaultSize);
 
   return {
     usable: { ...usable, width, height },
@@ -143,20 +159,35 @@ export function projectCircleOfFifths(
   };
 }
 
-export function resolveAmbientLevel(
+export interface AtmosphereBand {
+  /** Half the band's height as a share of the usable Stage's short side. */
+  halfHeight: number;
+  /** 0 in silence (Ink-3 band), 1 once sound fully owns it (pitch colour). */
+  sounding: number;
+}
+
+/**
+ * The Diffused Band's clock: a slow ten-second breath in silence, handing
+ * continuously over to the shared audio envelope once sound plays. The
+ * handover blends below a small envelope so a release never snaps the band
+ * back to silence. Reduced Motion holds the band's height still; only its
+ * colour follows what sounds.
+ */
+export function resolveAtmosphereBand(
   audio: StageAudioFrame,
   elapsedSeconds: number,
   reducedMotion: boolean,
-) {
-  if (reducedMotion) return 0.72;
+): AtmosphereBand {
+  const envelope = Math.max(0, Math.min(1, audio.envelope));
+  const sounding = Math.min(1, envelope / AMBIENT_RELEASE_BLEND_ENVELOPE);
+  if (reducedMotion) return { halfHeight: 0.15, sounding };
   const breath = (Math.sin(elapsedSeconds * Math.PI * 2 / 10 - Math.PI / 2) + 1) / 2;
-  const breathLevel = 0.68 + breath * 0.08;
-  const audioLevel = 0.72 + audio.envelope * 0.28;
-  if (audio.envelope >= AMBIENT_RELEASE_BLEND_ENVELOPE) {
-    return audioLevel;
-  }
-  const releaseBlend = audio.envelope / AMBIENT_RELEASE_BLEND_ENVELOPE;
-  return breathLevel + (audioLevel - breathLevel) * releaseBlend;
+  const silentHalf = 0.14 + breath * 0.012;
+  const soundHalf = 0.15 + envelope * 0.09;
+  return {
+    halfHeight: silentHalf + (soundHalf - silentHalf) * sounding,
+    sounding,
+  };
 }
 
 function modulo(value: number, divisor: number) {

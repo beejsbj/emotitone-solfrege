@@ -11,7 +11,7 @@ import {
 } from "@/services/microphoneCapture";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useMusicStore } from "@/stores/music";
-import { usePatternsStore } from "@/stores/patterns";
+import { usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import type { Shape } from "@/types/instrument";
 import type { ChromaticNote, MusicalMode } from "@/types/music";
@@ -24,10 +24,13 @@ export type HummingCaptureStatus =
   | "analyzing"
   | "error";
 
+export const HUMMING_RECORDING_LIMIT_SECONDS = 60;
+const COUNTDOWN_REFRESH_MS = 250;
+
 export function useHummingCapture() {
   const musicStore = useMusicStore();
   const instrumentStore = useInstrumentStore();
-  const patternsStore = usePatternsStore();
+  const phrasesStore = usePhrasesStore();
   const visualConfigStore = useVisualConfigStore();
   const status = ref<HummingCaptureStatus>("idle");
   const error = ref<string | null>(null);
@@ -35,13 +38,27 @@ export function useHummingCapture() {
   const takeLabels = ref<string[]>([]);
   const selectedTakeIndex = ref(0);
   const importedNoteCount = ref(0);
+  const remainingSeconds = ref(HUMMING_RECORDING_LIMIT_SECONDS);
+  let limitTimer: ReturnType<typeof setTimeout> | null = null;
+  let countdownTimer: ReturnType<typeof setInterval> | null = null;
+
+  function stopWhenHidden() {
+    if (document.visibilityState === "hidden") void stop();
+  }
+
+  function clearRecordingTimers() {
+    document.removeEventListener("visibilitychange", stopWhenHidden);
+    if (limitTimer != null) clearTimeout(limitTimer);
+    if (countdownTimer != null) clearInterval(countdownTimer);
+    limitTimer = null;
+    countdownTimer = null;
+  }
 
   let session: MicrophoneCapture | null = null;
   let pendingRecording: Promise<Blob> | null = null;
   let stageBridge: ReturnType<typeof createHummingStageBridge> | null = null;
   let requestController: AbortController | null = null;
   let generation = 0;
-  let loggedNoteIdsAtCaptureStart = new Set<string>();
   let captureContext: {
     key: ChromaticNote;
     mode: MusicalMode;
@@ -52,10 +69,11 @@ export function useHummingCapture() {
 
   // Live presentation follows the controls; analysis retains the take's starting context.
   const stopContextWatch = watch(
-    () => [musicStore.currentKey, musicStore.currentMode, instrumentStore.currentInstrument],
+    () => [musicStore.currentKey, musicStore.currentMode, instrumentStore.currentInstrument, musicStore.laBasedMinor],
     () => stageBridge?.updateContext({
       key: musicStore.currentKey as ChromaticNote,
       mode: musicStore.currentMode as MusicalMode,
+      laBasedMinor: musicStore.laBasedMinor,
       instrument: instrumentStore.currentInstrument,
     }),
     { flush: "sync" },
@@ -68,7 +86,13 @@ export function useHummingCapture() {
   const canToggle = computed(() => !isBusy.value);
   const statusMessage = computed(() => {
     if (status.value === "requesting") return "Requesting microphone access";
-    if (status.value === "recording") return "Listening to your humming";
+    if (status.value === "recording") {
+      // Keep live-region text stable between the three countdown milestones.
+      if (remainingSeconds.value <= 1) return "1 second left";
+      if (remainingSeconds.value <= 5) return "5 seconds left";
+      if (remainingSeconds.value <= 10) return "10 seconds left — your take saves automatically";
+      return "Listening to your humming (60-second limit)";
+    }
     if (status.value === "preparing") return "Preparing the recording";
     if (status.value === "analyzing") return "Analyzing the phrase";
     if (status.value === "error") return error.value ?? "Humming capture failed";
@@ -88,9 +112,7 @@ export function useHummingCapture() {
     takeLabels.value = [];
     selectedTakeIndex.value = 0;
     status.value = "requesting";
-    loggedNoteIdsAtCaptureStart = new Set(
-      patternsStore.loggedNotes.map((note) => note.id),
-    );
+    remainingSeconds.value = HUMMING_RECORDING_LIMIT_SECONDS;
     captureContext = {
       key: musicStore.currentKey as ChromaticNote,
       mode: musicStore.currentMode as MusicalMode,
@@ -98,7 +120,7 @@ export function useHummingCapture() {
       bpm: visualConfigStore.config.codeStrip.bpm,
       shape: { ...instrumentStore.shape },
     };
-    stageBridge = createHummingStageBridge(captureContext);
+    stageBridge = createHummingStageBridge({ ...captureContext, laBasedMinor: musicStore.laBasedMinor });
 
     try {
       const nextSession = await startMicrophoneCapture(
@@ -115,6 +137,16 @@ export function useHummingCapture() {
       }
       session = nextSession;
       status.value = "recording";
+      const deadline = performance.now() + HUMMING_RECORDING_LIMIT_SECONDS * 1000;
+      countdownTimer = setInterval(() => {
+        remainingSeconds.value = Math.max(0, Math.ceil((deadline - performance.now()) / 1000));
+      }, COUNTDOWN_REFRESH_MS);
+      limitTimer = setTimeout(() => {
+        remainingSeconds.value = 0;
+        void stop();
+      }, HUMMING_RECORDING_LIMIT_SECONDS * 1000);
+      document.addEventListener("visibilitychange", stopWhenHidden);
+      stopWhenHidden();
     } catch (caught) {
       if (generation === activeGeneration) fail(caught);
     }
@@ -122,6 +154,7 @@ export function useHummingCapture() {
 
   async function stop() {
     if (!isRecording.value || !session || !captureContext) return;
+    clearRecordingTimers();
     const activeSession = session;
     const activeGeneration = generation;
     const activeContext = captureContext;
@@ -135,7 +168,7 @@ export function useHummingCapture() {
       const recording = await pendingRecording;
       if (generation !== activeGeneration) return;
       pendingRecording = null;
-      const wav = await preparePitchAnalysisAudio(recording);
+      const wav = await preparePitchAnalysisAudio(recording, HUMMING_RECORDING_LIMIT_SECONDS);
       if (generation !== activeGeneration) return;
 
       status.value = "analyzing";
@@ -153,15 +186,9 @@ export function useHummingCapture() {
         throw new Error("Pitch analysis could not find a stable note in that capture.");
       }
 
-      const importedIds = patternsStore.importPatternCandidates(
-        candidates,
-        activeContext,
-        {
-          workingNotes: patternsStore.loggedNotes.filter(
-            (note) => !loggedNoteIdsAtCaptureStart.has(note.id),
-          ),
-        },
-      );
+      // Notes played during the capture are already in the take; opening
+      // the first capture sends that take to Recent rather than dropping it.
+      const importedIds = phrasesStore.importPhrases(candidates, activeContext);
       takePatternIds.value = importedIds;
       takeLabels.value = candidates.map((candidate) => {
         const takeNumber = candidate.source?.takeNumber;
@@ -193,10 +220,11 @@ export function useHummingCapture() {
     const patternId = takePatternIds.value[index];
     if (!patternId) return;
     selectedTakeIndex.value = index;
-    patternsStore.loadPatternAsBase(patternId, { discardWorkingNotes: true });
+    phrasesStore.openPhrase(patternId);
   }
 
   async function cancel() {
+    clearRecordingTimers();
     const activeGeneration = ++generation;
     requestController?.abort();
     requestController = null;
@@ -213,6 +241,7 @@ export function useHummingCapture() {
   }
 
   function fail(caught: unknown) {
+    clearRecordingTimers();
     stageBridge?.stop();
     stageBridge = null;
     session = null;
@@ -233,6 +262,7 @@ export function useHummingCapture() {
     isRecording,
     canToggle,
     statusMessage,
+    remainingSeconds: readonly(remainingSeconds),
     takeCount: computed(() => takePatternIds.value.length),
     takeLabels: readonly(takeLabels),
     selectedTakeIndex: readonly(selectedTakeIndex),

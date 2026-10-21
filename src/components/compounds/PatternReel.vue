@@ -12,7 +12,7 @@
     tabindex="0"
     role="group"
     :aria-label="resolvedLabel"
-    :aria-roledescription="items.length > 1 ? 'cyclic pattern reel' : undefined"
+    :aria-roledescription="items.length > 1 ? (cyclic ? 'cyclic pattern reel' : 'pattern reel') : undefined"
     :data-stage-occlusion-active="handleGuardActive ? 'true' : undefined"
     @keydown="handleKeydown"
     @wheel="handleWheel"
@@ -52,6 +52,8 @@
           @copy="emit('copy', slot.item.id)"
           @open-strudel="emit('openStrudel', slot.item.id)"
           @rename="emit('rename', slot.item.id, $event)"
+          @keep="emit('keep', slot.item.id)"
+          @load="emit('load', slot.item.id)"
         />
       </div>
     </div>
@@ -81,12 +83,18 @@ export type PatternReelItem = PatternStripItem & {
   presentationKey?: string;
 };
 
+// Unwound rows that take touches (current, -1, -2) are drawn no smaller than a
+// 51.2px strip can hold a counter-scaled 44px touch (scale >= .86), and each
+// row's controls sit at least half a --hit-min (plus a 1px seam) above the
+// next row in front, so no touch is shared with it. The farthest row is a
+// ghost: drawn for context, reached by dragging or the arrow keys.
 const WHEEL_POSITIONS = [
   { y: 0, scale: 1, opacity: 1 },
-  { y: -46.4, scale: .95, opacity: .8 },
-  { y: -78.4, scale: .85, opacity: .48 },
-  { y: -97.6, scale: .72, opacity: .2 },
+  { y: -48, scale: .95, opacity: .8 },
+  { y: -94, scale: .86, opacity: .48 },
+  { y: -114, scale: .72, opacity: .2 },
 ];
+const GHOST_SLOT = -3;
 const DECK_POSITIONS = [
   { y: 0, scale: 1, opacity: 1 },
   { y: -14.4, scale: .997, opacity: .92 },
@@ -99,6 +107,7 @@ const WHEEL_UNWIND_DISTANCE = 28.8;
 const WHEEL_SETTLE_DURATION_MS = 220;
 const WHEEL_OPEN_HOLD_MS = 900;
 const WHEEL_REBOUND_DURATION_MS = 200;
+const MAX_FLICK_STEPS = 5;
 const DEFAULT_REEL_LABEL = "Pattern reel. Use up and down arrows to change the selected pattern.";
 
 const props = withDefaults(defineProps<{
@@ -107,10 +116,13 @@ const props = withDefaults(defineProps<{
   disabled?: boolean;
   label?: string;
   entrySignal?: number;
+  /** Wrap from the last item to the first. Linear reels stop at both ends. */
+  cyclic?: boolean;
 }>(), {
   disabled: false,
   label: DEFAULT_REEL_LABEL,
   entrySignal: 0,
+  cyclic: true,
 });
 
 const emit = defineEmits<{
@@ -119,6 +131,8 @@ const emit = defineEmits<{
   copy: [id: string];
   openStrudel: [id: string];
   rename: [id: string, name: string];
+  keep: [id: string];
+  load: [id: string];
   interactionChange: [active: boolean];
 }>();
 
@@ -196,12 +210,28 @@ watch(
 
 function wrapIndex(index: number) {
   if (!props.items.length) return 0;
+  if (!props.cyclic) return Math.max(0, Math.min(props.items.length - 1, index));
   return ((index % props.items.length) + props.items.length) % props.items.length;
+}
+
+/** Linear reels resist travel past either end instead of wrapping. */
+function isAtLinearEnd(direction: number) {
+  if (props.cyclic) return false;
+  return direction < 0
+    ? selectedIndex.value <= 0
+    : selectedIndex.value >= props.items.length - 1;
 }
 
 function slotForIndex(itemIndex: number) {
   const count = props.items.length;
   if (!count) return null;
+
+  if (!props.cyclic) {
+    const distance = displayIndex.value - itemIndex;
+    if (distance === 0) return 0;
+    if (distance > 0 && distance <= 3) return -distance;
+    return distance === -1 ? 1 : null;
+  }
 
   const backward = (displayIndex.value - itemIndex + count) % count;
   if (backward === 0) return 0;
@@ -219,7 +249,7 @@ function presentationKey(item: PatternReelItem) {
 }
 
 const renderedSlots = computed(() => {
-  const stagesShortIncoming = props.items.length > 1 && props.items.length <= 4;
+  const stagesShortIncoming = props.cyclic && props.items.length > 1 && props.items.length <= 4;
   const incoming = stagesShortIncoming
     ? props.items[wrapIndex(displayIndex.value + 1)]
     : undefined;
@@ -303,13 +333,15 @@ function isCommittedCurrent(id: string) {
 function isSlotUnavailable(slot: number, id: string) {
   const stagedForwardSlot = slot === 1 && !isActiveSlot(slot, id);
   const recedingShortDuplicate = slot < 0
+    && props.cyclic
     && dragging.value
     && dragProgress.value > 0
     && props.items.length <= 4
     && props.items[wrapIndex(displayIndex.value + 1)]?.id === id
     && isActivePreview(id);
   const collapsedPredecessor = slot < 0 && unwindProgress.value === 0;
-  return stagedForwardSlot || recedingShortDuplicate || collapsedPredecessor;
+  const ghost = slot <= GHOST_SLOT;
+  return stagedForwardSlot || recedingShortDuplicate || collapsedPredecessor || ghost;
 }
 
 function slotStyle(slot: number, id: string): CSSProperties {
@@ -542,7 +574,13 @@ function handleDelete(id: string) {
     && id === props.selectedId
     && props.items.length > 1
   ) {
-    commitIndex(deletedIndex - 1, "tap");
+    // A linear reel steps toward the front (newer), so deleting one of your
+    // phrases lands on another of yours. Deleting the front item itself stays
+    // put: the owner replaces it (e.g. with a blank take) without loading
+    // a neighbour.
+    const isFront = deletedIndex === props.items.length - 1;
+    if (props.cyclic) commitIndex(deletedIndex - 1, "tap");
+    else if (!isFront) commitIndex(deletedIndex + 1, "tap");
   }
   emit("delete", id);
   if (!shouldRestoreFocus) return;
@@ -628,7 +666,9 @@ function handlePointerMove(event: PointerEvent) {
   event.preventDefault();
 
   const maxTravel = WHEEL_STEP * 1.45;
-  dragDistance.value = Math.max(-maxTravel, Math.min(maxTravel, delta));
+  // Dragging down reaches back (lower index); up comes forward.
+  const resisted = isAtLinearEnd(delta > 0 ? -1 : 1) ? delta * .2 : delta;
+  dragDistance.value = Math.max(-maxTravel, Math.min(maxTravel, resisted));
 }
 
 function finishPointer(event: PointerEvent, cancelled = false) {
@@ -673,7 +713,11 @@ function finishPointer(event: PointerEvent, cancelled = false) {
   }
 
   const direction = projectedDelta > 0 ? -1 : 1;
-  commitIndex(selectedIndex.value + direction, "drag");
+  // A linear reel travels as far as you throw it; only where it lands commits.
+  const steps = props.cyclic
+    ? 1
+    : Math.max(1, Math.min(MAX_FLICK_STEPS, Math.round(Math.abs(projectedDelta) / WHEEL_STEP)));
+  commitIndex(selectedIndex.value + direction * steps, "drag");
 }
 
 function handlePointerUp(event: PointerEvent) {
@@ -838,6 +882,16 @@ onBeforeUnmount(() => {
     transform var(--settle-duration) var(--settle-easing),
     opacity var(--settle-duration) var(--settle-opacity-easing);
   will-change: transform, opacity;
+}
+
+/* A row drawn smaller keeps full-size touches: each touch layer is scaled
+   back up by its row's scale. Identity rows grow only in height. */
+.pattern-reel__slot :deep(.paper-button.touch-floor::before) {
+  scale: calc(1 / var(--slot-scale));
+}
+
+.pattern-reel__slot :deep(.pattern-strip__identity.touch-floor::before) {
+  scale: 1 calc(1 / var(--slot-scale));
 }
 
 .pattern-reel__slot--active {

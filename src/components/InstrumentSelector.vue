@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import { useInstrumentStore } from "@/stores/instrument";
-import { getRegisteredSounds } from "@/services/superdoughAudio";
+import { ensureSoundfontCatalog, getRegisteredSounds } from "@/services/superdoughAudio";
 import Button from "@/components/primatives/Button.vue";
 import Sticker from "@/components/primatives/Sticker";
 import OverlayPanelHeader from "@/components/OverlayPanelHeader.vue";
+import "./panelHeading.css";
 import TabbedOverlayPanel, {
   type TabbedOverlayTab,
 } from "./TabbedOverlayPanel.vue";
@@ -32,6 +33,9 @@ interface Props {
   onClose?: () => void;
   compact?: boolean;
   floating?: boolean;
+  embedded?: boolean;
+  close?: () => void;
+  drawerSession?: { showPanel: boolean; openSession: number };
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -42,7 +46,10 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   "select-instrument": [instrumentId: string];
   close: [];
+  "content-height": [height: number];
 }>();
+
+watch(drawerContentHeight, height => { if (height !== undefined) emit("content-height", height); });
 
 const instrumentStore = useInstrumentStore();
 const currentInstrumentId = computed(
@@ -163,6 +170,7 @@ function syncActiveTabToInstrument(instrumentId: string) {
 onMounted(async () => {
   try {
     await instrumentStore.initializeInstruments();
+    await ensureSoundfontCatalog();
   } catch {
     // The global loading flow already reports degraded initialization. Keep
     // the chooser usable for whatever sounds were registered successfully.
@@ -311,7 +319,7 @@ function closeSelector(close: () => void) {
 
 async function selectInstrument(name: string, close: () => void) {
   const selection = ++selectionGeneration;
-  const panelSession = topDrawerRef.value?.openSession;
+  const panelSession = (props.drawerSession ?? topDrawerRef.value)?.openSession;
   emit("select-instrument", name);
 
   if (!useStoreAudioFlow.value) {
@@ -325,7 +333,7 @@ async function selectInstrument(name: string, close: () => void) {
     return;
   }
 
-  const drawer = topDrawerRef.value;
+  const drawer = props.drawerSession ?? topDrawerRef.value;
   if (
     panelSession !== undefined &&
     drawer &&
@@ -342,6 +350,8 @@ async function selectInstrument(name: string, close: () => void) {
   <TopDrawer
     ref="topDrawerRef"
     anchor="top-left"
+    :embedded="embedded"
+    :close="props.close"
     :content-height="drawerContentHeight"
     aria-label="Instrument"
     :handle-label="displayInstrumentName(currentInstrumentId)"
@@ -393,15 +403,15 @@ async function selectInstrument(name: string, close: () => void) {
         <template #toolbar>
           <div v-if="activeTab !== 'shape'" class="flex items-center gap-2">
             <label
-              class="flex flex-1 items-center gap-2 border-b border-[var(--ink-5)] px-0.5 pb-2 pt-0.5 text-[var(--ivory-3)] transition-colors focus-within:border-[var(--ivory-2)] focus-within:text-[var(--ivory)]"
+              class="touch-floor touch-floor--block flex flex-1 items-center gap-2 border-b border-[var(--ink-5)] px-0.5 pb-2 pt-0.5 text-[var(--ivory-3)] transition-colors focus-within:border-[var(--ivory-2)] focus-within:text-[var(--ivory)]"
             >
-              <Search :size="14" class="text-neutral-500" />
+              <Search :size="14" class="text-[var(--ivory-3)]" />
               <input
                 v-model="query"
                 data-testid="instrument-search"
                 type="text"
                 placeholder="search sounds"
-                class="w-full bg-transparent text-[10px] text-white placeholder:text-neutral-600 focus:outline-none"
+                class="relative z-[1] w-full bg-transparent text-[length:var(--input-text-min)] text-[var(--ivory)] placeholder:text-[var(--ivory-4)] focus:outline-none"
                 autocomplete="off"
                 autocorrect="off"
                 spellcheck="false"
@@ -409,7 +419,7 @@ async function selectInstrument(name: string, close: () => void) {
             </label>
 
             <span
-              class="hidden h-8 shrink-0 items-center border border-[#3b3b3b] bg-[#141414] px-2 text-[8px] font-mono uppercase tracking-[0.14em] text-[#dfdfdf] [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)] sm:inline-flex"
+              class="hidden h-8 shrink-0 items-center border border-[var(--ink-5)] bg-[var(--ink-2)] px-2 text-[8px] font-mono uppercase tracking-[0.14em] text-[var(--ivory-2)] [clip-path:polygon(12%_0,100%_0,88%_100%,0_100%)] sm:inline-flex"
             >
               {{ displayInstrumentName(currentInstrumentId) }}
             </span>
@@ -423,14 +433,14 @@ async function selectInstrument(name: string, close: () => void) {
             data-testid="instrument-warmup-banner"
             role="status"
             aria-live="polite"
-            class="flex items-center justify-between gap-3 border border-[#5d5d5d] bg-[#1b1b1b] px-3 py-2 text-[9px] uppercase tracking-[0.18em] text-[#e6e6e6] [clip-path:polygon(0_8px,8px_0,100%_0,100%_calc(100%-8px),calc(100%-8px)_100%,0_100%)]"
+            class="flex items-center justify-between gap-3 border border-[var(--ivory-4)] bg-[var(--ink-3)] px-3 py-2 text-[9px] uppercase tracking-[0.18em] text-[var(--ivory)] [clip-path:polygon(0_8px,8px_0,100%_0,100%_calc(100%-8px),calc(100%-8px)_100%,0_100%)]"
           >
             <span class="truncate">
               {{ warmupStatusMessage }}
             </span>
             <span class="relative h-3 w-3 shrink-0" aria-hidden="true">
-              <span class="absolute inset-0 rounded-full border border-white/20" />
-              <span class="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-r-white border-t-neutral-400 motion-reduce:animate-none" />
+              <span class="absolute inset-0 rounded-full border border-[color-mix(in_srgb,var(--ivory)_20%,transparent)]" />
+              <span class="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-r-[var(--ivory)] border-t-[var(--ivory-3)] motion-reduce:animate-none" />
             </span>
           </div>
 
@@ -472,21 +482,21 @@ async function selectInstrument(name: string, close: () => void) {
 
           <div
             v-else-if="!allSounds.length"
-            class="border border-dashed border-[#3a3a3a] bg-[#121212] px-4 py-5 text-center text-[10px] italic text-neutral-500 [clip-path:polygon(0_10px,10px_0,100%_0,100%_calc(100%-10px),calc(100%-10px)_100%,0_100%)]"
+            class="border border-dashed border-[var(--ink-5)] bg-[var(--ink-2)] px-4 py-5 text-center text-[10px] italic text-[var(--ivory-3)] [clip-path:polygon(0_10px,10px_0,100%_0,100%_calc(100%-10px),calc(100%-10px)_100%,0_100%)]"
           >
             loading sounds…
           </div>
 
           <div
             v-else-if="!filteredSounds.length"
-            class="border border-dashed border-[#3a3a3a] bg-[#121212] px-4 py-5 text-center text-[10px] italic text-neutral-500 [clip-path:polygon(0_10px,10px_0,100%_0,100%_calc(100%-10px),calc(100%-10px)_100%,0_100%)]"
+            class="border border-dashed border-[var(--ink-5)] bg-[var(--ink-2)] px-4 py-5 text-center text-[10px] italic text-[var(--ivory-3)] [clip-path:polygon(0_10px,10px_0,100%_0,100%_calc(100%-10px),calc(100%-10px)_100%,0_100%)]"
           >
             no matches for "{{ query }}"
           </div>
 
           <div
             v-else-if="!orderedGroupsFor(panelTab).length"
-            class="border border-dashed border-[#3a3a3a] bg-[#121212] px-4 py-5 text-center text-[10px] italic text-neutral-500 [clip-path:polygon(0_10px,10px_0,100%_0,100%_calc(100%-10px),calc(100%-10px)_100%,0_100%)]"
+            class="border border-dashed border-[var(--ink-5)] bg-[var(--ink-2)] px-4 py-5 text-center text-[10px] italic text-[var(--ivory-3)] [clip-path:polygon(0_10px,10px_0,100%_0,100%_calc(100%-10px),calc(100%-10px)_100%,0_100%)]"
           >
             no sounds in this bank yet.
           </div>
@@ -498,7 +508,7 @@ async function selectInstrument(name: string, close: () => void) {
               class="instrument-group"
             >
               <div class="instrument-group__heading">
-                <span>{{ group.label }}</span>
+                <span class="panel-heading panel-heading--tape">{{ group.label }}</span>
                 <span>{{ group.sounds.length }}</span>
               </div>
 
@@ -577,7 +587,6 @@ async function selectInstrument(name: string, close: () => void) {
   align-items: center;
   justify-content: space-between;
   gap: .75rem;
-  border-bottom: 1px solid var(--ivory-4);
   padding: 0 .125rem .5rem;
   color: var(--ivory-3);
   font-family: var(--font-mono);
@@ -590,13 +599,16 @@ async function selectInstrument(name: string, close: () => void) {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: .625rem .75rem;
+  /* Rows of choices touch edge to edge: each choice's own --hit-min height is
+     the row spacing. */
+  gap: 0 .75rem;
   padding: .875rem .125rem .125rem;
 }
 
 .instrument-choice {
   min-width: 0;
   max-width: 100%;
+  min-block-size: var(--hit-min);
   border: 0;
   background: transparent;
   padding: .125rem;
@@ -634,7 +646,7 @@ async function selectInstrument(name: string, close: () => void) {
 
 @media (max-width: 460px) {
   .sound-shape__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .instrument-group__choices { gap: .5625rem .5rem; }
+  .instrument-group__choices { column-gap: .5rem; }
   .instrument-choice__sticker { font-size: 12px; }
 }
 </style>

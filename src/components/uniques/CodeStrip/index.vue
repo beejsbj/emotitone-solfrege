@@ -2,7 +2,6 @@
 export type {
   CodeStripChordToken,
   CodeStripDensity,
-  CodeStripDurationMode,
   CodeStripGlyph,
   CodeStripNote,
   CodeStripNoteToken,
@@ -11,22 +10,18 @@ export type {
 </script>
 
 <script setup lang="ts">
-import { EditorState, StateEffect } from "@codemirror/state";
-import { EditorView } from "@codemirror/view";
 import {
-  createPatternEditor,
-  disposePatternEditor,
-  type PatternEditor as StrudelMirrorInstance,
-} from "@/services/patternPlayback";
+  createPatternPlayer,
+  setProductionPatternPlayer,
+  type PatternPlayer,
+  type PatternRequest,
+} from "@/services/patternTransport";
 import {
   computed,
-  getCurrentInstance,
   markRaw,
-  nextTick,
   onBeforeUnmount,
   onMounted,
   ref,
-  shallowRef,
   watch,
 } from "vue";
 import { toStrudelSound } from "@/composables/useStrudel";
@@ -38,33 +33,25 @@ import {
 } from "@/components/primatives/noteColorContext";
 import { useMusicColorClock } from "@/composables/useMusicColorClock";
 import { CodeStripViewport } from "./viewport";
-import { createNativeCodeStripReveal } from "./nativeReveal";
 import {
-  generatedStrudelBarPosition,
-  uiBeatClock,
-} from "@/composables/useUIBeat";
-import {
+  ensureSoundfontCatalog,
   getAudioContext,
-  stopStrudelVisuals,
+  getSuperdoughMasterGain,
+  initSuperdoughAudio,
 } from "@/services/superdoughAudio";
-import { logNotesToStrudel } from "@/services/StrudelNotation";
+import { renderStrudelNotation, type StrudelConfig } from "@/services/StrudelNotation";
+import { createHeardClock } from "@/services/heardClock";
 import { useInstrumentStore } from "@/stores/instrument";
-import { usePatternsStore } from "@/stores/patterns";
+import { useLooperStore } from "@/stores/looper";
+import { usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import type { LogNote } from "@/types/patterns";
+import type { SpannedNotation } from "@/types/notation";
+import HighlightStrip from "./HighlightStrip.vue";
 import { buildRecordedCodeStripTokens } from "./recordingTokens";
-import {
-  applySpecimenPlayback,
-  codeStripStrudelExtensionWithPresentation,
-  parseCodeStripEvents,
-  serializeCodeStripTokens,
-  setCodeStripPlaying,
-  updateCodeStripPresentation,
-  type CodeStripPresentation,
-} from "./strudelExtension";
+import { serializeCodeStripTokens } from "./serialize";
 import type {
   CodeStripDensity,
-  CodeStripDurationMode,
   CodeStripToken,
 } from "./types";
 
@@ -74,7 +61,6 @@ const props = withDefaults(
     tokens?: CodeStripToken[];
     source?: string;
     density?: CodeStripDensity;
-    durationMode?: CodeStripDurationMode;
     timeSignature?: string;
     wrapped?: boolean;
     scrollable?: boolean;
@@ -87,13 +73,12 @@ const props = withDefaults(
     tokens: undefined,
     source: undefined,
     density: "default",
-    durationMode: "bar",
     timeSignature: "4/4",
     wrapped: false,
     scrollable: true,
     showChevron: true,
     framed: true,
-    ariaLabel: "Editable Strudel pattern",
+    ariaLabel: "Pattern code, read-only",
   },
 );
 
@@ -105,7 +90,8 @@ const isControlled = computed(() => isControlledUsage);
 function createProductionWiring() {
   return {
     instrumentStore: useInstrumentStore(),
-    patternsStore: usePatternsStore(),
+    phrasesStore: usePhrasesStore(),
+    looperStore: useLooperStore(),
     visualConfigStore: useVisualConfigStore(),
     playback: useCodeStripStrudel(),
   };
@@ -124,14 +110,13 @@ const controlledPlayback: PlaybackWiring = {
   isPlaying: ref(false),
 };
 const productionWiring = isControlledUsage ? undefined : createProductionWiring();
-const appContext = getCurrentInstance()?.appContext;
-const viewport = new CodeStripViewport();
+const viewport = productionWiring ? new CodeStripViewport() : undefined;
 const stillColorResolver = productionWiring
   ? createStaticNoteColorResolver(() => productionWiring.visualConfigStore.config.dynamicColors)
   : staticNoteColorResolver;
-// Share the production Music Color clock, but subscribe only while the editor
+// Share the production Music Color clock, but subscribe only while the strip
 // has a visible glyph. The viewport owner gates each glyph's phase reads too.
-const colorClock = productionWiring ? useMusicColorClock(
+const colorClock = productionWiring && viewport ? useMusicColorClock(
   () => viewport.visibleCount.value > 0 &&
     productionWiring.visualConfigStore.config.dynamicColors.hueMotionEnabled,
   () => productionWiring.visualConfigStore.config.dynamicColors.animationSpeed,
@@ -150,66 +135,30 @@ const {
   syncCode,
   setPlaying,
   setError,
-  isPlaying,
 } = productionWiring?.playback ?? controlledPlayback;
 
-const editorRoot = ref<HTMLElement | null>(null);
 const initError = ref<string | null>(null);
-const isBooting = ref(true);
 const visibleCode = ref("");
-// Stateful third-party editor classes must retain their own object identity.
-// StrudelMirror also keeps a separate runtime code cache, reconciled from the
-// visible EditorView document immediately before evaluation below.
-const mirror = shallowRef<StrudelMirrorInstance | null>(null);
-let controlledView: EditorView | null = null;
-const nativeReveal = createNativeCodeStripReveal(activeView);
-const recordingFollowMeasureKey = {};
-let recordingFollowGeneration = 0;
+// Play turns the strip to Ink at once, before the transport confirms.
+const stripPlaying = ref(false);
+// Play is the loop: while the desk's pattern sounds in the Looper, the strip
+// follows it, lighting only that member's notes while the others sound.
+const looperMemberId = computed(() => productionWiring?.looperStore.deskMemberId ?? null);
+const followsLooper = computed(() => !stripPlaying.value && looperMemberId.value !== null);
+// The highlight is timed on what is heard, so it stops while audio does.
+const heardClock = createHeardClock();
+let player: PatternPlayer | null = null;
 let attachedController: Parameters<typeof detachEditor>[0] | undefined;
-let followLoopFrame: number | null = null;
-let followTargetScrollLeft = 0;
-let followScroller: HTMLElement | null = null;
-let followLastFrameTime: number | null = null;
-let followPlaybackActive = false;
-let presentationSyncQueued = false;
-let presentationSyncCancelled = false;
-let pendingGeneratedCode: string | undefined;
-let pendingPreserveUIBeat = false;
-interface ActiveUIBeatRun {
-  generation: number;
-  mappingAvailable: boolean;
-  phaseSourceKey: string | null;
-  bpm: number;
-  beatsPerBar: number;
-  preservePhase: boolean;
-  ready: boolean;
-  failed: boolean;
-  error: unknown;
-}
+// Every Play and Stop moves this; a Play superseded while it prepares is dropped.
+let playEpoch = 0;
 
-let activeUIBeatRun: ActiveUIBeatRun | null = null;
-let evaluatingUIBeatRun: ActiveUIBeatRun | null = null;
-let evaluationQueue: Promise<unknown> = Promise.resolve();
-let evaluationEpoch = 0;
-let preserveUIBeatPhaseForNextEvaluation = false;
-let preserveUIBeatDuringCodeSync = false;
-let tempoEvaluationQueued = false;
-let uiBeatAudioContext: AudioContext | null = null;
-
-const FOLLOW_TIME_CONSTANT_MS = 150;
-const RECORDING_FOLLOW_ANCHOR = 0.75;
 const GENERATED_BEATS_PER_BAR = 4;
-
-function invalidateQueuedEvaluations() {
-  evaluationEpoch += 1;
-}
 
 const controlledCodeStripConfig = {
   enabled: true,
   opacity: 1,
   bpm: 120,
   notation: "solfege",
-  durationMode: "bar",
   showRests: true,
 } as const;
 const controlledKeyboardConfig = {
@@ -227,26 +176,25 @@ const controlledSketchMeta = {
 const codeStripConfig = computed(() =>
   productionWiring?.visualConfigStore.config.codeStrip ?? controlledCodeStripConfig
 );
-const resolvedDurationMode = computed(() =>
-  isControlled.value ? props.durationMode : codeStripConfig.value.durationMode
-);
 const keyboardConfig = computed(() =>
   productionWiring?.visualConfigStore.config.keyboard ?? controlledKeyboardConfig
 );
 const sketchMeta = computed(() =>
-  productionWiring?.patternsStore.currentSketchMeta ?? controlledSketchMeta
+  productionWiring?.phrasesStore.takeContext ?? controlledSketchMeta
 );
 const barMs = computed(() => (60000 / sketchMeta.value.bpm) * 4);
 const recordedTokens = computed(() => {
-  const patternsStore = productionWiring?.patternsStore;
-  if (!patternsStore) return [];
+  const phrasesStore = productionWiring?.phrasesStore;
+  if (!phrasesStore) return [];
   return buildRecordedCodeStripTokens({
-    notes: patternsStore.isStripCleared ? [] : patternsStore.currentSketchNotes,
+    notes: phrasesStore.takeNotes,
     mode: sketchMeta.value.mode,
     musicKey: sketchMeta.value.key,
     notation: codeStripConfig.value.notation,
+    laBasedMinor: productionWiring?.visualConfigStore.laBasedMinor,
     barMs: barMs.value,
     sourceBpm: sketchMeta.value.bpm,
+    durationMs: phrasesStore.takeDuration,
     surfaceStyle: keyboardConfig.value.surfaceStyle,
     keyBrightness: keyboardConfig.value.keyBrightness,
     keySaturation: keyboardConfig.value.keySaturation,
@@ -254,685 +202,160 @@ const recordedTokens = computed(() => {
 });
 const presentationTokens = computed(() => props.tokens ?? recordedTokens.value);
 
-const generatedCode = computed(() => {
+/** The export configuration: what the strip shows and what the transport plays. */
+const notationConfig = computed<Partial<StrudelConfig>>(() => ({
+  bpm: codeStripConfig.value.bpm,
+  sourceBpm: sketchMeta.value.bpm,
+  notationType: codeStripConfig.value.notation === "note" ? "absolute" : "relative",
+  scaleKey: sketchMeta.value.key,
+  scaleMode: sketchMeta.value.mode,
+  scaleOctave: keyboardConfig.value.mainOctave,
+  patternDurationMs: productionWiring?.phrasesStore.takeDuration,
+  sound: toStrudelSound(sketchMeta.value.instrument ?? "triangle"),
+  // The pattern's own Shape, not the live knobs.
+  shape: productionWiring?.phrasesStore.takeContext.shape,
+  inline: true,
+}));
+
+const generatedNotation = computed<SpannedNotation>(() => {
   if (isControlled.value) {
     if (props.source !== undefined) {
-      return props.source.trim() ? props.source : EMPTY_EDITOR_CODE;
+      return { code: props.source.trim() ? props.source : EMPTY_EDITOR_CODE, spans: [] };
     }
-    return props.tokens?.length
-      ? serializeCodeStripTokens(props.tokens)
-      : EMPTY_EDITOR_CODE;
-  }
-
-  const patternsStore = productionWiring!.patternsStore;
-  if (patternsStore.isStripCleared || !patternsStore.currentSketchNotes.length) {
-    return EMPTY_EDITOR_CODE;
-  }
-
-  const sound = toStrudelSound(sketchMeta.value.instrument ?? "triangle");
-  return logNotesToStrudel(patternsStore.currentSketchNotes as LogNote[], {
-    bpm: codeStripConfig.value.bpm,
-    sourceBpm: sketchMeta.value.bpm,
-    notationType: codeStripConfig.value.notation === "note" ? "absolute" : "relative",
-    scaleKey: sketchMeta.value.key,
-    scaleMode: sketchMeta.value.mode,
-    scaleOctave: keyboardConfig.value.mainOctave,
-    patternDurationMs: patternsStore.currentSketchDuration,
-    sound,
-    // The pattern's own Shape, not the live knobs.
-    shape: patternsStore.currentSketchMeta.shape,
-  }).replace(/\s+/g, " ").trim();
-});
-const generatedPhaseSourceKey = computed(() => {
-  const code = generatedCode.value.trim();
-  const tempoSuffix = `.cpm(${codeStripConfig.value.bpm} / ${GENERATED_BEATS_PER_BAR})`;
-  // Only the canonical generated playback-tempo suffix is phase-neutral.
-  // Notes, durations, scale, instrument and any other source must still match.
-  return code.endsWith(tempoSuffix) ? code.slice(0, -tempoSuffix.length) : null;
-});
-const isEmptyDocument = computed(
-  () => (visibleCode.value || generatedCode.value).trim() === EMPTY_EDITOR_CODE,
-);
-
-const hostClasses = computed(() => [
-  "code-strip",
-  `code-strip--${props.density}`,
-  { "code-strip--wrapped": props.wrapped },
-  { "code-strip--scrollable": props.scrollable },
-  { "code-strip--unframed": !props.framed },
-  { "code-strip--empty": isEmptyDocument.value },
-  { "code-strip--playing": isPlaying.value },
-]);
-
-function getMirrorView(instance: StrudelMirrorInstance | null) {
-  return (instance?.editor ?? instance?.view) as EditorView | undefined;
-}
-
-function activeView() {
-  return controlledView ?? getMirrorView(mirror.value);
-}
-
-function getMirrorCode(instance: StrudelMirrorInstance | null) {
-  return getMirrorView(instance)?.state.doc.toString() ?? instance?.code ?? "";
-}
-
-function armUIBeatForEvaluation(
-  instance: StrudelMirrorInstance,
-  preservePhase: boolean,
-) {
-  const currentDocument = getMirrorCode(instance).trim();
-  const mappingAvailable =
-    !isControlled.value &&
-    currentDocument !== EMPTY_EDITOR_CODE &&
-    currentDocument === generatedCode.value.trim();
-  const bpm = codeStripConfig.value.bpm;
-  const phaseSourceKey = mappingAvailable ? generatedPhaseSourceKey.value : null;
-  const currentRun = activeUIBeatRun;
-  const currentSnapshot = uiBeatClock.snapshot;
-  const canPreservePhase =
-    preservePhase &&
-    mappingAvailable &&
-    currentRun?.ready === true &&
-    currentRun.mappingAvailable &&
-    phaseSourceKey !== null &&
-    currentRun.phaseSourceKey === phaseSourceKey &&
-    currentSnapshot.generation === currentRun.generation &&
-    currentSnapshot.status === "running" &&
-    currentSnapshot.barPosition !== null &&
-    typeof instance.repl?.scheduler?.setCps === "function";
-
-  if (mappingAvailable && typeof instance.repl?.scheduler?.setCps === "function") {
-    const generatedBarCps = bpm / GENERATED_BEATS_PER_BAR / 60;
-    instance.repl.scheduler.setCps(generatedBarCps);
-  }
-
-  if (canPreservePhase && currentRun) {
-    currentRun.bpm = bpm;
-    uiBeatClock.retime(currentRun.generation, bpm);
-    observeUIBeatAudioContext();
     return {
-      generation: currentRun.generation,
-      mappingAvailable,
-      phaseSourceKey,
-      bpm,
-      beatsPerBar: GENERATED_BEATS_PER_BAR,
-      preservePhase: true,
-      ready: false,
-      failed: false,
-      error: undefined,
-    } satisfies ActiveUIBeatRun;
+      code: props.tokens?.length ? serializeCodeStripTokens(props.tokens) : EMPTY_EDITOR_CODE,
+      spans: [],
+    };
   }
 
-  const generation = uiBeatClock.arm({
-    mappingAvailable,
-    bpm: mappingAvailable ? bpm : undefined,
-    meter: mappingAvailable
-      ? { beatsPerBar: GENERATED_BEATS_PER_BAR, beatUnit: 4 }
-      : undefined,
-  });
+  const phrasesStore = productionWiring!.phrasesStore;
+  if (!phrasesStore.takeNotes.length) {
+    return { code: EMPTY_EDITOR_CODE, spans: [] };
+  }
+  return renderStrudelNotation(phrasesStore.takeNotes as LogNote[], notationConfig.value);
+});
+const generatedCode = computed(() => generatedNotation.value.code);
 
-  activeUIBeatRun = {
-    generation,
-    mappingAvailable,
-    phaseSourceKey,
-    bpm,
-    beatsPerBar: GENERATED_BEATS_PER_BAR,
-    preservePhase: false,
-    ready: false,
-    failed: false,
-    error: undefined,
+/** The take as the transport plays it, from the same notes and configuration. */
+function patternRequest(): PatternRequest | null {
+  const wiring = productionWiring;
+  if (!wiring || !wiring.phrasesStore.takeNotes.length) return null;
+  return {
+    id: wiring.phrasesStore.takeId,
+    notes: wiring.phrasesStore.takeNotes as LogNote[],
+    config: notationConfig.value,
+    instrument: sketchMeta.value.instrument ?? "triangle",
+    key: sketchMeta.value.key,
+    mode: sketchMeta.value.mode,
+    laBasedMinor: wiring.visualConfigStore.laBasedMinor,
+    bpm: codeStripConfig.value.bpm,
   };
-  observeUIBeatAudioContext();
-  return activeUIBeatRun;
 }
 
-function publishUIBeatFrame(instance: StrudelMirrorInstance, rawPosition: number) {
-  const run = activeUIBeatRun;
-  if (!run?.ready) return;
-
-  if (uiBeatAudioContext?.state !== "running") {
-    uiBeatClock.suspend(run.generation);
-    return;
-  }
-
-  const schedulerCps = instance.repl?.scheduler?.cps;
-  const barPosition = run.mappingAvailable && typeof schedulerCps === "number"
-    ? generatedStrudelBarPosition(
-        rawPosition,
-        run.bpm,
-        run.beatsPerBar,
-        schedulerCps,
-      )
-    : null;
-
-  uiBeatClock.publish(run.generation, {
-    rawPosition,
-    barPosition: barPosition ?? undefined,
-  });
+function stopPlayback() {
+  playEpoch += 1;
+  stripPlaying.value = false;
+  player?.stop();
+  setPlaying(false);
 }
 
-function stopUIBeatRun(expectedGeneration?: number) {
-  if (!activeUIBeatRun) return;
-  if (
-    expectedGeneration !== undefined &&
-    activeUIBeatRun.generation !== expectedGeneration
-  ) {
-    return;
-  }
-  uiBeatClock.stop(activeUIBeatRun.generation);
-  activeUIBeatRun = null;
-}
-
-function handleUIBeatAudioState() {
-  const run = activeUIBeatRun;
-  if (!run || !uiBeatAudioContext) return;
-
-  if (uiBeatAudioContext.state === "closed") {
-    stopUIBeatRun();
-  } else if (uiBeatAudioContext.state !== "running") {
-    uiBeatClock.suspend(run.generation);
-  }
-}
-
-function observeUIBeatAudioContext() {
-  const audioContext = getAudioContext();
-  if (audioContext === uiBeatAudioContext) {
-    handleUIBeatAudioState();
-    return;
-  }
-
-  uiBeatAudioContext?.removeEventListener("statechange", handleUIBeatAudioState);
-  uiBeatAudioContext = audioContext;
-  uiBeatAudioContext.addEventListener("statechange", handleUIBeatAudioState);
-  handleUIBeatAudioState();
-}
-
-function releaseUIBeatAudioContext() {
-  uiBeatAudioContext?.removeEventListener("statechange", handleUIBeatAudioState);
-  uiBeatAudioContext = null;
-}
-
-function reconcileMirrorRuntimeCode(instance: StrudelMirrorInstance) {
-  const code = getMirrorCode(instance);
-  visibleCode.value = code;
-  if (instance.code !== code) instance.code = code;
-  syncCode(code);
-}
-
-function canPreserveUIBeatPhase(instance: StrudelMirrorInstance) {
-  const run = activeUIBeatRun;
-  const snapshot = uiBeatClock.snapshot;
-  return Boolean(
-    run?.ready === true &&
-    run.mappingAvailable &&
-    run.phaseSourceKey !== null &&
-    run.phaseSourceKey === generatedPhaseSourceKey.value &&
-    snapshot.generation === run.generation &&
-    snapshot.status === "running" &&
-    snapshot.barPosition !== null &&
-    typeof instance.repl?.scheduler?.setCps === "function"
-  );
-}
-
-async function evaluateMirror(instance: StrudelMirrorInstance): Promise<boolean> {
-  if (productionWiring?.instrumentStore.isInteractionLocked) return false;
-  reconcileMirrorRuntimeCode(instance);
-  const editor = getMirrorView(instance);
-  if (editor) setCodeStripPlaying(editor, true);
+async function play(): Promise<boolean> {
+  const epoch = ++playEpoch;
+  const request = patternRequest();
+  if (!player || !request || productionWiring?.instrumentStore.isInteractionLocked) return false;
+  syncCode(visibleCode.value);
+  stripPlaying.value = true;
   try {
-    const accepted = await instance.evaluate();
-    if (accepted === false && editor) setCodeStripPlaying(editor, false);
-    return accepted !== false;
+    await player.play(request);
   } catch (error) {
-    if (editor) setCodeStripPlaying(editor, false);
+    if (epoch === playEpoch) {
+      stripPlaying.value = false;
+      setPlaying(false);
+      setError(error);
+    }
     throw error;
   }
-}
-
-function queueTempoEvaluation() {
-  if (tempoEvaluationQueued) return;
-  tempoEvaluationQueued = true;
-  queueMicrotask(() => {
-    tempoEvaluationQueued = false;
-    const instance = mirror.value;
-    if (isControlled.value || !instance || !isPlaying.value) return;
-
-    preserveUIBeatPhaseForNextEvaluation = canPreserveUIBeatPhase(instance);
-    void evaluateMirror(instance)
-      // The serialized evaluation boundary has already published the error.
-      .catch(() => undefined)
-      .finally(() => {
-        preserveUIBeatPhaseForNextEvaluation = false;
-      });
-  });
-}
-
-function revealLatestRecordedEvent() {
-  nativeReveal.cancel();
-  const generation = ++recordingFollowGeneration;
-  const view = getMirrorView(mirror.value);
-  if (!view || presentationSyncCancelled) return;
-  const doc = view.state.doc;
-  const isCurrent = () => !presentationSyncCancelled && activeView() === view &&
-    view.state.doc === doc && generation === recordingFollowGeneration;
-  const events = parseCodeStripEvents(view.state.doc);
-  const latest = events[events.length - 1];
-  if (!latest) return;
-
-  const targetPosition = Math.max(latest.from, latest.to - 1);
-  view.requestMeasure({
-    key: recordingFollowMeasureKey,
-    read(measuredView): { revealPosition: number } | { scroller: HTMLElement; target: number } | null {
-      if (!isCurrent()) return null;
-      if (measuredView.visibleRanges && !measuredView.visibleRanges.some(
-        range => range.from <= targetPosition && range.to >= targetPosition,
-      )) return { revealPosition: targetPosition };
-      const scroller = measuredView.scrollDOM;
-      const coordinates = measuredView.coordsAtPos(latest.to);
-      if (!coordinates) return null;
-      const scrollerRect = scroller.getBoundingClientRect();
-      const eventRight = scroller.scrollLeft + coordinates.right - scrollerRect.left;
-      return {
-        scroller,
-        target: eventRight - scroller.clientWidth * RECORDING_FOLLOW_ANCHOR,
-      };
-    },
-    write(measurement) {
-      if (!measurement || !isCurrent()) return;
-      if ("revealPosition" in measurement) {
-        // Long-line gaps do not have glyph coordinates. Let CodeMirror render
-        // the remote event; ordinary rendered appends retain smooth follow.
-        stopFollowScroll();
-        nativeReveal.schedule(view, measurement.revealPosition);
-        return;
-      }
-      startFollowScroll(measurement.scroller, measurement.target);
-    },
-  });
-}
-
-function applyPresentation(code?: string, preserveUIBeat = false) {
-  const view = activeView();
-  if (!view) return;
-
-  const presentation: CodeStripPresentation = {
-    tokens: presentationTokens.value,
-    durationMode: resolvedDurationMode.value,
-    density: props.density,
-    timeSignature: props.timeSignature,
-    showRests: codeStripConfig.value.showRests,
-    notation: codeStripConfig.value.notation,
-    mode: sketchMeta.value.mode,
-    musicKey: sketchMeta.value.key,
-    surfaceStyle: keyboardConfig.value.surfaceStyle === "monochrome"
-      ? "monochrome"
-      : "colored",
-    keyBrightness: keyboardConfig.value.keyBrightness,
-    keySaturation: keyboardConfig.value.keySaturation,
-    appContext,
-    colorResolver,
-    stillColorResolver,
-    viewport,
-  };
-  if (code !== undefined) {
-    if (!isControlled.value && view.state.doc.toString() !== code && !preserveUIBeat) {
-      stopUIBeatRun();
-    }
-    preserveUIBeatDuringCodeSync = preserveUIBeat;
-    try {
-      updateCodeStripPresentation(view, presentation, code);
-    } finally {
-      preserveUIBeatDuringCodeSync = false;
-    }
-    visibleCode.value = code;
-    if (!isControlled.value) syncCode(code);
-  } else {
-    updateCodeStripPresentation(view, presentation);
+  if (epoch !== playEpoch) return false;
+  if (productionWiring?.instrumentStore.isInteractionLocked) {
+    stopPlayback();
+    return false;
   }
-
-  if (isControlled.value) applySpecimenPlayback(view, presentationTokens.value);
+  setPlaying(true);
+  return true;
 }
 
-function syncPresentation() {
-  if (presentationSyncCancelled || presentationSyncQueued) return;
-  presentationSyncQueued = true;
-  queueMicrotask(() => {
-    presentationSyncQueued = false;
-    if (presentationSyncCancelled) return;
-    const code = pendingGeneratedCode;
-    const instance = mirror.value;
-    const preserveUIBeat = pendingPreserveUIBeat && code === generatedCode.value &&
-      instance !== null && canPreserveUIBeatPhase(instance);
-    pendingGeneratedCode = undefined;
-    pendingPreserveUIBeat = false;
-    applyPresentation(code, preserveUIBeat);
-  });
-}
-
-function stopFollow() {
-  nativeReveal.cancel();
-  recordingFollowGeneration++;
-  followPlaybackActive = false;
-  stopFollowScroll();
-}
-
-function stopFollowScroll() {
-  followTargetScrollLeft = 0;
-  followScroller = null;
-  followLastFrameTime = null;
-  if (followLoopFrame != null) cancelAnimationFrame(followLoopFrame);
-  followLoopFrame = null;
-}
-
-async function stopMirrorForWarmup(instance: StrudelMirrorInstance) {
-  const editor = getMirrorView(instance);
-  if (editor) setCodeStripPlaying(editor, false);
-
-  try {
-    await instance.stop();
-  } finally {
-    stopUIBeatRun();
-    setPlaying(false);
-    stopFollow();
-    stopStrudelVisuals();
-  }
-}
-
-function startFollowScroll(scroller: HTMLElement, target: number) {
-  followScroller = scroller;
-  followTargetScrollLeft = Math.max(
-    0,
-    Math.min(scroller.scrollWidth - scroller.clientWidth, target),
-  );
-  if (Math.abs(followTargetScrollLeft - scroller.scrollLeft) < 0.5) return;
-  if (followLoopFrame != null) return;
-
-  const step = (timestamp: number) => {
-    followLoopFrame = null;
-    const nextScroller = followScroller;
-    if (!nextScroller) return;
-
-    const delta = followTargetScrollLeft - nextScroller.scrollLeft;
-    if (!viewport.allowsMotion || Math.abs(delta) < 0.5) {
-      nextScroller.scrollLeft = followTargetScrollLeft;
-      followLastFrameTime = null;
-      return;
-    }
-
-    const elapsed = followLastFrameTime == null
-      ? 1000 / 60
-      : Math.max(0, timestamp - followLastFrameTime);
-    followLastFrameTime = timestamp;
-    const blend = 1 - Math.exp(-elapsed / FOLLOW_TIME_CONSTANT_MS);
-    const previousScrollLeft = nextScroller.scrollLeft;
-    nextScroller.scrollLeft += delta * blend;
-    // Browsers may quantize scrollLeft to device pixels or clamp it after
-    // CodeMirror changes a line gap. Finish instead of retaining a RAF that
-    // keeps pulling subsequent manual scrolling back toward an old target.
-    if (nextScroller.scrollLeft === previousScrollLeft) {
-      nextScroller.scrollLeft = followTargetScrollLeft;
-      followLastFrameTime = null;
-      return;
-    }
-    followLoopFrame = requestAnimationFrame(step);
-  };
-
-  followLastFrameTime = null;
-  followLoopFrame = requestAnimationFrame(step);
-}
-
-function followActivePlayback() {
-  if (!followPlaybackActive) return;
-  const root = editorRoot.value;
-  const scroller = root?.querySelector<HTMLElement>(".cm-scroller");
-  const active = root?.querySelector<HTMLElement>(
-    ".cm-code-strip-event--active[data-follow-rank]",
-  );
-  if (!scroller || !active) return;
-
-  const scrollerRect = scroller.getBoundingClientRect();
-  const activeRect = active.getBoundingClientRect();
-  const targetCenter = activeRect.left - scrollerRect.left + scroller.scrollLeft + activeRect.width / 2;
-  followTargetScrollLeft = Math.max(
-    0,
-    Math.min(
-      scroller.scrollWidth - scroller.clientWidth,
-      targetCenter - scroller.clientWidth * 0.42,
-    ),
-  );
-  startFollowScroll(scroller, followTargetScrollLeft);
-}
-
-function initializeControlledView() {
-  if (!editorRoot.value) return;
+function initializeTransport() {
   visibleCode.value = generatedCode.value;
-  controlledView = new EditorView({
-    state: EditorState.create({
-      doc: generatedCode.value,
-      extensions: [
-        EditorState.readOnly.of(true),
-        EditorView.editable.of(false),
-        codeStripStrudelExtensionWithPresentation({
-          colorResolver: staticNoteColorResolver,
-          viewport,
-        }),
-      ],
-    }),
-    parent: editorRoot.value,
-  });
-  syncPresentation();
-}
-
-async function initializeStrudelMirror() {
-  if (!editorRoot.value) return;
-  visibleCode.value = generatedCode.value;
-
-  const instance = markRaw(createPatternEditor({
-    root: editorRoot.value,
-    initialCode: generatedCode.value,
-    onDraw: (_haps: unknown[], time: number) => {
-      publishUIBeatFrame(instance, time);
-      void nextTick(followActivePlayback);
+  player = markRaw(createPatternPlayer({
+    audio: {
+      getContext() {
+        const context = getAudioContext();
+        heardClock.attach(context);
+        return context;
+      },
+      async ensureReady(instrumentId) {
+        await initSuperdoughAudio();
+        if (instrumentId.startsWith("gm_")) await ensureSoundfontCatalog();
+        return getSuperdoughMasterGain();
+      },
     },
-    onToggle: (started: boolean) => {
-      if (started && productionWiring?.instrumentStore.isInteractionLocked) {
-        void stopMirrorForWarmup(instance);
-        return;
-      }
-      setPlaying(started);
-      followPlaybackActive = started;
-      const view = getMirrorView(instance);
-      if (view) setCodeStripPlaying(view, started);
-      if (!started) {
-        stopUIBeatRun(evaluatingUIBeatRun?.generation);
-        stopFollow();
-        stopStrudelVisuals();
-      }
-    },
-    onEvalError: (error: unknown) => {
-      const failedRun = evaluatingUIBeatRun;
-      if (failedRun) {
-        failedRun.failed = true;
-        failedRun.error = error;
-      }
+    onInterrupted(error) {
+      playEpoch += 1;
+      stripPlaying.value = false;
+      setPlaying(false);
+      setError(error);
     },
   }));
-  mirror.value = instance;
-
-  // StrudelMirror routes editor shortcuts and native stop events through its
-  // public stop method. Wrap that single transport boundary so every explicit
-  // stop invalidates work that was queued before it.
-  const stopTransport = instance.stop.bind(instance);
-  instance.stop = () => {
-    invalidateQueuedEvaluations();
-    return stopTransport();
-  };
-
-  // StrudelMirror owns editor shortcuts as well as the public controller.
-  // Guard its evaluation method so every playback entry point respects sample
-  // warmup, including evaluations already pending when the lock begins.
-  const evaluate = instance.evaluate.bind(instance);
-  instance.evaluate = () => {
-    const queuedAtEpoch = evaluationEpoch;
-    const preservePhase = preserveUIBeatPhaseForNextEvaluation;
-    preserveUIBeatPhaseForNextEvaluation = false;
-    const task = evaluationQueue.then(async () => {
-      if (
-        queuedAtEpoch !== evaluationEpoch
-        || productionWiring?.instrumentStore.isInteractionLocked
-      ) return false;
-      const run = armUIBeatForEvaluation(instance, preservePhase);
-      evaluatingUIBeatRun = run;
-      try {
-        await evaluate();
-        if (queuedAtEpoch !== evaluationEpoch) {
-          stopUIBeatRun(run.generation);
-          await stopTransport();
-          return false;
-        }
-        if (run.failed) {
-          throw run.error ?? new Error("Strudel evaluation failed");
-        }
-        if (run.preservePhase) {
-          if (uiBeatClock.retime(run.generation, run.bpm)) {
-            run.ready = true;
-            activeUIBeatRun = run;
-          }
-        } else if (activeUIBeatRun === run) {
-          activeUIBeatRun.ready = true;
-        }
-        if (productionWiring?.instrumentStore.isInteractionLocked) {
-          await stopMirrorForWarmup(instance);
-          return false;
-        }
-        return true;
-      } catch (error) {
-        stopUIBeatRun(run.generation);
-        try {
-          await stopTransport();
-        } catch (stopError) {
-          console.error("[CodeStrip] Strudel stop after evaluation error failed:", stopError);
-        }
-        if (queuedAtEpoch !== evaluationEpoch) return false;
-        const editor = getMirrorView(instance);
-        if (editor) setCodeStripPlaying(editor, false);
-        setPlaying(false);
-        stopFollow();
-        stopStrudelVisuals();
-        setError(error);
-        throw error;
-      } finally {
-        if (evaluatingUIBeatRun?.generation === run.generation) {
-          evaluatingUIBeatRun = null;
-        }
-      }
-    });
-    evaluationQueue = task.catch(() => undefined);
-    return task;
-  };
-
-  instance.updateSettings?.({
-    fontSize: 13,
-    fontFamily: "IBM Plex Mono, 'SFMono-Regular', monospace",
-    theme: "strudelTheme",
-    isLineNumbersDisplayed: false,
-    isActiveLineHighlighted: true,
-    isBracketMatchingEnabled: true,
-    isBracketClosingEnabled: true,
-    isLineWrappingEnabled: false,
-    isAutoCompletionEnabled: true,
-    isPatternHighlightingEnabled: true,
-    isFlashEnabled: false,
-    isTooltipEnabled: true,
-    isTabIndentationEnabled: true,
-    isMultiCursorEnabled: true,
-  });
-
-  const view = getMirrorView(instance);
-  if (view) {
-    view.dispatch({
-      effects: StateEffect.appendConfig.of([
-        EditorView.updateListener.of((update) => {
-          if (update.docChanged) {
-            if (!preserveUIBeatDuringCodeSync) stopUIBeatRun();
-            visibleCode.value = update.state.doc.toString();
-            syncCode(visibleCode.value);
-          }
-        }),
-        codeStripStrudelExtensionWithPresentation({ colorResolver, stillColorResolver, viewport }),
-      ]),
-    });
-    syncPresentation();
-  }
+  setProductionPatternPlayer(player);
 
   attachedController = {
-    getCode: () => getMirrorCode(instance),
+    getCode: () => visibleCode.value,
+    // Playback follows the take's note data, never edited text.
     setCode: (code: string) => {
-      // An explicit load wins over a previously queued recording publication.
-      pendingGeneratedCode = undefined;
-      pendingPreserveUIBeat = false;
-      if (getMirrorCode(instance) === code) return;
-      stopUIBeatRun();
-      applyPresentation(code);
+      visibleCode.value = code;
+      syncCode(code);
     },
-    evaluate: () => evaluateMirror(instance),
-    stop: () => {
-      const editor = getMirrorView(instance);
-      if (editor) setCodeStripPlaying(editor, false);
-      const result = instance.stop();
-      stopUIBeatRun();
-      return result;
-    },
+    evaluate: play,
+    stop: stopPlayback,
   };
   attachEditor(attachedController, generatedCode.value);
+  syncCode(generatedCode.value);
 }
 
 watch(
   () => productionWiring?.instrumentStore.isInteractionLocked ?? false,
   (isLocked) => {
-    if (isLocked && mirror.value) {
-      void stopMirrorForWarmup(mirror.value);
-    }
+    // A running loop keeps playing while a scrolled-to instrument warms up.
+    if (isLocked && stripPlaying.value) stopPlayback();
   },
   { flush: "sync" },
 );
 
-onMounted(async () => {
+onMounted(() => {
+  if (isControlled.value) {
+    visibleCode.value = generatedCode.value;
+    return;
+  }
   try {
-    if (isControlled.value) initializeControlledView();
-    else await initializeStrudelMirror();
+    initializeTransport();
   } catch (error) {
     initError.value = error instanceof Error
       ? error.message
       : "CodeStrip failed to initialize.";
     setError(error);
-    console.error("[CodeStrip] Strudel mirror init error:", error);
-  } finally {
-    isBooting.value = false;
+    console.error("[CodeStrip] pattern transport init error:", error);
   }
 });
 
 watch(generatedCode, (code) => {
-  pendingGeneratedCode = code;
-  syncPresentation();
+  visibleCode.value = code;
+  if (!isControlled.value) syncCode(code);
 });
 
-watch(
-  [
-    presentationTokens,
-    resolvedDurationMode,
-    () => props.density,
-    () => props.timeSignature,
-    () => codeStripConfig.value.notation,
-    () => codeStripConfig.value.showRests,
-    () => keyboardConfig.value.surfaceStyle,
-    () => keyboardConfig.value.keyBrightness,
-    () => keyboardConfig.value.keySaturation,
-  ],
-  syncPresentation,
-  { deep: isControlledUsage },
-);
-
+// Tempo, key, mode, octave, instrument and solfège-convention changes rebuild the sounding table
+// and swap it at the next quantum, keeping the bar phase. A new take does not
+// replace a playing loop by itself (main's behaviour): playing over a loop
+// records into the take, and swapping on every note would overdub.
 watch(
   [
     () => sketchMeta.value.bpm,
@@ -941,235 +364,83 @@ watch(
     () => sketchMeta.value.key,
     () => sketchMeta.value.mode,
     () => keyboardConfig.value.mainOctave,
+    // Stage labels carry the la-based-minor convention, fixed per table.
+    () => productionWiring?.visualConfigStore.laBasedMinor,
   ],
   () => {
-    const instance = mirror.value;
-    if (isControlled.value || !instance || !isPlaying.value) return;
-    pendingGeneratedCode = generatedCode.value;
-    pendingPreserveUIBeat = canPreserveUIBeatPhase(instance);
-    syncPresentation();
-    queueTempoEvaluation();
-  },
-);
-
-watch(
-  () => {
-    const notes = productionWiring?.patternsStore.currentWorkingNotes ?? [];
-    return notes[notes.length - 1]?.id;
-  },
-  async () => {
-    if (isControlled.value) return;
-    await nextTick();
-    revealLatestRecordedEvent();
-  },
-);
-
-watch(
-  () => productionWiring?.patternsStore.loadedBaseNotes.length ?? 0,
-  async () => {
-    if (isControlled.value) return;
-    await nextTick();
-    const scroller = editorRoot.value?.querySelector<HTMLElement>(".cm-scroller");
-    if (scroller) scroller.scrollLeft = 0;
+    const request = patternRequest();
+    if (isControlled.value || !player?.isPlaying || !request) return;
+    player.update(request).catch((error) => {
+      // The old table and instrument keep playing.
+      setError(error);
+    });
   },
 );
 
 onBeforeUnmount(() => {
-  viewport.destroy();
-  presentationSyncCancelled = true;
-  presentationSyncQueued = false;
-  stopFollow();
-  controlledView?.destroy();
-  controlledView = null;
-
-  const instance = mirror.value;
-  if (!instance) return;
+  viewport?.destroy();
+  heardClock.dispose();
+  if (!player) return;
   detachEditor(attachedController);
-  stopUIBeatRun();
-  releaseUIBeatAudioContext();
+  playEpoch += 1;
   try {
-    void disposePatternEditor(instance).catch((error) => {
-      console.error("[CodeStrip] Strudel transport stop failed:", error);
-    });
+    player.dispose();
   } catch (error) {
-    console.error("[CodeStrip] Strudel mirror teardown error:", error);
+    console.error("[CodeStrip] pattern transport teardown error:", error);
   } finally {
-    mirror.value = null;
+    setProductionPatternPlayer(undefined);
+    player = null;
     attachedController = undefined;
   }
 });
 </script>
 
 <template>
-  <section
+  <div
     v-show="isControlled || codeStripConfig.enabled"
-    :class="hostClasses"
+    class="code-strip"
     :style="{ opacity: isControlled ? 1 : codeStripConfig.opacity }"
-    :aria-label="ariaLabel"
   >
     <div v-if="initError" class="code-strip__error">{{ initError }}</div>
-    <div
-      ref="editorRoot"
-      class="code-strip__editor"
-      :class="{ 'code-strip__editor--booting': isBooting }"
+    <HighlightStrip
+      class="code-strip__view"
+      :tokens="presentationTokens"
+      :playing="isControlled ? false : stripPlaying || followsLooper"
+      :listening="!isControlled"
+      :density="density"
+      :time-signature="timeSignature"
+      :show-rests="codeStripConfig.showRests"
+      :framed="framed"
+      :aria-label="ariaLabel"
+      :empty-label="EMPTY_EDITOR_CODE"
+      :viewport="viewport"
+      :color-resolver="colorResolver"
+      :still-color-resolver="stillColorResolver"
+      :clock="isControlled ? undefined : heardClock"
+      :member-id="followsLooper ? looperMemberId ?? undefined : undefined"
+      :unit-ms="isControlled ? undefined : (60000 / codeStripConfig.bpm) * GENERATED_BEATS_PER_BAR"
+      :follow-latest-key="productionWiring?.phrasesStore.lastLiveNoteId"
+      :reset-scroll-key="productionWiring?.phrasesStore.takeId"
     />
-  </section>
+  </div>
 </template>
 
 <style scoped>
-.code-strip__editor:deep([data-code-strip-visible="false"] .code-strip__note .note__surface::before),
-.code-strip__editor:deep([data-code-strip-visible="false"] .chord__cluster-member .note__surface::before),
-.code-strip__editor:deep([data-code-strip-visible="false"] .chord__fused-progress),
-.code-strip__editor:deep([data-code-strip-visible="false"] .code-strip__rest-fill) {
-  transition: none;
-  will-change: auto;
-}
-
 .code-strip {
-  --strip-border: hsla(152, 100%, 50%, 0.16);
   display: flex;
+  flex-direction: column;
+  justify-content: center;
   width: 100%;
   min-width: 0;
-  overflow: hidden;
-  border: 1px solid var(--strip-border);
-  background: var(--ink-2);
-  color: var(--ivory);
-  container-type: inline-size;
-  transition: border-color 160ms ease, box-shadow 160ms ease;
 }
 
-.code-strip--playing {
-  border-color: hsla(152, 100%, 50%, 0.24);
-  box-shadow: 0 0 14px hsla(152, 100%, 50%, 0.04);
-}
-
-.code-strip--unframed {
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.code-strip--unframed .code-strip__editor:deep(.cm-activeLine) {
-  background-color: transparent !important;
-}
-
-.code-strip--unframed .code-strip__editor:deep(.cm-line:only-child) {
-  box-sizing: border-box;
-  min-width: 100%;
-  min-height: 40px;
-  align-items: center;
-}
-
-.code-strip--empty .code-strip__editor:deep(.cm-line:only-child) {
-  justify-content: center;
-  padding-inline: 6px;
-  font-size: 11px;
-  letter-spacing: .02em;
-  opacity: .68;
+.code-strip__view {
+  flex: 0 0 auto;
 }
 
 .code-strip__error {
   padding: .3rem .4rem;
   color: hsl(0 100% 80% / .92);
   font-size: .72rem;
-}
-
-.code-strip__editor {
-  width: 100%;
-  min-width: 0;
-  overflow: hidden;
-  background: transparent;
-}
-
-.code-strip__editor--booting {
-  opacity: .68;
-}
-
-.code-strip__editor:deep(.cm-editor) {
-  width: 100%;
-  min-width: 0;
-  background: transparent !important;
-  color: var(--ivory-2);
-}
-
-.code-strip__editor:deep(.cm-scroller) {
-  overflow-x: auto;
-  overflow-y: hidden;
-  background: transparent !important;
-  font-family: var(--font-mono);
-  line-height: 1.15;
-  scrollbar-width: none;
-}
-
-.code-strip__editor:deep(.cm-scroller::-webkit-scrollbar) {
-  display: none;
-}
-
-.code-strip__editor:deep(.cm-content) {
-  width: max-content;
-  min-width: 100%;
-  padding: 7px 10px;
-  white-space: pre;
-  caret-color: var(--ivory);
-}
-
-.code-strip--dense .code-strip__editor:deep(.cm-content) {
-  padding: 0;
-}
-
-.code-strip--spaced .code-strip__editor:deep(.cm-content) {
-  padding-block: 10px;
-}
-
-.code-strip__editor:deep(.cm-line) {
-  display: flex;
-  align-items: center;
-  min-width: max-content;
-}
-
-.code-strip__editor:deep(.cm-code-strip-event) {
-  display: inline-flex;
-  flex: 0 0 auto;
-  margin-inline: 2.5px;
-  vertical-align: middle;
-}
-
-.code-strip--dense .code-strip__editor:deep(.cm-code-strip-event) {
-  margin-inline: 1.5px;
-}
-
-.code-strip--spaced .code-strip__editor:deep(.cm-code-strip-event) {
-  margin-inline: 5px;
-}
-
-.code-strip__editor:deep(.cm-code-strip-event--hidden) {
-  margin: 0;
-}
-
-.code-strip__editor:deep(.cm-inline-meta) {
-  color: var(--ivory-4);
-  font-size: .68em;
-  opacity: .76;
-  vertical-align: .46em;
-}
-
-.code-strip__editor:deep(.cm-inline-meta-active) {
-  color: var(--ivory-2);
-  opacity: 1;
-}
-
-.code-strip__editor:deep(.cm-focused) {
-  outline: none;
-}
-
-.code-strip__editor:deep(.cm-selectionBackground),
-.code-strip__editor:deep(.cm-content ::selection) {
-  background: hsl(152 80% 45% / .22) !important;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .code-strip {
-    transition: none;
-  }
 }
 </style>

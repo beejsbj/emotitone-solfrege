@@ -7,11 +7,11 @@
     <template #hero>
       <div class="keyboard-specimen__hero">
         <div class="keyboard-specimen__edition-mark">
-          <span>Daily edition</span>
+          <span>{{ editionFamily.name }} family</span>
           <strong>{{ family }}</strong>
-          <code>{{ dateKey }} / load {{ editionNumber }}</code>
+          <code>{{ surfaceStyle }} / load {{ editionNumber }}</code>
         </div>
-        <div class="keyboard-specimen__mini" :style="{ width: `${Math.min(width, 390)}px` }">
+        <div class="keyboard-specimen__mini" :style="{ '--mini-width': `${Math.min(width, 390)}px` }">
           <Keyboard
             usage="controlled"
             :rows="rows"
@@ -58,28 +58,28 @@
 
         <label class="keyboard-specimen__field">
           <span>Content width</span>
-          <select v-model.number="width">
+          <select class="guide-field" v-model.number="width">
             <option v-for="option in widths" :key="option" :value="option">{{ option }}px</option>
           </select>
         </label>
 
         <label class="keyboard-specimen__field">
           <span>Requested rows</span>
-          <select v-model.number="rowCount">
+          <select class="guide-field" v-model.number="rowCount">
             <option v-for="option in rowCounts" :key="option" :value="option">{{ option }}</option>
           </select>
         </label>
 
         <label class="keyboard-specimen__field">
           <span>Main octave</span>
-          <select v-model.number="mainOctave">
+          <select class="guide-field" v-model.number="mainOctave">
             <option v-for="option in octaves" :key="option" :value="option">{{ option }}</option>
           </select>
         </label>
 
         <label class="keyboard-specimen__field">
           <span>Primary label</span>
-          <select v-model="primaryLabel">
+          <select class="guide-field" v-model="primaryLabel">
             <option value="syllable">Syllable</option>
             <option value="degree">Degree</option>
             <option value="raw">Raw pitch</option>
@@ -88,7 +88,7 @@
 
         <label class="keyboard-specimen__field">
           <span>Chord-row scale</span>
-          <select v-model="harmonyScaleType">
+          <select class="guide-field" v-model="harmonyScaleType">
             <option
               v-for="option in harmonyScales"
               :key="option.value"
@@ -99,7 +99,7 @@
 
         <label class="keyboard-specimen__field">
           <span>Chord alteration</span>
-          <select v-model="harmonyAlteration">
+          <select class="guide-field" v-model="harmonyAlteration">
             <option
               v-for="option in JOYSTICK_OPTIONS"
               :key="option.value"
@@ -110,7 +110,7 @@
 
         <label class="keyboard-specimen__field">
           <span>Surface</span>
-          <select v-model="surfaceStyle">
+          <select class="guide-field" v-model="surfaceStyle">
             <option value="colored">Colored</option>
             <option value="monochrome">Monochrome</option>
           </select>
@@ -118,7 +118,7 @@
 
         <label class="keyboard-specimen__field">
           <span>State on Mi</span>
-          <select v-model="state">
+          <select class="guide-field" v-model="state">
             <option value="resting">Resting</option>
             <option value="focused">Focused</option>
             <option value="pressed">Pressed</option>
@@ -129,7 +129,7 @@
 
         <label class="keyboard-specimen__field">
           <span>Motion</span>
-          <select v-model="motion">
+          <select class="guide-field" v-model="motion">
             <option value="system">System preference</option>
             <option value="reduced">Reduced preview</option>
           </select>
@@ -137,19 +137,19 @@
 
         <label class="keyboard-specimen__field">
           <span>Contrast</span>
-          <select v-model="contrast">
+          <select class="guide-field" v-model="contrast">
             <option value="system">System colors</option>
             <option value="forced">Forced-color preview</option>
           </select>
         </label>
 
         <label class="keyboard-specimen__check">
-          <input v-model="showLabels" type="checkbox">
+          <input class="guide-field" v-model="showLabels" type="checkbox">
           <span>Show labels</span>
         </label>
 
         <label class="keyboard-specimen__check">
-          <input v-model="keyboardPadding" type="checkbox">
+          <input class="guide-field" v-model="keyboardPadding" type="checkbox">
           <span>Keyboard padding</span>
         </label>
 
@@ -163,23 +163,23 @@
         <div class="keyboard-specimen__tuning-grid">
           <label>
             <span>Gap · {{ gap }}px</span>
-            <input v-model.number="gap" type="range" min="0" max="6" step="1">
+            <input class="guide-field" v-model.number="gap" type="range" min="0" max="6" step="1">
           </label>
           <label>
             <span>Main height · {{ mainRowHeight }}px</span>
-            <input v-model.number="mainRowHeight" type="range" min="44" max="120" step="2">
+            <input class="guide-field" v-model.number="mainRowHeight" type="range" min="44" max="120" step="2">
           </label>
           <label>
             <span>Outer height · {{ outerRowHeight }}px</span>
-            <input v-model.number="outerRowHeight" type="range" min="44" max="88" step="2">
+            <input class="guide-field" v-model.number="outerRowHeight" type="range" min="44" max="88" step="2">
           </label>
           <label>
             <span>Outer inset · {{ outerInset }}px</span>
-            <input v-model.number="outerInset" type="range" min="0" max="24" step="1">
+            <input class="guide-field" v-model.number="outerInset" type="range" min="0" max="24" step="1">
           </label>
           <label>
             <span>Variation · {{ variationAmplitude.toFixed(2) }}</span>
-            <input v-model.number="variationAmplitude" type="range" min="0" max="1.5" step="0.05">
+            <input class="guide-field" v-model.number="variationAmplitude" type="range" min="0" max="1.5" step="0.05">
           </label>
         </div>
       </details>
@@ -230,6 +230,7 @@
 </template>
 
 <script setup lang="ts">
+import { HARMONIC_CHROMATIC_INTERVALS, getSolfegeLabelForInterval } from "@/domain/musicalIdentity";
 import { computed, ref } from "vue";
 import Keyboard from "@/components/compounds/Keyboard.vue";
 import type {
@@ -242,11 +243,10 @@ import type { HarmonyAlteration } from "@/domain/harmony";
 import { JOYSTICK_OPTIONS } from "@/components/uniques/Joystick/joystickOptions";
 import {
   KEYBOARD_GEOMETRY_FAMILIES,
-  keyboardFamilyForDate,
-  localDateKey,
   visibleKeyboardOctaves,
   type KeyboardGeometryFamily,
 } from "@/components/compounds/keyboardEdition";
+import { useEditionFamily } from "@/composables/useEditionFamily";
 import type { NoteLabel, NoteSurfaceStyle } from "@/components/primatives/Note.vue";
 import type { MusicalMode } from "@/types/music";
 import AnatomyDisplay from "../guide/AnatomyDisplay.vue";
@@ -258,7 +258,7 @@ const rowCounts = [1, 3, 5, 7] as const;
 const octaves = [1, 2, 3, 4, 5, 6, 7, 8] as const;
 const families = KEYBOARD_GEOMETRY_FAMILIES;
 const noteNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-const syllables = ["Do", "Ra", "Re", "Me", "Mi", "Fa", "Fi", "Sol", "Le", "La", "Te", "Ti"];
+const syllables = HARMONIC_CHROMATIC_INTERVALS.map((interval) => getSolfegeLabelForInterval(interval));
 const degrees = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 const harmonyScales: readonly { value: MusicalMode; label: string }[] = [
   { value: "major pentatonic", label: "5 · Major pentatonic" },
@@ -270,9 +270,11 @@ const harmonyScales: readonly { value: MusicalMode; label: string }[] = [
 const width = ref<(typeof widths)[number]>(960);
 const rowCount = ref<(typeof rowCounts)[number]>(3);
 const mainOctave = ref(4);
-const family = ref<KeyboardGeometryFamily>(keyboardFamilyForDate(new Date()));
+// Starts on the edition family's keys (the guide holds Tab unless `?edition=`).
+const editionFamily = useEditionFamily();
+const family = ref<KeyboardGeometryFamily>(editionFamily.value.keys.geometry);
 const primaryLabel = ref<NoteLabel>("syllable");
-const surfaceStyle = ref<NoteSurfaceStyle>("colored");
+const surfaceStyle = ref<NoteSurfaceStyle>(editionFamily.value.keys.surface);
 const state = ref<SpecimenState>("resting");
 const showLabels = ref(true);
 const keyboardPadding = ref(false);
@@ -287,8 +289,7 @@ const outerInset = ref(0);
 const variationAmplitude = ref(1);
 const editionNumber = ref(1);
 const lastIntent = ref("inert · no input yet");
-const dateKey = localDateKey(new Date());
-const editionSeed = computed(() => `style-guide:${dateKey}:${editionNumber.value}`);
+const editionSeed = computed(() => `style-guide:${editionNumber.value}`);
 
 const rows = computed<KeyboardRowView[]>(() =>
   visibleKeyboardOctaves(mainOctave.value, rowCount.value).map((octave) => ({
@@ -336,7 +337,7 @@ function handleChordRelease(intent: KeyboardChordIntent) {
 const features = [
   { label: "Children", value: "one fused ChordKey per active scale degree, then accepted melody Keys" },
   { label: "Layout", value: "5/6/7/12-degree melody and chord rows fit their host without horizontal overflow" },
-  { label: "Edition", value: "one local-date family; authored per-load cut, tilt, shadow, and layer variants" },
+  { label: "Edition", value: "the edition family's key geometry and surface; chords take a derangement of that geometry; authored per-load cut, tilt, shadow, and layer variants" },
   { label: "State", value: "physical pressed and musical sounding remain independent" },
   { label: "Focus", value: "separate chord and melody roving entries; arrows move spatially; Space/Enter emit held intents" },
   { label: "Boundary", value: "no store, persistence, audio, haptic, MIDI, Drawer, or CodeStrip ownership" },
@@ -359,7 +360,7 @@ const features = [
   align-items: baseline;
   gap: 9px;
   color: var(--ivory-3);
-  font: var(--t-micro);
+  font: var(--t-caption);
   letter-spacing: .12em;
   text-transform: uppercase;
 }
@@ -377,8 +378,12 @@ const features = [
   font-size: 8px;
 }
 
+/* Never wider than the hero well: clamp to the requested width or the well. */
 .keyboard-specimen__mini {
-  max-width: 100%;
+  justify-self: stretch;
+  width: min(100%, var(--mini-width));
+  min-width: 0;
+  margin-inline: auto;
 }
 
 .keyboard-specimen__workbench {

@@ -15,7 +15,7 @@ function item(id: string, name: string): PatternReelItem {
     instrumentLabel: "Piano",
     rootLabel: "C4",
     spine: "rgb(255, 0, 0)",
-    barTape: [{ color: "rgb(255, 0, 0)", durationMs: 100 }],
+    loopDial: [{ color: "rgb(255, 0, 0)", durationMs: 100, height: 48 }],
     canDelete: true,
   };
 }
@@ -132,15 +132,15 @@ describe("PatternReel", () => {
     expect(slotFor(wrapper, "Alpha").attributes("style")).toContain("--slot-y: -24.8px");
     expect(slotFor(wrapper, "Alpha").attributes("style")).toContain("--slot-opacity: 0.74");
     expect(wrapper.findAll(
-      ".pattern-reel__slot:not(.pattern-reel__slot--1) .bar-tape",
+      ".pattern-reel__slot:not(.pattern-reel__slot--1) .loop-dial",
     )).toHaveLength(3);
     expect(wrapper.findAll(
-      ".pattern-reel__slot:not(.pattern-reel__slot--1) .bar-tape",
-    ).filter((tape) => (
-      tape.attributes("aria-hidden") === undefined
+      ".pattern-reel__slot:not(.pattern-reel__slot--1) .loop-dial",
+    ).filter((dial) => (
+      dial.attributes("aria-hidden") === undefined
     ))).toHaveLength(3);
     expect(wrapper.get(".pattern-reel__slot--1").attributes("inert")).toBeDefined();
-    expect(slotFor(wrapper, "Gamma").get(".bar-tape").attributes("aria-hidden"))
+    expect(slotFor(wrapper, "Gamma").get(".loop-dial").attributes("aria-hidden"))
       .toBeUndefined();
     expect(wrapper.find(".pattern-reel__head").exists()).toBe(false);
     expect(wrapper.find(".pattern-reel__fade").exists()).toBe(false);
@@ -162,12 +162,12 @@ describe("PatternReel", () => {
 
     await wrapper.get('button[aria-label^="Unwind patterns around Gamma"]').trigger("click");
     await nextTick();
-    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -46.4px");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -48px");
     expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--settle-duration: 200ms");
 
     vi.advanceTimersByTime(1099);
     await nextTick();
-    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -46.4px");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -48px");
 
     vi.advanceTimersByTime(1);
     await nextTick();
@@ -290,9 +290,9 @@ describe("PatternReel", () => {
 
     expect(wheelNotch.defaultPrevented).toBe(true);
     expect(slotFor(wrapper, "Alpha").classes()).toContain("pattern-reel__slot--active");
-    expect(slotFor(wrapper, "Gamma").get(".bar-tape").attributes("aria-hidden"))
+    expect(slotFor(wrapper, "Gamma").get(".loop-dial").attributes("aria-hidden"))
       .toBeUndefined();
-    expect(slotFor(wrapper, "Alpha").get(".bar-tape").attributes("aria-hidden"))
+    expect(slotFor(wrapper, "Alpha").get(".loop-dial").attributes("aria-hidden"))
       .toBeUndefined();
 
     vi.advanceTimersByTime(220);
@@ -519,7 +519,7 @@ describe("PatternReel", () => {
     await identity.trigger("click");
     await nextTick();
     expect(slotFor(wrapper, "Beta").attributes("aria-hidden")).toBeUndefined();
-    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -46.4px");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -48px");
   });
 
   it("clears an uncaptured pointer released outside before the next gesture", async () => {
@@ -654,7 +654,7 @@ describe("PatternReel", () => {
     await nextTick();
     expect(document.activeElement).toBe(betaDelete.element);
     expect(slotFor(wrapper, "Beta").attributes("aria-hidden")).toBeUndefined();
-    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -46.4px");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -48px");
 
     (wrapper.element as HTMLElement).focus();
     await nextTick();
@@ -923,7 +923,7 @@ describe("PatternReel", () => {
 
     await wrapper.get('button[aria-label^="Unwind patterns around Gamma"]').trigger("click");
     await nextTick();
-    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -46.4px");
+    expect(slotFor(wrapper, "Beta").attributes("style")).toContain("--slot-y: -48px");
     expect(slotFor(wrapper, "Beta").attributes("aria-hidden")).toBeUndefined();
     expect(patternReelSource).toMatch(
       /@media \(prefers-reduced-motion: reduce\)[\s\S]*transition: none;/,

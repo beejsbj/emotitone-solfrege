@@ -1,10 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { mount } from "@vue/test-utils";
 import { defineComponent, h, ref } from "vue";
 import Sticker from "@/components/primatives/Sticker";
 import { provideUIBeat, UIBeatClock } from "@/composables/useUIBeat";
 
 describe("Sticker", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("defaults Badge to its accepted Brass sheen without randomized geometry", () => {
     const wrapper = mount(Sticker, {
       props: {
@@ -20,6 +24,7 @@ describe("Sticker", () => {
     expect(wrapper.find(".sticker__badge-edge").exists()).toBe(true);
     expect(wrapper.find(".sticker__badge-text").text()).toBe("Alert");
     expect(wrapper.attributes("style")).toBeUndefined();
+    expect(wrapper.classes().some((name) => name.startsWith("sticker--paper-"))).toBe(false);
   });
 
   it("falls back to Brass sheen when untyped runtime input requests another Badge color", () => {
@@ -75,6 +80,79 @@ describe("Sticker", () => {
     expect(wrapper.find("svg.mark").classes()).toContain("mark--tone-inherit");
     expect(wrapper.element.children).toHaveLength(2);
     expect(Array.from(wrapper.element.children).map((child) => child.classList[0])).toEqual(expectedOrder);
+  });
+
+  it.each([
+    ["cut", "--sticker-clip", "var(--clip-"],
+    ["tape", "--sticker-clip", "polygon("],
+    ["stamp", "--sticker-wear", "px"],
+  ] as const)("pins the %s paper treatment with its own per-mount geometry", (paper, property, fragment) => {
+    const wrapper = mount(Sticker, {
+      props: { variant: "outline", color: "ivory", paper },
+      slots: { default: "Piano" },
+    });
+
+    expect(wrapper.classes()).toContain(`sticker--paper-${paper}`);
+    expect(wrapper.classes()).toContain("sticker--outline");
+    const style = (wrapper.element as HTMLElement).style;
+    expect(style.getPropertyValue(property)).toContain(fragment);
+    expect(style.getPropertyValue("--sticker-transform")).toMatch(/^rotate\(/);
+  });
+
+  it.each([
+    [0, "cut"],
+    [0.5, "tape"],
+    [0.99, "stamp"],
+  ] as const)("draws an unpinned paper treatment at random (Math.random %s -> %s)", (draw, paper) => {
+    vi.spyOn(Math, "random").mockReturnValue(draw);
+    const wrapper = mount(Sticker, {
+      props: { variant: "fill", color: "ivory" },
+      slots: { default: "0.42" },
+    });
+
+    expect(wrapper.classes()).toContain(`sticker--paper-${paper}`);
+  });
+
+  it("keeps one paper per mount and varies between mounts", () => {
+    // First mount: paper draw, then three cut-geometry draws. Second mount: paper draw.
+    const draws = [0.1, 0, 0, 0, 0.9];
+    vi.spyOn(Math, "random").mockImplementation(() => draws.shift() ?? 0);
+    const first = mount(Sticker, { props: { variant: "outline" }, slots: { default: "A" } });
+    const firstClasses = first.classes().filter((name) => name.startsWith("sticker--paper-"));
+    const firstStyle = first.attributes("style");
+    expect(firstClasses).toEqual(["sticker--paper-cut"]);
+
+    const second = mount(Sticker, { props: { variant: "outline" }, slots: { default: "B" } });
+    expect(second.classes()).toContain("sticker--paper-stamp");
+
+    // Re-rendering the first mount must not redraw its paper or geometry.
+    return first.setProps({ variant: "fill" }).then(() => {
+      expect(first.classes().filter((name) => name.startsWith("sticker--paper-"))).toEqual(firstClasses);
+      expect(first.attributes("style")).toBe(firstStyle);
+    });
+  });
+
+  it("falls back to a random paper for untyped invalid runtime input", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const wrapper = mount(Sticker, {
+      props: { variant: "fill", paper: "foil" } as never,
+      slots: { default: "Live" },
+    });
+
+    expect(wrapper.classes()).toContain("sticker--paper-tape");
+    expect(wrapper.classes()).not.toContain("sticker--paper-foil");
+  });
+
+  it("excludes Badge from paper treatments even when untyped input pins one", () => {
+    const random = vi.spyOn(Math, "random");
+    const wrapper = mount(Sticker, {
+      props: { variant: "badge", paper: "tape" } as never,
+      slots: { default: "Signal" },
+    });
+
+    expect(wrapper.classes().some((name) => name.startsWith("sticker--paper-"))).toBe(false);
+    expect(wrapper.attributes("style")).toBeUndefined();
+    expect(random).not.toHaveBeenCalled();
   });
 
   it("opts the actual paper into UIBeat without replacing its cut-paper transform", () => {

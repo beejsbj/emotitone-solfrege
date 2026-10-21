@@ -1,3 +1,4 @@
+import { stageCanvasSize } from "./stageCanvas";
 import type {
   HarmonicGeometryScene,
   PreparedBlobFrame,
@@ -691,9 +692,10 @@ export function getBlobFieldResolution(bounds: FieldBounds) {
  * note's color instead of collapsing a multi-note body into one shadow color.
  */
 export function getBlobFieldMaterialPasses(
-  blobConfig: Pick<BlobConfig, "blurRadius" | "glowEnabled" | "glowIntensity">
+  blobConfig: Pick<BlobConfig, "blurRadius" | "glowEnabled" | "glowIntensity">,
+  dpr = 1,
 ): BlobFieldMaterialPass[] {
-  const bodyBlur = Math.max(0, blobConfig.blurRadius);
+  const bodyBlur = Math.max(0, blobConfig.blurRadius) * dpr;
   const bodyPass = {
     filter: bodyBlur > 0 ? `blur(${bodyBlur}px)` : "none",
     opacity: 1,
@@ -705,7 +707,7 @@ export function getBlobFieldMaterialPasses(
 
   return [
     {
-      filter: `blur(${bodyBlur + blobConfig.glowIntensity}px)`,
+      filter: `blur(${bodyBlur + blobConfig.glowIntensity * dpr}px)`,
       opacity: 0.62,
     },
     bodyPass,
@@ -880,7 +882,7 @@ export function useBlobFieldRenderer() {
     // Use the same Blob blur/glow material as Merge, above the unblurred strands.
     // A faint releasing body paints before a held body at coincident positions.
     const orderedFrames = orderBlobFramesForVisibility(frames);
-    getBlobFieldMaterialPasses(config).forEach((pass) => {
+    getBlobFieldMaterialPasses(config, stageCanvasSize(target.canvas).dpr).forEach((pass) => {
       target.save();
       target.filter = pass.filter;
       orderedFrames.forEach((frame) => {
@@ -899,7 +901,7 @@ export function useBlobFieldRenderer() {
     bounds: FieldBounds,
     config: BlobConfig
   ) => {
-    getBlobFieldMaterialPasses(config).forEach((pass) => {
+    getBlobFieldMaterialPasses(config, stageCanvasSize(target.canvas).dpr).forEach((pass) => {
       target.save();
       target.imageSmoothingEnabled = true;
       target.imageSmoothingQuality = "high";
@@ -955,7 +957,7 @@ export function useBlobFieldRenderer() {
     // Soften all shoulders together on one budgeted surface. No threshold is
     // applied; the fine cores and note bodies remain at target resolution.
     const bounds = connections.length ? getBlobFieldBounds(
-      frames, target.canvas.width, target.canvas.height,
+      frames, stageCanvasSize(target.canvas).width, stageCanvasSize(target.canvas).height,
       config.blurRadius * 3 + (config.glowEnabled ? config.glowIntensity * 3 : 0)
     ) : null;
     if (bounds) {
@@ -971,7 +973,7 @@ export function useBlobFieldRenderer() {
       }
     }
     target.save();
-    target.filter = "blur(0.65px)";
+    target.filter = `blur(${0.65 * stageCanvasSize(target.canvas).dpr}px)`;
     paint(target, false);
     target.restore();
     renderBodies(target, frames, config);
@@ -1023,8 +1025,8 @@ export function useBlobFieldRenderer() {
     const blur = Math.max(0, config.fieldSoftness);
     const bounds = getBlobFieldBounds(
       frames,
-      target.canvas.width,
-      target.canvas.height,
+      stageCanvasSize(target.canvas).width,
+      stageCanvasSize(target.canvas).height,
       blur * 3 +
         config.blurRadius +
         (config.glowEnabled ? config.glowIntensity : 0)

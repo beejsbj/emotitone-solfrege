@@ -9,11 +9,15 @@ const props = withDefaults(defineProps<{
   handleLabel?: string;
   ariaLabel?: string;
   handleTestId?: string;
+  /** Render only the panel when an eager drawer owns the handle/session. */
+  embedded?: boolean;
+  close?: () => void;
 }>(), {
   anchor: "top-right",
   handleLabel: "",
   ariaLabel: "Settings",
 });
+const emit = defineEmits<{ intent: [] }>();
 const identity = Symbol("top-drawer");
 const showPanel = ref(false);
 const renderPanel = ref(false);
@@ -39,9 +43,12 @@ defineExpose({ showPanel, openSession, closePanel, openPanel, togglePanel });
 </script>
 
 <template>
-  <Teleport to="body">
+  <slot v-if="embedded" name="panel" :close="close" />
+  <Teleport v-else to="body">
     <Drawer
       ref="drawer"
+      @pointerdown.capture="emit('intent')"
+      @focusin="emit('intent')"
       v-model="showPanel"
       @closed="renderPanel = showPanel"
       class="top-drawer"
@@ -71,9 +78,9 @@ defineExpose({ showPanel, openSession, closePanel, openPanel, togglePanel });
 </template>
 
 <style scoped>
-.top-drawer { z-index: 102; background: var(--ink); }
-.top-drawer--active { z-index: 101; }
-.top-drawer--closing { z-index: 100; }
+.top-drawer { z-index: calc(var(--z-top-drawers) + 2); background: var(--ink); }
+.top-drawer--active { z-index: calc(var(--z-top-drawers) + 1); }
+.top-drawer--closing { z-index: var(--z-top-drawers); }
 .top-drawer__panel { height: 100%; min-height: 0; }
 .top-drawer:deep(.drawer__handle) { background: var(--ink); }
 .top-drawer:deep(.drawer__grip) { background: var(--ivory); opacity: .28; }

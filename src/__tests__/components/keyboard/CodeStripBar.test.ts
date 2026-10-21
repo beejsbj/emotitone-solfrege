@@ -4,8 +4,7 @@ import { resolve } from "node:path";
 import { createTestWrapper } from "../../helpers/test-utils";
 import CodeStripBar from "@/components/compounds/CodeStripBar.vue";
 import Button from "@/components/primatives/Button.vue";
-import patternPlaybackSource from "@/services/patternPlayback.ts?raw";
-import codeStripSource from "@/components/uniques/CodeStrip/index.vue?raw";
+import highlightStripSource from "@/components/uniques/CodeStrip/HighlightStrip.vue?raw";
 import codeStripBarSource from "@/components/compounds/CodeStripBar.vue?raw";
 import controlBarSource from "@/components/compounds/ControlBar.vue?raw";
 
@@ -17,7 +16,7 @@ const designSystemSource = readFileSync(
 vi.mock("@/components/uniques/CodeStrip/index.vue", () => ({
   default: {
     name: "CodeStrip",
-    props: ["density", "durationMode", "framed"],
+    props: ["density", "framed"],
     template: '<div data-testid="code-strip" />',
   },
 }));
@@ -42,7 +41,9 @@ describe("CodeStripBar.vue", () => {
     expect(wrapper.get('button[aria-label="Play"]').exists()).toBe(true);
     expect(wrapper.get('button[aria-label="Delete last event"]').exists()).toBe(true);
     expect(wrapper.get('button[aria-label="Return"]').exists()).toBe(true);
-    expect(wrapper.get('[aria-label="Pattern beat"]').findAll(".beat-indicator__beat")).toHaveLength(4);
+    expect(wrapper.get('.beat-indicator__crown[aria-label="Pattern beat"]')
+      .findAll(".beat-indicator__beat")).toHaveLength(4);
+    expect(wrapper.get('button[aria-label="Play"] .paper-button__lip').exists()).toBe(true);
     expect(wrapper.get(".beat-indicator").find('button[aria-label="Play"]').exists()).toBe(true);
     expect(wrapper.get(".beat-indicator").find('button[aria-label="Delete last event"]').exists())
       .toBe(false);
@@ -57,26 +58,21 @@ describe("CodeStripBar.vue", () => {
     const strip = wrapper.getComponent({ name: "CodeStrip" });
 
     expect(strip.props("density")).toBe("dense");
-    expect(strip.props("durationMode")).toBe("bar");
     expect(strip.props("framed")).toBe(false);
-    expect(codeStripSource).toMatch(
-      /\.code-strip--dense[\s\S]*?\.cm-content\)[\s\S]*?padding:\s*0;/,
+    expect(highlightStripSource).toMatch(
+      /\.highlight-strip--dense \.highlight-strip__line\s*{\s*padding:\s*0;/,
     );
-    expect(codeStripSource).toMatch(
-      /\.code-strip--unframed\s*{[\s\S]*?border:\s*0;[\s\S]*?background:\s*transparent;/,
+    expect(highlightStripSource).toMatch(
+      /\.highlight-strip--unframed\s*{[\s\S]*?border:\s*0;[\s\S]*?background:\s*transparent;/,
     );
-    expect(patternPlaybackSource).toContain("bgFill: false");
-    expect(codeStripSource).toMatch(
-      /\.code-strip--unframed[\s\S]*?\.cm-activeLine\)[\s\S]*?background-color:\s*transparent\s*!important;/,
+    expect(highlightStripSource).toMatch(
+      /\.highlight-strip--unframed \.highlight-strip__line\s*{\s*min-height:\s*40px;/,
     );
-    expect(codeStripSource).toMatch(
-      /\.code-strip--unframed[\s\S]*?\.cm-line:only-child\)[\s\S]*?min-height:\s*40px;[\s\S]*?align-items:\s*center;/,
+    expect(highlightStripSource).toMatch(
+      /\.highlight-strip__empty\s*{[\s\S]*?font-size:\s*11px;[\s\S]*?text-align:\s*center;/,
     );
-    expect(codeStripSource).toMatch(
-      /\.code-strip--empty[\s\S]*?\.cm-line:only-child\)[\s\S]*?justify-content:\s*center;[\s\S]*?font-size:\s*11px;/,
-    );
-    expect(codeStripSource).toMatch(
-      /\.code-strip\s*{[\s\S]*?background:\s*var\(--ink-2\);/,
+    expect(highlightStripSource).toMatch(
+      /\.highlight-strip\s*{[\s\S]*?background:\s*var\(--ink-2\);/,
     );
     expect(designSystemSource).toMatch(/--instrument-bar-surface:\s*var\(--ink\);/);
     expect(designSystemSource).not.toContain("--instrument-bar-backdrop");
@@ -120,6 +116,113 @@ describe("CodeStripBar.vue", () => {
     expect(wrapper.emitted("togglePlayback")).toHaveLength(1);
     expect(wrapper.emitted("backspace")).toHaveLength(1);
     expect(wrapper.emitted("return")).toHaveLength(1);
+  });
+
+  it("latches on a held Play, swallowing the click that ends the hold", async () => {
+    vi.useFakeTimers();
+    try {
+      wrapper = render();
+      const play = wrapper.get('button[aria-label="Play"]');
+      await play.trigger("pointerdown");
+      vi.advanceTimersByTime(500);
+      await play.trigger("pointerup");
+      await play.trigger("click", { detail: 1 });
+      expect(wrapper.emitted("playHold")).toHaveLength(1);
+      expect(wrapper.emitted("togglePlayback")).toBeUndefined();
+
+      // A quick tap after it is an ordinary Play.
+      vi.advanceTimersByTime(100);
+      await play.trigger("pointerdown");
+      vi.advanceTimersByTime(120);
+      await play.trigger("pointerup");
+      await play.trigger("click", { detail: 1 });
+      expect(wrapper.emitted("togglePlayback")).toHaveLength(1);
+      expect(wrapper.emitted("playHold")).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps the touch a hold needs: no pan, callout or selection can take it from Play", () => {
+    wrapper = render();
+    const play = wrapper.get<HTMLButtonElement>('button[aria-label="Play"]');
+
+    // A drifting finger under the Button's own `manipulation` becomes a pan,
+    // and the browser cancels the pointer before the hold lands.
+    expect(play.element.style.touchAction).toBe("none");
+    expect(play.element.style.userSelect).toBe("none");
+  });
+
+  it("swallows the click that ends a hold however late a busy phone delivers it", async () => {
+    vi.useFakeTimers();
+    try {
+      wrapper = render();
+      const play = wrapper.get('button[aria-label="Play"]');
+      await play.trigger("pointerdown");
+      vi.advanceTimersByTime(500);
+      await play.trigger("pointerup");
+      // The click lands long after the lift: still the end of the hold, not a tap.
+      vi.advanceTimersByTime(250);
+      await play.trigger("click", { detail: 1 });
+      expect(wrapper.emitted("playHold")).toHaveLength(1);
+      expect(wrapper.emitted("togglePlayback")).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("never swallows a tap after a hold that ended with no click", async () => {
+    vi.useFakeTimers();
+    try {
+      wrapper = render();
+      const play = wrapper.get('button[aria-label="Play"]');
+      // A long press that the platform ends without a click (Android does).
+      await play.trigger("pointerdown");
+      vi.advanceTimersByTime(500);
+      await play.trigger("pointerup");
+      vi.advanceTimersByTime(1000);
+      // The next tap plays, and so does a keyboard Enter.
+      await play.trigger("pointerdown");
+      await play.trigger("pointerup");
+      await play.trigger("click", { detail: 1 });
+      await play.trigger("click", { detail: 0 });
+      expect(wrapper.emitted("togglePlayback")).toHaveLength(2);
+      expect(wrapper.emitted("playHold")).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("an assistive activation is a tap and never starts the hold", async () => {
+    vi.useFakeTimers();
+    try {
+      wrapper = render();
+      const play = wrapper.get('button[aria-label="Play"]');
+      // VoiceOver's double-tap, Switch Access and TalkBack send a click, at
+      // most after a pointer down and up back to back: the lift clears the hold.
+      await play.trigger("click", { detail: 0 });
+      await play.trigger("pointerdown");
+      await play.trigger("pointerup");
+      await play.trigger("click", { detail: 0 });
+      vi.advanceTimersByTime(1000);
+      expect(wrapper.emitted("togglePlayback")).toHaveLength(2);
+      expect(wrapper.emitted("playHold")).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("shows the latch as the Play key held down, and its name says so", async () => {
+    wrapper = render({ playLatched: true });
+    const play = wrapper.get("button[data-pressed]");
+    // The Button's own pressed look, held (Burooj, 2026-10-19).
+    expect(play.classes()).toContain("paper-button--pressed");
+    expect(play.classes()).not.toContain("paper-button--loading");
+    expect(play.attributes("aria-busy")).toBeUndefined();
+    expect(play.attributes("aria-label")).toBe("Play (latched; hold to release)");
+    // Busy is the Button's own state; the latched key must still answer a tap.
+    await play.trigger("click");
+    expect(wrapper.emitted("togglePlayback")).toHaveLength(1);
   });
 
 });

@@ -1,8 +1,9 @@
+/* No root font here: the guide keeps production's inherited typography so
+   real specimens render as they do in the app (see guide-defaults.css). */
 html, body {
   margin: 0; padding: 0;
   background: var(--ink);
-  color: var(--fg);
-  font: var(--t-body);
+  color: var(--ivory);
   -webkit-font-smoothing: antialiased;
 }
 .card {
@@ -14,11 +15,6 @@ html, body {
   box-sizing: border-box;
 }
 .row { display: flex; align-items: center; gap: 14px; }
-.label { font: var(--t-label); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--fg-3); }
-.swatch { width: 56px; height: 56px; border-radius: var(--r-sm); box-shadow: var(--ring); flex-shrink: 0; }
-.spec { display:flex; flex-direction:column; gap: 2px; min-width: 0; }
-.spec b { font: var(--t-h2); color: var(--fg); letter-spacing: var(--tracking-display); text-transform: uppercase; }
-.spec code { font: var(--t-mono); color: var(--fg-3); }
 .grid { display: grid; gap: 10px; }
 
 /* CANONICAL PANEL · floating-label container ────────────────────────
@@ -30,8 +26,7 @@ html, body {
    (numbered ordinals, multi-line, etc.) — not data-label pseudo. */
 .panel {
   position: relative;
-  background: var(--ink-3);
-  border: 1px solid var(--ink-5);
+  background: var(--ink);
   margin-top: 14px;
   padding: 22px 16px 14px;
 }
@@ -51,27 +46,3 @@ html, body {
   pointer-events: none;
 }
 
-/* CANONICAL STATE-FRAME · labelled state cell ───────────────────────
-   A thin-bordered cell that holds a STATE specimen (rest/hover/
-   active/disabled/etc.) with a tiny corner pin naming the state.
-   Used by primitive cards that show all states of one element side
-   by side. Previously diverged as .frame / .state / .group / .anchor. */
-.state-frame {
-  position: relative;
-  border: 1px solid var(--hairline);
-  background: var(--ink);
-  padding: 24px 16px 14px;
-}
-.state-pin {
-  position: absolute;
-  top: 6px;
-  left: 12px;
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--ivory-4);
-}
-
-/* .brass / .brass-text utilities + @keyframes brass-sheen
-   live in colors_and_type.css (imported above). Don't duplicate here. */

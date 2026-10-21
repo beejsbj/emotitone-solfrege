@@ -8,12 +8,14 @@
  * // >`.as("note").sound("sine").cpm(120 / 4)
  */
 
+import { takePlaybackGain, velocityToGain } from "@/audio/velocity";
 import type { LogNote } from "@/types/patterns";
 import type { Shape } from "@/types/instrument";
 import type { MusicalMode } from "@/types/music";
+import type { NotationSpan, SpannedNotation } from "@/types/notation";
 import { Note as TonalNote } from "@tonaljs/tonal";
 import { getScaleForMode, normalizeScaleIndex } from "@/data";
-import { prepareRecordedNotes, recordedLoopTailMs, type PreparedRecordedNote } from "./recordedTiming";
+import { loopLengthMs, prepareRecordedNotes, type PreparedRecordedNote } from "./recordedTiming";
 import { approximateVibrato, type VibratoApproximation } from "./vibratoApproximation";
 import { approximateTremolo, type TremoloApproximation } from "./tremoloApproximation";
 import type { LiveArticulation } from "./liveArticulation";
@@ -28,7 +30,7 @@ export interface StrudelConfig {
   beatsPerBar: number;
   /** 'absolute' uses note names (C4), 'relative' uses scale degrees (0-6). @default 'absolute' */
   notationType: "absolute" | "relative";
-  /** Decimal places for @x duration values. @default 6 */
+  /** Decimal places for @x duration values. @default 4 */
   precision: number;
   /** Sound/instrument name passed to .sound(). @default 'sine' */
   sound: string;
@@ -46,6 +48,11 @@ export interface StrudelConfig {
   shape?: Shape;
   /** Optional full phrase duration, including silence after the final note. */
   patternDurationMs?: number;
+  /**
+   * Keep the pattern on one line (the Code Strip's single line). Offsets are
+   * identical either way; only the two line breaks inside the backticks change.
+   */
+  inline?: boolean;
 }
 
 const DEFAULT_CONFIG: StrudelConfig = {
@@ -53,9 +60,7 @@ const DEFAULT_CONFIG: StrudelConfig = {
   sourceBpm: 120,
   beatsPerBar: 4,
   notationType: "absolute",
-  // Long performances accumulate rounding across standalone notes and blocks.
-  // Match lane-boundary precision so that the complete phrase retains timing.
-  precision: 6,
+  precision: 4,
   sound: "sine",
 };
 
@@ -76,21 +81,107 @@ function toAt(ms: number, barMs: number, precision: number): string {
   return x === 1 ? "" : `@${x}`;
 }
 
-/** Coalesce adjacent rests in one sequence; brace lanes stay independent. */
-export function mergeStrudelRests(tokens: string[], precision = 4): string[] {
-  const merged: string[] = [];
+/** Where one note sits in a token, in bars: the timing the text encodes. */
+interface TokenNote {
+  note: PreparedRecordedNote<LogNote>;
+  /** Onset from the token's start. */
+  begin: number;
+  /** The slot the text gives it; the audible gate is slot × clip. */
+  slot: number;
+}
+
+/** Generated text with the span each note produced, relative to `text`. */
+interface SpannedText {
+  text: string;
+  spans: NotationSpan[];
+  /** Top-level tokens: the weight the text prints, in bars. */
+  weight?: number;
+  notes?: TokenNote[];
+}
+
+const plain = (text: string): SpannedText => ({ text, spans: [] });
+
+/** The weight a `toAt` suffix prints ("" is weight 1). */
+function printedWeight(at: string): number {
+  return at === "" ? 1 : Number(at.slice(1));
+}
+
+/** A rest token whose weight is exactly what it prints. */
+function restToken(at: string): SpannedText {
+  return { text: `~${at}`, spans: [], weight: printedWeight(at), notes: [] };
+}
+
+/**
+ * One note as the exported text plays it: onset and slot in bars from the
+ * loop start, plus the per-note values the text carries. The pattern
+ * transport builds its member tables from this, so the sound and the
+ * exported code come from one walk and cannot disagree.
+ */
+export interface PlannedPatternNote {
+  noteId: string;
+  note: LogNote;
+  beginBars: number;
+  slotBars: number;
+  /** Audible gate: slot × the recorded clip ratio. */
+  gateBars: number;
+  /** MIDI pitch the text sounds (relative degrees resolve to the same pitch). */
+  midi: number;
+  /** The velocity as recorded, for note events. */
+  velocity?: number;
+  /** The level the take plays this note at: recorded velocity ÷ the take's loudest (BJS-556). */
+  playbackVelocity?: number;
+  attack: number;
+  decay: number;
+  sustain: number;
+  release: number;
+}
+
+export interface RecordedPatternPlan {
+  /** Sum of the text's top-level weights: one pass of the loop, in bars. */
+  lengthBars: number;
+  /** Milliseconds per bar at the source tempo (expression curves convert by it). */
+  barMs: number;
+  notes: PlannedPatternNote[];
+}
+
+function shiftSpans(spans: NotationSpan[], offset: number): NotationSpan[] {
+  return spans.map((span) => ({ ...span, from: span.from + offset, to: span.to + offset }));
+}
+
+function joinSpanned(parts: SpannedText[], separator: string): SpannedText {
+  let text = "";
+  const spans: NotationSpan[] = [];
+  parts.forEach((part, index) => {
+    if (index) text += separator;
+    spans.push(...shiftSpans(part.spans, text.length));
+    text += part.text;
+  });
+  return { text, spans };
+}
+
+function wrapSpanned(prefix: string, part: SpannedText, suffix: string): SpannedText {
+  return { text: `${prefix}${part.text}${suffix}`, spans: shiftSpans(part.spans, prefix.length) };
+}
+
+function mergeRestTokens(tokens: SpannedText[], precision: number): SpannedText[] {
+  const merged: SpannedText[] = [];
   let restWeight = 0;
   const flush = () => {
-    if (restWeight > 0) merged.push(`~${toAt(restWeight, 1, precision)}`);
+    if (restWeight > 0) merged.push(restToken(toAt(restWeight, 1, precision)));
     restWeight = 0;
   };
   for (const token of tokens) {
-    const rest = token.match(/^~(?:@(\d+(?:\.\d+)?))?$/);
+    const rest = token.spans.length ? null : token.text.match(/^~(?:@(\d+(?:\.\d+)?))?$/);
     if (rest) restWeight += rest[1] === undefined ? 1 : Number(rest[1]);
     else { flush(); merged.push(token); }
   }
   flush();
   return merged;
+}
+
+/** Coalesce adjacent rests in one sequence; brace lanes stay independent. */
+export function mergeStrudelRests(tokens: string[], precision = 4): string[] {
+  return mergeRestTokens(tokens.map(plain), precision).map((token) => token.text);
 }
 
 /**
@@ -110,6 +201,10 @@ export class StrudelNotation {
   private vibratoByNote = new Map<LogNote, VibratoApproximation>();
   private tremoloByNote = new Map<LogNote, TremoloApproximation>();
   private fallbackEnvelope: LiveArticulation = resolveLiveEnvelope(DEFAULT_CONFIG.sound);
+  /** Normalises recorded velocity across the whole take, chord lanes included. */
+  private playbackGain: (velocity?: number) => number = velocityToGain;
+  /** The top-level tokens of the last render, with their printed weights. */
+  private renderedTokens: SpannedText[] = [];
 
   constructor(notes: LogNote[], config?: Partial<StrudelConfig>) {
     this.notes = prepareRecordedNotes(notes).sort(
@@ -120,23 +215,30 @@ export class StrudelNotation {
         a.note.localeCompare(b.note)
     );
     this.config = { ...DEFAULT_CONFIG, ...config };
+    this.playbackGain = takePlaybackGain(this.notes.map(note => note.velocity));
   }
 
   toString(): string {
-    if (this.notes.length === 0) return "";
+    return this.render().code;
+  }
+
+  /** The code plus the span each note's value produced, keyed by the note's id. */
+  render(): SpannedNotation {
+    if (this.notes.length === 0) return { code: "", spans: [] };
 
     this.renderRelative = this.config.notationType === "relative" &&
       this.notes.every((note) => this.relativeNoteValue(note) != null);
     this.fallbackEnvelope = resolveLiveEnvelope(this.config.sound, this.config.shape);
     // Uniform recorded articulation becomes a global modifier; only varying
     // controls need a per-note column alongside the expression columns.
-    // Legacy/neutral notes keep the existing output. Authored and recorded
-    // velocities need gain in every lane so chord members retain their balance.
-    const controlsToRender: RecordedControl[] = this.notes.some(note => this.noteControl(note, 'gain') !== 1)
+    // Superdough's existing unity-velocity gain is 0.8. Only emit gain when
+    // a note needs attenuation, preserving legacy notation and loudness. The
+    // take is normalised first: its loudest note is full level (BJS-556).
+    const recordedControls: RecordedControl[] = this.notes.some(note => this.playbackGain(note.velocity) !== 1)
       ? [...RECORDED_CONTROLS, 'gain'] : RECORDED_CONTROLS;
-    const values = new Map(controlsToRender.map(control =>
+    const values = new Map(recordedControls.map(control =>
       [control, this.notes.map(note => this.noteControl(note, control))] as const));
-    this.controlFields = controlsToRender.filter(control =>
+    this.controlFields = recordedControls.filter(control =>
       new Set(values.get(control)).size > 1);
     this.vibratoByNote.clear();
     this.tremoloByNote.clear();
@@ -150,7 +252,7 @@ export class StrudelNotation {
     this.renderTremolo = this.tremoloByNote.size > 0;
     const barMs = barLengthMs(this.config);
     const origin = this.notes[0].pressTime;
-    const tokens: string[] = [];
+    const tokens: SpannedText[] = [];
     let cursor = 0;
     let index = 0;
 
@@ -173,7 +275,7 @@ export class StrudelNotation {
 
       const gap = blockStart - cursor;
       if (gap > OVERLAP_EPSILON_MS) {
-        tokens.push(`~${toAt(gap, barMs, this.config.precision)}`);
+        tokens.push(restToken(toAt(gap, barMs, this.config.precision)));
       }
 
       tokens.push(
@@ -188,16 +290,24 @@ export class StrudelNotation {
 
     // Preserve a loaded phrase's authored trailing rest. A fresh take's
     // duration ends at its last note, so it still gets one beat of padding.
-    const authoredTail = (this.config.patternDurationMs ?? cursor) - cursor;
-    const trailingSilence = Number.isFinite(authoredTail) && authoredTail > 0
-      ? authoredTail : recordedLoopTailMs(this.config.sourceBpm);
-    tokens.push(`~${toAt(trailingSilence, barMs, this.config.precision)}`);
+    const trailingSilence = loopLengthMs({
+      notes: [{ releaseTime: cursor }],
+      duration: this.config.patternDurationMs,
+      context: { bpm: this.config.sourceBpm },
+    }) - cursor;
+    tokens.push(restToken(toAt(trailingSilence, barMs, this.config.precision)));
     // Direct @ weights in <> are cycle lengths. A surrounding [] would
     // normalize the entire take into one cycle, regardless of its duration.
-    const inner = mergeStrudelRests(tokens, this.config.precision).join(" ");
+    const lineBreak = this.config.inline ? " " : "\n";
+    this.renderedTokens = mergeRestTokens(tokens, this.config.precision);
+    const pattern = wrapSpanned(
+      `\`<${lineBreak}`,
+      joinSpanned(this.renderedTokens, " "),
+      `${lineBreak}>\``,
+    );
     // Each mapped column is present on every note. Globals cover only the
     // unmapped controls so they cannot overwrite recorded per-note values.
-    const controls = controlsToRender.filter(control => !this.controlFields.includes(control))
+    const controls = recordedControls.filter(control => !this.controlFields.includes(control))
       .map(control => `.${control}(${values.get(control)![0]})`).join('');
     const filters = this.filterModifiers();
     const effects = this.effectModifiers();
@@ -208,47 +318,81 @@ export class StrudelNotation {
         this.config.scaleOctave ??
         (Number.isFinite(first?.octave) ? first.octave : 4);
       const scale = `${this.config.scaleKey ?? first?.key ?? "C"}${scaleOctave}:${this.config.scaleMode ?? first?.mode ?? "major"}`;
-      return `\`<\n${inner}\n>\`.as(${this.asFields("n")}).scale("${scale}").sound("${this.config.sound}")${filters}${controls}${effects}.cpm(${cpmExpression})`;
+      return {
+        code: `${pattern.text}.as(${this.asFields("n")}).scale("${scale}").sound("${this.config.sound}")${filters}${controls}${effects}.cpm(${cpmExpression})`,
+        spans: pattern.spans,
+      };
     }
 
-    return `\`<\n${inner}\n>\`.as(${this.asFields("note")}).sound("${this.config.sound}")${filters}${controls}${effects}.cpm(${cpmExpression})`;
+    return {
+      code: `${pattern.text}.as(${this.asFields("note")}).sound("${this.config.sound}")${filters}${controls}${effects}.cpm(${cpmExpression})`,
+      spans: pattern.spans,
+    };
   }
 
-  private renderStandaloneNote(note: LogNote, barMs: number) {
-    return `${this.noteValue(note)}${toAt(
-      this.noteDuration(note),
-      barMs,
-      this.config.precision,
-    )}`;
+  /** The timing and per-note values the rendered text plays (see PlannedPatternNote). */
+  plan(): RecordedPatternPlan {
+    const barMs = barLengthMs(this.config);
+    if (!this.notes.length) return { lengthBars: 0, barMs, notes: [] };
+    this.render();
+    const notes: PlannedPatternNote[] = [];
+    let cursor = 0;
+    for (const token of this.renderedTokens) {
+      for (const { note, begin, slot } of token.notes ?? []) {
+        const clip = this.noteControl(note, "clip");
+        const velocity = typeof note.velocity === "number" && Number.isFinite(note.velocity) ? note.velocity : undefined;
+        notes.push({
+          noteId: note.id, note, beginBars: cursor + begin, slotBars: slot, gateBars: slot * clip,
+          midi: TonalNote.midi(note.note) ?? 60,
+          ...(velocity === undefined ? {} : { velocity, playbackVelocity: this.playbackGain(velocity) }),
+          attack: this.noteControl(note, "attack"), decay: this.noteControl(note, "decay"),
+          sustain: this.noteControl(note, "sustain"), release: this.noteControl(note, "release"),
+        });
+      }
+      cursor += token.weight ?? 0;
+    }
+    notes.sort((a, b) => a.beginBars - b.beginBars);
+    return { lengthBars: cursor, barMs, notes };
+  }
+
+  private renderStandaloneNote(note: PreparedRecordedNote<LogNote>, barMs: number): SpannedText {
+    const at = toAt(this.noteDuration(note), barMs, this.config.precision);
+    const weight = printedWeight(at);
+    return { ...wrapSpanned("", this.spannedNoteValue(note), at), weight, notes: [{ note, begin: 0, slot: weight }] };
   }
 
   private renderOverlapBlock(
-    notes: LogNote[],
+    notes: PreparedRecordedNote<LogNote>[],
     origin: number,
     blockStart: number,
     blockEnd: number,
     barMs: number
-  ) {
+  ): SpannedText {
+    const weight = toAt(blockEnd - blockStart, barMs, this.config.precision);
+    const bars = printedWeight(weight);
     if (notes.every(note => this.noteStart(note, origin) === blockStart &&
       this.noteEnd(note, origin) === blockEnd)) {
-      return `{${notes.map(note => this.noteValue(note)).join(", ")}}${toAt(
-        blockEnd - blockStart, barMs, this.config.precision,
-      )}`;
+      return {
+        ...wrapSpanned(
+          "{",
+          joinSpanned(notes.map(note => this.spannedNoteValue(note)), ", "),
+          `}${weight}`,
+        ),
+        weight: bars,
+        notes: notes.map(note => ({ note, begin: 0, slot: bars })),
+      };
     }
     const lanes = this.buildLanes(notes, origin);
+    const timed: TokenNote[] = [];
     const laneStrings = lanes.map((lane) =>
-      this.renderLane(lane, origin, blockStart, blockEnd, barMs)
+      this.renderLane(lane, origin, blockStart, blockEnd, barMs, bars, timed)
     );
 
-    return `{${laneStrings.join(", ")}}${toAt(
-      blockEnd - blockStart,
-      barMs,
-      this.config.precision
-    )}`;
+    return { ...wrapSpanned("{", joinSpanned(laneStrings, ", "), `}${weight}`), weight: bars, notes: timed };
   }
 
-  private buildLanes(notes: LogNote[], origin: number) {
-    const lanes: LogNote[][] = [];
+  private buildLanes(notes: PreparedRecordedNote<LogNote>[], origin: number) {
+    const lanes: PreparedRecordedNote<LogNote>[][] = [];
 
     for (const note of notes) {
       const start = this.noteStart(note, origin);
@@ -272,12 +416,14 @@ export class StrudelNotation {
   }
 
   private renderLane(
-    lane: LogNote[],
+    lane: PreparedRecordedNote<LogNote>[],
     origin: number,
     blockStart: number,
     blockEnd: number,
-    barMs: number
-  ) {
+    barMs: number,
+    blockBars: number,
+    timed: TokenNote[],
+  ): SpannedText {
     // Every lane must carry the same total weight. Omitting a full-span
     // note's weight makes it 1 while padded lanes may total e.g. 0.25;
     // {} then repeats those shorter lanes, inventing extra attacks.
@@ -287,24 +433,28 @@ export class StrudelNotation {
     const units = 10 ** precision;
     const boundary = (time: number) => Math.round((time - blockStart) / barMs * units);
     const format = (ticks: number) => toAt(ticks, units, precision);
-    const tokens: string[] = [];
+    const tokens: SpannedText[] = [];
     let cursor = 0;
+    // A lane is a sequence spread over its block: each step's share of the
+    // lane's ticks is its share of the block's printed weight.
+    const totalTicks = boundary(blockEnd);
 
     for (const note of lane) {
       const start = boundary(this.noteStart(note, origin));
       const end = boundary(this.noteEnd(note, origin));
+      timed.push({ note, begin: start / totalTicks * blockBars, slot: (end - start) / totalTicks * blockBars });
       const gap = start - cursor;
 
-      if (gap > 0) tokens.push(`~${format(gap)}`);
+      if (gap > 0) tokens.push(plain(`~${format(gap)}`));
 
-      tokens.push(`${this.noteValue(note)}${format(end - start)}`);
+      tokens.push(wrapSpanned("", this.spannedNoteValue(note), format(end - start)));
       cursor = end;
     }
 
     const trailingGap = boundary(blockEnd) - cursor;
-    if (trailingGap > 0) tokens.push(`~${format(trailingGap)}`);
+    if (trailingGap > 0) tokens.push(plain(`~${format(trailingGap)}`));
 
-    return mergeStrudelRests(tokens, precision).join(" ");
+    return joinSpanned(mergeRestTokens(tokens, precision), " ");
   }
 
   private filterModifiers(): string {
@@ -323,6 +473,12 @@ export class StrudelNotation {
       modifiers += `.delay(${Number(delay.toFixed(3))}).delaytime(0.25).delayfeedback(0.3)`;
     }
     return modifiers;
+  }
+
+  /** A note's whole value atom (pitch plus any control fields) is its span. */
+  private spannedNoteValue(note: PreparedRecordedNote<LogNote>): SpannedText {
+    const text = this.noteValue(note);
+    return { text, spans: [{ noteId: note.id, from: 0, to: text.length }] };
   }
 
   private noteValue(note: PreparedRecordedNote<LogNote>) {
@@ -349,10 +505,7 @@ export class StrudelNotation {
   }
 
   private noteControl(note: PreparedRecordedNote<LogNote>, control: RecordedControl): number {
-    if (control === 'gain') {
-      return typeof note.velocity === 'number' && Number.isFinite(note.velocity)
-        ? Math.min(1, Math.max(0, note.velocity)) : 1;
-    }
+    if (control === 'gain') return 0.8 * this.playbackGain(note.velocity);
     if (control === 'clip') {
       const ratio = (note.gateDuration ?? this.noteDuration(note)) / this.noteDuration(note);
       return Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
@@ -404,11 +557,29 @@ export class StrudelNotation {
  *
  * @example
  * const strudel = logNotesToStrudel(store.loggedNotes, { sourceBpm: 90 })
- * window.open(`https://strudel.cc/#${btoa(strudel)}`) // open in strudel.cc
  */
 export function logNotesToStrudel(
   notes: LogNote[],
   config?: Partial<StrudelConfig>
 ): string {
   return new StrudelNotation(notes, config).toString();
+}
+
+/**
+ * The generated code plus the span each note produced, keyed by note id.
+ * `code` is exactly what `logNotesToStrudel` returns for the same input.
+ */
+export function renderStrudelNotation(
+  notes: LogNote[],
+  config?: Partial<StrudelConfig>
+): SpannedNotation {
+  return new StrudelNotation(notes, config).render();
+}
+
+/** The note timing the exported text plays, from the same walk that writes it. */
+export function planRecordedPattern(
+  notes: LogNote[],
+  config?: Partial<StrudelConfig>
+): RecordedPatternPlan {
+  return new StrudelNotation(notes, config).plan();
 }

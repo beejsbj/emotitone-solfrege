@@ -1,5 +1,5 @@
 // Browser-only shims and external-effect mocks. Pure logic tests use no setup.
-import { vi } from 'vitest'
+import { beforeEach, vi } from 'vitest'
 
 // Mock GSAP
 vi.mock('gsap', () => ({
@@ -125,6 +125,12 @@ Object.defineProperty(window, 'localStorage', {
   configurable: true,
 });
 
+// Stores persist themselves (the phrase book does, even without the Pinia
+// plugin), so one test's saved state must not seed the next test's store.
+beforeEach(() => {
+  localStorageMock.store.clear();
+});
+
 // Also add to global for environments that don't have window
 Object.defineProperty(global, 'localStorage', {
   value: localStorageMock,
@@ -132,19 +138,9 @@ Object.defineProperty(global, 'localStorage', {
   configurable: true,
 });
 
-// Mock toast notifications
-vi.mock('vue-sonner', () => ({
-  toast: {
-    loading: vi.fn().mockReturnValue('loading-toast-id'),
-    dismiss: vi.fn(),
-    success: vi.fn(),
-    error: vi.fn(),
-    warning: vi.fn()
-  }
-}))
-
 vi.mock('@/services/superdoughAudio', () => ({
   initSuperdoughAudio: vi.fn().mockResolvedValue(undefined),
+  initSynthOnlyAudio: vi.fn().mockResolvedValue(undefined),
   prewarmSoundSamples: vi.fn().mockResolvedValue(undefined),
   isPrewarmed: vi.fn().mockReturnValue(true),
   attackNote: vi.fn().mockResolvedValue(undefined),
@@ -158,10 +154,9 @@ vi.mock('@/services/superdoughAudio', () => ({
     resume: vi.fn().mockResolvedValue(undefined),
   })),
   getSuperdoughMasterGain: vi.fn().mockReturnValue(null),
+  ensureSoundfontCatalog: vi.fn().mockResolvedValue(undefined),
   getRegisteredSounds: vi.fn().mockReturnValue(['piano', 'triangle']),
   setLiveSynthControls: vi.fn(),
-  stopStrudelVisuals: vi.fn(),
-  emotitoneStrudelOutput: vi.fn().mockResolvedValue(undefined),
   playStrudelCode: vi.fn().mockResolvedValue(undefined),
   stopStrudelPlayback: vi.fn(),
 }))

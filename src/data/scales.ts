@@ -81,10 +81,3 @@ export function normalizeScaleIndex(mode: MusicalMode, scaleIndex: number): numb
   const degreeCount = getScaleForMode(mode).degreeCount;
   return ((scaleIndex % degreeCount) + degreeCount) % degreeCount;
 }
-
-export function getSolfegeNameForMode(
-  mode: MusicalMode,
-  scaleIndex: number
-): string {
-  return getScaleForMode(mode).solfege[normalizeScaleIndex(mode, scaleIndex)]?.name ?? "Do";
-}

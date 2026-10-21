@@ -2,7 +2,7 @@
   <AnatomyDisplay
     title="CodeStrip Bar &middot; Instrument Compound"
     :features="features"
-    caption="One continuous opaque instrument rail, with inset controls and room between actions: ivory Play, ink Stop and Backspace, an unframed dense CodeStrip, and ivory Return."
+    caption="One continuous opaque instrument rail, with inset controls and room between actions: a Chad Crown above ivory Play / ink Stop, ink Backspace, an unframed dense CodeStrip, and ivory Return."
   >
     <template #hero>
       <div class="code-strip-bar-specimen">
@@ -65,7 +65,7 @@ const features = [
   { label: "Rhythm", value: "8px around the flexible strip; 6px between Backspace and Return" },
   { label: "CodeStrip", value: "dense, zero-inset, unframed, and transparent inside this bar only; empty state stays compact" },
   { label: "Actions", value: "32px icon-only Button primitives; accessible names remain" },
-  { label: "Beat", value: "Play/Stop sits inside the Beat Indicator ring, shown only during playback and overhanging the block inset" },
+  { label: "Beat", value: "Beat Indicator crowns Play/Stop with four LED chads during playback; the crown fits the block inset within the 56px rail and Button keeps its own lip" },
   { label: "Material", value: "ivory Play; ink Stop and Backspace; ivory Return with Ink icon" },
   { label: "Backspace", value: "removes the last recorded event; never presented as editor Undo" },
   { label: "Return", value: "typewriter carriage return for commit-and-clear; never presented as Send" },

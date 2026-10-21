@@ -1,9 +1,10 @@
+import { smoothStageValue, stageCanvasSize } from "./stageCanvas";
 /**
  * String Rendering System
  * Handles vibrating string visualization with realistic physics
  */
 
-import { ref, watch } from "vue";
+import { shallowRef, triggerRef, watch } from "vue";
 import type {
   VibratingStringConfig,
   StringConfig,
@@ -18,7 +19,6 @@ import {
 import { useMusicStore } from "@/stores/music";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useVisualConfigStore } from "@/stores/visualConfig";
-import useGSAP from "../useGSAP";
 import type { ActiveNote, ChromaticNote, MusicalMode } from "@/types/music";
 import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
 import type { StageAudioFrame } from "./stageRuntime";
@@ -40,13 +40,12 @@ function resolvePitchClassIndex(note: {
   return undefined;
 }
 
-export function useStringRenderer() {
+export function useStringRenderer(animationActive?: () => boolean) {
   const {
     getPrimaryColorForPitch,
     getStaticPrimaryColorForPitch,
     getPrimaryColorByScaleIndex,
-  } = useMusicColor({ animated: true });
-  const { gsap } = useGSAP();
+  } = useMusicColor({ animated: true, animationActive });
   const musicStore = useMusicStore();
   const keyboardDrawerStore = useKeyboardDrawerStore();
   const visualConfigStore = useVisualConfigStore();
@@ -58,32 +57,30 @@ export function useStringRenderer() {
     hasFrequencyChange: boolean;
   }>();
 
-  // String state
-  const strings = ref<VibratingStringConfig[]>([]);
+  // Keep per-frame objects plain; publish a completed frame once to readers.
+  const strings = shallowRef<VibratingStringConfig[]>([]);
 
   // Cache the last canvas size for reinitialization
   let lastCanvasWidth = 0;
   let lastCanvasHeight = 0;
 
   // Event-based activation for sequencer notes
-  const eventActivatedStrings = ref(
-    new Map<
-      string,
-      {
-        solfegeIndex: number;
-        frequency: number;
-        /** Keyboard row coordinate used to select the rendered String. */
-        octave: number;
-        /** Sounding scientific octave used by Music Color. */
-        scientificOctave: number;
-        mode: MusicalMode;
-        key: ChromaticNote;
-        pitchClassIndex?: number;
-        pitchBendCents?: number;
-        endTime: number | null;
-      }
-    >()
-  );
+  const eventActivatedStrings = new Map<
+    string,
+    {
+      solfegeIndex: number;
+      frequency: number;
+      /** Keyboard row coordinate used to select the rendered String. */
+      octave: number;
+      /** Sounding scientific octave used by Music Color. */
+      scientificOctave: number;
+      mode: MusicalMode;
+      key: ChromaticNote;
+      pitchClassIndex?: number;
+      pitchBendCents?: number;
+      endTime: number | null;
+    }
+  >();
 
   const getStringActivationKey = (solfegeIndex: number, octave: number) =>
     `${solfegeIndex}_${octave}`;
@@ -243,7 +240,7 @@ export function useStringRenderer() {
         : Date.now() + durationMs;
 
       // Add to event-activated strings
-      eventActivatedStrings.value.set(
+      eventActivatedStrings.set(
         noteId ?? getStringActivationKey(solfegeIndex, activationOctave),
         {
           solfegeIndex,
@@ -262,13 +259,13 @@ export function useStringRenderer() {
 
   const handleNoteReleased = (event: CustomEvent) => {
     const noteId = event.detail?.noteId;
-    if (noteId) eventActivatedStrings.value.delete(noteId);
+    if (noteId) eventActivatedStrings.delete(noteId);
   };
 
   const handleNoteExpression = (event: CustomEvent) => {
     const { noteId, cents } = event.detail ?? {};
     if (!noteId || typeof cents !== "number" || !Number.isFinite(cents) || Math.abs(cents) > 50) return;
-    const activation = eventActivatedStrings.value.get(noteId);
+    const activation = eventActivatedStrings.get(noteId);
     if (activation) activation.pitchBendCents = cents;
   };
 
@@ -280,9 +277,9 @@ export function useStringRenderer() {
     for (const [
       activationKey,
       activation,
-    ] of eventActivatedStrings.value.entries()) {
+    ] of eventActivatedStrings.entries()) {
       if (activation.endTime !== null && now > activation.endTime) {
-        eventActivatedStrings.value.delete(activationKey);
+        eventActivatedStrings.delete(activationKey);
       }
     }
   };
@@ -297,6 +294,7 @@ export function useStringRenderer() {
     audioFrame: StageAudioFrame = { envelope: 1, hasSignal: true },
     reducedMotion = false,
     suppliedActiveNotes?: readonly ActiveNote[],
+    deltaSeconds = 1 / 60,
   ) => {
     // Clean up expired event activations
     cleanupExpiredActivations();
@@ -323,7 +321,7 @@ export function useStringRenderer() {
       const isStringActiveFromInput = Boolean(matchingActiveNote);
 
       // Check if this string is activated by sequencer events (for the specific octave)
-      const eventActivation = Array.from(eventActivatedStrings.value.values()).find(
+      const eventActivation = Array.from(eventActivatedStrings.values()).find(
         (activation) =>
           (typeof activation.pitchClassIndex === "number"
             ? activation.pitchClassIndex === stringPitchClass
@@ -345,17 +343,19 @@ export function useStringRenderer() {
           : stringConfig.maxAmplitude * audioFrame.envelope;
         string.amplitude = reducedMotion
           ? 0
-          : gsap.utils.interpolate(
+          : smoothStageValue(
               string.amplitude,
               targetAmplitude,
-              stringConfig.interpolationSpeed
+              stringConfig.interpolationSpeed,
+              deltaSeconds
             );
         string.opacity = reducedMotion
           ? stringConfig.activeOpacity
-          : gsap.utils.interpolate(
+          : smoothStageValue(
               string.opacity,
               stringConfig.activeOpacity,
-              stringConfig.opacityInterpolationSpeed
+              stringConfig.opacityInterpolationSpeed,
+              deltaSeconds
             );
         const noteMode = (matchingActiveNote?.mode ??
           eventActivation?.mode ??
@@ -410,18 +410,25 @@ export function useStringRenderer() {
         string.isActive = false;
         string.amplitude = reducedMotion
           ? 0
-          : gsap.utils.interpolate(
+          : smoothStageValue(
               string.amplitude,
               0,
-              stringConfig.dampingFactor
+              stringConfig.dampingFactor,
+              deltaSeconds
             );
         string.opacity = reducedMotion
           ? stringConfig.baseOpacity
-          : gsap.utils.interpolate(
+          : smoothStageValue(
               string.opacity,
               stringConfig.baseOpacity,
-              0.05
+              0.05,
+              deltaSeconds
             );
+
+        if (string.amplitude < 0.01) string.amplitude = 0;
+        if (Math.abs(string.opacity - stringConfig.baseOpacity) < 0.001) {
+          string.opacity = stringConfig.baseOpacity;
+        }
 
         // Keep a subtle base frequency when inactive
         const noteFrequency = musicStore.getNoteFrequency(
@@ -431,6 +438,7 @@ export function useStringRenderer() {
         setStringVisualFrequency(string, createVisualFrequency(noteFrequency, 200));
       }
     });
+    triggerRef(strings);
   };
 
   /**
@@ -484,7 +492,7 @@ export function useStringRenderer() {
       // Add glow effect for active strings
       if (string.isActive && string.amplitude > 5) {
         ctx.shadowColor = string.color;
-        ctx.shadowBlur = 10;
+        ctx.shadowBlur = 10 * stageCanvasSize(ctx.canvas).dpr;
         ctx.stroke();
         ctx.shadowBlur = 0;
       }
@@ -505,7 +513,7 @@ export function useStringRenderer() {
    */
   const clearAllStrings = () => {
     strings.value = [];
-    eventActivatedStrings.value.clear();
+    eventActivatedStrings.clear();
     temporalCycles.clear();
   };
 
@@ -540,6 +548,12 @@ export function useStringRenderer() {
   };
 
   return {
+    hasPendingAnimation: (config: StringConfig) => {
+      cleanupExpiredActivations();
+      if (eventActivatedStrings.size > 0) return true;
+      return strings.value.some(string => string.isActive || string.amplitude > 0
+        || Math.abs(string.opacity - config.baseOpacity) >= 0.001);
+    },
     // State
     strings,
 

@@ -1,3 +1,9 @@
+import {
+  isEditionLook,
+  PINNABLE_LOOKS,
+  SHUFFLE,
+  type EditionLook,
+} from "@/composables/useEditionFamily";
 import type {
   DynamicColorConfig,
   MusicColorMode,
@@ -8,7 +14,8 @@ export type GlobalControlId =
   | "musicColorMapping"
   | "colorIntensity"
   | "colorMotion"
-  | "uiRhythm";
+  | "uiRhythm"
+  | "edition";
 
 export type DeckControlId =
   | "notation"
@@ -17,7 +24,6 @@ export type DeckControlId =
   | "noteSurface"
   | "touchFeedback"
   | "codeStrip"
-  | "durationMode"
   | "showRests";
 
 export type ColorIntensity = "muted" | "balanced" | "vivid";
@@ -30,6 +36,7 @@ export interface GlobalControls {
   colorIntensity: ColorIntensity;
   colorMotion: ColorMotion;
   uiRhythm: boolean;
+  edition: EditionLook;
 }
 
 export interface DeckControls {
@@ -39,7 +46,6 @@ export interface DeckControls {
   noteSurface: VisualEffectsConfig["keyboard"]["surfaceStyle"];
   touchFeedback: boolean;
   codeStrip: boolean;
-  durationMode: VisualEffectsConfig["codeStrip"]["durationMode"];
   showRests: boolean;
 }
 
@@ -109,6 +115,18 @@ export const GLOBAL_CONTROL_GROUPS: PublicConfigControlGroup<GlobalControlId>[] 
       },
     ],
   },
+  {
+    label: "Edition",
+    description: "Shuffle gives each visit one family of Tabs, Knobs, Joystick and keys; pin a family to keep it.",
+    controls: [
+      {
+        id: "edition",
+        label: "Family",
+        type: "options",
+        options: PINNABLE_LOOKS.map(({ value, label }) => ({ value, label })),
+      },
+    ],
+  },
 ];
 
 export const DECK_CONTROL_GROUPS: PublicConfigControlGroup<DeckControlId>[] = [
@@ -152,6 +170,7 @@ export const DECK_CONTROL_GROUPS: PublicConfigControlGroup<DeckControlId>[] = [
         label: "Note Surface",
         type: "options",
         options: [
+          { label: "Family", value: "family" },
           { label: "Color", value: "colored" },
           { label: "Monochrome", value: "monochrome" },
         ],
@@ -165,22 +184,12 @@ export const DECK_CONTROL_GROUPS: PublicConfigControlGroup<DeckControlId>[] = [
   },
   {
     label: "Code Strip",
-    description: "Keep the editable music line available and decide whether rests stay visible.",
+    description: "Show the pattern's code line and decide whether rests stay visible.",
     controls: [
       {
         id: "codeStrip",
         label: "Code Strip",
         type: "boolean",
-      },
-      {
-        id: "durationMode",
-        label: "Durations",
-        type: "options",
-        options: [
-          { label: "Labels", value: "stacked" },
-          { label: "Bars", value: "bar" },
-          { label: "Hidden", value: "hidden" },
-        ],
       },
       {
         id: "showRests",
@@ -247,6 +256,7 @@ export function readGlobalControls(config: VisualEffectsConfig): GlobalControls 
     colorIntensity: readColorIntensity(config.dynamicColors.chroma),
     colorMotion: readColorMotion(config.dynamicColors),
     uiRhythm: config.uiBeat.isEnabled,
+    edition: isEditionLook(config.editions.family) ? config.editions.family : SHUFFLE,
   };
 }
 
@@ -258,7 +268,6 @@ export function readDeckControls(config: VisualEffectsConfig): DeckControls {
     noteSurface: config.keyboard.surfaceStyle,
     touchFeedback: config.keyboard.hapticFeedback,
     codeStrip: config.codeStrip.enabled,
-    durationMode: config.codeStrip.durationMode,
     showRests: config.codeStrip.showRests,
   };
 }
@@ -290,6 +299,11 @@ export function updateGlobalControl(
     case "uiRhythm":
       if (typeof value === "boolean") config.uiBeat.isEnabled = value;
       break;
+    case "edition":
+      if (PINNABLE_LOOKS.some((look) => look.value === value)) {
+        config.editions.family = value as EditionLook;
+      }
+      break;
   }
 }
 
@@ -314,7 +328,7 @@ export function updateDeckControl(
       }
       break;
     case "noteSurface":
-      if (value === "colored" || value === "monochrome") {
+      if (value === "family" || value === "colored" || value === "monochrome") {
         config.keyboard.surfaceStyle = value;
       }
       break;
@@ -323,11 +337,6 @@ export function updateDeckControl(
       break;
     case "codeStrip":
       if (typeof value === "boolean") config.codeStrip.enabled = value;
-      break;
-    case "durationMode":
-      if (value === "stacked" || value === "bar" || value === "hidden") {
-        config.codeStrip.durationMode = value;
-      }
       break;
     case "showRests":
       if (typeof value === "boolean") config.codeStrip.showRests = value;

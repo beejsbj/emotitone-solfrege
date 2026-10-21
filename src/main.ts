@@ -3,11 +3,11 @@ import { createPinia } from "pinia";
 import App from "./App.vue";
 import "./style.css";
 import "./emotitone-design-system.css";
-import piniaPluginPersistedstate from "pinia-plugin-persistedstate";
-import { tooltipPlugin } from "./directives/tooltip";
-import { beginKnobPageEdition } from "./components/primatives/Knob/edition";
-import { beginTabsPageEdition } from "./components/primatives/TabsEdition";
+import { persistedStatePlugin } from "./services/safeStorage";
+import { installBackupConsole } from "./services/persistenceCodec";
+import { beginEditionShuffle, readEditionReviewPin } from "./composables/useEditionFamily";
 import { registerSW } from 'virtual:pwa-register';
+import { currentPathname, isStyleGuideRoute } from "./styleGuideRoutes";
 
 async function clearDevServiceWorkers() {
   if (!("serviceWorker" in navigator)) {
@@ -26,34 +26,26 @@ async function clearDevServiceWorkers() {
 const app = createApp(App);
 const pinia = createPinia();
 
-const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
-const isDesignRoute = [
-  "/style-guide",
-  "/style-guide/tabs",
-  "/style-guide/instrument-picker",
-  "/style-guide/config-menu",
-  "/style-guide/pattern-reel",
-  "/style-guide/stage",
-  "/style-guide/performance-deck",
-].includes(pathname);
-const isPersistenceFreeDesignRoute = [
-  "/style-guide/performance-deck",
-  "/style-guide/stage",
-].includes(pathname);
-if (!isPersistenceFreeDesignRoute) {
-  beginTabsPageEdition();
-}
+const pathname = currentPathname();
+// Every guide URL App.vue routes to the style guide comes from the same
+// module, so browsing the guide never runs production-only bootstrap such as
+// the edition Shuffle: guide specimens hold the first family unless a review
+// pin (`?edition=<family>`) asks for another, on any route.
+const isDesignRoute = isStyleGuideRoute(pathname);
+readEditionReviewPin();
 if (!isDesignRoute || pathname === "/style-guide/config-menu") {
-  beginKnobPageEdition();
+  beginEditionShuffle();
 }
 
 app.use(pinia);
 // The picker specimen drives the real instrument store; keep its knob edits
 // out of the app's saved instrument and Shapes.
 if (pathname !== "/style-guide/instrument-picker") {
-  pinia.use(piniaPluginPersistedstate);
+  pinia.use(persistedStatePlugin);
 }
-app.use(tooltipPlugin);
+// Support path for saved-data backups: `emotitoneBackups.list()` in the
+// console (docs/persistence-codec.md).
+installBackupConsole(window);
 
 if (import.meta.env.DEV) {
   void clearDevServiceWorkers();

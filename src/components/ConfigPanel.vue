@@ -1,6 +1,8 @@
 <template>
   <TopDrawer
     anchor="top-right"
+    :embedded="embedded"
+    :close="props.close"
     :content-height="drawerContentHeight"
     :aria-label="midiTriggerLabel"
     handle-test-id="config-panel-trigger"
@@ -81,10 +83,10 @@
             <section class="config-panel__section" data-testid="global-public-controls">
               <header class="config-panel__section-header">
                 <div>
-                  <p class="config-panel__eyebrow">Across EmotiTone</p>
-                  <h2>Global</h2>
+                  <p class="config-panel__eyebrow panel-heading panel-heading--tape">Across EmotiTone</p>
+                  <h2 class="panel-heading panel-heading--band">Global</h2>
                   <p class="config-panel__section-copy">
-                    Shared color and interface rhythm, independent of the Stage canvas.
+                    Shared color, interface rhythm and edition, independent of the Stage canvas.
                   </p>
                 </div>
 
@@ -105,7 +107,7 @@
                   :key="group.label"
                   class="config-panel__group"
                 >
-                  <p class="config-panel__group-label">{{ group.label }}</p>
+                  <p class="config-panel__group-label panel-heading panel-heading--tape">{{ group.label }}</p>
                   <p class="config-panel__group-copy">{{ group.description }}</p>
                   <div class="config-panel__knob-grid">
                     <Knob
@@ -165,8 +167,8 @@
             >
               <header class="config-panel__section-header">
                 <div>
-                  <p class="config-panel__eyebrow">Canvas</p>
-                  <h2>Stage</h2>
+                  <p class="config-panel__eyebrow panel-heading panel-heading--tape">Canvas</p>
+                  <h2 class="panel-heading panel-heading--band">Stage</h2>
                   <p class="config-panel__section-copy">
                     Control the complete visual canvas. Related layers share focused destinations.
                   </p>
@@ -204,8 +206,8 @@
             >
               <header class="config-panel__looks-header">
                 <div>
-                  <p class="config-panel__eyebrow">Stage only</p>
-                  <h2>Looks</h2>
+                  <p class="config-panel__eyebrow panel-heading panel-heading--tape">Stage only</p>
+                  <h2 class="panel-heading panel-heading--band">Looks</h2>
                   <p class="config-panel__section-copy">
                     Built-ins preserve body relationships and explanations; saved Looks restore what you saved.
                   </p>
@@ -256,7 +258,7 @@
               </div>
 
               <div class="config-panel__preset-group">
-                <p class="config-panel__group-label">Built In</p>
+                <p class="config-panel__group-label panel-heading panel-heading--tape">Built In</p>
                 <div class="config-panel__scene-grid">
                   <button
                     v-for="look in builtInLooks"
@@ -275,7 +277,7 @@
               </div>
 
               <div class="config-panel__preset-group">
-                <p class="config-panel__group-label">Saved Stage Looks</p>
+                <p class="config-panel__group-label panel-heading panel-heading--tape">Saved Stage Looks</p>
                 <div v-if="savedStageLooks.length === 0" class="config-panel__empty-state">
                   No saved Stage Looks yet.
                 </div>
@@ -322,8 +324,8 @@
             >
               <header class="config-panel__section-header">
                 <div>
-                  <p class="config-panel__eyebrow">Stage layers</p>
-                  <h2>{{ destination.label }}</h2>
+                  <p class="config-panel__eyebrow panel-heading panel-heading--tape">Stage layers</p>
+                  <h2 class="panel-heading panel-heading--band">{{ destination.label }}</h2>
                   <p class="config-panel__section-copy">{{ destination.description }}</p>
                 </div>
               </header>
@@ -359,7 +361,7 @@
                   class="config-panel__group"
                 >
                   <template v-if="destination.groups.length > 1">
-                    <p class="config-panel__group-label">{{ group.label }}</p>
+                    <p class="config-panel__group-label panel-heading panel-heading--tape">{{ group.label }}</p>
                     <p class="config-panel__group-copy">{{ group.description }}</p>
                   </template>
                   <div class="config-panel__knob-grid">
@@ -388,8 +390,8 @@
             <section class="config-panel__section" data-testid="deck-public-controls">
               <header class="config-panel__section-header">
                 <div>
-                  <p class="config-panel__eyebrow">Performance surface</p>
-                  <h2>Deck</h2>
+                  <p class="config-panel__eyebrow panel-heading panel-heading--tape">Performance surface</p>
+                  <h2 class="panel-heading panel-heading--band">Deck</h2>
                   <p class="config-panel__section-copy">
                     Shared notation and the useful Keyboard and Code Strip choices.
                   </p>
@@ -407,12 +409,36 @@
               </header>
 
               <div class="config-panel__groups">
+                <div class="config-panel__group">
+                  <p class="config-panel__group-label panel-heading panel-heading--tape">Learn</p>
+                  <p class="config-panel__group-copy">Minor starts on Do by default. Choose La for natural, harmonic, melodic, pentatonic and blues minor.</p>
+                  <Knob
+                    v-model="laBasedMinor"
+                    data-testid="learn-la-based-minor"
+                    type="boolean"
+                    label="La-based minor"
+                  />
+                </div>
+                <div class="config-panel__group">
+                  <p class="config-panel__group-label panel-heading panel-heading--tape">Looper</p>
+                  <p class="config-panel__group-copy">If notes you play over a loop land late, turn this up until they sit where you played them. This device only.</p>
+                  <Knob
+                    v-model="loopTiming"
+                    data-testid="deck-control-loopTiming"
+                    type="range"
+                    :min="LOOP_TIMING_RANGE.min"
+                    :max="LOOP_TIMING_RANGE.max"
+                    :step="LOOP_TIMING_RANGE.step"
+                    label="Loop Timing"
+                    :format-value="formatLoopTiming"
+                  />
+                </div>
                 <div
                   v-for="group in DECK_CONTROL_GROUPS"
                   :key="group.label"
                   class="config-panel__group"
                 >
-                  <p class="config-panel__group-label">{{ group.label }}</p>
+                  <p class="config-panel__group-label panel-heading panel-heading--tape">{{ group.label }}</p>
                   <p class="config-panel__group-copy">{{ group.description }}</p>
                   <div class="config-panel__knob-grid">
                     <Knob
@@ -423,7 +449,7 @@
                       :type="control.type"
                       :options="control.options"
                       :label="control.label"
-                      :is-disabled="(control.id === 'showRests' || control.id === 'durationMode') && !deckControls.codeStrip"
+                      :is-disabled="control.id === 'showRests' && !deckControls.codeStrip"
                       @update:modelValue="handleDeckControl(control.id, $event)"
                     />
                   </div>
@@ -501,7 +527,7 @@
                 class="config-panel__midi-surface"
               >
                 <div class="space-y-2">
-                  <p class="config-panel__group-label">ROLI</p>
+                  <p class="config-panel__group-label panel-heading panel-heading--tape">ROLI</p>
 
                   <p class="config-panel__midi-copy">
                     Generate a live-sync LittleFoot script from the current
@@ -548,12 +574,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import MidiSettingsIcon from "@/components/primatives/MidiSettingsIcon.vue";
 import OverlayPanelHeader from "@/components/OverlayPanelHeader.vue";
+import "./panelHeading.css";
 import { storeToRefs, type Pinia } from "pinia";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
+import { LOOP_TIMING_RANGE, useLoopTimingStore } from "@/stores/performanceSettings";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { BUILT_IN_STAGE_LOOKS } from "@/data/visual-config-presets";
 import {
@@ -586,17 +614,20 @@ import {
   Shuffle as ShuffleIcon,
   Check,
 } from "lucide-vue-next";
+import { SAVE_FAILURE_MESSAGES } from "@/services/safeStorage";
 import { generateRoliPianoScript } from "@/services/roliPianoExport";
-import {
-  isRoliMidiPortName,
-  isVirtualMidiPortName,
-} from "@/services/roliLiveSync";
+import { useConfigMidiStatus } from "@/composables/useConfigMidiStatus";
 
 const drawerContentHeight = ref<number>();
 
 const props = defineProps<{
   visualConfigPinia?: Pinia;
+  embedded?: boolean;
+  close?: () => void;
 }>();
+
+const emit = defineEmits<{ "content-height": [height: number] }>();
+watch(drawerContentHeight, height => { if (height !== undefined) emit("content-height", height); });
 
 const GLOBAL_TAB = {
   value: "global",
@@ -630,17 +661,16 @@ const STAGE_DETAIL_TABS = [
     label: "Relations",
     shortLabel: "Relations",
     description: "Choose what the Stage explains about simultaneous notes.",
-    groups: [STAGE_CONTROL_GROUPS[5]],
+    groups: [STAGE_CONTROL_GROUPS[4]],
   },
   {
     value: "layers",
     label: "Layers",
     shortLabel: "Layers",
-    description: "Balance atmosphere, pitch strings, and note-event flecks.",
+    description: "Balance atmosphere and pitch strings.",
     groups: [
       STAGE_CONTROL_GROUPS[2],
       STAGE_CONTROL_GROUPS[3],
-      STAGE_CONTROL_GROUPS[4],
     ],
   },
 ];
@@ -659,6 +689,17 @@ const MIDI_TAB = {
 };
 
 const visualConfigStore = useVisualConfigStore(props.visualConfigPinia);
+const loopTimingStore = useLoopTimingStore(props.visualConfigPinia);
+// This device's Looper calibration, in ms (never part of a Look).
+const loopTiming = computed<number | string | boolean>({
+  get: () => loopTimingStore.value,
+  set: (next: number | string | boolean) => {
+    const value = Number(next);
+    if (typeof next === "boolean" || !Number.isFinite(value)) return;
+    loopTimingStore.value = Math.max(LOOP_TIMING_RANGE.min, Math.min(LOOP_TIMING_RANGE.max, Math.round(value)));
+  },
+});
+const formatLoopTiming = (value: number) => `${value} ms`;
 const keyboardDrawerStore = useKeyboardDrawerStore();
 const musicStore = useMusicStore();
 const activeTab = ref("global");
@@ -666,6 +707,7 @@ const activeTab = ref("global");
 const {
   config,
   visualsEnabled,
+  laBasedMinor,
   savedConfigs,
   savedStageLooks,
   transientStageLook,
@@ -743,7 +785,6 @@ const isStageControlDisabled = (control: StageControlId) => {
     control === "atmosphereColorDepth"
     && stageControls.value.atmosphereStrength <= 0.01
   ) return true;
-  if (control === "fleckEnergy" && stageControls.value.fleckAmount <= 0) return true;
   return false;
 };
 
@@ -763,158 +804,7 @@ const handleDeckControl = (
   updateDeckControl(control, value);
 };
 
-const connectedInputs = computed(() => keyboardDrawerStore.midi.connectedInputs);
-const connectedOutputs = computed(() => keyboardDrawerStore.midi.connectedOutputs);
-const physicalInputs = computed(() =>
-  connectedInputs.value.filter((name) => !isVirtualMidiPortName(name))
-);
-const physicalOutputs = computed(() =>
-  connectedOutputs.value.filter((name) => !isVirtualMidiPortName(name))
-);
-const virtualPortNames = computed(() =>
-  Array.from(
-    new Set(
-      [...connectedInputs.value, ...connectedOutputs.value].filter((name) =>
-        isVirtualMidiPortName(name)
-      )
-    )
-  )
-);
-const hasConnectedInput = computed(() => physicalInputs.value.length > 0);
-const detectedRoliOutput = computed(
-  () =>
-    physicalOutputs.value.find((outputName) => isRoliMidiPortName(outputName))
-    ?? null
-);
-const hasVirtualOnlyMidiPorts = computed(
-  () =>
-    !hasConnectedInput.value
-    && !detectedRoliOutput.value
-    && !keyboardDrawerStore.midi.syncedOutput
-    && virtualPortNames.value.length > 0
-);
-
-const hasActionableMidiDevice = computed(
-  () =>
-    hasConnectedInput.value
-    || Boolean(detectedRoliOutput.value)
-    || Boolean(keyboardDrawerStore.midi.syncedOutput)
-);
-
-const midiStatusState = computed(() => {
-  const midi = keyboardDrawerStore.midi;
-
-  if (midi.lastError) {
-    return "error";
-  }
-
-  if (midi.isConnecting) {
-    return "connecting";
-  }
-
-  if (hasActionableMidiDevice.value) {
-    return "connected";
-  }
-
-  return "idle";
-});
-
-const showMidiShortcut = computed(
-  () => keyboardDrawerStore.midi.isSupported && hasActionableMidiDevice.value
-);
-
-const midiStatusHeadline = computed(() => {
-  const midi = keyboardDrawerStore.midi;
-
-  if (!midi.isSupported) {
-    return "Browser MIDI unavailable";
-  }
-
-  if (midi.lastError) {
-    return "MIDI permission blocked";
-  }
-
-  if (midi.isConnecting) {
-    return "Requesting MIDI access";
-  }
-
-  if (midi.syncedOutput) {
-    return `Live sync armed on ${midi.syncedOutput}`;
-  }
-
-  if (hasConnectedInput.value) {
-    return "MIDI controller connected";
-  }
-
-  if (detectedRoliOutput.value) {
-    return "ROLI/LUMI output detected";
-  }
-
-  if (hasVirtualOnlyMidiPorts.value) {
-    return "Virtual MIDI ports detected";
-  }
-
-  if (physicalOutputs.value.length > 0) {
-    return "MIDI output available";
-  }
-
-  if (midi.isListening) {
-    return "MIDI ready for hot-plug";
-  }
-
-  return "Waiting for MIDI";
-});
-
-const midiStatusDetail = computed(() => {
-  const midi = keyboardDrawerStore.midi;
-
-  if (!midi.isSupported) {
-    return "This browser does not expose the Web MIDI API, so external controllers cannot be connected here.";
-  }
-
-  if (midi.lastError) {
-    return "The app still works with touch and QWERTY input, but browser MIDI access was not granted.";
-  }
-
-  if (hasVirtualOnlyMidiPorts.value) {
-    const visiblePortList = virtualPortNames.value.join(", ");
-    return `Chrome can see software MIDI ports like ${visiblePortList}. Those are virtual loopback connections, not physical controllers.`;
-  }
-
-  return roliSyncMessage.value;
-});
-
-const midiTriggerLabel = computed(() => {
-  if (showMidiShortcut.value) {
-    return `Open MIDI and ROLI controls. ${midiStatusHeadline.value}.`;
-  }
-
-  return `Open settings. ${midiStatusHeadline.value}.`;
-});
-
-const midiStatusClass = computed(() =>
-  midiStatusState.value === "idle"
-    ? "config-panel__midi-mark--quiet"
-    : "config-panel__midi-mark--active"
-);
-
-const roliSyncMessage = computed(() => {
-  const midi = keyboardDrawerStore.midi;
-
-  if (midi.syncedOutput) {
-    return `Live sync active on ${midi.syncedOutput}.`;
-  }
-
-  if (detectedRoliOutput.value) {
-    return `ROLI output ${detectedRoliOutput.value} is connected. Load the script onto the keyboard to arm live sync.`;
-  }
-
-  if (physicalOutputs.value.length > 0) {
-    return "MIDI outputs are connected, but none look like a ROLI/LUMI port yet.";
-  }
-
-  return "When a LUMI/ROLI MIDI output is connected, the app will mirror notes and push palette changes automatically after the script is loaded.";
-});
+const { connectedInputs, connectedOutputs, midiStatusState, showMidiShortcut, midiStatusHeadline, midiStatusDetail, midiTriggerLabel, midiStatusClass, roliSyncMessage } = useConfigMidiStatus();
 
 const exportConfig = async () => {
   const configJson = storeExportConfig();
@@ -979,8 +869,13 @@ const promptSaveStageLook = () => {
 
   if (!name?.trim()) return;
 
-  saveStageLookAs(name.trim());
-  notify(`Stage Look "${name.trim()}" saved.`);
+  const { failure } = saveStageLookAs(name.trim());
+  // Say what actually happened here: the drawer sits over the global notice.
+  notify(
+    failure
+      ? SAVE_FAILURE_MESSAGES[failure]
+      : `Stage Look "${name.trim()}" saved.`,
+  );
 };
 
 const notify = (message: string) => {
@@ -1012,8 +907,6 @@ const formatTimestamp = (timestamp: string) => {
   align-items: center;
 }
 
-.config-panel__eyebrow,
-.config-panel__group-label,
 .config-panel__saved-time,
 .config-panel__labeled-action span {
   margin: 0;
@@ -1022,7 +915,7 @@ const formatTimestamp = (timestamp: string) => {
 }
 
 .config-panel__boolean-knob {
-  --knob-size: 32px;
+  --knob-size: var(--control-sm);
   flex: 0 0 var(--knob-size);
   inline-size: var(--knob-size);
 }
@@ -1037,8 +930,12 @@ const formatTimestamp = (timestamp: string) => {
   margin-block-end: clamp(var(--s-5), 4vw, var(--s-7));
 }
 
-.config-panel__eyebrow,
-.config-panel__group-label,
+/* A section's own reset key sits at the panel's edge; keep its touch inside
+   the scroller. */
+.config-panel__section-header > .paper-button {
+  margin-inline-end: calc(var(--hit-gap-sm) / 2);
+}
+
 .config-panel__saved-time,
 .config-panel__labeled-action span {
   color: var(--ivory);
@@ -1047,12 +944,14 @@ const formatTimestamp = (timestamp: string) => {
   opacity: .52;
 }
 
-.config-panel__section-header h2 {
-  margin: var(--s-1) 0 0;
-  color: var(--ivory);
-  font: var(--t-display-m);
-  letter-spacing: var(--tracking-display);
-  text-transform: uppercase;
+.config-panel__eyebrow,
+.config-panel__group-label {
+  margin: 0;
+}
+
+.config-panel__section-header h2,
+.config-panel__looks-header h2 {
+  margin: var(--s-2) 0 0;
 }
 
 .config-panel__section-copy,
@@ -1093,15 +992,19 @@ const formatTimestamp = (timestamp: string) => {
   opacity: .82;
 }
 
+/* Rows of small keys sit --hit-gap-sm apart so their touches meet, not
+   overlap. */
 .config-panel__look-preview-actions {
   flex: none;
-  gap: var(--s-2);
+  gap: var(--hit-gap-sm);
 }
 
 .config-panel__section-controls {
   align-items: flex-start;
   flex: none;
-  gap: var(--s-2);
+  gap: var(--hit-gap-sm);
+  /* Keys at the panel's edge keep their touch inside the scroller. */
+  padding-inline-end: calc(var(--hit-gap-sm) / 2);
 }
 
 .config-panel__groups,
@@ -1136,18 +1039,11 @@ const formatTimestamp = (timestamp: string) => {
   gap: var(--s-4);
 }
 
-.config-panel__looks-header h2 {
-  margin: var(--s-1) 0 0;
-  color: var(--ivory);
-  font: var(--t-display-m);
-  letter-spacing: var(--tracking-display);
-  text-transform: uppercase;
-}
-
 .config-panel__looks-actions {
   align-items: flex-start;
   flex: none;
-  gap: var(--s-2);
+  gap: var(--hit-gap-sm);
+  padding-inline-end: calc(var(--hit-gap-sm) / 2);
 }
 
 .config-panel__legacy-configs {
@@ -1162,11 +1058,6 @@ const formatTimestamp = (timestamp: string) => {
   font-family: var(--font-mono);
   text-transform: uppercase;
   letter-spacing: .12em;
-}
-
-.config-panel__group-label {
-  color: var(--ivory);
-  opacity: .64;
 }
 
 .config-panel__knob-grid {
@@ -1248,7 +1139,7 @@ const formatTimestamp = (timestamp: string) => {
 }
 
 .config-panel__empty-state {
-  border-inline-start: 3px solid rgb(244 239 230 / 22%);
+  border-inline-start: 3px solid color-mix(in srgb, var(--ivory) 22%, transparent);
   padding: var(--s-4);
   color: var(--ivory);
   font: var(--t-body-mono);
@@ -1265,6 +1156,7 @@ const formatTimestamp = (timestamp: string) => {
 .config-panel__saved-load {
   display: flex;
   min-inline-size: 0;
+  min-block-size: var(--hit-min);
   align-items: center;
   flex-wrap: wrap;
   gap: var(--s-3);
@@ -1295,7 +1187,7 @@ const formatTimestamp = (timestamp: string) => {
   block-size: 2.5rem;
   flex: none;
   place-items: center;
-  border: 1px solid rgb(244 239 230 / 22%);
+  border: 1px solid color-mix(in srgb, var(--ivory) 22%, transparent);
   border-radius: 50%;
   background: var(--ink);
   color: var(--ivory);
@@ -1304,12 +1196,12 @@ const formatTimestamp = (timestamp: string) => {
 .config-panel__midi-mark--quiet { opacity: .48; }
 .config-panel__midi-mark--active {
   border-color: var(--ivory);
-  box-shadow: 0 0 12px rgb(244 239 230 / 14%);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--ivory) 14%, transparent);
 }
 
 .config-panel__midi-port {
   padding: var(--s-3);
-  border: 1px solid rgb(244 239 230 / 12%);
+  border: 1px solid color-mix(in srgb, var(--ivory) 12%, transparent);
 }
 
 .config-panel__midi-kicker,
@@ -1359,13 +1251,14 @@ const formatTimestamp = (timestamp: string) => {
 }
 
 .config-panel__midi-actions {
-  gap: var(--s-4);
+  gap: var(--hit-gap-sm);
 }
 
 .config-panel__labeled-action {
   display: grid;
   justify-items: center;
-  gap: var(--s-2);
+  /* The caption sits clear of the key's --hit-min touch. */
+  gap: calc(var(--hit-gap-sm) / 2);
 }
 
 @media (min-width: 560px) {

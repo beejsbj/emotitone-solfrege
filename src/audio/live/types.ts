@@ -1,4 +1,6 @@
+import type { LiveShaping } from '../liveShaping'
 import type { LiveConfig, LiveExpressionOwner, LiveInputNote, LiveRenderer, LiveVoiceEvent } from '../liveRenderer'
+import type { TransportCommand, TransportResponse } from './transport'
 export type { LiveConfig, LiveInputNote, LiveVoiceEvent } from '../liveRenderer'
 
 export interface LiveEnvelope {
@@ -41,18 +43,28 @@ export type LiveCommand =
   | { type: 'gain-expression'; ownerId: string; gain: number }
   | { type: 'release'; ownerId: string }
   | { type: 'configure'; config: Partial<LiveConfig> }
+  | { type: 'effects'; shaping: LiveShaping }
   | { type: 'shape'; envelope: LiveEnvelopeOverride }
   | { type: 'clear' }
+  | TransportCommand
 
 export type LiveResponse =
+  | { type: 'disposed' }
   | { type: 'prepared'; requestId: number }
   | { type: 'forgotten'; requestId: number }
   | { type: 'owner-ended'; ownerId: string }
   | ({ type: 'expression-owner' } & LiveExpressionOwner)
   | { type: 'event'; event: LiveVoiceEvent }
   | { type: 'plan'; events: LiveVoiceEvent[] }
+  | TransportResponse
+
+/** Terminal processor command: release its banks and stop rendering. */
+export type LiveProcessorCommand = LiveCommand | { type: 'dispose' }
 
 export interface LiveWorklet extends LiveRenderer {
   prepare(instrument: PreparedLiveInstrument): Promise<void>
   shape(envelope: LiveEnvelopeOverride): void
+  effects(shaping: LiveShaping): void
+  /** Pattern transport commands; responses arrive through `onTransport`. */
+  transport(command: TransportCommand): void
 }

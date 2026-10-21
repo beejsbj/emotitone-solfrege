@@ -11,6 +11,7 @@ export function createScheduledLiveVoice(options: {
   instrument: string;
   at: number;
   releaseSeconds: number;
+  velocity?: number;
   now: () => number;
   clock?: Pick<LiveAudioClock, "toAudioTime" | "fromAudioTime" | "toEpochTime">;
   onScheduleStart?: (timestamp: number) => void;
@@ -85,6 +86,7 @@ export function createScheduledLiveVoice(options: {
   void audio.attackNote(noteId, options.noteName, options.instrument, {
     atTime: audioTime(options.at),
     release: options.releaseSeconds,
+    ...(options.velocity === undefined ? {} : { velocity: options.velocity }),
   }).then((startedAt) => {
     ready = true;
     // A suspended context can resume while attackNote is awaiting audio setup.

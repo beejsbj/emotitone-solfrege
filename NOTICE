@@ -1,0 +1,167 @@
+EmotiTone Solfège
+Copyright (C) 2025-2026 Burooj (beejsbj) and contributors
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version. See LICENSE.
+
+This file records why that licence was chosen and what else ships with the
+app. It is a reasoned engineering choice, not legal advice. Where a line below
+says "unverified", nobody has checked it against the owner's published terms
+yet.
+
+--------------------------------------------------------------------------
+1. Why AGPL-3.0-or-later
+--------------------------------------------------------------------------
+
+The app ships Strudel and superdough, both AGPL-3.0-or-later, to every player
+over the network. Section 13 of the AGPL obliges whoever runs a modified
+version for users over a network to offer those users the corresponding
+source. This repository is that offer. The app's "Source & Credits" link (on
+the loading screen) points at the tree of the deployed commit; builds that do
+not know their commit fall back to the main branch.
+
+The licence applies to the repository as a whole. Content that is not code
+(fonts, sample audio, song transcriptions) is a separate question and is
+covered below, not by LICENSE.
+
+--------------------------------------------------------------------------
+2. Strudel and superdough (AGPL-3.0-or-later)
+--------------------------------------------------------------------------
+
+Runtime dependencies, all by the Strudel / TidalCycles community (Alex McLean,
+Felix Roos and contributors), https://strudel.cc, https://codeberg.org/uzu/strudel:
+
+  @strudel/core 1.2.6         @strudel/mini 1.2.6       @strudel/soundfonts 1.3.0
+  @strudel/tonal 1.2.6        @strudel/transpiler 1.2.6 @strudel/webaudio 1.3.0
+  superdough 1.3.0
+
+The app ships a patched superdough 1.3.0 and a patched @strudel/soundfonts
+1.3.0. The patches are in this repository under patches/ and are applied at
+install time through the "patchedDependencies" field in package.json. Together
+with the unmodified upstream package versions named above, they are the
+corresponding source of what is served. The superdough patch is a diff of the
+published dist build, not of the upstream source tree.
+
+src/data/gmSoundfonts.ts copies the General MIDI name-to-font map from
+@strudel/soundfonts 1.3.0 gm.mjs (as patched), under the same licence.
+
+The app is moving to its own audio engine (src/audio/live/). Once no Strudel
+code ships, this section and the licence choice are due for review. Published
+snapshots stay AGPL either way.
+
+--------------------------------------------------------------------------
+3. Other runtime dependencies
+--------------------------------------------------------------------------
+
+Read from each package's package.json in node_modules at the time of writing.
+Development tools are not listed.
+
+  @tonaljs/tonal 4.10.0            MIT   (Tonal, https://github.com/tonaljs/tonal)
+  vue 3.5.17                       MIT   (Evan You and contributors)
+  pinia 2.3.1                      MIT   (Eduardo San Martin Morote)
+  pinia-plugin-persistedstate 4.4.1 MIT  (Sacha Bouillez)
+  pitchy 4.1.0                     MIT   (Ian Johnson)
+  lucide-vue-next 0.523.0          ISC   (Lucide contributors)
+  gsap 3.13.0                      GSAP Standard "no charge" licence
+                                   https://gsap.com/standard-license
+
+Open question on GSAP: its licence is a custom licence from Webflow, not an
+open-source licence, and it says nothing about GPL or AGPL. GSAP is installed
+from npm and bundled into the served app; its source is not in this
+repository. Whether that combination is compatible with offering the app under
+the AGPL has not been settled. Treat it as unresolved.
+
+Transitive dependencies are not enumerated here; "bun.lock" pins them.
+
+--------------------------------------------------------------------------
+4. Hilbert scope
+--------------------------------------------------------------------------
+
+The Hilbert scope renderer was influenced by Seeing Music (Creatability,
+Google Creative Lab) and adapts the Hamming-window impulse, convolution filter
+and compensating delay of its Web Audio adapter, which in turn credits
+conundrumer/Audioscope. Both upstream licences are GNU GPL version 3, which
+combines with AGPL-3.0. Sources, authors and links are in docs/credits.md.
+
+--------------------------------------------------------------------------
+5. Sample packs and soundfonts loaded at runtime
+--------------------------------------------------------------------------
+
+The app's own loader (src/services/preparedNativeInstrument.ts) fetches these
+in the player's browser from the upstream hosts named below. None of the
+audio or font data is in this repository or in the built app; EmotiTone does
+not redistribute it. The base URLs are in src/audio/sampleSources.ts. Font
+files are parsed as data and never evaluated as code. This is not legal
+advice.
+
+  Piano (piano.json map, 29 pitches)
+    Salamander Grand Piano V3 by Alexander Holm, licensed CC BY 3.0
+    (https://creativecommons.org/licenses/by/3.0/). Converted to MP3, single
+    velocity layer, by felixroos/dough-samples. Source:
+    https://archive.org/details/SalamanderGrandPianoV3
+    Fetched from raw.githubusercontent.com/felixroos/dough-samples.
+
+  Orchestra (vcsl.json map, 128 sounds)
+    Versilian Community Sample Library (VCSL) by Sam Gossner and
+    contributors, CC0 1.0 (https://github.com/sgossner/VCSL). No attribution
+    is required; it is given with thanks. Fetched from
+    raw.githubusercontent.com/sgossner/VCSL.
+
+  The sample maps (piano.json, vcsl.json)
+    By Felix Roos, in felixroos/dough-samples. That repository states no
+    licence. The app fetches the maps at runtime and does not copy them.
+
+  General MIDI soundfonts (125 gm_* instruments)
+    Converted from SF2 banks by Sergey Surikov in
+    https://github.com/surikov/webaudiofontdata (the conversion repository
+    is MIT; its owner says the source fonts' licences are unknown, issue #1).
+    Fetched from felixroos.github.io/webaudiofontdata. The name-to-font map in
+    src/data/gmSoundfonts.ts comes from @strudel/soundfonts (see section 2).
+    By each instrument's default (first) font:
+    - 20 instruments use FluidR3_GM: MIT licence.
+      Copyright (c) 2000-2002, 2008 Frank Wen.
+      Mono version: Copyright (c) 2014-16 Michael Cowgill.
+      The MIT notice must accompany copies or derivatives of the font.
+    - The other 105 instruments use fonts whose licence nobody states:
+      JCLive (64), Aspirin (38), Chaos (2) and Acoustic_Guitar (1). They are
+      fetched from the upstream host as the app did before; EmotiTone does
+      not host or redistribute them. Self-hosting is a separate decision
+      (BJS-496).
+    Patterns can select other variants of an instrument (".n()"), which
+    may come from GeneralUserGS (GeneralUser GS License v2.0, S. Christian
+    Collins), FluidR3_GM, or fonts with no stated licence (Aspirin, JCLive,
+    Chaos, LesPaul, Stratocaster, SBAWE32, Soul_Ahhs and others).
+
+--------------------------------------------------------------------------
+6. Font: Let's Jazz
+--------------------------------------------------------------------------
+
+src/assets/fonts/lets-jazz-regular.otf and .woff2. Designer: Unio | Creative
+Solutions. The font's embedded notice reads "Copyright (c) 2019 by Unio |
+Creative Solutions. All rights reserved." and names no licence. The designer
+sells it with separate desktop and web licences, and free copies circulate as
+personal-use demos. The licence under which this repository's copy was
+obtained is unverified, and so is whether it permits web embedding and public
+redistribution. The font is not covered by the AGPL.
+
+--------------------------------------------------------------------------
+7. Song transcriptions
+--------------------------------------------------------------------------
+
+The built-in pattern library contains traditional tunes (Twinkle Twinkle, Mary
+Had a Little Lamb, Hot Cross Buns, Ode to Joy) and short phrases that appear
+to be written for the app (their authorship is not recorded in the repository).
+Third-party song transcriptions were removed from it (BJS-478); they remain in
+git history, which was not rewritten. Anything a player records or imports is
+the player's own data.
+
+--------------------------------------------------------------------------
+8. Worklet-engine room impulse recipe (Apache-2.0)
+--------------------------------------------------------------------------
+
+src/audio/effects.ts adapts the reverb impulse recipe from superdough's
+reverbGen.mjs, Copyright 2014 Alan deLespinasse, Apache License 2.0.
+The adaptation uses promises and local native nodes and removes debug state.
+See licenses/Apache-2.0.txt. EmotiTone's overall licence remains AGPL-3.0-or-later.

@@ -7,7 +7,7 @@ import { resolve, join, dirname } from 'node:path';
 import { spawn, execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { exercisePatternUi } from './ui-patterns.mjs';
+import { exercisePatternUi, PATTERN_UI_SCENARIO } from './ui-patterns.mjs';
 import { nativeComparisonPlugin, exerciseNativeComparison } from './native-comparison.mjs';
 
 const labRoot = dirname(fileURLToPath(import.meta.url));
@@ -54,8 +54,8 @@ const startupNetwork = new Map(), startupFailures = [], browserLog = [];
 const delay = (ms) => new Promise((done) => setTimeout(done, ms));
 try {
   const debugPort = await new Promise((done, reject) => {
-    const timer = setTimeout(() => reject(new Error('Chrome startup timed out')), 15000);
     let output = '';
+    const timer = setTimeout(() => reject(new Error('Chrome startup timed out: '+output)), Number(process.env.LAB_UI_CHROME_TIMEOUT_MS || 15000));
     chrome.stderr.on('data', (chunk) => {
       output += chunk;
       const match = output.match(/DevTools listening on ws:\/\/127\.0\.0\.1:(\d+)/);
@@ -87,8 +87,21 @@ try {
       warnings.push(message.params.args.map((arg) => arg.value || arg.description).join(' '));
     }
   };
+  socket.onclose = () => {
+    for (const request of pending.values()) request.reject(new Error('Chrome connection closed'));
+    pending.clear();
+  };
   const call = (method, params = {}) => new Promise((done, reject) => {
-    pending.set(++serial, { done, reject }); socket.send(JSON.stringify({ id: serial, method, params }));
+    const id = ++serial;
+    const timer = setTimeout(() => {
+      pending.delete(id);
+      reject(new Error(`Chrome request timed out: ${method}`));
+    }, 180000);
+    pending.set(id, {
+      done: result => { clearTimeout(timer); done(result); },
+      reject: error => { clearTimeout(timer); reject(error); },
+    });
+    socket.send(JSON.stringify({ id, method, params }));
   });
   const evaluate = async (expression, awaitPromise = false) => {
     const result = await call('Runtime.evaluate', { expression, awaitPromise, returnByValue: true, timeout: 180000 });
@@ -259,13 +272,13 @@ try {
   }
   if (process.env.LAB_UI_ARCHITECTURE === '1') {
     const patterns = await exercisePatternUi({call,evaluate,delay}).catch(error=>({
-      scenario:'Actual CodeStrip text edit, Play, live Ctrl+Enter edit, common master mute/restore, Stop',
+      scenario:PATTERN_UI_SCENARIO,
       passed:false,error:String(error.stack ?? error),
     }));
     architecture.push(patterns);
-    const transport = await evaluate("import('/src/services/patternPlayback.ts').then(module=>module.getPatternPlaybackDiagnostics())",true);
+    const transport = await evaluate("import('/src/services/patternTransport.ts').then(module=>module.getPatternPlaybackDiagnostics())",true);
     architecture.push({scenario:'One mounted application pattern transport',...transport,passed:transport.activeTransports===1});
-    console.log('Pattern UI:', JSON.stringify({passed:patterns.passed,contexts:patterns.contextCount,first:patterns.first?.peak,edited:patterns.edited?.peak,muted:patterns.muted?.peak,restored:patterns.restored?.peak,stopped:patterns.stopped?.peak,error:patterns.error}));
+    console.log('Pattern UI:', JSON.stringify({passed:patterns.passed,contexts:patterns.contextCount,playback:patterns.playback?.peak,activeEvents:patterns.activeEvents,checks:patterns.checks,muted:patterns.muted?.peak,restored:patterns.restored?.peak,stopped:patterns.stopped?.peak,error:patterns.error}));
   }
   const comparison = process.env.LAB_NATIVE_COMPARE === '1' ? await exerciseNativeComparison({ call, evaluate, delay }) : null;
   const backend = process.env.LAB_UI_REF ? { backend: 'superdough', revision } : await evaluate("import('/src/services/livePlayback.ts').then(module=>module.getLivePlaybackDiagnostics('piano'))", true);

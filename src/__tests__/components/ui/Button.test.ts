@@ -36,6 +36,11 @@ describe("Button", () => {
     );
   });
 
+  it("takes the shared touch floor at the inline xs size", () => {
+    const wrapper = mount(Button, { props: { size: "xs", accessibleName: "Release" } });
+    expect(wrapper.classes()).toEqual(expect.arrayContaining(["paper-button--xs", "touch-floor"]));
+  });
+
   it.each(["flat", "sheen", "glow", "sheen-glow"] as const)(
     "exposes the %s brass finish",
     (brassFinish) => {
@@ -52,8 +57,23 @@ describe("Button", () => {
     });
     expect(wrapper.attributes("aria-busy")).toBe("true");
     expect(wrapper.attributes("disabled")).toBeDefined();
-    expect(wrapper.find(".paper-button__loader").exists()).toBe(true);
+    expect(wrapper.classes()).toContain("paper-button--loading");
+    expect(wrapper.find(".paper-button__lip").exists()).toBe(true);
     expect(wrapper.get(".paper-button__face").attributes("data-ui-beat-scale")).toBeUndefined();
+  });
+
+  it("ignores presses while loading without being disabled", async () => {
+    const wrapper = mount(Button, {
+      props: { loading: true, haptic: true, accessibleName: "Rendering" },
+    });
+    expect(wrapper.attributes("disabled")).toBeUndefined();
+    await wrapper.trigger("click");
+    expect(wrapper.emitted("click")).toBeUndefined();
+    expect(triggerUIHaptic).not.toHaveBeenCalled();
+
+    await wrapper.setProps({ loading: false });
+    await wrapper.trigger("click");
+    expect(wrapper.emitted("click")).toHaveLength(1);
   });
 
   it("keeps disabled production brass in the native still-state contract", () => {
@@ -114,7 +134,8 @@ describe("Button", () => {
     expect(button.attributes("data-ui-beat-scale")).toBeUndefined();
     expect(button.attributes("style") ?? "").not.toContain("scale");
     expect(buttonSource).toContain('ref="beatTargetRef" class="paper-button__face"');
-    expect(buttonSource).toContain(":active .paper-button__face");
+    expect(buttonSource).toContain(":active .paper-button__cap");
+    expect(buttonSource).not.toContain(":active .paper-button__face");
 
     presentationEnabled.value = false;
     await nextTick();
@@ -122,6 +143,42 @@ describe("Button", () => {
     expect(face.attributes("style") ?? "").not.toContain("scale");
     wrapper.unmount();
     clock.destroy();
+  });
+
+  it("lights the lip on every hit and rotates it while loading", async () => {
+    const wrapper = mount(Button, { props: { accessibleName: "Play" } });
+    await wrapper.trigger("pointerdown");
+    expect(wrapper.classes()).toContain("paper-button--hit-a");
+    await wrapper.trigger("pointerdown");
+    expect(wrapper.classes()).toContain("paper-button--hit-b");
+    await wrapper.trigger("click", { detail: 0 });
+    expect(wrapper.classes()).toContain("paper-button--hit-a");
+    await wrapper.setProps({ disabled: true });
+    await wrapper.trigger("pointerdown");
+    expect(wrapper.classes()).toContain("paper-button--hit-a");
+    expect(buttonSource).toContain(".paper-button--loading .paper-button__lip { animation: paper-button-orbit");
+    expect(buttonSource).toMatch(/@media \(prefers-reduced-motion: reduce\) \{[\s\S]*\.paper-button__lip,/);
+  });
+
+  it("holds its pressed look on demand, still answering, with no orbit or ring of its own", async () => {
+    const wrapper = mount(Button, { props: { pressed: true, haptic: true, accessibleName: "Play" } });
+    expect(wrapper.classes()).toContain("paper-button--pressed");
+    expect(wrapper.attributes("data-pressed")).toBe("true");
+    // Visual only: no toggle semantics of its own (the consumer's name says it).
+    expect(wrapper.attributes("aria-pressed")).toBeUndefined();
+    expect(wrapper.attributes("aria-busy")).toBeUndefined();
+    await wrapper.trigger("click", { detail: 1 });
+    expect(wrapper.emitted("click")).toHaveLength(1);
+    // The held look is the press itself: the cap travels down as under a finger.
+    // A held key keeps its look even while disabled (a latch is still latched).
+    expect(buttonSource).toMatch(/\.paper-button:not\(:disabled\):active \.paper-button__cap,\s*\.paper-button--pressed \.paper-button__cap \{/);
+    // Forced colours drop the lip and lamp: the held key gets a system outline instead.
+    const forced = buttonSource.slice(buttonSource.indexOf("@media (forced-colors: active)"));
+    expect(forced).toMatch(/\.paper-button--pressed \{ outline: 2px solid Highlight;/);
+    expect(buttonSource).not.toContain("paper-button--latched");
+    // Reduced Motion stills the loading orbit too.
+    const reduced = buttonSource.slice(buttonSource.indexOf("@media (prefers-reduced-motion: reduce)"));
+    expect(reduced).toContain(".paper-button--loading .paper-button__lip { animation: none; }");
   });
 
   it("shares the promoted Boolean Knob rebound with non-brass buttons", () => {

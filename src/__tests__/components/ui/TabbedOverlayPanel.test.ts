@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { mount } from "@vue/test-utils";
-import { h } from "vue";
+import { enableAutoUnmount, mount } from "@vue/test-utils";
+import { defineComponent, h, ref } from "vue";
 import TabbedOverlayPanel from "@/components/TabbedOverlayPanel.vue";
 import tabbedOverlayPanelSource from "@/components/TabbedOverlayPanel.vue?raw";
+
+enableAutoUnmount(afterEach);
 
 const tabs = [
   { value: "home", label: "Home", shortLabel: "Home" },
@@ -145,19 +147,40 @@ describe("TabbedOverlayPanel swipe navigation", () => {
       .toContain("tabbed-overlay-panel__page--previous");
   });
 
-  it("keeps keyboard tab selection immediate", async () => {
-    const wrapper = mount(TabbedOverlayPanel, {
-      props: { modelValue: "home", tabs },
-      slots: {
-        default: ({ activeValue }: { activeValue: string }) => h("div", activeValue),
+  it("moves keyboard focus and panel content immediately with Arrow/Home/End", async () => {
+    const wrapper = mount(defineComponent({
+      setup() {
+        const value = ref("home");
+        return () => h(TabbedOverlayPanel, {
+          modelValue: value.value,
+          tabs,
+          "onUpdate:modelValue": (next: string) => { value.value = next; },
+        }, {
+          default: ({ activeValue }: { activeValue: string }) => h("div", activeValue),
+        });
       },
-    });
+    }), { attachTo: document.body });
     const surface = wrapper.get('[data-testid="tabbed-overlay-swipe-surface"]');
+    (wrapper.get('[data-testid="panel-tab-home"]').element as HTMLElement).focus();
 
-    await wrapper.get('[data-testid="panel-tab-blobs"]').trigger("click", { detail: 0 });
-
-    expect(wrapper.emitted("update:modelValue")).toEqual([["blobs"]]);
-    expect(surface.classes()).not.toContain("tabbed-overlay-panel__swipe-surface--settling");
+    const steps = [
+      ["ArrowRight", "blobs"],
+      ["ArrowRight", "glow"],
+      ["ArrowRight", "home"],
+      ["ArrowLeft", "glow"],
+      ["Home", "home"],
+      ["End", "glow"],
+    ];
+    for (const [key, value] of steps) {
+      await wrapper.get('[role="tab"][aria-selected="true"]').trigger("keydown", { key });
+      expect(document.activeElement).toBe(wrapper.get(`[data-testid="panel-tab-${value}"]`).element);
+      expect(wrapper.get('[role="tab"][aria-selected="true"]').attributes("data-testid")).toBe(`panel-tab-${value}`);
+      expect(surface.text()).toBe(value);
+      expect(surface.classes()).not.toContain("tabbed-overlay-panel__swipe-surface--settling");
+    }
+    expect(wrapper.getComponent(TabbedOverlayPanel).emitted("update:modelValue")).toEqual(
+      steps.map(([, value]) => [value]),
+    );
   });
 
   it("aligns a neighboring preview with a scrolled viewport and resets after commit", async () => {

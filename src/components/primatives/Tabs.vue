@@ -5,6 +5,7 @@
     :class="classes"
     role="tablist"
     :aria-label="ariaLabel"
+    @keydown="handleTabKeydown"
     @pointerdown="handleRailPointerDown"
     @pointermove="handleRailPointerMove"
     @pointerup="handleRailPointerEnd"
@@ -14,8 +15,9 @@
     @wheel="handleRailWheel"
   >
     <div ref="trackEl" class="tabs__track">
-      <span class="tabs__streak" aria-hidden="true" />
+      <span v-if="!isMarquee" class="tabs__streak" aria-hidden="true" />
       <span
+        v-if="!isMarquee"
         class="tabs__chip"
         :class="{ 'tabs__chip--smearing': smearing, brass: resolvedTone === 'brass' }"
         :style="chipStyle"
@@ -25,16 +27,20 @@
         v-for="tab in tabs"
         :key="tab.value"
         type="button"
-        class="tabs__button"
-        :class="{ 'tabs__button--active': tab.value === activeValue }"
+        class="tabs__button touch-floor touch-floor--block"
+        :class="{
+          'tabs__button--active': tab.value === activeValue,
+          'tabs__button--brass': isMarquee && (tab.tone ?? railTone) === 'brass',
+        }"
         :disabled="tab.disabled"
         :data-testid="tab.testId"
         :data-tone="tab.tone"
+        :data-tab-value="tab.value"
         :tabindex="tab.value === activeValue ? 0 : -1"
         role="tab"
         :aria-label="tab.icon ? tab.label : undefined"
         :aria-selected="tab.value === activeValue"
-        @click="selectTab(tab, $event)"
+        @click="selectTab(tab, $event.detail === 0 ? 'keyboard' : 'pointer')"
       >
         <span v-if="tab.icon" class="tabs__label tabs__label--icon">
           <component :is="tab.icon" class="tabs__icon" />
@@ -44,6 +50,14 @@
         </span>
         <span v-else class="tabs__label">
           {{ tab.value === activeValue ? tab.label : tab.shortLabel ?? tab.label }}
+        </span>
+        <span v-if="isMarquee" class="tabs__bulbs" aria-hidden="true">
+          <span
+            v-for="bulb in MARQUEE_BULBS"
+            :key="bulb"
+            class="tabs__bulb"
+            :style="{ transitionDelay: bulbDelay(bulb - 1) }"
+          />
         </span>
       </button>
     </div>
@@ -60,7 +74,7 @@ import {
   watch,
   type Component,
 } from "vue";
-import { currentTabsPageEdition } from "./TabsEdition";
+import { useEditionFamily } from "@/composables/useEditionFamily";
 
 export interface TabItem {
   label: string;
@@ -73,7 +87,7 @@ export interface TabItem {
   tone?: TabsTone;
 }
 
-export type TabsGeometry = "tab" | "offcut" | "tile" | "sharp" | "rip";
+export type TabsGeometry = "tab" | "offcut" | "tile" | "sharp" | "rip" | "marquee";
 export type TabsDensity = "comfortable" | "compact";
 export type TabsTone = "ivory" | "brass";
 export type TabsLayout = "equal" | "scroll";
@@ -125,15 +139,39 @@ const railGesture = {
 
 const activeValue = computed(() => props.modelValue ?? internalValue.value);
 
-const pageEdition = currentTabsPageEdition();
+const editionFamily = useEditionFamily();
 const hasPinnedEdition = computed(() => props.geometry !== undefined || props.tone !== undefined);
 const resolvedGeometry = computed(() =>
-  props.geometry ?? (hasPinnedEdition.value ? "tab" : pageEdition.geometry),
+  props.geometry ?? (hasPinnedEdition.value ? "tab" : editionFamily.value.tabs.geometry),
+);
+const railTone = computed<TabsTone>(() =>
+  props.tone ?? (hasPinnedEdition.value ? "ivory" : editionFamily.value.tabs.tone),
 );
 const resolvedTone = computed(() =>
-  props.tabs.find((tab) => tab.value === activeValue.value)?.tone
-    ?? props.tone ?? (hasPinnedEdition.value ? "ivory" : pageEdition.tone),
+  props.tabs.find((tab) => tab.value === activeValue.value)?.tone ?? railTone.value,
 );
+
+/*
+ * Marquee: no chip. Every destination carries a row of bulbs; only the chosen
+ * one is lit, and on change they light one after another in the direction of
+ * travel. Per-destination tone lights that destination's bulbs in Brass.
+ */
+const MARQUEE_BULBS = 7;
+const MARQUEE_BULB_STEP_MS = 34;
+const isMarquee = computed(() => resolvedGeometry.value === "marquee");
+const chaseDirection = ref<1 | -1>(1);
+
+watch(activeValue, (next, previous) => {
+  const nextIndex = props.tabs.findIndex((tab) => tab.value === next);
+  const previousIndex = props.tabs.findIndex((tab) => tab.value === previous);
+  if (nextIndex < 0 || previousIndex < 0 || nextIndex === previousIndex) return;
+  chaseDirection.value = nextIndex > previousIndex ? 1 : -1;
+});
+
+const bulbDelay = (bulb: number) => {
+  const step = chaseDirection.value === 1 ? bulb : MARQUEE_BULBS - 1 - bulb;
+  return `${step * MARQUEE_BULB_STEP_MS}ms`;
+};
 
 const classes = computed(() => [
   `tabs--geometry-${resolvedGeometry.value}`,
@@ -295,15 +333,48 @@ const triggerSmear = () => {
   }, 220);
 };
 
-const selectTab = (tab: TabItem, event: MouseEvent) => {
+const selectTab = (tab: TabItem, source: TabsSelectionSource) => {
   if (tab.disabled || tab.value === activeValue.value) return;
   if (props.modelValue === undefined) internalValue.value = tab.value;
-  emit("update:modelValue", tab.value, event.detail === 0 ? "keyboard" : "pointer");
+  emit("update:modelValue", tab.value, source);
   triggerSmear();
   void nextTick(() => {
     measureChip();
     revealActiveTab();
   });
+};
+
+const handleTabKeydown = (event: KeyboardEvent) => {
+  const buttons = Array.from(
+    trackEl.value?.querySelectorAll<HTMLButtonElement>('.tabs__button:not(:disabled)') ?? [],
+  );
+  const focused = event.target instanceof Element
+    ? event.target.closest<HTMLButtonElement>('[role="tab"]')
+    : null;
+  const index = focused ? buttons.indexOf(focused) : -1;
+  if (index < 0) return;
+
+  const vertical = scrollEl.value?.getAttribute("aria-orientation") === "vertical";
+  let nextIndex: number;
+  if (event.key === (vertical ? "ArrowDown" : "ArrowRight")) {
+    nextIndex = (index + 1) % buttons.length;
+  } else if (event.key === (vertical ? "ArrowUp" : "ArrowLeft")) {
+    nextIndex = (index - 1 + buttons.length) % buttons.length;
+  } else if (event.key === "Home") {
+    nextIndex = 0;
+  } else if (event.key === "End") {
+    nextIndex = buttons.length - 1;
+  } else {
+    return;
+  }
+  const next = buttons[nextIndex];
+  if (!next) return;
+
+  const tab = props.tabs.find((tab) => tab.value === next.dataset.tabValue);
+  if (!tab) return;
+  event.preventDefault();
+  selectTab(tab, "keyboard");
+  void nextTick(() => next.focus());
 };
 
 watch(
@@ -337,9 +408,20 @@ onBeforeUnmount(() => {
 .tabs {
   position: relative;
   width: 100%;
-  border: 1px solid rgb(244 239 230 / 18%);
+  border: 1px solid color-mix(in srgb, var(--ivory) 18%, transparent);
   background: var(--ink);
   overflow: hidden;
+}
+
+.tabs {
+  /* The track inset each tab's hit area may reach into; the rail clips
+     anything past it. */
+  --tabs-track-inset: 6px;
+}
+
+.tabs--density-compact,
+.tabs--geometry-marquee {
+  --tabs-track-inset: 4px;
 }
 
 .tabs__track {
@@ -348,12 +430,8 @@ onBeforeUnmount(() => {
   width: 100%;
   min-width: 100%;
   box-sizing: border-box;
-  padding: 6px;
+  padding: var(--tabs-track-inset);
   isolation: isolate;
-}
-
-.tabs--density-compact .tabs__track {
-  padding: 4px;
 }
 
 .tabs--layout-scroll {
@@ -388,8 +466,8 @@ onBeforeUnmount(() => {
 
 .tabs__chip {
   position: absolute;
-  top: 6px;
-  bottom: 6px;
+  top: var(--tabs-track-inset);
+  bottom: var(--tabs-track-inset);
   z-index: 1;
   background: var(--ivory);
   box-shadow: 3px 3px 0 var(--ink);
@@ -398,11 +476,6 @@ onBeforeUnmount(() => {
     left var(--dur-ui) var(--ease-swing),
     width var(--dur-ui) var(--ease-swing),
     transform var(--dur-ui) var(--ease-swing);
-}
-
-.tabs--density-compact .tabs__chip {
-  top: 4px;
-  bottom: 4px;
 }
 
 .tabs__chip--smearing {
@@ -442,6 +515,9 @@ onBeforeUnmount(() => {
   z-index: 2;
   flex: 1 1 0;
   min-width: 0;
+  /* With its hit area reaching through the track inset, every tab takes the
+     touch floor at any density. */
+  min-block-size: calc(var(--hit-min) - 2 * var(--tabs-track-inset));
   border: 0;
   background: transparent;
   color: var(--ivory);
@@ -504,8 +580,107 @@ onBeforeUnmount(() => {
   opacity: .38;
 }
 
+/* Every edition shares the dual focus ring, inset because the rail clips:
+   Ivory at the edge, Ink inside it, so focus reads on the Ink rail and on an
+   Ivory or Brass chip alike. */
+.tabs__button:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-outer);
+  outline-offset: calc(var(--focus-ring-width) * -1);
+  box-shadow: inset 0 0 0 calc(var(--focus-ring-width) * 2) var(--focus-ring-inner);
+}
+
+/* Difference blending inverts a label over Brass to a 3.3:1 blue; the active
+   Brass chip prints its label in engraved Brass Edge instead. */
+.tabs--tone-brass .tabs__button--active {
+  color: var(--brass-edge);
+  mix-blend-mode: normal;
+}
+
+/* Marquee geometry: an unboxed rail of lit names. */
+.tabs--geometry-marquee {
+  border: 0;
+  background: var(--ink-2);
+}
+
+.tabs--geometry-marquee .tabs__button {
+  --light: var(--ivory);
+  --glow: color-mix(in srgb, var(--ivory) 55%, transparent);
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 10px 12px 8px;
+  color: var(--ivory-3);
+  mix-blend-mode: normal;
+}
+
+.tabs--geometry-marquee .tabs__button--brass {
+  --light: var(--brass-hi);
+  --glow: color-mix(in srgb, var(--brass-hi) 70%, transparent);
+}
+
+.tabs--geometry-marquee .tabs__button.tabs__button--brass:not(.tabs__button--active) {
+  color: var(--brass-lo);
+}
+
+.tabs--geometry-marquee .tabs__button:not(:disabled):not(.tabs__button--active):hover {
+  color: var(--ivory-2);
+}
+
+.tabs--geometry-marquee .tabs__button--active {
+  color: var(--light);
+}
+
+
+
+.tabs--geometry-marquee .tabs__label {
+  transition:
+    color var(--dur-ui) var(--ease-brush),
+    text-shadow var(--dur-ui) var(--ease-brush);
+}
+
+.tabs--geometry-marquee .tabs__button--active .tabs__label {
+  text-shadow: 0 0 10px var(--glow);
+}
+
+.tabs__bulbs {
+  display: flex;
+  gap: 4px;
+}
+
+.tabs__bulb {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--led-off);
+  transition:
+    background-color var(--dur-tap) var(--ease-stab),
+    box-shadow var(--dur-tap) var(--ease-stab);
+}
+
+.tabs__button--active .tabs__bulb {
+  background: var(--light);
+  box-shadow: 0 0 5px var(--glow);
+}
+
+.tabs--geometry-marquee.tabs--density-compact .tabs__button {
+  min-height: calc(var(--hit-min) - 2 * var(--tabs-track-inset));
+  gap: 5px;
+  padding: 7px 9px 6px;
+}
+
+.tabs--geometry-marquee.tabs--density-compact .tabs__bulb {
+  width: 3px;
+  height: 3px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tabs__chip {
+    transition: none;
+  }
+
+  .tabs--geometry-marquee .tabs__label,
+  .tabs__bulb {
     transition: none;
   }
 
@@ -542,6 +717,41 @@ onBeforeUnmount(() => {
 
   .tabs__button--active {
     color: HighlightText;
+  }
+
+  .tabs--geometry-marquee .tabs__button--active {
+    background: Highlight;
+    color: HighlightText;
+  }
+
+  .tabs--geometry-marquee .tabs__button.tabs__button--brass:not(.tabs__button--active) {
+    color: ButtonText;
+  }
+
+  .tabs--geometry-marquee .tabs__button--active .tabs__label {
+    text-shadow: none;
+  }
+
+  .tabs__bulb,
+  .tabs__button--active .tabs__bulb {
+    background: CanvasText;
+    box-shadow: none;
+  }
+
+  .tabs__button--active .tabs__bulb {
+    background: HighlightText;
+  }
+
+  /* Forced colors drop the inner Ink ring and repaint the outline; keep a ring
+     that differs from the unfocused pixels: CanvasText on the Canvas rail,
+     HighlightText inside the Highlight chip of the active tab. */
+  .tabs__button:focus-visible {
+    outline: var(--focus-ring-width) solid CanvasText;
+    outline-offset: calc(var(--focus-ring-width) * -2);
+  }
+
+  .tabs__button--active:focus-visible {
+    outline-color: HighlightText;
   }
 }
 </style>

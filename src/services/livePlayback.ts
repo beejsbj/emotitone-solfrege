@@ -1,22 +1,45 @@
+import { onAudioRunning } from "@/services/audioLifecycle";
 import type { LiveEnvelopeOverride, PreparedLiveInstrument, LiveWorklet } from "@/audio/live/types";
 import type { LiveRenderer, LiveRendererCallbacks } from "@/audio/liveRenderer";
 import { createLiveShapingChain, type LiveShaping } from "@/audio/liveShaping";
 import { getLiveOrbit } from "@/services/audioRuntime";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
+import { preparedPcmBytes } from "@/audio/live/pcm";
+import type { TransportCommand } from "@/audio/live/transport";
 
-type Listener = LiveRendererCallbacks;
+type Listener = LiveRendererCallbacks & {
+  onLoadError?(instrumentId: string, reason: string): void;
+  /** The renderer generation ended (failure, rebuild or a new context): its transport state is gone. */
+  onRendererReset?(): void;
+};
+
+/** Commands for the pattern transport inside the current live worklet. */
+export interface LiveTransportPort {
+  send(command: TransportCommand): void;
+  readonly sampleRate: number;
+  /** The renderer generation this port belongs to; stale ports drop commands. */
+  readonly generation: number;
+}
 
 const MAX_BANKS = 4;
 const MAX_PCM_BYTES = 192 * 1024 * 1024;
-// Worklet-owned PCM (including pending installation) is capped at 192 MiB.
-// Main-thread cached/building pyramids have a separate 192 MiB reservation:
-// 384 MiB worst-case owned PCM during preparation, 192 MiB after acknowledgement.
-// Borrowed Superdough source buffers and garbage-collector lag are outside this
-// ownership accounting; it is not a bound on total application memory.
+// Worklet-owned PCM (source plus derived pyramids, including a pending
+// installation) is capped at 192 MiB. The loader decodes into buffers it owns
+// and the bridge transfers them, so after acknowledgement the worklet holds the
+// only copy. One bank prepares at a time (192 MiB), so the worst case while
+// preparing is 384 MiB of owned PCM. A decoded AudioBuffer awaiting garbage
+// collection is outside this accounting; it is not a bound on total memory.
 const listeners = new Set<Listener>();
 const reasons = new Map<string, string>();
 const unsupported = new Set<string>();
 let context: AudioContext | undefined;
+let output: AudioNode | undefined;
+// Names only, never PCM. A formerly resident bank must recover before input
+// can choose a renderer, including after processor failures at the same rate.
+const workletInstruments = new Set<string>();
+let stopRecovery: (() => void) | undefined;
+let engineSampleRate: number | undefined;
+const builtSampleRates = new Set<number>();
 let engine: ShapedLiveWorklet | undefined;
 let managedEngine: LiveRenderer | undefined;
 type LiveShapingState = LiveShaping & { envelope: LiveEnvelopeOverride };
@@ -27,20 +50,44 @@ let generation = 0;
 const installed = new Map<string, number>();
 const preparing = new Map<string, Promise<void>>();
 const pins = new Map<string, Set<string>>();
+/** Holders (e.g. transport members) whose banks must stay resident while they rest. */
+const leases = new Map<string, Set<string>>();
+const installedPcm = new Map<string, { source: number; derived: number }>();
+/** Instruments whose data could not be downloaded or decoded (retryable). */
+const loadFailures = new Set<string>();
+/**
+ * Instruments refused because every resident bank is held or pinned (a held
+ * key, a Looper member). Live input on one falls back to the main-thread
+ * renderer instead of being dropped; the transport refuses the join instead.
+ */
+const budgetRefused = new Set<string>();
+const BUDGET_REASON = "Live renderer instrument budget is occupied by held or pinned instruments";
 const retiring = new Set<string>();
 let installQueue: Promise<void> = Promise.resolve();
+let preparationAbort = new AbortController();
 let workletPreparation: Promise<typeof import("@/services/preparedLiveInstrument")> | undefined;
 let workletCatalog: typeof import("@/services/preparedLiveInstrument") | undefined;
 let installingPcmBytes = 0;
 
 function byteSize(instrument: PreparedLiveInstrument): number {
-  if (instrument.kind !== "sample-bank") return 0;
-  const buffers = new Set<ArrayBufferLike>();
-  instrument.zones.forEach(zone => {
-    zone.channels.forEach(channel => buffers.add(channel.buffer));
-    zone.mipmaps?.forEach(level => level.forEach(channel => buffers.add(channel.buffer)));
-  });
-  return [...buffers].reduce((size, buffer) => size + buffer.byteLength, 0);
+  const { source, derived } = preparedPcmBytes(instrument);
+  return source + derived;
+}
+
+function isPinned(instrumentId: string): boolean {
+  return [...pins.values(), ...leases.values()].some(held => held.has(instrumentId));
+}
+
+/**
+ * Keep banks resident for a holder that is not sounding them right now, such
+ * as a looping member resting between notes while another bank loads. Pinned
+ * banks are never evicted for cache pressure; release the pin on leave or
+ * replacement. Pins survive renderer rebuilds (they name instruments, not PCM).
+ */
+export function pinLivePlayback(holderId: string, names: readonly string[]): () => void {
+  const held = new Set(names.map(resolveLiveSoundName));
+  leases.set(holderId, held);
+  return () => { if (leases.get(holderId) === held) leases.delete(holderId); };
 }
 
 function invalidate(error?: unknown) {
@@ -50,31 +97,55 @@ function invalidate(error?: unknown) {
   managedEngine = undefined;
   enginePromise = undefined;
   installed.clear();
+  installedPcm.clear();
+  builtSampleRates.clear();
   preparing.clear();
   pins.clear();
   retiring.clear();
   installingPcmBytes = 0;
   unsupported.clear();
-  installQueue = Promise.resolve();
+  listeners.forEach(listener => listener.onRendererReset?.());
+  // Allow five seconds to drain, then unwind stalled native fetch/decode waits.
+  // Keep the queue serialized: bypassing it could leave retired owned PCM alive.
+  const retired = preparationAbort;
+  preparationAbort = new AbortController();
+  const deadline = setTimeout(() => retired.abort(new Error("Live renderer recovery drain timed out")), 5000);
+  void installQueue.then(() => clearTimeout(deadline));
   if (error) {
     const failure = error instanceof Error ? error : new Error(String(error));
     listeners.forEach(listener => listener.onError?.(failure));
   }
 }
 
-/** Prepare the selected sound before input is enabled. Unsupported sounds
- * retain Superdough output; prepared worklet PCM preserves its source buffers. */
+/** Prepare the selected sound before input is enabled. Unsupported sounds keep
+ * the fallback renderer; a prepared bank's PCM moves into the worklet. */
 export async function prepareLivePlayback(nextContext: AudioContext, destination: AudioNode | null, name: string): Promise<void> {
   const instrumentId = resolveLiveSoundName(name);
   if (!destination || (!nextContext.audioWorklet || typeof AudioWorkletNode === "undefined")) {
     reasons.set(instrumentId, !destination ? "Audio output is unavailable" : "AudioWorklet is unavailable");
     unsupported.add(instrumentId);
+    loadFailures.delete(instrumentId);
     return;
   }
   if (context !== nextContext) {
     invalidate();
     context = nextContext;
+    engineSampleRate = nextContext.sampleRate;
+    stopRecovery?.();
+    stopRecovery = onAudioRunning(nextContext, function recover(): void | Promise<void> {
+      if (engineSampleRate === nextContext.sampleRate
+        && [...builtSampleRates].every(rate => rate === nextContext.sampleRate)) return;
+      engineSampleRate = nextContext.sampleRate;
+      const names = [...new Set([...installed.keys(), ...preparing.keys()])];
+      // The processor's frame clock and oscillator increments use its original
+      // sample rate. Retire that generation before accepting another input.
+      invalidate(new Error("Audio sample rate changed; rebuilding live renderer"));
+      // Preparation can run at a transient rate even when the route returns
+      // to its starting rate. Check the actual build rates before opening input.
+      return Promise.all(names.map(id => prepareLivePlayback(nextContext, destination, id))).then(recover);
+    });
   }
+  output = destination;
   if (retiring.has(instrumentId)) {
     await installQueue;
     return prepareLivePlayback(nextContext, destination, name);
@@ -87,16 +158,31 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
   }
   if (preparing.has(instrumentId)) return preparing.get(instrumentId);
   const run = generation;
+  // Each attempt decides afresh: a pin released since the refusal may make room.
+  budgetRefused.delete(instrumentId);
   let preparedResult: import("@/services/preparedLiveInstrument").LiveInstrumentPreparation | undefined;
   const promise = installQueue.then(async () => {
     if (run !== generation) return;
-    const prepared = await (workletCatalog = await (workletPreparation ??= import("@/services/preparedLiveInstrument"))).prepareLiveInstrument(nextContext, instrumentId);
+    workletCatalog = await (workletPreparation ??= import("@/services/preparedLiveInstrument"));
+    if (run !== generation) return;
+    if (installed.size >= MAX_BANKS && [...installed.keys()].every(isPinned)) {
+      reasons.set(instrumentId, BUDGET_REASON);
+      budgetRefused.add(instrumentId);
+      loadFailures.delete(instrumentId);
+      return;
+    }
+    const preparationSampleRate = nextContext.sampleRate;
+    const prepared = await workletCatalog.prepareLiveInstrument(nextContext, instrumentId, preparationAbort.signal);
     preparedResult = prepared;
     if (run !== generation) return;
+    builtSampleRates.add(preparationSampleRate);
     if (prepared.kind === "unsupported" || prepared.kind === "retryable") {
       reasons.set(instrumentId, prepared.reason);
+      if (prepared.kind === "retryable") loadFailures.add(instrumentId);
+      else loadFailures.delete(instrumentId);
       if (prepared.kind === "unsupported") unsupported.add(instrumentId);
       else unsupported.delete(instrumentId);
+      if (prepared.kind === "retryable") listeners.forEach(listener => listener.onLoadError?.(instrumentId, prepared.reason));
       return;
     }
     const bytes = byteSize(prepared);
@@ -113,26 +199,32 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
         onExpressionOwner: change => { if (run === generation) listeners.forEach(listener => listener.onExpressionOwner?.(change)); },
         onError: error => { if (run === generation) invalidate(error); },
         onOwnerEnded: ownerId => { if (run === generation) listeners.forEach(listener => listener.onOwnerEnded?.(ownerId)); },
+        onTransport: response => { if (run === generation) listeners.forEach(listener => listener.onTransport?.(response)); },
       };
       enginePromise ??= (async () => {
         const { createLiveWorklet } = await import("@/audio/live/bridge");
         // The chain lives and dies with its worklet, so a stale build can
         // never tear down the effects of a newer one.
         const chain = createLiveShapingChain(nextContext, destination, getLiveOrbit);
-        chain.apply(shaping);
         let worklet: LiveWorklet;
         try {
-          worklet = await createLiveWorklet(nextContext, chain.input, callbacks);
+          const rendererSampleRate = nextContext.sampleRate;
+          worklet = await createLiveWorklet(nextContext, chain.input, callbacks, chain);
+          if (run === generation) {
+            builtSampleRates.add(rendererSampleRate);
+            builtSampleRates.add(nextContext.sampleRate);
+          }
         } catch (error) {
           chain.dispose();
           throw error;
         }
         worklet.shape(shaping.envelope);
+        worklet.effects(shaping);
         const disposeWorklet = worklet.dispose;
         return {
           ...worklet,
           dispose() { disposeWorklet(); chain.dispose(); },
-          applyShaping(next: LiveShapingState) { chain.apply(next); worklet.shape(next.envelope); },
+          applyShaping(next: LiveShapingState) { worklet.shape(next.envelope); worklet.effects(next); },
         };
       })();
       const ready = await enginePromise;
@@ -150,12 +242,13 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
         clear() { if (run === generation) { pins.clear(); ready.clear(); } },
         dispose() { if (run === generation) invalidate(); },
       };
-      // Held banks stay pinned. Released voices retire with a bounded fade;
-      // their retained PCM remains charged until the adapter acknowledges it.
+      // Held and pinned banks stay resident. Released voices retire with a
+      // bounded fade; their PCM remains charged until the adapter acknowledges it.
       while (installed.size >= MAX_BANKS || [...installed.values()].reduce((sum, size) => sum + size, bytes) > MAX_PCM_BYTES) {
-        const oldest = [...installed.keys()].find(id => ![...pins.values()].some(held => held.has(id)));
+        const oldest = [...installed.keys()].find(id => !isPinned(id));
         if (oldest === undefined) {
-          reasons.set(instrumentId, "Live renderer instrument budget is occupied by held notes");
+          reasons.set(instrumentId, BUDGET_REASON);
+          budgetRefused.add(instrumentId);
           return;
         }
         // The budget includes retiring PCM: wait for its bounded fade and
@@ -164,12 +257,22 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
         await ready.forget(oldest);
         if (run !== generation) return;
         installed.delete(oldest);
+        installedPcm.delete(oldest);
         retiring.delete(oldest);
       }
       installingPcmBytes = bytes;
-      await ready.prepare(prepared);
+      const split = preparedPcmBytes(prepared);
+      // Transfers the PCM: from here the worklet owns the bank's only copy.
+      const acknowledgement = ready.prepare(prepared);
+      workletCatalog?.releasePreparedLiveInstrument(nextContext, instrumentId, prepared);
+      preparedResult = undefined;
+      await acknowledgement;
       if (run === generation) {
         installed.set(instrumentId, bytes);
+        workletInstruments.add(instrumentId);
+        installedPcm.set(instrumentId, split);
+        loadFailures.delete(instrumentId);
+        budgetRefused.delete(instrumentId);
         installingPcmBytes = 0;
         unsupported.delete(instrumentId);
         reasons.delete(instrumentId);
@@ -179,6 +282,7 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
   }).catch(error => {
     if (run === generation) {
       reasons.set(instrumentId, error instanceof Error ? error.message : "Live renderer preparation failed");
+      loadFailures.delete(instrumentId);
       invalidate(error);
     }
   }).finally(() => {
@@ -187,8 +291,8 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
     if (preparing.get(instrumentId) === promise) preparing.delete(instrumentId);
   });
   // Serialize the entire preparation/installation transaction: only one new
-  // pyramid can coexist with the installed banks. Drop its cache ownership
-  // after acknowledgement (or fallback); source PCM still belongs to Superdough.
+  // bank can coexist with the installed banks. Release its preparation entry
+  // immediately after posting, or in finally when installation is refused.
   installQueue = promise;
   preparing.set(instrumentId, promise);
   return promise;
@@ -209,10 +313,60 @@ export function getLivePlayback(name: string): LiveRenderer | undefined {
   return managedEngine;
 }
 
+/** Undefined preserves synchronous input when ready (or intentionally on the
+ * fallback). Otherwise wait for the worklet, never warming a second PCM copy.
+ * A failed recovery drops this input and reports through onLoadError. A bank
+ * refused for budget (every resident bank held or pinned, e.g. by Looper
+ * members) is not a failure: the input plays on the fallback renderer. */
+export function waitForLivePlayback(name: string): Promise<void> | undefined {
+  const instrumentId = resolveLiveSoundName(name);
+  if (!workletInstruments.has(instrumentId) || getLivePlayback(name) || unsupported.has(instrumentId)) return;
+  if (!context || !output) return;
+  const nextContext = context, destination = output;
+  return (async () => {
+    let run: number;
+    do {
+      run = generation;
+      await prepareLivePlayback(nextContext, destination, instrumentId);
+    } while (run !== generation && preparing.has(instrumentId) && context === nextContext);
+    if (!getLivePlayback(instrumentId) && !budgetRefused.has(instrumentId)) {
+      const reason = reasons.get(instrumentId) ?? "Live renderer recovery failed";
+      listeners.forEach(listener => listener.onLoadError?.(instrumentId, reason));
+      throw new Error(reason);
+    }
+  })();
+}
+
+/**
+ * The pattern transport of the live worklet that holds `name`, once that
+ * instrument is installed. Undefined while it is not (prepare it first).
+ */
+export function getLiveTransport(name: string): LiveTransportPort | undefined {
+  const instrumentId = resolveLiveSoundName(name);
+  if (!engine || !context || !installed.has(instrumentId) || retiring.has(instrumentId)) return undefined;
+  const ready = engine, run = generation, sampleRate = context.sampleRate;
+  return {
+    send(command) { if (run === generation) ready.transport(command); },
+    sampleRate,
+    generation: run,
+  };
+}
+
 export function needsLivePlaybackPreparation(name: string): boolean {
   const instrumentId = resolveLiveSoundName(name);
   return (typeof AudioWorkletNode !== "undefined") && !unsupported.has(instrumentId)
     && (!installed.has(instrumentId) || retiring.has(instrumentId));
+}
+
+/** Why the worklet does not hold a sound: its data failed to load (retry may help),
+ * or the worklet cannot or will not hold it (the fallback renderer plays it).
+ * `budget` is set when it was refused because every resident bank is pinned. */
+export function getLivePlaybackFailure(name: string): { kind: "load" | "fallback"; reason: string; budget?: true } | undefined {
+  const instrumentId = resolveLiveSoundName(name);
+  if (installed.has(instrumentId) && !retiring.has(instrumentId)) return undefined;
+  const reason = reasons.get(instrumentId) ?? (typeof AudioWorkletNode === "undefined" ? "AudioWorklet is unavailable" : "Live renderer is not prepared");
+  return { kind: loadFailures.has(instrumentId) ? "load" : "fallback", reason,
+    ...(budgetRefused.has(instrumentId) ? { budget: true as const } : {}) };
 }
 
 export function subscribeLivePlayback(listener: Listener): () => void {
@@ -224,6 +378,7 @@ export function getLivePlaybackDiagnostics(name: string) {
   const instrumentId = resolveLiveSoundName(name);
   const ready = Boolean(managedEngine && installed.has(instrumentId) && !retiring.has(instrumentId));
   const installedPcmBytes = [...installed.values()].reduce((sum, bytes) => sum + bytes, 0);
+  const installedSourcePcmBytes = [...installedPcm.values()].reduce((sum, bytes) => sum + bytes.source, 0);
   const preparation = context ? workletCatalog?.getPreparedLiveInstrumentDiagnostics(context) : undefined;
   const cachedPreparationPcmBytes = preparation?.cachedPreparationPcmBytes ?? 0;
   const preparingPcmBytes = preparation?.preparingPcmBytes ?? 0;
@@ -233,6 +388,8 @@ export function getLivePlaybackDiagnostics(name: string) {
     reason: reasons.get(instrumentId) ?? null,
     installedBanks: installed.size,
     installedPcmBytes,
+    installedSourcePcmBytes,
+    installedDerivedPcmBytes: installedPcmBytes - installedSourcePcmBytes,
     installingPcmBytes,
     installedPcmBudgetBytes: MAX_PCM_BYTES,
     cachedPreparationPcmBytes,

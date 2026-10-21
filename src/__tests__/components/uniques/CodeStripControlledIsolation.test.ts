@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   useMusicColor: vi.fn(),
-  usePatternsStore: vi.fn(),
+  usePhrasesStore: vi.fn(),
   useInstrumentStore: vi.fn(),
   useVisualConfigStore: vi.fn(),
   useCodeStripStrudel: vi.fn(),
@@ -13,25 +13,19 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/composables/useMusicColor", () => ({
   useMusicColor: mocks.useMusicColor,
 }));
-vi.mock("@/stores/patterns", () => ({ usePatternsStore: mocks.usePatternsStore }));
+vi.mock("@/stores/phrases", () => ({ usePhrasesStore: mocks.usePhrasesStore }));
 vi.mock("@/stores/instrument", () => ({ useInstrumentStore: mocks.useInstrumentStore }));
 vi.mock("@/stores/visualConfig", () => ({ useVisualConfigStore: mocks.useVisualConfigStore }));
 vi.mock("@/composables/useCodeStripStrudel", () => ({
   useCodeStripStrudel: mocks.useCodeStripStrudel,
 }));
-vi.mock("@strudel/codemirror", async () => {
-  const { StateEffect } = await import("@codemirror/state");
-  return {
-    showMiniLocations: StateEffect.define(),
-    setMiniLocations: StateEffect.define(),
-    StrudelMirror: class {
-      constructor() {
-        mocks.mirrorConstructor();
-      }
-    },
-  };
-});
-vi.mock("@strudel/core", () => ({ evalScope: vi.fn() }));
+vi.mock("@strudel/core", () => ({
+  evalScope: vi.fn(),
+  repl: () => {
+    mocks.mirrorConstructor();
+    return { scheduler: { stop: vi.fn() }, evaluate: vi.fn() };
+  },
+}));
 vi.mock("@strudel/mini", () => ({}));
 vi.mock("@strudel/tonal", () => ({}));
 vi.mock("@strudel/webaudio", () => ({}));
@@ -73,10 +67,10 @@ describe("CodeStrip controlled color isolation", () => {
     });
     await flushPromises();
 
-    expect(wrapper.findAll(".cm-code-strip-event")).toHaveLength(2);
+    expect(wrapper.findAll("[data-event-index]")).toHaveLength(2);
     expect(wrapper.findAll(".note").length).toBeGreaterThan(1);
     expect(mocks.useMusicColor).not.toHaveBeenCalled();
-    expect(mocks.usePatternsStore).not.toHaveBeenCalled();
+    expect(mocks.usePhrasesStore).not.toHaveBeenCalled();
     expect(mocks.useInstrumentStore).not.toHaveBeenCalled();
     expect(mocks.useVisualConfigStore).not.toHaveBeenCalled();
     expect(mocks.useCodeStripStrudel).not.toHaveBeenCalled();

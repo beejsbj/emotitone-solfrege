@@ -49,11 +49,11 @@
             || isSlotUnavailable(slot.slot, slot.item.id)"
           @select="handleStripSelect(slot.item.id)"
           @delete="handleDelete(slot.item.id)"
-          @copy="emit('copy', slot.item.id)"
           @open-strudel="emit('openStrudel', slot.item.id)"
           @rename="emit('rename', slot.item.id, $event)"
           @keep="emit('keep', slot.item.id)"
           @load="emit('load', slot.item.id)"
+          @share="emit('share', slot.item.id)"
         />
       </div>
     </div>
@@ -128,11 +128,11 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   commit: [id: string, input: PatternReelInput];
   delete: [id: string];
-  copy: [id: string];
   openStrudel: [id: string];
   rename: [id: string, name: string];
   keep: [id: string];
   load: [id: string];
+  share: [id: string];
   interactionChange: [active: boolean];
 }>();
 

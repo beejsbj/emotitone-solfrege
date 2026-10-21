@@ -137,6 +137,17 @@ Patterns you sent with Return were quietly expiring.
   phrase (for an untouched copy from Kept, its source), and the reel steps to
   the next newer phrase. Library phrases can't be deleted. An armed delete is
   cancelled if the desk changes under it (you play, or a new take opens).
+- **Share: a link to show someone.** Every phrase with notes carries a share
+  button. It hands a link to the phone's share sheet, or copies it where there
+  is no share sheet. The link (`#phrase=…`, `src/services/phraseShare.ts`)
+  carries the notes with their expression and the phrase's whole context: key,
+  mode, instrument, Shape, BPM, octave and authored silence. The Stage look is
+  not part of it. A name you gave the phrase (or its Library source's name)
+  travels with it; an unnamed "Take N" does not. Opening the link files the
+  phrase in Recent and puts it on the desk once the app has started, and the
+  controls follow it as they do when you scroll to a phrase. The hash is then
+  cleared so a reload doesn't open it twice. A broken or hostile link changes
+  nothing and says so.
 
 ## Visual direction
 

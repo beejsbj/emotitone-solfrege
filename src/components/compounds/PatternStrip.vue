@@ -126,13 +126,13 @@
         <Button
           size="sm"
           tone="ivory"
-          :disabled="disabled || item.canCopy === false"
-          :accessible-name="copyLabel"
-          :title="copyLabel"
-          @click.stop="emit('copy')"
+          :disabled="disabled || item.canShare === false"
+          :accessible-name="shareLabel"
+          :title="shareLabel"
+          @click.stop="emit('share')"
         >
-          <Check v-if="item.copied" aria-hidden="true" />
-          <Copy v-else aria-hidden="true" />
+          <Check v-if="item.linkCopied" aria-hidden="true" />
+          <Share v-else aria-hidden="true" />
         </Button>
         <Button
           size="sm"
@@ -162,21 +162,21 @@ import {
   ArrowDownToLine,
   Bookmark,
   Check,
-  Copy,
   ExternalLink,
+  Share,
   Trash2,
 } from "lucide-vue-next";
 import LoopDial from "../primatives/LoopDial.vue";
 import Button from "../primatives/Button.vue";
 import type { LoopDialSegment } from "../primatives/LoopDial.vue";
 
-export type PatternStripActionKind = "keep" | "delete" | "copy" | "open" | "load";
+export type PatternStripActionKind = "keep" | "delete" | "open" | "load" | "share";
 
 export interface PatternStripAction {
   kind: PatternStripActionKind;
   label: string;
   disabled?: boolean;
-  /** Show a check: delete armed, copied, kept. */
+  /** Show a check: delete armed, copied, kept, link copied. */
   done?: boolean;
 }
 
@@ -201,14 +201,14 @@ export interface PatternStripItem {
   loopOriginBars?: number;
   /** A Looper member's half or double time. */
   loopRate?: number;
-  copied?: boolean;
+  linkCopied?: boolean;
   canDelete?: boolean;
-  canCopy?: boolean;
+  canShare?: boolean;
   canOpenStrudel?: boolean;
   canRename?: boolean;
   deleteArmed?: boolean;
   deleteUnavailableLabel?: string;
-  copyUnavailableLabel?: string;
+  shareUnavailableLabel?: string;
   openUnavailableLabel?: string;
   tone?: PatternStripTone;
   /** One short word for where the phrase lives, e.g. "Library", "3m ago", "Now". */
@@ -224,23 +224,23 @@ export interface PatternStripItem {
   detail?: string;
   /** A key is down in this phrase right now. */
   recording?: boolean;
-  /** Replaces the default delete/copy/open trio when present. */
+  /** Replaces the default delete/share/open trio when present. */
   actions?: PatternStripAction[];
 }
 
 const ACTION_ICONS: Record<PatternStripActionKind, Component> = {
   keep: Bookmark,
   delete: Trash2,
-  copy: Copy,
   open: ExternalLink,
   load: ArrowDownToLine,
+  share: Share,
 };
 const ACTION_TONES: Record<PatternStripActionKind, "ink" | "ivory" | "brass"> = {
   keep: "ivory",
   delete: "ink",
-  copy: "ivory",
   open: "brass",
   load: "brass",
+  share: "ivory",
 };
 
 const props = withDefaults(defineProps<{
@@ -257,18 +257,18 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   select: [];
   delete: [];
-  copy: [];
   openStrudel: [];
   rename: [name: string];
   keep: [];
   load: [];
+  share: [];
 }>();
 
 function runAction(kind: PatternStripActionKind) {
   if (kind === "keep") emit("keep");
   else if (kind === "delete") emit("delete");
-  else if (kind === "copy") emit("copy");
   else if (kind === "open") emit("openStrudel");
+  else if (kind === "share") emit("share");
   else emit("load");
 }
 
@@ -360,14 +360,14 @@ const deleteLabel = computed(() => {
     ? `Confirm delete ${props.item.name}`
     : `Delete ${props.item.name}`;
 });
-const copyLabel = computed(() => {
-  if (props.item.canCopy === false) {
-    return props.item.copyUnavailableLabel
-      ?? `Copy is unavailable for ${props.item.name}`;
+const shareLabel = computed(() => {
+  if (props.item.canShare === false) {
+    return props.item.shareUnavailableLabel
+      ?? `Share is unavailable for ${props.item.name}`;
   }
-  return props.item.copied
-    ? `Copied ${props.item.name}`
-    : `Copy ${props.item.name} Strudel code`;
+  return props.item.linkCopied
+    ? `Copied a link to ${props.item.name}`
+    : `Share ${props.item.name} as a link`;
 });
 const openLabel = computed(() => props.item.canOpenStrudel === false
   ? props.item.openUnavailableLabel ?? `Open in Strudel is unavailable for ${props.item.name}`

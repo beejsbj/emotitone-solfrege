@@ -10,7 +10,7 @@
           :item="backgroundPattern"
           @select="lastAction = 'Select Evening Glass'"
           @delete="lastAction = 'Delete Evening Glass'"
-          @copy="lastAction = 'Copy Evening Glass'"
+          @share="lastAction = 'Share Evening Glass'"
           @open-strudel="lastAction = 'Open Evening Glass'"
           @rename="rename(backgroundPattern, $event)"
         />
@@ -19,7 +19,7 @@
           active
           @select="lastAction = 'Unwind around Current Take'"
           @delete="lastAction = 'Current Take deletion unavailable'"
-          @copy="lastAction = 'Copy Current Take'"
+          @share="lastAction = 'Share Current Take'"
           @open-strudel="lastAction = 'Open Current Take'"
           @rename="lastAction = 'Current Take cannot be renamed'"
         />
@@ -33,7 +33,7 @@
           :item="backgroundPattern"
           @select="lastAction = 'Select background state'"
           @delete="lastAction = 'Delete background state'"
-          @copy="lastAction = 'Copy background state'"
+          @share="lastAction = 'Share background state'"
           @open-strudel="lastAction = 'Open background state'"
           @rename="rename(backgroundPattern, $event)"
         />
@@ -44,7 +44,7 @@
           active
           @select="lastAction = 'Unwind around current state'"
           @delete="lastAction = 'Current state deletion unavailable'"
-          @copy="lastAction = 'Copy current state'"
+          @share="lastAction = 'Share current state'"
           @open-strudel="lastAction = 'Open current state'"
           @rename="lastAction = 'Current state cannot be renamed'"
         />
@@ -54,7 +54,7 @@
           :item="armedPattern"
           @select="lastAction = 'Select delete-armed state'"
           @delete="lastAction = 'Confirm delete-armed state'"
-          @copy="lastAction = 'Copy delete-armed state'"
+          @share="lastAction = 'Share delete-armed state'"
           @open-strudel="lastAction = 'Open delete-armed state'"
           @rename="rename(armedPattern, $event)"
         />
@@ -131,7 +131,7 @@ const features = [
   { label: "Spine", value: "4px Music Color from root key plus root octave" },
   { label: "Loop", value: "34px dial between identity and actions, including Current; arc length reads duration and radius reads pitch" },
   { label: "Rename", value: "double-tap selected title or press F2; inline Enter/blur commit" },
-  { label: "Actions", value: "two-tap Delete, Copy feedback, Open in Strudel" },
+  { label: "Actions", value: "two-tap Delete, Share link feedback, Open in Strudel" },
   { label: "Source", value: "components/compounds/PatternStrip.vue" },
 ];
 </script>

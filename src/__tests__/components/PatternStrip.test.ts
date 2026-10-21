@@ -41,7 +41,7 @@ describe("PatternStrip", () => {
       button.attributes("aria-label")
     ))).toEqual([
       "Delete Evening Glass",
-      "Copy Evening Glass Strudel code",
+      "Share Evening Glass as a link",
       "Open Evening Glass in Strudel",
     ]);
     expect(patternStripSource).toContain("height: 51.2px");
@@ -54,7 +54,7 @@ describe("PatternStrip", () => {
   it("keeps the Loop Dial present when a strip becomes Current", async () => {
     const wrapper = mount(PatternStrip, {
       props: {
-        item: { ...item, copied: true, deleteArmed: true },
+        item: { ...item, linkCopied: true, deleteArmed: true },
         active: true,
       },
     });
@@ -75,7 +75,7 @@ describe("PatternStrip", () => {
       button.attributes("aria-label")
     ))).toEqual([
       "Confirm delete Evening Glass",
-      "Copied Evening Glass",
+      "Copied a link to Evening Glass",
       "Open Evening Glass in Strudel",
     ]);
   });
@@ -106,7 +106,7 @@ describe("PatternStrip", () => {
 
     expect(wrapper.emitted("select")).toHaveLength(1);
     expect(wrapper.emitted("delete")).toHaveLength(1);
-    expect(wrapper.emitted("copy")).toHaveLength(1);
+    expect(wrapper.emitted("share")).toHaveLength(1);
     expect(wrapper.emitted("openStrudel")).toHaveLength(1);
   });
 
@@ -198,15 +198,15 @@ describe("PatternStrip", () => {
       props: {
         item: {
           ...item,
-          canCopy: false,
+          canShare: false,
           canOpenStrudel: false,
-          copyUnavailableLabel: "Record notes before copying Evening Glass",
+          shareUnavailableLabel: "Record notes before sharing Evening Glass",
           openUnavailableLabel: "Record notes before opening Evening Glass in Strudel",
         },
       },
     });
 
-    const copy = wrapper.get('button[aria-label="Record notes before copying Evening Glass"]');
+    const copy = wrapper.get('button[aria-label="Record notes before sharing Evening Glass"]');
     const open = wrapper.get(
       'button[aria-label="Record notes before opening Evening Glass in Strudel"]',
     );
@@ -226,12 +226,12 @@ describe("PatternStrip", () => {
       'import PatternReel from "../../components/compounds/PatternReel.vue"',
     );
     expect(reelSpecimenSource.match(/@delete=/g)).toHaveLength(4);
-    expect(reelSpecimenSource.match(/@copy=/g)).toHaveLength(4);
+    expect(reelSpecimenSource.match(/@share=/g)).toHaveLength(4);
     expect(reelSpecimenSource.match(/@open-strudel=/g)).toHaveLength(4);
     expect(reelSpecimenSource.match(/@rename=/g)).toHaveLength(4);
     expect(stripSpecimenSource.match(/@select=/g)).toHaveLength(5);
     expect(stripSpecimenSource.match(/@delete=/g)).toHaveLength(5);
-    expect(stripSpecimenSource.match(/@copy=/g)).toHaveLength(5);
+    expect(stripSpecimenSource.match(/@share=/g)).toHaveLength(5);
     expect(stripSpecimenSource.match(/@open-strudel=/g)).toHaveLength(5);
     expect(stripSpecimenSource.match(/@rename=/g)).toHaveLength(5);
   });

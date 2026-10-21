@@ -429,7 +429,7 @@ describe("PatternReel", () => {
         props: { items: reelItems, selectedId: livePhrase.id },
       });
       const originalSlot = slotFor(wrapper, "Live phrase");
-      const originalCopy = originalSlot.get('button[aria-label="Copy Live phrase Strudel code"]');
+      const originalCopy = originalSlot.get('button[aria-label="Share Live phrase as a link"]');
       (originalCopy.element as HTMLElement).focus();
 
       const evolvedPhrase = { ...livePhrase, id: "dynamic-a-d" };
@@ -440,13 +440,13 @@ describe("PatternReel", () => {
       await nextTick();
 
       const evolvedSlot = slotFor(wrapper, "Live phrase");
-      const evolvedCopy = evolvedSlot.get('button[aria-label="Copy Live phrase Strudel code"]');
+      const evolvedCopy = evolvedSlot.get('button[aria-label="Share Live phrase as a link"]');
       expect(evolvedSlot.attributes("data-pattern-id")).toBe(evolvedPhrase.id);
       expect(evolvedCopy.element).toBe(originalCopy.element);
       expect(document.activeElement).toBe(evolvedCopy.element);
 
       await evolvedCopy.trigger("click");
-      expect(wrapper.emitted("copy")?.at(-1)).toEqual([evolvedPhrase.id]);
+      expect(wrapper.emitted("share")?.at(-1)).toEqual([evolvedPhrase.id]);
       wrapper.unmount();
     }
   });
@@ -813,11 +813,11 @@ describe("PatternReel", () => {
     if (!beta) throw new Error("Missing Beta PatternStrip");
 
     beta.vm.$emit("delete");
-    beta.vm.$emit("copy");
+    beta.vm.$emit("share");
     beta.vm.$emit("openStrudel");
 
     expect(wrapper.emitted("delete")).toEqual([["beta"]]);
-    expect(wrapper.emitted("copy")).toEqual([["beta"]]);
+    expect(wrapper.emitted("share")).toEqual([["beta"]]);
     expect(wrapper.emitted("openStrudel")).toEqual([["beta"]]);
   });
 

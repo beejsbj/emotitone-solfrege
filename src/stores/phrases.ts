@@ -27,6 +27,7 @@ import {
   phraseFromPattern,
   pressNote,
   pruneRecent,
+  receivePhrase as receiveBookPhrase,
   releaseNote,
   renamePhrase as renameBookPhrase,
   resolveBpm,
@@ -268,6 +269,12 @@ export const usePhrasesStore = defineStore(
 
     // ─── Controls ↔ take ─────────────────────────────────────────────────────
     let isContextSyncing = false;
+    let loopOwnsContext: () => boolean = () => false;
+
+    /** The running Looper owns key, mode and tempo while phrases are browsed or received. */
+    function setLoopContextGuard(guard: (() => boolean) | null): void {
+      loopOwnsContext = guard ?? (() => false);
+    }
 
     watch(liveContext, (live) => {
       if (isContextSyncing) return;
@@ -285,10 +292,12 @@ export const usePhrasesStore = defineStore(
       if (context.instrument !== instrument) context.instrument = instrument;
       isContextSyncing = true;
       try {
-        musicStore.setKey(context.key);
-        musicStore.setMode(context.mode);
+        if (!loopOwnsContext()) {
+          musicStore.setKey(context.key);
+          musicStore.setMode(context.mode);
+          visualConfigStore.updateConfig("codeStrip", { bpm: resolveBpm(context.bpm) });
+        }
         keyboardStore.setMainOctave(context.octave);
-        visualConfigStore.updateConfig("codeStrip", { bpm: resolveBpm(context.bpm) });
         // Selecting the instrument recalls its remembered Shape; the phrase's
         // Shape then wins and becomes that instrument's memory.
         void instrumentStore.setInstrument(context.instrument).then((result) => {
@@ -394,6 +403,15 @@ export const usePhrasesStore = defineStore(
       const ids = importBookPhrases(book.value, candidates, context, Date.now(), undefined, config);
       if (ids.length) syncControlsTo(take.value);
       return ids;
+    }
+
+    /** A phrase opened from a link lands on the desk and the controls follow it. */
+    function receiveSharedPhrase(
+      shared: Pick<Phrase, "name" | "notes" | "context" | "duration">,
+    ): string | null {
+      const id = receiveBookPhrase(book.value, shared, Date.now(), undefined, config);
+      if (id) syncControlsTo(take.value);
+      return id;
     }
 
     // ─── Note events ─────────────────────────────────────────────────────────
@@ -551,8 +569,10 @@ export const usePhrasesStore = defineStore(
       undoLastNote,
       importPhrases,
       setLivePressGuard,
+      setLoopContextGuard,
       setProtectedIds,
       markLooped,
+      receiveSharedPhrase,
 
       // Recorder plumbing (exposed for tests)
       handleNotePressed,

@@ -1,18 +1,13 @@
-import { expect, it, vi } from "vitest";
-vi.unmock("@strudel/core");
-import { m } from "@strudel/mini";
-import { transpiler } from "@strudel/transpiler";
+import { expect, it } from "vitest";
+import { evaluateStrudel } from "../../helpers/strudelOracle";
 import { serializeCodeStripTokens } from "@/components/uniques/CodeStrip/serialize";
 
 // Play the code a controlled strip opens in Strudel through the installed
 // transpiler and mini-notation.
 function onsets(code: string, cycles: number) {
-  const { output } = transpiler(code);
-  const pattern = new Function("m", output)(m);
-  return pattern.queryArc(0, cycles)
-    .filter((hap: { hasOnset(): boolean }) => hap.hasOnset())
-    .map((hap: { value: unknown; whole: { begin: { valueOf(): number }; end: { valueOf(): number } } }) =>
-      [String(hap.value), hap.whole.begin.valueOf(), hap.whole.end.valueOf()]);
+  return evaluateStrudel(code, 0, cycles)
+    .filter((hap) => hap.hasOnset())
+    .map((hap) => [String(hap.value), hap.whole.begin, hap.whole.end]);
 }
 
 it("opens controlled tokens in Strudel with the cycle lengths the strip shows", () => {

@@ -1,5 +1,6 @@
 import { LiveAudioCore } from "@/audio/live/core";
 import type { LiveRenderer, LiveRendererCallbacks } from "@/audio/liveRenderer";
+import type { PreparedLiveInstrument } from "@/audio/live/types";
 
 /**
  * The live worklet for store and component tests: the real render core
@@ -38,8 +39,8 @@ export function livePlaybackOn(seat: LiveSeat) {
 export interface LiveCoreOptions {
   /** Frames per second of the offline core. */
   sampleRate?: number;
-  /** Instrument ids the core holds (each a sine oscillator). */
-  instruments?: string[];
+  /** What the core holds: an id is a sine oscillator; or a prepared instrument as is. */
+  instruments?: (string | PreparedLiveInstrument)[];
   /** Envelope of the prepared oscillators. */
   envelope?: { attack: number; decay: number; sustain: number; release: number };
 }
@@ -56,9 +57,9 @@ export function attachLiveCore(seat: LiveSeat, options: LiveCoreOptions = {}) {
     else if (response.type === "expression-owner") each((listener) => listener.onExpressionOwner?.(response));
     else if (response.type === "owner-ended") each((listener) => listener.onOwnerEnded?.(response.ownerId));
   });
-  for (const instrumentId of options.instruments ?? ["piano"]) {
-    core.command({ type: "prepare", requestId: 1, instrument: {
-      kind: "oscillator", waveform: "sine", instrumentId, gain: 1, ...envelope,
+  for (const instrument of options.instruments ?? ["piano"]) {
+    core.command({ type: "prepare", requestId: 1, instrument: typeof instrument !== "string" ? instrument : {
+      kind: "oscillator", waveform: "sine", instrumentId: instrument, gain: 1, ...envelope,
     } }, frame);
   }
   seat.renderer = {

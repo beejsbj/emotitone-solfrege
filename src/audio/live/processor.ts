@@ -53,14 +53,15 @@ class LivePlaybackProcessor extends AudioWorkletProcessor {
   }
   process(_inputs: Float32Array[][], outputs: Float32Array[][]) {
     if (!this.core) return false
+    // The whole callback is the quantum's cost: rendering and posting its responses.
+    const cost = this.cost
+    const start = cost ? clock.now() : 0
     try {
-      if (outputs[0]) {
-        const cost = this.cost
-        const start = cost ? clock.now() : 0
-        this.core.render(outputs[0], currentFrame, outputs[1], outputs[2])
-        cost?.record(clock.now() - start)
-      }
-    } finally { this.flushResponses() }
+      if (outputs[0]) this.core.render(outputs[0], currentFrame, outputs[1], outputs[2])
+    } finally {
+      this.flushResponses()
+      cost?.record(clock.now() - start)
+    }
     return true
   }
 }

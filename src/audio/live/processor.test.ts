@@ -131,4 +131,32 @@ describe('live processor response boundaries', () => {
     // The reset starts a fresh window.
     expect(read().cost.quanta).toBe(0)
   })
+
+  it('counts posting a quantum’s responses in its cost, not only the core’s render', async () => {
+    let now = 0
+    vi.spyOn(performance, 'now').mockImplementation(() => now)
+    const { processor, command, render } = await setup()
+    command({ type: 'prepare', requestId: 1, instrument })
+    processor.port.onmessage({ data: { type: 'render-cost', requestId: 7, reset: true } })
+    // Rendering costs .4 ms; posting a batch across the port costs .9 ms more.
+    vi.spyOn(processor.core, 'render').mockImplementation(function (this: LiveAudioCore,
+      ...args: Parameters<LiveAudioCore['render']>) {
+      now += .4
+      return LiveAudioCore.prototype.render.apply(this, args)
+    })
+    const post = processor.port.postMessage.getMockImplementation()
+    processor.port.postMessage.mockImplementation((...args: unknown[]) => { now += .9; return post?.(...args) })
+    // The press's attack is posted in the next quantum; the one after is quiet.
+    command({ type: 'press', ownerId: 'finger', notes: [{ pitch: 60, instrumentId: 'sine' }] })
+    const posted = render()
+    expect(posted.length).toBeGreaterThan(0)
+    expect(render()).toEqual([])
+    processor.port.postMessage.mockImplementation(post ?? (() => {}))
+    processor.port.onmessage({ data: { type: 'render-cost', requestId: 8 } })
+    const reply = processor.port.postMessage.mock.calls.at(-1)![0] as LiveResponse[]
+    const { cost } = reply[0] as Extract<LiveResponse, { type: 'render-cost' }>
+    expect(cost.quanta).toBe(2)
+    expect(cost.maxMs).toBeCloseTo(1.3)
+    expect(cost.totalMs).toBeCloseTo(1.7)
+  })
 })

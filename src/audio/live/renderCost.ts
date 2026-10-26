@@ -1,8 +1,9 @@
 /**
  * Render cost per quantum (BJS-494; docs/research/worklet-engine.md §4).
  *
- * A read-only measurement of the live processor: how long each `render` call
- * takes, as a histogram the main thread asks for. It is off until the first
+ * A read-only measurement of the live processor: how long each `process`
+ * callback takes (the core's render and the post of its responses), as a
+ * histogram the main thread asks for. It is off until the first
  * request, never allocates while recording, and never changes what renders.
  * The phone gate compares its p99 and maximum with the quantum's budget at
  * the measured sample rate (128 frames: 2.67 ms at 48 kHz).

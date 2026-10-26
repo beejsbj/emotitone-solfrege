@@ -1,8 +1,8 @@
 /**
  * The app's own instrument catalog: sound name → kind → where its data lives.
- * It replaces superdough's sound registry as the source for loading sampled
- * and soundfont instruments into the live worklet. Synths are rendered without
- * data and are listed by the audio service, not here.
+ * It is the source for loading sampled and soundfont instruments into the
+ * live worklet. Synths are rendered without data and are listed by the audio
+ * engine (services/audioEngine.ts), not here.
  */
 
 /** Note-keyed banks map a note name to its sample URLs; array banks are unpitched lists. */
@@ -34,7 +34,7 @@ export function clearSoundCatalog(): void {
   sounds.clear()
 }
 
-/** Register every bank of a sample map, resolving URLs against its `_base` like superdough's `samples()`. */
+/** Register every bank of a sample map, resolving URLs against its `_base`, as strudel.cc's `samples()` does. */
 export function registerSampleMap(map: SampleMap, baseUrl = typeof map._base === 'string' ? map._base : ''): string[] {
   const registered: string[] = []
   for (const [key, raw] of Object.entries(map)) {
@@ -63,7 +63,7 @@ export function registerSoundfonts(fonts: Readonly<Record<string, readonly strin
 const CHROMA: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 }
 const ACCIDENTAL: Record<string, number> = { '#': 1, b: -1, s: 1, f: -1 }
 
-/** superdough's sample-key pitch parser: `C4`, `Ds1`, `Bb2`; a missing octave means 3. */
+/** strudel.cc's sample-key pitch parser: `C4`, `Ds1`, `Bb2`; a missing octave means 3. */
 export function sampleKeyToMidi(key: string): number {
   const match = /^([a-gA-G])([#bsf]*)(-?[0-9]*)$/.exec(key)
   if (!match) throw new Error(`Not a note: "${key}"`)
@@ -73,7 +73,7 @@ export function sampleKeyToMidi(key: string): number {
 }
 
 /**
- * The zones the live sampler plays, chosen as superdough chooses with n = 0:
+ * The zones the live sampler plays, chosen as strudel.cc's sampler chooses with n = 0:
  * an array bank is one zone of its first sample at root MIDI 36; a keyed bank
  * is one zone per note key (first sample), rooted at that note, in insertion order.
  */

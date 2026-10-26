@@ -182,7 +182,7 @@ const EXCLUDED_SOUNDS = new Set([
   // list that cannot work"). Patterns and takes play only on the worklet, which
   // renders sine, triangle, square and sawtooth (plus the Strudel short names
   // sqr, saw, tri and sin, aliased in liveInstrumentNames.ts) and sample banks.
-  // Superdough's fallback still played these live; it goes with superdough (BJS-495).
+  // The old engine's live fallback played these until it was removed (BJS-495).
   "supersaw",
   "pulse",
   "z_sine",
@@ -190,8 +190,8 @@ const EXCLUDED_SOUNDS = new Set([
   "z_sawtooth",
   "z_triangle",
   // Sample banks over the worklet's 192 MiB budget (kawai 309 MB, steinway 372 MB
-  // of PCM; audio-lab/results/loader-bjs-488.json). The worklet refuses them
-  // and only superdough's live fallback played them.
+  // of PCM; audio-lab/results/loader-bjs-488.json). The worklet refuses them;
+  // only the old engine's live fallback played them (BJS-565 brings them back).
   "kawai",
   "steinway",
   // Unpitched noise / non-melodic synths

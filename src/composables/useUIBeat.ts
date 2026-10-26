@@ -197,35 +197,9 @@ export function bindUIBeatScale(
 }
 
 /**
- * Converts Strudel's scheduler cycles into cycles of a generated bar pattern.
- * This mapping is valid only when the adapter knows the sounding pattern was
- * generated with `.cpm(bpm / beatsPerBar)`.
- */
-export function generatedStrudelBarPosition(
-  rawCycle: number,
-  bpm: number,
-  beatsPerBar: number,
-  schedulerCps: number,
-): number | null {
-  if (
-    !Number.isFinite(rawCycle) ||
-    !Number.isFinite(bpm) ||
-    bpm <= 0 ||
-    !Number.isInteger(beatsPerBar) ||
-    beatsPerBar <= 0 ||
-    !Number.isFinite(schedulerCps) ||
-    schedulerCps <= 0
-  ) {
-    return null;
-  }
-
-  const generatedBarCps = bpm / beatsPerBar / 60;
-  return rawCycle * generatedBarCps / schedulerCps;
-}
-
-/**
- * One UIBeat clock owns transport state and fan-out. Production publishes
- * Strudel frames into the singleton; guide specimens inject an isolated clock.
+ * One UIBeat clock owns transport state and fan-out. Production's pattern
+ * transport publishes the heard bar into the singleton; guide specimens inject
+ * an isolated clock.
  */
 export class UIBeatClock {
   private state = idleSnapshot(0);

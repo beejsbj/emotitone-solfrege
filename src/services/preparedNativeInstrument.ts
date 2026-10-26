@@ -8,9 +8,9 @@ import { getLiveArticulation } from "./liveArticulation";
 /**
  * The instrument loader: catalog entry → owned PCM zones for the live worklet.
  *
- * It fetches and decodes sample and soundfont data itself (no superdough, no
- * @strudel/soundfonts, no `eval`). Each zone is decoded, copied into its own
- * freshly allocated Float32Array per channel, and the AudioBuffer is dropped
+ * It fetches and decodes sample and soundfont data itself (no `eval`). Each
+ * zone is decoded, copied into its own freshly allocated Float32Array per
+ * channel, and the AudioBuffer is dropped
  * before the next zone decodes, so at most one decoded zone coexists with the
  * owned copy. Nothing is cached here: the bridge transfers the owned buffers
  * to the worklet, which then holds the only copy.
@@ -109,7 +109,7 @@ function base64Bytes(base64: string, length = 0): Uint8Array {
 
 /**
  * An encoded zone, zero-padded to its base64 length exactly as webaudiofont
- * (and so @strudel/soundfonts) sized it. The decoder then flushes the final
+ * (and so Strudel's soundfonts package) sized it. The decoder then flushes the final
  * MP3 frame; without the padding that frame is lost and some loops end past
  * the decoded PCM. Keeps the PCM identical to what the app played before.
  */

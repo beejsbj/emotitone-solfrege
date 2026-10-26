@@ -16,7 +16,7 @@ export function hasPlayableContent(code: string): boolean {
     }
     if (code.startsWith("//", index)) {
       const remainder = code.slice(index + 2);
-      const lineBreak = remainder.search(/[\r\n  ]/);
+      const lineBreak = remainder.search(/[\r\n\u2028\u2029]/);
       index = lineBreak < 0 ? code.length : index + lineBreak + 3;
       continue;
     }

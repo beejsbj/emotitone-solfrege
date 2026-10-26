@@ -15,7 +15,7 @@ const MIN_FULL_CYCLES = 2;
 const MAX_DEPTH = 0.5;
 
 /**
- * Reduces a gain curve to Strudel's note-local tremolo. Superdough multiplies
+ * Reduces a gain curve to Strudel's note-local tremolo. strudel.cc multiplies
  * the voice by a unipolar LFO from `1 - depth` to `1`; therefore the recorded
  * low/high ratio maps directly to depth, capped conservatively at 0.5.
  * Drags, constant gain, and sensor jitter deliberately remain unexported.

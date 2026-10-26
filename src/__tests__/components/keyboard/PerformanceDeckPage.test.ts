@@ -23,7 +23,6 @@ vi.mock("@/components/PerformanceDeck.vue", () => ({
       "keyboardRows",
     ],
     emits: [
-      "patternCopy",
       "patternDelete",
       "patternRename",
       "patternCommit",
@@ -93,7 +92,6 @@ describe("PerformanceDeck guide fixtures", () => {
       octave: 4,
       loopDial: [],
       codeStripTokens: [],
-      canCopy: false,
     });
     expect(current.spine).toBe(
       staticNoteColorResolver.getKeyBackgroundByPitchClass(
@@ -217,7 +215,6 @@ describe("PerformanceDeck guide fixtures", () => {
       id: "current",
       loopDial: [],
       codeStripTokens: [],
-      canCopy: false,
     });
   });
 
@@ -296,46 +293,6 @@ describe("PerformanceDeck guide fixtures", () => {
       ).primaryColor,
     ]);
     wrapper.unmount();
-  });
-
-  it("keeps copied pattern identities unique across delete and recopy", async () => {
-    const wrapper = mount(PerformanceDeckPage);
-    const deck = wrapper.getComponent({ name: "PerformanceDeck" });
-
-    deck.vm.$emit("patternCopy", "after-rain");
-    await wrapper.vm.$nextTick();
-    const firstCopy = deck.props("patterns").find(
-      (pattern: { id: string }) => pattern.id.startsWith("after-rain-copy-"),
-    );
-
-    deck.vm.$emit("patternDelete", firstCopy.id);
-    await wrapper.vm.$nextTick();
-    deck.vm.$emit("patternDelete", firstCopy.id);
-    deck.vm.$emit("patternCopy", "after-rain");
-    await wrapper.vm.$nextTick();
-
-    const ids = deck.props("patterns").map((pattern: { id: string }) => pattern.id);
-    expect(new Set(ids).size).toBe(ids.length);
-    expect(ids).not.toContain(firstCopy.id);
-    wrapper.unmount();
-  });
-
-  it("does not copy an armed deletion state", async () => {
-    const wrapper = mount(PerformanceDeckPage);
-    const deck = wrapper.getComponent({ name: "PerformanceDeck" });
-
-    deck.vm.$emit("patternDelete", "after-rain");
-    await wrapper.vm.$nextTick();
-    expect(deck.props("patterns").find(
-      (pattern: { id: string }) => pattern.id === "after-rain",
-    )).toMatchObject({ deleteArmed: true });
-
-    deck.vm.$emit("patternCopy", "after-rain");
-    await wrapper.vm.$nextTick();
-    const copy = deck.props("patterns").find(
-      (pattern: { id: string }) => pattern.id.startsWith("after-rain-copy-"),
-    );
-    expect(copy).toMatchObject({ deleteArmed: false });
   });
 
   it("drives the controlled row-count target from the specimen selector", async () => {

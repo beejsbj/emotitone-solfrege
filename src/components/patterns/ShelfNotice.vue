@@ -47,7 +47,7 @@ const KEEP_TAB = "Keep this tab open: closing or reloading it loses new sketches
 const hint = computed(() => {
   const keep = props.state === "failed" ? ` ${KEEP_TAB}` : "";
   if (!props.oldestTitle) {
-    return `.${keep} No Recent phrases to release. Copy any phrases you want to save before deleting them from the reel.`;
+    return `.${keep} No Recent phrases to release. Open any phrases you want to save in Strudel before deleting them from the reel.`;
   }
   const ask = props.state === "failed" ? "Free space" : "Free some space soon";
   return `.${keep} ${ask}: delete old Recent phrases from the reel, oldest first: ${props.oldestTitle}.`;

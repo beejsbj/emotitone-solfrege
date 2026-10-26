@@ -113,7 +113,7 @@ describe("PatternStrip · shelf presentation", () => {
           stateLabel: "on the desk, yours",
           detail: "Do Mi Sol",
           recording: true,
-          actions: [{ kind: "copy", label: "Copy Morning", disabled: true }],
+          actions: [{ kind: "open", label: "Open Morning in Strudel", disabled: true }],
         }),
         active: true,
       },
@@ -125,7 +125,7 @@ describe("PatternStrip · shelf presentation", () => {
     expect(wrapper.get(".pattern-strip__identity").attributes("aria-label"))
       .toContain("Morning, on the desk, yours");
     expect(wrapper.get(".pattern-strip__detail").text()).toBe("Do Mi Sol");
-    expect(wrapper.get('[data-action="copy"]').attributes("disabled")).toBeDefined();
+    expect(wrapper.get('[data-action="open"]').attributes("disabled")).toBeDefined();
     expect(wrapper.find('[data-action="delete"]').exists()).toBe(false);
   });
 
@@ -148,9 +148,9 @@ describe("PatternStrip · shelf presentation", () => {
     expect(wrapper.get(".pattern-strip__identity").attributes("aria-label")).not.toContain("root");
   });
 
-  it("keeps the default trio when no actions are given", () => {
+  it("keeps the default pair (Delete, Open) when no actions are given", () => {
     const wrapper = mount(PatternStrip, { props: { item: item("plain", { canDelete: true }) } });
-    expect(wrapper.findAll(".pattern-strip__actions button")).toHaveLength(3);
+    expect(wrapper.findAll(".pattern-strip__actions button")).toHaveLength(2);
     expect(wrapper.find(".pattern-strip__lamp").exists()).toBe(false);
   });
 });

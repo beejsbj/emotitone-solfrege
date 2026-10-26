@@ -82,7 +82,7 @@ describe("PatternReel", () => {
     expect(wrapper.attributes("aria-label")).toBe("Pattern reel. Current pattern Only.");
     expect(wrapper.attributes("aria-roledescription")).toBeUndefined();
     expect(wrapper.find('button[aria-label^="Unwind patterns around"]').exists()).toBe(false);
-    expect(wrapper.findAll(".pattern-strip__actions button")).toHaveLength(3);
+    expect(wrapper.findAll(".pattern-strip__actions button")).toHaveLength(2);
 
     await identity.trigger("click");
     expect(wrapper.emitted("commit")).toBeUndefined();
@@ -429,8 +429,8 @@ describe("PatternReel", () => {
         props: { items: reelItems, selectedId: livePhrase.id },
       });
       const originalSlot = slotFor(wrapper, "Live phrase");
-      const originalCopy = originalSlot.get('button[aria-label="Copy Live phrase Strudel code"]');
-      (originalCopy.element as HTMLElement).focus();
+      const originalOpen = originalSlot.get('button[aria-label="Open Live phrase in Strudel"]');
+      (originalOpen.element as HTMLElement).focus();
 
       const evolvedPhrase = { ...livePhrase, id: "dynamic-a-d" };
       await wrapper.setProps({
@@ -440,13 +440,13 @@ describe("PatternReel", () => {
       await nextTick();
 
       const evolvedSlot = slotFor(wrapper, "Live phrase");
-      const evolvedCopy = evolvedSlot.get('button[aria-label="Copy Live phrase Strudel code"]');
+      const evolvedOpen = evolvedSlot.get('button[aria-label="Open Live phrase in Strudel"]');
       expect(evolvedSlot.attributes("data-pattern-id")).toBe(evolvedPhrase.id);
-      expect(evolvedCopy.element).toBe(originalCopy.element);
-      expect(document.activeElement).toBe(evolvedCopy.element);
+      expect(evolvedOpen.element).toBe(originalOpen.element);
+      expect(document.activeElement).toBe(evolvedOpen.element);
 
-      await evolvedCopy.trigger("click");
-      expect(wrapper.emitted("copy")?.at(-1)).toEqual([evolvedPhrase.id]);
+      await evolvedOpen.trigger("click");
+      expect(wrapper.emitted("openStrudel")?.at(-1)).toEqual([evolvedPhrase.id]);
       wrapper.unmount();
     }
   });
@@ -813,11 +813,9 @@ describe("PatternReel", () => {
     if (!beta) throw new Error("Missing Beta PatternStrip");
 
     beta.vm.$emit("delete");
-    beta.vm.$emit("copy");
     beta.vm.$emit("openStrudel");
 
     expect(wrapper.emitted("delete")).toEqual([["beta"]]);
-    expect(wrapper.emitted("copy")).toEqual([["beta"]]);
     expect(wrapper.emitted("openStrudel")).toEqual([["beta"]]);
   });
 

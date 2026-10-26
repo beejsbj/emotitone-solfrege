@@ -250,7 +250,7 @@ describe('live playback instrument manager', () => {
     expect(engine.forget.mock.calls.flat()).toContain('piano')
   })
 
-  it('refuses a fifth bank loudly when every resident bank is pinned, and names it a fallback, not a load failure', async () => {
+  it('refuses a fifth bank loudly when every resident bank is pinned, as unavailable, not a load failure', async () => {
     const { manager, engine, context } = await setup()
     for (const name of ['a', 'b', 'c', 'd']) {
       await manager.prepareLivePlayback(context, destination, name)
@@ -262,11 +262,11 @@ describe('live playback instrument manager', () => {
     expect(mocks.prepare).not.toHaveBeenCalled()
     expect(engine.forget).not.toHaveBeenCalled()
     expect(manager.getLivePlayback('e')).toBeUndefined()
-    expect(manager.getLivePlaybackFailure('e')).toEqual({ kind: 'fallback', reason: expect.stringContaining('pinned'), budget: true })
+    expect(manager.getLivePlaybackFailure('e')).toEqual({ kind: 'unavailable', reason: expect.stringContaining('pinned'), budget: true })
     expect(manager.getLivePlaybackFailure('a')).toBeUndefined()
   })
 
-  it('lets live input on an evicted bank fall back when Looper pins refuse it, instead of dropping it', async () => {
+  it('refuses live input on an evicted bank for budget, without a load error, until a Looper member lets go', async () => {
     const { manager, context } = await setup()
     // 'e' was resident once, then evicted when four pinned members' banks loaded.
     await manager.prepareLivePlayback(context, destination, 'e')
@@ -277,10 +277,10 @@ describe('live playback instrument manager', () => {
     expect(manager.getLivePlayback('e')).toBeUndefined()
     const loadErrors: string[] = []
     const stop = manager.subscribeLivePlayback({ onEvent() {}, onLoadError: instrumentId => loadErrors.push(instrumentId) })
-    // The press waits for recovery, is refused for budget, and goes on to the fallback renderer.
+    // The press waits for recovery and is refused for budget (the deck says so): no load error.
     await expect(manager.waitForLivePlayback('e')).resolves.toBeUndefined()
     expect(manager.getLivePlayback('e')).toBeUndefined()
-    expect(manager.getLivePlaybackFailure('e')).toMatchObject({ kind: 'fallback', budget: true })
+    expect(manager.getLivePlaybackFailure('e')).toMatchObject({ kind: 'unavailable', budget: true })
     expect(loadErrors).toEqual([])
     // Once a member leaves, the next press brings the bank back to the worklet.
     manager.pinLivePlayback('looper:a', [])
@@ -359,7 +359,7 @@ describe('live playback instrument manager', () => {
     mocks.prepare.mockResolvedValue({ kind: 'unsupported', instrumentId: 'noise', reason: 'Unsupported source' })
     await manager.prepareLivePlayback(context, destination, 'noise')
     expect(manager.needsLivePlaybackPreparation('noise')).toBe(false)
-    expect(manager.getLivePlaybackDiagnostics('noise')).toMatchObject({ backend: 'superdough', reason: 'Unsupported source' })
+    expect(manager.getLivePlaybackDiagnostics('noise')).toMatchObject({ backend: 'none', reason: 'Unsupported source' })
     vi.stubGlobal('AudioWorkletNode', undefined)
     expect(manager.needsLivePlaybackPreparation('piano')).toBe(false)
   })
@@ -459,8 +459,6 @@ describe('production renderer selection', () => {
     ['amSynth', 'sawtooth'], ['fmSynth', 'square'], ['metalSynth', 'square'],
   ])('prepares and renders %s as worklet %s using the real catalog', async (name, resolved) => {
     const { manager, context, engine } = await setup()
-    const { registerSynthSounds } = await import('superdough')
-    registerSynthSounds()
     const actual = await vi.importActual<typeof import('@/services/preparedLiveInstrument')>('@/services/preparedLiveInstrument')
     mocks.prepare.mockImplementation(actual.prepareLiveInstrument)
     const { LiveAudioCore } = await import('@/audio/live/core')
@@ -481,7 +479,7 @@ describe('production renderer selection', () => {
 
   it.each([
     ['supersaw', 'supersaw'], ['pulse', 'pulse'],
-  ])('routes unsupported %s through %s to fallback without disturbing a held worklet bank', async (name, resolved) => {
+  ])('refuses unsupported %s (as %s) without disturbing a held worklet bank', async (name, resolved) => {
     const { manager, context, engine } = await setup()
     await manager.prepareLivePlayback(context, destination, 'sine')
     const held = manager.getLivePlayback('sine')!
@@ -497,7 +495,7 @@ describe('production renderer selection', () => {
     expect(manager.needsLivePlaybackPreparation(name)).toBe(false)
     expect(manager.needsLivePlaybackPreparation(resolved)).toBe(false)
     expect(manager.getLivePlaybackDiagnostics(name)).toMatchObject({
-      backend: 'superdough', reason: unsupported.reason, installedBanks: 1, installingPcmBytes: 0,
+      backend: 'none', reason: unsupported.reason, installedBanks: 1, installingPcmBytes: 0,
     })
     expect(engine.prepare).toHaveBeenCalledTimes(1)
     expect(engine.forget).not.toHaveBeenCalled()

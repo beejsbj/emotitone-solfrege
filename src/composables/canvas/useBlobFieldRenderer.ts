@@ -714,6 +714,16 @@ export function getBlobFieldMaterialPasses(
   ];
 }
 
+/** The widest material blur, in CSS pixels: the glow pass's when it paints. */
+function getBlobFieldMaterialReach(
+  blobConfig: Pick<BlobConfig, "blurRadius" | "glowEnabled" | "glowIntensity">,
+) {
+  const body = Math.max(0, blobConfig.blurRadius);
+  return blobConfig.glowEnabled && blobConfig.glowIntensity > 0
+    ? body + blobConfig.glowIntensity
+    : body;
+}
+
 function findNearestFrame(
   frame: PreparedBlobFrame,
   candidates: readonly PreparedBlobFrame[]
@@ -805,6 +815,7 @@ export function createBlobFieldConnectionPlanner() {
 export function useBlobFieldRenderer() {
   let surfaces: FieldSurfaces | null = null;
   let buffers: FieldBuffers | null = null;
+  let materialSurface: HTMLCanvasElement | null = null;
   const webConnectionPlanner = createBlobWebConnectionPlanner();
   const mergeJoinPlanner = createBlobFieldConnectionPlanner();
 
@@ -895,21 +906,56 @@ export function useBlobFieldRenderer() {
     });
   };
 
+  /**
+   * Soften the field at its own budgeted resolution, then scale it onto the
+   * Stage once. The field is already low resolution, so blurring it after
+   * upscaling filtered up to a full Stage of device pixels twice a frame (the
+   * Stage's largest frame cost in the throttled phone profile, BJS-591)
+   * without adding detail. A margin of three blur deviations, the extent of
+   * the blur kernel, keeps the glow's tail from being clipped.
+   */
   const compositeMaterial = (
     target: CanvasRenderingContext2D,
     source: HTMLCanvasElement,
     bounds: FieldBounds,
     config: BlobConfig
   ) => {
-    getBlobFieldMaterialPasses(config, stageCanvasSize(target.canvas).dpr).forEach((pass) => {
-      target.save();
-      target.imageSmoothingEnabled = true;
-      target.imageSmoothingQuality = "high";
-      target.globalAlpha = pass.opacity;
-      target.filter = pass.filter;
+    const toTargetX = bounds.width / source.width;
+    const toTargetY = bounds.height / source.height;
+    const fieldScale = Math.min(source.width / bounds.width, source.height / bounds.height);
+    const passes = getBlobFieldMaterialPasses(config, fieldScale);
+    const margin = Math.ceil(getBlobFieldMaterialReach(config) * fieldScale * 3);
+    const material = margin > 0 ? (materialSurface ??= createSurface()) : null;
+    const materialContext = material?.getContext("2d");
+    target.save();
+    target.imageSmoothingEnabled = true;
+    target.imageSmoothingQuality = "high";
+    if (!material || !materialContext) {
       target.drawImage(source, bounds.x, bounds.y, bounds.width, bounds.height);
       target.restore();
+      return;
+    }
+    resizeSurface(material, source.width + margin * 2, source.height + margin * 2);
+    materialContext.setTransform(1, 0, 0, 1, 0, 0);
+    materialContext.globalCompositeOperation = "source-over";
+    materialContext.clearRect(0, 0, material.width, material.height);
+    // Glow first, body over it: source-over is associative, so compositing
+    // the passes here and the result once matches painting each on the Stage.
+    passes.forEach((pass) => {
+      materialContext.globalAlpha = pass.opacity;
+      materialContext.filter = pass.filter;
+      materialContext.drawImage(source, margin, margin);
     });
+    materialContext.globalAlpha = 1;
+    materialContext.filter = "none";
+    target.drawImage(
+      material,
+      bounds.x - margin * toTargetX,
+      bounds.y - margin * toTargetY,
+      material.width * toTargetX,
+      material.height * toTargetY,
+    );
+    target.restore();
   };
 
   const renderWeb = (
@@ -1270,6 +1316,7 @@ export function useBlobFieldRenderer() {
   const dispose = () => {
     surfaces = null;
     buffers = null;
+    materialSurface = null;
     webConnectionPlanner.clear();
     mergeJoinPlanner.clear();
   };

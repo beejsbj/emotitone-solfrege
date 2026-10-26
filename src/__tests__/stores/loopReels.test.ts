@@ -96,6 +96,7 @@ import { useLooperStore } from "@/stores/looper";
 import { usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { useInstrumentStore } from "@/stores/instrument";
+import { useMusicStore } from "@/stores/music";
 import { mount } from "@vue/test-utils";
 import PerformanceDeck from "@/components/PerformanceDeck.vue";
 
@@ -858,6 +859,130 @@ describe("a saved Loop is its own reel (BJS-572)", () => {
       await flush();
       expect(looper.reelLoopId).toBeNull();
       expect(document.activeElement).toBe(deck.get(".reel-switch .pattern-reel").element);
+    } finally {
+      deck.unmount();
+    }
+  });
+
+  // ─── Rule 3 on every path that writes a phrase (BJS-572 sweep) ─────────────
+
+  /** Two patterns saved as a Loop, stopped, the first loaded on the home reel by its arrow keys. */
+  async function loopMemberOnHomeDesk(deck: Deck) {
+    const phrases = usePhrasesStore();
+    const { first, second } = await twoLooping(deck);
+    const loop = await saveFromDeck(deck);
+    await press(deck.get("[data-testid=looper-stop-all]").element);
+    for (let step = 0; step < 12 && phrases.deskPhraseId !== first; step++) {
+      await deck.get(".pattern-reel").trigger("keydown", { key: "ArrowUp" });
+      await flush();
+    }
+    expect(phrases.deskPhraseId).toBe(first);
+    expect(phrases.takeId).toBe(first);
+    return { first, second, loop };
+  }
+
+  it("Backspace leaves a Loop's pattern on the desk alone", async () => {
+    const { phrases } = setup();
+    const deck = mountDeck();
+    try {
+      const { first } = await loopMemberOnHomeDesk(deck);
+      const original = notesOf(first);
+      // The deck's Backspace and the keyboard's both call the store's undo.
+      phrases.undoLastNote();
+      await flush();
+      expect(phrases.findPhrase(first)!.notes).toEqual(original);
+    } finally {
+      deck.unmount();
+    }
+  });
+
+  it("a control change never re-skins a Loop's pattern, even a copy still on the desk", async () => {
+    const { phrases } = setup();
+    // A Library pattern opened on the desk is a copy that follows the controls...
+    const source = phrases.library[0];
+    const copy = phrases.openPhrase(source.id)!;
+    await flush();
+    expect(copy.id).toBe(phrases.takeId);
+    const original = structuredClone(toRaw(copy.notes));
+    const context = { ...toRaw(copy.context) };
+    // ...until a saved Loop points at it (another tab's Replace in Loop can do that).
+    phrases.book.loops.push({ id: "loop-shared", name: "Loop 9", createdAt: 0, updatedAt: 0,
+      members: [{ phraseId: copy.id, offsetBars: 0, lengthBars: 1, muted: false, pinned: false, rate: 1 }] });
+    await flush();
+    const music = useMusicStore();
+    music.setKey(context.key === "D" ? "E" : "D");
+    music.setMode(context.mode === "minor" ? "major" : "minor");
+    await flush();
+    expect(phrases.findPhrase(copy.id)!.notes).toEqual(original);
+    expect(phrases.findPhrase(copy.id)!.context.key).toBe(context.key);
+    expect(phrases.findPhrase(copy.id)!.context.mode).toBe(context.mode);
+  });
+
+  it("opening a Loop's pattern whose sound is gone moves the controls to a working sound, not the pattern", async () => {
+    const { phrases } = setup();
+    const deck = mountDeck();
+    try {
+      const { first } = await twoLooping(deck);
+      await saveFromDeck(deck);
+      await press(deck.get("[data-testid=looper-stop-all]").element);
+      phrases.findPhrase(first)!.context.instrument = "a-retired-sound";
+      for (let step = 0; step < 12 && phrases.deskPhraseId !== first; step++) {
+        await deck.get(".pattern-reel").trigger("keydown", { key: "ArrowUp" });
+        await flush();
+      }
+      expect(phrases.deskPhraseId).toBe(first);
+      expect(phrases.findPhrase(first)!.context.instrument).toBe("a-retired-sound");
+      expect(useInstrumentStore().currentInstrument).not.toBe("a-retired-sound");
+    } finally {
+      deck.unmount();
+    }
+  });
+
+  it("renaming or keeping a Loop's pattern changes its name and shelf, never its notes or the Loop's pointer", async () => {
+    const { phrases } = setup();
+    const deck = mountDeck();
+    try {
+      const { first, loop } = await loopMemberOnHomeDesk(deck);
+      const original = notesOf(first);
+      const pointers = loop.members.map((member) => member.phraseId);
+      expect(phrases.renamePhrase(first, "Bassline")).toBe(true);
+      expect(phrases.keepPhrase(first)).toBe(first);
+      await flush();
+      expect(phrases.findPhrase(first)).toMatchObject({ name: "Bassline", shelf: "kept", notes: original });
+      expect(phrases.book.loops[0].members.map((member) => member.phraseId)).toEqual(pointers);
+      // Kept now, it is looked at through a copy; deleting it is still refused while the Loop holds it.
+      expect(phrases.deletePhrase(first)).toBe(false);
+    } finally {
+      deck.unmount();
+    }
+  });
+
+  it("stopping one Loop leaves playing the patterns another playing Loop still holds", async () => {
+    const { phrases, looper } = setup();
+    const deck = mountDeck();
+    try {
+      const { first, second } = await twoLooping(deck);
+      const one = await saveFromDeck(deck);
+      // The second and a third pattern are another Loop.
+      looper.removeMember(first);
+      playTake(rig.frame / RATE + .4, ["E4", "G4", "C5"]);
+      const third = phrases.take.id;
+      await press(play(deck).element, 40);
+      await looper.settled();
+      await flush();
+      const two = await saveFromDeck(deck);
+      expect(two.members.map((member) => member.phraseId)).toEqual([second, third]);
+      // Loop 1 comes back in over it: both Loops play in full.
+      expect(looper.toggleLoop(one.id)).toBe(true);
+      await looper.settled();
+      await flush();
+      expect(transportIds()).toEqual(expect.arrayContaining([first, second, third]));
+
+      // Stop Loop 1: its own pattern goes; the one Loop 2 shares plays on.
+      expect(looper.toggleLoop(one.id)).toBe(true);
+      await flush();
+      expect(looper.members.map((member) => member.phraseId)).toEqual([second, third]);
+      expect(transportIds()).toEqual([second, third]);
     } finally {
       deck.unmount();
     }

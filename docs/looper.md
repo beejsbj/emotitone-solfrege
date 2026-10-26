@@ -181,7 +181,14 @@ These are design-system units and go through that process, not this document:
     replaced one's place. The take is then filed. A take saved into a Loop
     while one of its keys is still down stays on the desk until that key
     lets go, and is then filed once, so the latch cannot grow a Loop's
-    pattern.
+    pattern. One guard in the phrases store (`isLoopOwned`) covers every
+    path that writes a phrase: a new note opens a fresh take; Backspace is
+    refused; the controls (key, mode, octave, sound, Shape) never re-skin
+    it; opening one whose sound is gone moves the controls to a working
+    sound but leaves the pattern's own; delete is refused. Rename and Keep
+    change only its name and shelf, not the pattern, so they stay free.
+  - **Stopping a Loop** leaves playing any pattern another Loop, playing in
+    full, still holds (as Replace in Loop and another tab's swap do).
   - **Play with a latched take growing** on a Loop's reel closes and files
     the take, as a silent bar would (it plays on, the latch holds), and then
     plays or stops the Loop.

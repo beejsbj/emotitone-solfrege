@@ -291,9 +291,7 @@ export const useLooperStore = defineStore("looper", () => {
     return focus && loop.members.some((member) => member.phraseId === focus) ? focus : loop.members[0].phraseId;
   });
   /** A saved Loop points at the phrase: it is read-only from the desk on every reel (rule 3). */
-  function inAnyLoop(phraseId: string): boolean {
-    return phrases.book.loops.some((loop) => loop.members.some((member) => member.phraseId === phraseId));
-  }
+  const inAnyLoop = (phraseId: string) => phrases.isLoopOwned(phraseId);
   /** The pattern is one of the Loop's whose reel shows. */
   const isReelMember = (phraseId: string) => Boolean(reelLoop.value?.members.some((member) => member.phraseId === phraseId));
   watch([reelLoop, () => phrases.deskPhraseId], ([loop, desk]) => {
@@ -1030,7 +1028,8 @@ export const useLooperStore = defineStore("looper", () => {
     const members = presentMembers(loop);
     // Judged by the patterns that are there: a missing one cannot hold the Loop on.
     if (isPresentLoopPlaying(loop)) {
-      for (const member of members) leaveMember(member.phraseId);
+      // A pattern another Loop playing in full still holds plays on for that Loop.
+      for (const member of members) if (!heldByOtherPlayingLoop(id, member.phraseId)) leaveMember(member.phraseId);
       return true;
     }
     if (!members.length) {
@@ -1206,14 +1205,14 @@ export const useLooperStore = defineStore("looper", () => {
   });
 
   // ─── Recorder seams ────────────────────────────────────────────────────────
-  // Rule 3, decided at press time: a playing desk pattern is read-only, and so
-  // is any pattern a saved Loop points at, on every reel, playing or not: a
-  // new press opens a new take on top of it. The latch's growing take is
-  // written into until it is a Loop's; after that only the keys already down
-  // at the save finish sounding into it (a release lands in the take its
-  // press did), and it is filed when they let go.
-  phrases.setLivePressGuard(({ deskPhraseId }) => inAnyLoop(deskPhraseId)
-    || (deskPhraseId !== openTakeId.value && mustOpenFreshTake(looper.value, deskPhraseId)));
+  // Rule 3, decided at press time: a playing desk pattern is read-only (the
+  // latch's growing take aside). A pattern any saved Loop points at is
+  // read-only on every reel, playing or not; the phrases store asks that
+  // itself (`isLoopOwned`), so a new press opens a new take on top. Keys
+  // already down when a take went into a Loop finish sounding into it (a
+  // release lands in the take its press did), and it is filed when they let go.
+  phrases.setLivePressGuard(({ deskPhraseId }) =>
+    deskPhraseId !== openTakeId.value && mustOpenFreshTake(looper.value, deskPhraseId));
   // What this tab is playing is never purged, deleted, released or dropped by
   // a merge. Saved Loops protect their own members from the book itself
   // (retention, delete, release and the take's close read `book.loops`), so

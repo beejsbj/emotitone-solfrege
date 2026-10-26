@@ -86,6 +86,8 @@ export interface ClockSlip {
   /** Steps where the audio clock fell behind by more than the gap threshold. */
   gaps: number;
   worstStepMs: number;
+  /** Times the context changed state (an OS interruption, a suspend): each starts a fresh baseline. */
+  stateChanges: number;
 }
 
 /**
@@ -94,16 +96,51 @@ export interface ClockSlip {
  * silence the graph never rendered, so wall time runs ahead. Feed it each
  * fresh `getOutputTimestamp()` (contextTime in seconds, performanceTime in
  * ms). An estimate: browsers smooth these clocks, so the ear check decides.
+ *
+ * A context that stops running (an OS interruption: a call, Siri, another
+ * app taking the audio session) also lets wall time run ahead, but that is
+ * not an underrun. Given the context, the meter listens for its
+ * `statechange`: the span so far is kept, and a fresh baseline starts with
+ * the first reading taken after the change, so the interruption itself is
+ * never booked.
  */
-export function createClockSlipMeter(gapMs = 10) {
-  let first: { context: number; performance: number } | undefined;
-  let previous: { context: number; performance: number } | undefined;
+export function createClockSlipMeter(options: {
+  gapMs?: number;
+  context?: Pick<EventTarget, "addEventListener" | "removeEventListener">;
+  /** Wall clock, ms: readings older than a state change belong to the time before it. */
+  now?: () => number;
+} = {}) {
+  const gapMs = options.gapMs ?? 10;
+  const now = options.now ?? (() => performance.now());
+  type Reading = { context: number; performance: number };
+  let first: Reading | undefined;
+  let previous: Reading | undefined;
   let samples = 0;
   let gaps = 0;
   let worstStepMs = 0;
+  let stateChanges = 0;
+  /** Span and slip of the segments before the last state change. */
+  let closedSpanMs = 0;
+  let closedSlipMs = 0;
+  let notBefore = -Infinity;
+  const segment = () => first && previous
+    ? { spanMs: previous.performance - first.performance,
+      slipMs: (previous.performance - first.performance) - (previous.context - first.context) * 1000 }
+    : { spanMs: 0, slipMs: 0 };
+  const onStateChange = () => {
+    const closed = segment();
+    closedSpanMs += closed.spanMs;
+    closedSlipMs += closed.slipMs;
+    first = previous = undefined;
+    notBefore = now();
+    stateChanges++;
+  };
+  options.context?.addEventListener("statechange", onStateChange);
   return {
     sample(contextTime: number | undefined, performanceTime: number | undefined) {
       if (!Number.isFinite(contextTime) || !Number.isFinite(performanceTime) || !(performanceTime! > 0)) return;
+      // A reading from before the state change is the old clock, held over.
+      if (performanceTime! < notBefore) return;
       if (previous && contextTime === previous.context && performanceTime === previous.performance) return;
       const reading = { context: contextTime!, performance: performanceTime! };
       if (previous) {
@@ -116,11 +153,45 @@ export function createClockSlipMeter(gapMs = 10) {
       samples++;
     },
     result(): ClockSlip {
-      if (!first || !previous) return { samples, spanMs: 0, slipMs: 0, gaps, worstStepMs };
-      const spanMs = previous.performance - first.performance;
-      return { samples, spanMs, slipMs: spanMs - (previous.context - first.context) * 1000, gaps, worstStepMs };
+      const open = segment();
+      return { samples, spanMs: closedSpanMs + open.spanMs, slipMs: closedSlipMs + open.slipMs, gaps, worstStepMs,
+        stateChanges };
     },
+    dispose() { options.context?.removeEventListener("statechange", onStateChange); },
   };
+}
+
+export interface MuteTally {
+  /** Tap to silent at the speaker (the change applied, then its fade), ms. */
+  mute: number[];
+  /** Tap to the change at the speaker, ms. */
+  unmute: number[];
+  /** Taps whose change was refused, cancelled or never answered: nothing measured. */
+  refused: number;
+}
+
+export interface DialReceipt {
+  appliedFrame: number;
+  cancelled?: boolean;
+  refused?: boolean;
+}
+
+/**
+ * One mute-dial tap, added to the tally. A change is heard at its applied
+ * frame on the output clock; a mute is silent once its fade ends. A tap whose
+ * change was refused or cancelled (or that has no usable clock) measured
+ * nothing: it is counted, never dropped, so a step cannot pass on its good
+ * taps alone.
+ */
+export function tallyMuteTap(tally: MuteTally, tap: { muted: boolean; tapAtMs: number },
+  receipt: DialReceipt | undefined,
+  speaker: { sampleRate: number; fadeMs: number; outputTimeMs(audioTime: number): number }): MuteTally {
+  const atSpeaker = receipt && !receipt.cancelled && !receipt.refused && speaker.sampleRate > 0
+    ? speaker.outputTimeMs(receipt.appliedFrame / speaker.sampleRate) : Number.NaN;
+  if (!Number.isFinite(atSpeaker) || !Number.isFinite(tap.tapAtMs)) return { ...tally, refused: tally.refused + 1 };
+  return tap.muted
+    ? { ...tally, mute: [...tally.mute, atSpeaker + speaker.fadeMs - tap.tapAtMs] }
+    : { ...tally, unmute: [...tally.unmute, atSpeaker - tap.tapAtMs] };
 }
 
 export interface PlaybackStats {

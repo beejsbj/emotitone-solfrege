@@ -11,7 +11,10 @@ const base = (extra: Partial<GateResults> = {}): GateResults => ({
   environment, bpm: 100, ...extra,
 });
 const row = (results: GateResults, id: string) => gateRows(results).find(entry => entry.id === id)!;
-const ledger = { expected: 384, rendered: 384, lost: 0, doubled: 0, extra: 0, cancelled: 0, cutShort: 0, overflows: 0, bars: 12 };
+const ledger = { expected: 384, rendered: 384, lost: 0, doubled: 0, extra: 0, cancelled: 0, cutShort: 0, stolenAtOnset: 0,
+  overflows: 0, bars: 12 };
+/** The rest of the mute step's eight taps: four unmutes. */
+const unmute = [90, 95, 100, 105];
 
 function cost(costs: number[], clock: "performance" | "date" = "performance") {
   const meter = new RenderCostMeter(clock);
@@ -36,12 +39,13 @@ describe("phone gate verdicts", () => {
   });
 
   it("holds mute and solo to 150 ms from the tap, and only records unmute and tap-to-sound", () => {
-    expect(row(base({ mute: [62, 80, 149.9] }), "mute").verdict).toBe("pass");
-    expect(row(base({ mute: [62, 80, 150] }), "mute").verdict).toBe("fail");
+    expect(row(base({ mute: [62, 80, 149.9, 70], unmute }), "mute").verdict).toBe("pass");
+    expect(row(base({ mute: [62, 80, 150, 70], unmute }), "mute").verdict).toBe("fail");
     expect(row(base({ solo: [40, 155] }), "solo").verdict).toBe("fail");
     expect(row(base({ unmute: [400] }), "unmute").verdict).toBe("record");
     expect(row(base({ tapToSound: [35, 41] }), "tap").verdict).toBe("record");
-    expect(row(base({ mute: [62, 80, 120] }), "mute").value).toBe("p50 80 ms · p95 120 ms · max 120 ms over 3");
+    expect(row(base({ mute: [62, 80, 120, 70], unmute }), "mute").value)
+      .toBe("p50 70 ms · p95 120 ms · max 120 ms over 4; 8 of 8 taps measured");
   });
 
   it("grades render cost against the quantum budget only with a sub-millisecond clock", () => {
@@ -52,7 +56,7 @@ describe("phone gate verdicts", () => {
   });
 
   it("uses the browser's underrun counter where there is one, and the clock estimate otherwise", () => {
-    const clockSlip = { samples: 1800, spanMs: 28800, slipMs: 1.2, gaps: 0, worstStepMs: 3 };
+    const clockSlip = { samples: 1800, spanMs: 28800, slipMs: 1.2, gaps: 0, worstStepMs: 3, stateChanges: 0 };
     expect(row(base({ clockSlip, playbackStats: null }), "underruns").verdict).toBe("record");
     expect(row(base({ clockSlip, playbackStats: { api: "playbackStats", underrunEvents: 0, underrunMs: 0 } }), "underruns").verdict).toBe("pass");
     expect(row(base({ clockSlip, playbackStats: { api: "playbackStats", underrunEvents: 2, underrunMs: 6 } }), "underruns").verdict).toBe("fail");
@@ -99,12 +103,12 @@ describe("phone gate verdicts", () => {
 
 describe("phone gate summary", () => {
   it("is one plain text with the device, audio settings, a tally and a line per measurement", () => {
-    const text = formatGateSummary(base({ attacks: ledger, mute: [70], heardDropouts: false }));
+    const text = formatGateSummary(base({ attacks: ledger, mute: [70, 70, 70, 70], unmute, heardDropouts: false }));
     const lines = text.split("\n");
     expect(lines[0]).toBe("EmotiTone phone gate (BJS-494), 2026-10-26T12:00:00.000Z");
     expect(text).toContain("Device: iPhone · iOS 18.1 · Safari 18.1");
     expect(text).toContain("Audio: 48000 Hz · base latency 5.3 ms · output latency 12.0 ms");
-    expect(text).toContain("Result: 4 pass · 0 fail · 0 recorded · 12 not run");
+    expect(text).toContain("Result: 4 pass · 0 fail · 1 recorded · 11 not run");
     expect(text).toContain("[PASS] Attacks lost: 0 lost of 384 over 12 bars");
     expect(text).toContain("[PASS] Mute (tap to silent): p50 70 ms");
     expect(lines.filter(line => /^\[(PASS|FAIL|RECORD|NOT RUN)\]/.test(line))).toHaveLength(gateRows(base()).length);

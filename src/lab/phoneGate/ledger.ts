@@ -5,7 +5,9 @@
  * a lookahead before it sounds; a Cancel withdraws it (a change, or an onset
  * the render thread refused at its frame); a Release earlier than the gate is
  * a forced fade (a voice stolen). With no change made in the window, every
- * Cancel is a refused onset, so attack minus cancel is what was rendered.
+ * Cancel is a refused onset, so attack minus cancel is what was rendered. A
+ * voice stolen within its first few milliseconds was never heard as a note:
+ * it counts as lost, not rendered.
  */
 import { TransportEventKind, type DecodedTransportEvent } from "@/audio/live/transportEvents";
 import { onsetKey, type ExpectedOnset } from "./oracle";
@@ -24,6 +26,8 @@ export interface AttackLedgerResult {
   cancelled: number;
   /** Notes released before their gate ended: a voice was stolen. */
   cutShort: number;
+  /** Of those, stolen within STOLEN_AT_ONSET_MS of the onset: counted as lost. */
+  stolenAtOnset: number;
   /** Times the event pool overflowed (a stalled main thread); the count is then unreliable. */
   overflows: number;
 }
@@ -104,16 +108,23 @@ export function createLightLedger(options: {
   };
 }
 
+/** A voice released this soon after its onset was never heard as a note (ms). */
+export const STOLEN_AT_ONSET_MS = 5;
+
 export function createAttackLedger(options: {
   expected: readonly ExpectedOnset[];
   /** The member a table generation belongs to; undefined for tables outside the gate. */
   memberOf(generation: number): string | undefined;
   fromBar: number;
   toBar: number;
+  /** The render rate, to tell a voice stolen at its onset from one cut short later. */
+  sampleRate: number;
 }): AttackLedger {
   const attacks = new Map<number, { key: string; frame: number; gate: number }>();
   const cancelled = new Set<number>();
   const cut = new Set<number>();
+  const stolen = new Set<number>();
+  const onsetFrames = options.sampleRate * STOLEN_AT_ONSET_MS / 1000;
   let overflows = 0;
 
   function attack(event: DecodedTransportEvent) {
@@ -137,7 +148,9 @@ export function createAttackLedger(options: {
         case TransportEventKind.Release: {
           const onset = attacks.get(event.serial);
           // One frame of slack: a gate end is rounded to a whole frame.
-          if (onset && event.frame < onset.frame + onset.gate - 1) cut.add(event.serial);
+          if (!onset || event.frame >= onset.frame + onset.gate - 1) return;
+          cut.add(event.serial);
+          if (event.frame - onset.frame < onsetFrames) stolen.add(event.serial);
           return;
         }
         case TransportEventKind.SnapshotBegin:
@@ -148,7 +161,7 @@ export function createAttackLedger(options: {
     result() {
       const counts = new Map<string, number>();
       for (const [serial, onset] of attacks) {
-        if (cancelled.has(serial)) continue;
+        if (cancelled.has(serial) || stolen.has(serial)) continue;
         counts.set(onset.key, (counts.get(onset.key) ?? 0) + 1);
       }
       const expectedKeys = new Set(options.expected.map(onset => onsetKey(onset.memberId, onset.noteIndex, onset.bar)));
@@ -162,7 +175,7 @@ export function createAttackLedger(options: {
       }
       for (const [key, count] of counts) if (!expectedKeys.has(key)) extra += count;
       return { expected: expectedKeys.size, rendered, lost: expectedKeys.size - rendered, doubled, extra,
-        cancelled: cancelled.size, cutShort: cut.size, overflows };
+        cancelled: cancelled.size, cutShort: cut.size, stolenAtOnset: stolen.size, overflows };
     },
   };
 }

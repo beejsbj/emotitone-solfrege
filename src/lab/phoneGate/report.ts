@@ -17,6 +17,8 @@ import {
 } from "./metrics";
 
 export const MUTE_MARK_MS = 150;
+/** Dial taps the mute step asks for; each mutes or unmutes, and each must be measured. */
+export const MUTE_TAPS = 8;
 
 export type Verdict = "pass" | "fail" | "record" | "not-run";
 
@@ -61,6 +63,8 @@ export interface GateResults {
   heardDropouts?: boolean | null;
   mute?: number[];
   unmute?: number[];
+  /** Dial taps whose change was refused or cancelled: nothing measured. */
+  muteRefused?: number;
   solo?: number[];
   soloRelease?: number[];
   memory?: {
@@ -105,12 +109,29 @@ function latencyRow(id: string, label: string, samples: number[] | undefined, gr
   return { id, label, verdict: !graded ? "record" : summary.over ? "fail" : "pass", value, mark };
 }
 
+/**
+ * Mute is graded on every tap of its step: each mutes or unmutes, and a tap
+ * whose change was refused or cancelled measured nothing. Fewer than
+ * MUTE_TAPS measured taps fails, however fast the measured ones were.
+ */
+function muteRow(results: GateResults): GateRow {
+  const row = latencyRow("mute", "Mute (tap to silent)", results.mute, true, "tap to silent");
+  const measured = (results.mute?.length ?? 0) + (results.unmute?.length ?? 0);
+  const refused = results.muteRefused ?? 0;
+  if (!measured && !refused) return row;
+  const taps = `${measured} of ${MUTE_TAPS} taps measured${refused ? `, ${refused} refused or cancelled` : ""}`;
+  return { ...row, verdict: measured < MUTE_TAPS ? "fail" : row.verdict,
+    value: row.verdict === "not-run" ? `no mute measured; ${taps}` : `${row.value}; ${taps}`,
+    mark: `${row.mark}, all ${MUTE_TAPS} taps measured` };
+}
+
 export function gateRows(results: GateResults): GateRow[] {
   const rows: GateRow[] = [];
   const attacks = results.attacks;
   rows.push(attacks
     ? { id: "attacks", label: "Attacks lost", verdict: attacks.lost || attacks.doubled || attacks.extra ? "fail" : "pass",
-      value: `${attacks.lost} lost of ${attacks.expected} over ${attacks.bars} bars (doubled ${attacks.doubled}, extra ${attacks.extra}, cut short ${attacks.cutShort})`
+      value: `${attacks.lost} lost of ${attacks.expected} over ${attacks.bars} bars (doubled ${attacks.doubled}, extra ${attacks.extra}, cut short ${attacks.cutShort}`
+        + `${attacks.stolenAtOnset ? `, ${attacks.stolenAtOnset} of them stolen at onset and counted lost` : ""})`
         + (attacks.overflows ? `; event pool overflowed ${attacks.overflows}× (count unreliable)` : ""),
       mark: "0 lost, 0 doubled" }
     : { id: "attacks", label: "Attacks lost", verdict: "not-run", value: "not measured", mark: "0 lost, 0 doubled" });
@@ -140,7 +161,8 @@ export function gateRows(results: GateResults): GateRow[] {
   const slip = results.clockSlip;
   const underrunParts: string[] = [];
   if (slip && slip.samples > 1) {
-    underrunParts.push(`clock slip ${ms(slip.slipMs)} over ${(slip.spanMs / 1000).toFixed(1)} s, ${slip.gaps} gaps over 10 ms (worst step ${ms(slip.worstStepMs)})`);
+    underrunParts.push(`clock slip ${ms(slip.slipMs)} over ${(slip.spanMs / 1000).toFixed(1)} s, ${slip.gaps} gaps over 10 ms (worst step ${ms(slip.worstStepMs)})`
+      + (slip.stateChanges ? `, baseline reset after ${slip.stateChanges} audio state change${slip.stateChanges === 1 ? "" : "s"}` : ""));
   } else underrunParts.push("output clock not readable");
   underrunParts.push(stats
     ? `${stats.api}: ${stats.underrunEvents ?? "n/a"} underruns, ${ms(stats.underrunMs)}`
@@ -153,7 +175,7 @@ export function gateRows(results: GateResults): GateRow[] {
     ? "not-run" : results.heardDropouts ? "fail" : "pass",
   value: results.heardDropouts === undefined || results.heardDropouts === null ? "not answered"
     : results.heardDropouts ? "clicks or gaps heard" : "none heard", mark: "none heard" });
-  rows.push(latencyRow("mute", "Mute (tap to silent)", results.mute, true, "tap to silent"));
+  rows.push(muteRow(results));
   rows.push(latencyRow("solo", "Solo (hold to others silent)", results.solo, true, "hold threshold to silent"));
   rows.push(latencyRow("unmute", "Unmute (tap to applied)", results.unmute, false, "tap to change at the speaker"));
   rows.push(latencyRow("solo-release", "Solo release (lift to applied)", results.soloRelease, false, "lift to change at the speaker"));

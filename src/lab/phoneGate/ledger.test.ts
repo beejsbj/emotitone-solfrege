@@ -1,55 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { LiveAudioCore } from "@/audio/live/core";
-import { readTransportEvents, TransportEventKind, type DecodedTransportEvent } from "@/audio/live/transportEvents";
-import type { LiveResponse } from "@/audio/live/types";
-import { buildPatternMember } from "@/services/patternMember";
-import { GATE_BPM, gateMembers, gateTables } from "./fixtures";
+import { TransportEventKind } from "@/audio/live/transportEvents";
+import { GATE_RENDER_RATE as RATE, playGateLoop } from "@/__tests__/helpers/phoneGateLoop";
+import { GATE_BPM } from "./fixtures";
 import { createAttackLedger, createLightLedger } from "./ledger";
 import { expectedOnsets } from "./oracle";
-
-/**
- * The gate's attack accounting against the real render core: the same four
- * members the phone plays, on the worklet transport, with every record the
- * core sends decoded as the main thread would. Only the instrument differs (an
- * oscillator, so no sample download).
- */
-const RATE = 8000;
-const QUANTUM = 128;
-
-function playGateLoop(bars: number) {
-  const records: DecodedTransportEvent[] = [];
-  const queued: LiveResponse[] = [];
-  const core = new LiveAudioCore(RATE, response => { queued.push(response); });
-  let frame = 0;
-  const deliver = () => {
-    while (queued.length) {
-      const response = queued.shift()!;
-      if (response.type !== "transport-events") continue;
-      readTransportEvents(response, event => records.push({ ...event }));
-      core.command({ type: "transport-recycle", buffer: response.buffer }, frame);
-    }
-  };
-  core.command({ type: "prepare", requestId: 1, instrument: { kind: "oscillator", instrumentId: "sine", waveform: "sine",
-    gain: .2, attack: .002, decay: .01, sustain: .6, release: .02 } }, frame);
-  const members = gateMembers();
-  const generations = new Map<number, string>();
-  const joins = members.map((member, index) => {
-    const { table } = buildPatternMember({ ...member, generation: 100 + index, instrumentId: "sine" });
-    table.lengthBars = member.lengthBars!;
-    generations.set(table.generation, member.id);
-    return { type: "join" as const, member: { table, offsetBars: 0, rate: 1, muted: false } };
-  });
-  core.command({ type: "transport-change", requestId: 2, change: { type: "batch", changes: joins }, boundary: "immediate" }, frame);
-  core.command({ type: "transport-start", requestId: 3, run: 1, bpm: GATE_BPM }, frame);
-  deliver();
-  const frames = Math.ceil((bars * 4 * 60 / GATE_BPM) * RATE);
-  while (frame < frames) {
-    core.render([new Float32Array(QUANTUM), new Float32Array(QUANTUM)], frame);
-    frame += QUANTUM;
-    deliver();
-  }
-  return { records, memberOf: (generation: number) => generations.get(generation), tables: gateTables(members, "sine") };
-}
+import { gateRows } from "./report";
 
 describe("phone gate attack ledger", () => {
   it("finds every expected onset of the four-member loop rendered once by the real core", () => {
@@ -57,10 +12,10 @@ describe("phone gate attack ledger", () => {
     const expected = expectedOnsets(tables, 1, 5);
     // Melody 8, bass 2, chords 6 and arp 16 onsets a bar.
     expect(expected).toHaveLength(4 * 32);
-    const ledger = createAttackLedger({ expected, memberOf, fromBar: 1, toBar: 5 });
+    const ledger = createAttackLedger({ expected, memberOf, fromBar: 1, toBar: 5, sampleRate: RATE });
     records.forEach(ledger.record);
     expect(ledger.result()).toEqual({ expected: 128, rendered: 128, lost: 0, doubled: 0, extra: 0, cancelled: 0,
-      cutShort: 0, overflows: 0 });
+      cutShort: 0, stolenAtOnset: 0, overflows: 0 });
   });
 
   it("counts a refused onset as lost, a second attack as doubled, an early release as cut short", () => {
@@ -68,24 +23,43 @@ describe("phone gate attack ledger", () => {
     const expected = expectedOnsets(tables, 1, 3);
     const attacks = records.filter(record => record.kind === TransportEventKind.Attack && record.bar >= 1 && record.bar < 3);
     const [refused, twice, stolen] = attacks;
-    const ledger = createAttackLedger({ expected, memberOf, fromBar: 1, toBar: 3 });
+    const ledger = createAttackLedger({ expected, memberOf, fromBar: 1, toBar: 3, sampleRate: RATE });
     records.forEach(ledger.record);
-    // What the render thread sends when it cannot start a voice, or steals one.
+    // What the render thread sends when it cannot start a voice, or steals one halfway through its gate.
     ledger.record({ ...refused, kind: TransportEventKind.Cancel });
     ledger.record({ ...twice, serial: 1e6 });
-    ledger.record({ ...stolen, kind: TransportEventKind.Release, frame: stolen.frame + 10 });
+    ledger.record({ ...stolen, kind: TransportEventKind.Release, frame: stolen.frame + Math.floor(stolen.length / 2) });
     ledger.record({ ...stolen, kind: TransportEventKind.SnapshotBegin, serial: 0 });
     // An attack the oracle never asked for (a stale table).
     ledger.record({ ...twice, serial: 1e6 + 1, noteIndex: 999 });
     expect(ledger.result()).toMatchObject({ expected: expected.length, rendered: expected.length - 1, lost: 1, doubled: 1,
-      extra: 1, cancelled: 1, cutShort: 1, overflows: 1 });
+      extra: 1, cancelled: 1, cutShort: 1, stolenAtOnset: 0, overflows: 1 });
+  });
+
+  it("counts a voice stolen in its first frames as lost, and fails the attacks row on it", () => {
+    const { records, memberOf, tables } = playGateLoop(3.1);
+    const expected = expectedOnsets(tables, 1, 3);
+    const [stolen] = records.filter(record => record.kind === TransportEventKind.Attack && record.bar >= 1 && record.bar < 3);
+    const ledger = createAttackLedger({ expected, memberOf, fromBar: 1, toBar: 3, sampleRate: RATE });
+    records.forEach(ledger.record);
+    // Stolen 2 ms after its onset: an attack announced, a click at most, never a note.
+    ledger.record({ ...stolen, kind: TransportEventKind.Release, frame: stolen.frame + Math.round(RATE * .002) });
+    const result = ledger.result();
+    expect(result).toMatchObject({ expected: expected.length, rendered: expected.length - 1, lost: 1, cutShort: 1,
+      stolenAtOnset: 1 });
+    const row = gateRows({ startedAt: "", url: "", build: null, bpm: GATE_BPM, attacks: { ...result, bars: 2 },
+      environment: { device: "", os: "", browser: "", userAgent: "", sampleRate: RATE, baseLatencyMs: null,
+        outputLatencyMs: null, devicePixelRatio: null, cores: null, deviceMemoryGb: null } })
+      .find(entry => entry.id === "attacks")!;
+    expect(row.verdict).toBe("fail");
+    expect(row.value).toContain("1 of them stolen at onset and counted lost");
   });
 
   it("ignores records outside the window and from tables that are not the gate's", () => {
     const { records, memberOf, tables } = playGateLoop(3.1);
     const expected = expectedOnsets(tables, 2, 3);
     const ledger = createAttackLedger({ expected, memberOf: generation => generation === 100 ? undefined : memberOf(generation),
-      fromBar: 2, toBar: 3 });
+      fromBar: 2, toBar: 3, sampleRate: RATE });
     records.forEach(ledger.record);
     // The melody's table (generation 100) is unknown here: its eight onsets read as lost, nothing reads as extra.
     expect(ledger.result()).toMatchObject({ expected: 32, rendered: 24, lost: 8, extra: 0 });

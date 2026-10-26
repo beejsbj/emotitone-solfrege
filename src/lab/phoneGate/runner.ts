@@ -31,16 +31,18 @@ import { GATE_BEAT_MS, GATE_BPM, GATE_INSTRUMENT, GATE_MEMBER_LABELS, gateMember
 import { createAttackLedger, createLightLedger } from "./ledger";
 import {
   createClockSlipMeter, describeUserAgent, playbackStatsDelta, readJsMemory, readPlaybackStats, summarizeFrames,
+  tallyMuteTap,
 } from "./metrics";
 import { expectedOnsets } from "./oracle";
-import { formatGateSummary, type GateResults } from "./report";
+import { formatGateSummary, MUTE_TAPS, type GateResults } from "./report";
+import { measureResume } from "./resume";
 
 export type GatePhase = "idle" | "loading" | "soak" | "ear" | "dials" | "tap" | "resume" | "route" | "done";
 
 /** The soak window: bars [1, 13), after a bar to settle. */
 export const SOAK_FROM_BAR = 1;
 export const SOAK_BARS = 12;
-export const MUTE_TAPS = 8;
+export { MUTE_TAPS };
 export const SOLO_HOLDS = 3;
 export const PAD_TAPS = 10;
 const PAUSE_MS = 5000;
@@ -283,7 +285,7 @@ export function createPhoneGate() {
 
     const toBar = SOAK_FROM_BAR + SOAK_BARS;
     const ledger = createAttackLedger({ expected: expectedOnsets(tables, SOAK_FROM_BAR, toBar), memberOf,
-      fromBar: SOAK_FROM_BAR, toBar });
+      fromBar: SOAK_FROM_BAR, toBar, sampleRate: audio.sampleRate });
     recorders.add(ledger.record);
     const soakLights = watchLights(audio);
     state.status = "Starting the loop…";
@@ -299,7 +301,8 @@ export function createPhoneGate() {
     void readLiveRenderCost(true)?.catch(() => {});
     const statsBefore = readPlaybackStats(audio);
     const frames: number[] = [];
-    const slip = createClockSlipMeter();
+    // An OS interruption (a call, Siri) changes the context's state: the meter starts a fresh baseline.
+    const slip = createClockSlipMeter({ context: audio });
     let recording = true;
     const frame = (time: number) => {
       if (!recording) return;
@@ -317,7 +320,7 @@ export function createPhoneGate() {
       pressLive(owner, chord, performance.now(), false);
       setTimeout(() => releaseLive(owner, chord.length), GATE_BEAT_MS * .45);
     }, GATE_BEAT_MS);
-    const stopSoak = () => { recording = false; clearInterval(livePresser); };
+    const stopSoak = () => { recording = false; clearInterval(livePresser); slip.dispose(); };
     cleanups.push(stopSoak);
     await untilBar(toBar + .05, bar => { state.progress = Math.min(1, Math.max(0, (bar - SOAK_FROM_BAR) / SOAK_BARS)); });
     stopSoak();
@@ -373,11 +376,18 @@ export function createPhoneGate() {
     lastLift.delete(id);
     dial.muted = !dial.muted;
     const muted = dial.muted;
-    const receipt = await player.setMember(id, { muted });
-    if (receipt.cancelled || receipt.refused || !context) return;
-    const atSpeaker = audioTimeToOutputTime(context, receipt.appliedFrame / context.sampleRate);
-    if (muted) results.mute = [...(results.mute ?? []), atSpeaker + FADE_MS - tapAt];
-    else results.unmute = [...(results.unmute ?? []), atSpeaker - tapAt];
+    const receipt = await player.setMember(id, { muted }).catch(() => undefined);
+    const audio = context;
+    // Read the speaker time in the task the receipt arrived in, as the clock stands now.
+    const tally = tallyMuteTap(
+      { mute: results.mute ?? [], unmute: results.unmute ?? [], refused: results.muteRefused ?? 0 },
+      { muted, tapAtMs: tapAt }, receipt,
+      { sampleRate: audio?.sampleRate ?? 0, fadeMs: FADE_MS,
+        outputTimeMs: audioTime => audio ? audioTimeToOutputTime(audio, audioTime) : Number.NaN });
+    results.mute = tally.mute;
+    results.unmute = tally.unmute;
+    results.muteRefused = tally.refused;
+    // A refused tap still counts as one of the step's taps: it measured nothing.
     if (state.phase === "dials") state.muteTaps++;
   }
 
@@ -432,60 +442,41 @@ export function createPhoneGate() {
     cleanups.push(() => recorders.delete(record));
     const lights = watchLights(audio);
     // Mid-loop, between notes or not: a real pause lands anywhere.
-    const before = audio.getOutputTimestamp?.();
-    const suspendedAt = performance.now();
-    await audio.suspend();
-    const deadline = suspendedAt + PAUSE_MS;
-    while (performance.now() < deadline) {
-      check();
-      state.progress = (performance.now() - suspendedAt) / PAUSE_MS;
-      await sleep(100);
-    }
-    let neededTap = false;
-    const attempt = resumeAudioContext(audio)?.catch(() => {});
-    await Promise.race([attempt, sleep(3000)]);
-    if ((audio.state as string) !== "running") {
-      // The browser wants a gesture: ask for one.
-      neededTap = true;
-      state.needsResumeTap = true;
-      state.status = "This browser needs a tap to resume audio.";
-      await new Promise<void>(resolve => { resumeTap = resolve; });
-      state.needsResumeTap = false;
-      check();
-    }
-    const runningAt = performance.now();
-    const pausedMs = runningAt - suspendedAt;
-    // Watch the output clock for 1.5 s: how stale is it, and when is it fresh?
-    let firstReadAgeMs: number | null = null;
-    let freshAfterMs: number | null = null;
-    const beforeContext = before?.contextTime ?? audio.currentTime;
-    const watchUntil = runningAt + 1500;
-    while (performance.now() < watchUntil) {
-      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
-      const stamp = audio.getOutputTimestamp?.();
-      const now = performance.now();
-      if (!stamp || !Number.isFinite(stamp.performanceTime) || !Number.isFinite(stamp.contextTime)) continue;
-      if (firstReadAgeMs === null) firstReadAgeMs = now - stamp.performanceTime!;
-      if (freshAfterMs === null && stamp.performanceTime! >= runningAt && stamp.contextTime! > beforeContext) {
-        freshAfterMs = now - runningAt;
-      }
-    }
-    // The first two bars after the resume, past the onsets announced before the pause.
-    const fromBar = (player!.barAtAudioTime(audio.currentTime) ?? 0) + .1;
-    const toBar = fromBar + 2;
-    state.status = "Listening to the first two bars after the resume…";
-    await untilBar(toBar + .05);
-    await sleep(200);
-    recorders.delete(record);
-    lights.stop();
-    const expected = expectedOnsets(tables, fromBar, toBar);
-    const ledger = createAttackLedger({ expected, memberOf, fromBar, toBar });
-    records.forEach(ledger.record);
-    const sounded = ledger.result();
-    // A note the stale clock placed a pause early ended at least half a pause ago.
-    const light = lights.result(fromBar, toBar, pausedMs / 2);
-    results.resume = { ...light, pausedMs, firstReadAgeMs, freshAfterMs, expected: sounded.expected,
-      sounded: sounded.rendered, neededTap };
+    results.resume = await measureResume({
+      bpm: GATE_BPM,
+      pauseMs: PAUSE_MS,
+      now: () => performance.now(),
+      sleep,
+      nextFrame: () => new Promise<void>(resolve => requestAnimationFrame(() => resolve())),
+      currentTime: () => audio.currentTime,
+      outputTimestamp: () => audio.getOutputTimestamp?.(),
+      suspend: () => audio.suspend(),
+      async resume() {
+        const attempt = resumeAudioContext(audio)?.catch(() => {});
+        await Promise.race([attempt, sleep(3000)]);
+        if ((audio.state as string) === "running") return false;
+        // The browser wants a gesture: ask for one.
+        state.needsResumeTap = true;
+        state.status = "This browser needs a tap to resume audio.";
+        await new Promise<void>(resolve => { resumeTap = resolve; });
+        state.needsResumeTap = false;
+        return true;
+      },
+      barAt: time => player?.barAtAudioTime(time),
+      untilBar: bar => untilBar(bar),
+      judge(fromBar, toBar, staleMs) {
+        recorders.delete(record);
+        lights.stop();
+        const ledger = createAttackLedger({ expected: expectedOnsets(tables, fromBar, toBar), memberOf, fromBar, toBar,
+          sampleRate: audio.sampleRate });
+        records.forEach(ledger.record);
+        const sounded = ledger.result();
+        return { light: lights.result(fromBar, toBar, staleMs), expected: sounded.expected, sounded: sounded.rendered };
+      },
+      check,
+      onProgress: fraction => { state.progress = fraction; },
+      onStatus: status => { state.status = status; },
+    });
   }
 
   function resumeByTap() {

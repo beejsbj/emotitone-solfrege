@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   createClockSlipMeter, describeUserAgent, formatBytes, percentile, playbackStatsDelta, readJsMemory, readPlaybackStats,
-  summarizeFrames, summarizeLatencies,
+  summarizeFrames, summarizeLatencies, tallyMuteTap, type MuteTally,
 } from "./metrics";
+import { gateRows, MUTE_TAPS, type GateResults } from "./report";
 
 const steady = (count: number, interval: number, start = 1000) => Array.from({ length: count }, (_, index) => start + index * interval);
 
@@ -83,6 +84,88 @@ describe("phone gate clock slip (the whole graph's deadline)", () => {
     meter.sample(1, 0);
     meter.sample(Number.NaN, 20);
     expect(meter.result()).toMatchObject({ samples: 0, slipMs: 0 });
+  });
+
+  it("does not book an OS interruption as underrun: a statechange starts a fresh baseline", () => {
+    const context = new EventTarget();
+    let wall = 5000;
+    const meter = createClockSlipMeter({ context, now: () => wall });
+    let audio = 10;
+    const play = (steps: number) => {
+      for (let step = 0; step < steps; step++) { meter.sample(audio, wall); audio += .016; wall += 16; }
+    };
+    play(50);
+    // A call takes the audio session for 4 s: audio time stands still, wall time runs on.
+    context.dispatchEvent(new Event("statechange"));
+    const heldAudio = audio - .016;
+    const heldWall = wall - 16;
+    wall += 4000;
+    // The browser hands back its last reading from before the interruption a few times.
+    meter.sample(heldAudio, heldWall);
+    context.dispatchEvent(new Event("statechange"));
+    meter.sample(heldAudio, heldWall);
+    play(50);
+    const slip = meter.result();
+    expect(slip.stateChanges).toBe(2);
+    expect(slip.gaps).toBe(0);
+    expect(slip.slipMs).toBeCloseTo(0);
+    expect(slip.spanMs).toBeCloseTo(49 * 16 * 2);
+    // A real underrun after the interruption still counts.
+    audio += .016; wall += 16 + 30;
+    meter.sample(audio, wall);
+    expect(meter.result().gaps).toBe(1);
+    expect(meter.result().slipMs).toBeCloseTo(30);
+    meter.dispose();
+    context.dispatchEvent(new Event("statechange"));
+    expect(meter.result().stateChanges).toBe(2);
+    expect(gateRows({ ...gateResults(), clockSlip: slip }).find(row => row.id === "underruns")!.value)
+      .toContain("baseline reset after 2 audio state changes");
+  });
+});
+
+function gateResults(): GateResults {
+  return { startedAt: "", url: "", build: null, bpm: 100, environment: { device: "", os: "", browser: "", userAgent: "",
+    sampleRate: 48000, baseLatencyMs: null, outputLatencyMs: null, devicePixelRatio: null, cores: null, deviceMemoryGb: null } };
+}
+
+describe("phone gate mute taps", () => {
+  const speaker = { sampleRate: 48000, fadeMs: 30, outputTimeMs: (audioTime: number) => 1000 + audioTime * 1000 + 12 };
+  const empty: MuteTally = { mute: [], unmute: [], refused: 0 };
+  const applied = (seconds: number) => ({ appliedFrame: seconds * 48000 });
+
+  it("measures a mute to silent at the speaker (applied, then faded) and an unmute to applied", () => {
+    // Applied at audio 2.0 s: heard at 3012 ms; the tap was at 2950 ms.
+    let tally = tallyMuteTap(empty, { muted: true, tapAtMs: 2950 }, applied(2), speaker);
+    tally = tallyMuteTap(tally, { muted: false, tapAtMs: 3950 }, applied(3), speaker);
+    expect(tally.mute).toHaveLength(1);
+    expect(tally.mute[0]).toBeCloseTo(62 + 30);
+    expect(tally.unmute[0]).toBeCloseTo(62);
+    expect(tally.refused).toBe(0);
+    expect(empty).toEqual({ mute: [], unmute: [], refused: 0 });
+  });
+
+  it("counts refused, cancelled and unanswered taps instead of dropping them", () => {
+    let tally = tallyMuteTap(empty, { muted: true, tapAtMs: 0 }, { ...applied(1), refused: true }, speaker);
+    tally = tallyMuteTap(tally, { muted: false, tapAtMs: 0 }, { ...applied(1), cancelled: true }, speaker);
+    tally = tallyMuteTap(tally, { muted: true, tapAtMs: 0 }, undefined, speaker);
+    tally = tallyMuteTap(tally, { muted: true, tapAtMs: 0 }, applied(1), { ...speaker, sampleRate: 0 });
+    expect(tally).toEqual({ mute: [], unmute: [], refused: 4 });
+  });
+
+  it("fails the mute row when fewer than all its taps were measured, however fast they were", () => {
+    let tally = empty;
+    for (let tap = 0; tap < MUTE_TAPS; tap++) {
+      tally = tallyMuteTap(tally, { muted: tap % 2 === 0, tapAtMs: 1000 * tap + 2970 }, applied(tap + 2),
+        tap === 3 ? { ...speaker, outputTimeMs: () => Number.NaN } : speaker);
+    }
+    const row = (results: Partial<GateResults>) => gateRows({ ...gateResults(), ...results }).find(entry => entry.id === "mute")!;
+    const short = row({ mute: tally.mute, unmute: tally.unmute, muteRefused: tally.refused });
+    expect(tally.refused).toBe(1);
+    expect(short.verdict).toBe("fail");
+    expect(short.value).toContain(`${MUTE_TAPS - 1} of ${MUTE_TAPS} taps measured, 1 refused or cancelled`);
+    const full = tallyMuteTap(tally, { muted: false, tapAtMs: 20_970 }, applied(20), speaker);
+    expect(row({ mute: full.mute, unmute: full.unmute, muteRefused: full.refused }).verdict).toBe("pass");
+    expect(row({ mute: [70, 80, 90] }).verdict).toBe("fail");
   });
 });
 

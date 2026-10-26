@@ -304,6 +304,14 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
       );
     }
 
+    if (rootConfig.looper.isEnabled !== currentEffective.looper.isEnabled) {
+      rootConfig = patchStageControl(
+        rootConfig,
+        "looperStrength",
+        readStageControls(currentEffective).looperStrength,
+      );
+    }
+
     const nextLook = createSeededStageVariation(seed, rootConfig, rootName);
     transientStageLook.value = nextLook;
     return transientStageLook.value;
@@ -331,6 +339,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     Object.assign(config.animation, defaults.animation);
     Object.assign(config.frequencyMapping, defaults.frequencyMapping);
     Object.assign(config.hilbertScope, defaults.hilbertScope);
+    Object.assign(config.looper, defaults.looper);
   };
 
   const updateGlobalControl = (

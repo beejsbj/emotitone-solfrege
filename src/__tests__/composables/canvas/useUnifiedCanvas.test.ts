@@ -10,6 +10,7 @@ import { getAudioContext } from "@/services/superdoughAudio";
 import { liveAudioInput, type LiveAudioSource } from "@/services/liveAudio";
 import type { ActiveNote } from "@/types/music";
 import { useUnifiedCanvas } from "@/composables/canvas/useUnifiedCanvas";
+import type { LooperStageSource } from "@/composables/canvas/looperStageSource";
 
 vi.unmock("@/composables/useVisualConfig");
 
@@ -25,6 +26,7 @@ describe("unified canvas resource lifetime", () => {
   let audioEnvelope: number;
   let context: CanvasRenderingContext2D;
   const notes = ref<ActiveNote[]>([]);
+  let looperSource: LooperStageSource | undefined;
   const frame = async (deltaMs = 1000 / 60) => {
     await nextTick();
     const pending = [...frames.values()];
@@ -51,6 +53,7 @@ describe("unified canvas resource lifetime", () => {
           audioFeatures: controlledAudio ? audio : undefined,
           getActiveNotes: () => notes.value,
           eventTarget: events,
+          looperSource,
         });
         onUnmounted(canvas.cleanup);
         return () => null;
@@ -62,6 +65,7 @@ describe("unified canvas resource lifetime", () => {
     vi.useFakeTimers();
     vi.setSystemTime(1000);
     notes.value = [];
+    looperSource = undefined;
     audioEnvelope = 0;
     frames = new Map();
     let nextAnimationFrame = 0;
@@ -140,6 +144,46 @@ describe("unified canvas resource lifetime", () => {
     expect(canvas.isAnimating.value).toBe(false);
     canvas.handleNotePlayed(MAJOR_SOLFEGE[0], 261.63, "next", 4, "C4", "major", "C", 0);
     expect(frames.size).toBeGreaterThan(0);
+  });
+
+  it("keeps drawing while a loop turns through silence, then idles once its light fades", async () => {
+    const loop = {
+      members: [{ id: "tune", bars: 1, audible: true, notes: [{ note: "C4", pressTime: 0, duration: 400 }] }],
+      bpm: 120,
+      running: true,
+      positionMs: () => Date.now(),
+      heldNotes: () => [],
+      pendingNotes: () => [],
+    };
+    looperSource = loop;
+    // The Looper paints its light into offscreen sprites.
+    const gradient = { addColorStop: vi.fn() };
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(function (this: HTMLCanvasElement) {
+      return {
+        ...mockCanvasContext,
+        canvas: this,
+        createRadialGradient: () => gradient,
+        createLinearGradient: () => gradient,
+        createConicGradient: () => gradient,
+        createImageData: (width: number, height: number) => ({ data: new Uint8ClampedArray(width * height * 4) }),
+        putImageData: vi.fn(),
+      } as unknown as CanvasRenderingContext2D;
+    } as typeof HTMLCanvasElement.prototype.getContext);
+    wrapper?.unmount();
+    mountCanvas();
+    await nextTick();
+    reducedMotion.value = false;
+    canvas.initializeCanvas();
+    canvas.startAnimation();
+    for (let index = 0; index < 30; index++) await frame();
+    expect(canvas.isAnimating.value).toBe(true);
+
+    loop.running = false;
+    await frame();
+    expect(canvas.isAnimating.value).toBe(true);
+    for (let index = 0; index < 200 && frames.size; index++) await frame();
+    expect(frames.size).toBe(0);
+    expect(canvas.isAnimating.value).toBe(false);
   });
 
   it("keeps audio release and scope history alive until they decay", async () => {

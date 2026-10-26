@@ -26,7 +26,7 @@ import { useMusicStore } from "@/stores/music";
 import { usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { useInstrumentStore } from "@/stores/instrument";
-import * as audio from "@/services/superdoughAudio";
+import { getAudioContext } from "@/services/audioRuntime";
 import { manageAudioLifecycle, onAudioRunning } from "@/services/audioLifecycle";
 import { getLivePlayback } from "@/services/livePlayback";
 import { SCHEDULED_LIVE_MIDI_EVENT } from "@/services/livePerformance";
@@ -57,7 +57,6 @@ function recorder() {
 beforeEach(() => {
   vi.clearAllMocks(); vi.useFakeTimers(); vi.setSystemTime(EPOCH);
   vi.mocked(getLivePlayback).mockReturnValue(worklet.engine as never);
-  vi.mocked(audio.attackNote).mockResolvedValue(undefined);
   vi.spyOn(window, "dispatchEvent");
   vi.spyOn(performance, "now").mockImplementation(() => 1000 + elapsed());
   context = Object.assign(new EventTarget(), {
@@ -65,7 +64,7 @@ beforeEach(() => {
     getOutputTimestamp: () => ({ contextTime: 12, performanceTime: 1200 }),
   }) as unknown as AudioContext;
   Object.defineProperty(context, "currentTime", { configurable: true, get: () => 12 + elapsed() / 1000 });
-  vi.mocked(audio.getAudioContext).mockReturnValue(context);
+  vi.mocked(getAudioContext).mockReturnValue(context);
   pinia = createPinia(); setActivePinia(pinia);
   // Renderer events and expected envelopes below use piano's percussive
   // articulation. Pin it instead of inheriting the app default instrument.
@@ -80,19 +79,14 @@ afterEach(() => {
 });
 
 describe("music store production worklet integration", () => {
-  it.each([true, false])('records performed velocity through the prepared/fallback path (prepared: %s)', async prepared => {
-    if (!prepared) vi.mocked(getLivePlayback).mockReturnValue(null);
+  it('records performed velocity through the worklet path', async () => {
     const phrases = recorder();
     const music = useMusicStore();
     for (const [index, velocity] of [19 / 127, 113 / 127].entries()) {
       const owner = await music.attackExactPitch('C4', () => false, velocity);
       expect(owner).toBeTruthy();
-      if (prepared) {
-        worklet.listener!.onEvent({ ...event(owner!, `velocity-${index}`, 'attack', 12 + index * .3), velocity });
-        worklet.listener!.onEvent({ ...event(owner!, `velocity-${index}`, 'release', 12 + index * .3 + .2), velocity });
-      } else {
-        await vi.advanceTimersByTimeAsync(200);
-      }
+      worklet.listener!.onEvent({ ...event(owner!, `velocity-${index}`, 'attack', 12 + index * .3), velocity });
+      worklet.listener!.onEvent({ ...event(owner!, `velocity-${index}`, 'release', 12 + index * .3 + .2), velocity });
       await music.releaseNote(owner!);
       await vi.advanceTimersByTimeAsync(100);
     }
@@ -246,13 +240,12 @@ describe("music store production worklet integration", () => {
     await music.releaseNote(owner!);
   });
 
-  it("submits a prepared attack immediately and bypasses the per-note audio wrapper", async () => {
+  it("submits a prepared attack immediately and publishes it only when the worklet reports it", async () => {
     const music = useMusicStore();
     const pending = music.attackExactPitch("C4");
     expect(worklet.engine.press).toHaveBeenCalledTimes(1);
     const owner = await pending;
     expect(worklet.engine.press).toHaveBeenCalledWith(owner, [{ pitch: 60, instrumentId: "piano" }]);
-    expect(audio.attackNote).not.toHaveBeenCalled();
     expect(events("note-played")).toEqual([]);
     expect(music.activeNotes.size).toBe(0);
     worklet.listener!.onEvent(event(owner!, "live_1", "attack", 12));
@@ -261,7 +254,6 @@ describe("music store production worklet integration", () => {
     expect(vi.getTimerCount()).toBe(0);
     await music.releaseNote(owner!);
     expect(worklet.engine.release).toHaveBeenCalledWith(owner);
-    expect(audio.releaseNote).not.toHaveBeenCalled();
   });
 
   it("records per-owner pitch at audio time and trims gestures after a delayed release", async () => {
@@ -497,7 +489,6 @@ describe("music store production worklet integration", () => {
     expect(worklet.engine.release.mock.calls).toEqual([[c]]);
     await music.releaseNote(e!);
     expect(worklet.engine.release.mock.calls).toEqual([[c], [e]]);
-    expect(audio.attackNote).not.toHaveBeenCalled();
   });
 
   it("mirrors lookahead plans to MIDI, deduplicates unchanged plans, and cancels replaced future attacks", async () => {
@@ -584,32 +575,12 @@ describe("music store production worklet integration", () => {
     worklet.listener!.onEvent(event(owner!, "future_voice", "attack", 12.125));
     expect(events("note-played")).toHaveLength(1);
     await music.releaseNote(owner!);
-    expect(audio.releaseNote).not.toHaveBeenCalled();
   });
 
-  it("preserves a fallback rhythmic owner and its cancellation when the idle worklet fails", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
-    vi.mocked(getLivePlayback).mockReturnValue(undefined);
-    const music = useMusicStore();
-    music.setPlayMode("repeat:16");
-    const owner = await music.attackExactPitch("C4");
-    await vi.advanceTimersByTimeAsync(5);
-    const sounding = music.getActiveNotes()[0].noteId;
-    worklet.listener!.onError(new Error("idle processor failed"));
-    await music.releaseNote(owner!);
-    expect(vi.mocked(audio.releaseNote).mock.calls.some(([id]) => id === sounding)).toBe(true);
-    expect(audio.stopNote).toHaveBeenCalled();
-    expect(music.activeNotes.size).toBe(0);
-    const scheduled = vi.mocked(audio.attackNote).mock.calls.length;
-    await vi.advanceTimersByTimeAsync(1000);
-    expect(audio.attackNote).toHaveBeenCalledTimes(scheduled);
-  });
-
-  it("rejects pitches outside Tonal's MIDI range before submitting either renderer", async () => {
+  it("rejects pitches outside Tonal's MIDI range before submitting to the worklet", async () => {
     const music = useMusicStore();
     expect(await music.attackExactPitch("C10")).toBeNull();
     expect(worklet.engine.press).not.toHaveBeenCalled();
-    expect(audio.attackNote).not.toHaveBeenCalled();
   });
 
   it("closes a suspended voice at the frozen audio clock despite delayed statechange and release messages", async () => {

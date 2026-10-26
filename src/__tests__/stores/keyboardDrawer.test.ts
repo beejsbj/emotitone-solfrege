@@ -81,11 +81,10 @@ describe("keyboardDrawer store", () => {
   });
 
   it("treats active notes from the music store as visually active keys", async () => {
-    const keyboardDrawerStore = useKeyboardDrawerStore();
-    const musicStore = useMusicStore();
-
     seat.listeners.clear();
     const live = attachLiveCore(seat);
+    const keyboardDrawerStore = useKeyboardDrawerStore();
+    const musicStore = useMusicStore();
     const owner = await musicStore.attackNoteWithOctave(0, 4);
     live.render(20);
 

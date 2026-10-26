@@ -17,13 +17,12 @@
     <!-- Floats above the deck's top edge, over the Stage. Not an occlusion
          part: a passing notice must not resize the Stage's composition. -->
     <ShelfNotice
-      v-if="phrasesStore.shelfNotice"
+      v-if="shownNotice"
       class="phrase-shelf__notice"
-      :state="phrasesStore.shelfNotice"
+      :state="shownNotice"
       :oldest-title="oldestRecent ? phraseTitle(oldestRecent) : undefined"
-      :armed="releaseArmed"
       :busy="reelBusy"
-      @release="releaseOldest"
+      @dismiss="dismissedNotice = shownNotice"
     />
   </div>
 </template>
@@ -54,7 +53,9 @@ import { logNotesToStrudel } from "@/services/StrudelNotation";
 import { loopLengthMs } from "@/services/recordedTiming";
 import { strudelUrl } from "@/services/strudelLink";
 import { chromaticPitchHeight } from "@/services/scalePitch";
+import { looperDialProps } from "@/components/patterns/looperDial";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
+import { useLooperStore } from "@/stores/looper";
 import { useMusicStore } from "@/stores/music";
 import { usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
@@ -69,6 +70,7 @@ const emit = defineEmits<{
 }>();
 
 const phrasesStore = usePhrasesStore();
+const looperStore = useLooperStore();
 const keyboardStore = useKeyboardDrawerStore();
 const musicStore = useMusicStore();
 const visualConfigStore = useVisualConfigStore();
@@ -85,23 +87,16 @@ function reelInteraction(active: boolean) {
   reelBusy.value = active;
   emit("interactionChange", active);
 }
-const releaseArmed = ref(false);
-let releaseTimer: ReturnType<typeof setTimeout> | undefined;
-function disarmRelease() {
-  clearTimeout(releaseTimer);
-  releaseArmed.value = false;
-}
-watch(() => oldestRecent.value?.id, disarmRelease);
-function releaseOldest() {
-  if (!releaseArmed.value) {
-    releaseArmed.value = true;
-    clearTimeout(releaseTimer);
-    releaseTimer = setTimeout(disarmRelease, 2500);
-    return;
-  }
-  if (oldestRecent.value) phrasesStore.releaseRecent(oldestRecent.value.id);
-  disarmRelease();
-}
+// A swipe puts the notice away until the shelf's state changes (a warning
+// that becomes a failure, or the next time the shelf fills), or until the next
+// refused save: what is not being saved is never quietly hidden.
+const dismissedNotice = ref<typeof phrasesStore.shelfNotice>(null);
+watch(() => phrasesStore.shelfNotice, (state) => {
+  if (state !== dismissedNotice.value) dismissedNotice.value = null;
+});
+watch(() => phrasesStore.refusedSaves, () => { dismissedNotice.value = null; });
+const shownNotice = computed(() =>
+  phrasesStore.shelfNotice !== dismissedNotice.value ? phrasesStore.shelfNotice : null);
 
 const copiedId = ref<string | null>(null);
 const deleteArmedId = ref<string | null>(null);
@@ -111,7 +106,6 @@ let deleteTimer: ReturnType<typeof setTimeout> | undefined;
 const clockTimer = setInterval(() => { now.value = Date.now(); }, 30_000);
 
 onBeforeUnmount(() => {
-  clearTimeout(releaseTimer);
   clearTimeout(copyTimer);
   clearTimeout(deleteTimer);
   clearInterval(clockTimer);
@@ -260,6 +254,14 @@ function reelItem(entry: ReelEntry, isFront: boolean): PatternReelItem {
   const title = source?.name || phraseTitle(phrase);
   const { key, mode, instrument, octave } = phrase.context;
   const ordered = [...phrase.notes].sort((left, right) => left.pressTime - right.pressTime);
+  // A pattern playing in the Looper shows what its loop dial shows (the same
+  // notes, length and place in the loop) and sweeps with it; one that is not
+  // playing rests. On the desk an untouched copy stands for its source.
+  const member = looperStore.viewFor(isDesk ? phrasesStore.deskPhraseId : phrase.id);
+  const playing = member && looperDialProps(member, {
+    byPitchClass: getStaticPrimaryColorByPitchClass,
+    byScaleIndex: getStaticPrimaryColorByScaleIndex,
+  });
   // The same loop the generated code plays: one 4/4 bar per cycle at the
   // phrase's tempo, notes at their onsets, authored trailing silence kept.
   return {
@@ -276,19 +278,19 @@ function reelItem(entry: ReelEntry, isFront: boolean): PatternReelItem {
       key,
       octave,
     ),
-    loopDial: ordered.map((note) => ({
+    loopDial: playing ? playing.segments : ordered.map((note) => ({
       color: noteColor(note, phrase),
       startMs: note.pressTime,
       durationMs: note.duration,
       height: chromaticPitchHeight(note, { key, mode }),
     })),
-    loopLengthMs: loopLengthMs({
+    loopLengthMs: playing ? playing.lengthMs : loopLengthMs({
       ...phrase,
       notes: ordered.map((note) => ({ releaseTime: note.pressTime + Math.max(1, note.duration) })),
     }),
-    loopBarMs: phrase.context.bpm > 0 ? (60000 / phrase.context.bpm) * 4 : undefined,
-    // The desk holds the phrase the Code Strip plays.
-    loopLive: isDesk,
+    loopBarMs: playing ? playing.barMs : phrase.context.bpm > 0 ? (60000 / phrase.context.bpm) * 4 : undefined,
+    loopLive: Boolean(playing),
+    ...(playing ? { loopOriginBars: playing.originBars, loopRate: playing.rate } : {}),
     tone: isDesk ? "take" : phrase.shelf as PatternStripTone,
     shelfTag: shelfTag(phrase, inPlace),
     lamp: isDesk ? (inPlace ? "armed" : "live") : undefined,
@@ -335,6 +337,13 @@ function loadPhrase(id: string) {
     octave: keyboardStore.keyboardConfig.mainOctave,
   };
   if (!phrasesStore.openPhrase(id)) return;
+  // A running loop owns key, mode and tempo: the phrase you scroll to is
+  // re-skinned into them instead of dragging the whole loop to its own.
+  if (looperStore.hasMembers) {
+    musicStore.setKey(before.key);
+    musicStore.setMode(before.mode);
+    visualConfigStore.updateConfig("codeStrip", { bpm: before.bpm });
+  }
   const changed: PatternControl[] = [];
   if (musicStore.currentKey !== before.key) changed.push("key");
   if (musicStore.currentMode !== before.mode) changed.push("mode");
@@ -416,14 +425,15 @@ function openInStrudel(id: string) {
   min-width: 0;
 }
 
-/* Anchored to the deck's top edge and lifted clear of the reel's resting
-   stack and the drawer handle's --hit-min touch, so it covers only Stage. */
+/* An Edge Notice on the right edge, anchored to the deck's top edge and
+   lifted clear of the reel's resting stack and the drawer handle's --hit-min
+   touch, so it covers only Stage. The line sizes to its words; the left edge
+   stays the dials'. */
 .phrase-shelf__notice {
   position: absolute;
   z-index: 4;
   bottom: calc(100% + var(--hit-min));
-  inset-inline: var(--s-6);
-  max-inline-size: 26rem;
-  margin-inline: auto;
+  right: var(--s-5);
+  max-inline-size: calc(100% - var(--hit-min) - var(--s-3) - var(--s-4) - var(--s-5));
 }
 </style>

@@ -33,6 +33,11 @@ export interface NotationHighlightOptions {
   unitMs?: () => number | undefined;
   /** Light from note events only while this is true. */
   listening: () => boolean;
+  /**
+   * Only note events of this transport member light the phrase (a Looper
+   * plays several; a phrase's copy shares its note ids). Any member when unset.
+   */
+  memberId?: () => string | undefined;
   /** Reduced Motion: a sounding note reads full at once; nothing sweeps. */
   still?: () => boolean;
   /** Where note events are dispatched; the window by default. */
@@ -175,6 +180,8 @@ export function useNotationHighlight(options: NotationHighlightOptions) {
     const detail = (event as CustomEvent<NotationNoteEventDetail>).detail;
     const id = detail?.sourceNoteId;
     if (!id) return;
+    const member = options.memberId?.();
+    if (member !== undefined && detail.memberId !== member) return;
     const index = indexOf(id);
     if (index < 0) return;
     const key = `${id}\u0000${String(detail.noteId ?? id)}`;
@@ -351,16 +358,4 @@ function clamp(value: number) {
   return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
 }
 
-/** A live `prefers-reduced-motion` flag. */
-export function useReducedMotion() {
-  const query = typeof window === "undefined"
-    ? undefined
-    : window.matchMedia?.("(prefers-reduced-motion: reduce)");
-  const reduced = ref(query?.matches ?? false);
-  const onChange = (event: MediaQueryListEvent) => {
-    reduced.value = event.matches;
-  };
-  onMounted(() => query?.addEventListener?.("change", onChange));
-  onBeforeUnmount(() => query?.removeEventListener?.("change", onChange));
-  return reduced;
-}
+export { useReducedMotion } from "@/composables/useReducedMotion";

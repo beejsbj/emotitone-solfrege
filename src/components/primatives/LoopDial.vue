@@ -2,7 +2,7 @@
   <svg
     ref="rootRef"
     class="loop-dial"
-    :class="{ 'loop-dial--live': live }"
+    :class="{ 'loop-dial--live': live, 'loop-dial--disc': spin === 'disc' }"
     viewBox="0 0 34 34"
     role="img"
     :aria-label="ariaLabel"
@@ -10,7 +10,7 @@
     data-loop-dial-state="still"
   >
     <circle class="loop-dial__well" cx="17" cy="17" r="17" aria-hidden="true" />
-    <g class="loop-dial__disc" aria-hidden="true">
+    <g ref="discRef" class="loop-dial__disc" aria-hidden="true">
       <path
         v-for="(arc, segmentIndex) in arcs"
         :key="segmentIndex"
@@ -61,8 +61,21 @@ const props = withDefaults(defineProps<{
   barMs?: number;
   /** This phrase is the one the transport plays, so the masthead follows playback. */
   live?: boolean;
+  /** The bar on the UIBeat clock where this loop's time 0 sits (a Looper member's place). */
+  originBars?: number;
+  /** Playback rate against the bar clock (a Looper member's half or double time). */
+  rate?: number;
+  /**
+   * What turns while live: the hand over still notes (a strip's dial), or the
+   * notes under a fixed brass hand (a Looper dial, from the #132 prototype), so
+   * the note at twelve is the one sounding.
+   */
+  spin?: "hand" | "disc";
   ariaLabel?: string;
 }>(), {
+  spin: "hand",
+  originBars: 0,
+  rate: 1,
   lengthMs: undefined,
   barMs: undefined,
   live: false,
@@ -124,14 +137,16 @@ const loopBars = computed(() => (
 
 const rootRef = ref<SVGSVGElement | null>(null);
 const handRef = ref<SVGGElement | null>(null);
+const discRef = ref<SVGGElement | null>(null);
 const { clock, presentationEnabled } = useUIBeat();
 let unsubscribe: (() => void) | undefined;
 let sweeping = false;
 
 function rest() {
-  if (!sweeping && handRef.value?.style.transform === "") return;
+  if (!sweeping && !handRef.value?.style.transform && !discRef.value?.style.transform) return;
   sweeping = false;
   if (handRef.value) handRef.value.style.transform = "";
+  if (discRef.value) discRef.value.style.transform = "";
   rootRef.value?.setAttribute("data-loop-dial-state", "still");
 }
 
@@ -149,10 +164,19 @@ function applyFrame(snapshot: UIBeatSnapshot) {
     return;
   }
 
-  const phase = ((snapshot.barPosition / bars) % 1 + 1) % 1;
+  const local = (snapshot.barPosition - props.originBars) * props.rate;
+  const phase = ((local / bars) % 1 + 1) % 1;
   sweeping = true;
   rootRef.value?.setAttribute("data-loop-dial-state", "sweeping");
-  if (handRef.value) handRef.value.style.transform = `rotate(${(phase * 360).toFixed(2)}deg)`;
+  const turn = (phase * 360).toFixed(2);
+  if (props.spin === "disc") {
+    // The disc turns back under the fixed hand: the note at twelve sounds now.
+    if (handRef.value) handRef.value.style.transform = "";
+    if (discRef.value) discRef.value.style.transform = `rotate(-${turn}deg)`;
+  } else {
+    if (discRef.value) discRef.value.style.transform = "";
+    if (handRef.value) handRef.value.style.transform = `rotate(${turn}deg)`;
+  }
 }
 
 function syncSubscription() {
@@ -167,7 +191,7 @@ function syncSubscription() {
 
 onMounted(syncSubscription);
 watch(() => props.live, syncSubscription, { flush: "post" });
-watch(loopBars, () => applyFrame(clock.snapshot), { flush: "post" });
+watch([loopBars, () => props.originBars, () => props.rate, () => props.spin], () => applyFrame(clock.snapshot), { flush: "post" });
 onBeforeUnmount(() => unsubscribe?.());
 </script>
 
@@ -183,7 +207,8 @@ onBeforeUnmount(() => unsubscribe?.());
   fill: var(--ink);
 }
 
-.loop-dial__hand {
+.loop-dial__hand,
+.loop-dial__disc {
   transform-box: view-box;
   transform-origin: 50% 50%;
 }
@@ -205,8 +230,16 @@ onBeforeUnmount(() => unsubscribe?.());
   stroke: var(--ivory);
 }
 
+/* A Looper dial's fixed hand is brass, the instrument metal, with a sheen. */
+.loop-dial--disc .loop-dial__masthead {
+  stroke: var(--brass-hi);
+  stroke-width: 2;
+  filter: drop-shadow(0 0 1.5px var(--brass));
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .loop-dial__hand {
+  .loop-dial__hand,
+  .loop-dial__disc {
     transform: none !important;
   }
 }

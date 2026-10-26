@@ -66,6 +66,12 @@ export const useInstrumentStore = defineStore("instrument", () => {
   const lastWarmupError = ref<string | null>(null);
   const lastWarmupErrorInstrument = ref<string | null>(null);
   const isInitializing = ref(false);
+  /**
+   * The audio engine has booted once (superdough's graph and the live
+   * renderer). Sticky: reopening the picker or a hung sample fetch never
+   * takes it back.
+   */
+  const engineBooted = ref(false);
   let initializationGeneration = 0;
   const warmupPromises = new Map<string, Promise<void>>();
   const selectionEpoch = ref(0);
@@ -240,6 +246,7 @@ export const useInstrumentStore = defineStore("instrument", () => {
       // Keep the engine's single-flight promise intact: cancellation releases
       // this caller, while the next generation can reuse the same graph.
       await abortable(initSuperdoughAudio(report), signal);
+      engineBooted.value = true;
       if (!isCurrent()) return;
       // Boot preserves the saved selection without downloading its bank.
       // Play calls this again after the gesture and keeps the splash up until
@@ -289,6 +296,15 @@ export const useInstrumentStore = defineStore("instrument", () => {
    * A cancelled load may finish caching resources, but cannot reconcile the
    * store or change this selection; a later active load can reuse its cache.
    */
+  /**
+   * The engine booted outside `initializeInstruments`: the sample-pack
+   * fallback starts the synths alone (`initSynthOnlyAudio`), and Play must
+   * not wait for a drawer that may never open.
+   */
+  const markEngineBooted = () => {
+    engineBooted.value = true;
+  };
+
   const fallBackToSynth = () => {
     selectionEpoch.value += 1;
     clearWarmupState();
@@ -370,6 +386,7 @@ export const useInstrumentStore = defineStore("instrument", () => {
     lastWarmupErrorInstrument,
     selectionEpoch,
     isLoading,
+    engineBooted,
     isInteractionLocked,
     synthControls,
     synthControlOverrides,
@@ -379,6 +396,7 @@ export const useInstrumentStore = defineStore("instrument", () => {
     // Actions
     initializeInstruments,
     fallBackToSynth,
+    markEngineBooted,
     setInstrument,
     isInstrumentReady,
     isInstrumentWarming,

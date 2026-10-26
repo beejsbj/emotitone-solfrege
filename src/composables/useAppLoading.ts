@@ -183,7 +183,10 @@ export function useAppLoading() {
         // have loaded; the synth entry plays the synth that was just prepared.
         const { useInstrumentStore } = await import("@/stores/instrument");
         step.signal.throwIfAborted();
-        useInstrumentStore().fallBackToSynth();
+        const instrument = useInstrumentStore();
+        // The synths are the engine now: Play can start without a drawer opening.
+        instrument.markEngineBooted();
+        instrument.fallBackToSynth();
       }
 
       const context = getAudioContext();

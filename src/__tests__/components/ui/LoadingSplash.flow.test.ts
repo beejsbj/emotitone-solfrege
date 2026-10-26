@@ -22,7 +22,9 @@ const audio = vi.hoisted(() => {
   return { context, initSuperdoughAudio: vi.fn(async () => {}), initSynthOnlyAudio: vi.fn(async () => {}) };
 });
 
-const instruments = vi.hoisted(() => ({ initializeInstruments: vi.fn(async () => {}), fallBackToSynth: vi.fn() }));
+const instruments = vi.hoisted(() => ({
+  initializeInstruments: vi.fn(async () => {}), fallBackToSynth: vi.fn(), markEngineBooted: vi.fn(),
+}));
 
 vi.mock("@/services/superdoughAudio", () => ({
   setStrudelLaBasedMinor: vi.fn(),
@@ -206,6 +208,7 @@ describe("production loading flow", () => {
     expect(audio.initSynthOnlyAudio).toHaveBeenCalledTimes(2);
     expect(audio.initSuperdoughAudio).not.toHaveBeenCalled(); // no sample download inside the tap
     expect(instruments.fallBackToSynth).toHaveBeenCalled(); // the synth, not a stale sampled selection
+    expect(instruments.markEngineBooted).toHaveBeenCalled(); // so Play can start
     expect(useAppLoading().isVisible.value).toBe(false);
     wrapper.unmount();
   });

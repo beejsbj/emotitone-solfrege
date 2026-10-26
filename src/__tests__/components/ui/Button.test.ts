@@ -160,6 +160,27 @@ describe("Button", () => {
     expect(buttonSource).toMatch(/@media \(prefers-reduced-motion: reduce\) \{[\s\S]*\.paper-button__lip,/);
   });
 
+  it("holds its pressed look on demand, still answering, with no orbit or ring of its own", async () => {
+    const wrapper = mount(Button, { props: { pressed: true, haptic: true, accessibleName: "Play" } });
+    expect(wrapper.classes()).toContain("paper-button--pressed");
+    expect(wrapper.attributes("data-pressed")).toBe("true");
+    // Visual only: no toggle semantics of its own (the consumer's name says it).
+    expect(wrapper.attributes("aria-pressed")).toBeUndefined();
+    expect(wrapper.attributes("aria-busy")).toBeUndefined();
+    await wrapper.trigger("click", { detail: 1 });
+    expect(wrapper.emitted("click")).toHaveLength(1);
+    // The held look is the press itself: the cap travels down as under a finger.
+    // A held key keeps its look even while disabled (a latch is still latched).
+    expect(buttonSource).toMatch(/\.paper-button:not\(:disabled\):active \.paper-button__cap,\s*\.paper-button--pressed \.paper-button__cap \{/);
+    // Forced colours drop the lip and lamp: the held key gets a system outline instead.
+    const forced = buttonSource.slice(buttonSource.indexOf("@media (forced-colors: active)"));
+    expect(forced).toMatch(/\.paper-button--pressed \{ outline: 2px solid Highlight;/);
+    expect(buttonSource).not.toContain("paper-button--latched");
+    // Reduced Motion stills the loading orbit too.
+    const reduced = buttonSource.slice(buttonSource.indexOf("@media (prefers-reduced-motion: reduce)"));
+    expect(reduced).toContain(".paper-button--loading .paper-button__lip { animation: none; }");
+  });
+
   it("shares the promoted Boolean Knob rebound with non-brass buttons", () => {
     expect(buttonSource).toContain(
       ".paper-button:not(.paper-button--brass):not(:disabled)",

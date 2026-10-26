@@ -319,6 +319,22 @@ describe("LoopDial", () => {
     clock.destroy();
   });
 
+  it("sweeps a Looper member from its own place on the bar clock, at its own rate", () => {
+    const { clock, generation, wrapper } = mountLive({ ...twoBarLoop, live: true, originBars: 1.5, rate: 2 });
+    const hand = () => wrapper.get(".loop-dial__hand").element as SVGGElement;
+    // Bar 1.5 is this member's time 0: the hand is at twelve.
+    clock.publish(generation, { rawPosition: 1.5, barPosition: 1.5 });
+    expect(hand().style.transform).toBe("rotate(0.00deg)");
+    // A quarter bar later at double time is half a phrase bar: a quarter turn of two bars.
+    clock.publish(generation, { rawPosition: 1.75, barPosition: 1.75 });
+    expect(hand().style.transform).toBe("rotate(90.00deg)");
+    // Before its place, the loop still reads in phase (it has been looping all along).
+    clock.publish(generation, { rawPosition: 1.25, barPosition: 1.25 });
+    expect(hand().style.transform).toBe("rotate(270.00deg)");
+    wrapper.unmount();
+    clock.destroy();
+  });
+
   it("keeps a dial still when it is not the live phrase or presentation is off", () => {
     const idle = mountLive({ ...twoBarLoop, live: false });
     idle.clock.publish(idle.generation, { rawPosition: 0.5, barPosition: 0.5 });

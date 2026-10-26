@@ -1,6 +1,8 @@
 <template>
   <Drawer
     class="performance-deck-drawer"
+    :class="{ 'performance-deck-drawer--reel-open': patternReelGuardsHandle }"
+    :data-reel-open="patternReelGuardsHandle || undefined"
     data-stage-occlusion-host
     :model-value="drawerOpen"
     fixed
@@ -26,6 +28,8 @@
   >
     <template #icon><KeyboardIcon /></template>
     <template #persistent-leading>
+      <!-- The Looper's dials climb the left edge, above the reel. -->
+      <LooperDialColumn v-if="isProductionUsage" />
       <PhraseShelf
         v-if="isProductionUsage"
         data-stage-occluder
@@ -55,7 +59,10 @@
           :is-playing="isPlaying"
           :play-disabled="playDisabled"
           :haptic="isProductionUsage"
+          :play-latched="looper?.latched ?? false"
+          :beat-countdown="looper?.latchCountdown ?? null"
           @toggle-playback="toggleSketchPlayback"
+          @play-hold="looper?.toggleLatch()"
           @backspace="handleBackspace"
           @return="handleReturn"
         />
@@ -148,6 +155,7 @@ import type {
 import type { CodeStripToken } from "@/components/uniques/CodeStrip/index.vue";
 import Drawer from "@/components/uniques/Drawer/index.vue";
 import HummingCaptureTransport from "@/components/humming/HummingCaptureTransport.vue";
+import LooperDialColumn from "@/components/patterns/LooperDialColumn.vue";
 import PhraseShelf from "@/components/patterns/PhraseShelf.vue";
 import {
   MAX_KEYBOARD_ROW_COUNT,
@@ -156,10 +164,7 @@ import {
   minimumKeyboardHeight,
   resolveKeyboardLayout,
 } from "@/components/compounds/keyboardSizing";
-import {
-  hasPlayableContent,
-  useCodeStripStrudel,
-} from "@/composables/useCodeStripStrudel";
+import { hasPlayableContent } from "@/composables/useCodeStripStrudel";
 import { useHummingCapture } from "@/composables/useHummingCapture";
 import { useKeyboardPerformance } from "@/composables/useKeyboardPerformance";
 import { displayInstrumentName } from "@/data/instruments";
@@ -167,6 +172,7 @@ import type { HarmonyAlteration } from "@/domain/harmony";
 import { useHarmonyAlterationStore } from "@/stores/harmonyAlteration";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
+import { useLooperStore } from "@/stores/looper";
 import { useMusicStore } from "@/stores/music";
 import { usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
@@ -247,7 +253,8 @@ const instrumentStore = isProductionUsage ? useInstrumentStore() : undefined;
 const musicStore = isProductionUsage ? useMusicStore() : undefined;
 const phrasesStore = isProductionUsage ? usePhrasesStore() : undefined;
 const visualConfigStore = isProductionUsage ? useVisualConfigStore() : undefined;
-const playback = isProductionUsage ? useCodeStripStrudel() : undefined;
+// Play is the loop: in production, Play goes to the Looper.
+const looper = isProductionUsage ? useLooperStore() : undefined;
 const humming = isProductionUsage ? useHummingCapture() : undefined;
 const harmonyAlterationStore = isProductionUsage ? useHarmonyAlterationStore() : undefined;
 // The stick springs back to its latch when the deck goes away (route change,
@@ -278,17 +285,22 @@ const patternControlSignals = reactive<Record<PatternControl, number>>({
 });
 
 const drawerOpen = computed(() => store?.drawer.isOpen ?? props.drawerOpen);
-const isPlaying = computed(() => playback?.isPlaying.value ?? props.isPlaying);
-const hasPlayableCode = computed(() => playback?.hasPlayableCode.value
-  ?? Boolean(
-    props.codeStripTokens.length
+const isPlaying = computed(() => looper ? looper.isDeskPlaying : props.isPlaying);
+const hasPlayableCode = computed(() => Boolean(
+  props.codeStripTokens.length
     || (props.codeStripSource && hasPlayableContent(props.codeStripSource)),
-  ));
+));
 const interactionLocked = computed(() =>
   instrumentStore?.isInteractionLocked ?? props.warming
 );
 const playDisabled = computed(() => isProductionUsage
-  ? !hasPlayableCode.value || (interactionLocked.value && !isPlaying.value)
+  // Only *starting* waits for the engine (the pattern player, the booted audio
+  // engine, no renderer being restored). Stopping the desk's pattern and
+  // releasing the latch always work, a restore included: the tap is also the
+  // gesture that wakes audio after an interruption. Otherwise Play is always
+  // pressable: it can be held to latch on an empty desk, and a loop plays on
+  // while an instrument warms up.
+  ? !looper!.engineReady && !looper!.isDeskPlaying && !looper!.latched
   : props.playDisabled
     || !hasPlayableCode.value
     || (interactionLocked.value && !isPlaying.value)
@@ -342,28 +354,20 @@ function setPatternReelGuard(active: boolean) {
 }
 
 async function toggleSketchPlayback() {
-  if (!playback) {
+  if (!looper) {
     if (playDisabled.value) return;
     emit("togglePlayback");
     return;
   }
-  if (isPlaying.value) {
-    await playback.toggle();
-    return;
-  }
-  if (!hasPlayableCode.value || interactionLocked.value) return;
-  if (["requesting", "recording", "preparing", "analyzing"].includes(hummingStatus.value)) {
+  if (!isPlaying.value && ["requesting", "recording", "preparing", "analyzing"].includes(hummingStatus.value)) {
     await humming?.cancel();
   }
-  await playback.toggle();
+  looper.togglePlay();
 }
 
 async function toggleHummingCapture() {
-  if (!humming || !playback) return;
-  if (isPlaying.value && hummingStatus.value !== "recording") {
-    await playback.stop();
-  }
-  await humming.toggle();
+  // Humming over a running loop is allowed; the loop keeps playing.
+  await humming?.toggle();
 }
 
 async function cancelHummingCapture() {
@@ -498,6 +502,14 @@ defineExpose({ openDrawer, closeDrawer, toggleDrawer, store });
 
 .performance-deck-drawer :deep(.drawer__handle) {
   z-index: 2;
+}
+
+/* While the reel is unwound (scrolled, held open or settling), the whole deck
+   lifts over the mic and the top drawers, so the reel sits above everything.
+   Inside the deck the reel's own layer (3, the PatternReel's guard) already
+   clears the handle (2), the dials (3, earlier in the slot) and the bars. */
+.performance-deck-drawer--reel-open {
+  z-index: var(--z-reel-open);
 }
 
 .performance-deck__instrument-surface,

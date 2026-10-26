@@ -5,6 +5,8 @@ import { nextTick } from "vue";
 import { IDBFactory } from "fake-indexeddb";
 import PhraseShelf from "@/components/patterns/PhraseShelf.vue";
 import { libraryPhrases, usePhrasesStore } from "@/stores/phrases";
+import { useLooperStore } from "@/stores/looper";
+import { join } from "@/domain/looper";
 import { PHRASE_BUDGET_BYTES } from "@/services/phrasePersistence";
 import { reportSaveFailure, resetSaveFailure, saveFailureNotice } from "@/services/safeStorage";
 
@@ -67,7 +69,9 @@ describe("Shelf over budget: warn, keep saving (Burooj, 2026-10-17)", () => {
     expect(notice(page).attributes("data-shelf-notice")).toBe("over-budget");
     expect(notice(page).text()).toContain("still saving");
     expect(notice(page).text()).toContain("Free some space soon");
-    expect(page.find('button[aria-label="Release oldest Recent"]').exists()).toBe(true);
+    // An Edge Notice: words only, no key of its own (Burooj, 2026-10-20).
+    expect(notice(page).find("button").exists()).toBe(false);
+    expect(notice(page).classes()).toContain("edge-notice--warning");
   });
 
   it("still saves a new Keep above 3 MB", async () => {
@@ -83,7 +87,7 @@ describe("Shelf over budget: warn, keep saving (Burooj, 2026-10-17)", () => {
     expect(kept?.notes).toHaveLength(3);
   });
 
-  it("on a real quota failure keeps the previous payload and every phrase, says it is not saving, and still offers release", async () => {
+  it("on a real quota failure keeps the previous payload and every phrase, and says it is not saving", async () => {
     store.book.phrases.push(phrase("kept", "kept", 0), phrase("oldest", "recent", 100), phrase("newer", "recent", 200));
     await nextTick();
     const before = localStorage.getItem("phrases");
@@ -101,8 +105,9 @@ describe("Shelf over budget: warn, keep saving (Burooj, 2026-10-17)", () => {
     expect(store.takeNotes).toHaveLength(2);
     expect(store.book.phrases.map((phrase) => phrase.id)).toEqual(expect.arrayContaining(["kept", "oldest", "newer"]));
     expect(notice(page).attributes("data-shelf-notice")).toBe("failed");
-    expect(notice(page).text()).toContain("New sketches are not being saved");
-    expect(page.find('button[aria-label="Release oldest Recent"]').exists()).toBe(true);
+    // The visible line says what to do, within the 32-character budget.
+    expect(notice(page).get(".edge-notice__line").attributes("title")).toBe("Not saving. Delete old takes.");
+    expect(notice(page).classes()).toContain("edge-notice--problem");
     // One strip carries a phrase failure: the global storage Sticker stays away…
     expect(saveFailureNotice.value).toBeNull();
     // …while every other saved key still raises it.
@@ -111,24 +116,21 @@ describe("Shelf over budget: warn, keep saving (Burooj, 2026-10-17)", () => {
     resetSaveFailure();
     // Storage recovers: the next save writes everything and the failed state clears.
     storage.setItem.mockImplementation(workingSetItem);
-    await page.get('button[aria-label="Release oldest Recent"]').trigger("click");
-    await page.get('button[aria-label="Confirm release oldest Recent"]').trigger("click");
+    expect(store.deletePhrase("oldest")).toBe(true);
     await nextTick();
     expect(store.findPhrase("oldest")).toBeUndefined();
     expect(savedPhrases().find((saved) => saved.id === store.takeId)?.notes).toHaveLength(2);
     expect(notice(page).exists()).toBe(false);
   });
 
-  it("confirms release of the oldest Recent, never Kept or the take, then clears the warning", async () => {
+  it("names the oldest Recent first, never Kept or the take, and clears once it is deleted", async () => {
     store.book.phrases.push(phrase("kept", "kept", 0), phrase("newer", "recent", 200), overBudgetRecent());
     await nextTick();
     const page = render();
     expect(store.releaseCandidates.map((phrase) => phrase.id)).toEqual(["oldest", "newer"]);
-    expect(store.releaseRecent("kept")).toBe(false);
-    expect(store.releaseRecent(store.takeId)).toBe(false);
-    await page.get('button[aria-label="Release oldest Recent"]').trigger("click");
-    expect(store.findPhrase("oldest")).toBeDefined();
-    await page.get('button[aria-label="Confirm release oldest Recent"]').trigger("click");
+    // The notice names the oldest Recent for assistive technology.
+    expect(notice(page).text()).toContain("oldest first");
+    expect(store.deletePhrase(store.releaseCandidates[0].id)).toBe(true);
     await nextTick();
     expect(store.shelfNotice).toBeNull();
     expect(notice(page).exists()).toBe(false);
@@ -138,39 +140,131 @@ describe("Shelf over budget: warn, keep saving (Burooj, 2026-10-17)", () => {
     expect(saved.find((phrase) => phrase.id === "newer")).toBeDefined();
   });
 
-  it("never offers or releases a protected phrase (one the Looper is playing)", async () => {
+  it("never names or deletes a protected phrase (one the Looper is playing)", async () => {
     store.book.phrases.push(phrase("newer", "recent", 200), overBudgetRecent());
-    store.setProtectedIds(() => new Set(["oldest"]));
-    await nextTick();
+    // The shelf brings the Looper store, which provides the playing set.
     const page = render();
+    join(useLooperStore().looper, store.findPhrase("oldest")!, { kind: "pinned-to-bar-one" });
+    await nextTick();
     expect(store.releaseCandidates.map((phrase) => phrase.id)).toEqual(["newer"]);
-    expect(store.releaseRecent("oldest")).toBe(false);
+    expect(store.deletePhrase("oldest")).toBe(false);
     expect(store.findPhrase("oldest")).toBeDefined();
-    await page.get('button[aria-label="Release oldest Recent"]').trigger("click");
-    await page.get('button[aria-label="Confirm release oldest Recent"]').trigger("click");
+    expect(notice(page).text()).toContain("newer");
+    expect(store.deletePhrase(store.releaseCandidates[0].id)).toBe(true);
     await nextTick();
     expect(store.findPhrase("oldest")).toBeDefined();
     expect(store.findPhrase("newer")).toBeUndefined();
     // Every Recent protected: nothing to offer.
-    store.setProtectedIds(() => new Set(["oldest"]));
     expect(store.releaseCandidates).toEqual([]);
-    expect(page.find('button[aria-label="Release oldest Recent"]').exists()).toBe(false);
+    expect(notice(page).text()).toContain("No Recent phrases to release");
   });
 
-  it("disarms the release confirmation after 2.5 seconds", async () => {
+  it("never names or deletes a saved Loop's member, even before the Looper exists", async () => {
+    store.book.phrases.push(phrase("newer", "recent", 200), overBudgetRecent());
+    store.book.loops.push({ id: "loop-1", name: "Loop 1", createdAt: 1, updatedAt: 1,
+      members: [{ phraseId: "oldest", offsetBars: 0, lengthBars: 1, muted: false, pinned: false, rate: 1 }] });
+    await nextTick();
+    expect(store.releaseCandidates.map((phrase) => phrase.id)).toEqual(["newer"]);
+    expect(store.deletePhrase("oldest")).toBe(false);
+    expect(store.findPhrase("oldest")).toBeDefined();
+  });
+
+  it("refuses the reel's delete of a saved Loop's member while it is on the desk, leaving the desk untouched", async () => {
+    store.book.phrases.push(phrase("looped", "recent", 200));
+    store.book.loops.push({ id: "loop-1", name: "Loop 1", createdAt: 1, updatedAt: 1,
+      members: [{ phraseId: "looped", offsetBars: 0, lengthBars: 1, muted: false, pinned: false, rate: 1 }] });
+    store.openPhrase("looped");
+    await nextTick();
+    const desk = store.deskPhraseId;
+    const takeId = store.takeId;
+    expect(desk).toBe("looped");
+    expect(store.deletePhrase("looped")).toBe(false);
+    await nextTick();
+    expect(store.deskPhraseId).toBe(desk);
+    expect(store.takeId).toBe(takeId);
+    expect(store.findPhrase("looped")).toBeDefined();
+  });
+
+  it("is swept away to the right, and comes back when the shelf's state changes", async () => {
     vi.useFakeTimers();
     try {
-      store.book.phrases.push(phrase("oldest", "recent", 100, "x".repeat(PHRASE_BUDGET_BYTES)));
+      store.book.phrases.push(overBudgetRecent());
       await nextTick();
       const page = render();
-      await page.get('button[aria-label="Release oldest Recent"]').trigger("click");
-      expect(page.find('button[aria-label="Confirm release oldest Recent"]').exists()).toBe(true);
-      await vi.advanceTimersByTimeAsync(2499);
-      expect(page.find('button[aria-label="Confirm release oldest Recent"]').exists()).toBe(true);
-      await vi.advanceTimersByTimeAsync(2);
-      expect(page.find('button[aria-label="Confirm release oldest Recent"]').exists()).toBe(false);
-      await page.get('button[aria-label="Release oldest Recent"]').trigger("click");
-      expect(store.findPhrase("oldest")).toBeDefined();
+      const sweep = () => {
+        const element = notice(page).element;
+        const at = (type: string, clientX: number) => element.dispatchEvent(new PointerEvent(type,
+          { bubbles: true, cancelable: true, pointerId: 4, pointerType: "touch", clientX, clientY: 300 }));
+        at("pointerdown", 200);
+        vi.advanceTimersByTime(16);
+        at("pointermove", 230);
+        vi.advanceTimersByTime(16);
+        at("pointermove", 260);
+        at("pointerup", 260);
+      };
+      sweep();
+      await nextTick();
+      expect(notice(page).exists()).toBe(false);
+      // Still over budget: it stays away.
+      tap("s-0", 0, Date.now());
+      await nextTick();
+      expect(store.shelfNotice).toBe("over-budget");
+      expect(notice(page).exists()).toBe(false);
+      // A warning that becomes a failure speaks again.
+      consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+      storage.setItem.mockImplementation((key: string, value: string) => {
+        if (key === "phrases") throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+        workingSetItem(key, value);
+      });
+      tap("s-1", 2, Date.now() + 300);
+      await nextTick();
+      expect(notice(page).attributes("data-shelf-notice")).toBe("failed");
+      sweep();
+      await nextTick();
+      expect(notice(page).exists()).toBe(false);
+      // Saving recovers and the shelf clears; the next time it fills, it says so again.
+      storage.setItem.mockImplementation(workingSetItem);
+      store.book.phrases.splice(store.book.phrases.findIndex((entry) => entry.id === "oldest"), 1);
+      await nextTick();
+      expect(store.shelfNotice).toBeNull();
+      store.book.phrases.push(overBudgetRecent());
+      await nextTick();
+      expect(notice(page).attributes("data-shelf-notice")).toBe("over-budget");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("brings a put-away failure back on the next refused save", async () => {
+    vi.useFakeTimers();
+    try {
+      store.book.phrases.push(phrase("oldest", "recent", 100));
+      await nextTick();
+      const page = render();
+      consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+      storage.setItem.mockImplementation((key: string, value: string) => {
+        if (key === "phrases") throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+        workingSetItem(key, value);
+      });
+      tap("f-0", 0, Date.now());
+      await nextTick();
+      expect(notice(page).attributes("data-shelf-notice")).toBe("failed");
+      const element = notice(page).element;
+      const at = (type: string, clientX: number) => element.dispatchEvent(new PointerEvent(type,
+        { bubbles: true, cancelable: true, pointerId: 5, pointerType: "touch", clientX, clientY: 300 }));
+      at("pointerdown", 200);
+      vi.advanceTimersByTime(16);
+      at("pointermove", 230);
+      vi.advanceTimersByTime(16);
+      at("pointermove", 260);
+      at("pointerup", 260);
+      await nextTick();
+      expect(notice(page).exists()).toBe(false);
+      // Still failing, and the next write is refused too: it speaks again.
+      tap("f-1", 2, Date.now() + 300);
+      await nextTick();
+      expect(store.shelfNotice).toBe("failed");
+      expect(notice(page).attributes("data-shelf-notice")).toBe("failed");
     } finally {
       vi.useRealTimers();
     }
@@ -214,9 +308,7 @@ describe("Shelf over budget: warn, keep saving (Burooj, 2026-10-17)", () => {
     await nextTick();
     const page = render();
     expect(page.text()).toContain("No Recent phrases to release");
-    expect(page.find('button[aria-label="Release oldest Recent"]').exists()).toBe(false);
     expect(store.shelves.kept).toHaveLength(1);
-    expect(store.releaseRecent("kept")).toBe(false);
     expect(savedPhrases().find((saved) => saved.id === "kept")?.shelf).toBe("kept");
   });
 
@@ -298,7 +390,6 @@ describe("A shelf that isn't saving always says so (persistence review of #192)"
     await nextTick();
     expect(notice(page).attributes("data-shelf-notice")).toBe("failed");
     expect(notice(page).text()).toContain("Keep this tab open");
-    expect(page.get('button[aria-label="Release oldest Recent"]').attributes("title")).toContain("keep this tab open");
     expect(unload()).toBe(true);
     storage.setItem.mockImplementation(workingSetItem);
     tap("u-1", 2, Date.now() + 300);

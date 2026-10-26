@@ -164,6 +164,8 @@ export const useMusicStore = defineStore(
         timestamp: liveAudioClock.toEpochTime(event.at * 1000),
         midiTimestamp: liveAudioClock.toPerformanceTime(event.at * 1000),
         audibleAt: audioTimeToOutputTime(superdoughAudio.getAudioContext(), event.at),
+        // The attack's own AudioContext time: the Looper places takes on the transport by it.
+        audioTime: event.at,
       };
     }
     const livePerformance = createLivePerformance<HeldPitch>({
@@ -294,7 +296,8 @@ export const useMusicStore = defineStore(
             currentNote.value = activeNote.solfege.name;
             isPlaying.value = true;
             window.dispatchEvent(new CustomEvent("note-played", {
-              detail: { ...detail, articulation: { ...articulation }, audibleAt: activeNote.audibleAt, mirrorMidi: false, timestamp },
+              detail: { ...detail, articulation: { ...articulation }, audibleAt: activeNote.audibleAt, mirrorMidi: false, timestamp,
+                audioTime: liveAudioClock.toAudioTime(liveAudioClock.fromEpochTime(timestamp)) },
             }));
           },
           onEnd(timestamp) {
@@ -690,6 +693,7 @@ export const useMusicStore = defineStore(
           articulation: { ...articulation },
           instrumentConfig: null,
           timestamp,
+          ...(Number.isFinite(startedAt) ? { audioTime: startedAt } : {}),
           ...(mirrorMidi ? {} : { mirrorMidi: false }),
         },
       }));

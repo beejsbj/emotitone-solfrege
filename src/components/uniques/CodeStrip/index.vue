@@ -42,6 +42,7 @@ import {
 import { renderStrudelNotation, type StrudelConfig } from "@/services/StrudelNotation";
 import { createHeardClock } from "@/services/heardClock";
 import { useInstrumentStore } from "@/stores/instrument";
+import { useLooperStore } from "@/stores/looper";
 import { usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import type { LogNote } from "@/types/patterns";
@@ -90,6 +91,7 @@ function createProductionWiring() {
   return {
     instrumentStore: useInstrumentStore(),
     phrasesStore: usePhrasesStore(),
+    looperStore: useLooperStore(),
     visualConfigStore: useVisualConfigStore(),
     playback: useCodeStripStrudel(),
   };
@@ -139,6 +141,10 @@ const initError = ref<string | null>(null);
 const visibleCode = ref("");
 // Play turns the strip to Ink at once, before the transport confirms.
 const stripPlaying = ref(false);
+// Play is the loop: while the desk's pattern sounds in the Looper, the strip
+// follows it, lighting only that member's notes while the others sound.
+const looperMemberId = computed(() => productionWiring?.looperStore.deskMemberId ?? null);
+const followsLooper = computed(() => !stripPlaying.value && looperMemberId.value !== null);
 // The highlight is timed on what is heard, so it stops while audio does.
 const heardClock = createHeardClock();
 let player: PatternPlayer | null = null;
@@ -319,7 +325,8 @@ function initializeTransport() {
 watch(
   () => productionWiring?.instrumentStore.isInteractionLocked ?? false,
   (isLocked) => {
-    if (isLocked && player?.isPlaying) stopPlayback();
+    // A running loop keeps playing while a scrolled-to instrument warms up.
+    if (isLocked && stripPlaying.value) stopPlayback();
   },
   { flush: "sync" },
 );
@@ -398,8 +405,7 @@ onBeforeUnmount(() => {
     <HighlightStrip
       class="code-strip__view"
       :tokens="presentationTokens"
-      :code="visibleCode"
-      :playing="isControlled ? false : stripPlaying"
+      :playing="isControlled ? false : stripPlaying || followsLooper"
       :listening="!isControlled"
       :density="density"
       :time-signature="timeSignature"
@@ -411,6 +417,7 @@ onBeforeUnmount(() => {
       :color-resolver="colorResolver"
       :still-color-resolver="stillColorResolver"
       :clock="isControlled ? undefined : heardClock"
+      :member-id="followsLooper ? looperMemberId ?? undefined : undefined"
       :unit-ms="isControlled ? undefined : (60000 / codeStripConfig.bpm) * GENERATED_BEATS_PER_BAR"
       :follow-latest-key="productionWiring?.phrasesStore.lastLiveNoteId"
       :reset-scroll-key="productionWiring?.phrasesStore.takeId"

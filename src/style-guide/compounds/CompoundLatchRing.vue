@@ -2,7 +2,7 @@
   <AnatomyDisplay
     title="Latch Ring &middot; Play, Latched"
     :features="features"
-    caption="The Latch Ring shows the Looper's latch on Play while it is held (Burooj, 2026-10-26). A Brass ring in the key's lip channel sweeps once per bar, read from UIBeat, which the transport drives from the heard bar: the audio clock is the truth and the ring owns no timer. The key keeps its pressed look underneath. While the beat dots count the latch's closing bar the ring rests on its dim track, so only one of the two moves. Under Reduced Motion it is a full, still Brass ring and the key's Ink and Ivory invert. No text label. Proposed in BJS-493 (PR #202, absorbing BJS-582), pending Burooj's acceptance."
+    caption="The Latch Ring shows the Looper's latch on Play while it is held (Burooj, 2026-10-26). A Brass ring in the key's lip channel sweeps once per bar, read from UIBeat, which the transport drives from the heard bar: the audio clock is the truth and the ring owns no timer. The key keeps its pressed look underneath. While latched the ring is the bar clock and nothing else: notes, the closing bar's countdown, the take growing and closing never stop, dim or reset it; the countdown is the beat dots' alone (BJS-582). It rests on its dim track only while the audio is suspended, and comes back at the heard bar's phase. Under Reduced Motion it is a full, still Brass ring and the key's Ink and Ivory invert. No text label. Proposed in BJS-493 (PR #202, absorbing BJS-582), pending Burooj's acceptance."
   >
     <template #hero>
       <div class="latch-ring-specimen__hero">
@@ -33,9 +33,9 @@
           </LatchRing>
         </BeatIndicator>
       </VariantCell>
-      <VariantCell caption="Rest &middot; the dots count the closing bar">
-        <BeatIndicator :countdown="2" aria-label="Closing-bar countdown above a resting ring">
-          <LatchRing v-slot="{ invert }" active stopped>
+      <VariantCell caption="Sweep &middot; the dots count the closing bar; the ring keeps the bar">
+        <BeatIndicator :countdown="2" aria-label="Closing-bar countdown above a sweeping ring">
+          <LatchRing v-slot="{ invert }" active>
             <Button size="sm" :tone="invert ? 'ink' : 'ivory'" pressed accessible-name="Play, latched, closing bar">
               <Play />
             </Button>
@@ -96,7 +96,8 @@ const features = [
   { label: "Ring", value: "2px Brass ring in the key's lip channel (4px out), so it clears the beat dots above" },
   { label: "Sweep", value: "fills clockwise from the top across each bar, --brass to a --brass-hi head over an opaque dim track (--brass-lo in Ink) that covers the key's lip; empties on the downbeat" },
   { label: "Clock", value: "UIBeat's bar position (the transport's heard bar); no timer, no CSS animation" },
-  { label: "Hand-off", value: "rests (track only) while the beat dots drain the latch's closing bar; sweeps again when the take closes" },
+  { label: "Countdown", value: "the beat dots' alone: the ring keeps sweeping through notes, the closing bar, the take's growth and its close (BJS-582)" },
+  { label: "Rest", value: "track only, while the AudioContext is suspended; the sweep comes back at the heard bar's phase" },
   { label: "Under it", value: "the Button's pressed look, unchanged" },
   { label: "Still", value: "Reduced Motion: full static Brass ring, and the slot's `invert` flips Play's Ivory to Ink (Stop's Ink to Ivory)" },
   { label: "Palette", value: "Ink, Ivory and Brass only; Forced Colors draws it in Highlight on GrayText" },

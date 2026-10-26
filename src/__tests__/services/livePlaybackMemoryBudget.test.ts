@@ -22,6 +22,8 @@ const rig = vi.hoisted(() => ({
   /** Source PCM of each sampled bank in bytes; every other name prepares as an oscillator. */
   sampleBytes: {} as Record<string, number>,
   pcm: [] as number[],
+  /** Holds a bank's download open until the test lets it finish. */
+  gate: undefined as undefined | ((instrumentId: string) => Promise<void>),
 }));
 
 vi.mock("@/audio/live/bridge", () => ({
@@ -70,6 +72,7 @@ vi.mock("@/audio/liveShaping", () => ({ OPEN_CUTOFF_HZ: 12000, createLiveShaping
 vi.mock("@/services/audioRuntime", () => ({ getLiveOrbit: () => undefined }));
 vi.mock("@/services/preparedLiveInstrument", () => ({
   async prepareLiveInstrument(_context: unknown, instrumentId: string) {
+    await rig.gate?.(instrumentId);
     const bytes = rig.sampleBytes[instrumentId];
     const envelope = { instrumentId, gain: .6, attack: .001, decay: .01, sustain: .8, release: .02 };
     if (bytes === undefined) return { ...envelope, kind: "oscillator", waveform: instrumentId };
@@ -144,6 +147,7 @@ beforeEach(() => {
   rig.queued = [];
   rig.pcm = [];
   rig.sampleBytes = {};
+  rig.gate = undefined;
   vi.stubGlobal("AudioWorkletNode", vi.fn());
 });
 afterEach(() => { vi.unstubAllGlobals(); });
@@ -203,6 +207,52 @@ describe("loaded sounds are limited by memory, not by count", () => {
     expect(manager.getLivePlaybackDiagnostics("violin")).toMatchObject({ installedBanks: 5, installedPcmBytes: large });
     for (const name of OSCILLATORS) expect(manager.getLivePlayback(name), name).toBeDefined();
     expect(played.filter(event => event.phraseId === "sine-1").length).toBeGreaterThan(4);
+    player.dispose();
+  });
+
+  it("does not evict the bank a Looper member just joined with when another preparation is queued behind its join", async () => {
+    const { manager, player, played, budget } = await setup();
+    // Sizes as parts of the budget, in 192ths: a 100 is pinned by the loop, z 80 is measured and evicted, w and y 60.
+    const part = (n: number) => Math.floor(n * budget / 192 / 4) * 4;
+    rig.sampleBytes = { a: part(100), z: part(80), w: part(60), y: part(60) };
+    const context = audioContext as unknown as AudioContext, destination = {} as AudioNode;
+    await player.start({ bpm: 120, target: { key: "C", mode: "major" }, members: [member("a-1", "a")] });
+    render(.2);
+    await manager.prepareLivePlayback(context, destination, "z");
+    // w joins and evicts z, which is thereby measured; then w leaves, so only a is pinned.
+    await player.join(member("w-1", "w"));
+    render(.5);
+    await player.leave("w-1");
+    render(2.5);
+    expect(manager.getLivePlayback("z")).toBeUndefined();
+
+    let finishDownload!: () => void, started!: () => void;
+    const downloading = new Promise<void>(resolve => { started = resolve; });
+    rig.gate = async instrumentId => {
+      if (instrumentId !== "y") return;
+      started();
+      await new Promise<void>(resolve => { finishDownload = resolve; });
+    };
+    const joining = player.join(member("y-1", "y"));
+    await downloading;
+    // The keyboard asks for z while y is still downloading: it queues behind y's join.
+    const keyboard = manager.prepareLivePlayback(context, destination, "z");
+    finishDownload();
+    await joining;
+    await keyboard;
+
+    // y is resident and pinned by its member, and z, which no longer fits beside a and y, is refused.
+    expect(manager.getLivePlayback("y")).toBeDefined();
+    expect(manager.getLivePlaybackFailure("z")).toMatchObject({ kind: "fallback", budget: true });
+    expect(player.getLooper().members.map(entry => entry.id)).toEqual(["a-1", "y-1"]);
+    render(4.2);
+    expect(played.some(event => event.phraseId === "y-1")).toBe(true);
+    // The member sounds: with a muted, y alone is heard.
+    await player.setMember("a-1", { muted: true });
+    render(.5);
+    const from = rig.pcm.length;
+    render(4);
+    expect(rms(from, rig.pcm.length)).toBeGreaterThan(.01);
     player.dispose();
   });
 });

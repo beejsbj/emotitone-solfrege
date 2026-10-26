@@ -257,22 +257,23 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
     // it stays unsupported, with the reason it was given, rather than "memory full".
     if (knownBytes !== undefined && knownBytes > MAX_PCM_BYTES) return;
     // With the size this bank had last time (an oscillator's is 0), refuse before
-    // downloading anything when the pinned banks leave no room, and otherwise free
-    // the room first, so a known bank's peak is the budget and not the budget plus
-    // its own decode. A download that then fails has still cost those evictions.
-    // A bank not prepared before has no known size and so no early decision: it may
-    // be an oscillator, which needs no memory however full the pinned banks are.
+    // downloading anything when the pinned banks leave no room for it. Nothing is
+    // evicted until the bank has downloaded: room made earlier would take banks
+    // from a Looper member whose pin has not landed yet, and would leave the
+    // keyboard's sound unavailable for the whole download. A bank not prepared
+    // before has no known size and so no early decision: it may be an oscillator,
+    // which needs no memory however full the pinned banks are.
     if (knownBytes !== undefined) {
       const pinnedBefore = pinnedPcmBytes();
-      const resident = engine;
-      if (pinnedBefore + knownBytes > MAX_PCM_BYTES
-        || (knownBytes > 0 && resident && !await makeRoom(id => resident.forget(id), knownBytes, run))) {
+      if (pinnedBefore + knownBytes > MAX_PCM_BYTES) {
         refuseForBudget(instrumentId, knownBytes, pinnedBefore);
         return;
       }
-      if (run !== generation) return;
     }
     const preparationSampleRate = nextContext.sampleRate;
+    // Read before the download: a sound registered again while it downloads must not
+    // inherit the size of the samples it replaced.
+    const registration = getCatalogSound(instrumentId);
     const prepared = await workletCatalog.prepareLiveInstrument(nextContext, instrumentId, preparationAbort.signal);
     preparedResult = prepared;
     if (run !== generation) return;
@@ -287,7 +288,7 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
       return;
     }
     const bytes = byteSize(prepared);
-    knownBankBytes.set(instrumentId, { registration: getCatalogSound(instrumentId), bytes });
+    knownBankBytes.set(instrumentId, { registration, bytes });
     if (bytes > MAX_PCM_BYTES) {
       reasons.set(instrumentId, `Sample bank needs ${mib(bytes)}, more than the ${mib(MAX_PCM_BYTES)} sample memory`);
       unsupported.add(instrumentId);
@@ -346,8 +347,8 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
       };
       // Held and pinned banks stay resident. If they leave no room, refuse before
       // evicting anything: freeing other banks would not help. Otherwise retire the
-      // least recently used banks that hold PCM until this one fits (none, when a
-      // known size already made room before the download).
+      // least recently used banks that hold PCM until this one fits. This runs only
+      // after the download, so a bank is never evicted for one that then fails.
       if (!await makeRoom(id => ready.forget(id), bytes, run)) {
         refuseForBudget(instrumentId, bytes, pinnedPcmBytes());
         return;

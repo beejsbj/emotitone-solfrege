@@ -308,24 +308,49 @@ describe('live playback instrument manager', () => {
     expect(mocks.prepare).toHaveBeenCalledOnce()
   })
 
-  it('makes room before it downloads a bank it has measured, so the peak stays near the budget', async () => {
+  it('evicts nothing while a bank it has measured downloads, so the resident sounds stay playable', async () => {
     const { manager, engine, context } = await setup()
     bankSizes({ x: 90, y: 90, z: 90 })
     for (const name of ['x', 'y', 'z']) await manager.prepareLivePlayback(context, destination, name)
     expect(engine.forget.mock.calls).toEqual([['x']])
     engine.forget.mockClear()
     const prepare = mocks.prepare.getMockImplementation()!
-    let forgottenBeforeDownload: unknown[] | undefined
-    mocks.prepare.mockImplementation(async (...args: Parameters<typeof prepare>) => {
-      forgottenBeforeDownload = engine.forget.mock.calls.map(call => call[0])
-      return prepare(...args)
-    })
-    // x was evicted and measured at 90 MiB: y, the least recently used, goes before x is fetched.
-    await manager.prepareLivePlayback(context, destination, 'x')
-    expect(forgottenBeforeDownload).toEqual(['y'])
+    let finishDownload!: () => void
+    const download = new Promise<void>(resolve => { finishDownload = resolve })
+    mocks.prepare.mockImplementation(async (...args: Parameters<typeof prepare>) => { await download; return prepare(...args) })
+    // x was evicted and measured at 90 MiB. While it downloads, y and z are untouched and playable.
+    const preparing = manager.prepareLivePlayback(context, destination, 'x')
+    await vi.waitFor(() => expect(mocks.prepare).toHaveBeenCalledTimes(4))
+    expect(engine.forget).not.toHaveBeenCalled()
+    expect(manager.getLivePlayback('y')).toBeDefined()
+    expect(manager.getLivePlayback('z')).toBeDefined()
+    // Only once it has arrived does the least recently used bank make room for it.
+    finishDownload()
+    await preparing
     expect(engine.forget.mock.calls).toEqual([['y']])
     expect(manager.getLivePlayback('x')).toBeDefined()
     expect(manager.getLivePlaybackDiagnostics('x')).toMatchObject({ installedBanks: 2, installedPcmBytes: 180 * MIB })
+  })
+
+  it('does not give the size of the old samples to a sound registered again while it downloads', async () => {
+    const { manager, context } = await setup()
+    const catalog = await import('@/audio/soundCatalog')
+    catalog.registerSampleMap({ big: ['old.wav'] })
+    bankSizes({ held: 100, big: 100 })
+    await manager.prepareLivePlayback(context, destination, 'held')
+    manager.getLivePlayback('held')!.press('finger', [{ instrumentId: 'held', pitch: 60 }])
+    const prepare = mocks.prepare.getMockImplementation()!
+    mocks.prepare.mockImplementationOnce(async (...args: Parameters<typeof prepare>) => {
+      const bank = await prepare(...args)
+      catalog.registerSampleMap({ big: ['new.wav'] })
+      return bank
+    })
+    await manager.prepareLivePlayback(context, destination, 'big')
+    expect(manager.getLivePlaybackFailure('big')).toMatchObject({ budget: true })
+    mocks.prepare.mockClear()
+    // The 100 MiB belongs to old.wav, so it says nothing about new.wav: measure again.
+    await manager.prepareLivePlayback(context, destination, 'big')
+    expect(mocks.prepare).toHaveBeenCalledOnce()
   })
 
   it('chooses every bank to evict up front, so a key pressed while they fade cannot doom the install', async () => {
@@ -339,7 +364,7 @@ describe('live playback instrument manager', () => {
     const installing = manager.prepareLivePlayback(context, destination, 'd')
     await vi.waitFor(() => expect(engine.forget).toHaveBeenCalled())
     // c is already retiring, so a key pressed on it now finds no bank to pin.
-    manager.getLivePlayback('c')?.press('late', [{ instrumentId: 'c', pitch: 60 }])
+    expect(manager.getLivePlayback('c')).toBeUndefined()
     fades.forEach(finish => finish())
     await installing
     expect(engine.forget.mock.calls).toEqual([['b'], ['c']])

@@ -103,6 +103,20 @@ async function prewarmCore(soundName: string, tolerateFailures = false): Promise
 }
 
 /**
+ * Warm the default synth at startup. Its own load failures are tolerated (a
+ * later selection retries), but a worklet that cannot run at all (no
+ * AudioWorklet, as on a page that is not a secure context, or its module
+ * failed to load) would refuse every note: startup fails, and says why.
+ */
+async function prewarmDefaultInstrument(): Promise<void> {
+  await prewarmCore(DEFAULT_INSTRUMENT, true);
+  const failure = getLivePlaybackFailure(DEFAULT_INSTRUMENT);
+  if (failure?.kind === "unavailable" && !failure.budget) {
+    throw new Error(`Audio engine failed to start: ${failure.reason}`);
+  }
+}
+
+/**
  * Loads an instrument into the live worklet. Safe to call at any time:
  * starts the engine if needed, then fetches and decodes the bank so the
  * first keypress is never dropped.
@@ -173,7 +187,7 @@ export async function initAudioEngine(
       await initializeAudio();
       // Only the default instrument is decoded eagerly; others warm on selection.
       initProgressCallback?.(80, `Preparing ${DEFAULT_INSTRUMENT}…`);
-      await prewarmCore(DEFAULT_INSTRUMENT, true);
+      await prewarmDefaultInstrument();
       initProgressCallback?.(98, `${DEFAULT_INSTRUMENT} ready`);
       initProgressCallback?.(100, "Audio engine ready");
       initialized = true;
@@ -207,7 +221,7 @@ export async function initSynthOnlyAudio(): Promise<void> {
   startupStage = "engine";
   try {
     await initializeAudio();
-    await prewarmCore(DEFAULT_INSTRUMENT, true);
+    await prewarmDefaultInstrument();
   } catch (error) {
     startupStage = resumeStage;
     throw error;

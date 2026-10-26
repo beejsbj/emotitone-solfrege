@@ -269,6 +269,19 @@ describe("the app's audio engine", () => {
     expect(audio.isPrewarmed("piano")).toBe(false);
   });
 
+  it("fails to start, on either entry, when the worklet cannot run at all; a load failure still starts", async () => {
+    hoisted.liveFailure.mockImplementation(() => ({ kind: "unavailable", reason: "AudioWorklet is unavailable" }));
+    const audio = await import("@/services/audioEngine");
+    await expect(audio.initAudioEngine()).rejects.toThrow("Audio engine failed to start: AudioWorklet is unavailable");
+    await expect(audio.initSynthOnlyAudio()).rejects.toThrow("Audio engine failed to start: AudioWorklet is unavailable");
+    expect(audio.getAudioStartupStage()).not.toBe("ready");
+
+    // The default synth's own load failure is not the engine's: a later selection retries it.
+    hoisted.liveFailure.mockImplementation(() => ({ kind: "load", reason: "Could not prepare triangle" }));
+    await audio.initAudioEngine();
+    expect(audio.getAudioStartupStage()).toBe("ready");
+  });
+
   it("refuses a sound the worklet will not hold, with its reason: nothing else plays it", async () => {
     const audio = await import("@/services/audioEngine");
     await audio.initAudioEngine();

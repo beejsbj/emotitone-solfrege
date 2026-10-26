@@ -16,7 +16,7 @@ import { useMusicColor } from "@/composables/useMusicColor";
 import { chromaticPitchHeight } from "@/services/scalePitch";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { GATE_BAR_MS, gateMembers } from "./phoneGate/fixtures";
-import { gateRows, type Verdict } from "./phoneGate/report";
+import { formatLatencyHint, gateRows, type Verdict } from "./phoneGate/report";
 import { createPhoneGate, MUTE_TAPS, PAD_TAPS, SOAK_BARS, SOLO_HOLDS, type GateDial } from "./phoneGate/runner";
 
 // The Stage behind the page runs the default look, and the lab never saves it.
@@ -26,6 +26,13 @@ const gate = createPhoneGate();
 const state = gate.state;
 const rows = computed(() => gateRows(state.results));
 const running = computed(() => state.phase !== "idle" && state.phase !== "done");
+/** The buffer this link asks for (BJS-590), shown before the tap. */
+const bufferNote = computed(() => {
+  const hint = state.results.latencyHint;
+  if (!hint || hint.link === null) return "Buffer: the browser's default (interactive).";
+  if (hint.asked === null) return `Buffer: the browser's default; ?latencyHint=${hint.link} is not interactive, balanced, playback or seconds.`;
+  return `Buffer: latencyHint ${formatLatencyHint(hint.asked)}, from the link.`;
+});
 const copied = ref(false);
 const summaryRef = ref<HTMLElement | null>(null);
 
@@ -98,6 +105,7 @@ onBeforeUnmount(() => gate.dispose());
             <span>Run the phone gate</span>
           </div>
           <p class="phone-gate__note">The tap starts audio. Keep this tab in front until the summary shows.</p>
+          <p class="phone-gate__note" data-testid="phone-gate-buffer">{{ bufferNote }}</p>
         </template>
 
         <template v-else-if="state.phase === 'loading'">

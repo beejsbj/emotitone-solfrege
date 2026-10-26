@@ -13,12 +13,63 @@ let initialization: Promise<void> | undefined;
 let stopLifecycle: (() => void) | undefined;
 let stopRecovery: (() => void) | undefined;
 
+// ─── The context's buffer (BJS-590) ──────────────────────────────────────────
+
+/** What the browser is asked to size the output buffer for: a category, or seconds. */
+export type LatencyHint = AudioContextLatencyCategory | number;
+const LATENCY_CATEGORIES: readonly string[] = ["interactive", "balanced", "playback"];
+/** The app's default. Undefined is the browser's own default, "interactive". */
+const DEFAULT_LATENCY_HINT: LatencyHint | undefined = undefined;
+let latencyHintOverride: LatencyHint | undefined;
+/** The hint each context was created with; null when the browser's default was used. */
+const createdWith = new WeakMap<BaseAudioContext, LatencyHint | null>();
+
+/** A latencyHint as written in a link: a category, or seconds in (0, 1]. Anything else is undefined. */
+export function parseLatencyHint(value: string | null | undefined): LatencyHint | undefined {
+  const text = value?.trim();
+  if (!text) return undefined;
+  if (LATENCY_CATEGORIES.includes(text)) return text as AudioContextLatencyCategory;
+  const seconds = Number(text);
+  return Number.isFinite(seconds) && seconds > 0 && seconds <= 1 ? seconds : undefined;
+}
+
+/**
+ * Ask for a buffer other than the app's default (a lab page's A/B link). It
+ * applies to the next context created, so set it before anything creates one;
+ * false means a live context already exists and keeps its own buffer.
+ */
+export function setLatencyHintOverride(hint: LatencyHint | undefined): boolean {
+  latencyHintOverride = hint;
+  return !context || context.state === "closed";
+}
+
+/** The hint `audio` was created with: null for the browser's default, undefined if this runtime did not create it. */
+export function latencyHintOf(audio: BaseAudioContext): LatencyHint | null | undefined {
+  return createdWith.get(audio);
+}
+
+function createContext(): AudioContext {
+  const hint = latencyHintOverride ?? DEFAULT_LATENCY_HINT;
+  if (hint !== undefined) {
+    try {
+      const hinted = new AudioContext({ latencyHint: hint });
+      createdWith.set(hinted, hint);
+      return hinted;
+    } catch {
+      // A browser that refuses the hint still gets a working context, recorded as the default.
+    }
+  }
+  const created = new AudioContext();
+  createdWith.set(created, null);
+  return created;
+}
+
 export function getAudioContext(): AudioContext {
   if (!context || context.state === "closed") {
     stopLifecycle?.(); stopRecovery?.(); graph?.reset();
     stopLifecycle = stopRecovery = undefined;
     initialization = undefined;
-    context = new AudioContext();
+    context = createContext();
     graph = new EngineAudioGraph(context);
     setAudioContext(context);
     setSuperdoughAudioController(graph);

@@ -125,10 +125,13 @@ describe("phone gate run", () => {
       gate.stop();
       await vi.advanceTimersByTimeAsync(1000);
       expect(gate.state.phase).toBe("done");
-      // The soak's own read now settles, after the Stop.
+      expect(gate.state.summary).toContain("[NOT RUN] Worklet render cost");
+      // The soak's own read now settles, after the Stop: the run stays done and the summary takes the reading.
       release();
       await vi.advanceTimersByTimeAsync(0);
       expect(gate.state.phase).toBe("done");
+      expect(gate.state.summary).toMatch(/Worklet render cost per quantum: p50 0\.50 ms/);
+      expect(gate.state.summary).not.toContain("[NOT RUN] Worklet render cost");
     } finally {
       gate.dispose();
       vi.mocked(getLivePlaybackFailure).mockReturnValue({ kind: "load", reason: "refused by the test" });

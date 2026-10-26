@@ -316,7 +316,11 @@ export function createPhoneGate() {
       const reading = readLiveRenderCost()?.catch(() => undefined);
       const cost = await (timeoutMs === undefined ? reading
         : Promise.race([reading, sleep(timeoutMs).then(() => undefined)]));
-      if (cost) results.renderCost = summarizeRenderCost(cost, audio.sampleRate);
+      if (cost) {
+        results.renderCost = summarizeRenderCost(cost, audio.sampleRate);
+        // Settled after a Stop had already summarised the run: the summary takes the late reading.
+        if (state.phase === "done") state.summary = formatGateSummary(results);
+      }
       return Boolean(cost);
     };
     // A Stop mid-soak still reads the cost of the quanta rendered so far.

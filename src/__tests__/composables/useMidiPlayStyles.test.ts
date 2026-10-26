@@ -310,14 +310,11 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
   });
 
   /*
-   * Known gap in the MIDI mirror (pre-existing on the worklet path; the old
-   * main-thread engine hid it with a 5 ms lead): the worklet's first styled
-   * pulse lands exactly on its press. When the chord's other notes revise
-   * the arpeggio in the same tick, createMidiNoteOwnerScheduler advances that
-   * due attack into its active set as if sent, and the coalesced flush never
-   * sends it; its note-off still goes. These fail until that is fixed.
+   * The worklet's first styled pulse lands exactly on its press. When the
+   * chord's other notes revise the arpeggio in the same tick, that due attack
+   * has not reached the output yet: the scheduler must still send it.
    */
-  it.fails("replaces a released pitch in a queued MIDI arpeggio without leaving a silent step", async () => {
+  it("replaces a released pitch in a queued MIDI arpeggio without leaving a silent step", async () => {
     const music = useMusicStore();
     music.setPlayMode("arp-up:16");
     await connect();
@@ -336,7 +333,7 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     expect(useKeyboardDrawerStore().touch.activeTouches.size).toBe(0);
   });
 
-  it.fails("restores a twice-revised MIDI arpeggio slot without its canceled off swallowing the attack", async () => {
+  it("restores a twice-revised MIDI arpeggio slot without its canceled off swallowing the attack", async () => {
     const music = useMusicStore();
     music.setPlayMode("arp-up:16");
     await connect();

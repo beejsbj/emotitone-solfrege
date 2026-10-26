@@ -177,6 +177,10 @@ export function createMidiNoteOwnerScheduler(
 ) {
   const activeOwners = new Map<number, Set<string>>();
   const scheduledEvents = new Map<string, ScheduledMidiOwnerEvent>();
+  // Events scheduled since the plan was last handed to the output. However
+  // due, they have not been sent: delivering one in `advance` would drop it
+  // from the next plan, and the output would never hear it.
+  const unsent = new Set<string>();
   let queuedTransitions: MidiOwnerTransition[] = [];
   let isBatching = false;
   let advancedCurrentBatch = false;
@@ -220,9 +224,16 @@ export function createMidiNoteOwnerScheduler(
   const advance = (timestamp: number) => {
     for (const event of ordered(scheduledEvents.values())) {
       if (event.timestamp > timestamp) break;
+      const key = eventKey(event.ownerId, event.phase);
+      if (unsent.has(key)) continue;
       apply(activeOwners, event);
-      scheduledEvents.delete(eventKey(event.ownerId, event.phase));
+      scheduledEvents.delete(key);
     }
+  };
+
+  const forget = (key: string) => {
+    scheduledEvents.delete(key);
+    unsent.delete(key);
   };
 
   const rebuild = () => {
@@ -230,6 +241,8 @@ export function createMidiNoteOwnerScheduler(
       [...activeOwners].map(([midiNote, owners]) => [midiNote, new Set(owners)]),
     );
     const transitions: MidiOwnerTransition[] = [];
+    // Whether or not the plan changed, the output now holds every scheduled event.
+    unsent.clear();
 
     for (const event of ordered(scheduledEvents.values())) {
       const transition = apply(projectedOwners, event);
@@ -261,13 +274,14 @@ export function createMidiNoteOwnerScheduler(
       advancedCurrentBatch = true;
     }
     const key = eventKey(ownerId, phase);
-    scheduledEvents.delete(key);
+    forget(key);
     let immediateTransition: Omit<MidiOwnerTransition, "timestamp"> | null = null;
 
     if (timestamp === undefined || timestamp < currentTime) {
       immediateTransition = apply(activeOwners, { ownerId, midiNote, phase, velocity });
     } else {
       scheduledEvents.set(key, { ownerId, midiNote, phase, timestamp, velocity });
+      unsent.add(key);
     }
     if (isBatching) {
       if (immediateTransition) batchImmediateTransitions.push(immediateTransition);
@@ -302,13 +316,14 @@ export function createMidiNoteOwnerScheduler(
       // Advance delivered events before deleting both sides of a future plan.
       // Releasing an owner alone would leave its queued attack behind.
       advance(isBatching ? batchTime : now());
-      scheduledEvents.delete(eventKey(ownerId, "attack"));
-      scheduledEvents.delete(eventKey(ownerId, "release"));
+      forget(eventKey(ownerId, "attack"));
+      forget(eventKey(ownerId, "release"));
       update(ownerId, midiNote, "release");
     },
     clear() {
       activeOwners.clear();
       scheduledEvents.clear();
+      unsent.clear();
       queuedTransitions = [];
       batchImmediateTransitions = [];
       isBatching = false;

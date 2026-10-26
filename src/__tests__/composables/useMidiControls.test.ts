@@ -165,6 +165,37 @@ describe("useMidiControls helpers", () => {
     ]);
   });
 
+  it("sends an attack due now when another owner cancels in the same batch", () => {
+    // The worklet's first styled pulse lands on the press itself; a chord's
+    // next press revises the plan (a cancel) before the output heard it.
+    const replaceScheduled = vi.fn();
+    const sendNow = vi.fn();
+    const scheduler = createMidiNoteOwnerScheduler(sendNow, replaceScheduled, () => 0);
+
+    scheduler.beginBatch();
+    scheduler.attack("first", 60, 0);
+    scheduler.release("first", 60, 100);
+    scheduler.attack("planned", 64, 125);
+    scheduler.release("planned", 64, 225);
+    scheduler.cancel("planned", 64);
+    scheduler.endBatch();
+
+    expect(sendNow).not.toHaveBeenCalled();
+    expect(replaceScheduled).toHaveBeenLastCalledWith([
+      { midiNote: 60, phase: "attack", timestamp: 0 },
+      { midiNote: 60, phase: "release", timestamp: 100 },
+    ]);
+    // Once handed to the output, the due attack counts as sent: a later batch
+    // at the same instant neither resends it nor loses its release.
+    scheduler.beginBatch();
+    scheduler.attack("next", 67, 125);
+    scheduler.endBatch();
+    expect(replaceScheduled).toHaveBeenLastCalledWith([
+      { midiNote: 60, phase: "release", timestamp: 100 },
+      { midiNote: 67, phase: "attack", timestamp: 125 },
+    ]);
+  });
+
   it("pairs an attack canceled at its deadline despite within-batch clock drift", () => {
     let clock = 30;
     const replaceScheduled = vi.fn();

@@ -20,7 +20,6 @@ const QUANTUM = 128;
 // thread, as on a device: a start read from it lands a little off its bar.
 const LAG_FRAMES = 200;
 const EPOCH = Date.UTC(2026, 9, 17, 12);
-const FRAMES_PER_BAR = 4 * 60 * RATE / 120;
 
 const rig = vi.hoisted(() => ({
   core: undefined as unknown as import("@/audio/live/core").LiveAudioCore,

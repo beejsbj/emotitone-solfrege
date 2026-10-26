@@ -6,6 +6,8 @@
   >
     <template #hero>
       <div class="looper-dial-specimen__column">
+        <!-- Save as a Loop (BJS-572): above Stop All while two or more playing patterns are not yet a Loop. -->
+        <Button class="looper-dial-specimen__save" size="sm" tone="ink" accessible-name="Save these patterns as a Loop" title="Save as a Loop"><BookmarkPlus /></Button>
         <Button size="sm" tone="ink" accessible-name="Stop all loops" title="Stop all loops"><Square /></Button>
         <LooperDial
           v-for="(dial, index) in dials"
@@ -36,7 +38,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { Square } from "lucide-vue-next";
+import { BookmarkPlus, Square } from "lucide-vue-next";
 import Button from "../../components/primatives/Button.vue";
 import LooperDial, { type LooperDialState } from "../../components/primatives/LooperDial.vue";
 import { useMusicColor } from "../../composables/useMusicColor";
@@ -95,7 +97,7 @@ const features = [
   { label: "States", value: "playing · muted (or silenced by a solo) at 30% · soloed with an Ivory ring" },
   { label: "Surface", value: "no keycap: the 34px Loop Dial on the Stage's Ink, inside a 44px touch target" },
   { label: "Colour", value: "Music Color notes, a brass hand, Ivory focus and solo" },
-  { label: "Production", value: "the Looper's column on the left edge, Stop All (a Button) on top" },
+  { label: "Production", value: "the Looper's column on the left edge, Stop All (a Button) on top; above it Save as a Loop while two or more playing patterns are not yet a Loop (BJS-572)" },
   { label: "Source", value: "components/primatives/LooperDial.vue (composes LoopDial)" },
 ];
 </script>
@@ -114,5 +116,9 @@ const features = [
   gap: var(--s-1);
   padding: var(--s-4);
   background: var(--ink);
+}
+
+.looper-dial-specimen__save {
+  margin-bottom: calc(var(--hit-gap-sm) - var(--s-1));
 }
 </style>

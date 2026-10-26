@@ -159,6 +159,28 @@ These are design-system units and go through that process, not this document:
     within the loop (its offset) moves to the pattern strip dial at the desk,
     also a follow-up; the store's offset path stays for it.
 - **Stop All** on top of the dial column.
+- **Save as a Loop** (BJS-572, proposed): a key above Stop All, shown while
+  two or more patterns play and no saved Loop holds exactly them. It saves
+  them as "Loop n" and files the take if it was one of them (it plays on),
+  so nothing more is written into a Loop's pattern from the desk.
+- **Loop reels** (BJS-572, proposed; the Reel Switch compound): each saved
+  Loop is a reel beside the home reel, reached by swiping sideways across
+  the reel strip; pips on the reel's bottom edge say which reel shows. A
+  Loop's reel holds only its patterns, in its order, each wearing the
+  Loop's name as its shelf word, then the front slot.
+  - **Play** on a Loop's reel is the Loop's: with nothing playing it starts
+    from bar one as saved; over a running loop its patterns join the grid
+    in their saved places (rule 2); with all of them playing, they stop
+    together. Anything else playing plays on.
+  - **Editing** is rule 3 on the Loop's reel: its patterns are read-only
+    from the desk there, playing or not, so a note opens a new take on top.
+    The take, at the front, offers **Replace in Loop**: a pointer swap for
+    the pattern last on the desk there. Neither phrase changes. A replaced
+    pattern that is playing gives way to the new one: where the new one
+    already plays, else in the replaced one's place. The take is then filed.
+  - The swipe is a page turn under the finger (a quarter of the width, or a
+    quick throw), never a throw off an edge, so it cannot be taken for the
+    dial's flick or the notice's sweep.
 - **Looper** (a Stage part, its own config tab): the turning light a running
   loop casts, with Strength, Definition and Spread. Haze at low Definition,
   comets curving along their orbits at high.
@@ -216,7 +238,8 @@ The questions this section held are settled:
   home reel and holding only that Loop's patterns, so a Loop can be edited
   pattern by pattern. The surface (and its horizontal gesture, which must not
   fight the strips' own) is deferred to its own ticket; until then saved Loops
-  exist in the store only (rule 4).
+  exist in the store only (rule 4). BJS-572 builds it (see Surfaces, Loop
+  reels), pending Burooj's acceptance.
 - **Rule 2 uses whole bars.** Each pattern's length rounds up to whole bars
   (#139's `phraseLengthBars`), so every loop cycles on bar lines; a 3-bar
   pattern against a 4-bar one drifts, as rule 2 allows. The take's own

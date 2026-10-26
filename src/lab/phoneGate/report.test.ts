@@ -35,6 +35,9 @@ describe("phone gate verdicts", () => {
     expect(row(base({ attacks: { ...ledger, extra: 2 } }), "attacks").verdict).toBe("fail");
     expect(row(base({ attacks: { ...ledger, cancelled: 1 } }), "skips").verdict).toBe("fail");
     expect(row(base({ attacks: { ...ledger, overflows: 1 } }), "attacks").value).toContain("unreliable");
+    // Records were dropped: a clean count is no evidence, so an overflow never passes.
+    expect(row(base({ attacks: { ...ledger, overflows: 1 } }), "attacks").verdict).toBe("fail");
+    expect(row(base({ attacks: { ...ledger, overflows: 1 } }), "attacks").value).toContain("cannot pass");
     expect(row(base({ live: { pressed: 144, sounded: 143 } }), "live").verdict).toBe("fail");
   });
 
@@ -53,6 +56,10 @@ describe("phone gate verdicts", () => {
     // One quantum past 2.67 ms at 48 kHz fails the maximum.
     expect(row(base({ renderCost: cost([...Array(999).fill(.6), 3.1]) }), "render-cost").verdict).toBe("fail");
     expect(row(base({ renderCost: cost([...Array(999).fill(0), 3], "date") }), "render-cost").verdict).toBe("record");
+    // 2.66 ms is within the 2.667 ms budget, though its 0.1 ms bucket reaches past it: graded on the exact maximum.
+    const close = row(base({ renderCost: cost([...Array(999).fill(.6), 2.66]) }), "render-cost");
+    expect(close.verdict).toBe("pass");
+    expect(close.value).toContain("1 of 1000 quanta over");
   });
 
   it("uses the browser's underrun counter where there is one, and the clock estimate otherwise", () => {

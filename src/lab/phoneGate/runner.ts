@@ -47,6 +47,8 @@ export { MUTE_TAPS, SOLO_HOLDS };
 export const PAD_TAPS = 10;
 const PAUSE_MS = 5000;
 const FADE_MS = VOICE_RETIRE_SECONDS * 1000;
+/** How long a Stop waits for the worklet to answer a render-cost read (ms). */
+const STOP_COST_READ_MS = 500;
 
 export interface GateDial { id: string; label: string; muted: boolean; soloed: boolean }
 
@@ -127,6 +129,9 @@ export function createPhoneGate() {
   let advance: (() => void) | undefined;
   /** Publishes what the step in progress has measured; a Stop calls it before the summary is written. */
   let captureStep: (() => void) | undefined;
+  /** The soak's render-cost read, awaited (briefly) by a Stop before the summary is written. */
+  let captureCost: (() => Promise<boolean>) | undefined;
+  let finishing = false;
   const lastLift = new Map<string, number>();
   const loopAttackTimes: number[] = [];
 
@@ -239,7 +244,7 @@ export function createPhoneGate() {
     void automatic(unlocked).catch(error => {
       if (stopped) return;
       results.error = error instanceof Error ? error.message : String(error);
-      finish();
+      void finish();
     });
   }
 
@@ -306,6 +311,16 @@ export function createPhoneGate() {
     state.phase = "soak";
     state.status = "Soak: the loop plays with live chords on top. Drum on the pad too.";
     void readLiveRenderCost(true)?.catch(() => {});
+    /** Read the worklet's render cost into the results; false when no reading came (in time). */
+    const readCost = async (timeoutMs?: number) => {
+      const reading = readLiveRenderCost()?.catch(() => undefined);
+      const cost = await (timeoutMs === undefined ? reading
+        : Promise.race([reading, sleep(timeoutMs).then(() => undefined)]));
+      if (cost) results.renderCost = summarizeRenderCost(cost, audio.sampleRate);
+      return Boolean(cost);
+    };
+    // A Stop mid-soak still reads the cost of the quanta rendered so far.
+    captureCost = () => readCost(STOP_COST_READ_MS);
     const statsBefore = readPlaybackStats(audio);
     const frames: number[] = [];
     // An OS interruption (a call, Siri) changes the context's state: the meter starts a fresh baseline.
@@ -355,8 +370,8 @@ export function createPhoneGate() {
     recorders.delete(account.record);
     soakLights.stop();
     publishSoak(toBar);
-    const cost = await readLiveRenderCost()?.catch(() => undefined);
-    results.renderCost = cost ? summarizeRenderCost(cost, audio.sampleRate) : null;
+    if (!(await readCost())) results.renderCost = null;
+    captureCost = undefined;
     results.memory = { ...results.memory!, afterLoop: readJsMemory(), bank: readBank() };
     results.environment = environment(audio);
 
@@ -378,7 +393,7 @@ export function createPhoneGate() {
     state.phase = "route";
     await routeCheck(audio);
     check();
-    finish();
+    await finish();
   }
 
   // ─── Mute and solo, from the real Looper Dial ───────────────────────────────
@@ -572,11 +587,16 @@ export function createPhoneGate() {
   function answerRoute(works: boolean | null) { routeAnswer?.(works); routeAnswer = undefined; }
   function next() { const go = advance; advance = undefined; go?.(); }
 
-  function finish() {
-    if (state.phase === "done") return;
+  async function finish() {
+    if (state.phase === "done" || finishing) return;
+    finishing = true;
     stopped = true;
     try { captureStep?.(); } catch { /* a capture never blocks the summary */ }
     captureStep = undefined;
+    // The render cost is read across the worklet's port: the summary waits for it, briefly.
+    const readCost = captureCost;
+    captureCost = undefined;
+    if (readCost) await readCost().catch(() => false);
     try { if (player && results.memory) results.memory = { ...results.memory, afterLoop: results.memory.afterLoop ?? readJsMemory() }; } catch { /* reading memory never blocks the summary */ }
     teardown();
     state.phase = "done";
@@ -588,7 +608,7 @@ export function createPhoneGate() {
   function stop() {
     if (state.phase === "idle" || state.phase === "done") return;
     results.error ??= "Stopped before the end";
-    finish();
+    void finish();
     // Wake anything waiting on an answer so it can see the stop.
     earAnswer?.(null); routeAnswer?.(null); resumeTap?.(); next();
   }

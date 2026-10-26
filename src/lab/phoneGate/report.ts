@@ -28,7 +28,7 @@ export type Verdict = "pass" | "fail" | "record" | "partial" | "not-run";
 /** Steps whose measurements can be cut short by a Stop, and the rows they feed. */
 export type GateStep = "soak" | "resume";
 const STEP_ROWS: Record<GateStep, readonly string[]> = {
-  soak: ["attacks", "live", "skips", "underruns", "frames", "stage"],
+  soak: ["attacks", "live", "skips", "render-cost", "underruns", "frames", "stage"],
   resume: ["resume"],
 };
 
@@ -153,10 +153,12 @@ export function gateRows(results: GateResults): GateRow[] {
   const rows: GateRow[] = [];
   const attacks = results.attacks;
   rows.push(attacks
-    ? { id: "attacks", label: "Attacks lost", verdict: attacks.lost || attacks.doubled || attacks.extra ? "fail" : "pass",
+    // An overflowed event pool dropped records: a clean count proves nothing, so it cannot pass.
+    ? { id: "attacks", label: "Attacks lost",
+      verdict: attacks.lost || attacks.doubled || attacks.extra || attacks.overflows ? "fail" : "pass",
       value: `${attacks.lost} lost of ${attacks.expected} over ${Number(attacks.bars.toFixed(1))} bars (doubled ${attacks.doubled}, extra ${attacks.extra}, cut short ${attacks.cutShort}`
         + `${attacks.stolenAtOnset ? `, ${attacks.stolenAtOnset} of them stolen at onset and counted lost` : ""})`
-        + (attacks.overflows ? `; event pool overflowed ${attacks.overflows}× (count unreliable)` : ""),
+        + (attacks.overflows ? `; event pool overflowed ${attacks.overflows}×: records were dropped, so the count is unreliable and cannot pass` : ""),
       mark: "0 lost, 0 doubled" }
     : { id: "attacks", label: "Attacks lost", verdict: "not-run", value: "not measured", mark: "0 lost, 0 doubled" });
   const live = results.live;
@@ -174,7 +176,8 @@ export function gateRows(results: GateResults): GateRow[] {
       + `${cost.overBudget} of ${cost.quanta} quanta over; load ${(cost.load * 100).toFixed(0)}% (${cost.clock} clock)`;
     // A whole-millisecond clock cannot place a 2.7 ms budget: record, don't grade.
     const verdict: Verdict = cost.clock !== "performance" ? "record"
-      : cost.p99Ms > cost.budgetMs || cost.overBudget > 0 ? "fail" : "pass";
+      // Graded on the exact maximum: the bucketed over-budget count can include a quantum just under the budget.
+      : cost.p99Ms > cost.budgetMs || cost.maxMs > cost.budgetMs ? "fail" : "pass";
     rows.push({ id: "render-cost", label: "Worklet render cost per quantum", verdict, value,
       mark: cost.clock === "performance" ? "p99 and max within budget" : "record (Date clock, 1 ms steps)" });
   } else {

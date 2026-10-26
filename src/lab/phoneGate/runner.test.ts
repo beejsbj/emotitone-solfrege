@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AUDIO_IDLE_MS, manageAudioLifecycle } from "@/services/audioLifecycle";
-import { getLivePlayback, prepareLivePlayback } from "@/services/livePlayback";
+import { RenderCostMeter } from "@/audio/live/renderCost";
+import { getLivePlayback, getLivePlaybackFailure, prepareLivePlayback, readLiveRenderCost } from "@/services/livePlayback";
+import { createPatternPlayer } from "@/services/patternTransport";
 import { getAudioContext } from "@/services/superdoughAudio";
 import { createPhoneGate } from "./runner";
 
@@ -12,6 +14,12 @@ vi.mock("@/services/livePlayback", async importOriginal => ({
   prepareLivePlayback: vi.fn(() => new Promise<void>(resolve => { load.finish = resolve; })),
   getLivePlaybackFailure: vi.fn(() => ({ kind: "load", reason: "refused by the test" })),
   getLivePlayback: vi.fn(),
+  readLiveRenderCost: vi.fn(),
+}));
+vi.mock("@/services/patternTransport", async importOriginal => ({
+  ...await importOriginal<typeof import("@/services/patternTransport")>(),
+  createPatternPlayer: vi.fn(),
+  setProductionPatternPlayer: vi.fn(),
 }));
 
 function fakeContext() {
@@ -53,6 +61,36 @@ describe("phone gate run", () => {
     } finally {
       gate.dispose();
       disposeLifecycle();
+    }
+  });
+
+  it("reads the worklet's render cost into the summary when Stop is tapped mid-soak", async () => {
+    const context = fakeContext();
+    vi.mocked(getAudioContext).mockReturnValue(context as unknown as AudioContext);
+    vi.mocked(prepareLivePlayback).mockResolvedValueOnce();
+    vi.mocked(getLivePlaybackFailure).mockReturnValue(undefined);
+    // The loop plays on a stand-in player: the bar follows the context's clock (2.4 s a bar at 100 BPM).
+    vi.mocked(createPatternPlayer).mockReturnValue({
+      start: vi.fn(async () => {}), dispose: vi.fn(), getLooper: () => ({ members: [] }),
+      barAtAudioTime: (time: number) => time / 2.4,
+    } as never);
+    const meter = new RenderCostMeter("performance");
+    for (const ms of [.4, .5, .6, .7]) meter.record(ms);
+    vi.mocked(readLiveRenderCost).mockImplementation(() => Promise.resolve(meter.snapshot()));
+    const gate = createPhoneGate();
+    try {
+      gate.run();
+      context.currentTime = 2.4;
+      await vi.advanceTimersByTimeAsync(200);
+      expect(gate.state.phase).toBe("soak");
+      gate.stop();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(gate.state.phase).toBe("done");
+      expect(gate.state.summary).toMatch(/\] Worklet render cost per quantum: p50 0\.60 ms · p99 0\.70 ms/);
+      expect(gate.state.summary).not.toContain("[NOT RUN] Worklet render cost");
+    } finally {
+      gate.dispose();
+      vi.mocked(getLivePlaybackFailure).mockReturnValue({ kind: "load", reason: "refused by the test" });
     }
   });
 

@@ -39,7 +39,7 @@ export function livePlaybackOn(seat: LiveSeat) {
 export interface LiveCoreOptions {
   /** Frames per second of the offline core. */
   sampleRate?: number;
-  /** What the core holds: an id is a sine oscillator; or a prepared instrument as is. */
+  /** What the core holds (default piano, triangle, sine): an id is a sine oscillator; or a prepared instrument as is. */
   instruments?: (string | PreparedLiveInstrument)[];
   /** Envelope of the prepared oscillators. */
   envelope?: { attack: number; decay: number; sustain: number; release: number };
@@ -57,7 +57,7 @@ export function attachLiveCore(seat: LiveSeat, options: LiveCoreOptions = {}) {
     else if (response.type === "expression-owner") each((listener) => listener.onExpressionOwner?.(response));
     else if (response.type === "owner-ended") each((listener) => listener.onOwnerEnded?.(response.ownerId));
   });
-  for (const instrument of options.instruments ?? ["piano"]) {
+  for (const instrument of options.instruments ?? ["piano", "triangle", "sine"]) {
     core.command({ type: "prepare", requestId: 1, instrument: typeof instrument !== "string" ? instrument : {
       kind: "oscillator", waveform: "sine", instrumentId: instrument, gain: 1, ...envelope,
     } }, frame);
@@ -82,6 +82,15 @@ export function attachLiveCore(seat: LiveSeat, options: LiveCoreOptions = {}) {
       core.render(output, frame);
       frame += length;
       return output[0];
+    },
+    /**
+     * Keep the core on the test's clock: every millisecond of (fake) timers
+     * renders up to `seconds()`, so events land at the frames the store's audio
+     * clock expects. Returns the stop.
+     */
+    follow(seconds: () => number) {
+      const timer = setInterval(() => { this.renderTo(seconds()); }, 1);
+      return () => clearInterval(timer);
     },
     /** Render up to `seconds` on the core's clock (whole frames). */
     renderTo(seconds: number) {

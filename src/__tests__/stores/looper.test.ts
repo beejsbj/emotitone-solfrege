@@ -65,7 +65,7 @@ vi.mock("@/services/livePlayback", () => ({
     };
   },
   getLivePlaybackFailure: (instrumentId: string) => rig.refused.has(instrumentId)
-    ? { kind: "fallback", reason: "budget", budget: true } : undefined,
+    ? { kind: "unavailable", reason: "budget", budget: true } : undefined,
   needsLivePlaybackPreparation: () => false,
   getLivePlayback: () => undefined,
   waitForLivePlayback: () => undefined,
@@ -1699,10 +1699,10 @@ describe("Play is the loop on the worklet transport", () => {
     it("the instrument drawer re-initialising, or a hung sound fetch, never disables Play", async () => {
       const { looper } = setup();
       const instrument = useInstrumentStore();
-      const superdough = await import("@/services/superdoughAudio");
+      const engine = await import("@/services/audioEngine");
       // A preferred sound that is not ready, whose download never finishes.
-      vi.mocked(superdough.isPrewarmed).mockReturnValue(false);
-      vi.mocked(superdough.prewarmSoundSamples).mockReturnValue(new Promise<void>(() => {}));
+      vi.mocked(engine.isPrewarmed).mockReturnValue(false);
+      vi.mocked(engine.prewarmSoundSamples).mockReturnValue(new Promise<void>(() => {}));
       instrument.currentInstrument = "gm_piano";
       try {
         void instrument.initializeInstruments();
@@ -1715,8 +1715,8 @@ describe("Play is the loop on the worklet transport", () => {
         await flush();
         expect(looper.engineReady).toBe(true);
       } finally {
-        vi.mocked(superdough.isPrewarmed).mockReturnValue(true);
-        vi.mocked(superdough.prewarmSoundSamples).mockResolvedValue(undefined);
+        vi.mocked(engine.isPrewarmed).mockReturnValue(true);
+        vi.mocked(engine.prewarmSoundSamples).mockResolvedValue(undefined);
       }
     });
 

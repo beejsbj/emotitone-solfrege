@@ -6,11 +6,12 @@ import type { TransportCommand, TransportResponse } from "@/audio/live/transport
 import { TRANSPORT_EVENT_FIELDS, TransportEventKind } from "@/audio/live/transportEvents";
 
 /**
- * The production Code Strip plays the take on the worklet transport. The
- * worklet itself is replaced by a fake transport port: these tests drive the
- * real pattern player through its message contract (commands out, receipts,
- * anchors and event batches in) and observe the strip, the window note
- * events, UIBeat and the audio lifecycle.
+ * The production Code Strip creates the app's single pattern player and
+ * follows the Looper; it has no Play of its own (BJS-569). The worklet is
+ * replaced by a fake transport port: these tests start the take on the real
+ * player as the looper store does (one member) and drive it through its
+ * message contract (commands out, receipts, anchors and event batches in),
+ * observing the strip, the window note events, UIBeat and the audio lifecycle.
  */
 const mocks = vi.hoisted(() => ({
   phrasesStore: null as any,
@@ -20,17 +21,13 @@ const mocks = vi.hoisted(() => ({
   commands: [] as any[],
   listeners: new Set<any>(),
   portReady: true,
-  failure: undefined as undefined | { kind: "load" | "fallback"; reason: string },
+  failure: undefined as undefined | { kind: "load" | "unavailable"; reason: string },
   pins: [] as string[][],
   releasedPins: 0,
   holds: 0,
   releasedHolds: 0,
-  strudelRepl: vi.fn(),
-  attachEditor: vi.fn(),
-  detachEditor: vi.fn(),
   syncCode: vi.fn(),
-  setPlaying: vi.fn(),
-  setError: vi.fn(),
+  clearCode: vi.fn(),
   rafCallbacks: [] as FrameRequestCallback[],
   usePhrasesStore: vi.fn(),
   useInstrumentStore: vi.fn(),
@@ -47,7 +44,6 @@ const mocks = vi.hoisted(() => ({
     removeEventListener: vi.fn(),
     getOutputTimestamp: () => ({ contextTime: mocks.outputContextTime, performanceTime: performance.now() }),
   } as any,
-  isPlaying: { value: false },
 }));
 
 vi.mock("@/stores/phrases", () => ({ usePhrasesStore: mocks.usePhrasesStore }));
@@ -56,15 +52,8 @@ vi.mock("@/stores/looper", () => ({ useLooperStore: () => mocks.looperStore }));
 vi.mock("@/stores/visualConfig", () => ({ useVisualConfigStore: mocks.useVisualConfigStore }));
 vi.mock("@/composables/useCodeStripStrudel", () => ({ useCodeStripStrudel: mocks.useCodeStripStrudel }));
 
-function playbackWiring() {
-  return {
-    attachEditor: mocks.attachEditor,
-    detachEditor: mocks.detachEditor,
-    syncCode: mocks.syncCode,
-    setPlaying: mocks.setPlaying,
-    setError: mocks.setError,
-    isPlaying: mocks.isPlaying,
-  };
+function codeWiring() {
+  return { syncCode: mocks.syncCode, clearCode: mocks.clearCode };
 }
 
 vi.mock("@/services/StrudelNotation", async (importOriginal) => {
@@ -85,15 +74,14 @@ vi.mock("@/services/StrudelNotation", async (importOriginal) => {
   };
 });
 
-vi.mock("@/services/superdoughAudio", () => ({
-  initSuperdoughAudio: vi.fn().mockResolvedValue(undefined),
-  ensureSoundfontCatalog: vi.fn().mockResolvedValue(undefined),
-  getSuperdoughMasterGain: () => ({}),
+vi.mock("@/services/audioRuntime", () => ({
+  getMasterGain: () => ({}),
   getAudioContext: () => mocks.audioContext,
 }));
 
 vi.mock("@/services/audioLifecycle", () => ({
   resumeAudioContext: () => undefined,
+  onAudioRunning: () => () => {},
   holdAudioActivity: () => {
     mocks.holds++;
     return () => { mocks.releasedHolds++; };
@@ -117,12 +105,11 @@ vi.mock("@/services/livePlayback", () => ({
   },
 }));
 
-// Strudel's REPL must never be constructed for playback.
-vi.mock("@strudel/core", () => ({ repl: mocks.strudelRepl, evalScope: vi.fn() }));
-
 import CodeStrip from "@/components/uniques/CodeStrip/index.vue";
 import { uiBeatClock } from "@/composables/useUIBeat";
-import { getActivePatternStageNotes, getPatternPlaybackDiagnostics, PatternLoadError } from "@/services/patternTransport";
+import {
+  getActivePatternStageNotes, getPatternPlaybackDiagnostics, getProductionPatternPlayer, PatternLoadError,
+} from "@/services/patternTransport";
 import { DEFAULT_CONFIG } from "@/data/visual-config-metadata";
 
 const recordedNote: PatternNote = {
@@ -136,8 +123,25 @@ const recordedNote: PatternNote = {
   duration: 500,
 };
 
-function controllerOf() {
-  return mocks.attachEditor.mock.calls[0][0];
+/** The code the strip last published for Open in Strudel. */
+function publishedCode(): string {
+  return mocks.syncCode.mock.calls.at(-1)![0];
+}
+
+/** Start the take as the Looper's one member, as the looper store does (its receipt comes from the worklet). */
+async function startTake() {
+  const take = mocks.phrasesStore;
+  const player = getProductionPatternPlayer()!;
+  const started = player.start({
+    bpm: mocks.visualConfigStore.config.codeStrip.bpm,
+    target: { key: take.takeContext.key, mode: take.takeContext.mode },
+    members: [{ id: take.takeId, notes: take.takeNotes, instrument: take.takeContext.instrument,
+      key: take.takeContext.key, mode: take.takeContext.mode,
+      config: { sourceBpm: take.takeContext.bpm, bpm: mocks.visualConfigStore.config.codeStrip.bpm } }],
+  });
+  started.catch(() => {});
+  await flushPromises();
+  return { player, started };
 }
 
 function emit(response: TransportResponse) {
@@ -148,10 +152,12 @@ function commandsOf<T extends TransportCommand["type"]>(type: T) {
   return mocks.commands.filter(command => command.type === type) as Extract<TransportCommand, { type: T }>[];
 }
 
-/** The member table the player joined most recently. */
+/** The member table the player joined most recently (a start sends its joins as one batch). */
 function joinedTable() {
-  const join = commandsOf("transport-change").filter(command => command.change.type === "join").at(-1)!;
-  return (join.change as Extract<typeof join.change, { type: "join" }>).member.table;
+  const join = commandsOf("transport-change")
+    .flatMap(command => command.change.type === "batch" ? command.change.changes : [command.change])
+    .filter(change => change.type === "join").at(-1)!;
+  return (join as Extract<typeof join, { type: "join" }>).member.table;
 }
 
 /** One worklet event batch: [kind, serial, generation, noteIndex, frame, bar, length]. */
@@ -252,9 +258,8 @@ beforeEach(() => {
   mocks.usePhrasesStore.mockReturnValue(mocks.phrasesStore);
   mocks.useInstrumentStore.mockReturnValue(mocks.instrumentStore);
   mocks.useVisualConfigStore.mockReturnValue(mocks.visualConfigStore);
-  mocks.useCodeStripStrudel.mockReturnValue(playbackWiring());
+  mocks.useCodeStripStrudel.mockReturnValue(codeWiring());
   mocks.audioContext.state = "running";
-  mocks.isPlaying.value = false;
   vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
     mocks.rafCallbacks.push(callback);
     return mocks.rafCallbacks.length;
@@ -293,7 +298,7 @@ describe("CodeStrip production pattern transport", () => {
     expect(mocks.useVisualConfigStore).not.toHaveBeenCalled();
     expect(mocks.useCodeStripStrudel).not.toHaveBeenCalled();
     expect(mocks.commands).toEqual([]);
-    expect(mocks.attachEditor).not.toHaveBeenCalled();
+    expect(mocks.syncCode).not.toHaveBeenCalled();
     expect(wrapper.find(".note").exists()).toBe(true);
     expect(wrapper.get(".code-strip").isVisible()).toBe(true);
     wrapper.unmount();
@@ -311,10 +316,10 @@ describe("CodeStrip production pattern transport", () => {
     // The take's note and its loop-tail rest sit on the Stave.
     expect(wrapper.findAll("[data-event-index]")).toHaveLength(2);
     expect(wrapper.find(".note").exists()).toBe(true);
-    expect(controllerOf().getCode()).toContain("C4@0.25");
+    expect(publishedCode()).toContain("C4@0.25");
 
     wrapper.unmount();
-    expect(mocks.detachEditor).toHaveBeenCalledOnce();
+    expect(mocks.clearCode).toHaveBeenCalledOnce();
   });
 
   it("keeps the empty production strip compact and prompting", async () => {
@@ -323,7 +328,7 @@ describe("CodeStrip production pattern transport", () => {
     const wrapper = mount(CodeStrip, { props: { framed: false } });
     await flushPromises();
 
-    expect(controllerOf().getCode()).toBe("// Record a pattern");
+    expect(publishedCode()).toBe("// Record a pattern");
     expect(wrapper.text()).toContain("// Record a pattern");
     expect(wrapper.find(".highlight-strip").classes()).toContain("highlight-strip--unframed");
     expect(wrapper.find(".highlight-strip").classes()).toContain("highlight-strip--empty");
@@ -344,17 +349,17 @@ describe("CodeStrip production pattern transport", () => {
   });
 
 
-  it("plays the take on the worklet transport from note data, constructing no Strudel scheduler", async () => {
+  it("plays the take on the worklet transport from note data, and the strip follows it", async () => {
     const wrapper = mount(CodeStrip);
     await flushPromises();
     const fills = () => wrapper.findAll(".code-strip__note").map((node) =>
       (node.element as HTMLElement).style.getPropertyValue("--code-strip-progress"));
     expect(fills()).toEqual(["1"]);
 
-    await expect(controllerOf().evaluate()).resolves.toBe(true);
+    const { player } = await startTake();
+    mocks.looperStore.deskMemberId = "take-1";
     await nextTick();
     expect(fills()).toEqual(["0"]);
-    expect(mocks.strudelRepl).not.toHaveBeenCalled();
     expect(mocks.commands.map(command => command.type)).toEqual(["transport-change", "transport-start"]);
     expect(commandsOf("transport-start")[0]).toMatchObject({ bpm: 120 });
     const table = joinedTable();
@@ -367,9 +372,9 @@ describe("CodeStrip production pattern transport", () => {
     // The bank stays resident and the context awake while the transport runs.
     expect(mocks.pins).toEqual([["sine"]]);
     expect(mocks.holds).toBe(1);
-    expect(mocks.setPlaying).toHaveBeenLastCalledWith(true);
 
-    controllerOf().stop();
+    player.stop();
+    mocks.looperStore.deskMemberId = null;
     expect(commandsOf("transport-stop")).toHaveLength(1);
     expect(mocks.releasedPins).toBe(1);
     expect(mocks.releasedHolds).toBe(1);
@@ -381,7 +386,9 @@ describe("CodeStrip production pattern transport", () => {
   it("turns worklet records into typed note events that light the strip and the Stage registry", async () => {
     const wrapper = mount(CodeStrip);
     await flushPromises();
-    await controllerOf().evaluate();
+    const { player } = await startTake();
+    mocks.looperStore.deskMemberId = "take-1";
+    await nextTick();
     const generation = joinedTable().generation;
     const played: CustomEvent[] = [];
     const released: CustomEvent[] = [];
@@ -414,7 +421,7 @@ describe("CodeStrip production pattern transport", () => {
         .toEqual([["pattern-1-1", "c"], ["pattern-1-2", "c"]]);
 
       // Stop clears every consumer of a still-sounding note.
-      controllerOf().stop();
+      player.stop();
       expect(released.map(event => event.detail.noteId)).toEqual(["pattern-1-1", "pattern-1-2"]);
       expect(getActivePatternStageNotes()).toEqual([]);
     } finally {
@@ -450,7 +457,7 @@ describe("CodeStrip production pattern transport", () => {
       send("take-1", "loop-2");
       await nextTick();
       expect(note().attributes("data-active")).toBe("true");
-      // The Code Strip's own Play never ran: the Looper owns the transport.
+      // The strip starts nothing: the Looper owns the transport.
       expect(commandsOf("transport-start")).toEqual([]);
     } finally {
       wrapper.unmount();
@@ -460,7 +467,7 @@ describe("CodeStrip production pattern transport", () => {
   it("cancels an announced note and drops attacks that ended during a stall", async () => {
     const wrapper = mount(CodeStrip);
     await flushPromises();
-    await controllerOf().evaluate();
+    await startTake();
     const generation = joinedTable().generation;
     const events: CustomEvent[] = [];
     const record = (event: Event) => events.push(event as CustomEvent);
@@ -489,7 +496,7 @@ describe("CodeStrip production pattern transport", () => {
     onTestFinished(() => clock.mockRestore());
     const wrapper = mount(CodeStrip);
     await flushPromises();
-    await controllerOf().evaluate();
+    await startTake();
     const generation = joinedTable().generation;
     const released: CustomEvent[] = [];
     const record = (event: Event) => released.push(event as CustomEvent);
@@ -514,7 +521,7 @@ describe("CodeStrip production pattern transport", () => {
     onTestFinished(() => clock.mockRestore());
     const wrapper = mount(CodeStrip);
     await flushPromises();
-    await controllerOf().evaluate();
+    const { player } = await startTake();
     const generation = joinedTable().generation;
     const events: CustomEvent[] = [];
     const record = (event: Event) => events.push(event as CustomEvent);
@@ -523,7 +530,7 @@ describe("CodeStrip production pattern transport", () => {
     try {
       // Announced 50 ms (plus output latency) ahead of being heard.
       emit(batch([TransportEventKind.Attack, 1, generation, 0, 80, 0, 500]));
-      if (cause === "Stop") controllerOf().stop();
+      if (cause === "Stop") player.stop();
       else for (const listener of [...mocks.listeners]) listener.onRendererReset?.();
       const [played, released] = events;
       expect([played.type, released.type]).toEqual(["note-played", "note-released"]);
@@ -540,7 +547,7 @@ describe("CodeStrip production pattern transport", () => {
   it("recovers the registry from an overflow snapshot", async () => {
     const wrapper = mount(CodeStrip);
     await flushPromises();
-    await controllerOf().evaluate();
+    await startTake();
     const generation = joinedTable().generation;
     emit(batch([TransportEventKind.Attack, 1, generation, 0, 0, 0, 5000],
       [TransportEventKind.Attack, 2, generation, 0, 10, 0, 5000]));
@@ -559,7 +566,7 @@ describe("CodeStrip production pattern transport", () => {
     onTestFinished(() => clock.mockRestore());
     const wrapper = mount(CodeStrip);
     await flushPromises();
-    await controllerOf().evaluate();
+    const { player } = await startTake();
     expect(uiBeatClock.snapshot.status).toBe("arming");
     emit({ type: "transport-anchors", run: 1, anchors: [{ frame: 0, bar: 0, bpm: 120 }], provisional: false });
     const generation = uiBeatClock.snapshot.generation;
@@ -589,118 +596,26 @@ describe("CodeStrip production pattern transport", () => {
     expect(uiBeatClock.snapshot.status).toBe("arming");
     mocks.audioContext.state = "running";
 
-    controllerOf().stop();
+    player.stop();
     expect(uiBeatClock.snapshot.status).toBe("idle");
     wrapper.unmount();
   });
 
-  it("swaps the table for key, mode, octave, instrument and tempo changes at the next quantum", async () => {
-    const wrapper = mount(CodeStrip);
-    await flushPromises();
-    await controllerOf().evaluate();
-    const first = joinedTable().generation;
-    mocks.commands = [];
-
-    mocks.phrasesStore.takeContext.key = "D";
-    await flushPromises();
-    const swapped = joinedTable();
-    expect(swapped.generation).toBeGreaterThan(first);
-    expect(commandsOf("transport-change").at(-1)).toMatchObject({ boundary: "immediate" });
-
-    mocks.visualConfigStore.config.codeStrip.bpm = 90;
-    await flushPromises();
-    expect(commandsOf("transport-change").map(command => command.change.type)).toEqual(["join", "tempo", "join"]);
-    expect(commandsOf("transport-change")[1].change).toEqual({ type: "tempo", bpm: 90 });
-    expect(commandsOf("transport-start")).toHaveLength(0);
-
-    // A cold instrument loads (and is pinned) before its table is swapped in.
-    mocks.phrasesStore.takeContext.instrument = "piano";
-    await flushPromises();
-    expect(joinedTable().instrumentId).toBe("piano");
-    expect(mocks.pins.at(-1)).toEqual(["piano"]);
-    wrapper.unmount();
-  });
-
-  it("relabels the sounding notes when the la-based-minor convention changes while playing", async () => {
-    mocks.phrasesStore.takeContext.mode = "minor";
-    mocks.phrasesStore.takeNotes = [{ ...recordedNote, note: "A3", octave: 3, scaleIndex: 0 }];
-    mocks.phrasesStore.takeContext.key = "A";
-    const wrapper = mount(CodeStrip);
-    await flushPromises();
-    await controllerOf().evaluate();
-    const played: CustomEvent[] = [];
-    const record = (event: Event) => played.push(event as CustomEvent);
-    window.addEventListener("note-played", record);
-    try {
-      emit(batch([TransportEventKind.Attack, 1, joinedTable().generation, 0, 0, 0, 500]));
-      mocks.visualConfigStore.laBasedMinor = true;
-      await flushPromises();
-      emit(batch([TransportEventKind.Attack, 2, joinedTable().generation, 0, 1000, .5, 500]));
-      expect(played.map(event => event.detail.note.name)).toEqual(["Do", "La"]);
-    } finally {
-      window.removeEventListener("note-played", record);
-      wrapper.unmount();
-    }
-  });
-
-  it("keeps the old table playing when a changed instrument fails to load", async () => {
-    const wrapper = mount(CodeStrip);
-    await flushPromises();
-    await controllerOf().evaluate();
-    const before = joinedTable();
-    mocks.portReady = false;
-    mocks.failure = { kind: "load", reason: "HTTP 404" };
-    mocks.phrasesStore.takeContext.instrument = "piano";
-    await flushPromises();
-    expect(joinedTable()).toBe(before);
-    expect(mocks.setError).toHaveBeenCalledWith(expect.any(PatternLoadError));
-    expect(commandsOf("transport-stop")).toHaveLength(0);
-    wrapper.unmount();
-  });
-
-  it("fails a cold first Play with a retryable load error, starts nothing, and plays on retry", async () => {
+  it("fails a cold first start with a retryable load error, starts nothing, and plays on retry", async () => {
     const wrapper = mount(CodeStrip);
     await flushPromises();
     mocks.portReady = false;
     mocks.failure = { kind: "load", reason: "decode failed" };
-    const error = await controllerOf().evaluate().catch((reason: unknown) => reason);
+    const error = await (await startTake()).started.catch((reason: unknown) => reason);
     expect(error).toBeInstanceOf(PatternLoadError);
     expect((error as PatternLoadError).retryable).toBe(true);
     expect(commandsOf("transport-start")).toHaveLength(0);
-    expect(mocks.setPlaying).toHaveBeenLastCalledWith(false);
     expect(mocks.releasedHolds).toBe(mocks.holds);
 
     mocks.portReady = true;
     mocks.failure = undefined;
-    await expect(controllerOf().evaluate()).resolves.toBe(true);
+    await startTake();
     expect(commandsOf("transport-start")).toHaveLength(1);
-    wrapper.unmount();
-  });
-
-  it("stops when the audio engine restarts under it", async () => {
-    const wrapper = mount(CodeStrip);
-    await flushPromises();
-    await controllerOf().evaluate();
-    for (const listener of [...mocks.listeners]) listener.onRendererReset?.();
-    expect(mocks.setPlaying).toHaveBeenLastCalledWith(false);
-    expect(mocks.setError).toHaveBeenCalled();
-    expect(mocks.releasedHolds).toBe(1);
-    wrapper.unmount();
-  });
-
-  it("blocks playback while samples are warming, and stops when warmup begins", async () => {
-    const wrapper = mount(CodeStrip);
-    await flushPromises();
-    mocks.instrumentStore.isInteractionLocked = true;
-    await expect(controllerOf().evaluate()).resolves.toBe(false);
-    expect(mocks.commands).toEqual([]);
-
-    mocks.instrumentStore.isInteractionLocked = false;
-    await controllerOf().evaluate();
-    mocks.instrumentStore.isInteractionLocked = true;
-    await nextTick();
-    expect(commandsOf("transport-stop")).toHaveLength(1);
-    expect(mocks.setPlaying).toHaveBeenLastCalledWith(false);
     wrapper.unmount();
   });
 

@@ -10,7 +10,6 @@
           v-slot="{ invert }"
           class="code-strip-bar__latch"
           :active="playLatched"
-          :stopped="closingBarCounts"
         >
           <Button
             class="code-strip-bar__play"
@@ -135,15 +134,6 @@ const emit = defineEmits<{
   return: [];
   playHold: [];
 }>();
-
-const BEATS_PER_BAR = 4;
-/**
- * The beat dots are draining the latch's closing bar: the ring hands off to
- * them and rests, so only one of the two moves. A full countdown (a note
- * sounding, or the bar's first beat) still leaves the ring sweeping.
- */
-const closingBarCounts = computed(() =>
-  props.playLatched && props.beatCountdown !== null && props.beatCountdown < BEATS_PER_BAR);
 
 /** Play is Ivory, Stop is Ink; a still latch (Reduced Motion) inverts them. */
 function playTone(invert: boolean): "ink" | "ivory" {

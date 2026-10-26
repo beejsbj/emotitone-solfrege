@@ -193,8 +193,12 @@ export const useInstrumentStore = defineStore("instrument", () => {
   const isInstrumentReady = (instrumentName: string) =>
     readyInstruments.value.has(instrumentName) || isPrewarmed(instrumentName);
 
-  /** The first ready sound among `preferred` and the usual fallbacks, never `except`. */
-  const findReadyFallback = (preferred: Array<string | null> = [], except?: string) => {
+  /** The first ready sound among `preferred` and the usual fallbacks, never `except`, and `usable` if given. */
+  const findReadyFallback = (
+    preferred: Array<string | null> = [],
+    except?: string,
+    usable: (candidate: string) => boolean = () => true,
+  ) => {
     const candidates = [
       ...preferred,
       lastReadyInstrument.value,
@@ -209,7 +213,8 @@ export const useInstrumentStore = defineStore("instrument", () => {
           candidate !== null &&
           candidate !== except &&
           candidates.indexOf(candidate) === index &&
-          isInstrumentReady(candidate)
+          isInstrumentReady(candidate) &&
+          usable(candidate)
       ) ?? null
     );
   };
@@ -224,6 +229,20 @@ export const useInstrumentStore = defineStore("instrument", () => {
       lastReadyInstrument.value = fallback;
     } else {
       lastReadyInstrument.value = null;
+    }
+  };
+
+  /**
+   * The worklet refused the selection for memory: say why, and move to a
+   * sound it holds right now (not merely one downloaded once), if there is one.
+   */
+  const refuseForMemory = (instrumentName: string, reason: string) => {
+    lastWarmupError.value = reason;
+    lastWarmupErrorInstrument.value = instrumentName;
+    const fallback = findReadyFallback([], instrumentName, (candidate) => !getLivePlaybackFailure(candidate));
+    if (fallback) {
+      currentInstrument.value = fallback;
+      lastReadyInstrument.value = fallback;
     }
   };
 
@@ -272,29 +291,24 @@ export const useInstrumentStore = defineStore("instrument", () => {
       }
       syncReadyInstrumentsFromAudio(warmed, !prepareSelected);
       // Prewarming above already prepared the live renderer for that sound.
-      // A sound refused for memory stays refused until something is released:
-      // asking again cannot help, so that refusal is never retried here.
+      // "Ready" here means downloaded once, not resident: a bank evicted since
+      // (to make room for the Looper's pinned banks, say) needs preparing
+      // again, and memory may refuse it. That refusal stays until something is
+      // released, so a known one is reported, never retried.
       const selected = currentInstrument.value;
-      if (
-        prepareSelected
-        && !warmed.includes(selected)
-        && needsLivePlaybackPreparation(selected)
-        && !getLivePlaybackFailure(selected)?.budget
-      ) {
+      const knownFailure = prepareSelected ? getLivePlaybackFailure(selected) : undefined;
+      if (knownFailure?.budget) {
+        refuseForMemory(selected, knownFailure.reason);
+      } else if (prepareSelected && !warmed.includes(selected) && needsLivePlaybackPreparation(selected)) {
         try {
           await abortable(prewarmSoundSamples(selected), signal);
         } catch (error) {
           if (!isCurrent()) return;
           // Memory full is the selection's problem, not the engine's: say so
           // and play on something that is loaded instead of failing startup.
-          if (!getLivePlaybackFailure(selected)?.budget) throw error;
-          lastWarmupError.value = error instanceof Error && error.message ? error.message : "Not enough memory for this instrument.";
-          lastWarmupErrorInstrument.value = selected;
-          const fallback = findReadyFallback([], selected);
-          if (fallback) {
-            currentInstrument.value = fallback;
-            lastReadyInstrument.value = fallback;
-          }
+          const failure = getLivePlaybackFailure(selected);
+          if (!failure?.budget) throw error;
+          refuseForMemory(selected, error instanceof Error && error.message ? error.message : failure.reason);
         }
         if (!isCurrent()) return;
       }

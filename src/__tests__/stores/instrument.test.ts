@@ -213,33 +213,41 @@ describe("instrument store warmup", () => {
   describe("a selection the worklet refuses for memory at startup", () => {
     const MEMORY_FULL = "Live renderer memory budget is occupied by held or pinned instruments";
     beforeEach(() => {
-      // A synth the store counts as ready (it needs no download) but the worklet does not hold.
-      audioMocks.isPrewarmed.mockImplementation((name: string) => name === "piano" || name === "square");
-      audioMocks.getReadySounds.mockReturnValue(["piano", "square"]);
-      liveMocks.needsLivePlaybackPreparation.mockImplementation((name: string) => name === "square");
+      // A sampled bank downloaded once (so counted ready) but evicted since,
+      // to make room for banks the Looper pins: the worklet no longer holds it.
+      audioMocks.isPrewarmed.mockImplementation((name: string) => name === "piano" || name === "kalimba");
+      audioMocks.getReadySounds.mockReturnValue(["piano", "kalimba"]);
+      liveMocks.needsLivePlaybackPreparation.mockImplementation((name: string) => name === "kalimba");
     });
 
-    it("starts without asking again when the refusal is already known", async () => {
+    it("says why and plays on a held sound, without asking again, when the refusal is already known", async () => {
+      // Another bank downloaded once and evicted too: no better a fallback.
+      audioMocks.isPrewarmed.mockImplementation((name: string) => ["piano", "kalimba", "vibraphone"].includes(name));
+      audioMocks.getReadySounds.mockReturnValue(["vibraphone", "kalimba", "piano"]);
       liveMocks.getLivePlaybackFailure.mockImplementation((name: string) =>
-        name === "square" ? { kind: "unavailable", reason: MEMORY_FULL, budget: true } : undefined);
+        name === "kalimba" ? { kind: "unavailable", reason: MEMORY_FULL, budget: true }
+          : name === "vibraphone" ? { kind: "unavailable", reason: "Live renderer is not prepared" } : undefined);
       const store = useInstrumentStore();
-      store.currentInstrument = "square";
+      store.currentInstrument = "kalimba";
 
       await expect(store.initializeInstruments()).resolves.toBeUndefined();
       expect(audioMocks.prewarmSoundSamples).not.toHaveBeenCalled();
+      expect(store.lastWarmupError).toBe(MEMORY_FULL);
+      expect(store.lastWarmupErrorInstrument).toBe("kalimba");
+      expect(store.currentInstrument).toBe("piano");
     });
 
     it("starts on a loaded sound and says why when the refusal comes now", async () => {
       let refused = false;
       liveMocks.getLivePlaybackFailure.mockImplementation((name: string) =>
-        name === "square" && refused ? { kind: "unavailable", reason: MEMORY_FULL, budget: true } : undefined);
+        name === "kalimba" && refused ? { kind: "unavailable", reason: MEMORY_FULL, budget: true } : undefined);
       audioMocks.prewarmSoundSamples.mockImplementation(async () => { refused = true; throw new Error(MEMORY_FULL); });
       const store = useInstrumentStore();
-      store.currentInstrument = "square";
+      store.currentInstrument = "kalimba";
 
       await expect(store.initializeInstruments()).resolves.toBeUndefined();
       expect(store.lastWarmupError).toBe(MEMORY_FULL);
-      expect(store.lastWarmupErrorInstrument).toBe("square");
+      expect(store.lastWarmupErrorInstrument).toBe("kalimba");
       expect(store.currentInstrument).toBe("piano");
     });
 
@@ -248,7 +256,7 @@ describe("instrument store warmup", () => {
       const error = new Error("Worklet module failed to load");
       audioMocks.prewarmSoundSamples.mockRejectedValue(error);
       const store = useInstrumentStore();
-      store.currentInstrument = "square";
+      store.currentInstrument = "kalimba";
 
       await expect(store.initializeInstruments()).rejects.toBe(error);
     });

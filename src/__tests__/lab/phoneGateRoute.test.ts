@@ -84,13 +84,19 @@ describe('the phone gate route (BJS-494)', () => {
     /** The browser's AudioContext as far as the runtime and the gate's opening steps touch it. */
     class FakeAudioContext extends EventTarget {
       static made: FakeAudioContext[] = []
+      /** A browser that throws on any latencyHint, as an older engine might. */
+      static refusesHints = false
       state: AudioContextState = 'suspended'
       sampleRate = 48000
       currentTime = 0
       baseLatency = 0.01
       outputLatency = 0.02
       destination = {}
-      constructor(readonly options?: unknown) { super(); FakeAudioContext.made.push(this) }
+      constructor(readonly options?: { latencyHint?: unknown }) {
+        super()
+        if (FakeAudioContext.refusesHints && options?.latencyHint !== undefined) throw new TypeError('latencyHint is not supported')
+        FakeAudioContext.made.push(this)
+      }
       resume = vi.fn(async () => { this.state = 'running' })
       suspend = vi.fn(async () => { this.state = 'suspended' })
     }
@@ -99,6 +105,7 @@ describe('the phone gate route (BJS-494)', () => {
     const facade = vi.mocked(getAudioContext).getMockImplementation()
     beforeEach(async () => {
       FakeAudioContext.made = []
+      FakeAudioContext.refusesHints = false
       vi.stubGlobal('AudioContext', FakeAudioContext)
       vi.stubGlobal('GainNode', FakeGain)
       // As in production, the gate's context is the app runtime's own.
@@ -129,7 +136,7 @@ describe('the phone gate route (BJS-494)', () => {
 
     it('creates the context with the latencyHint in the link, and the summary says so', async () => {
       const { buffer, summary, contexts } = await runToSummary('/lab/phone-gate?latencyHint=balanced')
-      expect(buffer).toBe('Buffer: latencyHint balanced, from the link.')
+      expect(buffer).toBe('Buffer: asking for latencyHint balanced (from the link).')
       expect(contexts.map(context => context.options)).toEqual([{ latencyHint: 'balanced' }])
       expect(summary).toContain('Audio: 48000 Hz · latencyHint balanced · base latency')
     })
@@ -142,7 +149,7 @@ describe('the phone gate route (BJS-494)', () => {
 
     it('keeps the browser default without a link value', async () => {
       const plain = await runToSummary('/lab/phone-gate')
-      expect(plain.buffer).toBe("Buffer: the browser's default (interactive).")
+      expect(plain.buffer).toBe("Buffer: asking for the browser's default (interactive).")
       expect(plain.contexts.map(context => context.options)).toEqual([undefined])
       expect(plain.summary).toContain('latencyHint browser default (interactive) · base latency')
     })
@@ -152,6 +159,15 @@ describe('the phone gate route (BJS-494)', () => {
       expect(typo.buffer).toContain('?latencyHint=fast is not interactive, balanced, playback or seconds')
       expect(typo.contexts.map(context => context.options)).toEqual([undefined])
       expect(typo.summary).toContain('latencyHint browser default (interactive); ?latencyHint=fast not understood')
+    })
+
+    it('runs on an unhinted context when the browser refuses the hint, and the summary says it was not applied', async () => {
+      FakeAudioContext.refusesHints = true
+      const refused = await runToSummary('/lab/phone-gate?latencyHint=playback')
+      expect(refused.buffer).toBe('Buffer: asking for latencyHint playback (from the link).')
+      // The one context that exists is the fallback, made with no options.
+      expect(refused.contexts.map(context => context.options)).toEqual([undefined])
+      expect(refused.summary).toContain('latencyHint browser default (interactive); asked for playback, not applied · base latency')
     })
   })
 

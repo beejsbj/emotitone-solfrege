@@ -26,12 +26,12 @@ const gate = createPhoneGate();
 const state = gate.state;
 const rows = computed(() => gateRows(state.results));
 const running = computed(() => state.phase !== "idle" && state.phase !== "done");
-/** The buffer this link asks for (BJS-590), shown before the tap. */
+/** The buffer this link asks for (BJS-590), shown before the tap; the summary says what was applied. */
 const bufferNote = computed(() => {
   const hint = state.results.latencyHint;
-  if (!hint || hint.link === null) return "Buffer: the browser's default (interactive).";
-  if (hint.asked === null) return `Buffer: the browser's default; ?latencyHint=${hint.link} is not interactive, balanced, playback or seconds.`;
-  return `Buffer: latencyHint ${formatLatencyHint(hint.asked)}, from the link.`;
+  if (!hint || hint.link === null) return "Buffer: asking for the browser's default (interactive).";
+  if (hint.asked === null) return `Buffer: asking for the browser's default; ?latencyHint=${hint.link} is not interactive, balanced, playback or seconds.`;
+  return `Buffer: asking for latencyHint ${formatLatencyHint(hint.asked)} (from the link).`;
 });
 const copied = ref(false);
 const summaryRef = ref<HTMLElement | null>(null);

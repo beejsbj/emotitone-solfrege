@@ -169,12 +169,13 @@ describe("the context's buffer (BJS-590)", () => {
     expect(runtime.latencyHintOf(new EventTarget() as unknown as BaseAudioContext)).toBeUndefined();
   });
 
-  it("reads a link's value: a category, or seconds in (0, 1]; nothing else", async () => {
+  it("reads a link's value: a category in any case, or plain-decimal seconds in (0, 1]; nothing else", async () => {
     const { parseLatencyHint } = await import("@/services/audioRuntime");
-    expect(["interactive", "balanced", "playback", " balanced "].map(parseLatencyHint))
-      .toEqual(["interactive", "balanced", "playback", "balanced"]);
-    expect(["0.02", "0.256", "1"].map(parseLatencyHint)).toEqual([.02, .256, 1]);
-    expect([null, undefined, "", "0", "-0.01", "1.5", "Infinity", "NaN", "fast", "Balanced", "20ms"].map(parseLatencyHint))
-      .toEqual(Array(11).fill(undefined));
+    expect(["interactive", "balanced", "playback", " balanced ", "Balanced", "PLAYBACK"].map(parseLatencyHint))
+      .toEqual(["interactive", "balanced", "playback", "balanced", "balanced", "playback"]);
+    expect(["0.02", "0.256", ".05", "1"].map(parseLatencyHint)).toEqual([.02, .256, .05, 1]);
+    const refused = [null, undefined, "", "0", "0.0", "-0.01", "+0.02", "1.5", "1.", "0x1", "1e-9", "2e-2", "Infinity", "NaN",
+      "fast", "20ms", "0.02s", "0,02"];
+    expect(refused.map(parseLatencyHint)).toEqual(Array(refused.length).fill(undefined));
   });
 });

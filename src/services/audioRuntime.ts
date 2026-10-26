@@ -24,11 +24,15 @@ let latencyHintOverride: LatencyHint | undefined;
 /** The hint each context was created with; null when the browser's default was used. */
 const createdWith = new WeakMap<BaseAudioContext, LatencyHint | null>();
 
-/** A latencyHint as written in a link: a category, or seconds in (0, 1]. Anything else is undefined. */
+/**
+ * A latencyHint as written in a link: a category in any case, or seconds in
+ * (0, 1] as a plain decimal (no sign, exponent or hex). Anything else is undefined.
+ */
 export function parseLatencyHint(value: string | null | undefined): LatencyHint | undefined {
-  const text = value?.trim();
+  const text = value?.trim().toLowerCase();
   if (!text) return undefined;
   if (LATENCY_CATEGORIES.includes(text)) return text as AudioContextLatencyCategory;
+  if (!/^\d*\.?\d+$/.test(text)) return undefined;
   const seconds = Number(text);
   return Number.isFinite(seconds) && seconds > 0 && seconds <= 1 ? seconds : undefined;
 }

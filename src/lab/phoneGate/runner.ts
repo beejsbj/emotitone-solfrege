@@ -370,7 +370,10 @@ export function createPhoneGate() {
     recorders.delete(account.record);
     soakLights.stop();
     publishSoak(toBar);
-    if (!(await readCost())) results.renderCost = null;
+    const gotCost = await readCost();
+    // A Stop while the read was pending has already summarised the run: don't move on to the ear step.
+    check();
+    if (!gotCost) results.renderCost = null;
     captureCost = undefined;
     results.memory = { ...results.memory!, afterLoop: readJsMemory(), bank: readBank() };
     results.environment = environment(audio);

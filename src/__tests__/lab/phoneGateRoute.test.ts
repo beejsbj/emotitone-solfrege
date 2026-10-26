@@ -5,7 +5,7 @@ import { ref, type App as VueApp } from 'vue'
 import { createTestWrapper } from '../helpers/test-utils'
 import App from '@/App.vue'
 import { LAB_PAGES, isLabRoute } from '@/labRoutes'
-import { getAudioContext } from '@/services/superdoughAudio'
+import { getAudioContext } from '@/services/audioRuntime'
 import legacyVisualConfig from '../fixtures/persistence/visual-config.v0.store-capture.json?raw'
 
 // The lazy page compiles cold on first import: give it longer than vi.waitFor's 1 s default.

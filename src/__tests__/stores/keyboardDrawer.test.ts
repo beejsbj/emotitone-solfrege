@@ -2,21 +2,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
+import { attachLiveCore, type LiveSeat } from "../helpers/liveCore";
+
+const seat = vi.hoisted(() => ({ renderer: null, listeners: new Set() }) as LiveSeat);
+vi.mock("@/services/livePlayback", async () => (await import("../helpers/liveCore")).livePlaybackOn(seat));
 
 const audioContext = vi.hoisted(() => ({
   state: "running",
   get currentTime() { return performance.now() / 1000; },
 }));
 
-vi.mock("@/services/superdoughAudio", () => ({
-  setStrudelLaBasedMinor: vi.fn(),
-  setLiveSynthControls: vi.fn(),
-  attackNote: vi.fn().mockResolvedValue(undefined),
-  releaseNote: vi.fn(),
-  stopNote: vi.fn(),
+vi.mock("@/services/audioRuntime", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/services/audioRuntime")>(),
   getAudioContext: vi.fn(() => audioContext),
-  releaseAll: vi.fn(),
-  playNoteWithDuration: vi.fn().mockResolvedValue(undefined),
 }));
 
 describe("keyboardDrawer store", () => {
@@ -86,12 +84,16 @@ describe("keyboardDrawer store", () => {
     const keyboardDrawerStore = useKeyboardDrawerStore();
     const musicStore = useMusicStore();
 
-    const noteId = await musicStore.attackNoteWithOctave(0, 4);
+    seat.listeners.clear();
+    const live = attachLiveCore(seat);
+    const owner = await musicStore.attackNoteWithOctave(0, 4);
+    live.render(20);
 
-    expect(noteId).toBeTruthy();
+    expect(owner).toBeTruthy();
     expect(keyboardDrawerStore.isKeyVisuallyActive("0_4")).toBe(true);
 
-    await musicStore.releaseNote(noteId || undefined);
+    await musicStore.releaseNote(owner || undefined);
+    live.render(20);
 
     expect(keyboardDrawerStore.isKeyVisuallyActive("0_4")).toBe(false);
   });

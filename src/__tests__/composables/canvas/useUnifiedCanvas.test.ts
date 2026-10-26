@@ -6,7 +6,7 @@ import { MAJOR_SOLFEGE } from "@/data";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { mockCanvasContext } from "@/__tests__/helpers/test-utils";
 import * as stageAudio from "@/services/stageAudio";
-import { getAudioContext } from "@/services/superdoughAudio";
+import { getAudioContext } from "@/services/audioRuntime";
 import { liveAudioInput, type LiveAudioSource } from "@/services/liveAudio";
 import type { ActiveNote } from "@/types/music";
 import { useUnifiedCanvas } from "@/composables/canvas/useUnifiedCanvas";

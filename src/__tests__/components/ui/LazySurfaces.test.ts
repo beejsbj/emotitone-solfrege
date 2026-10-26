@@ -4,28 +4,17 @@ import { createPinia } from "pinia";
 import LazyConfigPanel from "@/components/LazyConfigPanel.vue";
 import LazyInstrumentSelector from "@/components/LazyInstrumentSelector.vue";
 
-// Keep real sound registration/catalog and real Pinia/DOM. Only graph startup
-// and live playback effects are suppressed; no sample download is needed here.
-vi.mock("@/services/superdoughAudio", async importOriginal => ({
-  ...await importOriginal<typeof import("@/services/superdoughAudio")>(),
-  initSuperdoughAudio: vi.fn(async () => {}),
+// Keep the real sound catalog and real Pinia/DOM. Only engine startup and
+// warmup are suppressed; no sample download is needed here.
+vi.mock("@/services/audioEngine", async importOriginal => ({
+  ...await importOriginal<typeof import("@/services/audioEngine")>(),
+  initAudioEngine: vi.fn(async () => {}),
   getReadySounds: () => ["triangle"],
   isPrewarmed: (sound: string) => sound === "triangle",
   setLiveSynthControls: vi.fn(),
 }));
 vi.mock("@/MainApp.vue", () => ({ default: { template: "<div>Instrument app</div>" } }));
 
-vi.mock("@strudel/webaudio", async () => {
-  const { registerSound } = await import("superdough");
-  return { registerSound, webaudioOutput: vi.fn() };
-});
-vi.mock("@strudel/core", () => ({
-  Pattern: class Pattern {}, getPlayableNoteValue: (value: unknown) => value,
-  noteToMidi: vi.fn(), freqToMidi: vi.fn(), getSoundIndex: vi.fn(),
-}));
-
-// This optional SF2 playback dependency is never used to register the real GM catalog.
-vi.mock("sfumato", () => ({ startPresetNote: vi.fn(), loadSoundfont: vi.fn() }));
 
 const wrappers: VueWrapper[] = [];
 const fetchSpy = vi.fn();
@@ -76,7 +65,7 @@ describe("on-demand surfaces", () => {
     render(LazyInstrumentSelector);
     await open("instrument-selector-trigger", '[data-testid="instrument-search"]');
     expect(document.querySelectorAll('[data-testid="instrument-selector-trigger"]')).toHaveLength(1);
-    await (await import("@/services/superdoughAudio")).ensureSoundfontCatalog();
+    await (await import("@/services/audioEngine")).ensureSoundfontCatalog();
     await flushPromises();
     const search = document.querySelector('[data-testid="instrument-search"]') as HTMLInputElement;
     search.value = "epiano1";

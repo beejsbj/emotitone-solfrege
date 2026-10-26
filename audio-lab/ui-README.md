@@ -250,6 +250,7 @@ this scenario.
 Run just this scenario (live-input latency and stress trials remain unexercised):
 
 ```sh
+# Removed in BJS-495 (the script and `ui-run.mjs` no longer exist); kept as the record.
 LAB_UI_TRIALS=0 LAB_UI_FILTER='^$' LAB_UI_ARCHITECTURE=1 bun run test:audio-ui /tmp/highlightstrip-ui.json
 ```
 

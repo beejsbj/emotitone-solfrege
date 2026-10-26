@@ -7,6 +7,7 @@ so `run.mjs` and its suite were removed. `results.json` and
 Run from the repository root:
 
 ```sh
+# Removed in BJS-495 (the script and `run.mjs` no longer exist); kept as the record.
 bun run test:audio-parity /tmp/recorded-playback-parity.json
 ```
 

@@ -113,7 +113,7 @@ describe("PatternStrip · shelf presentation", () => {
           stateLabel: "on the desk, yours",
           detail: "Do Mi Sol",
           recording: true,
-          actions: [{ kind: "copy", label: "Copy Morning", disabled: true }],
+          actions: [{ kind: "share", label: "Share Morning as a link", disabled: true }],
         }),
         active: true,
       },
@@ -125,7 +125,7 @@ describe("PatternStrip · shelf presentation", () => {
     expect(wrapper.get(".pattern-strip__identity").attributes("aria-label"))
       .toContain("Morning, on the desk, yours");
     expect(wrapper.get(".pattern-strip__detail").text()).toBe("Do Mi Sol");
-    expect(wrapper.get('[data-action="copy"]').attributes("disabled")).toBeDefined();
+    expect(wrapper.get('[data-action="share"]').attributes("disabled")).toBeDefined();
     expect(wrapper.find('[data-action="delete"]').exists()).toBe(false);
   });
 

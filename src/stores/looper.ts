@@ -973,6 +973,7 @@ export const useLooperStore = defineStore("looper", () => {
   // (retention, delete, release and the take's close read `book.loops`), so
   // a Loop another tab deleted lets its member go here too (BJS-575).
   phrases.setProtectedIds(() => playingPhraseIds(looper.value));
+  phrases.setLoopContextGuard(() => hasMembers.value);
 
   // Registered after the phrases store's own listener, so the press has
   // already landed in its take when its audio time is recorded against it.
@@ -1016,6 +1017,7 @@ export const useLooperStore = defineStore("looper", () => {
     }
     phrases.setLivePressGuard(null);
     phrases.setProtectedIds(null);
+    phrases.setLoopContextGuard(null);
     stopWatchingPlayer();
     stopInterrupted?.();
     stopInterrupted = undefined;

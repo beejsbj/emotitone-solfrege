@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { nextTick } from "vue";
+import { nextTick, toRaw } from "vue";
 import { setActivePinia } from "pinia";
 import type { LiveResponse } from "@/audio/live/types";
 import type { TransportCommand, TransportResponse } from "@/audio/live/transport";
@@ -230,6 +230,36 @@ describe("Play is the loop on the worklet transport", () => {
     setProductionPatternPlayer(undefined);
     rig.listeners.clear();
     for (const spy of spies) spy.mockRestore();
+  });
+
+  it("receives a shared phrase without bending or retiming the running loop", async () => {
+    const { phrases, looper } = setup();
+    playTake(.5);
+    looper.togglePlay();
+    await flush();
+    await looper.settled();
+    const before = structuredClone(player.getLooper());
+    const commandsBefore = rig.commands.length;
+    const received = { ...structuredClone(toRaw(phrases.take)), name: "Shared minor phrase",
+      context: { ...structuredClone(toRaw(phrases.take.context)), key: "D" as const, mode: "minor" as const, bpm: 84 } };
+
+    expect(phrases.receiveSharedPhrase(received)).not.toBeNull();
+    await flush();
+
+    expect(phrases.take.name).toBe("Shared minor phrase");
+    expect(phrases.take.context).toMatchObject({ key: "D", mode: "minor", bpm: 84 });
+    expect(useMusicStore().currentKey).toBe("C");
+    expect(useMusicStore().currentMode).toBe("major");
+    expect(useVisualConfigStore().config.codeStrip.bpm).toBe(120);
+    expect(player.getLooper()).toEqual(before);
+    expect(rig.commands.slice(commandsBefore)).toEqual([]);
+
+    looper.stopAll();
+    phrases.receiveSharedPhrase(received);
+    await flush();
+    expect(useMusicStore().currentKey).toBe("D");
+    expect(useMusicStore().currentMode).toBe("minor");
+    expect(useVisualConfigStore().config.codeStrip.bpm).toBe(84);
   });
 
   it("rule 1: Play loops a played take from its own first note, and Play again stops it", async () => {

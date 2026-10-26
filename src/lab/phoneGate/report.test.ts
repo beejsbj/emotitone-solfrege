@@ -114,11 +114,22 @@ describe("phone gate summary", () => {
     const lines = text.split("\n");
     expect(lines[0]).toBe("EmotiTone phone gate (BJS-494), 2026-10-26T12:00:00.000Z");
     expect(text).toContain("Device: iPhone · iOS 18.1 · Safari 18.1");
-    expect(text).toContain("Audio: 48000 Hz · base latency 5.3 ms · output latency 12.0 ms");
+    expect(text).toContain("Audio: 48000 Hz · latencyHint not recorded · base latency 5.3 ms · output latency 12.0 ms");
     expect(text).toContain("Result: 4 pass · 0 fail · 1 recorded · 11 not run");
     expect(text).toContain("[PASS] Attacks lost: 0 lost of 384 over 12 bars");
     expect(text).toContain("[PASS] Mute (tap to silent): p50 70 ms");
     expect(lines.filter(line => /^\[(PASS|FAIL|RECORD|NOT RUN)\]/.test(line))).toHaveLength(gateRows(base()).length);
+  });
+
+  it("names the buffer the context was created with, and an ask that was not applied (BJS-590)", () => {
+    const audioLine = (latencyHint: GateResults["latencyHint"]) =>
+      formatGateSummary(base({ latencyHint })).split("\n").find(line => line.startsWith("Audio:"));
+    expect(audioLine({ link: "playback", asked: "playback", created: "playback" }))
+      .toBe("Audio: 48000 Hz · latencyHint playback · base latency 5.3 ms · output latency 12.0 ms");
+    expect(audioLine({ link: "0.05", asked: .05, created: .05 })).toContain("latencyHint 0.05 s ·");
+    // A context made before the page read its link keeps the buffer it was made with.
+    expect(audioLine({ link: "balanced", asked: "balanced", created: null }))
+      .toContain("latencyHint browser default (interactive); asked for balanced, not applied ·");
   });
 
   it("says when a run stopped early", () => {

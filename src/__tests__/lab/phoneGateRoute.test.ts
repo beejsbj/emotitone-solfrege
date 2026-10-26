@@ -11,10 +11,13 @@ import legacyVisualConfig from '../fixtures/persistence/visual-config.v0.store-c
 // The lazy page compiles cold on first import: give it longer than vi.waitFor's 1 s default.
 const LAZY_PAGE = { timeout: 5000 }
 
-// The Stage needs a canvas; the instrument shell is not under test here.
-vi.mock('@/components/UnifiedVisualEffects.vue', () => ({
-  default: { template: '<div data-testid="stage" />' },
-}))
+// The Stage needs a canvas; the instrument shell is not under test here. Like
+// the real Stage (its audio tap), it asks for the app's context as it mounts.
+vi.mock('@/components/UnifiedVisualEffects.vue', async () => {
+  const { onMounted } = await import('vue')
+  const audio = await import('@/services/superdoughAudio')
+  return { default: { setup() { onMounted(() => { audio.getAudioContext() }) }, template: '<div data-testid="stage" />' } }
+})
 vi.mock('@/MainApp.vue', () => ({
   default: { template: '<div data-testid="main-app" />' },
 }))
@@ -60,6 +63,7 @@ describe('the phone gate route (BJS-494)', () => {
 
   it('starts audio on the Run tap, and still summarises a run that could not load the piano', async () => {
     const wrapper = await mountAt('/lab/phone-gate')
+    vi.mocked(getAudioContext).mockClear()
     await wrapper.find('[data-testid="phone-gate-run"]').trigger('click')
     // The tap is the unlock gesture: the app's context is asked to run inside it.
     expect(getAudioContext).toHaveBeenCalled()
@@ -74,6 +78,97 @@ describe('the phone gate route (BJS-494)', () => {
     expect(summary).toContain('[NOT RUN] Attacks lost')
     expect(wrapper.find('[data-testid="phone-gate-copy"]').exists()).toBe(true)
     wrapper.unmount()
+  })
+
+  describe('the buffer under test (BJS-590)', () => {
+    /** The browser's AudioContext as far as the runtime and the gate's opening steps touch it. */
+    class FakeAudioContext extends EventTarget {
+      static made: FakeAudioContext[] = []
+      /** A browser that throws on any latencyHint, as an older engine might. */
+      static refusesHints = false
+      state: AudioContextState = 'suspended'
+      sampleRate = 48000
+      currentTime = 0
+      baseLatency = 0.01
+      outputLatency = 0.02
+      destination = {}
+      constructor(readonly options?: { latencyHint?: unknown }) {
+        super()
+        if (FakeAudioContext.refusesHints && options?.latencyHint !== undefined) throw new TypeError('latencyHint is not supported')
+        FakeAudioContext.made.push(this)
+      }
+      resume = vi.fn(async () => { this.state = 'running' })
+      suspend = vi.fn(async () => { this.state = 'suspended' })
+    }
+    class FakeGain { connect = vi.fn((target: unknown) => target); disconnect = vi.fn() }
+
+    const facade = vi.mocked(getAudioContext).getMockImplementation()
+    beforeEach(async () => {
+      FakeAudioContext.made = []
+      FakeAudioContext.refusesHints = false
+      vi.stubGlobal('AudioContext', FakeAudioContext)
+      vi.stubGlobal('GainNode', FakeGain)
+      // As in production, the gate's context is the app runtime's own.
+      const runtime = await import('@/services/audioRuntime')
+      vi.mocked(getAudioContext).mockImplementation(() => runtime.getAudioContext())
+    })
+    afterEach(() => {
+      // Closed, so the next test's page gets a context of its own.
+      for (const context of FakeAudioContext.made) context.state = 'closed'
+      if (facade) vi.mocked(getAudioContext).mockImplementation(facade)
+      vi.unstubAllGlobals()
+    })
+
+    async function runToSummary(path: string) {
+      const wrapper = await mountAt(path)
+      // The Stage made the context as the page mounted, before any tap: the link was read first.
+      expect(FakeAudioContext.made).toHaveLength(1)
+      const buffer = wrapper.find('[data-testid="phone-gate-buffer"]').text()
+      await wrapper.find('[data-testid="phone-gate-run"]').trigger('click')
+      await vi.waitFor(async () => {
+        await flushPromises()
+        expect(wrapper.find('[data-testid="phone-gate-summary"]').exists()).toBe(true)
+      }, LAZY_PAGE)
+      const summary = wrapper.find('[data-testid="phone-gate-summary"]').text()
+      wrapper.unmount()
+      return { buffer, summary, contexts: FakeAudioContext.made }
+    }
+
+    it('creates the context with the latencyHint in the link, and the summary says so', async () => {
+      const { buffer, summary, contexts } = await runToSummary('/lab/phone-gate?latencyHint=balanced')
+      expect(buffer).toBe('Buffer: asking for latencyHint balanced (from the link).')
+      expect(contexts.map(context => context.options)).toEqual([{ latencyHint: 'balanced' }])
+      expect(summary).toContain('Audio: 48000 Hz · latencyHint balanced · base latency')
+    })
+
+    it('takes seconds as well as a category', async () => {
+      const { summary, contexts } = await runToSummary('/lab/phone-gate?latencyHint=0.04')
+      expect(contexts.map(context => context.options)).toEqual([{ latencyHint: 0.04 }])
+      expect(summary).toContain('latencyHint 0.04 s · base latency')
+    })
+
+    it('keeps the browser default without a link value', async () => {
+      const plain = await runToSummary('/lab/phone-gate')
+      expect(plain.buffer).toBe("Buffer: asking for the browser's default (interactive).")
+      expect(plain.contexts.map(context => context.options)).toEqual([undefined])
+      expect(plain.summary).toContain('latencyHint browser default (interactive) · base latency')
+    })
+
+    it('keeps the browser default for a value it does not understand, and says so', async () => {
+      const typo = await runToSummary('/lab/phone-gate?latencyHint=fast')
+      expect(typo.buffer).toContain('?latencyHint=fast is not interactive, balanced, playback or seconds')
+      expect(typo.contexts.map(context => context.options)).toEqual([undefined])
+      expect(typo.summary).toContain('latencyHint browser default (interactive); ?latencyHint=fast not understood')
+    })
+
+    it('runs on an unhinted context when the browser refuses the hint, and the summary says it was not applied', async () => {
+      FakeAudioContext.refusesHints = true
+      const refused = await runToSummary('/lab/phone-gate?latencyHint=playback')
+      expect(refused.buffer).toBe('Buffer: asking for latencyHint playback (from the link).')
+      // The one context that exists is the fallback, made with no options.
+      expect(refused.contexts.map(context => context.options)).toEqual([undefined])
+      expect(refused.summary).toContain('latencyHint browser default (interactive); asked for playback, not applied · base latency')
+    })
   })
 
   /** Boot the production entry at `path`, as a page load does; returns its app. */

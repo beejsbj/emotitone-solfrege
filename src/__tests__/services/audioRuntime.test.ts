@@ -116,3 +116,66 @@ describe("production audio graph ownership", () => {
     expect(runtime.getAudioContext()).toBe(mocks.context);
   });
 });
+
+describe("the context's buffer (BJS-590)", () => {
+  /** Each construction is a context of its own, recording what it was asked for. */
+  const made: { options: unknown[]; state: string }[] = [];
+  beforeEach(() => {
+    made.length = 0;
+    class Gain { gain = { value: 1 }; connect = vi.fn((target: unknown) => target); disconnect = vi.fn(); }
+    vi.stubGlobal("GainNode", Gain);
+    vi.stubGlobal("AudioContext", vi.fn(function (this: unknown, ...options: unknown[]) {
+      const context = Object.assign(new EventTarget(), { options, state: "suspended", sampleRate: 48000, destination: {} });
+      made.push(context);
+      return context;
+    }));
+    vi.resetModules();
+  });
+  afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+
+  it("leaves production on the browser's default: the context is created with no options", async () => {
+    const runtime = await import("@/services/audioRuntime");
+    const context = runtime.getAudioContext();
+    expect(made.map(entry => entry.options)).toEqual([[]]);
+    expect(runtime.latencyHintOf(context)).toBeNull();
+  });
+
+  it("creates the next context with the hint asked for, and keeps it for a replacement", async () => {
+    const runtime = await import("@/services/audioRuntime");
+    expect(runtime.setLatencyHintOverride("playback")).toBe(true);
+    const first = runtime.getAudioContext();
+    expect(runtime.latencyHintOf(first)).toBe("playback");
+    // A live context keeps its buffer: asking again changes only the next one.
+    expect(runtime.setLatencyHintOverride(0.03)).toBe(false);
+    expect(runtime.getAudioContext()).toBe(first);
+    expect(runtime.latencyHintOf(first)).toBe("playback");
+    made[0].state = "closed";
+    const second = runtime.getAudioContext();
+    expect(second).not.toBe(first);
+    expect(made.map(entry => entry.options)).toEqual([[{ latencyHint: "playback" }], [{ latencyHint: 0.03 }]]);
+    expect(runtime.latencyHintOf(second)).toBe(0.03);
+  });
+
+  it("falls back to the default when the browser refuses the hint, and says so", async () => {
+    const constructor = vi.mocked(AudioContext);
+    const original = constructor.getMockImplementation()!;
+    constructor.mockImplementationOnce(() => { throw new TypeError("latencyHint not supported"); });
+    constructor.mockImplementation(original);
+    const runtime = await import("@/services/audioRuntime");
+    runtime.setLatencyHintOverride("balanced");
+    const context = runtime.getAudioContext();
+    expect(made.map(entry => entry.options)).toEqual([[]]);
+    expect(runtime.latencyHintOf(context)).toBeNull();
+    expect(runtime.latencyHintOf(new EventTarget() as unknown as BaseAudioContext)).toBeUndefined();
+  });
+
+  it("reads a link's value: a category in any case, or plain-decimal seconds in (0, 1]; nothing else", async () => {
+    const { parseLatencyHint } = await import("@/services/audioRuntime");
+    expect(["interactive", "balanced", "playback", " balanced ", "Balanced", "PLAYBACK"].map(parseLatencyHint))
+      .toEqual(["interactive", "balanced", "playback", "balanced", "balanced", "playback"]);
+    expect(["0.02", "0.256", ".05", "1"].map(parseLatencyHint)).toEqual([.02, .256, .05, 1]);
+    const refused = [null, undefined, "", "0", "0.0", "-0.01", "+0.02", "1.5", "1.", "0x1", "1e-9", "2e-2", "Infinity", "NaN",
+      "fast", "20ms", "0.02s", "0,02"];
+    expect(refused.map(parseLatencyHint)).toEqual(Array(refused.length).fill(undefined));
+  });
+});

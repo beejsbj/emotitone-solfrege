@@ -32,11 +32,12 @@ silence closes a take into Recent, Return keeps.
 
 - **Tap Play** joins the desk's pattern. This is the default, so you can
   practise over a loop without adding to it.
-- **Hold Play** latches, pedal-style. The open take joins as its first note
-  lands and grows as you play; it is the one take that may sound while it is
-  still being written. While latched, one bar of silence closes it (not the
-  usual 1.5-bar take boundary), and the next note opens another. Hold again
-  to release.
+- **Hold Play** latches, pedal-style. The desk moves to a new, empty take,
+  and with nothing playing the bar grid starts there and then (see Decided,
+  2026-10-26). The open take joins as its first note lands and grows as you
+  play; it is the one take that may sound while it is still being written.
+  While latched, one bar of silence closes it (not the usual 1.5-bar take
+  boundary), and the next note opens another. Hold again to release.
 - A take **played over the loop** joins where it was played. The recorder
   knows each note's position in the loop; the join stores that as an offset.
 - A pattern **from the reel** has no position, so its start is pinned to bar
@@ -69,7 +70,7 @@ PlayingPattern            one per pattern that is sounding
 
 Looper                    transient: what is playing now
   members: PlayingPattern[]
-  bpm, barOriginBars      set by the first pattern to play
+  bpm, barOriginBars      set by the first pattern to play (or the latch's grid)
   soloId, latched
 
 Loop                      saved: a Kept phrase-like entry in the book
@@ -174,6 +175,9 @@ These are design-system units and go through that process, not this document:
 - **Beat dots** above Play: while latched with a take open, they count down
   the bar of silence that closes it, draining beat by beat on the heard
   beat; a note refills them; when the take closes they show the beat again.
+- **Latch Ring** (a compound around Play): a Brass ring that sweeps once per
+  bar while latched, on the heard bar; it rests while the beat dots drain the
+  closing bar. See Decided, 2026-10-26.
 - **Code Strip**: when the pattern on the desk is playing, the HighlightStrip
   follows it, lighting that member's notes while the others sound. This comes
   from the single transport's events; the prototype cannot do it.
@@ -218,7 +222,8 @@ The questions this section held are settled:
   pattern against a 4-bar one drifts, as rule 2 allows. The take's own
   recorded length stays one switch away (`LOOP_LENGTH` in the Looper store).
 - **The latch shows as Play's pressed state**: while latched, the Play key is
-  held in the Button's pressed look. Nothing else marks it.
+  held in the Button's pressed look. (Superseded on 2026-10-26: the pressed
+  look stays, and a Latch Ring now marks it too.)
 - **Envelopes do not stretch with tempo.** Pitch and gain curves follow the
   Looper's tempo; attack, decay and release stay in seconds, the instrument's
   own touch.
@@ -245,6 +250,44 @@ The questions this section held are settled:
 - **The unwound reel sits above everything**: the deck lifts over the mic and
   the dials while the reel is scrolled or held open.
 - **The mic stays where it is** while loops play.
+
+## Decided (Burooj, 2026-10-26, from the phone)
+
+Burooj tried the latch on his phone: it worked but was unclear ("I know how
+all this works. Let alone a new user."). These make it legible (BJS-493,
+absorbing BJS-582):
+
+- **The latch shows on Play while it is held**, as a Brass **Latch Ring**
+  ("perhaps loading button animation"). The ring sits in Play's lip channel
+  and sweeps once per bar, read from the transport's heard bar through UIBeat:
+  the audio clock is the truth, and there is no free-running timer. The
+  pressed look stays underneath. When a take is closing, the beat dots count
+  the closing bar and the ring rests on its dim track, so only one of them
+  moves: a clean hand-off, and the ring sweeps again when the take closes.
+  Reduced Motion: no sweep; a still, full Brass ring and Play's Ink and Ivory
+  inverted. Playing-zone palette only, no text label.
+- **The beat starts when you latch, not at the first note.** Latching with
+  nothing playing starts the transport's bar grid at that moment, at the
+  current tempo, with no member: the dots and the ring tick at once, silently,
+  with no click. Latching over a running loop joins its grid. While latched
+  the grid outlives its last member; releasing the latch stops an empty one.
+- **The first take keeps its place on that grid.** A take played into the
+  latch joins where its notes fell: its offset is its first note's bar on the
+  grid that started at the latch (bar one is the latch), so a take begun on
+  beat 3 still sits on beat 3 when it loops. Its length is its own recorded
+  length rounded up to whole bars (rule 2, #139's `phraseLengthBars`), so
+  every lap starts on that same beat and every cycle is whole bars. Counting
+  the grid bars it touches instead would sometimes add a whole bar of silence
+  (a 1.6-bar take begun on beat 3 touches three bars, where its own length
+  rounds to two) and would not move a single note: the offset already holds
+  the grid position. Pressing Play while latched to add
+  a pattern from the reel still works; it is pinned to bar one of the same
+  grid.
+- **Latching moves the desk to a new, empty take.** If a pattern was at the
+  front (brought from the reel, or playing), latching puts it back on the
+  reel untouched (rule 3: nothing writes into it), or leaves it playing if it
+  was. A take with notes closes as any take does when you scroll to the blank
+  slot. A key still held keeps its take, so no sounding note is cut from it.
 
 ## Open
 

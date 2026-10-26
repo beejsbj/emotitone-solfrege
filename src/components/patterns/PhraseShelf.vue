@@ -9,7 +9,6 @@
       label="Phrase reel. The selected strip is what you play into. Up and down arrows load older phrases; the front slot starts a new take."
       @commit="choose"
       @delete="deletePhrase"
-      @copy="copyNotation"
       @open-strudel="openInStrudel"
       @rename="renamePhrase"
       @interaction-change="reelInteraction"
@@ -98,15 +97,12 @@ watch(() => phrasesStore.refusedSaves, () => { dismissedNotice.value = null; });
 const shownNotice = computed(() =>
   phrasesStore.shelfNotice !== dismissedNotice.value ? phrasesStore.shelfNotice : null);
 
-const copiedId = ref<string | null>(null);
 const deleteArmedId = ref<string | null>(null);
 const now = ref(Date.now());
-let copyTimer: ReturnType<typeof setTimeout> | undefined;
 let deleteTimer: ReturnType<typeof setTimeout> | undefined;
 const clockTimer = setInterval(() => { now.value = Date.now(); }, 30_000);
 
 onBeforeUnmount(() => {
-  clearTimeout(copyTimer);
   clearTimeout(deleteTimer);
   clearInterval(clockTimer);
 });
@@ -191,16 +187,9 @@ function instrumentLabel(instrument: string) {
 }
 
 function actionsFor(phrase: Phrase, title: string, inPlace: boolean): PatternStripAction[] {
-  const copied = copiedId.value === phrase.id;
   const armed = deleteArmedId.value === phrase.id;
   const isYourTake = phrase.shelf === "take" && !inPlace;
   const playable = isYourTake ? hasPlayableCode.value : phrase.notes.length > 0;
-  const copy: PatternStripAction = {
-    kind: "copy",
-    label: copied ? `Copied ${title}` : `Copy ${title} Strudel code`,
-    done: copied,
-    disabled: !playable,
-  };
   const open: PatternStripAction = {
     kind: "open",
     label: `Open ${title} in Strudel`,
@@ -211,7 +200,7 @@ function actionsFor(phrase: Phrase, title: string, inPlace: boolean): PatternStr
     : phrase.shelf;
   // Everything you play is kept; the library is built in. So the one
   // curating action is delete, armed by the first tap and confirmed by the second.
-  if (origin === "library") return [copy, open];
+  if (origin === "library") return [open];
   const remove: PatternStripAction = {
     kind: "delete",
     label: armed
@@ -220,7 +209,7 @@ function actionsFor(phrase: Phrase, title: string, inPlace: boolean): PatternStr
     done: armed,
     disabled: isYourTake && !phrase.notes.length,
   };
-  return [remove, copy, open];
+  return [remove, open];
 }
 
 function blankItem(): PatternReelItem {
@@ -394,21 +383,6 @@ function notationFor(id: string) {
     sound: toStrudelSound(instrument ?? "sine"),
     shape,
   });
-}
-
-async function copyNotation(id: string) {
-  const source = notationFor(id);
-  if (!source) return;
-  try {
-    await navigator.clipboard.writeText(source);
-    copiedId.value = id;
-    clearTimeout(copyTimer);
-    copyTimer = setTimeout(() => {
-      if (copiedId.value === id) copiedId.value = null;
-    }, 1500);
-  } catch {
-    // Clipboard access is not available in every browser context.
-  }
 }
 
 function openInStrudel(id: string) {

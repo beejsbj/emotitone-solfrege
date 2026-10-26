@@ -11,7 +11,6 @@
           :selected-id="heroSelectedId"
           @commit="heroSelectedId = $event"
           @delete="report('Delete', $event)"
-          @copy="report('Copy', $event)"
           @open-strudel="report('Open in Strudel', $event)"
           @rename="rename"
         />
@@ -26,7 +25,6 @@
           :selected-id="restSelectedId"
           @commit="restSelectedId = $event"
           @delete="report('Delete', $event)"
-          @copy="report('Copy', $event)"
           @open-strudel="report('Open in Strudel', $event)"
           @rename="rename"
         />
@@ -37,7 +35,6 @@
           :selected-id="shortSelectedId"
           @commit="shortSelectedId = $event"
           @delete="report('Delete', $event)"
-          @copy="report('Copy', $event)"
           @open-strudel="report('Open in Strudel', $event)"
           @rename="rename"
         />
@@ -47,7 +44,6 @@
           :items="singlePattern"
           :selected-id="singlePattern[0].id"
           @delete="report('Delete', $event)"
-          @copy="report('Copy', $event)"
           @open-strudel="report('Open in Strudel', $event)"
           @rename="rename"
         />

@@ -63,7 +63,6 @@
       @return="commitCode"
       @pattern-commit="selectPattern"
       @pattern-delete="deletePattern"
-      @pattern-copy="copyPattern"
       @pattern-open-strudel="reportPatternAction('Open Strudel', $event)"
       @pattern-rename="renamePattern"
       @keyboard-press="reportKeyboardIntent('Press', $event)"
@@ -247,7 +246,6 @@ const patterns = ref<GuidePattern[]>([
     spine: staticPitchColor(6, "dorian", "F#", 4),
     loopDial: tokenTimeline(afterRainTokens, "dorian", "F#", 4),
     canDelete: true,
-    canCopy: true,
     canOpenStrudel: false,
     canRename: true,
     openUnavailableLabel: "Unavailable in isolated specimen",
@@ -266,7 +264,6 @@ const patterns = ref<GuidePattern[]>([
     spine: staticPitchColor(2, "minor", "D", 3),
     loopDial: tokenTimeline(lateTrainTokens, "minor", "D", 3),
     canDelete: true,
-    canCopy: true,
     canOpenStrudel: false,
     canRename: true,
     openUnavailableLabel: "Unavailable in isolated specimen",
@@ -285,7 +282,6 @@ const patterns = ref<GuidePattern[]>([
     spine: staticPitchColor(0, "major", "C", 4),
     loopDial: tokenTimeline(initialTokens, "major", "C", 4),
     canDelete: false,
-    canCopy: true,
     canOpenStrudel: false,
     canRename: false,
     deleteUnavailableLabel: "Edit the current take in CodeStrip",
@@ -314,7 +310,6 @@ const playMode = ref("together");
 const rowCount = ref(3);
 const harmonyValue = ref<HarmonyAlteration>("auto");
 const lastAction = ref("Ready · controlled PerformanceDeck");
-let copySequence = 0;
 let deleteArmTimer: ReturnType<typeof setTimeout> | undefined;
 
 onBeforeUnmount(() => clearTimeout(deleteArmTimer));
@@ -355,7 +350,6 @@ function resetCode() {
   if (current) {
     current.loopDial = currentLoopDial.map((segment) => ({ ...segment }));
     current.codeStripTokens = cloneTokens(initialTokens);
-    current.canCopy = true;
     applyPatternContext(current, "C", "major", 120, 4);
   }
   selectedPatternId.value = "current";
@@ -377,7 +371,6 @@ function removeLastEvent() {
   const current = patterns.value.find((pattern) => pattern.id === "current");
   if (current && selectedPatternId.value === current.id) {
     current.codeStripTokens = cloneTokens(codeStripTokens.value);
-    current.canCopy = codeStripTokens.value.length > 0;
     current.loopDial = tokenTimeline(
       codeStripTokens.value,
       modeValue.value,
@@ -411,9 +404,7 @@ function commitCode() {
       bpm: bpm.value,
       octave: octave.value,
       canDelete: true,
-      canCopy: true,
-      canRename: true,
-      copied: false,
+        canRename: true,
       deleteArmed: false,
     };
     applyPatternContext(
@@ -428,7 +419,6 @@ function commitCode() {
   if (current) {
     current.loopDial = [];
     current.codeStripTokens = [];
-    current.canCopy = false;
     applyPatternContext(
       current,
       keyValue.value,
@@ -480,24 +470,6 @@ function deletePattern(id: string) {
     selectPattern(predecessor.id, "tap");
   }
   lastAction.value = `Deleted ${deleted.name}`;
-}
-
-function copyPattern(id: string) {
-  const source = patterns.value.find((pattern) => pattern.id === id);
-  if (!source) return;
-  copySequence += 1;
-  const copyId = `${id}-copy-${copySequence}`;
-  patterns.value.splice(Math.max(0, patterns.value.length - 1), 0, {
-    ...source,
-    id: copyId,
-    name: `${source.name} Copy`,
-    canDelete: true,
-    canRename: true,
-    copied: true,
-    deleteArmed: false,
-    codeStripTokens: cloneTokens(source.codeStripTokens),
-  });
-  lastAction.value = `Copied ${source.name}`;
 }
 
 function renamePattern(id: string, title: string) {

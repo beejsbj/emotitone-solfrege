@@ -41,7 +41,6 @@ describe("PatternStrip", () => {
       button.attributes("aria-label")
     ))).toEqual([
       "Delete Evening Glass",
-      "Copy Evening Glass Strudel code",
       "Open Evening Glass in Strudel",
     ]);
     expect(patternStripSource).toContain("height: 51.2px");
@@ -54,7 +53,7 @@ describe("PatternStrip", () => {
   it("keeps the Loop Dial present when a strip becomes Current", async () => {
     const wrapper = mount(PatternStrip, {
       props: {
-        item: { ...item, copied: true, deleteArmed: true },
+        item: { ...item, deleteArmed: true },
         active: true,
       },
     });
@@ -75,7 +74,6 @@ describe("PatternStrip", () => {
       button.attributes("aria-label")
     ))).toEqual([
       "Confirm delete Evening Glass",
-      "Copied Evening Glass",
       "Open Evening Glass in Strudel",
     ]);
   });
@@ -93,7 +91,7 @@ describe("PatternStrip", () => {
     expect(wrapper.get(".pattern-strip__dial").element).toBe(dial);
     expect(dial.previousElementSibling).toBe(wrapper.get(".pattern-strip__rename").element);
     expect(dial.nextElementSibling).toBe(wrapper.get(".pattern-strip__actions").element);
-    expect(wrapper.findAll(".pattern-strip__actions button")).toHaveLength(3);
+    expect(wrapper.findAll(".pattern-strip__actions button")).toHaveLength(2);
   });
 
   it("emits identity and action intent without owning effects", async () => {
@@ -102,12 +100,45 @@ describe("PatternStrip", () => {
     const actions = wrapper.findAll(".pattern-strip__actions button");
     await actions[0].trigger("click");
     await actions[1].trigger("click");
-    await actions[2].trigger("click");
 
     expect(wrapper.emitted("select")).toHaveLength(1);
     expect(wrapper.emitted("delete")).toHaveLength(1);
-    expect(wrapper.emitted("copy")).toHaveLength(1);
     expect(wrapper.emitted("openStrudel")).toHaveLength(1);
+  });
+
+  it("has no Copy button: Open in Strudel is the way out to code", async () => {
+    const wrapper = mount(PatternStrip, { props: { item } });
+    const buttons = wrapper.findAll(".pattern-strip__actions button");
+
+    expect(buttons.map((button) => button.attributes("aria-label")))
+      .not.toContain(expect.stringMatching(/copy/i));
+    expect(wrapper.find('[data-action="copy"]').exists()).toBe(false);
+    expect(wrapper.find(".lucide-copy").exists()).toBe(false);
+
+    const open = wrapper.get('button[aria-label="Open Evening Glass in Strudel"]');
+    expect(open.attributes("disabled")).toBeUndefined();
+    await open.trigger("click");
+    expect(wrapper.emitted("openStrudel")).toHaveLength(1);
+    expect(wrapper.emitted("copy")).toBeUndefined();
+  });
+
+  it("has no Copy button in a strip that supplies its own actions", () => {
+    const wrapper = mount(PatternStrip, {
+      props: {
+        item: {
+          ...item,
+          actions: [
+            { kind: "delete", label: "Delete Evening Glass" },
+            { kind: "open", label: "Open Evening Glass in Strudel" },
+          ],
+        },
+      },
+    });
+
+    expect(wrapper.findAll(".pattern-strip__actions button").map((button) => (
+      button.attributes("aria-label")
+    ))).toEqual(["Delete Evening Glass", "Open Evening Glass in Strudel"]);
+    expect(wrapper.find(".lucide-copy").exists()).toBe(false);
   });
 
   it("renames the selected pattern inline on double-tap or F2", async () => {
@@ -193,24 +224,20 @@ describe("PatternStrip", () => {
     expect(deleteButton.attributes("disabled")).toBeDefined();
   });
 
-  it("names and disables unavailable sharing actions", () => {
+  it("names and disables an unavailable Open in Strudel", () => {
     const wrapper = mount(PatternStrip, {
       props: {
         item: {
           ...item,
-          canCopy: false,
           canOpenStrudel: false,
-          copyUnavailableLabel: "Record notes before copying Evening Glass",
           openUnavailableLabel: "Record notes before opening Evening Glass in Strudel",
         },
       },
     });
 
-    const copy = wrapper.get('button[aria-label="Record notes before copying Evening Glass"]');
     const open = wrapper.get(
       'button[aria-label="Record notes before opening Evening Glass in Strudel"]',
     );
-    expect(copy.attributes("disabled")).toBeDefined();
     expect(open.attributes("disabled")).toBeDefined();
   });
 
@@ -226,12 +253,10 @@ describe("PatternStrip", () => {
       'import PatternReel from "../../components/compounds/PatternReel.vue"',
     );
     expect(reelSpecimenSource.match(/@delete=/g)).toHaveLength(4);
-    expect(reelSpecimenSource.match(/@copy=/g)).toHaveLength(4);
     expect(reelSpecimenSource.match(/@open-strudel=/g)).toHaveLength(4);
     expect(reelSpecimenSource.match(/@rename=/g)).toHaveLength(4);
     expect(stripSpecimenSource.match(/@select=/g)).toHaveLength(5);
     expect(stripSpecimenSource.match(/@delete=/g)).toHaveLength(5);
-    expect(stripSpecimenSource.match(/@copy=/g)).toHaveLength(5);
     expect(stripSpecimenSource.match(/@open-strudel=/g)).toHaveLength(5);
     expect(stripSpecimenSource.match(/@rename=/g)).toHaveLength(5);
   });

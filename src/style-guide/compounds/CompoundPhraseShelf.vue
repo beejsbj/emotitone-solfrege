@@ -13,7 +13,6 @@
           :entry-signal="heroEntry"
           @commit="choose"
           @delete="report('Delete', $event)"
-          @copy="report('Copy', $event)"
           @open-strudel="report('Open in Strudel', $event)"
         />
         <div class="phrase-shelf-specimen__controls">
@@ -72,11 +71,10 @@ interface SpecimenPhrase {
 const SHELF_TAGS: Record<Shelf, string> = { recent: "4m ago", kept: "Kept", library: "Library" };
 
 function actions(shelf: Shelf | "take", name: string): PatternStripAction[] {
-  const copy = { kind: "copy" as const, label: `Copy ${name}` };
   const open = { kind: "open" as const, label: `Open ${name} in Strudel` };
   const remove = { kind: "delete" as const, label: `Delete ${name}` };
   // Everything you play is kept, so delete is the one curating action.
-  return shelf === "library" ? [copy, open] : [remove, copy, open];
+  return shelf === "library" ? [open] : [remove, open];
 }
 
 /** role: on the desk in its own place, on the desk at the front, or just shelved. */

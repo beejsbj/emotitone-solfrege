@@ -59,7 +59,6 @@
           :item="replacingPattern"
           active
           @replace="lastAction = 'Replace Evening Glass in Loop 1'"
-          @open-strudel="lastAction = 'Open the new take'"
         />
       </VariantCell>
     </VariantGrid>
@@ -130,7 +129,6 @@ const replacingPattern = reactive<PatternStripItem>({
   shelfTag: "Now",
   actions: [
     { kind: "replace", label: "Replace Evening Glass in Loop 1 with Take 3" },
-    { kind: "open", label: "Open Take 3 in Strudel" },
   ],
 });
 

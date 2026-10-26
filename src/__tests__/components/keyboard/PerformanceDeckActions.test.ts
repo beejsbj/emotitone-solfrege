@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => ({
   toggle: vi.fn(),
   stop: vi.fn(),
   looper: {
-    isDeskPlaying: false,
+    isPlayPlaying: false,
     latched: false,
     engineReady: true,
     togglePlay: vi.fn(),
@@ -218,7 +218,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.isPlaying.value = false;
-    mocks.looper.isDeskPlaying = false;
+    mocks.looper.isPlayPlaying = false;
     mocks.looper.latched = false;
     mocks.looper.engineReady = true;
     mocks.hasPlayableCode.value = true;
@@ -231,7 +231,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
   });
 
   it("hums over a running loop without stopping it, and wires take selection", async () => {
-    mocks.looper.isDeskPlaying = true;
+    mocks.looper.isPlayPlaying = true;
     const wrapper = mount(PerformanceDeck, {
       global: {
         stubs: {
@@ -347,7 +347,7 @@ describe("PerformanceDeck CodeStrip Bar", () => {
   });
 
   it("shows the desk's pattern playing, latches on a held Play, and mounts the Looper's dials", async () => {
-    mocks.looper.isDeskPlaying = true;
+    mocks.looper.isPlayPlaying = true;
     mocks.looper.latched = true;
     const wrapper = mount(PerformanceDeck, {
       global: {

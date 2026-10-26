@@ -119,6 +119,24 @@ describe("phrases store", () => {
       },
     );
 
+    it("brings a take left on the desk across a reload back on the working sound", () => {
+      playPhrase(store, "before", START);
+      keptOn("kawai", "dead-kept");
+      const state = JSON.parse(JSON.stringify({ book: store.book, isRecordingEnabled: true }));
+      state.book.phrases.find((phrase: { id: string }) => phrase.id === state.book.takeId).context.instrument = "kawai";
+      store.$dispose();
+      localStorage.setItem("phrases", serializePatternsState(state));
+      const pinia = createTestPinia().use(piniaPluginPersistedstate);
+      createApp({}).use(pinia);
+      setActivePinia(pinia);
+      useVisualConfigStore().updateConfig("codeStrip", { bpm: 120 });
+      store = usePhrasesStore();
+      expect(store.takeContext.instrument).toBe("piano");
+      expect(store.takeNotes).toHaveLength(3);
+      // Only the desk's copy moves; a kept phrase keeps the id it was recorded on.
+      expect(store.book.phrases.find((phrase) => phrase.id === "dead-kept")!.context.instrument).toBe("kawai");
+    });
+
     it("reopens a Recent phrase in place on the working sound", async () => {
       const source = keptOn("kawai", "dead-recent");
       source.shelf = "recent";

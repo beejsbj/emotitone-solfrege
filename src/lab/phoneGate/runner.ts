@@ -11,7 +11,7 @@
  * that follow need Burooj's hands and ears: dial taps, pad taps, a route
  * change, and two yes/no answers.
  */
-import { reactive } from "vue";
+import { reactive, watch } from "vue";
 import { summarizeRenderCost } from "@/audio/live/renderCost";
 import { readTransportEvents, TransportEventKind, type DecodedTransportEvent } from "@/audio/live/transportEvents";
 import { VOICE_RETIRE_SECONDS } from "@/audio/voicePolicy";
@@ -31,7 +31,7 @@ import { GATE_BEAT_MS, GATE_BPM, GATE_INSTRUMENT, GATE_MEMBER_LABELS, gateMember
 import { createAttackLedger, createLightLedger, createSoakAccount } from "./ledger";
 import {
   createClockSlipMeter, describeUserAgent, playbackStatsDelta, readJsMemory, readPlaybackStats, summarizeFrames,
-  tallyMuteTap, tallySoloHold,
+  freshOutputTimeMs, tallyMuteTap, tallySoloHold,
 } from "./metrics";
 import { expectedOnsets } from "./oracle";
 import { formatGateSummary, MUTE_TAPS, SOLO_HOLDS, type GateResults } from "./report";
@@ -403,7 +403,7 @@ export function createPhoneGate() {
       { mute: results.mute ?? [], unmute: results.unmute ?? [], refused: results.muteRefused ?? 0 },
       { muted, tapAtMs: tapAt }, receipt,
       { sampleRate: audio?.sampleRate ?? 0, fadeMs: FADE_MS,
-        outputTimeMs: audioTime => audio ? audioTimeToOutputTime(audio, audioTime) : Number.NaN });
+        outputTimeMs: audioTime => audio ? freshOutputTimeMs(audio, audioTime, performance.now()) : Number.NaN });
     results.mute = tally.mute;
     results.unmute = tally.unmute;
     results.muteRefused = tally.refused;
@@ -421,7 +421,7 @@ export function createPhoneGate() {
       { solo: results.solo ?? [], release: results.soloRelease ?? [], refused: results.soloRefused ?? 0 },
       { held, atMs: at }, receipt,
       { sampleRate: audio?.sampleRate ?? 0, fadeMs: FADE_MS,
-        outputTimeMs: audioTime => audio ? audioTimeToOutputTime(audio, audioTime) : Number.NaN });
+        outputTimeMs: audioTime => audio ? freshOutputTimeMs(audio, audioTime, performance.now()) : Number.NaN });
     results.solo = tally.solo;
     results.soloRelease = tally.release;
     results.soloRefused = tally.refused;
@@ -442,6 +442,9 @@ export function createPhoneGate() {
   // ─── The pad: live notes, and tap to sound ──────────────────────────────────
 
   let padOwner: string | undefined;
+  // The pad leaves the page on a phase change, taking its pointer handlers with
+  // it: a note still held then would sound on into the next step.
+  const stopPadWatch = watch(() => state.phase, () => padUp(), { flush: "sync" });
   function padDown(event: PointerEvent) {
     if (!context || padOwner) return;
     const at = eventTime(event);
@@ -595,6 +598,7 @@ export function createPhoneGate() {
       try { cleanup(); } catch { /* keep tearing down */ }
     }
     if (padOwner) padUp();
+    stopPadWatch();
     player?.dispose();
     player = undefined;
   }

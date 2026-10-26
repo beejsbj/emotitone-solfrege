@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AUDIO_IDLE_MS, manageAudioLifecycle } from "@/services/audioLifecycle";
-import { prepareLivePlayback } from "@/services/livePlayback";
+import { getLivePlayback, prepareLivePlayback } from "@/services/livePlayback";
 import { getAudioContext } from "@/services/superdoughAudio";
 import { createPhoneGate } from "./runner";
 
@@ -11,6 +11,7 @@ vi.mock("@/services/livePlayback", async importOriginal => ({
   ...await importOriginal<typeof import("@/services/livePlayback")>(),
   prepareLivePlayback: vi.fn(() => new Promise<void>(resolve => { load.finish = resolve; })),
   getLivePlaybackFailure: vi.fn(() => ({ kind: "load", reason: "refused by the test" })),
+  getLivePlayback: vi.fn(),
 }));
 
 function fakeContext() {
@@ -52,6 +53,29 @@ describe("phone gate run", () => {
     } finally {
       gate.dispose();
       disposeLifecycle();
+    }
+  });
+
+  it("releases a pad note still held when the step changes, so it cannot sound on into the next", () => {
+    const context = fakeContext();
+    vi.mocked(getAudioContext).mockReturnValue(context as unknown as AudioContext);
+    const renderer = { press: vi.fn(), release: vi.fn() };
+    vi.mocked(getLivePlayback).mockReturnValue(renderer as never);
+    const gate = createPhoneGate();
+    try {
+      gate.run();
+      gate.state.phase = "soak";
+      gate.padDown(new PointerEvent("pointerdown"));
+      expect(renderer.press).toHaveBeenCalledOnce();
+      const owner = renderer.press.mock.calls[0][0];
+      // The soak ends with the finger still down: the pad and its pointerup leave the page.
+      gate.state.phase = "ear";
+      expect(renderer.release).toHaveBeenCalledExactlyOnceWith(owner);
+      // A later stray pointerup releases nothing twice.
+      gate.padUp();
+      expect(renderer.release).toHaveBeenCalledOnce();
+    } finally {
+      gate.dispose();
     }
   });
 });

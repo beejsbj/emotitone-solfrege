@@ -215,13 +215,44 @@ export interface DialSpeaker {
   outputTimeMs(audioTime: number): number;
 }
 
-/** From the touch to the change at the speaker (plus the fade when it silences); null when nothing applied. */
+/**
+ * The shortest touch-to-speaker time a real change can take (ms). Anything
+ * less, a negative time above all, is a clock that placed the change before
+ * the touch (a stale output timestamp), not a fast dial.
+ */
+export const MIN_DIAL_LATENCY_MS = 2;
+
+/** From the touch to the change at the speaker (plus the fade when it silences); null when nothing usable applied. */
 function dialChangeLatency(atMs: number, receipt: DialReceipt | undefined, speaker: DialSpeaker, silences: boolean):
   number | null {
   const atSpeaker = receipt && !receipt.cancelled && !receipt.refused && speaker.sampleRate > 0
     ? speaker.outputTimeMs(receipt.appliedFrame / speaker.sampleRate) : Number.NaN;
   if (!Number.isFinite(atSpeaker) || !Number.isFinite(atMs)) return null;
+  // Judged before the fade: the change itself cannot land before the touch.
+  if (atSpeaker - atMs < MIN_DIAL_LATENCY_MS) return null;
   return atSpeaker + (silences ? speaker.fadeMs : 0) - atMs;
+}
+
+/** An output timestamp older than this (ms) is held over (an OS interruption, a resume), not read. */
+export const OUTPUT_STAMP_MAX_AGE_MS = 500;
+
+/**
+ * An audio time on the output clock (performance ms), from a fresh output
+ * timestamp only: NaN when there is none or it is stale, so a dial change it
+ * would misplace is counted as refused, never measured.
+ */
+export function freshOutputTimeMs(
+  context: { getOutputTimestamp?(): { contextTime?: number; performanceTime?: number } },
+  audioTime: number,
+  nowMs: number,
+  maxAgeMs = OUTPUT_STAMP_MAX_AGE_MS,
+): number {
+  const stamp = context.getOutputTimestamp?.();
+  const contextTime = stamp?.contextTime;
+  const performanceTime = stamp?.performanceTime;
+  if (!Number.isFinite(contextTime) || !Number.isFinite(performanceTime) || !(performanceTime! > 0)) return Number.NaN;
+  if (nowMs - performanceTime! > maxAgeMs) return Number.NaN;
+  return performanceTime! + (audioTime - contextTime!) * 1000;
 }
 
 export interface PlaybackStats {

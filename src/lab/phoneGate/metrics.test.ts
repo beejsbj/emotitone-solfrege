@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createClockSlipMeter, describeUserAgent, formatBytes, percentile, playbackStatsDelta, readJsMemory, readPlaybackStats,
-  summarizeFrames, summarizeLatencies, tallyMuteTap, tallySoloHold, type MuteTally, type SoloTally,
+  freshOutputTimeMs, summarizeFrames, summarizeLatencies, tallyMuteTap, tallySoloHold, type MuteTally, type SoloTally,
 } from "./metrics";
 import { formatGateSummary, gateRows, MUTE_TAPS, SOLO_HOLDS, type GateResults } from "./report";
 import { createRouteLog } from "./route";
@@ -151,6 +151,26 @@ describe("phone gate mute taps", () => {
     tally = tallyMuteTap(tally, { muted: true, tapAtMs: 0 }, undefined, speaker);
     tally = tallyMuteTap(tally, { muted: true, tapAtMs: 0 }, applied(1), { ...speaker, sampleRate: 0 });
     expect(tally).toEqual({ mute: [], unmute: [], refused: 4 });
+  });
+
+  it("refuses a change a stale output timestamp places before the touch, instead of passing it", () => {
+    // After a 4 s interruption the browser still hands back its last reading from before it.
+    const now = 20_000;
+    const stale = { getOutputTimestamp: () => ({ contextTime: 10, performanceTime: now - 4000 }) };
+    const fresh = { getOutputTimestamp: () => ({ contextTime: 10, performanceTime: now - 8 }) };
+    // Applied at audio 10.07 s; the tap was at now - 20 ms.
+    expect(freshOutputTimeMs(fresh, 10.07, now)).toBeCloseTo(now + 62);
+    expect(freshOutputTimeMs(stale, 10.07, now)).toBeNaN();
+    const tap = { muted: true, tapAtMs: now - 20 };
+    const via = (context: typeof stale) => ({ sampleRate: 48000, fadeMs: 30,
+      outputTimeMs: (audioTime: number) => freshOutputTimeMs(context, audioTime, now) });
+    expect(tallyMuteTap(empty, tap, applied(10.07), via(fresh))).toMatchObject({ refused: 0 });
+    expect(tallyMuteTap(empty, tap, applied(10.07), via(stale))).toEqual({ mute: [], unmute: [], refused: 1 });
+    // Whatever the clock, a change heard before (or within 2 ms of) its touch is not a measurement.
+    const early = { ...speaker, outputTimeMs: () => now - 25 };
+    expect(tallyMuteTap(empty, tap, applied(10.07), early)).toEqual({ mute: [], unmute: [], refused: 1 });
+    expect(tallyMuteTap(empty, { muted: false, tapAtMs: now - 26 }, applied(10.07), early))
+      .toEqual({ mute: [], unmute: [], refused: 1 });
   });
 
   it("fails the mute row when fewer than all its taps were measured, however fast they were", () => {

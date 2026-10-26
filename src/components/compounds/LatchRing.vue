@@ -9,10 +9,16 @@ import { useUIBeat, type UIBeatSnapshot } from "@/composables/useUIBeat";
  * bar while latched, read from UIBeat, which the transport drives from the
  * heard bar: the audio clock is the truth, and this unit owns no timer.
  *
+ * While latched the ring is the bar clock and nothing else (BJS-582): notes,
+ * the take closing, its growing and rejoining never stop, dim or reset it.
+ * The take-close countdown is the beat dots' alone.
+ *
  * - sweep: the transport runs; the arc fills from the top, clockwise, and
  *   empties on each downbeat.
- * - rest: latched, but the beat dots are counting the closing bar (the ring
- *   hands off to them), or no beat is presented yet. Only the dim track shows.
+ * - rest: latched, but there is no heard bar to show: the AudioContext is
+ *   suspended (or a rebuilt engine is restoring, or the grid's first frame
+ *   has not come). Only the dim track shows; the sweep comes back on the
+ *   heard bar when the audio runs again.
  * - still: Reduced Motion. A full, static Brass ring, and the slot is told to
  *   invert its key's Ink/Ivory, so the latch reads without motion.
  */
@@ -20,14 +26,11 @@ const props = withDefaults(
   defineProps<{
     /** The latch is on. */
     active?: boolean;
-    /** The beat dots count the closing bar: the ring stops and rests. */
-    stopped?: boolean;
     /** Show the still reading whatever the media query says (the guide's Reduced Motion specimen). */
     still?: boolean;
   }>(),
   {
     active: false,
-    stopped: false,
     still: false,
   },
 );
@@ -45,7 +48,7 @@ let unsubscribe: (() => void) | undefined;
 const state = computed<RingState>(() => {
   if (!props.active) return "off";
   if (props.still || reducedMotion.value) return "still";
-  if (props.stopped || !presenting.value) return "rest";
+  if (!presenting.value) return "rest";
   return "sweep";
 });
 

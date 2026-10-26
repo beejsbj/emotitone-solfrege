@@ -1479,37 +1479,82 @@ describe("Play is the loop on the worklet transport", () => {
         }
       });
 
-      it("hands off to the beat dots: the ring rests while they drain the closing bar, and sweeps again after", async () => {
+      it("is the bar clock while latched: notes, the closing countdown, the take's growth and its close never stop, dim or reset it (BJS-582)", async () => {
         const { phrases, looper } = setup({ uiBeat: uiBeatClock });
         const deck = mountDeck();
         try {
           await press(play(deck).element, 520);
           await looper.settled();
-          live("C4", 0, rig.frame + 4000, rig.frame + 5600);
-          await flush();
+          await hear(.1);
+          const element = deck.get(".latch-ring__ring").element;
+          const samples: { bar: number; state: string | undefined; phase: number; countdown: string | undefined }[] = [];
+          /** One frame: the heard bar, the latch's poll, and what the ring shows. */
+          const frame = async () => {
+            paint();
+            looper.checkLatch();
+            await flush();
+            expect(deck.get(".latch-ring__ring").element).toBe(element);
+            samples.push({ bar: player.heardBar()!, state: ring(deck).attributes("data-latch-ring"),
+              phase: sweepOf(deck) / 360, countdown: dots(deck).attributes("data-beat-countdown") });
+          };
+          /** Let frames pass until the heard bar reaches `bar`. */
+          const until = async (bar: number) => {
+            while (player.heardBar()! < bar) { render(QUANTUM * 4 / RATE); await frame(); }
+          };
+          const bar0 = rig.frame;
+          const at = (bars: number) => bar0 + Math.round(bars * FRAMES_PER_BAR);
+          // A phrase with gaps: notes refill the dots, silences drain them, the
+          // take grows and rejoins note by note, and a bar of silence closes it.
+          const takes = new Set<string>();
+          for (const [name, index, from, length] of [["C4", 0, .3, .1], ["E4", 2, .9, .15], ["G4", 4, 1.2, .1],
+            ["A4", 5, 1.85, .2], ["C5", 0, 3.4, .1], ["D4", 1, 3.7, .1]] as const) {
+            await until(from - .05);
+            live(name, index, at(from), at(from + length));
+            await frame();
+            takes.add(phrases.take.id);
+            await until(from + length + .3);
+          }
+          await until(5.5);
+
+          // The scenario really drained the dots, grew a take and closed it.
+          expect(samples.some((sample) => Number(sample.countdown) < 4)).toBe(true);
+          expect(samples.some((sample) => sample.countdown === "4")).toBe(true);
+          expect(takes.size).toBeGreaterThan(1);
+          expect(attacks.some((attack) => attack.phraseId === [...takes][0])).toBe(true);
+          // The ring swept through all of it, on the heard bar.
+          expect(samples.filter((sample) => sample.state !== "sweep")).toEqual([]);
+          for (const sample of samples) expectSamePhase(1, sample.phase, sample.bar, 2);
+          // Within a bar its phase only grows; it empties only where a bar line passed.
+          for (let index = 1; index < samples.length; index++) {
+            const [before, after] = [samples[index - 1], samples[index]];
+            if (Math.floor(after.bar) === Math.floor(before.bar)) expect(after.phase).toBeGreaterThanOrEqual(before.phase);
+            else expect(after.phase).toBeLessThan(before.phase);
+          }
+          expect(new Set(samples.map((sample) => Math.floor(sample.bar))).size).toBeGreaterThanOrEqual(5);
+        } finally {
+          deck.unmount();
+        }
+      });
+
+      it("rests only while the AudioContext is suspended, and comes back at the heard bar's phase", async () => {
+        const { looper } = setup({ uiBeat: uiBeatClock });
+        const deck = mountDeck();
+        try {
+          await press(play(deck).element, 520);
           await looper.settled();
-          const open = phrases.take.id;
-          await hear(.05);
-          looper.checkLatch();
-          await flush();
-          // The take is open and the bar's first beat has not passed: the dots are full, the ring sweeps.
-          expect(dots(deck).attributes("data-beat-countdown")).toBe("4");
+          await hear(.6);
           expect(ring(deck).attributes("data-latch-ring")).toBe("sweep");
-          const from = player.heardBar()!;
-          while (player.heardBar()! < from + .4) render(QUANTUM / RATE);
+          const element = deck.get(".latch-ring__ring").element;
+          rig.context.state = "suspended";
           paint();
-          looper.checkLatch();
           await flush();
-          expect(Number(dots(deck).attributes("data-beat-countdown"))).toBeLessThan(4);
-          // One signal at a time: the dots count, the ring rests (no sweep).
           expect(ring(deck).attributes("data-latch-ring")).toBe("rest");
-          while (player.heardBar()! < from + 1.05) render(QUANTUM / RATE);
-          looper.checkLatch();
-          paint();
-          await flush();
-          expect(phrases.take.id).not.toBe(open);
-          expect(dots(deck).attributes("data-beat-countdown")).toBeUndefined();
+          expect(deck.get(".latch-ring__ring").element).toBe(element);
+          rig.context.state = "running";
+          await hear(.3);
           expect(ring(deck).attributes("data-latch-ring")).toBe("sweep");
+          expect(deck.get(".latch-ring__ring").element).toBe(element);
+          expect(sweepOf(deck) / 360).toBeCloseTo(mod(player.heardBar()!, 1), 2);
         } finally {
           deck.unmount();
         }

@@ -65,6 +65,34 @@ describe('production live worklet bridge', () => {
     } finally { bridge.dispose(); wire.port1.close(); wire.port2.close() }
   })
 
+  it('reads the production processor render cost over a real port, and fails pending reads on disposal', async () => {
+    vi.resetModules()
+    const wire = new NodeMessageChannel()
+    vi.stubGlobal('MessageChannel', NodeMessageChannel)
+    vi.stubGlobal('sampleRate', 48000)
+    vi.stubGlobal('currentFrame', 0)
+    vi.stubGlobal('AudioWorkletProcessor', class { port = wire.port2 })
+    const register = vi.fn()
+    vi.stubGlobal('registerProcessor', register)
+    await import('./processor')
+    const processor = new (register.mock.calls[0][1])()
+    const node = { port: wire.port1, connect() {}, disconnect() {}, onprocessorerror: null }
+    vi.stubGlobal('AudioWorkletNode', vi.fn(() => node))
+    const context = { audioWorklet: { async addModule() {} }, state: 'running' } as unknown as AudioContext
+    const bridge = await createLiveWorklet(context, {} as AudioNode, { onEvent() {} })
+    try {
+      // The first read starts the meter: nothing before it was timed.
+      expect(await bridge.renderCost(true)).toMatchObject({ quanta: 0 })
+      for (let quantum = 0; quantum < 5; quantum++) processor.process([], [[new Float32Array(128), new Float32Array(128)]])
+      const cost = await bridge.renderCost()
+      expect(cost.quanta).toBe(5)
+      expect(cost.histogram.reduce((sum: number, count: number) => sum + count, 0)).toBe(5)
+      const unanswered = bridge.renderCost()
+      bridge.dispose()
+      await expect(unanswered).rejects.toThrow('disposed')
+    } finally { bridge.dispose(); wire.port1.close(); wire.port2.close() }
+  })
+
   it('waits for instrument receipt, including with a suspended context', async () => {
     const { node, context, callbacks, drain } = setup()
     const bridge = await createLiveWorklet(context, {} as AudioNode, callbacks)

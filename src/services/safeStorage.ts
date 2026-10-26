@@ -257,8 +257,74 @@ export function createSafeStorage(
   };
 }
 
+/**
+ * A Storage that reads through to `base` and keeps every write in memory: the
+ * page sees its own saves (and migrations) while the stored bytes never change.
+ */
+export function createReadThroughStorage(base: () => Storage | undefined): Storage {
+  const written = new Map<string, string>();
+  const removed = new Set<string>();
+  const baseKeys = (): string[] => {
+    try {
+      const storage = base();
+      if (!storage) return [];
+      const keys: string[] = [];
+      for (let index = 0; index < storage.length; index += 1) {
+        const key = storage.key(index);
+        if (key !== null) keys.push(key);
+      }
+      return keys;
+    } catch {
+      return [];
+    }
+  };
+  const keys = () => [...new Set([...baseKeys(), ...written.keys()])].filter((key) => !removed.has(key));
+  return {
+    getItem(key) {
+      if (removed.has(key)) return null;
+      if (written.has(key)) return written.get(key)!;
+      return base()?.getItem(key) ?? null;
+    },
+    setItem(key, value) {
+      removed.delete(key);
+      written.set(key, String(value));
+    },
+    removeItem(key) {
+      written.delete(key);
+      removed.add(key);
+    },
+    clear() {
+      for (const key of keys()) removed.add(key);
+      written.clear();
+    },
+    key: (index) => keys()[index] ?? null,
+    get length() {
+      return keys().length;
+    },
+  };
+}
+
+function browserLocalStorage(): Storage | undefined {
+  try {
+    return typeof window === "undefined" ? undefined : window.localStorage;
+  } catch {
+    return undefined;
+  }
+}
+
+let pageOnlyStorage: Storage | undefined;
+
+/**
+ * For pages that must never change the player's saved data (lab harnesses):
+ * from here on, every persisted write stays in memory for this page. Call it
+ * before any store is created, so no load-time migration reaches storage.
+ */
+export function keepPersistedWritesInMemory(): void {
+  pageOnlyStorage ??= createReadThroughStorage(browserLocalStorage);
+}
+
 /** The app's persisted-write path: Pinia stores and direct writers share it. */
-export const persistentStorage = createSafeStorage();
+export const persistentStorage = createSafeStorage(() => pageOnlyStorage ?? browserLocalStorage());
 
 /** pinia plugin that persists every `persist` store through `persistentStorage`. */
 export const persistedStatePlugin = createPersistedState({ storage: persistentStorage });

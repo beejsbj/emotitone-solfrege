@@ -30,7 +30,9 @@ export const BRAND_ZONE = [
  * stores, data and the style guide are deliberately outside: they define or
  * compute colour, they do not apply it to the instrument.
  */
-export const PLAYING_ZONE_DIRS = ["src/components", "src/composables"];
+// src/lab: measurement pages (the phone gate) are built from the playing zone's
+// materials and run over the live Stage, so the same law holds them.
+export const PLAYING_ZONE_DIRS = ["src/components", "src/composables", "src/lab"];
 export const PLAYING_ZONE_FILES = ["src/App.vue", "src/MainApp.vue"];
 
 /** Every runtime source extension ESLint holds to the law, so a new .js file cannot dodge it. */

@@ -44,7 +44,6 @@
         :disabled="interactionLocked"
         @commit="(id, input) => emit('patternCommit', id, input)"
         @delete="(id) => emit('patternDelete', id)"
-        @copy="(id) => emit('patternCopy', id)"
         @open-strudel="(id) => emit('patternOpenStrudel', id)"
         @rename="(id, title) => emit('patternRename', id, title)"
         @interaction-change="setPatternReelGuard"
@@ -238,7 +237,6 @@ const emit = defineEmits<{
   return: [];
   patternCommit: [id: string, input: PatternReelInput];
   patternDelete: [id: string];
-  patternCopy: [id: string];
   patternOpenStrudel: [id: string];
   patternRename: [id: string, title: string];
   keyboardPress: [intent: KeyboardIntent];

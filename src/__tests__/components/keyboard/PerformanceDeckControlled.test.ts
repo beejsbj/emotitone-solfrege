@@ -63,7 +63,7 @@ vi.mock("@/components/humming/HummingCaptureTransport.vue", () => ({
 const PatternReelStub = defineComponent({
   name: "PatternReel",
   props: ["items", "selectedId", "entrySignal", "disabled"],
-  emits: ["commit", "delete", "copy", "openStrudel", "rename", "interactionChange"],
+  emits: ["commit", "delete", "openStrudel", "rename", "interactionChange"],
   template: '<div data-testid="pattern-reel" />',
 });
 const CodeStripBarStub = defineComponent({

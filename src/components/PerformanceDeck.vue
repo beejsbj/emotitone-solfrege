@@ -283,7 +283,8 @@ const patternControlSignals = reactive<Record<PatternControl, number>>({
 });
 
 const drawerOpen = computed(() => store?.drawer.isOpen ?? props.drawerOpen);
-const isPlaying = computed(() => looper ? looper.isDeskPlaying : props.isPlaying);
+// On a Loop's reel, Play is the Loop's (BJS-572).
+const isPlaying = computed(() => looper ? looper.isPlayPlaying : props.isPlaying);
 const hasPlayableCode = computed(() => Boolean(
   props.codeStripTokens.length
     || (props.codeStripSource && hasPlayableContent(props.codeStripSource)),
@@ -298,7 +299,7 @@ const playDisabled = computed(() => isProductionUsage
   // gesture that wakes audio after an interruption. Otherwise Play is always
   // pressable: it can be held to latch on an empty desk, and a loop plays on
   // while an instrument warms up.
-  ? !looper!.engineReady && !looper!.isDeskPlaying && !looper!.latched
+  ? !looper!.engineReady && !looper!.isPlayPlaying && !looper!.latched
   : props.playDisabled
     || !hasPlayableCode.value
     || (interactionLocked.value && !isPlaying.value)

@@ -355,6 +355,11 @@ export const usePhrasesStore = defineStore(
     function deletePhrase(id: string): boolean {
       const protectedIds = protectedIdsProvider.value();
       if (protectedIds.has(id)) return false;
+      const inLoop = (phraseId: string) =>
+        book.value.loops.some((loop) => loop.members.some((member) => member.phraseId === phraseId));
+      // A take a saved Loop points at (a pattern put in a Loop from the desk) is
+      // the Loop's: deleting it would leave the Loop pointing at nothing.
+      if (inLoop(id)) return false;
       if (id === book.value.takeId && isTakeTouched.value) {
         // A confirmed delete of the take you played into: gone, fresh desk.
         discardTake(book.value, Date.now(), liveContext.value);
@@ -366,7 +371,7 @@ export const usePhrasesStore = defineStore(
           || target === untouchedCopySource(book.value, isTakeTouched.value));
       if (protectedIds.has(target)) return false;
       // A saved Loop's member is refused before the desk is touched.
-      if (book.value.loops.some((loop) => loop.members.some((member) => member.phraseId === target))) return false;
+      if (inLoop(target)) return false;
       // Deleting what you're looking at clears the desk first.
       if (lookedAt) startBlankTake();
       return deleteBookPhrase(book.value, target, protectedIds);

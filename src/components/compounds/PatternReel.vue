@@ -53,6 +53,7 @@
           @rename="emit('rename', slot.item.id, $event)"
           @keep="emit('keep', slot.item.id)"
           @load="emit('load', slot.item.id)"
+          @replace="emit('replace', slot.item.id)"
         />
       </div>
     </div>
@@ -131,6 +132,7 @@ const emit = defineEmits<{
   rename: [id: string, name: string];
   keep: [id: string];
   load: [id: string];
+  replace: [id: string];
   interactionChange: [active: boolean];
 }>();
 

@@ -143,7 +143,7 @@ const createLoopId: NewLoopId = (prefix) =>
 export function saveLoop(
   book: PhraseBook,
   looper: Looper,
-  nextName: string,
+  nextName: string = nextLoopName(book),
   now: number,
   newId: NewLoopId = createLoopId,
 ): string | null {
@@ -182,6 +182,82 @@ export function renameLoop(book: PhraseBook, id: string, nextName: string, now: 
   const name = nextName.trim().slice(0, MAX_NAME_LENGTH);
   if (!loop || !name) return false;
   loop.name = name;
+  loop.updatedAt = now;
+  return true;
+}
+
+/** "Loop 3": one more than the highest number a "Loop n" name already holds. */
+export function nextLoopName(book: PhraseBook): string {
+  const taken = book.loops.map((loop) => /^Loop (\d+)$/.exec(loop.name)?.[1]).map(Number).filter(Number.isFinite);
+  return `Loop ${Math.max(book.loops.length, ...taken) + 1}`;
+}
+
+/** The saved Loop holding exactly these patterns (as a set), if any. */
+export function loopOfPlayingSet(book: PhraseBook, looper: Looper): Loop | undefined {
+  const playing = playingPhraseIds(looper);
+  return book.loops.find((loop) => loop.members.length === playing.size
+    && loop.members.every((member) => playing.has(member.phraseId)));
+}
+
+/** Every pattern of the Loop is in the playing set. */
+export function isLoopPlaying(looper: Looper, loop: Loop): boolean {
+  return loop.members.length > 0 && loop.members.every((member) => isPlaying(looper, member.phraseId));
+}
+
+/**
+ * Rule 2 for a saved Loop: its patterns that are not playing join the running
+ * bar grid in their saved places (offsets are bars from the Loop's bar one,
+ * which is the grid's bar one), with their saved mute, pin and rate. An empty
+ * Looper takes the given tempo and starts its bar one at 0. Members already
+ * playing keep their own place. Returns the members that joined.
+ */
+export function joinLoop(looper: Looper, loop: Loop, bpm: number): PlayingPattern[] {
+  const joining = loop.members.filter((member) => !isPlaying(looper, member.phraseId));
+  if (!joining.length) return [];
+  if (!looper.members.length) {
+    looper.bpm = resolveBpm(bpm);
+    looper.barOriginBars = 0;
+  }
+  const joined = joining.map((member) => ({ ...member }));
+  looper.members.push(...joined);
+  return joined;
+}
+
+/** Where a replacing pattern sits in the Loop, if not in the replaced one's place. */
+export type LoopPlacement = Partial<Pick<PlayingPattern, "offsetBars" | "lengthBars" | "muted" | "pinned" | "rate">>;
+
+/**
+ * Swap one of a Loop's pointers for another phrase (a pattern edited on the
+ * Loop's reel). Loops hold pointers, so neither phrase changes: the replaced
+ * one stays on its shelf, now free of this Loop. The new one takes the old
+ * one's place, mute, pin and rate unless `placement` says otherwise, and its
+ * own whole-bar length. Refused for a Loop or member that is not there, a
+ * phrase already in the Loop, or one with no notes.
+ */
+export function replaceLoopMember(
+  book: PhraseBook,
+  loopId: string,
+  phraseId: string,
+  phrase: Phrase,
+  now: number,
+  placement: LoopPlacement = {},
+): boolean {
+  const loop = book.loops.find((candidate) => candidate.id === loopId);
+  const index = loop?.members.findIndex((member) => member.phraseId === phraseId) ?? -1;
+  if (!loop || index < 0 || !phrase.notes.length) return false;
+  if (loop.members.some((member) => member.phraseId === phrase.id)) return false;
+  const was = loop.members[index];
+  const offsetBars = placement.offsetBars ?? was.offsetBars;
+  if (!Number.isFinite(offsetBars)) return false;
+  // A new array: a merge with another tab compares Loops slot by slot.
+  loop.members = loop.members.map((member, at) => (at !== index ? member : {
+    phraseId: phrase.id,
+    offsetBars,
+    lengthBars: placement.lengthBars ?? phraseLengthBars(phrase),
+    muted: placement.muted ?? was.muted,
+    pinned: alwaysPinned(phrase) || (placement.pinned ?? was.pinned),
+    rate: placement.rate ?? was.rate,
+  }));
   loop.updatedAt = now;
   return true;
 }

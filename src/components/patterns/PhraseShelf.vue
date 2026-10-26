@@ -1,18 +1,23 @@
 <template>
   <div class="phrase-shelf">
-    <PatternReel
-      class="phrase-shelf__reel"
-      :items="reelItems"
-      :selected-id="deskItemId"
-      :entry-signal="entrySignal"
-      :cyclic="false"
-      label="Phrase reel. The selected strip is what you play into. Up and down arrows load older phrases; the front slot starts a new take."
-      @commit="choose"
-      @delete="deletePhrase"
-      @open-strudel="openInStrudel"
-      @rename="renamePhrase"
-      @interaction-change="reelInteraction"
-    />
+    <!-- The home reel and one reel per saved Loop, side by side (BJS-572). -->
+    <ReelSwitch :reels="reels" :active-id="activeReelId" @change="showReel">
+      <PatternReel
+        :key="activeReelId"
+        class="phrase-shelf__reel"
+        :items="shownItems"
+        :selected-id="shownSelectedId"
+        :entry-signal="entrySignal"
+        :cyclic="false"
+        :label="reelLabel"
+        @commit="choose"
+        @delete="deletePhrase"
+        @open-strudel="openInStrudel"
+        @rename="renamePhrase"
+        @replace="replaceInLoop"
+        @interaction-change="reelInteraction"
+      />
+    </ReelSwitch>
     <!-- Floats above the deck's top edge, over the Stage. Not an occlusion
          part: a passing notice must not resize the Stage's composition. -->
     <ShelfNotice
@@ -30,6 +35,7 @@
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import ShelfNotice from "@/components/patterns/ShelfNotice.vue";
 import PatternReel from "@/components/compounds/PatternReel.vue";
+import ReelSwitch, { type ReelSwitchReel } from "@/components/compounds/ReelSwitch.vue";
 import type { PatternReelItem } from "@/components/compounds/PatternReel.vue";
 import type {
   PatternStripAction,
@@ -53,6 +59,7 @@ import { loopLengthMs } from "@/services/recordedTiming";
 import { strudelUrl } from "@/services/strudelLink";
 import { chromaticPitchHeight } from "@/services/scalePitch";
 import { looperDialProps } from "@/components/patterns/looperDial";
+import { isLoopPlaying } from "@/domain/looper";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useLooperStore } from "@/stores/looper";
 import { useMusicStore } from "@/stores/music";
@@ -60,6 +67,7 @@ import { usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import type { LogNote, PatternNote } from "@/types/patterns";
 import type { Phrase } from "@/types/phrases";
+import type { Loop } from "@/types/looper";
 
 type PatternControl = "key" | "mode" | "bpm" | "octave";
 
@@ -137,7 +145,7 @@ watch(
 
 function choose(id: string) {
   if (id === BLANK_ID) phrasesStore.startBlankTake();
-  else if (id !== phrasesStore.takeId) loadPhrase(id);
+  else if (id !== phrasesStore.takeId && id !== phrasesStore.deskPhraseId) loadPhrase(id);
 }
 
 // ─── Presentation ────────────────────────────────────────────────────────────
@@ -201,13 +209,17 @@ function actionsFor(phrase: Phrase, title: string, inPlace: boolean): PatternStr
   // Everything you play is kept; the library is built in. So the one
   // curating action is delete, armed by the first tap and confirmed by the second.
   if (origin === "library") return [open];
+  // A saved Loop points at it (a looked-at copy stands for its source): it stays.
+  const looped = inAnyLoop(phrase.id) || (inPlace && inAnyLoop(phrasesStore.deskPhraseId));
   const remove: PatternStripAction = {
     kind: "delete",
-    label: armed
-      ? `Confirm delete ${title}`
-      : isYourTake ? `Delete this take` : `Delete ${title}`,
-    done: armed,
-    disabled: isYourTake && !phrase.notes.length,
+    label: looped
+      ? `${title} is in a saved Loop`
+      : armed
+        ? `Confirm delete ${title}`
+        : isYourTake ? `Delete this take` : `Delete ${title}`,
+    done: armed && !looped,
+    disabled: looped || (isYourTake && !phrase.notes.length),
   };
   return [remove, open];
 }
@@ -296,6 +308,102 @@ const reelItems = computed(() => {
   const reel = phrasesStore.reel;
   return reel.map((entry, index) => reelItem(entry, index === reel.length - 1));
 });
+
+// ─── Loop reels (BJS-572) ────────────────────────────────────────────────────
+// A saved Loop is its own reel, reached by swiping sideways from the home reel.
+// It holds only that Loop's patterns, in the Loop's order, then the front slot.
+// Its Play is the Loop's (the Looper store); its patterns are read-only from
+// the desk, so playing over one opens a new take at the front, which "Replace
+// in Loop" puts in the place of the pattern last on the desk there.
+const HOME_REEL = "home";
+
+function inAnyLoop(id: string) {
+  return phrasesStore.book.loops.some((loop) => loop.members.some((member) => member.phraseId === id));
+}
+
+const reels = computed<ReelSwitchReel[]>(() => [
+  { id: HOME_REEL, name: "Every phrase", kind: "home" },
+  ...phrasesStore.book.loops.map((loop): ReelSwitchReel => ({
+    id: loop.id,
+    name: loop.name,
+    kind: "loop",
+    sounding: isLoopPlaying(looperStore.looper, loop),
+  })),
+]);
+const activeReelId = computed(() => looperStore.reelLoop?.id ?? HOME_REEL);
+
+function showReel(id: string) {
+  looperStore.showReel(id === HOME_REEL ? null : id);
+}
+
+function memberItem(loop: Loop, phrase: Phrase, isDesk: boolean): PatternReelItem {
+  const item = reelItem({ phrase, role: isDesk ? "desk" : "shelf", key: `loop-member:${phrase.id}` }, false);
+  const title = item.name;
+  return {
+    ...item,
+    // Where it lives, here: in this Loop.
+    shelfTag: loop.name,
+    tone: isDesk ? "take" : phrase.shelf === "take" ? "recent" : phrase.shelf,
+    stateLabel: isDesk ? `in ${loop.name}, on the desk; playing opens a new take` : `in ${loop.name}`,
+    canRename: false,
+    actions: [{ kind: "open", label: `Open ${title} in Strudel`, disabled: !phrase.notes.length }],
+  };
+}
+
+/** The front: the desk's pattern when it is not one of the Loop's, else a blank take. */
+function loopFrontItem(loop: Loop): PatternReelItem {
+  const take = phrasesStore.take;
+  const deskIsMember = loop.members.some((member) => member.phraseId === phrasesStore.deskPhraseId);
+  if (!take.notes.length || deskIsMember) return blankItem();
+  // A pattern only looked at (brought from the home reel) keeps its own shelf word.
+  const lookedAt = !phrasesStore.isTakeTouched && phrasesStore.book.recorder.origin !== "fresh";
+  const item = reelItem({ phrase: take, role: "desk", key: `phrase:${take.id}` }, !lookedAt);
+  const target = looperStore.replaceTarget;
+  const targetPhrase = target ? phrasesStore.findPhrase(target) : undefined;
+  const targetTitle = targetPhrase ? looperStore.viewFor(target!)?.label ?? phraseTitle(targetPhrase) : "";
+  return {
+    ...item,
+    canRename: false,
+    actions: [
+      {
+        kind: "replace",
+        label: target ? `Replace ${targetTitle} in ${loop.name} with ${item.name}` : `Replace in ${loop.name}`,
+        disabled: !target,
+      },
+      { kind: "open", label: `Open ${item.name} in Strudel`, disabled: !hasPlayableCode.value },
+    ],
+  };
+}
+
+const loopItems = computed<PatternReelItem[]>(() => {
+  const loop = looperStore.reelLoop;
+  if (!loop) return [];
+  const desk = phrasesStore.deskPhraseId;
+  const members = loop.members.flatMap((member) => {
+    const phrase = phrasesStore.findPhrase(member.phraseId);
+    return phrase ? [memberItem(loop, phrase, member.phraseId === desk)] : [];
+  });
+  return [...members, loopFrontItem(loop)];
+});
+
+const loopSelectedId = computed(() => {
+  const loop = looperStore.reelLoop;
+  const desk = phrasesStore.deskPhraseId;
+  if (!loop || loop.members.some((member) => member.phraseId === desk)) return desk;
+  return phrasesStore.take.notes.length ? phrasesStore.takeId : BLANK_ID;
+});
+
+const shownItems = computed(() => (looperStore.reelLoop ? loopItems.value : reelItems.value));
+const shownSelectedId = computed(() => (looperStore.reelLoop ? loopSelectedId.value : deskItemId.value));
+const reelLabel = computed(() => looperStore.reelLoop
+  ? `${looperStore.reelLoop.name}: its patterns. Play plays the Loop. Up and down arrows load a pattern; playing over one opens a new take, which can replace it in the Loop.`
+  : "Phrase reel. The selected strip is what you play into. Up and down arrows load older phrases; the front slot starts a new take.");
+
+function replaceInLoop() {
+  const loop = looperStore.reelLoop;
+  const target = looperStore.replaceTarget;
+  if (loop && target) looperStore.replaceInLoop(loop.id, target);
+}
 
 // An armed delete means "delete what I armed". If the desk changes under it
 // (a new take, or you played into it), that meaning no longer holds.

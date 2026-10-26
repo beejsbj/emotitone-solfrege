@@ -3,7 +3,7 @@ import { createPinia } from "pinia";
 import App from "./App.vue";
 import "./style.css";
 import "./emotitone-design-system.css";
-import { persistedStatePlugin } from "./services/safeStorage";
+import { keepPersistedWritesInMemory, persistedStatePlugin } from "./services/safeStorage";
 import { installBackupConsole } from "./services/persistenceCodec";
 import { beginEditionShuffle, readEditionReviewPin } from "./composables/useEditionFamily";
 import { registerSW } from 'virtual:pwa-register';
@@ -35,6 +35,9 @@ const pathname = currentPathname();
 const isDesignRoute = isStyleGuideRoute(pathname);
 // A lab page (a measurement harness) is neither the instrument nor the guide.
 const isLab = isLabRoute(pathname);
+// Before any store loads: a lab page reads the player's saved data but never
+// writes it, not even a load-time migration.
+if (isLab) keepPersistedWritesInMemory();
 readEditionReviewPin();
 if ((!isDesignRoute && !isLab) || pathname === "/style-guide/config-menu") {
   beginEditionShuffle();

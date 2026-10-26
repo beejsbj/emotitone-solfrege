@@ -46,7 +46,8 @@ function dialState(dial: GateDial): LooperDialState {
   return "playing";
 }
 
-const VERDICT_LABEL: Record<Verdict, string> = { pass: "Pass", fail: "Fail", record: "Recorded", "not-run": "Not run" };
+const VERDICT_LABEL: Record<Verdict, string> = { pass: "Pass", fail: "Fail", record: "Recorded", partial: "Partial",
+  "not-run": "Not run" };
 
 async function copySummary() {
   copied.value = false;

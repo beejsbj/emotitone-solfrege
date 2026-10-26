@@ -28,7 +28,7 @@ import {
 } from "@/services/patternTransport";
 import { getAudioContext, getSuperdoughMasterGain, initSuperdoughAudio } from "@/services/superdoughAudio";
 import { GATE_BEAT_MS, GATE_BPM, GATE_INSTRUMENT, GATE_MEMBER_LABELS, gateMembers, gateTables } from "./fixtures";
-import { createAttackLedger, createLightLedger } from "./ledger";
+import { createAttackLedger, createLightLedger, createSoakAccount } from "./ledger";
 import {
   createClockSlipMeter, describeUserAgent, playbackStatsDelta, readJsMemory, readPlaybackStats, summarizeFrames,
   tallyMuteTap, tallySoloHold,
@@ -125,6 +125,8 @@ export function createPhoneGate() {
   let routeAnswer: ((works: boolean | null) => void) | undefined;
   let earAnswer: ((heard: boolean | null) => void) | undefined;
   let advance: (() => void) | undefined;
+  /** Publishes what the step in progress has measured; a Stop calls it before the summary is written. */
+  let captureStep: (() => void) | undefined;
   const lastLift = new Map<string, number>();
   const loopAttackTimes: number[] = [];
 
@@ -289,9 +291,8 @@ export function createPhoneGate() {
     cleanups.push(() => setProductionPatternPlayer(undefined));
 
     const toBar = SOAK_FROM_BAR + SOAK_BARS;
-    const ledger = createAttackLedger({ expected: expectedOnsets(tables, SOAK_FROM_BAR, toBar), memberOf,
-      fromBar: SOAK_FROM_BAR, toBar, sampleRate: audio.sampleRate });
-    recorders.add(ledger.record);
+    const account = createSoakAccount({ tables, memberOf, fromBar: SOAK_FROM_BAR, sampleRate: audio.sampleRate });
+    recorders.add(account.record);
     const soakLights = watchLights(audio);
     state.status = "Starting the loop…";
     await player.start({ bpm: GATE_BPM, target: { key: "C", mode: "major" }, members });
@@ -328,19 +329,32 @@ export function createPhoneGate() {
     }, GATE_BEAT_MS);
     const stopSoak = () => { recording = false; clearInterval(livePresser); slip.dispose(); };
     cleanups.push(stopSoak);
+    /** The soak's results over bars [SOAK_FROM_BAR, until). */
+    const publishSoak = (until: number) => {
+      results.attacks = account.result(until);
+      // No pause here: every unlit note is a late one.
+      results.stage = soakLights.result(SOAK_FROM_BAR, until, Infinity);
+      results.frames = summarizeFrames(frames);
+      results.clockSlip = slip.result();
+      results.playbackStats = playbackStatsDelta(statsBefore, readPlaybackStats(audio));
+    };
+    // A Stop mid-soak keeps the bars already rendered (less the last quantum's records still in flight).
+    captureStep = () => {
+      const reached = player?.barAtAudioTime(audio.currentTime);
+      const until = typeof reached === "number" ? Math.min(toBar, reached - .05) : SOAK_FROM_BAR;
+      if (!(until > SOAK_FROM_BAR)) return;
+      publishSoak(until);
+      results.stoppedDuring = "soak";
+    };
     await untilBar(toBar + .05, bar => { state.progress = Math.min(1, Math.max(0, (bar - SOAK_FROM_BAR) / SOAK_BARS)); });
     stopSoak();
     // Let the last quantum's records cross the port.
     await sleep(200);
     check();
-    recorders.delete(ledger.record);
+    captureStep = undefined;
+    recorders.delete(account.record);
     soakLights.stop();
-    results.attacks = { ...ledger.result(), bars: SOAK_BARS };
-    // No pause here: every unlit note is a late one.
-    results.stage = soakLights.result(SOAK_FROM_BAR, toBar, Infinity);
-    results.frames = summarizeFrames(frames);
-    results.clockSlip = slip.result();
-    results.playbackStats = playbackStatsDelta(statsBefore, readPlaybackStats(audio));
+    publishSoak(toBar);
     const cost = await readLiveRenderCost()?.catch(() => undefined);
     results.renderCost = cost ? summarizeRenderCost(cost, audio.sampleRate) : null;
     results.memory = { ...results.memory!, afterLoop: readJsMemory(), bank: readBank() };
@@ -476,18 +490,25 @@ export function createPhoneGate() {
       barAt: time => player?.barAtAudioTime(time),
       untilBar: bar => untilBar(bar),
       judge(fromBar, toBar, staleMs) {
-        recorders.delete(record);
-        lights.stop();
         const ledger = createAttackLedger({ expected: expectedOnsets(tables, fromBar, toBar), memberOf, fromBar, toBar,
           sampleRate: audio.sampleRate });
         records.forEach(ledger.record);
         const sounded = ledger.result();
         return { light: lights.result(fromBar, toBar, staleMs), expected: sounded.expected, sounded: sounded.rendered };
       },
+      expose(snapshot) {
+        captureStep = () => {
+          const partial = snapshot();
+          if (partial) { results.resume = partial; results.stoppedDuring = "resume"; }
+        };
+      },
       check,
       onProgress: fraction => { state.progress = fraction; },
       onStatus: status => { state.status = status; },
     });
+    captureStep = undefined;
+    recorders.delete(record);
+    lights.stop();
   }
 
   function resumeByTap() {
@@ -551,6 +572,8 @@ export function createPhoneGate() {
   function finish() {
     if (state.phase === "done") return;
     stopped = true;
+    try { captureStep?.(); } catch { /* a capture never blocks the summary */ }
+    captureStep = undefined;
     try { if (player && results.memory) results.memory = { ...results.memory, afterLoop: results.memory.afterLoop ?? readJsMemory() }; } catch { /* reading memory never blocks the summary */ }
     teardown();
     state.phase = "done";

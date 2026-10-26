@@ -6,6 +6,7 @@ import { createTestWrapper } from '../helpers/test-utils'
 import App from '@/App.vue'
 import { LAB_PAGES, isLabRoute } from '@/labRoutes'
 import { getAudioContext } from '@/services/superdoughAudio'
+import legacyVisualConfig from '../fixtures/persistence/visual-config.v0.store-capture.json?raw'
 
 // The lazy page compiles cold on first import: give it longer than vi.waitFor's 1 s default.
 const LAZY_PAGE = { timeout: 5000 }
@@ -99,6 +100,28 @@ describe('the phone gate route (BJS-494)', () => {
     await flushPromises()
     expect(setItem).not.toHaveBeenCalled()
     expect(window.localStorage.length).toBe(0)
+    // The persistence plugin is not even installed: the probe is not saved in the page's memory either.
+    const { persistentStorage } = await import('@/services/safeStorage')
+    expect(persistentStorage.getItem('phone-gate-saved-probe')).toBeNull()
+    app.unmount()
+  })
+
+  it('leaves legacy saved settings byte-identical: no load-time migration writes from the lab page', async () => {
+    // A player's v0 visual settings: on the instrument, loading them migrates
+    // the format and moves tempo, octave and rows to their own keys.
+    window.localStorage.setItem('emotitone-visual-config', legacyVisualConfig)
+    const snapshot = () => Object.fromEntries(Array.from({ length: window.localStorage.length },
+      (_, index) => window.localStorage.key(index)!).map(key => [key, window.localStorage.getItem(key)]))
+    const before = snapshot()
+    const setItem = vi.mocked(window.localStorage.setItem)
+    setItem.mockClear()
+    const { root, app } = await bootAt('/lab/phone-gate')
+    expect(root.querySelector('[data-testid="phone-gate"]')).not.toBeNull()
+    // Past every debounced save.
+    await new Promise(resolve => setTimeout(resolve, 700))
+    await flushPromises()
+    expect(setItem).not.toHaveBeenCalled()
+    expect(snapshot()).toEqual(before)
     app.unmount()
   })
 

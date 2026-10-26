@@ -22,7 +22,15 @@ export const MUTE_TAPS = 8;
 /** Solo holds the dial step asks for; each must be measured. */
 export const SOLO_HOLDS = 3;
 
-export type Verdict = "pass" | "fail" | "record" | "not-run";
+/** `partial`: measured until a Stop, with no failure in what was measured. */
+export type Verdict = "pass" | "fail" | "record" | "partial" | "not-run";
+
+/** Steps whose measurements can be cut short by a Stop, and the rows they feed. */
+export type GateStep = "soak" | "resume";
+const STEP_ROWS: Record<GateStep, readonly string[]> = {
+  soak: ["attacks", "live", "skips", "underruns", "frames", "stage"],
+  resume: ["resume"],
+};
 
 export interface GateRow {
   id: string;
@@ -96,6 +104,8 @@ export interface GateResults {
   route?: { works: boolean | null; observations: string[] } | null;
   /** Anything that stopped the run early. */
   error?: string | null;
+  /** The step a Stop cut short; its rows hold what was measured until then. */
+  stoppedDuring?: GateStep | null;
 }
 
 const ms = (value: number | null | undefined, digits = 1) => {
@@ -144,7 +154,7 @@ export function gateRows(results: GateResults): GateRow[] {
   const attacks = results.attacks;
   rows.push(attacks
     ? { id: "attacks", label: "Attacks lost", verdict: attacks.lost || attacks.doubled || attacks.extra ? "fail" : "pass",
-      value: `${attacks.lost} lost of ${attacks.expected} over ${attacks.bars} bars (doubled ${attacks.doubled}, extra ${attacks.extra}, cut short ${attacks.cutShort}`
+      value: `${attacks.lost} lost of ${attacks.expected} over ${Number(attacks.bars.toFixed(1))} bars (doubled ${attacks.doubled}, extra ${attacks.extra}, cut short ${attacks.cutShort}`
         + `${attacks.stolenAtOnset ? `, ${attacks.stolenAtOnset} of them stolen at onset and counted lost` : ""})`
         + (attacks.overflows ? `; event pool overflowed ${attacks.overflows}× (count unreliable)` : ""),
       mark: "0 lost, 0 doubled" }
@@ -239,10 +249,15 @@ export function gateRows(results: GateResults): GateRow[] {
       mark: "loop keeps playing (Burooj's ear)" }
     : { id: "route", label: "Route change (headphones/Bluetooth)", verdict: "not-run",
       value: route?.observations.length ? `skipped; ${route.observations.join("; ")}` : "skipped", mark: "loop keeps playing (Burooj's ear)" });
-  return rows;
+  const cut = results.stoppedDuring;
+  if (!cut) return rows;
+  // A failure already measured stands; anything else is partial, not a pass.
+  return rows.map(row => !STEP_ROWS[cut].includes(row.id) || row.verdict === "fail" || row.verdict === "not-run" ? row
+    : { ...row, verdict: "partial", value: `${row.value}; partial: stopped during the ${cut}` });
 }
 
-const VERDICT_TEXT: Record<Verdict, string> = { pass: "PASS", fail: "FAIL", record: "RECORD", "not-run": "NOT RUN" };
+const VERDICT_TEXT: Record<Verdict, string> = { pass: "PASS", fail: "FAIL", record: "RECORD", partial: "PARTIAL",
+  "not-run": "NOT RUN" };
 
 /** One plain-text summary: environment, the tally, then a line per measurement. */
 export function formatGateSummary(results: GateResults): string {
@@ -258,7 +273,8 @@ export function formatGateSummary(results: GateResults): string {
     `Page: ${results.url}${results.build ? ` · build ${results.build}` : ""}`,
     `UA: ${env.userAgent}`,
     "",
-    `Result: ${tally("pass")} pass · ${tally("fail")} fail · ${tally("record")} recorded · ${tally("not-run")} not run`,
+    `Result: ${tally("pass")} pass · ${tally("fail")} fail · ${tally("record")} recorded`
+      + `${tally("partial") ? ` · ${tally("partial")} partial` : ""} · ${tally("not-run")} not run`,
     ...(results.error ? [`Stopped early: ${results.error}`] : []),
     "",
     ...rows.map(row => `[${VERDICT_TEXT[row.verdict]}] ${row.label}: ${row.value} (mark: ${row.mark})`),

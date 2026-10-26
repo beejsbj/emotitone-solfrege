@@ -49,14 +49,36 @@ export interface ResumeIO {
   /** The loop's rendered bar at an audio time; null while it cannot say. */
   barAt(audioTime: number): number | null | undefined;
   untilBar(bar: number): Promise<void>;
-  /** The resume's records, judged on a window chosen once the window is known. */
+  /** The resume's records, judged on a window chosen once the window is known. May be called more than once. */
   judge(fromBar: number, toBar: number, staleMs: number): { light: LightLedgerResult; expected: number; sounded: number };
+  /**
+   * Receives a synchronous snapshot: what the step has measured so far, over
+   * the bars of its window already rendered; null before the window starts.
+   * A Stop reads it before the summary is written.
+   */
+  expose?(snapshot: () => ResumeResult | null): void;
   check?(): void;
   onProgress?(fraction: number): void;
   onStatus?(status: string): void;
 }
 
 export async function measureResume(io: ResumeIO): Promise<ResumeResult> {
+  let resumed: { pausedMs: number; neededTap: boolean; fromBar: number; toBar: number } | null = null;
+  let firstReadAgeMs: number | null = null;
+  let freshAfterMs: number | null = null;
+  const judged = (toBar: number): ResumeResult => {
+    const { pausedMs, neededTap, fromBar } = resumed!;
+    // A note the stale clock placed a pause early ended at least half a pause ago.
+    const { light, expected, sounded } = io.judge(fromBar, toBar, pausedMs / 2);
+    return { ...light, pausedMs, firstReadAgeMs, freshAfterMs, expected, sounded, neededTap };
+  };
+  io.expose?.(() => {
+    if (!resumed) return null;
+    // Less the last quantum's records still crossing the port.
+    const reached = io.barAt(io.currentTime());
+    const until = typeof reached === "number" ? Math.min(resumed.toBar, reached - .05) : resumed.fromBar;
+    return until > resumed.fromBar ? judged(until) : null;
+  });
   const before = io.outputTimestamp();
   // Audio time stands still while suspended: this is the bar it resumes on too.
   const barBefore = io.barAt(io.currentTime());
@@ -75,10 +97,9 @@ export async function measureResume(io: ResumeIO): Promise<ResumeResult> {
   if (typeof barAtRunning !== "number" || !Number.isFinite(barAtRunning)) throw new Error("The loop was not playing at the resume");
   const { fromBar, toBar } = resumeWindow(barAtRunning, io.bpm);
   const pausedMs = runningAt - suspendedAt;
+  resumed = { pausedMs, neededTap, fromBar, toBar };
   io.onStatus?.("Listening to the first two bars after the resume…");
   // Watch the output clock while the window plays: how stale is it, and when is it fresh?
-  let firstReadAgeMs: number | null = null;
-  let freshAfterMs: number | null = null;
   const beforeContext = before?.contextTime ?? io.currentTime();
   const watchUntil = runningAt + RESUME_WATCH_MS;
   while (io.now() < watchUntil) {
@@ -95,7 +116,5 @@ export async function measureResume(io: ResumeIO): Promise<ResumeResult> {
   // Let the last quantum's records cross the port.
   await io.sleep(200);
   io.check?.();
-  // A note the stale clock placed a pause early ended at least half a pause ago.
-  const { light, expected, sounded } = io.judge(fromBar, toBar, pausedMs / 2);
-  return { ...light, pausedMs, firstReadAgeMs, freshAfterMs, expected, sounded, neededTap };
+  return judged(toBar);
 }

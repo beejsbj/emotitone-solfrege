@@ -10,7 +10,7 @@
  * it counts as lost, not rendered.
  */
 import { TransportEventKind, type DecodedTransportEvent } from "@/audio/live/transportEvents";
-import { onsetKey, type ExpectedOnset } from "./oracle";
+import { expectedOnsets, onsetKey, type ExpectedOnset, type GateMemberTable } from "./oracle";
 
 export interface AttackLedgerResult {
   expected: number;
@@ -176,6 +176,29 @@ export function createAttackLedger(options: {
       for (const [key, count] of counts) if (!expectedKeys.has(key)) extra += count;
       return { expected: expectedKeys.size, rendered, lost: expectedKeys.size - rendered, doubled, extra,
         cancelled: cancelled.size, cutShort: cut.size, stolenAtOnset: stolen.size, overflows };
+    },
+  };
+}
+
+/**
+ * The soak's attack accounting, kept as records and judged over any prefix of
+ * its window: a run stopped mid-soak still counts the bars it reached.
+ */
+export function createSoakAccount(options: {
+  tables: readonly GateMemberTable[];
+  memberOf(generation: number): string | undefined;
+  fromBar: number;
+  sampleRate: number;
+}) {
+  const records: DecodedTransportEvent[] = [];
+  return {
+    record(event: DecodedTransportEvent) { records.push({ ...event }); },
+    /** The ledger over bars [fromBar, toBar). */
+    result(toBar: number): AttackLedgerResult & { bars: number } {
+      const ledger = createAttackLedger({ expected: expectedOnsets(options.tables, options.fromBar, toBar),
+        memberOf: options.memberOf, fromBar: options.fromBar, toBar, sampleRate: options.sampleRate });
+      records.forEach(ledger.record);
+      return { ...ledger.result(), bars: toBar - options.fromBar };
     },
   };
 }

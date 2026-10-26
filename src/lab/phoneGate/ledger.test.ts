@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { TransportEventKind } from "@/audio/live/transportEvents";
 import { GATE_RENDER_RATE as RATE, playGateLoop } from "@/__tests__/helpers/phoneGateLoop";
 import { GATE_BPM } from "./fixtures";
-import { createAttackLedger, createLightLedger } from "./ledger";
+import { createAttackLedger, createLightLedger, createSoakAccount } from "./ledger";
 import { expectedOnsets } from "./oracle";
-import { gateRows } from "./report";
+import { formatGateSummary, gateRows, type GateResults } from "./report";
 
 describe("phone gate attack ledger", () => {
   it("finds every expected onset of the four-member loop rendered once by the real core", () => {
@@ -63,6 +63,35 @@ describe("phone gate attack ledger", () => {
     records.forEach(ledger.record);
     // The melody's table (generation 100) is unknown here: its eight onsets read as lost, nothing reads as extra.
     expect(ledger.result()).toMatchObject({ expected: 32, rendered: 24, lost: 8, extra: 0 });
+  });
+});
+
+describe("phone gate soak stopped early", () => {
+  it("counts the bars it reached, and reports them as PARTIAL rather than NOT RUN", () => {
+    const { records, memberOf, tables } = playGateLoop(5.2);
+    const account = createSoakAccount({ tables, memberOf, fromBar: 1, sampleRate: RATE });
+    records.forEach(account.record);
+    // Stop tapped at bar 3.55: the window is the bars rendered so far.
+    const attacks = account.result(3.5);
+    expect(attacks).toMatchObject({ expected: expectedOnsets(tables, 1, 3.5).length, lost: 0, doubled: 0, extra: 0 });
+    expect(attacks.rendered).toBe(attacks.expected);
+    expect(attacks.bars).toBe(2.5);
+    const results: GateResults = { startedAt: "", url: "", build: null, bpm: GATE_BPM, attacks, stoppedDuring: "soak",
+      live: { pressed: 30, sounded: 30 },
+      environment: { device: "", os: "", browser: "", userAgent: "", sampleRate: RATE, baseLatencyMs: null,
+        outputLatencyMs: null, devicePixelRatio: null, cores: null, deviceMemoryGb: null } };
+    const row = (id: string, from = results) => gateRows(from).find(entry => entry.id === id)!;
+    expect(row("attacks").verdict).toBe("partial");
+    expect(row("attacks").value).toContain(`0 lost of ${attacks.expected} over 2.5 bars`);
+    expect(row("live").verdict).toBe("partial");
+    expect(row("skips").verdict).toBe("partial");
+    expect(formatGateSummary(results)).toContain("[PARTIAL] Attacks lost:");
+    // A loss measured before the Stop still fails.
+    const lossy = createSoakAccount({ tables, memberOf, fromBar: 1, sampleRate: RATE });
+    records.forEach(lossy.record);
+    lossy.record({ ...records.find(record => record.kind === TransportEventKind.Attack && record.bar >= 1)!,
+      kind: TransportEventKind.Cancel });
+    expect(row("attacks", { ...results, attacks: lossy.result(3.5) }).verdict).toBe("fail");
   });
 });
 

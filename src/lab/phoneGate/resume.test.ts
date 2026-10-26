@@ -6,7 +6,7 @@ import { GATE_BPM } from "./fixtures";
 import { createAttackLedger, createLightLedger } from "./ledger";
 import { expectedOnsets } from "./oracle";
 import { gateRows, type GateResults } from "./report";
-import { measureResume, resumeWindow, type ResumeIO } from "./resume";
+import { measureResume, resumeWindow, type ResumeIO, type ResumeResult } from "./resume";
 
 const BAR_SECONDS = 240 / GATE_BPM;
 const PAUSE_MS = 5000;
@@ -19,7 +19,7 @@ const SUSPENDED_AT = 10_000;
  * the pause. Each record is decoded a lookahead before its onset, and lit
  * unless its end already looks past on that clock, as the pattern player does.
  */
-async function simulateResume(resumeBar: number, staleForMs: number) {
+async function simulateResume(resumeBar: number, staleForMs: number, stopAtBar = Infinity) {
   const { records, memberOf, tables } = playGateLoop(resumeBar + 3);
   const pausedAt = resumeBar * BAR_SECONDS;
   let wall = SUSPENDED_AT;
@@ -54,7 +54,9 @@ async function simulateResume(resumeBar: number, staleForMs: number) {
     return { light: light.result(), expected: sounded.expected, sounded: sounded.rendered };
   };
 
-  const resume = await measureResume({
+  let snapshot: (() => ResumeResult | null) | undefined;
+  let stopped: ResumeResult | null | undefined;
+  const run = measureResume({
     bpm: GATE_BPM,
     pauseMs: PAUSE_MS,
     now: () => wall,
@@ -65,10 +67,19 @@ async function simulateResume(resumeBar: number, staleForMs: number) {
     suspend: async () => {},
     resume: async () => { runningAt = wall; return false; },
     barAt: time => time / BAR_SECONDS,
-    untilBar: async bar => { while (audioTime() / BAR_SECONDS < bar) wall += 16; },
+    untilBar: async bar => {
+      while (audioTime() / BAR_SECONDS < bar) {
+        wall += 16;
+        // Stop is tapped: the summary reads the step's snapshot before anything else runs.
+        if (audioTime() / BAR_SECONDS >= stopAtBar) { stopped = snapshot!(); throw new Error("Stopped"); }
+      }
+    },
     judge,
+    expose: read => { snapshot = read; },
   });
+  const resume = stopAtBar === Infinity ? await run : await run.then(() => { throw new Error("not stopped"); }, () => stopped!);
   const results: GateResults = { startedAt: "", url: "", build: null, bpm: GATE_BPM, resume,
+    stoppedDuring: stopAtBar === Infinity ? null : "resume",
     environment: { device: "", os: "", browser: "", userAgent: "", sampleRate: RATE, baseLatencyMs: null,
       outputLatencyMs: null, devicePixelRatio: null, cores: null, deviceMemoryGb: null } };
   return { resume, row: gateRows(results).find(entry => entry.id === "resume")! };
@@ -97,5 +108,18 @@ describe("phone gate resume check (carried from #198)", () => {
     expect(resume.lit).toBe(resume.sounded - resume.stale - resume.late);
     expect(row.verdict).toBe("fail");
     expect(row.value).toContain(`${resume.stale} dropped as stale`);
+  });
+
+  it("keeps what a Stop mid-window already measured: PARTIAL when clean, FAIL when the clock was stale", async () => {
+    // Stopped half a bar into the two-bar window.
+    const clean = await simulateResume(2.3, 0, 2.85);
+    expect(clean.resume.expected).toBeGreaterThan(10);
+    expect(clean.resume.expected).toBeLessThan(40);
+    expect(clean.resume).toMatchObject({ sounded: clean.resume.expected, stale: 0 });
+    expect(clean.row.verdict).toBe("partial");
+    expect(clean.row.value).toContain("partial: stopped during the resume");
+    const stale = await simulateResume(2.3, 400, 2.85);
+    expect(stale.resume.stale).toBeGreaterThan(0);
+    expect(stale.row.verdict).toBe("fail");
   });
 });

@@ -4,11 +4,11 @@ import { defineStore } from "pinia";
 import { DEFAULT_INSTRUMENT, displayInstrumentName } from "@/data/instruments";
 import {
   getReadySounds,
-  initSuperdoughAudio,
+  initAudioEngine,
   isPrewarmed,
   prewarmSoundSamples,
   setLiveSynthControls,
-} from "@/services/superdoughAudio";
+} from "@/services/audioEngine";
 
 import { needsLivePlaybackPreparation } from "@/services/livePlayback";
 import { getLiveArticulation } from "@/services/liveArticulation";
@@ -52,8 +52,8 @@ export const DEFAULT_SYNTH_CONTROL_OVERRIDES: Readonly<SynthControlOverrides> = 
 
 /**
  * Instrument Store
- * Manages instrument selection and delegates audio to superdough.
- * No Tone.js instruments are created here — superdough handles all audio.
+ * Manages instrument selection and its Shape; the audio engine
+ * (services/audioEngine.ts) loads each selected sound into the live worklet.
  */
 
 export const useInstrumentStore = defineStore("instrument", () => {
@@ -67,7 +67,7 @@ export const useInstrumentStore = defineStore("instrument", () => {
   const lastWarmupErrorInstrument = ref<string | null>(null);
   const isInitializing = ref(false);
   /**
-   * The audio engine has booted once (superdough's graph and the live
+   * The audio engine has booted once (the app's audio graph and the live
    * renderer). Sticky: reopening the picker or a hung sample fetch never
    * takes it back.
    */
@@ -228,7 +228,7 @@ export const useInstrumentStore = defineStore("instrument", () => {
   const isInstrumentWarming = (instrumentName: string) =>
     displayedWarmingInstrument.value === instrumentName;
 
-  // Initialize — boots superdough and reports granular sample-pack progress
+  // Initialize — boots the audio engine and reports granular sample-pack progress
   // through the optional callback so loading screens can show real steps.
   const initializeInstruments = async (
     progressCallback?: (progress: number, message: string) => void,
@@ -245,7 +245,7 @@ export const useInstrumentStore = defineStore("instrument", () => {
     try {
       // Keep the engine's single-flight promise intact: cancellation releases
       // this caller, while the next generation can reuse the same graph.
-      await abortable(initSuperdoughAudio(report), signal);
+      await abortable(initAudioEngine(report), signal);
       engineBooted.value = true;
       if (!isCurrent()) return;
       // Boot preserves the saved selection without downloading its bank.
@@ -278,7 +278,7 @@ export const useInstrumentStore = defineStore("instrument", () => {
       report(100, "Audio engine ready");
     } catch (error) {
       if (!isCurrent()) return;
-      console.error("Error initializing superdough:", error);
+      console.error("Error initializing the audio engine:", error);
       // Synth registration can succeed before a sample pack fails. Reconcile
       // that partial success so the app falls back to something truly playable.
       syncReadyInstrumentsFromAudio();
@@ -313,7 +313,7 @@ export const useInstrumentStore = defineStore("instrument", () => {
     lastReadyInstrument.value = DEFAULT_INSTRUMENT;
   };
 
-  // Set current instrument — any registered superdough sound name is valid.
+  // Set current instrument — any registered sound name is valid.
   // Awaits pre-warming for cold instruments so the first keypress is never dropped.
   const setInstrument = async (
     instrumentName: string

@@ -29,7 +29,7 @@ import { useInstrumentStore } from "@/stores/instrument";
 import * as audio from "@/services/superdoughAudio";
 import { manageAudioLifecycle, onAudioRunning } from "@/services/audioLifecycle";
 import { getLivePlayback } from "@/services/livePlayback";
-import { SCHEDULED_LIVE_MIDI_EVENT } from "@/services/scheduledLiveVoice";
+import { SCHEDULED_LIVE_MIDI_EVENT } from "@/services/livePerformance";
 
 const EPOCH = 1_800_000_000_000;
 let pinia: Pinia;

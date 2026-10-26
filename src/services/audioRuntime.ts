@@ -1,9 +1,6 @@
-/** App-owned context, master and native effect buses. Superdough temporarily
- * borrows this graph for patterns/fallback voices; lifecycle is shared. */
-// @ts-ignore — superdough does not publish TypeScript declarations.
-import { setAudioContext, setSuperdoughAudioController, initAudio } from "superdough";
+/** The app's AudioContext, master output and native room/delay buses. The
+ * live worklet renders into them; the audio lifecycle is shared. */
 import { manageAudioLifecycle, onAudioRunning } from "@/services/audioLifecycle";
-import { MAX_AUDIO_VOICES } from "@/audio/voicePolicy";
 import { EngineAudioGraph } from "@/audio/effects";
 
 export const LIVE_ORBIT = 2;
@@ -20,8 +17,6 @@ export function getAudioContext(): AudioContext {
     initialization = undefined;
     context = new AudioContext();
     graph = new EngineAudioGraph(context);
-    setAudioContext(context);
-    setSuperdoughAudioController(graph);
     let rate = context.sampleRate;
     const owned = graph, ownedContext = context;
     stopRecovery = onAudioRunning(context, () => {
@@ -51,8 +46,7 @@ export function cutLiveWetTails() {
  * existing audioLifecycle gate and the user's Play/Start gesture. */
 export async function initializeAudio(): Promise<void> {
   const ownedContext = getAudioContext(), owned = graph!;
-  initialization ??= Promise.resolve().then(async () => {
-    await initAudio({ maxPolyphony: MAX_AUDIO_VOICES });
+  initialization ??= Promise.resolve().then(() => {
     // The optional room IR must never delay dry audio or delay playback.
     void owned.getOrbit(LIVE_ORBIT).ready();
   }).catch(error => { if (graph === owned) initialization = undefined; throw error; });

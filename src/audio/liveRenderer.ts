@@ -1,5 +1,5 @@
 import type { LiveShaping } from './liveShaping'
-import type { PlayStyle, PlayStyleRate } from '@/services/playStyles'
+import type { PlayStyle, PlayStyleRate } from '@/data/playStyles'
 import type { LiveArticulation } from '@/services/liveArticulation'
 import type { TransportResponse } from './live/transport'
 

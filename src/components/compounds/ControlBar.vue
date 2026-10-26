@@ -86,7 +86,7 @@ import Knob from "@/components/primatives/Knob/index.vue";
 import Joystick from "@/components/uniques/Joystick/index.vue";
 import type { HarmonyAlteration } from "@/domain/harmony";
 import type { JoystickVisual } from "@/components/uniques/Joystick/index.vue";
-import { PLAY_MODE_OPTIONS } from "@/services/playStyles";
+import { PLAY_MODE_OPTIONS } from "@/data/playStyles";
 
 type ControlBarChangeSignals = Partial<Record<"key" | "mode" | "bpm" | "octave", number>>;
 

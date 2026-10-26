@@ -91,7 +91,7 @@ describe("import boundary: primitives and compounds", () => {
   });
 
   it("forbids the playback engine and exempts colocated specs", async () => {
-    expect(await eslintRules(primitive, vue('import { createPlayStyleEngine } from "@/services/playStyles"; void createPlayStyleEngine;'))).toContain(SERVICES);
+    expect(await eslintRules(primitive, vue('import { createLivePerformance } from "@/services/livePerformance"; void createLivePerformance;'))).toContain(SERVICES);
     expect(await eslintRules("src/components/primatives/fresh.spec.ts", 'import { s } from "@/stores/music"; export const c = "#123456"; void s;')).toEqual([]);
   });
 

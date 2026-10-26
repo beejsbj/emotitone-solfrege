@@ -6,7 +6,7 @@ import { useMusicStore } from "@/stores/music";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { usePerformer } from "@/composables/usePerformer";
 import { useVisualConfig } from "@/composables/useVisualConfig";
-import { SCHEDULED_LIVE_MIDI_EVENT } from "@/services/scheduledLiveVoice";
+import { SCHEDULED_LIVE_MIDI_EVENT } from "@/services/livePerformance";
 import {
   buildRoliAllNotesOffMessages,
   buildRoliMainOctaveMessage,

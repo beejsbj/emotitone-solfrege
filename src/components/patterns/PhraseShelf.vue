@@ -38,7 +38,7 @@ import type {
 import { instrumentIconFor } from "@/components/primatives/instrumentIcon";
 import { useMusicColor } from "@/composables/useMusicColor";
 import { useCodeStripStrudel } from "@/composables/useCodeStripStrudel";
-import { toStrudelSound } from "@/composables/useStrudel";
+import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import { CHROMATIC_NOTES } from "@/data";
 import { displayInstrumentName } from "@/data/instruments";
 import {
@@ -380,7 +380,7 @@ function notationFor(id: string) {
     scaleMode: mode,
     scaleOctave: keyboardStore.keyboardConfig.mainOctave,
     patternDurationMs: phrase.duration,
-    sound: toStrudelSound(instrument ?? "sine"),
+    sound: resolveLiveSoundName(instrument ?? "sine"),
     shape,
   });
 }

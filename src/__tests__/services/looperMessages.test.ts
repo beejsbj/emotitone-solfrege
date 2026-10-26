@@ -12,7 +12,7 @@ import {
  * Every Looper message is plain and short, fits one line of the deck's notice
  * strip at 390 px, and names an instrument as the player knows it, never by id.
  */
-const KINDS: LooperFailureKind[] = ["bank-cap", "load", "unsupported", "interrupted", "restarting", "not-ready", "unknown"];
+const KINDS: LooperFailureKind[] = ["memory-full", "load", "unsupported", "interrupted", "restarting", "not-ready", "unknown"];
 const INSTRUMENTS = [
   undefined,
   "gm_piano",
@@ -41,16 +41,17 @@ describe("Looper messages", () => {
   });
 
   it("names the instrument as it reads in the picker, when the line has room", () => {
-    expect(looperMessage({ kind: "bank-cap", instrument: "gm_piano" })).toBe("Stop a loop to add Piano.");
+    expect(looperMessage({ kind: "memory-full", instrument: "gm_piano" })).toBe("Not enough memory for Piano.");
     expect(looperMessage({ kind: "load", instrument: "gm_piano" })).toBe("Piano didn't load. Try again.");
     expect(looperMessage({ kind: "unsupported", instrument: "sawtooth" })).toBe("Sawtooth can't loop yet.");
-    // A long name falls back to the generic line instead of spilling.
+    // A long name falls back to the generic line instead of spilling, and the generic memory line says what to do.
+    expect(looperMessage({ kind: "memory-full", instrument: "gm_acoustic_guitar_nylon" })).toBe("Not enough memory. Stop a loop.");
     expect(looperMessage({ kind: "load", instrument: "gm_acoustic_guitar_nylon" })).toBe("Sound didn't load. Try again.");
   });
 
   it("maps each cause to its message in one place", () => {
     const piano = "gm_piano";
-    expect(looperFailureOf(new PatternLoadError("bank cap", false, true), piano)).toEqual({ kind: "bank-cap", instrument: piano });
+    expect(looperFailureOf(new PatternLoadError("memory full", false, true), piano)).toEqual({ kind: "memory-full", instrument: piano });
     expect(looperFailureOf(new PatternLoadError("fetch failed", true), piano)).toEqual({ kind: "load", instrument: piano });
     expect(looperFailureOf(new PatternLoadError("no bank", false), piano)).toEqual({ kind: "unsupported", instrument: piano });
     expect(looperFailureOf(new LooperNotReady())).toEqual({ kind: "not-ready" });

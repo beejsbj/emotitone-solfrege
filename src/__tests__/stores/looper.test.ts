@@ -28,7 +28,7 @@ const rig = vi.hoisted(() => ({
   listeners: new Set<{ onTransport?(response: TransportResponse): void; onRendererReset?(): void }>(),
   gates: new Map<string, Promise<void>>(),
   prepared: [] as string[],
-  /** Banks the worklet refuses (every instrument slot held). */
+  /** Banks the worklet refuses (the sample memory is held full by playing loops and keys). */
   refused: new Set<string>(),
   commands: [] as TransportCommand[],
   context: undefined as unknown as Record<string, unknown>,
@@ -1757,7 +1757,7 @@ describe("Play is the loop on the worklet transport", () => {
         await looper.settled();
         await flush();
         const notice = deck.get('[data-testid="looper-error"]');
-        expect(notice.get("[role=alert]").text()).toBe("Stop a loop to add Sawtooth.");
+        expect(notice.get("[role=alert]").text()).toBe("Not enough memory for Sawtooth.");
         // An Edge Notice: a lit Brass lamp and the line, with no key of its own.
         expect(notice.find(".edge-notice__lamp").exists()).toBe(true);
         expect(notice.find("button").exists()).toBe(false);

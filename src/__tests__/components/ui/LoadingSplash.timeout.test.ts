@@ -12,6 +12,26 @@ import LoadingSplash from "@/components/LoadingSplash.vue";
 import { useAppLoading } from "@/composables/useAppLoading";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useMusicStore } from "@/stores/music";
+import { attachLiveCore, type LiveSeat } from "../../helpers/liveCore";
+
+const seat = vi.hoisted(() => ({ renderer: null, listeners: new Set() }) as LiveSeat);
+vi.mock("@/services/livePlayback", async () => (await import("../../helpers/liveCore")).livePlaybackOn(seat));
+
+/** The instrument the first live note sounds on, as the worklet reports it. */
+async function firstNoteInstrument() {
+  const played: CustomEvent[] = [];
+  const record = (event: Event) => played.push(event as CustomEvent);
+  window.addEventListener("note-played", record);
+  try {
+    await useMusicStore().attackNote(0);
+    live.render(20);
+  } finally {
+    window.removeEventListener("note-played", record);
+  }
+  expect(played).toHaveLength(1);
+  return played[0].detail.instrument;
+}
+let live: ReturnType<typeof attachLiveCore>;
 
 type Stage = "idle" | "samples" | "engine" | "ready";
 
@@ -31,7 +51,7 @@ const audio = vi.hoisted(() => {
   return {
     state,
     context,
-    initSuperdoughAudio: vi.fn(async () => {
+    initAudioEngine: vi.fn(async () => {
       if (state.initialized) return;
       state.stage = "samples";
       if (state.hang === "samples") return never();
@@ -51,25 +71,20 @@ const audio = vi.hoisted(() => {
       if (state.hang === "warmup" && sound !== "triangle") return never();
     }),
     isPrewarmed: vi.fn((sound: string) => sound === "triangle"),
-    attackNote: vi.fn(async () => 0),
   };
 });
 
-vi.mock("@/services/superdoughAudio", () => ({
-  setStrudelLaBasedMinor: vi.fn(),
-  initSuperdoughAudio: audio.initSuperdoughAudio,
+vi.mock("@/services/audioEngine", () => ({
+  initAudioEngine: audio.initAudioEngine,
   initSynthOnlyAudio: audio.initSynthOnlyAudio,
   getAudioStartupStage: () => audio.state.stage,
-  getAudioContext: () => audio.context,
   prewarmSoundSamples: audio.prewarmSoundSamples,
   isPrewarmed: audio.isPrewarmed,
   getReadySounds: () => ["triangle"],
   setLiveSynthControls: vi.fn(),
-  attackNote: audio.attackNote,
-  releaseNote: vi.fn(),
-  stopNote: vi.fn(),
-  releaseAll: vi.fn(),
-  playNoteWithDuration: vi.fn(async () => {}),
+}));
+vi.mock("@/services/audioRuntime", () => ({
+  getAudioContext: () => audio.context,
 }));
 vi.mock("@/stores/keyboardDrawer", () => ({
   useKeyboardDrawerStore: () => ({
@@ -104,6 +119,8 @@ async function mountAndTimeOut() {
 beforeEach(() => {
   vi.useFakeTimers();
   vi.clearAllMocks();
+  seat.listeners.clear();
+  live = attachLiveCore(seat);
   pinia = createPinia();
   setActivePinia(pinia);
   useAppLoading().resetLoading();
@@ -133,9 +150,7 @@ describe("instrument load timeout", () => {
     expect(useAppLoading().isVisible.value).toBe(false);
     expect(useInstrumentStore().currentInstrument).toBe("triangle");
 
-    await useMusicStore().attackNote(0);
-    expect(audio.attackNote).toHaveBeenCalledOnce();
-    expect(audio.attackNote.mock.calls[0][2]).toBe("triangle");
+    expect(await firstNoteInstrument()).toBe("triangle");
     wrapper.unmount();
   });
 
@@ -150,7 +165,7 @@ describe("instrument load timeout", () => {
     await wrapper.get(".count-gate--reload").trigger("click");
     await flushPromises();
     expect(reloadPage).toHaveBeenCalledOnce();
-    expect(audio.initSuperdoughAudio).toHaveBeenCalledOnce(); // the pending start is not awaited again
+    expect(audio.initAudioEngine).toHaveBeenCalledOnce(); // the pending start is not awaited again
     wrapper.unmount();
   });
 
@@ -173,8 +188,7 @@ describe("instrument load timeout", () => {
     await flushPromises();
 
     expect(useAppLoading().isVisible.value).toBe(false);
-    await useMusicStore().attackNote(0);
-    expect(audio.attackNote.mock.calls[0][2]).toBe("triangle");
+    expect(await firstNoteInstrument()).toBe("triangle");
     wrapper.unmount();
   });
 
@@ -190,7 +204,7 @@ describe("instrument load timeout", () => {
     expect(wrapper.get(".loading-screen__title").text()).toBe("FROMSCRATCH.");
     await reload.trigger("click");
     expect(reloadPage).toHaveBeenCalledOnce();
-    expect(audio.initSuperdoughAudio).toHaveBeenCalledOnce(); // no second wait on the hung engine
+    expect(audio.initAudioEngine).toHaveBeenCalledOnce(); // no second wait on the hung engine
     expect(wrapper.find(".count-fallback").exists()).toBe(false);
     expect(wrapper.find(".count-gate--cue").exists()).toBe(false);
     expect(wrapper.find(".count-gate--play").exists()).toBe(false);

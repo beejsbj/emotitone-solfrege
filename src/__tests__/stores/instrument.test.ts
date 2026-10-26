@@ -13,17 +13,14 @@ const liveMocks = vi.hoisted(() => ({ needsLivePlaybackPreparation: vi.fn(() => 
 vi.mock("@/services/livePlayback", () => liveMocks);
 
 const audioMocks = vi.hoisted(() => ({
-  initSuperdoughAudio: vi.fn().mockResolvedValue(undefined),
+  initAudioEngine: vi.fn().mockResolvedValue(undefined),
   isPrewarmed: vi.fn((instrumentName: string) => instrumentName === "piano"),
   prewarmSoundSamples: vi.fn().mockResolvedValue(undefined),
   getReadySounds: vi.fn(() => ["piano"]),
   setLiveSynthControls: vi.fn(),
 }));
 
-vi.mock("@/services/superdoughAudio", () => ({
-  setStrudelLaBasedMinor: vi.fn(),
-  ...audioMocks,
-}));
+vi.mock("@/services/audioEngine", () => audioMocks);
 
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
@@ -42,7 +39,7 @@ describe("instrument store warmup", () => {
     setActivePinia(createPinia());
     vi.clearAllMocks();
     liveMocks.needsLivePlaybackPreparation.mockReturnValue(false);
-    audioMocks.initSuperdoughAudio.mockResolvedValue(undefined);
+    audioMocks.initAudioEngine.mockResolvedValue(undefined);
     audioMocks.isPrewarmed.mockImplementation(
       (instrumentName: string) => instrumentName === "piano"
     );
@@ -195,7 +192,7 @@ describe("instrument store warmup", () => {
     const store = useInstrumentStore();
     const error = new Error("Sample registry unavailable");
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
-    audioMocks.initSuperdoughAudio.mockRejectedValue(error);
+    audioMocks.initAudioEngine.mockRejectedValue(error);
     audioMocks.getReadySounds.mockReturnValue(["triangle"]);
     audioMocks.isPrewarmed.mockImplementation(
       (instrumentName: string) => instrumentName === "triangle"

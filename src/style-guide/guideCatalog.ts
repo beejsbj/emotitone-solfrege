@@ -54,6 +54,7 @@ export const GUIDE_LAYERS: GuideLayer[] = [
       { id: "chord", name: "Chord", density: "detailed", specimen: () => import("./compounds/CompoundChord.vue") },
       { id: "keyboard", name: "Keyboard", density: "detailed", specimen: () => import("./compounds/CompoundKeyboard.vue") },
       { id: "beat-indicator", name: "Beat Indicator", density: "short", specimen: () => import("./compounds/CompoundBeatIndicator.vue") },
+      { id: "latch-ring", name: "Latch Ring", density: "short", specimen: () => import("./compounds/CompoundLatchRing.vue") },
       { id: "code-strip-bar", name: "CodeStrip Bar", density: "short", specimen: () => import("./compounds/CompoundCodeStripBar.vue") },
       { id: "control-bar", name: "Control Bar", density: "short", specimen: () => import("./compounds/CompoundControlBar.vue") },
       { id: "pattern-strip", name: "PatternStrip", density: "short", specimen: () => import("./compounds/CompoundPatternStrip.vue") },

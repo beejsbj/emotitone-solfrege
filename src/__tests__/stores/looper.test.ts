@@ -89,7 +89,7 @@ vi.mock("@/services/microphoneCapture", () => ({
 import { LiveAudioCore } from "@/audio/live/core";
 import { createPatternPlayer, setProductionPatternPlayer, type PatternPlayer } from "@/services/patternTransport";
 import { audioTimeToOutputTime } from "@/services/liveAudioTiming";
-import { UIBeatClock } from "@/composables/useUIBeat";
+import { UIBeatClock, uiBeatClock } from "@/composables/useUIBeat";
 import { createTestPinia } from "../helpers/test-utils";
 import { useLooperStore } from "@/stores/looper";
 import { usePhrasesStore } from "@/stores/phrases";
@@ -103,6 +103,8 @@ import PerformanceDeck from "@/components/PerformanceDeck.vue";
 type Attack = { phraseId: string; memberId: string; sourceNoteId: string; frame: number; noteName: string; record: boolean };
 
 let player: PatternPlayer;
+/** Runs the player's pending animation frame: it publishes the heard bar to UIBeat. */
+let paint: () => void = () => {};
 let attacks: Attack[];
 let spies: { mockRestore(): void }[] = [];
 const onAttack = (event: Event) => {
@@ -167,16 +169,23 @@ function expectSamePhase(cycleBars: number, actual: number, expected: number, di
 }
 const cycleOf = (member: { lengthBars: number; rate: number }) => member.lengthBars / member.rate;
 
-function setup() {
+/** `uiBeat`: the clock the player publishes to (the app's own lets the deck's beat UI follow it). */
+function setup(options: { uiBeat?: UIBeatClock } = {}) {
   setActivePinia(createTestPinia());
   useVisualConfigStore().updateConfig("codeStrip", { bpm: 120 });
   const phrases = usePhrasesStore();
+  let frame: (() => void) | undefined;
   player = createPatternPlayer({
     audio: { getContext: () => rig.context as unknown as AudioContext, ensureReady: async () => ({}) as AudioNode },
-    uiBeat: new UIBeatClock({ observeEnvironment: false }),
-    requestFrame: () => 1,
-    cancelFrame: () => {},
+    uiBeat: options.uiBeat ?? new UIBeatClock({ observeEnvironment: false }),
+    requestFrame: (callback) => { frame = callback; return 1; },
+    cancelFrame: () => { frame = undefined; },
   });
+  paint = () => {
+    const run = frame;
+    frame = undefined;
+    run?.();
+  };
   setProductionPatternPlayer(player);
   const looper = useLooperStore();
   return { phrases, looper };
@@ -862,13 +871,20 @@ describe("Play is the loop on the worklet transport", () => {
         await flush();
         expect(player.getLooper().members[0]).toMatchObject({ offsetBars: before, muted: false });
 
-        // Hold past 450 ms: the latch, not a Stop.
+        // Hold past 450 ms: the latch, not a Stop. The desk moves to a new, empty
+        // take and the pattern plays on (Burooj, 2026-10-26).
         await press(deck.get(".code-strip-bar__play").element, 520);
         expect(looper.latched).toBe(true);
-        expect(looper.isDeskPlaying).toBe(true);
+        expect(looper.isDeskPlaying).toBe(false);
+        expect(phrases.take.notes).toEqual([]);
+        expect(player.getLooper().members.map((member) => member.id)).toEqual([take]);
         expect(deck.get(".code-strip-bar__play").classes()).toContain("paper-button--pressed");
 
-        // A tap again stops the desk's pattern: its transport member leaves.
+        // Hold again to release; back at the desk, a tap stops the pattern: its transport member leaves.
+        await press(deck.get(".code-strip-bar__play").element, 520);
+        expect(looper.latched).toBe(false);
+        phrases.openPhrase(take);
+        await flush();
         await press(deck.get(".code-strip-bar__play").element, 40);
         expect(looper.members).toEqual([]);
         expect(player.getLooper().running).toBe(false);
@@ -1134,6 +1150,245 @@ describe("Play is the loop on the worklet transport", () => {
             expect(dots(deck).attributes("data-ui-beat-state")).not.toBe("countdown");
           }
           expect(phrases.take.notes.length).toBe(1);
+        } finally {
+          deck.unmount();
+        }
+      });
+    });
+
+    describe("the latch, legible (Burooj, 2026-10-26)", () => {
+      const play = (deck: ReturnType<typeof mountDeck>) => deck.get(".code-strip-bar__play");
+      const ring = (deck: ReturnType<typeof mountDeck>) => deck.get(".code-strip-bar__latch");
+      const dots = (deck: ReturnType<typeof mountDeck>) => deck.get(".code-strip-bar__beat");
+      const sweepOf = (deck: ReturnType<typeof mountDeck>) =>
+        parseFloat((deck.get(".latch-ring__ring").element as HTMLElement).style.getPropertyValue("--latch-ring-sweep"));
+      const starts = () => rig.commands.filter((command) => command.type === "transport-start");
+      /** Render `seconds`, then let the player publish the heard bar, as a frame would. */
+      async function hear(seconds: number) {
+        render(seconds);
+        paint();
+        await flush();
+      }
+
+      afterEach(() => {
+        vi.unstubAllGlobals();
+        uiBeatClock.stop();
+      });
+
+      it("latching starts the bar grid, the beat dots and the ring before any note, silently", async () => {
+        const { phrases, looper } = setup({ uiBeat: uiBeatClock });
+        const deck = mountDeck();
+        try {
+          expect(ring(deck).attributes("data-latch-ring")).toBe("off");
+          expect(deck.find(".latch-ring__ring").exists()).toBe(false);
+          expect(dots(deck).attributes("data-beat-transport")).toBe("idle");
+
+          await press(play(deck).element, 520);
+          await looper.settled();
+          // The transport runs at the knob's tempo with no member: nothing can sound.
+          expect(looper.latched).toBe(true);
+          expect(looper.running).toBe(true);
+          expect(player.getLooper()).toMatchObject({ running: true, bpm: 120, members: [] });
+          expect(starts()).toHaveLength(1);
+          expect(rig.commands.some((command) => command.type === "transport-change")).toBe(false);
+
+          await hear(.6);
+          // The dots beat and the ring sweeps on the heard bar, before any note.
+          expect(dots(deck).attributes("data-ui-beat-state")).toBe("running");
+          expect(dots(deck).attributes("data-beat-transport")).toBe("active");
+          expect(ring(deck).attributes("data-latch-ring")).toBe("sweep");
+          const early = sweepOf(deck);
+          expect(early / 360).toBeCloseTo(mod(player.heardBar()!, 1), 2);
+          await hear(.5);
+          expect(sweepOf(deck)).toBeGreaterThan(early);
+          // Once a bar it empties at the downbeat and fills again.
+          await hear(1.2);
+          expect(sweepOf(deck) / 360).toBeCloseTo(mod(player.heardBar()!, 1), 2);
+          expect(sweepOf(deck)).toBeLessThan(early);
+          // Silent: no click, no note, nothing written.
+          expect(attacks).toEqual([]);
+          expect(phrases.take.notes).toEqual([]);
+
+          // Releasing the latch stops the empty grid; the ring and the dots go.
+          await press(play(deck).element, 520);
+          expect(looper.latched).toBe(false);
+          expect(player.getLooper().running).toBe(false);
+          expect(deck.find(".latch-ring__ring").exists()).toBe(false);
+          expect(dots(deck).attributes("data-beat-transport")).toBe("idle");
+        } finally {
+          deck.unmount();
+        }
+      });
+
+      it("a take begun on beat 3 of the latch's grid stays on beat 3, its length rounded to whole bars", async () => {
+        const { phrases, looper } = setup();
+        const deck = mountDeck();
+        try {
+          await press(play(deck).element, 520);
+          await looper.settled();
+          // The grid's bar 0 is now: nothing has rendered since its start.
+          const bar0 = rig.frame;
+          const at = (bars: number) => bar0 + Math.round(bars * FRAMES_PER_BAR);
+          live("C4", 0, at(.5), at(.5) + 1600);
+          await flush();
+          const take = phrases.take.id;
+          live("E4", 2, at(1), at(1) + 1600);
+          await flush();
+          live("G4", 4, at(1.5), at(1.5) + 1600);
+          await flush();
+          await looper.settled();
+          render(16);
+          await flush();
+
+          // One run: the first note joined the latch's grid instead of restarting it.
+          expect(starts()).toHaveLength(1);
+          expect(looper.looper.barOriginBars).toBe(0);
+          const member = looper.memberFor(take)!;
+          // Beat 3 of bar one to beat 3 of bar two and its release: 1.1 bars round up to 2.
+          expect(member.lengthBars).toBe(2);
+          expectSamePhase(2, member.offsetBars, .5, 3);
+          const where: Record<string, number> = { C4: .5, E4: 1, G4: 1.5 };
+          // From the first lap after the last note joined (the take grows note by note before it).
+          const heard = attacksOf(take).filter((attack) => attack.frame >= at(2.5) - 2);
+          expect(heard.length).toBeGreaterThanOrEqual(9);
+          for (const attack of heard) {
+            // Each lap, every note sounds on the grid's beat it was played on.
+            expectSamePhase(2, player.barAtAudioTime(attack.frame / RATE)!, where[attack.noteName], 3);
+          }
+          expect(heard.filter((attack) => attack.noteName === "C4").every((attack) =>
+            Math.floor(mod(player.barAtAudioTime(attack.frame / RATE)!, 1) * 4 + 1e-6) === 2)).toBe(true);
+        } finally {
+          deck.unmount();
+        }
+      });
+
+      it("latching with a pattern at the front opens an empty take and leaves the pattern untouched; Play still adds it", async () => {
+        const { phrases, looper } = setup();
+        playTake(.5);
+        const kept = phrases.keepTake()!;
+        const before = JSON.stringify(phrases.findPhrase(kept));
+        phrases.openPhrase(kept);
+        const deck = mountDeck();
+        try {
+          await flush();
+          expect(phrases.deskPhraseId).toBe(kept);
+
+          await press(play(deck).element, 520);
+          await looper.settled();
+          expect(looper.latched).toBe(true);
+          // A new, empty take is on the desk; the pattern is back on its shelf, as it was, and not playing.
+          expect(phrases.take.notes).toEqual([]);
+          expect(phrases.deskPhraseId).toBe(phrases.takeId);
+          expect(phrases.findPhrase(kept)?.shelf).toBe("kept");
+          expect(JSON.stringify(phrases.findPhrase(kept))).toBe(before);
+          expect(looper.members).toEqual([]);
+          expect(play(deck).attributes("aria-label")).toBe("Play (latched; hold to release)");
+
+          // A note goes into the new take, which joins; the pattern is still untouched.
+          live("A4", 5, rig.frame + 400, rig.frame + 1200);
+          await flush();
+          await looper.settled();
+          const open = phrases.take.id;
+          expect(phrases.take.notes.map((note) => note.note)).toEqual(["A4"]);
+          expect(looper.openTakeId).toBe(open);
+          expect(JSON.stringify(phrases.findPhrase(kept))).toBe(before);
+
+          // Bringing the pattern to the desk and tapping Play still adds it, on the same grid.
+          phrases.openPhrase(kept);
+          await flush();
+          await press(play(deck).element, 40);
+          await looper.settled();
+          await flush();
+          expect(looper.members.map((member) => member.phraseId)).toEqual([open, kept]);
+          expect(player.getLooper().members.map((member) => member.id)).toEqual([open, kept]);
+          expect(starts()).toHaveLength(1);
+          expect(JSON.stringify(phrases.findPhrase(kept))).toBe(before);
+        } finally {
+          deck.unmount();
+        }
+      });
+
+      it("latching while the desk's pattern plays moves the desk to an empty take and the pattern plays on", async () => {
+        const { phrases, looper } = setup();
+        const deck = mountDeck();
+        try {
+          playTake(.5);
+          const first = phrases.take.id;
+          await press(play(deck).element, 40);
+          await looper.settled();
+          render(1);
+          await press(play(deck).element, 520);
+          expect(looper.latched).toBe(true);
+          expect(phrases.deskPhraseId).not.toBe(first);
+          expect(phrases.take.notes).toEqual([]);
+          expect(phrases.findPhrase(first)?.shelf).toBe("recent");
+          const count = attacksOf(first).length;
+          render(2.5);
+          expect(attacksOf(first).length).toBeGreaterThan(count);
+          expect(starts()).toHaveLength(1);
+        } finally {
+          deck.unmount();
+        }
+      });
+
+      it("hands off to the beat dots: the ring rests while they drain the closing bar, and sweeps again after", async () => {
+        const { phrases, looper } = setup({ uiBeat: uiBeatClock });
+        const deck = mountDeck();
+        try {
+          await press(play(deck).element, 520);
+          await looper.settled();
+          live("C4", 0, rig.frame + 4000, rig.frame + 5600);
+          await flush();
+          await looper.settled();
+          const open = phrases.take.id;
+          await hear(.05);
+          looper.checkLatch();
+          await flush();
+          // The take is open and the bar's first beat has not passed: the dots are full, the ring sweeps.
+          expect(dots(deck).attributes("data-beat-countdown")).toBe("4");
+          expect(ring(deck).attributes("data-latch-ring")).toBe("sweep");
+          const from = player.heardBar()!;
+          while (player.heardBar()! < from + .4) render(QUANTUM / RATE);
+          paint();
+          looper.checkLatch();
+          await flush();
+          expect(Number(dots(deck).attributes("data-beat-countdown"))).toBeLessThan(4);
+          // One signal at a time: the dots count, the ring rests (no sweep).
+          expect(ring(deck).attributes("data-latch-ring")).toBe("rest");
+          while (player.heardBar()! < from + 1.05) render(QUANTUM / RATE);
+          looper.checkLatch();
+          paint();
+          await flush();
+          expect(phrases.take.id).not.toBe(open);
+          expect(dots(deck).attributes("data-beat-countdown")).toBeUndefined();
+          expect(ring(deck).attributes("data-latch-ring")).toBe("sweep");
+        } finally {
+          deck.unmount();
+        }
+      });
+
+      it("under Reduced Motion: a still, full Brass ring and Play's Ink and Ivory inverted, with no sweep", async () => {
+        vi.stubGlobal("matchMedia", vi.fn((query: string) => ({ matches: query.includes("prefers-reduced-motion") })));
+        const { looper } = setup({ uiBeat: uiBeatClock });
+        const deck = mountDeck();
+        try {
+          expect(play(deck).classes()).toContain("paper-button--ivory");
+          await press(play(deck).element, 520);
+          await looper.settled();
+          await hear(.6);
+          expect(ring(deck).attributes("data-latch-ring")).toBe("still");
+          expect(deck.find(".latch-ring__ring").exists()).toBe(true);
+          expect(sweepOf(deck)).toBeNaN();
+          // Play (Ivory) shows Ink while latched; the pressed look stays.
+          expect(play(deck).classes()).toContain("paper-button--ink");
+          expect(play(deck).classes()).toContain("paper-button--pressed");
+          await hear(.6);
+          expect(sweepOf(deck)).toBeNaN();
+
+          await press(play(deck).element, 520);
+          expect(looper.latched).toBe(false);
+          expect(deck.find(".latch-ring__ring").exists()).toBe(false);
+          expect(play(deck).classes()).toContain("paper-button--ivory");
         } finally {
           deck.unmount();
         }

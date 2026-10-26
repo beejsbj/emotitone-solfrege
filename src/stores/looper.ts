@@ -15,6 +15,16 @@
  * milliseconds of it, corrected from the tempo map), and a member's transport
  * offset is `barOriginBars + offsetBars`.
  *
+ * The latch's grid (Burooj, 2026-10-26). Latching with nothing running starts
+ * the transport at bar 0 there and then, silently, at the current tempo, so
+ * the beat dots and Play's ring tick before any note. A take played into it
+ * joins where its notes fell on that grid: its offset is its first note's bar
+ * (a take begun on beat 3 stays on beat 3), and its length is its own,
+ * rounded up to whole bars (rule 2, #139's `phraseLengthBars`), so every lap
+ * starts on that same beat. Latching over a running loop joins its grid. While
+ * latched, the grid outlives its last member; releasing the latch stops an
+ * empty one.
+ *
  * Recorded offsets come from the audio clock: each live attack's audio time
  * (recovered from its heard time) converts to a transport bar on the published
  * tempo map when the take joins, minus the per-device Loop Timing calibration.
@@ -158,6 +168,8 @@ export const useLooperStore = defineStore("looper", () => {
   /** The newest join sent per member, so a superseded join's cancellation is not read as a failure. */
   const latestJoin = new Map<string, number>();
   let joinSerial = 0;
+  /** The tempo the transport runs at (the latch's grid has no member to carry one). */
+  let transportBpm = 120;
   /** Where each played take's phrase time 0 sounded, in AudioContext seconds. */
   const origins = new Map<string, number>();
   /** The note data each member's table was built from. */
@@ -206,7 +218,12 @@ export const useLooperStore = defineStore("looper", () => {
     engineRecovering.value = Boolean(next?.getLooper().recovering);
     stopRecoveryWatch = player?.onRecoveryChange((recovering) => { engineRecovering.value = recovering; });
     stopInterrupted = player?.onInterrupted(() => {
-      if (!looper.value.members.length && !starting) return;
+      if (!looper.value.members.length && !starting) {
+        // Only the latch's silent grid stopped: nothing was heard, so nothing is
+        // reported, and the latch holds (its next note starts a run).
+        if (running.value) resetSession();
+        return;
+      }
       reportKind("interrupted");
       abandon();
     });
@@ -331,6 +348,49 @@ export const useLooperStore = defineStore("looper", () => {
     player?.stop();
   }
 
+  /** The loop emptied: the transport stops, unless the latch keeps its grid running. */
+  function stopIfEmpty(): boolean {
+    if (looper.value.members.length || looper.value.latched) return false;
+    stopTransport();
+    return true;
+  }
+
+  /**
+   * The latch's grid: with nothing running, the transport starts at bar 0 now,
+   * at the current tempo, with no member, so it is silent. A grid that cannot
+   * start leaves the latch as it was before (its first note starts the run).
+   */
+  function startGrid(): void {
+    if (running.value || starting || !player) return;
+    const captured = epoch;
+    const current = player;
+    transportBpm = liveBpm();
+    startingId = null;
+    starting = (async () => {
+      try {
+        const receipt = await current.start({
+          bpm: transportBpm,
+          target: { key: liveKey(), mode: liveMode() },
+          members: [],
+          grid: { instrument: instrument.currentInstrument },
+        });
+        if (epoch !== captured || receipt.cancelled) return false;
+        running.value = true;
+        // The knob turned while it started: the grid follows it.
+        if (liveBpm() !== transportBpm) {
+          transportBpm = liveBpm();
+          if (looper.value.members.length) looper.value.bpm = transportBpm;
+          void current.setTempo(transportBpm).catch(report);
+        }
+        return true;
+      } catch {
+        return false;
+      } finally {
+        if (epoch === captured) starting = null;
+      }
+    })();
+  }
+
   /** Bring a domain member into the transport (asynchronously, guarded by intent). */
   function bringIn(phraseId: string) {
     const token = ++intentSerial;
@@ -351,8 +411,9 @@ export const useLooperStore = defineStore("looper", () => {
         if (!phrase || !member) return false;
         const origin = origins.get(phraseId);
         const sent = requestFor(phrase, member);
+        transportBpm = loopBpm();
         const receipt = await current.start({
-          bpm: loopBpm(),
+          bpm: transportBpm,
           target: { key: liveKey(), mode: liveMode() },
           members: [sent],
           ...(origin === undefined ? {} : { at: { originAudioTime: origin } }),
@@ -383,7 +444,7 @@ export const useLooperStore = defineStore("looper", () => {
           // Nothing started: every member waiting on this start is gone too.
           const keepLatch = looper.value.latched;
           abandon();
-          if (keepLatch) toggleLatch();
+          if (keepLatch) latchOn({ freshDesk: false });
         }
         return false;
       } finally {
@@ -421,7 +482,17 @@ export const useLooperStore = defineStore("looper", () => {
   async function joinRunning(phraseId: string, token: number) {
     const captured = epoch;
     const stale = () => epoch !== captured || intents.get(phraseId) !== token;
-    if (starting && !(await starting)) return;
+    while (starting) {
+      const started = await starting;
+      if (stale()) return;
+      if (started) break;
+      // A start that fails or is cancelled ends the session (stale above), except
+      // the latch's silent grid: without it, this member starts the run itself.
+      if (!starting && !running.value) {
+        startSession(phraseId, token);
+        return;
+      }
+    }
     if (stale() || !running.value || !player) return;
     const current = player;
     const phrase = phrases.findPhrase(phraseId);
@@ -457,7 +528,7 @@ export const useLooperStore = defineStore("looper", () => {
       if (receipt.cancelled || receipt.refused) {
         leave(looper.value, phrase.id);
         intents.delete(phrase.id);
-        if (!looper.value.members.length) stopTransport();
+        stopIfEmpty();
         return;
       }
       joined.add(phrase.id);
@@ -468,7 +539,7 @@ export const useLooperStore = defineStore("looper", () => {
       if (!joined.has(phrase.id)) {
         leave(looper.value, phrase.id);
         intents.delete(phrase.id);
-        if (!looper.value.members.length) stopTransport();
+        stopIfEmpty();
       }
     }
   }
@@ -494,6 +565,8 @@ export const useLooperStore = defineStore("looper", () => {
     const member = join(looper.value, phrase, originAudio === null
       ? { kind: "pinned-to-bar-one" }
       : { kind: "played", phraseOriginBars: first ? 0 : (looper.value.barOriginBars ?? 0) });
+    // Joining the latch's grid: it set the tempo, and its bar 0 is bar one.
+    if (first && (running.value || starting)) looper.value.bpm = transportBpm;
     member.lengthBars = loopLengthBars(phrase);
     // Looping is deliberate: the take is kept even after it stops playing.
     phrases.markLooped(phrase.id);
@@ -507,10 +580,7 @@ export const useLooperStore = defineStore("looper", () => {
     origins.delete(phraseId);
     builtFrom.delete(phraseId);
     if (openTakeId.value === phraseId) openTakeId.value = null;
-    if (!looper.value.members.length) {
-      stopTransport();
-      return;
-    }
+    if (stopIfEmpty()) return;
     if (startingId === phraseId) return; // the start leaves it once it has started
     const wasJoined = joined.delete(phraseId);
     // A join still loading is withdrawn by the leave, so its bank starts nothing.
@@ -550,13 +620,30 @@ export const useLooperStore = defineStore("looper", () => {
 
   /** Pedal-style overdub: hold Play to latch, hold again to release. */
   function toggleLatch(): void {
-    looper.value.latched = !looper.value.latched;
-    stopLatchTimer();
-    if (looper.value.latched) latchTimer = setInterval(() => checkLatch(), LATCH_POLL_MS);
-    else {
-      openTakeId.value = null;
-      latchCountdown.value = null;
+    if (!looper.value.latched) {
+      latchOn({ freshDesk: true });
+      return;
     }
+    looper.value.latched = false;
+    stopLatchTimer();
+    openTakeId.value = null;
+    latchCountdown.value = null;
+    // An empty grid goes with the latch that started it.
+    if (!looper.value.members.length && (running.value || starting)) stopTransport();
+  }
+
+  /**
+   * Latch (Burooj, 2026-10-26): the desk moves to a new, empty take, and the
+   * bar grid starts now if nothing runs. What was at the front goes back to
+   * the reel untouched (rule 3), and plays on if it was playing. A key still
+   * held keeps its take, so no note is cut from the take it sounds in.
+   */
+  function latchOn({ freshDesk }: { freshDesk: boolean }): void {
+    looper.value.latched = true;
+    stopLatchTimer();
+    latchTimer = setInterval(() => checkLatch(), LATCH_POLL_MS);
+    if (freshDesk && phrases.take.notes.length && !phrases.isTakeSounding) phrases.startBlankTake();
+    startGrid();
   }
 
   /** Each note that lands joins the open take, so it sounds from the next lap. */
@@ -615,7 +702,8 @@ export const useLooperStore = defineStore("looper", () => {
       return;
     }
     const silent = silentBars(now);
-    if (silent < 1) {
+    // Bars are differences of grid positions: float noise right under a whole bar is the bar.
+    if (silent < 1 - 1e-9) {
       // A beat drains as it passes: four left on the bar's first beat, one on its last.
       latchCountdown.value = Math.min(BEATS_PER_BAR, Math.max(1, Math.ceil(BEATS_PER_BAR * (1 - silent) - 1e-9)));
       return;
@@ -773,7 +861,8 @@ export const useLooperStore = defineStore("looper", () => {
           const member = memberFor(phraseId);
           return phrase && member ? [requestFor(phrase, member)] : [];
         });
-        const receipt = await current.start({ bpm: loopBpm(), target: { key: liveKey(), mode: liveMode() }, members: requests });
+        transportBpm = loopBpm();
+        const receipt = await current.start({ bpm: transportBpm, target: { key: liveKey(), mode: liveMode() }, members: requests });
         if (epoch !== captured || receipt.cancelled) return false;
         running.value = true;
         for (const request of requests) joined.add(request.id);
@@ -824,8 +913,9 @@ export const useLooperStore = defineStore("looper", () => {
   watch(() => visualConfig.config.codeStrip.bpm, (bpm) => {
     if (!running.value || !player) return;
     const next = resolveBpm(bpm);
-    if (next === looper.value.bpm) return;
-    looper.value.bpm = next;
+    if (next === transportBpm && next === (looper.value.bpm ?? next)) return;
+    transportBpm = next;
+    if (looper.value.members.length) looper.value.bpm = next;
     void player.setTempo(next).catch(report);
     refreshStale();
   });

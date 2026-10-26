@@ -358,16 +358,4 @@ function clamp(value: number) {
   return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
 }
 
-/** A live `prefers-reduced-motion` flag. */
-export function useReducedMotion() {
-  const query = typeof window === "undefined"
-    ? undefined
-    : window.matchMedia?.("(prefers-reduced-motion: reduce)");
-  const reduced = ref(query?.matches ?? false);
-  const onChange = (event: MediaQueryListEvent) => {
-    reduced.value = event.matches;
-  };
-  onMounted(() => query?.addEventListener?.("change", onChange));
-  onBeforeUnmount(() => query?.removeEventListener?.("change", onChange));
-  return reduced;
-}
+export { useReducedMotion } from "@/composables/useReducedMotion";

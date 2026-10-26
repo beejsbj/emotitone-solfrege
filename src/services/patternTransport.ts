@@ -785,6 +785,13 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
        * Default bar 0, now.
        */
       at?: { bar: number } | { originAudioTime: number };
+      /**
+       * With no members: the latch's silent bar grid (Burooj, 2026-10-26). The
+       * transport runs, and UIBeat with it, with nothing to play; `instrument`
+       * names the live sound whose worklet holds the transport (the one about
+       * to be played), prepared but not pinned.
+       */
+      grid?: { instrument: string };
     }): Promise<TransportReceipt> {
       // Checked before anything stops or changes, as join is.
       checkBpm(request.bpm);
@@ -810,6 +817,11 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
           memberships.set(memberRequest.id, entry);
           pin(memberRequest.id, entry, prepared.instrumentId);
           entries.push([memberRequest.id, entry]);
+        }
+        if (!entries.length && request.grid) {
+          const prepared = await prepare(request.grid.instrument);
+          if (attempt !== run) return cancelledReceipt(0);
+          port = prepared.port;
         }
         if (!port) throw new Error("The Looper needs a member to start");
         playing = true;

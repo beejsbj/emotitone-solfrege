@@ -6,25 +6,32 @@
         aria-label="Pattern beat"
         :countdown="beatCountdown"
       >
-        <Button
-          class="code-strip-bar__play"
-          size="sm"
-          :tone="isPlaying ? 'ink' : 'ivory'"
-          :haptic="haptic"
-          :disabled="playDisabled"
-          :pressed="playLatched"
-          :accessible-name="playName"
-          :title="playName"
-          :style="PLAY_OWNS_TOUCH"
-          @pointerdown="playDown"
-          @pointerup="playLift"
-          @pointercancel="playLift"
-          @contextmenu.prevent
-          @click="playClick"
+        <LatchRing
+          v-slot="{ invert }"
+          class="code-strip-bar__latch"
+          :active="playLatched"
+          :stopped="closingBarCounts"
         >
-          <Square v-if="isPlaying" />
-          <Play v-else />
-        </Button>
+          <Button
+            class="code-strip-bar__play"
+            size="sm"
+            :tone="playTone(invert)"
+            :haptic="haptic"
+            :disabled="playDisabled"
+            :pressed="playLatched"
+            :accessible-name="playName"
+            :title="playName"
+            :style="PLAY_OWNS_TOUCH"
+            @pointerdown="playDown"
+            @pointerup="playLift"
+            @pointercancel="playLift"
+            @contextmenu.prevent
+            @click="playClick"
+          >
+            <Square v-if="isPlaying" />
+            <Play v-else />
+          </Button>
+        </LatchRing>
       </BeatIndicator>
     </div>
 
@@ -78,6 +85,7 @@ import { computed, onBeforeUnmount } from "vue";
 import Button from "@/components/primatives/Button.vue";
 import CodeStrip from "@/components/uniques/CodeStrip/index.vue";
 import BeatIndicator from "@/components/compounds/BeatIndicator.vue";
+import LatchRing from "@/components/compounds/LatchRing.vue";
 import type {
   CodeStripDensity,
   CodeStripToken,
@@ -90,8 +98,9 @@ const props = withDefaults(
     playDisabled?: boolean;
     haptic?: boolean;
     /**
-     * The Looper's latch is on (hold Play): the key's lip orbits, pedal-style,
-     * and the key stays pressable. Holding Play emits `playHold`.
+     * The Looper's latch is on (hold Play): the key is held in its pressed look
+     * inside a Brass Latch Ring that sweeps once a bar, and stays pressable.
+     * Holding Play emits `playHold`.
      */
     playLatched?: boolean;
     /** Beats left of the latch's closing bar, shown on the beat dots (null: the beat). */
@@ -126,6 +135,20 @@ const emit = defineEmits<{
   return: [];
   playHold: [];
 }>();
+
+const BEATS_PER_BAR = 4;
+/**
+ * The beat dots are draining the latch's closing bar: the ring hands off to
+ * them and rests, so only one of the two moves. A full countdown (a note
+ * sounding, or the bar's first beat) still leaves the ring sweeping.
+ */
+const closingBarCounts = computed(() =>
+  props.playLatched && props.beatCountdown !== null && props.beatCountdown < BEATS_PER_BAR);
+
+/** Play is Ivory, Stop is Ink; a still latch (Reduced Motion) inverts them. */
+function playTone(invert: boolean): "ink" | "ivory" {
+  return props.isPlaying !== invert ? "ink" : "ivory";
+}
 
 const playName = computed(() => {
   const action = props.isPlaying ? "Stop" : "Play";

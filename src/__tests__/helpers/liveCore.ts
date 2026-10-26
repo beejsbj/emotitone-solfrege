@@ -1,6 +1,8 @@
 import { LiveAudioCore } from "@/audio/live/core";
 import type { LiveRenderer, LiveRendererCallbacks } from "@/audio/liveRenderer";
-import type { PreparedLiveInstrument } from "@/audio/live/types";
+import type { LiveEnvelopeOverride, PreparedLiveInstrument } from "@/audio/live/types";
+import type { LiveShaping } from "@/audio/liveShaping";
+import { getLiveArticulation } from "@/services/liveArticulation";
 
 /**
  * The live worklet for store and component tests: the real render core
@@ -17,6 +19,8 @@ import type { PreparedLiveInstrument } from "@/audio/live/types";
 export interface LiveSeat {
   renderer: LiveRenderer | null;
   listeners: Set<LiveRendererCallbacks>;
+  /** Set by attachLiveCore: the Shape controls reach the core, as setLivePlaybackShaping does. */
+  shape?: (next: LiveShaping & { envelope: LiveEnvelopeOverride }) => void;
 }
 
 /** The livePlayback functions the stores call, answered by `seat`. */
@@ -31,7 +35,7 @@ export function livePlaybackOn(seat: LiveSeat) {
     needsLivePlaybackPreparation: () => false,
     getLivePlaybackFailure: () => seat.renderer ? undefined
       : { kind: "unavailable" as const, reason: "No live renderer in this test" },
-    setLivePlaybackShaping: () => {},
+    setLivePlaybackShaping: (next: LiveShaping & { envelope: LiveEnvelopeOverride }) => seat.shape?.(next),
     pinLivePlayback: () => () => {},
   };
 }
@@ -41,15 +45,27 @@ export interface LiveCoreOptions {
   sampleRate?: number;
   /** What the core holds (default piano, triangle, sine): an id is a sine oscillator; or a prepared instrument as is. */
   instruments?: (string | PreparedLiveInstrument)[];
-  /** Envelope of the prepared oscillators. */
-  envelope?: { attack: number; decay: number; sustain: number; release: number };
+  /**
+   * Envelope of the prepared oscillators: a fixed one (default instant), or
+   * "catalog" for each instrument's own live articulation, as the real loader
+   * prepares it (sine, triangle, square and sawtooth then use their waveform).
+   */
+  envelope?: { attack: number; decay: number; sustain: number; release: number } | "catalog";
 }
 
 /** Put a real core in `seat`. Render it to deliver its events at their frames. */
 export function attachLiveCore(seat: LiveSeat, options: LiveCoreOptions = {}) {
   const sampleRate = options.sampleRate ?? 1000;
-  const envelope = options.envelope ?? { attack: 0, decay: 0, sustain: 1, release: 0 };
+  const fixed = options.envelope ?? { attack: 0, decay: 0, sustain: 1, release: 0 };
+  const WAVEFORMS = ["sine", "triangle", "square", "sawtooth"] as const;
+  const oscillator = (instrumentId: string): PreparedLiveInstrument => fixed === "catalog"
+    ? { kind: "oscillator", instrumentId, gain: 1, ...getLiveArticulation(instrumentId),
+      waveform: WAVEFORMS.find((waveform) => waveform === instrumentId) ?? "sine" }
+    : { kind: "oscillator", waveform: "sine", instrumentId, gain: 1, ...fixed };
   let frame = 0;
+  /** While following a clock, a command first renders up to it, as the worklet applies commands at its render frame. */
+  let clock: (() => number) | undefined;
+  const sync = () => { if (clock) renderTo(clock()); };
   const each = (deliver: (listener: LiveRendererCallbacks) => void) => [...seat.listeners].forEach(deliver);
   const core = new LiveAudioCore(sampleRate, (response) => {
     if (response.type === "event") each((listener) => listener.onEvent(response.event));
@@ -58,44 +74,51 @@ export function attachLiveCore(seat: LiveSeat, options: LiveCoreOptions = {}) {
     else if (response.type === "owner-ended") each((listener) => listener.onOwnerEnded?.(response.ownerId));
   });
   for (const instrument of options.instruments ?? ["piano", "triangle", "sine"]) {
-    core.command({ type: "prepare", requestId: 1, instrument: typeof instrument !== "string" ? instrument : {
-      kind: "oscillator", waveform: "sine", instrumentId: instrument, gain: 1, ...envelope,
-    } }, frame);
+    core.command({ type: "prepare", requestId: 1,
+      instrument: typeof instrument !== "string" ? instrument : oscillator(instrument) }, frame);
   }
+  seat.shape = (next) => {
+    core.command({ type: "shape", envelope: next.envelope }, frame);
+    core.command({ type: "effects", shaping: next }, frame);
+  };
+  const command = (next: Parameters<LiveAudioCore["command"]>[0]) => { sync(); core.command(next, frame); };
   seat.renderer = {
-    press: (ownerId, notes) => core.command({ type: "press", ownerId, notes }, frame),
-    release: (ownerId) => core.command({ type: "release", ownerId }, frame),
-    setPitchBend: (ownerId, cents) => core.command({ type: "pitch-bend", ownerId, cents }, frame),
-    setGain: (ownerId, gain) => core.command({ type: "gain-expression", ownerId, gain }, frame),
-    configure: (config) => core.command({ type: "configure", config }, frame),
-    clear: () => core.command({ type: "clear" }, frame),
+    press: (ownerId, notes) => command({ type: "press", ownerId, notes }),
+    release: (ownerId) => command({ type: "release", ownerId }),
+    setPitchBend: (ownerId, cents) => command({ type: "pitch-bend", ownerId, cents }),
+    setGain: (ownerId, gain) => command({ type: "gain-expression", ownerId, gain }),
+    configure: (config) => command({ type: "configure", config }),
+    clear: () => command({ type: "clear" }),
     dispose: () => {},
     forget: async () => {},
   };
+  function render(length: number) {
+    const output = [new Float32Array(length), new Float32Array(length)];
+    core.render(output, frame);
+    frame += length;
+    return output[0];
+  }
+  function renderTo(seconds: number) {
+    const target = Math.round(seconds * sampleRate);
+    return target > frame ? render(target - frame) : new Float32Array(0);
+  }
   return {
     core,
     sampleRate,
     get frame() { return frame; },
     /** Render `length` frames; returns the left channel. */
-    render(length: number) {
-      const output = [new Float32Array(length), new Float32Array(length)];
-      core.render(output, frame);
-      frame += length;
-      return output[0];
-    },
+    render,
     /**
-     * Keep the core on the test's clock: every millisecond of (fake) timers
-     * renders up to `seconds()`, so events land at the frames the store's audio
-     * clock expects. Returns the stop.
+     * Keep the core on the test's clock: every millisecond of (fake) timers,
+     * and every command, renders up to `seconds()`, so events land at the
+     * frames the store's audio clock expects. Returns the stop.
      */
     follow(seconds: () => number) {
-      const timer = setInterval(() => { this.renderTo(seconds()); }, 1);
-      return () => clearInterval(timer);
+      clock = seconds;
+      const timer = setInterval(sync, 1);
+      return () => { clearInterval(timer); if (clock === seconds) clock = undefined; };
     },
     /** Render up to `seconds` on the core's clock (whole frames). */
-    renderTo(seconds: number) {
-      const target = Math.round(seconds * sampleRate);
-      return target > frame ? this.render(target - frame) : new Float32Array(0);
-    },
+    renderTo,
   };
 }

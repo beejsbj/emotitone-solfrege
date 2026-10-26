@@ -61,7 +61,7 @@ vi.mock("@/services/livePlayback", () => ({
     };
   },
   getLivePlaybackFailure: (instrumentId: string) => rig.refused.has(instrumentId)
-    ? { kind: "fallback", reason: "budget", budget: true } : undefined,
+    ? { kind: "unavailable", reason: "budget", budget: true } : undefined,
   pinLivePlayback(holder: string, names: readonly string[]) {
     const held = [...names];
     rig.pins.set(holder, held);

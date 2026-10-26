@@ -453,13 +453,13 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
     const ready = getLiveTransport(instrumentId);
     if (ready) return { port: ready, instrumentId };
     const failure = getLivePlaybackFailure(instrumentId);
-    // A transport member has no fallback renderer: a bank refused for budget
-    // is an explicit error, never a member whose notes make no sound.
+    // A transport member has no fallback renderer: a bank refused for sample
+    // memory is an explicit error, never a member whose notes make no sound.
     throw new PatternLoadError(
       failure?.kind === "load"
         ? `${instrument} could not load: ${failure.reason}`
         : failure?.budget
-          ? `${instrument} cannot join: every instrument slot is held by a playing pattern or key`
+          ? `${instrument} cannot join: ${failure.reason}`
           : `${instrument} cannot play patterns on the worklet engine (${failure?.reason ?? "not prepared"})`,
       failure?.kind === "load",
       Boolean(failure?.budget),
@@ -775,8 +775,8 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
 
     /**
      * Join a member (or replace one with the same id). A cold instrument
-     * loads first while the others keep playing; a bank refused for budget
-     * throws PatternLoadError with `budget` set and nothing joins.
+     * loads first while the others keep playing; a bank refused for sample
+     * memory throws PatternLoadError with `budget` set and nothing joins.
      */
     async join(request: LooperMemberRequest, boundary: TransportBoundary = "immediate"): Promise<TransportReceipt> {
       requireSession();

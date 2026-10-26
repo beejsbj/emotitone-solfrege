@@ -5,6 +5,7 @@ import { createLiveShapingChain, type LiveShaping } from "@/audio/liveShaping";
 import { getLiveOrbit } from "@/services/audioRuntime";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import { preparedPcmBytes } from "@/audio/live/pcm";
+import { getCatalogSound } from "@/audio/soundCatalog";
 import type { TransportCommand } from "@/audio/live/transport";
 import type { RenderCostSnapshot } from "@/audio/live/renderCost";
 
@@ -22,14 +23,19 @@ export interface LiveTransportPort {
   readonly generation: number;
 }
 
-const MAX_BANKS = 4;
 const MAX_PCM_BYTES = 192 * 1024 * 1024;
+// Memory is the only limit on loaded sounds; there is no count of instruments.
 // Worklet-owned PCM (source plus derived pyramids, including a pending
-// installation) is capped at 192 MiB. The loader decodes into buffers it owns
-// and the bridge transfers them, so after acknowledgement the worklet holds the
-// only copy. One bank prepares at a time (192 MiB), so the worst case while
-// preparing is 384 MiB of owned PCM. A decoded AudioBuffer awaiting garbage
-// collection is outside this accounting; it is not a bound on total memory.
+// installation) is capped at 192 MiB, set from the Android phone-gate run
+// (150.7 MiB of banks resident, tab healthy; iOS has not been measured). An
+// oscillator instrument holds no PCM, so it takes none of that budget and is
+// never evicted for it. The loader decodes into buffers it owns and the bridge
+// transfers them, so after acknowledgement the worklet holds the only copy.
+// One bank prepares at a time (at most 192 MiB), so the worst case while one
+// more bank is being prepared is 384 MiB of owned PCM: 192 MiB installed plus
+// 192 MiB preparing, before any eviction makes room. A decoded AudioBuffer
+// awaiting garbage collection is outside this accounting; it is not a bound on
+// total memory.
 const listeners = new Set<Listener>();
 const reasons = new Map<string, string>();
 const unsupported = new Set<string>();
@@ -57,12 +63,27 @@ const installedPcm = new Map<string, { source: number; derived: number }>();
 /** Instruments whose data could not be downloaded or decoded (retryable). */
 const loadFailures = new Set<string>();
 /**
- * Instruments refused because every resident bank is held or pinned (a held
- * key, a Looper member). Live input on one is refused with this reason (the
- * deck shows it); the transport refuses the join.
+ * Sampled instruments refused because the banks that held keys and Looper
+ * members keep resident leave no room for them in the PCM budget. Live input
+ * on one is refused with this reason (the deck shows it); the transport
+ * refuses the join.
  */
 const budgetRefused = new Set<string>();
-const BUDGET_REASON = "Live renderer instrument budget is occupied by held or pinned instruments";
+/**
+ * Bytes each bank needed when last prepared, so a refused bank is not downloaded
+ * again for nothing and a known one can make room before it downloads. An entry
+ * belongs to the registration it was measured from: re-registering the sound
+ * (new samples) makes it stale.
+ */
+const knownBankBytes = new Map<string, { registration: unknown; bytes: number }>();
+
+function knownBytesOf(instrumentId: string): number | undefined {
+  const known = knownBankBytes.get(instrumentId);
+  if (!known) return undefined;
+  if (known.registration === getCatalogSound(instrumentId)) return known.bytes;
+  knownBankBytes.delete(instrumentId);
+  return undefined;
+}
 const retiring = new Set<string>();
 let installQueue: Promise<void> = Promise.resolve();
 let preparationAbort = new AbortController();
@@ -77,6 +98,70 @@ function byteSize(instrument: PreparedLiveInstrument): number {
 
 function isPinned(instrumentId: string): boolean {
   return [...pins.values(), ...leases.values()].some(held => held.has(instrumentId));
+}
+
+const mib = (bytes: number) => `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
+
+/** A resident bank that eviction can free: unpinned, and holding PCM (an oscillator holds none). */
+function isEvictable(instrumentId: string): boolean {
+  return (installed.get(instrumentId) ?? 0) > 0 && !isPinned(instrumentId);
+}
+
+/** PCM held by banks that held keys or Looper members keep resident, which eviction cannot free. */
+function pinnedPcmBytes(): number {
+  let total = 0;
+  for (const [instrumentId, bytes] of installed) if (isPinned(instrumentId)) total += bytes;
+  return total;
+}
+
+/**
+ * Why a bank cannot be loaded: the sounds that playing loops and held keys keep
+ * resident already use too much of the budget. `needed` is unknown before the
+ * bank has been prepared once.
+ */
+function budgetReason(needed: number | undefined, pinned: number): string {
+  const inUse = `${mib(pinned)} of the ${mib(MAX_PCM_BYTES)} sample memory is held by playing loops and keys`;
+  return needed === undefined ? `Sample memory is full: ${inUse}` : `Sample memory is full: this sound needs ${mib(needed)}, but ${inUse}`;
+}
+
+/**
+ * Retire the least recently used evictable banks until `bytes` more fits in the
+ * budget. Every victim is chosen, and marked retiring so no new attack can use
+ * or pin it, in one synchronous step; only then are they forgotten. Choosing
+ * one at a time across the awaited fades let a key pressed meanwhile pin a
+ * later victim, and the install was refused after a bank had already gone.
+ * Returns false, having evicted nothing, when the pinned banks leave no room.
+ * The budget includes retiring PCM, so the banks leave `installed` only once
+ * the processor has acknowledged them. If the generation changes while they
+ * fade, the new generation has already cleared this bookkeeping.
+ */
+async function makeRoom(forget: (instrumentId: string) => Promise<void>, bytes: number, run: number): Promise<boolean> {
+  if (pinnedPcmBytes() + bytes > MAX_PCM_BYTES) return false;
+  let total = bytes;
+  for (const size of installed.values()) total += size;
+  const victims: string[] = [];
+  for (const instrumentId of installed.keys()) {
+    if (total <= MAX_PCM_BYTES) break;
+    if (!isEvictable(instrumentId)) continue;
+    victims.push(instrumentId);
+    total -= installed.get(instrumentId)!;
+  }
+  if (total > MAX_PCM_BYTES) return false;
+  for (const instrumentId of victims) retiring.add(instrumentId);
+  await Promise.all(victims.map(forget));
+  if (run !== generation) return true;
+  for (const instrumentId of victims) {
+    installed.delete(instrumentId);
+    installedPcm.delete(instrumentId);
+    retiring.delete(instrumentId);
+  }
+  return true;
+}
+
+function refuseForBudget(instrumentId: string, needed: number | undefined, pinned: number) {
+  reasons.set(instrumentId, budgetReason(needed, pinned));
+  budgetRefused.add(instrumentId);
+  loadFailures.delete(instrumentId);
 }
 
 /**
@@ -105,6 +190,7 @@ function invalidate(error?: unknown) {
   retiring.clear();
   installingPcmBytes = 0;
   unsupported.clear();
+  knownBankBytes.clear();
   listeners.forEach(listener => listener.onRendererReset?.());
   // Allow five seconds to drain, then unwind stalled native fetch/decode waits.
   // Keep the queue serialized: bypassing it could leave retired owned PCM alive.
@@ -166,13 +252,28 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
     if (run !== generation) return;
     workletCatalog = await (workletPreparation ??= import("@/services/preparedLiveInstrument"));
     if (run !== generation) return;
-    if (installed.size >= MAX_BANKS && [...installed.keys()].every(isPinned)) {
-      reasons.set(instrumentId, BUDGET_REASON);
-      budgetRefused.add(instrumentId);
-      loadFailures.delete(instrumentId);
-      return;
+    const knownBytes = knownBytesOf(instrumentId);
+    // A bank larger than the whole budget can never fit, however little is pinned:
+    // it stays unsupported, with the reason it was given, rather than "memory full".
+    if (knownBytes !== undefined && knownBytes > MAX_PCM_BYTES) return;
+    // With the size this bank had last time (an oscillator's is 0), refuse before
+    // downloading anything when the pinned banks leave no room for it. Nothing is
+    // evicted until the bank has downloaded: room made earlier would take banks
+    // from a Looper member whose pin has not landed yet, and would leave the
+    // keyboard's sound unavailable for the whole download. A bank not prepared
+    // before has no known size and so no early decision: it may be an oscillator,
+    // which needs no memory however full the pinned banks are.
+    if (knownBytes !== undefined) {
+      const pinnedBefore = pinnedPcmBytes();
+      if (pinnedBefore + knownBytes > MAX_PCM_BYTES) {
+        refuseForBudget(instrumentId, knownBytes, pinnedBefore);
+        return;
+      }
     }
     const preparationSampleRate = nextContext.sampleRate;
+    // Read before the download: a sound registered again while it downloads must not
+    // inherit the size of the samples it replaced.
+    const registration = getCatalogSound(instrumentId);
     const prepared = await workletCatalog.prepareLiveInstrument(nextContext, instrumentId, preparationAbort.signal);
     preparedResult = prepared;
     if (run !== generation) return;
@@ -187,8 +288,9 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
       return;
     }
     const bytes = byteSize(prepared);
+    knownBankBytes.set(instrumentId, { registration, bytes });
     if (bytes > MAX_PCM_BYTES) {
-      reasons.set(instrumentId, "Sample bank exceeds the 192 MiB live renderer budget");
+      reasons.set(instrumentId, `Sample bank needs ${mib(bytes)}, more than the ${mib(MAX_PCM_BYTES)} sample memory`);
       unsupported.add(instrumentId);
       return;
     }
@@ -243,24 +345,15 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
         clear() { if (run === generation) { pins.clear(); ready.clear(); } },
         dispose() { if (run === generation) invalidate(); },
       };
-      // Held and pinned banks stay resident. Released voices retire with a
-      // bounded fade; their PCM remains charged until the adapter acknowledges it.
-      while (installed.size >= MAX_BANKS || [...installed.values()].reduce((sum, size) => sum + size, bytes) > MAX_PCM_BYTES) {
-        const oldest = [...installed.keys()].find(id => !isPinned(id));
-        if (oldest === undefined) {
-          reasons.set(instrumentId, BUDGET_REASON);
-          budgetRefused.add(instrumentId);
-          return;
-        }
-        // The budget includes retiring PCM: wait for its bounded fade and
-        // processor acknowledgement before installing another bank.
-        retiring.add(oldest);
-        await ready.forget(oldest);
-        if (run !== generation) return;
-        installed.delete(oldest);
-        installedPcm.delete(oldest);
-        retiring.delete(oldest);
+      // Held and pinned banks stay resident. If they leave no room, refuse before
+      // evicting anything: freeing other banks would not help. Otherwise retire the
+      // least recently used banks that hold PCM until this one fits. This runs only
+      // after the download, so a bank is never evicted for one that then fails.
+      if (!await makeRoom(id => ready.forget(id), bytes, run)) {
+        refuseForBudget(instrumentId, bytes, pinnedPcmBytes());
+        return;
       }
+      if (run !== generation) return;
       installingPcmBytes = bytes;
       const split = preparedPcmBytes(prepared);
       // Transfers the PCM: from here the worklet owns the bank's only copy.
@@ -317,8 +410,8 @@ export function getLivePlayback(name: string): LiveRenderer | undefined {
 /** Undefined preserves synchronous input when ready (or when the worklet never
  * held the sound). Otherwise wait for the worklet to restore the bank. A
  * failed recovery drops this input and reports through onLoadError. A bank
- * refused for budget (every resident bank held or pinned, e.g. by Looper
- * members) is not a load failure: the input is refused with that reason. */
+ * refused for budget (held keys and Looper members keep too much sample
+ * memory resident) is not a load failure: the input is refused with that reason. */
 export function waitForLivePlayback(name: string): Promise<void> | undefined {
   const instrumentId = resolveLiveSoundName(name);
   if (!workletInstruments.has(instrumentId) || getLivePlayback(name) || unsupported.has(instrumentId)) return;
@@ -370,7 +463,7 @@ export function needsLivePlaybackPreparation(name: string): boolean {
 
 /** Why the worklet does not hold a sound: its data failed to load (retry may help),
  * or the worklet cannot or will not hold it (so it cannot play).
- * `budget` is set when it was refused because every resident bank is pinned. */
+ * `budget` is set when it was refused because pinned banks leave no sample memory for it. */
 export function getLivePlaybackFailure(name: string): { kind: "load" | "unavailable"; reason: string; budget?: true } | undefined {
   const instrumentId = resolveLiveSoundName(name);
   if (installed.has(instrumentId) && !retiring.has(instrumentId)) return undefined;

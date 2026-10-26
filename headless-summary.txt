@@ -1,0 +1,26 @@
+EmotiTone phone gate (BJS-494), 2026-10-26T09:07:02.583Z
+Device: Linux machine · Linux · Headless Chrome 141.0
+Audio: 44100 Hz · base latency 10.0 ms · output latency 32.0 ms
+Screen: DPR 3 · cores 4 · device memory 8 GB
+Loop: 4 piano members at 100 BPM · piano loaded in 1.6 s
+Page: http://localhost:4173/lab/phone-gate
+UA: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.0.0 Safari/537.36
+
+Result: 6 pass · 1 fail · 8 recorded · 1 not run
+
+[PASS] Attacks lost: 0 lost of 384 over 12 bars (doubled 0, extra 0, cut short 0) (mark: 0 lost, 0 doubled)
+[PASS] Live notes on top: 160 of 160 sounded (mark: every press sounds)
+[PASS] Scheduler skips: 0 onsets refused at render, 0 event overflows (mark: 0)
+[RECORD] Worklet render cost per quantum: p50 0.10 ms · p99 1.10 ms · max 8.00 ms; budget 2.90 ms; 2 of 10143 quanta over; load 6% (date clock) (mark: record (Date clock, 1 ms steps))
+[RECORD] Underruns (whole graph): clock slip -0.1 ms over 29.0 s, 0 gaps over 10 ms (worst step 0.7 ms); browser underrun counter: not exposed (mark: record (estimate; ear decides))
+[PASS] Dropouts by ear: none heard (mark: none heard)
+[FAIL] Mute (tap to silent): p50 125 ms · p95 159 ms · max 159 ms over 4 (mark: < 150 ms tap to silent)
+[PASS] Solo (hold to others silent): p50 44 ms · p95 47 ms · max 47 ms over 3 (mark: < 150 ms hold threshold to silent)
+[RECORD] Unmute (tap to applied): p50 108 ms · p95 127 ms · max 127 ms over 4 (mark: record (tap to change at the speaker))
+[RECORD] Solo release (lift to applied): p50 39 ms · p95 39 ms · max 39 ms over 3 (mark: record (lift to change at the speaker))
+[RECORD] Memory with the piano: worklet banks 138.4 MiB (source 137.8 MiB, derived 0.7 MiB; budget 192.0 MiB), preparation copies 0.0 MiB; JS heap idle 8.2 MiB, loaded 143.6 MiB, peak while loading 143.6 MiB, after loop 24.2 MiB (limit 4095.8 MiB) (mark: record (the tab survived))
+[RECORD] Stage frame pacing (loop playing): p50 100.0 ms · p95 116.7 ms · p99 150.0 ms · max 183.4 ms; 4 dropped (1.3%) at ~12 Hz; 298 frames ≥ 50 ms (mark: record (S144))
+[RECORD] Loop notes lit on the Stage: 210 of 384 lit; 174 dropped late (main thread behind); earliest lead -340 ms (mark: record (the sound stays right; the picture may lag))
+[PASS] Output timestamp after resume: paused 5.1 s; first read 1 ms old, fresh after 9 ms; first two bars: 64/64 sounded, 40/64 lit, 0 dropped as stale, 24 dropped late (main thread behind); earliest lead -207 ms (mark: first pass after resume sounds; no note lit or dropped a pause early)
+[RECORD] Tap to sound: p50 125 ms · p95 129 ms · max 129 ms over 10 (mark: record (touch to the speaker, browser clock))
+[NOT RUN] Route change (headphones/Bluetooth): skipped (mark: loop keeps playing (Burooj's ear))

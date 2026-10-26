@@ -86,7 +86,8 @@ describe("phone gate run", () => {
       gate.stop();
       await vi.advanceTimersByTimeAsync(0);
       expect(gate.state.phase).toBe("done");
-      expect(gate.state.summary).toMatch(/\] Worklet render cost per quantum: p50 0\.60 ms · p99 0\.70 ms/);
+      // Stopped before a whole soak bar: the reading is kept, and graded partial rather than pass.
+      expect(gate.state.summary).toMatch(/\[PARTIAL\] Worklet render cost per quantum: p50 0\.60 ms · p99 0\.70 ms/);
       expect(gate.state.summary).not.toContain("[NOT RUN] Worklet render cost");
     } finally {
       gate.dispose();

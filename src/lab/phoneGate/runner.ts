@@ -357,9 +357,10 @@ export function createPhoneGate() {
     captureStep = () => {
       const reached = player?.barAtAudioTime(audio.currentTime);
       const until = typeof reached === "number" ? Math.min(toBar, reached - .05) : SOAK_FROM_BAR;
+      // Stopped before a whole soak bar: nothing to publish, but whatever was measured (render cost) is partial.
+      results.stoppedDuring = "soak";
       if (!(until > SOAK_FROM_BAR)) return;
       publishSoak(until);
-      results.stoppedDuring = "soak";
     };
     await untilBar(toBar + .05, bar => { state.progress = Math.min(1, Math.max(0, (bar - SOAK_FROM_BAR) / SOAK_BARS)); });
     stopSoak();

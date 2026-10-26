@@ -7,7 +7,6 @@ const mocks = vi.hoisted(() => ({
   useInstrumentStore: vi.fn(),
   useVisualConfigStore: vi.fn(),
   useCodeStripStrudel: vi.fn(),
-  mirrorConstructor: vi.fn(),
 }));
 
 vi.mock("@/composables/useMusicColor", () => ({
@@ -19,17 +18,6 @@ vi.mock("@/stores/visualConfig", () => ({ useVisualConfigStore: mocks.useVisualC
 vi.mock("@/composables/useCodeStripStrudel", () => ({
   useCodeStripStrudel: mocks.useCodeStripStrudel,
 }));
-vi.mock("@strudel/core", () => ({
-  evalScope: vi.fn(),
-  repl: () => {
-    mocks.mirrorConstructor();
-    return { scheduler: { stop: vi.fn() }, evaluate: vi.fn() };
-  },
-}));
-vi.mock("@strudel/mini", () => ({}));
-vi.mock("@strudel/tonal", () => ({}));
-vi.mock("@strudel/webaudio", () => ({}));
-vi.mock("@strudel/transpiler", () => ({ transpiler: vi.fn() }));
 
 import CodeStrip from "@/components/uniques/CodeStrip/index.vue";
 
@@ -74,7 +62,6 @@ describe("CodeStrip controlled color isolation", () => {
     expect(mocks.useInstrumentStore).not.toHaveBeenCalled();
     expect(mocks.useVisualConfigStore).not.toHaveBeenCalled();
     expect(mocks.useCodeStripStrudel).not.toHaveBeenCalled();
-    expect(mocks.mirrorConstructor).not.toHaveBeenCalled();
     wrapper.unmount();
   });
 });

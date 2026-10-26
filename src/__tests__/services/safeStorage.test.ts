@@ -14,17 +14,6 @@ import {
   saveFailureNotice,
 } from "@/services/safeStorage";
 
-vi.mock("@/services/superdoughAudio", () => ({
-  setStrudelLaBasedMinor: vi.fn(),
-  setLiveSynthControls: vi.fn(),
-  attackNote: vi.fn().mockResolvedValue(undefined),
-  releaseNote: vi.fn(),
-  stopNote: vi.fn(),
-  getAudioContext: vi.fn(() => ({ state: "running", currentTime: 0 })),
-  releaseAll: vi.fn(),
-  playNoteWithDuration: vi.fn().mockResolvedValue(undefined),
-}));
-
 const FULL = "Can't save — storage full";
 
 function quotaError() {

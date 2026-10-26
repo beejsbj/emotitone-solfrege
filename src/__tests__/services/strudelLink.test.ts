@@ -11,7 +11,7 @@ describe('Open in Strudel link', () => {
   const code = '`< C4@0.25 {E4, G4}@0.5 ~@0.25 >`.as("note").sound("sine").cpm(120 / 4)';
 
   it('opens strudel.cc with the code in the hash, as the REPL encodes it', () => {
-    // Strudel's own code2hash (@strudel/core 1.2.6) for this text, recorded before the package left.
+    // Strudel's own code2hash (core 1.2.6) for this text, recorded before the package left.
     expect(strudelUrl(code)).toBe('https://strudel.cc/#YDwgQzRAMC4yNSB7RTQsIEc0fUAwLjUgfkAwLjI1ID5gLmFzKCJub3RlIikuc291bmQoInNpbmUiKS5jcG0oMTIwIC8gNCk%3D');
     expect(hash2code(new URL(strudelUrl(code)).hash.slice(1))).toBe(code);
   });

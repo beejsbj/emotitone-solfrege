@@ -1,4 +1,8 @@
-# Real application input to rendered audio
+# Real application input to rendered audio (record)
+
+The harnesses this page describes (`ui-run.mjs`, `ui-core-run.mjs`,
+`ui-compare.mjs` and the native backend) were removed in BJS-495 with Strudel
+and superdough. The receipts under `results/` remain; the text below is the record.
 
 ## Current architecture comparison — 2026-09-19
 

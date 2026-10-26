@@ -14,7 +14,6 @@ import { reportSaveFailure, resetSaveFailure, saveFailureNotice } from "@/servic
 vi.mock("@/composables/useCodeStripStrudel", () => ({
   useCodeStripStrudel: () => ({ currentCode: "", hasPlayableCode: false }),
 }));
-vi.mock("@/composables/useStrudel", () => ({ toStrudelSound: (sound: string) => sound }));
 
 let store: ReturnType<typeof usePhrasesStore>;
 let wrapper: VueWrapper | undefined;

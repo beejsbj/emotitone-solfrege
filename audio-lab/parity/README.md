@@ -1,4 +1,8 @@
-# Recorded playback PCM parity
+# Recorded playback PCM parity (retired)
+
+Retired in BJS-495: the comparison side (Strudel and superdough) left the app,
+so `run.mjs` and its suite were removed. `results.json` and
+`square-saw-results.json` remain as the receipts; the text below is the record.
 
 Run from the repository root:
 

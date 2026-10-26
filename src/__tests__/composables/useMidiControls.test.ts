@@ -10,14 +10,6 @@ import {
   shouldMirrorNoteEvent,
 } from "@/composables/useMidiControls";
 
-vi.mock("@/services/superdoughAudio", () => ({
-  setStrudelLaBasedMinor: vi.fn(),
-  attackNote: vi.fn().mockResolvedValue(undefined),
-  releaseNote: vi.fn(),
-  releaseAll: vi.fn(),
-  playNoteWithDuration: vi.fn().mockResolvedValue(undefined),
-}));
-
 describe("useMidiControls helpers", () => {
   it('rebuilds a future MIDI packet when only velocity changes', () => {
     const send = vi.fn();

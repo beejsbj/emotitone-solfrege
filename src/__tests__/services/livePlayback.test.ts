@@ -3,7 +3,6 @@ import { flushPromises } from '@vue/test-utils'
 
 const mocks = vi.hoisted(() => ({ create: vi.fn(), prepare: vi.fn(), releasePrepared: vi.fn(), preparationDiagnostics: vi.fn(),
   chains: [] as { input: object; apply: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn> }[] }))
-vi.mock('@strudel/soundfonts', () => ({ getPreparedSoundfont: vi.fn() }))
 vi.mock('@/audio/live/bridge', () => ({ createLiveWorklet: mocks.create }))
 vi.mock('@/audio/liveShaping', () => ({ OPEN_CUTOFF_HZ: 12000, createLiveShapingChain: vi.fn(() => {
   const chain = { input: {}, room: {}, delay: {}, apply: vi.fn(), dispose: vi.fn() }

@@ -1,28 +1,28 @@
 /**
  * BJS-488 loader receipts, run in headless Chrome by audio-lab/loader/run.mjs.
  *
- * - catalog(): today's picker list (superdough + @strudel/soundfonts
- *   registration) against the app catalog's list.
- * - sweep(names): load each instrument through the app loader and render low,
- *   middle and high pitches (every zone edge for soundfonts) on the worklet
- *   core, checking non-silence, pitch (pitchy, ±10 cents) and loop sustain.
+ * - catalog(): the Instrument Picker's list (oscillators plus the app catalog,
+ *   kept to what the picker can select).
+ * - sweep(names): load each instrument through the app loader, under the name
+ *   the app plays it by (resolveLiveSoundName), and render low, middle and
+ *   high pitches (every zone edge for soundfonts) on the worklet core,
+ *   checking non-silence, pitch (pitchy, ±10 cents) and loop sustain.
  * - piano(mode): load the piano into a real AudioWorklet while probe key
  *   presses run, recording long tasks and press round-trips. "legacy" also
- *   keeps decoded AudioBuffers alive, as superdough did, for the memory A/B.
+ *   keeps decoded AudioBuffers alive, as the old engine did, for the memory A/B.
  */
-// @ts-ignore — superdough ships no TypeScript declarations.
-import * as dough from 'superdough'
 import { PitchDetector } from 'pitchy'
 import { catalogSoundNames, getCatalogSound, registerSampleMap, registerSoundfonts, sampleZoneSources } from '../../src/audio/soundCatalog'
 import { SAMPLE_PACKS, sampleMapUrl } from '../../src/audio/sampleSources'
 import { GM_SOUNDFONTS } from '../../src/data/gmSoundfonts'
-import { categoriseInstrument } from '../../src/data/instrumentCatalog'
+import { isSelectableInstrument } from '../../src/data/instrumentCatalog'
+import { OSCILLATOR_SOUNDS } from '../../src/services/audioEngine'
+import { resolveLiveSoundName } from '../../src/services/liveInstrumentNames'
 import { prepareLiveInstrument, releasePreparedLiveInstrument } from '../../src/services/preparedLiveInstrument'
 import { LiveAudioCore } from '../../src/audio/live/core'
 import { createLiveWorklet } from '../../src/audio/live/bridge'
 import { pcmTransferList, preparedPcmBytes } from '../../src/audio/live/pcm'
 import type { PreparedLiveInstrument } from '../../src/audio/live/types'
-import { registerFallbackSoundfonts } from '../../src/services/soundfontFallback'
 
 const RATE = 48000
 const maps: Record<string, Record<string, unknown>> = {}
@@ -39,20 +39,11 @@ async function registerAll() {
 
 lab.catalog = async () => {
   await registerAll()
-  // Today's picker: every key in superdough's sound map after the old boot.
-  dough.registerSynthSounds()
-  for (const map of Object.values(maps)) await dough.samples(map, map._base)
-  const synths = Object.keys(dough.soundMap.get()).filter(name => {
-    const sound = dough.getSound(name)
-    return sound && !sound.data?.samples && sound.data?.type !== 'soundfont'
-  })
-  const today = [...new Set([...Object.keys(dough.soundMap.get()), ...Object.keys(GM_SOUNDFONTS)])].filter(name => !name.startsWith('_'))
-  const now = [...new Set([...synths, ...catalogSoundNames()])]
-  const selectable = (list: string[]) => list.filter(name => categoriseInstrument(name) !== null)
+  const registered = [...new Set([...OSCILLATOR_SOUNDS, ...catalogSoundNames()])]
   return {
-    registered: { today: today.length, now: now.length, vcsl: Object.keys(maps.vcsl).filter(k => !k.startsWith('_')).length,
-      gm: Object.keys(GM_SOUNDFONTS).length, synths: synths.length },
-    selectableToday: selectable(today), selectableNow: selectable(now), synths,
+    registered: { all: registered.length, vcsl: Object.keys(maps.vcsl).filter(k => !k.startsWith('_')).length,
+      gm: Object.keys(GM_SOUNDFONTS).length, oscillators: OSCILLATOR_SOUNDS.length },
+    selectable: registered.filter(isSelectableInstrument),
   }
 }
 
@@ -117,18 +108,19 @@ lab.sweep = async (names: string[]) => {
   for (const name of names) {
     const context = new OfflineAudioContext(2, 1, RATE)
     const started = performance.now()
+    const sound = resolveLiveSoundName(name)
     let prepared
-    try { prepared = await prepareLiveInstrument(context, name) } catch (error) { prepared = { kind: 'error', reason: String(error) } }
+    try { prepared = await prepareLiveInstrument(context, sound) } catch (error) { prepared = { kind: 'error', reason: String(error) } }
     const loadMs = Math.round(performance.now() - started)
     if (prepared.kind !== 'sample-bank' && prepared.kind !== 'oscillator') {
       results.push({ name, kind: prepared.kind, reason: (prepared as { reason?: string }).reason, loadMs })
       continue
     }
-    const sound = getCatalogSound(name)
-    const pitched = prepared.kind === 'oscillator' || sound?.kind === 'soundfont' || (sound?.kind === 'sample' && !Array.isArray(sound.bank))
+    const entry = getCatalogSound(sound)
+    const pitched = prepared.kind === 'oscillator' || entry?.kind === 'soundfont' || (entry?.kind === 'sample' && !Array.isArray(entry.bank))
     const probes = []
     for (const pitch of probePitches(prepared)) {
-      const pcm = render(prepared, pitch, name, .6)
+      const pcm = render(prepared, pitch, sound, .6)
       const level = rms(pcm, .02, .5)
       const detected = pitched ? cents(pcm, pitch) : undefined
       probes.push({ pitch, rms: Number(level.toFixed(5)), cents: detected && Number(detected.cents.toFixed(1)),
@@ -141,15 +133,15 @@ lab.sweep = async (names: string[]) => {
       const pitch = Math.round(Math.min(Math.max(zone.rootMidi, zone.lowMidi ?? 0), (zone.highMidi ?? 128) - 1))
       const increment = 2 ** ((pitch - zone.rootMidi) / 12) * zone.sampleRate / RATE
       const hold = Math.min(8, (zone.loopEndFrame + (zone.loopEndFrame - zone.loopStartFrame)) / increment / RATE + .3)
-      const pcm = render(prepared, pitch, name, hold)
+      const pcm = render(prepared, pitch, sound, hold)
       loops.push({ zone: zone.id, pitch, hold: Number(hold.toFixed(2)), tailRms: Number(rms(pcm, hold - .15, hold).toFixed(5)),
         onsetRms: Number(rms(pcm, .02, .2).toFixed(5)) })
     }
     const bytes = preparedPcmBytes(prepared)
-    const kind = sound?.kind ?? 'oscillator'
-    results.push({ name, kind, zones: prepared.kind === 'sample-bank' ? prepared.zones.length : 0,
+    const kind = entry?.kind ?? 'oscillator'
+    results.push({ name, sound, kind, zones: prepared.kind === 'sample-bank' ? prepared.zones.length : 0,
       sourceBytes: bytes.source, derivedBytes: bytes.derived, loadMs, pitched, probes, loops })
-    releasePreparedLiveInstrument(context, name, prepared)
+    releasePreparedLiveInstrument(context, sound, prepared)
   }
   return results
 }
@@ -195,7 +187,7 @@ lab.piano = async (mode: 'owned' | 'legacy') => {
       detachedOnMainThread: prepared.zones.every(zone => zone.channels.every(channel => channel.byteLength === 0)) }
     releasePreparedLiveInstrument(context, 'piano', prepared)
   } else {
-    // What the app did before: superdough decodes and keeps every file; the
+    // What the app did before: the old engine decoded and kept every file; the
     // worklet receives a structured clone of those buffers.
     const bank = getCatalogSound('piano')
     if (bank?.kind !== 'sample') throw new Error('piano is not registered')
@@ -240,79 +232,5 @@ lab.piano = async (mode: 'owned' | 'legacy') => {
     longTaskApi: PerformanceObserver.supportedEntryTypes.includes('longtask'), maxInputTickGapMs: Math.round(maxTickGapMs), pianoPlayed,
     probes: { sent: sent.size, acknowledged: roundTrips.length, maxRoundTripMs: Math.round(roundTrips.at(-1) ?? 0),
       p95RoundTripMs: Math.round(roundTrips[Math.floor(roundTrips.length * .95)] ?? 0) } }
-}
-lab.fontParity = async (names: string[], probePitches = [36, 48, 55, 60, 63, 64, 67, 72, 76, 84], hold = .8) => {
-  await registerAll()
-  // Reference: @strudel/soundfonts as patched (evaluates the font file; lab only).
-  // @ts-ignore — no declarations.
-  const upstream = await import('@strudel/soundfonts')
-  const results = []
-  for (const name of names) {
-    const font = GM_SOUNDFONTS[name][0]
-    // Zones: the app loader against upstream's prepared zones, same decoder and rate.
-    const context = new OfflineAudioContext(2, 1, RATE)
-    const reference = await upstream.getPreparedSoundfont(font, context)
-    const ours = await prepareLiveInstrument(context, name)
-    if (ours.kind !== 'sample-bank') { results.push({ name, error: JSON.stringify(ours) }); continue }
-    const zoneMismatches = reference.flatMap((zone: any, index: number) => {
-      const mine = ours.zones[index]
-      const root = (zone.originalPitch - 100 * zone.coarseTune - zone.fineTune) / 100
-      const loops = zone.loopStart > 1 && zone.loopStart < zone.loopEnd
-      if (!mine) return [{ index, missing: true }]
-      const tuning = mine.rootMidi === root && mine.lowMidi === zone.keyRangeLow && mine.highMidi === zone.keyRangeHigh + 1
-        && mine.loopStartFrame === (loops ? zone.loopStart / zone.sampleRate * zone.buffer.sampleRate : undefined)
-        && mine.loopEndFrame === (loops ? zone.loopEnd / zone.sampleRate * zone.buffer.sampleRate : undefined)
-      // Upstream decodes a buffer sized by the base64 length, so its PCM may carry a decoded zero tail.
-      const shared = Math.min(mine.channels[0].length, zone.buffer.length)
-      const pcmPrefixEqual = mine.channels.length === zone.buffer.numberOfChannels
-        && mine.channels.every((channel, number) => channel.subarray(0, shared).every((value, frame) => value === zone.buffer.getChannelData(number)[frame]))
-      let upstreamTailPeak = 0
-      for (let number = 0; number < zone.buffer.numberOfChannels; number++) {
-        const data = zone.buffer.getChannelData(number)
-        for (let frame = shared; frame < data.length; frame++) upstreamTailPeak = Math.max(upstreamTailPeak, Math.abs(data[frame]))
-      }
-      return tuning && pcmPrefixEqual && mine.channels[0].length === zone.buffer.length ? []
-        : [{ index, tuning, pcmPrefixEqual, frames: mine.channels[0].length, upstreamFrames: zone.buffer.length, upstreamTailPeak }]
-    })
-    // Patterns: one note through superdough, voiced by upstream, then by the app's fallback registration.
-    const renderNote = async (note: string | number = 'C4') => {
-      dough.resetGlobalEffects()
-      const offline = new OfflineAudioContext(2, Math.ceil(RATE * (hold + .6)), RATE)
-      dough.setAudioContext(offline)
-      dough.setSuperdoughAudioController(null)
-      await dough.initAudio({ disableWorklets: true })
-      await dough.superdough({ s: name, note, gain: .8, attack: .01, decay: .1, sustain: .8, release: .2 }, .05, hold, 1)
-      return (await offline.startRendering()).getChannelData(0)
-    }
-    upstream.registerSoundfonts()
-    const before = await renderNote()
-    registerFallbackSoundfonts({ [name]: GM_SOUNDFONTS[name] })
-    const after = await renderNote()
-    let maxDifference = 0
-    for (let frame = 0; frame < before.length; frame++) maxDifference = Math.max(maxDifference, Math.abs(before[frame] - after[frame]))
-    // Pitch through each renderer: superdough with upstream's loader, superdough with the
-    // app's fallback, and the live worklet with the app's loader. Same data, so the same pitch.
-    const pitches = []
-    for (const pitch of probePitches) {
-      if (!ours.zones.some(zone => pitch >= zone.lowMidi! && pitch <= zone.highMidi!)) continue
-      registerFallbackSoundfonts({ [name]: GM_SOUNDFONTS[name] })
-      const fallbackPcm = await renderNote(pitch)
-      const fallback = cents(fallbackPcm, pitch)
-      upstream.registerSoundfonts()
-      const upstreamPcm = await renderNote(pitch)
-      const upstreamPitch = cents(upstreamPcm, pitch)
-      const livePcm = render(ours, pitch, name, hold)
-      const live = cents(livePcm, pitch)
-      // Level late in the hold: a loop that ends early shows here.
-      const tail = (pcm: Float32Array, start: number) => Number(rms(pcm, start + hold - .2, start + hold).toFixed(5))
-      pitches.push({ pitch, upstreamTailRms: tail(upstreamPcm, .05), workletTailRms: tail(livePcm, 0),
-        upstreamCents: upstreamPitch && Number(upstreamPitch.cents.toFixed(1)),
-        fallbackCents: fallback && Number(fallback.cents.toFixed(1)), workletCents: live && Number(live.cents.toFixed(1)) })
-    }
-    releasePreparedLiveInstrument(context, name, ours)
-    results.push({ name, font, zones: reference.length, zoneMismatches, patternRms: Number(rms(after, .06, .8).toFixed(5)),
-      patternMaxDifference: maxDifference, pitches })
-  }
-  return results
 }
 lab.loaderReady = true

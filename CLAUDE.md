@@ -17,7 +17,7 @@ Use only the package scripts for checks (shared lock across worktrees; see AGENT
 
 ## Architecture as it is
 
-**Audio is the app's own AudioWorklet engine.** Strudel and superdough are gone (spec Decision 3, BJS-495); the only trace is the "Open in Strudel" link (`src/services/strudelLink.ts`), which hands the code text to strudel.cc.
+**Audio is the app's own AudioWorklet engine.** Strudel and superdough are no longer runtime dependencies (spec Decision 3, BJS-495). Code derived from them stays and keeps its attribution (see `NOTICE`): the General MIDI soundfont map in `src/data/gmSoundfonts.ts` (from `@strudel/soundfonts`), the `code2hash` URL encoding behind "Open in Strudel" in `src/services/strudelLink.ts`, and the room reverb's impulse recipe in `src/audio/effects.ts` (adapted from superdough, Apache-2.0).
 
 - `src/audio/live/` is the worklet engine: `processor.ts` (render thread), `core.ts` (voices, scheduling, envelopes, band-limited oscillators, the together/strum/repeat/arp grid), `transport.ts` (the pattern transport), `bridge.ts` (main-thread commands and responses), `resampler.ts`. It plays live notes, play-style repeats and arpeggios, and Looper patterns from prepared sample banks, soundfonts and oscillators.
 - The app owns the AudioContext, master output and native room/delay buses (`src/services/audioRuntime.ts`, `src/audio/effects.ts`). The worklet filters per voice and feeds those buses through wet outputs. `src/services/audioEngine.ts` registers the sound catalog and warms instruments; `livePlayback.ts` owns the worklet and instrument preparation. A sound the worklet cannot hold is refused with a notice; there is no second renderer.

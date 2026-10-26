@@ -172,15 +172,33 @@ These are design-system units and go through that process, not this document:
     from bar one as saved; over a running loop its patterns join the grid
     in their saved places (rule 2); with all of them playing, they stop
     together. Anything else playing plays on.
-  - **Editing** is rule 3 on the Loop's reel: its patterns are read-only
-    from the desk there, playing or not, so a note opens a new take on top.
-    The take, at the front, offers **Replace in Loop**: a pointer swap for
-    the pattern last on the desk there. Neither phrase changes. A replaced
-    pattern that is playing gives way to the new one: where the new one
-    already plays, else in the replaced one's place. The take is then filed.
+  - **Editing** is rule 3: a pattern any saved Loop points at is read-only
+    from the desk on every reel, home included, playing or not, so a note
+    opens a new take on top. On the Loop's reel the take, at the front,
+    offers **Replace in Loop**: a pointer swap for the pattern last on the
+    desk there. Neither phrase changes. A replaced pattern that is playing
+    gives way to the new one: where the new one already plays, else in the
+    replaced one's place. The take is then filed. A take saved into a Loop
+    while one of its keys is still down stays on the desk until that key
+    lets go, and is then filed once, so the latch cannot grow a Loop's
+    pattern.
+  - **Play with a latched take growing** on a Loop's reel closes and files
+    the take, as a silent bar would (it plays on, the latch holds), and then
+    plays or stops the Loop.
+  - **A missing pattern** (another tab deleted the phrase): the Loop is
+    judged by the patterns that are there. Play starts or joins those, and
+    the notice says "A pattern in this Loop is gone."; Stop stops them.
+  - **Another tab swaps a pointer** while this tab plays the Loop: the
+    swapped-in pattern joins the running grid at once in its saved place,
+    then the swapped-out one leaves (unless another playing Loop holds it),
+    so the Loop's Stop stops what the Loop now is. A Loop not playing here
+    plays what it holds at its next Play. Another tab deleting the Loop
+    whose reel shows turns this tab back to the home reel.
   - The swipe is a page turn under the finger (a quarter of the width, or a
     quick throw), never a throw off an edge, so it cannot be taken for the
-    dial's flick or the notice's sweep.
+    dial's flick or the notice's sweep; it never starts within 20px of the
+    viewport's sides (iOS Safari's back swipe). Arrow keys and a previous
+    and next Button, named for their reels, turn without a swipe.
 - **Looper** (a Stage part, its own config tab): the turning light a running
   loop casts, with Strength, Definition and Spread. Haze at low Definition,
   comets curving along their orbits at high.

@@ -169,6 +169,8 @@ export const useLooperStore = defineStore("looper", () => {
   /** Per Loop reel, the pattern last on its desk: the one "Replace in Loop" replaces. */
   const reelFocus = reactive(new Map<string, string>());
 
+  /** A take now in a Loop, held open by a key down when it was saved: filed when that key lets go. */
+  let fileOnRelease: string | null = null;
   /** Moves on Stop, on a released player, and when the loop empties: a session's identity. */
   let epoch = 0;
   /** Each member's current request; a newer request or a leave makes older work stale. */
@@ -271,8 +273,12 @@ export const useLooperStore = defineStore("looper", () => {
   const reelLoop = computed<Loop | null>(() => reelLoopId.value
     ? phrases.book.loops.find((loop) => loop.id === reelLoopId.value) ?? null
     : null);
-  /** Every pattern of the Loop whose reel shows is playing. */
-  const isReelLoopPlaying = computed(() => Boolean(reelLoop.value && isLoopPlaying(looper.value, reelLoop.value)));
+  /**
+   * Every pattern of the Loop whose reel shows that can still sound is
+   * playing: a member another tab took away does not keep its Loop from
+   * reading as playing, or from stopping.
+   */
+  const isReelLoopPlaying = computed(() => Boolean(reelLoop.value && isPresentLoopPlaying(reelLoop.value)));
   /** What Play shows: on a Loop's reel the Loop, otherwise the desk's pattern. */
   const isPlayPlaying = computed(() => (reelLoop.value ? isReelLoopPlaying.value : isDeskPlaying.value));
   /** Two or more patterns play together and no saved Loop holds exactly them. */
@@ -284,11 +290,27 @@ export const useLooperStore = defineStore("looper", () => {
     const focus = reelFocus.get(loop.id);
     return focus && loop.members.some((member) => member.phraseId === focus) ? focus : loop.members[0].phraseId;
   });
-  /** On a Loop's reel its patterns are read-only from the desk (rule 3): Loops hold pointers. */
+  /** A saved Loop points at the phrase: it is read-only from the desk on every reel (rule 3). */
+  function inAnyLoop(phraseId: string): boolean {
+    return phrases.book.loops.some((loop) => loop.members.some((member) => member.phraseId === phraseId));
+  }
+  /** The pattern is one of the Loop's whose reel shows. */
   const isReelMember = (phraseId: string) => Boolean(reelLoop.value?.members.some((member) => member.phraseId === phraseId));
   watch([reelLoop, () => phrases.deskPhraseId], ([loop, desk]) => {
     if (loop && isReelMember(desk)) reelFocus.set(loop.id, desk);
   }, { immediate: true });
+  /** Each saved Loop's pointers, in order: what a merge with another tab is read against. */
+  const loopPointers = computed(() => new Map(phrases.book.loops.map((loop) =>
+    [loop.id, loop.members.map((member) => member.phraseId)] as const)));
+  watch(loopPointers, (now, before) => {
+    // A Loop deleted here or in another tab: its reel goes, and with it what it remembered.
+    for (const id of [...reelFocus.keys()]) if (!now.has(id)) reelFocus.delete(id);
+    if (reelLoopId.value !== null && !now.has(reelLoopId.value)) reelLoopId.value = null;
+    for (const [id, was] of before ?? []) {
+      const pointers = now.get(id);
+      if (pointers) followSwap(id, was, pointers);
+    }
+  });
   /**
    * Play can start: the pattern player is there, the audio engine has booted,
    * and no rebuilt renderer is being restored (Burooj, 2026-10-19: "play
@@ -644,14 +666,18 @@ export const useLooperStore = defineStore("looper", () => {
   /** The Play key: the desk's pattern joins what is playing, or leaves it. */
   function togglePlay(): void {
     const take = phrases.take;
+    // On a Loop's reel, Play is the Loop's: its patterns start, or stop,
+    // together. A latched take growing there closes and is filed first, as a
+    // silent bar would close it (it plays on, and the latch holds): Play
+    // never only closes a take on a Loop's reel.
+    if (reelLoop.value) {
+      if (openTakeId.value && openTakeId.value === take.id) closeOpenTake();
+      toggleLoop(reelLoop.value.id);
+      return;
+    }
     // Tapping Play while a latched take grows closes it; it keeps playing.
     if (openTakeId.value && openTakeId.value === take.id) {
       openTakeId.value = null;
-      return;
-    }
-    // On a Loop's reel, Play is the Loop's: its patterns start, or stop, together.
-    if (reelLoop.value) {
-      toggleLoop(reelLoop.value.id);
       return;
     }
     const id = phrases.deskPhraseId;
@@ -770,6 +796,11 @@ export const useLooperStore = defineStore("looper", () => {
       return;
     }
     // Empty: the take closes, and the dots go back to the beat.
+    closeOpenTake();
+  }
+
+  /** The latch's take closes (it plays on, filed on its shelf); the desk is a fresh take. */
+  function closeOpenTake(): void {
     latchCountdown.value = null;
     openTakeId.value = null;
     phrases.startBlankTake();
@@ -889,6 +920,7 @@ export const useLooperStore = defineStore("looper", () => {
   /** Stop All: nothing playing, and nothing joining by itself. */
   function stopAll(): void {
     stopLatchTimer();
+    fileOnRelease = null;
     forgetHolds();
     openTakeId.value = null;
     latchCountdown.value = null;
@@ -903,13 +935,28 @@ export const useLooperStore = defineStore("looper", () => {
   function saveLoop(name?: string): string | null {
     const id = saveBookLoop(phrases.book, looper.value, name, Date.now());
     // A take put in a Loop is filed (it plays on): what you play next opens a
-    // new take instead of growing the Loop's pattern. A key still held keeps it.
-    if (id && isPlaying(looper.value, phrases.takeId) && !phrases.isTakeSounding) {
-      if (openTakeId.value === phrases.takeId) openTakeId.value = null;
-      phrases.startBlankTake();
+    // new take instead of growing the Loop's pattern. A key still held keeps
+    // it until that key is let go; then it is filed, once.
+    if (id && isPlaying(looper.value, phrases.takeId)) {
+      if (phrases.isTakeSounding) fileOnRelease = phrases.takeId;
+      else fileTake(phrases.takeId);
     }
     return id;
   }
+
+  /** Close the take (it plays on, filed on its shelf): the desk moves to a fresh one. */
+  function fileTake(takeId: string): void {
+    if (phrases.takeId !== takeId) return;
+    if (openTakeId.value === takeId) openTakeId.value = null;
+    phrases.startBlankTake();
+  }
+
+  watch(() => phrases.isTakeSounding, (sounding) => {
+    if (sounding || fileOnRelease === null) return;
+    const takeId = fileOnRelease;
+    fileOnRelease = null;
+    if (inAnyLoop(takeId)) fileTake(takeId);
+  });
 
   /** Which reel the deck shows: null for the home reel, or a saved Loop's id. */
   function showReel(loopId: string | null): void {
@@ -918,7 +965,41 @@ export const useLooperStore = defineStore("looper", () => {
 
   /** A saved Loop's patterns that can still sound (another tab may have taken one away). */
   function presentMembers(loop: Loop): PlayingPattern[] {
-    return loop.members.filter((member) => phrases.findPhrase(member.phraseId)?.notes.length);
+    return loop.members.filter((member) => isPresent(member.phraseId));
+  }
+
+  function isPresent(phraseId: string): boolean {
+    return Boolean(phrases.findPhrase(phraseId)?.notes.length);
+  }
+
+  /** Every pattern of the Loop that can still sound is playing (and there is one). */
+  function isPresentLoopPlaying(loop: Loop): boolean {
+    return isLoopPlaying(looper.value, { ...loop, members: presentMembers(loop) });
+  }
+
+  /**
+   * Another tab swapped a pointer of a Loop this tab plays (Replace in Loop
+   * there; BJS-572). The swap reaches the transport as this tab's own Replace
+   * does: the swapped-in pattern joins the running grid at once in its saved
+   * place, then the swapped-out one leaves, so the Loop's Stop stops what the
+   * Loop now holds and nothing it no longer holds plays on. A pattern that
+   * leaves stays if another playing Loop still holds it. A Loop that was not
+   * playing here is left alone: its next Play plays what it holds then. This
+   * tab's own Replace has already moved the transport, so it is no swap here.
+   */
+  function followSwap(loopId: string, was: readonly string[], now: readonly string[]): void {
+    const out = was.filter((phraseId) => !now.includes(phraseId));
+    const into = now.filter((phraseId) => !was.includes(phraseId));
+    if (!out.length && !into.length) return;
+    const playedBefore = was.filter(isPresent);
+    if (!playedBefore.length || !playedBefore.every((phraseId) => isPlaying(looper.value, phraseId))) return;
+    const loop = phrases.book.loops.find((candidate) => candidate.id === loopId);
+    if (!loop) return;
+    const joining = loop.members.filter((member) => into.includes(member.phraseId) && isPresent(member.phraseId));
+    if (joining.length) joinSaved(loop, joining);
+    const heldElsewhere = (phraseId: string) => phrases.book.loops.some((other) => other.id !== loopId
+      && other.members.some((member) => member.phraseId === phraseId) && isPresentLoopPlaying(other));
+    for (const phraseId of out) if (!heldElsewhere(phraseId)) leaveMember(phraseId);
   }
 
   /** Bring saved members into the running session in their saved places (rule 2). */
@@ -942,9 +1023,15 @@ export const useLooperStore = defineStore("looper", () => {
   function toggleLoop(id: string): boolean {
     const loop = phrases.book.loops.find((candidate) => candidate.id === id);
     if (!loop?.members.length) return false;
-    if (isLoopPlaying(looper.value, loop)) {
-      for (const member of loop.members) leaveMember(member.phraseId);
+    const members = presentMembers(loop);
+    // Judged by the patterns that are there: a missing one cannot hold the Loop on.
+    if (isPresentLoopPlaying(loop)) {
+      for (const member of members) leaveMember(member.phraseId);
       return true;
+    }
+    if (!members.length) {
+      reportKind("loop-missing");
+      return false;
     }
     if (!looper.value.members.length && !running.value && !starting) {
       const latched = looper.value.latched;
@@ -953,9 +1040,8 @@ export const useLooperStore = defineStore("looper", () => {
       if (latched) latchOn({ freshDesk: false });
       return true;
     }
-    const members = presentMembers(loop);
-    if (!members.length) return false;
     joinSaved(loop, members);
+    if (members.length < loop.members.length) reportKind("loop-missing");
     return true;
   }
 
@@ -991,10 +1077,23 @@ export const useLooperStore = defineStore("looper", () => {
     return true;
   }
 
-  /** Sets a saved Loop's patterns playing from bar one, replacing what plays. */
+  /**
+   * Sets a saved Loop's patterns playing from bar one, replacing what plays.
+   * A pattern another tab took away is left out, and the notice says one is
+   * missing; the others play in their saved places.
+   */
   function openLoop(id: string): boolean {
-    const next = openBookLoop(phrases.book, id, phrases.library);
-    if (!next) return false;
+    const loop = phrases.book.loops.find((candidate) => candidate.id === id);
+    if (!loop) return false;
+    const present = presentMembers(loop);
+    const next = present.length === loop.members.length
+      ? openBookLoop(phrases.book, id, phrases.library)
+      : openPartial(present);
+    if (!next) {
+      if (loop.members.length) reportKind("loop-missing");
+      return false;
+    }
+    lastError.value = present.length < loop.members.length ? looperMessage({ kind: "loop-missing" }) : null;
     stopLatchTimer();
     openTakeId.value = null;
     origins.clear();
@@ -1042,6 +1141,15 @@ export const useLooperStore = defineStore("looper", () => {
       }
     })();
     return true;
+  }
+
+  /** The Loop's present patterns from its bar one, at the first one's tempo (as `openBookLoop`). */
+  function openPartial(present: PlayingPattern[]): Looper | null {
+    const first = present[0] && phrases.findPhrase(present[0].phraseId);
+    if (!first) return null;
+    const next = createLooper();
+    joinLoop(next, { id: "", name: "", members: present, createdAt: 0, updatedAt: 0 }, first.context.bpm);
+    return next;
   }
 
   function deleteLoop(id: string): boolean {
@@ -1093,10 +1201,13 @@ export const useLooperStore = defineStore("looper", () => {
 
   // ─── Recorder seams ────────────────────────────────────────────────────────
   // Rule 3, decided at press time: a playing desk pattern is read-only, and so
-  // is a Loop's pattern on that Loop's reel (a new take opens on top of it).
-  phrases.setLivePressGuard(({ deskPhraseId }) =>
-    deskPhraseId !== openTakeId.value
-      && (mustOpenFreshTake(looper.value, deskPhraseId) || isReelMember(deskPhraseId)));
+  // is any pattern a saved Loop points at, on every reel, playing or not (a
+  // new take opens on top of it). The latch's growing take is written into;
+  // once it is a Loop's, only while a key already sounds in it (a chord held
+  // through the save), and it is filed when that key lets go.
+  phrases.setLivePressGuard(({ deskPhraseId }) => inAnyLoop(deskPhraseId)
+    ? !(deskPhraseId === openTakeId.value && phrases.isTakeSounding)
+    : deskPhraseId !== openTakeId.value && mustOpenFreshTake(looper.value, deskPhraseId));
   // What this tab is playing is never purged, deleted, released or dropped by
   // a merge. Saved Loops protect their own members from the book itself
   // (retention, delete, release and the take's close read `book.loops`), so

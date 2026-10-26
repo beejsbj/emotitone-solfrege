@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mount, type VueWrapper } from "@vue/test-utils";
-import { h } from "vue";
+import { defineComponent, h, nextTick, ref } from "vue";
 import ReelSwitch, { type ReelSwitchReel } from "@/components/compounds/ReelSwitch.vue";
+import PatternReel, { type PatternReelItem } from "@/components/compounds/PatternReel.vue";
+import { instrumentIconFor } from "@/components/primatives/instrumentIcon";
 
 /**
  * The Reel Switch (BJS-572) through DOM pointer events: a sideways drag
@@ -141,5 +143,130 @@ describe("Reel Switch", () => {
     expect(page.get(".reel-switch__sr-only").text()).toBe("Loop 2, reel 3 of 3");
     await page.trigger("keydown", { key: "ArrowRight" });
     expect(changes()).toHaveLength(2);
+  });
+
+  /** Elements by role and accessible name, as assistive technology finds them. */
+  function byRole(root: Element, role: "button" | "group", name: string | RegExp) {
+    const implicit = role === "button" ? "button, [role=button]" : "[role=group], fieldset";
+    return [...root.querySelectorAll<HTMLElement>(implicit)].filter((element) => {
+      if (element.closest("[aria-hidden=true]")) return false;
+      const label = element.getAttribute("aria-label") ?? element.textContent ?? "";
+      return typeof name === "string" ? label === name : name.test(label);
+    });
+  }
+
+  it("lets a screen reader turn reels with Buttons named for the reel each goes to", async () => {
+    const page = render("loop-1");
+    const root = page.element;
+    // The pips are pictures; the turn keys are real buttons.
+    expect(page.get("[data-testid=reel-pips]").attributes("aria-hidden")).toBe("true");
+    const [previous] = byRole(root, "button", "Previous reel: Every phrase");
+    const [next] = byRole(root, "button", "Next reel: Loop 2");
+    expect(previous).toBeDefined();
+    expect(next).toBeDefined();
+    next.click();
+    await nextTick();
+    expect(changes()).toEqual([["loop-2", "button"]]);
+    await page.setProps({ activeId: "loop-2" });
+    // At the last reel there is no next one to go to.
+    expect(byRole(root, "button", "No next reel")[0].hasAttribute("disabled")).toBe(true);
+    byRole(root, "button", "Previous reel: Loop 1")[0].click();
+    await nextTick();
+    expect(changes().at(-1)).toEqual(["loop-1", "button"]);
+    // A touch on a turn key is a press, never the start of a swipe.
+    drag(byRole(root, "button", "Previous reel: Loop 1")[0], 700, 200);
+    expect(changes()).toHaveLength(2);
+  });
+
+  it("keeps the focus on a turn key when the reel it turned to is the last", async () => {
+    const page = render("loop-1");
+    const next = byRole(page.element, "button", "Next reel: Loop 2")[0];
+    next.focus();
+    next.click();
+    await page.setProps({ activeId: "loop-2" });
+    await nextTick();
+    expect(document.activeElement).toBe(byRole(page.element, "button", "Previous reel: Loop 1")[0]);
+  });
+
+  it("leaves an arrow key that something inside already answered", async () => {
+    const page = render("loop-1");
+    const strip = page.get(".strip").element;
+    strip.addEventListener("keydown", (event) => event.preventDefault());
+    strip.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true }));
+    await nextTick();
+    expect(changes()).toEqual([]);
+  });
+
+  it("leaves a touch that starts within 20px of either side of the glass to the browser's back swipe", () => {
+    const page = render("loop-1");
+    const strip = page.get(".strip").element;
+    expect(window.innerWidth).toBe(1024);
+    drag(strip, 10, 400);
+    drag(strip, 1015, 600);
+    expect(changes()).toEqual([]);
+    drag(strip, 30, 400);
+    drag(strip, 990, 600);
+    expect(changes()).toEqual([["home", "swipe"], ["loop-2", "swipe"]]);
+  });
+
+  it("puts the focus on the new reel when an arrow key turns from a reel that goes away", async () => {
+    // As the deck does: each reel is its own element, replaced on a turn.
+    const Host = defineComponent({
+      setup() {
+        const active = ref("home");
+        return () => h(ReelSwitch, {
+          reels: REELS,
+          activeId: active.value,
+          onChange: (id: string) => { active.value = id; },
+        }, () => h("section", { key: active.value, tabindex: 0, class: "reel", "data-reel-of": active.value }, active.value));
+      },
+    });
+    const host = mount(Host, { attachTo: document.body });
+    try {
+      const home = host.get("[data-reel-of=home]").element as HTMLElement;
+      home.focus();
+      home.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true }));
+      await nextTick();
+      await nextTick();
+      const loop = host.get("[data-reel-of=loop-1]").element;
+      expect(home.isConnected).toBe(false);
+      expect(document.activeElement).toBe(loop);
+    } finally {
+      host.unmount();
+    }
+  });
+
+  it("decides one axis with the reel inside it, so a touch is a turn or a scroll, never both", async () => {
+    const item = (id: string): PatternReelItem => ({
+      id, name: id, instrumentIcon: instrumentIconFor("piano"), instrumentLabel: "Piano", rootLabel: "C4",
+      spine: "currentColor", loopDial: [{ color: "currentColor", durationMs: 100 }],
+    });
+    wrapper = mount(ReelSwitch, {
+      props: { reels: REELS, activeId: "loop-1" },
+      slots: { default: () => h(PatternReel, { items: ["a", "b", "c"].map(item), selectedId: "b", cyclic: false }) },
+      attachTo: document.body,
+    });
+    const reel = wrapper.getComponent(PatternReel);
+    const strip = wrapper.get(".pattern-reel__slot--active .pattern-strip").element;
+    const point = (type: string, clientX: number, clientY: number) => {
+      clock += 20;
+      strip.dispatchEvent(new PointerEvent(type, {
+        bubbles: true, cancelable: true, pointerId: 7, pointerType: "touch", isPrimary: true, clientX, clientY,
+      }));
+    };
+    // Exactly the slop down and a little sideways: neither has it yet.
+    point("pointerdown", 500, 300);
+    point("pointermove", 505, 306);
+    await nextTick();
+    expect(reel.classes()).not.toContain("pattern-reel--dragging");
+    // Then sideways: the switch's, and the reel never scrolls.
+    point("pointermove", 520, 307);
+    point("pointermove", 700, 308);
+    await nextTick();
+    expect(reel.classes()).not.toContain("pattern-reel--dragging");
+    point("pointerup", 700, 308);
+    await nextTick();
+    expect(changes()).toEqual([["home", "swipe"]]);
+    expect(reel.emitted("commit")).toBeUndefined();
   });
 });

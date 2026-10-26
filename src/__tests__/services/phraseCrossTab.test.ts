@@ -870,4 +870,51 @@ describe("two tabs and a Loop's reel (BJS-572)", () => {
     expect(pointers(a)).toEqual(["x", "from-b"]);
     expect(ids(a.state)).toEqual(expect.arrayContaining(["from-a", "from-b"]));
   });
+
+  it.each(["the deleting tab saves first", "the swapping tab saves first"])(
+    "keeps a Loop one tab swapped a pointer of while the other deleted it: the edit wins (%s)", (order) => {
+      const { a, b, loopIn, pointers } = twoTabsWithALoop();
+      const fresh = sketch(a, "fresh");
+      expect(replaceLoopMember(a.state.book, "loop-1", "y", fresh, NOW + 1)).toBe(true);
+      b.state.book.loops = b.state.book.loops.filter((loop) => loop.id !== "loop-1");
+      if (order === "the deleting tab saves first") {
+        b.save();
+        a.save();
+        b.hear();
+      } else {
+        a.save();
+        b.save();
+        a.hear();
+      }
+      for (const tab of [a, b]) {
+        expect(pointers(tab)).toEqual(["x", "fresh"]);
+        expect(loopIn(tab).members[1].offsetBars).toBe(.5);
+      }
+      expect(stored().book.loops.map((loop) => loop.members.map((member) => member.phraseId))).toEqual([["x", "fresh"]]);
+      // The Loop it kept still holds what it points at, in both tabs.
+      expect(deletePhrase(b.state.book, "fresh")).toBe(false);
+      expect(deletePhrase(a.state.book, "x")).toBe(false);
+    });
+
+  it("falls back to the last saver's whole Loop when two slots would point at one phrase, and the tabs agree", () => {
+    const { a, b, pointers } = twoTabsWithALoop();
+    const shared = sketch(a, "shared");
+    a.save();
+    b.hear();
+    expect(find(b.state, "shared")).toBeDefined();
+    // Each tab puts the same phrase in a different slot.
+    expect(replaceLoopMember(a.state.book, "loop-1", "x", shared, NOW + 1)).toBe(true);
+    expect(replaceLoopMember(b.state.book, "loop-1", "y", find(b.state, "shared")!, NOW + 2)).toBe(true);
+    a.save();
+    b.save();
+    // Slot by slot would be ["shared", "shared"]: B keeps its own Loop whole instead.
+    expect(pointers(b)).toEqual(["x", "shared"]);
+    expect(stored().book.loops[0].members.map((member) => member.phraseId)).toEqual(["x", "shared"]);
+    // A had not changed its Loop since it saved: it takes B's in, and the tabs agree.
+    a.hear();
+    expect(pointers(a)).toEqual(["x", "shared"]);
+    // Neither tab ever holds a Loop with one phrase in two slots, and the swapped-out ones stay.
+    for (const tab of [a, b]) expect(new Set(pointers(tab)).size).toBe(2);
+    expect(ids(a.state)).toEqual(expect.arrayContaining(["x", "y", "shared"]));
+  });
 });

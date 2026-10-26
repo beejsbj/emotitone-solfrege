@@ -553,5 +553,247 @@ describe("a saved Loop is its own reel (BJS-572)", () => {
       deck.unmount();
     }
   });
-});
 
+  // ─── Review fixes (BJS-572) ────────────────────────────────────────────────
+
+  /** A live key pressed at audio frame `onFrame` and held; the returned call lets it go at `offFrame`. */
+  function hold(noteName: string, solfegeIndex: number, onFrame: number) {
+    const noteId = `live-${++liveSerial}`;
+    renderTo(onFrame);
+    const at = onFrame / RATE;
+    const detail = { noteId, noteName, solfegeIndex, octave: Number(noteName.at(-1)), key: "C", mode: "major",
+      source: "live-play-style", timestamp: EPOCH + at * 1000,
+      audibleAt: audioTimeToOutputTime(rig.context as never, at) };
+    window.dispatchEvent(new CustomEvent("note-played", { detail }));
+    return (offFrame: number) => {
+      renderTo(offFrame);
+      window.dispatchEvent(new CustomEvent("note-released", { detail: { ...detail, timestamp: EPOCH + offFrame / RATE * 1000 } }));
+    };
+  }
+
+  /** What another tab wrote: the stored shelf, changed, then the browser's storage event. */
+  async function otherTabWrites(change: (book: { phrases: Array<Record<string, unknown>>; loops: Array<{ id: string; members: Array<Record<string, unknown>> }> }) => void) {
+    await flush();
+    const stored = JSON.parse(localStorage.getItem("phrases")!);
+    change(stored.data.book);
+    localStorage.setItem("phrases", JSON.stringify(stored));
+    window.dispatchEvent(new StorageEvent("storage", { key: "phrases" }));
+    await flush();
+  }
+
+  const notesOf = (id: string) => structuredClone(toRaw(usePhrasesStore().findPhrase(id)!.notes));
+
+  it("rule 3 holds on the home reel: playing over a Loop's pattern opens a new take, never writing into the Loop", async () => {
+    const { phrases, looper } = setup();
+    const deck = mountDeck();
+    try {
+      const { first } = await twoLooping(deck);
+      const loop = await saveFromDeck(deck);
+      await press(deck.get("[data-testid=looper-stop-all]").element);
+      expect(looper.reelLoopId).toBeNull();
+      // Load the Loop's first pattern (a Recent phrase) on the home reel, as the reel's arrow keys do.
+      for (let step = 0; step < 12 && phrases.deskPhraseId !== first; step++) {
+        await deck.get(".pattern-reel").trigger("keydown", { key: "ArrowUp" });
+        await flush();
+      }
+      expect(phrases.deskPhraseId).toBe(first);
+      expect(looper.isDeskPlaying).toBe(false);
+      const original = notesOf(first);
+      const pointers = loop.members.map((member) => ({ ...member }));
+
+      playTake(rig.frame / RATE + .2, ["D4", "F4"]);
+      await flush();
+      expect(phrases.takeId).not.toBe(first);
+      expect(phrases.take.notes.map((note) => note.note)).toEqual(["D4", "F4"]);
+      expect(phrases.findPhrase(first)!.notes).toEqual(original);
+      expect(phrases.book.loops[0].members).toEqual(pointers);
+    } finally {
+      deck.unmount();
+    }
+  });
+
+  it("a take saved into a Loop while its key is held is filed once the key lets go, so the latch cannot grow it", async () => {
+    const { phrases, looper } = setup();
+    const deck = mountDeck();
+    try {
+      playTake(.5);
+      const first = phrases.take.id;
+      await press(play(deck).element, 40);
+      await looper.settled();
+      render(1);
+      looper.toggleLatch();
+      // A latched take: its first note joins it, and a second key is still down when the Loop is saved.
+      live("A4", 5, rig.frame + 800, rig.frame + 1600);
+      await flush();
+      await looper.settled();
+      await flush();
+      const letGo = hold("B4", 6, rig.frame + 400);
+      await flush();
+      await looper.settled();
+      await flush();
+      const take = phrases.take.id;
+      expect(looper.openTakeId).toBe(take);
+      expect(looper.members.map((member) => member.phraseId)).toEqual([first, take]);
+      const loop = await saveFromDeck(deck);
+      expect(loop.members.map((member) => member.phraseId)).toEqual([first, take]);
+      // Held: the take stays the desk's, so the sounding note is not cut from it.
+      expect(phrases.takeId).toBe(take);
+
+      letGo(rig.frame + 1600);
+      await flush();
+      // Let go: filed once. It plays on in the Loop; the desk is a fresh take.
+      expect(phrases.takeId).not.toBe(take);
+      expect(looper.openTakeId).toBeNull();
+      expect(looper.members.map((member) => member.phraseId)).toEqual([first, take]);
+      const saved = notesOf(take);
+
+      // The latch's next note opens another take; the Loop's pattern never grows.
+      live("C5", 0, rig.frame + 400, rig.frame + 1200);
+      await flush();
+      expect(phrases.findPhrase(take)!.notes).toEqual(saved);
+      expect(phrases.take.notes.map((note) => note.note)).toEqual(["C5"]);
+      expect(looper.openTakeId).toBe(phrases.takeId);
+    } finally {
+      deck.unmount();
+    }
+  });
+
+  it("a Loop with a pattern gone plays the ones there, says one is missing, and still stops", async () => {
+    const { phrases, looper } = setup();
+    const deck = mountDeck();
+    try {
+      const { first, second } = await twoLooping(deck);
+      await saveFromDeck(deck);
+      await press(deck.get("[data-testid=looper-stop-all]").element);
+      // Another tab took the second pattern away.
+      phrases.book.phrases = phrases.book.phrases.filter((phrase) => phrase.id !== second);
+      await flush();
+      await drag(deck, 320, 40);
+      expect(play(deck).attributes("aria-label")).toBe("Play");
+
+      await press(play(deck).element, 40);
+      await looper.settled();
+      await flush();
+      expect(transportIds()).toEqual([first]);
+      expect(deck.get("[data-testid=looper-error]").text()).toContain("A pattern in this Loop is gone.");
+      expect(play(deck).attributes("aria-label")).toBe("Stop");
+
+      await press(play(deck).element, 40);
+      expect(looper.members).toEqual([]);
+      expect(player.getLooper().running).toBe(false);
+      expect(play(deck).attributes("aria-label")).toBe("Play");
+    } finally {
+      deck.unmount();
+    }
+  });
+
+  it("a pointer another tab swaps while this tab plays the Loop: the new pattern joins in its place, and Stop stops the Loop it now is", async () => {
+    const { phrases, looper } = setup();
+    const deck = mountDeck();
+    try {
+      const { first, second } = await twoLooping(deck);
+      const loop = await saveFromDeck(deck);
+      await drag(deck, 320, 40);
+      expect(play(deck).attributes("aria-label")).toBe("Stop");
+      // The other tab played a pattern of its own and replaced the second with it.
+      const swapped = "other-tab-take";
+      await otherTabWrites((book) => {
+        const source = book.phrases.find((phrase) => phrase.id === first)!;
+        book.phrases.push({ ...structuredClone(source), id: swapped, number: 99, shelf: "recent", name: "From the other tab" });
+        book.loops[0].members[1] = { ...book.loops[0].members[1], phraseId: swapped };
+      });
+      expect(phrases.book.loops[0].members.map((member) => member.phraseId)).toEqual([first, swapped]);
+      await looper.settled();
+      await flush();
+      expect(transportIds()).toEqual([first, swapped]);
+      const origin = looper.looper.barOriginBars!;
+      expect(player.getLooper().members.find((member) => member.id === swapped)!.offsetBars)
+        .toBeCloseTo(origin + loop.members[1].offsetBars, 9);
+      const from = attacks.length;
+      render(2);
+      expect(attacks.slice(from).some((attack) => attack.phraseId === second)).toBe(false);
+      expect(attacks.slice(from).some((attack) => attack.phraseId === swapped)).toBe(true);
+
+      // The Loop's Stop leaves nothing of it playing, the swapped-out pattern included.
+      expect(play(deck).attributes("aria-label")).toBe("Stop");
+      await press(play(deck).element, 40);
+      expect(looper.members).toEqual([]);
+      expect(player.getLooper().running).toBe(false);
+    } finally {
+      deck.unmount();
+    }
+  });
+
+  it("another tab deleting the Loop whose reel shows turns this tab back to the home reel", async () => {
+    const { looper } = setup();
+    const deck = mountDeck();
+    try {
+      await twoLooping(deck);
+      await saveFromDeck(deck);
+      await drag(deck, 320, 40);
+      expect(looper.reelLoopId).not.toBeNull();
+      await otherTabWrites((book) => { book.loops = []; });
+      expect(looper.reelLoopId).toBeNull();
+      expect(deck.find("[data-testid=reel-pips]").exists()).toBe(false);
+      expect(shownIds(deck).length).toBeGreaterThan(3);
+    } finally {
+      deck.unmount();
+    }
+  });
+
+  it("Play on a Loop's reel with a latched take growing files the take and plays the Loop", async () => {
+    const { phrases, looper } = setup();
+    const deck = mountDeck();
+    try {
+      const { first, second } = await twoLooping(deck);
+      await saveFromDeck(deck);
+      await press(deck.get("[data-testid=looper-stop-all]").element);
+      await drag(deck, 320, 40);
+      looper.toggleLatch();
+      await looper.settled();
+      live("E5", 2, rig.frame + 400, rig.frame + 1200);
+      await flush();
+      await looper.settled();
+      await flush();
+      const take = phrases.take.id;
+      expect(looper.openTakeId).toBe(take);
+      expect(transportIds()).toEqual([take]);
+
+      await press(play(deck).element, 40);
+      await flush();
+      await flush();
+      // The take closed and was filed (it plays on), and the Loop joined the grid.
+      expect(looper.openTakeId).toBeNull();
+      expect(phrases.takeId).not.toBe(take);
+      expect(phrases.findPhrase(take)?.shelf).toBe("recent");
+      expect(looper.members.map((member) => member.phraseId)).toEqual([take, first, second]);
+      expect(looper.latched).toBe(true);
+      expect(play(deck).attributes("aria-label")).toMatch(/^Stop/);
+    } finally {
+      deck.unmount();
+    }
+  });
+
+  it("an arrow key that turns the reel keeps the focus on the reel it turned to", async () => {
+    const { looper } = setup();
+    const deck = mountDeck();
+    try {
+      await twoLooping(deck);
+      const loop = await saveFromDeck(deck);
+      const home = deck.get(".reel-switch .pattern-reel").element as HTMLElement;
+      home.focus();
+      home.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true }));
+      await flush();
+      expect(looper.reelLoopId).toBe(loop.id);
+      const shown = deck.get(".reel-switch .pattern-reel").element;
+      expect(shown).not.toBe(home);
+      expect(document.activeElement).toBe(shown);
+      shown.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true, cancelable: true }));
+      await flush();
+      expect(looper.reelLoopId).toBeNull();
+      expect(document.activeElement).toBe(deck.get(".reel-switch .pattern-reel").element);
+    } finally {
+      deck.unmount();
+    }
+  });
+});

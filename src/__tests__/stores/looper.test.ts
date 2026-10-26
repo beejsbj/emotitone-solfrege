@@ -79,6 +79,7 @@ vi.mock("@/services/livePlayback", () => ({
 vi.mock("@/services/audioRuntime", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/services/audioRuntime")>(),
   getAudioContext: () => rig.context,
+  getMasterGain: () => ({}),
 }));
 vi.unmock("@/services/audioLifecycle");
 // The mic opens without hardware: the capture records nothing until stopped.
@@ -87,7 +88,11 @@ vi.mock("@/services/microphoneCapture", () => ({
 }));
 
 import { LiveAudioCore } from "@/audio/live/core";
-import { createPatternPlayer, setProductionPatternPlayer, type PatternPlayer } from "@/services/patternTransport";
+import {
+  createPatternPlayer, getProductionPatternPlayer, setProductionPatternPlayer, type PatternPlayer,
+} from "@/services/patternTransport";
+import { useCodeStripStrudel } from "@/composables/useCodeStripStrudel";
+import CodeStrip from "@/components/uniques/CodeStrip/index.vue";
 import { audioTimeToOutputTime } from "@/services/liveAudioTiming";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import { UIBeatClock, uiBeatClock } from "@/composables/useUIBeat";
@@ -857,6 +862,76 @@ describe("Play is the loop on the worklet transport", () => {
       expect(looper.swapPolicy).toBe("every-change");
       render(.2);
       expect(player.getLooper().members[0].generation).not.toBe(generation);
+    });
+  });
+
+  describe("nothing outside the looper store stops a running Looper (BJS-569)", () => {
+    it("the Code Strip, its shared code, warmup and tempo, key and label changes leave it playing; only the store stops it", async () => {
+      // As in the app: the real Code Strip creates the single pattern player,
+      // and the looper store drives it.
+      setActivePinia(createTestPinia());
+      useVisualConfigStore().updateConfig("codeStrip", { bpm: 120 });
+      const phrases = usePhrasesStore();
+      const strip = mount(CodeStrip, { attachTo: document.body });
+      try {
+        await flush();
+        player = getProductionPatternPlayer()!;
+        expect(player).toBeDefined();
+        const looper = useLooperStore();
+        playTake(.5);
+        const take = phrases.take.id;
+        render(2);
+        looper.togglePlay();
+        await flush();
+        await looper.settled();
+        expect(player.getLooper().running).toBe(true);
+        const stops = () => rig.commands.filter((command) => command.type === "transport-stop").length;
+
+        // The strip's shared surface carries its code and nothing that plays.
+        const code = useCodeStripStrudel();
+        expect(Object.keys(code).sort()).toEqual(["clearCode", "currentCode", "hasPlayableCode", "syncCode"]);
+        code.syncCode("// edited");
+        code.clearCode();
+        // The player offers the strip no single-pattern Play to reach around the store.
+        expect("play" in player).toBe(false);
+        expect("update" in player).toBe(false);
+
+        // A sound warming up: the strip used to stop its own Play on this.
+        useInstrumentStore().warmingInstrument = "piano";
+        await flush();
+        render(.5);
+        useInstrumentStore().warmingInstrument = null;
+        // Tempo, key and the la-based convention: the strip used to replay its take on these.
+        useVisualConfigStore().updateConfig("codeStrip", { bpm: 100 });
+        useMusicStore().setKey("D");
+        useVisualConfigStore().laBasedMinor = true;
+        await flush();
+        render(1);
+
+        expect(stops()).toBe(0);
+        expect(player.getLooper().running).toBe(true);
+        const before = attacksOf(take).length;
+        render(3);
+        expect(attacksOf(take).length).toBeGreaterThan(before);
+
+        // Only the looper store stops it.
+        looper.togglePlay();
+        await flush();
+        expect(player.getLooper().running).toBe(false);
+        expect(stops()).toBe(1);
+      } finally {
+        strip.unmount();
+      }
+    });
+
+    it("only the looper store reaches the app's pattern player (the Code Strip only creates and releases it)", () => {
+      const sources = import.meta.glob(["/src/**/*.{ts,vue}", "!/src/__tests__/**", "!/src/**/*.test.ts"],
+        { query: "?raw", import: "default", eager: true }) as Record<string, string>;
+      const readers = Object.entries(sources)
+        .filter(([path, source]) => path !== "/src/services/patternTransport.ts"
+          && /\b(getProductionPatternPlayer|onProductionPatternPlayer)\b/.test(source))
+        .map(([path]) => path);
+      expect(readers).toEqual(["/src/stores/looper.ts"]);
     });
   });
 

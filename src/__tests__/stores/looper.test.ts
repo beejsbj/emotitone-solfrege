@@ -1712,7 +1712,7 @@ describe("Play is the loop on the worklet transport", () => {
         await looper.settled();
         await flush();
         const notice = deck.get('[data-testid="looper-error"]');
-        expect(notice.get("[role=alert]").text()).toBe("Stop a loop to add Sawtooth.");
+        expect(notice.get("[role=alert]").text()).toBe("Not enough memory for Sawtooth.");
         // An Edge Notice: a lit Brass lamp and the line, with no key of its own.
         expect(notice.find(".edge-notice__lamp").exists()).toBe(true);
         expect(notice.find("button").exists()).toBe(false);

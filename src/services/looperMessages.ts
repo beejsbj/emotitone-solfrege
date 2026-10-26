@@ -14,7 +14,7 @@ import { displayInstrumentName } from "@/data/instruments";
 export const LOOPER_MESSAGE_MAX = 32;
 
 export type LooperFailureKind =
-  | "bank-cap" // every live instrument slot is held by a playing pattern or key
+  | "memory-full" // the sounds that playing loops and held keys keep loaded leave no memory for this one
   | "load" // the instrument's samples could not load
   | "unsupported" // the instrument cannot play on the worklet engine
   | "interrupted" // the transport stopped by itself (an engine failure)
@@ -44,7 +44,7 @@ export function looperFailureOf(error: unknown, instrument?: string): LooperFail
   if (error instanceof LooperNotReady) return { kind: "not-ready" };
   const load = error as LoadErrorLike | null;
   if (load && typeof load === "object" && load.name === "PatternLoadError") {
-    if (load.budget) return { kind: "bank-cap", instrument };
+    if (load.budget) return { kind: "memory-full", instrument };
     if (load.retryable) return { kind: "load", instrument };
     return { kind: "unsupported", instrument };
   }
@@ -66,8 +66,8 @@ function fit(named: (name: string) => string, generic: string, instrument?: stri
 
 export function looperMessage(failure: LooperFailure): string {
   switch (failure.kind) {
-    case "bank-cap":
-      return fit((name) => `Stop a loop to add ${name}.`, "Too many loops. Stop one first.", failure.instrument);
+    case "memory-full":
+      return fit((name) => `Not enough memory for ${name}.`, "Not enough memory. Stop a loop.", failure.instrument);
     case "load":
       return fit((name) => `${name} didn't load. Try again.`, "Sound didn't load. Try again.", failure.instrument);
     case "unsupported":

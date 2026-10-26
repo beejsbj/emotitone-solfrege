@@ -89,6 +89,7 @@ vi.mock("@/services/microphoneCapture", () => ({
 import { LiveAudioCore } from "@/audio/live/core";
 import { createPatternPlayer, setProductionPatternPlayer, type PatternPlayer } from "@/services/patternTransport";
 import { audioTimeToOutputTime } from "@/services/liveAudioTiming";
+import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import { UIBeatClock, uiBeatClock } from "@/composables/useUIBeat";
 import { createTestPinia } from "../helpers/test-utils";
 import { useLooperStore } from "@/stores/looper";
@@ -513,6 +514,79 @@ describe("Play is the loop on the worklet transport", () => {
     looper.toggleLatch();
     expect(looper.latched).toBe(false);
     expect(looper.openTakeId).toBeNull();
+  });
+
+  it("a latched overdub whose first note lands late in a running loop keeps that bar as it grows to two", async () => {
+    const { phrases, looper } = setup();
+    playTake(.5);
+    looper.togglePlay();
+    await flush();
+    await looper.settled();
+    looper.toggleLatch();
+    await flush();
+    render(.3);
+    const bar = (frame: number) => player.barAtAudioTime(frame / RATE)!;
+    const base = rig.frame;
+    const baseBar = bar(base);
+    const atBar = (target: number) => base + Math.round((target - baseBar) * FRAMES_PER_BAR);
+    // Bar 3.5 of the one-bar loop's clock: an odd bar, so a two-bar cycle tells it from bar 2.5.
+    live("F4", 3, atBar(3.5), atBar(3.5) + 1600);
+    await flush();
+    const overdub = phrases.take.id;
+    expect(looper.openTakeId).toBe(overdub);
+    live("A4", 5, atBar(4), atBar(4) + 1600);
+    await flush();
+    live("C5", 0, atBar(4.5), atBar(4.5) + 1600);
+    await flush();
+    await looper.settled();
+    const member = looper.memberFor(overdub)!;
+    expect(member.lengthBars).toBe(2);
+    expectSamePhase(2, looper.looper.barOriginBars! + member.offsetBars, 3.5, 3);
+    render(16);
+    await flush();
+    const where: Record<string, number> = { F4: 3.5, A4: 4, C5: 4.5 };
+    // Laps after the last note joined: each note comes round on the bar it was played, every two bars.
+    const heard = attacksOf(overdub).filter((attack) => attack.frame >= atBar(4.75));
+    expect(heard.length).toBeGreaterThanOrEqual(9);
+    for (const attack of heard) expectSamePhase(2, bar(attack.frame), where[attack.noteName], 3);
+    const firstNotes = heard.filter((attack) => attack.noteName === "F4").map((attack) => bar(attack.frame));
+    expect(firstNotes[0]).toBeCloseTo(5.5, 3);
+    expect(firstNotes[1]).toBeCloseTo(7.5, 3);
+  });
+
+  it("an interruption while the latch's grid is starting keeps the latch, says nothing, and the next note starts a run", async () => {
+    const { phrases, looper } = setup();
+    // The player's interruption, as it reaches the store (re-attached through the spy).
+    let interrupt!: (error: Error) => void;
+    const subscribe = player.onInterrupted.bind(player);
+    vi.spyOn(player, "onInterrupted").mockImplementation((listener) => { interrupt = listener; return subscribe(listener); });
+    setProductionPatternPlayer(undefined);
+    setProductionPatternPlayer(player);
+    // The grid's bank is slow, so the grid is still starting when the interruption comes.
+    const instrument = resolveLiveSoundName(useInstrumentStore().currentInstrument);
+    let arrive!: () => void;
+    rig.gates.set(instrument, new Promise<void>((resolve) => { arrive = resolve; }));
+    looper.toggleLatch();
+    await flush();
+    expect(looper.running).toBe(false);
+    interrupt(new Error("The audio engine restarted; playback stopped"));
+    await flush();
+    expect(looper.latched).toBe(true);
+    expect(looper.lastError).toBeNull();
+    rig.gates.delete(instrument);
+    arrive();
+    await flush();
+    await looper.settled();
+    // The next note opens a take, which starts the run itself.
+    live("C4", 0, rig.frame + 400, rig.frame + 1600);
+    await flush();
+    await looper.settled();
+    const take = phrases.take.id;
+    expect(looper.openTakeId).toBe(take);
+    expect(looper.running).toBe(true);
+    expect(player.getLooper().members.map((member) => member.id)).toEqual([take]);
+    render(2.5);
+    expect(attacksOf(take).length).toBeGreaterThan(0);
   });
 
   describe("a cold Play cancelled before its bank loads starts nothing (carried note 1)", () => {
@@ -1257,6 +1331,80 @@ describe("Play is the loop on the worklet transport", () => {
           }
           expect(heard.filter((attack) => attack.noteName === "C4").every((attack) =>
             Math.floor(mod(player.barAtAudioTime(attack.frame / RATE)!, 1) * 4 + 1e-6) === 2)).toBe(true);
+        } finally {
+          deck.unmount();
+        }
+      });
+
+      it("a take begun after the grid's first bar keeps its bar: it laps on the bar it was played, not a bar early", async () => {
+        const { phrases, looper } = setup();
+        const deck = mountDeck();
+        try {
+          await press(play(deck).element, 520);
+          await looper.settled();
+          const bar0 = rig.frame;
+          const at = (bars: number) => bar0 + Math.round(bars * FRAMES_PER_BAR);
+          live("C4", 0, at(1.5), at(1.5) + 1600);
+          await flush();
+          const take = phrases.take.id;
+          live("E4", 2, at(2), at(2) + 1600);
+          await flush();
+          live("G4", 4, at(2.5), at(2.5) + 1600);
+          await flush();
+          await looper.settled();
+          render(16);
+          await flush();
+
+          expect(starts()).toHaveLength(1);
+          expect(looper.looper.barOriginBars).toBe(0);
+          const member = looper.memberFor(take)!;
+          expect(member.lengthBars).toBe(2);
+          expectSamePhase(2, member.offsetBars, 1.5, 3);
+          const bar = (frame: number) => player.barAtAudioTime(frame / RATE)!;
+          const where: Record<string, number> = { C4: 1.5, E4: 2, G4: 2.5 };
+          const heard = attacksOf(take).filter((attack) => attack.frame >= at(2.75));
+          expect(heard.length).toBeGreaterThanOrEqual(9);
+          for (const attack of heard) expectSamePhase(2, bar(attack.frame), where[attack.noteName], 3);
+          // Its first note comes round at 3.5, 5.5, 7.5 (not 2.5, 4.5, 6.5).
+          const laps = heard.filter((attack) => attack.noteName === "C4").map((attack) => bar(attack.frame));
+          expect(laps.slice(0, 3).map((lap) => Number(lap.toFixed(3)))).toEqual([3.5, 5.5, 7.5]);
+        } finally {
+          deck.unmount();
+        }
+      });
+
+      it("an engine rebuild with nothing yet played keeps the grid's beat dots and ring going", async () => {
+        const { phrases, looper } = setup({ uiBeat: uiBeatClock });
+        const deck = mountDeck();
+        try {
+          await press(play(deck).element, 520);
+          await looper.settled();
+          await hear(.6);
+          const reached = player.heardBar()!;
+          // A route change or a processor failure: the renderer is rebuilt, empty.
+          rig.generation++;
+          rig.core = new LiveAudioCore(RATE, (response) => { rig.queued.push(response); });
+          for (const listener of [...rig.listeners]) listener.onRendererReset?.();
+          await vi.waitFor(() => expect(player.getLooper().recovering).toBe(false));
+          expect(looper.latched).toBe(true);
+          expect(looper.members).toEqual([]);
+          // The grid starts again where the clock had reached.
+          expect((starts().at(-1) as { bar: number }).bar).toBeCloseTo(reached, 1);
+
+          await hear(.4);
+          const after = player.heardBar();
+          expect(after).not.toBeNull();
+          expect(after!).toBeGreaterThan(reached);
+          expect(dots(deck).attributes("data-ui-beat-state")).toBe("running");
+          expect(dots(deck).attributes("data-beat-transport")).toBe("active");
+          expect(ring(deck).attributes("data-latch-ring")).toBe("sweep");
+          const early = sweepOf(deck);
+          expect(early / 360).toBeCloseTo(mod(after!, 1), 2);
+          await hear(.4);
+          expect(sweepOf(deck)).toBeGreaterThan(early);
+          expect(sweepOf(deck) / 360).toBeCloseTo(mod(player.heardBar()!, 1), 2);
+          expect(attacks).toEqual([]);
+          expect(phrases.take.notes).toEqual([]);
         } finally {
           deck.unmount();
         }

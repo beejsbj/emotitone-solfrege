@@ -521,8 +521,8 @@ describe("the Looper after review", () => {
     player.dispose();
   });
 
-  it("finishes recovering from a rebuild with no members, and the next join starts the loop again", async () => {
-    const { player, played } = setup();
+  it("keeps an empty Looper's bar grid running through a rebuild (the latch's grid), and the next join joins it", async () => {
+    const { player, played, uiBeat, tick } = setup();
     await start(player, [member("a", melody)]);
     render(1.1);
     await player.leave("a");
@@ -532,7 +532,17 @@ describe("the Looper after review", () => {
     for (const listener of [...rig.listeners]) listener.onRendererReset?.();
     await resumeAudioContext(context as unknown as AudioContext);
     await vi.waitFor(() => expect(player.getLooper().recovering).toBe(false));
-    await expect(player.setTempo(120)).resolves.toMatchObject({ cancelled: true });
+    // The grid starts again on the rebuilt renderer, where the clock had reached, and the beat moves on.
+    expect(player.heardBar()).not.toBeNull();
+    render(.2);
+    tick();
+    const beat = uiBeat.snapshot.barPosition!;
+    expect(beat).toBeGreaterThan(1.4 / 2);
+    render(.2);
+    tick();
+    expect(uiBeat.snapshot.barPosition!).toBeGreaterThan(beat);
+    expect(uiBeat.snapshot.barPosition!).toBeCloseTo(rig.core.transport.barAt(rig.frame), 1);
+    await expect(player.setTempo(120)).resolves.not.toHaveProperty("cancelled");
     const joined = await player.join(member("a", melody));
     expect(joined.cancelled).toBeUndefined();
     const before = played.length;

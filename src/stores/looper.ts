@@ -172,6 +172,12 @@ export const useLooperStore = defineStore("looper", () => {
   let transportBpm = 120;
   /** Where each played take's phrase time 0 sounded, in AudioContext seconds. */
   const origins = new Map<string, number>();
+  /**
+   * Where each played take's phrase time 0 landed on the transport's bar
+   * clock, unwrapped: a growing take's offset is wrapped again from it each
+   * time its length changes, so a first note on bar 2 stays on bar 2.
+   */
+  const playedBars = new Map<string, number>();
   /** The note data each member's table was built from. */
   const builtFrom = new Map<string, string>();
   let player: PatternPlayer | undefined;
@@ -218,10 +224,12 @@ export const useLooperStore = defineStore("looper", () => {
     engineRecovering.value = Boolean(next?.getLooper().recovering);
     stopRecoveryWatch = player?.onRecoveryChange((recovering) => { engineRecovering.value = recovering; });
     stopInterrupted = player?.onInterrupted(() => {
-      if (!looper.value.members.length && !starting) {
-        // Only the latch's silent grid stopped: nothing was heard, so nothing is
-        // reported, and the latch holds (its next note starts a run).
-        if (running.value) resetSession();
+      // A start with no member waiting on it is the grid's own.
+      if (!looper.value.members.length && (!starting || startingId === null)) {
+        // Only the latch's silent grid stopped (or was starting): nothing was
+        // heard, so nothing is reported, and the latch holds (its next note
+        // starts a run).
+        if (running.value || starting) resetSession();
         return;
       }
       reportKind("interrupted");
@@ -339,6 +347,7 @@ export const useLooperStore = defineStore("looper", () => {
     openTakeId.value = null;
     latchCountdown.value = null;
     origins.clear();
+    playedBars.clear();
     clearLooper(looper.value);
     stopLatchTimer();
   }
@@ -429,6 +438,8 @@ export const useLooperStore = defineStore("looper", () => {
             looper.value.barOriginBars = bar;
             await current.setMember(phraseId, { offsetBars: bar + (memberFor(phraseId)?.offsetBars ?? 0) });
           }
+          // Its first note is bar one.
+          playedBars.set(phraseId, looper.value.barOriginBars ?? 0);
         }
         if (epoch !== captured) return false;
         settleStarted([sent], current);
@@ -507,11 +518,13 @@ export const useLooperStore = defineStore("looper", () => {
         leave(looper.value, phraseId);
         intents.delete(phraseId);
         origins.delete(phraseId);
+        playedBars.delete(phraseId);
         // A latched take is no longer the open one, so "Tap Play again" joins it.
         if (openTakeId.value === phraseId) openTakeId.value = null;
         reportKind("restarting");
         return;
       }
+      playedBars.set(phraseId, bar);
       setOffset(looper.value, phraseId, wrapOffset(member, bar - (looper.value.barOriginBars ?? 0)));
     }
     await sendJoin(current, phrase, memberFor(phraseId)!, captured, token);
@@ -558,6 +571,7 @@ export const useLooperStore = defineStore("looper", () => {
   function joinPhrase(phrase: Phrase, originAudio: number | null): void {
     if (!phrase.notes.length || isPlaying(looper.value, phrase.id)) return;
     lastError.value = null;
+    playedBars.delete(phrase.id);
     if (originAudio === null) origins.delete(phrase.id);
     else origins.set(phrase.id, originAudio);
     const first = !looper.value.members.length;
@@ -578,6 +592,7 @@ export const useLooperStore = defineStore("looper", () => {
     if (!leave(looper.value, phraseId)) return;
     intents.delete(phraseId);
     origins.delete(phraseId);
+    playedBars.delete(phraseId);
     builtFrom.delete(phraseId);
     if (openTakeId.value === phraseId) openTakeId.value = null;
     if (stopIfEmpty()) return;
@@ -660,7 +675,14 @@ export const useLooperStore = defineStore("looper", () => {
     }
     const member = memberFor(take.id);
     if (!member) return;
-    member.lengthBars = loopLengthBars(take);
+    const lengthBars = loopLengthBars(take);
+    if (lengthBars !== member.lengthBars) {
+      member.lengthBars = lengthBars;
+      // A longer cycle: the offset is wrapped again from where the first note
+      // fell, not from the shorter cycle's wrap of it.
+      const bar = playedBars.get(take.id);
+      if (bar !== undefined) setOffset(looper.value, take.id, wrapOffset(member, bar - (looper.value.barOriginBars ?? 0)));
+    }
     rejoin(take.id);
   }
 
@@ -818,6 +840,8 @@ export const useLooperStore = defineStore("looper", () => {
     const member = memberFor(phraseId);
     if (!member || !Number.isFinite(beats) || !beats) return;
     if (!setOffset(looper.value, phraseId, wrapOffset(member, member.offsetBars + beats / BEATS_PER_BAR))) return;
+    const played = playedBars.get(phraseId);
+    if (played !== undefined) playedBars.set(phraseId, played + beats / BEATS_PER_BAR);
     if (running.value && player && (joined.has(phraseId) || latestJoin.has(phraseId))) {
       void player.setMember(phraseId, { offsetBars: (looper.value.barOriginBars ?? 0) + member.offsetBars }).catch(report);
     }
@@ -830,6 +854,7 @@ export const useLooperStore = defineStore("looper", () => {
     openTakeId.value = null;
     latchCountdown.value = null;
     origins.clear();
+    playedBars.clear();
     clearLooper(looper.value);
     stopTransport();
   }
@@ -846,6 +871,7 @@ export const useLooperStore = defineStore("looper", () => {
     stopLatchTimer();
     openTakeId.value = null;
     origins.clear();
+    playedBars.clear();
     stopTransport();
     looper.value = next;
     const captured = epoch;

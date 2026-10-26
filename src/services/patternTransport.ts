@@ -149,8 +149,12 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
   let generation = 0;
   let requestId = 0;
   let playing = false;
-  /** A Looper session recovers from a renderer rebuild; a lone pattern (the Code Strip) stops. */
-  let session: { looper: boolean; bpm: number; target?: LooperKeyMode; soloId: string | null } | undefined;
+  /**
+   * A Looper session recovers from a renderer rebuild; a lone pattern (the
+   * Code Strip) stops. `holder`: the instrument whose worklet port holds the
+   * transport, so an empty Looper (the latch's grid) can be brought back too.
+   */
+  let session: { looper: boolean; bpm: number; target?: LooperKeyMode; soloId: string | null; holder?: string } | undefined;
   /** Set while a rebuilt renderer is awaited: the bar to continue from, and which rebuild it is. */
   let recovery: { bar: number; epoch: number } | undefined;
   const recoveryListeners = new Set<(recovering: boolean) => void>();
@@ -605,22 +609,28 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
         // A further rebuild while banks load starts the restore again on the newest renderer.
         for (let epoch = recovery?.epoch; recovery && epoch !== undefined; epoch = recovery?.epoch) {
           const entries = [...memberships.entries()].filter(([, entry]) => entry.member);
+          // An empty Looper is the latch's silent grid: its holder's bank brings it back.
+          const instruments = new Set(entries.length ? entries.map(([, entry]) => entry.request.instrument)
+            : session?.holder ? [session.holder] : []);
           let ready: LiveTransportPort | undefined;
           try {
             // Every bank first (each instrument once), then playback: the rebuilt
             // processor starts empty and the one-copy contract moved the PCM away.
-            for (const instrument of new Set(entries.map(([, entry]) => entry.request.instrument))) {
+            for (const instrument of instruments) {
               ready = (await prepare(instrument)).port;
+              if (session) session.holder = instrument;
               if (attempt !== run || recovery?.epoch !== epoch) break;
             }
           } catch (error) {
             if (attempt === run && recovery && recovery.epoch !== epoch) continue;
-            throw error;
+            // The grid's bank was refused: it idles at this bar, as below.
+            if (entries.length || attempt !== run || !recovery) throw error;
+            ready = undefined;
           }
           if (attempt !== run || !session || !recovery) return;
           if (recovery.epoch !== epoch) continue;
           if (!ready) {
-            // No member to bring back: the next join starts the new run at this bar.
+            // Nothing to bring back on: the next join starts the new run at this bar.
             idleBar = recovery.bar;
             setRecovery(undefined);
             port = undefined;
@@ -813,6 +823,7 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
           const prepared = await prepare(memberRequest.instrument);
           if (attempt !== run) return cancelledReceipt(0);
           port = prepared.port;
+          session.holder = memberRequest.instrument;
           const entry: Membership = { request: memberRequest, settings: settingsOf(memberRequest) };
           memberships.set(memberRequest.id, entry);
           pin(memberRequest.id, entry, prepared.instrumentId);
@@ -822,6 +833,7 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
           const prepared = await prepare(request.grid.instrument);
           if (attempt !== run) return cancelledReceipt(0);
           port = prepared.port;
+          session.holder = request.grid.instrument;
         }
         if (!port) throw new Error("The Looper needs a member to start");
         playing = true;
@@ -893,7 +905,10 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
         }
         // After a rebuild with nobody to restore, this join starts the new run.
         restart = idleBar !== undefined;
-        if (restart) port = prepared.port;
+        if (restart) {
+          port = prepared.port;
+          session!.holder = request.instrument;
+        }
         if (prepared.port.generation === port?.generation) break;
         if (attempt >= 3) { undo(); throw new PatternLoadError("The audio engine restarted", true); }
       }

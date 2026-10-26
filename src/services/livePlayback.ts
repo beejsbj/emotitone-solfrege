@@ -5,6 +5,7 @@ import { createLiveShapingChain, type LiveShaping } from "@/audio/liveShaping";
 import { getLiveOrbit } from "@/services/audioRuntime";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import { preparedPcmBytes } from "@/audio/live/pcm";
+import { getCatalogSound } from "@/audio/soundCatalog";
 import type { TransportCommand } from "@/audio/live/transport";
 import type { RenderCostSnapshot } from "@/audio/live/renderCost";
 
@@ -68,8 +69,21 @@ const loadFailures = new Set<string>();
  * transport refuses the join instead.
  */
 const budgetRefused = new Set<string>();
-/** Bytes each sampled bank needed when last prepared, so a refused bank is not downloaded again for nothing. */
-const knownBankBytes = new Map<string, number>();
+/**
+ * Bytes each bank needed when last prepared, so a refused bank is not downloaded
+ * again for nothing and a known one can make room before it downloads. An entry
+ * belongs to the registration it was measured from: re-registering the sound
+ * (new samples) makes it stale.
+ */
+const knownBankBytes = new Map<string, { registration: unknown; bytes: number }>();
+
+function knownBytesOf(instrumentId: string): number | undefined {
+  const known = knownBankBytes.get(instrumentId);
+  if (!known) return undefined;
+  if (known.registration === getCatalogSound(instrumentId)) return known.bytes;
+  knownBankBytes.delete(instrumentId);
+  return undefined;
+}
 const retiring = new Set<string>();
 let installQueue: Promise<void> = Promise.resolve();
 let preparationAbort = new AbortController();
@@ -108,6 +122,40 @@ function pinnedPcmBytes(): number {
 function budgetReason(needed: number | undefined, pinned: number): string {
   const inUse = `${mib(pinned)} of the ${mib(MAX_PCM_BYTES)} sample memory is held by playing loops and keys`;
   return needed === undefined ? `Sample memory is full: ${inUse}` : `Sample memory is full: this sound needs ${mib(needed)}, but ${inUse}`;
+}
+
+/**
+ * Retire the least recently used evictable banks until `bytes` more fits in the
+ * budget. Every victim is chosen, and marked retiring so no new attack can use
+ * or pin it, in one synchronous step; only then are they forgotten. Choosing
+ * one at a time across the awaited fades let a key pressed meanwhile pin a
+ * later victim, and the install was refused after a bank had already gone.
+ * Returns false, having evicted nothing, when the pinned banks leave no room.
+ * The budget includes retiring PCM, so the banks leave `installed` only once
+ * the processor has acknowledged them. If the generation changes while they
+ * fade, the new generation has already cleared this bookkeeping.
+ */
+async function makeRoom(forget: (instrumentId: string) => Promise<void>, bytes: number, run: number): Promise<boolean> {
+  if (pinnedPcmBytes() + bytes > MAX_PCM_BYTES) return false;
+  let total = bytes;
+  for (const size of installed.values()) total += size;
+  const victims: string[] = [];
+  for (const instrumentId of installed.keys()) {
+    if (total <= MAX_PCM_BYTES) break;
+    if (!isEvictable(instrumentId)) continue;
+    victims.push(instrumentId);
+    total -= installed.get(instrumentId)!;
+  }
+  if (total > MAX_PCM_BYTES) return false;
+  for (const instrumentId of victims) retiring.add(instrumentId);
+  await Promise.all(victims.map(forget));
+  if (run !== generation) return true;
+  for (const instrumentId of victims) {
+    installed.delete(instrumentId);
+    installedPcm.delete(instrumentId);
+    retiring.delete(instrumentId);
+  }
+  return true;
 }
 
 function refuseForBudget(instrumentId: string, needed: number | undefined, pinned: number) {
@@ -204,13 +252,25 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
     if (run !== generation) return;
     workletCatalog = await (workletPreparation ??= import("@/services/preparedLiveInstrument"));
     if (run !== generation) return;
-    // Refuse before downloading anything when the pinned banks already leave no
-    // room: for the size this bank had last time, or (never prepared) for any bank.
-    const knownBytes = knownBankBytes.get(instrumentId);
-    const pinnedBefore = pinnedPcmBytes();
-    if (knownBytes === undefined ? pinnedBefore >= MAX_PCM_BYTES : pinnedBefore + knownBytes > MAX_PCM_BYTES) {
-      refuseForBudget(instrumentId, knownBytes, pinnedBefore);
-      return;
+    const knownBytes = knownBytesOf(instrumentId);
+    // A bank larger than the whole budget can never fit, however little is pinned:
+    // it stays unsupported, with the reason it was given, rather than "memory full".
+    if (knownBytes !== undefined && knownBytes > MAX_PCM_BYTES) return;
+    // With the size this bank had last time (an oscillator's is 0), refuse before
+    // downloading anything when the pinned banks leave no room, and otherwise free
+    // the room first, so a known bank's peak is the budget and not the budget plus
+    // its own decode. A download that then fails has still cost those evictions.
+    // A bank not prepared before has no known size and so no early decision: it may
+    // be an oscillator, which needs no memory however full the pinned banks are.
+    if (knownBytes !== undefined) {
+      const pinnedBefore = pinnedPcmBytes();
+      const resident = engine;
+      if (pinnedBefore + knownBytes > MAX_PCM_BYTES
+        || (knownBytes > 0 && resident && !await makeRoom(id => resident.forget(id), knownBytes, run))) {
+        refuseForBudget(instrumentId, knownBytes, pinnedBefore);
+        return;
+      }
+      if (run !== generation) return;
     }
     const preparationSampleRate = nextContext.sampleRate;
     const prepared = await workletCatalog.prepareLiveInstrument(nextContext, instrumentId, preparationAbort.signal);
@@ -227,7 +287,7 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
       return;
     }
     const bytes = byteSize(prepared);
-    knownBankBytes.set(instrumentId, bytes);
+    knownBankBytes.set(instrumentId, { registration: getCatalogSound(instrumentId), bytes });
     if (bytes > MAX_PCM_BYTES) {
       reasons.set(instrumentId, `Sample bank needs ${mib(bytes)}, more than the ${mib(MAX_PCM_BYTES)} sample memory`);
       unsupported.add(instrumentId);
@@ -284,31 +344,15 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
         clear() { if (run === generation) { pins.clear(); ready.clear(); } },
         dispose() { if (run === generation) invalidate(); },
       };
-      // Held and pinned banks stay resident. If they leave no room, refuse
-      // before evicting anything: freeing other banks would not help. Otherwise
-      // evict the least recently used bank that holds PCM until this one fits.
-      // Released voices retire with a bounded fade; their PCM remains charged
-      // until the adapter acknowledges it.
-      const pinned = pinnedPcmBytes();
-      if (pinned + bytes > MAX_PCM_BYTES) {
-        refuseForBudget(instrumentId, bytes, pinned);
+      // Held and pinned banks stay resident. If they leave no room, refuse before
+      // evicting anything: freeing other banks would not help. Otherwise retire the
+      // least recently used banks that hold PCM until this one fits (none, when a
+      // known size already made room before the download).
+      if (!await makeRoom(id => ready.forget(id), bytes, run)) {
+        refuseForBudget(instrumentId, bytes, pinnedPcmBytes());
         return;
       }
-      while ([...installed.values()].reduce((sum, size) => sum + size, bytes) > MAX_PCM_BYTES) {
-        const oldest = [...installed.keys()].find(isEvictable);
-        if (oldest === undefined) {
-          refuseForBudget(instrumentId, bytes, pinnedPcmBytes());
-          return;
-        }
-        // The budget includes retiring PCM: wait for its bounded fade and
-        // processor acknowledgement before installing another bank.
-        retiring.add(oldest);
-        await ready.forget(oldest);
-        if (run !== generation) return;
-        installed.delete(oldest);
-        installedPcm.delete(oldest);
-        retiring.delete(oldest);
-      }
+      if (run !== generation) return;
       installingPcmBytes = bytes;
       const split = preparedPcmBytes(prepared);
       // Transfers the PCM: from here the worklet owns the bank's only copy.

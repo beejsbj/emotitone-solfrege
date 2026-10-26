@@ -291,6 +291,64 @@ describe('live playback instrument manager', () => {
     expect(manager.getLivePlaybackFailure('large')).toBeUndefined()
   })
 
+  it('does not trust a remembered bank size once the sound has been registered again', async () => {
+    const { manager, context } = await setup()
+    const catalog = await import('@/audio/soundCatalog')
+    catalog.registerSampleMap({ big: ['old.wav'] })
+    bankSizes({ held: 100, big: 100 })
+    await manager.prepareLivePlayback(context, destination, 'held')
+    manager.getLivePlayback('held')!.press('finger', [{ instrumentId: 'held', pitch: 60 }])
+    await manager.prepareLivePlayback(context, destination, 'big')
+    mocks.prepare.mockClear()
+    await manager.prepareLivePlayback(context, destination, 'big')
+    expect(mocks.prepare).not.toHaveBeenCalled()
+    // New samples under the same name: the remembered size describes the old ones.
+    catalog.registerSampleMap({ big: ['new.wav'] })
+    await manager.prepareLivePlayback(context, destination, 'big')
+    expect(mocks.prepare).toHaveBeenCalledOnce()
+  })
+
+  it('makes room before it downloads a bank it has measured, so the peak stays near the budget', async () => {
+    const { manager, engine, context } = await setup()
+    bankSizes({ x: 90, y: 90, z: 90 })
+    for (const name of ['x', 'y', 'z']) await manager.prepareLivePlayback(context, destination, name)
+    expect(engine.forget.mock.calls).toEqual([['x']])
+    engine.forget.mockClear()
+    const prepare = mocks.prepare.getMockImplementation()!
+    let forgottenBeforeDownload: unknown[] | undefined
+    mocks.prepare.mockImplementation(async (...args: Parameters<typeof prepare>) => {
+      forgottenBeforeDownload = engine.forget.mock.calls.map(call => call[0])
+      return prepare(...args)
+    })
+    // x was evicted and measured at 90 MiB: y, the least recently used, goes before x is fetched.
+    await manager.prepareLivePlayback(context, destination, 'x')
+    expect(forgottenBeforeDownload).toEqual(['y'])
+    expect(engine.forget.mock.calls).toEqual([['y']])
+    expect(manager.getLivePlayback('x')).toBeDefined()
+    expect(manager.getLivePlaybackDiagnostics('x')).toMatchObject({ installedBanks: 2, installedPcmBytes: 180 * MIB })
+  })
+
+  it('chooses every bank to evict up front, so a key pressed while they fade cannot doom the install', async () => {
+    const { manager, engine, context } = await setup()
+    bankSizes({ a: 100, b: 60, c: 30, d: 80 })
+    for (const name of ['a', 'b', 'c']) await manager.prepareLivePlayback(context, destination, name)
+    manager.getLivePlayback('a')!.press('finger', [{ instrumentId: 'a', pitch: 60 }])
+    const fades: Array<() => void> = []
+    engine.forget.mockImplementation(() => new Promise<void>(resolve => { fades.push(resolve) }))
+    // d needs b and c gone: 100 + 60 + 30 + 80 is over the budget, 100 + 80 is not.
+    const installing = manager.prepareLivePlayback(context, destination, 'd')
+    await vi.waitFor(() => expect(engine.forget).toHaveBeenCalled())
+    // c is already retiring, so a key pressed on it now finds no bank to pin.
+    manager.getLivePlayback('c')?.press('late', [{ instrumentId: 'c', pitch: 60 }])
+    fades.forEach(finish => finish())
+    await installing
+    expect(engine.forget.mock.calls).toEqual([['b'], ['c']])
+    expect(manager.getLivePlaybackFailure('d')).toBeUndefined()
+    expect(manager.getLivePlayback('d')).toBeDefined()
+    expect(manager.getLivePlayback('a')).toBeDefined()
+    expect(manager.getLivePlaybackDiagnostics('d')).toMatchObject({ installedBanks: 2, installedPcmBytes: 180 * MIB })
+  })
+
   it('pins held banks until release and temporarily falls back when they fill the memory', async () => {
     const { manager, engine, context } = await setup()
     bankSizes({ a: 90, b: 90, c: 90 })
@@ -366,10 +424,34 @@ describe('live playback instrument manager', () => {
   it('refuses a single bank larger than the whole memory as unsupported, not as a full memory', async () => {
     const { manager, engine, context } = await setup()
     bankSizes({ huge: 200 })
+    const unsupported = { kind: 'fallback', reason: 'Sample bank needs 200.0 MiB, more than the 192.0 MiB sample memory' }
     await manager.prepareLivePlayback(context, destination, 'huge')
     expect(engine.prepare).not.toHaveBeenCalled()
-    expect(manager.getLivePlaybackFailure('huge')).toEqual({ kind: 'fallback',
-      reason: 'Sample bank needs 200.0 MiB, more than the 192.0 MiB sample memory' })
+    expect(manager.getLivePlaybackFailure('huge')).toEqual(unsupported)
+    // Asked again, nothing is pinned and nothing changes: still unsupported, never "memory full", and not downloaded again.
+    mocks.prepare.mockClear()
+    await manager.prepareLivePlayback(context, destination, 'huge')
+    expect(mocks.prepare).not.toHaveBeenCalled()
+    expect(manager.getLivePlaybackFailure('huge')).toEqual(unsupported)
+    expect(manager.needsLivePlaybackPreparation('huge')).toBe(false)
+  })
+
+  it('never refuses an oscillator for memory, even when pinned banks fill it to the byte', async () => {
+    const { manager, context } = await setup()
+    bankSizes({ a: 96, b: 96 })
+    for (const name of ['a', 'b']) {
+      await manager.prepareLivePlayback(context, destination, name)
+      manager.pinLivePlayback(`member-${name}`, [name])
+    }
+    expect(manager.getLivePlaybackDiagnostics('a').installedPcmBytes).toBe(manager.getLivePlaybackDiagnostics('a').installedPcmBudgetBytes)
+    // Never prepared before, so its size is unknown; it holds no PCM and so it loads.
+    await manager.prepareLivePlayback(context, destination, 'sine')
+    expect(manager.getLivePlayback('sine')).toBeDefined()
+    expect(manager.getLivePlaybackFailure('sine')).toBeUndefined()
+    // Another oscillator is the same.
+    await manager.prepareLivePlayback(context, destination, 'triangle')
+    expect(manager.getLivePlayback('triangle')).toBeDefined()
+    expect(manager.getLivePlaybackDiagnostics('sine').installedPcmBytes).toBe(192 * MIB)
   })
 
   it('reports a failed download as a load failure until a retry installs the bank', async () => {

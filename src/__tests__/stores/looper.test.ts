@@ -28,7 +28,7 @@ const rig = vi.hoisted(() => ({
   listeners: new Set<{ onTransport?(response: TransportResponse): void; onRendererReset?(): void }>(),
   gates: new Map<string, Promise<void>>(),
   prepared: [] as string[],
-  /** Banks the worklet refuses (every instrument slot held). */
+  /** Banks the worklet refuses (the sample memory is held full by playing loops and keys). */
   refused: new Set<string>(),
   commands: [] as TransportCommand[],
   context: undefined as unknown as Record<string, unknown>,

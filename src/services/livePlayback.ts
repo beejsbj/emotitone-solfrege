@@ -6,6 +6,7 @@ import { getLiveOrbit } from "@/services/audioRuntime";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import { preparedPcmBytes } from "@/audio/live/pcm";
 import type { TransportCommand } from "@/audio/live/transport";
+import type { RenderCostSnapshot } from "@/audio/live/renderCost";
 
 type Listener = LiveRendererCallbacks & {
   onLoadError?(instrumentId: string, reason: string): void;
@@ -350,6 +351,15 @@ export function getLiveTransport(name: string): LiveTransportPort | undefined {
     sampleRate,
     generation: run,
   };
+}
+
+/**
+ * The live worklet's render cost per quantum (a read-only measurement for the
+ * phone gate). The first read starts measuring; `reset` starts a new window.
+ * Undefined while no worklet is built.
+ */
+export function readLiveRenderCost(reset = false): Promise<RenderCostSnapshot> | undefined {
+  return engine?.renderCost(reset);
 }
 
 export function needsLivePlaybackPreparation(name: string): boolean {

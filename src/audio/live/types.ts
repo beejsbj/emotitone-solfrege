@@ -1,6 +1,7 @@
 import type { LiveShaping } from '../liveShaping'
 import type { LiveConfig, LiveExpressionOwner, LiveInputNote, LiveRenderer, LiveVoiceEvent } from '../liveRenderer'
 import type { TransportCommand, TransportResponse } from './transport'
+import type { RenderCostCommand, RenderCostResponse, RenderCostSnapshot } from './renderCost'
 export type { LiveConfig, LiveInputNote, LiveVoiceEvent } from '../liveRenderer'
 
 export interface LiveEnvelope {
@@ -57,9 +58,10 @@ export type LiveResponse =
   | { type: 'event'; event: LiveVoiceEvent }
   | { type: 'plan'; events: LiveVoiceEvent[] }
   | TransportResponse
+  | RenderCostResponse
 
-/** Terminal processor command: release its banks and stop rendering. */
-export type LiveProcessorCommand = LiveCommand | { type: 'dispose' }
+/** Terminal processor command: release its banks and stop rendering. A render-cost read never reaches the core. */
+export type LiveProcessorCommand = LiveCommand | { type: 'dispose' } | RenderCostCommand
 
 export interface LiveWorklet extends LiveRenderer {
   prepare(instrument: PreparedLiveInstrument): Promise<void>
@@ -67,4 +69,6 @@ export interface LiveWorklet extends LiveRenderer {
   effects(shaping: LiveShaping): void
   /** Pattern transport commands; responses arrive through `onTransport`. */
   transport(command: TransportCommand): void
+  /** Read the processor's render cost per quantum (starts measuring on the first read); `reset` starts a new window. */
+  renderCost(reset?: boolean): Promise<RenderCostSnapshot>
 }

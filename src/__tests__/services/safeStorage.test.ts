@@ -4,6 +4,7 @@ import { mount } from "@vue/test-utils";
 import { createApp, nextTick, ref } from "vue";
 import SaveFailureNotice from "@/components/ui/SaveFailureNotice.vue";
 import {
+  createReadThroughStorage,
   createSafeStorage,
   dismissSaveFailure,
   persistedStatePlugin,
@@ -326,5 +327,28 @@ describe("persisted writes that fail", () => {
     expect(console.error).toHaveBeenCalledTimes(1);
     expect(() => storage.getItem("sketch")).not.toThrow();
     expect(console.error).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("read-through storage (lab pages)", () => {
+  it("reads stored bytes, keeps every write in memory, and never changes the backend", () => {
+    window.localStorage.setItem("kept", "old");
+    window.localStorage.setItem("gone", "x");
+    const setItem = vi.mocked(window.localStorage.setItem);
+    const removeItem = vi.mocked(window.localStorage.removeItem);
+    setItem.mockClear();
+    removeItem.mockClear();
+    const storage = createReadThroughStorage(() => window.localStorage);
+    expect(storage.getItem("kept")).toBe("old");
+    storage.setItem("kept", "migrated");
+    storage.setItem("fresh", "1");
+    storage.removeItem("gone");
+    expect(storage.getItem("kept")).toBe("migrated");
+    expect(storage.getItem("gone")).toBeNull();
+    expect([...Array(storage.length)].map((_, index) => storage.key(index)).sort()).toEqual(["fresh", "kept"]);
+    expect(setItem).not.toHaveBeenCalled();
+    expect(removeItem).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem("kept")).toBe("old");
+    expect(window.localStorage.getItem("gone")).toBe("x");
   });
 });

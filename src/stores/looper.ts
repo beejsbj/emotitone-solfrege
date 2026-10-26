@@ -997,9 +997,13 @@ export const useLooperStore = defineStore("looper", () => {
     if (!loop) return;
     const joining = loop.members.filter((member) => into.includes(member.phraseId) && isPresent(member.phraseId));
     if (joining.length) joinSaved(loop, joining);
-    const heldElsewhere = (phraseId: string) => phrases.book.loops.some((other) => other.id !== loopId
+    for (const phraseId of out) if (!heldByOtherPlayingLoop(loopId, phraseId)) leaveMember(phraseId);
+  }
+
+  /** Another saved Loop, playing in full here, still holds the pattern: it plays on for that Loop. */
+  function heldByOtherPlayingLoop(loopId: string, phraseId: string): boolean {
+    return phrases.book.loops.some((other) => other.id !== loopId
       && other.members.some((member) => member.phraseId === phraseId) && isPresentLoopPlaying(other));
-    for (const phraseId of out) if (!heldElsewhere(phraseId)) leaveMember(phraseId);
   }
 
   /** Bring saved members into the running session in their saved places (rule 2). */
@@ -1058,6 +1062,8 @@ export const useLooperStore = defineStore("looper", () => {
     const phrase = phrases.findPhrase(phraseId);
     if (!loop || !phrase) return false;
     const sounding = Boolean(memberFor(targetId));
+    // Read before the swap: a playing Loop that shares the replaced pattern keeps it sounding.
+    const keepTarget = sounding && heldByOtherPlayingLoop(loopId, targetId);
     // Heard in the loop's own frame only when the replaced pattern sounds with it.
     const live = sounding ? memberFor(phraseId) : undefined;
     const placement = live
@@ -1068,7 +1074,7 @@ export const useLooperStore = defineStore("looper", () => {
     if (sounding) {
       // In first, then out: the loop never empties, so its clock runs on.
       if (!live) joinSaved(loop, loop.members.filter((member) => member.phraseId === phraseId));
-      leaveMember(targetId);
+      if (!keepTarget) leaveMember(targetId);
     }
     if (phraseId === phrases.takeId) {
       if (openTakeId.value === phraseId) openTakeId.value = null;
@@ -1201,13 +1207,13 @@ export const useLooperStore = defineStore("looper", () => {
 
   // ─── Recorder seams ────────────────────────────────────────────────────────
   // Rule 3, decided at press time: a playing desk pattern is read-only, and so
-  // is any pattern a saved Loop points at, on every reel, playing or not (a
-  // new take opens on top of it). The latch's growing take is written into;
-  // once it is a Loop's, only while a key already sounds in it (a chord held
-  // through the save), and it is filed when that key lets go.
+  // is any pattern a saved Loop points at, on every reel, playing or not: a
+  // new press opens a new take on top of it. The latch's growing take is
+  // written into until it is a Loop's; after that only the keys already down
+  // at the save finish sounding into it (a release lands in the take its
+  // press did), and it is filed when they let go.
   phrases.setLivePressGuard(({ deskPhraseId }) => inAnyLoop(deskPhraseId)
-    ? !(deskPhraseId === openTakeId.value && phrases.isTakeSounding)
-    : deskPhraseId !== openTakeId.value && mustOpenFreshTake(looper.value, deskPhraseId));
+    || (deskPhraseId !== openTakeId.value && mustOpenFreshTake(looper.value, deskPhraseId)));
   // What this tab is playing is never purged, deleted, released or dropped by
   // a merge. Saved Loops protect their own members from the book itself
   // (retention, delete, release and the take's close read `book.loops`), so

@@ -658,6 +658,72 @@ describe("a saved Loop is its own reel (BJS-572)", () => {
     }
   });
 
+  it("between a save with a key held and its release, only that key sounds into the Loop's take; a new key opens a new take", async () => {
+    const { phrases, looper } = setup();
+    const deck = mountDeck();
+    try {
+      playTake(.5);
+      await press(play(deck).element, 40);
+      await looper.settled();
+      render(1);
+      looper.toggleLatch();
+      live("A4", 5, rig.frame + 800, rig.frame + 1600);
+      await flush();
+      await looper.settled();
+      await flush();
+      const take = phrases.take.id;
+      const letGo = hold("B4", 6, rig.frame + 400);
+      await flush();
+      await saveFromDeck(deck);
+      expect(phrases.takeId).toBe(take);
+
+      // A new key while B4 is still down: a new take, never the Loop's.
+      const letGoNew = hold("D5", 1, rig.frame + 400);
+      await flush();
+      expect(phrases.takeId).not.toBe(take);
+      letGoNew(rig.frame + 800);
+      letGo(rig.frame + 1000);
+      await flush();
+      // B4, held through the save, finished in the Loop's take; D5 is in the new one.
+      expect(phrases.findPhrase(take)!.notes.map((note) => note.note)).toEqual(["A4", "B4"]);
+      expect(phrases.take.notes.map((note) => note.note)).toEqual(["D5"]);
+      expect(phrases.book.loops[0].members.map((member) => member.phraseId)).toContain(take);
+    } finally {
+      deck.unmount();
+    }
+  });
+
+  it("Replace in Loop leaves the replaced pattern playing while another playing Loop still holds it", async () => {
+    const { phrases, looper } = setup();
+    const deck = mountDeck();
+    try {
+      const { first, second } = await twoLooping(deck);
+      const one = await saveFromDeck(deck);
+      // A third pattern joins; the three are a second Loop that shares the first two.
+      playTake(rig.frame / RATE + .4, ["E4", "G4", "C5"]);
+      const third = phrases.take.id;
+      await press(play(deck).element, 40);
+      await looper.settled();
+      await flush();
+      const two = await saveFromDeck(deck);
+      expect(two.id).not.toBe(one.id);
+      expect(transportIds()).toEqual([first, second, third]);
+      // A new take, not playing, replaces the first pattern in Loop 1 only.
+      playTake(rig.frame / RATE + .4, ["F4", "A4"]);
+      const edit = phrases.take.id;
+      await flush();
+      expect(looper.replaceInLoop(one.id, first, edit)).toBe(true);
+      await looper.settled();
+      await flush();
+      expect(phrases.book.loops.find((loop) => loop.id === one.id)!.members.map((member) => member.phraseId)).toEqual([edit, second]);
+      // Loop 2 still holds the first pattern, and still plays whole.
+      expect(transportIds()).toEqual(expect.arrayContaining([first, second, third, edit]));
+      expect(looper.members.map((member) => member.phraseId)).toContain(first);
+    } finally {
+      deck.unmount();
+    }
+  });
+
   it("a Loop with a pattern gone plays the ones there, says one is missing, and still stops", async () => {
     const { phrases, looper } = setup();
     const deck = mountDeck();

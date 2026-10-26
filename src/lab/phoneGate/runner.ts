@@ -74,11 +74,11 @@ function environment(context: AudioContext | undefined): GateResults["environmen
 }
 
 export function createPhoneGate() {
-  const env = import.meta.env as Record<string, string | undefined>;
   const results: GateResults = reactive({
     startedAt: new Date().toISOString(),
     url: typeof location === "undefined" ? "" : location.href,
-    build: env.VITE_VERCEL_GIT_COMMIT_SHA?.slice(0, 8) ?? null,
+    // Literal access: vite.config.ts `define` replaces this exact expression.
+    build: import.meta.env.VITE_COMMIT_SHA?.slice(0, 8) || null,
     environment: environment(undefined),
     bpm: GATE_BPM,
   });

@@ -1,4 +1,5 @@
 import { LiveAudioCore } from './core'
+import { RenderCostMeter, renderCostClock } from './renderCost'
 import type { LiveProcessorCommand, LiveResponse } from './types'
 
 // Worklet globals are not part of TypeScript's DOM declarations.
@@ -9,9 +10,13 @@ declare class AudioWorkletProcessor {
 }
 declare function registerProcessor(name: string, processor: typeof AudioWorkletProcessor): void
 
+const clock = renderCostClock()
+
 class LivePlaybackProcessor extends AudioWorkletProcessor {
   private core: LiveAudioCore | undefined
   private responses: LiveResponse[] = []
+  /** Render cost per quantum, measured only once asked for (the phone gate). */
+  private cost: RenderCostMeter | undefined
   constructor(options?: { processorOptions?: { instanceId?: string } }) {
     super()
     this.core = new LiveAudioCore(sampleRate, message => this.responses.push(message), options?.processorOptions?.instanceId)
@@ -21,6 +26,14 @@ class LivePlaybackProcessor extends AudioWorkletProcessor {
         this.responses = []
         this.port.onmessage = null
         this.port.postMessage({ type: 'disposed' } satisfies LiveResponse)
+        return
+      }
+      if (data.type === 'render-cost') {
+        // Read-only: answered here, never seen by the core.
+        this.cost ??= new RenderCostMeter(clock.name)
+        this.responses.push({ type: 'render-cost', requestId: data.requestId, cost: this.cost.snapshot() })
+        if (data.reset) this.cost.reset()
+        this.flushResponses()
         return
       }
       try { this.core?.command(data, currentFrame) } finally { this.flushResponses() }
@@ -41,7 +54,12 @@ class LivePlaybackProcessor extends AudioWorkletProcessor {
   process(_inputs: Float32Array[][], outputs: Float32Array[][]) {
     if (!this.core) return false
     try {
-      if (outputs[0]) this.core.render(outputs[0], currentFrame, outputs[1], outputs[2])
+      if (outputs[0]) {
+        const cost = this.cost
+        const start = cost ? clock.now() : 0
+        this.core.render(outputs[0], currentFrame, outputs[1], outputs[2])
+        cost?.record(clock.now() - start)
+      }
     } finally { this.flushResponses() }
     return true
   }

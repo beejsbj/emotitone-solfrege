@@ -1,5 +1,6 @@
 import processorUrl from './processor.ts?worker&url'
 import type { LiveProcessorCommand, LiveResponse, LiveWorklet } from './types'
+import type { RenderCostSnapshot } from './renderCost'
 import { pcmTransferList } from './pcm'
 
 let engineSerial = 0
@@ -25,9 +26,14 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
   let requestId = 0
   const pending = new Map<number, { resolve(): void; reject(error: Error): void;
     timer: ReturnType<typeof setTimeout>; retiringInstrument?: string }>()
+  /** Render-cost reads (the phone gate), by request id. */
+  const costReads = new Map<number, { resolve(cost: RenderCostSnapshot): void; reject(error: Error): void;
+    timer: ReturnType<typeof setTimeout> }>()
   function rejectPending(error: Error) {
     for (const entry of pending.values()) { clearTimeout(entry.timer); entry.reject(error) }
     pending.clear()
+    for (const entry of costReads.values()) { clearTimeout(entry.timer); entry.reject(error) }
+    costReads.clear()
   }
   function fail(error: Error) {
     if (disposed) return
@@ -58,6 +64,10 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
     else if (data.type === 'prepared' || data.type === 'forgotten') {
       const entry = pending.get(data.requestId)
       if (entry) { clearTimeout(entry.timer); pending.delete(data.requestId); entry.resolve() }
+    }
+    else if (data.type === 'render-cost') {
+      const entry = costReads.get(data.requestId)
+      if (entry) { clearTimeout(entry.timer); costReads.delete(data.requestId); entry.resolve(data.cost) }
     }
   }
   drainChannel.port1.onmessage = () => {
@@ -177,6 +187,19 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
     shape: envelope => post({ type: 'shape', envelope }),
     clear: () => post({ type: 'clear' }),
     transport: command => post(command),
+    renderCost(reset = false) {
+      if (disposed) return Promise.reject(new Error('Live audio worklet has been disposed'))
+      const id = ++requestId
+      return new Promise<RenderCostSnapshot>((resolve, reject) => {
+        // A suspended context still answers: the processor's port is not the render clock.
+        const timer = setTimeout(() => {
+          costReads.delete(id)
+          reject(new Error('Live audio render cost was not answered'))
+        }, 5000)
+        costReads.set(id, { resolve, reject, timer })
+        post({ type: 'render-cost', requestId: id, reset })
+      })
+    },
     dispose,
   }
 }

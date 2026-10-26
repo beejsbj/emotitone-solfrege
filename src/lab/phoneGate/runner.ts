@@ -27,7 +27,9 @@ import {
   createPatternPlayer, PATTERN_PLAYBACK_SOURCE, setProductionPatternPlayer, type PatternPlayer,
 } from "@/services/patternTransport";
 import { initAudioEngine } from "@/services/audioEngine";
-import { getAudioContext, getMasterGain } from "@/services/audioRuntime";
+import {
+  getAudioContext, getMasterGain, latencyHintOf, parseLatencyHint, setLatencyHintOverride,
+} from "@/services/audioRuntime";
 import { GATE_BEAT_MS, GATE_BPM, GATE_INSTRUMENT, GATE_MEMBER_LABELS, gateMembers, gateTables } from "./fixtures";
 import { createAttackLedger, createLightLedger, createSoakAccount } from "./ledger";
 import {
@@ -77,6 +79,11 @@ function environment(context: AudioContext | undefined): GateResults["environmen
 }
 
 export function createPhoneGate() {
+  // The buffer under test (BJS-590), from the link (`?latencyHint=balanced`).
+  // Set here, in the page's setup: the Stage creates the context as it mounts.
+  const link = typeof location === "undefined" ? null : new URLSearchParams(location.search).get("latencyHint");
+  const asked = parseLatencyHint(link) ?? null;
+  setLatencyHintOverride(asked ?? undefined);
   const results: GateResults = reactive({
     startedAt: new Date().toISOString(),
     url: typeof location === "undefined" ? "" : location.href,
@@ -84,6 +91,7 @@ export function createPhoneGate() {
     build: import.meta.env.VITE_COMMIT_SHA?.slice(0, 8) || null,
     environment: environment(undefined),
     bpm: GATE_BPM,
+    latencyHint: { link, asked, created: undefined },
   });
   const state = reactive({
     phase: "idle" as GatePhase,
@@ -239,6 +247,7 @@ export function createPhoneGate() {
   function run() {
     if (state.phase !== "idle") return;
     context = getAudioContext();
+    results.latencyHint = { link, asked, created: latencyHintOf(context) };
     const unlocked = resumeAudioContext(context);
     state.phase = "loading";
     state.status = "Loading the piano into the worklet…";
@@ -636,6 +645,8 @@ export function createPhoneGate() {
     stopped = true;
     earAnswer?.(null); routeAnswer?.(null); resumeTap?.(); next();
     teardown();
+    // The lab's buffer is not the app's: a later context goes back to the default.
+    setLatencyHintOverride(undefined);
   }
 
   return { state, run, stop, dispose, next, answerEar, answerRoute, resumeByTap, dialLift, dialMute, dialSolo, padDown, padUp };

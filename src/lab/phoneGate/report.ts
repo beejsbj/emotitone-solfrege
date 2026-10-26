@@ -10,6 +10,7 @@
  * pacing and tap-to-sound have no number in the spec: they are recorded.
  */
 import type { RenderCostSummary } from "@/audio/live/renderCost";
+import type { LatencyHint } from "@/services/audioRuntime";
 import type { AttackLedgerResult, LightLedgerResult } from "./ledger";
 import {
   formatBytes, summarizeLatencies, type ClockSlip, type DeviceDescription, type FramePacing, type JsMemory,
@@ -63,6 +64,12 @@ export interface GateResults {
     deviceMemoryGb: number | null;
   };
   bpm: number;
+  /**
+   * The output buffer under test (BJS-590): the link's `?latencyHint=` text,
+   * what it was read as (null: absent or unreadable), and what the context was
+   * created with (null: the browser's default; undefined: not known).
+   */
+  latencyHint?: { link: string | null; asked: LatencyHint | null; created: LatencyHint | null | undefined };
   loadMs?: number;
   attacks?: AttackLedgerResult & { bars: number };
   live?: { pressed: number; sounded: number };
@@ -259,6 +266,22 @@ export function gateRows(results: GateResults): GateRow[] {
     : { ...row, verdict: "partial", value: `${row.value}; partial: stopped during the ${cut}` });
 }
 
+/** One latencyHint as the summary writes it. */
+export function formatLatencyHint(hint: LatencyHint | null | undefined): string {
+  if (hint === undefined) return "not recorded";
+  if (hint === null) return "browser default (interactive)";
+  return typeof hint === "number" ? `${hint} s` : hint;
+}
+
+/** The buffer the context was created with, and whether the link's ask was applied. */
+export function describeLatencyHint(hint: GateResults["latencyHint"]): string {
+  if (!hint) return "not recorded";
+  const created = formatLatencyHint(hint.created);
+  if (hint.link === null) return created;
+  if (hint.asked === null) return `${created}; ?latencyHint=${hint.link} not understood (interactive, balanced, playback or seconds)`;
+  return hint.created === hint.asked ? created : `${created}; asked for ${formatLatencyHint(hint.asked)}, not applied`;
+}
+
 const VERDICT_TEXT: Record<Verdict, string> = { pass: "PASS", fail: "FAIL", record: "RECORD", partial: "PARTIAL",
   "not-run": "NOT RUN" };
 
@@ -270,7 +293,7 @@ export function formatGateSummary(results: GateResults): string {
   const lines = [
     `EmotiTone phone gate (BJS-494), ${results.startedAt}`,
     `Device: ${env.device} · ${env.os} · ${env.browser}`,
-    `Audio: ${env.sampleRate ?? "n/a"} Hz · base latency ${ms(env.baseLatencyMs)} · output latency ${ms(env.outputLatencyMs)}`,
+    `Audio: ${env.sampleRate ?? "n/a"} Hz · latencyHint ${describeLatencyHint(results.latencyHint)} · base latency ${ms(env.baseLatencyMs)} · output latency ${ms(env.outputLatencyMs)}`,
     `Screen: DPR ${env.devicePixelRatio ?? "n/a"} · cores ${env.cores ?? "n/a"} · device memory ${env.deviceMemoryGb === null ? "not exposed" : `${env.deviceMemoryGb} GB`}`,
     `Loop: 4 piano members at ${results.bpm} BPM${results.loadMs === undefined ? "" : ` · piano loaded in ${(results.loadMs / 1000).toFixed(1)} s`}`,
     `Page: ${results.url}${results.build ? ` · build ${results.build}` : ""}`,

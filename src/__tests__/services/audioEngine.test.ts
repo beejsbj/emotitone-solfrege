@@ -282,6 +282,14 @@ describe("the app's audio engine", () => {
     expect(audio.getAudioStartupStage()).toBe("ready");
   });
 
+  it("starts when the default synth is refused for memory: the worklet runs, it is only full", async () => {
+    hoisted.liveFailure.mockImplementation(() => ({ kind: "unavailable",
+      reason: "Live renderer memory budget is occupied by held or pinned instruments", budget: true }));
+    const audio = await import("@/services/audioEngine");
+    await audio.initAudioEngine();
+    expect(audio.getAudioStartupStage()).toBe("ready");
+  });
+
   it("refuses a sound the worklet will not hold, with its reason: nothing else plays it", async () => {
     const audio = await import("@/services/audioEngine");
     await audio.initAudioEngine();

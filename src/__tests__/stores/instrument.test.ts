@@ -9,7 +9,10 @@ import capturedPayload from "../fixtures/persistence/instrument.v0.store-capture
 import headlessChromePayload from "../fixtures/persistence/instrument.v0.headless-chrome.json?raw";
 import { DEFAULT_INSTRUMENT } from "@/data/instruments";
 
-const liveMocks = vi.hoisted(() => ({ needsLivePlaybackPreparation: vi.fn(() => false) }));
+const liveMocks = vi.hoisted(() => ({
+  needsLivePlaybackPreparation: vi.fn((_name: string) => false),
+  getLivePlaybackFailure: vi.fn((_name: string): { kind: "load" | "unavailable"; reason: string; budget?: true } | undefined => undefined),
+}));
 vi.mock("@/services/livePlayback", () => liveMocks);
 
 const audioMocks = vi.hoisted(() => ({
@@ -39,6 +42,7 @@ describe("instrument store warmup", () => {
     setActivePinia(createPinia());
     vi.clearAllMocks();
     liveMocks.needsLivePlaybackPreparation.mockReturnValue(false);
+    liveMocks.getLivePlaybackFailure.mockReturnValue(undefined);
     audioMocks.initAudioEngine.mockResolvedValue(undefined);
     audioMocks.isPrewarmed.mockImplementation(
       (instrumentName: string) => instrumentName === "piano"
@@ -204,6 +208,65 @@ describe("instrument store warmup", () => {
     expect(store.isInstrumentReady("piano")).toBe(false);
     expect(store.isInstrumentReady("triangle")).toBe(true);
     consoleError.mockRestore();
+  });
+
+  describe("a selection the worklet refuses for memory at startup", () => {
+    const MEMORY_FULL = "Live renderer memory budget is occupied by held or pinned instruments";
+    beforeEach(() => {
+      // A synth the store counts as ready (it needs no download) but the worklet does not hold.
+      audioMocks.isPrewarmed.mockImplementation((name: string) => name === "piano" || name === "square");
+      audioMocks.getReadySounds.mockReturnValue(["piano", "square"]);
+      liveMocks.needsLivePlaybackPreparation.mockImplementation((name: string) => name === "square");
+    });
+
+    it("starts without asking again when the refusal is already known", async () => {
+      liveMocks.getLivePlaybackFailure.mockImplementation((name: string) =>
+        name === "square" ? { kind: "unavailable", reason: MEMORY_FULL, budget: true } : undefined);
+      const store = useInstrumentStore();
+      store.currentInstrument = "square";
+
+      await expect(store.initializeInstruments()).resolves.toBeUndefined();
+      expect(audioMocks.prewarmSoundSamples).not.toHaveBeenCalled();
+    });
+
+    it("starts on a loaded sound and says why when the refusal comes now", async () => {
+      let refused = false;
+      liveMocks.getLivePlaybackFailure.mockImplementation((name: string) =>
+        name === "square" && refused ? { kind: "unavailable", reason: MEMORY_FULL, budget: true } : undefined);
+      audioMocks.prewarmSoundSamples.mockImplementation(async () => { refused = true; throw new Error(MEMORY_FULL); });
+      const store = useInstrumentStore();
+      store.currentInstrument = "square";
+
+      await expect(store.initializeInstruments()).resolves.toBeUndefined();
+      expect(store.lastWarmupError).toBe(MEMORY_FULL);
+      expect(store.lastWarmupErrorInstrument).toBe("square");
+      expect(store.currentInstrument).toBe("piano");
+    });
+
+    it("still fails startup on any other preparation failure", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      const error = new Error("Worklet module failed to load");
+      audioMocks.prewarmSoundSamples.mockRejectedValue(error);
+      const store = useInstrumentStore();
+      store.currentInstrument = "square";
+
+      await expect(store.initializeInstruments()).rejects.toBe(error);
+    });
+  });
+
+  it("refuses a sound known not to play at once, without showing it preparing", async () => {
+    liveMocks.getLivePlaybackFailure.mockImplementation((name: string) =>
+      name === "kalimba" ? { kind: "unavailable", reason: "Sample bank exceeds the 192 MiB live renderer budget" } : undefined);
+    const store = useInstrumentStore();
+    store.markEngineBooted();
+    await store.setInstrument("piano");
+
+    const selection = store.setInstrument("kalimba");
+    expect(store.warmingInstrument).toBeNull();
+    await expect(selection).resolves.toEqual({ status: "failed", instrument: "kalimba", fallback: "piano" });
+    expect(audioMocks.prewarmSoundSamples).not.toHaveBeenCalled();
+    expect(store.lastWarmupError).toBe("Sample bank exceeds the 192 MiB live renderer budget");
+    expect(store.currentInstrument).toBe("piano");
   });
 
   it("manages synth controls and forwards them to audio runtime", () => {

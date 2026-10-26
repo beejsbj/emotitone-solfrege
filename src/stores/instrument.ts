@@ -10,7 +10,7 @@ import {
   setLiveSynthControls,
 } from "@/services/audioEngine";
 
-import { needsLivePlaybackPreparation } from "@/services/livePlayback";
+import { getLivePlaybackFailure, needsLivePlaybackPreparation } from "@/services/livePlayback";
 import { getLiveArticulation } from "@/services/liveArticulation";
 import { canonicalShape, isSameShape, NEUTRAL_SHAPE } from "@/services/shape";
 import { instrumentPersistence } from "@/services/instrumentPersistence";
@@ -193,7 +193,8 @@ export const useInstrumentStore = defineStore("instrument", () => {
   const isInstrumentReady = (instrumentName: string) =>
     readyInstruments.value.has(instrumentName) || isPrewarmed(instrumentName);
 
-  const findReadyFallback = (preferred: Array<string | null> = []) => {
+  /** The first ready sound among `preferred` and the usual fallbacks, never `except`. */
+  const findReadyFallback = (preferred: Array<string | null> = [], except?: string) => {
     const candidates = [
       ...preferred,
       lastReadyInstrument.value,
@@ -206,6 +207,7 @@ export const useInstrumentStore = defineStore("instrument", () => {
       candidates.find(
         (candidate, index) =>
           candidate !== null &&
+          candidate !== except &&
           candidates.indexOf(candidate) === index &&
           isInstrumentReady(candidate)
       ) ?? null
@@ -270,8 +272,30 @@ export const useInstrumentStore = defineStore("instrument", () => {
       }
       syncReadyInstrumentsFromAudio(warmed, !prepareSelected);
       // Prewarming above already prepared the live renderer for that sound.
-      if (prepareSelected && !warmed.includes(currentInstrument.value) && needsLivePlaybackPreparation(currentInstrument.value)) {
-        await abortable(prewarmSoundSamples(currentInstrument.value), signal);
+      // A sound refused for memory stays refused until something is released:
+      // asking again cannot help, so that refusal is never retried here.
+      const selected = currentInstrument.value;
+      if (
+        prepareSelected
+        && !warmed.includes(selected)
+        && needsLivePlaybackPreparation(selected)
+        && !getLivePlaybackFailure(selected)?.budget
+      ) {
+        try {
+          await abortable(prewarmSoundSamples(selected), signal);
+        } catch (error) {
+          if (!isCurrent()) return;
+          // Memory full is the selection's problem, not the engine's: say so
+          // and play on something that is loaded instead of failing startup.
+          if (!getLivePlaybackFailure(selected)?.budget) throw error;
+          lastWarmupError.value = error instanceof Error && error.message ? error.message : "Not enough memory for this instrument.";
+          lastWarmupErrorInstrument.value = selected;
+          const fallback = findReadyFallback([], selected);
+          if (fallback) {
+            currentInstrument.value = fallback;
+            lastReadyInstrument.value = fallback;
+          }
+        }
         if (!isCurrent()) return;
       }
       // Guarantee a 100% call even when already initialized (early return path)
@@ -331,6 +355,19 @@ export const useInstrumentStore = defineStore("instrument", () => {
       lastReadyInstrument.value = instrumentName;
       clearWarmupState();
       return { status: "ready", instrument: instrumentName };
+    }
+
+    // Known not to play here (no AudioWorklet, or a sound the worklet cannot
+    // hold): say so at once rather than show "Preparing" and ask again.
+    const known = needsLivePlaybackPreparation(instrumentName) ? undefined : getLivePlaybackFailure(instrumentName);
+    if (known?.kind === "unavailable" && engineBooted.value) {
+      const fallback = findReadyFallback([previousReadyInstrument], instrumentName);
+      currentInstrument.value = fallback ?? instrumentName;
+      if (fallback) lastReadyInstrument.value = fallback;
+      lastWarmupError.value = known.reason;
+      lastWarmupErrorInstrument.value = instrumentName;
+      clearWarmupState();
+      return { status: "failed", instrument: instrumentName, fallback };
     }
 
     warmingInstrument.value = instrumentName;

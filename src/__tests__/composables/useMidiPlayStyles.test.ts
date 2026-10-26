@@ -15,6 +15,7 @@ import { useMusicStore } from "@/stores/music";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { getAudioContext } from "@/services/audioRuntime";
+import { SCHEDULED_LIVE_MIDI_EVENT } from "@/services/livePerformance";
 
 /** The worklet starts a styled pulse at the press's own frame (no grid while nothing loops). */
 const onset = (offset = 0) => offset;
@@ -79,6 +80,49 @@ function notesWithTimestamps() {
 
 function notes() {
   return notesWithTimestamps().map(([status, pitch]) => [status, pitch]);
+}
+
+/**
+ * What a synth plays from every packet sent, none withdrawn: packets in
+ * deadline order (ties in send order), and per instant only the change a
+ * listener hears (an on and off at the same instant is no note).
+ */
+function played() {
+  const sounding = new Set<number>();
+  const heard: number[][] = [];
+  const packets = [...midiMessages]
+    .map((packet) => ({ ...packet, at: packet.timestamp ?? packet.sentAt }))
+    .sort((left, right) => left.at - right.at || left.index - right.index);
+  for (let index = 0; index < packets.length;) {
+    const at = packets[index].at;
+    const before = new Set(sounding);
+    for (; index < packets.length && packets[index].at === at; index += 1) {
+      const [status, pitch] = packets[index].message;
+      if ((status & 0xf0) === 0x90) sounding.add(pitch);
+      else if ((status & 0xf0) === 0x80) sounding.delete(pitch);
+      // All Notes Off (controller 123) on the notes' own channel 1; the ROLI
+      // palette and sync use other controllers on channel 16.
+      else if (status === 0xb0 && pitch === 123) sounding.clear();
+    }
+    for (const pitch of new Set([...before, ...sounding])) {
+      if (before.has(pitch) !== sounding.has(pitch)) heard.push([sounding.has(pitch) ? 0x90 : 0x80, pitch, at]);
+    }
+  }
+  return { heard, sounding: [...sounding] };
+}
+
+/** Chrome's MIDIOutput has no clear() (crbug.com/40411677): queued packets stay queued. */
+async function withoutClear() {
+  const access = await navigator.requestMIDIAccess();
+  Reflect.deleteProperty(access.outputs.get("roli-output")!, "clear");
+}
+
+/** A live voice planned for the output `afterMs` from now, as the music store sends it. */
+function planned(noteId: string, phase: "attack" | "release" | "cancel", afterMs?: number) {
+  window.dispatchEvent(new CustomEvent(SCHEDULED_LIVE_MIDI_EVENT, { detail: {
+    noteId, phase, noteName: "C4", keyboardOctave: 4, timestamp: Date.now(),
+    ...(afterMs === undefined ? {} : { midiTimestamp: performance.now() + afterMs }),
+  } }));
 }
 
 function scheduledNotes() {
@@ -353,6 +397,57 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     ]);
     expect(music.activeNotes.size).toBe(0);
     expect(useKeyboardDrawerStore().touch.activeTouches.size).toBe(0);
+  });
+
+  describe("on an output that cannot clear its queue", () => {
+    beforeEach(withoutClear);
+
+    it.each([
+      ["replaces a released pitch", [[60, 64, 67], [64], [60, 67]]],
+      ["restores a twice-revised slot", [[60, 67], [64], [64], [60, 67]]],
+    ] as const)("revises a queued arpeggio (%s) with the same audible notes and nothing left sounding", async (_, steps) => {
+      useMusicStore().setPlayMode("arp-up:16");
+      await connect();
+      const [first, ...rest] = steps;
+      first.forEach((pitch) => packet(0x90, pitch));
+      await vi.advanceTimersByTimeAsync(60);
+      if (rest.length === 3) {
+        packet(0x90, 64);
+        await vi.advanceTimersByTimeAsync(10);
+        packet(0x80, 64);
+        await vi.advanceTimersByTimeAsync(170);
+      } else {
+        packet(0x80, 64);
+        await vi.advanceTimersByTimeAsync(180);
+      }
+      [60, 67].forEach((pitch) => packet(0x80, pitch));
+      await vi.advanceTimersByTimeAsync(1000);
+
+      expect(played()).toEqual({ heard: [
+        [0x90, 60, onset()], [0x80, 60, onset(100)],
+        [0x90, 67, onset(125)], [0x80, 67, onset(225)],
+      ], sounding: [] });
+    });
+
+    it("answers a withdrawn note-on with a note-off at its deadline", async () => {
+      await connect();
+      // A press waiting for the loop's next beat, then let go before it.
+      planned("held", "attack", 200);
+      await vi.advanceTimersByTimeAsync(50);
+      planned("held", "cancel");
+      await vi.advanceTimersByTimeAsync(500);
+      expect(played().sounding).toEqual([]);
+    });
+
+    it("leaves nothing sounding when the mirror stops with a note-on still queued", async () => {
+      await connect();
+      planned("held", "attack", 200);
+      await vi.advanceTimersByTimeAsync(50);
+      wrapper!.unmount();
+      wrapper = undefined;
+      await vi.advanceTimersByTimeAsync(500);
+      expect(played().sounding).toEqual([]);
+    });
   });
 
   it("starts mirroring when a held ordinary ROLI note changes to Repeat", async () => {

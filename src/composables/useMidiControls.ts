@@ -706,7 +706,15 @@ export function useMidiControls() {
     sendToRoliOutput(message, timestamp);
     pendingRoliConfiguration.push({ message, timestamp });
   };
+  /**
+   * Whether the output can withdraw queued packets. Chrome has no
+   * MIDIOutput.clear (crbug.com/40411677): there a queued note-on cannot be
+   * taken back, only answered with a note-off.
+   */
+  const canClearRoliQueue = () =>
+    typeof (selectedRoliOutput.value as Partial<ClearableMidiOutput> | null)?.clear === "function";
   const clearRoliQueue = (preserveConfiguration = true) => {
+    if (!canClearRoliQueue()) return;
     const now = performance.now();
     // MIDIOutput.clear also discards future palette packets. Repair only
     // those packets, retaining their deadlines; delivered device settings
@@ -756,6 +764,9 @@ export function useMidiControls() {
   let pendingImmediateMidiTransitions: Array<Omit<MidiOwnerTransition, "timestamp">> = [];
   let pendingScheduledMidiTransitions: MidiOwnerTransition[] = [];
   let hasPendingScheduledReplacement = false;
+  // The timed note packets last handed to the output, still in its queue
+  // until their deadlines pass.
+  let queuedScheduledMidiTransitions: MidiOwnerTransition[] = [];
   let midiOutputFlushQueued = false;
   let midiOutputFlushGeneration = 0;
   let pendingMidiOwnerUpdates: PendingMidiOwnerUpdate[] = [];
@@ -788,16 +799,55 @@ export function useMidiControls() {
         );
       });
       if (replaceScheduled) {
-        scheduled.forEach(({ midiNote, phase, timestamp, velocity }) => {
-          sendToRoliOutput(
-            phase === "attack"
-              ? buildRoliNoteOnMessage(midiNote, velocityToMidi(velocity))
-              : buildRoliNoteOffMessage(midiNote),
-            timestamp,
-          );
-        });
+        const send = ({ midiNote, phase, timestamp, velocity }: MidiOwnerTransition) => sendToRoliOutput(
+          phase === "attack"
+            ? buildRoliNoteOnMessage(midiNote, velocityToMidi(velocity))
+            : buildRoliNoteOffMessage(midiNote),
+          timestamp,
+        );
+        if (canClearRoliQueue()) scheduled.forEach(send);
+        else replaceWithoutClear(scheduled, send);
+        queuedScheduledMidiTransitions = scheduled;
       }
     });
+  };
+
+  const transitionKey = ({ midiNote, phase, timestamp, velocity }: MidiOwnerTransition) =>
+    `${midiNote}:${phase}:${timestamp}:${velocity ?? ""}`;
+
+  /**
+   * Replace the queued plan on an output that cannot clear: packets still
+   * queued stay, so send only what is new, and answer each withdrawn note-on
+   * with a note-off at its own deadline. A withdrawn note-off can only end its
+   * note early; nothing is left sounding.
+   */
+  const replaceWithoutClear = (
+    scheduled: MidiOwnerTransition[],
+    send: (transition: MidiOwnerTransition) => void,
+  ) => {
+    const now = performance.now();
+    const queued = new Map<string, number>();
+    for (const transition of queuedScheduledMidiTransitions) {
+      if (transition.timestamp <= now) continue;
+      const key = transitionKey(transition);
+      queued.set(key, (queued.get(key) ?? 0) + 1);
+    }
+    const added: MidiOwnerTransition[] = [];
+    for (const transition of scheduled) {
+      const key = transitionKey(transition);
+      const count = queued.get(key) ?? 0;
+      if (count > 0) queued.set(key, count - 1);
+      else added.push(transition);
+    }
+    for (const transition of queuedScheduledMidiTransitions) {
+      if (transition.timestamp <= now || transition.phase !== "attack") continue;
+      const key = transitionKey(transition);
+      const count = queued.get(key) ?? 0;
+      if (count <= 0) continue;
+      queued.set(key, count - 1);
+      send({ midiNote: transition.midiNote, phase: "release", timestamp: transition.timestamp });
+    }
+    added.forEach(send);
   };
 
   const resetPendingMidiOutputFlush = () => {
@@ -870,6 +920,7 @@ export function useMidiControls() {
     resetPendingMidiOwnerUpdates();
     resetPendingMidiOutputFlush();
     if (!selectedRoliOutput.value) {
+      queuedScheduledMidiTransitions = [];
       clearMirroredTimeouts();
       clearMirroredEventNotes();
       midiOwnerScheduler.clear();
@@ -880,6 +931,14 @@ export function useMidiControls() {
     buildRoliAllNotesOffMessages(ROLI_SYNC_CONTROL_CHANNEL).forEach((message) => {
       sendToRoliOutput(message);
     });
+    if (!canClearRoliQueue()) {
+      // Queued note-ons still arrive after the all-notes-off: end each one.
+      const now = performance.now();
+      for (const { midiNote, phase, timestamp } of queuedScheduledMidiTransitions) {
+        if (phase === "attack" && timestamp > now) sendToRoliOutput(buildRoliNoteOffMessage(midiNote), timestamp);
+      }
+    }
+    queuedScheduledMidiTransitions = [];
 
     clearMirroredTimeouts();
     clearMirroredEventNotes();

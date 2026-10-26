@@ -891,6 +891,8 @@ describe("a saved Loop is its own reel (BJS-572)", () => {
       phrases.undoLastNote();
       await flush();
       expect(phrases.findPhrase(first)!.notes).toEqual(original);
+      // Refused, and the notice says why, in the delete key's words.
+      expect(deck.get("[data-testid=looper-error]").text()).toContain("In a saved Loop. Play over it.");
     } finally {
       deck.unmount();
     }
@@ -983,6 +985,56 @@ describe("a saved Loop is its own reel (BJS-572)", () => {
       await flush();
       expect(looper.members.map((member) => member.phraseId)).toEqual([second, third]);
       expect(transportIds()).toEqual([second, third]);
+    } finally {
+      deck.unmount();
+    }
+  });
+
+  it("stopping a Loop stops all of it when a Loop inside it plays only because it does", async () => {
+    const { phrases, looper } = setup();
+    const deck = mountDeck();
+    try {
+      const { first, second } = await twoLooping(deck);
+      const one = await saveFromDeck(deck);
+      playTake(rig.frame / RATE + .4, ["E4", "G4", "C5"]);
+      const third = phrases.take.id;
+      await press(play(deck).element, 40);
+      await looper.settled();
+      await flush();
+      const two = await saveFromDeck(deck);
+      expect(two.members.map((member) => member.phraseId)).toEqual([first, second, third]);
+      // Loop 1 lies inside Loop 2: stopping Loop 2 stops every pattern of it.
+      expect(looper.toggleLoop(two.id)).toBe(true);
+      await flush();
+      expect(looper.members).toEqual([]);
+      expect(player.getLooper().running).toBe(false);
+      // And Loop 2 inside nothing else: Loop 1 alone stops the same way.
+      expect(looper.toggleLoop(one.id)).toBe(true);
+      await looper.settled();
+      await flush();
+      expect(looper.toggleLoop(one.id)).toBe(true);
+      await flush();
+      expect(looper.members).toEqual([]);
+    } finally {
+      deck.unmount();
+    }
+  });
+
+  it("two Loops holding the same patterns each stop with their own Play", async () => {
+    const { phrases, looper } = setup();
+    const deck = mountDeck();
+    try {
+      await twoLooping(deck);
+      const one = await saveFromDeck(deck);
+      // Another tab saved the same set as a Loop of its own.
+      phrases.book.loops.push({ ...structuredClone(toRaw(one)), id: "loop-twin", name: "Loop 2" });
+      await flush();
+      await drag(deck, 320, 40);
+      expect(looper.reelLoopId).toBe(one.id);
+      expect(play(deck).attributes("aria-label")).toBe("Stop");
+      await press(play(deck).element, 40);
+      expect(looper.members).toEqual([]);
+      expect(play(deck).attributes("aria-label")).toBe("Play");
     } finally {
       deck.unmount();
     }

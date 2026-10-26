@@ -120,6 +120,8 @@ export const usePhrasesStore = defineStore(
       { get: () => protectedIdsProvider.value(), enumerable: true },
     );
     const livePressGuard = shallowRef<LivePressGuard | null>(null);
+    /** Edits refused because a saved Loop owns the phrase (Backspace); the notice reads it. */
+    const refusedLoopEdits = ref(0);
 
     const liveContext = computed<PhraseContext>(() => ({
       key: musicStore.currentKey as ChromaticNote,
@@ -311,6 +313,7 @@ export const usePhrasesStore = defineStore(
             && result.fallback
             && book.value.takeId === phrase.id
             && take.value.context.instrument === result.instrument
+            && !isLoopOwned(phrase.id)
           ) {
             followControls(book.value, held, liveContext.value);
           }
@@ -399,9 +402,16 @@ export const usePhrasesStore = defineStore(
       return renameBookPhrase(book.value, target, name, libraryPhrases);
     }
 
-    /** Backspace. Refused on a Loop's pattern (rule 3): there is no note of this take's own to take back. */
+    /**
+     * Backspace. Refused on a Loop's pattern (rule 3): there is no note of
+     * this take's own to take back. Each refusal counts, so the Looper's
+     * notice can say why.
+     */
     function undoLastNote(): void {
-      if (isLoopOwned(book.value.takeId)) return;
+      if (isLoopOwned(book.value.takeId)) {
+        refusedLoopEdits.value += 1;
+        return;
+      }
       undoBookNote(book.value);
     }
 
@@ -563,6 +573,7 @@ export const usePhrasesStore = defineStore(
       isTakeSounding,
       findPhrase,
       isLoopOwned,
+      refusedLoopEdits,
 
       // Actions
       keepTake,

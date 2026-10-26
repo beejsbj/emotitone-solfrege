@@ -804,6 +804,9 @@ export const useLooperStore = defineStore("looper", () => {
     phrases.startBlankTake();
   }
 
+  // An edit the phrases store refused on a Loop's pattern (Backspace) says why.
+  watch(() => phrases.refusedLoopEdits, () => reportKind("loop-owned"));
+
   watch(() => phrases.lastLiveNoteId, (id) => {
     if (id && looper.value.latched) growOpenTake();
   });
@@ -995,13 +998,22 @@ export const useLooperStore = defineStore("looper", () => {
     if (!loop) return;
     const joining = loop.members.filter((member) => into.includes(member.phraseId) && isPresent(member.phraseId));
     if (joining.length) joinSaved(loop, joining);
-    for (const phraseId of out) if (!heldByOtherPlayingLoop(loopId, phraseId)) leaveMember(phraseId);
+    for (const phraseId of out) if (!heldByOtherPlayingLoop(loopId, was, phraseId)) leaveMember(phraseId);
   }
 
-  /** Another saved Loop, playing in full here, still holds the pattern: it plays on for that Loop. */
-  function heldByOtherPlayingLoop(loopId: string, phraseId: string): boolean {
-    return phrases.book.loops.some((other) => other.id !== loopId
-      && other.members.some((member) => member.phraseId === phraseId) && isPresentLoopPlaying(other));
+  /**
+   * Another saved Loop, playing in full here, still holds the pattern, so it
+   * plays on for that Loop. Only a Loop with a pattern of its own outside
+   * Loop `loopId` (whose patterns were `own`) counts: one whose patterns all
+   * lie within it (the same set, or a part of it) plays only because Loop
+   * `loopId` does, and goes with it.
+   */
+  function heldByOtherPlayingLoop(loopId: string, own: readonly string[], phraseId: string): boolean {
+    return phrases.book.loops.some((other) => {
+      if (other.id === loopId || !other.members.some((member) => member.phraseId === phraseId)) return false;
+      const present = presentMembers(other);
+      return present.some((member) => !own.includes(member.phraseId)) && isPresentLoopPlaying(other);
+    });
   }
 
   /** Bring saved members into the running session in their saved places (rule 2). */
@@ -1029,7 +1041,8 @@ export const useLooperStore = defineStore("looper", () => {
     // Judged by the patterns that are there: a missing one cannot hold the Loop on.
     if (isPresentLoopPlaying(loop)) {
       // A pattern another Loop playing in full still holds plays on for that Loop.
-      for (const member of members) if (!heldByOtherPlayingLoop(id, member.phraseId)) leaveMember(member.phraseId);
+      const own = loop.members.map((member) => member.phraseId);
+      for (const member of members) if (!heldByOtherPlayingLoop(id, own, member.phraseId)) leaveMember(member.phraseId);
       return true;
     }
     if (!members.length) {
@@ -1062,7 +1075,7 @@ export const useLooperStore = defineStore("looper", () => {
     if (!loop || !phrase) return false;
     const sounding = Boolean(memberFor(targetId));
     // Read before the swap: a playing Loop that shares the replaced pattern keeps it sounding.
-    const keepTarget = sounding && heldByOtherPlayingLoop(loopId, targetId);
+    const keepTarget = sounding && heldByOtherPlayingLoop(loopId, loop.members.map((member) => member.phraseId), targetId);
     // Heard in the loop's own frame only when the replaced pattern sounds with it.
     const live = sounding ? memberFor(phraseId) : undefined;
     const placement = live

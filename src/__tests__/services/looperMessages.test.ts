@@ -12,7 +12,7 @@ import {
  * Every Looper message is plain and short, fits one line of the deck's notice
  * strip at 390 px, and names an instrument as the player knows it, never by id.
  */
-const KINDS: LooperFailureKind[] = ["bank-cap", "load", "unsupported", "interrupted", "restarting", "not-ready", "loop-missing", "unknown"];
+const KINDS: LooperFailureKind[] = ["bank-cap", "load", "unsupported", "interrupted", "restarting", "not-ready", "loop-missing", "loop-owned", "unknown"];
 const INSTRUMENTS = [
   undefined,
   "gm_piano",

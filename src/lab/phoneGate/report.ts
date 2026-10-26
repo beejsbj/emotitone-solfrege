@@ -19,6 +19,8 @@ import {
 export const MUTE_MARK_MS = 150;
 /** Dial taps the mute step asks for; each mutes or unmutes, and each must be measured. */
 export const MUTE_TAPS = 8;
+/** Solo holds the dial step asks for; each must be measured. */
+export const SOLO_HOLDS = 3;
 
 export type Verdict = "pass" | "fail" | "record" | "not-run";
 
@@ -67,6 +69,8 @@ export interface GateResults {
   muteRefused?: number;
   solo?: number[];
   soloRelease?: number[];
+  /** Solo holds or releases whose change was refused or cancelled: nothing measured. */
+  soloRefused?: number;
   memory?: {
     idle: JsMemory;
     loaded: JsMemory;
@@ -117,12 +121,22 @@ function latencyRow(id: string, label: string, samples: number[] | undefined, gr
 function muteRow(results: GateResults): GateRow {
   const row = latencyRow("mute", "Mute (tap to silent)", results.mute, true, "tap to silent");
   const measured = (results.mute?.length ?? 0) + (results.unmute?.length ?? 0);
-  const refused = results.muteRefused ?? 0;
+  return completeStep(row, measured, MUTE_TAPS, results.muteRefused ?? 0, "taps");
+}
+
+/** Solo likewise: PASS only once all SOLO_HOLDS holds were measured. */
+function soloRow(results: GateResults): GateRow {
+  const row = latencyRow("solo", "Solo (hold to others silent)", results.solo, true, "hold threshold to silent");
+  return completeStep(row, results.solo?.length ?? 0, SOLO_HOLDS, results.soloRefused ?? 0, "holds");
+}
+
+/** A graded dial step fails when fewer than its requested touches were measured. */
+function completeStep(row: GateRow, measured: number, requested: number, refused: number, unit: string): GateRow {
   if (!measured && !refused) return row;
-  const taps = `${measured} of ${MUTE_TAPS} taps measured${refused ? `, ${refused} refused or cancelled` : ""}`;
-  return { ...row, verdict: measured < MUTE_TAPS ? "fail" : row.verdict,
-    value: row.verdict === "not-run" ? `no mute measured; ${taps}` : `${row.value}; ${taps}`,
-    mark: `${row.mark}, all ${MUTE_TAPS} taps measured` };
+  const count = `${measured} of ${requested} ${unit} measured${refused ? `, ${refused} refused or cancelled` : ""}`;
+  return { ...row, verdict: measured < requested ? "fail" : row.verdict,
+    value: row.verdict === "not-run" ? `none measured; ${count}` : `${row.value}; ${count}`,
+    mark: `${row.mark}, all ${requested} ${unit} measured` };
 }
 
 export function gateRows(results: GateResults): GateRow[] {
@@ -176,7 +190,7 @@ export function gateRows(results: GateResults): GateRow[] {
   value: results.heardDropouts === undefined || results.heardDropouts === null ? "not answered"
     : results.heardDropouts ? "clicks or gaps heard" : "none heard", mark: "none heard" });
   rows.push(muteRow(results));
-  rows.push(latencyRow("solo", "Solo (hold to others silent)", results.solo, true, "hold threshold to silent"));
+  rows.push(soloRow(results));
   rows.push(latencyRow("unmute", "Unmute (tap to applied)", results.unmute, false, "tap to change at the speaker"));
   rows.push(latencyRow("solo-release", "Solo release (lift to applied)", results.soloRelease, false, "lift to change at the speaker"));
   const memory = results.memory;

@@ -16,7 +16,7 @@ import { summarizeRenderCost } from "@/audio/live/renderCost";
 import { readTransportEvents, TransportEventKind, type DecodedTransportEvent } from "@/audio/live/transportEvents";
 import { VOICE_RETIRE_SECONDS } from "@/audio/voicePolicy";
 import type { LiveVoiceEvent } from "@/audio/liveRenderer";
-import { resumeAudioContext } from "@/services/audioLifecycle";
+import { holdAudioActivity, resumeAudioContext } from "@/services/audioLifecycle";
 import { audioTimeToOutputTime } from "@/services/liveAudioTiming";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import {
@@ -31,19 +31,19 @@ import { GATE_BEAT_MS, GATE_BPM, GATE_INSTRUMENT, GATE_MEMBER_LABELS, gateMember
 import { createAttackLedger, createLightLedger } from "./ledger";
 import {
   createClockSlipMeter, describeUserAgent, playbackStatsDelta, readJsMemory, readPlaybackStats, summarizeFrames,
-  tallyMuteTap,
+  tallyMuteTap, tallySoloHold,
 } from "./metrics";
 import { expectedOnsets } from "./oracle";
-import { formatGateSummary, MUTE_TAPS, type GateResults } from "./report";
+import { formatGateSummary, MUTE_TAPS, SOLO_HOLDS, type GateResults } from "./report";
 import { measureResume } from "./resume";
+import { createRouteLog } from "./route";
 
 export type GatePhase = "idle" | "loading" | "soak" | "ear" | "dials" | "tap" | "resume" | "route" | "done";
 
 /** The soak window: bars [1, 13), after a bar to settle. */
 export const SOAK_FROM_BAR = 1;
 export const SOAK_BARS = 12;
-export { MUTE_TAPS };
-export const SOLO_HOLDS = 3;
+export { MUTE_TAPS, SOLO_HOLDS };
 export const PAD_TAPS = 10;
 const PAUSE_MS = 5000;
 const FADE_MS = VOICE_RETIRE_SECONDS * 1000;
@@ -243,6 +243,11 @@ export function createPhoneGate() {
 
   async function automatic(unlocked: Promise<void> | undefined) {
     const audio = context!;
+    // The idle manager suspends a context silent for 30 s; a slow piano download
+    // must not, or the loop could not start without another gesture. The
+    // player holds its own lease once it starts.
+    const releaseLoad = holdAudioActivity();
+    cleanups.push(releaseLoad);
     const idle = readJsMemory();
     await unlocked;
     check();
@@ -290,6 +295,7 @@ export function createPhoneGate() {
     const soakLights = watchLights(audio);
     state.status = "Starting the loop…";
     await player.start({ bpm: GATE_BPM, target: { key: "C", mode: "major" }, members });
+    releaseLoad();
     check();
     state.dials = members.map(member => ({ id: member.id, label: GATE_MEMBER_LABELS[member.id], muted: false, soloed: false }));
     results.environment = environment(audio);
@@ -395,13 +401,18 @@ export function createPhoneGate() {
     if (!player || !context) return;
     const at = performance.now();
     for (const dial of state.dials) dial.soloed = held && dial.id === id;
-    const receipt = await player.solo(held ? id : null);
-    if (receipt.cancelled || receipt.refused || !context) return;
-    const atSpeaker = audioTimeToOutputTime(context, receipt.appliedFrame / context.sampleRate);
-    if (held) {
-      results.solo = [...(results.solo ?? []), atSpeaker + FADE_MS - at];
-      if (state.phase === "dials") state.soloHolds++;
-    } else results.soloRelease = [...(results.soloRelease ?? []), atSpeaker - at];
+    const receipt = await player.solo(held ? id : null).catch(() => undefined);
+    const audio = context;
+    const tally = tallySoloHold(
+      { solo: results.solo ?? [], release: results.soloRelease ?? [], refused: results.soloRefused ?? 0 },
+      { held, atMs: at }, receipt,
+      { sampleRate: audio?.sampleRate ?? 0, fadeMs: FADE_MS,
+        outputTimeMs: audioTime => audio ? audioTimeToOutputTime(audio, audioTime) : Number.NaN });
+    results.solo = tally.solo;
+    results.soloRelease = tally.release;
+    results.soloRefused = tally.refused;
+    // A refused hold still counts as one of the step's holds: it measured nothing.
+    if (held && state.phase === "dials") state.soloHolds++;
   }
 
   async function restoreDials() {
@@ -488,9 +499,11 @@ export function createPhoneGate() {
   // ─── A route change (guided) ────────────────────────────────────────────────
 
   async function routeCheck(audio: AudioContext) {
-    const started = performance.now();
+    // Written into the results as seen: a Stop during this step keeps them.
+    const log = createRouteLog(results);
     const note = (line: string) => {
-      state.routeObservations.push(`${((performance.now() - started) / 1000).toFixed(1)} s ${line}`);
+      log.note(line);
+      state.routeObservations = [...log.observations];
     };
     let rate = audio.sampleRate;
     let base = audio.baseLatency;
@@ -526,7 +539,7 @@ export function createPhoneGate() {
     cleanups.push(stop);
     const works = await new Promise<boolean | null>(resolve => { routeAnswer = resolve; });
     stop();
-    results.route = { works, observations: [...state.routeObservations] };
+    log.answer(works);
   }
 
   // ─── Answers, and the end ──────────────────────────────────────────────────

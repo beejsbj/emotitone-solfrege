@@ -184,14 +184,44 @@ export interface DialReceipt {
  * taps alone.
  */
 export function tallyMuteTap(tally: MuteTally, tap: { muted: boolean; tapAtMs: number },
-  receipt: DialReceipt | undefined,
-  speaker: { sampleRate: number; fadeMs: number; outputTimeMs(audioTime: number): number }): MuteTally {
+  receipt: DialReceipt | undefined, speaker: DialSpeaker): MuteTally {
+  const latency = dialChangeLatency(tap.tapAtMs, receipt, speaker, tap.muted);
+  if (latency === null) return { ...tally, refused: tally.refused + 1 };
+  return tap.muted ? { ...tally, mute: [...tally.mute, latency] } : { ...tally, unmute: [...tally.unmute, latency] };
+}
+
+export interface SoloTally {
+  /** Hold threshold to the other members silent at the speaker, ms. */
+  solo: number[];
+  /** Lift to the others back at the speaker, ms. */
+  release: number[];
+  /** Holds or lifts whose change was refused, cancelled or never answered. */
+  refused: number;
+}
+
+/** One solo hold (or its release), added to the tally; refused changes are counted, as for mute. */
+export function tallySoloHold(tally: SoloTally, hold: { held: boolean; atMs: number },
+  receipt: DialReceipt | undefined, speaker: DialSpeaker): SoloTally {
+  const latency = dialChangeLatency(hold.atMs, receipt, speaker, hold.held);
+  if (latency === null) return { ...tally, refused: tally.refused + 1 };
+  return hold.held ? { ...tally, solo: [...tally.solo, latency] } : { ...tally, release: [...tally.release, latency] };
+}
+
+export interface DialSpeaker {
+  sampleRate: number;
+  /** The fade a silencing change takes once applied, ms. */
+  fadeMs: number;
+  /** An audio time (s) on the output clock (performance ms). */
+  outputTimeMs(audioTime: number): number;
+}
+
+/** From the touch to the change at the speaker (plus the fade when it silences); null when nothing applied. */
+function dialChangeLatency(atMs: number, receipt: DialReceipt | undefined, speaker: DialSpeaker, silences: boolean):
+  number | null {
   const atSpeaker = receipt && !receipt.cancelled && !receipt.refused && speaker.sampleRate > 0
     ? speaker.outputTimeMs(receipt.appliedFrame / speaker.sampleRate) : Number.NaN;
-  if (!Number.isFinite(atSpeaker) || !Number.isFinite(tap.tapAtMs)) return { ...tally, refused: tally.refused + 1 };
-  return tap.muted
-    ? { ...tally, mute: [...tally.mute, atSpeaker + speaker.fadeMs - tap.tapAtMs] }
-    : { ...tally, unmute: [...tally.unmute, atSpeaker - tap.tapAtMs] };
+  if (!Number.isFinite(atSpeaker) || !Number.isFinite(atMs)) return null;
+  return atSpeaker + (silences ? speaker.fadeMs : 0) - atMs;
 }
 
 export interface PlaybackStats {

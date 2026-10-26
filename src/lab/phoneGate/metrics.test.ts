@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   createClockSlipMeter, describeUserAgent, formatBytes, percentile, playbackStatsDelta, readJsMemory, readPlaybackStats,
-  summarizeFrames, summarizeLatencies, tallyMuteTap, type MuteTally,
+  summarizeFrames, summarizeLatencies, tallyMuteTap, tallySoloHold, type MuteTally, type SoloTally,
 } from "./metrics";
-import { gateRows, MUTE_TAPS, type GateResults } from "./report";
+import { formatGateSummary, gateRows, MUTE_TAPS, SOLO_HOLDS, type GateResults } from "./report";
+import { createRouteLog } from "./route";
 
 const steady = (count: number, interval: number, start = 1000) => Array.from({ length: count }, (_, index) => start + index * interval);
 
@@ -166,6 +167,61 @@ describe("phone gate mute taps", () => {
     const full = tallyMuteTap(tally, { muted: false, tapAtMs: 20_970 }, applied(20), speaker);
     expect(row({ mute: full.mute, unmute: full.unmute, muteRefused: full.refused }).verdict).toBe("pass");
     expect(row({ mute: [70, 80, 90] }).verdict).toBe("fail");
+  });
+});
+
+describe("phone gate solo holds", () => {
+  const speaker = { sampleRate: 48000, fadeMs: 30, outputTimeMs: (audioTime: number) => 1000 + audioTime * 1000 + 12 };
+  const empty: SoloTally = { solo: [], release: [], refused: 0 };
+  const applied = (seconds: number) => ({ appliedFrame: seconds * 48000 });
+  const row = (tally: SoloTally) => gateRows({ ...gateResults(), solo: tally.solo, soloRelease: tally.release,
+    soloRefused: tally.refused }).find(entry => entry.id === "solo")!;
+  /** A hold at `second` (wall) heard 62 ms later unless another receipt is given, and its lift a second later. */
+  const holdAndLift = (tally: SoloTally, second: number, receipt = applied(second - .95)) => {
+    const held = tallySoloHold(tally, { held: true, atMs: second * 1000 }, receipt, speaker);
+    return tallySoloHold(held, { held: false, atMs: second * 1000 + 1000 }, applied(second + .05), speaker);
+  };
+
+  it("measures a hold to the others silent (applied, then faded), and a lift to applied", () => {
+    const tally = holdAndLift(empty, 5);
+    expect(tally.solo[0]).toBeCloseTo(62 + 30);
+    expect(tally.release[0]).toBeCloseTo(62);
+    expect(tally.refused).toBe(0);
+  });
+
+  it("passes Solo only once all three requested holds were measured", () => {
+    // One fast hold, then the step was left: incomplete, however fast.
+    const one = holdAndLift(empty, 5);
+    expect(row(one).verdict).toBe("fail");
+    expect(row(one).value).toContain(`1 of ${SOLO_HOLDS} holds measured`);
+    // Three holds, one refused: counted, and still incomplete.
+    let refused = holdAndLift(one, 7, { ...applied(6.05), refused: true });
+    refused = holdAndLift(refused, 9);
+    expect(refused.refused).toBe(1);
+    expect(row(refused).verdict).toBe("fail");
+    expect(row(refused).value).toContain(`2 of ${SOLO_HOLDS} holds measured, 1 refused or cancelled`);
+    // A third measured hold completes the step.
+    expect(row(holdAndLift(refused, 11)).verdict).toBe("pass");
+    // A slow hold still fails the mark.
+    const slow = holdAndLift(holdAndLift(holdAndLift(empty, 5), 7), 9, applied(8.2));
+    expect(row(slow).verdict).toBe("fail");
+  });
+});
+
+describe("phone gate route step", () => {
+  it("keeps what the page saw in the summary when the run stops before the answer", () => {
+    let now = 1000;
+    const results = gateResults();
+    const log = createRouteLog(results, () => now);
+    now += 2500;
+    log.note("audio interrupted");
+    now += 1000;
+    log.note("output latency 182.0 ms");
+    // Stopped here: the summary is formatted before any answer comes.
+    const summary = formatGateSummary(results);
+    expect(summary).toContain("[NOT RUN] Route change (headphones/Bluetooth): skipped; 2.5 s audio interrupted; 3.5 s output latency 182.0 ms");
+    log.answer(true);
+    expect(results.route).toEqual({ works: true, observations: ["2.5 s audio interrupted", "3.5 s output latency 182.0 ms"] });
   });
 });
 

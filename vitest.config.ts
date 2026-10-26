@@ -52,6 +52,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
+      // vite-plugin-pwa does not run under Vitest; its virtual module is a no-op here.
+      'virtual:pwa-register': resolve(__dirname, 'src/__tests__/helpers/pwaRegister.ts'),
     },
   },
 })

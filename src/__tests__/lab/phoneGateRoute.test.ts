@@ -1,10 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises } from '@vue/test-utils'
+import { defineStore } from 'pinia'
+import { ref, type App as VueApp } from 'vue'
 import { createTestWrapper } from '../helpers/test-utils'
 import App from '@/App.vue'
-import mainSource from '@/main.ts?raw'
 import { LAB_PAGES, isLabRoute } from '@/labRoutes'
 import { getAudioContext } from '@/services/superdoughAudio'
+
+// The lazy page compiles cold on first import: give it longer than vi.waitFor's 1 s default.
+const LAZY_PAGE = { timeout: 5000 }
 
 // The Stage needs a canvas; the instrument shell is not under test here.
 vi.mock('@/components/UnifiedVisualEffects.vue', () => ({
@@ -14,13 +18,18 @@ vi.mock('@/MainApp.vue', () => ({
   default: { template: '<div data-testid="main-app" />' },
 }))
 
+/** A store saved like the app's own (pinia-plugin-persistedstate), to see whether anything is saved. */
+const useSavedProbe = defineStore('phone-gate-saved-probe', () => ({ value: ref(0) }), {
+  persist: { key: 'phone-gate-saved-probe' },
+})
+
 async function mountAt(path: string) {
   window.history.replaceState({}, '', path)
   const wrapper = createTestWrapper(App)
   await vi.waitFor(async () => {
     await flushPromises()
     expect(wrapper.find('[data-testid="phone-gate"], [data-testid="main-app"]').exists()).toBe(true)
-  })
+  }, LAZY_PAGE)
   return wrapper
 }
 
@@ -57,7 +66,7 @@ describe('the phone gate route (BJS-494)', () => {
     await vi.waitFor(async () => {
       await flushPromises()
       expect(wrapper.find('[data-testid="phone-gate-summary"]').exists()).toBe(true)
-    })
+    }, LAZY_PAGE)
     const summary = wrapper.find('[data-testid="phone-gate-summary"]').text()
     expect(summary).toContain('EmotiTone phone gate (BJS-494)')
     expect(summary).toContain('Stopped early: The piano is not in the worklet')
@@ -66,8 +75,39 @@ describe('the phone gate route (BJS-494)', () => {
     wrapper.unmount()
   })
 
-  it('keeps production bootstrap (editions, saved data) off lab pages', () => {
-    // Routing contract: main.ts reads the same lab route list App.vue routes by.
-    expect(mainSource).toContain('from "./labRoutes"')
+  /** Boot the production entry at `path`, as a page load does; returns its app. */
+  async function bootAt(path: string) {
+    vi.resetModules()
+    window.history.replaceState({}, '', path)
+    document.body.innerHTML = '<div id="app"></div>'
+    const root = document.getElementById('app') as HTMLElement & { __vue_app__?: VueApp }
+    await import('@/main')
+    await vi.waitFor(async () => {
+      await flushPromises()
+      expect(root.querySelector('[data-testid="phone-gate"], [data-testid="main-app"]')).not.toBeNull()
+    }, LAZY_PAGE)
+    return { root, app: root.__vue_app__! }
+  }
+
+  it('saves nothing to localStorage from the lab page: no edition pick, no persisted store', async () => {
+    const setItem = vi.mocked(window.localStorage.setItem)
+    const { root, app } = await bootAt('/lab/phone-gate')
+    expect(root.querySelector('[data-testid="phone-gate"]')).not.toBeNull()
+    // A persisted store used and changed on the lab page, through the entry's own Pinia.
+    const probe = app.runWithContext(() => useSavedProbe())
+    probe.value++
+    await flushPromises()
+    expect(setItem).not.toHaveBeenCalled()
+    expect(window.localStorage.length).toBe(0)
+    app.unmount()
+  })
+
+  it('saves the same store on the instrument, so the lab page is the only difference', async () => {
+    const { app } = await bootAt('/')
+    const probe = app.runWithContext(() => useSavedProbe())
+    probe.value++
+    await flushPromises()
+    expect(window.localStorage.getItem('phone-gate-saved-probe')).toBe(JSON.stringify({ value: 1 }))
+    app.unmount()
   })
 })

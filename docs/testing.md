@@ -14,7 +14,7 @@ Use `bun install --frozen-lockfile`, then the package commands. Node 22 and Git 
 | Typecheck and production bundle | `bun run build` |
 | Launcher concurrency/cancellation checks | `bun run test:verify` |
 | Explicit interactive mode | `bun run test:watch` or `bun run test:ui` |
-| Browser-rendered audio checks | `bun run test:audio-browser` (see `audio-lab/README.md`) |
+| Browser-rendered audio checks (need Chrome) | `bun run test:run audio-lab/reference/effectBrowser.test.ts`, `node audio-lab/loader/run.mjs` (see `audio-lab/README.md`) |
 | Pattern serialization benchmark | `bun run bench:persistence` |
 
 `test` and `test:run` exit after one run. `build` already runs a typecheck, so a separate typecheck immediately before it repeats work. Use focused runtime tests during editing and a full check at a coherent checkpoint. The launcher and Vitest check different things; keep their results distinct.

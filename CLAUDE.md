@@ -17,12 +17,12 @@ Use only the package scripts for checks (shared lock across worktrees; see AGENT
 
 ## Architecture as it is
 
-**Audio is mid-migration.** The decision (spec, Decision 3) is to move off Strudel and superdough to the app's own AudioWorklet engine. Today both exist:
+**Audio is the app's own AudioWorklet engine.** Strudel and superdough are gone (spec Decision 3, BJS-495); the only trace is the "Open in Strudel" link (`src/services/strudelLink.ts`), which hands the code text to strudel.cc.
 
-- `src/audio/live/` is the worklet engine: `processor.ts` (render thread), `core.ts` (voices, scheduling, envelopes, band-limited oscillators), `bridge.ts` (main-thread commands and responses), `resampler.ts`. It plays live notes and play-style repeats/arpeggios from prepared sample banks.
-- The app owns the AudioContext, master output and native room/delay buses (`src/services/audioRuntime.ts`, `src/audio/effects.ts`). The worklet filters per voice and feeds those buses through wet outputs. Superdough borrows the app graph, and Strudel (`@strudel/*`, `useStrudel.ts`) still renders authored and recorded patterns. Patched dependencies live in `patches/`. Do not deepen the Strudel/superdough dependency; new audio work targets the worklet.
-- `src/audio/voicePolicy.ts` and `liveShaping.ts` hold voice budgets and Shape-to-sound mapping. `src/services/live*.ts` is the live-play path; `playStyles.ts` is the main-thread play-style engine slated to move into the worklet.
-- Audio measurements run in `audio-lab/` (`bun run test:audio-browser`). Research and decisions: `docs/research/`.
+- `src/audio/live/` is the worklet engine: `processor.ts` (render thread), `core.ts` (voices, scheduling, envelopes, band-limited oscillators, the together/strum/repeat/arp grid), `transport.ts` (the pattern transport), `bridge.ts` (main-thread commands and responses), `resampler.ts`. It plays live notes, play-style repeats and arpeggios, and Looper patterns from prepared sample banks, soundfonts and oscillators.
+- The app owns the AudioContext, master output and native room/delay buses (`src/services/audioRuntime.ts`, `src/audio/effects.ts`). The worklet filters per voice and feeds those buses through wet outputs. `src/services/audioEngine.ts` registers the sound catalog and warms instruments; `livePlayback.ts` owns the worklet and instrument preparation. A sound the worklet cannot hold is refused with a notice; there is no second renderer.
+- `src/audio/voicePolicy.ts` and `liveShaping.ts` hold voice budgets and Shape-to-sound mapping. `src/services/live*.ts` is the live-play path; `patternTransport.ts` drives Looper sessions on the worklet transport. Play-style options are data in `src/data/playStyles.ts`.
+- Audio measurements run in `audio-lab/` (see its README; the effect checks need Chrome). Research and decisions: `docs/research/`.
 
 **Music theory.** `src/domain/harmony.ts` owns chord generation (see `src/domain/HARMONY.md`). `src/services/music.ts`, `src/data/` (scales, modes, solfège, instruments, default patterns) and Tonal.js supply theory. Names, syllables and intervals shown to the player must be correct in every key and mode; `src/domain/musicalIdentity.ts` derives spelling-aware chromatic solfège from the single vocabulary in `src/domain/solfege.ts`, including borrowed notes and chord members. Minor defaults to do-based; Settings → Deck → Learn offers a persisted la-based preference.
 

@@ -1,5 +1,9 @@
 # Final stack validation — 2026-09-20
 
+> **Record.** Strudel and superdough left the app in BJS-495; the worklet is
+> the only renderer. Statements below about them describe the app when this
+> was written.
+
 Checked the integrated #84 candidate at `0b3c304` in a clean staging worktree after `bun install --frozen-lockfile`. This includes the final worklet FIFO inbox and processor response batching, the viewport/reveal repair, persistence serializer, and the three additional #82 music-store regressions. Subsequent lab receipt/protocol changes do not alter this production source.
 
 ## Full test suite

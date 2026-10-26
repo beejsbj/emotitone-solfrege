@@ -1,5 +1,9 @@
 # Audio stack resolution — 2026-09-20
 
+> **Record.** Strudel and superdough left the app in BJS-495; the worklet is
+> the only renderer. Statements below about them describe the app when this
+> was written.
+
 The resolution keeps one production worklet renderer plus Superdough fallback, repairs the six surviving findings, and animates CodeStrip history only while it is visible. The stack lands bottom-up with merge commits, preserving its history and the unrelated Config/Stage work already on main. The linked PRs below carry the exact merge and independent-review receipts.
 
 ## Renderer decision

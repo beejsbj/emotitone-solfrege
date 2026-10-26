@@ -15,10 +15,11 @@ yet.
 1. Why AGPL-3.0-or-later
 --------------------------------------------------------------------------
 
-The app ships Strudel and superdough, both AGPL-3.0-or-later, to every player
-over the network. Section 13 of the AGPL obliges whoever runs a modified
-version for users over a network to offer those users the corresponding
-source. This repository is that offer. The app's "Source & Credits" link (on
+Until BJS-495 the app shipped Strudel and superdough, both AGPL-3.0-or-later,
+to every player over the network, and it still carries code derived from them
+(section 2). Section 13 of the AGPL obliges whoever runs a modified version for
+users over a network to offer those users the corresponding source. This
+repository is that offer. The app's "Source & Credits" link (on
 the loading screen) points at the tree of the deployed commit; builds that do
 not know their commit fall back to the main branch.
 
@@ -30,25 +31,24 @@ covered below, not by LICENSE.
 2. Strudel and superdough (AGPL-3.0-or-later)
 --------------------------------------------------------------------------
 
-Runtime dependencies, all by the Strudel / TidalCycles community (Alex McLean,
-Felix Roos and contributors), https://strudel.cc, https://codeberg.org/uzu/strudel:
+By the Strudel / TidalCycles community (Alex McLean, Felix Roos and
+contributors), https://strudel.cc, https://codeberg.org/uzu/strudel.
 
-  @strudel/core 1.2.6         @strudel/mini 1.2.6       @strudel/soundfonts 1.3.0
-  @strudel/tonal 1.2.6        @strudel/transpiler 1.2.6 @strudel/webaudio 1.3.0
-  superdough 1.3.0
+The packages are no longer installed or served: BJS-495 removed @strudel/core,
+@strudel/mini, @strudel/soundfonts, @strudel/tonal, @strudel/transpiler,
+@strudel/webaudio and superdough (versions 1.2.6 and 1.3.0), with the patches
+the app applied to superdough and @strudel/soundfonts. Earlier deployed
+versions shipped them; their source, patches included, stays in git history.
 
-The app ships a patched superdough 1.3.0 and a patched @strudel/soundfonts
-1.3.0. The patches are in this repository under patches/ and are applied at
-install time through the "patchedDependencies" field in package.json. Together
-with the unmodified upstream package versions named above, they are the
-corresponding source of what is served. The superdough patch is a diff of the
-published dist build, not of the upstream source tree.
+What the app still carries from them:
 
-src/data/gmSoundfonts.ts copies the General MIDI name-to-font map from
-@strudel/soundfonts 1.3.0 gm.mjs (as patched), under the same licence.
+- src/data/gmSoundfonts.ts copies the General MIDI name-to-font map from
+  @strudel/soundfonts 1.3.0 gm.mjs (as patched), under the same licence.
+- src/services/strudelLink.ts reproduces Strudel's code2hash URL encoding so
+  "Open in Strudel" opens the app's own code text on strudel.cc.
+- The reverb impulse recipe adapted from superdough (section 8; Apache-2.0).
 
-The app is moving to its own audio engine (src/audio/live/). Once no Strudel
-code ships, this section and the licence choice are due for review. Published
+With the packages gone, the licence choice is due for review. Published
 snapshots stay AGPL either way.
 
 --------------------------------------------------------------------------

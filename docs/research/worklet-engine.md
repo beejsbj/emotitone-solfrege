@@ -1,5 +1,9 @@
 # The worklet engine: what replaces Strudel and superdough — 2026-10-09
 
+> **Record.** Strudel and superdough left the app in BJS-495; the worklet is
+> the only renderer. Statements below about them describe the app when this
+> was written.
+
 Linear: BJS-484. Spec: `docs/retrospective-spec.md` (PR #143), Decision 3
 (superseded 2026-10-09: move off Strudel and superdough) and W9.
 

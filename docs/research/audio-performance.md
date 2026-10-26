@@ -1,5 +1,9 @@
 # Playback performance: implementation and evidence
 
+> **Record.** Strudel and superdough left the app in BJS-495; the worklet is
+> the only renderer. Statements below about them describe the app when this
+> was written.
+
 This work follows [issue #78](https://github.com/beejsbj/emotitone-solfrege/issues/78) and builds on [PR #76](https://github.com/beejsbj/emotitone-solfrege/pull/76). The objective is responsive live sound, complete rhythmic playback, and bounded audio resources. It does not claim to eliminate physical output latency or every possible browser stall.
 
 ## Production live renderer

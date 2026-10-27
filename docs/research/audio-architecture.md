@@ -1,5 +1,9 @@
 # Playback architecture and implementation plan
 
+> **Record.** Strudel and superdough left the app in BJS-495; the worklet is
+> the only renderer. Statements below about them describe the app when this
+> was written.
+
 Production shares audio ownership and instrument preparation while keeping pattern sequencing separate from live input. The worklet is the sole prepared live renderer; Superdough renders Strudel patterns and unsupported live instruments. The native alternative remains in the audio lab for reproducible comparison. See [the stack decision](audio-stack-decision.md) for the final renderer disposition and later validation.
 
 ## Responsibilities

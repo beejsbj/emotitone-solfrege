@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { m } from '@strudel/mini';
-import { transpiler } from '@strudel/transpiler';
-import '@strudel/tonal';
+import { evaluateStrudel } from '../helpers/strudelOracle';
 import { logNotesToStrudel, type StrudelConfig } from '@/services/StrudelNotation';
 import type { LogNote } from '@/types/patterns';
 
@@ -15,10 +13,8 @@ function note(pitch: string, start: number, duration: number): LogNote {
 // Query whole onsets, not fragments split at scheduler query boundaries.
 function playback(notes: LogNote[], sourceBpm = 120, bpm = sourceBpm, sound = 'sine', config?: Partial<StrudelConfig>) {
   const code = logNotesToStrudel(notes, { sourceBpm, bpm, sound, ...config });
-  const { output } = transpiler(code);
-  const pattern = new Function('m', output)(m);
   // .cpm() scales the pattern against Strudel's 1 cycle/second base.
-  const haps = pattern.queryArc(0, 24).filter((hap: any) => hap.hasOnset());
+  const haps = evaluateStrudel(code, 0, 24).filter((hap: any) => hap.hasOnset());
   const events = haps
     .map((hap: any) => ({ pitch: hap.value.note, start: Number(hap.whole.begin) * 1000,
       duration: Number(hap.whole.duration) * 1000 * (hap.value.clip ?? 1) }))

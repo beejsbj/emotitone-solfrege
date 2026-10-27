@@ -1,5 +1,5 @@
 import { liveAudioInput, type LiveAudioSource } from "@/services/liveAudio";
-import { getAudioContext, getSuperdoughMasterGain } from "@/services/superdoughAudio";
+import { getAudioContext, getMasterGain } from "@/services/audioRuntime";
 import type { StageAudioFrame } from "@/composables/canvas/stageRuntime";
 
 const FFT_SIZE = 1024;
@@ -40,7 +40,7 @@ export function createStageAudioFeatures(): StageAudioFeatures {
 
   const syncPlaybackSource = () => {
     if (!bus) return;
-    const nextPlayback = getSuperdoughMasterGain();
+    const nextPlayback = getMasterGain();
     if (nextPlayback === playback) return;
     if (playback) safeDisconnectEdge(playback, bus);
     playback = nextPlayback;
@@ -74,7 +74,7 @@ export function createStageAudioFeatures(): StageAudioFeatures {
 
     sample(timestampMs) {
       if (!analyser) return { envelope: 0, hasSignal: false };
-      // Stage can mount before Superdough has finished creating its controller.
+      // Stage can mount before the audio graph exists.
       // The render loop is the durable point at which to attach once playback
       // becomes available, without requiring a canvas remount.
       syncPlaybackSource();

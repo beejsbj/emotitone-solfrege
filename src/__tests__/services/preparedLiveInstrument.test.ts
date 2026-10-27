@@ -1,7 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-// superdough is still installed: its sampler is the reference for zone roots.
-// @ts-ignore — superdough ships no TypeScript declarations.
-import { getSampleInfo } from "superdough";
 
 const mocks = vi.hoisted(() => ({ mipmaps: vi.fn() }));
 vi.mock("@/audio/live/resampler", async importOriginal => {
@@ -62,22 +59,23 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllGlobals(); });
 
 describe("instrument loader for the live worklet", () => {
-  it("roots keyed banks exactly as superdough's sampler does, playing the first sample of each note", async () => {
+  it("roots keyed banks as the old sampler did, playing the first sample of each note", async () => {
     const map = { _base: "https://samples.test/piano/", piano: { A0: "A0v8.mp3", Ds1: ["Ds1v8.mp3", "alt.mp3"], Fs5: "Fs5v8.mp3", Bb2: "Bb2.mp3", C: "C.mp3" } };
     registerSampleMap(map);
     const result = bank(await prepareLiveInstrument(context(), "piano"));
-    const reference = Object.entries(map.piano).map(([key, urls]) => -getSampleInfo({ s: "piano", note: 0 }, { [key]: [urls].flat() }).transpose);
-    expect(result.zones.map(zone => zone.rootMidi)).toEqual(reference);
+    // Roots the previous sampler (1.3.0) gave these keys, recorded before it left (BJS-495):
+    // a bare letter is octave 3.
+    expect(result.zones.map(zone => zone.rootMidi)).toEqual([21, 27, 78, 46, 48]);
     expect(result).toMatchObject({ zoneSelection: "nearest-root", gain: 0.8, attack: 0.001, release: 0.2 });
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(["A0v8.mp3", "Ds1v8.mp3", "Fs5v8.mp3", "Bb2.mp3", "C.mp3"]
       .map(file => `https://samples.test/piano/${file}`));
   });
 
-  it("plays an array bank's first sample at superdough's root MIDI 36, escaping '#'", async () => {
+  it("plays an array bank's first sample at the old sampler's root MIDI 36, escaping '#'", async () => {
     registerSampleMap({ _base: "https://samples.test/", kalimba: ["one#1.wav", "two.wav"] });
     const result = bank(await prepareLiveInstrument(context(), "kalimba"));
     expect(result.zones).toHaveLength(1);
-    expect(result.zones[0].rootMidi).toBe(-getSampleInfo({ s: "kalimba", note: 0 }, ["one#1.wav", "two.wav"]).transpose);
+    expect(result.zones[0].rootMidi).toBe(36);
     expect(fetchMock).toHaveBeenCalledWith("https://samples.test/one%231.wav");
   });
 

@@ -11,8 +11,7 @@ const root = process.cwd();
 await readFile(join(root, 'dist/index.html'));
 const manifest = JSON.parse(await readFile(join(root, 'dist/manifest.json'), 'utf8'));
 const deferredFiles = new Set(Object.values(manifest)
-  .filter(entry => /assets\/StyleGuide-[^/]+\.js$/.test(entry.file)
-    || entry.src === 'node_modules/@strudel/soundfonts/dist/index.mjs')
+  .filter(entry => /assets\/StyleGuide-[^/]+\.js$/.test(entry.file))
   .map(entry => `/${entry.file}`));
 const savedInstrument = process.env.SAVED_INSTRUMENT || 'piano';
 const profile = await mkdtemp(join(tmpdir(), 'emotitone-startup-'));

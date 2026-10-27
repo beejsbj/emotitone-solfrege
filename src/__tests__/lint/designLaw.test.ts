@@ -91,7 +91,7 @@ describe("import boundary: primitives and compounds", () => {
   });
 
   it("forbids the playback engine and exempts colocated specs", async () => {
-    expect(await eslintRules(primitive, vue('import { createPlayStyleEngine } from "@/services/playStyles"; void createPlayStyleEngine;'))).toContain(SERVICES);
+    expect(await eslintRules(primitive, vue('import { createLivePerformance } from "@/services/livePerformance"; void createLivePerformance;'))).toContain(SERVICES);
     expect(await eslintRules("src/components/primatives/fresh.spec.ts", 'import { s } from "@/stores/music"; export const c = "#123456"; void s;')).toEqual([]);
   });
 
@@ -179,7 +179,7 @@ describe("use the primitives: no bespoke buttons", () => {
 
 describe("baseline: a file with debt may not gain more (bypass 2)", () => {
   it("passes a file with exactly its recorded debt", async () => {
-    for (const file of ["src/components/primatives/Note.vue", "src/components/compounds/ControlBar.vue", "src/composables/canvas/harmonicTypography.ts"]) {
+    for (const file of ["src/components/primatives/Note.vue", "src/composables/canvas/harmonicTypography.ts"]) {
       expect(await eslintRules(file, read(file)), file).toEqual([]);
     }
     expect(await styleProblems("src/components/primatives/Readout.vue", read("src/components/primatives/Readout.vue"))).toEqual([]);
@@ -193,8 +193,9 @@ describe("baseline: a file with debt may not gain more (bypass 2)", () => {
     expect(await eslintRules("src/components/primatives/Mark.vue", mark.replace("</script>", 'const t = "cobalt";\nvoid t;\n</script>'))).toContain(BRAND);
   });
 
-  it("fails when a listed file gains another store or service import", async () => {
-    // ControlBar still carries one service import (Keyboard paid its debt in W3).
+  it("fails when a compound gains a store or service import", async () => {
+    // ControlBar paid its last service import when the play modes became data
+    // (BJS-495); Keyboard paid its debt in W3. Their budget is now zero.
     const controlBar = read("src/components/compounds/ControlBar.vue");
     const path = "src/components/compounds/ControlBar.vue";
     expect(await eslintRules(path, controlBar.replace("</script>", 'const more = () => import("@/stores/phrases");\nvoid more;\n</script>'))).toContain(STORES);

@@ -20,9 +20,8 @@ vi.mock("@/services/liveAudio", () => ({
   },
 }));
 
-vi.mock("@/services/superdoughAudio", () => ({
-  setStrudelLaBasedMinor: vi.fn(),
-  getSuperdoughMasterGain: () => mocks.master,
+vi.mock("@/services/audioRuntime", () => ({
+  getMasterGain: () => mocks.master,
   getAudioContext: () => context,
 }));
 
@@ -62,7 +61,7 @@ describe("Stage audio features", () => {
     expect(mocks.master?.disconnect).toHaveBeenCalledWith(bus);
   });
 
-  it("attaches playback after deferred Superdough initialization", () => {
+  it("attaches playback once the audio graph exists", () => {
     mocks.master = null;
     const features = createStageAudioFeatures();
 

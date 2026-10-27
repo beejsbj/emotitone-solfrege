@@ -5,7 +5,7 @@ import { ref, type App as VueApp } from 'vue'
 import { createTestWrapper } from '../helpers/test-utils'
 import App from '@/App.vue'
 import { LAB_PAGES, isLabRoute } from '@/labRoutes'
-import { getAudioContext } from '@/services/superdoughAudio'
+import { getAudioContext } from '@/services/audioRuntime'
 import legacyVisualConfig from '../fixtures/persistence/visual-config.v0.store-capture.json?raw'
 
 // The lazy page compiles cold on first import: give it longer than vi.waitFor's 1 s default.
@@ -15,7 +15,7 @@ const LAZY_PAGE = { timeout: 5000 }
 // the real Stage (its audio tap), it asks for the app's context as it mounts.
 vi.mock('@/components/UnifiedVisualEffects.vue', async () => {
   const { onMounted } = await import('vue')
-  const audio = await import('@/services/superdoughAudio')
+  const audio = await import('@/services/audioRuntime')
   return { default: { setup() { onMounted(() => { audio.getAudioContext() }) }, template: '<div data-testid="stage" />' } }
 })
 vi.mock('@/MainApp.vue', () => ({
@@ -108,8 +108,9 @@ describe('the phone gate route (BJS-494)', () => {
       FakeAudioContext.refusesHints = false
       vi.stubGlobal('AudioContext', FakeAudioContext)
       vi.stubGlobal('GainNode', FakeGain)
-      // As in production, the gate's context is the app runtime's own.
-      const runtime = await import('@/services/audioRuntime')
+      // As in production, the gate's context is the app runtime's own (the
+      // suite's stand-in for getAudioContext delegates to the real one here).
+      const runtime = await vi.importActual<typeof import('@/services/audioRuntime')>('@/services/audioRuntime')
       vi.mocked(getAudioContext).mockImplementation(() => runtime.getAudioContext())
     })
     afterEach(() => {

@@ -8,8 +8,9 @@ import type { LiveOrbitSends } from './liveShaping'
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and limitations.
 
-/** Same noise/fade/swept lowpass recipe as superdough's reverbGen (Apache-2.0,
- * Copyright 2014 Alan deLespinasse). Native convolution retains phone headroom. */
+/** The noise/fade/swept lowpass recipe of reverbGen (Apache-2.0, Copyright 2014
+ * Alan deLespinasse), as the app's room always used it. Native convolution
+ * retains phone headroom. */
 export async function createRoomImpulse(context: BaseAudioContext, random = Math.random): Promise<AudioBuffer> {
   const rate = context.sampleRate
   const frames = Math.round(3 * rate)
@@ -160,24 +161,19 @@ export class EffectOrbit implements LiveOrbitSends {
   }
 }
 
-/** Temporary superdough adapter. It creates no context, master or effect nodes. */
+/** The app's master output and its numbered room/delay buses (orbits). */
 export class EngineAudioGraph {
   readonly master: GainNode
-  readonly output: { destinationGain: GainNode; connectToDestination: (node: AudioNode) => void }
   readonly nodes: Record<string, EffectOrbit> = {}
-  readonly buses: Record<string, GainNode> = {}
   constructor(readonly audioContext: BaseAudioContext) {
     this.master = stereo(audioContext)
     this.master.connect(audioContext.destination)
-    this.output = { destinationGain: this.master, connectToDestination: node => { node.connect(this.master) } }
   }
-  getOrbit(id: number, _channels?: number[]): EffectOrbit {
+  getOrbit(id: number): EffectOrbit {
     return this.nodes[id] ??= new EffectOrbit(this.audioContext, this.master)
   }
-  getBus(id: number) { return this.buses[id] ??= stereo(this.audioContext) }
   async rebuildEffects() { await Promise.all(Object.values(this.nodes).map(orbit => orbit.rebuild())) }
   reset() {
     for (const [id, orbit] of Object.entries(this.nodes)) { orbit.disconnect(); delete this.nodes[id] }
-    for (const [id, bus] of Object.entries(this.buses)) { bus.disconnect(); delete this.buses[id] }
   }
 }

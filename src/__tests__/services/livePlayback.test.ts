@@ -3,7 +3,6 @@ import { flushPromises } from '@vue/test-utils'
 
 const mocks = vi.hoisted(() => ({ create: vi.fn(), prepare: vi.fn(), releasePrepared: vi.fn(), preparationDiagnostics: vi.fn(),
   chains: [] as { input: object; apply: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn> }[] }))
-vi.mock('@strudel/soundfonts', () => ({ getPreparedSoundfont: vi.fn() }))
 vi.mock('@/audio/live/bridge', () => ({ createLiveWorklet: mocks.create }))
 vi.mock('@/audio/liveShaping', () => ({ OPEN_CUTOFF_HZ: 12000, createLiveShapingChain: vi.fn(() => {
   const chain = { input: {}, room: {}, delay: {}, apply: vi.fn(), dispose: vi.fn() }
@@ -266,7 +265,7 @@ describe('live playback instrument manager', () => {
     expect(manager.getLivePlayback('spare')).toBeDefined()
     expect(manager.getLivePlayback('large')).toBeUndefined()
     expect(mocks.releasePrepared).toHaveBeenCalledWith(context, 'large', expect.objectContaining({ instrumentId: 'large' }))
-    expect(manager.getLivePlaybackFailure('large')).toEqual({ kind: 'fallback', budget: true,
+    expect(manager.getLivePlaybackFailure('large')).toEqual({ kind: 'unavailable', budget: true,
       reason: 'Sample memory is full: this sound needs 100.0 MiB, but 100.0 MiB of the 192.0 MiB sample memory is held by playing loops and keys' })
   })
 
@@ -281,7 +280,7 @@ describe('live playback instrument manager', () => {
     await manager.prepareLivePlayback(context, destination, 'large')
     expect(mocks.prepare).not.toHaveBeenCalled()
     expect(manager.getLivePlayback('large')).toBeUndefined()
-    expect(manager.getLivePlaybackFailure('large')).toMatchObject({ kind: 'fallback', budget: true })
+    expect(manager.getLivePlaybackFailure('large')).toMatchObject({ kind: 'unavailable', budget: true })
     // Released, the next attempt decides afresh and now fits.
     manager.getLivePlayback('held')!.release('finger')
     await manager.prepareLivePlayback(context, destination, 'large')
@@ -405,7 +404,7 @@ describe('live playback instrument manager', () => {
     expect(engine.forget.mock.calls.flat()).toContain('piano')
   })
 
-  it('refuses a bank loudly when Looper pins leave no room, and names it a fallback, not a load failure', async () => {
+  it('refuses a bank loudly when Looper pins leave no room, as unavailable, not a load failure', async () => {
     const { manager, engine, context } = await setup()
     bankSizes({ a: 90, b: 90, e: 90 })
     for (const name of ['a', 'b']) {
@@ -416,12 +415,12 @@ describe('live playback instrument manager', () => {
     await manager.prepareLivePlayback(context, destination, 'e')
     expect(engine.forget).not.toHaveBeenCalled()
     expect(manager.getLivePlayback('e')).toBeUndefined()
-    expect(manager.getLivePlaybackFailure('e')).toEqual({ kind: 'fallback', budget: true,
+    expect(manager.getLivePlaybackFailure('e')).toEqual({ kind: 'unavailable', budget: true,
       reason: 'Sample memory is full: this sound needs 90.0 MiB, but 180.0 MiB of the 192.0 MiB sample memory is held by playing loops and keys' })
     expect(manager.getLivePlaybackFailure('a')).toBeUndefined()
   })
 
-  it('lets live input on an evicted bank fall back when Looper pins refuse it, instead of dropping it', async () => {
+  it('refuses live input on an evicted bank for budget, without a load error, until a Looper member lets go', async () => {
     const { manager, context } = await setup()
     bankSizes({ e: 90, a: 90, b: 90 })
     // 'e' was resident once, then evicted when two pinned members' banks loaded.
@@ -433,10 +432,10 @@ describe('live playback instrument manager', () => {
     expect(manager.getLivePlayback('e')).toBeUndefined()
     const loadErrors: string[] = []
     const stop = manager.subscribeLivePlayback({ onEvent() {}, onLoadError: instrumentId => loadErrors.push(instrumentId) })
-    // The press waits for recovery, is refused for memory, and goes on to the fallback renderer.
+    // The press waits for recovery and is refused for memory (the deck says so): no load error.
     await expect(manager.waitForLivePlayback('e')).resolves.toBeUndefined()
     expect(manager.getLivePlayback('e')).toBeUndefined()
-    expect(manager.getLivePlaybackFailure('e')).toMatchObject({ kind: 'fallback', budget: true })
+    expect(manager.getLivePlaybackFailure('e')).toMatchObject({ kind: 'unavailable', budget: true })
     expect(loadErrors).toEqual([])
     // Once a member leaves, the next press brings the bank back to the worklet.
     manager.pinLivePlayback('looper:a', [])
@@ -449,7 +448,7 @@ describe('live playback instrument manager', () => {
   it('refuses a single bank larger than the whole memory as unsupported, not as a full memory', async () => {
     const { manager, engine, context } = await setup()
     bankSizes({ huge: 200 })
-    const unsupported = { kind: 'fallback', reason: 'Sample bank needs 200.0 MiB, more than the 192.0 MiB sample memory' }
+    const unsupported = { kind: 'unavailable', reason: 'Sample bank needs 200.0 MiB, more than the 192.0 MiB sample memory' }
     await manager.prepareLivePlayback(context, destination, 'huge')
     expect(engine.prepare).not.toHaveBeenCalled()
     expect(manager.getLivePlaybackFailure('huge')).toEqual(unsupported)
@@ -549,7 +548,7 @@ describe('live playback instrument manager', () => {
     mocks.prepare.mockResolvedValue({ kind: 'unsupported', instrumentId: 'noise', reason: 'Unsupported source' })
     await manager.prepareLivePlayback(context, destination, 'noise')
     expect(manager.needsLivePlaybackPreparation('noise')).toBe(false)
-    expect(manager.getLivePlaybackDiagnostics('noise')).toMatchObject({ backend: 'superdough', reason: 'Unsupported source' })
+    expect(manager.getLivePlaybackDiagnostics('noise')).toMatchObject({ backend: 'none', reason: 'Unsupported source' })
     vi.stubGlobal('AudioWorkletNode', undefined)
     expect(manager.needsLivePlaybackPreparation('piano')).toBe(false)
   })
@@ -649,8 +648,6 @@ describe('production renderer selection', () => {
     ['amSynth', 'sawtooth'], ['fmSynth', 'square'], ['metalSynth', 'square'],
   ])('prepares and renders %s as worklet %s using the real catalog', async (name, resolved) => {
     const { manager, context, engine } = await setup()
-    const { registerSynthSounds } = await import('superdough')
-    registerSynthSounds()
     const actual = await vi.importActual<typeof import('@/services/preparedLiveInstrument')>('@/services/preparedLiveInstrument')
     mocks.prepare.mockImplementation(actual.prepareLiveInstrument)
     const { LiveAudioCore } = await import('@/audio/live/core')
@@ -671,7 +668,7 @@ describe('production renderer selection', () => {
 
   it.each([
     ['supersaw', 'supersaw'], ['pulse', 'pulse'],
-  ])('routes unsupported %s through %s to fallback without disturbing a held worklet bank', async (name, resolved) => {
+  ])('refuses unsupported %s (as %s) without disturbing a held worklet bank', async (name, resolved) => {
     const { manager, context, engine } = await setup()
     await manager.prepareLivePlayback(context, destination, 'sine')
     const held = manager.getLivePlayback('sine')!
@@ -687,7 +684,7 @@ describe('production renderer selection', () => {
     expect(manager.needsLivePlaybackPreparation(name)).toBe(false)
     expect(manager.needsLivePlaybackPreparation(resolved)).toBe(false)
     expect(manager.getLivePlaybackDiagnostics(name)).toMatchObject({
-      backend: 'superdough', reason: unsupported.reason, installedBanks: 1, installingPcmBytes: 0,
+      backend: 'none', reason: unsupported.reason, installedBanks: 1, installingPcmBytes: 0,
     })
     expect(engine.prepare).toHaveBeenCalledTimes(1)
     expect(engine.forget).not.toHaveBeenCalled()

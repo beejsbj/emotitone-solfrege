@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import { useInstrumentStore } from "@/stores/instrument";
-import { ensureSoundfontCatalog, getRegisteredSounds } from "@/services/superdoughAudio";
+import { ensureSoundfontCatalog, getRegisteredSounds } from "@/services/audioEngine";
 import Button from "@/components/primatives/Button.vue";
 import Sticker from "@/components/primatives/Sticker";
 import OverlayPanelHeader from "@/components/OverlayPanelHeader.vue";

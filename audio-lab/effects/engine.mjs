@@ -1,9 +1,8 @@
-import { EngineAudioGraph } from '../../src/audio/effects';
+import { EffectOrbit, EngineAudioGraph } from '../../src/audio/effects';
 import { LiveAudioCore } from '../../src/audio/live/core';
 import { createLiveWorklet } from '../../src/audio/live/bridge';
 import { createLiveShapingChain } from '../../src/audio/liveShaping';
 import * as runtime from '../../src/services/audioRuntime';
-import * as dough from 'superdough';
 
 const RATE = 48000;
 const open = { cutoff: 12000, resonance: 0, room: 0, delay: 0 };
@@ -83,18 +82,20 @@ window.runEngineEffects = async () => {
   const filter = await render(impulse, { ...open, cutoff: 1000, resonance: 10 }, true);
   const processorDelay = await render(echo, { ...open, delay: .6 }, true);
 
-  // Exercise the production owner with the real installed fallback, never a mock.
+  // Exercise the production owner, never a mock: one app context, master and
+  // live orbit survive initialization, and preparation issues no resume.
   const ownedContext = runtime.getAudioContext();
   const master = runtime.getMasterGain();
+  const orbit = runtime.getLiveOrbit();
   const before = ownedContext.state;
   let resumes = 0;
   const resume = ownedContext.resume.bind(ownedContext);
   ownedContext.resume = () => { resumes++; return resume(); };
   await Promise.all([runtime.initializeAudio(), runtime.initializeAudio()]);
-  const ownership = { context: dough.getAudioContext() === ownedContext,
-    master: dough.getSuperdoughAudioController().output.destinationGain === master,
-    graph: dough.getSuperdoughAudioController() instanceof EngineAudioGraph,
-    orbit: dough.getSuperdoughAudioController().getOrbit(2) === runtime.getLiveOrbit(),
+  const ownership = { context: runtime.getAudioContext() === ownedContext,
+    master: runtime.getMasterGain() === master && master.context === ownedContext,
+    graph: orbit instanceof EffectOrbit,
+    orbit: runtime.getLiveOrbit() === orbit,
     preparationResumes: resumes, before, after: ownedContext.state };
   await ownedContext.close();
   // A rejected native IR render must leave initialization and dry/delay usable.

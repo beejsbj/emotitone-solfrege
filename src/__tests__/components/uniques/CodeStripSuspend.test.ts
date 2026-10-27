@@ -23,28 +23,24 @@ const mocks = vi.hoisted(() => ({
   commands: [] as any[],
   rafCallbacks: [] as FrameRequestCallback[],
   context: null as any,
-  controller: null as any,
+  looperStore: null as any,
 }));
 
 vi.mock("@/stores/phrases", () => ({ usePhrasesStore: () => mocks.phrasesStore }));
 vi.mock("@/stores/instrument", () => ({ useInstrumentStore: () => mocks.instrumentStore }));
-vi.mock("@/stores/looper", () => ({ useLooperStore: () => ({ deskMemberId: null }) }));
+vi.mock("@/stores/looper", () => ({ useLooperStore: () => mocks.looperStore }));
 vi.mock("@/stores/visualConfig", () => ({ useVisualConfigStore: () => mocks.visualConfigStore }));
 vi.mock("@/composables/useCodeStripStrudel", () => ({
-  useCodeStripStrudel: () => ({
-    attachEditor: (controller: unknown) => { mocks.controller = controller; }, detachEditor: vi.fn(), syncCode: vi.fn(),
-    setPlaying: vi.fn(), setError: vi.fn(), isPlaying: { value: false },
-  }),
+  useCodeStripStrudel: () => ({ syncCode: vi.fn(), clearCode: vi.fn() }),
 }));
-vi.mock("@/services/superdoughAudio", () => ({
-  initSuperdoughAudio: vi.fn().mockResolvedValue(undefined),
-  ensureSoundfontCatalog: vi.fn().mockResolvedValue(undefined),
-  getSuperdoughMasterGain: () => ({}),
+vi.mock("@/services/audioRuntime", () => ({
+  getMasterGain: () => ({}),
   getAudioContext: () => mocks.context,
 }));
 vi.mock("@/services/audioLifecycle", () => ({
   resumeAudioContext: () => undefined,
   holdAudioActivity: () => () => {},
+  onAudioRunning: () => () => {},
 }));
 vi.mock("@/services/livePlayback", () => ({
   prepareLivePlayback: vi.fn().mockResolvedValue(undefined),
@@ -56,10 +52,10 @@ vi.mock("@/services/livePlayback", () => ({
     return () => mocks.listeners.delete(listener);
   },
 }));
-vi.mock("@strudel/core", () => ({ repl: vi.fn(), evalScope: vi.fn() }));
 
 import CodeStrip from "@/components/uniques/CodeStrip/index.vue";
 import { uiBeatClock } from "@/composables/useUIBeat";
+import { getProductionPatternPlayer } from "@/services/patternTransport";
 import { DEFAULT_CONFIG } from "@/data/visual-config-metadata";
 
 type ContextState = "running" | "suspended" | "interrupted";
@@ -132,14 +128,22 @@ async function startPlaying() {
   return wrapper;
 }
 
-/** The Play tap: the strip's controller evaluates the take on the transport. */
+/** Play is the loop: the take starts as the Looper's one member, and the strip follows it. */
 async function play(wrapper: ReturnType<typeof mount>) {
-  await mocks.controller.evaluate();
+  const take = mocks.phrasesStore;
+  void getProductionPatternPlayer()!.start({
+    bpm: 120, target: { key: take.takeContext.key, mode: take.takeContext.mode },
+    members: [{ id: take.takeId, notes: take.takeNotes, instrument: take.takeContext.instrument,
+      key: take.takeContext.key, mode: take.takeContext.mode, config: { sourceBpm: take.takeContext.bpm, bpm: 120 } }],
+  }).catch(() => {});
+  await flushPromises();
+  mocks.looperStore.deskMemberId = take.takeId;
   await wrapper.vm.$nextTick();
   const join = (mocks.commands as TransportCommand[])
-    .filter((command): command is Extract<TransportCommand, { type: "transport-change" }> =>
-      command.type === "transport-change" && command.change.type === "join").at(-1)!;
-  return (join.change as Extract<typeof join.change, { type: "join" }>).member.table.generation;
+    .flatMap(command => command.type !== "transport-change" ? []
+      : command.change.type === "batch" ? command.change.changes : [command.change])
+    .filter(change => change.type === "join").at(-1)!;
+  return (join as Extract<typeof join, { type: "join" }>).member.table.generation;
 }
 
 beforeEach(() => {
@@ -160,6 +164,7 @@ beforeEach(() => {
     takeDuration: 500, lastLiveNoteId: recordedNote.id, takeId: "take-1",
   });
   mocks.instrumentStore = reactive({ isInteractionLocked: false });
+  mocks.looperStore = reactive({ deskMemberId: null as string | null });
   mocks.visualConfigStore = reactive({
     laBasedMinor: false,
     config: {

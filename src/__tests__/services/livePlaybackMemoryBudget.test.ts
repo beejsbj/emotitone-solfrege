@@ -243,7 +243,7 @@ describe("loaded sounds are limited by memory, not by count", () => {
 
     // y is resident and pinned by its member, and z, which no longer fits beside a and y, is refused.
     expect(manager.getLivePlayback("y")).toBeDefined();
-    expect(manager.getLivePlaybackFailure("z")).toMatchObject({ kind: "fallback", budget: true });
+    expect(manager.getLivePlaybackFailure("z")).toMatchObject({ kind: "unavailable", budget: true });
     expect(player.getLooper().members.map(entry => entry.id)).toEqual(["a-1", "y-1"]);
     render(4.2);
     expect(played.some(event => event.phraseId === "y-1")).toBe(true);

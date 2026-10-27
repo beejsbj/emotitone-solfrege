@@ -3,7 +3,7 @@ import { AUDIO_IDLE_MS, manageAudioLifecycle } from "@/services/audioLifecycle";
 import { RenderCostMeter } from "@/audio/live/renderCost";
 import { getLivePlayback, getLivePlaybackFailure, prepareLivePlayback, readLiveRenderCost } from "@/services/livePlayback";
 import { createPatternPlayer } from "@/services/patternTransport";
-import { getAudioContext } from "@/services/superdoughAudio";
+import { getAudioContext } from "@/services/audioRuntime";
 import { createPhoneGate } from "./runner";
 
 // A piano download that takes as long as the test says, and then is refused,

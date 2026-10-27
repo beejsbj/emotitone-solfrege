@@ -51,7 +51,7 @@ describe.each(['square', 'sawtooth'] as const)('%s worklet PCM', waveform => {
     voice.press(); voice.render(.1)
     const pcm = voice.render(.5)
     const fundamental = magnitude(pcm, 440)
-    // Unscaled polyBLEP A4 fundamental: the browser lab's native Superdough
+    // Unscaled polyBLEP A4 fundamental: the browser lab's old native-engine
     // level (.25919 square, .12965 saw) divided by the retired .85 scalar,
     // which BJS-485 removed once patterns render on the worklet. This absolute
     // level catches a scalar coming back.

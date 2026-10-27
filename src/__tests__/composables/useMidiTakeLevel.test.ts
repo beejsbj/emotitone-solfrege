@@ -36,7 +36,7 @@ vi.mock("@/services/livePlayback", () => ({
 import { useMidiControls } from "@/composables/useMidiControls";
 import { createPatternPlayer } from "@/services/patternTransport";
 import { UIBeatClock } from "@/composables/useUIBeat";
-import * as audio from "@/services/superdoughAudio";
+import { getAudioContext } from "@/services/audioRuntime";
 
 const EPOCH = 1_800_000_000_000;
 let pinia: Pinia;
@@ -75,11 +75,15 @@ async function midiNoteOns(velocities: (number | undefined)[]) {
     cancelFrame: () => {},
   });
   const notes = velocities.map((velocity, index) => note(`n${index}`, index % 2 ? "D4" : "C4", index * 500, velocity));
-  await player.play({ id: "take", notes, config: { sourceBpm: 120, bpm: 120 }, instrument: "sine",
-    key: "C", mode: "major", bpm: 120 });
-  const join = (harness.commands as TransportCommand[]).find(command =>
-    command.type === "transport-change" && command.change.type === "join") as Extract<TransportCommand, { type: "transport-change" }>;
-  const generation = (join.change as { member: { table: { generation: number } } }).member.table.generation;
+  // Play is the loop: the take starts as the Looper's one member. Its receipt
+  // comes from the worklet, which this test has none of.
+  void player.start({ bpm: 120, target: { key: "C", mode: "major" },
+    members: [{ id: "take", notes, config: { sourceBpm: 120, bpm: 120 }, instrument: "sine", key: "C", mode: "major" }] });
+  await vi.advanceTimersByTimeAsync(0);
+  const changes = (harness.commands as TransportCommand[]).flatMap(command => command.type !== "transport-change" ? []
+    : command.change.type === "batch" ? command.change.changes : [command.change]);
+  const join = changes.find(change => change.type === "join")!;
+  const generation = (join as { member: { table: { generation: number } } }).member.table.generation;
   // Sound every note: [kind, serial, generation, noteIndex, frame, bar, length].
   const records = velocities.map((_, index) => [TransportEventKind.Attack, index + 1, generation, index, 100 + index * 500, 0, 400]);
   for (const listener of [...harness.listeners]) listener.onTransport?.(batch(...records) as TransportResponse);
@@ -95,7 +99,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(EPOCH);
   vi.spyOn(performance, "now").mockImplementation(() => Date.now() - EPOCH);
-  vi.mocked(audio.getAudioContext).mockImplementation(() => ({
+  vi.mocked(getAudioContext).mockImplementation(() => ({
     state: "running", currentTime: performance.now() / 1000,
   } as AudioContext));
   midiDescriptor = Object.getOwnPropertyDescriptor(navigator, "requestMIDIAccess");

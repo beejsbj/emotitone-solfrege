@@ -231,7 +231,7 @@ export class StrudelNotation {
     this.fallbackEnvelope = resolveLiveEnvelope(this.config.sound, this.config.shape);
     // Uniform recorded articulation becomes a global modifier; only varying
     // controls need a per-note column alongside the expression columns.
-    // Superdough's existing unity-velocity gain is 0.8. Only emit gain when
+    // strudel.cc's unity-velocity gain is 0.8. Only emit gain when
     // a note needs attenuation, preserving legacy notation and loudness. The
     // take is normalised first: its loudest note is full level (BJS-556).
     const recordedControls: RecordedControl[] = this.notes.some(note => this.playbackGain(note.velocity) !== 1)
@@ -489,7 +489,7 @@ export class StrudelNotation {
     const fields = [value, ...this.controlFields.map(control => String(this.noteControl(note, control)))];
     if (this.renderVibrato) fields.push(String(vibrato?.vib ?? 0), String(vibrato?.vibmod ?? 0));
     // Omit trailing fields when this note has no tremolo. A zero tremolo value
-    // still creates an LFO AudioWorkletNode in Superdough on every playback.
+    // still creates an LFO AudioWorkletNode in strudel.cc on every playback.
     if (tremolo) fields.push(String(tremolo.tremolo), String(tremolo.tremolodepth));
     return fields.join(":");
   }

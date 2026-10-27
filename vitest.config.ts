@@ -7,8 +7,7 @@ import { resolve } from 'path'
 const nodeTests = [
   'src/audio/**/*.test.ts',
   'audio-lab/reference/**/*.test.ts',
-  'audio-lab/validate.test.ts',
-  'src/__tests__/services/{recordedTiming,livePitch,liveResampler,liveArticulation,livePerformance,playStyles,inputVoiceGroups,audioDiagnostics,musicColorCore,keySurfaceColor,pitchAnalysis,music,StrudelNotation}.test.ts',
+  'src/__tests__/services/{recordedTiming,livePitch,liveResampler,liveArticulation,livePerformance,inputVoiceGroups,audioDiagnostics,musicColorCore,keySurfaceColor,pitchAnalysis,music,StrudelNotation}.test.ts',
   'src/__tests__/data/**/*.test.ts',
   'src/__tests__/lint/**/*.test.ts',
 ]
@@ -41,13 +40,6 @@ export default defineConfig({
         },
       },
     ],
-    server: {
-      deps: {
-        // Use the browser ESM entries, as Vite does in production. The core's
-        // Kabelsalat dependency also publishes a non-ESM `main` entry.
-        inline: ['@strudel/soundfonts', '@strudel/core', '@strudel/mini', '@strudel/transpiler', '@strudel/tonal', '@kabelsalat/web'],
-      },
-    },
   },
   resolve: {
     alias: {

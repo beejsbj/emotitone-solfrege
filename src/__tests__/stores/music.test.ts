@@ -8,44 +8,39 @@ import { useVisualConfigStore } from "@/stores/visualConfig";
 import { useMusicStore } from "@/stores/music";
 import { usePhrasesStore } from "@/stores/phrases";
 import { useInstrumentStore } from "@/stores/instrument";
-import * as livePlayback from "@/services/livePlayback";
 import { DEFAULT_INSTRUMENT } from "@/data/instruments";
+import { getAudioContext } from "@/services/audioRuntime";
+import { attachLiveCore, type LiveSeat } from "../helpers/liveCore";
 
-const superdoughMocks = vi.hoisted(() => ({
-  setStrudelLaBasedMinor: vi.fn(),
-  attackNote: vi.fn().mockResolvedValue(undefined),
-  releaseNote: vi.fn(),
-  stopNote: vi.fn(),
-  releaseAll: vi.fn(),
-  playNoteWithDuration: vi.fn().mockResolvedValue(undefined),
-  audioContext: { state: "running", get currentTime() { return performance.now() / 1000; } },
-}));
+const seat = vi.hoisted(() => ({ renderer: null, listeners: new Set() }) as LiveSeat);
+vi.mock("@/services/livePlayback", async () => (await import("../helpers/liveCore")).livePlaybackOn(seat));
 
-vi.mock("@/services/superdoughAudio", () => ({
-  setLiveSynthControls: vi.fn(),
-  attackNote: superdoughMocks.attackNote,
-  releaseNote: superdoughMocks.releaseNote,
-  stopNote: superdoughMocks.stopNote,
-  releaseAll: superdoughMocks.releaseAll,
-  playNoteWithDuration: superdoughMocks.playNoteWithDuration,
-  initSuperdoughAudio: vi.fn().mockResolvedValue(undefined),
-  isPrewarmed: vi.fn().mockReturnValue(true),
-  prewarmSoundSamples: vi.fn().mockResolvedValue(undefined),
-  getAudioContext: vi.fn(() => superdoughMocks.audioContext),
-  setStrudelLaBasedMinor: superdoughMocks.setStrudelLaBasedMinor,
-  emotitoneStrudelOutput: vi.fn(),
-  stopStrudelVisuals: vi.fn(),
-}));
+let live: ReturnType<typeof attachLiveCore>;
+/** Render the worklet core so the voices it started or ended report back. */
+const settle = async () => {
+  for (let index = 0; index < 4; index++) await Promise.resolve();
+  live.render(20);
+};
+const events = (spy: ReturnType<typeof vi.spyOn>, type: string) => spy.mock.calls
+  .map(([event]) => event as CustomEvent).filter((event) => event.type === type);
+
+/** The audio context sleeps, so the next press waits for it to wake. Returns the wake. */
+function sleepAudio() {
+  let wake!: () => void;
+  const context = Object.assign(new EventTarget(), { state: "suspended", currentTime: 0 });
+  Object.assign(context, { resume: vi.fn(() => new Promise<void>((resolve) => {
+    wake = () => { Object.assign(context, { state: "running" }); context.dispatchEvent(new Event("statechange")); resolve(); };
+  })) });
+  vi.mocked(getAudioContext).mockReturnValue(context as unknown as AudioContext);
+  return () => wake();
+}
 
 describe("music store", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
-    superdoughMocks.attackNote.mockClear();
-    superdoughMocks.attackNote.mockResolvedValue(undefined);
-    superdoughMocks.releaseNote.mockClear();
-    superdoughMocks.stopNote.mockClear();
-    superdoughMocks.releaseAll.mockClear();
-    superdoughMocks.playNoteWithDuration.mockClear();
+    vi.mocked(getAudioContext).mockReturnValue({ state: "running", currentTime: 0 } as AudioContext);
+    seat.listeners.clear();
+    live = attachLiveCore(seat);
     if (typeof localStorage?.clear === "function") {
       localStorage.clear();
     }
@@ -138,9 +133,10 @@ describe("music store", () => {
     expect(store.solfegeData.map((note) => note.name)).toEqual(["Do", "Re", "Me", "Fa", "Sol", "Le", "Te"]);
     display.laBasedMinor = true;
     expect(store.solfegeData.map((note) => note.name)).toEqual(["La", "Ti", "Do", "Re", "Mi", "Fa", "Sol"]);
-    const id = await store.attackExactPitch("G#4");
+    const owner = await store.attackExactPitch("G#4");
+    await settle();
     expect(store.getActiveNotes()[0]).toMatchObject({ noteName: "G#4", solfege: { name: "Si" } });
-    await store.releaseNote(id ?? undefined);
+    await store.releaseNote(owner ?? undefined);
   });
 
   it("attacks borrowed chord tones through the exact-pitch seam without scale flooring", async () => {
@@ -150,14 +146,11 @@ describe("music store", () => {
 
     musicStore.setKey("C");
     musicStore.setMode("major");
-    const noteId = await musicStore.attackExactPitch("D#4");
+    const owner = await musicStore.attackExactPitch("D#4");
+    await settle();
 
-    expect(noteId).toMatch(/^exact_D#4_/);
-    expect(superdoughMocks.attackNote).toHaveBeenCalledWith(
-      noteId,
-      "D#4",
-      DEFAULT_INSTRUMENT,
-    );
+    // The exact pitch reaches the worklet, unfloored to the scale.
+    expect(events(dispatchEventSpy, "note-played")[0].detail).toMatchObject({ noteName: "D#4", instrument: DEFAULT_INSTRUMENT });
     expect(musicStore.getActiveNotes()[0]).toMatchObject({
       noteName: "D#4",
       solfege: expect.objectContaining({ name: "Me" }),
@@ -171,7 +164,8 @@ describe("music store", () => {
       .find((event) => event.type === "note-played") as CustomEvent;
     patternsStore.handleNotePressed(playedEvent);
 
-    await musicStore.releaseNote(noteId ?? undefined);
+    await musicStore.releaseNote(owner ?? undefined);
+    await settle();
     const releasedEvent = dispatchEventSpy.mock.calls
       .map(([event]) => event)
       .find((event) => event.type === "note-released") as CustomEvent;
@@ -193,7 +187,8 @@ describe("music store", () => {
 
     musicStore.setKey("G");
     musicStore.setMode("major");
-    const noteId = await musicStore.attackExactPitch("C5");
+    const owner = await musicStore.attackExactPitch("C5");
+    await settle();
 
     expect(musicStore.getActiveNotes()[0]).toMatchObject({
       noteName: "C5",
@@ -212,7 +207,7 @@ describe("music store", () => {
       keyboardOctave: 4,
     });
 
-    await musicStore.releaseNote(noteId ?? undefined);
+    await musicStore.releaseNote(owner ?? undefined);
   });
 
   it("plays notes using the actual current mode degree count", async () => {
@@ -221,14 +216,10 @@ describe("music store", () => {
 
     musicStore.setKey("F#");
     musicStore.setMode("chromatic");
-    const noteId = await musicStore.attackNote(11, 4);
+    const owner = await musicStore.attackNote(11, 4);
+    await settle();
 
-    expect(noteId).toMatch(/^F5_11_4_/);
-    expect(superdoughMocks.attackNote).toHaveBeenCalledWith(
-      noteId,
-      "F5",
-      DEFAULT_INSTRUMENT,
-    );
+    expect(events(dispatchEventSpy, "note-played")[0].detail).toMatchObject({ noteName: "F5", instrument: DEFAULT_INSTRUMENT });
     expect(musicStore.getActiveNotes()).toHaveLength(1);
     expect(musicStore.getActiveNotes()[0].solfege.name).toBe("Ti");
     expect(musicStore.getActiveNotes()[0].mode).toBe("chromatic");
@@ -241,8 +232,9 @@ describe("music store", () => {
     expect(notePlayedEvent.detail.key).toBe("F#");
     expect(notePlayedEvent.detail.pitchClassIndex).toBe(5);
 
-    await musicStore.releaseNote(noteId!);
-    expect(superdoughMocks.releaseNote).toHaveBeenCalledWith(noteId);
+    await musicStore.releaseNote(owner!);
+    await settle();
+    expect(live.core.voiceCount).toBe(0);
     expect(musicStore.getActiveNotes()).toHaveLength(0);
     const noteReleasedEvent = dispatchEventSpy.mock.calls.find(
       ([event]) => event.type === "note-released"
@@ -253,15 +245,11 @@ describe("music store", () => {
   });
 
   it("shows the selected instrument's failed rebuild in the warm-up error", () => {
-    let listener!: Parameters<typeof livePlayback.subscribeLivePlayback>[0];
-    const subscribe = vi.spyOn(livePlayback, "subscribeLivePlayback").mockImplementation(next => {
-      listener = next;
-      return () => {};
-    });
-    try {
+    {
       const instrument = useInstrumentStore();
       instrument.currentInstrument = "gm_violin";
       useMusicStore();
+      const [listener] = seat.listeners;
       listener.onLoadError?.("gm_violin", "Soundfont refetch failed (offline)");
       expect(instrument.lastWarmupError).toBe("Soundfont refetch failed (offline)");
       expect(instrument.lastWarmupErrorInstrument).toBe("gm_violin");
@@ -270,9 +258,21 @@ describe("music store", () => {
       instrument.currentInstrument = "triangle";
       listener.onLoadError?.("gm_violin", "Another instrument failed");
       expect(instrument.lastWarmupError).toBeNull();
-    } finally {
-      subscribe.mockRestore();
     }
+  });
+
+  it("refuses a press on a sound the worklet does not hold, and says why on the deck", async () => {
+    // The worklet is the only renderer (BJS-495): no fallback plays it.
+    seat.renderer = null;
+    const instrumentStore = useInstrumentStore();
+    const musicStore = useMusicStore();
+    const dispatchEventSpy = vi.spyOn(window, "dispatchEvent");
+
+    expect(await musicStore.attackExactPitch("C4")).toBeNull();
+    expect(instrumentStore.lastWarmupError).toBe("No live renderer in this test");
+    expect(instrumentStore.lastWarmupErrorInstrument).toBe(instrumentStore.currentInstrument);
+    expect(events(dispatchEventSpy, "note-played")).toEqual([]);
+    expect(musicStore.getActiveNotes()).toHaveLength(0);
   });
 
   it("refuses live note attacks while instrument samples are warming", async () => {
@@ -280,152 +280,60 @@ describe("music store", () => {
     const musicStore = useMusicStore();
     instrumentStore.warmingInstrument = "gm_vibraphone";
 
-    const noteId = await musicStore.attackNote(0, 4);
+    const owner = await musicStore.attackNote(0, 4);
+    await settle();
 
-    expect(noteId).toBeNull();
-    expect(superdoughMocks.attackNote).not.toHaveBeenCalled();
+    expect(owner).toBeNull();
+    expect(live.core.voiceCount).toBe(0);
     expect(musicStore.getActiveNotes()).toHaveLength(0);
   });
 
-  it("cancels an attack that finishes after instrument selection changes", async () => {
+  it("drops a press that wakes after the instrument selection changed", async () => {
     const instrumentStore = useInstrumentStore();
     const musicStore = useMusicStore();
-    let finishAttack!: () => void;
-    superdoughMocks.attackNote.mockReturnValueOnce(
-      new Promise<void>((resolve) => {
-        finishAttack = resolve;
-      })
-    );
+    const wake = sleepAudio();
 
-    const pendingAttack = musicStore.attackNote(0, 4);
+    const pending = musicStore.attackNote(0, 4);
     instrumentStore.selectionEpoch += 1;
-    finishAttack();
-    const noteId = await pendingAttack;
-
-    expect(noteId).toBeNull();
-    expect(superdoughMocks.stopNote).toHaveBeenCalledWith(
-      expect.stringMatching(/^C4_0_4_/)
-    );
+    wake();
+    expect(await pending).toBeNull();
+    await settle();
+    expect(live.core.voiceCount).toBe(0);
     expect(musicStore.getActiveNotes()).toHaveLength(0);
   });
 
-  it("cancels an exact attack that finishes after instrument selection changes", async () => {
+  it("drops an exact press that wakes after the instrument changed", async () => {
     const instrumentStore = useInstrumentStore();
     const musicStore = useMusicStore();
     const dispatchEventSpy = vi.spyOn(window, "dispatchEvent");
-    let finishAttack!: () => void;
-    superdoughMocks.attackNote.mockReturnValueOnce(
-      new Promise<void>((resolve) => {
-        finishAttack = resolve;
-      })
-    );
+    const wake = sleepAudio();
 
-    const pendingAttack = musicStore.attackExactPitch("D#4");
+    const pending = musicStore.attackExactPitch("D#4");
     instrumentStore.selectionEpoch += 1;
     instrumentStore.currentInstrument = "gm_vibraphone";
-    finishAttack();
-    const noteId = await pendingAttack;
-
-    expect(noteId).toBeNull();
-    expect(superdoughMocks.stopNote).toHaveBeenCalledWith(
-      expect.stringMatching(/^exact_D#4_/)
-    );
+    wake();
+    expect(await pending).toBeNull();
+    await settle();
+    expect(live.core.voiceCount).toBe(0);
     expect(musicStore.getActiveNotes()).toHaveLength(0);
-    expect(dispatchEventSpy).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: "note-played" }),
-    );
+    expect(events(dispatchEventSpy, "note-played")).toEqual([]);
   });
 
-  it("does not publish an exact attack whose input owner released while pending", async () => {
+  it.each(["exact", "melody"] as const)("does not publish a %s press whose input owner released while it waited", async (kind) => {
     const musicStore = useMusicStore();
     const dispatchEventSpy = vi.spyOn(window, "dispatchEvent");
-    let finishAttack!: () => void;
+    const wake = sleepAudio();
     let cancelled = false;
-    superdoughMocks.attackNote.mockReturnValueOnce(
-      new Promise<void>((resolve) => {
-        finishAttack = resolve;
-      })
-    );
 
-    const pendingAttack = musicStore.attackExactPitch("D#4", () => cancelled);
+    const pending = kind === "exact"
+      ? musicStore.attackExactPitch("D#4", () => cancelled)
+      : musicStore.attackNoteWithOctave(0, 4, () => cancelled);
     cancelled = true;
-    finishAttack();
-    const noteId = await pendingAttack;
-
-    expect(noteId).toBeNull();
-    expect(superdoughMocks.stopNote).toHaveBeenCalledWith(
-      expect.stringMatching(/^exact_D#4_/)
-    );
+    wake();
+    expect(await pending).toBeNull();
+    await settle();
+    expect(live.core.voiceCount).toBe(0);
     expect(musicStore.getActiveNotes()).toHaveLength(0);
-    expect(dispatchEventSpy).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: "note-played" }),
-    );
-  });
-
-  it("does not publish a melody attack whose input owner released while pending", async () => {
-    const musicStore = useMusicStore();
-    const dispatchEventSpy = vi.spyOn(window, "dispatchEvent");
-    let finishAttack!: () => void;
-    let cancelled = false;
-    superdoughMocks.attackNote.mockReturnValueOnce(
-      new Promise<void>((resolve) => {
-        finishAttack = resolve;
-      })
-    );
-
-    const pendingAttack = musicStore.attackNoteWithOctave(0, 4, () => cancelled);
-    cancelled = true;
-    finishAttack();
-    const noteId = await pendingAttack;
-
-    expect(noteId).toBeNull();
-    expect(superdoughMocks.stopNote).toHaveBeenCalledWith(
-      expect.stringMatching(/^C4_0_4_/)
-    );
-    expect(musicStore.getActiveNotes()).toHaveLength(0);
-    expect(dispatchEventSpy).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: "note-played" }),
-    );
-  });
-
-  it("dispatches duration playback with the resolved note for the current mode", async () => {
-    const musicStore = useMusicStore();
-    const dispatchEventSpy = vi.spyOn(window, "dispatchEvent");
-
-    musicStore.setMode("minor blues");
-    const noteId = await musicStore.playNoteWithDuration(3, 4, "8n");
-
-    expect(noteId).toContain("sdplay_");
-    expect(superdoughMocks.playNoteWithDuration).toHaveBeenCalledWith(
-      "F#4",
-      250,
-      DEFAULT_INSTRUMENT,
-    );
-    const notePlayedEvent = dispatchEventSpy.mock.calls.find(
-      ([event]) => event.type === "note-played"
-    )?.[0] as CustomEvent;
-    expect(notePlayedEvent.detail.durationMs).toBe(250);
-    dispatchEventSpy.mockRestore();
-  });
-
-  it("marks id-less convenience playback as a finite one-shot", async () => {
-    const musicStore = useMusicStore();
-    const dispatchEventSpy = vi.spyOn(window, "dispatchEvent");
-
-    await musicStore.playNote(0);
-
-    expect(superdoughMocks.playNoteWithDuration).toHaveBeenCalledWith(
-      "C4",
-      2000,
-      DEFAULT_INSTRUMENT,
-    );
-    expect(superdoughMocks.attackNote).not.toHaveBeenCalled();
-
-    const notePlayedEvent = dispatchEventSpy.mock.calls.find(
-      ([event]) => event.type === "note-played"
-    )?.[0] as CustomEvent;
-    expect(notePlayedEvent.detail.noteId).toBeUndefined();
-    expect(notePlayedEvent.detail.durationMs).toBe(2000);
-    dispatchEventSpy.mockRestore();
+    expect(events(dispatchEventSpy, "note-played")).toEqual([]);
   });
 });

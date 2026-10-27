@@ -24,7 +24,7 @@ import {
   type StageAudioFeatures,
 } from "@/services/stageAudio";
 import { getActiveLivePitchStageNotes } from "@/services/hummingStage";
-import { getAudioContext } from "@/services/superdoughAudio";
+import { getAudioContext } from "@/services/audioRuntime";
 import { getActivePatternStageNotes } from "@/services/patternTransport";
 import {
   STAGE_BODY_SIZE_BASE_RATIO,

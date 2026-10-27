@@ -7,24 +7,13 @@ import { patternNoteIdentity } from "@/services/patternMember";
 import type { ChromaticNote } from "@/types/music";
 import { musicTheory } from "@/services/music";
 
-vi.unmock("@/services/superdoughAudio");
-
-// Keep the store and theory real; replace only the browser audio graph and
-// the external sound engine. The audio-side probe is the identity a pattern
+// Keep the store and theory real; replace only the browser audio graph. The audio-side probe is the identity a pattern
 // note gets from the shared theory context at the moment it is built.
 vi.mock("@/services/audioRuntime", () => ({
   getAudioContext: () => ({ state: "running", currentTime: 12 }),
   getMasterGain: () => null,
   initializeAudio: vi.fn(),
   LIVE_ORBIT: 2,
-}));
-vi.mock("@strudel/webaudio", () => ({ webaudioOutput: vi.fn().mockResolvedValue(undefined) }));
-vi.mock("superdough", () => ({
-  superdough: vi.fn(), registerSynthSounds: vi.fn(), samples: vi.fn(),
-  loadBuffer: vi.fn(), getSound: vi.fn(), soundMap: { get: () => ({}) },
-  hasVoice: vi.fn(), stopVoice: vi.fn(), cancelVoice: vi.fn(),
-  releaseVoice: vi.fn(), releaseAllVoices: vi.fn(),
-  registerSound: vi.fn(),
 }));
 
 let pinia: Pinia;

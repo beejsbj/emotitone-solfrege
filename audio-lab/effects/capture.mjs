@@ -9,9 +9,9 @@ import { createHash } from 'node:crypto';
 
 const root = process.cwd();
 const directory = await mkdtemp(join(tmpdir(), 'emotitone-parity-'));
-const packagePath = resolve('node_modules/superdough/dist/index.mjs');
 const digest = async path => createHash('sha256').update(await readFile(path)).digest('hex');
-const watched = [packagePath, ...['helpers.mjs', 'reverbGen.mjs', 'reverb.mjs', 'feedbackdelay.mjs'].map(name => resolve('node_modules/superdough', name))];
+// The app's own effect sources: a run is void if they change under it.
+const watched = ['src/audio/effects.ts', 'src/audio/liveShaping.ts', 'src/audio/live/core.ts'].map(path => resolve(path));
 const hashes = Object.fromEntries(await Promise.all(watched.map(async path => [path, await digest(path)])));
 let vite, chrome, socket;
 
@@ -74,7 +74,7 @@ async function startChrome() {
 try {
   vite = await createServer({ configFile: false, root, cacheDir: join(directory, 'vite-cache'),
     optimizeDeps: { entries: ['audio-lab/effects/index.html'] },
-    resolve: { alias: { '@': resolve('src'), superdough: packagePath } },
+    resolve: { alias: { '@': resolve('src') } },
     server: { host: '127.0.0.1', port: 0, hmr: false, watch: { ignored: ['**/*'] } },
   });
   await vite.listen();
@@ -112,7 +112,7 @@ try {
   await call('Runtime.enable');
   await call('Fetch.enable', { patterns: [{ urlPattern: '*' }] });
   await call('Page.navigate', { url: `${origin}/audio-lab/effects/` });
-  const functionName = process.argv[3] === 'engine' ? 'runEngineEffects' : process.argv[3] === 'listening' ? 'renderEffectListening' : 'runEffectReference';
+  const functionName = process.argv[3] === 'listening' ? 'renderEffectListening' : 'runEngineEffects';
   let ready = false;
   // Cold dependency transforms can exceed 20 seconds on the shared lab host.
   for (let attempt = 0; attempt < 600; attempt++) {

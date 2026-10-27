@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { m } from '@strudel/mini';
-import { transpiler } from '@strudel/transpiler';
-import '@strudel/tonal';
+import { evaluateStrudel } from '../helpers/strudelOracle';
 import { LiveAudioCore } from '@/audio/live/core';
 import type { PreparedLiveInstrument } from '@/audio/live/types';
 import { buildPatternMember } from '@/services/patternMember';
@@ -131,8 +129,7 @@ describe('take level at the playback seam', () => {
 describe('take level in the exported Strudel text', () => {
   function gains(notes: LogNote[], notationType: 'absolute' | 'relative' = 'absolute') {
     const code = logNotesToStrudel(notes, { sourceBpm: 120, bpm: 120, notationType });
-    const pattern = new Function('m', transpiler(code).output)(m);
-    return pattern.queryArc(0, 8).filter((hap: any) => hap.hasOnset())
+    return evaluateStrudel(code, 0, 8).filter((hap: any) => hap.hasOnset())
       .sort((a: any, b: any) => Number(a.whole.begin) - Number(b.whole.begin))
       .map((hap: any) => hap.value.gain as number | undefined);
   }

@@ -1,10 +1,8 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import UniqueCodeStrip from "@/style-guide/uniques/UniqueCodeStrip.vue";
 import CompoundCodeStripBar from "@/style-guide/compounds/CompoundCodeStripBar.vue";
 
-// Controlled specimens never start audio; keep the browser-only Strudel adapter out of this DOM test.
-vi.mock("@strudel/webaudio", () => ({}));
 
 let wrapper: VueWrapper | undefined;
 afterEach(() => wrapper?.unmount());

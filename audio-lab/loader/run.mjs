@@ -1,7 +1,7 @@
 /**
  * node audio-lab/loader/run.mjs [receipt.json] [--only=name,name] [--skip-sweep] [--skip-piano]
- * BJS-488 receipts in headless Chrome (CHROME_BIN optional): catalog parity,
- * every selectable instrument through the app loader, and the piano's load
+ * BJS-488 receipts in headless Chrome (CHROME_BIN optional): the picker's
+ * catalog, every selectable instrument through the app loader, and the piano's load
  * (long tasks, input round-trips, renderer memory) owned vs legacy-equivalent.
  * Fetches real sample and soundfont data from the upstream hosts.
  */
@@ -16,7 +16,6 @@ const output = args.find(arg => !arg.startsWith('--'));
 const only = args.find(arg => arg.startsWith('--only='))?.slice(7).split(',');
 const skipSweep = args.includes('--skip-sweep');
 const skipPiano = args.includes('--skip-piano');
-const FONT_PARITY = process.env.FONT_PARITY?.split(',') ?? ['gm_piano', 'gm_violin', 'gm_flute', 'gm_acoustic_guitar_nylon', 'gm_pad_warm'];
 const root = process.cwd();
 const directory = await mkdtemp(join(tmpdir(), 'emotitone-loader-'));
 let vite, chrome, socket;
@@ -116,20 +115,18 @@ try {
 
   await load();
   const catalog = await evaluate('window.catalog()');
-  const names = only ?? catalog.selectableNow;
+  const names = only ?? catalog.selectable;
   const sweep = [];
   if (!skipSweep) for (let index = 0; index < names.length; index += 8) {
     const chunk = names.slice(index, index + 8);
     sweep.push(...await evaluate(`window.sweep(${JSON.stringify(chunk)})`));
     console.error(`swept ${Math.min(index + 8, names.length)}/${names.length}`);
   }
-  // Five fonts against @strudel/soundfonts while it is still installed: zones, PCM and a pattern note.
-  const fontParity = skipSweep ? [] : await evaluate(`window.fontParity(${JSON.stringify(FONT_PARITY)}${process.env.PARITY_PITCHES ? `, [${process.env.PARITY_PITCHES}], ${Number(process.env.PARITY_HOLD ?? .8)}` : ''})`);
   const receipt = { revision: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
-    recordedAt: new Date().toISOString(), host: 'shared desktop host, headless Chrome', exceptions, piano, catalog, sweep, fontParity };
+    recordedAt: new Date().toISOString(), host: 'shared desktop host, headless Chrome', exceptions, piano, catalog, sweep };
   if (output) await writeFile(output, JSON.stringify(receipt, null, 2) + '\n');
-  console.log(JSON.stringify({ piano, catalog: { ...catalog.registered, selectableToday: catalog.selectableToday.length,
-    selectableNow: catalog.selectableNow.length }, swept: sweep.length, fontParity, exceptions }, null, 2));
+  console.log(JSON.stringify({ piano, catalog: { ...catalog.registered, selectable: catalog.selectable.length },
+    swept: sweep.length, exceptions }, null, 2));
 } finally {
   socket?.close();
   if (chrome && chrome.exitCode === null && chrome.signalCode === null) {

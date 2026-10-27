@@ -1,15 +1,14 @@
-# Native scheduling reference
+# Effect reference tests
 
-This directory preserves the repaired native renderer and the dual-backend
-manager from the frozen comparison at `37666ea`. Production imports only the
-worklet manager in `src/services/livePlayback.ts`; the shared instrument
-extractor remains in `src/services/preparedNativeInstrument.ts` because the
-worklet also needs the original sample and soundfont metadata.
+- `effectGoldens.test.ts` keeps the frozen effect references in
+  `../effects/fixtures/reference.json` intact. They were captured from the
+  previous engine before it left the app and can no longer be regenerated.
+- `effectBrowser.test.ts` renders the production processor, bridge, native buses
+  and context owner in headless Chrome against those references. It needs
+  Chrome and fails without it.
+- `effectListening.test.ts` writes listening clips when `RENDER_EFFECT_LISTENING=1`.
 
-`LAB_UI_BACKEND=native` in the audio lab installs a Vite module redirect to this
-manager. The normal Vite application build never installs that plugin. Native
-lookahead is still changed only by the guarded laboratory transform. The source
-and tests are retained for reproducibility, not as another product setting.
+The native scheduling reference that used to live here was removed in BJS-495;
+its comparison is recorded in `../native-comparison-results.md`.
 
-Run reference tests with `bunx vitest run audio-lab/reference`. The actual-app
-comparison commands and declared limits are in `../native-comparison.md`.
+Run with `bun run test:run audio-lab/reference/<file>`.

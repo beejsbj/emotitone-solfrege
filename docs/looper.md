@@ -91,7 +91,8 @@ Consequences to enforce with tests, in the manner of `phraseBook.test.ts`:
 **Decided (Burooj, 2026-10-09): the transport runs on the app's own
 AudioWorklet engine**, not on Strudel. The decision is Decision 3 of
 [the retrospective spec](retrospective-spec.md); the design is
-[the worklet engine](research/worklet-engine.md), §2. The Strudel transport
+[the worklet engine](research/worklet-engine.md), §2. Strudel and superdough
+have since left the app entirely (BJS-495). The Strudel transport
 (#137, #140) worked on a desktop and is kept as research, unmerged. Its
 join, leave, offset, tempo, mute and solo semantics and its receipts are the
 worklet transport's acceptance tests.

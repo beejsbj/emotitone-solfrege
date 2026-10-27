@@ -1,8 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
-vi.unmock('@strudel/core');
-import { m } from '@strudel/mini';
-import { transpiler } from '@strudel/transpiler';
-import '@strudel/tonal';
+import { describe, expect, it } from 'vitest';
+import { evaluateStrudel } from '../helpers/strudelOracle';
 import { renderStrudelNotation, type StrudelConfig } from '@/services/StrudelNotation';
 import { noteIdAtLocations } from '@/services/notationSpans';
 import type { LogNote } from '@/types/patterns';
@@ -19,9 +16,7 @@ function note(id: string, pitch: string, start: number, duration: number, extra:
 // then name each sounding onset by the span map, as the Strudel output does.
 function soundingIds(notes: LogNote[], config: Partial<StrudelConfig> = {}) {
   const { code, spans } = renderStrudelNotation(notes, config);
-  const { output } = transpiler(code);
-  const pattern = new Function('m', output)(m);
-  const events = pattern.queryArc(0, 4)
+  const events = evaluateStrudel(code, 0, 4)
     .filter((hap: any) => hap.hasOnset())
     .map((hap: any) => `${hap.value.note ?? hap.value.n}=${noteIdAtLocations(spans, hap.context.locations)}`);
   // Every onset across several loops, as distinct pitch=id pairs in code order.

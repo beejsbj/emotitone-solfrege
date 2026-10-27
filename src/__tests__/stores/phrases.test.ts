@@ -8,27 +8,12 @@ import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useVisualConfigStore } from "@/stores/visualConfig";
-import { isPrewarmed, prewarmSoundSamples } from "@/services/superdoughAudio";
+import { isPrewarmed, prewarmSoundSamples } from "@/services/audioEngine";
 import {
   deserializePatternsState,
   serializePatternsState,
 } from "@/services/patternPersistence";
 
-vi.mock("@/services/superdoughAudio", () => ({
-  setStrudelLaBasedMinor: vi.fn(),
-  setLiveSynthControls: vi.fn(),
-  attackNote: vi.fn().mockResolvedValue(undefined),
-  releaseNote: vi.fn(),
-  stopNote: vi.fn(),
-  releaseAll: vi.fn(),
-  playNoteWithDuration: vi.fn().mockResolvedValue(undefined),
-  initSuperdoughAudio: vi.fn().mockResolvedValue(undefined),
-  isPrewarmed: vi.fn().mockReturnValue(true),
-  prewarmSoundSamples: vi.fn().mockResolvedValue(undefined),
-  getAudioContext: vi.fn(() => ({ state: "running", currentTime: 0 })),
-  playStrudelCode: vi.fn().mockResolvedValue(undefined),
-  stopStrudelPlayback: vi.fn(),
-}));
 
 const START = new Date("2026-09-26T12:00:00Z").getTime();
 
@@ -133,6 +118,24 @@ describe("phrases store", () => {
         expect(store.book.phrases.find((phrase) => phrase.id === source.id)!.context.instrument).toBe(dead);
       },
     );
+
+    it("brings a take left on the desk across a reload back on the working sound", () => {
+      playPhrase(store, "before", START);
+      keptOn("kawai", "dead-kept");
+      const state = JSON.parse(JSON.stringify({ book: store.book, isRecordingEnabled: true }));
+      state.book.phrases.find((phrase: { id: string }) => phrase.id === state.book.takeId).context.instrument = "kawai";
+      store.$dispose();
+      localStorage.setItem("phrases", serializePatternsState(state));
+      const pinia = createTestPinia().use(piniaPluginPersistedstate);
+      createApp({}).use(pinia);
+      setActivePinia(pinia);
+      useVisualConfigStore().updateConfig("codeStrip", { bpm: 120 });
+      store = usePhrasesStore();
+      expect(store.takeContext.instrument).toBe("piano");
+      expect(store.takeNotes).toHaveLength(3);
+      // Only the desk's copy moves; a kept phrase keeps the id it was recorded on.
+      expect(store.book.phrases.find((phrase) => phrase.id === "dead-kept")!.context.instrument).toBe("kawai");
+    });
 
     it("reopens a Recent phrase in place on the working sound", async () => {
       const source = keptOn("kawai", "dead-recent");

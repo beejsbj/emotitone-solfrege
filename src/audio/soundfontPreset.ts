@@ -2,7 +2,7 @@
  * Reads a webaudiofontdata preset file without running it.
  *
  * A font file is JavaScript: `console.log(...); var _tone_<font>={zones:[...]};`.
- * @strudel/soundfonts `eval`s that text. This module parses only the object
+ * Strudel's soundfonts package `eval`s that text. This module parses only the object
  * literal assigned to the `var`, and only plain data (objects, arrays, strings,
  * numbers, booleans, null, comments). Numbers may be written as arithmetic on
  * numeric literals (some fonts say `originalPitch:4200-140`), which is computed

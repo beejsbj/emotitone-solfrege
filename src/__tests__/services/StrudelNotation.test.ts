@@ -1,13 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
-vi.unmock('@strudel/core')
 import { logNotesToStrudel, mergeStrudelRests, planRecordedPattern } from '@/services/StrudelNotation'
 import { Note } from '@tonaljs/tonal'
 import { buildDefaultPattern, defaultPatterns } from '@/data/patterns'
-import { as } from '@strudel/core/controls.mjs'
-import { mini } from '@strudel/mini/mini.mjs'
-import { m } from '@strudel/mini'
-import { transpiler } from '@strudel/transpiler'
-import '@strudel/tonal'
+import { evaluateMini, evaluateStrudel } from '../helpers/strudelOracle'
 
 import type { LogNote } from '@/types/patterns'
 import type { Shape } from '@/types/instrument'
@@ -69,8 +64,7 @@ describe('StrudelNotation', () => {
     expect(result).toContain('{C4:10:0.3, E4:0:0}@0.25')
     expect(result).toContain(".as(['note', 'vib', 'vibmod'])")
 
-    const pattern = as(["note", "vib", "vibmod"], mini(result.split('`')[1]))
-    const events = pattern.queryArc(0, 0.5)
+    const events = evaluateMini(["note", "vib", "vibmod"], result.split('`')[1], 0, 0.5)
     expect(events).toHaveLength(2)
     expect(events.map((event) => event.value)).toEqual([
       { note: 'C4', vib: 10, vibmod: 0.3 },
@@ -93,7 +87,7 @@ describe('StrudelNotation', () => {
     expect(result).toContain('{0:10:0.25, 2:0:0}@0.25')
     expect(result).toContain(".as(['n', 'vib', 'vibmod'])")
 
-    const events = as(["n", "vib", "vibmod"], mini(result.split('`')[1])).queryArc(0, 0.5)
+    const events = evaluateMini(["n", "vib", "vibmod"], result.split('`')[1], 0, 0.5)
     expect(events).toHaveLength(2)
     expect(events.map((event) => event.value)).toEqual([
       { n: 0, vib: 10, vibmod: 0.25 },
@@ -116,7 +110,7 @@ describe('StrudelNotation', () => {
     ])
     expect(result).toContain('{C4:0:0:10:0.385, E4:10:0.25}@0.25')
     expect(result).toContain(".as(['note', 'vib', 'vibmod', 'tremolo', 'tremolodepth'])")
-    const events = as(["note", "vib", "vibmod", "tremolo", "tremolodepth"], mini(result.split('`')[1])).queryArc(0, 0.5)
+    const events = evaluateMini(["note", "vib", "vibmod", "tremolo", "tremolodepth"], result.split('`')[1], 0, 0.5)
     expect(events.map((event) => event.value)).toEqual([
       { note: 'C4', vib: 0, vibmod: 0, tremolo: 10, tremolodepth: 0.385 },
       { note: 'E4', vib: 10, vibmod: 0.25 },
@@ -135,7 +129,7 @@ describe('StrudelNotation', () => {
     const field = notationType === 'relative' ? 'n' : 'note'
     const keys = [field, 'vib', 'vibmod', 'tremolo', 'tremolodepth']
     expect(result).toContain(`.as([${keys.map(key => `'${key}'`).join(', ')}])`)
-    const events = as(keys, mini(result.split('`')[1])).queryArc(0, 0.5)
+    const events = evaluateMini(keys, result.split('`')[1], 0, 0.5)
     expect(events.map(event => event.value)).toEqual([
       { [field]: field === 'n' ? 0 : 'C4', vib: 10, vibmod: 0.25, tremolo: 10, tremolodepth: 0.385 },
       { [field]: field === 'n' ? 2 : 'E4', vib: 0, vibmod: 0 },
@@ -165,9 +159,7 @@ describe('StrudelNotation', () => {
           makeNote('g', 'G4', 4, 4, 1770, 500),
         ]
         const code = logNotesToStrudel(notes, { notationType, sourceBpm: 120, bpm: 120 })
-        const { output } = transpiler(code)
-        const pattern = new Function('m', output)(m)
-        const events = pattern.queryArc(0, 1.77).filter((event: any) => event.hasOnset())
+        const events = evaluateStrudel(code, 0, 1.77).filter((event: any) => event.hasOnset())
           .sort((a: any, b: any) => Number(a.whole.begin) - Number(b.whole.begin))
         expect(events).toHaveLength(3)
         for (const [index, event] of events.entries()) {
@@ -547,10 +539,8 @@ describe('recorded pattern plan parity (the transport table vs exported code)', 
       const config = { notationType, sourceBpm: context.bpm, bpm: 120, scaleKey: context.key, scaleMode: context.mode, scaleOctave: 4 }
       const plan = planRecordedPattern(notes, config)
       const code = logNotesToStrudel(notes, config)
-      const { output } = transpiler(code)
-      const pattern = new Function('m', output)(m)
       const barSeconds = 240 / config.bpm
-      const haps = pattern.queryArc(0, 8 * barSeconds).filter((hap: any) => hap.hasOnset())
+      const haps = evaluateStrudel(code, 0, 8 * barSeconds).filter((hap: any) => hap.hasOnset())
         .map((hap: any) => ({
           begin: Number(hap.whole.begin) / barSeconds,
           gate: Number(hap.whole.duration) * (hap.value.clip ?? 1) / barSeconds,

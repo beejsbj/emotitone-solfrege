@@ -26,8 +26,10 @@ import {
 import {
   createPatternPlayer, PATTERN_PLAYBACK_SOURCE, setProductionPatternPlayer, type PatternPlayer,
 } from "@/services/patternTransport";
-import { latencyHintOf, parseLatencyHint, setLatencyHintOverride } from "@/services/audioRuntime";
-import { getAudioContext, getSuperdoughMasterGain, initSuperdoughAudio } from "@/services/superdoughAudio";
+import { initAudioEngine } from "@/services/audioEngine";
+import {
+  getAudioContext, getMasterGain, latencyHintOf, parseLatencyHint, setLatencyHintOverride,
+} from "@/services/audioRuntime";
 import { GATE_BEAT_MS, GATE_BPM, GATE_INSTRUMENT, GATE_MEMBER_LABELS, gateMembers, gateTables } from "./fixtures";
 import { createAttackLedger, createLightLedger, createSoakAccount } from "./ledger";
 import {
@@ -275,9 +277,9 @@ export function createPhoneGate() {
     }, 100);
     cleanups.push(() => clearInterval(peakTimer));
     const loadStart = performance.now();
-    await initSuperdoughAudio();
+    await initAudioEngine();
     check();
-    await prepareLivePlayback(audio, getSuperdoughMasterGain(), instrumentId);
+    await prepareLivePlayback(audio, getMasterGain(), instrumentId);
     check();
     clearInterval(peakTimer);
     const failure = getLivePlaybackFailure(instrumentId);
@@ -294,8 +296,8 @@ export function createPhoneGate() {
       audio: {
         getContext: () => getAudioContext(),
         async ensureReady() {
-          await initSuperdoughAudio();
-          return getSuperdoughMasterGain();
+          await initAudioEngine();
+          return getMasterGain();
         },
       },
     });

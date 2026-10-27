@@ -65,8 +65,8 @@ const loadFailures = new Set<string>();
 /**
  * Sampled instruments refused because the banks that held keys and Looper
  * members keep resident leave no room for them in the PCM budget. Live input
- * on one falls back to the main-thread renderer instead of being dropped; the
- * transport refuses the join instead.
+ * on one is refused with this reason (the deck shows it); the transport
+ * refuses the join.
  */
 const budgetRefused = new Set<string>();
 /**
@@ -204,8 +204,8 @@ function invalidate(error?: unknown) {
   }
 }
 
-/** Prepare the selected sound before input is enabled. Unsupported sounds keep
- * the fallback renderer; a prepared bank's PCM moves into the worklet. */
+/** Prepare the selected sound before input is enabled. A prepared bank's PCM
+ * moves into the worklet; an unsupported sound records why it cannot play. */
 export async function prepareLivePlayback(nextContext: AudioContext, destination: AudioNode | null, name: string): Promise<void> {
   const instrumentId = resolveLiveSoundName(name);
   if (!destination || (!nextContext.audioWorklet || typeof AudioWorkletNode === "undefined")) {
@@ -407,11 +407,11 @@ export function getLivePlayback(name: string): LiveRenderer | undefined {
   return managedEngine;
 }
 
-/** Undefined preserves synchronous input when ready (or intentionally on the
- * fallback). Otherwise wait for the worklet, never warming a second PCM copy.
- * A failed recovery drops this input and reports through onLoadError. A bank
+/** Undefined preserves synchronous input when ready (or when the worklet never
+ * held the sound). Otherwise wait for the worklet to restore the bank. A
+ * failed recovery drops this input and reports through onLoadError. A bank
  * refused for budget (held keys and Looper members keep too much sample
- * memory resident) is not a failure: the input plays on the fallback renderer. */
+ * memory resident) is not a load failure: the input is refused with that reason. */
 export function waitForLivePlayback(name: string): Promise<void> | undefined {
   const instrumentId = resolveLiveSoundName(name);
   if (!workletInstruments.has(instrumentId) || getLivePlayback(name) || unsupported.has(instrumentId)) return;
@@ -462,13 +462,13 @@ export function needsLivePlaybackPreparation(name: string): boolean {
 }
 
 /** Why the worklet does not hold a sound: its data failed to load (retry may help),
- * or the worklet cannot or will not hold it (the fallback renderer plays it).
+ * or the worklet cannot or will not hold it (so it cannot play).
  * `budget` is set when it was refused because pinned banks leave no sample memory for it. */
-export function getLivePlaybackFailure(name: string): { kind: "load" | "fallback"; reason: string; budget?: true } | undefined {
+export function getLivePlaybackFailure(name: string): { kind: "load" | "unavailable"; reason: string; budget?: true } | undefined {
   const instrumentId = resolveLiveSoundName(name);
   if (installed.has(instrumentId) && !retiring.has(instrumentId)) return undefined;
   const reason = reasons.get(instrumentId) ?? (typeof AudioWorkletNode === "undefined" ? "AudioWorklet is unavailable" : "Live renderer is not prepared");
-  return { kind: loadFailures.has(instrumentId) ? "load" : "fallback", reason,
+  return { kind: loadFailures.has(instrumentId) ? "load" : "unavailable", reason,
     ...(budgetRefused.has(instrumentId) ? { budget: true as const } : {}) };
 }
 
@@ -486,7 +486,7 @@ export function getLivePlaybackDiagnostics(name: string) {
   const cachedPreparationPcmBytes = preparation?.cachedPreparationPcmBytes ?? 0;
   const preparingPcmBytes = preparation?.preparingPcmBytes ?? 0;
   return {
-    backend: ready ? "audio-worklet" : "superdough",
+    backend: ready ? "audio-worklet" : "none",
     requestedBackend: "worklet",
     reason: reasons.get(instrumentId) ?? null,
     installedBanks: installed.size,
@@ -500,6 +500,6 @@ export function getLivePlaybackDiagnostics(name: string) {
     preparationPcmBudgetBytes: preparation?.preparationPcmBudgetBytes ?? MAX_PCM_BYTES,
     additionalPcmBytes: installedPcmBytes + installingPcmBytes + cachedPreparationPcmBytes + preparingPcmBytes,
     lookaheadMs: null,
-    preparationLeadMs: ready ? 0 : 5,
+    preparationLeadMs: ready ? 0 : null,
   };
 }

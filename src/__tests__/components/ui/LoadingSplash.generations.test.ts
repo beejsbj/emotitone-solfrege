@@ -20,23 +20,24 @@ const audio = vi.hoisted(() => {
   return {
     state: { stage: "idle" as Stage },
     context,
-    initSuperdoughAudio: vi.fn(async (_report?: (progress: number, message: string) => void) => {}),
+    initAudioEngine: vi.fn(async (_report?: (progress: number, message: string) => void) => {}),
     initSynthOnlyAudio: vi.fn(async () => {}),
     prewarmSoundSamples: vi.fn(async (_sound: string) => {}),
     isPrewarmed: vi.fn((sound: string) => sound === "triangle"),
   };
 });
 
-vi.mock("@/services/superdoughAudio", () => ({
-  setStrudelLaBasedMinor: vi.fn(),
-  initSuperdoughAudio: audio.initSuperdoughAudio,
+vi.mock("@/services/audioEngine", () => ({
+  initAudioEngine: audio.initAudioEngine,
   initSynthOnlyAudio: audio.initSynthOnlyAudio,
   getAudioStartupStage: () => audio.state.stage,
-  getAudioContext: () => audio.context,
   prewarmSoundSamples: audio.prewarmSoundSamples,
   isPrewarmed: audio.isPrewarmed,
   getReadySounds: () => ["triangle"],
   setLiveSynthControls: vi.fn(),
+}));
+vi.mock("@/services/audioRuntime", () => ({
+  getAudioContext: () => audio.context,
 }));
 vi.mock("@/stores/keyboardDrawer", () => ({
   useKeyboardDrawerStore: () => ({
@@ -78,7 +79,7 @@ beforeEach(() => {
   useAppLoading().resetLoading();
   audio.state.stage = "ready";
   audio.context.state = "suspended";
-  audio.initSuperdoughAudio.mockImplementation(async () => {});
+  audio.initAudioEngine.mockImplementation(async () => {});
   audio.prewarmSoundSamples.mockImplementation(async () => {});
 });
 
@@ -93,7 +94,7 @@ describe("loading generations with the real instrument store", () => {
   it.each(["resolve", "reject"] as const)("ignores old boot progress and %s after reset", async result => {
     const pending = deferred();
     let report!: (progress: number, message: string) => void;
-    audio.initSuperdoughAudio.mockImplementationOnce(callback => {
+    audio.initAudioEngine.mockImplementationOnce(callback => {
       report = callback!;
       return pending.promise;
     });
@@ -124,7 +125,7 @@ describe("loading generations with the real instrument store", () => {
     useAppLoading().resetLoading();
     await vi.advanceTimersByTimeAsync(400);
     await flushPromises();
-    expect(audio.initSuperdoughAudio).not.toHaveBeenCalled();
+    expect(audio.initAudioEngine).not.toHaveBeenCalled();
     expect(useAppLoading().loadingState.progress.visualEffects.isComplete).toBe(false);
     expect(wrapper.find(".count-gate--play").exists()).toBe(false);
   });
@@ -132,7 +133,7 @@ describe("loading generations with the real instrument store", () => {
   it("keeps a retry pending when the superseded load completes", async () => {
     const first = deferred();
     const second = deferred();
-    audio.initSuperdoughAudio.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    audio.initAudioEngine.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
     const wrapper = await mountSplash();
     // Exercise the recovery handler while the previous request is in flight.
     wrapper.getComponent(LoadingScreen).vm.$emit("retry");
@@ -156,7 +157,7 @@ describe("loading generations with the real instrument store", () => {
   it("does not let stale failure or progress overwrite a successful retry", async () => {
     const first = deferred();
     let report!: (progress: number, message: string) => void;
-    audio.initSuperdoughAudio.mockImplementationOnce(callback => {
+    audio.initAudioEngine.mockImplementationOnce(callback => {
       report = callback!;
       return first.promise;
     });
@@ -201,7 +202,7 @@ describe("loading generations with the real instrument store", () => {
 
   it("does not resume audio after reset cancels an engine start", async () => {
     const engine = deferred();
-    audio.initSuperdoughAudio.mockReturnValueOnce(engine.promise);
+    audio.initAudioEngine.mockReturnValueOnce(engine.promise);
     const loading = useAppLoading();
     const start = loading.enableAudioContext();
     loading.resetLoading();
@@ -225,7 +226,7 @@ describe("loading generations with the real instrument store", () => {
     const pending = deferred();
     let report!: (progress: number, message: string) => void;
     audio.state.stage = "samples";
-    audio.initSuperdoughAudio.mockImplementationOnce(callback => {
+    audio.initAudioEngine.mockImplementationOnce(callback => {
       report = callback!;
       return pending.promise;
     });

@@ -3,7 +3,7 @@
  * and send levels live on the audio thread; native effect buses belong to the app.
  */
 
-/** Values the Shape tab owns; matches the Superdough live payload rules. */
+/** Values the Shape tab owns. */
 export interface LiveShaping {
   cutoff: number;
   resonance: number;
@@ -11,7 +11,7 @@ export interface LiveShaping {
   delay: number;
 }
 
-/** The subset of a Superdough orbit the live chain sends into. */
+/** The subset of an effect orbit (src/audio/effects.ts) the live chain sends into. */
 export interface LiveOrbitSends {
   getDelay(time: number, feedback: number, at: number): AudioNode;
   getReverb(...params: undefined[]): AudioNode;
@@ -27,7 +27,7 @@ export interface LiveShapingChain {
   dispose(): void;
 }
 
-/** At or above this cutoff the filter is bypassed, as in live Superdough notes. */
+/** At or above this cutoff the filter is bypassed. */
 export const OPEN_CUTOFF_HZ = 12000;
 export const LIVE_DELAY_TIME_SECONDS = 0.25;
 export const LIVE_DELAY_FEEDBACK = 0.3;

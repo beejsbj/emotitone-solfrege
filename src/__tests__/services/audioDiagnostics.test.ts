@@ -5,8 +5,7 @@ vi.mock('@/services/livePlayback', () => ({
   getLivePlaybackDiagnostics: () => ({ backend: 'audio-worklet', preparationLeadMs: 0 }),
 }))
 
-vi.mock('superdough', () => ({ maxPolyphony: 32 }))
-vi.mock('@/services/superdoughAudio', () => ({
+vi.mock('@/services/audioRuntime', () => ({
   getAudioContext: () => ({ state: 'running', currentTime: 2, sampleRate: 48000 }),
 }))
 
@@ -56,14 +55,14 @@ describe('audio diagnostics snapshots', () => {
     }, 128, 1000).outputClock.status).toBe('unavailable')
   })
 
-  it('reports the selected renderer lead without confusing fallback or device latency', () => {
-    expect(getAudioDiagnostics()).toMatchObject({ live: null, liveSchedulingLeadMs: null, fallbackSchedulingLeadMs: 5 })
+  it('reports the selected renderer lead without confusing it with device latency', () => {
+    expect(getAudioDiagnostics()).toMatchObject({ live: null, liveSchedulingLeadMs: null })
     expect(getAudioDiagnostics('piano')).toMatchObject({
       live: { backend: 'audio-worklet' }, liveSchedulingLeadMs: 0, maxPolyphony: 64,
     })
   })
 
   it('reads the application context and engine limit through the exported getter', () => {
-    expect(getAudioDiagnostics()).toMatchObject({ state: 'running', contextTimeSeconds: 2, maxPolyphony: 32 })
+    expect(getAudioDiagnostics()).toMatchObject({ state: 'running', contextTimeSeconds: 2, maxPolyphony: 64 })
   })
 })

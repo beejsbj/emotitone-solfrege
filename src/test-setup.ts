@@ -138,25 +138,26 @@ Object.defineProperty(global, 'localStorage', {
   configurable: true,
 });
 
-vi.mock('@/services/superdoughAudio', () => ({
-  initSuperdoughAudio: vi.fn().mockResolvedValue(undefined),
+// The app's own audio engine: startup and warmup resolve at once, and the
+// context accessors return a running stand-in. The rest of the runtime is real.
+vi.mock('@/services/audioEngine', () => ({
+  initAudioEngine: vi.fn().mockResolvedValue(undefined),
   initSynthOnlyAudio: vi.fn().mockResolvedValue(undefined),
+  getAudioStartupStage: vi.fn().mockReturnValue('ready'),
   prewarmSoundSamples: vi.fn().mockResolvedValue(undefined),
   isPrewarmed: vi.fn().mockReturnValue(true),
-  attackNote: vi.fn().mockResolvedValue(undefined),
-  releaseNote: vi.fn(),
-  stopNote: vi.fn(),
-  playNoteWithDuration: vi.fn().mockResolvedValue(undefined),
-  releaseAll: vi.fn(),
+  getReadySounds: vi.fn().mockReturnValue(['piano', 'triangle']),
+  ensureSoundfontCatalog: vi.fn().mockResolvedValue(undefined),
+  getRegisteredSounds: vi.fn().mockReturnValue(['piano', 'triangle']),
+  setLiveSynthControls: vi.fn(),
+}))
+
+vi.mock('@/services/audioRuntime', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/services/audioRuntime')>(),
   getAudioContext: vi.fn(() => ({
     currentTime: 0,
     state: 'running',
     resume: vi.fn().mockResolvedValue(undefined),
   })),
-  getSuperdoughMasterGain: vi.fn().mockReturnValue(null),
-  ensureSoundfontCatalog: vi.fn().mockResolvedValue(undefined),
-  getRegisteredSounds: vi.fn().mockReturnValue(['piano', 'triangle']),
-  setLiveSynthControls: vi.fn(),
-  playStrudelCode: vi.fn().mockResolvedValue(undefined),
-  stopStrudelPlayback: vi.fn(),
+  getMasterGain: vi.fn().mockReturnValue(null),
 }))

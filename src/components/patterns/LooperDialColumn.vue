@@ -19,7 +19,8 @@ import type { LooperMemberView } from "@/stores/looper";
 const looper = useLooperStore();
 const { getStaticPrimaryColorByPitchClass, getStaticPrimaryColorByScaleIndex } = useMusicColor();
 
-const dials = computed(() => looper.memberViews.map((view) => ({
+// The members, and each pattern fading out where its dial was (BJS-598).
+const dials = computed(() => looper.dialViews.map((view) => ({
   view,
   dial: looperDialProps(view, {
     byPitchClass: getStaticPrimaryColorByPitchClass,
@@ -50,7 +51,7 @@ function stateOf(view: LooperMemberView): LooperDialState {
       @dismiss="looper.clearError()"
     />
     <div
-      v-if="looper.hasMembers"
+      v-if="dials.length"
       class="looper-dials__column"
       role="group"
       aria-label="Playing patterns"
@@ -67,21 +68,26 @@ function stateOf(view: LooperMemberView): LooperDialState {
         :rate="dial.rate"
         :label="view.label"
         :state="stateOf(view)"
+        :ending="view.ending"
+        :ending-ms="view.endingMs"
         haptic
         @mute="looper.toggleMute(view.phraseId)"
         @desk="looper.bringToDesk(view.phraseId)"
         @solo="(held: boolean) => held ? looper.holdSolo(view.phraseId) : looper.releaseSolo(view.phraseId)"
         @remove="looper.removeMember(view.phraseId)"
       />
-      <!-- Last in a reversed column: Stop All sits on top of the dials. -->
+      <!-- Last in a reversed column: Stop All sits on top of the dials. It
+           fades everything out over a bar, held down meanwhile; tapped again
+           while held, it cuts at once (BJS-598). -->
       <Button
         class="looper-dials__stop"
         size="sm"
         tone="ink"
         haptic
         data-testid="looper-stop-all"
-        accessible-name="Stop all loops"
-        title="Stop all loops"
+        :pressed="looper.stopping"
+        :accessible-name="looper.stopping ? 'Stopping. Tap to cut now' : 'Stop all loops'"
+        :title="looper.stopping ? 'Stopping. Tap to cut now' : 'Stop all loops'"
         @click="looper.stopAll()"
       >
         <Square />

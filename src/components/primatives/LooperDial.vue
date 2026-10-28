@@ -2,18 +2,20 @@
   <button
     type="button"
     class="looper-dial touch-floor"
-    :class="[`looper-dial--${state}`, { 'looper-dial--flicking': slideX < 0 }]"
-    :style="slideX < 0 ? { transform: `translateX(${slideX}px)` } : undefined"
+    :class="[`looper-dial--${state}`, { 'looper-dial--flicking': slideX < 0, 'looper-dial--ending': ending }]"
+    :style="dialStyle"
     :data-state="state"
+    :data-ending="ending || undefined"
     :aria-label="name"
+    :aria-disabled="ending || undefined"
     :title="name"
     @pointerdown="down"
     @pointermove="move"
     @pointerup="lift"
     @pointercancel="cancel"
     @lostpointercapture="cancel"
-    @keydown.delete.prevent="emit('remove')"
-    @keydown.backspace.prevent="emit('remove')"
+    @keydown.delete.prevent="remove"
+    @keydown.backspace.prevent="remove"
     @contextmenu.prevent
     @click="tap"
   >
@@ -49,6 +51,10 @@ import { triggerUIHaptic } from "@/utils/hapticFeedback";
  * Space mutes and Delete removes. Vertical movement is reserved for the loop's
  * volume (a follow-up), so it does nothing yet. Props in, gestures out: the
  * Looper decides what each gesture does.
+ *
+ * Ending (BJS-598): a pattern fading out (Stop All, or this dial's flick)
+ * keeps its place while it is heard, and its record dims to nothing over the
+ * fade on the sound's own curve as the disc turns on. It takes no gesture.
  */
 export type LooperDialState = "playing" | "muted" | "solo";
 
@@ -63,6 +69,10 @@ const props = withDefaults(defineProps<{
   label: string;
   /** Sounding, muted (or silenced by another's solo), or soloed. */
   state?: LooperDialState;
+  /** Fading out: the record dims over `endingMs`, and gestures do nothing. */
+  ending?: boolean;
+  /** How long the fade lasts (one bar at the loop's tempo). */
+  endingMs?: number;
   haptic?: boolean;
 }>(), {
   lengthMs: undefined,
@@ -70,6 +80,8 @@ const props = withDefaults(defineProps<{
   originBars: 0,
   rate: 1,
   state: "playing",
+  ending: false,
+  endingMs: 2000,
   haptic: false,
 });
 
@@ -92,6 +104,7 @@ const TAP_THRESHOLD_PX = 5;
 // throw counts at 48px or on reaching the glass's edge, whichever comes first.
 
 const name = computed(() => {
+  if (props.ending) return `${props.label}, ending`;
   const state = props.state === "solo" ? "solo" : props.state === "muted" ? "muted" : "playing";
   return `${props.label}, ${state}. Tap to mute, double-tap to bring it to the desk, hold to solo, flick left to remove`;
 });
@@ -116,7 +129,18 @@ let dragged = false;
 /** The dial follows a leftward slide, as a card about to be thrown off. */
 const slideX = ref(0);
 
+const dialStyle = computed(() => ({
+  ...(slideX.value < 0 ? { transform: `translateX(${slideX.value}px)` } : {}),
+  ...(props.ending ? { "--looper-dial-ending": `${Math.max(0, props.endingMs)}ms` } : {}),
+}));
+
+function remove() {
+  if (!props.ending) emit("remove");
+}
+
 function down(event: PointerEvent) {
+  // An ending dial takes no gesture: what it played is already on its way out.
+  if (props.ending) return;
   held = false;
   dragged = false;
   const start = { x: event.clientX, y: event.clientY, t: performance.now() };
@@ -195,6 +219,7 @@ function cancel() {
 
 function tap() {
   clearTimeout(holdTimer);
+  if (props.ending) return;
   // The click that ends a hold or a moved press is not a tap.
   if (held || dragged) {
     held = false;
@@ -249,6 +274,33 @@ onBeforeUnmount(() => {
 /* Muted, or silenced by another's solo: the record goes dark, its place stays. */
 .looper-dial--muted > .loop-dial {
   opacity: .3;
+}
+
+/*
+ * Ending: the record dims to nothing over the fade on the sound's own curve,
+ * (1 - t)^2 in level (this timing function is that curve exactly), from
+ * wherever it stood (a muted dial from its 30%).
+ */
+.looper-dial--ending {
+  cursor: default;
+}
+
+.looper-dial--ending > .loop-dial {
+  animation: looper-dial-ending var(--looper-dial-ending, 2000ms) cubic-bezier(.3333, .6667, .6667, 1) forwards;
+}
+
+@keyframes looper-dial-ending {
+  to {
+    opacity: 0;
+  }
+}
+
+/* Reduced Motion: no dimming over time; the record stands dark until the pattern has gone. */
+@media (prefers-reduced-motion: reduce) {
+  .looper-dial--ending > .loop-dial {
+    animation: none;
+    opacity: .15;
+  }
 }
 
 /* Soloed: an Ivory ring, the chosen state. */

@@ -243,4 +243,33 @@ describe("LooperDial", () => {
     expect(solo.button().attributes("aria-label")).toMatch(/^Take 3, solo\./);
     solo.wrapper.unmount();
   });
+
+  it("ending (BJS-598): says so, dims over the fade it is given, and takes no gesture", async () => {
+    vi.useFakeTimers();
+    const { wrapper, button, emitted, clock, generation } = mountDial({ ending: true, endingMs: 1500 });
+    expect(button().classes()).toContain("looper-dial--ending");
+    expect(button().attributes("aria-label")).toBe("Take 3, ending");
+    expect(button().attributes("aria-disabled")).toBe("true");
+    expect((button().element as HTMLElement).style.getPropertyValue("--looper-dial-ending")).toBe("1500ms");
+    // Its disc still turns: the pattern is still heard.
+    clock.publish(generation, { rawPosition: .5, barPosition: .5 });
+    expect((wrapper.get(".loop-dial__disc").element as SVGGElement).style.transform).toBe("rotate(-90.00deg)");
+    // A tap, a hold, a flick to the edge and Delete do nothing.
+    const element = button().element;
+    pointer(element, "pointerdown", 28, 100);
+    vi.advanceTimersByTime(600);
+    pointer(element, "pointerup", 28, 100);
+    click(element);
+    pointer(element, "pointerdown", 28, 100);
+    vi.advanceTimersByTime(16);
+    pointer(element, "pointermove", 14, 100);
+    vi.advanceTimersByTime(16);
+    pointer(element, "pointermove", 0, 100);
+    pointer(element, "pointerup", 0, 100);
+    await button().trigger("keydown", { key: "Delete" });
+    expect(emitted).toEqual([]);
+    expect(button().classes()).not.toContain("looper-dial--flicking");
+    wrapper.unmount();
+    clock.destroy();
+  });
 });

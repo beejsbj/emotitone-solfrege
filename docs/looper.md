@@ -44,6 +44,34 @@ silence closes a take into Recent, Return keeps.
   one and it comes in mid-pattern, in phase, without waiting for the top.
 - The offset is adjustable afterwards (the loop dial, below).
 
+### Stopping
+
+A loop ends over a bar, not at once (Burooj, 2026-10-28, BJS-598).
+
+- **Stop All fades everything out** over one bar at the loop's tempo, then
+  the transport stops. The patterns stop being members at once (Play, the
+  reels and Save read them as stopped, and the latch lets go), and nothing
+  joins by itself afterwards; their dials stay where they were, dimming,
+  until the bar is out. Stop All is held down meanwhile.
+- **A second tap cuts.** Stop All tapped while its fade runs (or with only
+  fading patterns left) stops everything at once: a 10 ms ramp, release tails
+  included, so it is a cut and never a click. A tap is never a dead end.
+- **The flick fades too.** Throwing a dial off the left edge fades that
+  pattern out over the same bar while the others play on at full level.
+  Delete does the same. Play again (Play, a Loop's Play) still stops a pattern
+  at once, letting its sounding notes finish.
+- **A pattern started during a fade joins at full level** (the fade does not
+  win). It joins the running bar grid and plays on after the fading ones have
+  left, so the transport keeps running. Played again while it fades, a pattern
+  comes back at full level from its next note; the notes it was already
+  sounding fade on.
+- **The fade is a level ramp in the mix**, not a release: a fading pattern
+  keeps playing through the bar, and every note it sounds, or starts, follows
+  one curve, (1 − t)², to silence at the bar's end, where it leaves. Its room
+  and delay sends fade with it; what the shared room and delay already hold
+  rings out afterwards, as after a mute (2026-10-17). The ramp comes before
+  the output limiter, which only sees the level fall.
+
 ### Bending
 
 A pattern that joins follows the Looper's key, mode and tempo. The stored
@@ -115,6 +143,13 @@ worklet transport's acceptance tests.
   future onsets and fade the member's dry sound over 10 ms; what it already
   sent to the shared reverb and delay rings out. That tail is accepted
   (Burooj, 2026-10-17), so there is no wet bus per member.
+- **Fade-out** (BJS-598) is its own change, immediate only: the named members
+  stay members for the fade, their voices (release tails included) and their
+  onsets scaled by one (1 − t)² ramp before each voice's filter and sends, from
+  the change's frame to the first frame of the bar one bar later; they leave
+  on that bar through the pending changes, and the receipt answers then. A
+  join of a fading member withdraws its leave; Stop cuts the fade (Stop also
+  shortens release tails to its 10 ms).
 - **Events** for every transport voice carry the member and the source note,
   so the Stage, the keys, the HighlightStrip and the Looper Stage part follow
   loop notes. They are not recordable: playback never writes into the open
@@ -154,12 +189,15 @@ These are design-system units and go through that process, not this document:
     the left, as far as the room allows. The dials sit at the edge, so the
     throw counts at 48 px or on reaching the screen's edge, whichever comes
     first; never a slow drag, a vertical swipe or a tap. Delete still removes
-    from the keyboard.
+    from the keyboard. Removing fades the pattern out over a bar (see
+    Stopping): the dial stays in its place, its record dimming to nothing on
+    the sound's curve, and takes no gesture until it has gone.
   - **Vertical drag** is reserved for the loop's volume, which needs
     per-member volume in the transport (a follow-up). Turning a pattern
     within the loop (its offset) moves to the pattern strip dial at the desk,
     also a follow-up; the store's offset path stays for it.
-- **Stop All** on top of the dial column.
+- **Stop All** on top of the dial column: it fades everything out over a bar
+  and is held in its pressed look meanwhile; a second tap cuts (see Stopping).
 - **Save as a Loop** (BJS-572, proposed): a key above Stop All, shown while
   two or more patterns play and no saved Loop holds exactly them. It saves
   them as "Loop n" and files the take if it was one of them (it plays on),
@@ -345,6 +383,15 @@ absorbing BJS-582):
   reel untouched (rule 3: nothing writes into it), or leaves it playing if it
   was. A take with notes closes as any take does when you scroll to the blank
   slot. A key still held keeps its take, so no sounding note is cut from it.
+
+## Decided (Burooj, 2026-10-28)
+
+- **A loop ends over a bar** ("i dont think it needs a hold, couldnt stop all
+  by default be a fade? or maybe even the swipe left stop do that?"): Stop All
+  and the dial's flick fade out over one bar, and a second tap of Stop All
+  cuts. The rules are under Stopping (BJS-598). A pattern started during the
+  fade joins at full level (the builder's choice, for Burooj's look on the
+  preview).
 
 ## Open
 

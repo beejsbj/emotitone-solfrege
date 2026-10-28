@@ -112,6 +112,8 @@ let player: PatternPlayer;
 /** Runs the player's pending animation frame: it publishes the heard bar to UIBeat. */
 let paint: () => void = () => {};
 let attacks: Attack[];
+/** The rendered output's left channel, indexed by audio frame. */
+let pcm: number[] = [];
 let spies: { mockRestore(): void }[] = [];
 const onAttack = (event: Event) => {
   const detail = (event as CustomEvent).detail;
@@ -121,7 +123,9 @@ const onAttack = (event: Event) => {
 function render(seconds: number) {
   const quanta = Math.round(seconds * RATE / QUANTUM);
   for (let index = 0; index < quanta; index++) {
-    rig.core.render([new Float32Array(QUANTUM), new Float32Array(QUANTUM)], rig.frame);
+    const output = [new Float32Array(QUANTUM), new Float32Array(QUANTUM)];
+    rig.core.render(output, rig.frame);
+    for (const sample of output[0]) pcm.push(sample);
     rig.frame += QUANTUM;
     rig.deliver();
   }
@@ -218,6 +222,7 @@ describe("Play is the loop on the worklet transport", () => {
       removeEventListener: vi.fn(),
     };
     attacks = [];
+    pcm = [];
     liveSerial = 0;
     localStorage.clear();
     spies = [
@@ -440,6 +445,8 @@ describe("Play is the loop on the worklet transport", () => {
     expect(phrases.book.loops[0].members[0]).not.toHaveProperty("notes");
 
     looper.stopAll();
+    // Stop All fades out over a bar, then stops (BJS-598).
+    render(2.1);
     await flush();
     expect(player.getLooper().running).toBe(false);
     expect(looper.openLoop(id)).toBe(true);
@@ -726,6 +733,9 @@ describe("Play is the loop on the worklet transport", () => {
     looper.toggleLatch();
     looper.stopAll();
     expect(looper.latched).toBe(false);
+    // The fade runs a bar at the loop's tempo (90 BPM here), then the transport stops.
+    render(2.8);
+    await flush();
     expect(player.getLooper().running).toBe(false);
   });
 
@@ -932,6 +942,162 @@ describe("Play is the loop on the worklet transport", () => {
           && /\b(getProductionPatternPlayer|onProductionPatternPlayer)\b/.test(source))
         .map(([path]) => path);
       expect(readers).toEqual(["/src/stores/looper.ts"]);
+    });
+  });
+
+  describe("Stop All and the dial's flick fade out over a bar (BJS-598), heard in the rendered output", () => {
+    const BAR = FRAMES_PER_BAR;
+    /** The (1 − t)² ramp from `from`, over a bar. */
+    const level = (from: number, frame: number) => (1 - Math.min(1, Math.max(0, (frame - from) / BAR))) ** 2;
+    const peak = (from: number, to: number) => {
+      let loudest = 0;
+      for (let index = from; index < Math.min(pcm.length, to); index++) loudest = Math.max(loudest, Math.abs(pcm[index]));
+      return loudest;
+    };
+    /** The largest sample-to-sample move: a step in level shows here, a ramp does not. */
+    const largestMove = (from: number, to: number) => {
+      let largest = 0;
+      for (let index = from + 1; index < Math.min(pcm.length, to); index++) largest = Math.max(largest, Math.abs(pcm[index] - pcm[index - 1]));
+      return largest;
+    };
+    /** A note's attack, which reaches full level in its first millisecond. */
+    const onsetPeak = (frame: number) => peak(frame, frame + .004 * RATE);
+    /** Onsets no other note overlaps (the notes are at most 0.2 s long). */
+    const alone = (list: Attack[]) => list.filter((attack) => !attacks.some((other) => other !== attack
+      && other.frame > attack.frame - .25 * RATE && other.frame < attack.frame + .01 * RATE));
+    const silentFrom = (frame: number) => pcm.slice(frame).every((sample) => sample === 0);
+
+    /** A take looping, and a second played over it where it fell (their notes interleave). */
+    async function twoPlaying() {
+      const { phrases, looper } = setup();
+      playTake(.5);
+      const first = phrases.take.id;
+      looper.togglePlay();
+      await flush();
+      await looper.settled();
+      render(1.3);
+      live("F4", 3, Math.round(5.3 * RATE), Math.round(5.4 * RATE));
+      live("A4", 5, Math.round(5.6 * RATE), Math.round(5.7 * RATE));
+      live("C5", 0, Math.round(5.9 * RATE), Math.round(6 * RATE));
+      const second = phrases.take.id;
+      looper.togglePlay();
+      await flush();
+      render(2);
+      expect(player.getLooper().members.map((member) => member.id)).toEqual([first, second]);
+      return { phrases, looper, first, second };
+    }
+
+    it("Stop All ramps everything to silence over one bar with no step, then nothing plays and nothing joins by itself", async () => {
+      const { looper, first, second } = await twoPlaying();
+      const from = rig.frame;
+      const steadyMove = largestMove(from - BAR, from);
+      looper.stopAll();
+      await flush();
+      // At once: nothing is a member, the latch would let go, and both dials show they are ending.
+      expect(looper.members).toEqual([]);
+      expect(looper.isDeskPlaying).toBe(false);
+      expect(looper.stopping).toBe(true);
+      expect(looper.dialViews.map((view) => [view.phraseId, view.ending, view.endingMs])).toEqual([[first, true, 2000], [second, true, 2000]]);
+      expect(player.getLooper()).toMatchObject({ running: true, members: [] });
+      render(2.2);
+      await flush();
+      // The fade has ended: the transport stopped, nothing is ending, and Stop All is a plain stop again.
+      expect(looper.running).toBe(false);
+      expect(player.getLooper().running).toBe(false);
+      expect(looper.dialViews).toEqual([]);
+      expect(looper.stopping).toBe(false);
+      // Heard: every onset in the bar starts on the ramp; then silence.
+      const during = alone(attacks.filter((attack) => attack.frame >= from && attack.frame < from + BAR));
+      expect(during.length).toBeGreaterThanOrEqual(3);
+      for (const attack of during) {
+        expect(Math.abs(onsetPeak(attack.frame) - level(from, attack.frame + .001 * RATE)), `onset at ${attack.frame}`).toBeLessThan(.06);
+      }
+      expect(largestMove(from, from + BAR)).toBeLessThanOrEqual(steadyMove + 1e-6);
+      expect(silentFrom(from + BAR)).toBe(true);
+      // And nothing comes back by itself.
+      const heard = attacks.length;
+      render(4);
+      expect(attacks.length).toBe(heard);
+      expect(silentFrom(from + BAR)).toBe(true);
+    });
+
+    it("a second Stop All during the fade cuts everything to silence within 10 ms, by a ramp and not a step", async () => {
+      const { looper } = await twoPlaying();
+      looper.stopAll();
+      await flush();
+      render(.55);
+      const cut = rig.frame;
+      const steadyMove = largestMove(cut - BAR, cut);
+      expect(peak(cut - 64, cut)).toBeGreaterThan(.05);
+      looper.stopAll();
+      await flush();
+      expect(looper.dialViews).toEqual([]);
+      expect(looper.stopping).toBe(false);
+      expect(looper.running).toBe(false);
+      expect(player.getLooper().running).toBe(false);
+      render(1);
+      expect(silentFrom(cut + .01 * RATE + 1)).toBe(true);
+      expect(largestMove(cut - 1, cut + .01 * RATE + 1)).toBeLessThanOrEqual(steadyMove + 1e-6);
+    });
+
+    it("a flicked pattern fades out over a bar while the others play on at full level", async () => {
+      const { looper, first, second } = await twoPlaying();
+      const from = rig.frame;
+      // The dial's flick (and Delete) asks the store to remove it.
+      looper.removeMember(first);
+      await flush();
+      expect(looper.members.map((member) => member.phraseId)).toEqual([second]);
+      expect(looper.dialViews.map((view) => [view.phraseId, view.ending])).toEqual([[first, true], [second, false]]);
+      expect(looper.stopping).toBe(false);
+      render(4.2);
+      await flush();
+      expect(looper.dialViews.map((view) => view.phraseId)).toEqual([second]);
+      expect(player.getLooper()).toMatchObject({ running: true, members: [expect.objectContaining({ id: second })] });
+      // Heard: the flicked one's notes fade over the bar and stop; the other's stay at full level throughout.
+      const fading = alone(attacksOf(first).filter((attack) => attack.frame >= from));
+      expect(fading.length).toBeGreaterThanOrEqual(1);
+      for (const attack of fading) {
+        expect(attack.frame).toBeLessThan(from + BAR);
+        expect(Math.abs(onsetPeak(attack.frame) - level(from, attack.frame + .001 * RATE))).toBeLessThan(.06);
+      }
+      const playing = alone(attacksOf(second).filter((attack) => attack.frame >= from));
+      expect(playing.length).toBeGreaterThanOrEqual(4);
+      for (const attack of playing) expect(onsetPeak(attack.frame), `onset at ${attack.frame}`).toBeGreaterThan(.95);
+    });
+
+    it("a pattern started during Stop All's fade joins at full level and plays on; the others still end", async () => {
+      const { phrases, looper, first, second } = await twoPlaying();
+      const third = await (async () => {
+        live("D5", 1, rig.frame + 100, rig.frame + 900);
+        live("E5", 2, rig.frame + 1100, rig.frame + 1900);
+        return phrases.keepTake()!;
+      })();
+      const from = rig.frame;
+      looper.stopAll();
+      await flush();
+      render(.5);
+      phrases.openPhrase(third);
+      looper.togglePlay();
+      await flush();
+      expect(looper.members.map((member) => member.phraseId)).toEqual([third]);
+      expect(looper.dialViews.map((view) => [view.phraseId, view.ending])).toEqual([[first, true], [second, true], [third, false]]);
+      expect(looper.stopping).toBe(true);
+      render(4);
+      await flush();
+      // The fade has ended for the others; the new one plays on, on the same clock.
+      expect(looper.stopping).toBe(false);
+      expect(looper.dialViews.map((view) => view.phraseId)).toEqual([third]);
+      expect(player.getLooper()).toMatchObject({ running: true, members: [expect.objectContaining({ id: third })] });
+      for (const id of [first, second]) expect(attacksOf(id).filter((attack) => attack.frame >= from + BAR)).toEqual([]);
+      const joined = alone(attacksOf(third).filter((attack) => attack.frame >= from));
+      expect(joined.length).toBeGreaterThanOrEqual(2);
+      for (const attack of joined) expect(onsetPeak(attack.frame), `onset at ${attack.frame}`).toBeGreaterThan(.95);
+      // Stop All now fades the new one, as a first tap.
+      looper.stopAll();
+      expect(looper.stopping).toBe(true);
+      render(2.2);
+      await flush();
+      expect(player.getLooper().running).toBe(false);
     });
   });
 
@@ -1164,9 +1330,40 @@ describe("Play is the loop on the worklet transport", () => {
           await flush();
           expect(looper.members.map((member) => member.phraseId)).toEqual([second]);
           expect(player.getLooper().members.map((member) => member.id)).toEqual([second]);
+          // It fades out over a bar (BJS-598): its dial stays where it was, ending, and takes no gesture.
+          expect(dial(first).dataset.ending).toBe("true");
+          expect(dial(first).getAttribute("aria-label")).toMatch(/, ending$/);
           await deck.get(`button.looper-dial[data-phrase-id="${second}"]`).trigger("keydown", { key: "Delete" });
           await flush();
           expect(looper.members).toEqual([]);
+          expect(deck.findAll("button.looper-dial[data-ending]")).toHaveLength(2);
+          expect(player.getLooper().running).toBe(true);
+          // Both fade out over a bar; the empty loop then stops.
+          render(2.1);
+          await flush();
+          expect(deck.find("[data-testid=looper-dials]").exists()).toBe(false);
+          expect(player.getLooper().running).toBe(false);
+        } finally {
+          deck.unmount();
+        }
+      });
+
+      it("Stop All is held down while everything fades, the dials ending; tapped again, it cuts (BJS-598)", async () => {
+        const { looper } = setup();
+        const deck = mountDeck();
+        try {
+          const { first, second, dial } = await twoLooping(deck);
+          const stop = () => deck.get("[data-testid=looper-stop-all]");
+          expect(stop().attributes("data-pressed")).toBeUndefined();
+          await press(stop().element, 40);
+          expect(stop().attributes("data-pressed")).toBe("true");
+          expect(stop().attributes("aria-label")).toBe("Stopping. Tap to cut now");
+          expect([dial(first), dial(second)].map((element) => element.dataset.ending)).toEqual(["true", "true"]);
+          expect(dial(first).style.getPropertyValue("--looper-dial-ending")).toBe("2000ms");
+          render(.5);
+          await press(stop().element, 40);
+          expect(deck.find("[data-testid=looper-dials]").exists()).toBe(false);
+          expect(looper.stopping).toBe(false);
           expect(player.getLooper().running).toBe(false);
         } finally {
           deck.unmount();

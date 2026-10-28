@@ -881,6 +881,39 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
     },
 
     /**
+     * Fade members out over `bars` from now, then they leave (BJS-598): Stop All
+     * and the Loop Dial's flick. They play on through the fade on one level
+     * ramp to silence; the receipt answers when they have left, on the bar the
+     * fade ends on, and their banks stay pinned until then. A join of one of
+     * them meanwhile brings it back at full level (its notes already sounding
+     * fade on); Stop cuts the fade.
+     */
+    fadeOut(ids: readonly string[], bars = 1): Promise<TransportReceipt> {
+      const looper = requireSession();
+      const refused = refusal(() => {
+        if (!ids.length) throw new RangeError("A fade-out names a member");
+        if (!(Number.isFinite(bars) && bars > 0)) throw new RangeError("A fade-out lasts a positive number of bars");
+      });
+      if (refused) return refused;
+      const entries: [string, Membership][] = [];
+      for (const id of ids) {
+        const entry = memberships.get(id);
+        memberships.delete(id);
+        if (entry) { leaving.add(entry); entries.push([id, entry]); }
+        if (looper.soloId === id) looper.soloId = null;
+      }
+      const receipt = change({ type: "fade-out", memberIds: [...ids], bars });
+      void receipt.then(() => {
+        for (const [id, entry] of entries) {
+          leaving.delete(entry);
+          if (memberships.get(id) !== entry) entry.releasePin?.();
+        }
+        prune();
+      });
+      return receipt;
+    },
+
+    /**
      * Shift (offset), rate, mute or pin a member. Pinning swaps its table to
      * the recorded key and mode (or back to the bend) in the same change.
      */

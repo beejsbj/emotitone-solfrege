@@ -97,6 +97,8 @@ const SWAP_STORAGE_KEY = "emotitone.looper.swap";
 // Fine enough that the closing bar's countdown steps on the beat you hear.
 const LATCH_POLL_MS = 25;
 const BEATS_PER_BAR = 4;
+/** Stop All and the dial's flick fade out over this many bars at the loop's tempo (BJS-598). */
+const FADE_BARS = 1;
 const NON_LIVE_SOURCES = new Set([PATTERN_PLAYBACK_SOURCE, "strudel-playback", "live-pitch"]);
 const barMsAt = (bpm: number) => 240_000 / resolveBpm(bpm);
 
@@ -127,6 +129,23 @@ export interface LooperMemberView {
   soloed: boolean;
   /** The latch's growing take. */
   open: boolean;
+}
+
+/** A dial as the column draws it: a member, or a pattern fading out (BJS-598). */
+export interface LooperDialView extends LooperMemberView {
+  /** Fading out over `endingMs`, then gone; its gestures do nothing. */
+  ending: boolean;
+  endingMs: number;
+}
+
+/** A pattern fading out, held where its dial was until it has left. */
+interface Ending {
+  view: LooperMemberView;
+  /** Its place in the column when it began to fade. */
+  index: number;
+  /** Which fade-out it belongs to. */
+  fade: number;
+  endingMs: number;
 }
 
 /** What the notes are, for deciding whether a member's table is stale. */
@@ -168,6 +187,14 @@ export const useLooperStore = defineStore("looper", () => {
   const reelLoopId = ref<string | null>(null);
   /** Per Loop reel, the pattern last on its desk: the one "Replace in Loop" replaces. */
   const reelFocus = reactive(new Map<string, string>());
+  /**
+   * Patterns fading out (BJS-598): no longer members (nothing reads them as
+   * playing), but still sounding for a bar, so their dials show them ending.
+   */
+  const ending = ref<Ending[]>([]);
+  /** Stop All is fading everything out: its next tap cuts at once. */
+  const stopping = ref(false);
+  let fadeSerial = 0;
 
   /** A take now in a Loop, held open by a key down when it was saved: filed when that key lets go. */
   let fileOnRelease: string | null = null;
@@ -387,6 +414,8 @@ export const useLooperStore = defineStore("looper", () => {
   function resetSession() {
     epoch++;
     running.value = false;
+    ending.value = [];
+    stopping.value = false;
     starting = null;
     startingId = null;
     joined.clear();
@@ -411,9 +440,12 @@ export const useLooperStore = defineStore("looper", () => {
     player?.stop();
   }
 
-  /** The loop emptied: the transport stops, unless the latch keeps its grid running. */
+  /**
+   * The loop emptied: the transport stops, unless the latch keeps its grid
+   * running or a pattern is still fading out (the last fade to end stops it).
+   */
   function stopIfEmpty(): boolean {
-    if (looper.value.members.length || looper.value.latched) return false;
+    if (looper.value.members.length || looper.value.latched || ending.value.length) return false;
     stopTransport();
     return true;
   }
@@ -456,6 +488,8 @@ export const useLooperStore = defineStore("looper", () => {
 
   /** Bring a domain member into the transport (asynchronously, guarded by intent). */
   function bringIn(phraseId: string) {
+    // Played again while it fades: it is a member again, at full level.
+    ending.value = ending.value.filter((entry) => entry.view.phraseId !== phraseId);
     const token = ++intentSerial;
     intents.set(phraseId, token);
     if (!running.value && !starting) startSession(phraseId, token);
@@ -641,14 +675,20 @@ export const useLooperStore = defineStore("looper", () => {
     bringIn(phrase.id);
   }
 
-  function leaveMember(phraseId: string): void {
+  /** The member leaves the domain and this session's bookkeeping; the transport is the caller's. */
+  function forgetMember(phraseId: string): boolean {
     if (heldSolos.includes(phraseId)) releaseSolo(phraseId);
-    if (!leave(looper.value, phraseId)) return;
+    if (!leave(looper.value, phraseId)) return false;
     intents.delete(phraseId);
     origins.delete(phraseId);
     playedBars.delete(phraseId);
     builtFrom.delete(phraseId);
     if (openTakeId.value === phraseId) openTakeId.value = null;
+    return true;
+  }
+
+  function leaveMember(phraseId: string): void {
+    if (!forgetMember(phraseId)) return;
     if (stopIfEmpty()) return;
     if (startingId === phraseId) return; // the start leaves it once it has started
     const wasJoined = joined.delete(phraseId);
@@ -706,8 +746,8 @@ export const useLooperStore = defineStore("looper", () => {
     stopLatchTimer();
     openTakeId.value = null;
     latchCountdown.value = null;
-    // An empty grid goes with the latch that started it.
-    if (!looper.value.members.length && (running.value || starting)) stopTransport();
+    // An empty grid goes with the latch that started it (a fading pattern's end stops it instead).
+    if (!looper.value.members.length && !ending.value.length && (running.value || starting)) stopTransport();
   }
 
   /**
@@ -918,8 +958,86 @@ export const useLooperStore = defineStore("looper", () => {
     }
   }
 
-  /** Stop All: nothing playing, and nothing joining by itself. */
+  // ─── Ending (BJS-598) ──────────────────────────────────────────────────────
+  /** The members the transport sounds now (one still loading has made no sound). */
+  function soundingIds(): string[] {
+    if (!running.value || !player) return [];
+    return looper.value.members.map((member) => member.phraseId).filter((phraseId) => joined.has(phraseId));
+  }
+
+  /**
+   * Fade sounding members out over a bar, then they leave: they stop being
+   * members at once (Play, the reel and Save read them as stopped), and their
+   * dials stay, ending, until they have left. The last fade to end stops an
+   * empty transport, unless the latch holds its grid.
+   */
+  function fadeOutMembers(phraseIds: string[], onEnd?: () => void): void {
+    const current = player!;
+    const captured = epoch;
+    const fade = ++fadeSerial;
+    const endingMs = barMsAt(transportBpm) * FADE_BARS;
+    const views = memberViews.value;
+    const marked = phraseIds.flatMap((phraseId) => {
+      const index = views.findIndex((view) => view.phraseId === phraseId);
+      return index < 0 ? [] : [{ view: { ...views[index] }, index, fade, endingMs }];
+    });
+    for (const phraseId of phraseIds) {
+      forgetMember(phraseId);
+      joined.delete(phraseId);
+      latestJoin.delete(phraseId);
+    }
+    ending.value = [...ending.value.filter((entry) => !phraseIds.includes(entry.view.phraseId)), ...marked];
+    void current.fadeOut(phraseIds, FADE_BARS).catch(report).finally(() => {
+      if (epoch !== captured) return;
+      ending.value = ending.value.filter((entry) => entry.fade !== fade);
+      onEnd?.();
+      stopIfEmpty();
+    });
+  }
+
+  /**
+   * The Loop Dial's flick (BJS-598): the pattern fades out over a bar while the
+   * others play on. One that has not sounded yet (its bank still loading)
+   * simply leaves.
+   */
+  function removeMember(phraseId: string): void {
+    if (!soundingIds().includes(phraseId)) {
+      leaveMember(phraseId);
+      return;
+    }
+    fadeOutMembers([phraseId]);
+  }
+
+  /**
+   * Stop All (BJS-598): everything fades out over one bar at the loop's tempo,
+   * then stops, and nothing joins by itself; the latch lets go at once. A
+   * pattern started during the fade joins at full level and plays on. Tapped
+   * again while it fades (or with only fading patterns left), it cuts
+   * everything at once.
+   */
   function stopAll(): void {
+    const sounding = stopping.value ? [] : soundingIds();
+    if (!sounding.length) {
+      cutAll();
+      return;
+    }
+    stopLatchTimer();
+    fileOnRelease = null;
+    forgetHolds();
+    openTakeId.value = null;
+    latchCountdown.value = null;
+    looper.value.latched = false;
+    stopping.value = true;
+    fadeOutMembers(sounding, () => { stopping.value = false; });
+    // Members still loading have made no sound: they are withdrawn, as a leave withdraws them.
+    for (const member of [...looper.value.members]) leaveMember(member.phraseId);
+    origins.clear();
+    playedBars.clear();
+    clearLooper(looper.value);
+  }
+
+  /** The panic stop: nothing playing or fading, and nothing joining by itself, at once. */
+  function cutAll(): void {
     stopLatchTimer();
     fileOnRelease = null;
     forgetHolds();
@@ -1267,7 +1385,7 @@ export const useLooperStore = defineStore("looper", () => {
 
   /** Detach from the window, the recorder and the player (tests, HMR). */
   function dispose(): void {
-    stopAll();
+    cutAll();
     if (typeof window !== "undefined") {
       window.removeEventListener("note-played", onNotePlayed);
       window.removeEventListener("note-released", onNoteReleased);
@@ -1317,11 +1435,22 @@ export const useLooperStore = defineStore("looper", () => {
     return memberViews.value.find((view) => view.phraseId === phraseId);
   }
 
+  /** The dial column: the members, and each fading pattern where its dial was. */
+  const dialViews = computed<LooperDialView[]>(() => {
+    const dials: LooperDialView[] = memberViews.value.map((view) => ({ ...view, ending: false, endingMs: 0 }));
+    for (const entry of [...ending.value].sort((a, b) => a.index - b.index)) {
+      dials.splice(Math.min(entry.index, dials.length), 0, { ...entry.view, ending: true, endingMs: entry.endingMs });
+    }
+    return dials;
+  });
+
   return {
     // State
     looper,
     members,
     memberViews,
+    dialViews,
+    stopping,
     hasMembers,
     running,
     latched,
@@ -1355,8 +1484,9 @@ export const useLooperStore = defineStore("looper", () => {
     releaseSolo,
     bringToDesk,
     shiftMember,
-    removeMember: leaveMember,
+    removeMember,
     stopAll,
+    cutAll,
     clearError,
     saveLoop,
     openLoop,

@@ -16,6 +16,7 @@
  * change keeps its serial, so nothing is announced twice.
  */
 import type { LiveShaping } from '../liveShaping'
+import type { MemberFade } from './fade'
 import { barAtFrame, bpmAtFrame, frameAtBar, framesPerBar, type TempoAnchor } from './tempoMap'
 import { TransportEventKind, TransportEventWriter, type TransportEventBatch } from './transportEvents'
 
@@ -74,7 +75,17 @@ export type TransportSingleChange =
   | { type: 'solo'; memberId: string | null }
   | { type: 'tempo'; bpm: number }
 
-export type TransportChange = TransportSingleChange | { type: 'batch'; changes: TransportSingleChange[] }
+/** What applies to membership at one frame: one change, or a batch of them. */
+export type TransportMembershipChange = TransportSingleChange | { type: 'batch'; changes: TransportSingleChange[] }
+
+/**
+ * Fade members out over `bars` from now, then they leave (BJS-598). They keep
+ * playing through the fade on one level ramp, and leave on the bar it ends
+ * on; the receipt answers then. Immediate only, and never part of a batch.
+ */
+export interface TransportFadeOut { type: 'fade-out'; memberIds: string[]; bars: number }
+
+export type TransportChange = TransportMembershipChange | TransportFadeOut
 
 export type TransportCommand =
   /** `bar` (default 0) is the bar at the start frame: a recovered run continues where it stopped. */
@@ -115,6 +126,8 @@ export interface TransportMember {
   offsetBars: number
   rate: number
   muted: boolean
+  /** Fading out (BJS-598): its onsets play on this ramp, and none once it has reached silence. */
+  fade?: MemberFade
 }
 
 /** A collected onset, or a silence at an exact frame. Recycled, never discarded. */
@@ -133,7 +146,7 @@ export interface TransportOnset {
   framesPerTableBar: number
 }
 
-interface Pending { requestId: number; bar: number; arrivalFrame: number; change: TransportChange }
+interface Pending { requestId: number; bar: number; arrivalFrame: number; change: TransportMembershipChange }
 
 /** Membership, solo and clock: the real state, or a preview of it after pending changes. */
 interface TransportState {
@@ -146,6 +159,8 @@ interface TransportState {
 export interface TransportHost {
   /** Fade the sounding voices of one member (or all, for null) from `frame`. */
   silence(memberId: string | null, frame: number): void
+  /** Put one member's sounding voices, release tails included, on its fade-out ramp. */
+  fade(memberId: string, fade: MemberFade): void
 }
 
 const validSingle = (change: TransportSingleChange) => {
@@ -169,7 +184,9 @@ const validSingle = (change: TransportSingleChange) => {
 // A batch is all or nothing: one invalid part refuses the whole batch.
 const validChange = (change: TransportChange) => change.type === 'batch'
   ? Array.isArray(change.changes) && change.changes.length > 0 && change.changes.every(validSingle)
-  : validSingle(change)
+  : change.type === 'fade-out'
+    ? Array.isArray(change.memberIds) && change.memberIds.length > 0 && Number.isFinite(change.bars) && change.bars > 0
+    : validSingle(change)
 
 /** The last tempo a change sets, if any. */
 const tempoOf = (change: TransportChange): number | undefined => {
@@ -289,8 +306,13 @@ export class AudioTransport {
       case 'transport-change': {
         const { change, boundary, requestId } = command
         // Every request is answered, an invalid one too, so no caller waits forever.
-        if (!validChange(change) || (boundary !== 'immediate' && !Number.isFinite(boundary?.bar))) {
+        if (!validChange(change) || (boundary !== 'immediate' && !Number.isFinite(boundary?.bar))
+          || (change.type === 'fade-out' && boundary !== 'immediate')) {
           this.receipt(requestId, frame, frame, null, false, true, true)
+          return
+        }
+        if (change.type === 'fade-out') {
+          this.fadeOut(change, frame, requestId)
           return
         }
         if (!this.running) {
@@ -355,9 +377,49 @@ export class AudioTransport {
     this.state.soloId = null
     this.running = false
     if (clearMembers) this.state.members.clear()
+    // A fade Stop cut short ends in the leave it was heading for.
+    else for (const [id, member] of this.state.members) if (member.fade) this.state.members.delete(id)
   }
 
-  private applyNow(change: TransportChange, frame: number, requestId: number) {
+  /**
+   * Fade-out (BJS-598): each named member stays a member through the fade, its
+   * sounding voices and every onset it plays meanwhile on one level ramp from
+   * now to silence `bars` later, at the tempo in force; then it leaves on that
+   * bar, through the pending changes, so its receipt says where it left. A
+   * later join of a member withdraws its leave (and plays at full level),
+   * and Stop cuts the fade.
+   */
+  private fadeOut(change: TransportFadeOut, frame: number, requestId: number) {
+    const leaves: TransportSingleChange[] = change.memberIds.map(memberId => ({ type: 'leave', memberId }))
+    const leave: TransportMembershipChange = leaves.length === 1 ? leaves[0] : { type: 'batch', changes: leaves }
+    if (!this.running) {
+      // Staged before Start: nothing sounds yet, so the members simply leave.
+      this.apply(this.state, leave, frame, noSilence)
+      this.receipt(requestId, frame, frame, null, false)
+      return
+    }
+    const bar = this.barAt(frame) + change.bars
+    // Silent from the first whole frame on the bar, as an onset there would sound.
+    const fade: MemberFade = { start: frame, end: Math.ceil(this.boundaryFrame(bar) - 1e-6) }
+    // A join of one of them still waiting for its bar is withdrawn: the fade is the later word.
+    this.foldIntoPendingJoins(leave, requestId, frame)
+    // The lookahead was collected without the fade: withdraw it and collect it again.
+    this.retractFrom(frame)
+    this.collectedUntil = frame
+    this.frontier = undefined
+    for (const memberId of change.memberIds) {
+      const member = this.state.members.get(memberId)
+      if (!member) continue
+      member.fade = fade
+      this.host.fade(memberId, fade)
+    }
+    let index = this.pending.findIndex(entry => entry.bar > bar)
+    if (index < 0) index = this.pending.length
+    this.pending.splice(index, 0, { requestId, bar, arrivalFrame: frame, change: leave })
+    this.collectTo(frame + this.lookahead)
+  }
+
+  private applyNow(change: TransportMembershipChange, frame: number, requestId: number) {
     // Any immediate change can alter what sounds from `frame` on. Withdraw the
     // lookahead, apply, and collect again; survivors keep their serials.
     this.retractFrom(frame)
@@ -375,10 +437,12 @@ export class AudioTransport {
    * of it submitted before that change: an update patches the join's
    * settings, a replace swaps its table, a leave or a newer join withdraws it
    * (its receipt says cancelled). So a mute, bend or pin tapped after "join at the next
-   * bar" holds when the member arrives, and later submissions win.
+   * bar" holds when the member arrives, and later submissions win. A join
+   * also withdraws an earlier leave of the member still waiting for its bar,
+   * such as a fade-out's: a pattern played again while it fades stays.
    * Returns the earliest bar whose pending change was altered.
    */
-  private foldIntoPendingJoins(change: TransportChange, requestId: number, frame: number): number {
+  private foldIntoPendingJoins(change: TransportMembershipChange, requestId: number, frame: number): number {
     let earliest = Infinity
     for (const part of change.type === 'batch' ? change.changes : [change]) {
       const id = part.type === 'update' || part.type === 'leave' ? part.memberId
@@ -388,9 +452,12 @@ export class AudioTransport {
         const entry = this.pending[index]
         if (entry.requestId > requestId) continue
         const parts = entry.change.type === 'batch' ? entry.change.changes : [entry.change]
-        if (!parts.some(own => own.type === 'join' && own.member.table.id === id)) continue
+        // A later join also withdraws a leave of it still waiting for its bar (a fade-out's, BJS-598).
+        const withdrawn = (own: TransportSingleChange) => part.type === 'join' && own.type === 'leave' && own.memberId === id
+        if (!parts.some(own => (own.type === 'join' && own.member.table.id === id) || withdrawn(own))) continue
         const folded: TransportSingleChange[] = []
         for (const own of parts) {
+          if (withdrawn(own)) continue
           if (own.type !== 'join' || own.member.table.id !== id) folded.push(own)
           else if (part.type === 'update') folded.push({ type: 'join', member: { ...own.member, ...part.patch } })
           else if (part.type === 'replace') folded.push({ type: 'join', member: { ...own.member, table: part.table } })
@@ -407,7 +474,7 @@ export class AudioTransport {
     return earliest
   }
 
-  private apply(state: TransportState, change: TransportChange, frame: number,
+  private apply(state: TransportState, change: TransportMembershipChange, frame: number,
     silence: (memberId: string, frame: number) => void) {
     if (change.type === 'batch') {
       for (const part of change.changes) this.applySingle(state, part, frame, silence)

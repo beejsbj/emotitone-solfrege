@@ -30,6 +30,21 @@ const rig = vi.hoisted(() => ({
   prepared: [] as string[],
   /** Banks the worklet refuses (the sample memory is held full by playing loops and keys). */
   refused: new Set<string>(),
+  /** Pinned banks, by holder, as livePlayback keeps its leases. */
+  leases: new Map<string, Set<string>>(),
+  /**
+   * The sample budget, for a bank not yet loaded. "evict": room is made by
+   * evicting every other bank no lease holds. "refuse": as livePlayback with big
+   * banks, a bank is refused while any leased bank holds memory, else room is
+   * made by eviction.
+   */
+  budget: "ample" as "ample" | "evict" | "refuse",
+  /** Banks forgotten for room, and the frame each went at. */
+  evicted: [] as { instrumentId: string; frame: number }[],
+  /** Times the shared room and delay were told to cut their tails. */
+  wetCuts: 0,
+  /** The test instrument's level: full scale, unless a test needs a mix the limiter never touches. */
+  gain: 1,
   commands: [] as TransportCommand[],
   context: undefined as unknown as Record<string, unknown>,
   deliver() {
@@ -46,9 +61,25 @@ const rig = vi.hoisted(() => ({
 vi.mock("@/services/livePlayback", () => ({
   async prepareLivePlayback(_context: unknown, _destination: unknown, instrumentId: string) {
     await rig.gates.get(instrumentId);
+    if (rig.budget !== "ample" && !rig.prepared.includes(instrumentId)) {
+      const leased = new Set([...rig.leases.values()].flatMap((held) => [...held]));
+      leased.delete(instrumentId);
+      // Each attempt decides afresh, as livePlayback's does.
+      rig.refused.delete(instrumentId);
+      if (rig.budget === "refuse" && rig.prepared.some((resident) => leased.has(resident))) {
+        rig.refused.add(instrumentId);
+        return;
+      }
+      for (const resident of [...new Set(rig.prepared)]) {
+        if (leased.has(resident)) continue;
+        rig.core.command({ type: "forget", requestId: 0, instrumentId: resident }, rig.frame);
+        rig.evicted.push({ instrumentId: resident, frame: rig.frame });
+        rig.prepared = rig.prepared.filter((prepared) => prepared !== resident);
+      }
+    }
     rig.prepared.push(instrumentId);
     rig.core.command({ type: "prepare", requestId: 0, instrument: { kind: "oscillator", instrumentId, waveform: "sine",
-      gain: 1, attack: .001, decay: .01, sustain: .5, release: .01 } }, rig.frame);
+      gain: rig.gain, attack: .001, decay: .01, sustain: .5, release: .01 } }, rig.frame);
   },
   getLiveTransport(instrumentId: string) {
     if (rig.refused.has(instrumentId)) return undefined;
@@ -70,7 +101,11 @@ vi.mock("@/services/livePlayback", () => ({
   getLivePlayback: () => undefined,
   waitForLivePlayback: () => undefined,
   setLivePlaybackShaping: () => {},
-  pinLivePlayback: () => () => {},
+  pinLivePlayback(holderId: string, names: readonly string[]) {
+    const held = new Set(names);
+    rig.leases.set(holderId, held);
+    return () => { if (rig.leases.get(holderId) === held) rig.leases.delete(holderId); };
+  },
   subscribeLivePlayback(listener: { onTransport?(response: TransportResponse): void }) {
     rig.listeners.add(listener);
     return () => rig.listeners.delete(listener);
@@ -106,12 +141,14 @@ import { useInstrumentStore } from "@/stores/instrument";
 import { mount } from "@vue/test-utils";
 import PerformanceDeck from "@/components/PerformanceDeck.vue";
 
-type Attack = { phraseId: string; memberId: string; sourceNoteId: string; frame: number; noteName: string; record: boolean };
+type Attack = { phraseId: string; memberId: string; sourceNoteId: string; frame: number; bar: number; noteName: string; record: boolean };
 
 let player: PatternPlayer;
 /** Runs the player's pending animation frame: it publishes the heard bar to UIBeat. */
 let paint: () => void = () => {};
 let attacks: Attack[];
+/** The rendered output's left channel, indexed by audio frame. */
+let pcm: number[] = [];
 let spies: { mockRestore(): void }[] = [];
 const onAttack = (event: Event) => {
   const detail = (event as CustomEvent).detail;
@@ -121,7 +158,9 @@ const onAttack = (event: Event) => {
 function render(seconds: number) {
   const quanta = Math.round(seconds * RATE / QUANTUM);
   for (let index = 0; index < quanta; index++) {
-    rig.core.render([new Float32Array(QUANTUM), new Float32Array(QUANTUM)], rig.frame);
+    const output = [new Float32Array(QUANTUM), new Float32Array(QUANTUM)];
+    rig.core.render(output, rig.frame);
+    for (const sample of output[0]) pcm.push(sample);
     rig.frame += QUANTUM;
     rig.deliver();
   }
@@ -182,7 +221,8 @@ function setup(options: { uiBeat?: UIBeatClock } = {}) {
   const phrases = usePhrasesStore();
   let frame: (() => void) | undefined;
   player = createPatternPlayer({
-    audio: { getContext: () => rig.context as unknown as AudioContext, ensureReady: async () => ({}) as AudioNode },
+    audio: { getContext: () => rig.context as unknown as AudioContext, ensureReady: async () => ({}) as AudioNode,
+      cutWetTails: () => { rig.wetCuts++; } },
     uiBeat: options.uiBeat ?? new UIBeatClock({ observeEnvironment: false }),
     requestFrame: (callback) => { frame = callback; return 1; },
     cancelFrame: () => { frame = undefined; },
@@ -198,7 +238,8 @@ function setup(options: { uiBeat?: UIBeatClock } = {}) {
 }
 
 describe("Play is the loop on the worklet transport", () => {
-  beforeEach(() => {
+  /** A fresh rig, as every test starts with (a test comparing two renders of one scenario starts it twice). */
+  function resetRig() {
     rig.frame = 0;
     rig.generation = 1;
     rig.queued = [];
@@ -206,6 +247,11 @@ describe("Play is the loop on the worklet transport", () => {
     rig.gates.clear();
     rig.prepared = [];
     rig.refused.clear();
+    rig.leases.clear();
+    rig.budget = "ample";
+    rig.wetCuts = 0;
+    rig.gain = 1;
+    rig.evicted = [];
     rig.core = new LiveAudioCore(RATE, (response) => { rig.queued.push(response); });
     rig.context = {
       state: "running",
@@ -218,6 +264,7 @@ describe("Play is the loop on the worklet transport", () => {
       removeEventListener: vi.fn(),
     };
     attacks = [];
+    pcm = [];
     liveSerial = 0;
     localStorage.clear();
     spies = [
@@ -225,9 +272,9 @@ describe("Play is the loop on the worklet transport", () => {
       vi.spyOn(Date, "now").mockImplementation(() => EPOCH + rig.frame / RATE * 1000),
     ];
     window.addEventListener("note-played", onAttack);
-  });
+  }
 
-  afterEach(() => {
+  function teardownRig() {
     window.removeEventListener("note-played", onAttack);
     useLooperStore().dispose();
     usePhrasesStore().removeEventListeners();
@@ -235,7 +282,10 @@ describe("Play is the loop on the worklet transport", () => {
     setProductionPatternPlayer(undefined);
     rig.listeners.clear();
     for (const spy of spies) spy.mockRestore();
-  });
+  }
+
+  beforeEach(resetRig);
+  afterEach(teardownRig);
 
   it("rule 1: Play loops a played take from its own first note, and Play again stops it", async () => {
     const { phrases, looper } = setup();
@@ -440,6 +490,8 @@ describe("Play is the loop on the worklet transport", () => {
     expect(phrases.book.loops[0].members[0]).not.toHaveProperty("notes");
 
     looper.stopAll();
+    // Stop All fades out over a bar, then stops (BJS-598).
+    render(2.1);
     await flush();
     expect(player.getLooper().running).toBe(false);
     expect(looper.openLoop(id)).toBe(true);
@@ -726,6 +778,9 @@ describe("Play is the loop on the worklet transport", () => {
     looper.toggleLatch();
     looper.stopAll();
     expect(looper.latched).toBe(false);
+    // The fade runs a bar at the loop's tempo (90 BPM here), then the transport stops.
+    render(2.8);
+    await flush();
     expect(player.getLooper().running).toBe(false);
   });
 
@@ -932,6 +987,481 @@ describe("Play is the loop on the worklet transport", () => {
           && /\b(getProductionPatternPlayer|onProductionPatternPlayer)\b/.test(source))
         .map(([path]) => path);
       expect(readers).toEqual(["/src/stores/looper.ts"]);
+    });
+  });
+
+  describe("Stop All fades out over a bar and a flick removes at once (BJS-598), heard in the rendered output", () => {
+    const BAR = FRAMES_PER_BAR;
+    /** The (1 − t)² ramp from `from`, over a bar. */
+    const level = (from: number, frame: number) => (1 - Math.min(1, Math.max(0, (frame - from) / BAR))) ** 2;
+    const peak = (from: number, to: number) => {
+      let loudest = 0;
+      for (let index = from; index < Math.min(pcm.length, to); index++) loudest = Math.max(loudest, Math.abs(pcm[index]));
+      return loudest;
+    };
+    /** The largest sample-to-sample move: a step in level shows here, a ramp does not. */
+    const largestMove = (from: number, to: number) => {
+      let largest = 0;
+      for (let index = from + 1; index < Math.min(pcm.length, to); index++) largest = Math.max(largest, Math.abs(pcm[index] - pcm[index - 1]));
+      return largest;
+    };
+    /** A note's attack, which reaches full level in its first millisecond. */
+    const onsetPeak = (frame: number) => peak(frame, frame + .004 * RATE);
+    /** Onsets no other note overlaps (the notes are at most 0.2 s long). */
+    const alone = (list: Attack[]) => list.filter((attack) => !attacks.some((other) => other !== attack
+      && other.frame > attack.frame - .25 * RATE && other.frame < attack.frame + .01 * RATE));
+    const silentFrom = (frame: number) => pcm.slice(frame).every((sample) => sample === 0);
+
+    /** A take looping, and a second played over it where it fell (their notes interleave). */
+    async function twoPlaying() {
+      const { phrases, looper } = setup();
+      playTake(.5);
+      const first = phrases.take.id;
+      looper.togglePlay();
+      await flush();
+      await looper.settled();
+      render(1.3);
+      live("F4", 3, Math.round(5.3 * RATE), Math.round(5.4 * RATE));
+      live("A4", 5, Math.round(5.6 * RATE), Math.round(5.7 * RATE));
+      live("C5", 0, Math.round(5.9 * RATE), Math.round(6 * RATE));
+      const second = phrases.take.id;
+      looper.togglePlay();
+      await flush();
+      render(2);
+      expect(player.getLooper().members.map((member) => member.id)).toEqual([first, second]);
+      return { phrases, looper, first, second };
+    }
+
+    it("Stop All ramps everything to silence over one bar with no step, then nothing plays and nothing joins by itself", async () => {
+      const { looper, first, second } = await twoPlaying();
+      const from = rig.frame;
+      const steadyMove = largestMove(from - BAR, from);
+      looper.stopAll();
+      await flush();
+      // At once: nothing is a member, the latch would let go, and both dials show they are ending.
+      expect(looper.members).toEqual([]);
+      expect(looper.isDeskPlaying).toBe(false);
+      expect(looper.stopping).toBe(true);
+      expect(looper.dialViews.map((view) => [view.phraseId, view.ending, view.endingMs])).toEqual([[first, true, 2000], [second, true, 2000]]);
+      expect(player.getLooper()).toMatchObject({ running: true, members: [] });
+      render(2.2);
+      await flush();
+      // The fade has ended: the transport stopped, nothing is ending, and Stop All is a plain stop again.
+      expect(looper.running).toBe(false);
+      expect(player.getLooper().running).toBe(false);
+      expect(looper.dialViews).toEqual([]);
+      expect(looper.stopping).toBe(false);
+      // Heard: every onset in the bar starts on the ramp; then silence.
+      const during = alone(attacks.filter((attack) => attack.frame >= from && attack.frame < from + BAR));
+      expect(during.length).toBeGreaterThanOrEqual(3);
+      for (const attack of during) {
+        expect(Math.abs(onsetPeak(attack.frame) - level(from, attack.frame + .001 * RATE)), `onset at ${attack.frame}`).toBeLessThan(.06);
+      }
+      expect(largestMove(from, from + BAR)).toBeLessThanOrEqual(steadyMove + 1e-6);
+      expect(silentFrom(from + BAR)).toBe(true);
+      // And nothing comes back by itself.
+      const heard = attacks.length;
+      render(4);
+      expect(attacks.length).toBe(heard);
+      expect(silentFrom(from + BAR)).toBe(true);
+      // A fade's end is a plain stop: the shared room and delay ring on.
+      expect(rig.wetCuts).toBe(0);
+    });
+
+    it("a second Stop All during the fade cuts everything to silence within 10 ms, by a ramp and not a step", async () => {
+      const { looper } = await twoPlaying();
+      looper.stopAll();
+      await flush();
+      render(.55);
+      const cut = rig.frame;
+      const steadyMove = largestMove(cut - BAR, cut);
+      expect(peak(cut - 64, cut)).toBeGreaterThan(.05);
+      looper.stopAll();
+      await flush();
+      expect(looper.dialViews).toEqual([]);
+      expect(looper.stopping).toBe(false);
+      expect(looper.running).toBe(false);
+      expect(player.getLooper().running).toBe(false);
+      // The cut silences the shared room and delay too, once: after the cut notes' own release has gone into them.
+      expect(rig.wetCuts).toBe(0);
+      await vi.waitFor(() => expect(rig.wetCuts).toBe(1));
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(rig.wetCuts).toBe(1);
+      render(1);
+      expect(silentFrom(cut + .01 * RATE + 1)).toBe(true);
+      expect(largestMove(cut - 1, cut + .01 * RATE + 1)).toBeLessThanOrEqual(steadyMove + 1e-6);
+    });
+
+    it("on a large audio callback, the cut's wet-tail swap waits two callbacks past the notes' release", async () => {
+      const { looper } = await twoPlaying();
+      // A 100 ms render callback (a "playback" latency hint, or an Android device without the low-latency path).
+      rig.context.baseLatency = .1;
+      looper.stopAll();
+      await flush();
+      render(.5);
+      looper.stopAll();
+      await flush();
+      expect(player.getLooper().running).toBe(false);
+      // Not at the usual 30 ms, nor before 10 ms + 2 × 100 ms: earlier, the release and the swap
+      // could land in the same callback (a timer never fires early, so this wait is safe).
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      expect(rig.wetCuts).toBe(0);
+      await vi.waitFor(() => expect(rig.wetCuts).toBe(1), { timeout: 1000, interval: 5 });
+    });
+
+    it("a flicked pattern leaves at once: no new note, its sounding note ends on its release, the others untouched bit for bit", async () => {
+      /** The scenario twice over: the same render, with the first pattern flicked or left alone. */
+      async function run(flick: boolean) {
+        // Quiet enough that the output limiter (which remembers a loud moment) never acts, so the mix is a plain sum.
+        rig.gain = .4;
+        const { looper, first, second } = await twoPlaying();
+        // Into a note of the first pattern, so the flick lands while it sounds.
+        const settled = rig.frame;
+        while (!attacksOf(first).some((attack) => attack.frame > settled)) render(QUANTUM / RATE);
+        render(.08);
+        const from = rig.frame;
+        const sounding = peak(from - 64, from);
+        const steadyMove = largestMove(from - BAR, from);
+        if (flick) looper.removeMember(first);
+        await flush();
+        const afterwards = {
+          members: looper.members.map((member) => member.phraseId),
+          dials: looper.dialViews.map((view) => [view.phraseId, view.ending]),
+          stopping: looper.stopping,
+          transport: player.getLooper(),
+          fades: rig.commands.filter((command) => command.type === "fade-out").length,
+        };
+        render(4);
+        await flush();
+        return { first, second, from, sounding, steadyMove, afterwards, pcm: [...pcm], attacks: [...attacks] };
+      }
+      const control = await run(false);
+      teardownRig();
+      resetRig();
+      const flicked = await run(true);
+      const { first, second, from } = flicked;
+
+      // Gone at once, with nothing fading: not a member, no dial (not even an ending one), the other plays on.
+      expect(flicked.afterwards.members).toEqual([second]);
+      expect(flicked.afterwards.dials).toEqual([[second, false]]);
+      expect(flicked.afterwards.stopping).toBe(false);
+      expect(flicked.afterwards.fades).toBe(0);
+      expect(flicked.afterwards.transport).toMatchObject({ running: true, members: [expect.objectContaining({ id: second })] });
+      expect(control.afterwards.members).toEqual([control.first, control.second]);
+      expect(control.afterwards.fades).toBe(0);
+
+      // The two renders were the same until the flick.
+      expect(flicked.from).toBe(control.from);
+      expect(flicked.pcm.slice(0, from)).toEqual(control.pcm.slice(0, from));
+      expect(flicked.sounding).toBeGreaterThan(.05);
+
+      // No new note of the flicked pattern; the control shows it had several to play.
+      const later = (list: Attack[], id: string) => list.filter((attack) => attack.phraseId === id && attack.frame >= from);
+      expect(later(control.attacks, control.first).length).toBeGreaterThanOrEqual(3);
+      expect(later(flicked.attacks, first)).toEqual([]);
+
+      // Heard: apart from the flicked pattern's own later notes (a note's attack event is a little ahead of its
+      // sound, and its release a little behind), every frame is the control's, bit for bit. That holds for
+      // the note it was sounding (it ends on its own gate and release, not cut and not faded) and for the
+      // other pattern's notes after it, at full level.
+      const newNotes = later(control.attacks, control.first).map((attack) => attack.frame);
+      const end = Math.min(flicked.pcm.length, control.pcm.length);
+      let compared = 0;
+      for (let frame = from; frame < end; frame++) {
+        if (newNotes.some((start) => frame >= start && frame < start + .45 * RATE)) continue;
+        compared++;
+        if (flicked.pcm[frame] !== control.pcm[frame]) expect(flicked.pcm[frame], `frame ${frame - from} after the flick`).toBe(control.pcm[frame]);
+      }
+      expect(compared).toBeGreaterThan(RATE / 2);
+      // Its note finishes by its own release, with no step beyond what a steady loop already moves by
+      // (the module's pcm is the flicked run's).
+      expect(largestMove(from, Math.min(Math.min(...newNotes), end))).toBeLessThanOrEqual(flicked.steadyMove + 1e-6);
+      // The other pattern kept every note at full level.
+      const playing = alone(later(flicked.attacks, second));
+      expect(playing.length).toBeGreaterThanOrEqual(4);
+      for (const attack of playing) expect(onsetPeak(attack.frame), `onset at ${attack.frame}`).toBeGreaterThan(.95 * rig.gain);
+    });
+
+    /** A two-note take played now and kept on the reel (D5, E5, an eighth of a second apart). */
+    function keptTake(phrases: ReturnType<typeof usePhrasesStore>) {
+      live("D5", 1, rig.frame + 100, rig.frame + 900);
+      live("E5", 2, rig.frame + 1100, rig.frame + 1900);
+      return phrases.keepTake()!;
+    }
+    const lastStart = () => rig.commands.filter((command) => command.type === "transport-start").at(-1)!;
+
+    describe("something started while only fading patterns remain starts its own run (review of #286)", () => {
+      beforeEach(() => { vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] }); });
+      afterEach(() => { vi.useRealTimers(); });
+
+      it("a pattern from the reel: its own tempo, its bar one, its first note; the fading ones ramp out and start nothing", async () => {
+        const { phrases, looper, first, second } = await twoPlaying();
+        const third = keptTake(phrases);
+        phrases.findPhrase(third)!.context.bpm = 90;
+        const from = rig.frame;
+        looper.stopAll();
+        await flush();
+        render(.5);
+        phrases.openPhrase(third);
+        looper.togglePlay();
+        await flush();
+        await looper.settled();
+        const start = rig.frame;
+        expect(lastStart()).toMatchObject({ bpm: 90, bar: 0 });
+        expect(player.getLooper()).toMatchObject({ running: true, bpm: 90, members: [expect.objectContaining({ id: third })] });
+        expect(looper.members.map((member) => member.phraseId)).toEqual([third]);
+        // The fading dials stay where they were, ending, until their ramp has gone; Stop All still cuts.
+        expect(looper.dialViews.map((view) => [view.phraseId, view.ending])).toEqual([[first, true], [second, true], [third, false]]);
+        expect(looper.stopping).toBe(true);
+        render(3);
+        vi.advanceTimersByTime(2000);
+        await flush();
+        expect(looper.dialViews.map((view) => view.phraseId)).toEqual([third]);
+        expect(looper.stopping).toBe(false);
+        // Its first note opens the run, on bar 0, at full level.
+        const heard = attacksOf(third);
+        expect(heard[0]).toMatchObject({ sourceNoteId: phrases.findPhrase(third)!.notes[0].id });
+        expect(heard[0].bar).toBeCloseTo(0, 6);
+        expect(heard[0].frame - start).toBeLessThanOrEqual(QUANTUM);
+        for (const attack of alone(heard)) expect(onsetPeak(attack.frame), `onset at ${attack.frame}`).toBeGreaterThan(.95);
+        // The fading patterns start nothing once the new run begins, and are silent past their bar.
+        for (const id of [first, second]) expect(attacksOf(id).filter((attack) => attack.frame >= start)).toEqual([]);
+        expect(peak(start, from + BAR)).toBeGreaterThan(0);
+      });
+
+      it("a saved Loop at 90 started during a fade at 120 plays at 90 from its own bar one", async () => {
+        const { phrases, looper } = setup();
+        useVisualConfigStore().updateConfig("codeStrip", { bpm: 90 });
+        playTake(.5);
+        const a = phrases.keepTake()!;
+        playTake(4, ["A4", "B4", "D5"]);
+        const b = phrases.keepTake()!;
+        for (const id of [a, b]) {
+          phrases.openPhrase(id);
+          looper.togglePlay();
+          await flush();
+          await looper.settled();
+        }
+        render(1);
+        const loopId = looper.saveLoop("Ninety")!;
+        const saved = phrases.book.loops.find((loop) => loop.id === loopId)!.members.map((member) => ({ ...member }));
+        looper.stopAll();
+        looper.stopAll();
+        await flush();
+        expect(player.getLooper().running).toBe(false);
+        // Something else plays at 120, and Stop All fades it.
+        useVisualConfigStore().updateConfig("codeStrip", { bpm: 120 });
+        playTake(rig.frame / RATE + .5);
+        const c = phrases.take.id;
+        looper.togglePlay();
+        await flush();
+        await looper.settled();
+        render(2);
+        expect(player.getLooper().bpm).toBe(120);
+        looper.stopAll();
+        await flush();
+        render(.5);
+        expect(looper.toggleLoop(loopId)).toBe(true);
+        await flush();
+        await looper.settled();
+        const start = rig.frame;
+        expect(lastStart()).toMatchObject({ bpm: 90, bar: 0 });
+        expect(player.getLooper().bpm).toBe(90);
+        expect(looper.looper.members).toEqual(saved);
+        expect(looper.dialViews.map((view) => [view.phraseId, view.ending])).toEqual([[c, true], [a, false], [b, false]]);
+        render(6);
+        // Each pattern's notes sit where the Loop saved them, from bar 0 of the new run.
+        for (const member of saved) {
+          const notes = attacksOf(member.phraseId).filter((attack) => attack.frame >= start);
+          expect(notes.length).toBeGreaterThan(0);
+          expect(mod(notes[0].bar - member.offsetBars, cycleOf(member))).toBeCloseTo(0, 6);
+        }
+        expect(attacksOf(c).filter((attack) => attack.frame >= start)).toEqual([]);
+      });
+
+      it("a fresh run whose bank is still loading takes a tempo and key turned meanwhile, without throwing", async () => {
+        const { phrases, looper } = await twoPlaying();
+        const third = keptTake(phrases);
+        Object.assign(phrases.findPhrase(third)!.context, { bpm: 90, instrument: "sawtooth" });
+        looper.stopAll();
+        await flush();
+        render(.5);
+        let release!: () => void;
+        rig.gates.set("sawtooth", new Promise<void>((resolve) => { release = resolve; }));
+        phrases.openPhrase(third);
+        looper.togglePlay();
+        await flush();
+        // The old run has stopped and the new one is loading: nothing reads as running.
+        expect(looper.running).toBe(false);
+        expect(player.getLooper().running).toBe(false);
+        useVisualConfigStore().updateConfig("codeStrip", { bpm: 100 });
+        useMusicStore().setKey("D");
+        await flush();
+        release();
+        rig.gates.delete("sawtooth");
+        await flush();
+        await looper.settled();
+        await flush();
+        // It runs at the tempo, and in the key, the knobs ended on, and says so everywhere.
+        expect(looper.running).toBe(true);
+        expect(player.getLooper()).toMatchObject({ running: true, bpm: 100, target: { key: "D", mode: "major" } });
+        expect(looper.looper.bpm).toBe(100);
+        expect(useVisualConfigStore().config.codeStrip.bpm).toBe(100);
+        expect(looper.lastError).toBeNull();
+        render(2);
+        expect(attacksOf(third).length).toBeGreaterThan(0);
+      });
+
+      it("a fresh run on another bank, where room is made by eviction, cannot evict the fading bank before its notes have ramped out", async () => {
+        const { phrases, looper } = await twoPlaying();
+        const fadingBanks = [...new Set(rig.prepared)];
+        const third = keptTake(phrases);
+        phrases.findPhrase(third)!.context.instrument = "sawtooth";
+        const holds = (bank: string) => [...rig.leases.values()].some((held) => held.has(bank));
+        // Every bank but the one about to load goes, unless something holds it.
+        rig.budget = "evict";
+        const from = rig.frame;
+        looper.stopAll();
+        await flush();
+        render(.5);
+        phrases.openPhrase(third);
+        looper.togglePlay();
+        await flush();
+        await looper.settled();
+        expect(player.getLooper()).toMatchObject({ running: true, members: [expect.objectContaining({ id: third })] });
+        // The new bank loaded with the fading one still held: nothing was taken from under its notes.
+        expect(rig.evicted).toEqual([]);
+        for (const bank of fadingBanks) expect(holds(bank), bank).toBe(true);
+        renderTo(from + FRAMES_PER_BAR + QUANTUM);
+        // Once the ramp has reached silence, the fading bank is let go.
+        vi.advanceTimersByTime(2000);
+        for (const bank of fadingBanks) expect(holds(bank), bank).toBe(false);
+      });
+
+      it("a fresh run on another bank that would be refused while the fading bank is held takes its room: it plays, and the fade is cut click-free", async () => {
+        const { phrases, looper, first, second } = await twoPlaying();
+        const fadingBanks = [...new Set(rig.prepared)];
+        const third = keptTake(phrases);
+        phrases.findPhrase(third)!.context.instrument = "sawtooth";
+        // Big banks: the new one is refused while any held bank keeps memory.
+        rig.budget = "refuse";
+        const steadyMove = largestMove(rig.frame - BAR, rig.frame);
+        looper.stopAll();
+        await flush();
+        render(.5);
+        phrases.openPhrase(third);
+        looper.togglePlay();
+        await flush();
+        await looper.settled();
+        await flush();
+        // What was asked for plays, with no notice; the fading dials stay until their ramp would have ended.
+        expect(looper.lastError).toBeNull();
+        expect(looper.running).toBe(true);
+        expect(player.getLooper()).toMatchObject({ running: true, members: [expect.objectContaining({ id: third })] });
+        expect(looper.dialViews.map((view) => [view.phraseId, view.ending])).toEqual([[first, true], [second, true], [third, false]]);
+        // The fading bank gave way, and its notes went in the worklet's 10 ms release: no step.
+        expect(rig.evicted.map((entry) => entry.instrumentId)).toEqual(fadingBanks);
+        const cut = rig.evicted[0].frame;
+        render(2.5);
+        // The new run's first note starts on that frame too: its next pass, alone, is the measure of a note's own moves.
+        const notesMove = largestMove(cut + BAR, cut + BAR + .2 * RATE);
+        expect(largestMove(cut - 1, cut + .01 * RATE + 1)).toBeLessThanOrEqual(Math.max(steadyMove, notesMove) + 1e-6);
+        expect(attacksOf(third).length).toBeGreaterThan(0);
+      });
+
+      it("Stop All tapped again while it fades cuts everything, a pattern started during the fade too", async () => {
+        const { phrases, looper } = await twoPlaying();
+        const fadingBanks = [...new Set(rig.prepared)];
+        const holds = (bank: string) => [...rig.leases.values()].some((held) => held.has(bank));
+        const third = keptTake(phrases);
+        phrases.findPhrase(third)!.context.instrument = "sawtooth";
+        looper.stopAll();
+        await flush();
+        render(.5);
+        phrases.openPhrase(third);
+        looper.togglePlay();
+        await flush();
+        await looper.settled();
+        render(.3);
+        expect(looper.stopping).toBe(true);
+        // The first run's notes still ramp out: their banks are held for them.
+        for (const bank of fadingBanks) expect(holds(bank), bank).toBe(true);
+        const cut = rig.frame;
+        looper.stopAll();
+        await flush();
+        expect(looper.members).toEqual([]);
+        expect(looper.dialViews).toEqual([]);
+        expect(looper.running).toBe(false);
+        expect(player.getLooper().running).toBe(false);
+        expect(rig.commands.at(-1)).toMatchObject({ type: "transport-stop", cut: true });
+        // The cut silenced those notes too: every bank is let go at once, none waits for its ramp's timer.
+        for (const bank of [...fadingBanks, "sawtooth"]) expect(holds(bank), bank).toBe(false);
+        render(1);
+        expect(silentFrom(cut + .01 * RATE + 1)).toBe(true);
+      });
+    });
+
+    it("a solo held when Stop All is tapped ends in the transport too; a pattern started within the bar sounds every note", async () => {
+      const { phrases, looper, first, second } = await twoPlaying();
+      const third = keptTake(phrases);
+      looper.holdSolo(first);
+      await flush();
+      expect(player.getLooper().soloId).toBe(first);
+      const from = rig.frame;
+      const sent = rig.commands.length;
+      looper.stopAll();
+      looper.releaseSolo(first);
+      await flush();
+      // The pattern the solo silenced is muted first, so the fade stays what was heard; then the solo ends.
+      const changes = rig.commands.slice(sent).flatMap((command) => command.type === "transport-change" ? [command.change] : []);
+      const muted = changes.findIndex((change) => change.type === "update" && change.memberId === second && change.patch.muted === true);
+      const unsoloed = changes.findIndex((change) => change.type === "solo" && change.memberId === null);
+      expect(muted).toBeGreaterThanOrEqual(0);
+      expect(unsoloed).toBeGreaterThan(muted);
+      render(.5);
+      phrases.openPhrase(third);
+      looper.togglePlay();
+      await flush();
+      await looper.settled();
+      const start = rig.frame;
+      render(3);
+      const notes = phrases.findPhrase(third)!.notes.map((note) => note.id);
+      // Every one of its notes in its first pass is heard, at full level.
+      const firstPass = attacksOf(third).filter((attack) => attack.frame >= start).slice(0, notes.length);
+      expect(firstPass.map((attack) => attack.sourceNoteId)).toEqual(notes);
+      for (const attack of alone(firstPass)) expect(onsetPeak(attack.frame)).toBeGreaterThan(.95);
+      expect(attacksOf(second).filter((attack) => attack.frame >= from)).toEqual([]);
+    });
+
+    it("Stop All's fading dials keep their places as patterns join over them, and go together when the ramp ends", async () => {
+      try {
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+        const { phrases, looper, first, second } = await twoPlaying();
+        const order = () => looper.dialViews.map((view) => [view.phraseId, view.ending]);
+        expect(order()).toEqual([[first, false], [second, false]]);
+        const third = keptTake(phrases);
+        const fourth = keptTake(phrases);
+        const stopped = rig.frame;
+        looper.stopAll();
+        await flush();
+        render(.3);
+        phrases.openPhrase(third);
+        looper.togglePlay();
+        await flush();
+        await looper.settled();
+        phrases.openPhrase(fourth);
+        looper.togglePlay();
+        await flush();
+        await looper.settled();
+        // Fading first, then the patterns that came after, in the order they came.
+        expect(order()).toEqual([[first, true], [second, true], [third, false], [fourth, false]]);
+        renderTo(stopped + BAR + 400);
+        vi.advanceTimersByTime(2000);
+        await flush();
+        expect(order()).toEqual([[third, false], [fourth, false]]);
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 
@@ -1149,7 +1679,7 @@ describe("Play is the loop on the worklet transport", () => {
         }
       });
 
-      it("a flick off the left edge removes the pattern from the transport; Delete still removes", async () => {
+      it("a flick off the left edge removes the pattern at once, its dial gone with it, and no fade; Delete removes the same way (BJS-598)", async () => {
         const { looper } = setup();
         const deck = mountDeck();
         try {
@@ -1164,10 +1694,48 @@ describe("Play is the loop on the worklet transport", () => {
           await flush();
           expect(looper.members.map((member) => member.phraseId)).toEqual([second]);
           expect(player.getLooper().members.map((member) => member.id)).toEqual([second]);
+          // Gone at once, not ending: no dial lingers, Stop All is not held, and no fade was asked of the transport.
+          expect(deck.findAll(`button.looper-dial[data-phrase-id="${first}"]`)).toHaveLength(0);
+          expect(deck.findAll("button.looper-dial[data-ending]")).toHaveLength(0);
+          expect(deck.findAll("button.looper-dial")).toHaveLength(1);
+          expect(deck.get("[data-testid=looper-stop-all]").attributes("aria-pressed")).toBe("false");
+          expect(rig.commands.some((command) => command.type === "fade-out")).toBe(false);
           await deck.get(`button.looper-dial[data-phrase-id="${second}"]`).trigger("keydown", { key: "Delete" });
           await flush();
+          // The last pattern leaving stops the empty loop, again at once.
           expect(looper.members).toEqual([]);
+          expect(deck.find("[data-testid=looper-dials]").exists()).toBe(false);
           expect(player.getLooper().running).toBe(false);
+          expect(rig.commands.some((command) => command.type === "fade-out")).toBe(false);
+        } finally {
+          deck.unmount();
+        }
+      });
+
+      it("Stop All is held down while everything fades, the dials ending; tapped again, it cuts (BJS-598)", async () => {
+        const { looper } = setup();
+        const deck = mountDeck();
+        try {
+          const { first, second, dial } = await twoLooping(deck);
+          const stop = () => deck.get("[data-testid=looper-stop-all]");
+          const status = () => deck.get("[data-testid=looper-stop-status]");
+          expect(stop().attributes("data-pressed")).toBeUndefined();
+          expect(stop().attributes("aria-pressed")).toBe("false");
+          expect(status().attributes("aria-live")).toBe("polite");
+          await press(stop().element, 40);
+          expect(stop().attributes("data-pressed")).toBe("true");
+          // Assistive technology hears the state and the way out, and the key is named for what it does now.
+          expect(stop().attributes("aria-pressed")).toBe("true");
+          expect(stop().attributes("aria-label")).toBe("Cut all loops now");
+          expect(status().text()).toBe("Stopping. Tap Stop All again to cut.");
+          expect([dial(first), dial(second)].map((element) => element.dataset.ending)).toEqual(["true", "true"]);
+          expect(dial(first).style.getPropertyValue("--looper-dial-ending")).toBe("2000ms");
+          render(.5);
+          await press(stop().element, 40);
+          expect(deck.find("[data-testid=looper-dials]").exists()).toBe(false);
+          expect(looper.stopping).toBe(false);
+          expect(player.getLooper().running).toBe(false);
+          expect(status().text()).toBe("Stopped.");
         } finally {
           deck.unmount();
         }

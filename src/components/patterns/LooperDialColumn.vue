@@ -6,7 +6,7 @@
  * centre whether or not anything plays. What the Looper could not do shows as
  * an Edge Notice on the right edge, the mirror of the dials on the left.
  */
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import { BookmarkPlus, Square } from "lucide-vue-next";
 import Button from "@/components/primatives/Button.vue";
 import EdgeNotice from "@/components/compounds/EdgeNotice.vue";
@@ -19,13 +19,21 @@ import type { LooperMemberView } from "@/stores/looper";
 const looper = useLooperStore();
 const { getStaticPrimaryColorByPitchClass, getStaticPrimaryColorByScaleIndex } = useMusicColor();
 
-const dials = computed(() => looper.memberViews.map((view) => ({
+// The members, and each pattern fading out where its dial was (BJS-598).
+const dials = computed(() => looper.dialViews.map((view) => ({
   view,
   dial: looperDialProps(view, {
     byPitchClass: getStaticPrimaryColorByPitchClass,
     byScaleIndex: getStaticPrimaryColorByScaleIndex,
   }),
 })));
+
+/** What the polite live region says: the fade and its cut while Stop All fades, then that it has stopped. */
+const stopStatus = ref("");
+watch(() => looper.stopping, (stopping, was) => {
+  if (stopping) stopStatus.value = "Stopping. Tap Stop All again to cut.";
+  else if (was) stopStatus.value = looper.hasMembers ? "" : "Stopped.";
+});
 
 function stateOf(view: LooperMemberView): LooperDialState {
   if (view.soloed) return "solo";
@@ -37,6 +45,8 @@ function stateOf(view: LooperMemberView): LooperDialState {
 <template>
   <!-- A zero-height anchor: the dials float over the Stage and take no Drawer height. -->
   <div class="looper-dials">
+    <!-- Stop All's fade, told to assistive technology (BJS-598): the key's look alone is not heard. -->
+    <span class="looper-dials__sr-only" aria-live="polite" data-testid="looper-stop-status">{{ stopStatus }}</span>
     <!-- A Play that could not sound says why, instead of doing nothing. -->
     <EdgeNotice
       v-if="looper.lastError"
@@ -50,7 +60,7 @@ function stateOf(view: LooperMemberView): LooperDialState {
       @dismiss="looper.clearError()"
     />
     <div
-      v-if="looper.hasMembers"
+      v-if="dials.length"
       class="looper-dials__column"
       role="group"
       aria-label="Playing patterns"
@@ -67,21 +77,27 @@ function stateOf(view: LooperMemberView): LooperDialState {
         :rate="dial.rate"
         :label="view.label"
         :state="stateOf(view)"
+        :ending="view.ending"
+        :ending-ms="view.endingMs"
         haptic
         @mute="looper.toggleMute(view.phraseId)"
         @desk="looper.bringToDesk(view.phraseId)"
         @solo="(held: boolean) => held ? looper.holdSolo(view.phraseId) : looper.releaseSolo(view.phraseId)"
         @remove="looper.removeMember(view.phraseId)"
       />
-      <!-- Last in a reversed column: Stop All sits on top of the dials. -->
+      <!-- Last in a reversed column: Stop All sits on top of the dials. It
+           fades everything out over a bar, held down meanwhile; tapped again
+           while held, it cuts at once (BJS-598). -->
       <Button
         class="looper-dials__stop"
         size="sm"
         tone="ink"
         haptic
         data-testid="looper-stop-all"
-        accessible-name="Stop all loops"
-        title="Stop all loops"
+        :pressed="looper.stopping"
+        :aria-pressed="looper.stopping"
+        :accessible-name="looper.stopping ? 'Cut all loops now' : 'Stop all loops'"
+        :title="looper.stopping ? 'Cut all loops now' : 'Stop all loops'"
         @click="looper.stopAll()"
       >
         <Square />
@@ -125,6 +141,18 @@ function stateOf(view: LooperMemberView): LooperDialState {
 
 .looper-dials__stop {
   margin-bottom: var(--s-2);
+}
+
+.looper-dials__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  clip-path: inset(50%);
+  pointer-events: none;
+  white-space: nowrap;
 }
 
 /* Its touch meets Stop All's, never overlaps it. */

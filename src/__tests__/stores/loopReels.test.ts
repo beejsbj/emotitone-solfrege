@@ -402,6 +402,9 @@ describe("a saved Loop is its own reel (BJS-572)", () => {
       const saved = loop.members.map((member) => ({ ...member }));
       expect(saved[1].offsetBars).not.toBe(0);
       await press(deck.get("[data-testid=looper-stop-all]").element);
+      // Stop All fades out over a bar, then stops (BJS-598).
+      render(2.1);
+      await flush();
       expect(player.getLooper().running).toBe(false);
       await drag(deck, 320, 40);
       expect(play(deck).attributes("aria-label")).toBe("Play");
@@ -733,6 +736,9 @@ describe("a saved Loop is its own reel (BJS-572)", () => {
       const { first, second } = await twoLooping(deck);
       await saveFromDeck(deck);
       await press(deck.get("[data-testid=looper-stop-all]").element);
+      // Stop All fades out over a bar, then stops (BJS-598).
+      render(2.1);
+      await flush();
       // Another tab took the second pattern away.
       phrases.book.phrases = phrases.book.phrases.filter((phrase) => phrase.id !== second);
       await flush();

@@ -2,18 +2,20 @@
   <button
     type="button"
     class="looper-dial touch-floor"
-    :class="[`looper-dial--${state}`, { 'looper-dial--flicking': slideX < 0 }]"
-    :style="slideX < 0 ? { transform: `translateX(${slideX}px)` } : undefined"
+    :class="[`looper-dial--${state}`, { 'looper-dial--flicking': slideX < 0, 'looper-dial--ending': ending }]"
+    :style="dialStyle"
     :data-state="state"
+    :data-ending="ending || undefined"
     :aria-label="name"
+    :aria-disabled="ending || undefined"
     :title="name"
     @pointerdown="down"
     @pointermove="move"
     @pointerup="lift"
     @pointercancel="cancel"
     @lostpointercapture="cancel"
-    @keydown.delete.prevent="emit('remove')"
-    @keydown.backspace.prevent="emit('remove')"
+    @keydown.delete.prevent="remove"
+    @keydown.backspace.prevent="remove"
     @contextmenu.prevent
     @click="tap"
   >
@@ -31,7 +33,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 import LoopDial, { type LoopDialSegment } from "./LoopDial.vue";
 import { trackFlick, type FlickTracker } from "./flick";
 import { triggerUIHaptic } from "@/utils/hapticFeedback";
@@ -49,6 +51,11 @@ import { triggerUIHaptic } from "@/utils/hapticFeedback";
  * Space mutes and Delete removes. Vertical movement is reserved for the loop's
  * volume (a follow-up), so it does nothing yet. Props in, gestures out: the
  * Looper decides what each gesture does.
+ *
+ * Ending (BJS-598): a pattern fading out under Stop All keeps its place while
+ * it is heard, and its record dims to nothing over the fade on the sound's own
+ * curve as the disc turns on. It takes no gesture. A flick or Delete is not an
+ * ending: the pattern leaves at once and its dial goes with it.
  */
 export type LooperDialState = "playing" | "muted" | "solo";
 
@@ -63,6 +70,10 @@ const props = withDefaults(defineProps<{
   label: string;
   /** Sounding, muted (or silenced by another's solo), or soloed. */
   state?: LooperDialState;
+  /** Fading out: the record dims over `endingMs`, and gestures do nothing. */
+  ending?: boolean;
+  /** How long the fade lasts (one bar at the loop's tempo). */
+  endingMs?: number;
   haptic?: boolean;
 }>(), {
   lengthMs: undefined,
@@ -70,6 +81,8 @@ const props = withDefaults(defineProps<{
   originBars: 0,
   rate: 1,
   state: "playing",
+  ending: false,
+  endingMs: 2000,
   haptic: false,
 });
 
@@ -92,6 +105,7 @@ const TAP_THRESHOLD_PX = 5;
 // throw counts at 48px or on reaching the glass's edge, whichever comes first.
 
 const name = computed(() => {
+  if (props.ending) return `${props.label}, ending`;
   const state = props.state === "solo" ? "solo" : props.state === "muted" ? "muted" : "playing";
   return `${props.label}, ${state}. Tap to mute, double-tap to bring it to the desk, hold to solo, flick left to remove`;
 });
@@ -116,7 +130,18 @@ let dragged = false;
 /** The dial follows a leftward slide, as a card about to be thrown off. */
 const slideX = ref(0);
 
+const dialStyle = computed(() => ({
+  ...(slideX.value < 0 ? { transform: `translateX(${slideX.value}px)` } : {}),
+  ...(props.ending ? { "--looper-dial-ending": `${Math.max(0, props.endingMs)}ms` } : {}),
+}));
+
+function remove() {
+  if (!props.ending) emit("remove");
+}
+
 function down(event: PointerEvent) {
+  // An ending dial takes no gesture: what it played is already on its way out.
+  if (props.ending) return;
   held = false;
   dragged = false;
   const start = { x: event.clientX, y: event.clientY, t: performance.now() };
@@ -129,6 +154,7 @@ function down(event: PointerEvent) {
   }
   clearTimeout(holdTimer);
   holdTimer = setTimeout(() => {
+    if (props.ending) return;
     held = true;
     soloing = true;
     if (props.haptic) triggerUIHaptic();
@@ -137,7 +163,7 @@ function down(event: PointerEvent) {
 }
 
 function move(event: PointerEvent) {
-  if (!gesture || event.pointerId !== gesture.pointerId) return;
+  if (!gesture || event.pointerId !== gesture.pointerId || props.ending) return;
   const dx = event.clientX - gesture.x;
   const dy = event.clientY - gesture.y;
   if (!gesture.moved) {
@@ -161,7 +187,7 @@ function move(event: PointerEvent) {
  * or to the screen's edge): never a vertical swipe, a slow drag or a tap.
  */
 function isFlick(event: PointerEvent): boolean {
-  if (!gesture || gesture.moved !== "sideways" || soloing || gesture.flung) return false;
+  if (!gesture || gesture.moved !== "sideways" || soloing || gesture.flung || props.ending) return false;
   return gesture.flick.isFlick(event.clientX, event.clientY, performance.now());
 }
 
@@ -193,8 +219,13 @@ function cancel() {
   gesture = null;
 }
 
+// A press already under way when the dial starts ending is dropped: no hold, solo or throw comes of it
+// (a solo it had already begun is let go, as a lifted hold is).
+watch(() => props.ending, (ending) => { if (ending) cancel(); });
+
 function tap() {
   clearTimeout(holdTimer);
+  if (props.ending) return;
   // The click that ends a hold or a moved press is not a tap.
   if (held || dragged) {
     held = false;
@@ -249,6 +280,33 @@ onBeforeUnmount(() => {
 /* Muted, or silenced by another's solo: the record goes dark, its place stays. */
 .looper-dial--muted > .loop-dial {
   opacity: .3;
+}
+
+/*
+ * Ending: the record dims to nothing over the fade on the sound's own curve,
+ * (1 - t)^2 in level (this timing function is that curve exactly), from
+ * wherever it stood (a muted dial from its 30%).
+ */
+.looper-dial--ending {
+  cursor: default;
+}
+
+.looper-dial--ending > .loop-dial {
+  animation: looper-dial-ending var(--looper-dial-ending, 2000ms) cubic-bezier(.3333, .6667, .6667, 1) forwards;
+}
+
+@keyframes looper-dial-ending {
+  to {
+    opacity: 0;
+  }
+}
+
+/* Reduced Motion: no dimming over time; the record stands dark until the pattern has gone. */
+@media (prefers-reduced-motion: reduce) {
+  .looper-dial--ending > .loop-dial {
+    animation: none;
+    opacity: .15;
+  }
 }
 
 /* Soloed: an Ivory ring, the chosen state. */

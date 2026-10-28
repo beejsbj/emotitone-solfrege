@@ -33,7 +33,7 @@ import {
 import { useMusicColorClock } from "@/composables/useMusicColorClock";
 import { CodeStripViewport } from "./viewport";
 import { ensureSoundfontCatalog, initAudioEngine } from "@/services/audioEngine";
-import { getAudioContext, getMasterGain } from "@/services/audioRuntime";
+import { cutLiveWetTails, getAudioContext, getMasterGain } from "@/services/audioRuntime";
 import { renderStrudelNotation, type StrudelConfig } from "@/services/StrudelNotation";
 import { createHeardClock } from "@/services/heardClock";
 import { useLooperStore } from "@/stores/looper";
@@ -220,6 +220,8 @@ function initializeTransport() {
         if (instrumentId.startsWith("gm_")) await ensureSoundfontCatalog();
         return getMasterGain();
       },
+      // Stop All's cut silences the shared room and delay too (BJS-598).
+      cutWetTails() { cutLiveWetTails(); },
     },
   }));
   setProductionPatternPlayer(player);

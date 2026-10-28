@@ -61,6 +61,25 @@ it('renders app-owned native buses against frozen delay and room, through the re
   expect(maxError).toBe(0)
   metrics.filterMaxError = maxError
   metrics.delaySampleExact = true
+  // Stop All's cut (BJS-598): the shared room and delay go silent within 11 ms of it, with no step,
+  // and take new sound at once; after a plain stop they ring on.
+  const { plain, cut } = actual.tails
+  expect(plain.beforeStop).toBeGreaterThan(1e-3)
+  expect(plain.afterStop).toBeGreaterThan(1e-3)
+  expect(plain.echoAfterStop).toBeGreaterThan(1e-2)
+  expect(cut.beforeStop).toBe(plain.beforeStop)
+  expect(cut.afterStop).toBeLessThan(1e-6)
+  expect(cut.moveAtStop).toBeLessThanOrEqual(cut.moveBefore)
+  expect(cut.newHit).toBeGreaterThan(1e-3)
+  // With a note sounding through the cut: once it settles, the dry note, its room tail and its echo are all gone,
+  // because the buses are swapped only after the note's own 10 ms release has gone into the old ones.
+  const { cutVoice, cutVoiceSwappedAtOnce } = actual.tails
+  expect(cutVoice.beforeCut).toBeGreaterThan(.1)
+  expect(cutVoice.afterSettled).toBeLessThan(1e-6)
+  expect(cutVoice.echoWindow).toBeLessThan(1e-6)
+  // Swapped at once (the review's case), that release reaches the fresh buses and rings on.
+  expect(cutVoiceSwappedAtOnce.afterSettled).toBeGreaterThan(1e-4)
+  metrics.tails = actual.tails
   metrics.ownership = actual.ownership
   writeFileSync('/tmp/emotitone-effects-metrics.json', JSON.stringify(metrics, null, 2) + '\n')
 }, 180000)

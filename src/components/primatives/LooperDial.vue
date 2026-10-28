@@ -52,9 +52,10 @@ import { triggerUIHaptic } from "@/utils/hapticFeedback";
  * volume (a follow-up), so it does nothing yet. Props in, gestures out: the
  * Looper decides what each gesture does.
  *
- * Ending (BJS-598): a pattern fading out (Stop All, or this dial's flick)
- * keeps its place while it is heard, and its record dims to nothing over the
- * fade on the sound's own curve as the disc turns on. It takes no gesture.
+ * Ending (BJS-598): a pattern fading out under Stop All keeps its place while
+ * it is heard, and its record dims to nothing over the fade on the sound's own
+ * curve as the disc turns on. It takes no gesture. A flick or Delete is not an
+ * ending: the pattern leaves at once and its dial goes with it.
  */
 export type LooperDialState = "playing" | "muted" | "solo";
 

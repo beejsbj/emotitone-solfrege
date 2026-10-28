@@ -98,7 +98,7 @@ const SWAP_STORAGE_KEY = "emotitone.looper.swap";
 // Fine enough that the closing bar's countdown steps on the beat you hear.
 const LATCH_POLL_MS = 25;
 const BEATS_PER_BAR = 4;
-/** Stop All and the dial's flick fade out over this many bars at the loop's tempo (BJS-598). */
+/** Stop All fades out over this many bars at the loop's tempo (BJS-598). */
 const FADE_BARS = 1;
 const NON_LIVE_SOURCES = new Set([PATTERN_PLAYBACK_SOURCE, "strudel-playback", "live-pitch"]);
 const barMsAt = (bpm: number) => 240_000 / resolveBpm(bpm);
@@ -153,7 +153,7 @@ interface Ending {
   endingMs: number;
   /** When its ramp reaches silence, on `performance.now()`'s clock. */
   endsAt: number;
-  /** Stop All's fade (its next tap cuts), not a flick's. */
+  /** Stop All's fade: its next tap cuts. */
   stopAll: boolean;
 }
 
@@ -1070,19 +1070,6 @@ export const useLooperStore = defineStore("looper", () => {
   }
 
   /**
-   * The Loop Dial's flick (BJS-598): the pattern fades out over a bar while the
-   * others play on. One that has not sounded yet (its bank still loading)
-   * simply leaves.
-   */
-  function removeMember(phraseId: string): void {
-    if (!soundingIds().includes(phraseId)) {
-      leaveMember(phraseId);
-      return;
-    }
-    fadeOutMembers([phraseId]);
-  }
-
-  /**
    * A solo (held or tapped) ends with Stop All, in the transport too: the
    * patterns it silenced are muted first, so the fade stays what was heard,
    * and nothing started meanwhile is silenced by it.
@@ -1596,7 +1583,7 @@ export const useLooperStore = defineStore("looper", () => {
     releaseSolo,
     bringToDesk,
     shiftMember,
-    removeMember,
+    removeMember: leaveMember,
     stopAll,
     cutAll,
     clearError,

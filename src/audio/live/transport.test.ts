@@ -1081,7 +1081,7 @@ describe('changes to a member whose join waits for its bar (review of #199)', ()
   })
 })
 
-describe('fade-out: Stop All and the flick end over a bar (BJS-598)', () => {
+describe('fade-out: Stop All ends over a bar (BJS-598)', () => {
   const fpb120 = fpb(120)
   /** The (1 − t)² ramp, as an oracle. */
   const level = (t: number) => (1 - Math.min(1, Math.max(0, t))) ** 2

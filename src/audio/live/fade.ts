@@ -1,6 +1,6 @@
 /**
- * A member's fade-out (BJS-598): Stop All and the Loop Dial's flick end a
- * loop over a bar instead of at once.
+ * A member's fade-out (BJS-598): Stop All ends a loop over a bar instead
+ * of at once. (The Loop Dial's flick does not fade: it leaves at once.)
  *
  * The fade is a level ramp in the mix, not a release: the member keeps
  * playing through it, and its sounding voices (release tails included) and

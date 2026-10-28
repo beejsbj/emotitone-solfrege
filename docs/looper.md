@@ -46,7 +46,8 @@ silence closes a take into Recent, Return keeps.
 
 ### Stopping
 
-A loop ends over a bar, not at once (Burooj, 2026-10-28, BJS-598).
+Stop All fades a loop out over a bar, a second tap cuts, and a flick removes
+a pattern at once (Burooj, 2026-10-28, BJS-598).
 
 - **Stop All fades everything out** over one bar at the loop's tempo, then
   the transport stops. The patterns stop being members at once (Play, the
@@ -62,11 +63,14 @@ A loop ends over a bar, not at once (Burooj, 2026-10-28, BJS-598).
   release tails and echoes: every other stop (Play again on the last pattern,
   a Loop's Play, an empty loop stopping) and every fade lets sounding notes
   finish on their own release and the room and delay ring out.
-- **The flick fades too.** Throwing a dial off the left edge fades that
-  pattern out over the same bar while the others play on at full level.
-  Delete does the same. Dials fading one after another keep their places.
-  Play again (Play, a Loop's Play) still stops a pattern at once, letting its
-  sounding notes finish.
+- **A flick removes at once.** Throwing a dial off the left edge (or Delete)
+  takes that pattern out immediately, and the others play on at full level,
+  untouched. It does not fade: a flick ought to be responsive (Burooj,
+  2026-10-28: "keep this flick non fading, cause i feel a flick ought to be
+  responsive than fading where it stands"). No new note starts, its dial goes
+  with it, and the notes it was sounding finish on their own release, as after
+  Play again (Play, a Loop's Play), which also stops a pattern at once. Dials
+  fading under Stop All keep their places.
 - **Once only fading patterns are left, the run is ending.** Anything started
   then, a pattern from the reel, a played take or a saved Loop, starts as it
   would with nothing playing: its own tempo, its own bar one, its first note
@@ -214,9 +218,9 @@ These are design-system units and go through that process, not this document:
     the left, as far as the room allows. The dials sit at the edge, so the
     throw counts at 48 px or on reaching the screen's edge, whichever comes
     first; never a slow drag, a vertical swipe or a tap. Delete still removes
-    from the keyboard. Removing fades the pattern out over a bar (see
-    Stopping): the dial stays in its place, its record dimming to nothing on
-    the sound's curve, and takes no gesture until it has gone.
+    from the keyboard. Removing is immediate (see Stopping): the pattern
+    leaves at once and its dial goes with it; the notes it was sounding finish
+    on their own release.
   - **Vertical drag** is reserved for the loop's volume, which needs
     per-member volume in the transport (a follow-up). Turning a pattern
     within the loop (its offset) moves to the pattern strip dial at the desk,
@@ -411,13 +415,15 @@ absorbing BJS-582):
 
 ## Decided (Burooj, 2026-10-28)
 
-- **A loop ends over a bar** ("i dont think it needs a hold, couldnt stop all
-  by default be a fade? or maybe even the swipe left stop do that?"): Stop All
-  and the dial's flick fade out over one bar, and a second tap of Stop All
-  cuts. The rules are under Stopping (BJS-598). Something started once only
-  fading patterns are left starts its own run, at its own tempo from its own
-  bar one (the orchestrator's decision on review, for Burooj's look on the
-  preview).
+- **Stop All ends a loop over a bar** ("i dont think it needs a hold, couldnt
+  stop all by default be a fade? or maybe even the swipe left stop do that?"):
+  Stop All fades out over one bar, and a second tap of Stop All cuts; Burooj
+  tried both on the preview and they "work great". The flick stays immediate
+  ("keep this flick non fading, cause i feel a flick ought to be responsive
+  than fading where it stands"). The rules are under Stopping (BJS-598).
+  Something started once only fading patterns are left starts its own run, at
+  its own tempo from its own bar one (the orchestrator's decision on review,
+  for Burooj's look on the preview).
 
 ## Open
 

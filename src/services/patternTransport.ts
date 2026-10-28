@@ -938,9 +938,9 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
     },
 
     /**
-     * Fade members out over `bars` from now, then they leave (BJS-598): Stop All
-     * and the Loop Dial's flick. They play on through the fade on one level
-     * ramp to silence; the receipt answers when they have left, on the frame
+     * Fade members out over `bars` from now, then they leave (BJS-598): Stop
+     * All. (The Loop Dial's flick is no fade: it leaves at once.) They play on
+     * through the fade on one level ramp to silence; the receipt answers when they have left, on the frame
      * the ramp reaches silence, and their banks stay pinned until then. A join
      * of one of them meanwhile brings it back at full level (its notes already
      * sounding fade on). Stop ends the fade early (its receipt says cancelled),

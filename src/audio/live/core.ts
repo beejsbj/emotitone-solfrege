@@ -154,6 +154,8 @@ export class LiveAudioCore {
   private liftedAt = new Map<string, number>()
   /** Whether the last Repeat/Arp turn to start went to a lifted key. */
   private lastTurnLifted = false
+  /** Repeat/Arp turns started since the pattern began that went to lifted keys. */
+  private liftedTurns = 0
   /** No later than the earliest due frame (Infinity when none), so render checks one number, not the map. */
   private nextEarlyRelease = Infinity
   private forgetting = new Map<number, string>()
@@ -240,7 +242,7 @@ export class LiveAudioCore {
     }
     return [...notes.values()].sort((a, b) => a.note.pitch - b.note.pitch)
   }
-  private selection(step: number, pulse?: Pulse) {
+  private selection(step: number) {
     const all = this.pool()
     if (this.config.style === 'repeat' || !all.length) return all
     // Keys let go before their first turn take turns first come, first served, a chord lifted
@@ -254,14 +256,16 @@ export class LiveAudioCore {
       for (const entry of all) {
         let lift = Infinity
         for (const owner of entry.owners) lift = Math.min(lift, this.liftedAt.get(owner) ?? Infinity)
-        if (lift < firstLift && !this.pulses.some(other => other !== pulse
+        // Only an earlier turn can already hold it: later ones are planned or re-planned after this.
+        if (lift < firstLift && !this.pulses.some(other => other.step < step && other.duration !== undefined
           && other.notes.some(note => note.pitch === entry.note.pitch))) { first = entry; firstLift = lift }
       }
       if (first) return [first]
     }
     if (!pool.length) return []
     const cycle = this.config.style === 'arp-up-down' && pool.length > 1 ? pool.length * 2 - 2 : pool.length
-    const position = step % cycle
+    // The held keys' own pattern counts only their own turns, as if no key had been lifted.
+    const position = (step - this.liftedTurnsBefore(step)) % cycle
     return [pool[position < pool.length ? position : cycle - position]]
   }
   private lifted(owners: Set<string>) {
@@ -269,6 +273,11 @@ export class LiveAudioCore {
     return false
   }
   private liftedTurn(notes: PlannedNote[]) { return notes.some(note => this.lifted(note.owners)) }
+  private liftedTurnsBefore(step: number) {
+    let turns = this.liftedTurns
+    for (const pulse of this.pulses) if (pulse.lifted && pulse.step < step) turns++
+    return turns
+  }
   private previousTurnLifted(step: number) {
     const previous = this.pulses.find(pulse => pulse.step === step - 1 && pulse.duration !== undefined)
     return previous ? Boolean(previous.lifted) : this.lastTurnLifted
@@ -292,6 +301,8 @@ export class LiveAudioCore {
     this.holdRelease(owner, frame + Math.ceil(Math.min(MAX_LIFT_WAIT * this.sampleRate, wait)))
     // A note already planned waits for its own frame.
     for (const pulse of this.pulses) if (pulse.notes.some(note => note.owners.has(owner))) this.awaitOnset(owner, pulse.frame)
+    // Re-plan the coming turns: the lifted key now queues apart from the held keys' pattern.
+    if (this.rhythmic()) this.revise(frame)
     // A chord lifted together shares the ceiling of its last key.
     let ceiling = 0
     for (const [other, at] of this.liftedAt) if (at === frame) ceiling = Math.max(ceiling, this.earlyReleases.get(other)!)
@@ -311,7 +322,7 @@ export class LiveAudioCore {
       if (pulse.duration === undefined || pulse.frame < frame) continue
       if (pulse.step === 0 && pulse.notes.length && this.config.style !== 'repeat') continue
       const previous = pulse.notes
-      pulse.notes = this.selection(pulse.step, pulse).map(({ note, ownerId, owners }) => {
+      pulse.notes = this.selection(pulse.step).map(({ note, ownerId, owners }) => {
         const match = previous.find(old => old.pitch === note.pitch && old.instrumentId === note.instrumentId)
         return match ? { ...match, velocity: note.velocity, ownerId, owners: new Set(owners) } : this.note(note, ownerId, owners)
       })
@@ -519,6 +530,7 @@ export class LiveAudioCore {
     this.strumAt = this.nextFrame = this.boundaryDuration = this.gridBar = undefined
     this.step = 0
     this.lastTurnLifted = false
+    this.liftedTurns = 0
     // Live input never ends the pattern transport's voices.
     for (const voice of this.voices) if (!voice.transport) this.releaseVoice(voice, frame)
     this.planDirty = true
@@ -1004,7 +1016,10 @@ export class LiveAudioCore {
             }
           }
         }
-        if (pulse.duration !== undefined) this.lastTurnLifted = Boolean(pulse.lifted)
+        if (pulse.duration !== undefined) {
+          this.lastTurnLifted = Boolean(pulse.lifted)
+          if (pulse.lifted) this.liftedTurns++
+        }
         this.planDirty = true
       }
       if (frame >= this.nextEarlyRelease) this.settleEarlyReleases(frame, true)

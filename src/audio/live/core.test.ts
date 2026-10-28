@@ -336,7 +336,11 @@ describe('production live audio render core', () => {
       const events = (ownerId: string) => messages.flatMap(message =>
         message.type === 'event' && message.event.ownerId === ownerId ? [[message.event.phase, Math.round(message.event.at * RATE)]] : [])
       const ended = (ownerId: string) => messages.filter(message => message.type === 'owner-ended' && message.ownerId === ownerId).length
-      return { core, send, press, release: (ownerId: string) => send({ type: 'release', ownerId }), render, pcm, events, ended }
+      /** Every attack in render order, as its owner. */
+      const attacks = () => messages.flatMap(message =>
+        message.type === 'event' && message.event.phase === 'attack' ? [message.event.ownerId] : [])
+      return { core, send, press, release: (ownerId: string) => send({ type: 'release', ownerId }), render, pcm, events, ended,
+        attacks }
     }
     /** A Looper member with one note, at bars from its start. */
     const oneNote = (instrumentId: string, pitch: number, begin: number, gate: number): TransportMemberTable => {
@@ -578,6 +582,29 @@ describe('production live audio render core', () => {
       render(onset + 4800)
       expect(events(`string-${last}`)).toEqual([['attack', onset], ['release', onset + 240]])
       expect(ended(`string-${last}`)).toBe(1)
+    })
+
+    it.each([
+      ['arp-up', [60, 64]], ['arp-up', [60, 64, 67]],
+      ['arp-up-down', [60, 64]], ['arp-up-down', [60, 64, 67]],
+    ] as const)('keeps a held %s pattern of %j unbroken while a lifted key takes a turn between', (style, held) => {
+      // 120 BPM sixteenths: a turn every 6000 frames.
+      const play = (tap: boolean) => {
+        const { send, press, release, render, attacks } = rig()
+        send({ type: 'configure', config: { style, rate: 16 } })
+        for (const pitch of held) press(`held-${pitch}`, pitch)
+        render(15000)
+        if (tap) { press('lifted', 72); release('lifted') }
+        render(60000)
+        return attacks()
+      }
+      const plain = play(false)
+      const tapped = play(true)
+      expect(tapped.filter(owner => owner === 'lifted')).toHaveLength(1)
+      const pattern = tapped.filter(owner => owner !== 'lifted')
+      // The held keys play exactly their own pattern, one turn later for the lifted one.
+      expect(pattern).toEqual(plain.slice(0, pattern.length))
+      expect(pattern.length).toBe(plain.length - 1)
     })
 
     it('reads a sample\'s rise from a fixed stretch of its recording, whatever the transposition', () => {

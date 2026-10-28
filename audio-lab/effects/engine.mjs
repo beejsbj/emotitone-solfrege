@@ -22,16 +22,23 @@ function instrument(data) {
     gain: 1, attack: 0, decay: 0, sustain: 1, release: 0,
     zones: [{ id: 'fixture', rootMidi: 69, sampleRate: RATE, channels: [data] }] };
 }
-function workletPcm(data, shape) {
+// The echo and room impulses play at half level. A unit impulse is over the
+// worklet's output limiter's ceiling (BJS-590), so the limiter would scale it
+// (by 0.9958), and these checks compare the buses' own levels: the delay
+// sample for sample, the room within 1 dB per 100 ms window. At half level the
+// limiter is idle and the buses are measured alone. Both buses are linear, so
+// the frozen references compare at half scale (exactly so for the delay).
+const IMPULSE_VELOCITY = .5;
+function workletPcm(data, shape, velocity) {
   const core = new LiveAudioCore(RATE, () => {});
   core.command({ type: 'prepare', requestId: 1, instrument: instrument(data) }, 0);
   core.command({ type: 'effects', shaping: shape }, 0);
-  core.command({ type: 'press', ownerId: 'note', notes: [{ pitch: 69, instrumentId: 'fixture' }] }, 0);
+  core.command({ type: 'press', ownerId: 'note', notes: [{ pitch: 69, instrumentId: 'fixture', velocity }] }, 0);
   const outputs = Array.from({ length: 3 }, () => [new Float32Array(data.length), new Float32Array(data.length)]);
   core.render(outputs[0], 0, outputs[1], outputs[2]);
   return outputs;
 }
-async function render(data, shape, realProcessor = false) {
+async function render(data, shape, realProcessor = false, velocity = undefined) {
   const context = new OfflineAudioContext(2, data.length, RATE);
   const graph = new EngineAudioGraph(context), orbit = graph.getOrbit(2);
   if (shape.delay) {
@@ -58,14 +65,14 @@ async function render(data, shape, realProcessor = false) {
     const prepared = worklet.prepare(instrument(data.slice()));
     await prepared;
     worklet.effects(shape);
-    worklet.press('note', [{ pitch: 69, instrumentId: 'fixture' }]);
+    worklet.press('note', [{ pitch: 69, instrumentId: 'fixture', velocity }]);
     await planReady;
     const buffer = await context.startRendering();
     await prepared;
     worklet.dispose(); chain.dispose(); graph.reset(); graph.master.disconnect();
     return Array.from({ length: 2 }, (_, c) => Array.from(buffer.getChannelData(c)));
   }
-  const outputs = workletPcm(data, shape);
+  const outputs = workletPcm(data, shape, velocity);
   // Capture only wet buses here, so delay and room match the frozen wet renders.
   if (shape.room) source(context, outputs[1][0]).connect(orbit.roomInput);
   if (shape.delay) source(context, outputs[2][0]).connect(orbit.delayInput);
@@ -76,11 +83,11 @@ async function render(data, shape, realProcessor = false) {
 }
 window.runEngineEffects = async () => {
   const echo = new Float32Array(96000); echo[2400] = 1;
-  const delay = await render(echo, { ...open, delay: .6 });
+  const delay = await render(echo, { ...open, delay: .6 }, false, IMPULSE_VELOCITY);
   const impulse = new Float32Array(144000); impulse[0] = 1;
-  const room = await render(impulse, { ...open, room: 1 });
+  const room = await render(impulse, { ...open, room: 1 }, false, IMPULSE_VELOCITY);
   const filter = await render(impulse, { ...open, cutoff: 1000, resonance: 10 }, true);
-  const processorDelay = await render(echo, { ...open, delay: .6 }, true);
+  const processorDelay = await render(echo, { ...open, delay: .6 }, true, IMPULSE_VELOCITY);
 
   // Exercise the production owner, never a mock: one app context, master and
   // live orbit survive initialization, and preparation issues no resume.

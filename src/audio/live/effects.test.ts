@@ -39,14 +39,15 @@ describe('worklet Shape PCM', () => {
   })
   it('sends each filtered voice at its room/delay levels and bypasses at 12 kHz', () => {
     const core = new LiveAudioCore(48000, () => {})
-    const source = new Float32Array(4096); source[0] = 1
+    // Half scale: under the output limiter's ceiling (BJS-590), so the sends are read as mixed.
+    const source = new Float32Array(4096); source[0] = .5
     prepare(core, 48000, source)
     core.command({ type: 'effects', shaping: { ...open, room: .5, delay: .25 } }, 0)
     core.command({ type: 'press', ownerId: 'a', notes: [{ pitch: 69, instrumentId: 'fixture' }] }, 0)
     const [dry, room, delay] = render(core, 4096)
     expect(dry[0]).toEqual(source)
-    expect(room[0][0]).toBe(.5)
-    expect(delay[0][0]).toBe(.25)
+    expect(room[0][0]).toBe(.25)
+    expect(delay[0][0]).toBe(.125)
     expect(room[0].slice(1).every(value => value === 0)).toBe(true)
   })
   it('keeps playback Shape snapshots independent of live edits and sums after filtering', () => {
@@ -58,10 +59,11 @@ describe('worklet Shape PCM', () => {
     core.command({ type: 'press', ownerId: 'playback', notes: [{ pitch: 69, instrumentId: 'fixture',
       shaping: { ...open, cutoff: 1000, resonance: 10, room: .5, delay: .25 } }] }, 0)
     core.command({ type: 'effects', shaping: { ...open, room: 0, delay: 0 } }, 0)
-    core.command({ type: 'press', ownerId: 'live', notes: [{ pitch: 69, instrumentId: 'fixture' }] }, 0)
+    // The live voice at half velocity keeps the sum under the output limiter's ceiling (BJS-590): read as mixed.
+    core.command({ type: 'press', ownerId: 'live', notes: [{ pitch: 69, instrumentId: 'fixture', velocity: .5 }] }, 0)
     const [dry, room, delay] = render(core, expected.length)
     for (let i = 0; i < expected.length; i++) {
-      expect(dry[0][i]).toBe(Math.fround(source[i] + expected[i]))
+      expect(dry[0][i]).toBe(Math.fround(source[i] * .5 + expected[i]))
       expect(room[0][i]).toBe(Math.fround(expected[i] * .5))
       expect(delay[0][i]).toBe(Math.fround(expected[i] * .25))
     }

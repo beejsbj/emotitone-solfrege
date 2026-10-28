@@ -28,10 +28,14 @@ it('renders app-owned native buses against frozen delay and room, through the re
   const actual = JSON.parse(readFileSync('/tmp/emotitone-effects-engine.json', 'utf8'))
   const reference = JSON.parse(readFileSync('audio-lab/effects/fixtures/reference.json', 'utf8'))
   expect(actual.ownership).toMatchObject({ context: true, master: true, graph: true, orbit: true, preparationResumes: 0 })
-  expect(new Float32Array(actual.delay)).toEqual(decode(reference.delay))
+  // The engine plays its unit impulses through the worklet at half level, under its output limiter's
+  // ceiling (BJS-590), so these checks measure the buses alone; halving is exact in floating point,
+  // so the frozen reference compares at half scale.
+  const halfDelay = decode(reference.delay).map(value => value * .5)
+  expect(new Float32Array(actual.delay)).toEqual(halfDelay)
   const processor = new Float32Array(actual.processorDelay)
-  processor[2400] -= 1 // separate dry signal from the processor's dry+wet output
-  expect(processor).toEqual(decode(reference.delay))
+  processor[2400] -= .5 // separate dry signal from the processor's dry+wet output
+  expect(processor).toEqual(halfDelay)
   const degraded = new Float32Array(actual.degraded.pcm)
   degraded[2400] -= 1
   expect(degraded).toEqual(decode(reference.delay)) // dry+delay survive; room stays silent
@@ -39,7 +43,8 @@ it('renders app-owned native buses against frozen delay and room, through the re
   expect(actual.degraded.failedRenders).toBe(2) // repeated ready() does not retry
   const metrics: any = { roomDecayDb: [], roomSpectrumDb: [] }
   for (let channel = 0; channel < 2; channel++) {
-    const expected = decode(reference.room[channel]), rendered = actual.room[channel]
+    // The room impulse also plays at half level (see the delay above): the reference at half scale.
+    const expected = decode(reference.room[channel]).map(value => value * .5), rendered = actual.room[channel]
     const decay = []
     for (let from = 0; from + 4800 <= expected.length; from += 4800) {
       decay.push(10 * Math.log10(power(rendered, from, from + 4800) / power(expected, from, from + 4800)))

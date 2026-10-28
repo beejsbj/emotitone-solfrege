@@ -29,7 +29,7 @@ export type Verdict = "pass" | "fail" | "record" | "partial" | "not-run";
 /** Steps whose measurements can be cut short by a Stop, and the rows they feed. */
 export type GateStep = "soak" | "resume";
 const STEP_ROWS: Record<GateStep, readonly string[]> = {
-  soak: ["attacks", "live", "skips", "render-cost", "underruns", "frames", "stage"],
+  soak: ["attacks", "live", "pads", "skips", "render-cost", "underruns", "frames", "stage"],
   resume: ["resume"],
 };
 
@@ -72,7 +72,10 @@ export interface GateResults {
   latencyHint?: { link: string | null; asked: LatencyHint | null; created: LatencyHint | null | undefined };
   loadMs?: number;
   attacks?: AttackLedgerResult & { bars: number };
+  /** The soak's automated chords: each note pressed, and each that sounded. */
   live?: { pressed: number; sounded: number };
+  /** Burooj's pad taps (soak and tap steps), recorded apart from the chords (BJS-590). */
+  pads?: { pressed: number; sounded: number };
   renderCost?: RenderCostSummary | null;
   clockSlip?: ClockSlip | null;
   playbackStats?: PlaybackStats | null;
@@ -171,8 +174,14 @@ export function gateRows(results: GateResults): GateRow[] {
   const live = results.live;
   rows.push(live
     ? { id: "live", label: "Live notes on top", verdict: live.sounded < live.pressed ? "fail" : "pass",
-      value: `${live.sounded} of ${live.pressed} sounded`, mark: "every press sounds" }
+      value: `${live.sounded} of ${live.pressed} chord notes sounded`, mark: "every press sounds" }
     : { id: "live", label: "Live notes on top", verdict: "not-run", value: "not measured", mark: "every press sounds" });
+  // Recorded, not graded: a tap shorter than one audio callback is cancelled before it renders, by design.
+  const pads = results.pads;
+  const padMark = "record (a tap shorter than one audio callback is cancelled before it renders, by design)";
+  rows.push(pads
+    ? { id: "pads", label: "Pad taps", verdict: "record", value: `${pads.sounded} of ${pads.pressed} sounded`, mark: padMark }
+    : { id: "pads", label: "Pad taps", verdict: "not-run", value: "no taps", mark: padMark });
   rows.push(attacks
     ? { id: "skips", label: "Scheduler skips", verdict: attacks.cancelled || attacks.overflows ? "fail" : "pass",
       value: `${attacks.cancelled} onsets refused at render, ${attacks.overflows} event overflows`, mark: "0" }

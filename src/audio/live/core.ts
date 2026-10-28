@@ -3,7 +3,7 @@ import type { LiveCommand, LiveConfig, LiveEnvelopeOverride, LiveInputNote, Live
 import { createSampleResampler, type SampleResampler } from './resampler'
 import { VoiceEffects } from './lowpass'
 import { PeakLimiter } from './limiter'
-import { applyFade, type MemberFade } from './fade'
+import { applyFade, deeperFade, fadeEnd, type MemberFade } from './fade'
 import { velocityToGain } from '../velocity'
 import { OPEN_CUTOFF_HZ, type LiveShaping } from '../liveShaping'
 import { MAX_AUDIO_VOICES, VOICE_RETIRE_SECONDS } from '../voicePolicy'
@@ -134,31 +134,35 @@ export class LiveAudioCore {
     this.effectPool = Array.from({ length: MAX_AUDIO_VOICES + MAX_FADES }, () => new VoiceEffects(sampleRate))
     this.limiter = new PeakLimiter(sampleRate)
     this.transport = new AudioTransport(sampleRate, send, this.transportEvents, {
-      silence: (memberId, frame) => this.silenceMember(memberId, frame),
+      silence: (memberId, frame, cut) => this.silenceMember(memberId, frame, cut),
       fade: (memberId, fade) => this.fadeMember(memberId, fade),
     })
   }
 
   /**
    * Forced fade of transport voices (mute, solo, stop): one release at the fade
-   * boundary. Stop (every member) also shortens release tails, so nothing of
-   * the loop sounds past it: Stop All's second tap is a cut.
+   * boundary. A stop (every member) leaves voices on a fade-out to ramp out on
+   * their own (BJS-598); a cut (Stop All's second tap) takes those and every
+   * release tail too, so nothing of the loop sounds past it.
    */
-  private silenceMember(memberId: string | null, frame: number) {
-    for (const voice of this.voices) if (voice.transport && (!voice.released || memberId === null)
-      && (memberId === null || voice.transport.memberId === memberId)) {
-      this.releaseVoice(voice, frame, VOICE_RETIRE_SECONDS * this.sampleRate)
+  private silenceMember(memberId: string | null, frame: number, cut = false) {
+    for (const voice of this.voices) {
+      const transport = voice.transport
+      if (!transport || (memberId !== null && transport.memberId !== memberId)) continue
+      if (cut || (!voice.released && !(memberId === null && transport.fade))) {
+        this.releaseVoice(voice, frame, VOICE_RETIRE_SECONDS * this.sampleRate)
+      }
     }
   }
 
-  /** A member fading out (BJS-598): its sounding voices, release tails included, follow the ramp. */
+  /** A member fading out (BJS-598): its sounding voices, release tails included, follow the ramp, and never come back up. */
   private fadeMember(memberId: string, fade: MemberFade) {
-    for (const voice of this.voices) if (voice.transport?.memberId === memberId) voice.transport.fade = fade
+    for (const voice of this.voices) if (voice.transport?.memberId === memberId) voice.transport.fade = deeperFade(voice.transport.fade, fade)
   }
 
   /** A faded voice is silent from its fade's end: let it go there, so it frees its place in the pool. */
   private retireFaded(frame: number) {
-    for (const voice of this.voices) if (voice.transport?.fade && frame >= voice.transport.fade.end) this.releaseVoice(voice, frame, 0)
+    for (const voice of this.voices) if (voice.transport?.fade && frame >= fadeEnd(voice.transport.fade)) this.releaseVoice(voice, frame, 0)
   }
 
   private transportEvent(kind: TransportEventKind, voice: Voice, frame: number, length: number) {
@@ -646,8 +650,6 @@ export class LiveAudioCore {
     // The member's own instrument, without the live Shape tab's envelope override.
     const instrument = this.instruments.get(table.instrumentId)
     if (!instrument) return false
-    // Past a fade-out's end the member is silent until it leaves: nothing starts.
-    if (member.fade && frame >= member.fade.end) return false
     const pitch = table.pitch[index]
     const zone = this.zone(instrument, pitch)
     if (instrument.kind === 'sample-bank' && (!zone || !zone.channels[0]?.length)) return false

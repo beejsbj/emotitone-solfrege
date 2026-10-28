@@ -141,11 +141,13 @@ export interface LooperDialView extends LooperMemberView {
 /** A pattern fading out, held where its dial was until it has left. */
 interface Ending {
   view: LooperMemberView;
-  /** Its place in the column when it began to fade. */
-  index: number;
   /** Which fade-out it belongs to. */
   fade: number;
   endingMs: number;
+  /** When its ramp reaches silence, on `performance.now()`'s clock. */
+  endsAt: number;
+  /** Stop All's fade (its next tap cuts), not a flick's. */
+  stopAll: boolean;
 }
 
 /** What the notes are, for deciding whether a member's table is stale. */
@@ -193,8 +195,10 @@ export const useLooperStore = defineStore("looper", () => {
    */
   const ending = ref<Ending[]>([]);
   /** Stop All is fading everything out: its next tap cuts at once. */
-  const stopping = ref(false);
+  const stopping = computed(() => ending.value.some((entry) => entry.stopAll));
   let fadeSerial = 0;
+  /** Endings whose dials outlive the run they faded in: removed when their ramp reaches silence. */
+  const endingTimers = new Set<ReturnType<typeof setTimeout>>();
 
   /** A take now in a Loop, held open by a key down when it was saved: filed when that key lets go. */
   let fileOnRelease: string | null = null;
@@ -415,7 +419,8 @@ export const useLooperStore = defineStore("looper", () => {
     epoch++;
     running.value = false;
     ending.value = [];
-    stopping.value = false;
+    for (const timer of endingTimers) clearTimeout(timer);
+    endingTimers.clear();
     starting = null;
     startingId = null;
     joined.clear();
@@ -435,9 +440,37 @@ export const useLooperStore = defineStore("looper", () => {
     stopLatchTimer();
   }
 
-  function stopTransport() {
+  /** `cut`: Stop All's second tap, which also silences fading notes and release tails (BJS-598). */
+  function stopTransport({ cut = false }: { cut?: boolean } = {}) {
     resetSession();
-    player?.stop();
+    player?.stop({ cut });
+  }
+
+  /**
+   * Only patterns fading out are left (BJS-598): the run is ending. Something
+   * started now starts as it would with nothing playing (its own tempo, its
+   * bar one, its first note); the fading patterns ramp out on their own.
+   */
+  function runEnding(): boolean {
+    return running.value && !looper.value.members.length && !looper.value.latched && ending.value.length > 0;
+  }
+
+  /**
+   * A run starts over patterns still fading out (BJS-598): their notes ramp out
+   * on their own, so their dials stay, ending, until the ramp reaches silence.
+   */
+  function outliveRun(entries: readonly Ending[]): void {
+    const captured = epoch;
+    for (const fade of new Set(entries.map((entry) => entry.fade))) {
+      const endsAt = Math.max(...entries.filter((entry) => entry.fade === fade).map((entry) => entry.endsAt));
+      const timer = setTimeout(() => {
+        endingTimers.delete(timer);
+        if (epoch !== captured) return;
+        ending.value = ending.value.filter((entry) => entry.fade !== fade);
+        stopIfEmpty();
+      }, Math.max(0, endsAt - performance.now()));
+      endingTimers.add(timer);
+    }
   }
 
   /**
@@ -487,12 +520,13 @@ export const useLooperStore = defineStore("looper", () => {
   }
 
   /** Bring a domain member into the transport (asynchronously, guarded by intent). */
-  function bringIn(phraseId: string) {
+  /** `fresh`: it starts a new run over one that is ending (BJS-598), as if nothing played. */
+  function bringIn(phraseId: string, fresh = false) {
     // Played again while it fades: it is a member again, at full level.
     ending.value = ending.value.filter((entry) => entry.view.phraseId !== phraseId);
     const token = ++intentSerial;
     intents.set(phraseId, token);
-    if (!running.value && !starting) startSession(phraseId, token);
+    if (fresh || (!running.value && !starting)) startSession(phraseId, token);
     else void joinRunning(phraseId, token);
   }
 
@@ -663,16 +697,18 @@ export const useLooperStore = defineStore("looper", () => {
     if (originAudio === null) origins.delete(phrase.id);
     else origins.set(phrase.id, originAudio);
     const first = !looper.value.members.length;
+    // Over a run that is only fading out, it starts its own run (BJS-598).
+    const fresh = runEnding();
     // A first take's bar one is its own first note; a later one is placed when it joins.
     const member = join(looper.value, phrase, originAudio === null
       ? { kind: "pinned-to-bar-one" }
       : { kind: "played", phraseOriginBars: first ? 0 : (looper.value.barOriginBars ?? 0) });
     // Joining the latch's grid: it set the tempo, and its bar 0 is bar one.
-    if (first && (running.value || starting)) looper.value.bpm = transportBpm;
+    if (first && !fresh && (running.value || starting)) looper.value.bpm = transportBpm;
     member.lengthBars = loopLengthBars(phrase);
     // Looping is deliberate: the take is kept even after it stops playing.
     phrases.markLooped(phrase.id);
-    bringIn(phrase.id);
+    bringIn(phrase.id, fresh);
   }
 
   /** The member leaves the domain and this session's bookkeeping; the transport is the caller's. */
@@ -971,15 +1007,17 @@ export const useLooperStore = defineStore("looper", () => {
    * dials stay, ending, until they have left. The last fade to end stops an
    * empty transport, unless the latch holds its grid.
    */
-  function fadeOutMembers(phraseIds: string[], onEnd?: () => void): void {
+  function fadeOutMembers(phraseIds: string[], { stopAll = false } = {}): void {
     const current = player!;
     const captured = epoch;
     const fade = ++fadeSerial;
     const endingMs = barMsAt(transportBpm) * FADE_BARS;
-    const views = memberViews.value;
+    const endsAt = performance.now() + endingMs;
+    // The column as it stands, dials already ending included: each fading dial keeps this place.
+    void dialViews.value;
     const marked = phraseIds.flatMap((phraseId) => {
-      const index = views.findIndex((view) => view.phraseId === phraseId);
-      return index < 0 ? [] : [{ view: { ...views[index] }, index, fade, endingMs }];
+      const view = viewFor(phraseId);
+      return view ? [{ view: { ...view }, fade, endingMs, endsAt, stopAll }] : [];
     });
     for (const phraseId of phraseIds) {
       forgetMember(phraseId);
@@ -987,10 +1025,20 @@ export const useLooperStore = defineStore("looper", () => {
       latestJoin.delete(phraseId);
     }
     ending.value = [...ending.value.filter((entry) => !phraseIds.includes(entry.view.phraseId)), ...marked];
-    void current.fadeOut(phraseIds, FADE_BARS).catch(report).finally(() => {
+    void current.fadeOut(phraseIds, FADE_BARS).then((receipt) => {
+      if (epoch !== captured) return;
+      const still = ending.value.filter((entry) => entry.fade === fade);
+      // A new run started over the fade (or the pattern came back): what still fades ramps out on its own.
+      if (receipt.cancelled && still.length) {
+        outliveRun(still);
+        return;
+      }
+      ending.value = ending.value.filter((entry) => entry.fade !== fade);
+      stopIfEmpty();
+    }, (error) => {
+      report(error);
       if (epoch !== captured) return;
       ending.value = ending.value.filter((entry) => entry.fade !== fade);
-      onEnd?.();
       stopIfEmpty();
     });
   }
@@ -1009,10 +1057,25 @@ export const useLooperStore = defineStore("looper", () => {
   }
 
   /**
+   * A solo (held or tapped) ends with Stop All, in the transport too: the
+   * patterns it silenced are muted first, so the fade stays what was heard,
+   * and nothing started meanwhile is silenced by it.
+   */
+  function endSolo(): void {
+    const soloed = looper.value.soloId;
+    if (soloed === null || !running.value || !player) return;
+    for (const member of looper.value.members) {
+      if (member.phraseId === soloed || member.muted || !joined.has(member.phraseId)) continue;
+      void player.setMember(member.phraseId, { muted: true }).catch(report);
+    }
+    void player.solo(null).catch(report);
+  }
+
+  /**
    * Stop All (BJS-598): everything fades out over one bar at the loop's tempo,
-   * then stops, and nothing joins by itself; the latch lets go at once. A
-   * pattern started during the fade joins at full level and plays on. Tapped
-   * again while it fades (or with only fading patterns left), it cuts
+   * then stops, and nothing joins by itself; the latch and any solo let go at
+   * once. Something started during the fade starts its own run at full level.
+   * Tapped again while it fades (or with only fading patterns left), it cuts
    * everything at once.
    */
   function stopAll(): void {
@@ -1023,12 +1086,12 @@ export const useLooperStore = defineStore("looper", () => {
     }
     stopLatchTimer();
     fileOnRelease = null;
+    endSolo();
     forgetHolds();
     openTakeId.value = null;
     latchCountdown.value = null;
     looper.value.latched = false;
-    stopping.value = true;
-    fadeOutMembers(sounding, () => { stopping.value = false; });
+    fadeOutMembers(sounding, { stopAll: true });
     // Members still loading have made no sound: they are withdrawn, as a leave withdraws them.
     for (const member of [...looper.value.members]) leaveMember(member.phraseId);
     origins.clear();
@@ -1036,8 +1099,14 @@ export const useLooperStore = defineStore("looper", () => {
     clearLooper(looper.value);
   }
 
-  /** The panic stop: nothing playing or fading, and nothing joining by itself, at once. */
+  /**
+   * The panic stop: nothing playing or fading, and nothing joining by itself,
+   * at once. With patterns fading it is a cut: their notes and every release
+   * tail stop in the same 10 ms. Otherwise it is a plain stop, whose release
+   * tails ring out.
+   */
   function cutAll(): void {
+    const cut = ending.value.length > 0;
     stopLatchTimer();
     fileOnRelease = null;
     forgetHolds();
@@ -1046,7 +1115,7 @@ export const useLooperStore = defineStore("looper", () => {
     origins.clear();
     playedBars.clear();
     clearLooper(looper.value);
-    stopTransport();
+    stopTransport({ cut });
   }
 
   // ─── Saved Loops (rule 4) ──────────────────────────────────────────────────
@@ -1167,7 +1236,8 @@ export const useLooperStore = defineStore("looper", () => {
       reportKind("loop-missing");
       return false;
     }
-    if (!looper.value.members.length && !running.value && !starting) {
+    // With nothing playing (or only patterns fading out, BJS-598) it starts from its own bar one.
+    if (runEnding() || (!looper.value.members.length && !running.value && !starting)) {
       const latched = looper.value.latched;
       if (!openLoop(id)) return false;
       // Opening a Loop does not let go of a held latch.
@@ -1234,7 +1304,13 @@ export const useLooperStore = defineStore("looper", () => {
     openTakeId.value = null;
     origins.clear();
     playedBars.clear();
+    // Patterns fading out ramp out on their own under the new run (BJS-598): their dials stay until then.
+    const fading = ending.value;
     stopTransport();
+    if (fading.length) {
+      ending.value = fading;
+      outliveRun(fading);
+    }
     looper.value = next;
     const captured = epoch;
     const current = player;
@@ -1435,13 +1511,22 @@ export const useLooperStore = defineStore("looper", () => {
     return memberViews.value.find((view) => view.phraseId === phraseId);
   }
 
+  /**
+   * The column's order: each dial keeps its place while it plays and while it
+   * fades (BJS-598), however many fade at once and in whatever order they go;
+   * a new member comes in at the end.
+   */
+  let columnOrder: string[] = [];
   /** The dial column: the members, and each fading pattern where its dial was. */
   const dialViews = computed<LooperDialView[]>(() => {
-    const dials: LooperDialView[] = memberViews.value.map((view) => ({ ...view, ending: false, endingMs: 0 }));
-    for (const entry of [...ending.value].sort((a, b) => a.index - b.index)) {
-      dials.splice(Math.min(entry.index, dials.length), 0, { ...entry.view, ending: true, endingMs: entry.endingMs });
+    const dials = new Map<string, LooperDialView>();
+    for (const view of memberViews.value) dials.set(view.phraseId, { ...view, ending: false, endingMs: 0 });
+    for (const entry of ending.value) {
+      if (!dials.has(entry.view.phraseId)) dials.set(entry.view.phraseId, { ...entry.view, ending: true, endingMs: entry.endingMs });
     }
-    return dials;
+    columnOrder = columnOrder.filter((phraseId) => dials.has(phraseId));
+    for (const phraseId of dials.keys()) if (!columnOrder.includes(phraseId)) columnOrder.push(phraseId);
+    return columnOrder.map((phraseId) => dials.get(phraseId)!);
   });
 
   return {

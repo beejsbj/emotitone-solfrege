@@ -6,7 +6,7 @@
  * centre whether or not anything plays. What the Looper could not do shows as
  * an Edge Notice on the right edge, the mirror of the dials on the left.
  */
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import { BookmarkPlus, Square } from "lucide-vue-next";
 import Button from "@/components/primatives/Button.vue";
 import EdgeNotice from "@/components/compounds/EdgeNotice.vue";
@@ -28,6 +28,13 @@ const dials = computed(() => looper.dialViews.map((view) => ({
   }),
 })));
 
+/** What the polite live region says: the fade and its cut while Stop All fades, then that it has stopped. */
+const stopStatus = ref("");
+watch(() => looper.stopping, (stopping, was) => {
+  if (stopping) stopStatus.value = "Stopping. Tap Stop All again to cut.";
+  else if (was) stopStatus.value = looper.hasMembers ? "" : "Stopped.";
+});
+
 function stateOf(view: LooperMemberView): LooperDialState {
   if (view.soloed) return "solo";
   if (!view.audible) return "muted";
@@ -38,6 +45,8 @@ function stateOf(view: LooperMemberView): LooperDialState {
 <template>
   <!-- A zero-height anchor: the dials float over the Stage and take no Drawer height. -->
   <div class="looper-dials">
+    <!-- Stop All's fade, told to assistive technology (BJS-598): the key's look alone is not heard. -->
+    <span class="looper-dials__sr-only" aria-live="polite" data-testid="looper-stop-status">{{ stopStatus }}</span>
     <!-- A Play that could not sound says why, instead of doing nothing. -->
     <EdgeNotice
       v-if="looper.lastError"
@@ -86,8 +95,9 @@ function stateOf(view: LooperMemberView): LooperDialState {
         haptic
         data-testid="looper-stop-all"
         :pressed="looper.stopping"
-        :accessible-name="looper.stopping ? 'Stopping. Tap to cut now' : 'Stop all loops'"
-        :title="looper.stopping ? 'Stopping. Tap to cut now' : 'Stop all loops'"
+        :aria-pressed="looper.stopping"
+        :accessible-name="looper.stopping ? 'Cut all loops now' : 'Stop all loops'"
+        :title="looper.stopping ? 'Cut all loops now' : 'Stop all loops'"
         @click="looper.stopAll()"
       >
         <Square />
@@ -131,6 +141,18 @@ function stateOf(view: LooperMemberView): LooperDialState {
 
 .looper-dials__stop {
   margin-bottom: var(--s-2);
+}
+
+.looper-dials__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  clip-path: inset(50%);
+  pointer-events: none;
+  white-space: nowrap;
 }
 
 /* Its touch meets Stop All's, never overlaps it. */

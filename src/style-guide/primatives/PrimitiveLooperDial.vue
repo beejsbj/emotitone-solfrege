@@ -13,8 +13,9 @@
           size="sm"
           tone="ink"
           :pressed="stopping"
-          :accessible-name="stopping ? 'Stopping. Tap to cut now' : 'Stop all loops'"
-          :title="stopping ? 'Stopping. Tap to cut now' : 'Stop all loops'"
+          :aria-pressed="stopping"
+          :accessible-name="stopping ? 'Cut all loops now' : 'Stop all loops'"
+          :title="stopping ? 'Cut all loops now' : 'Stop all loops'"
           @click="stopAll"
         >
           <Square />
@@ -50,7 +51,7 @@
         <LooperDial :key="replay" v-bind="dials[0]" ending :ending-ms="BAR_MS" />
       </VariantCell>
       <VariantCell caption="Stop All while everything fades &middot; held down; tapped again, it cuts" stage="ink3">
-        <Button size="sm" tone="ink" pressed accessible-name="Stopping. Tap to cut now" title="Stopping. Tap to cut now"><Square /></Button>
+        <Button size="sm" tone="ink" pressed aria-pressed="true" accessible-name="Cut all loops now" title="Cut all loops now"><Square /></Button>
       </VariantCell>
     </VariantGrid>
   </AnatomyDisplay>

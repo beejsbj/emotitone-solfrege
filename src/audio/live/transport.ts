@@ -90,7 +90,8 @@ export type TransportChange = TransportMembershipChange | TransportFadeOut
 export type TransportCommand =
   /** `bar` (default 0) is the bar at the start frame: a recovered run continues where it stopped. */
   | { type: 'transport-start'; requestId: number; run: number; bpm: number; bar?: number }
-  | { type: 'transport-stop'; requestId: number }
+  /** `cut`: Stop All's second tap (BJS-598): fading voices and release tails stop too, in the same 10 ms. */
+  | { type: 'transport-stop'; requestId: number; cut?: boolean }
   | { type: 'transport-change'; requestId: number; change: TransportChange; boundary: TransportBoundary }
   | { type: 'transport-recycle'; buffer: ArrayBuffer }
 
@@ -158,7 +159,7 @@ interface TransportState {
 /** What the transport asks of the render core. */
 export interface TransportHost {
   /** Fade the sounding voices of one member (or all, for null) from `frame`. */
-  silence(memberId: string | null, frame: number): void
+  silence(memberId: string | null, frame: number, cut?: boolean): void
   /** Put one member's sounding voices, release tails included, on its fade-out ramp. */
   fade(memberId: string, fade: MemberFade): void
 }
@@ -202,6 +203,8 @@ const noSilence = () => {}
 export class AudioTransport {
   private state: TransportState = { members: new Map(), soloId: null, anchors: [] }
   private pending: Pending[] = []
+  /** Fade-outs under way (BJS-598): their members leave on the frame the ramp reaches silence. */
+  private fadeLeaves: { requestId: number; arrivalFrame: number; memberIds: string[]; frame: number }[] = []
   /** The preview in force at `collectedUntil` and the pending changes it includes; reset by any change. */
   private frontier: { state: TransportState; applied: number } | undefined
   private running = false
@@ -300,7 +303,7 @@ export class AudioTransport {
         return
       }
       case 'transport-stop':
-        this.halt(frame, true)
+        this.halt(frame, true, command.cut === true)
         this.receipt(command.requestId, frame, frame, null, false)
         return
       case 'transport-change': {
@@ -361,18 +364,24 @@ export class AudioTransport {
     return frameAtBar(anchors, bar, this.sampleRate)
   }
 
-  /** Stop: cancel announced onsets, fade every member's voices, forget membership. */
-  private halt(frame: number, clearMembers: boolean) {
+  /**
+   * Stop: cancel announced onsets, fade every member's voices, forget
+   * membership. Voices on a fade-out ramp it out on their own; `cut` (Stop
+   * All's second tap) silences those and every release tail too.
+   */
+  private halt(frame: number, clearMembers: boolean, cut = false) {
     for (const onset of this.queue) if (onset.kind === 'note') this.write(TransportEventKind.Cancel, onset)
     for (const onset of this.retracted) this.write(TransportEventKind.Cancel, onset)
     for (const onset of this.queue) this.recycle(onset)
     for (const onset of this.retracted) this.recycle(onset)
     this.queue.length = 0
     this.retracted.length = 0
-    this.host.silence(null, frame)
+    this.host.silence(null, frame, cut)
     // Every request is answered: a caller awaiting a pending change's receipt must not hang.
     for (const pending of this.pending) this.receipt(pending.requestId, pending.arrivalFrame, frame, null, false, true)
+    for (const leaving of this.fadeLeaves) this.receipt(leaving.requestId, leaving.arrivalFrame, frame, null, false, true)
     this.pending = []
+    this.fadeLeaves = []
     this.frontier = undefined
     this.state.soloId = null
     this.running = false
@@ -384,10 +393,10 @@ export class AudioTransport {
   /**
    * Fade-out (BJS-598): each named member stays a member through the fade, its
    * sounding voices and every onset it plays meanwhile on one level ramp from
-   * now to silence `bars` later, at the tempo in force; then it leaves on that
-   * bar, through the pending changes, so its receipt says where it left. A
-   * later join of a member withdraws its leave (and plays at full level),
-   * and Stop cuts the fade.
+   * now to silence `bars` later at the tempo map in force; it plays nothing
+   * from the ramp's end and leaves on that frame, whatever the tempo does
+   * meanwhile, and the receipt answers then. A later join of a member
+   * withdraws its leave (and plays at full level); Stop ends the fade.
    */
   private fadeOut(change: TransportFadeOut, frame: number, requestId: number) {
     const leaves: TransportSingleChange[] = change.memberIds.map(memberId => ({ type: 'leave', memberId }))
@@ -398,9 +407,8 @@ export class AudioTransport {
       this.receipt(requestId, frame, frame, null, false)
       return
     }
-    const bar = this.barAt(frame) + change.bars
     // Silent from the first whole frame on the bar, as an onset there would sound.
-    const fade: MemberFade = { start: frame, end: Math.ceil(this.boundaryFrame(bar) - 1e-6) }
+    const fade: MemberFade = { start: frame, end: Math.ceil(this.boundaryFrame(this.barAt(frame) + change.bars) - 1e-6) }
     // A join of one of them still waiting for its bar is withdrawn: the fade is the later word.
     this.foldIntoPendingJoins(leave, requestId, frame)
     // The lookahead was collected without the fade: withdraw it and collect it again.
@@ -413,10 +421,27 @@ export class AudioTransport {
       member.fade = fade
       this.host.fade(memberId, fade)
     }
-    let index = this.pending.findIndex(entry => entry.bar > bar)
-    if (index < 0) index = this.pending.length
-    this.pending.splice(index, 0, { requestId, bar, arrivalFrame: frame, change: leave })
+    this.fadeLeaves.push({ requestId, arrivalFrame: frame, memberIds: [...change.memberIds], frame: fade.end })
     this.collectTo(frame + this.lookahead)
+  }
+
+  /** Fading members whose ramp reaches silence inside the quantum leave on that frame. */
+  private leaveFaded(firstFrame: number, endFrame: number) {
+    for (let index = 0; index < this.fadeLeaves.length;) {
+      const leaving = this.fadeLeaves[index]
+      if (leaving.frame >= endFrame) { index++; continue }
+      this.fadeLeaves.splice(index, 1)
+      const at = Math.max(firstFrame, leaving.frame)
+      for (const memberId of leaving.memberIds) {
+        // Only the member that is fading: one played again since is not this leave's.
+        if (this.state.members.get(memberId)?.fade) this.applySingle(this.state, { type: 'leave', memberId }, at, noSilence)
+      }
+      // A soloed member leaving lets the others sound again: collect again from here.
+      this.retractFrom(at)
+      this.collectedUntil = Math.min(this.collectedUntil, at)
+      this.frontier = undefined
+      this.receipt(leaving.requestId, leaving.arrivalFrame, at, this.barAt(at), false)
+    }
   }
 
   private applyNow(change: TransportMembershipChange, frame: number, requestId: number) {
@@ -438,8 +463,8 @@ export class AudioTransport {
    * settings, a replace swaps its table, a leave or a newer join withdraws it
    * (its receipt says cancelled). So a mute, bend or pin tapped after "join at the next
    * bar" holds when the member arrives, and later submissions win. A join
-   * also withdraws an earlier leave of the member still waiting for its bar,
-   * such as a fade-out's: a pattern played again while it fades stays.
+   * also withdraws an earlier fade-out's leave of the member: a pattern played
+   * again while it fades stays (BJS-598).
    * Returns the earliest bar whose pending change was altered.
    */
   private foldIntoPendingJoins(change: TransportMembershipChange, requestId: number, frame: number): number {
@@ -448,16 +473,21 @@ export class AudioTransport {
       const id = part.type === 'update' || part.type === 'leave' ? part.memberId
         : part.type === 'replace' ? part.table.id : part.type === 'join' ? part.member.table.id : undefined
       if (id === undefined) continue
+      if (part.type === 'join') for (let index = this.fadeLeaves.length - 1; index >= 0; index--) {
+        const leaving = this.fadeLeaves[index]
+        if (leaving.requestId > requestId || !leaving.memberIds.includes(id)) continue
+        leaving.memberIds = leaving.memberIds.filter(memberId => memberId !== id)
+        if (leaving.memberIds.length) continue
+        this.fadeLeaves.splice(index, 1)
+        this.receipt(leaving.requestId, leaving.arrivalFrame, frame, null, false, true)
+      }
       for (let index = this.pending.length - 1; index >= 0; index--) {
         const entry = this.pending[index]
         if (entry.requestId > requestId) continue
         const parts = entry.change.type === 'batch' ? entry.change.changes : [entry.change]
-        // A later join also withdraws a leave of it still waiting for its bar (a fade-out's, BJS-598).
-        const withdrawn = (own: TransportSingleChange) => part.type === 'join' && own.type === 'leave' && own.memberId === id
-        if (!parts.some(own => (own.type === 'join' && own.member.table.id === id) || withdrawn(own))) continue
+        if (!parts.some(own => own.type === 'join' && own.member.table.id === id)) continue
         const folded: TransportSingleChange[] = []
         for (const own of parts) {
-          if (withdrawn(own)) continue
           if (own.type !== 'join' || own.member.table.id !== id) folded.push(own)
           else if (part.type === 'update') folded.push({ type: 'join', member: { ...own.member, ...part.patch } })
           else if (part.type === 'replace') folded.push({ type: 'join', member: { ...own.member, table: part.table } })
@@ -541,6 +571,7 @@ export class AudioTransport {
    */
   beginQuantum(firstFrame: number, endFrame: number) {
     if (!this.running) return
+    this.leaveFaded(firstFrame, endFrame)
     while (this.pending.length) {
       const next = this.pending[0]
       const boundaryFrame = this.frameAt(next.bar)
@@ -656,10 +687,12 @@ export class AudioTransport {
     }
   }
 
-  private collectMember(state: TransportState, member: TransportMember, from: number, to: number) {
+  private collectMember(state: TransportState, member: TransportMember, from: number, until: number) {
     const { table, offsetBars, rate } = member
     const count = table.begin.length
-    if (!count) return
+    // A fading member plays nothing from the frame its ramp reaches silence.
+    const to = member.fade ? Math.min(until, member.fade.end) : until
+    if (!count || to <= from) return
     const b0 = barAtFrame(state.anchors, from, this.sampleRate)
     const b1 = barAtFrame(state.anchors, to, this.sampleRate)
     const period = table.lengthBars / rate

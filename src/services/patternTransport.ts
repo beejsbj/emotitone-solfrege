@@ -518,10 +518,14 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
     for (const id of [...receipts.keys()]) settle(cancelledReceipt(id));
   }
 
-  /** Stop everything local; with `command`, also stop the worklet transport. */
-  function halt(command: boolean) {
+  /**
+   * Stop everything local; with `command`, also stop the worklet transport.
+   * Notes on a fade-out ramp out there on their own unless `cut` (Stop All's
+   * second tap) stops them with every release tail (BJS-598).
+   */
+  function halt(command: boolean, cut = false) {
     const wasPlaying = playing;
-    if (command && port) send({ type: "transport-stop", requestId: ++requestId });
+    if (command && port) send({ type: "transport-stop", requestId: ++requestId, ...(cut ? { cut: true } : {}) });
     playing = false;
     run++;
     for (const noteId of [...registry.keys()]) endNow(noteId);
@@ -883,10 +887,11 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
     /**
      * Fade members out over `bars` from now, then they leave (BJS-598): Stop All
      * and the Loop Dial's flick. They play on through the fade on one level
-     * ramp to silence; the receipt answers when they have left, on the bar the
-     * fade ends on, and their banks stay pinned until then. A join of one of
-     * them meanwhile brings it back at full level (its notes already sounding
-     * fade on); Stop cuts the fade.
+     * ramp to silence; the receipt answers when they have left, on the frame
+     * the ramp reaches silence, and their banks stay pinned until then. A join
+     * of one of them meanwhile brings it back at full level (its notes already
+     * sounding fade on). Stop ends the fade early (its receipt says cancelled),
+     * letting the notes already fading ramp out; a cut stops them too.
      */
     fadeOut(ids: readonly string[], bars = 1): Promise<TransportReceipt> {
       const looper = requireSession();
@@ -1028,7 +1033,8 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
       };
     },
 
-    stop() { halt(true); },
+    /** Stop the Looper; `cut` also silences fading notes and release tails at once (Stop All's second tap). */
+    stop(options: { cut?: boolean } = {}) { halt(true, options.cut === true); },
     dispose() {
       halt(true);
       unsubscribe();

@@ -107,10 +107,13 @@ function readLegacyBook(liveContext: PhraseContext): PhraseBook | null {
  * after the sound was removed, or another tab's shelf) comes back on its
  * nearest working one, as opening it would (`syncControlsTo`), so Play and
  * live play can sound it. Only the desk's copy changes; its notes are untouched.
+ * A pattern a saved Loop points at keeps its own sound (rule 3, as `isLoopOwned`
+ * guards in the store): only the controls move, and they restore on their own.
  */
 function onWorkingSound(book: PhraseBook): PhraseBook {
   const take = book.phrases.find((phrase) => phrase.id === book.takeId);
-  if (take && typeof take.context.instrument === "string") {
+  const loopOwned = (book.loops ?? []).some((loop) => loop.members.some((member) => member.phraseId === book.takeId));
+  if (take && !loopOwned && typeof take.context.instrument === "string") {
     const instrument = selectableReplacement(take.context.instrument);
     if (instrument !== take.context.instrument) take.context = { ...take.context, instrument };
   }

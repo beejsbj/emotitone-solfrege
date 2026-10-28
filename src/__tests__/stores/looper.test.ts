@@ -30,6 +30,12 @@ const rig = vi.hoisted(() => ({
   prepared: [] as string[],
   /** Banks the worklet refuses (the sample memory is held full by playing loops and keys). */
   refused: new Set<string>(),
+  /** Pinned banks, by holder, as livePlayback keeps its leases. */
+  leases: new Map<string, Set<string>>(),
+  /** A tight sample budget: loading a bank evicts every other bank no lease holds. */
+  tight: false,
+  /** Banks forgotten for room, and the frame each went at. */
+  evicted: [] as { instrumentId: string; frame: number }[],
   commands: [] as TransportCommand[],
   context: undefined as unknown as Record<string, unknown>,
   deliver() {
@@ -46,6 +52,15 @@ const rig = vi.hoisted(() => ({
 vi.mock("@/services/livePlayback", () => ({
   async prepareLivePlayback(_context: unknown, _destination: unknown, instrumentId: string) {
     await rig.gates.get(instrumentId);
+    if (rig.tight && !rig.prepared.includes(instrumentId)) {
+      const leased = new Set([...rig.leases.values()].flatMap((held) => [...held]));
+      for (const resident of [...new Set(rig.prepared)]) {
+        if (leased.has(resident)) continue;
+        rig.core.command({ type: "forget", requestId: 0, instrumentId: resident }, rig.frame);
+        rig.evicted.push({ instrumentId: resident, frame: rig.frame });
+        rig.prepared = rig.prepared.filter((prepared) => prepared !== resident);
+      }
+    }
     rig.prepared.push(instrumentId);
     rig.core.command({ type: "prepare", requestId: 0, instrument: { kind: "oscillator", instrumentId, waveform: "sine",
       gain: 1, attack: .001, decay: .01, sustain: .5, release: .01 } }, rig.frame);
@@ -70,7 +85,11 @@ vi.mock("@/services/livePlayback", () => ({
   getLivePlayback: () => undefined,
   waitForLivePlayback: () => undefined,
   setLivePlaybackShaping: () => {},
-  pinLivePlayback: () => () => {},
+  pinLivePlayback(holderId: string, names: readonly string[]) {
+    const held = new Set(names);
+    rig.leases.set(holderId, held);
+    return () => { if (rig.leases.get(holderId) === held) rig.leases.delete(holderId); };
+  },
   subscribeLivePlayback(listener: { onTransport?(response: TransportResponse): void }) {
     rig.listeners.add(listener);
     return () => rig.listeners.delete(listener);
@@ -210,6 +229,9 @@ describe("Play is the loop on the worklet transport", () => {
     rig.gates.clear();
     rig.prepared = [];
     rig.refused.clear();
+    rig.leases.clear();
+    rig.tight = false;
+    rig.evicted = [];
     rig.core = new LiveAudioCore(RATE, (response) => { rig.queued.push(response); });
     rig.context = {
       state: "running",
@@ -1193,6 +1215,32 @@ describe("Play is the loop on the worklet transport", () => {
         expect(looper.lastError).toBeNull();
         render(2);
         expect(attacksOf(third).length).toBeGreaterThan(0);
+      });
+
+      it("a fresh run on another bank under a tight budget cannot evict the fading bank before its notes have ramped out", async () => {
+        const { phrases, looper } = await twoPlaying();
+        const fadingBanks = [...new Set(rig.prepared)];
+        const third = keptTake(phrases);
+        phrases.findPhrase(third)!.context.instrument = "sawtooth";
+        const holds = (bank: string) => [...rig.leases.values()].some((held) => held.has(bank));
+        // Every bank but the one about to load goes, unless something holds it.
+        rig.tight = true;
+        const from = rig.frame;
+        looper.stopAll();
+        await flush();
+        render(.5);
+        phrases.openPhrase(third);
+        looper.togglePlay();
+        await flush();
+        await looper.settled();
+        expect(player.getLooper()).toMatchObject({ running: true, members: [expect.objectContaining({ id: third })] });
+        // The new bank loaded with the fading one still held: nothing was taken from under its notes.
+        expect(rig.evicted).toEqual([]);
+        for (const bank of fadingBanks) expect(holds(bank), bank).toBe(true);
+        renderTo(from + FRAMES_PER_BAR + QUANTUM);
+        // Once the ramp has reached silence, the fading bank is let go.
+        vi.advanceTimersByTime(2000);
+        for (const bank of fadingBanks) expect(holds(bank), bank).toBe(false);
       });
 
       it("Stop All tapped again while it fades cuts everything, a pattern started during the fade too", async () => {

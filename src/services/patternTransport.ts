@@ -518,6 +518,21 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
     for (const id of [...receipts.keys()]) settle(cancelledReceipt(id));
   }
 
+  /** When each fading member's ramp reaches silence (BJS-598), on the `now()` clock. */
+  const fadingUntil = new WeakMap<Membership, number>();
+
+  /**
+   * A member that left lets its bank go, but one fading out keeps it until its
+   * ramp reaches silence, so a new run's load cannot evict notes still
+   * ramping out; a cut has already silenced them.
+   */
+  function releaseWhenSilent(entry: Membership, cut = false) {
+    const remaining = (fadingUntil.get(entry) ?? -Infinity) - now();
+    const release = entry.releasePin;
+    if (cut || !(remaining > 0)) release?.();
+    else setTimeout(() => release?.(), remaining);
+  }
+
   /**
    * Stop everything local; with `command`, also stop the worklet transport.
    * Notes on a fade-out ramp out there on their own unless `cut` (Stop All's
@@ -533,7 +548,9 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
     released.clear();
     members.clear();
     resolvePending();
-    for (const entry of [...memberships.values(), ...leaving.values()]) entry.releasePin?.();
+    for (const entry of memberships.values()) entry.releasePin?.();
+    // Fading notes ramp out in the worklet after a plain stop: their banks stay until then.
+    for (const entry of leaving) releaseWhenSilent(entry, cut);
     memberships.clear();
     leaving.clear();
     snapshot = undefined;
@@ -891,7 +908,8 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
      * the ramp reaches silence, and their banks stay pinned until then. A join
      * of one of them meanwhile brings it back at full level (its notes already
      * sounding fade on). Stop ends the fade early (its receipt says cancelled),
-     * letting the notes already fading ramp out; a cut stops them too.
+     * letting the notes already fading ramp out, their banks still pinned
+     * until the ramp's end; a cut stops them and lets the banks go at once.
      */
     fadeOut(ids: readonly string[], bars = 1): Promise<TransportReceipt> {
       const looper = requireSession();
@@ -901,17 +919,19 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
       });
       if (refused) return refused;
       const entries: [string, Membership][] = [];
+      // The ramp lasts `bars` at the tempo now in force, as the worklet times it.
+      const silentAt = now() + bars * 240_000 / looper.bpm;
       for (const id of ids) {
         const entry = memberships.get(id);
         memberships.delete(id);
-        if (entry) { leaving.add(entry); entries.push([id, entry]); }
+        if (entry) { leaving.add(entry); entries.push([id, entry]); fadingUntil.set(entry, silentAt); }
         if (looper.soloId === id) looper.soloId = null;
       }
       const receipt = change({ type: "fade-out", memberIds: [...ids], bars });
       void receipt.then(() => {
         for (const [id, entry] of entries) {
           leaving.delete(entry);
-          if (memberships.get(id) !== entry) entry.releasePin?.();
+          if (memberships.get(id) !== entry) releaseWhenSilent(entry);
         }
         prune();
       });

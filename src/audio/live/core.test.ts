@@ -483,7 +483,8 @@ describe('production live audio render core', () => {
       const { send, press, release, render, events, ended, core } = rig()
       send({ type: 'configure', config: { style: 'arp-up', bpm, rate } })
       for (const key of keys) press(`key-${key}`, key)
-      for (const key of keys) release(`key-${key}`)
+      // Let go top down: keys lifted together still take their turns up the chord.
+      for (const key of [...keys].reverse()) release(`key-${key}`)
       const interval = RATE * 60 / bpm * 4 / rate
       render(keys.length * interval + RATE / 2)
       for (const [turn, key] of keys.entries()) {
@@ -491,6 +492,39 @@ describe('production live audio render core', () => {
         expect(ended(`key-${key}`), `${key}`).toBe(1)
       }
       expect(core.voiceCount).toBe(0)
+    })
+
+    it('serves lifted keys first come, first served, under a hard ceiling, while the held arp keeps its turns', () => {
+      // Arp-up at 120 BPM in quarters, a turn every 0.5 s, over a held C3.
+      const { send, press, release, render, events, ended } = rig()
+      send({ type: 'configure', config: { style: 'arp-up', bpm: 120, rate: 4 } })
+      press('held', 48); render(28800)
+      const lifts = new Map<string, number>([['high', 28800]])
+      press('high', 84); release('high'); render(9600)
+      // A quick lower tap before every turn: each would overtake the high key if turns went by pitch.
+      for (let index = 0; index < 12; index++) {
+        lifts.set(`low-${index}`, 38400 + index * 24000)
+        press(`low-${index}`, 50 + index); release(`low-${index}`); render(24000)
+      }
+      render(5 * RATE)
+      // The high key, lifted first, takes the very next turn.
+      expect(events('high')).toEqual([['attack', 48000], ['release', 48240]])
+      let previous = -1
+      for (const [owner, lift] of lifts) {
+        const attack = events(owner).find(([phase]) => phase === 'attack')
+        // A touch sounds within the 4 s ceiling of its lift, or lets go unheard there.
+        if (attack) {
+          expect(Number(attack[1]) - lift, owner).toBeLessThanOrEqual(4 * RATE)
+          // First come, first served: the touches that sound do so in the order they were lifted.
+          expect(Number(attack[1]), owner).toBeGreaterThan(previous)
+          previous = Number(attack[1])
+        }
+        expect(ended(owner), owner).toBe(1)
+      }
+      // The held note keeps every other turn at least while the taps queue: no gap longer than two turns.
+      const turns = events('held').filter(([phase]) => phase === 'attack').map(([, at]) => Number(at))
+      expect(turns.length).toBeGreaterThan(8)
+      for (let index = 1; index < turns.length; index++) expect(turns[index] - turns[index - 1]).toBeLessThanOrEqual(2 * 24000)
     })
 
     it('reads a sample\'s rise from a fixed stretch of its recording, whatever the transposition', () => {
@@ -524,11 +558,13 @@ describe('production live audio render core', () => {
         expect(ended('tap'), end).toBe(1)
         expect(core.voiceCount, end).toBe(0)
       }
-      // An arp turn more than the 2 s bound away: the release lets go unheard at the bound.
+      // An arp turn 5.5 s away, past the 4 s ceiling: the release lets go unheard at the ceiling.
       const { send, press, release, render, pcm, events, ended } = rig()
-      send({ type: 'configure', config: { style: 'arp-up', bpm: 15, rate: 4 } })
+      send({ type: 'configure', config: { style: 'arp-up', bpm: 10, rate: 4 } })
       press('held', 60, 'silent'); render(24000)
-      press('tap', 72); release('tap'); render(2 * RATE + 128)
+      press('tap', 72); release('tap'); render(4 * RATE - 128)
+      expect(ended('tap')).toBe(0)
+      render(256)
       expect(events('tap')).toEqual([])
       expect(ended('tap')).toBe(1)
       render(2 * RATE)

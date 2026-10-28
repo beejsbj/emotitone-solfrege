@@ -30,11 +30,14 @@ const GATE = .8
 const MIN_LIVE_GATE = .005
 const MAX_LIVE_GATE = .05
 /**
- * A held release lets go unheard after this long with no live onset at all.
- * Every live onset restarts the wait, so keys queued for their arp turns are
- * never dropped while the arp plays; this bounds only the never-onset case.
+ * The hard ceiling on a lifted touch's wait, from its lift: one turn per
+ * lifted key queued ahead of it, doubled since lifted keys share turns with
+ * held ones, plus the turn already planned and this slack (a strum's 30 ms
+ * gather, rounding), never more than MAX_LIFT_WAIT. Past it the touch lets go
+ * unheard.
  */
-const MAX_RELEASE_WAIT = 2
+const LIFT_SLACK_SECONDS = .1
+const MAX_LIFT_WAIT = 4
 /** Recording (not playback) time a sample's rise is read from: a fixed, rate-independent scan. */
 const RISE_WINDOW_SECONDS = MAX_LIVE_GATE
 /** Each zone's recorded rise in source frames, read once at its first rescued tap. */
@@ -72,6 +75,8 @@ interface Pulse {
   notes: PlannedNote[]
   /** The transport bar a grid-locked pulse sits on; it moves with the tempo map. */
   gridBar?: number
+  /** A Repeat/Arp turn given to a key let go before its first turn. */
+  lifted?: boolean
 }
 /** Identity and expression of a voice started by the pattern transport. */
 interface TransportVoice {
@@ -143,6 +148,10 @@ export class LiveAudioCore {
   private unsounded = new Set<string>()
   /** Releases held for a first onset: the frame each is due (the wait bound, then the gate after the onset). */
   private earlyReleases = new Map<string, number>()
+  /** Owners let go before their first note, with the frame of the lift: the queue for arp turns. */
+  private liftedAt = new Map<string, number>()
+  /** Whether the last Repeat/Arp turn to start went to a lifted key. */
+  private lastTurnLifted = false
   /** No later than the earliest due frame (Infinity when none), so render checks one number, not the map. */
   private nextEarlyRelease = Infinity
   private forgetting = new Map<number, string>()
@@ -230,19 +239,55 @@ export class LiveAudioCore {
     return [...notes.values()].sort((a, b) => a.note.pitch - b.note.pitch)
   }
   private selection(step: number, pulse?: Pulse) {
-    const pool = this.pool()
-    if (this.config.style === 'repeat' || !pool.length) return pool
-    // Keys let go before their first turn take the next turns, in pool order, once each:
-    // a lifted key not already planned in another pulse goes first (BJS-597).
-    if (this.earlyReleases.size) for (const entry of pool) {
-      let lifted = false
-      for (const owner of entry.owners) if (this.unsounded.has(owner) && this.earlyReleases.has(owner)) lifted = true
-      if (lifted && !this.pulses.some(other => other !== pulse
-        && other.notes.some(note => note.pitch === entry.note.pitch))) return [entry]
+    const all = this.pool()
+    if (this.config.style === 'repeat' || !all.length) return all
+    // Keys let go before their first turn take turns first come, first served, a chord lifted
+    // together in pool order, each once (BJS-597). While held keys remain, turns alternate:
+    // a lifted key never takes a turn straight after another, and the turns between are the
+    // held keys' own arpeggio, so the held pattern goes on.
+    const pool = this.liftedAt.size ? all.filter(entry => !this.lifted(entry.owners)) : all
+    if (this.liftedAt.size && !(pool.length && this.previousTurnLifted(step))) {
+      let first: (typeof all)[number] | undefined
+      let firstLift = Infinity
+      for (const entry of all) {
+        let lift = Infinity
+        for (const owner of entry.owners) lift = Math.min(lift, this.liftedAt.get(owner) ?? Infinity)
+        if (lift < firstLift && !this.pulses.some(other => other !== pulse
+          && other.notes.some(note => note.pitch === entry.note.pitch))) { first = entry; firstLift = lift }
+      }
+      if (first) return [first]
     }
+    if (!pool.length) return []
     const cycle = this.config.style === 'arp-up-down' && pool.length > 1 ? pool.length * 2 - 2 : pool.length
     const position = step % cycle
     return [pool[position < pool.length ? position : cycle - position]]
+  }
+  private lifted(owners: Set<string>) {
+    for (const owner of owners) if (this.liftedAt.has(owner)) return true
+    return false
+  }
+  private liftedTurn(notes: PlannedNote[]) { return notes.some(note => this.lifted(note.owners)) }
+  private previousTurnLifted(step: number) {
+    const previous = this.pulses.find(pulse => pulse.step === step - 1 && pulse.duration !== undefined)
+    return previous ? Boolean(previous.lifted) : this.lastTurnLifted
+  }
+  /** Frames between Repeat/Arp turns, or between strum strings. */
+  private turnFrames(frame: number) {
+    if (this.config.style.startsWith('strum-')) return .035 * this.sampleRate
+    if (!this.rhythmic()) return 0
+    if (!this.locked()) return this.interval()
+    const bar = this.transport.barAt(frame)
+    return this.transport.frameAt(bar + 1 / this.config.rate) - this.transport.frameAt(bar)
+  }
+  /** Hold a lifted touch's release until its first onset, under its hard ceiling. */
+  private lift(owner: string, frame: number) {
+    const queued = this.liftedAt.size
+    this.liftedAt.set(owner, frame)
+    const wait = Math.min(MAX_LIFT_WAIT * this.sampleRate,
+      LIFT_SLACK_SECONDS * this.sampleRate + (2 * queued + 3) * this.turnFrames(frame))
+    const ceiling = frame + Math.ceil(wait)
+    // A chord lifted together shares the ceiling of its last key.
+    for (const [other, at] of this.liftedAt) if (at === frame) this.holdRelease(other, ceiling)
   }
   private revise(frame: number) {
     for (const pulse of this.pulses) {
@@ -253,6 +298,7 @@ export class LiveAudioCore {
         const match = previous.find(old => old.pitch === note.pitch && old.instrumentId === note.instrumentId)
         return match ? { ...match, velocity: note.velocity, ownerId, owners: new Set(owners) } : this.note(note, ownerId, owners)
       })
+      pulse.lifted = this.liftedTurn(pulse.notes)
     }
     this.planDirty = true
   }
@@ -285,7 +331,8 @@ export class LiveAudioCore {
           if (remaining.length) this.held.set(owner, remaining)
           else {
             this.held.delete(owner); this.pitchBends.delete(owner); this.gainExpressions.delete(owner)
-            this.unsounded.delete(owner); this.earlyReleases.delete(owner); this.endingOwners.add(owner)
+            this.unsounded.delete(owner); this.earlyReleases.delete(owner); this.liftedAt.delete(owner)
+            this.endingOwners.add(owner)
           }
         }
         for (const collection of [this.voices, this.fades]) for (let index = collection.length - 1; index >= 0; index--) {
@@ -316,15 +363,13 @@ export class LiveAudioCore {
       }
       case 'clear':
         this.held.clear(); this.pitchBends.clear(); this.gainExpressions.clear()
-        this.unsounded.clear(); this.earlyReleases.clear(); this.nextEarlyRelease = Infinity
+        this.unsounded.clear(); this.earlyReleases.clear(); this.liftedAt.clear(); this.nextEarlyRelease = Infinity
         this.cancel(frame)
         break
       case 'release':
         if (!early) this.release(command.ownerId, frame)
         // A repeated release keeps the one already held.
-        else if (!this.earlyReleases.has(command.ownerId)) {
-          this.holdRelease(command.ownerId, frame + Math.ceil(MAX_RELEASE_WAIT * this.sampleRate))
-        }
+        else if (!this.earlyReleases.has(command.ownerId)) this.lift(command.ownerId, frame)
         break
       case 'pitch-bend': this.pitchBend(command.ownerId, command.cents); break
       case 'gain-expression': this.gainExpression(command.ownerId, command.gain); break
@@ -424,6 +469,7 @@ export class LiveAudioCore {
     this.held.delete(owner)
     this.unsounded.delete(owner)
     this.earlyReleases.delete(owner)
+    this.liftedAt.delete(owner)
     this.pitchBends.delete(owner)
     this.gainExpressions.delete(owner)
     this.strum = this.strum.filter(note => note.ownerId !== owner)
@@ -453,6 +499,7 @@ export class LiveAudioCore {
     this.strum = []
     this.strumAt = this.nextFrame = this.boundaryDuration = this.gridBar = undefined
     this.step = 0
+    this.lastTurnLifted = false
     // Live input never ends the pattern transport's voices.
     for (const voice of this.voices) if (!voice.transport) this.releaseVoice(voice, frame)
     this.planDirty = true
@@ -512,9 +559,10 @@ export class LiveAudioCore {
     }
     this.gridBar = undefined
     while (this.nextFrame <= frame + PLAN_SECONDS * this.sampleRate) {
+      const notes = this.selection(this.step).map(({ note, ownerId, owners }) => this.note(note, ownerId, owners))
       this.pulses.push({ frame: this.nextFrame, step: this.step, style: this.config.style,
         duration: this.boundaryDuration ?? this.interval() * GATE,
-        notes: this.selection(this.step).map(({ note, ownerId, owners }) => this.note(note, ownerId, owners)) })
+        notes, lifted: this.liftedTurn(notes) })
       this.boundaryDuration = undefined
       this.nextFrame += this.interval()
       this.step++
@@ -547,9 +595,10 @@ export class LiveAudioCore {
     }
     while (this.nextFrame! <= frame + PLAN_SECONDS * this.sampleRate) {
       const at = this.nextFrame!
+      const notes = this.selection(this.step).map(({ note, ownerId, owners }) => this.note(note, ownerId, owners))
       this.pulses.push({ frame: at, step: this.step, style: this.config.style, gridBar: this.gridBar,
         duration: (this.transport.frameAt(this.gridBar + division) - at) * GATE,
-        notes: this.selection(this.step).map(({ note, ownerId, owners }) => this.note(note, ownerId, owners)) })
+        notes, lifted: this.liftedTurn(notes) })
       this.gridBar += division
       this.nextFrame = this.gridFrame(this.gridBar)
       this.step++
@@ -921,13 +970,13 @@ export class LiveAudioCore {
         for (const note of pulse.notes) {
           const voice = this.start(note, pulse, frame)
           if (this.unsounded.size) for (const owner of note.owners) {
-            if (this.unsounded.delete(owner) && this.earlyReleases.has(owner)) this.holdRelease(owner, frame + this.tapGate(voice))
+            if (this.unsounded.delete(owner) && this.earlyReleases.has(owner)) {
+              this.liftedAt.delete(owner)
+              this.holdRelease(owner, frame + this.tapGate(voice))
+            }
           }
         }
-        // The live stream moved on: keys still waiting for their turn wait on.
-        if (this.earlyReleases.size && pulse.notes.length) for (const [owner] of this.earlyReleases) {
-          if (this.unsounded.has(owner)) this.earlyReleases.set(owner, frame + Math.ceil(MAX_RELEASE_WAIT * this.sampleRate))
-        }
+        if (pulse.duration !== undefined) this.lastTurnLifted = Boolean(pulse.lifted)
         this.planDirty = true
       }
       // Admission is complete for this frame. A same-frame burst may steal an

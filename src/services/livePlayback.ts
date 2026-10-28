@@ -15,6 +15,13 @@ type Listener = LiveRendererCallbacks & {
   onRendererReset?(): void;
 };
 
+export interface LivePlaybackFailure {
+  kind: "load" | "unavailable";
+  reason: string;
+  budget?: true;
+  unsupported?: true;
+}
+
 /** Commands for the pattern transport inside the current live worklet. */
 export interface LiveTransportPort {
   send(command: TransportCommand): void;
@@ -463,13 +470,16 @@ export function needsLivePlaybackPreparation(name: string): boolean {
 
 /** Why the worklet does not hold a sound: its data failed to load (retry may help),
  * or the worklet cannot or will not hold it (so it cannot play).
- * `budget` is set when it was refused because pinned banks leave no sample memory for it. */
-export function getLivePlaybackFailure(name: string): { kind: "load" | "unavailable"; reason: string; budget?: true } | undefined {
+ * `budget` is set when it was refused because pinned banks leave no sample memory for it;
+ * `unsupported` when it can never play here (no AudioWorklet or output, a format the
+ * worklet cannot hold, or a bank larger than the whole sample memory). */
+export function getLivePlaybackFailure(name: string): LivePlaybackFailure | undefined {
   const instrumentId = resolveLiveSoundName(name);
   if (installed.has(instrumentId) && !retiring.has(instrumentId)) return undefined;
   const reason = reasons.get(instrumentId) ?? (typeof AudioWorkletNode === "undefined" ? "AudioWorklet is unavailable" : "Live renderer is not prepared");
   return { kind: loadFailures.has(instrumentId) ? "load" : "unavailable", reason,
-    ...(budgetRefused.has(instrumentId) ? { budget: true as const } : {}) };
+    ...(budgetRefused.has(instrumentId) ? { budget: true as const } : {}),
+    ...(unsupported.has(instrumentId) ? { unsupported: true as const } : {}) };
 }
 
 export function subscribeLivePlayback(listener: Listener): () => void {

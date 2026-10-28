@@ -143,16 +143,18 @@ Live state is unchanged. Reduction is lossy;
 no new smoothing or playback behavior is introduced.
 
 There is no default phrase-count cap. The store's `shelfNotice` has two honest
-states, shown as an Edge Notice: one right-aligned line of text on the Stage's
-right edge, above the Performance Deck (not a Stage occluder), with no key of
-its own (PR #202). The states differ by a small Brass lamp and the words:
+states, shown as a Heads-up: one right-aligned line of text in the stack on
+the Stage's right edge, above the Performance Deck (not a Stage occluder), with
+no key of its own (PR #202, BJS-592). The states differ by a small Brass lamp
+and the words:
 
-- **over budget**, unlit lamp: "Shelf full · still saving".
-- **failed**, lit lamp: "Not saving. Delete old takes." New sketches stay in
-  this tab until a write succeeds.
+- **over budget**, unlit lamp, fades after 4 s: "Shelf full · still saving".
+- **failed**, lit lamp, fades after 7 s: "Not saving. Delete old takes." New
+  sketches stay in this tab until a write succeeds.
 
-A swipe to the right puts the notice away until its state changes, and a
-failure comes back on the next refused save (`refusedSaves`). Deleting is the
+The line shows when the state changes and again on every refused save
+(`refusedSaves`); between those it fades on its own or is swiped away to the
+right, and it goes once the shelf saves within budget again. Deleting is the
 reel's own two-tap delete. The notice names the oldest Recent phrase for screen
 readers, from `releaseCandidates`: sorted by `closedAt`, falling back to
 `createdAt`, and never Kept, Library, the open take, a protected id

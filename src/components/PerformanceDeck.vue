@@ -30,6 +30,8 @@
     <template #persistent-leading>
       <!-- The Looper's dials climb the left edge, above the reel. -->
       <LooperDialColumn v-if="isProductionUsage" />
+      <!-- What the instrument tells you stacks on the right edge, above the reel. -->
+      <DeckHeadsUp v-if="isProductionUsage" :busy="patternReelGuardsHandle" />
       <PhraseShelf
         v-if="isProductionUsage"
         data-stage-occluder
@@ -154,6 +156,7 @@ import type {
 import type { CodeStripToken } from "@/components/uniques/CodeStrip/index.vue";
 import Drawer from "@/components/uniques/Drawer/index.vue";
 import HummingCaptureTransport from "@/components/humming/HummingCaptureTransport.vue";
+import DeckHeadsUp from "@/components/patterns/DeckHeadsUp.vue";
 import LooperDialColumn from "@/components/patterns/LooperDialColumn.vue";
 import PhraseShelf from "@/components/patterns/PhraseShelf.vue";
 import {
@@ -506,7 +509,8 @@ defineExpose({ openDrawer, closeDrawer, toggleDrawer, store });
 /* While the reel is unwound (scrolled, held open or settling), the whole deck
    lifts over the mic and the top drawers, so the reel sits above everything.
    Inside the deck the reel's own layer (3, the PatternReel's guard) already
-   clears the handle (2), the dials (3, earlier in the slot) and the bars. */
+   clears the handle (2), the dials (3, earlier in the slot) and the bars; the
+   Heads-up stack (4) steps aside while the reel is busy. */
 .performance-deck-drawer--reel-open {
   z-index: var(--z-reel-open);
 }

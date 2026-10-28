@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
+import { mount } from "@vue/test-utils";
+import { nextTick } from "vue";
 
 vi.unmock("@/services/music");
 vi.unmock("@/data");
@@ -11,6 +13,7 @@ import { useInstrumentStore } from "@/stores/instrument";
 import { DEFAULT_INSTRUMENT } from "@/data/instruments";
 import { getAudioContext } from "@/services/audioRuntime";
 import { attachLiveCore, type LiveSeat } from "../helpers/liveCore";
+import DeckHeadsUp from "@/components/patterns/DeckHeadsUp.vue";
 
 const seat = vi.hoisted(() => ({ renderer: null, listeners: new Set() }) as LiveSeat);
 vi.mock("@/services/livePlayback", async () => (await import("../helpers/liveCore")).livePlaybackOn(seat));
@@ -40,6 +43,7 @@ describe("music store", () => {
     setActivePinia(createPinia());
     vi.mocked(getAudioContext).mockReturnValue({ state: "running", currentTime: 0 } as AudioContext);
     seat.listeners.clear();
+    seat.failure = undefined;
     live = attachLiveCore(seat);
     if (typeof localStorage?.clear === "function") {
       localStorage.clear();
@@ -264,15 +268,57 @@ describe("music store", () => {
   it("refuses a press on a sound the worklet does not hold, and says why on the deck", async () => {
     // The worklet is the only renderer (BJS-495): no fallback plays it.
     seat.renderer = null;
+    seat.failure = { kind: "unavailable", budget: true,
+      reason: "Sample memory is full: 190.0 MiB of the 192.0 MiB sample memory is held by playing loops and keys" };
     const instrumentStore = useInstrumentStore();
     const musicStore = useMusicStore();
+    instrumentStore.currentInstrument = "gm_piano";
     const dispatchEventSpy = vi.spyOn(window, "dispatchEvent");
+    const deck = mount(DeckHeadsUp, { attachTo: document.body });
+    try {
+      expect(await musicStore.attackExactPitch("C4")).toBeNull();
+      await nextTick();
+      // The deck says why, as a Heads-up in plain words (BJS-592).
+      const line = deck.get(".heads-up__line[role=alert]");
+      expect(line.attributes("title")).toBe("Can't play Piano: memory full");
+      expect(line.text()).toContain("Stop a loop or let go of held keys");
+      expect(events(dispatchEventSpy, "note-played")).toEqual([]);
+      expect(musicStore.getActiveNotes()).toHaveLength(0);
+      // Pressed again, it is the same line, not a second one.
+      expect(await musicStore.attackExactPitch("D4")).toBeNull();
+      await nextTick();
+      expect(deck.findAll(".heads-up")).toHaveLength(1);
+      // The engine holds the sound again: the next press sounds and the line goes.
+      seat.failure = undefined;
+      live = attachLiveCore(seat);
+      const owner = await musicStore.attackExactPitch("E4");
+      await nextTick();
+      expect(owner).not.toBeNull();
+      expect(deck.find(".heads-up").exists()).toBe(false);
+      await musicStore.releaseNote(owner ?? undefined);
+    } finally {
+      deck.unmount();
+    }
+  });
 
-    expect(await musicStore.attackExactPitch("C4")).toBeNull();
-    expect(instrumentStore.lastWarmupError).toBe("No live renderer in this test");
-    expect(instrumentStore.lastWarmupErrorInstrument).toBe(instrumentStore.currentInstrument);
-    expect(events(dispatchEventSpy, "note-played")).toEqual([]);
-    expect(musicStore.getActiveNotes()).toHaveLength(0);
+  it.each([
+    [{ kind: "load", reason: "Could not download C4v8.mp3 (HTTP 503)" }, "gm_piano", "Can't play Piano: didn't load"],
+    [{ kind: "unavailable", unsupported: true, reason: "AudioWorklet is unavailable" }, "gm_piano", "Can't play Piano: not supported"],
+    [{ kind: "unavailable", reason: "Live renderer is not prepared" }, "triangle", "Can't play Triangle: not ready"],
+    [{ kind: "unavailable", budget: true, reason: "Sample memory is full" }, "gm_acoustic_guitar_nylon", "Can't play: memory full"],
+  ] as const)("a refused press says the engine's reason in plain words: %o", async (failure, instrument, line) => {
+    seat.renderer = null;
+    seat.failure = { ...failure };
+    useInstrumentStore().currentInstrument = instrument;
+    const deck = mount(DeckHeadsUp, { attachTo: document.body });
+    try {
+      expect(await useMusicStore().attackExactPitch("C4")).toBeNull();
+      await nextTick();
+      expect(deck.get(".heads-up__line").attributes("title")).toBe(line);
+      expect(line.length).toBeLessThanOrEqual(32);
+    } finally {
+      deck.unmount();
+    }
   });
 
   it("refuses live note attacks while instrument samples are warming", async () => {

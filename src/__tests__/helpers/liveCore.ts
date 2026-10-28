@@ -2,6 +2,7 @@ import { LiveAudioCore } from "@/audio/live/core";
 import type { LiveRenderer, LiveRendererCallbacks } from "@/audio/liveRenderer";
 import type { LiveEnvelopeOverride, PreparedLiveInstrument } from "@/audio/live/types";
 import type { LiveShaping } from "@/audio/liveShaping";
+import type { LivePlaybackFailure } from "@/services/livePlayback";
 import { getLiveArticulation } from "@/services/liveArticulation";
 
 /**
@@ -21,6 +22,8 @@ export interface LiveSeat {
   listeners: Set<LiveRendererCallbacks>;
   /** Set by attachLiveCore: the Shape controls reach the core, as setLivePlaybackShaping does. */
   shape?: (next: LiveShaping & { envelope: LiveEnvelopeOverride }) => void;
+  /** Why the worklet holds no sound while `renderer` is null; a generic "not prepared" by default. */
+  failure?: LivePlaybackFailure;
 }
 
 /** The livePlayback functions the stores call, answered by `seat`. */
@@ -33,8 +36,8 @@ export function livePlaybackOn(seat: LiveSeat) {
       return () => { seat.listeners.delete(listener); };
     },
     needsLivePlaybackPreparation: () => false,
-    getLivePlaybackFailure: () => seat.renderer ? undefined
-      : { kind: "unavailable" as const, reason: "No live renderer in this test" },
+    getLivePlaybackFailure: (): LivePlaybackFailure | undefined => seat.renderer ? undefined
+      : seat.failure ?? { kind: "unavailable", reason: "No live renderer in this test" },
     setLivePlaybackShaping: (next: LiveShaping & { envelope: LiveEnvelopeOverride }) => seat.shape?.(next),
     pinLivePlayback: () => () => {},
   };

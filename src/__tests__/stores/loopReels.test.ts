@@ -743,7 +743,7 @@ describe("a saved Loop is its own reel (BJS-572)", () => {
       await looper.settled();
       await flush();
       expect(transportIds()).toEqual([first]);
-      expect(deck.get("[data-testid=looper-error]").text()).toContain("A pattern in this Loop is gone.");
+      expect(deck.get('[data-heads-up="looper"]').text()).toContain("A pattern in this Loop is gone.");
       expect(play(deck).attributes("aria-label")).toBe("Stop");
 
       await press(play(deck).element, 40);
@@ -893,7 +893,7 @@ describe("a saved Loop is its own reel (BJS-572)", () => {
       await flush();
       expect(phrases.findPhrase(first)!.notes).toEqual(original);
       // Refused, and the notice says why, in the delete key's words.
-      expect(deck.get("[data-testid=looper-error]").text()).toContain("In a saved Loop. Play over it.");
+      expect(deck.get('[data-heads-up="looper"]').text()).toContain("In a saved Loop. Play over it.");
     } finally {
       deck.unmount();
     }

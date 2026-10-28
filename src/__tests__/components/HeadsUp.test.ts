@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mount, type VueWrapper } from "@vue/test-utils";
 import { nextTick } from "vue";
-import EdgeNotice from "@/components/compounds/EdgeNotice.vue";
+import HeadsUp from "@/components/compounds/HeadsUp.vue";
 
 /**
- * The Edge Notice: one right-aligned line the instrument tells you, put away
+ * A Heads-up: one right-aligned line the instrument tells you, put away
  * by a swipe off the right edge, the mirror of the Looper Dial's flick off the
  * left. Observed through DOM pointer and key events, and its dismiss.
  */
@@ -26,7 +26,7 @@ afterEach(() => {
 
 function render(props: Record<string, unknown> = {}) {
   wrapper?.unmount();
-  wrapper = mount(EdgeNotice, {
+  wrapper = mount(HeadsUp, {
     attachTo: document.body,
     props: { line: "Stop a loop to add Piano.", label: "Looper", ...props },
   });
@@ -47,16 +47,16 @@ function swipe(element: Element, from: number, to: number, steps: number, stepMs
   pointer(element, "pointerup", to, y(steps));
 }
 
-describe("EdgeNotice", () => {
+describe("HeadsUp", () => {
   it("is text on the Stage: the line and a Brass lamp, with no key, box or close button", () => {
     const notice = render({ hint: ". Stop a loop first." });
     expect(notice.find("button").exists()).toBe(false);
     expect(notice.get("[role=status]").text()).toBe("Stop a loop to add Piano.. Stop a loop first.");
-    expect(notice.get(".edge-notice__line").attributes("title")).toBe("Stop a loop to add Piano.");
-    expect(notice.find(".edge-notice__lamp").exists()).toBe(true);
-    expect(notice.classes()).toContain("edge-notice--problem");
+    expect(notice.get(".heads-up__line").attributes("title")).toBe("Stop a loop to add Piano.");
+    expect(notice.find(".heads-up__lamp").exists()).toBe(true);
+    expect(notice.classes()).toContain("heads-up--problem");
     const warning = render({ signal: "warning", role: "alert" });
-    expect(warning.classes()).toContain("edge-notice--warning");
+    expect(warning.classes()).toContain("heads-up--warning");
     expect(warning.find("[role=alert]").exists()).toBe(true);
   });
 
@@ -68,7 +68,7 @@ describe("EdgeNotice", () => {
     pointer(element, "pointermove", 320);
     await nextTick();
     // The line follows the sweep.
-    expect(notice.classes()).toContain("edge-notice--sweeping");
+    expect(notice.classes()).toContain("heads-up--sweeping");
     vi.advanceTimersByTime(16);
     pointer(element, "pointermove", 340);
     vi.advanceTimersByTime(16);

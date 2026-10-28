@@ -10,6 +10,7 @@ import type {
   ChromaticNote,
 } from "@/types/music";
 import { getAudioContext } from "@/services/audioRuntime";
+import { useHeadsUpStore } from "@/stores/headsUp";
 import { useInstrumentStore } from "@/stores/instrument";
 import { Note as TonalNote } from "@tonaljs/tonal";
 import { useVisualConfigStore } from "@/stores/visualConfig";
@@ -18,6 +19,7 @@ import { audioTimeToOutputTime } from "@/services/liveAudioTiming";
 import { createLiveAudioClock } from "@/services/liveAudioClock";
 import { getLivePlayback, getLivePlaybackFailure, waitForLivePlayback } from "@/services/livePlayback";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
+import { REFUSED_PRESS_HEADS_UP, refusedPressMessage } from "@/services/refusedPressMessage";
 import type { LiveVoiceEvent } from "@/audio/liveRenderer";
 import { createLivePerformance, SCHEDULED_LIVE_MIDI_EVENT } from "@/services/livePerformance";
 import type { LiveArticulation } from "@/services/liveArticulation";
@@ -70,6 +72,7 @@ export const useMusicStore = defineStore(
   () => {
     // Get instrument store for current instrument info
     const instrumentStore = useInstrumentStore();
+    const headsUp = useHeadsUpStore();
 
     // State
     const currentKey = ref<string>("C");
@@ -241,6 +244,22 @@ export const useMusicStore = defineStore(
       document.removeEventListener("visibilitychange", onHidden);
     });
 
+    /**
+     * A press the worklet refused makes no sound: say why in the Heads-up
+     * stack, in plain words, not only inside the instrument drawer. The same
+     * refusal again refreshes the line instead of stacking it.
+     */
+    function raiseRefusedPress(instrument: string, recoveryFailed = false) {
+      const failure = getLivePlaybackFailure(instrument);
+      headsUp.raise({
+        id: REFUSED_PRESS_HEADS_UP,
+        line: refusedPressMessage(instrument, failure, recoveryFailed),
+        label: "Keyboard",
+        signal: "problem",
+        ...(failure?.budget ? { hint: ". Stop a loop or let go of held keys to free memory." } : {}),
+      });
+    }
+
     async function holdPitch(
       noteName: string,
       isCancelled: () => boolean,
@@ -268,7 +287,14 @@ export const useMusicStore = defineStore(
         }
       };
       const recovery = resumption ? resumption.then(recover) : recover();
-      if (recovery) await instrumentStore.waitForRecovery(recovery);
+      if (recovery) {
+        try {
+          await instrumentStore.waitForRecovery(recovery);
+        } catch (error) {
+          raiseRefusedPress(selectedInstrument, true);
+          throw error;
+        }
+      }
       if (instrumentStore.selectionEpoch === selectionEpoch && getLivePlayback(selectedInstrument)
         && instrumentStore.lastWarmupErrorInstrument === selectedInstrument) {
         instrumentStore.lastWarmupError = null;
@@ -297,11 +323,14 @@ export const useMusicStore = defineStore(
       if (!renderer) {
         // The worklet is the only renderer. A sound it does not hold (every
         // bank held by Looper members, or no AudioWorklet) cannot play: say
-        // why on the deck instead of failing silently.
+        // why on the deck, as a Heads-up, instead of failing silently.
         instrumentStore.lastWarmupError = getLivePlaybackFailure(held.instrument)?.reason ?? "This instrument is not loaded";
         instrumentStore.lastWarmupErrorInstrument = held.instrument;
+        raiseRefusedPress(held.instrument);
         return null;
       }
+      // It sounds: a refusal still showing no longer holds.
+      headsUp.dismiss(REFUSED_PRESS_HEADS_UP);
       heldOwners.add(owner);
       // The running path submits without yielding to unrelated microtasks.
       liveAudioClock.now();

@@ -18,22 +18,12 @@
         @interaction-change="reelInteraction"
       />
     </ReelSwitch>
-    <!-- Floats above the deck's top edge, over the Stage. Not an occlusion
-         part: a passing notice must not resize the Stage's composition. -->
-    <ShelfNotice
-      v-if="shownNotice"
-      class="phrase-shelf__notice"
-      :state="shownNotice"
-      :oldest-title="oldestRecent ? phraseTitle(oldestRecent) : undefined"
-      :busy="reelBusy"
-      @dismiss="dismissedNotice = shownNotice"
-    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from "vue";
-import ShelfNotice from "@/components/patterns/ShelfNotice.vue";
+import { SHELF_HEADS_UP, shelfHeadsUp, shelfHint } from "@/components/patterns/shelfHeadsUp";
 import PatternReel from "@/components/compounds/PatternReel.vue";
 import ReelSwitch, { type ReelSwitchReel } from "@/components/compounds/ReelSwitch.vue";
 import type { PatternReelItem } from "@/components/compounds/PatternReel.vue";
@@ -60,6 +50,7 @@ import { strudelUrl } from "@/services/strudelLink";
 import { chromaticPitchHeight } from "@/services/scalePitch";
 import { looperDialProps } from "@/components/patterns/looperDial";
 import { isLoopPlaying } from "@/domain/looper";
+import { useHeadsUpStore } from "@/stores/headsUp";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useLooperStore } from "@/stores/looper";
 import { useMusicStore } from "@/stores/music";
@@ -87,23 +78,29 @@ const {
   getStaticPrimaryColorByPitchClass,
 } = useMusicColor();
 
-const oldestRecent = computed(() => phrasesStore.releaseCandidates[0]);
-// While the reel scrolls, its wheel unwinds upward into the notice's place.
-const reelBusy = ref(false);
+const headsUp = useHeadsUpStore();
+const oldestTitle = computed(() => {
+  const oldest = phrasesStore.releaseCandidates[0];
+  return oldest ? phraseTitle(oldest) : undefined;
+});
+// While the reel scrolls, the deck's Heads-up stack steps aside.
 function reelInteraction(active: boolean) {
-  reelBusy.value = active;
   emit("interactionChange", active);
 }
-// A swipe puts the notice away until the shelf's state changes (a warning
-// that becomes a failure, or the next time the shelf fills), or until the next
-// refused save: what is not being saved is never quietly hidden.
-const dismissedNotice = ref<typeof phrasesStore.shelfNotice>(null);
-watch(() => phrasesStore.shelfNotice, (state) => {
-  if (state !== dismissedNotice.value) dismissedNotice.value = null;
+// The shelf's storage line is a Heads-up. It shows when the shelf's state
+// changes (a warning that becomes a failure, or the next time the shelf fills)
+// and again on every refused save, so what is not being saved is never quietly
+// hidden; between those it fades on its own or is swiped away. It goes once
+// the shelf saves within budget again.
+watch([() => phrasesStore.shelfNotice, () => phrasesStore.refusedSaves], ([state]) => {
+  if (state) headsUp.raise(shelfHeadsUp(state, oldestTitle.value));
+  else headsUp.dismiss(SHELF_HEADS_UP);
+}, { immediate: true });
+// Which Recent to release first can change while the line shows.
+watch(oldestTitle, (title) => {
+  const state = phrasesStore.shelfNotice;
+  if (state) headsUp.revise(SHELF_HEADS_UP, { hint: shelfHint(state, title) });
 });
-watch(() => phrasesStore.refusedSaves, () => { dismissedNotice.value = null; });
-const shownNotice = computed(() =>
-  phrasesStore.shelfNotice !== dismissedNotice.value ? phrasesStore.shelfNotice : null);
 
 const deleteArmedId = ref<string | null>(null);
 const now = ref(Date.now());
@@ -505,17 +502,5 @@ function openInStrudel(id: string) {
   position: relative;
   width: 100%;
   min-width: 0;
-}
-
-/* An Edge Notice on the right edge, anchored to the deck's top edge and
-   lifted clear of the reel's resting stack and the drawer handle's --hit-min
-   touch, so it covers only Stage. The line sizes to its words; the left edge
-   stays the dials'. */
-.phrase-shelf__notice {
-  position: absolute;
-  z-index: 4;
-  bottom: calc(100% + var(--hit-min));
-  right: var(--s-5);
-  max-inline-size: calc(100% - var(--hit-min) - var(--s-3) - var(--s-4) - var(--s-5));
 }
 </style>

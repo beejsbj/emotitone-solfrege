@@ -18,6 +18,14 @@ import { TransportEventKind, TransportEventWriter, type TransportEventBatch } fr
 const MAX_FADES = 24
 const PLAN_SECONDS = .15
 const GATE = .8
+/**
+ * The shortest gate a live touch gets (BJS-597). A release that reaches the
+ * worklet before its press has been rendered (both between the same two
+ * callbacks: a big buffer, a slow main thread, a pointercancel) takes effect
+ * this long after the press instead, so the touch sounds as a 5 ms tap does at
+ * the default buffer, then fades on its own release.
+ */
+const MIN_LIVE_GATE = .005
 const MAX_PITCH_BEND_CENTS = 50
 const PITCH_SMOOTH_SECONDS = .007
 const MIN_GAIN_EXPRESSION = .25
@@ -118,6 +126,10 @@ export class LiveAudioCore {
   private strumAt?: number
   private planDirty = false
   private endingOwners = new Set<string>()
+  /** Live owners pressed since the last render, with the frame of the press. */
+  private unrendered = new Map<string, number>()
+  /** Releases that beat their press to the render, and the frame each is due. */
+  private earlyReleases = new Map<string, number>()
   private forgetting = new Map<number, string>()
   private pitchBends = new Map<string, number>()
   private gainExpressions = new Map<string, number>()
@@ -228,8 +240,10 @@ export class LiveAudioCore {
       this.flushTransportEvents()
       return
     }
+    // A release that beats its press to the render would cancel the touch unheard.
+    const pressedAt = command.type === 'release' ? this.unrendered.get(command.ownerId) : undefined
     const endedOwners = command.type === 'clear' ? [...this.held.keys()]
-      : command.type === 'release' ? [command.ownerId] : []
+      : command.type === 'release' && pressedAt === undefined ? [command.ownerId] : []
     switch (command.type) {
       case 'prepare':
         this.instruments.set(command.instrument.instrumentId, command.instrument)
@@ -245,7 +259,10 @@ export class LiveAudioCore {
         for (const [owner, notes] of this.held) {
           const remaining = notes.filter(note => note.instrumentId !== command.instrumentId)
           if (remaining.length) this.held.set(owner, remaining)
-          else { this.held.delete(owner); this.pitchBends.delete(owner); this.gainExpressions.delete(owner); this.endingOwners.add(owner) }
+          else {
+            this.held.delete(owner); this.pitchBends.delete(owner); this.gainExpressions.delete(owner)
+            this.earlyReleases.delete(owner); this.endingOwners.add(owner)
+          }
         }
         for (const collection of [this.voices, this.fades]) for (let index = collection.length - 1; index >= 0; index--) {
           const voice = collection[index]
@@ -273,8 +290,15 @@ export class LiveAudioCore {
         this.shaped.clear()
         return
       }
-      case 'clear': this.held.clear(); this.pitchBends.clear(); this.gainExpressions.clear(); this.cancel(frame); break
-      case 'release': this.release(command.ownerId, frame); break
+      case 'clear':
+        this.held.clear(); this.pitchBends.clear(); this.gainExpressions.clear()
+        this.unrendered.clear(); this.earlyReleases.clear()
+        this.cancel(frame)
+        break
+      case 'release':
+        if (pressedAt === undefined) this.release(command.ownerId, frame)
+        else this.earlyReleases.set(command.ownerId, pressedAt + Math.ceil(MIN_LIVE_GATE * this.sampleRate))
+        break
       case 'pitch-bend': this.pitchBend(command.ownerId, command.cents); break
       case 'gain-expression': this.gainExpression(command.ownerId, command.gain); break
       case 'press': {
@@ -283,6 +307,7 @@ export class LiveAudioCore {
           && this.instruments.has(note.instrumentId))
         if (!notes.length) break
         this.held.set(command.ownerId, notes)
+        this.unrendered.set(command.ownerId, frame)
         this.add(command.ownerId, notes, frame)
         break
       }
@@ -364,6 +389,8 @@ export class LiveAudioCore {
 
   private release(owner: string, frame: number) {
     this.held.delete(owner)
+    this.unrendered.delete(owner)
+    this.earlyReleases.delete(owner)
     this.pitchBends.delete(owner)
     this.gainExpressions.delete(owner)
     this.strum = this.strum.filter(note => note.ownerId !== owner)
@@ -817,6 +844,8 @@ export class LiveAudioCore {
     this.transport.beginQuantum(firstFrame, endFrame)
     const announceUntil = endFrame + this.transport.lookahead
     this.announceReleases(announceUntil)
+    // Every press so far is rendered from here on; a later release is an ordinary one.
+    this.unrendered.clear()
     let frame = firstFrame
     while (frame < endFrame) {
       let onset: TransportOnset | undefined
@@ -829,6 +858,10 @@ export class LiveAudioCore {
         this.transport.recycle(onset)
       }
       if (started) this.announceReleases(announceUntil)
+      for (const [owner, due] of this.earlyReleases) if (due <= frame) {
+        this.release(owner, frame)
+        this.endingOwners.add(owner)
+      }
       this.fill(frame)
       while (this.pulses.length && this.pulses.some(pulse => pulse.frame <= frame)) {
         const index = this.pulses.findIndex(pulse => pulse.frame <= frame)
@@ -847,6 +880,7 @@ export class LiveAudioCore {
       for (const pulse of this.pulses) if (pulse.frame > frame) boundary = Math.min(boundary, Math.ceil(pulse.frame))
       for (const voice of this.voices) if (!voice.released && voice.end > frame) boundary = Math.min(boundary, Math.ceil(voice.end))
       if (this.strumAt !== undefined) boundary = Math.min(boundary, Math.ceil(this.strumAt))
+      for (const due of this.earlyReleases.values()) if (due > frame) boundary = Math.min(boundary, due)
       boundary = Math.min(boundary, Math.max(frame + 1, this.transport.nextFrame))
       if (this.nextFrame !== undefined) {
         const planningBoundary = Math.ceil(this.nextFrame - PLAN_SECONDS * this.sampleRate)

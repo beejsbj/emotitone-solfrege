@@ -464,7 +464,7 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     expect(music.activeNotes.size).toBe(0);
   });
 
-  it("a fast MIDI press released before its first pulse sounds plays nothing and leaves no note on", async () => {
+  it("a fast MIDI press released before its first pulse renders plays one short note and leaves no note on", async () => {
     const music = useMusicStore();
     music.setPlayStyle("repeat");
     await connect();
@@ -474,10 +474,10 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     packet(0x80, 60);
     await vi.advanceTimersByTimeAsync(1000);
     window.removeEventListener("note-played", played);
-    // The first pulse was planned at the press itself, so its plan may reach
-    // the output; the release cancels it there with a note-off.
-    expect(played).not.toHaveBeenCalled();
-    expect(notes().filter(([status]) => status === 0x90).length).toBe(notes().filter(([status]) => status === 0x80).length);
+    // Every touch sounds (BJS-597): the first pulse plays a 5 ms gate, then
+    // the release ends it, on the output as in the worklet.
+    expect(played).toHaveBeenCalledTimes(1);
+    expect(notes()).toEqual([[0x90, 60], [0x80, 60]]);
     expect(music.activeNotes.size).toBe(0);
     expect(useKeyboardDrawerStore().touch.activeTouches.size).toBe(0);
   });
@@ -540,6 +540,8 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     music.setPlayStyle("together");
     const owner = await music.attackExactPitch("C4");
     await music.releaseNote(owner!);
+    // The tap plays its short note (BJS-597); the mirror's note-off follows its end.
+    await vi.advanceTimersByTimeAsync(10);
     expect(notes().slice(-2)).toEqual([[0x90, 60], [0x80, 60]]);
     expect(notes()).toHaveLength(6);
   });

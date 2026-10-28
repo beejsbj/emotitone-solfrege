@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { LiveAudioCore } from './core'
 import type { LiveCommand, LiveResponse, LiveVoiceEvent, PreparedLiveInstrument } from './types'
+import type { TransportMemberTable } from './transport'
+import { readTransportEvents, TransportEventKind } from './transportEvents'
+import { OPEN_CUTOFF_HZ } from '../liveShaping'
 
 const bank: PreparedLiveInstrument = {
   kind: 'sample-bank', instrumentId: 'test', zoneSelection: 'nearest-root',
@@ -304,11 +307,94 @@ describe('production live audio render core', () => {
     expect(messages.at(-1)).toEqual({ type: 'forgotten', requestId: 9 })
   })
 
-  it('cancels an onset before rendering without reporting a note that never sounded', () => {
-    const { press, send, render, events } = setup()
-    press('finger', [60]); send({ type: 'release', ownerId: 'finger' })
-    expect(render(100)[0].every(value => value === 0)).toBe(true)
-    expect(events).toEqual([])
+  describe('a release that reaches the worklet before its onset renders (BJS-597)', () => {
+    const RATE = 48000
+    const sine: PreparedLiveInstrument = { kind: 'oscillator', instrumentId: 'sine', waveform: 'sine',
+      gain: .5, attack: .002, decay: 0, sustain: 1, release: .02 }
+    /** A tap on the real core, its press and release posted between the same two callbacks or `heldFrames` apart. */
+    function tap(callback: number, heldFrames = 0) {
+      const messages: LiveResponse[] = []
+      const core = new LiveAudioCore(RATE, message => messages.push(message))
+      let frame = 0
+      core.command({ type: 'prepare', requestId: 1, instrument: sine }, frame)
+      const pcm = new Float32Array(4096)
+      const render = (length: number) => {
+        const output = [new Float32Array(length), new Float32Array(length)]
+        core.render(output, frame)
+        pcm.set(output[0], frame)
+        frame += length
+      }
+      core.command({ type: 'press', ownerId: 'finger', notes: [{ pitch: 69, instrumentId: 'sine' }] }, frame)
+      while (frame < heldFrames) render(Math.min(callback, heldFrames - frame))
+      core.command({ type: 'release', ownerId: 'finger' }, frame)
+      while (frame < pcm.length) render(Math.min(callback, pcm.length - frame))
+      const events = messages.flatMap(message => message.type === 'event' ? [message.event] : [])
+      return { pcm, events, messages, core }
+    }
+
+    it('plays a live tap released before its first render as a short note that ends cleanly', () => {
+      // A 1024-frame callback: the press and its release land before the first render.
+      const { pcm, events, messages, core } = tap(1024)
+      expect(Math.max(...pcm.map(Math.abs))).toBeGreaterThan(.4)
+      expect(events.map(event => [event.phase, event.at * RATE])).toEqual([['attack', 0], ['release', 240]])
+      expect(events[1].articulation?.release).toBe(.02)
+      // Ramped in by the attack and out by the release: the sine moves at most .029 a frame at
+      // full level, while a note cut short would jump by up to its .5 peak.
+      let step = 0
+      for (let index = 1; index < pcm.length; index++) step = Math.max(step, Math.abs(pcm[index] - pcm[index - 1]))
+      expect(step).toBeLessThan(.04)
+      expect(pcm.subarray(240 + 960).every(sample => sample === 0)).toBe(true)
+      expect(core.voiceCount).toBe(0)
+      expect(messages).toContainEqual({ type: 'owner-ended', ownerId: 'finger' })
+      // Sample for sample the 5 ms tap a 128-frame callback renders: the buffer no longer decides.
+      const small = tap(128, 240).pcm
+      for (let index = 0; index < pcm.length; index++) expect(pcm[index]).toBeCloseTo(small[index], 6)
+    })
+
+    it('keeps the short note to its own owner: it counts as a voice and leaves other contacts alone', () => {
+      const constant: PreparedLiveInstrument = { ...bank, release: .01,
+        zones: [{ ...bank.zones[0], channels: [new Float32Array([1, 1, 1, 1])] }] }
+      const { core, press, send, render, events, messages } = setup(constant)
+      press('held', [60]); render(10)
+      press('tap', [64]); send({ type: 'release', ownerId: 'tap' })
+      expect(core.voiceCount).toBe(1)
+      // Five frames of both, then the tap's own 10 ms release under the held note.
+      const mixed = render(20)[0]
+      ;[2, 2, 2, 2, 2, 2, 1.9, 1.8, 1.7, 1.6, 1.5, 1.4, 1.3, 1.2, 1.1, 1, 1, 1, 1, 1]
+        .forEach((level, index) => expect(mixed[index]).toBeCloseTo(level, 5))
+      expect(events.filter(event => event.ownerId === 'held').map(event => event.phase)).toEqual(['attack'])
+      expect(messages).toContainEqual({ type: 'owner-ended', ownerId: 'tap' })
+
+      // The last held contact lifting in the same gap as a tap ends its own note, not the tap's.
+      press('again', [67]); send({ type: 'release', ownerId: 'again' }); send({ type: 'release', ownerId: 'held' })
+      const output = render(20)[0]
+      expect(output[4]).toBeCloseTo(1 + .6)
+      expect(events.filter(event => event.ownerId === 'again').map(event => [event.phase, event.at])).toEqual(
+        [['attack', .03], ['release', .035]])
+    })
+
+    it('still cancels a transport note stopped before its onset renders', () => {
+      const { send, render, messages, core } = setup()
+      const one = (value: number) => Float32Array.of(value)
+      const table: TransportMemberTable = { id: 'loop', generation: 1, instrumentId: 'test', lengthBars: 1,
+        shaping: { cutoff: OPEN_CUTOFF_HZ, resonance: 0, room: 0, delay: 0 },
+        begin: Float64Array.of(.25), gate: Float64Array.of(.1), pitch: one(60), velocity: one(1),
+        attack: one(0), decay: one(0), sustain: one(1), release: one(.01),
+        pitchStart: Uint32Array.of(0), pitchCount: Uint32Array.of(0), pitchTime: new Float32Array(), pitchCents: new Float32Array(),
+        gainStart: Uint32Array.of(0), gainCount: Uint32Array.of(0), gainTime: new Float32Array(), gainValue: new Float32Array() }
+      send({ type: 'transport-change', requestId: 2, boundary: 'immediate',
+        change: { type: 'join', member: { table, offsetBars: 0, rate: 1, muted: false } } })
+      send({ type: 'transport-start', requestId: 3, run: 1, bpm: 120 })
+      // Its onset is a quarter bar in, frame 500 at 120 BPM: announced inside the lookahead, then stopped.
+      const before = render(490)[0]
+      send({ type: 'transport-stop', requestId: 4 })
+      const after = render(1024)[0]
+      expect([...before, ...after].every(sample => sample === 0)).toBe(true)
+      expect(core.voiceCount).toBe(0)
+      const kinds: TransportEventKind[] = []
+      for (const message of messages) if (message.type === 'transport-events') readTransportEvents(message, event => kinds.push(event.kind))
+      expect(kinds).toEqual([TransportEventKind.Attack, TransportEventKind.Cancel])
+    })
   })
 
   it('releases and removes a naturally ended one-shot without waiting for key-up', () => {

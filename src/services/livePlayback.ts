@@ -301,7 +301,12 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
         onPlan: events => { if (run === generation) listeners.forEach(listener => listener.onPlan?.(events)); },
         onExpressionOwner: change => { if (run === generation) listeners.forEach(listener => listener.onExpressionOwner?.(change)); },
         onError: error => { if (run === generation) invalidate(error); },
-        onOwnerEnded: ownerId => { if (run === generation) listeners.forEach(listener => listener.onOwnerEnded?.(ownerId)); },
+        onOwnerEnded: ownerId => {
+          if (run !== generation) return;
+          // A let-go touch can still be waiting for its first note (BJS-597): its bank stays until it ends.
+          pins.delete(ownerId);
+          listeners.forEach(listener => listener.onOwnerEnded?.(ownerId));
+        },
         onTransport: response => { if (run === generation) listeners.forEach(listener => listener.onTransport?.(response)); },
       };
       enginePromise ??= (async () => {
@@ -343,8 +348,8 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
         },
         release(ownerId, cancel) {
           if (run !== generation) return;
-          pins.delete(ownerId);
-          if (cancel) ready.release(ownerId, true);
+          // A stop drops an unstarted note at once; a lifted finger keeps the pin until owner-ended.
+          if (cancel) { pins.delete(ownerId); ready.release(ownerId, true); }
           else ready.release(ownerId);
         },
         clear() { if (run === generation) { pins.clear(); ready.clear(); } },

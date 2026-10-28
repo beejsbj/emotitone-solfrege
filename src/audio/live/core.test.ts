@@ -433,6 +433,25 @@ describe('production live audio render core', () => {
       expect(peak(pcm)).toBeGreaterThan(.3)
     })
 
+    it('holds a stereo sample through the later of its two channels\' rises', () => {
+      // The left channel is silent; the right comes in 25 ms into the recording.
+      const late: PreparedLiveInstrument = { kind: 'sample-bank', instrumentId: 'late', zoneSelection: 'nearest-root',
+        gain: .5, attack: .001, decay: 0, sustain: 1, release: .02,
+        zones: [{ id: 'late', rootMidi: 69, sampleRate: RATE, loopStartFrame: 2400, loopEndFrame: 4800,
+          channels: [new Float32Array(4800), Float32Array.from({ length: 4800 }, (_, index) => index < 1200 ? 0 : 1)] }] }
+      const { press, release, render, events } = rig(late)
+      press('tap'); release('tap'); render(4800)
+      expect(events('tap')).toEqual([['attack', 0], ['release', 1200]])
+    })
+
+    it('sends no second owner-ended when a stop reaches a touch that has already ended', () => {
+      const { send, press, release, render, ended } = rig()
+      press('tap'); render(128); release('tap'); render(128)
+      expect(ended('tap')).toBe(1)
+      send({ type: 'release', ownerId: 'tap', cancel: true }); render(128)
+      expect(ended('tap')).toBe(1)
+    })
+
     it('keeps the gate a repeated release finds already held', () => {
       const { press, release, render, events, ended } = rig()
       press('tap'); release('tap'); render(128)
@@ -479,6 +498,9 @@ describe('production live audio render core', () => {
       [120, 8, [60, 64, 67, 71]],
       [90, 4, [60, 64, 67, 71]],
       [120, 4, [60, 64, 67, 71, 74]],
+      // The last key's turn lands exactly on the 4 s ceiling, and still plays.
+      [60, 4, [60, 62, 64, 65, 67]],
+      [90, 4, [60, 62, 64, 65, 67, 69, 71]],
     ] as const)('plays a chord tapped in arp-up at %i BPM, rate %i, key by key in order, each once', (bpm, rate, keys) => {
       const { send, press, release, render, events, ended, core } = rig()
       send({ type: 'configure', config: { style: 'arp-up', bpm, rate } })
@@ -525,6 +547,37 @@ describe('production live audio render core', () => {
       const turns = events('held').filter(([phase]) => phase === 'attack').map(([, at]) => Number(at))
       expect(turns.length).toBeGreaterThan(8)
       for (let index = 1; index < turns.length; index++) expect(turns[index] - turns[index - 1]).toBeLessThanOrEqual(2 * 24000)
+    })
+
+    it('lets a tapped chord key whose turn comes past the 4 s ceiling go unheard', () => {
+      // 40 BPM quarters: a turn every 1.5 s, so the fourth key would wait 4.5 s.
+      const { send, press, release, render, events, ended, core } = rig()
+      send({ type: 'configure', config: { style: 'arp-up', bpm: 40, rate: 4 } })
+      const keys = [60, 64, 67, 71]
+      for (const key of keys) press(`key-${key}`, key)
+      for (const key of keys) release(`key-${key}`)
+      render(5 * RATE)
+      expect(keys.map(key => events(`key-${key}`).length)).toEqual([2, 2, 2, 0])
+      for (const key of keys) expect(ended(`key-${key}`), `${key}`).toBe(1)
+      expect(core.voiceCount).toBe(0)
+    })
+
+    it.each([
+      ['strum-up', 6], ['strum-up', 7], ['strum-up', 12],
+      ['strum-down', 6], ['strum-down', 7], ['strum-down', 12],
+    ] as const)('sounds the last string of a %s strum of %i, let go before it, on its own place', (style, count) => {
+      const { send, press, release, render, events, ended } = rig()
+      send({ type: 'configure', config: { style } })
+      const strings = [40, 45, 50, 55, 59, 64, 69, 74, 79, 84, 89, 94].slice(0, count)
+      for (const pitch of strings) press(`string-${pitch}`, pitch)
+      // Only the string that strums last is let go, in the same gap.
+      const last = style === 'strum-up' ? strings.at(-1)! : strings[0]
+      release(`string-${last}`)
+      // 30 ms gather, then 35 ms a string, on the first whole frame.
+      const onset = Math.ceil(RATE * .03 + (count - 1) * .035 * RATE)
+      render(onset + 4800)
+      expect(events(`string-${last}`)).toEqual([['attack', onset], ['release', onset + 240]])
+      expect(ended(`string-${last}`)).toBe(1)
     })
 
     it('reads a sample\'s rise from a fixed stretch of its recording, whatever the transposition', () => {

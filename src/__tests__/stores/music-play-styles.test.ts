@@ -446,6 +446,27 @@ describe("live styles through music, recording, and Strudel", () => {
     expectNoTimers();
   });
 
+  it.each(["together", "strum-up"])("drops a %s tap let go before its note when the window blurs (BJS-597)", async (style) => {
+    const music = useMusicStore();
+    const patterns = connectRecorder();
+    music.setPlayStyle(style);
+    // Let go before anything rendered: the tap waits for its first note.
+    const owner = await music.attackExactPitch("C4");
+    await music.releaseNote(owner!);
+    // A stop, not a lifted finger: the waiting note is dropped.
+    window.dispatchEvent(new Event("blur"));
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(noteEvents("note-played")).toEqual([]);
+    expect(patterns.takeNotes).toEqual([]);
+    expect(music.activeNotes.size).toBe(0);
+    // Without the blur the same tap plays its note.
+    const again = await music.attackExactPitch("C4");
+    await music.releaseNote(again!);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(noteEvents("note-played").map((note) => note.noteName)).toEqual(["C4"]);
+    expectNoTimers();
+  });
+
   it("releaseAll cancels queued notes and does not record the held source chord", async () => {
     const music = useMusicStore();
     const patterns = connectRecorder();

@@ -30,13 +30,15 @@ const GATE = .8
 const MIN_LIVE_GATE = .005
 const MAX_LIVE_GATE = .05
 /**
- * The hard ceiling on a lifted touch's wait, from its lift: one turn per
- * lifted key queued ahead of it, doubled since lifted keys share turns with
- * held ones, plus the turn already planned and this slack (a strum's 30 ms
- * gather, rounding), never more than MAX_LIFT_WAIT. Past it the touch lets go
- * unheard.
+ * The hard ceiling on a lifted touch's wait, from its lift, never more than
+ * MAX_LIFT_WAIT: in Repeat/Arp one turn per lifted key queued ahead of it,
+ * doubled since lifted keys share turns with held ones, plus the turn already
+ * planned; in a strum, its own string's place; and this slack. A note already
+ * planned waits for its frame. Past the ceiling the touch lets go unheard.
  */
 const LIFT_SLACK_SECONDS = .1
+/** Strum strings sound this far apart. */
+const STRUM_SPACING_SECONDS = .035
 const MAX_LIFT_WAIT = 4
 /** Recording (not playback) time a sample's rise is read from: a fixed, rate-independent scan. */
 const RISE_WINDOW_SECONDS = MAX_LIVE_GATE
@@ -271,9 +273,8 @@ export class LiveAudioCore {
     const previous = this.pulses.find(pulse => pulse.step === step - 1 && pulse.duration !== undefined)
     return previous ? Boolean(previous.lifted) : this.lastTurnLifted
   }
-  /** Frames between Repeat/Arp turns, or between strum strings. */
+  /** Frames between Repeat/Arp turns. */
   private turnFrames(frame: number) {
-    if (this.config.style.startsWith('strum-')) return .035 * this.sampleRate
     if (!this.rhythmic()) return 0
     if (!this.locked()) return this.interval()
     const bar = this.transport.barAt(frame)
@@ -283,11 +284,27 @@ export class LiveAudioCore {
   private lift(owner: string, frame: number) {
     const queued = this.liftedAt.size
     this.liftedAt.set(owner, frame)
-    const wait = Math.min(MAX_LIFT_WAIT * this.sampleRate,
-      LIFT_SLACK_SECONDS * this.sampleRate + (2 * queued + 3) * this.turnFrames(frame))
-    const ceiling = frame + Math.ceil(wait)
+    const slack = LIFT_SLACK_SECONDS * this.sampleRate
+    // A strum still gathering waits for it to spread; each string's own place is set then.
+    const wait = this.strumAt !== undefined && this.strum.some(note => note.owners.has(owner))
+      ? this.strumAt - frame + slack
+      : slack + (2 * queued + 3) * this.turnFrames(frame)
+    this.holdRelease(owner, frame + Math.ceil(Math.min(MAX_LIFT_WAIT * this.sampleRate, wait)))
+    // A note already planned waits for its own frame.
+    for (const pulse of this.pulses) if (pulse.notes.some(note => note.owners.has(owner))) this.awaitOnset(owner, pulse.frame)
     // A chord lifted together shares the ceiling of its last key.
-    for (const [other, at] of this.liftedAt) if (at === frame) this.holdRelease(other, ceiling)
+    let ceiling = 0
+    for (const [other, at] of this.liftedAt) if (at === frame) ceiling = Math.max(ceiling, this.earlyReleases.get(other)!)
+    for (const [other, at] of this.liftedAt) if (at === frame) this.earlyReleases.set(other, ceiling)
+  }
+
+  /** Move a lifted touch's ceiling to cover a planned onset, never past MAX_LIFT_WAIT from the lift. */
+  private awaitOnset(owner: string, onset: number) {
+    const lift = this.liftedAt.get(owner)
+    const due = this.earlyReleases.get(owner)
+    if (lift === undefined || due === undefined) return
+    this.earlyReleases.set(owner, Math.min(lift + Math.ceil(MAX_LIFT_WAIT * this.sampleRate),
+      Math.max(due, Math.ceil(onset + LIFT_SLACK_SECONDS * this.sampleRate))))
   }
   private revise(frame: number) {
     for (const pulse of this.pulses) {
@@ -309,6 +326,8 @@ export class LiveAudioCore {
       this.flushTransportEvents()
       return
     }
+    // A stop for an owner already let go and ended has nothing to drop, and no second owner-ended to send.
+    if (command.type === 'release' && command.cancel && !this.held.has(command.ownerId)) return
     // A lifted touch before its first onset is held for it; a stop (`cancel`) is not.
     const early = command.type === 'release' && !command.cancel
       && (this.unsounded.has(command.ownerId) || this.earlyReleases.has(command.ownerId))
@@ -546,8 +565,12 @@ export class LiveAudioCore {
     if (this.strumAt !== undefined && frame >= this.strumAt) {
       const direction = this.config.style === 'strum-down' ? -1 : 1
       this.strum.sort((a, b) => direction * (a.pitch - b.pitch))
-      this.strum.forEach((note, index) => this.pulses.push({ frame: this.strumAt! + index * .035 * this.sampleRate,
-        step: index, style: this.config.style, notes: [note] }))
+      this.strum.forEach((note, index) => {
+        const at = this.strumAt! + index * STRUM_SPACING_SECONDS * this.sampleRate
+        this.pulses.push({ frame: at, step: index, style: this.config.style, notes: [note] })
+        // Each string's place is known now: a lifted one waits for its own.
+        if (this.liftedAt.size) for (const owner of note.owners) this.awaitOnset(owner, at)
+      })
       this.strum = []
       this.strumAt = undefined
       this.planDirty = true
@@ -734,11 +757,16 @@ export class LiveAudioCore {
     this.nextEarlyRelease = Math.min(this.nextEarlyRelease, due)
   }
 
-  /** Apply the held releases now due. Runs only on a frame one comes due, never per quantum. */
-  private settleEarlyReleases(frame: number) {
+  /**
+   * Apply the held releases now due. Runs only on a frame one comes due, never
+   * per quantum: first the gates, before that frame's onsets; then, with
+   * `ceilings`, the lifted touches whose ceiling it is, after the onsets, so a
+   * turn landing on its ceiling still plays.
+   */
+  private settleEarlyReleases(frame: number, ceilings: boolean) {
     let next = Infinity
     for (const [owner, due] of this.earlyReleases) {
-      if (due > frame) { next = Math.min(next, due); continue }
+      if (due > frame || (!ceilings && this.liftedAt.has(owner))) { next = Math.min(next, due); continue }
       this.release(owner, frame)
       this.endingOwners.add(owner)
     }
@@ -962,7 +990,7 @@ export class LiveAudioCore {
         this.transport.recycle(onset)
       }
       if (started) this.announceReleases(announceUntil)
-      if (frame >= this.nextEarlyRelease) this.settleEarlyReleases(frame)
+      if (frame >= this.nextEarlyRelease) this.settleEarlyReleases(frame, false)
       this.fill(frame)
       while (this.pulses.length && this.pulses.some(pulse => pulse.frame <= frame)) {
         const index = this.pulses.findIndex(pulse => pulse.frame <= frame)
@@ -979,6 +1007,7 @@ export class LiveAudioCore {
         if (pulse.duration !== undefined) this.lastTurnLifted = Boolean(pulse.lifted)
         this.planDirty = true
       }
+      if (frame >= this.nextEarlyRelease) this.settleEarlyReleases(frame, true)
       // Admission is complete for this frame. A same-frame burst may steal an
       // unrendered voice; do not report that voice as an audible performance.
       for (const voice of this.voices) if (!voice.published) {
@@ -1023,18 +1052,23 @@ export class LiveAudioCore {
 
 /**
  * Source frames until a zone's recording first reaches 70% of its loudest
- * point in its first RISE_WINDOW_SECONDS. The scan reads a fixed stretch of
- * the recording whatever the transposition, once per zone.
+ * point in its first RISE_WINDOW_SECONDS, on whichever channel gets there
+ * later. The scan reads a fixed stretch of the recording whatever the
+ * transposition, once per zone.
  */
 function recordedRise(zone: LiveSampleZone): number {
   let rise = recordedRises.get(zone)
   if (rise !== undefined) return rise
-  const source = zone.channels[0]
-  const end = Math.min(source.length, Math.ceil(RISE_WINDOW_SECONDS * zone.sampleRate))
-  let peak = 0
-  for (let index = 0; index < end; index++) peak = Math.max(peak, Math.abs(source[index]))
   rise = 0
-  while (rise < end && Math.abs(source[rise]) < .7 * peak) rise++
+  // Each channel rises on its own; the later one decides, so a side that comes in late is heard.
+  for (const source of zone.channels) {
+    const end = Math.min(source.length, Math.ceil(RISE_WINDOW_SECONDS * zone.sampleRate))
+    let peak = 0
+    for (let index = 0; index < end; index++) peak = Math.max(peak, Math.abs(source[index]))
+    let channelRise = 0
+    while (channelRise < end && Math.abs(source[channelRise]) < .7 * peak) channelRise++
+    rise = Math.max(rise, channelRise)
+  }
   recordedRises.set(zone, rise)
   return rise
 }

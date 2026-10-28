@@ -168,8 +168,17 @@ export function createLivePerformance<T>(callbacks: {
     owner.renderer.release(rendererOwnerId!)
     return true
   }
+  /**
+   * A stop, not lifted fingers: notes that have not started yet are dropped,
+   * including those of touches already let go and waiting for their first note
+   * (BJS-597). Each is cancelled by its own renderer owner id, never through the
+   * physical id, which a successor may hold.
+   */
   function releaseAll() {
-    for (const owner of owners.values()) if (owner.held) release(owner.ownerId)
+    for (const [rendererOwnerId, owner] of owners) {
+      owner.held = false
+      owner.renderer.release(rendererOwnerId, true)
+    }
   }
   return {
     press(ownerId: string, notes: LiveInputNote[], metadata: T, renderer: LiveRenderer, config: LiveConfig) {

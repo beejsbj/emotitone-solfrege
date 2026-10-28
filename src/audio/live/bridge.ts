@@ -181,7 +181,7 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
     press: (ownerId, notes) => post({ type: 'press', ownerId, notes }),
     setPitchBend: (ownerId, cents) => post({ type: 'pitch-bend', ownerId, cents }),
     setGain: (ownerId, gain) => post({ type: 'gain-expression', ownerId, gain }),
-    release: ownerId => post({ type: 'release', ownerId }),
+    release: (ownerId, cancel) => post(cancel ? { type: 'release', ownerId, cancel } : { type: 'release', ownerId }),
     configure: config => post({ type: 'configure', config }),
     effects: shaping => post({ type: 'effects', shaping }),
     shape: envelope => post({ type: 'shape', envelope }),

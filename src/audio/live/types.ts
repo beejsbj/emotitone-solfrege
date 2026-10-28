@@ -42,7 +42,7 @@ export type LiveCommand =
   | { type: 'press'; ownerId: string; notes: LiveInputNote[] }
   | { type: 'pitch-bend'; ownerId: string; cents: number }
   | { type: 'gain-expression'; ownerId: string; gain: number }
-  | { type: 'release'; ownerId: string }
+  | { type: 'release'; ownerId: string; cancel?: boolean }
   | { type: 'configure'; config: Partial<LiveConfig> }
   | { type: 'effects'; shaping: LiveShaping }
   | { type: 'shape'; envelope: LiveEnvelopeOverride }

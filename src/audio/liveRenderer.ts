@@ -58,7 +58,12 @@ export interface LiveRenderer {
   setPitchBend?(ownerId: string, cents: number): void
   /** Bounded, per-owner live gain expression (1 is neutral). */
   setGain?(ownerId: string, gain: number): void
-  release(ownerId: string): void
+  /**
+   * A lifted touch still plays its first note (BJS-597). `cancel` is a stop
+   * (blur, hide, instrument change), not a lifted finger: a note that has not
+   * started is dropped instead.
+   */
+  release(ownerId: string, cancel?: boolean): void
   configure(config: Partial<LiveConfig>): void
   clear(): void
   dispose(): void

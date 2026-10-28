@@ -130,8 +130,8 @@ export function createPhoneGate() {
   /** The soak's automated chords, graded: every note must sound. */
   const live = { pressed: 0, sounded: 0 };
   /**
-   * Burooj's pad taps, recorded apart (BJS-590): a tap whose press and release
-   * both land between two audio callbacks is cancelled before it renders, by design.
+   * Burooj's pad taps, recorded apart (BJS-590). A tap let go before its note
+   * starts, even within one audio callback, still plays that note (BJS-597).
    */
   const pads = { pressed: 0, sounded: 0 };
   type LiveCount = typeof live;

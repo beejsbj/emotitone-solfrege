@@ -549,7 +549,7 @@ describe("music store production worklet integration", () => {
     worklet.listener!.onEvent(event(owner!, "live_clear", "attack", 12));
     await vi.advanceTimersByTimeAsync(50);
     await music.releaseAllNotes();
-    expect(worklet.engine.release).toHaveBeenCalledWith(owner);
+    expect(worklet.engine.release).toHaveBeenCalledWith(owner, true); // A stop: an unstarted note is dropped.
     expect(events("note-released")).toHaveLength(0);
     worklet.listener!.onEvent(event(owner!, "live_clear", "release", 12.055));
     worklet.listener!.onOwnerEnded(owner!);
@@ -593,7 +593,7 @@ describe("music store production worklet integration", () => {
     Object.defineProperty(context, "state", { configurable: true, value: "suspended" });
     await vi.advanceTimersByTimeAsync(500);
     context.dispatchEvent(new Event("statechange"));
-    expect(worklet.engine.release).toHaveBeenCalledWith(owner);
+    expect(worklet.engine.release).toHaveBeenCalledWith(owner, true); // A stop: an unstarted note is dropped.
     expect(events("note-released")[0]).toMatchObject({ timestamp: EPOCH + 100, midiTimestamp: 1100 });
     expect(patterns.takeNotes.map(note => note.duration)).toEqual([100]);
     expect(events(SCHEDULED_LIVE_MIDI_EVENT).filter(detail => detail.phase === "cancel").map(detail => [detail.noteId, detail.midiTimestamp]).sort())
@@ -614,7 +614,7 @@ describe("music store production worklet integration", () => {
     await vi.advanceTimersByTimeAsync(100);
     music.$dispose();
     // MessagePort responses arrive after this scope has unsubscribed.
-    expect(worklet.engine.release).toHaveBeenCalledWith(owner);
+    expect(worklet.engine.release).toHaveBeenCalledWith(owner, true); // A stop: an unstarted note is dropped.
     expect(events("note-released")).toHaveLength(1);
     expect(patterns.takeNotes.map(note => note.duration)).toEqual([100]);
     expect(events(SCHEDULED_LIVE_MIDI_EVENT).filter(detail => detail.phase === "cancel").map(detail => detail.noteId).sort())
@@ -628,7 +628,7 @@ describe("music store production worklet integration", () => {
     const owner = await music.attackExactPitch("C4");
     worklet.listener!.onEvent(event(owner!, "live_selection", "attack", 12));
     useInstrumentStore().selectionEpoch++;
-    expect(worklet.engine.release).toHaveBeenCalledWith(owner);
+    expect(worklet.engine.release).toHaveBeenCalledWith(owner, true); // A stop: an unstarted note is dropped.
     worklet.listener!.onEvent(event(owner!, "live_selection", "release", 12.1));
     worklet.listener!.onOwnerEnded(owner!);
     expect(patterns.takeNotes.map(note => note.duration)).toEqual([100]);

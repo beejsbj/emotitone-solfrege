@@ -81,7 +81,54 @@ async function render(data, shape, realProcessor = false, velocity = undefined) 
   graph.reset(); graph.master.disconnect();
   return Array.from({ length: 2 }, (_, c) => Array.from(buffer.getChannelData(c)));
 }
+/**
+ * Stop All's cut (BJS-598): what the shared room and delay hold is faded over
+ * 10 ms when the cut lands mid-render, and rings on after a plain stop. A hit
+ * at 50 ms feeds both buses (its first echo is at 300 ms, the next at 550 ms);
+ * the stop is at 400 ms; a new hit at 600 ms feeds the room afterwards.
+ */
+const TAILS = { hit: .05, stop: .4, again: .6, length: .9 };
+async function renderTails(cut) {
+  const frames = Math.round(TAILS.length * RATE);
+  const context = new OfflineAudioContext(2, frames, RATE);
+  const graph = new EngineAudioGraph(context), orbit = graph.getOrbit(2);
+  orbit.getDelay(.25, .3, 0);
+  const random = Math.random;
+  Math.random = seed();
+  try { await orbit.ready(); } finally { Math.random = random; }
+  const hit = new Float32Array(frames);
+  hit[Math.round(TAILS.hit * RATE)] = .5;
+  source(context, hit).connect(orbit.roomInput);
+  source(context, hit).connect(orbit.delayInput);
+  // New sound after the stop goes in where the app sends it: the same inputs.
+  const later = context.createBufferSource();
+  later.buffer = context.createBuffer(1, 1, RATE);
+  later.buffer.getChannelData(0)[0] = .5;
+  later.connect(orbit.roomInput);
+  later.start(TAILS.again);
+  const stopped = context.suspend(TAILS.stop).then(() => {
+    if (cut) orbit.cutTails(.01, TAILS.stop);
+    return context.resume();
+  });
+  const buffer = await context.startRendering();
+  await stopped;
+  graph.reset(); graph.master.disconnect();
+  const pcm = buffer.getChannelData(0);
+  const at = seconds => Math.round(seconds * RATE);
+  const peak = (from, to) => { let loudest = 0; for (let i = at(from); i < at(to); i++) loudest = Math.max(loudest, Math.abs(pcm[i])); return loudest; };
+  const move = (from, to) => { let largest = 0; for (let i = at(from) + 1; i < at(to); i++) largest = Math.max(largest, Math.abs(pcm[i] - pcm[i - 1])); return largest; };
+  return {
+    beforeStop: peak(TAILS.stop - .05, TAILS.stop),
+    // From 11 ms after the stop until the new hit.
+    afterStop: peak(TAILS.stop + .011, TAILS.again),
+    echoAfterStop: peak(.55 - .005, .55 + .005),
+    newHit: peak(TAILS.again, TAILS.again + .2),
+    moveBefore: move(TAILS.stop - .05, TAILS.stop),
+    moveAtStop: move(TAILS.stop - .001, TAILS.stop + .011),
+  };
+}
 window.runEngineEffects = async () => {
+  const tails = { plain: await renderTails(false), cut: await renderTails(true) };
   const echo = new Float32Array(96000); echo[2400] = 1;
   const delay = await render(echo, { ...open, delay: .6 }, false, IMPULSE_VELOCITY);
   const impulse = new Float32Array(144000); impulse[0] = 1;
@@ -131,5 +178,5 @@ window.runEngineEffects = async () => {
     console.warn = warn;
     await runtime.getAudioContext().close();
   }
-  return { delay: delay[0], room, filter: filter[0], processorDelay: processorDelay[0], ownership, degraded };
+  return { delay: delay[0], room, filter: filter[0], processorDelay: processorDelay[0], ownership, degraded, tails };
 };

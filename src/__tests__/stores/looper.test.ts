@@ -32,10 +32,17 @@ const rig = vi.hoisted(() => ({
   refused: new Set<string>(),
   /** Pinned banks, by holder, as livePlayback keeps its leases. */
   leases: new Map<string, Set<string>>(),
-  /** A tight sample budget: loading a bank evicts every other bank no lease holds. */
-  tight: false,
+  /**
+   * The sample budget, for a bank not yet loaded. "evict": room is made by
+   * evicting every other bank no lease holds. "refuse": as livePlayback with big
+   * banks, a bank is refused while any leased bank holds memory, else room is
+   * made by eviction.
+   */
+  budget: "ample" as "ample" | "evict" | "refuse",
   /** Banks forgotten for room, and the frame each went at. */
   evicted: [] as { instrumentId: string; frame: number }[],
+  /** Times the shared room and delay were told to cut their tails. */
+  wetCuts: 0,
   commands: [] as TransportCommand[],
   context: undefined as unknown as Record<string, unknown>,
   deliver() {
@@ -52,8 +59,15 @@ const rig = vi.hoisted(() => ({
 vi.mock("@/services/livePlayback", () => ({
   async prepareLivePlayback(_context: unknown, _destination: unknown, instrumentId: string) {
     await rig.gates.get(instrumentId);
-    if (rig.tight && !rig.prepared.includes(instrumentId)) {
+    if (rig.budget !== "ample" && !rig.prepared.includes(instrumentId)) {
       const leased = new Set([...rig.leases.values()].flatMap((held) => [...held]));
+      leased.delete(instrumentId);
+      // Each attempt decides afresh, as livePlayback's does.
+      rig.refused.delete(instrumentId);
+      if (rig.budget === "refuse" && rig.prepared.some((resident) => leased.has(resident))) {
+        rig.refused.add(instrumentId);
+        return;
+      }
       for (const resident of [...new Set(rig.prepared)]) {
         if (leased.has(resident)) continue;
         rig.core.command({ type: "forget", requestId: 0, instrumentId: resident }, rig.frame);
@@ -205,7 +219,8 @@ function setup(options: { uiBeat?: UIBeatClock } = {}) {
   const phrases = usePhrasesStore();
   let frame: (() => void) | undefined;
   player = createPatternPlayer({
-    audio: { getContext: () => rig.context as unknown as AudioContext, ensureReady: async () => ({}) as AudioNode },
+    audio: { getContext: () => rig.context as unknown as AudioContext, ensureReady: async () => ({}) as AudioNode,
+      cutWetTails: () => { rig.wetCuts++; } },
     uiBeat: options.uiBeat ?? new UIBeatClock({ observeEnvironment: false }),
     requestFrame: (callback) => { frame = callback; return 1; },
     cancelFrame: () => { frame = undefined; },
@@ -230,7 +245,8 @@ describe("Play is the loop on the worklet transport", () => {
     rig.prepared = [];
     rig.refused.clear();
     rig.leases.clear();
-    rig.tight = false;
+    rig.budget = "ample";
+    rig.wetCuts = 0;
     rig.evicted = [];
     rig.core = new LiveAudioCore(RATE, (response) => { rig.queued.push(response); });
     rig.context = {
@@ -1041,6 +1057,8 @@ describe("Play is the loop on the worklet transport", () => {
       render(4);
       expect(attacks.length).toBe(heard);
       expect(silentFrom(from + BAR)).toBe(true);
+      // A fade's end is a plain stop: the shared room and delay ring on.
+      expect(rig.wetCuts).toBe(0);
     });
 
     it("a second Stop All during the fade cuts everything to silence within 10 ms, by a ramp and not a step", async () => {
@@ -1057,6 +1075,8 @@ describe("Play is the loop on the worklet transport", () => {
       expect(looper.stopping).toBe(false);
       expect(looper.running).toBe(false);
       expect(player.getLooper().running).toBe(false);
+      // The cut silences the shared room and delay too, once.
+      expect(rig.wetCuts).toBe(1);
       render(1);
       expect(silentFrom(cut + .01 * RATE + 1)).toBe(true);
       expect(largestMove(cut - 1, cut + .01 * RATE + 1)).toBeLessThanOrEqual(steadyMove + 1e-6);
@@ -1217,14 +1237,14 @@ describe("Play is the loop on the worklet transport", () => {
         expect(attacksOf(third).length).toBeGreaterThan(0);
       });
 
-      it("a fresh run on another bank under a tight budget cannot evict the fading bank before its notes have ramped out", async () => {
+      it("a fresh run on another bank, where room is made by eviction, cannot evict the fading bank before its notes have ramped out", async () => {
         const { phrases, looper } = await twoPlaying();
         const fadingBanks = [...new Set(rig.prepared)];
         const third = keptTake(phrases);
         phrases.findPhrase(third)!.context.instrument = "sawtooth";
         const holds = (bank: string) => [...rig.leases.values()].some((held) => held.has(bank));
         // Every bank but the one about to load goes, unless something holds it.
-        rig.tight = true;
+        rig.budget = "evict";
         const from = rig.frame;
         looper.stopAll();
         await flush();
@@ -1241,6 +1261,37 @@ describe("Play is the loop on the worklet transport", () => {
         // Once the ramp has reached silence, the fading bank is let go.
         vi.advanceTimersByTime(2000);
         for (const bank of fadingBanks) expect(holds(bank), bank).toBe(false);
+      });
+
+      it("a fresh run on another bank that would be refused while the fading bank is held takes its room: it plays, and the fade is cut click-free", async () => {
+        const { phrases, looper, first, second } = await twoPlaying();
+        const fadingBanks = [...new Set(rig.prepared)];
+        const third = keptTake(phrases);
+        phrases.findPhrase(third)!.context.instrument = "sawtooth";
+        // Big banks: the new one is refused while any held bank keeps memory.
+        rig.budget = "refuse";
+        const steadyMove = largestMove(rig.frame - BAR, rig.frame);
+        looper.stopAll();
+        await flush();
+        render(.5);
+        phrases.openPhrase(third);
+        looper.togglePlay();
+        await flush();
+        await looper.settled();
+        await flush();
+        // What was asked for plays, with no notice; the fading dials stay until their ramp would have ended.
+        expect(looper.lastError).toBeNull();
+        expect(looper.running).toBe(true);
+        expect(player.getLooper()).toMatchObject({ running: true, members: [expect.objectContaining({ id: third })] });
+        expect(looper.dialViews.map((view) => [view.phraseId, view.ending])).toEqual([[first, true], [second, true], [third, false]]);
+        // The fading bank gave way, and its notes went in the worklet's 10 ms release: no step.
+        expect(rig.evicted.map((entry) => entry.instrumentId)).toEqual(fadingBanks);
+        const cut = rig.evicted[0].frame;
+        render(2.5);
+        // The new run's first note starts on that frame too: its next pass, alone, is the measure of a note's own moves.
+        const notesMove = largestMove(cut + BAR, cut + BAR + .2 * RATE);
+        expect(largestMove(cut - 1, cut + .01 * RATE + 1)).toBeLessThanOrEqual(Math.max(steadyMove, notesMove) + 1e-6);
+        expect(attacksOf(third).length).toBeGreaterThan(0);
       });
 
       it("Stop All tapped again while it fades cuts everything, a pattern started during the fade too", async () => {

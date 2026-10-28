@@ -56,9 +56,12 @@ A loop ends over a bar, not at once (Burooj, 2026-10-28, BJS-598).
 - **A second tap cuts.** Stop All tapped while its fade runs (or with only
   fading patterns left) stops everything at once, anything started during the
   fade included: a 10 ms ramp, release tails included, so it is a cut and
-  never a click. A tap is never a dead end. Only this cut takes release tails:
-  every other stop (Play again on the last pattern, a Loop's Play, an empty
-  loop stopping) lets sounding notes finish on their own release.
+  never a click. It also silences the echoes: what the shared room and delay
+  hold fades in the same 10 ms, live notes' reverb and echo too, and the
+  buses take new sound at once. A tap is never a dead end. Only this cut takes
+  release tails and echoes: every other stop (Play again on the last pattern,
+  a Loop's Play, an empty loop stopping) and every fade lets sounding notes
+  finish on their own release and the room and delay ring out.
 - **The flick fades too.** Throwing a dial off the left edge fades that
   pattern out over the same bar while the others play on at full level.
   Delete does the same. Dials fading one after another keep their places.
@@ -69,8 +72,11 @@ A loop ends over a bar, not at once (Burooj, 2026-10-28, BJS-598).
   would with nothing playing: its own tempo, its own bar one, its first note
   (a Loop as it was saved). The fading patterns start no new note from there;
   the notes they are sounding ramp out on their own curve in real time, and
-  their dials go when that ramp reaches silence. A second tap of Stop All in
-  that time still cuts everything.
+  their dials go when that ramp reaches silence. Their sound banks stay
+  loaded until then, so a new run's load does not push them out for room; but
+  a load that would otherwise be refused for memory takes them, and their
+  notes end in the 10 ms release instead. A second tap of Stop All in that
+  time still cuts everything.
 - **While other patterns still play, a pattern played again during its own
   fade** comes back at full level from its next note, on the running grid;
   the notes it was already sounding fade on. Fading it again never brings
@@ -164,7 +170,8 @@ worklet transport's acceptance tests.
   reached by a second fade keeps whichever is lower. A join of a fading
   member withdraws its leave. Stop answers the fade as cancelled and lets
   fading voices ramp out on their own; Stop with `cut` (Stop All's second tap)
-  takes them, and every release tail, in its 10 ms.
+  takes them, and every release tail, in its 10 ms, and the player fades the
+  shared room and delay with it (`cutWetTails`).
 - **Events** for every transport voice carry the member and the source note,
   so the Stage, the keys, the HighlightStrip and the Looper Stage part follow
   loop notes. They are not recordable: playback never writes into the open

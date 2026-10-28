@@ -21,6 +21,9 @@ function setup(instrument = bank) {
     messages.push(response)
     if (response.type === 'event') events.push(response.event)
   })
+  // These cases read the voice mix itself, at unit scale. The output limiter
+  // that follows it (BJS-590) is proved on the same core in limiter.test.ts.
+  core.limiter.process = () => {}
   let frame = 0
   const send = (command: LiveCommand) => core.command(command, frame)
   send({ type: 'prepare', requestId: 1, instrument })

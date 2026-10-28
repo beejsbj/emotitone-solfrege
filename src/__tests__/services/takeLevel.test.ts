@@ -13,8 +13,11 @@ import type { LogNote } from '@/types/patterns';
  */
 const RATE = 8000;
 const QUANTUM = 128;
+// Every level here is a ratio. The bank's gain keeps the loudest attack (the
+// chord's, 1.33 × gain) under the core's output limiter (BJS-590), so these
+// levels are the take's own, not the limiter's.
 const sine: PreparedLiveInstrument = { kind: 'oscillator', instrumentId: 'sine', waveform: 'sine',
-  gain: 1, attack: .001, decay: .01, sustain: .5, release: .01 };
+  gain: .7, attack: .001, decay: .01, sustain: .5, release: .01 };
 
 function note(pitch: string, start: number, duration: number, velocity?: number, extra: Partial<LogNote> = {}): LogNote {
   return { id: `${pitch}-${start}`, note: pitch, pressTime: start, releaseTime: start + duration, duration,

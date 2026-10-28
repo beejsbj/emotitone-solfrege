@@ -1,8 +1,8 @@
 /**
  * General MIDI soundfont names and their font variants, in upstream order.
- * The first font of each name is its default. Data from @strudel/soundfonts
- * 1.3.0 `gm.mjs` (AGPL-3.0-or-later, uzu / Felix Roos) as patched in
- * `patches/`, including the reordered variants for five instruments.
+ * The first font of each name is its default. Data from Strudel's soundfonts
+ * package, version 1.3.0, `gm.mjs` (AGPL-3.0-or-later, uzu / Felix Roos), with
+ * the app's reordered variants for five instruments (see NOTICE).
  * Fonts are fetched from SOUNDFONT_BASE_URL (`src/audio/sampleSources.ts`);
  * see NOTICE for their licences.
  */

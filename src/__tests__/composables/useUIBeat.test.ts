@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   bindUIBeatScale,
-  generatedStrudelBarPosition,
   UIBeatClock,
   uiBeatScaleSwell,
 } from "@/composables/useUIBeat";
@@ -156,12 +155,6 @@ describe("UIBeatClock", () => {
     expect(unobserve).toHaveBeenCalledWith(second);
     clock.destroy();
     expect(disconnect).toHaveBeenCalledOnce();
-  });
-
-  it("maps generated Strudel scheduler cycles without calling a raw cycle a bar", () => {
-    expect(generatedStrudelBarPosition(0.5, 120, 4, 0.5)).toBe(0.5);
-    expect(generatedStrudelBarPosition(0.5, 90, 4, 0.5)).toBe(0.375);
-    expect(generatedStrudelBarPosition(1, 120, 4, 0)).toBeNull();
   });
 
   it("publishes zero-based bar, beat, and normalized phase coordinates", () => {

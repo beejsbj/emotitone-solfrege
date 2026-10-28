@@ -1,22 +1,31 @@
-# Live audio performance experiment
+# Audio lab
 
-This lab compares the rendered sound from the installed, patched Superdough sampler with a minimal Web Audio sampler. It also implements the proposed one-instrument AudioWorklet experiment: the worklet generates repeat/arpeggio beats **and plays their samples in the render thread**. Main-thread messages update held notes; there is no message round trip for each beat.
+Browser measurements of the app's own audio engine. The live worklet
+(`src/audio/live/`) is the only renderer; Strudel and superdough left the app in
+BJS-495, and with them every harness here that compared against them.
 
-## Run
+What still runs (each needs Chrome; `CHROME_BIN` overrides `/usr/bin/google-chrome`):
 
-```sh
-node audio-lab/run.mjs
-# Optional alternate Chrome binary or result file:
-CHROME_BIN=/path/to/chrome node audio-lab/run.mjs /tmp/audio-results.json
-```
+| Harness | Command | What it checks |
+| --- | --- | --- |
+| Effects (BJS-486) | `bun run test:run audio-lab/reference/effectBrowser.test.ts` | The worklet filter, native delay and room against the frozen references in `effects/fixtures/` |
+| Effect listening clips | `RENDER_EFFECT_LISTENING=1 bun run test:run audio-lab/reference/effectListening.test.ts` | Writes WAVs and metrics to `/tmp/emotitone-effects-listening` |
+| Loader (BJS-488) | `node audio-lab/loader/run.mjs [receipt.json]` | Every selectable instrument through the app loader, pitch and loop sustain on the worklet core, and the piano's load cost |
+| Receipt checkers | `node audio-lab/check-pattern-growth.mjs <receipt>`, `node audio-lab/verify-receipt-guards.mjs` | Criteria for the stored pattern-growth receipts |
 
-Requires installed project dependencies, Node 22+ (global WebSocket), and Chrome/Chromium. The runner starts an isolated Vite server and headless Chrome profile, captures PCM through an AudioWorklet, writes JSON, and exits nonzero if a required audio assertion fails. It does not use or change an existing browser tab. The test takes roughly 45–50 seconds. Audio is captured before a muted output gain; no sound is emitted.
+The rest of this directory is the record: results under `results/` and
+`parity/`, and the write-ups (`native-comparison*.md`, `pattern-growth.md`,
+`worklet-*.md`, `ui-README.md`, `finger-vibrato.md`). Their commands name
+harnesses that no longer exist; read them as evidence for decisions already
+made, not as instructions.
 
-For an older package comparison, set `LAB_SUPERDOUGH` to its `dist/index.mjs`. That skips the two assertions for the known baseline registry/budget defects, while still checking rendered sound and prototype behavior. The runner copies the selected module into a private temporary directory before loading it, so concurrent package rebuilds cannot change a running experiment. JSON records its SHA-256 and the checkout revision.
+## Record: the first live audio experiment
 
-To reproduce the session baseline, install the dependencies at commit `92d95b9` in a separate checkout and point `LAB_SUPERDOUGH` at that checkout's Superdough bundle. The original run used an immutable copy of the installed package taken before this session's fixes. Compare the recorded bundle hash when assessing reproducibility.
+The section below describes the original harness (`run.mjs`, removed in
+BJS-495). It compared the patched superdough sampler with a minimal Web Audio
+sampler and the first one-instrument AudioWorklet prototype.
 
-## What is measured
+### What is measured
 
 Both paths decode the **same** generated 40 ms, 440 Hz mono WAV once, then reuse its AudioBuffer. They use gain 0.8 and the same 1 ms linear attack, with no effects. The direct path is an AudioBufferSourceNode and GainNode. The Superdough path calls its real registered sampler with the held-voice parameters used by the adapter. Equal recorded peak amplitudes (0.24) provide a simple gain sanity check. A separate scenario uses the previous adapter's 10 ms attack envelope.
 
@@ -32,7 +41,7 @@ Onsets are measured from actual PCM: the first sample above absolute amplitude 0
 
 This is a **headless browser render-graph measurement**, not microphone loopback, hardware latency, input-event latency, or a listening verdict on the user's device. Browser `baseLatency`/`outputLatency` are recorded as environment metadata, not added to PCM timing or treated as measured physical latency. Sixteen trials per cell are an experiment, not a cross-device latency guarantee. A short synthetic sample also does not establish the behavior of every instrument, sample bank, soundfont, effect, or release tail.
 
-## Evidence and decision
+### Evidence and decision
 
 The checked-in [baseline](results/baseline.json) demonstrates two distinct problems. All 129 completed held voices remained registered after release, and the default voice cap was `NaN`. Under a 300 ms main-thread stall the direct and Superdough lookahead schedulers lost one and two of twelve beats respectively. Both worklet modes rendered all twelve, with at most 0.104 ms onset-threshold error, and passed cancellation, release, and voice-budget checks.
 

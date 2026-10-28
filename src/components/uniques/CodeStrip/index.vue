@@ -14,7 +14,6 @@ import {
   createPatternPlayer,
   setProductionPatternPlayer,
   type PatternPlayer,
-  type PatternRequest,
 } from "@/services/patternTransport";
 import {
   computed,
@@ -24,7 +23,7 @@ import {
   ref,
   watch,
 } from "vue";
-import { toStrudelSound } from "@/composables/useStrudel";
+import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import { useCodeStripStrudel } from "@/composables/useCodeStripStrudel";
 import {
   createNoteColorResolver,
@@ -33,15 +32,10 @@ import {
 } from "@/components/primatives/noteColorContext";
 import { useMusicColorClock } from "@/composables/useMusicColorClock";
 import { CodeStripViewport } from "./viewport";
-import {
-  ensureSoundfontCatalog,
-  getAudioContext,
-  getSuperdoughMasterGain,
-  initSuperdoughAudio,
-} from "@/services/superdoughAudio";
+import { ensureSoundfontCatalog, initAudioEngine } from "@/services/audioEngine";
+import { getAudioContext, getMasterGain } from "@/services/audioRuntime";
 import { renderStrudelNotation, type StrudelConfig } from "@/services/StrudelNotation";
 import { createHeardClock } from "@/services/heardClock";
-import { useInstrumentStore } from "@/stores/instrument";
 import { useLooperStore } from "@/stores/looper";
 import { usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
@@ -89,26 +83,13 @@ const isControlled = computed(() => isControlledUsage);
 
 function createProductionWiring() {
   return {
-    instrumentStore: useInstrumentStore(),
     phrasesStore: usePhrasesStore(),
     looperStore: useLooperStore(),
     visualConfigStore: useVisualConfigStore(),
-    playback: useCodeStripStrudel(),
+    code: useCodeStripStrudel(),
   };
 }
 
-type PlaybackWiring = Pick<
-  ReturnType<typeof useCodeStripStrudel>,
-  "attachEditor" | "detachEditor" | "syncCode" | "setPlaying" | "setError" | "isPlaying"
->;
-const controlledPlayback: PlaybackWiring = {
-  attachEditor: () => {},
-  detachEditor: () => {},
-  syncCode: () => {},
-  setPlaying: () => {},
-  setError: () => {},
-  isPlaying: ref(false),
-};
 const productionWiring = isControlledUsage ? undefined : createProductionWiring();
 const viewport = productionWiring ? new CodeStripViewport() : undefined;
 const stillColorResolver = productionWiring
@@ -129,28 +110,17 @@ const colorResolver = productionWiring && colorClock
       !colorClock.reducedMotion.value ? colorClock.phaseCycles.value : null,
   )
   : stillColorResolver;
-const {
-  attachEditor,
-  detachEditor,
-  syncCode,
-  setPlaying,
-  setError,
-} = productionWiring?.playback ?? controlledPlayback;
 
 const initError = ref<string | null>(null);
-const visibleCode = ref("");
-// Play turns the strip to Ink at once, before the transport confirms.
-const stripPlaying = ref(false);
 // Play is the loop: while the desk's pattern sounds in the Looper, the strip
-// follows it, lighting only that member's notes while the others sound.
+// follows it, lighting only that member's notes while the others sound. The
+// strip has no playback of its own; only the looper store starts and stops
+// the transport (BJS-569).
 const looperMemberId = computed(() => productionWiring?.looperStore.deskMemberId ?? null);
-const followsLooper = computed(() => !stripPlaying.value && looperMemberId.value !== null);
+const followsLooper = computed(() => looperMemberId.value !== null);
 // The highlight is timed on what is heard, so it stops while audio does.
 const heardClock = createHeardClock();
 let player: PatternPlayer | null = null;
-let attachedController: Parameters<typeof detachEditor>[0] | undefined;
-// Every Play and Stop moves this; a Play superseded while it prepares is dropped.
-let playEpoch = 0;
 
 const GENERATED_BEATS_PER_BAR = 4;
 
@@ -202,7 +172,7 @@ const recordedTokens = computed(() => {
 });
 const presentationTokens = computed(() => props.tokens ?? recordedTokens.value);
 
-/** The export configuration: what the strip shows and what the transport plays. */
+/** The export configuration: what the strip shows (the Looper plays the same notes). */
 const notationConfig = computed<Partial<StrudelConfig>>(() => ({
   bpm: codeStripConfig.value.bpm,
   sourceBpm: sketchMeta.value.bpm,
@@ -211,7 +181,7 @@ const notationConfig = computed<Partial<StrudelConfig>>(() => ({
   scaleMode: sketchMeta.value.mode,
   scaleOctave: keyboardConfig.value.mainOctave,
   patternDurationMs: productionWiring?.phrasesStore.takeDuration,
-  sound: toStrudelSound(sketchMeta.value.instrument ?? "triangle"),
+  sound: resolveLiveSoundName(sketchMeta.value.instrument ?? "triangle"),
   // The pattern's own Shape, not the live knobs.
   shape: productionWiring?.phrasesStore.takeContext.shape,
   inline: true,
@@ -236,56 +206,8 @@ const generatedNotation = computed<SpannedNotation>(() => {
 });
 const generatedCode = computed(() => generatedNotation.value.code);
 
-/** The take as the transport plays it, from the same notes and configuration. */
-function patternRequest(): PatternRequest | null {
-  const wiring = productionWiring;
-  if (!wiring || !wiring.phrasesStore.takeNotes.length) return null;
-  return {
-    id: wiring.phrasesStore.takeId,
-    notes: wiring.phrasesStore.takeNotes as LogNote[],
-    config: notationConfig.value,
-    instrument: sketchMeta.value.instrument ?? "triangle",
-    key: sketchMeta.value.key,
-    mode: sketchMeta.value.mode,
-    laBasedMinor: wiring.visualConfigStore.laBasedMinor,
-    bpm: codeStripConfig.value.bpm,
-  };
-}
-
-function stopPlayback() {
-  playEpoch += 1;
-  stripPlaying.value = false;
-  player?.stop();
-  setPlaying(false);
-}
-
-async function play(): Promise<boolean> {
-  const epoch = ++playEpoch;
-  const request = patternRequest();
-  if (!player || !request || productionWiring?.instrumentStore.isInteractionLocked) return false;
-  syncCode(visibleCode.value);
-  stripPlaying.value = true;
-  try {
-    await player.play(request);
-  } catch (error) {
-    if (epoch === playEpoch) {
-      stripPlaying.value = false;
-      setPlaying(false);
-      setError(error);
-    }
-    throw error;
-  }
-  if (epoch !== playEpoch) return false;
-  if (productionWiring?.instrumentStore.isInteractionLocked) {
-    stopPlayback();
-    return false;
-  }
-  setPlaying(true);
-  return true;
-}
-
+/** Create the app's single pattern player; the looper store drives it. */
 function initializeTransport() {
-  visibleCode.value = generatedCode.value;
   player = markRaw(createPatternPlayer({
     audio: {
       getContext() {
@@ -294,95 +216,38 @@ function initializeTransport() {
         return context;
       },
       async ensureReady(instrumentId) {
-        await initSuperdoughAudio();
+        await initAudioEngine();
         if (instrumentId.startsWith("gm_")) await ensureSoundfontCatalog();
-        return getSuperdoughMasterGain();
+        return getMasterGain();
       },
-    },
-    onInterrupted(error) {
-      playEpoch += 1;
-      stripPlaying.value = false;
-      setPlaying(false);
-      setError(error);
     },
   }));
   setProductionPatternPlayer(player);
-
-  attachedController = {
-    getCode: () => visibleCode.value,
-    // Playback follows the take's note data, never edited text.
-    setCode: (code: string) => {
-      visibleCode.value = code;
-      syncCode(code);
-    },
-    evaluate: play,
-    stop: stopPlayback,
-  };
-  attachEditor(attachedController, generatedCode.value);
-  syncCode(generatedCode.value);
 }
 
-watch(
-  () => productionWiring?.instrumentStore.isInteractionLocked ?? false,
-  (isLocked) => {
-    // A running loop keeps playing while a scrolled-to instrument warms up.
-    if (isLocked && stripPlaying.value) stopPlayback();
-  },
-  { flush: "sync" },
-);
-
 onMounted(() => {
-  if (isControlled.value) {
-    visibleCode.value = generatedCode.value;
-    return;
-  }
+  if (isControlled.value) return;
+  productionWiring?.code.syncCode(generatedCode.value);
   try {
     initializeTransport();
   } catch (error) {
     initError.value = error instanceof Error
       ? error.message
       : "CodeStrip failed to initialize.";
-    setError(error);
     console.error("[CodeStrip] pattern transport init error:", error);
   }
 });
 
+// Open in Strudel reads the text the strip shows.
 watch(generatedCode, (code) => {
-  visibleCode.value = code;
-  if (!isControlled.value) syncCode(code);
+  if (!isControlled.value) productionWiring?.code.syncCode(code);
 });
-
-// Tempo, key, mode, octave, instrument and solfège-convention changes rebuild the sounding table
-// and swap it at the next quantum, keeping the bar phase. A new take does not
-// replace a playing loop by itself (main's behaviour): playing over a loop
-// records into the take, and swapping on every note would overdub.
-watch(
-  [
-    () => sketchMeta.value.bpm,
-    () => codeStripConfig.value.bpm,
-    () => sketchMeta.value.instrument,
-    () => sketchMeta.value.key,
-    () => sketchMeta.value.mode,
-    () => keyboardConfig.value.mainOctave,
-    // Stage labels carry the la-based-minor convention, fixed per table.
-    () => productionWiring?.visualConfigStore.laBasedMinor,
-  ],
-  () => {
-    const request = patternRequest();
-    if (isControlled.value || !player?.isPlaying || !request) return;
-    player.update(request).catch((error) => {
-      // The old table and instrument keep playing.
-      setError(error);
-    });
-  },
-);
 
 onBeforeUnmount(() => {
   viewport?.destroy();
   heardClock.dispose();
+  productionWiring?.code.clearCode();
   if (!player) return;
-  detachEditor(attachedController);
-  playEpoch += 1;
   try {
     player.dispose();
   } catch (error) {
@@ -390,7 +255,6 @@ onBeforeUnmount(() => {
   } finally {
     setProductionPatternPlayer(undefined);
     player = null;
-    attachedController = undefined;
   }
 });
 </script>
@@ -405,7 +269,7 @@ onBeforeUnmount(() => {
     <HighlightStrip
       class="code-strip__view"
       :tokens="presentationTokens"
-      :playing="isControlled ? false : stripPlaying || followsLooper"
+      :playing="isControlled ? false : followsLooper"
       :listening="!isControlled"
       :density="density"
       :time-signature="timeSignature"

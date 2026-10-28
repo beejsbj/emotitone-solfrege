@@ -29,7 +29,7 @@ const rig = vi.hoisted(() => ({
   listeners: new Set<{ onTransport?(response: TransportResponse): void; onRendererReset?(): void }>(),
   gates: new Map<string, Promise<void>>(),
   prepared: [] as string[],
-  /** Banks the worklet refuses (every instrument slot held). */
+  /** Banks the worklet refuses (the sample memory is held full by playing loops and keys). */
   refused: new Set<string>(),
   commands: [] as TransportCommand[],
   context: undefined as unknown as Record<string, unknown>,
@@ -66,7 +66,7 @@ vi.mock("@/services/livePlayback", () => ({
     };
   },
   getLivePlaybackFailure: (instrumentId: string) => rig.refused.has(instrumentId)
-    ? { kind: "fallback", reason: "budget", budget: true } : undefined,
+    ? { kind: "unavailable", reason: "budget", budget: true } : undefined,
   needsLivePlaybackPreparation: () => false,
   getLivePlayback: () => undefined,
   waitForLivePlayback: () => undefined,
@@ -80,6 +80,7 @@ vi.mock("@/services/livePlayback", () => ({
 vi.mock("@/services/audioRuntime", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/services/audioRuntime")>(),
   getAudioContext: () => rig.context,
+  getMasterGain: () => ({}),
 }));
 vi.unmock("@/services/audioLifecycle");
 // The mic opens without hardware: the capture records nothing until stopped.

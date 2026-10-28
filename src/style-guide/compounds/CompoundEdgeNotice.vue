@@ -23,7 +23,7 @@
     <VariantGrid title="Signals">
       <VariantCell caption="Problem &middot; a lit Brass lamp (the Looper's error; the shelf not saving)">
         <div class="edge-notice-specimen__cell">
-          <EdgeNotice line="Stop a loop to add Piano." label="Looper" signal="problem" />
+          <EdgeNotice line="Not enough memory for Piano." label="Looper" signal="problem" />
         </div>
       </VariantCell>
       <VariantCell caption="Warning &middot; an unlit Brass lamp (the shelf over budget, still saving)">

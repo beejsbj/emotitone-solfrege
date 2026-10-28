@@ -10,14 +10,6 @@ import {
   shouldMirrorNoteEvent,
 } from "@/composables/useMidiControls";
 
-vi.mock("@/services/superdoughAudio", () => ({
-  setStrudelLaBasedMinor: vi.fn(),
-  attackNote: vi.fn().mockResolvedValue(undefined),
-  releaseNote: vi.fn(),
-  releaseAll: vi.fn(),
-  playNoteWithDuration: vi.fn().mockResolvedValue(undefined),
-}));
-
 describe("useMidiControls helpers", () => {
   it('rebuilds a future MIDI packet when only velocity changes', () => {
     const send = vi.fn();
@@ -170,6 +162,37 @@ describe("useMidiControls helpers", () => {
     expect(replaceScheduled).toHaveBeenLastCalledWith([
       { midiNote: 60, phase: "attack", timestamp: 30 },
       { midiNote: 60, phase: "release", timestamp: 230 },
+    ]);
+  });
+
+  it("sends an attack due now when another owner cancels in the same batch", () => {
+    // The worklet's first styled pulse lands on the press itself; a chord's
+    // next press revises the plan (a cancel) before the output heard it.
+    const replaceScheduled = vi.fn();
+    const sendNow = vi.fn();
+    const scheduler = createMidiNoteOwnerScheduler(sendNow, replaceScheduled, () => 0);
+
+    scheduler.beginBatch();
+    scheduler.attack("first", 60, 0);
+    scheduler.release("first", 60, 100);
+    scheduler.attack("planned", 64, 125);
+    scheduler.release("planned", 64, 225);
+    scheduler.cancel("planned", 64);
+    scheduler.endBatch();
+
+    expect(sendNow).not.toHaveBeenCalled();
+    expect(replaceScheduled).toHaveBeenLastCalledWith([
+      { midiNote: 60, phase: "attack", timestamp: 0 },
+      { midiNote: 60, phase: "release", timestamp: 100 },
+    ]);
+    // Once handed to the output, the due attack counts as sent: a later batch
+    // at the same instant neither resends it nor loses its release.
+    scheduler.beginBatch();
+    scheduler.attack("next", 67, 125);
+    scheduler.endBatch();
+    expect(replaceScheduled).toHaveBeenLastCalledWith([
+      { midiNote: 60, phase: "release", timestamp: 100 },
+      { midiNote: 67, phase: "attack", timestamp: 125 },
     ]);
   });
 

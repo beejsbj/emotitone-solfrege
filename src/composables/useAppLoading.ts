@@ -14,12 +14,8 @@ import type {
   AppLoadingState,
   LoadingEvent,
 } from "@/types/loading";
-import {
-  getAudioContext,
-  getAudioStartupStage,
-  initSuperdoughAudio,
-  initSynthOnlyAudio,
-} from "@/services/superdoughAudio";
+import { getAudioStartupStage, initAudioEngine, initSynthOnlyAudio } from "@/services/audioEngine";
+import { getAudioContext } from "@/services/audioRuntime";
 import {
   AudioBlockedError,
   INSTRUMENT_LOAD_TIMEOUT_MESSAGE,
@@ -172,7 +168,7 @@ export function useAppLoading() {
     let selectedInstrumentTimedOut = false;
     try {
       await within(
-        synthsOnly ? initSynthOnlyAudio() : initSuperdoughAudio(),
+        synthsOnly ? initSynthOnlyAudio() : initAudioEngine(),
         ENGINE_START_TIMEOUT_MS,
         () => new Error("The audio engine did not start in time"),
         step.signal,

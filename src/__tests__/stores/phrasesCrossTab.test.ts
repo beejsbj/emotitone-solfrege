@@ -7,23 +7,8 @@ import { usePhrasesStore } from "@/stores/phrases";
 import { useLooperStore } from "@/stores/looper";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { fakeLocks } from "../helpers/fakeLocks";
-import { prewarmSoundSamples } from "@/services/superdoughAudio";
+import { prewarmSoundSamples } from "@/services/audioEngine";
 
-vi.mock("@/services/superdoughAudio", () => ({
-  setStrudelLaBasedMinor: vi.fn(),
-  setLiveSynthControls: vi.fn(),
-  attackNote: vi.fn().mockResolvedValue(undefined),
-  releaseNote: vi.fn(),
-  stopNote: vi.fn(),
-  releaseAll: vi.fn(),
-  playNoteWithDuration: vi.fn().mockResolvedValue(undefined),
-  initSuperdoughAudio: vi.fn().mockResolvedValue(undefined),
-  isPrewarmed: vi.fn().mockReturnValue(true),
-  prewarmSoundSamples: vi.fn().mockResolvedValue(undefined),
-  getAudioContext: vi.fn(() => ({ state: "running", currentTime: 0 })),
-  playStrudelCode: vi.fn().mockResolvedValue(undefined),
-  stopStrudelPlayback: vi.fn(),
-}));
 
 /**
  * BJS-575 at the store: two phrase stores (two Pinia apps, as two tabs would

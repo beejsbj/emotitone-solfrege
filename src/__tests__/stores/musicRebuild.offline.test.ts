@@ -10,7 +10,8 @@ const adapters = vi.hoisted(() => ({ create: vi.fn() }))
 vi.mock('@/audio/live/bridge', () => ({ createLiveWorklet: adapters.create }))
 vi.mock('@/audio/liveShaping', () => ({ OPEN_CUTOFF_HZ: 12000,
   createLiveShapingChain: () => ({ input: {}, dispose() {} }) }))
-vi.mock('@/services/audioRuntime', () => ({ getLiveOrbit() {} }))
+const runtime = vi.hoisted(() => ({ context: undefined as unknown as AudioContext }))
+vi.mock('@/services/audioRuntime', () => ({ getLiveOrbit() {}, getAudioContext: () => runtime.context }))
 
 let pinia: Pinia
 let builds: Array<{ core?: LiveAudioCore; callbacks: LiveRendererCallbacks; sent: PreparedLiveInstrument[] }>
@@ -66,13 +67,12 @@ async function setup(name: string) {
   else catalog.registerSoundfonts({ gm_violin: ['violin'] })
   const manager = await import('@/services/livePlayback')
   await manager.prepareLivePlayback(context, {} as AudioNode, name)
-  const audio = await import('@/services/superdoughAudio')
-  vi.mocked(audio.getAudioContext).mockReturnValue(context)
+  runtime.context = context
   const { useInstrumentStore } = await import('@/stores/instrument')
   const instrument = useInstrumentStore()
   instrument.currentInstrument = name
   const { useMusicStore } = await import('@/stores/music')
-  return { manager, audio, music: useMusicStore(), instrument }
+  return { manager, music: useMusicStore(), instrument }
 }
 
 function expectSound(build = builds.at(-1)!) {
@@ -83,7 +83,7 @@ function expectSound(build = builds.at(-1)!) {
 
 describe('selected instrument input across offline rebuilds', () => {
   it.each(['piano', 'gm_violin'])('rebuilds %s offline at a new rate with PCM only in the active worklet', async name => {
-    const { manager, music, audio } = await setup(name)
+    const { manager, music } = await setup(name)
     const owner = await music.attackExactPitch('C4')
     expectSound()
     const downloads = network.mock.calls.length
@@ -96,7 +96,6 @@ describe('selected instrument input across offline rebuilds', () => {
     expectSound()
     expect(network).toHaveBeenCalledTimes(downloads)
     expect(decoded).toHaveBeenCalledTimes(2)
-    expect(audio.attackNote).not.toHaveBeenCalled()
     for (const build of builds) for (const sent of build.sent) {
       if (sent.kind !== 'sample-bank') throw new Error('Expected sample PCM')
       expect(sent.zones.flatMap(zone => [...zone.channels, ...(zone.mipmaps?.flat() ?? [])]).every(channel => channel.byteLength === 0)).toBe(true)
@@ -112,7 +111,7 @@ describe('selected instrument input across offline rebuilds', () => {
   })
 
   it.each(['play', 'release', 'change instrument', 'rate change'])('shows warming while preserving input through recovery; next action: %s', async action => {
-    const { music, audio, instrument } = await setup('piano')
+    const { music, instrument } = await setup('piano')
     if (action === 'rate change') Object.assign(context, { sampleRate: 44100 })
     else builds[0].callbacks.onError?.(new Error('processor failed'))
     let finish!: () => void
@@ -124,7 +123,6 @@ describe('selected instrument input across offline rebuilds', () => {
     const pending = music.attackExactPitch('C4', () => cancelled)
     const simultaneous = action === 'play' ? music.attackExactPitch('E4') : undefined
     await vi.waitFor(() => expect(finish).toBeTypeOf('function'))
-    expect(audio.attackNote).not.toHaveBeenCalled()
     expect(builds).toHaveLength(1)
     expect(instrument.warmingInstrument).toBe('piano')
     expect(instrument.isInstrumentWarming('piano')).toBe(true)
@@ -144,7 +142,6 @@ describe('selected instrument input across offline rebuilds', () => {
       await music.releaseNote(owner!)
       await music.releaseNote(otherOwner!)
     } else expect(owner).toBeNull()
-    expect(audio.attackNote).not.toHaveBeenCalled()
   })
 
   it.each(['decode', 'fetch'])('bounds a retired %s and lets the replacement context recover', async stalled => {
@@ -179,14 +176,13 @@ describe('selected instrument input across offline rebuilds', () => {
     expect(vi.getTimerCount()).toBe(0)
   })
 
-  it('shows a bridge creation failure to the player and retries without fallback PCM', async () => {
-    const { music, audio, instrument } = await setup('piano')
+  it('shows a bridge creation failure to the player and retries', async () => {
+    const { music, instrument } = await setup('piano')
     builds[0].callbacks.onError?.(new Error('processor failed'))
     adapters.create.mockRejectedValueOnce(new Error('addModule failed'))
     await expect(music.attackExactPitch('C4')).rejects.toThrow('addModule failed')
     expect(instrument.lastWarmupError).toBe('addModule failed')
     expect(instrument.lastWarmupErrorInstrument).toBe('piano')
-    expect(audio.attackNote).not.toHaveBeenCalled()
     const owner = await music.attackExactPitch('C4')
     expectSound()
     expect(instrument.lastWarmupError).toBeNull()
@@ -218,14 +214,13 @@ describe('selected instrument input across offline rebuilds', () => {
     else { expectSound(); await music.releaseNote(owner!) }
   })
 
-  it('surfaces an uncached recovery failure and retries on the next press without loading fallback PCM', async () => {
-    const { music, audio, instrument } = await setup('gm_violin')
+  it('surfaces an uncached recovery failure and retries on the next press', async () => {
+    const { music, instrument } = await setup('gm_violin')
     builds[0].callbacks.onError?.(new Error('processor failed'))
     vi.stubGlobal('caches', memoryCaches().storage) // Simulate device eviction.
     network.mockRejectedValueOnce(new TypeError('offline'))
     await expect(music.attackExactPitch('C4')).rejects.toThrow('offline')
     expect(instrument.lastWarmupError).toContain('offline')
-    expect(audio.attackNote).not.toHaveBeenCalled()
     const owner = await music.attackExactPitch('C4')
     expectSound()
     expect(instrument.lastWarmupError).toBeNull()

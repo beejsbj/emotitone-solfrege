@@ -5,27 +5,17 @@ vi.unmock("@/services/music");
 vi.unmock("@/data");
 
 import { useMusicStore } from "@/stores/music";
+import { attachLiveCore, type LiveSeat } from "../helpers/liveCore";
 
-const audioContext = vi.hoisted(() => ({
-  state: "running",
-  get currentTime() { return performance.now() / 1000; },
-}));
-
-vi.mock("@/services/superdoughAudio", () => ({
-  setStrudelLaBasedMinor: vi.fn(),
-  setLiveSynthControls: vi.fn(),
-  attackNote: vi.fn().mockResolvedValue(undefined),
-  releaseNote: vi.fn(),
-  stopNote: vi.fn(),
-  getAudioContext: vi.fn(() => audioContext),
-  releaseAll: vi.fn(),
-  playNoteWithDuration: vi.fn().mockResolvedValue(undefined),
-}));
+const seat = vi.hoisted(() => ({ renderer: null, listeners: new Set() }) as LiveSeat);
+vi.mock("@/services/livePlayback", async () => (await import("../helpers/liveCore")).livePlaybackOn(seat));
 
 describe("music store MIDI helpers", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     vi.clearAllMocks();
+    seat.listeners.clear();
+    attachLiveCore(seat);
   });
 
   it("parses negative octaves from chromatic note strings", () => {
@@ -61,14 +51,14 @@ describe("music store MIDI helpers", () => {
     });
   });
 
-  it("creates a fresh note id for repeated attacks of the same pitch", async () => {
+  it("gives repeated attacks of the same pitch their own owners", async () => {
     const musicStore = useMusicStore();
 
-    const firstNoteId = await musicStore.attackNoteWithOctave(0, 4);
-    const secondNoteId = await musicStore.attackNoteWithOctave(0, 4);
+    const first = await musicStore.attackNoteWithOctave(0, 4);
+    const second = await musicStore.attackNoteWithOctave(0, 4);
 
-    expect(firstNoteId).toMatch(/^C4_0_4_/);
-    expect(secondNoteId).toMatch(/^C4_0_4_/);
-    expect(firstNoteId).not.toBe(secondNoteId);
+    expect(first).toMatch(/^held_/);
+    expect(second).toMatch(/^held_/);
+    expect(first).not.toBe(second);
   });
 });

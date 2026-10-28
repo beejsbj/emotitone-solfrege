@@ -26,6 +26,9 @@ const note = {
   pressTime: 0, releaseTime: 200, duration: 200,
 } as unknown as LogNote;
 
+const member = (config: object) => ({ id: "take", notes: [note], config, instrument: "sine", key: "C" as const, mode: "major" as const });
+const target = { key: "C" as const, mode: "major" as const };
+
 function fakeContext() {
   const context = {
     state: "running", currentTime: 0, sampleRate: 1000, baseLatency: 0, outputLatency: 0,
@@ -55,8 +58,9 @@ describe("pattern player audio lifecycle", () => {
       cancelFrame: () => {},
     });
     try {
-      await player.play({ id: "take", notes: [note], config: { sourceBpm: 120, bpm: 120 }, instrument: "sine",
-        key: "C", mode: "major", bpm: 120 });
+      // The start's receipt comes from the worklet, which this test has none of.
+      void player.start({ bpm: 120, target, members: [member({ sourceBpm: 120, bpm: 120 })] });
+      await vi.advanceTimersByTimeAsync(0);
       expect(mocks.commands.at(-1)).toMatchObject({ type: "transport-start" });
       await vi.advanceTimersByTimeAsync(AUDIO_IDLE_MS + 5000);
       expect(context.suspend).not.toHaveBeenCalled();
@@ -70,7 +74,7 @@ describe("pattern player audio lifecycle", () => {
     }
   });
 
-  it("releases its hold when a cold first Play fails", async () => {
+  it("releases its hold when a cold first start fails", async () => {
     const context = fakeContext();
     const dispose = manageAudioLifecycle(context as unknown as AudioContext, { isSounding: () => false });
     const player = createPatternPlayer({
@@ -84,8 +88,7 @@ describe("pattern player audio lifecycle", () => {
       cancelFrame: () => {},
     });
     try {
-      await expect(player.play({ id: "take", notes: [note], config: {}, instrument: "sine",
-        key: "C", mode: "major", bpm: 120 })).rejects.toThrow("catalog download failed");
+      await expect(player.start({ bpm: 120, target, members: [member({})] })).rejects.toThrow("catalog download failed");
       expect(mocks.commands).toEqual([]);
       await vi.advanceTimersByTimeAsync(AUDIO_IDLE_MS + 1000);
       expect(context.suspend).toHaveBeenCalledOnce();

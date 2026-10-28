@@ -91,7 +91,8 @@ Consequences to enforce with tests, in the manner of `phraseBook.test.ts`:
 **Decided (Burooj, 2026-10-09): the transport runs on the app's own
 AudioWorklet engine**, not on Strudel. The decision is Decision 3 of
 [the retrospective spec](retrospective-spec.md); the design is
-[the worklet engine](research/worklet-engine.md), §2. The Strudel transport
+[the worklet engine](research/worklet-engine.md), §2. Strudel and superdough
+have since left the app entirely (BJS-495). The Strudel transport
 (#137, #140) worked on a desktop and is kept as research, unmerged. Its
 join, leave, offset, tempo, mute and solo semantics and its receipts are the
 worklet transport's acceptance tests.
@@ -226,8 +227,8 @@ These are design-system units and go through that process, not this document:
   the bar of silence that closes it, draining beat by beat on the heard
   beat; a note refills them; when the take closes they show the beat again.
 - **Latch Ring** (a compound around Play): a Brass ring that sweeps once per
-  bar while latched, on the heard bar; it rests while the beat dots drain the
-  closing bar. See Decided, 2026-10-26.
+  bar while latched, on the heard bar; it keeps sweeping while the beat dots
+  drain the closing bar. See Decided, 2026-10-26.
 - **Code Strip**: when the pattern on the desk is playing, the HighlightStrip
   follows it, lighting that member's notes while the others sound. This comes
   from the single transport's events; the prototype cannot do it.
@@ -312,9 +313,14 @@ absorbing BJS-582):
   ("perhaps loading button animation"). The ring sits in Play's lip channel
   and sweeps once per bar, read from the transport's heard bar through UIBeat:
   the audio clock is the truth, and there is no free-running timer. The
-  pressed look stays underneath. When a take is closing, the beat dots count
-  the closing bar and the ring rests on its dim track, so only one of them
-  moves: a clean hand-off, and the ring sweeps again when the take closes.
+  pressed look stays underneath. While latched the ring is the bar clock and
+  nothing else: when a take is closing, the beat dots alone count the closing
+  bar, and the ring keeps sweeping through notes, the countdown, the take's
+  growth and its close. (#202 first rested the ring while the dots drained;
+  since the dots drain after every note, the ring kept vanishing and
+  restarting as you played: "the brass ring is weird af", BJS-582.) It rests
+  on its dim track only while the AudioContext is suspended, and comes back
+  at the heard bar's phase.
   Reduced Motion: no sweep; a still, full Brass ring and Play's Ink and Ivory
   inverted. Playing-zone palette only, no text label.
 - **The beat starts when you latch, not at the first note.** Latching with

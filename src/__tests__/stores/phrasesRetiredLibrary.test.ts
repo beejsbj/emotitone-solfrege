@@ -4,24 +4,9 @@ import { createApp, nextTick } from "vue";
 import piniaPluginPersistedstate from "pinia-plugin-persistedstate";
 import { defaultPatterns, retiredDefaultPatternIds } from "@/data/patterns";
 import { libraryPhrases, usePhrasesStore } from "@/stores/phrases";
-import { isPrewarmed, prewarmSoundSamples } from "@/services/superdoughAudio";
+import { isPrewarmed, prewarmSoundSamples } from "@/services/audioEngine";
 import { createTestPinia } from "../helpers/test-utils";
 
-vi.mock("@/services/superdoughAudio", () => ({
-  setStrudelLaBasedMinor: vi.fn(),
-  setLiveSynthControls: vi.fn(),
-  attackNote: vi.fn().mockResolvedValue(undefined),
-  releaseNote: vi.fn(),
-  stopNote: vi.fn(),
-  releaseAll: vi.fn(),
-  playNoteWithDuration: vi.fn().mockResolvedValue(undefined),
-  initSuperdoughAudio: vi.fn().mockResolvedValue(undefined),
-  isPrewarmed: vi.fn().mockReturnValue(true),
-  prewarmSoundSamples: vi.fn().mockResolvedValue(undefined),
-  getAudioContext: vi.fn(() => ({ state: "running", currentTime: 0 })),
-  playStrudelCode: vi.fn().mockResolvedValue(undefined),
-  stopStrudelPlayback: vi.fn(),
-}));
 
 const START = new Date("2026-10-01T12:00:00Z").getTime();
 const RETIRED_ID = "pattern-warrior-chorus-1";

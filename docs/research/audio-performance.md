@@ -1,12 +1,16 @@
 # Playback performance: implementation and evidence
 
+> **Record.** Strudel and superdough left the app in BJS-495; the worklet is
+> the only renderer. Statements below about them describe the app when this
+> was written.
+
 This work follows [issue #78](https://github.com/beejsbj/emotitone-solfrege/issues/78) and builds on [PR #76](https://github.com/beejsbj/emotitone-solfrege/pull/76). The objective is responsive live sound, complete rhythmic playback, and bounded audio resources. It does not claim to eliminate physical output latency or every possible browser stall.
 
 ## Production live renderer
 
 The keyboard now sends prepared note commands to one persistent AudioWorklet, which both generates rhythmic events and renders voices. Together, repeat and arpeggio begin at the next render quantum, with **zero added scheduling lead**. Subsequent beats and gates run on the audio thread through main-thread stalls. Strum keeps its intentional 30 ms chord collection and 35 ms note spacing.
 
-Instrument selection prepares mono/stereo sample banks, GM soundfont zones (including tuning and loops), and sine/triangle/sawtooth/square oscillators. PCM is cloned once to the processor; shared cached buffers are never detached. Installation is acknowledged before selection becomes ready. The processor has a four-bank/192 MiB budget; held banks are pinned. Eviction shortens the old bank's remaining release tails to a 5 ms fade and waits for the processor to free them before installing another bank. Voices are bounded at 64 plus eight short retirement fades. The 128-voice trial approached 99% audio render capacity on the test host; 64 preserves headroom at the cost of lower maximum polyphony. Under overload, releasing voices retire first, followed by the oldest held voices. The compatibility renderer keeps its previous 128-voice limit.
+Instrument selection prepares mono/stereo sample banks, GM soundfont zones (including tuning and loops), and sine/triangle/sawtooth/square oscillators. PCM is cloned once to the processor; shared cached buffers are never detached. Installation is acknowledged before selection becomes ready. The processor has a 192 MiB PCM budget and no limit on the number of instruments (oscillators hold no PCM); held banks are pinned. Eviction shortens the old bank's remaining release tails to a 5 ms fade and waits for the processor to free them before installing another bank. Voices are bounded at 64 plus eight short retirement fades. The 128-voice trial approached 99% audio render capacity on the test host; 64 preserves headroom at the cost of lower maximum polyphony. Under overload, releasing voices retire first, followed by the oldest held voices. The compatibility renderer keeps its previous 128-voice limit.
 
 The worklet connects to the existing master gain, preserving mute, analysis and audio recording. Lifecycle events carry their original audio-clock onset/release, even when UI delivery is late. MIDI plans carry monotonic deadlines; revised future attacks are canceled with ownership preserved. MIDI messages still cross the main thread and use the browser's MIDI queue, so the local audio renderer's stall independence is not a claim about hardware MIDI delivery. Suspending, changing instruments and releasing inputs cancel their work. Independent fingers holding a unison retain ownership until the last release.
 

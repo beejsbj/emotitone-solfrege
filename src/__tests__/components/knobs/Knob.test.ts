@@ -11,7 +11,7 @@ import knobFaceSource from "@/components/primatives/Knob/KnobFace.vue?raw";
 import booleanKnobSource from "@/components/primatives/Knob/BooleanKnob.vue?raw";
 import motionGuideSource from "@/style-guide/tokens/TokenMotion.vue?raw";
 import { MODE_OPTIONS } from "@/data/musicData";
-import { PLAY_MODE_OPTIONS } from "@/services/playStyles";
+import { PLAY_MODE_OPTIONS } from "@/data/playStyles";
 import { uiBeatClock } from "@/composables/useUIBeat";
 
 const instrumentControlSource = readFileSync(

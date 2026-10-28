@@ -41,7 +41,7 @@ vi.mock('@/stores/instrument', () => ({
   useInstrumentStore: () => instrumentStore,
 }))
 
-vi.mock('@/services/superdoughAudio', () => ({
+vi.mock('@/services/audioEngine', () => ({
   getRegisteredSounds,
   ensureSoundfontCatalog: vi.fn().mockResolvedValue(undefined),
 }))

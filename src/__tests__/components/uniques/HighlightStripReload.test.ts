@@ -6,36 +6,14 @@ import piniaPluginPersistedstate from "pinia-plugin-persistedstate";
 import { usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 
-// The strip's sound side: Strudel's headless REPL and the audio engine. The
-// phrases, recording and notation are the real ones.
-vi.mock("@/services/superdoughAudio", () => ({
-  setStrudelLaBasedMinor: vi.fn(),
-  setLiveSynthControls: vi.fn(),
-  attackNote: vi.fn().mockResolvedValue(undefined),
-  releaseNote: vi.fn(),
-  stopNote: vi.fn(),
-  releaseAll: vi.fn(),
-  playNoteWithDuration: vi.fn().mockResolvedValue(undefined),
-  initSuperdoughAudio: vi.fn().mockResolvedValue(undefined),
-  isPrewarmed: vi.fn().mockReturnValue(true),
-  prewarmSoundSamples: vi.fn().mockResolvedValue(undefined),
-  preparePatternSounds: vi.fn().mockResolvedValue(undefined),
+// The strip's sound side is the engine's startup and context; the phrases,
+// recording and notation are the real ones.
+vi.mock("@/services/audioRuntime", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/services/audioRuntime")>(),
   getAudioContext: vi.fn(() => ({
     state: "running", currentTime: 0, addEventListener: vi.fn(), removeEventListener: vi.fn(),
   })),
-  emotitoneStrudelOutput: vi.fn(),
-  stopStrudelVisuals: vi.fn(),
-  playStrudelCode: vi.fn().mockResolvedValue(undefined),
-  stopStrudelPlayback: vi.fn(),
 }));
-vi.mock("@strudel/core", () => ({
-  evalScope: vi.fn().mockResolvedValue(undefined),
-  repl: () => ({ scheduler: { cps: 0.5, setCps: vi.fn(), now: () => 0, stop: vi.fn() }, evaluate: vi.fn() }),
-}));
-vi.mock("@strudel/mini", () => ({}));
-vi.mock("@strudel/tonal", () => ({}));
-vi.mock("@strudel/webaudio", () => ({}));
-vi.mock("@strudel/transpiler", () => ({ transpiler: vi.fn() }));
 
 import CodeStrip from "@/components/uniques/CodeStrip/index.vue";
 

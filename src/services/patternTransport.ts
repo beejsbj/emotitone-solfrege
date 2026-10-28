@@ -1,7 +1,7 @@
 /**
  * Plays recorded or library patterns on the live worklet's transport
- * (BJS-485), alone or as Looper members (BJS-491). No Strudel scheduler: the
- * audio thread schedules every note.
+ * (BJS-485) as Looper members (BJS-491). The audio thread schedules every
+ * note.
  *
  * The main thread owns four things here:
  * - preparation: each member's instrument must be resident in the worklet
@@ -27,7 +27,6 @@ import {
 } from "@/services/livePlayback";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import { buildPatternMember, type PatternMember, type PatternMemberRequest } from "@/services/patternMember";
-import { setTransportGridSource } from "@/services/transportGrid";
 import { bendNotes } from "@/domain/modeRemap";
 import { barAtFrame, bpmAtFrame, type TempoAnchor } from "@/audio/live/tempoMap";
 import type {
@@ -49,11 +48,6 @@ export class PatternLoadError extends Error {
     super(message);
     this.name = "PatternLoadError";
   }
-}
-
-export interface PatternRequest extends Omit<PatternMemberRequest, "generation" | "instrumentId"> {
-  /** Playback tempo in BPM (one bar is four beats). */
-  bpm: number;
 }
 
 /** A Looper member: a phrase's recorded notes and context, and how it sits in the loop. */
@@ -86,7 +80,7 @@ export type MuteTailPolicy = "ring" | "cut";
 
 export interface PatternAudio {
   getContext(): AudioContext;
-  /** Load the audio graph and catalog the instrument needs; no PCM for superdough. */
+  /** Start the audio graph and load the catalog the instrument needs; returns the output node. */
   ensureReady(instrument: string): Promise<AudioNode | null>;
   /**
    * Fade out what the shared room and delay already hold. Called after a mute
@@ -154,7 +148,7 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
    * Code Strip) stops. `holder`: the instrument whose worklet port holds the
    * transport, so an empty Looper (the latch's grid) can be brought back too.
    */
-  let session: { looper: boolean; bpm: number; target?: LooperKeyMode; soloId: string | null; holder?: string } | undefined;
+  let session: { bpm: number; target?: LooperKeyMode; soloId: string | null; holder?: string } | undefined;
   /** Set while a rebuilt renderer is awaited: the bar to continue from, and which rebuild it is. */
   let recovery: { bar: number; epoch: number } | undefined;
   const recoveryListeners = new Set<(recovering: boolean) => void>();
@@ -172,7 +166,6 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
   let idleBar: number | undefined;
   let stopRecovery: (() => void) | undefined;
   let releaseActivity: (() => void) | undefined;
-  let releaseGrid: (() => void) | undefined;
   const memberships = new Map<string, Membership>();
   /** Members whose leave or replacing re-join has been sent but not applied: they still play until then. */
   const leaving = new Set<Membership>();
@@ -391,7 +384,7 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
     onRendererReset() {
       if (!playing) return;
       // A Looper recovers, an empty one (after a rebuild with nobody to restore) included.
-      if (session?.looper && context) {
+      if (session && context) {
         suspendForRecovery();
         return;
       }
@@ -440,15 +433,6 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
     beatBpm = bpm;
     lastBar = -Infinity;
     if (frame === null) frame = requestFrame(publishBeat);
-    // Live Repeat/Arp on the fallback renderer read the same grid (S111).
-    releaseGrid?.();
-    releaseGrid = setTransportGridSource(() => {
-      if (!playing || recovery || !context || !port || !anchors.length) return undefined;
-      const current = context.currentTime * port.sampleRate;
-      let anchor = anchors[0];
-      for (const next of anchors) if (next.frame <= current) anchor = next;
-      return { at: anchor.frame / port.sampleRate * 1000, bar: anchor.bar, bpm: anchor.bpm };
-    });
   }
 
   function stopBeat() {
@@ -456,8 +440,6 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
     frame = null;
     if (beatGeneration !== undefined) uiBeat.stop(beatGeneration);
     beatGeneration = undefined;
-    releaseGrid?.();
-    releaseGrid = undefined;
   }
 
   // --- Tables --------------------------------------------------------------
@@ -471,13 +453,13 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
     const ready = getLiveTransport(instrumentId);
     if (ready) return { port: ready, instrumentId };
     const failure = getLivePlaybackFailure(instrumentId);
-    // A transport member has no fallback renderer: a bank refused for budget
-    // is an explicit error, never a member whose notes make no sound.
+    // A transport member has no fallback renderer: a bank refused for sample
+    // memory is an explicit error, never a member whose notes make no sound.
     throw new PatternLoadError(
       failure?.kind === "load"
         ? `${instrument} could not load: ${failure.reason}`
         : failure?.budget
-          ? `${instrument} cannot join: every instrument slot is held by a playing pattern or key`
+          ? `${instrument} cannot join: ${failure.reason}`
           : `${instrument} cannot play patterns on the worklet engine (${failure?.reason ?? "not prepared"})`,
       failure?.kind === "load",
       Boolean(failure?.budget),
@@ -666,7 +648,7 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
   }
 
   function requireSession(): NonNullable<typeof session> {
-    if (!playing || !session?.looper) throw new Error("The Looper is not running");
+    if (!playing || !session) throw new Error("The Looper is not running");
     return session;
   }
 
@@ -714,69 +696,6 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
     getActiveNotes(): readonly ActiveNote[] {
       return [...registry.values()].map(entry => entry.note);
     },
-    /**
-     * Start the pattern. Resolves once the transport has been told to start.
-     * Throws PatternLoadError (and starts nothing) when the instrument cannot
-     * be prepared; a retry after a load failure prepares it again.
-     */
-    async play(request: PatternRequest): Promise<void> {
-      halt(true);
-      const attempt = run;
-      const audioContext = options.audio.getContext();
-      // The Play tap is the unlock gesture.
-      const unlocked = resumeAudioContext(audioContext);
-      releaseActivity = holdAudioActivity();
-      try {
-        await unlocked;
-        const prepared = await prepare(request.instrument);
-        if (attempt !== run) return;
-        port = prepared.port;
-        session = { looper: false, bpm: request.bpm, soloId: null };
-        const entry: Membership = { request, settings: settingsOf({ ...request, pinned: true }) };
-        memberships.set(request.id, entry);
-        pin(request.id, entry, prepared.instrumentId);
-        build(entry);
-        playing = true;
-        void change(joinChange(entry));
-        send({ type: "transport-start", requestId: ++requestId, run, bpm: request.bpm });
-        startBeat(request.bpm);
-      } catch (error) {
-        if (attempt === run) halt(false);
-        throw error;
-      }
-    },
-    /**
-     * Rebuild the playing pattern (key, mode, octave, instrument or tempo
-     * changed) and swap it at the next quantum. A cold instrument loads first;
-     * if it fails, the old table and instrument keep playing.
-     */
-    update(request: PatternRequest): Promise<void> {
-      const attempt = run;
-      const task = changes.then(async () => {
-        const previous = [...memberships.values()][0];
-        if (!playing || attempt !== run || !previous || session?.looper) return;
-        let instrumentId = previous.instrumentId!;
-        if (resolveLiveSoundName(request.instrument) !== instrumentId) {
-          const prepared = await prepare(request.instrument);
-          if (!playing || attempt !== run) return;
-          if (prepared.port.generation !== port?.generation) throw new PatternLoadError("The audio engine restarted", true);
-          instrumentId = prepared.instrumentId;
-        }
-        const previousBpm = session!.bpm;
-        memberships.delete(previous.request.id);
-        previous.releasePin?.();
-        const entry: Membership = { request, settings: settingsOf({ ...request, pinned: true }) };
-        memberships.set(request.id, entry);
-        pin(request.id, entry, instrumentId);
-        build(entry);
-        session!.bpm = request.bpm;
-        if (request.bpm !== previousBpm) void change({ type: "tempo", bpm: request.bpm });
-        void change(joinChange(entry));
-      });
-      changes = task.catch(() => undefined);
-      return task;
-    },
-
     // --- The Looper (BJS-491): several members on one bar grid ------------
 
     /**
@@ -817,7 +736,7 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
       releaseActivity = holdAudioActivity();
       try {
         await unlocked;
-        session = { looper: true, bpm: request.bpm, target: { ...request.target }, soloId: null };
+        session = { bpm: request.bpm, target: { ...request.target }, soloId: null };
         const entries: [string, Membership][] = [];
         for (const memberRequest of request.members) {
           const prepared = await prepare(memberRequest.instrument);
@@ -856,8 +775,8 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
 
     /**
      * Join a member (or replace one with the same id). A cold instrument
-     * loads first while the others keep playing; a bank refused for budget
-     * throws PatternLoadError with `budget` set and nothing joins.
+     * loads first while the others keep playing; a bank refused for sample
+     * memory throws PatternLoadError with `budget` set and nothing joins.
      */
     async join(request: LooperMemberRequest, boundary: TransportBoundary = "immediate"): Promise<TransportReceipt> {
       requireSession();
@@ -883,7 +802,7 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
         }
       };
       // Still ours, in a live Looper: not left, replaced or stopped while loading.
-      const ours = () => playing && Boolean(session?.looper) && memberships.get(request.id) === entry;
+      const ours = () => playing && Boolean(session) && memberships.get(request.id) === entry;
       let prepared!: Awaited<ReturnType<typeof prepare>>;
       let restart = false;
       // A rebuild (or another join restarting the run) while the bank loads is
@@ -1064,7 +983,7 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
     /** The Looper as the transport plays it, for UI and tests. */
     getLooper() {
       return {
-        running: playing && Boolean(session?.looper) && !recovery,
+        running: playing && Boolean(session) && !recovery,
         recovering: Boolean(recovery),
         bpm: session?.bpm ?? null,
         target: session?.target ? { ...session.target } : null,

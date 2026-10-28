@@ -143,6 +143,7 @@ From the player's side:
    - The stance, the moats and the origin story are written into the design bible and the repository router (S138).
    - **Cost:** learners who want structured practice get none for now.
 3. **Superseded on 2026-10-09: move off Strudel and superdough to the worklet engine** (Burooj: "let's do it and move away from strudel/superdough").
+   - **Status:** done. BJS-495 removed the Strudel and superdough packages, their patches and the main-thread rhythm engine; "Open in Strudel" remains as a URL.
    - **What changes:**
      - The worklet engine becomes the only engine: one scheduler on the audio clock, its own filter, reverb and delay, square and saw, and its own loader for the same sample and soundfont data.
      - #140's transport semantics and test results become the acceptance tests for the worklet transport.

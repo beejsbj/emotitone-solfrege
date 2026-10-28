@@ -28,7 +28,7 @@ const rig = vi.hoisted(() => ({
   listeners: new Set<{ onTransport?(response: TransportResponse): void; onRendererReset?(): void }>(),
   gates: new Map<string, Promise<void>>(),
   prepared: [] as string[],
-  /** Banks the worklet refuses (every instrument slot held). */
+  /** Banks the worklet refuses (the sample memory is held full by playing loops and keys). */
   refused: new Set<string>(),
   commands: [] as TransportCommand[],
   context: undefined as unknown as Record<string, unknown>,
@@ -65,7 +65,7 @@ vi.mock("@/services/livePlayback", () => ({
     };
   },
   getLivePlaybackFailure: (instrumentId: string) => rig.refused.has(instrumentId)
-    ? { kind: "fallback", reason: "budget", budget: true } : undefined,
+    ? { kind: "unavailable", reason: "budget", budget: true } : undefined,
   needsLivePlaybackPreparation: () => false,
   getLivePlayback: () => undefined,
   waitForLivePlayback: () => undefined,
@@ -79,6 +79,7 @@ vi.mock("@/services/livePlayback", () => ({
 vi.mock("@/services/audioRuntime", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/services/audioRuntime")>(),
   getAudioContext: () => rig.context,
+  getMasterGain: () => ({}),
 }));
 vi.unmock("@/services/audioLifecycle");
 // The mic opens without hardware: the capture records nothing until stopped.
@@ -87,7 +88,11 @@ vi.mock("@/services/microphoneCapture", () => ({
 }));
 
 import { LiveAudioCore } from "@/audio/live/core";
-import { createPatternPlayer, setProductionPatternPlayer, type PatternPlayer } from "@/services/patternTransport";
+import {
+  createPatternPlayer, getProductionPatternPlayer, setProductionPatternPlayer, type PatternPlayer,
+} from "@/services/patternTransport";
+import { useCodeStripStrudel } from "@/composables/useCodeStripStrudel";
+import CodeStrip from "@/components/uniques/CodeStrip/index.vue";
 import { audioTimeToOutputTime } from "@/services/liveAudioTiming";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import { UIBeatClock, uiBeatClock } from "@/composables/useUIBeat";
@@ -860,6 +865,76 @@ describe("Play is the loop on the worklet transport", () => {
     });
   });
 
+  describe("nothing outside the looper store stops a running Looper (BJS-569)", () => {
+    it("the Code Strip, its shared code, warmup and tempo, key and label changes leave it playing; only the store stops it", async () => {
+      // As in the app: the real Code Strip creates the single pattern player,
+      // and the looper store drives it.
+      setActivePinia(createTestPinia());
+      useVisualConfigStore().updateConfig("codeStrip", { bpm: 120 });
+      const phrases = usePhrasesStore();
+      const strip = mount(CodeStrip, { attachTo: document.body });
+      try {
+        await flush();
+        player = getProductionPatternPlayer()!;
+        expect(player).toBeDefined();
+        const looper = useLooperStore();
+        playTake(.5);
+        const take = phrases.take.id;
+        render(2);
+        looper.togglePlay();
+        await flush();
+        await looper.settled();
+        expect(player.getLooper().running).toBe(true);
+        const stops = () => rig.commands.filter((command) => command.type === "transport-stop").length;
+
+        // The strip's shared surface carries its code and nothing that plays.
+        const code = useCodeStripStrudel();
+        expect(Object.keys(code).sort()).toEqual(["clearCode", "currentCode", "hasPlayableCode", "syncCode"]);
+        code.syncCode("// edited");
+        code.clearCode();
+        // The player offers the strip no single-pattern Play to reach around the store.
+        expect("play" in player).toBe(false);
+        expect("update" in player).toBe(false);
+
+        // A sound warming up: the strip used to stop its own Play on this.
+        useInstrumentStore().warmingInstrument = "piano";
+        await flush();
+        render(.5);
+        useInstrumentStore().warmingInstrument = null;
+        // Tempo, key and the la-based convention: the strip used to replay its take on these.
+        useVisualConfigStore().updateConfig("codeStrip", { bpm: 100 });
+        useMusicStore().setKey("D");
+        useVisualConfigStore().laBasedMinor = true;
+        await flush();
+        render(1);
+
+        expect(stops()).toBe(0);
+        expect(player.getLooper().running).toBe(true);
+        const before = attacksOf(take).length;
+        render(3);
+        expect(attacksOf(take).length).toBeGreaterThan(before);
+
+        // Only the looper store stops it.
+        looper.togglePlay();
+        await flush();
+        expect(player.getLooper().running).toBe(false);
+        expect(stops()).toBe(1);
+      } finally {
+        strip.unmount();
+      }
+    });
+
+    it("only the looper store reaches the app's pattern player (the Code Strip only creates and releases it)", () => {
+      const sources = import.meta.glob(["/src/**/*.{ts,vue}", "!/src/__tests__/**", "!/src/**/*.test.ts"],
+        { query: "?raw", import: "default", eager: true }) as Record<string, string>;
+      const readers = Object.entries(sources)
+        .filter(([path, source]) => path !== "/src/services/patternTransport.ts"
+          && /\b(getProductionPatternPlayer|onProductionPatternPlayer)\b/.test(source))
+        .map(([path]) => path);
+      expect(readers).toEqual(["/src/stores/looper.ts"]);
+    });
+  });
+
   describe("from the Play key in the deck (DOM pointer events, real store, real transport)", () => {
     const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -1479,37 +1554,82 @@ describe("Play is the loop on the worklet transport", () => {
         }
       });
 
-      it("hands off to the beat dots: the ring rests while they drain the closing bar, and sweeps again after", async () => {
+      it("is the bar clock while latched: notes, the closing countdown, the take's growth and its close never stop, dim or reset it (BJS-582)", async () => {
         const { phrases, looper } = setup({ uiBeat: uiBeatClock });
         const deck = mountDeck();
         try {
           await press(play(deck).element, 520);
           await looper.settled();
-          live("C4", 0, rig.frame + 4000, rig.frame + 5600);
-          await flush();
+          await hear(.1);
+          const element = deck.get(".latch-ring__ring").element;
+          const samples: { bar: number; state: string | undefined; phase: number; countdown: string | undefined }[] = [];
+          /** One frame: the heard bar, the latch's poll, and what the ring shows. */
+          const frame = async () => {
+            paint();
+            looper.checkLatch();
+            await flush();
+            expect(deck.get(".latch-ring__ring").element).toBe(element);
+            samples.push({ bar: player.heardBar()!, state: ring(deck).attributes("data-latch-ring"),
+              phase: sweepOf(deck) / 360, countdown: dots(deck).attributes("data-beat-countdown") });
+          };
+          /** Let frames pass until the heard bar reaches `bar`. */
+          const until = async (bar: number) => {
+            while (player.heardBar()! < bar) { render(QUANTUM * 4 / RATE); await frame(); }
+          };
+          const bar0 = rig.frame;
+          const at = (bars: number) => bar0 + Math.round(bars * FRAMES_PER_BAR);
+          // A phrase with gaps: notes refill the dots, silences drain them, the
+          // take grows and rejoins note by note, and a bar of silence closes it.
+          const takes = new Set<string>();
+          for (const [name, index, from, length] of [["C4", 0, .3, .1], ["E4", 2, .9, .15], ["G4", 4, 1.2, .1],
+            ["A4", 5, 1.85, .2], ["C5", 0, 3.4, .1], ["D4", 1, 3.7, .1]] as const) {
+            await until(from - .05);
+            live(name, index, at(from), at(from + length));
+            await frame();
+            takes.add(phrases.take.id);
+            await until(from + length + .3);
+          }
+          await until(5.5);
+
+          // The scenario really drained the dots, grew a take and closed it.
+          expect(samples.some((sample) => Number(sample.countdown) < 4)).toBe(true);
+          expect(samples.some((sample) => sample.countdown === "4")).toBe(true);
+          expect(takes.size).toBeGreaterThan(1);
+          expect(attacks.some((attack) => attack.phraseId === [...takes][0])).toBe(true);
+          // The ring swept through all of it, on the heard bar.
+          expect(samples.filter((sample) => sample.state !== "sweep")).toEqual([]);
+          for (const sample of samples) expectSamePhase(1, sample.phase, sample.bar, 2);
+          // Within a bar its phase only grows; it empties only where a bar line passed.
+          for (let index = 1; index < samples.length; index++) {
+            const [before, after] = [samples[index - 1], samples[index]];
+            if (Math.floor(after.bar) === Math.floor(before.bar)) expect(after.phase).toBeGreaterThanOrEqual(before.phase);
+            else expect(after.phase).toBeLessThan(before.phase);
+          }
+          expect(new Set(samples.map((sample) => Math.floor(sample.bar))).size).toBeGreaterThanOrEqual(5);
+        } finally {
+          deck.unmount();
+        }
+      });
+
+      it("rests only while the AudioContext is suspended, and comes back at the heard bar's phase", async () => {
+        const { looper } = setup({ uiBeat: uiBeatClock });
+        const deck = mountDeck();
+        try {
+          await press(play(deck).element, 520);
           await looper.settled();
-          const open = phrases.take.id;
-          await hear(.05);
-          looper.checkLatch();
-          await flush();
-          // The take is open and the bar's first beat has not passed: the dots are full, the ring sweeps.
-          expect(dots(deck).attributes("data-beat-countdown")).toBe("4");
+          await hear(.6);
           expect(ring(deck).attributes("data-latch-ring")).toBe("sweep");
-          const from = player.heardBar()!;
-          while (player.heardBar()! < from + .4) render(QUANTUM / RATE);
+          const element = deck.get(".latch-ring__ring").element;
+          rig.context.state = "suspended";
           paint();
-          looper.checkLatch();
           await flush();
-          expect(Number(dots(deck).attributes("data-beat-countdown"))).toBeLessThan(4);
-          // One signal at a time: the dots count, the ring rests (no sweep).
           expect(ring(deck).attributes("data-latch-ring")).toBe("rest");
-          while (player.heardBar()! < from + 1.05) render(QUANTUM / RATE);
-          looper.checkLatch();
-          paint();
-          await flush();
-          expect(phrases.take.id).not.toBe(open);
-          expect(dots(deck).attributes("data-beat-countdown")).toBeUndefined();
+          expect(deck.get(".latch-ring__ring").element).toBe(element);
+          rig.context.state = "running";
+          await hear(.3);
           expect(ring(deck).attributes("data-latch-ring")).toBe("sweep");
+          expect(deck.get(".latch-ring__ring").element).toBe(element);
+          expect(sweepOf(deck) / 360).toBeCloseTo(mod(player.heardBar()!, 1), 2);
         } finally {
           deck.unmount();
         }
@@ -1654,10 +1774,10 @@ describe("Play is the loop on the worklet transport", () => {
     it("the instrument drawer re-initialising, or a hung sound fetch, never disables Play", async () => {
       const { looper } = setup();
       const instrument = useInstrumentStore();
-      const superdough = await import("@/services/superdoughAudio");
+      const engine = await import("@/services/audioEngine");
       // A preferred sound that is not ready, whose download never finishes.
-      vi.mocked(superdough.isPrewarmed).mockReturnValue(false);
-      vi.mocked(superdough.prewarmSoundSamples).mockReturnValue(new Promise<void>(() => {}));
+      vi.mocked(engine.isPrewarmed).mockReturnValue(false);
+      vi.mocked(engine.prewarmSoundSamples).mockReturnValue(new Promise<void>(() => {}));
       instrument.currentInstrument = "gm_piano";
       try {
         void instrument.initializeInstruments();
@@ -1670,8 +1790,8 @@ describe("Play is the loop on the worklet transport", () => {
         await flush();
         expect(looper.engineReady).toBe(true);
       } finally {
-        vi.mocked(superdough.isPrewarmed).mockReturnValue(true);
-        vi.mocked(superdough.prewarmSoundSamples).mockResolvedValue(undefined);
+        vi.mocked(engine.isPrewarmed).mockReturnValue(true);
+        vi.mocked(engine.prewarmSoundSamples).mockResolvedValue(undefined);
       }
     });
 
@@ -1712,7 +1832,7 @@ describe("Play is the loop on the worklet transport", () => {
         await looper.settled();
         await flush();
         const notice = deck.get('[data-testid="looper-error"]');
-        expect(notice.get("[role=alert]").text()).toBe("Stop a loop to add Sawtooth.");
+        expect(notice.get("[role=alert]").text()).toBe("Not enough memory for Sawtooth.");
         // An Edge Notice: a lit Brass lamp and the line, with no key of its own.
         expect(notice.find(".edge-notice__lamp").exists()).toBe(true);
         expect(notice.find("button").exists()).toBe(false);

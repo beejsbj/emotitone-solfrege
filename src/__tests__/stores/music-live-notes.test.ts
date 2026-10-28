@@ -1,17 +1,25 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { disposePinia, setActivePinia, type Pinia } from "pinia";
 import { useMusicStore } from "@/stores/music";
-import * as superdoughAudio from "@/services/superdoughAudio";
 import { createTestPinia } from "../helpers/test-utils";
+import { attachLiveCore, type LiveSeat } from "../helpers/liveCore";
 
+const seat = vi.hoisted(() => ({ renderer: null, listeners: new Set() }) as LiveSeat);
+vi.mock("@/services/livePlayback", async () => (await import("../helpers/liveCore")).livePlaybackOn(seat));
+
+/** Live note state follows the worklet's own voices (the only renderer). */
 describe("Music Store live note semantics", () => {
   let pinia: Pinia;
+  let live: ReturnType<typeof attachLiveCore>;
+  const dispatched = () => vi.mocked(window.dispatchEvent).mock.calls.map(([event]) => event as CustomEvent);
 
   beforeEach(() => {
     pinia = createTestPinia();
     setActivePinia(pinia);
     vi.clearAllMocks();
     vi.spyOn(window, "dispatchEvent");
+    seat.listeners.clear();
+    live = attachLiveCore(seat);
   });
 
   afterEach(() => {
@@ -19,57 +27,48 @@ describe("Music Store live note semantics", () => {
     vi.restoreAllMocks();
   });
 
-  it("keeps symbolic note state while delegating attack to the audio service", async () => {
+  it("keeps symbolic note state for the voice the worklet starts", async () => {
     const musicStore = useMusicStore();
 
-    const noteId = await musicStore.attackNote(0);
+    const owner = await musicStore.attackNote(0);
+    live.render(20);
 
-    expect(noteId).toMatch(/^C4_0_4_\d+_[a-z0-9]{6}$/);
+    expect(owner).toMatch(/^held_/);
+    expect(live.core.voiceCount).toBe(1);
     expect(musicStore.activeNotes.size).toBe(1);
     expect(musicStore.isPlaying).toBe(true);
-    expect(vi.mocked(superdoughAudio.attackNote)).toHaveBeenCalledWith(
-      noteId,
-      "C4",
-      expect.any(String),
-    );
-    expect(window.dispatchEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: "note-played",
-        detail: expect.objectContaining({
-          noteId,
-          noteName: "C4",
-        }),
-      }),
-    );
+    const played = dispatched().find((event) => event.type === "note-played")!;
+    expect(played.detail).toMatchObject({ noteName: "C4", source: "live-play-style" });
+    expect(musicStore.isNoteActive(played.detail.noteId)).toBe(true);
   });
 
-  it("starts release immediately in app state while delegating audio release by note id", async () => {
+  it("releases by input owner: the worklet ends the voice and the store follows", async () => {
     const musicStore = useMusicStore();
-    const noteId = await musicStore.attackNote(0);
+    const owner = await musicStore.attackNote(0);
+    live.render(20);
 
-    await musicStore.releaseNote(noteId!);
+    await musicStore.releaseNote(owner!);
+    live.render(20);
 
+    expect(live.core.voiceCount).toBe(0);
     expect(musicStore.activeNotes.size).toBe(0);
     expect(musicStore.isPlaying).toBe(false);
-    expect(vi.mocked(superdoughAudio.releaseNote)).toHaveBeenCalledWith(noteId);
-
-    const dispatchedTypes = vi
-      .mocked(window.dispatchEvent)
-      .mock.calls
-      .map(([event]) => (event as Event).type);
-    expect(dispatchedTypes).toContain("note-played");
-    expect(dispatchedTypes).toContain("note-released");
-    expect(dispatchedTypes.indexOf("note-played")).toBeLessThan(dispatchedTypes.indexOf("note-released"));
+    const types = dispatched().map((event) => event.type);
+    expect(types.indexOf("note-played")).toBeGreaterThanOrEqual(0);
+    expect(types.indexOf("note-played")).toBeLessThan(types.indexOf("note-released"));
   });
 
-  it("releases all active live notes through the shared audio service", async () => {
+  it("releases every live input together", async () => {
     const musicStore = useMusicStore();
 
     await musicStore.attackNote(0);
     await musicStore.attackNote(2);
-    musicStore.releaseAllNotes();
+    live.render(20);
+    expect(musicStore.activeNotes.size).toBe(2);
+    await musicStore.releaseAllNotes();
+    live.render(20);
 
+    expect(live.core.voiceCount).toBe(0);
     expect(musicStore.activeNotes.size).toBe(0);
-    expect(vi.mocked(superdoughAudio.releaseAll)).toHaveBeenCalledTimes(1);
   });
 });

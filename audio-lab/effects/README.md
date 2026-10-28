@@ -1,16 +1,12 @@
 # BJS-486 effect references
 
-The first commit freezes the installed superdough 1.3.0 effects before changing
+The first commit froze the installed superdough 1.3.0 effects before changing
 production audio. `fixtures/reference.json` holds little-endian float32 PCM as
-base64, the checkout revision, Chrome version and dependency hashes.
+base64, the checkout revision, Chrome version and dependency hashes. Superdough
+left the app in BJS-495, so the references can no longer be regenerated; they
+are kept as the contract the engine checks below are held to.
 
-Regenerate deliberately (requires `/usr/bin/google-chrome`, or `CHROME_BIN`):
-
-```sh
-REGENERATE_EFFECT_GOLDENS=1 bun run test:run audio-lab/reference/effectGoldens.test.ts
-```
-
-The capture uses superdough's real `createFilter` and orbit effect nodes in
+The capture used superdough's real `createFilter` and orbit effect nodes in
 OfflineAudioContext, with no network sample downloads. Filter impulses cover
 200/1,000/5,000 Hz, native Q=1 (Shape resonance zero) and Q=10 at 44.1/48 kHz.
 Filter sources remain active with zero padding so native tail-pruning does not
@@ -47,13 +43,13 @@ browser/server. Its measured receipt goes to `/tmp/emotitone-effects-metrics.jso
 - Room: a seeded new IR against the frozen unseeded native IR, compared in
   100 ms energy windows and four broad spectral envelopes (250/1k/4k/12k Hz).
   The recipe retains the 2 s decay, 3 s buffer, 100 ms fade and 15k→1k sweep.
-- Graph: superdough borrows the app context, master and orbit; preparation
-  issues no resume. The existing lifecycle resume gate waits for effect-node
+- Graph: one app context, master and live orbit survive initialization;
+  preparation issues no resume. The lifecycle resume gate waits for effect-node
   rebuilds after a changed sample rate. Inputs/master remain connected.
 - Live notes follow knob edits over 15 ms. Playback notes can carry a Shape
   snapshot; their per-voice filtering and sends are independent of live edits.
-  Current Strudel playback continues using native per-note filters and borrows
-  the new app-owned buses, pending BJS-485.
+  (Strudel playback, which used native per-note filters on these buses, was
+  removed in BJS-495.)
 
 ## Allocation boundary
 

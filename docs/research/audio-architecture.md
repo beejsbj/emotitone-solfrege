@@ -1,5 +1,9 @@
 # Playback architecture and implementation plan
 
+> **Record.** Strudel and superdough left the app in BJS-495; the worklet is
+> the only renderer. Statements below about them describe the app when this
+> was written.
+
 Production shares audio ownership and instrument preparation while keeping pattern sequencing separate from live input. The worklet is the sole prepared live renderer; Superdough renders Strudel patterns and unsupported live instruments. The native alternative remains in the audio lab for reproducible comparison. See [the stack decision](audio-stack-decision.md) for the final renderer disposition and later validation.
 
 ## Responsibilities
@@ -23,7 +27,7 @@ flowchart TD
 - `livePerformance` owns prepared live input, event plans and owner lifetimes. The music store supplies musical metadata and consumes recording, MIDI and visual events. Unsupported sounds retain the existing fallback.
 - `liveRenderer` defines synchronous press/release/configure controls and timestamped lifecycle callbacks. Preparation happens before input is enabled, never inside a note press.
 - Shared instrument descriptions resolve tuning, zone selection, loops, articulation and original decoded AudioBuffers. Native sources borrow those buffers; the worklet builder supplies channel views and its resampling pyramid, cloned into the audio thread.
-- `livePlayback` owns the worklet, deduplicates preparation and bounds installed/pending bank retention (four banks / 192 MiB). A separate 192 MiB reservation covers cached/building preparation. Held banks are pinned; retirement remains charged until acknowledged. Diagnostics distinguish original PCM from additional renderer PCM; these are not total-process memory bounds.
+- `livePlayback` owns the worklet, deduplicates preparation and bounds installed/pending bank retention by memory alone (192 MiB of PCM, no count of instruments; oscillator instruments hold no PCM and take none of it). A separate 192 MiB reservation covers cached/building preparation, so the worst case while one more bank is prepared is 384 MiB of owned PCM. The 192 MiB is set from the Android phone-gate run (150.7 MiB resident); iOS Safari is unmeasured. Held banks are pinned, and a bank the pinned banks leave no room for is refused before anything else is evicted; retirement remains charged until acknowledged. Diagnostics distinguish original PCM from additional renderer PCM; these are not total-process memory bounds.
 
 ## Original migration plan
 

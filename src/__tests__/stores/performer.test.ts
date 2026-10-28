@@ -2,25 +2,13 @@ import { mount, type VueWrapper } from "@vue/test-utils";
 import { createPinia, disposePinia, setActivePinia, type Pinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, ref } from "vue";
-import { LiveAudioCore } from "@/audio/live/core";
-import type { LiveRenderer, LiveRendererCallbacks } from "@/audio/liveRenderer";
+import { attachLiveCore, type LiveSeat } from "../helpers/liveCore";
 
 vi.unmock("@/services/music");
 vi.unmock("@/data");
 vi.unmock("@/composables/useVisualConfig");
-const playback = vi.hoisted(() => ({
-  renderer: null as LiveRenderer | null,
-  listener: undefined as LiveRendererCallbacks | undefined,
-}));
-vi.mock("@/services/livePlayback", () => ({
-  getLivePlayback: () => playback.renderer,
-  waitForLivePlayback: () => undefined,
-  subscribeLivePlayback: (listener: LiveRendererCallbacks) => {
-    playback.listener = listener;
-    return () => { playback.listener = undefined; };
-  },
-  needsLivePlaybackPreparation: () => false,
-}));
+const seat = vi.hoisted(() => ({ renderer: null, listeners: new Set() }) as LiveSeat);
+vi.mock("@/services/livePlayback", async () => (await import("../helpers/liveCore")).livePlaybackOn(seat));
 
 import { KeyboardPerformanceHost } from "@/__tests__/helpers/keyboardPerformanceHost";
 import { noteColorResolverKey, staticNoteColorResolver } from "@/components/primatives/noteColorContext";
@@ -35,13 +23,13 @@ import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import type { PerformerIntent } from "@/services/performer";
-import * as audio from "@/services/superdoughAudio";
+import { getAudioContext } from "@/services/audioRuntime";
+import { prewarmSoundSamples } from "@/services/audioEngine";
 
 /*
  * W3 acceptance at the performer seam. The stores, the performer, the
- * adapters and DOM events are real. Audio below the music store is either the
- * superdough boundary the suite already stubs (fallback path) or the real
- * worklet core rendered offline (live path). MIDI ports are fakes.
+ * adapters and DOM events are real, and so is the worklet core below the
+ * music store, rendered offline. MIDI ports are fakes.
  */
 
 const EPOCH = 1_800_000_000_000;
@@ -59,7 +47,14 @@ let inputs: FakeInput[];
 let access: { inputs: Map<string, FakeInput>; outputs: Map<string, unknown>; onstatechange: ((event: unknown) => void) | null };
 let roliSend: ReturnType<typeof vi.fn>;
 
-const settle = () => vi.advanceTimersByTimeAsync(0);
+let live: ReturnType<typeof attachLiveCore>;
+let context: AudioContext;
+/** Let input settle, then render the core so its attack and release events arrive. */
+const settle = async () => {
+  await vi.advanceTimersByTimeAsync(0);
+  live.render(20);
+  await vi.advanceTimersByTimeAsync(0);
+};
 type KeyInit = NonNullable<ConstructorParameters<typeof KeyboardEvent>[1]>;
 const key = (type: "keydown" | "keyup", code: string, init: KeyInit = {}) =>
   window.dispatchEvent(new KeyboardEvent(type, { code, key: code, cancelable: true, ...init }));
@@ -67,7 +62,9 @@ const midi = (input: FakeInput, status: number, pitch: number, velocity = 100) =
   input.onmidimessage!({ data: new Uint8Array([status, pitch, velocity]) });
 const events = (type: string) => vi.mocked(window.dispatchEvent).mock.calls
   .map(([event]) => event as CustomEvent).filter((event) => event.type === type).map((event) => event.detail);
-const attackedIds = () => vi.mocked(audio.attackNote).mock.calls.map(([noteId]) => noteId as string);
+/** Every voice the core started, in order, and every one it ended. */
+const attackedIds = () => events("note-played").map((detail) => detail.noteId as string);
+const releasedIds = () => events("note-released").map((detail) => detail.noteId as string);
 const touches = () => Array.from(useKeyboardDrawerStore().touch.activeTouches.keys()).sort();
 /**
  * What the ROLI shows for a pitch now: replay its delivered queue. `clear()`
@@ -88,11 +85,21 @@ const midiNotes = (status: number) => roliSend.mock.calls
   .map(([message]) => message as number[])
   .filter(([messageStatus, pitch]) => (messageStatus & 0xf0) === status && pitch === 60);
 
-/** The next superdough attack waits until the returned function is called. */
-function deferNextAttack() {
-  let resolve!: () => void;
-  vi.mocked(audio.attackNote).mockImplementationOnce(() => new Promise<void>((done) => { resolve = done; }));
-  return () => resolve();
+/**
+ * The audio context sleeps, so the next press waits for it to wake before it
+ * reaches the worklet. Returns the wake.
+ */
+function sleepAudio() {
+  let wake!: () => void;
+  Object.assign(context, { state: "suspended" });
+  context.resume = vi.fn(() => new Promise<void>((resolve) => {
+    wake = () => {
+      Object.assign(context, { state: "running" });
+      context.dispatchEvent(new Event("statechange"));
+      resolve();
+    };
+  }));
+  return () => wake();
 }
 
 function mountHost(setup: () => void) {
@@ -116,49 +123,17 @@ function addInput(id: string, name: string) {
   return input;
 }
 
-/** A renderer over the real worklet core, as the live path drives it. */
-function liveCore() {
-  const sampleRate = 1000;
-  let frame = 0;
-  const core = new LiveAudioCore(sampleRate, (response) => {
-    if (response.type === "event") playback.listener?.onEvent(response.event);
-    else if (response.type === "plan") playback.listener?.onPlan?.(response.events);
-    else if (response.type === "expression-owner") playback.listener?.onExpressionOwner?.(response);
-    else if (response.type === "owner-ended") playback.listener?.onOwnerEnded?.(response.ownerId);
-  });
-  core.command({ type: "prepare", requestId: 1, instrument: {
-    kind: "oscillator", waveform: "sine", instrumentId: "piano", gain: 1, attack: 0, decay: 0, sustain: 1, release: 0,
-  } }, frame);
-  playback.renderer = {
-    press: (ownerId, notes) => core.command({ type: "press", ownerId, notes }, frame),
-    release: (ownerId) => core.command({ type: "release", ownerId }, frame),
-    setPitchBend: (ownerId, cents) => core.command({ type: "pitch-bend", ownerId, cents }, frame),
-    configure: (config) => core.command({ type: "configure", config }, frame),
-    clear: () => core.command({ type: "clear" }, frame),
-    dispose: () => {}, forget: async () => {},
-  };
-  return {
-    core,
-    render(length: number) {
-      const output = [new Float32Array(length), new Float32Array(length)];
-      core.render(output, frame);
-      frame += length;
-      return output[0];
-    },
-  };
-}
-
 beforeEach(() => {
   vi.clearAllMocks();
   vi.useFakeTimers();
   vi.setSystemTime(EPOCH);
   vi.spyOn(performance, "now").mockImplementation(() => Date.now() - EPOCH);
   vi.spyOn(window, "dispatchEvent");
-  vi.mocked(audio.attackNote).mockResolvedValue(undefined);
-  vi.mocked(audio.getAudioContext).mockImplementation(() => ({
-    state: "running", currentTime: performance.now() / 1000,
-  } as AudioContext));
-  playback.renderer = null;
+  context = Object.assign(new EventTarget(), { state: "running", resume: vi.fn(async () => {}) }) as unknown as AudioContext;
+  Object.defineProperty(context, "currentTime", { configurable: true, get: () => performance.now() / 1000 });
+  vi.mocked(getAudioContext).mockReturnValue(context);
+  seat.listeners.clear();
+  live = attachLiveCore(seat, { instruments: ["piano", "sine"] });
   inputs = [];
   roliQueue = [];
   roliSend = vi.fn((message: number[], timestamp?: number) => {
@@ -194,18 +169,18 @@ afterEach(() => {
 });
 
 describe("one performer: #35's held-note behaviour list", () => {
-  it("releases a note whose attack completes after its key-up, without ever publishing it", async () => {
+  it("drops a note whose key lifts while the audio wakes, without ever sounding or publishing it", async () => {
     mountQwerty();
-    const finishAttack = deferNextAttack();
+    const wake = sleepAudio();
     key("keydown", "KeyA");
     await settle();
     expect(touches()).toEqual(["keyboard:KeyA"]);
     key("keyup", "KeyA");
     expect(touches()).toEqual([]);
 
-    finishAttack();
+    wake();
     await settle();
-    expect(audio.stopNote).toHaveBeenCalledExactlyOnceWith(attackedIds()[0]);
+    expect(live.core.voiceCount).toBe(0);
     expect(events("note-played")).toEqual([]);
     expect(useMusicStore().activeNotes.size).toBe(0);
     expect(usePerformerStore().owners()).toEqual([]);
@@ -214,65 +189,60 @@ describe("one performer: #35's held-note behaviour list", () => {
   it.each([
     ["window blur", () => window.dispatchEvent(new Event("blur"))],
     ["page hide", () => window.dispatchEvent(new Event("pagehide"))],
-  ])("%s while an attack is pending cancels it and clears its key", async (_name, leave) => {
+  ])("%s while the audio wakes cancels the press and clears its key", async (_name, leave) => {
     mountQwerty();
-    const finishAttack = deferNextAttack();
+    const wake = sleepAudio();
     key("keydown", "KeyA");
     await settle();
     leave();
     expect(touches()).toEqual([]);
-    finishAttack();
+    wake();
     await settle();
-    expect(audio.stopNote).toHaveBeenCalledExactlyOnceWith(attackedIds()[0]);
+    expect(live.core.voiceCount).toBe(0);
     expect(events("note-played")).toEqual([]);
     expect(useMusicStore().activeNotes.size).toBe(0);
   });
 
-  it("MIDI teardown while an attack is pending neither publishes nor strands the note", async () => {
+  it("MIDI teardown while the audio wakes neither publishes nor strands the note", async () => {
     const keys = addInput("keys", "MIDI keyboard");
     const host = await mountMidi();
-    const finishAttack = deferNextAttack();
+    const wake = sleepAudio();
     midi(keys, 0x90, 60);
     await settle();
     expect(touches()).toEqual(["midi:keys:1:60"]);
 
     host.unmount();
     hosts.splice(hosts.indexOf(host), 1);
-    finishAttack();
+    wake();
     await settle();
-    expect(audio.stopNote).toHaveBeenCalledExactlyOnceWith(attackedIds()[0]);
+    expect(live.core.voiceCount).toBe(0);
     expect(events("note-played")).toEqual([]);
     expect(useMusicStore().activeNotes.size).toBe(0);
     expect(touches()).toEqual([]);
   });
 
-  it.each(["stale first", "current first"] as const)(
-    "keeps a rapid re-press current when the attacks complete %s",
-    async (order) => {
-      mountQwerty();
-      const finishStale = deferNextAttack();
-      key("keydown", "KeyA");
-      await settle();
-      key("keyup", "KeyA");
-      const finishCurrent = deferNextAttack();
-      key("keydown", "KeyA");
-      await settle();
-      const [staleId, currentId] = attackedIds();
+  it("keeps a rapid re-press current when both presses wait for the same wake", async () => {
+    mountQwerty();
+    const wake = sleepAudio();
+    key("keydown", "KeyA");
+    await settle();
+    key("keyup", "KeyA");
+    key("keydown", "KeyA");
+    await settle();
+    wake();
+    await settle();
 
-      if (order === "stale first") finishStale(); else finishCurrent();
-      await settle();
-      if (order === "stale first") finishCurrent(); else finishStale();
-      await settle();
-
-      expect(audio.stopNote).toHaveBeenCalledExactlyOnceWith(staleId);
-      expect(useMusicStore().getActiveNotes().map((note) => note.noteId)).toEqual([currentId]);
-      expect(touches()).toEqual(["keyboard:KeyA"]);
-      key("keyup", "KeyA");
-      expect(audio.releaseNote).toHaveBeenCalledExactlyOnceWith(currentId);
-      expect(useMusicStore().activeNotes.size).toBe(0);
-      expect(touches()).toEqual([]);
-    },
-  );
+    // Only the current press sounds; the stale one never reaches the core.
+    const [currentId] = attackedIds();
+    expect(attackedIds()).toEqual([currentId]);
+    expect(useMusicStore().getActiveNotes().map((note) => note.noteId)).toEqual([currentId]);
+    expect(touches()).toEqual(["keyboard:KeyA"]);
+    key("keyup", "KeyA");
+    await settle();
+    expect(releasedIds()).toEqual([currentId]);
+    expect(useMusicStore().activeNotes.size).toBe(0);
+    expect(touches()).toEqual([]);
+  });
 
   it("keeps same-pitch owners from QWERTY and two MIDI channels independent", async () => {
     mountQwerty();
@@ -287,42 +257,21 @@ describe("one performer: #35's held-note behaviour list", () => {
     expect(useMusicStore().getActiveNoteNames()).toEqual(["C4", "C4", "C4"]);
 
     key("keyup", "KeyA");
-    expect(audio.releaseNote).toHaveBeenCalledExactlyOnceWith(qwertyId);
+    await settle();
+    expect(releasedIds()).toEqual([qwertyId]);
     midi(keys, 0x80, 60);
-    expect(audio.releaseNote).toHaveBeenLastCalledWith(firstChannelId);
+    await settle();
+    expect(releasedIds()).toEqual([qwertyId, firstChannelId]);
     expect(useMusicStore().getActiveNotes().map((note) => note.noteId)).toEqual([secondChannelId]);
     // The lit key stays lit while any owner still holds it.
     expect(useKeyboardDrawerStore().isKeyPressed("0_4")).toBe(true);
     midi(keys, 0x81, 60);
     expect(useKeyboardDrawerStore().isKeyPressed("0_4")).toBe(false);
+    await settle();
     expect(useMusicStore().activeNotes.size).toBe(0);
   });
 
   it("does not echo an ordinary ROLI press back to the ROLI, but mirrors other controllers", async () => {
-    const roli = addInput("roli-in", "LUMI Keys");
-    const keys = addInput("keys", "MIDI keyboard");
-    await mountMidi();
-    roliSend.mockClear();
-
-    midi(roli, 0x90, 60);
-    await settle();
-    expect(useMusicStore().getActiveNoteNames()).toEqual(["C4"]);
-    midi(roli, 0x80, 60);
-    await settle();
-    expect(midiNotes(0x90)).toEqual([]);
-    expect(midiNotes(0x80)).toEqual([]);
-
-    // Not vacuous: the same pitch from a controller without its own lights mirrors.
-    midi(keys, 0x90, 60);
-    await settle();
-    midi(keys, 0x80, 60);
-    await settle();
-    expect(midiNotes(0x90)).toHaveLength(1);
-    expect(midiNotes(0x80)).toHaveLength(1);
-  });
-
-  it("does not echo an ordinary ROLI press on the live worklet path either", async () => {
-    const live = liveCore();
     const roli = addInput("roli-in", "LUMI Keys");
     const keys = addInput("keys", "MIDI keyboard");
     await mountMidi();
@@ -345,7 +294,6 @@ describe("one performer: #35's held-note behaviour list", () => {
     midi(keys, 0x80, 60);
     await settle();
     live.render(100);
-    expect(audio.attackNote).not.toHaveBeenCalled();
   });
 });
 
@@ -374,9 +322,9 @@ describe("one performer: W3 releases and ownership", () => {
 
     window.dispatchEvent(new Event("blur"));
     expect(touches()).toEqual([]);
+    await settle();
     expect(useMusicStore().activeNotes.size).toBe(0);
-    expect(vi.mocked(audio.releaseNote).mock.calls.map(([noteId]) => noteId).sort())
-      .toEqual([...attackedIds()].sort());
+    expect(releasedIds().sort()).toEqual([...attackedIds()].sort());
   });
 
   it("a hidden page releases every owner", async () => {
@@ -389,6 +337,7 @@ describe("one performer: W3 releases and ownership", () => {
     document.dispatchEvent(new Event("visibilitychange"));
     visibility.mockRestore();
     expect(touches()).toEqual([]);
+    await settle();
     expect(useMusicStore().activeNotes.size).toBe(0);
   });
 
@@ -409,11 +358,13 @@ describe("one performer: W3 releases and ownership", () => {
       key("keydown", "KeyS", { metaKey: true, repeat: true });
       await vi.advanceTimersByTimeAsync(KEY_REPEAT_WINDOW_MS / 2);
     }
-    expect(audio.releaseNote).toHaveBeenCalledExactlyOnceWith(doId);
+    await settle();
+    expect(releasedIds()).toEqual([doId]);
     expect(touches()).toEqual(["keyboard:KeyS"]);
 
     await vi.advanceTimersByTimeAsync(KEY_REPEAT_WINDOW_MS);
-    expect(audio.releaseNote).toHaveBeenLastCalledWith(reId);
+    await settle();
+    expect(releasedIds()).toEqual([doId, reId]);
     expect(useMusicStore().activeNotes.size).toBe(0);
 
     // The late key-up only clears the block; the next real press plays again.
@@ -434,6 +385,7 @@ describe("one performer: W3 releases and ownership", () => {
     key("keydown", "MetaLeft", { key: "Meta", metaKey: true });
     // A is lifted while Cmd is down: macOS sends no key-up for it.
     await vi.advanceTimersByTimeAsync(KEY_REPEAT_WINDOW_MS + 1);
+    await settle();
     expect(useMusicStore().activeNotes.size).toBe(0);
     key("keyup", "MetaLeft", { key: "Meta" });
 
@@ -442,6 +394,7 @@ describe("one performer: W3 releases and ownership", () => {
     expect(attackedIds()).toHaveLength(2);
     expect(touches()).toEqual(["keyboard:KeyA"]);
     key("keyup", "KeyA");
+    await settle();
     expect(useMusicStore().activeNotes.size).toBe(0);
   });
 
@@ -458,6 +411,7 @@ describe("one performer: W3 releases and ownership", () => {
     await settle();
     expect(attackedIds()).toHaveLength(1);
     key("keyup", code);
+    await settle();
     expect(useMusicStore().activeNotes.size).toBe(0);
   });
 
@@ -466,7 +420,7 @@ describe("one performer: W3 releases and ownership", () => {
     const keys = addInput("keys", "MIDI keyboard");
     await mountMidi();
     const instrument = useInstrumentStore();
-    vi.mocked(audio.prewarmSoundSamples).mockResolvedValue(undefined);
+    vi.mocked(prewarmSoundSamples).mockResolvedValue(undefined);
     await instrument.setInstrument("sine");
     await instrument.setInstrument("piano");
     key("keydown", "KeyA");
@@ -479,6 +433,7 @@ describe("one performer: W3 releases and ownership", () => {
     expect(instrument.isInteractionLocked).toBe(false);
     expect(touches()).toEqual([]);
     expect(usePerformerStore().owners()).toEqual([]);
+    await settle();
     expect(useMusicStore().activeNotes.size).toBe(0);
 
     // A's key repeat does not revive the silenced note.
@@ -488,34 +443,32 @@ describe("one performer: W3 releases and ownership", () => {
 
     midi(keys, 0x90, 62);
     await settle();
-    expect(vi.mocked(audio.attackNote).mock.calls.at(-1)?.slice(1, 3)).toEqual(["D4", "sine"]);
+    expect(events("note-played").at(-1)).toMatchObject({ noteName: "D4", instrument: "sine" });
     expect(touches()).toEqual(["midi:keys:1:62"]);
   });
 
-  it.each(["live", "fallback"] as const)(
-    "mirrors a ROLI note's new Together voice after a styled detour (%s path)",
-    async (path) => {
-      const live = path === "live" ? liveCore() : null;
+  it("mirrors a ROLI note's new Together voice after a styled detour",
+    async () => {
       const roli = addInput("roli-in", "LUMI Keys");
       await mountMidi();
       const music = useMusicStore();
       roliSend.mockClear();
       midi(roli, 0x90, 60);
       await settle();
-      live?.render(50);
+      live.render(50);
       await settle();
       expect(midiNotes(0x90)).toEqual([]);
 
       music.setPlayStyle("arp-up");
       for (let step = 0; step < 4; step++) {
-        live?.render(100);
+        live.render(100);
         await vi.advanceTimersByTimeAsync(100);
       }
       expect(midiNotes(0x90).length).toBeGreaterThan(0);
 
       music.setPlayStyle("together");
       for (let step = 0; step < 6; step++) {
-        live?.render(100);
+        live.render(100);
         await vi.advanceTimersByTimeAsync(100);
       }
       // The held note sounds Together again, so the ROLI is left showing it.
@@ -523,7 +476,7 @@ describe("one performer: W3 releases and ownership", () => {
       expect(roliShows(60)).toBe(true);
       midi(roli, 0x80, 60);
       await settle();
-      live?.render(100);
+      live.render(100);
       await vi.advanceTimersByTimeAsync(300);
       expect(roliShows(60)).toBe(false);
     },
@@ -539,6 +492,7 @@ describe("one performer: W3 releases and ownership", () => {
     const instrument = useInstrumentStore();
     instrument.warmingInstrument = "piano";
     expect(touches()).toEqual([]);
+    await settle();
     expect(useMusicStore().activeNotes.size).toBe(0);
 
     midi(keys, 0x90, 64);
@@ -551,7 +505,7 @@ describe("one performer: W3 releases and ownership", () => {
     expect(attackedIds()).toHaveLength(3);
   });
 
-  it("a disconnected MIDI port releases only its own notes, pending or sounding", async () => {
+  it("a disconnected MIDI port releases only its own notes, waiting or sounding", async () => {
     mountQwerty();
     const left = addInput("left", "MIDI keyboard");
     const right = addInput("right", "MIDI pads");
@@ -560,18 +514,19 @@ describe("one performer: W3 releases and ownership", () => {
     midi(right, 0x90, 62);
     key("keydown", "KeyD"); // Mi
     await settle();
-    const finishPending = deferNextAttack();
+    const [leftId, rightId, qwertyId] = attackedIds();
+    const wake = sleepAudio();
     midi(left, 0x90, 64);
     await settle();
-    const [leftId, rightId, qwertyId, pendingId] = attackedIds();
 
     left.state = "disconnected";
     access.onstatechange?.({ port: { type: "input", id: "left", state: "disconnected" } });
-    finishPending();
+    wake();
     await settle();
 
-    expect(audio.releaseNote).toHaveBeenCalledExactlyOnceWith(leftId);
-    expect(audio.stopNote).toHaveBeenCalledExactlyOnceWith(pendingId);
+    // The waiting E4 never sounds; the sounding C4 is released.
+    expect(attackedIds()).toEqual([leftId, rightId, qwertyId]);
+    expect(releasedIds()).toEqual([leftId]);
     expect(useMusicStore().getActiveNotes().map((note) => note.noteId).sort()).toEqual([qwertyId, rightId].sort());
     expect(touches()).toEqual(["keyboard:KeyD", "midi:right:1:62"]);
   });
@@ -590,16 +545,17 @@ describe("one performer: W3 releases and ownership", () => {
 
     // An owner holds until released: here, a latch-style scope.
     performer.releaseAllFor("latch");
+    await settle();
     expect(useMusicStore().getActiveNoteNames()).toEqual(["F4"]);
     expect(intents.map((intent) => [intent.type, intent.owner])).toEqual([
       ["press", "latch:loop-1"], ["press", "keyboard:KeyF"], ["release", "latch:loop-1"],
     ]);
     performer.release("keyboard:KeyF");
+    await settle();
     expect(useMusicStore().activeNotes.size).toBe(0);
   });
 
   it("forwards bends to the worklet core's per-note expression, including a voice that resolves late", async () => {
-    const live = liveCore();
     const performer = usePerformerStore();
     void performer.press({ owner: "melody:touch:1:0_4", kind: "note", voices: [{ kind: "degree", scaleIndex: 0, octave: 4 }] });
     // The gesture starts before the voice exists; the core still receives it.
@@ -668,8 +624,7 @@ describe("one performer, slice 2: one alteration, a pure view, QWERTY on the sur
     await settle();
     expect(useMusicStore().activeNotes.size).toBe(0);
     expect(touches()).toEqual([]);
-    expect(vi.mocked(audio.releaseNote).mock.calls.map(([noteId]) => noteId).sort())
-      .toEqual([...attackedIds()].sort());
+    expect(releasedIds().sort()).toEqual([...attackedIds()].sort());
 
     // A fresh press on either input now plays the new alteration.
     expect(keyboard.get('[data-chord-id="degree-1"]').attributes("data-alteration")).toBe("jazzy7");
@@ -788,8 +743,7 @@ describe("one performer, slice 2: one alteration, a pure view, QWERTY on the sur
       expect(touches()).toEqual([]);
       expect(lit(id)).toBe(false);
     }
-    expect(vi.mocked(audio.releaseNote).mock.calls.map(([noteId]) => noteId).sort())
-      .toEqual([...attackedIds()].sort());
+    expect(releasedIds().sort()).toEqual([...attackedIds()].sort());
   });
 
   it("passes Ctrl+K and Cmd+L on the newly mapped keys through to the browser and plays nothing", async () => {
@@ -805,7 +759,7 @@ describe("one performer, slice 2: one alteration, a pure view, QWERTY on the sur
       key("keyup", code);
       await settle();
     }
-    expect(audio.attackNote).not.toHaveBeenCalled();
+    expect(attackedIds()).toEqual([]);
   });
 
   it("the performance surface, not the Keyboard view, registers QWERTY", async () => {
@@ -821,6 +775,7 @@ describe("one performer, slice 2: one alteration, a pure view, QWERTY on the sur
     keyboard.unmount();
     hosts.splice(hosts.indexOf(keyboard), 1);
     expect(touches()).toEqual([]);
+    await settle();
     expect(useMusicStore().activeNotes.size).toBe(0);
   });
 });

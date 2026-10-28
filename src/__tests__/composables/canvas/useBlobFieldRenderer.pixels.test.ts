@@ -1,7 +1,7 @@
 import { sizeStageCanvas } from "@/composables/canvas/stageCanvas";
 import { createCanvas } from "@napi-rs/canvas";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getBlobFieldConnectionGeometry, getBlobWebConnections, getBlobWebConnectionWidth, useBlobFieldRenderer } from "@/composables/canvas/useBlobFieldRenderer";
+import { getBlobFieldBounds, getBlobFieldConnectionGeometry, getBlobFieldMaterialPasses, getBlobWebConnections, getBlobWebConnectionWidth, useBlobFieldRenderer } from "@/composables/canvas/useBlobFieldRenderer";
 import { DEFAULT_CONFIG } from "@/data/visual-config-metadata";
 import { MAJOR_SOLFEGE } from "@/data";
 import { useHarmonicGeometryRenderer } from "@/composables/canvas/useHarmonicGeometryRenderer";
@@ -270,6 +270,91 @@ function render(frames: PreparedBlobFrame[], mode: "merge" | "web", options = {}
 function alphaAt(context: ReturnType<typeof render>, x: number, y: number) {
   return context.getImageData(Math.round(x), Math.round(y), 1, 1).data[3];
 }
+
+describe("Merge material softening (BJS-591)", () => {
+  let created: HTMLCanvasElement[] = [];
+  beforeEach(() => {
+    created = [];
+    const createElement = document.createElement.bind(document);
+    vi.spyOn(document, "createElement").mockImplementation((tag, options) => {
+      if (tag !== "canvas") return createElement(tag, options);
+      const canvas = createCanvas(1, 1) as unknown as HTMLCanvasElement;
+      created.push(canvas);
+      return canvas;
+    });
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  function stage(dpr: number) {
+    const canvas = createCanvas(1, 1);
+    const ctx = canvas.getContext("2d") as unknown as CanvasRenderingContext2D;
+    sizeStageCanvas(canvas as unknown as HTMLCanvasElement, ctx, 1000, 650, dpr);
+    return ctx;
+  }
+
+  it.each([
+    { dpr: 1, glowIntensity: DEFAULT_CONFIG.blobs.glowIntensity },
+    { dpr: 2, glowIntensity: DEFAULT_CONFIG.blobs.glowIntensity },
+    // The widest glow reaches past the field's own padding.
+    { dpr: 2, glowIntensity: 50 },
+  ])("matches the full-resolution blur at DPR $dpr, glow $glowIntensity, without blurring the Stage", ({ dpr, glowIntensity }) => {
+    const config = { ...DEFAULT_CONFIG.blobs, connectionMode: "merge" as const, glowIntensity };
+    expect(config.blurRadius).toBeGreaterThan(0);
+    expect(config.glowEnabled).toBe(true);
+    // A compact chord mid-Stage, so its glow has room past the field bounds.
+    const frames = framesAt([[400, 260], [600, 290], [500, 420]]);
+    const actual = stage(dpr);
+    // Device pixels the Stage itself draws through a filter.
+    let filteredDevicePixels = 0;
+    const drawImage = actual.drawImage.bind(actual) as (...args: unknown[]) => void;
+    (actual as unknown as { drawImage: (...args: unknown[]) => void }).drawImage = (...args: unknown[]) => {
+      if (actual.filter !== "none") {
+        const [, , , width, height] = args as number[];
+        filteredDevicePixels += (width ?? 0) * (height ?? 0) * dpr * dpr;
+      }
+      drawImage(...args);
+    };
+    const renderer = useBlobFieldRenderer();
+    expect(renderer.renderBlobField(actual, frames, config, completeScene(frames))).toBe(true);
+    expect(filteredDevicePixels).toBe(0);
+
+    // The crisp field the renderer thresholded (its output surface), softened
+    // the way the Stage used to: scaled up first, then blurred in device pixels.
+    const output = created[2];
+    const bounds = getBlobFieldBounds(frames, 1000, 650,
+      config.fieldSoftness * 3 + config.blurRadius + config.glowIntensity)!;
+    const reference = stage(dpr);
+    reference.imageSmoothingEnabled = true;
+    reference.imageSmoothingQuality = "high";
+    for (const pass of getBlobFieldMaterialPasses(config, dpr)) {
+      reference.globalAlpha = pass.opacity;
+      reference.filter = pass.filter;
+      reference.drawImage(output, bounds.x, bounds.y, bounds.width, bounds.height);
+    }
+    renderer.dispose();
+
+    const got = actual.getImageData(0, 0, 1000 * dpr, 650 * dpr).data;
+    const want = reference.getImageData(0, 0, 1000 * dpr, 650 * dpr).data;
+    // Compare premultiplied colour and alpha: Music Color and coverage both.
+    let worst = 0;
+    let total = 0;
+    let painted = 0;
+    for (let pixel = 0; pixel < got.length; pixel += 4) {
+      for (let channel = 0; channel < 4; channel++) {
+        const weight = (data: Uint8ClampedArray) => channel === 3 ? 255 : data[pixel + 3];
+        const difference = Math.abs(got[pixel + channel] * weight(got) - want[pixel + channel] * weight(want)) / 255;
+        worst = Math.max(worst, difference);
+        total += difference;
+      }
+      if (want[pixel + 3] > 0) painted++;
+    }
+    // The comparison covers a real softened field, not two empty canvases.
+    expect(painted).toBeGreaterThan(got.length / 4 * 0.03);
+    // No pixel moves by more than 8 of 255, and the average by under 1.
+    expect(total / got.length).toBeLessThan(0.6);
+    expect(worst).toBeLessThanOrEqual(8);
+  });
+});
 
 describe("Filled Merge and fine Web pixels", () => {
   beforeEach(() => {

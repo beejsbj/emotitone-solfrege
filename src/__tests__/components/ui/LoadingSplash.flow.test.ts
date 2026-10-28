@@ -19,18 +19,19 @@ const audio = vi.hoisted(() => {
       if (audio.context.allow) audio.context.state = "running";
     }),
   };
-  return { context, initSuperdoughAudio: vi.fn(async () => {}), initSynthOnlyAudio: vi.fn(async () => {}) };
+  return { context, initAudioEngine: vi.fn(async () => {}), initSynthOnlyAudio: vi.fn(async () => {}) };
 });
 
 const instruments = vi.hoisted(() => ({
   initializeInstruments: vi.fn(async () => {}), fallBackToSynth: vi.fn(), markEngineBooted: vi.fn(),
 }));
 
-vi.mock("@/services/superdoughAudio", () => ({
-  setStrudelLaBasedMinor: vi.fn(),
-  initSuperdoughAudio: audio.initSuperdoughAudio,
+vi.mock("@/services/audioEngine", () => ({
+  initAudioEngine: audio.initAudioEngine,
   initSynthOnlyAudio: audio.initSynthOnlyAudio,
   getAudioStartupStage: () => "ready",
+}));
+vi.mock("@/services/audioRuntime", () => ({
   getAudioContext: () => audio.context,
 }));
 
@@ -206,7 +207,7 @@ describe("production loading flow", () => {
     await flushPromises();
 
     expect(audio.initSynthOnlyAudio).toHaveBeenCalledTimes(2);
-    expect(audio.initSuperdoughAudio).not.toHaveBeenCalled(); // no sample download inside the tap
+    expect(audio.initAudioEngine).not.toHaveBeenCalled(); // no sample download inside the tap
     expect(instruments.fallBackToSynth).toHaveBeenCalled(); // the synth, not a stale sampled selection
     expect(instruments.markEngineBooted).toHaveBeenCalled(); // so Play can start
     expect(useAppLoading().isVisible.value).toBe(false);
@@ -238,7 +239,7 @@ describe("production loading flow", () => {
   it("holds an engine failure at the Play tap on Reload, never the Enable Audio cue", async () => {
     audio.context.allow = true;
     const wrapper = await mountLoaded();
-    audio.initSuperdoughAudio.mockRejectedValueOnce(new Error("Audio graph failed to initialise"));
+    audio.initAudioEngine.mockRejectedValueOnce(new Error("Audio graph failed to initialise"));
 
     await wrapper.get(".count-gate--play").trigger("click");
     await flushPromises();

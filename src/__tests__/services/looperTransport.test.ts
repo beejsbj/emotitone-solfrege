@@ -61,7 +61,7 @@ vi.mock("@/services/livePlayback", () => ({
     };
   },
   getLivePlaybackFailure: (instrumentId: string) => rig.refused.has(instrumentId)
-    ? { kind: "fallback", reason: "budget", budget: true } : undefined,
+    ? { kind: "unavailable", reason: "budget", budget: true } : undefined,
   pinLivePlayback(holder: string, names: readonly string[]) {
     const held = [...names];
     rig.pins.set(holder, held);
@@ -76,7 +76,6 @@ vi.unmock("@/services/audioLifecycle");
 
 import { LiveAudioCore } from "@/audio/live/core";
 import { createPatternPlayer, PatternLoadError, type LooperMemberRequest, type MuteTailPolicy } from "@/services/patternTransport";
-import { getTransportGrid } from "@/services/transportGrid";
 import { remap } from "@/domain/modeRemap";
 import { getSemitoneShift, transposePatternNotes } from "@/data/patterns";
 import { resumeAudioContext } from "@/services/audioLifecycle";
@@ -330,19 +329,14 @@ describe("the Looper on the worklet transport", () => {
     player.dispose();
   });
 
-  it("publishes its bar grid to main-thread play styles while it runs, and keeps one UIBeat generation", async () => {
+  it("keeps one UIBeat generation through tempo, join, bend and leave", async () => {
     const { player, uiBeat, tick } = setup();
-    expect(getTransportGrid()).toBeUndefined();
     await player.start({ bpm: 120, target: { key: "C", mode: "major" }, members: [member("a", melody)] });
     render(.75);
-    expect(getTransportGrid()).toEqual({ at: 0, bar: 0, bpm: 120 });
     tick();
     const generation = uiBeat.snapshot.generation;
     await player.setTempo(180);
     render(.3);
-    const grid = getTransportGrid()!;
-    expect(grid.bpm).toBe(180);
-    expect(grid.bar).toBeCloseTo(.75 * 120 / 240, 2);
     await player.join(member("c", bass));
     await player.bend({ key: "D", mode: "minor" });
     await player.leave("c");
@@ -350,7 +344,6 @@ describe("the Looper on the worklet transport", () => {
     tick();
     expect(uiBeat.snapshot.generation).toBe(generation);
     player.stop();
-    expect(getTransportGrid()).toBeUndefined();
   });
 
   it("recovers through the interruption gate after a renderer rebuild, continuing from the bar it reached", async () => {

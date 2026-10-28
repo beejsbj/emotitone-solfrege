@@ -102,6 +102,21 @@ function readLegacyBook(liveContext: PhraseContext): PhraseBook | null {
   }
 }
 
+/**
+ * A take left on the desk on a sound the picker no longer offers (a reload
+ * after the sound was removed, or another tab's shelf) comes back on its
+ * nearest working one, as opening it would (`syncControlsTo`), so Play and
+ * live play can sound it. Only the desk's copy changes; its notes are untouched.
+ */
+function onWorkingSound(book: PhraseBook): PhraseBook {
+  const take = book.phrases.find((phrase) => phrase.id === book.takeId);
+  if (take && typeof take.context.instrument === "string") {
+    const instrument = selectableReplacement(take.context.instrument);
+    if (instrument !== take.context.instrument) take.context = { ...take.context, instrument };
+  }
+  return book;
+}
+
 export const usePhrasesStore = defineStore(
   "phrases",
   () => {
@@ -155,12 +170,12 @@ export const usePhrasesStore = defineStore(
       protectedIds: () => protectedIdsProvider.value(),
       // Another tab's sketches, merged in (BJS-575); see docs/persistence-codec.md.
       adopt: (state) => {
-        book.value = state.book;
+        book.value = onWorkingSound(state.book);
         isRecordingEnabled.value = state.isRecordingEnabled;
       },
     });
     const restored = persistence.load();
-    const book = ref<PhraseBook>(restored.book);
+    const book = ref<PhraseBook>(onWorkingSound(restored.book));
     const isRecordingEnabled = ref(restored.isRecordingEnabled);
     const savedState = () => ({ book: book.value, isRecordingEnabled: isRecordingEnabled.value });
     const stopListening = typeof window === "undefined" ? () => {} : persistence.listen(savedState, window);

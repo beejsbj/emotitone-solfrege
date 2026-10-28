@@ -2,6 +2,9 @@ import type { LiveConfig, LiveInputNote, LiveRenderer, LiveVoiceEvent } from '@/
 import type { LiveClockBoundary } from '@/services/liveAudioClock'
 import { subscribeLivePlayback } from '@/services/livePlayback'
 
+/** Window event carrying each live voice to the MIDI output mirror (useMidiControls). */
+export const SCHEDULED_LIVE_MIDI_EVENT = 'scheduled-live-midi-note'
+
 function snapshotEvent(event: LiveVoiceEvent): LiveVoiceEvent {
   return { ...event, articulation: event.articulation ? { ...event.articulation } : undefined }
 }

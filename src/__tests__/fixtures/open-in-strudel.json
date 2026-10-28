@@ -1,0 +1,58 @@
+{
+ "pattern-twinkle-1": {
+  "code": "`<\n0@0.25 0@0.25 4@0.25 4@0.25 5@0.25 5@0.25 4@0.5 3@0.25 3@0.25 2@0.25 2@0.25 1@0.25 1@0.25 0@0.5 ~@0.25\n>`.as(\"n\").scale(\"G4:major\").sound(\"gm_celesta\").clip(1).attack(0.001).decay(0.001).sustain(1).release(0.2).cpm(96 / 4)",
+  "url": "https://strudel.cc/#YDwKMEAwLjI1IDBAMC4yNSA0QDAuMjUgNEAwLjI1IDVAMC4yNSA1QDAuMjUgNEAwLjUgM0AwLjI1IDNAMC4yNSAyQDAuMjUgMkAwLjI1IDFAMC4yNSAxQDAuMjUgMEAwLjUgfkAwLjI1Cj5gLmFzKCJuIikuc2NhbGUoIkc0Om1ham9yIikuc291bmQoImdtX2NlbGVzdGEiKS5jbGlwKDEpLmF0dGFjaygwLjAwMSkuZGVjYXkoMC4wMDEpLnN1c3RhaW4oMSkucmVsZWFzZSgwLjIpLmNwbSg5NiAvIDQp"
+ },
+ "pattern-mary-1": {
+  "code": "`<\n2@0.2501 1@0.2501 0@0.2501 1@0.2501 2@0.2501 2@0.2501 2@0.4998 1@0.2501 1@0.2501 1@0.4998 2@0.2501 4@0.2501 4@0.4998 ~@0.25\n>`.as(\"n\").scale(\"F4:major\").sound(\"gm_acoustic_guitar_nylon\").clip(1).attack(0.01).decay(0.001).sustain(1).release(1.5).cpm(112 / 4)",
+  "url": "https://strudel.cc/#YDwKMkAwLjI1MDEgMUAwLjI1MDEgMEAwLjI1MDEgMUAwLjI1MDEgMkAwLjI1MDEgMkAwLjI1MDEgMkAwLjQ5OTggMUAwLjI1MDEgMUAwLjI1MDEgMUAwLjQ5OTggMkAwLjI1MDEgNEAwLjI1MDEgNEAwLjQ5OTggfkAwLjI1Cj5gLmFzKCJuIikuc2NhbGUoIkY0Om1ham9yIikuc291bmQoImdtX2Fjb3VzdGljX2d1aXRhcl9ueWxvbiIpLmNsaXAoMSkuYXR0YWNrKDAuMDEpLmRlY2F5KDAuMDAxKS5zdXN0YWluKDEpLnJlbGVhc2UoMS41KS5jcG0oMTEyIC8gNCk%3D"
+ },
+ "pattern-hot-cross-buns-1": {
+  "code": "`<\n2@0.2499 1@0.2499 0@0.5001 2@0.2499 1@0.2499 0@0.5001 0@0.1249 0@0.1249 0@0.1249 0@0.1249 1@0.1249 1@0.1249 1@0.1249 1@0.1249 2@0.2499 1@0.2499 0@0.5001 ~@0.25\n>`.as(\"n\").scale(\"E4:major\").sound(\"gm_marimba\").clip(1).attack(0.001).decay(0.001).sustain(1).release(0.2).cpm(84 / 4)",
+  "url": "https://strudel.cc/#YDwKMkAwLjI0OTkgMUAwLjI0OTkgMEAwLjUwMDEgMkAwLjI0OTkgMUAwLjI0OTkgMEAwLjUwMDEgMEAwLjEyNDkgMEAwLjEyNDkgMEAwLjEyNDkgMEAwLjEyNDkgMUAwLjEyNDkgMUAwLjEyNDkgMUAwLjEyNDkgMUAwLjEyNDkgMkAwLjI0OTkgMUAwLjI0OTkgMEAwLjUwMDEgfkAwLjI1Cj5gLmFzKCJuIikuc2NhbGUoIkU0Om1ham9yIikuc291bmQoImdtX21hcmltYmEiKS5jbGlwKDEpLmF0dGFjaygwLjAwMSkuZGVjYXkoMC4wMDEpLnN1c3RhaW4oMSkucmVsZWFzZSgwLjIpLmNwbSg4NCAvIDQp"
+ },
+ "pattern-ode-to-joy-1": {
+  "code": "`<\n2@0.2499 2@0.2499 3@0.2499 4@0.2499 4@0.2499 3@0.2499 2@0.2499 1@0.2499 0@0.2499 0@0.2499 1@0.2499 2@0.2499 2@0.3749 1@0.1249 1@0.4998 ~@0.25\n>`.as(\"n\").scale(\"D4:major\").sound(\"gm_flute\").clip(1).attack(0.01).decay(0.001).sustain(1).release(0.4).cpm(126 / 4)",
+  "url": "https://strudel.cc/#YDwKMkAwLjI0OTkgMkAwLjI0OTkgM0AwLjI0OTkgNEAwLjI0OTkgNEAwLjI0OTkgM0AwLjI0OTkgMkAwLjI0OTkgMUAwLjI0OTkgMEAwLjI0OTkgMEAwLjI0OTkgMUAwLjI0OTkgMkAwLjI0OTkgMkAwLjM3NDkgMUAwLjEyNDkgMUAwLjQ5OTggfkAwLjI1Cj5gLmFzKCJuIikuc2NhbGUoIkQ0Om1ham9yIikuc291bmQoImdtX2ZsdXRlIikuY2xpcCgxKS5hdHRhY2soMC4wMSkuZGVjYXkoMC4wMDEpLnN1c3RhaW4oMSkucmVsZWFzZSgwLjQpLmNwbSgxMjYgLyA0KQ%3D%3D"
+ },
+ "pattern-midnight-dorian-1": {
+  "code": "`<\n0@0.25 2@0.125 3@0.125 4@0.25 5@0.25 6@0.125 5@0.125 4@0.25 2@0.25 1@0.25 0@0.5 ~@0.25\n>`.as(\"n\").scale(\"D4:dorian\").sound(\"gm_epiano1\").clip(1).attack(0.001).decay(0.001).sustain(1).release(0.2).cpm(80 / 4)",
+  "url": "https://strudel.cc/#YDwKMEAwLjI1IDJAMC4xMjUgM0AwLjEyNSA0QDAuMjUgNUAwLjI1IDZAMC4xMjUgNUAwLjEyNSA0QDAuMjUgMkAwLjI1IDFAMC4yNSAwQDAuNSB%2BQDAuMjUKPmAuYXMoIm4iKS5zY2FsZSgiRDQ6ZG9yaWFuIikuc291bmQoImdtX2VwaWFubzEiKS5jbGlwKDEpLmF0dGFjaygwLjAwMSkuZGVjYXkoMC4wMDEpLnN1c3RhaW4oMSkucmVsZWFzZSgwLjIpLmNwbSg4MCAvIDQp"
+ },
+ "pattern-flamenco-sun-1": {
+  "code": "`<\n0@0.2502 1@0.1251 2@0.2502 1@0.1251 0@0.2502 -1@0.2502 0@0.5 1@0.1251 0@0.1251 -1@0.1251 -2@0.1251 -3@0.2502 -2@0.1251 -1@0.1251 0@0.5 ~@0.25\n>`.as(\"n\").scale(\"E4:phrygian\").sound(\"gm_acoustic_guitar_nylon\").clip(1).attack(0.01).decay(0.001).sustain(1).release(1.5).cpm(108 / 4)",
+  "url": "https://strudel.cc/#YDwKMEAwLjI1MDIgMUAwLjEyNTEgMkAwLjI1MDIgMUAwLjEyNTEgMEAwLjI1MDIgLTFAMC4yNTAyIDBAMC41IDFAMC4xMjUxIDBAMC4xMjUxIC0xQDAuMTI1MSAtMkAwLjEyNTEgLTNAMC4yNTAyIC0yQDAuMTI1MSAtMUAwLjEyNTEgMEAwLjUgfkAwLjI1Cj5gLmFzKCJuIikuc2NhbGUoIkU0OnBocnlnaWFuIikuc291bmQoImdtX2Fjb3VzdGljX2d1aXRhcl9ueWxvbiIpLmNsaXAoMSkuYXR0YWNrKDAuMDEpLmRlY2F5KDAuMDAxKS5zdXN0YWluKDEpLnJlbGVhc2UoMS41KS5jcG0oMTA4IC8gNCk%3D"
+ },
+ "pattern-floating-aurora-1": {
+  "code": "`<\n0@0.2499 2@0.2499 4@0.2499 3@0.5001 4@0.2499 6@0.2499 5@0.2499 4@0.2499 3@0.2499 2@0.2499 0@0.5001 ~@0.25\n>`.as(\"n\").scale(\"F4:lydian\").sound(\"gm_pad_warm\").clip(1).attack(0.01).decay(0.001).sustain(1).release(0.4).cpm(72 / 4)",
+  "url": "https://strudel.cc/#YDwKMEAwLjI0OTkgMkAwLjI0OTkgNEAwLjI0OTkgM0AwLjUwMDEgNEAwLjI0OTkgNkAwLjI0OTkgNUAwLjI0OTkgNEAwLjI0OTkgM0AwLjI0OTkgMkAwLjI0OTkgMEAwLjUwMDEgfkAwLjI1Cj5gLmFzKCJuIikuc2NhbGUoIkY0Omx5ZGlhbiIpLnNvdW5kKCJnbV9wYWRfd2FybSIpLmNsaXAoMSkuYXR0YWNrKDAuMDEpLmRlY2F5KDAuMDAxKS5zdXN0YWluKDEpLnJlbGVhc2UoMC40KS5jcG0oNzIgLyA0KQ%3D%3D"
+ },
+ "pattern-highland-reel-1": {
+  "code": "`<\n0@0.25 1@0.125 2@0.125 4@0.25 3@0.125 2@0.125 1@0.25 -1@0.25 0@0.25 2@0.125 4@0.125 3@0.25 2@0.125 1@0.125 0@0.5 ~@0.25\n>`.as(\"n\").scale(\"G4:mixolydian\").sound(\"gm_recorder\").clip(1).attack(0.01).decay(0.001).sustain(1).release(0.4).cpm(120 / 4)",
+  "url": "https://strudel.cc/#YDwKMEAwLjI1IDFAMC4xMjUgMkAwLjEyNSA0QDAuMjUgM0AwLjEyNSAyQDAuMTI1IDFAMC4yNSAtMUAwLjI1IDBAMC4yNSAyQDAuMTI1IDRAMC4xMjUgM0AwLjI1IDJAMC4xMjUgMUAwLjEyNSAwQDAuNSB%2BQDAuMjUKPmAuYXMoIm4iKS5zY2FsZSgiRzQ6bWl4b2x5ZGlhbiIpLnNvdW5kKCJnbV9yZWNvcmRlciIpLmNsaXAoMSkuYXR0YWNrKDAuMDEpLmRlY2F5KDAuMDAxKS5zdXN0YWluKDEpLnJlbGVhc2UoMC40KS5jcG0oMTIwIC8gNCk%3D"
+ },
+ "pattern-desert-mirage-1": {
+  "code": "`<\n0@0.25 1@0.125 2@0.125 4@0.25 5@0.25 6@0.25 7@0.5 6@0.125 5@0.125 4@0.25 3@0.125 2@0.125 1@0.25 0@0.5 ~@0.25\n>`.as(\"n\").scale(\"A4:harmonic minor\").sound(\"gm_sitar\").clip(1).attack(0.01).decay(0.001).sustain(1).release(1.5).cpm(100 / 4)",
+  "url": "https://strudel.cc/#YDwKMEAwLjI1IDFAMC4xMjUgMkAwLjEyNSA0QDAuMjUgNUAwLjI1IDZAMC4yNSA3QDAuNSA2QDAuMTI1IDVAMC4xMjUgNEAwLjI1IDNAMC4xMjUgMkAwLjEyNSAxQDAuMjUgMEAwLjUgfkAwLjI1Cj5gLmFzKCJuIikuc2NhbGUoIkE0Omhhcm1vbmljIG1pbm9yIikuc291bmQoImdtX3NpdGFyIikuY2xpcCgxKS5hdHRhY2soMC4wMSkuZGVjYXkoMC4wMDEpLnN1c3RhaW4oMSkucmVsZWFzZSgxLjUpLmNwbSgxMDAgLyA0KQ%3D%3D"
+ },
+ "pattern-cyber-pulse-1": {
+  "code": "`<\n-7@0.1252 -7@0.1252 -5@0.2499 -3@0.2499 -1@0.1252 0@0.2499 -1@0.1252 -3@0.2499 -4@0.1252 -5@0.1252 -6@0.1252 -7@0.4998 ~@0.25\n>`.as(\"n\").scale(\"C4:minor\").sound(\"gm_synth_bass_1\").clip(1).attack(0.01).decay(0.001).sustain(1).release(1.5).cpm(136 / 4)",
+  "url": "https://strudel.cc/#YDwKLTdAMC4xMjUyIC03QDAuMTI1MiAtNUAwLjI0OTkgLTNAMC4yNDk5IC0xQDAuMTI1MiAwQDAuMjQ5OSAtMUAwLjEyNTIgLTNAMC4yNDk5IC00QDAuMTI1MiAtNUAwLjEyNTIgLTZAMC4xMjUyIC03QDAuNDk5OCB%2BQDAuMjUKPmAuYXMoIm4iKS5zY2FsZSgiQzQ6bWlub3IiKS5zb3VuZCgiZ21fc3ludGhfYmFzc18xIikuY2xpcCgxKS5hdHRhY2soMC4wMSkuZGVjYXkoMC4wMDEpLnN1c3RhaW4oMSkucmVsZWFzZSgxLjUpLmNwbSgxMzYgLyA0KQ%3D%3D"
+ },
+ "pattern-delta-blues-1": {
+  "code": "`<\n-5@0.2501 -4@0.1249 -3@0.1249 -2@0.2501 -1@0.1249 0@0.2501 -1@0.1249 -2@0.2501 -3@0.1249 -4@0.1249 -5@0.4999 ~@0.25\n>`.as(\"n\").scale(\"A4:minor pentatonic\").sound(\"gm_electric_guitar_clean\").clip(1).attack(0.01).decay(0.001).sustain(1).release(1.5).cpm(90 / 4)",
+  "url": "https://strudel.cc/#YDwKLTVAMC4yNTAxIC00QDAuMTI0OSAtM0AwLjEyNDkgLTJAMC4yNTAxIC0xQDAuMTI0OSAwQDAuMjUwMSAtMUAwLjEyNDkgLTJAMC4yNTAxIC0zQDAuMTI0OSAtNEAwLjEyNDkgLTVAMC40OTk5IH5AMC4yNQo%2BYC5hcygibiIpLnNjYWxlKCJBNDptaW5vciBwZW50YXRvbmljIikuc291bmQoImdtX2VsZWN0cmljX2d1aXRhcl9jbGVhbiIpLmNsaXAoMSkuYXR0YWNrKDAuMDEpLmRlY2F5KDAuMDAxKS5zdXN0YWluKDEpLnJlbGVhc2UoMS41KS5jcG0oOTAgLyA0KQ%3D%3D"
+ },
+ "pattern-moonlight-nocturne-1": {
+  "code": "`<\n4@0.25 7@0.25 9@0.25 8@0.3751 7@0.1251 6@0.25 5@0.25 4@0.25 3@0.25 2@0.25 1@0.25 0@0.5 ~@0.25\n>`.as(\"n\").scale(\"C#4:minor\").sound(\"piano\").clip(1).attack(0.001).decay(0.001).sustain(1).release(0.2).cpm(66 / 4)",
+  "url": "https://strudel.cc/#YDwKNEAwLjI1IDdAMC4yNSA5QDAuMjUgOEAwLjM3NTEgN0AwLjEyNTEgNkAwLjI1IDVAMC4yNSA0QDAuMjUgM0AwLjI1IDJAMC4yNSAxQDAuMjUgMEAwLjUgfkAwLjI1Cj5gLmFzKCJuIikuc2NhbGUoIkMjNDptaW5vciIpLnNvdW5kKCJwaWFubyIpLmNsaXAoMSkuYXR0YWNrKDAuMDAxKS5kZWNheSgwLjAwMSkuc3VzdGFpbigxKS5yZWxlYXNlKDAuMikuY3BtKDY2IC8gNCk%3D"
+ },
+ "pattern-golden-sun-1": {
+  "code": "`<\n0@0.1248 1@0.1248 2@0.25 3@0.25 4@0.1248 3@0.1248 2@0.25 3@0.25 4@0.1248 5@0.25 4@0.1248 3@0.25 2@0.1248 1@0.1248 0@0.5001 ~@0.25\n>`.as(\"n\").scale(\"C4:major pentatonic\").sound(\"gm_kalimba\").clip(1).attack(0.01).decay(0.001).sustain(1).release(1.5).cpm(104 / 4)",
+  "url": "https://strudel.cc/#YDwKMEAwLjEyNDggMUAwLjEyNDggMkAwLjI1IDNAMC4yNSA0QDAuMTI0OCAzQDAuMTI0OCAyQDAuMjUgM0AwLjI1IDRAMC4xMjQ4IDVAMC4yNSA0QDAuMTI0OCAzQDAuMjUgMkAwLjEyNDggMUAwLjEyNDggMEAwLjUwMDEgfkAwLjI1Cj5gLmFzKCJuIikuc2NhbGUoIkM0Om1ham9yIHBlbnRhdG9uaWMiKS5zb3VuZCgiZ21fa2FsaW1iYSIpLmNsaXAoMSkuYXR0YWNrKDAuMDEpLmRlY2F5KDAuMDAxKS5zdXN0YWluKDEpLnJlbGVhc2UoMS41KS5jcG0oMTA0IC8gNCk%3D"
+ },
+ "recorded take": {
+  "code": "`<\n0@0.2 ~@0.05 2@0.125 ~@0.025 4@0.3 ~@0.1 5@0.06 ~@0.25\n>`.as(\"n\").scale(\"C4:major\").sound(\"triangle\").clip(1).attack(0.003).decay(0.001).sustain(1).release(0.12).cpm(120 / 4)",
+  "url": "https://strudel.cc/#YDwKMEAwLjIgfkAwLjA1IDJAMC4xMjUgfkAwLjAyNSA0QDAuMyB%2BQDAuMSA1QDAuMDYgfkAwLjI1Cj5gLmFzKCJuIikuc2NhbGUoIkM0Om1ham9yIikuc291bmQoInRyaWFuZ2xlIikuY2xpcCgxKS5hdHRhY2soMC4wMDMpLmRlY2F5KDAuMDAxKS5zdXN0YWluKDEpLnJlbGVhc2UoMC4xMikuY3BtKDEyMCAvIDQp"
+ }
+}

@@ -63,7 +63,7 @@ vi.mock("@/services/hummingStage", () => ({
   getActiveLivePitchStageNotes: () => mocks.liveStageNotes,
 }));
 
-vi.mock("@/services/superdoughAudio", () => ({
+vi.mock("@/services/audioRuntime", () => ({
   getAudioContext: () => null,
 }));
 

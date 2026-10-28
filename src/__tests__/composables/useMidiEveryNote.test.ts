@@ -2,25 +2,13 @@ import { mount, type VueWrapper } from "@vue/test-utils";
 import { createPinia, disposePinia, setActivePinia, type Pinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MusicalMode } from "@/types/music";
-import { LiveAudioCore } from "@/audio/live/core";
-import type { LiveRenderer, LiveRendererCallbacks } from "@/audio/liveRenderer";
+import { attachLiveCore, type LiveSeat } from "../helpers/liveCore";
 
 vi.unmock("@/services/music");
 vi.unmock("@/data");
 vi.unmock("@/composables/useVisualConfig");
-const playback = vi.hoisted(() => ({
-  renderer: null as LiveRenderer | null,
-  listener: undefined as LiveRendererCallbacks | undefined,
-}));
-vi.mock("@/services/livePlayback", () => ({
-  getLivePlayback: () => playback.renderer,
-  waitForLivePlayback: () => undefined,
-  subscribeLivePlayback: (listener: LiveRendererCallbacks) => {
-    playback.listener = listener;
-    return () => { playback.listener = undefined; };
-  },
-  needsLivePlaybackPreparation: () => false,
-}));
+const seat = vi.hoisted(() => ({ renderer: null, listeners: new Set() }) as LiveSeat);
+vi.mock("@/services/livePlayback", async () => (await import("../helpers/liveCore")).livePlaybackOn(seat));
 
 import { useMidiControls } from "@/composables/useMidiControls";
 import { usePhrasesStore } from "@/stores/phrases";
@@ -28,13 +16,20 @@ import { useMusicStore } from "@/stores/music";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useVisualConfigStore } from "@/stores/visualConfig";
-import * as audio from "@/services/superdoughAudio";
+import { getAudioContext } from "@/services/audioRuntime";
 
 let pinia: Pinia;
 let wrapper: VueWrapper | undefined;
 let midiDescriptor: PropertyDescriptor | undefined;
 let input: { id: string; name: string; state: string; onmidimessage: ((event: { data: Uint8Array }) => void) | null };
 const EPOCH = 1_800_000_000_000;
+let live: ReturnType<typeof attachLiveCore>;
+/** Let input settle, then render the core so its attack and release events arrive. */
+async function settle() {
+  await vi.advanceTimersByTimeAsync(0);
+  live.render(20);
+  await vi.advanceTimersByTimeAsync(0);
+}
 
 function packet(status: number, pitch: number, velocity = 100) {
   input.onmidimessage!({ data: new Uint8Array([status, pitch, velocity]) });
@@ -57,11 +52,11 @@ beforeEach(() => {
   vi.setSystemTime(EPOCH);
   vi.spyOn(performance, "now").mockImplementation(() => Date.now() - EPOCH);
   vi.spyOn(window, "dispatchEvent");
-  vi.mocked(audio.attackNote).mockResolvedValue(undefined);
-  vi.mocked(audio.getAudioContext).mockImplementation(() => ({
+  vi.mocked(getAudioContext).mockImplementation(() => ({
     state: "running", currentTime: performance.now() / 1000,
   } as AudioContext));
-  playback.renderer = null;
+  seat.listeners.clear();
+  live = attachLiveCore(seat);
   input = { id: "keyboard", name: "MIDI keyboard", state: "connected", onmidimessage: null };
   midiDescriptor = Object.getOwnPropertyDescriptor(navigator, "requestMIDIAccess");
   Object.defineProperty(navigator, "requestMIDIAccess", {
@@ -100,15 +95,14 @@ describe("every MIDI pitch through the shared performer", () => {
     music.setMode(mode);
     await connect();
     packet(0x90, pitch, 37);
-    await vi.advanceTimersByTimeAsync(0);
+    await settle();
     const [attack] = events("note-played");
-    expect(attack).toMatchObject({ noteName, note: { name: label }, isBorrowed: borrowed });
-    expect(audio.attackNote).toHaveBeenCalledExactlyOnceWith(attack.noteId, noteName, "piano", { velocity: 37 / 127 });
+    expect(attack).toMatchObject({ noteName, note: { name: label }, isBorrowed: borrowed, instrument: "piano", velocity: 37 / 127 });
+    expect(events("note-played")).toHaveLength(1);
     expect(music.getActiveNoteNames()).toEqual([noteName]);
     expect(useKeyboardDrawerStore().touch.activeTouches.size).toBe(borrowed ? 0 : 1);
     packet(0x80, pitch);
-    await vi.advanceTimersByTimeAsync(0);
-    expect(audio.releaseNote).toHaveBeenCalledExactlyOnceWith(attack.noteId);
+    await settle();
     expect(events("note-released")).toEqual([expect.objectContaining({ noteId: attack.noteId, noteName, isBorrowed: borrowed })]);
     expect(music.activeNotes.size).toBe(0);
     expect(useKeyboardDrawerStore().touch.activeTouches.size).toBe(0);
@@ -119,17 +113,17 @@ describe("every MIDI pitch through the shared performer", () => {
     await connect();
     for (let pitch = 0; pitch <= 127; pitch++) {
       packet(0x90, pitch);
-      await vi.advanceTimersByTimeAsync(0);
+      await settle();
       const attack = events("note-played").at(-1);
       expect(attack.frequency).toBeCloseTo(440 * 2 ** ((pitch - 69) / 12), 6);
-      expect(audio.attackNote).toHaveBeenLastCalledWith(attack.noteId, attack.noteName, "piano", { velocity: 100 / 127 });
+      expect(attack.velocity).toBe(100 / 127);
       packet(0x80, pitch);
-      await vi.advanceTimersByTimeAsync(0);
-      expect(audio.releaseNote).toHaveBeenLastCalledWith(attack.noteId);
+      await settle();
+      expect(events("note-released").at(-1).noteId).toBe(attack.noteId);
       expect(music.activeNotes.size).toBe(0);
     }
-    expect(audio.attackNote).toHaveBeenCalledTimes(128);
-    expect(audio.releaseNote).toHaveBeenCalledTimes(128);
+    expect(events("note-played")).toHaveLength(128);
+    expect(events("note-released")).toHaveLength(128);
   });
 
   it("labels every chromatic-mode semitone without marking it borrowed", async () => {
@@ -138,10 +132,10 @@ describe("every MIDI pitch through the shared performer", () => {
     const labels = ["Do", "Ra", "Re", "Me", "Mi", "Fa", "Fi", "Sol", "Le", "La", "Te", "Ti"];
     for (const [semitone, name] of labels.entries()) {
       packet(0x90, 60 + semitone);
-      await vi.advanceTimersByTimeAsync(0);
+      await settle();
       expect(events("note-played").at(-1)).toMatchObject({ note: { name }, isBorrowed: false });
       packet(0x80, 60 + semitone);
-      await vi.advanceTimersByTimeAsync(0);
+      await settle();
     }
     expect(useMusicStore().activeNotes.size).toBe(0);
   });
@@ -150,13 +144,18 @@ describe("every MIDI pitch through the shared performer", () => {
     useMusicStore().setPlayMode("repeat:16");
     await connect();
     packet(0x90, 66, 19);
-    await vi.advanceTimersByTimeAsync(300);
+    await vi.advanceTimersByTimeAsync(0);
+    // Sixteenths at 120 BPM: pulses at 0, 125 and 250 ms.
+    live.render(300);
+    await vi.advanceTimersByTimeAsync(0);
     const attacks = events("note-played");
     expect(attacks).toHaveLength(3);
-    expect(attacks.every(attack => attack.noteName === "F#4" && attack.note.name === "Fi" && attack.isBorrowed)).toBe(true);
-    expect(vi.mocked(audio.attackNote).mock.calls.every(([, pitch, , options]) => pitch === "F#4" && options?.velocity === 19 / 127)).toBe(true);
+    expect(attacks.every(attack => attack.noteName === "F#4" && attack.note.name === "Fi" && attack.isBorrowed
+      && attack.velocity === 19 / 127)).toBe(true);
     packet(0x80, 66);
-    await vi.advanceTimersByTimeAsync(1000);
+    await vi.advanceTimersByTimeAsync(0);
+    live.render(1000);
+    await vi.advanceTimersByTimeAsync(0);
     expect(useMusicStore().activeNotes.size).toBe(0);
     expect(events("note-played")).toHaveLength(3);
   });
@@ -164,86 +163,95 @@ describe("every MIDI pitch through the shared performer", () => {
   it("treats velocity zero as off and ignores an unmatched off", async () => {
     await connect();
     packet(0x90, 66, 0);
-    expect(audio.attackNote).not.toHaveBeenCalled();
+    await settle();
+    expect(events("note-played")).toEqual([]);
+    expect(live.core.voiceCount).toBe(0);
     packet(0x90, 66);
-    await vi.advanceTimersByTimeAsync(0);
+    await settle();
     const [attack] = events("note-played");
     packet(0x90, 66, 0);
-    await vi.advanceTimersByTimeAsync(0);
-    expect(audio.releaseNote).toHaveBeenCalledExactlyOnceWith(attack.noteId);
+    await settle();
+    expect(events("note-released").map(event => event.noteId)).toEqual([attack.noteId]);
     expect(useMusicStore().activeNotes.size).toBe(0);
   });
 
   it.each([false, true])("releases each retriggered voice once (off between attacks: %s)", async (offBetween) => {
     await connect();
     packet(0x90, 66, 20);
-    await vi.advanceTimersByTimeAsync(0);
+    await settle();
     if (offBetween) packet(0x80, 66);
     packet(0x90, 66, 110);
-    await vi.advanceTimersByTimeAsync(0);
+    await settle();
     const [first, second] = events("note-played");
     expect(first.noteId).not.toBe(second.noteId);
-    expect(vi.mocked(audio.attackNote).mock.calls.map(([, name, , options]) => [name, options?.velocity])).toEqual([
+    expect(events("note-played").map(event => [event.noteName, event.velocity])).toEqual([
       ["F#4", 20 / 127], ["F#4", 110 / 127],
     ]);
-    expect(audio.releaseNote).toHaveBeenCalledExactlyOnceWith(first.noteId);
-    expect(vi.mocked(audio.releaseNote).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(audio.attackNote).mock.invocationCallOrder[1]);
+    expect(events("note-released").map(event => event.noteId)).toEqual([first.noteId]);
     expect(useMusicStore().getActiveNotes().map(note => note.noteId)).toEqual([second.noteId]);
     packet(0x80, 66);
-    await vi.advanceTimersByTimeAsync(0);
-    expect(vi.mocked(audio.releaseNote).mock.calls).toEqual([[first.noteId], [second.noteId]]);
+    await settle();
+    expect(events("note-released").map(event => event.noteId)).toEqual([first.noteId, second.noteId]);
     expect(useMusicStore().activeNotes.size).toBe(0);
   });
 
   it("keeps MIDI channels and on-screen unisons independently owned across key changes", async () => {
     const music = useMusicStore();
     await connect();
-    const screenId = await music.attackExactPitch("F#4");
+    const screenOwner = await music.attackExactPitch("F#4");
     packet(0x90, 66);
     packet(0x91, 66);
-    await vi.advanceTimersByTimeAsync(0);
-    const [, first, second] = events("note-played");
+    await settle();
+    const [screen, first, second] = events("note-played");
     music.setKey("D");
     packet(0x80, 66);
-    await vi.advanceTimersByTimeAsync(0);
-    expect(audio.releaseNote).toHaveBeenCalledExactlyOnceWith(first.noteId);
-    expect(music.getActiveNotes().map(note => note.noteId)).toEqual([screenId, second.noteId]);
+    await settle();
+    expect(events("note-released").map(event => event.noteId)).toEqual([first.noteId]);
+    expect(music.getActiveNotes().map(note => note.noteId)).toEqual([screen.noteId, second.noteId]);
     packet(0x81, 66);
-    await vi.advanceTimersByTimeAsync(0);
-    expect(music.getActiveNotes().map(note => note.noteId)).toEqual([screenId]);
-    await music.releaseNote(screenId!);
+    await settle();
+    expect(music.getActiveNotes().map(note => note.noteId)).toEqual([screen.noteId]);
+    await music.releaseNote(screenOwner!);
   });
 
-  it.each([false, true])("cancels a pending attack on retrigger (off between attacks: %s)", async (offBetween) => {
-    let resolveAttack!: () => void;
-    vi.mocked(audio.attackNote).mockImplementationOnce(() => new Promise<void>(resolve => { resolveAttack = resolve; }));
+  /** The audio context sleeps: the next press waits for it to wake. Returns the wake. */
+  function sleepAudio() {
+    let wake!: () => void;
+    const context = Object.assign(new EventTarget(), { state: "suspended", currentTime: 0 });
+    Object.assign(context, { resume: vi.fn(() => new Promise<void>(resolve => {
+      wake = () => { Object.assign(context, { state: "running" }); context.dispatchEvent(new Event("statechange")); resolve(); };
+    })) });
+    vi.mocked(getAudioContext).mockReturnValue(context as unknown as AudioContext);
+    return () => wake();
+  }
+
+  it.each([false, true])("keeps only the retrigger when both presses wait for the audio to wake (off between: %s)", async (offBetween) => {
     await connect();
+    const wake = sleepAudio();
     packet(0x90, 66);
-    const firstId = vi.mocked(audio.attackNote).mock.calls[0][0];
     if (offBetween) packet(0x80, 66);
     packet(0x90, 66);
-    await vi.advanceTimersByTimeAsync(0);
+    await settle();
+    wake();
+    await settle();
     const [second] = events("note-played");
-    resolveAttack();
-    await vi.advanceTimersByTimeAsync(0);
-    expect(audio.stopNote).toHaveBeenCalledWith(firstId);
+    expect(events("note-played")).toHaveLength(1);
     expect(useMusicStore().getActiveNotes().map(note => note.noteId)).toEqual([second.noteId]);
     packet(0x80, 66);
-    await vi.advanceTimersByTimeAsync(0);
-    expect(audio.releaseNote).toHaveBeenCalledExactlyOnceWith(second.noteId);
+    await settle();
+    expect(events("note-released").map(event => event.noteId)).toEqual([second.noteId]);
   });
 
-  it("cancels a borrowed attack that settles after MIDI disconnect", async () => {
-    let resolveAttack!: () => void;
-    vi.mocked(audio.attackNote).mockImplementationOnce(() => new Promise<void>(resolve => { resolveAttack = resolve; }));
+  it("drops a borrowed press that wakes after MIDI disconnect", async () => {
     await connect();
+    const wake = sleepAudio();
     packet(0x90, 66);
-    const firstId = vi.mocked(audio.attackNote).mock.calls[0][0];
+    await settle();
     wrapper!.unmount();
     wrapper = undefined;
-    resolveAttack();
-    await vi.advanceTimersByTimeAsync(0);
-    expect(audio.stopNote).toHaveBeenCalledWith(firstId);
+    wake();
+    await settle();
+    expect(live.core.voiceCount).toBe(0);
     expect(events("note-played")).toEqual([]);
     expect(useMusicStore().activeNotes.size).toBe(0);
   });
@@ -254,40 +262,22 @@ describe("every MIDI pitch through the shared performer", () => {
     useVisualConfigStore().laBasedMinor = true;
     await connect();
     packet(0x90, 68);
-    await vi.advanceTimersByTimeAsync(0);
+    await settle();
     expect(events("note-played")[0]).toMatchObject({ noteName: "G#4", note: { name: "Si" }, isBorrowed: true });
     packet(0x80, 68);
-    await vi.advanceTimersByTimeAsync(0);
+    await settle();
     expect(useMusicStore().activeNotes.size).toBe(0);
   });
 
   it.each(['repeat', 'arp-up'] as const)('records and mirrors surviving unison %s velocity from real worklet PCM', async style => {
     const sampleRate = 1000;
-    let frame = 0;
-    const core = new LiveAudioCore(sampleRate, response => {
-      if (response.type === 'event') playback.listener?.onEvent(response.event);
-      else if (response.type === 'plan') playback.listener?.onPlan?.(response.events);
-      else if (response.type === 'owner-ended') playback.listener?.onOwnerEnded?.(response.ownerId);
-    });
-    core.command({ type: 'prepare', requestId: 1, instrument: {
+    const constant = attachLiveCore(seat, { sampleRate, instruments: [{
       kind: 'sample-bank', instrumentId: 'piano', zoneSelection: 'nearest-root',
       gain: 1, attack: 0, decay: 0, sustain: 1, release: 0,
       zones: [{ id: 'constant', rootMidi: 60, sampleRate, channels: [new Float32Array(10).fill(1)],
         loopStartFrame: 0, loopEndFrame: 10 }],
-    } }, frame);
-    playback.renderer = {
-      press: (ownerId, notes) => core.command({ type: 'press', ownerId, notes }, frame),
-      release: ownerId => core.command({ type: 'release', ownerId }, frame),
-      configure: config => core.command({ type: 'configure', config }, frame),
-      clear: () => core.command({ type: 'clear' }, frame),
-      dispose: () => {}, forget: async () => {},
-    };
-    const render = (length: number) => {
-      const pcm = new Float32Array(length);
-      core.render([pcm], frame);
-      frame += length;
-      return pcm;
-    };
+    }] });
+    const render = (length: number) => constant.render(length);
     const send = vi.fn();
     const access = await navigator.requestMIDIAccess();
     (access.outputs as unknown as Map<string, unknown>).set('roli', {
@@ -321,29 +311,8 @@ describe("every MIDI pitch through the shared performer", () => {
   });
 
   it.each([false, true])("renders borrowed MIDI then silence after one off (retrigger: %s)", async (retrigger) => {
-    const sampleRate = 1000;
-    const core = new LiveAudioCore(sampleRate, response => {
-      if (response.type === "event") playback.listener?.onEvent(response.event);
-      else if (response.type === "plan") playback.listener?.onPlan?.(response.events);
-      else if (response.type === "owner-ended") playback.listener?.onOwnerEnded?.(response.ownerId);
-    });
-    let frame = 0;
-    core.command({ type: "prepare", requestId: 1, instrument: {
-      kind: "oscillator", waveform: "sine", instrumentId: "piano", gain: 1, attack: 0, decay: 0, sustain: 1, release: 0,
-    } }, frame);
-    playback.renderer = {
-      press: (ownerId, notes) => core.command({ type: "press", ownerId, notes }, frame),
-      release: ownerId => core.command({ type: "release", ownerId }, frame),
-      configure: config => core.command({ type: "configure", config }, frame),
-      clear: () => core.command({ type: "clear" }, frame),
-      dispose: () => {}, forget: async () => {},
-    };
-    const render = (length: number) => {
-      const output = [new Float32Array(length), new Float32Array(length)];
-      core.render(output, frame);
-      frame += length;
-      return output[0];
-    };
+    const { core } = live;
+    const render = (length: number) => live.render(length);
     await connect();
     packet(0x90, 66, 32);
     await vi.advanceTimersByTimeAsync(0);
@@ -364,6 +333,5 @@ describe("every MIDI pitch through the shared performer", () => {
     expect(attacks).toHaveLength(retrigger ? 2 : 1);
     expect(events("note-released").map(event => event.noteId)).toEqual(attacks);
     expect(useMusicStore().activeNotes.size).toBe(0);
-    expect(audio.attackNote).not.toHaveBeenCalled();
   });
 });

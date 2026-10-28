@@ -1,5 +1,5 @@
 import { resumeAudioContext, holdMicrophoneAudio } from "@/services/audioLifecycle";
-import { getAudioContext } from "@/services/superdoughAudio";
+import { getAudioContext } from "@/services/audioRuntime";
 
 export interface LiveAudioSource {
   context: AudioContext;

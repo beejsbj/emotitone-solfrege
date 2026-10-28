@@ -571,7 +571,8 @@ describe('production live audio render core', () => {
         out.set(quantum[0], frame)
       }
       let step = 0
-      for (let i = 1025; i < out.length; i++) step = Math.max(step, Math.abs(out[i] - out[i - 1]))
+      // From the burst frame itself: a cut voice is missing from it on.
+      for (let i = 1024; i < out.length; i++) step = Math.max(step, Math.abs(out[i] - out[i - 1]))
       return { out, step, core }
     }
 

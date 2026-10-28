@@ -104,7 +104,13 @@ describe('output peak limiter (BJS-590)', () => {
 
 // ── The phone gate's loop on the real core, with a stand-in piano (CI has no piano samples). ──
 
-/** A piano-like bank: a zone every three semitones, decaying partials with a hammer-fast attack, each normalised to 0.95. */
+/**
+ * A piano-like bank: a zone every three semitones, decaying partials with a
+ * hammer-fast attack. Its sustained tones sum louder than the real piano's, so
+ * each zone is normalised to 0.28: the soak then overshoots full scale by about
+ * as much as the real piano did (hundreds of samples, a few dB, at the loop's
+ * onsets under live chords; BJS-590 investigation, frame 462628, peak 1.299).
+ */
 function standInPiano(): PreparedLiveInstrument {
   const zoneRate = 24000
   const zones: LiveSampleZone[] = []
@@ -123,7 +129,7 @@ function standInPiano(): PreparedLiveInstrument {
         max = Math.max(max, Math.abs(channels[c][i]))
       }
     }
-    for (const channel of channels) for (let i = 0; i < frames; i++) channel[i] *= .95 / max
+    for (const channel of channels) for (let i = 0; i < frames; i++) channel[i] *= .28 / max
     zones.push({ id: `stand-in:${root}`, rootMidi: root, sampleRate: zoneRate, channels })
   }
   // The piano bank's gain, and its articulation (instant attack, held sustain).
@@ -183,11 +189,12 @@ function soak(chordOffset: number, bars: number) {
 describe('the phone gate loop with live chords on its beats (BJS-590)', () => {
   it.each([.35, .36, .42])('never leaves the worklet over full scale (chords %s s after the beat)', offset => {
     const { out, core } = soak(offset, 6)
-    // The voice sum itself went over full scale: without the limiter these frames clip.
-    expect(core.limiter.peakIn).toBeGreaterThan(1)
     let over = 0
     for (const channel of out) for (const value of channel) if (Math.abs(value) > 1) over++
     expect(over).toBe(0)
     expect(peakOf(out)).toBeLessThanOrEqual(1)
+    // The voice sum itself went over full scale, by about as much as the real piano's (1.23 here, +1.8 dB):
+    // without the limiter these frames clip.
+    expect(core.limiter.peakIn).toBeGreaterThan(1.1)
   })
 })

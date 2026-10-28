@@ -1075,7 +1075,10 @@ describe("Play is the loop on the worklet transport", () => {
       expect(looper.stopping).toBe(false);
       expect(looper.running).toBe(false);
       expect(player.getLooper().running).toBe(false);
-      // The cut silences the shared room and delay too, once.
+      // The cut silences the shared room and delay too, once: after the cut notes' own release has gone into them.
+      expect(rig.wetCuts).toBe(0);
+      await vi.waitFor(() => expect(rig.wetCuts).toBe(1));
+      await new Promise((resolve) => setTimeout(resolve, 50));
       expect(rig.wetCuts).toBe(1);
       render(1);
       expect(silentFrom(cut + .01 * RATE + 1)).toBe(true);
@@ -1296,7 +1299,10 @@ describe("Play is the loop on the worklet transport", () => {
 
       it("Stop All tapped again while it fades cuts everything, a pattern started during the fade too", async () => {
         const { phrases, looper } = await twoPlaying();
+        const fadingBanks = [...new Set(rig.prepared)];
+        const holds = (bank: string) => [...rig.leases.values()].some((held) => held.has(bank));
         const third = keptTake(phrases);
+        phrases.findPhrase(third)!.context.instrument = "sawtooth";
         looper.stopAll();
         await flush();
         render(.5);
@@ -1306,6 +1312,8 @@ describe("Play is the loop on the worklet transport", () => {
         await looper.settled();
         render(.3);
         expect(looper.stopping).toBe(true);
+        // The first run's notes still ramp out: their banks are held for them.
+        for (const bank of fadingBanks) expect(holds(bank), bank).toBe(true);
         const cut = rig.frame;
         looper.stopAll();
         await flush();
@@ -1314,6 +1322,8 @@ describe("Play is the loop on the worklet transport", () => {
         expect(looper.running).toBe(false);
         expect(player.getLooper().running).toBe(false);
         expect(rig.commands.at(-1)).toMatchObject({ type: "transport-stop", cut: true });
+        // The cut silenced those notes too: every bank is let go at once, none waits for its ramp's timer.
+        for (const bank of [...fadingBanks, "sawtooth"]) expect(holds(bank), bank).toBe(false);
         render(1);
         expect(silentFrom(cut + .01 * RATE + 1)).toBe(true);
       });

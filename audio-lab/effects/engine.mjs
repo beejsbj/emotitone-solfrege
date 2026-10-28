@@ -3,6 +3,7 @@ import { LiveAudioCore } from '../../src/audio/live/core';
 import { createLiveWorklet } from '../../src/audio/live/bridge';
 import { createLiveShapingChain } from '../../src/audio/liveShaping';
 import * as runtime from '../../src/services/audioRuntime';
+import { WET_CUT_DELAY_SECONDS } from '../../src/audio/voicePolicy';
 
 const RATE = 48000;
 const open = { cutoff: 12000, resonance: 0, room: 0, delay: 0 };
@@ -127,8 +128,63 @@ async function renderTails(cut) {
     moveAtStop: move(TAILS.stop - .001, TAILS.stop + .011),
   };
 }
+/** One held A4 for four bars as a transport member, at half level, with room and delay sends. */
+function heldMember() {
+  const one = (Type, value) => Type.from([value]);
+  return { id: 'held', generation: 1, instrumentId: 'fixture', lengthBars: 4,
+    shaping: { cutoff: 12000, resonance: 0, room: .5, delay: .25 },
+    begin: one(Float64Array, 0), gate: one(Float64Array, 3.9), pitch: one(Float32Array, 69), velocity: one(Float32Array, .5),
+    attack: one(Float32Array, .005), decay: one(Float32Array, 0), sustain: one(Float32Array, 1), release: one(Float32Array, .01),
+    pitchStart: one(Uint32Array, 0), pitchCount: one(Uint32Array, 0), pitchTime: new Float32Array(0), pitchCents: new Float32Array(0),
+    gainStart: one(Uint32Array, 0), gainCount: one(Uint32Array, 0), gainTime: new Float32Array(0), gainValue: new Float32Array(0) };
+}
+/**
+ * Stop All's cut with a note sounding through it, on the real worklet and the
+ * app's live room and delay. The cut lands at 400 ms; the buses are swapped
+ * `swapAfter` seconds later. Once the cut has settled, nothing may sound: not
+ * the note, not its room tail, not its echo at +250 ms.
+ */
+async function renderCutVoice(swapAfter) {
+  const frames = Math.round(1.2 * RATE);
+  const context = new OfflineAudioContext(2, frames, RATE);
+  const graph = new EngineAudioGraph(context), orbit = graph.getOrbit(2);
+  const random = Math.random;
+  Math.random = seed();
+  try { await orbit.ready(); } finally { Math.random = random; }
+  const chain = createLiveShapingChain(context, graph.master, () => orbit);
+  const receipts = new Map();
+  const answered = id => new Promise(resolve => receipts.set(id, resolve));
+  const worklet = await createLiveWorklet(context, chain.input, { onEvent() {}, onPlan() {},
+    onTransport(response) { if (response.type === 'transport-applied') receipts.get(response.requestId)?.(); },
+    onError(error) { throw error; } }, chain);
+  const tone = new Float32Array(2 * RATE);
+  for (let i = 0; i < tone.length; i++) tone[i] = Math.sin(2 * Math.PI * 440 * i / RATE);
+  await worklet.prepare(instrument(tone));
+  const started = answered(2);
+  worklet.transport({ type: 'transport-change', requestId: 1, boundary: 'immediate',
+    change: { type: 'join', member: { table: heldMember(), offsetBars: 0, rate: 1, muted: false } } });
+  worklet.transport({ type: 'transport-start', requestId: 2, run: 1, bpm: 120 });
+  await started;
+  const cutAt = .4;
+  const quantum = 128 / RATE;
+  const swapAt = Math.ceil((cutAt + swapAfter) / quantum) * quantum;
+  context.suspend(cutAt).then(() => {
+    worklet.transport({ type: 'transport-stop', requestId: 3, cut: true });
+    if (!swapAfter) orbit.cutTails(.01, cutAt);
+    return context.resume();
+  });
+  if (swapAfter) context.suspend(swapAt).then(() => { orbit.cutTails(.01, swapAt); return context.resume(); });
+  const buffer = await context.startRendering();
+  worklet.dispose(); chain.dispose(); graph.reset(); graph.master.disconnect();
+  const pcm = buffer.getChannelData(0);
+  const peak = (from, to) => { let loudest = 0; for (let i = Math.round(from * RATE); i < Math.round(to * RATE); i++) loudest = Math.max(loudest, Math.abs(pcm[i])); return loudest; };
+  // Settled: past the swap's own 10 ms fade (and the voices' 10 ms release), with a quantum to spare.
+  const settled = Math.max(cutAt, swapAt) + .01 + 2 * quantum;
+  return { beforeCut: peak(cutAt - .05, cutAt), afterSettled: peak(settled, 1.2), echoWindow: peak(cutAt + .24, cutAt + .27) };
+}
 window.runEngineEffects = async () => {
-  const tails = { plain: await renderTails(false), cut: await renderTails(true) };
+  const tails = { plain: await renderTails(false), cut: await renderTails(true),
+    cutVoice: await renderCutVoice(WET_CUT_DELAY_SECONDS), cutVoiceSwappedAtOnce: await renderCutVoice(0) };
   const echo = new Float32Array(96000); echo[2400] = 1;
   const delay = await render(echo, { ...open, delay: .6 }, false, IMPULSE_VELOCITY);
   const impulse = new Float32Array(144000); impulse[0] = 1;

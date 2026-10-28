@@ -33,7 +33,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 import LoopDial, { type LoopDialSegment } from "./LoopDial.vue";
 import { trackFlick, type FlickTracker } from "./flick";
 import { triggerUIHaptic } from "@/utils/hapticFeedback";
@@ -153,6 +153,7 @@ function down(event: PointerEvent) {
   }
   clearTimeout(holdTimer);
   holdTimer = setTimeout(() => {
+    if (props.ending) return;
     held = true;
     soloing = true;
     if (props.haptic) triggerUIHaptic();
@@ -161,7 +162,7 @@ function down(event: PointerEvent) {
 }
 
 function move(event: PointerEvent) {
-  if (!gesture || event.pointerId !== gesture.pointerId) return;
+  if (!gesture || event.pointerId !== gesture.pointerId || props.ending) return;
   const dx = event.clientX - gesture.x;
   const dy = event.clientY - gesture.y;
   if (!gesture.moved) {
@@ -185,7 +186,7 @@ function move(event: PointerEvent) {
  * or to the screen's edge): never a vertical swipe, a slow drag or a tap.
  */
 function isFlick(event: PointerEvent): boolean {
-  if (!gesture || gesture.moved !== "sideways" || soloing || gesture.flung) return false;
+  if (!gesture || gesture.moved !== "sideways" || soloing || gesture.flung || props.ending) return false;
   return gesture.flick.isFlick(event.clientX, event.clientY, performance.now());
 }
 
@@ -216,6 +217,10 @@ function cancel() {
   endSolo();
   gesture = null;
 }
+
+// A press already under way when the dial starts ending is dropped: no hold, solo or throw comes of it
+// (a solo it had already begun is let go, as a lifted hold is).
+watch(() => props.ending, (ending) => { if (ending) cancel(); });
 
 function tap() {
   clearTimeout(holdTimer);

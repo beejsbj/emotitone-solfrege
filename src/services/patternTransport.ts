@@ -29,6 +29,7 @@ import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import { buildPatternMember, type PatternMember, type PatternMemberRequest } from "@/services/patternMember";
 import { bendNotes } from "@/domain/modeRemap";
 import { barAtFrame, bpmAtFrame, type TempoAnchor } from "@/audio/live/tempoMap";
+import { WET_CUT_DELAY_SECONDS } from "@/audio/voicePolicy";
 import type {
   TransportBoundary, TransportChange, TransportCommand, TransportReceipt, TransportResponse, TransportSingleChange,
 } from "@/audio/live/transport";
@@ -570,8 +571,9 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
   function halt(command: boolean, cut = false) {
     const wasPlaying = playing;
     if (command && port) send({ type: "transport-stop", requestId: ++requestId, ...(cut ? { cut: true } : {}) });
-    // A cut is silence: what the shared room and delay hold fades in the same 10 ms, live notes' echoes too.
-    if (cut) options.audio.cutWetTails?.();
+    // A cut is silence: what the shared room and delay hold fades too, live notes' echoes included.
+    // Not at once: the cut voices' own 10 ms release must go into the old returns, not the fresh ones.
+    if (cut) setTimeout(() => options.audio.cutWetTails?.(), WET_CUT_DELAY_SECONDS * 1000);
     playing = false;
     run++;
     for (const noteId of [...registry.keys()]) endNow(noteId);
@@ -581,6 +583,9 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
     resolvePending();
     for (const entry of memberships.values()) entry.releasePin?.();
     // Fading notes ramp out in the worklet after a plain stop: their banks stay until then.
+    // A cut silences every one of them, those of an earlier run still ramping out too: all their banks go now
+    // (the timers still pending find them already let go).
+    if (cut) giveUpFadingBanks();
     for (const entry of leaving) releaseWhenSilent(entry, cut);
     memberships.clear();
     leaving.clear();

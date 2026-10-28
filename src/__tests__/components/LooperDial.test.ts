@@ -1,8 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { mount } from "@vue/test-utils";
-import { defineComponent, h, nextTick } from "vue";
+import { defineComponent, h, nextTick, ref } from "vue";
 import { provideUIBeat, UIBeatClock } from "@/composables/useUIBeat";
 import LooperDial from "@/components/primatives/LooperDial.vue";
+
+const { triggerUIHaptic } = vi.hoisted(() => ({ triggerUIHaptic: vi.fn() }));
+vi.mock("@/utils/hapticFeedback", () => ({ triggerUIHaptic }));
 
 /**
  * The Looper Dial: one playing pattern as its own control. Observed through
@@ -269,6 +272,40 @@ describe("LooperDial", () => {
     await button().trigger("keydown", { key: "Delete" });
     expect(emitted).toEqual([]);
     expect(button().classes()).not.toContain("looper-dial--flicking");
+    wrapper.unmount();
+    clock.destroy();
+  });
+
+  it("a press under way when the dial starts ending comes to nothing: no solo, no throw, no haptic", async () => {
+    vi.useFakeTimers();
+    triggerUIHaptic.mockClear();
+    const ending = ref(false);
+    const emitted: string[] = [];
+    const clock = new UIBeatClock({ observeEnvironment: false, reducedMotion: () => false, documentVisible: () => true });
+    const Host = defineComponent({
+      setup() {
+        provideUIBeat({ clock, presentationEnabled: () => true });
+        return () => h(LooperDial, { ...base, haptic: true, ending: ending.value,
+          onMute: () => emitted.push("mute"), onDesk: () => emitted.push("desk"),
+          onSolo: (held: boolean) => emitted.push(held ? "solo on" : "solo off"), onRemove: () => emitted.push("remove") });
+      },
+    });
+    const wrapper = mount(Host, { attachTo: document.body });
+    const element = wrapper.get("button.looper-dial").element;
+    // A hold under way: Stop All lands before its threshold.
+    pointer(element, "pointerdown", 28, 100);
+    vi.advanceTimersByTime(300);
+    ending.value = true;
+    await nextTick();
+    vi.advanceTimersByTime(600);
+    // Then the same finger throws it to the edge and lifts.
+    pointer(element, "pointermove", 14, 100);
+    vi.advanceTimersByTime(16);
+    pointer(element, "pointermove", 0, 100);
+    pointer(element, "pointerup", 0, 100);
+    click(element);
+    expect(emitted).toEqual([]);
+    expect(triggerUIHaptic).not.toHaveBeenCalled();
     wrapper.unmount();
     clock.destroy();
   });

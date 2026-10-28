@@ -9,8 +9,14 @@ import { createPhoneGate } from "./runner";
 // A piano download that takes as long as the test says, and then is refused,
 // so the run ends at its summary without needing a worklet.
 const load = vi.hoisted(() => ({ finish: undefined as undefined | (() => void) }));
+// The gate's live-event subscribers, so a test can play the worklet's part and report an attack.
+const live = vi.hoisted(() => ({ listeners: new Set<{ onEvent(event: unknown): void }>() }));
 vi.mock("@/services/livePlayback", async importOriginal => ({
   ...await importOriginal<typeof import("@/services/livePlayback")>(),
+  subscribeLivePlayback: vi.fn((listener: { onEvent(event: unknown): void }) => {
+    live.listeners.add(listener);
+    return () => { live.listeners.delete(listener); };
+  }),
   prepareLivePlayback: vi.fn(() => new Promise<void>(resolve => { load.finish = resolve; })),
   getLivePlaybackFailure: vi.fn(() => ({ kind: "load", reason: "refused by the test" })),
   getLivePlayback: vi.fn(),
@@ -162,6 +168,44 @@ describe("phone gate run", () => {
       gate.padUp();
       expect(gate.state.results.live).toEqual({ pressed: 6, sounded: 0 });
       expect(gate.state.results.pads).toEqual({ pressed: 1, sounded: 0 });
+    } finally {
+      gate.dispose();
+      vi.mocked(getLivePlaybackFailure).mockReturnValue({ kind: "load", reason: "refused by the test" });
+    }
+  });
+
+  it("counts a pad tap that sounds in the pad row, never in the chords' (BJS-590)", async () => {
+    const context = fakeContext();
+    vi.mocked(getAudioContext).mockReturnValue(context as unknown as AudioContext);
+    vi.mocked(prepareLivePlayback).mockResolvedValueOnce();
+    vi.mocked(getLivePlaybackFailure).mockReturnValue(undefined);
+    vi.mocked(createPatternPlayer).mockReturnValue({
+      start: vi.fn(async () => {}), dispose: vi.fn(), getLooper: () => ({ members: [] }),
+      barAtAudioTime: (time: number) => time / 2.4,
+    } as never);
+    vi.mocked(readLiveRenderCost).mockImplementation(() => Promise.resolve(new RenderCostMeter("performance").snapshot()));
+    // The worklet's part: a pad note renders and its attack comes back; the chords' notes do not.
+    const attack = (ownerId: string, pitch: number) => live.listeners.forEach(listener => listener.onEvent({
+      phase: "attack", noteId: `worklet-${ownerId}`, ownerId, pitch, instrumentId: "piano", velocity: .6,
+      style: "together", at: context.currentTime }));
+    const renderer = {
+      press: vi.fn((ownerId: string, notes: { pitch: number }[]) => {
+        if (ownerId.startsWith("gate-pad-")) attack(ownerId, notes[0].pitch);
+      }),
+      release: vi.fn(),
+    };
+    vi.mocked(getLivePlayback).mockReturnValue(renderer as never);
+    const gate = createPhoneGate();
+    try {
+      gate.run();
+      context.currentTime = 2.4;
+      await vi.advanceTimersByTimeAsync(200);
+      expect(gate.state.phase).toBe("soak");
+      await vi.advanceTimersByTimeAsync(1200);
+      gate.padDown(new PointerEvent("pointerdown"));
+      gate.padUp();
+      expect(gate.state.results.pads).toEqual({ pressed: 1, sounded: 1 });
+      expect(gate.state.results.live).toEqual({ pressed: 6, sounded: 0 });
     } finally {
       gate.dispose();
       vi.mocked(getLivePlaybackFailure).mockReturnValue({ kind: "load", reason: "refused by the test" });

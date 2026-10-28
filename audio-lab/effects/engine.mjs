@@ -22,11 +22,13 @@ function instrument(data) {
     gain: 1, attack: 0, decay: 0, sustain: 1, release: 0,
     zones: [{ id: 'fixture', rootMidi: 69, sampleRate: RATE, channels: [data] }] };
 }
-// The echo impulse plays at half level: a unit impulse is over the worklet's
-// output limiter's ceiling (BJS-590), and the delay comparisons are
-// sample-exact. Halving is exact in floating point, so the frozen delay
-// reference compares at half scale.
-const ECHO_VELOCITY = .5;
+// The echo and room impulses play at half level. A unit impulse is over the
+// worklet's output limiter's ceiling (BJS-590), so the limiter would scale it
+// (by 0.9958), and these checks compare the buses' own levels: the delay
+// sample for sample, the room within 1 dB per 100 ms window. At half level the
+// limiter is idle and the buses are measured alone. Both buses are linear, so
+// the frozen references compare at half scale (exactly so for the delay).
+const IMPULSE_VELOCITY = .5;
 function workletPcm(data, shape, velocity) {
   const core = new LiveAudioCore(RATE, () => {});
   core.command({ type: 'prepare', requestId: 1, instrument: instrument(data) }, 0);
@@ -81,11 +83,11 @@ async function render(data, shape, realProcessor = false, velocity = undefined) 
 }
 window.runEngineEffects = async () => {
   const echo = new Float32Array(96000); echo[2400] = 1;
-  const delay = await render(echo, { ...open, delay: .6 }, false, ECHO_VELOCITY);
+  const delay = await render(echo, { ...open, delay: .6 }, false, IMPULSE_VELOCITY);
   const impulse = new Float32Array(144000); impulse[0] = 1;
-  const room = await render(impulse, { ...open, room: 1 });
+  const room = await render(impulse, { ...open, room: 1 }, false, IMPULSE_VELOCITY);
   const filter = await render(impulse, { ...open, cutoff: 1000, resonance: 10 }, true);
-  const processorDelay = await render(echo, { ...open, delay: .6 }, true, ECHO_VELOCITY);
+  const processorDelay = await render(echo, { ...open, delay: .6 }, true, IMPULSE_VELOCITY);
 
   // Exercise the production owner, never a mock: one app context, master and
   // live orbit survive initialization, and preparation issues no resume.

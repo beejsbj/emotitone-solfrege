@@ -91,7 +91,7 @@ function raiseNext() {
 }
 
 function raiseAgain() {
-  const newest = live.entries.value.at(-1);
+  const newest = live.entries.value[live.entries.value.length - 1];
   if (newest) live.raise({ id: newest.id, line: newest.line, label: newest.label, signal: newest.signal });
   else raiseNext();
 }

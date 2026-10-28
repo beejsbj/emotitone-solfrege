@@ -24,13 +24,15 @@ export interface LiveSeat {
   shape?: (next: LiveShaping & { envelope: LiveEnvelopeOverride }) => void;
   /** Why the worklet holds no sound while `renderer` is null; a generic "not prepared" by default. */
   failure?: LivePlaybackFailure;
+  /** What waitForLivePlayback returns for a press: nothing to wait for by default. */
+  recovery?: () => Promise<void> | undefined;
 }
 
 /** The livePlayback functions the stores call, answered by `seat`. */
 export function livePlaybackOn(seat: LiveSeat) {
   return {
     getLivePlayback: () => seat.renderer ?? undefined,
-    waitForLivePlayback: () => undefined,
+    waitForLivePlayback: () => seat.recovery?.(),
     subscribeLivePlayback: (listener: LiveRendererCallbacks) => {
       seat.listeners.add(listener);
       return () => { seat.listeners.delete(listener); };

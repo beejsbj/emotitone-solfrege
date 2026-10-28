@@ -44,6 +44,7 @@ describe("music store", () => {
     vi.mocked(getAudioContext).mockReturnValue({ state: "running", currentTime: 0 } as AudioContext);
     seat.listeners.clear();
     seat.failure = undefined;
+    seat.recovery = undefined;
     live = attachLiveCore(seat);
     if (typeof localStorage?.clear === "function") {
       localStorage.clear();
@@ -316,6 +317,20 @@ describe("music store", () => {
       await nextTick();
       expect(deck.get(".heads-up__line").attributes("title")).toBe(line);
       expect(line.length).toBeLessThanOrEqual(32);
+    } finally {
+      deck.unmount();
+    }
+  });
+
+  it("a press whose sound the rebuilt engine could not bring back says to try again", async () => {
+    seat.renderer = null;
+    seat.recovery = () => Promise.reject(new Error("Live renderer recovery failed"));
+    useInstrumentStore().currentInstrument = "gm_piano";
+    const deck = mount(DeckHeadsUp, { attachTo: document.body });
+    try {
+      await expect(useMusicStore().attackExactPitch("C4")).rejects.toThrow("Live renderer recovery failed");
+      await nextTick();
+      expect(deck.get(".heads-up__line[role=alert]").attributes("title")).toBe("Can't play Piano: try again");
     } finally {
       deck.unmount();
     }

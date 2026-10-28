@@ -43,8 +43,9 @@ export class PeakLimiter {
   private readonly releaseCoefficient: number
   /** Per-frame gains for one quantum; grows only if a caller renders a longer block. */
   private gains = new Float64Array(128)
-  /** The loudest dry sample the voice sum reached before limiting (telemetry; read-only to callers). */
-  peakIn = 0
+  private loudest = 0
+  /** The loudest dry sample the voice sum has reached before limiting. */
+  get peakIn() { return this.loudest }
 
   constructor(sampleRate: number, readonly ceiling = LIMITER_CEILING) {
     this.attackStep = 1 / (LIMITER_ATTACK_SECONDS * sampleRate)
@@ -64,7 +65,7 @@ export class PeakLimiter {
       const level = Math.abs(channel[i])
       if (level > blockPeak) blockPeak = level
     }
-    if (blockPeak > this.peakIn) this.peakIn = blockPeak
+    if (blockPeak > this.loudest) this.loudest = blockPeak
     // Idle and under the ceiling: leave every sample as it is.
     if (this.gain === 1 && !(blockPeak > ceiling)) return
     if (this.gains.length < length) this.gains = new Float64Array(length)

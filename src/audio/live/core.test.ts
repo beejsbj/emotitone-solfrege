@@ -338,6 +338,16 @@ describe('production live audio render core', () => {
       const ended = (ownerId: string) => messages.filter(message => message.type === 'owner-ended' && message.ownerId === ownerId).length
       return { core, send, press, release: (ownerId: string) => send({ type: 'release', ownerId }), render, pcm, events, ended }
     }
+    /** A Looper member with one note, at bars from its start. */
+    const oneNote = (instrumentId: string, pitch: number, begin: number, gate: number): TransportMemberTable => {
+      const one = (value: number) => Float32Array.of(value)
+      return { id: 'loop', generation: 1, instrumentId, lengthBars: 1,
+        shaping: { cutoff: OPEN_CUTOFF_HZ, resonance: 0, room: 0, delay: 0 },
+        begin: Float64Array.of(begin), gate: Float64Array.of(gate), pitch: one(pitch), velocity: one(1),
+        attack: one(0), decay: one(0), sustain: one(1), release: one(.01),
+        pitchStart: Uint32Array.of(0), pitchCount: Uint32Array.of(0), pitchTime: new Float32Array(), pitchCents: new Float32Array(),
+        gainStart: Uint32Array.of(0), gainCount: Uint32Array.of(0), gainTime: new Float32Array(), gainValue: new Float32Array() }
+    }
     const peak = (pcm: number[]) => pcm.reduce((max, sample) => Math.max(max, Math.abs(sample)), 0)
     /** The largest sample-to-sample jump: the sine moves at most .029 a frame at full level; a cut note jumps by up to .5. */
     const step = (pcm: number[]) => pcm.reduce((max, sample, index) => index ? Math.max(max, Math.abs(sample - pcm[index - 1])) : 0, 0)
@@ -431,6 +441,72 @@ describe('production live audio render core', () => {
       expect(ended('tap')).toBe(1)
     })
 
+    it('releases each held tap at its own gate while another still waits for its onset', () => {
+      const { press, release, render, events } = rig()
+      press('first'); release('first'); render(128)
+      // Lifted in the next gap: its wait must not hide the first tap's gate, due sooner.
+      press('second'); release('second'); render(2048)
+      expect(events('first')).toEqual([['attack', 0], ['release', 240]])
+      expect(events('second')).toEqual([['attack', 128], ['release', 368]])
+    })
+
+    it('sounds a tap at a pitch the Looper is already sounding', () => {
+      const { send, press, release, render, events, ended } = rig()
+      send({ type: 'transport-change', requestId: 3, boundary: 'immediate',
+        change: { type: 'join', member: { table: oneNote('sine', 69, 0, .9), offsetBars: 0, rate: 1, muted: false } } })
+      send({ type: 'transport-start', requestId: 4, run: 1, bpm: 120 })
+      // The Looper's A4 sounds; the next eighth is at 250 ms.
+      render(6400)
+      send({ type: 'configure', config: { style: 'repeat', rate: 8 } })
+      press('tap', 69); release('tap'); render(12000)
+      expect(events('tap')).toEqual([['attack', 12000], ['release', 12240]])
+      expect(ended('tap')).toBe(1)
+    })
+
+    it('sounds a tap at a pitch whose live note is only fading out', () => {
+      const { send, press, release, render, events, ended } = rig()
+      send({ type: 'configure', config: { style: 'repeat', rate: 8 } })
+      press('before', 69); render(4800); release('before')
+      // Inside the earlier note's 30 ms release: that tail is not a note the tap can join.
+      render(640)
+      press('tap', 69); release('tap'); render(4800)
+      expect(events('tap')).toEqual([['attack', 5440], ['release', 5680]])
+      expect(ended('tap')).toBe(1)
+    })
+
+    it.each([
+      [120, 16, [60, 64, 67]],
+      [120, 8, [60, 64, 67, 71]],
+      [90, 4, [60, 64, 67, 71]],
+      [120, 4, [60, 64, 67, 71, 74]],
+    ] as const)('plays a chord tapped in arp-up at %i BPM, rate %i, key by key in order, each once', (bpm, rate, keys) => {
+      const { send, press, release, render, events, ended, core } = rig()
+      send({ type: 'configure', config: { style: 'arp-up', bpm, rate } })
+      for (const key of keys) press(`key-${key}`, key)
+      for (const key of keys) release(`key-${key}`)
+      const interval = RATE * 60 / bpm * 4 / rate
+      render(keys.length * interval + RATE / 2)
+      for (const [turn, key] of keys.entries()) {
+        expect(events(`key-${key}`), `${key}`).toEqual([['attack', turn * interval], ['release', turn * interval + 240]])
+        expect(ended(`key-${key}`), `${key}`).toBe(1)
+      }
+      expect(core.voiceCount).toBe(0)
+    })
+
+    it('reads a sample\'s rise from a fixed stretch of its recording, whatever the transposition', () => {
+      // A recording that ramps up over 200 ms, played two octaves up (four source frames a frame).
+      const ramp: PreparedLiveInstrument = { kind: 'sample-bank', instrumentId: 'ramp', zoneSelection: 'nearest-root',
+        gain: .5, attack: .001, decay: 0, sustain: 1, release: .02,
+        zones: [{ id: 'ramp', rootMidi: 69, sampleRate: RATE, loopStartFrame: 9600, loopEndFrame: 19200,
+          channels: [Float32Array.from({ length: 19200 }, (_, index) => Math.min(1, index / 9600))] }] }
+      const { press, release, render, events } = rig(ramp)
+      press('tap', 93); release('tap'); render(4800)
+      // Only the recording's first 50 ms is read: 70% of its level there is source frame 1680, 420 frames
+      // of playback. Scanning 50 ms of playback instead would read 200 ms of recording and hold 1680 frames.
+      const [, gate] = events('tap')[1]
+      expect(Math.abs(gate - 420)).toBeLessThanOrEqual(1)
+    })
+
     it('ends a touch whose first onset never comes exactly once, with nothing left behind', () => {
       // Cleared or forgotten while its strum gathers, or let go by a stop (blur, hide, instrument change).
       for (const end of ['clear', 'forget', 'stop'] as const) {
@@ -484,15 +560,8 @@ describe('production live audio render core', () => {
 
     it('still cancels a transport note stopped before its onset renders', () => {
       const { send, render, messages, core } = setup()
-      const one = (value: number) => Float32Array.of(value)
-      const table: TransportMemberTable = { id: 'loop', generation: 1, instrumentId: 'test', lengthBars: 1,
-        shaping: { cutoff: OPEN_CUTOFF_HZ, resonance: 0, room: 0, delay: 0 },
-        begin: Float64Array.of(.25), gate: Float64Array.of(.1), pitch: one(60), velocity: one(1),
-        attack: one(0), decay: one(0), sustain: one(1), release: one(.01),
-        pitchStart: Uint32Array.of(0), pitchCount: Uint32Array.of(0), pitchTime: new Float32Array(), pitchCents: new Float32Array(),
-        gainStart: Uint32Array.of(0), gainCount: Uint32Array.of(0), gainTime: new Float32Array(), gainValue: new Float32Array() }
       send({ type: 'transport-change', requestId: 2, boundary: 'immediate',
-        change: { type: 'join', member: { table, offsetBars: 0, rate: 1, muted: false } } })
+        change: { type: 'join', member: { table: oneNote('test', 60, .25, .1), offsetBars: 0, rate: 1, muted: false } } })
       send({ type: 'transport-start', requestId: 3, run: 1, bpm: 120 })
       // Its onset is a quarter bar in, frame 500 at 120 BPM: announced inside the lookahead, then stopped.
       const before = render(490)[0]

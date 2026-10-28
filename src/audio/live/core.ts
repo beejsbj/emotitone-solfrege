@@ -29,8 +29,16 @@ const GATE = .8
  */
 const MIN_LIVE_GATE = .005
 const MAX_LIVE_GATE = .05
-/** A held release lets go unheard after this long without an onset (longer than a solo touch's first onset at 40 BPM and up). */
+/**
+ * A held release lets go unheard after this long with no live onset at all.
+ * Every live onset restarts the wait, so keys queued for their arp turns are
+ * never dropped while the arp plays; this bounds only the never-onset case.
+ */
 const MAX_RELEASE_WAIT = 2
+/** Recording (not playback) time a sample's rise is read from: a fixed, rate-independent scan. */
+const RISE_WINDOW_SECONDS = MAX_LIVE_GATE
+/** Each zone's recorded rise in source frames, read once at its first rescued tap. */
+const recordedRises = new WeakMap<LiveSampleZone, number>()
 const MAX_PITCH_BEND_CENTS = 50
 const PITCH_SMOOTH_SECONDS = .007
 const MIN_GAIN_EXPRESSION = .25
@@ -221,9 +229,17 @@ export class LiveAudioCore {
     }
     return [...notes.values()].sort((a, b) => a.note.pitch - b.note.pitch)
   }
-  private selection(step: number) {
+  private selection(step: number, pulse?: Pulse) {
     const pool = this.pool()
     if (this.config.style === 'repeat' || !pool.length) return pool
+    // Keys let go before their first turn take the next turns, in pool order, once each:
+    // a lifted key not already planned in another pulse goes first (BJS-597).
+    if (this.earlyReleases.size) for (const entry of pool) {
+      let lifted = false
+      for (const owner of entry.owners) if (this.unsounded.has(owner) && this.earlyReleases.has(owner)) lifted = true
+      if (lifted && !this.pulses.some(other => other !== pulse
+        && other.notes.some(note => note.pitch === entry.note.pitch))) return [entry]
+    }
     const cycle = this.config.style === 'arp-up-down' && pool.length > 1 ? pool.length * 2 - 2 : pool.length
     const position = step % cycle
     return [pool[position < pool.length ? position : cycle - position]]
@@ -233,7 +249,7 @@ export class LiveAudioCore {
       if (pulse.duration === undefined || pulse.frame < frame) continue
       if (pulse.step === 0 && pulse.notes.length && this.config.style !== 'repeat') continue
       const previous = pulse.notes
-      pulse.notes = this.selection(pulse.step).map(({ note, ownerId, owners }) => {
+      pulse.notes = this.selection(pulse.step, pulse).map(({ note, ownerId, owners }) => {
         const match = previous.find(old => old.pitch === note.pitch && old.instrumentId === note.instrumentId)
         return match ? { ...match, velocity: note.velocity, ownerId, owners: new Set(owners) } : this.note(note, ownerId, owners)
       })
@@ -391,10 +407,12 @@ export class LiveAudioCore {
       this.strum.push(...notes.map(note => this.note(note, ownerId)))
       this.strumAt ??= frame + this.sampleRate * .03
     } else {
-      for (const voice of this.voices) if (notes.some(note => note.pitch === voice.pitch)) {
+      for (const voice of this.voices) if (!voice.transport && notes.some(note => note.pitch === voice.pitch)) {
         voice.owners.add(ownerId)
-        // A touch that joins a sounding note is heard at once.
-        if (!voice.released) this.unsounded.delete(ownerId)
+        // A touch that joins its own instrument's sounding live note is heard at once.
+        if (!voice.released && notes.some(note => note.pitch === voice.pitch && note.instrumentId === voice.instrumentId)) {
+          this.unsounded.delete(ownerId)
+        }
       }
       if (this.nextFrame === undefined) { this.nextFrame = frame; this.step = 0 }
       else this.revise(frame)
@@ -682,8 +700,7 @@ export class LiveAudioCore {
   private tapGate(voice?: Voice) {
     let rise = voice?.attack ?? 0
     // A sample's own onset (a bowed or swelled note) is in its PCM, not its envelope.
-    if (voice?.zone) rise = Math.max(rise, recordedRise(voice.zone.channels[0], voice.increment,
-      MAX_LIVE_GATE * this.sampleRate) / this.sampleRate)
+    if (voice?.zone) rise = Math.max(rise, recordedRise(voice.zone) / voice.increment / this.sampleRate)
     return Math.ceil(Math.max(MIN_LIVE_GATE, Math.min(MAX_LIVE_GATE, rise)) * this.sampleRate)
   }
 
@@ -907,6 +924,10 @@ export class LiveAudioCore {
             if (this.unsounded.delete(owner) && this.earlyReleases.has(owner)) this.holdRelease(owner, frame + this.tapGate(voice))
           }
         }
+        // The live stream moved on: keys still waiting for their turn wait on.
+        if (this.earlyReleases.size && pulse.notes.length) for (const [owner] of this.earlyReleases) {
+          if (this.unsounded.has(owner)) this.earlyReleases.set(owner, frame + Math.ceil(MAX_RELEASE_WAIT * this.sampleRate))
+        }
         this.planDirty = true
       }
       // Admission is complete for this frame. A same-frame burst may steal an
@@ -952,15 +973,21 @@ export class LiveAudioCore {
 }
 
 /**
- * Output frames until a sample first reaches 70% of its loudest point within
- * `frames` of playback (at `increment` source frames per output frame).
+ * Source frames until a zone's recording first reaches 70% of its loudest
+ * point in its first RISE_WINDOW_SECONDS. The scan reads a fixed stretch of
+ * the recording whatever the transposition, once per zone.
  */
-function recordedRise(source: Float32Array, increment: number, frames: number): number {
-  const end = Math.min(source.length, Math.ceil(frames * increment))
+function recordedRise(zone: LiveSampleZone): number {
+  let rise = recordedRises.get(zone)
+  if (rise !== undefined) return rise
+  const source = zone.channels[0]
+  const end = Math.min(source.length, Math.ceil(RISE_WINDOW_SECONDS * zone.sampleRate))
   let peak = 0
   for (let index = 0; index < end; index++) peak = Math.max(peak, Math.abs(source[index]))
-  for (let index = 0; index < end; index++) if (Math.abs(source[index]) >= .7 * peak) return index / increment
-  return 0
+  rise = 0
+  while (rise < end && Math.abs(source[rise]) < .7 * peak) rise++
+  recordedRises.set(zone, rise)
+  return rise
 }
 
 /** Linear interpolation of a recorded curve; the cursor only moves forward. */

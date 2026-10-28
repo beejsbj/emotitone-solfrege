@@ -5,6 +5,7 @@ import { readTransportEvents } from './transportEvents'
 import type { LiveCommand, LiveResponse, LiveSampleZone, PreparedLiveInstrument } from './types'
 import { GATE_BPM, gateMembers } from '@/lab/phoneGate/fixtures'
 import { buildPatternMember } from '@/services/patternMember'
+import { OPEN_CUTOFF_HZ } from '@/audio/liveShaping'
 
 const RATE = 48000
 const QUANTUM = 128
@@ -88,6 +89,22 @@ describe('output peak limiter (BJS-590)', () => {
     for (let c = 0; c < 2; c++) expect(out[c].subarray(tail)).toEqual(input[c].subarray(tail))
   })
 
+  it('ignores a non-finite sample rather than muting the output behind it', () => {
+    const input = music(1, .8)
+    const bad = input.map(channel => Float32Array.from(channel))
+    bad[0][QUANTUM * 10 + 5] = Infinity
+    bad[1][QUANTUM * 20 + 7] = -Infinity
+    bad[0][QUANTUM * 30 + 9] = Number.NaN
+    const { out, limiter } = limit(bad)
+    // Every other sample passes untouched, and the gain never left 1.
+    for (let c = 0; c < 2; c++) for (let i = 0; i < input[c].length; i++) {
+      if (!Number.isFinite(bad[c][i])) continue
+      if (out[c][i] !== input[c][i]) throw new Error(`channel ${c} frame ${i}: ${out[c][i]} != ${input[c][i]}`)
+    }
+    expect(limiter.currentGain).toBe(1)
+    expect(limiter.peakIn).toBeLessThanOrEqual(Math.fround(.8))
+  })
+
   it('applies the gain it chose for the dry sum to the room and delay sends', () => {
     const input = music(1, 1.4)
     const room = input.map(channel => channel.map(value => value * .5))
@@ -143,7 +160,10 @@ const BAR = BEAT * 4
 const CHORDS = [[64, 67, 72], [65, 69, 72], [62, 67, 71], [64, 67, 72]]
 
 /** The gate's soak: its four-member loop, and a chord on every beat, each released after 45% of a beat. */
-function soak(chordOffset: number, bars: number) {
+/** Room and delay send levels for every voice; powers of two, so each send is an exact fraction of the dry sum. */
+const SENDS = { room: .5, delay: .25 }
+
+function soak(chordOffset: number, bars: number, sends = false) {
   const queued: LiveResponse[] = []
   const core = new LiveAudioCore(RATE, response => { queued.push(response) })
   let frame = 0
@@ -154,8 +174,12 @@ function soak(chordOffset: number, bars: number) {
     }
   }
   core.command({ type: 'prepare', requestId: 1, instrument: standInPiano() }, frame)
+  const shape = { cutoff: OPEN_CUTOFF_HZ, resonance: 0, ...SENDS }
+  // Live notes take the Shape's sends; each loop member carries the same Shape.
+  if (sends) core.command({ type: 'effects', shaping: shape }, frame)
   const joins = gateMembers().map((member, index) => {
-    const { table } = buildPatternMember({ ...member, generation: 100 + index, instrumentId: 'piano' })
+    const config = sends ? { ...member.config, shape: { ...shape, attack: null, release: null } } : member.config
+    const { table } = buildPatternMember({ ...member, config, generation: 100 + index, instrumentId: 'piano' })
     table.lengthBars = member.lengthBars!
     return { type: 'join' as const, member: { table, offsetBars: 0, rate: 1, muted: false } }
   })
@@ -172,18 +196,23 @@ function soak(chordOffset: number, bars: number) {
   }
   posts.sort((a, b) => a.at - b.at)
   const total = Math.ceil(bars * BAR * RATE / QUANTUM) * QUANTUM
-  const out = [new Float32Array(total), new Float32Array(total)]
+  const bus = () => [new Float32Array(total), new Float32Array(total)]
+  const out = bus(), room = bus(), delay = bus()
   const quantum = [new Float32Array(QUANTUM), new Float32Array(QUANTUM)]
+  const roomQuantum = [new Float32Array(QUANTUM), new Float32Array(QUANTUM)]
+  const delayQuantum = [new Float32Array(QUANTUM), new Float32Array(QUANTUM)]
   let next = 0
   while (frame < total) {
     // Messages reach the worklet between callbacks (1024 frames here, as on the phone).
     if (frame % 1024 === 0) while (next < posts.length && posts[next].at * RATE <= frame) core.command(posts[next++].command, frame)
-    core.render(quantum, frame)
-    out[0].set(quantum[0], frame); out[1].set(quantum[1], frame)
+    core.render(quantum, frame, roomQuantum, delayQuantum)
+    for (let c = 0; c < 2; c++) {
+      out[c].set(quantum[c], frame); room[c].set(roomQuantum[c], frame); delay[c].set(delayQuantum[c], frame)
+    }
     frame += QUANTUM
     deliver()
   }
-  return { out, core }
+  return { out, room, delay, core }
 }
 
 describe('the phone gate loop with live chords on its beats (BJS-590)', () => {
@@ -196,5 +225,17 @@ describe('the phone gate loop with live chords on its beats (BJS-590)', () => {
     // The voice sum itself went over full scale, by about as much as the real piano's (1.23 here, +1.8 dB):
     // without the limiter these frames clip.
     expect(core.limiter.peakIn).toBeGreaterThan(1.1)
+  })
+
+  it('limits the room and delay sends by the same gain, frame for frame, as the dry output', () => {
+    const { out, room, delay, core } = soak(.42, 6, true)
+    expect(core.limiter.peakIn).toBeGreaterThan(1.1)
+    // Every voice sends the same exact fraction of what it adds to the dry sum, so whatever gain the limiter
+    // applies, each send stays exactly that fraction of the limited dry output.
+    let mismatches = 0
+    for (let c = 0; c < 2; c++) for (let i = 0; i < out[c].length; i++) {
+      if (room[c][i] !== out[c][i] * SENDS.room || delay[c][i] !== out[c][i] * SENDS.delay) mismatches++
+    }
+    expect(mismatches).toBe(0)
   })
 })

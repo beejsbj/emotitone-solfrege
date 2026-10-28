@@ -15,7 +15,12 @@
  *   release. A loud onset in the first frames of a quantum comes without
  *   warning: rather than step the gain down there, the limiter falls at its
  *   attack rate and lets those frames use the 0.3 dB between the ceiling and
- *   full scale. Nothing ever leaves above full scale.
+ *   full scale. Where that headroom is not enough, it falls as fast as it must
+ *   to stay under full scale (faster than the attack rate; a sample over full
+ *   scale in a quantum's first frame is met by a step). Nothing ever leaves
+ *   above full scale.
+ * - Peak detection ignores non-finite samples (NaN, ±Infinity): one bad sample
+ *   cannot pull the gain to 0 and mute the output through the release.
  * - Detection is stereo-linked on the dry sum, and the same gain is applied to
  *   the room and delay sends, as if the limiter sat on the voice bus before the
  *   sends: the effects hear what the dry output plays.
@@ -63,7 +68,8 @@ export class PeakLimiter {
     let blockPeak = 0
     for (const channel of dry) for (let i = 0; i < length; i++) {
       const level = Math.abs(channel[i])
-      if (level > blockPeak) blockPeak = level
+      // NaN fails the comparison; Infinity is ignored too.
+      if (level > blockPeak && level !== Infinity) blockPeak = level
     }
     if (blockPeak > this.loudest) this.loudest = blockPeak
     // Idle and under the ceiling: leave every sample as it is.
@@ -78,7 +84,7 @@ export class PeakLimiter {
     let fallToFullScale = 0
     for (let i = 0; i < length; i++) {
       let level = 0
-      for (const channel of dry) { const value = Math.abs(channel[i]); if (value > level) level = value }
+      for (const channel of dry) { const value = Math.abs(channel[i]); if (value > level && value !== Infinity) level = value }
       const need = level > ceiling ? ceiling / level : 1
       gains[i] = need
       const slope = (start - need) / (i + 1)

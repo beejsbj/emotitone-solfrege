@@ -174,7 +174,7 @@ describe("phone gate run", () => {
     }
   });
 
-  it("counts a pad tap that sounds in the pad row, never in the chords' (BJS-590)", async () => {
+  it("counts sounded pad taps and sounded chord notes each in their own row (BJS-590)", async () => {
     const context = fakeContext();
     vi.mocked(getAudioContext).mockReturnValue(context as unknown as AudioContext);
     vi.mocked(prepareLivePlayback).mockResolvedValueOnce();
@@ -184,14 +184,12 @@ describe("phone gate run", () => {
       barAtAudioTime: (time: number) => time / 2.4,
     } as never);
     vi.mocked(readLiveRenderCost).mockImplementation(() => Promise.resolve(new RenderCostMeter("performance").snapshot()));
-    // The worklet's part: a pad note renders and its attack comes back; the chords' notes do not.
+    // The worklet's part: every pressed note renders and its attack comes back.
     const attack = (ownerId: string, pitch: number) => live.listeners.forEach(listener => listener.onEvent({
       phase: "attack", noteId: `worklet-${ownerId}`, ownerId, pitch, instrumentId: "piano", velocity: .6,
       style: "together", at: context.currentTime }));
     const renderer = {
-      press: vi.fn((ownerId: string, notes: { pitch: number }[]) => {
-        if (ownerId.startsWith("gate-pad-")) attack(ownerId, notes[0].pitch);
-      }),
+      press: vi.fn((ownerId: string, notes: { pitch: number }[]) => attack(ownerId, notes[0].pitch)),
       release: vi.fn(),
     };
     vi.mocked(getLivePlayback).mockReturnValue(renderer as never);
@@ -205,7 +203,7 @@ describe("phone gate run", () => {
       gate.padDown(new PointerEvent("pointerdown"));
       gate.padUp();
       expect(gate.state.results.pads).toEqual({ pressed: 1, sounded: 1 });
-      expect(gate.state.results.live).toEqual({ pressed: 6, sounded: 0 });
+      expect(gate.state.results.live).toEqual({ pressed: 6, sounded: 6 });
     } finally {
       gate.dispose();
       vi.mocked(getLivePlaybackFailure).mockReturnValue({ kind: "load", reason: "refused by the test" });

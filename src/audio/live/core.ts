@@ -10,11 +10,12 @@ import { AudioTransport, type TransportCommand, type TransportMemberTable, type 
 import { TransportEventKind, TransportEventWriter, type TransportEventBatch } from './transportEvents'
 
 /**
- * Stolen voices that may fade at once: a whole pool's worth, so even every
- * voice stolen in one frame still finishes its 10 ms fade. Past that, the
- * quietest fade is the one cut (BJS-590).
+ * Stolen voices that may fade at once (BJS-590). 24 lets a burst of 20 steals
+ * inside one 10 ms fade all finish; past it, the quietest fade is the one cut.
+ * Measured (desktop V8, 64 piano voices held, then a burst of 64 steals): the
+ * worst quantum costs 807 µs at 24 against 721 µs at 8 and 1054 µs at 64.
  */
-const MAX_FADES = MAX_AUDIO_VOICES
+const MAX_FADES = 24
 const PLAN_SECONDS = .15
 const GATE = .8
 const MAX_PITCH_BEND_CENTS = 50

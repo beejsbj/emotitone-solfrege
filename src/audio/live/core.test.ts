@@ -551,13 +551,14 @@ describe('production live audio render core', () => {
     const level: PreparedLiveInstrument = { ...bank, instrumentId: 'level', gain: .005, attack: 0, decay: 0, sustain: 1,
       release: .01, zones: [{ id: 'level', rootMidi: 60, sampleRate: RATE, channels: [new Float32Array([1, 1, 1, 1])],
         loopStartFrame: 0, loopEndFrame: 4 }] }
-    function burst(waves: number[]) {
+    /** `quietHeld` of the 64 held voices, pressed after the loud ones (so stolen after them), are near-silent. */
+    function burst(waves: number[], quietHeld = 0) {
       const core = new LiveAudioCore(RATE, () => {})
       core.command({ type: 'prepare', requestId: 1, instrument: level }, 0)
       const press = (ownerId: string, velocity: number, frame: number) => core.command({ type: 'press', ownerId,
         notes: [{ pitch: 60, instrumentId: 'level', velocity }] }, frame)
-      // The pool full of held voices: 64 × 0.005 = 0.32, well under the limiter's ceiling.
-      for (let k = 0; k < 64; k++) press(`held-${k}`, 1, 0)
+      // The pool full of held voices: at most 64 × 0.005 = 0.32, well under the limiter's ceiling.
+      for (let k = 0; k < 64; k++) press(`held-${k}`, k < 64 - quietHeld ? 1 : .001, 0)
       const out = new Float32Array(128 * 40)
       const quantum = [new Float32Array(128), new Float32Array(128)]
       let wave = 0
@@ -584,11 +585,11 @@ describe('production live audio render core', () => {
     })
 
     it('cuts the quietest fades, not the oldest, when more voices are stolen than can fade', () => {
-      // 64 loud held voices stolen at once, then the 64 near-silent voices that replaced them, a quantum later.
-      const { step, core } = burst([64, 64])
-      // Cutting the loud fades would step by up to 64 × 0.005 × 0.73; the near-silent ones cost almost nothing.
+      // One burst steals all 64: the 24 loud voices first (filling the 24 fade slots), then 40 near-silent ones.
+      const { step, core } = burst([64], 40)
+      // Cutting the oldest fades would cut the loud ones (up to 24 × 0.005); the near-silent ones cost almost nothing.
       expect(step).toBeLessThan(.002)
-      expect(core.voiceCount).toBeLessThanOrEqual(128)
+      expect(core.voiceCount).toBeLessThanOrEqual(64 + 24)
     })
   })
 

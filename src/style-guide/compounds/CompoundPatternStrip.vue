@@ -54,6 +54,13 @@
           @rename="rename(armedPattern, $event)"
         />
       </VariantCell>
+      <VariantCell caption="A Loop's reel · the take played over a pattern offers Replace in Loop" stage="ink3">
+        <PatternStrip
+          :item="replacingPattern"
+          active
+          @replace="lastAction = 'Replace Evening Glass in Loop 1'"
+        />
+      </VariantCell>
     </VariantGrid>
   </AnatomyDisplay>
 </template>
@@ -113,6 +120,18 @@ const armedPattern = reactive<PatternStripItem>({
   deleteArmed: true,
 });
 
+const replacingPattern = reactive<PatternStripItem>({
+  ...currentPattern,
+  id: "take-over-loop",
+  name: "Take 3",
+  tone: "take",
+  lamp: "live",
+  shelfTag: "Now",
+  actions: [
+    { kind: "replace", label: "Replace Evening Glass in Loop 1 with Take 3" },
+  ],
+});
+
 const lastAction = ref("Ready");
 
 function rename(pattern: PatternStripItem, name: string) {
@@ -126,7 +145,7 @@ const features = [
   { label: "Spine", value: "4px Music Color from root key plus root octave" },
   { label: "Loop", value: "34px dial between identity and actions, including Current; arc length reads duration and radius reads pitch" },
   { label: "Rename", value: "double-tap selected title or press F2; inline Enter/blur commit" },
-  { label: "Actions", value: "two-tap Delete, Open in Strudel" },
+  { label: "Actions", value: "two-tap Delete, Open in Strudel; on a Loop's reel, Replace in Loop (an Ivory key, BJS-572)" },
   { label: "Source", value: "components/compounds/PatternStrip.vue" },
 ];
 </script>

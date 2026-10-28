@@ -152,13 +152,14 @@ import {
   Bookmark,
   Check,
   ExternalLink,
+  Replace,
   Trash2,
 } from "lucide-vue-next";
 import LoopDial from "../primatives/LoopDial.vue";
 import Button from "../primatives/Button.vue";
 import type { LoopDialSegment } from "../primatives/LoopDial.vue";
 
-export type PatternStripActionKind = "keep" | "delete" | "open" | "load";
+export type PatternStripActionKind = "keep" | "delete" | "open" | "load" | "replace";
 
 export interface PatternStripAction {
   kind: PatternStripActionKind;
@@ -218,12 +219,14 @@ const ACTION_ICONS: Record<PatternStripActionKind, Component> = {
   delete: Trash2,
   open: ExternalLink,
   load: ArrowDownToLine,
+  replace: Replace,
 };
 const ACTION_TONES: Record<PatternStripActionKind, "ink" | "ivory" | "brass"> = {
   keep: "ivory",
   delete: "ink",
   open: "brass",
   load: "brass",
+  replace: "ivory",
 };
 
 const props = withDefaults(defineProps<{
@@ -244,12 +247,14 @@ const emit = defineEmits<{
   rename: [name: string];
   keep: [];
   load: [];
+  replace: [];
 }>();
 
 function runAction(kind: PatternStripActionKind) {
   if (kind === "keep") emit("keep");
   else if (kind === "delete") emit("delete");
   else if (kind === "open") emit("openStrudel");
+  else if (kind === "replace") emit("replace");
   else emit("load");
 }
 

@@ -137,6 +137,24 @@ describe("phrases store", () => {
       expect(store.book.phrases.find((phrase) => phrase.id === "dead-kept")!.context.instrument).toBe("kawai");
     });
 
+    it("leaves a saved Loop's pattern on its own sound across a reload, even on the desk (rule 3, BJS-572)", () => {
+      playPhrase(store, "before", START);
+      const state = JSON.parse(JSON.stringify({ book: store.book, isRecordingEnabled: true }));
+      state.book.phrases.find((phrase: { id: string }) => phrase.id === state.book.takeId).context.instrument = "kawai";
+      state.book.loops.push({ id: "loop-1", name: "Loop 1", createdAt: START, updatedAt: START,
+        members: [{ phraseId: state.book.takeId, offsetBars: 0, lengthBars: 1, muted: false, pinned: false, rate: 1 }] });
+      store.$dispose();
+      localStorage.setItem("phrases", serializePatternsState(state));
+      const pinia = createTestPinia().use(piniaPluginPersistedstate);
+      createApp({}).use(pinia);
+      setActivePinia(pinia);
+      useVisualConfigStore().updateConfig("codeStrip", { bpm: 120 });
+      store = usePhrasesStore();
+      expect(store.isLoopOwned(store.takeId)).toBe(true);
+      expect(store.takeContext.instrument).toBe("kawai");
+      expect(store.takeNotes).toHaveLength(3);
+    });
+
     it("reopens a Recent phrase in place on the working sound", async () => {
       const source = keptOn("kawai", "dead-recent");
       source.shelf = "recent";

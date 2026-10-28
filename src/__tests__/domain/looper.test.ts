@@ -5,15 +5,20 @@ import {
   createLooper,
   deleteLoop,
   effectiveKeyMode,
+  isLoopPlaying,
   isPlaying,
   join,
+  joinLoop,
   leave,
+  loopOfPlayingSet,
   mustOpenFreshTake,
+  nextLoopName,
   openLoop,
   periodBars,
   phraseLengthBars,
   protectedPhraseIds,
   renameLoop,
+  replaceLoopMember,
   saveLoop,
   setOffset,
   setPinned,
@@ -457,6 +462,109 @@ describe("looper: saved Loops", () => {
     expect(book.loops).toEqual([]);
     expect(findPhrase(book, "arpeggio")).toBeDefined();
     expect(isPlaying(looper, "arpeggio")).toBe(true);
+  });
+});
+
+describe("looper: a saved Loop's reel (BJS-572)", () => {
+  it("names Loops by number, past any number a Loop already holds", () => {
+    expect(nextLoopName(book)).toBe("Loop 1");
+    add();
+    saveLoop(book, looper, undefined, clock, newId);
+    expect(book.loops[0].name).toBe("Loop 1");
+    renameLoop(book, book.loops[0].id, "Loop 7", clock);
+    expect(nextLoopName(book)).toBe("Loop 8");
+    renameLoop(book, book.loops[0].id, "Groove", clock);
+    expect(nextLoopName(book)).toBe("Loop 2");
+  });
+
+  it("finds the Loop that holds exactly what is playing, in any order", () => {
+    add();
+    add(phrase({ id: "second" }));
+    expect(loopOfPlayingSet(book, looper)).toBeUndefined();
+    const id = save();
+    leave(looper, "arpeggio");
+    add();
+    expect(looper.members.map((member) => member.phraseId)).toEqual(["second", "arpeggio"]);
+    expect(loopOfPlayingSet(book, looper)?.id).toBe(id);
+    add(phrase({ id: "third" }));
+    expect(loopOfPlayingSet(book, looper)).toBeUndefined();
+  });
+
+  it("joins a Loop's missing patterns in their saved places on the running grid, keeping what plays", () => {
+    add();
+    add(phrase({ id: "second" }));
+    setOffset(looper, "second", 1.5);
+    setRate(looper, "second", 2);
+    toggleMute(looper, "second");
+    const saved = { ...looper.members[1] };
+    const id = save();
+    clear(looper);
+    // Something else is looping, with bar one at 3.25 on the caller's clock.
+    join(looper, phrase({ id: "other", context: { ...C_MAJOR, bpm: 96 } }), { kind: "played", phraseOriginBars: 3.25 });
+    add();
+    setOffset(looper, "arpeggio", .5);
+    const loop = book.loops.find((entry) => entry.id === id)!;
+    const joined = joinLoop(looper, loop, 140);
+    expect(joined).toEqual([saved]);
+    expect(looper.members.map((member) => member.phraseId)).toEqual(["other", "arpeggio", "second"]);
+    // What was already playing keeps its place, and the clock is the running one.
+    expect(looper.members[1].offsetBars).toBe(.5);
+    expect(looper).toMatchObject({ bpm: 96, barOriginBars: 3.25 });
+    expect(isLoopPlaying(looper, loop)).toBe(true);
+    expect(joinLoop(looper, loop, 140)).toEqual([]);
+    // An empty Looper takes the given tempo and starts its bar one at 0.
+    const fresh = createLooper();
+    joinLoop(fresh, loop, 140);
+    expect(fresh).toMatchObject({ bpm: 140, barOriginBars: 0 });
+    expect(fresh.members).toEqual(loop.members);
+  });
+
+  it("swaps one pointer: neither phrase changes, and the new one takes the old one's place", () => {
+    const original = phrase();
+    add(original);
+    add(phrase({ id: "second" }));
+    setOffset(looper, "arpeggio", .75);
+    toggleMute(looper, "arpeggio");
+    const id = save();
+    const before = structuredClone(original);
+    const edit = phrase({
+      id: "edit", shelf: "take",
+      notes: [{ id: "edit-1", note: "E4", scaleDegree: 3, scaleIndex: 2, octave: 4, pressTime: 0, releaseTime: 5000, duration: 5000 }],
+      duration: 5000,
+    });
+    book.phrases.push(edit);
+    expect(replaceLoopMember(book, id, "arpeggio", edit, clock + 5)).toBe(true);
+    expect(book.loops[0].members[0]).toEqual({
+      phraseId: "edit", offsetBars: .75, lengthBars: 3, muted: true, pinned: false, rate: 1,
+    });
+    expect(book.loops[0].members[1].phraseId).toBe("second");
+    expect(book.loops[0].updatedAt).toBe(clock + 5);
+    expect(findPhrase(book, "arpeggio")).toEqual(before);
+    // The Loop protects its new pointer and lets the old one go.
+    clear(looper);
+    expect(protectedPhraseIds(book, looper)).toEqual(new Set(["edit", "second"]));
+    expect(deletePhrase(book, "arpeggio")).toBe(true);
+  });
+
+  it("places the replacement where it plays when told, and pins an unpitched one", () => {
+    add();
+    const id = save();
+    const drums = phrase({ id: "drums", context: { ...C_MAJOR, instrument: "unknown-kit" } });
+    expect(replaceLoopMember(book, id, "arpeggio", drums, clock, { offsetBars: 1.25, rate: 2, pinned: false })).toBe(true);
+    expect(book.loops[0].members[0]).toMatchObject({ phraseId: "drums", offsetBars: 1.25, rate: 2, pinned: true });
+  });
+
+  it("refuses a swap that would break the Loop", () => {
+    add();
+    add(phrase({ id: "second" }));
+    const id = save();
+    const snapshot = structuredClone(book.loops[0]);
+    expect(replaceLoopMember(book, "missing", "arpeggio", phrase({ id: "x" }), clock)).toBe(false);
+    expect(replaceLoopMember(book, id, "not-a-member", phrase({ id: "x" }), clock)).toBe(false);
+    expect(replaceLoopMember(book, id, "arpeggio", phrase({ id: "second" }), clock)).toBe(false);
+    expect(replaceLoopMember(book, id, "arpeggio", phrase({ id: "x", notes: [] }), clock)).toBe(false);
+    expect(replaceLoopMember(book, id, "arpeggio", phrase({ id: "x" }), clock, { offsetBars: Number.NaN })).toBe(false);
+    expect(book.loops[0]).toEqual(snapshot);
   });
 });
 

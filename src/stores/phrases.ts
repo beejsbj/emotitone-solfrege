@@ -107,10 +107,13 @@ function readLegacyBook(liveContext: PhraseContext): PhraseBook | null {
  * after the sound was removed, or another tab's shelf) comes back on its
  * nearest working one, as opening it would (`syncControlsTo`), so Play and
  * live play can sound it. Only the desk's copy changes; its notes are untouched.
+ * A pattern a saved Loop points at keeps its own sound (rule 3, as `isLoopOwned`
+ * guards in the store): only the controls move, and they restore on their own.
  */
 function onWorkingSound(book: PhraseBook): PhraseBook {
   const take = book.phrases.find((phrase) => phrase.id === book.takeId);
-  if (take && typeof take.context.instrument === "string") {
+  const loopOwned = (book.loops ?? []).some((loop) => loop.members.some((member) => member.phraseId === book.takeId));
+  if (take && !loopOwned && typeof take.context.instrument === "string") {
     const instrument = selectableReplacement(take.context.instrument);
     if (instrument !== take.context.instrument) take.context = { ...take.context, instrument };
   }
@@ -135,6 +138,8 @@ export const usePhrasesStore = defineStore(
       { get: () => protectedIdsProvider.value(), enumerable: true },
     );
     const livePressGuard = shallowRef<LivePressGuard | null>(null);
+    /** Edits refused because a saved Loop owns the phrase (Backspace); the notice reads it. */
+    const refusedLoopEdits = ref(0);
 
     const liveContext = computed<PhraseContext>(() => ({
       key: musicStore.currentKey as ChromaticNote,
@@ -272,6 +277,17 @@ export const usePhrasesStore = defineStore(
     /** The reel, deepest first; the desk is drawn where you found it. */
     const reel = computed(() => arrangeReel(book.value, libraryPhrases, isTakeTouched.value));
 
+    /**
+     * A saved Loop points at the phrase, so its notes and context are the
+     * Loop's (rule 3, docs/looper.md): every path that would write into it
+     * asks this first. A new note opens a fresh take on top; Backspace and a
+     * control change leave it alone; opening it does not rewrite its sound.
+     * Its name and shelf (rename, Keep) are not the pattern and stay free.
+     */
+    function isLoopOwned(id: string): boolean {
+      return book.value.loops.some((loop) => loop.members.some((member) => member.phraseId === id));
+    }
+
     function heldInTake(): boolean {
       for (const note of held.values()) if (note.phraseId === book.value.takeId) return true;
       return false;
@@ -286,6 +302,8 @@ export const usePhrasesStore = defineStore(
 
     watch(liveContext, (live) => {
       if (isContextSyncing) return;
+      // A Loop's pattern on the desk keeps its key, mode and sound (rule 3).
+      if (isLoopOwned(book.value.takeId)) return;
       followControls(book.value, held, live);
     });
 
@@ -297,7 +315,8 @@ export const usePhrasesStore = defineStore(
       // or Library source) is not rewritten; only the copy on the desk, or a
       // Recent phrase opened in place, takes the working id. Notes are untouched.
       const instrument = selectableReplacement(context.instrument);
-      if (context.instrument !== instrument) context.instrument = instrument;
+      // A Loop's pattern is not rewritten (rule 3): only the controls take the working sound.
+      if (context.instrument !== instrument && !isLoopOwned(phrase.id)) context.instrument = instrument;
       isContextSyncing = true;
       try {
         musicStore.setKey(context.key);
@@ -306,12 +325,13 @@ export const usePhrasesStore = defineStore(
         visualConfigStore.updateConfig("codeStrip", { bpm: resolveBpm(context.bpm) });
         // Selecting the instrument recalls its remembered Shape; the phrase's
         // Shape then wins and becomes that instrument's memory.
-        void instrumentStore.setInstrument(context.instrument).then((result) => {
+        void instrumentStore.setInstrument(instrument).then((result) => {
           if (
             result.status === "failed"
             && result.fallback
             && book.value.takeId === phrase.id
             && take.value.context.instrument === result.instrument
+            && !isLoopOwned(phrase.id)
           ) {
             followControls(book.value, held, liveContext.value);
           }
@@ -370,6 +390,9 @@ export const usePhrasesStore = defineStore(
     function deletePhrase(id: string): boolean {
       const protectedIds = protectedIdsProvider.value();
       if (protectedIds.has(id)) return false;
+      // A take a saved Loop points at (a pattern put in a Loop from the desk) is
+      // the Loop's: deleting it would leave the Loop pointing at nothing.
+      if (isLoopOwned(id)) return false;
       if (id === book.value.takeId && isTakeTouched.value) {
         // A confirmed delete of the take you played into: gone, fresh desk.
         discardTake(book.value, Date.now(), liveContext.value);
@@ -381,7 +404,7 @@ export const usePhrasesStore = defineStore(
           || target === untouchedCopySource(book.value, isTakeTouched.value));
       if (protectedIds.has(target)) return false;
       // A saved Loop's member is refused before the desk is touched.
-      if (book.value.loops.some((loop) => loop.members.some((member) => member.phraseId === target))) return false;
+      if (isLoopOwned(target)) return false;
       // Deleting what you're looking at clears the desk first.
       if (lookedAt) startBlankTake();
       return deleteBookPhrase(book.value, target, protectedIds);
@@ -397,7 +420,16 @@ export const usePhrasesStore = defineStore(
       return renameBookPhrase(book.value, target, name, libraryPhrases);
     }
 
+    /**
+     * Backspace. Refused on a Loop's pattern (rule 3): there is no note of
+     * this take's own to take back. Each refusal counts, so the Looper's
+     * notice can say why.
+     */
     function undoLastNote(): void {
+      if (isLoopOwned(book.value.takeId)) {
+        refusedLoopEdits.value += 1;
+        return;
+      }
       undoBookNote(book.value);
     }
 
@@ -423,7 +455,10 @@ export const usePhrasesStore = defineStore(
       const detail = event.detail;
       if (!detail?.noteId) return;
       const wallTime = Number.isFinite(detail.timestamp) ? detail.timestamp : Date.now();
-      if (livePressGuard.value?.({ deskPhraseId: deskPhraseId.value, wallTime })) startBlankTake();
+      // Rule 3: never write into a Loop's pattern, or into what the Looper's guard says is read-only.
+      if (isLoopOwned(deskPhraseId.value) || livePressGuard.value?.({ deskPhraseId: deskPhraseId.value, wallTime })) {
+        startBlankTake();
+      }
       const isBorrowed = detail.isBorrowed === true || detail.solfegeIndex < 0;
       const live = liveContext.value;
       pressNote(book.value, held, {
@@ -555,6 +590,8 @@ export const usePhrasesStore = defineStore(
       lastLiveNoteId,
       isTakeSounding,
       findPhrase,
+      isLoopOwned,
+      refusedLoopEdits,
 
       // Actions
       keepTake,

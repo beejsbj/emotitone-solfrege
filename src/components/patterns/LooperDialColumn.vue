@@ -7,7 +7,7 @@
  * an Edge Notice on the right edge, the mirror of the dials on the left.
  */
 import { computed } from "vue";
-import { Square } from "lucide-vue-next";
+import { BookmarkPlus, Square } from "lucide-vue-next";
 import Button from "@/components/primatives/Button.vue";
 import EdgeNotice from "@/components/compounds/EdgeNotice.vue";
 import LooperDial, { type LooperDialState } from "@/components/primatives/LooperDial.vue";
@@ -86,6 +86,21 @@ function stateOf(view: LooperMemberView): LooperDialState {
       >
         <Square />
       </Button>
+      <!-- Above Stop All: two or more patterns playing that no Loop holds yet
+           can be saved as a Loop, which gets its own reel (BJS-572). -->
+      <Button
+        v-if="looper.canSaveLoop"
+        class="looper-dials__save"
+        size="sm"
+        tone="ink"
+        haptic
+        data-testid="looper-save-loop"
+        accessible-name="Save these patterns as a Loop"
+        title="Save as a Loop"
+        @click="looper.saveLoop()"
+      >
+        <BookmarkPlus />
+      </Button>
     </div>
   </div>
 </template>
@@ -110,6 +125,11 @@ function stateOf(view: LooperMemberView): LooperDialState {
 
 .looper-dials__stop {
   margin-bottom: var(--s-2);
+}
+
+/* Its touch meets Stop All's, never overlaps it. */
+.looper-dials__save {
+  margin-bottom: calc(var(--hit-gap-sm) - var(--s-1));
 }
 
 /* An Edge Notice on the right edge, one row above the shelf's own (which

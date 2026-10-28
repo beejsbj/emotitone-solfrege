@@ -4,6 +4,7 @@ import {
   closeTake, createPhraseBook, deletePhrase, followControls, getTake, keepTake, phraseFromPattern, pressNote, releaseNote,
 } from "@/domain/phraseBook";
 import { defaultPatterns } from "@/data/patterns";
+import { createLooper, join, renameLoop, replaceLoopMember, saveLoop, setOffset } from "@/domain/looper";
 import { NEUTRAL_SHAPE } from "@/services/shape";
 import { bindingFor, defineCodec, readPayload } from "@/services/persistenceCodec";
 import { listPhraseBackups, restorePhraseBackup, writePhraseBackup } from "@/services/phraseBackups";
@@ -784,5 +785,136 @@ describe("two tabs, one shelf", () => {
     expect(saveFailureNotice.value?.message).toBe("Can't save — reload to update");
     expect(a.save()).toBe(false);
     expect(JSON.parse(localStorage.getItem("phrases")!).$version).toBe(99);
+  });
+});
+
+describe("two tabs and a Loop's reel (BJS-572)", () => {
+  /** Tab A saves a Loop of x and y (both Recent sketches); tab B opens after it. */
+  function twoTabsWithALoop() {
+    const a = openTab();
+    const x = sketch(a, "x");
+    const y = sketch(a, "y");
+    const looper = createLooper();
+    join(looper, x, { kind: "pinned-to-bar-one" });
+    join(looper, y, { kind: "pinned-to-bar-one" });
+    setOffset(looper, "y", .5);
+    saveLoop(a.state.book, looper, "Loop 1", NOW, () => "loop-1");
+    a.save();
+    const b = openTab();
+    // B sketches on its own desk (a second tab first opens on the take stored last).
+    closeTake(b.state.book, NOW, context, () => "b-take");
+    const loopIn = (tab: Tab) => tab.state.book.loops.find((loop) => loop.id === "loop-1")!;
+    const pointers = (tab: Tab) => loopIn(tab).members.map((member) => member.phraseId);
+    return { a, b, loopIn, pointers };
+  }
+
+  it("carries a pointer swap from one tab and a rename from the other, and the swapped-in take stays", () => {
+    const { a, b, loopIn, pointers } = twoTabsWithALoop();
+    // A plays a new take on the Loop's reel and replaces y with it; the take then closes.
+    const take = getTake(a.state.book);
+    take.notes = sketch(a, "scratch").notes.map((note) => ({ ...note }));
+    take.duration = 2000;
+    a.state.book.phrases = a.state.book.phrases.filter((phrase) => phrase.id !== "scratch");
+    expect(replaceLoopMember(a.state.book, "loop-1", "y", take, NOW + 1)).toBe(true);
+    closeTake(a.state.book, NOW + 1, context, () => "a-next");
+    // Meanwhile B renames the Loop.
+    expect(renameLoop(b.state.book, "loop-1", "Groove", NOW + 2)).toBe(true);
+    a.save();
+    b.save();
+    a.hear();
+    for (const tab of [a, b]) {
+      expect(pointers(tab)).toEqual(["x", take.id]);
+      expect(loopIn(tab).name).toBe("Groove");
+      // The swap kept y's place in the Loop.
+      expect(loopIn(tab).members[1].offsetBars).toBe(.5);
+      expect(find(tab.state, take.id)).toMatchObject({ shelf: "recent" });
+      expect(find(tab.state, "y")).toBeDefined();
+    }
+    // The Loop holds its new pointer in B too, and lets the old one go.
+    expect(deletePhrase(b.state.book, take.id)).toBe(false);
+    expect(deletePhrase(b.state.book, "y")).toBe(true);
+    b.save();
+    a.hear();
+    expect(ids(a.state)).not.toContain("y");
+    expect(ids(a.state)).toContain(take.id);
+    expect(pointers(a)).toEqual(["x", take.id]);
+  });
+
+  it("keeps both tabs' swaps when each replaced a different pattern of the same Loop", () => {
+    const { a, b, pointers } = twoTabsWithALoop();
+    const fromA = sketch(a, "from-a");
+    const fromB = sketch(b, "from-b");
+    expect(replaceLoopMember(a.state.book, "loop-1", "x", fromA, NOW + 1)).toBe(true);
+    expect(replaceLoopMember(b.state.book, "loop-1", "y", fromB, NOW + 2)).toBe(true);
+    a.save();
+    b.save();
+    a.hear();
+    expect(pointers(a)).toEqual(["from-a", "from-b"]);
+    expect(pointers(b)).toEqual(["from-a", "from-b"]);
+    expect(stored().book.loops[0].members.map((member) => member.phraseId)).toEqual(["from-a", "from-b"]);
+    // Both replaced patterns are still on the shelf: Loops hold pointers.
+    expect(ids(stored())).toEqual(expect.arrayContaining(["x", "y", "from-a", "from-b"]));
+  });
+
+  it("keeps the last saver's swap when both tabs replaced the same pattern", () => {
+    const { a, b, pointers } = twoTabsWithALoop();
+    const fromA = sketch(a, "from-a");
+    const fromB = sketch(b, "from-b");
+    replaceLoopMember(a.state.book, "loop-1", "y", fromA, NOW + 1);
+    replaceLoopMember(b.state.book, "loop-1", "y", fromB, NOW + 2);
+    a.save();
+    b.save();
+    expect(pointers(b)).toEqual(["x", "from-b"]);
+    a.hear();
+    // The tab that saved last wins the slot, and the other takes it in.
+    expect(pointers(a)).toEqual(["x", "from-b"]);
+    expect(ids(a.state)).toEqual(expect.arrayContaining(["from-a", "from-b"]));
+  });
+
+  it.each(["the deleting tab saves first", "the swapping tab saves first"])(
+    "keeps a Loop one tab swapped a pointer of while the other deleted it: the edit wins (%s)", (order) => {
+      const { a, b, loopIn, pointers } = twoTabsWithALoop();
+      const fresh = sketch(a, "fresh");
+      expect(replaceLoopMember(a.state.book, "loop-1", "y", fresh, NOW + 1)).toBe(true);
+      b.state.book.loops = b.state.book.loops.filter((loop) => loop.id !== "loop-1");
+      if (order === "the deleting tab saves first") {
+        b.save();
+        a.save();
+        b.hear();
+      } else {
+        a.save();
+        b.save();
+        a.hear();
+      }
+      for (const tab of [a, b]) {
+        expect(pointers(tab)).toEqual(["x", "fresh"]);
+        expect(loopIn(tab).members[1].offsetBars).toBe(.5);
+      }
+      expect(stored().book.loops.map((loop) => loop.members.map((member) => member.phraseId))).toEqual([["x", "fresh"]]);
+      // The Loop it kept still holds what it points at, in both tabs.
+      expect(deletePhrase(b.state.book, "fresh")).toBe(false);
+      expect(deletePhrase(a.state.book, "x")).toBe(false);
+    });
+
+  it("falls back to the last saver's whole Loop when two slots would point at one phrase, and the tabs agree", () => {
+    const { a, b, pointers } = twoTabsWithALoop();
+    const shared = sketch(a, "shared");
+    a.save();
+    b.hear();
+    expect(find(b.state, "shared")).toBeDefined();
+    // Each tab puts the same phrase in a different slot.
+    expect(replaceLoopMember(a.state.book, "loop-1", "x", shared, NOW + 1)).toBe(true);
+    expect(replaceLoopMember(b.state.book, "loop-1", "y", find(b.state, "shared")!, NOW + 2)).toBe(true);
+    a.save();
+    b.save();
+    // Slot by slot would be ["shared", "shared"]: B keeps its own Loop whole instead.
+    expect(pointers(b)).toEqual(["x", "shared"]);
+    expect(stored().book.loops[0].members.map((member) => member.phraseId)).toEqual(["x", "shared"]);
+    // A had not changed its Loop since it saved: it takes B's in, and the tabs agree.
+    a.hear();
+    expect(pointers(a)).toEqual(["x", "shared"]);
+    // Neither tab ever holds a Loop with one phrase in two slots, and the swapped-out ones stay.
+    for (const tab of [a, b]) expect(new Set(pointers(tab)).size).toBe(2);
+    expect(ids(a.state)).toEqual(expect.arrayContaining(["x", "y", "shared"]));
   });
 });

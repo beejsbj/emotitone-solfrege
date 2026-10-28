@@ -251,6 +251,28 @@ const loopsOf = (book: unknown): LoopLike[] | undefined => {
 };
 
 /**
+ * A saved Loop, field by field like any entry, except that when both tabs
+ * changed its members and both kept as many as they agreed on, the members
+ * merge slot by slot: a pointer swapped in one tab ("Replace in Loop",
+ * BJS-572) and another swapped in the other both hold. A slot both changed is
+ * this tab's. Anything else (members added or taken away, or two slots that
+ * would point at one phrase) keeps this tab's members whole.
+ */
+function mergeLoop(base: LoopLike | undefined, ours: LoopLike, theirs: LoopLike): LoopLike {
+  const merged = mergeFields(base, ours, theirs);
+  const before = base?.members;
+  const mine = toRaw(ours).members;
+  const other = theirs.members;
+  if (!Array.isArray(before) || !Array.isArray(mine) || !Array.isArray(other)) return merged;
+  if (mine.length !== before.length || other.length !== before.length || sameJson(mine, other)) return merged;
+  const members = mine.map((member, index) =>
+    mergeValue(true, before[index], toRaw(member), member, other[index], () => member));
+  const ids = members.map((member) => member?.phraseId);
+  if (new Set(ids).size === ids.length) merged.members = members;
+  return merged;
+}
+
+/**
  * Merge another tab's saved shelf into this tab's. `base` and `theirs` are
  * stored data at the current version; `ours` is the state in memory, which is
  * not changed (unchanged phrases are shared by reference with the result).
@@ -275,7 +297,7 @@ export function mergePhraseStates(
   const ourLoops = loopsOf(mine);
   const theirLoops = loopsOf(other.book);
   const loops = ourLoops || theirLoops
-    ? mergeById(loopsOf(before?.book), ourLoops ?? [], theirLoops ?? [], (loop) => toRaw(loop), mergeFields, () => false)
+    ? mergeById(loopsOf(before?.book), ourLoops ?? [], theirLoops ?? [], (loop) => toRaw(loop), mergeLoop, () => false)
     : undefined;
   // Only Loops that survive the merge protect their members: a Loop the other
   // tab deleted must not hold on to the phrases it pointed at.

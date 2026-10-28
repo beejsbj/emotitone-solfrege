@@ -26,7 +26,7 @@ Use only the package scripts for checks (shared lock across worktrees; see AGENT
 
 **Music theory.** `src/domain/harmony.ts` owns chord generation (see `src/domain/HARMONY.md`). `src/services/music.ts`, `src/data/` (scales, modes, solfège, instruments, default patterns) and Tonal.js supply theory. Names, syllables and intervals shown to the player must be correct in every key and mode; `src/domain/musicalIdentity.ts` derives spelling-aware chromatic solfège from the single vocabulary in `src/domain/solfege.ts`, including borrowed notes and chord members. Minor defaults to do-based; Settings → Deck → Learn offers a persisted la-based preference.
 
-**Phrase book.** `src/domain/phraseBook.ts` and `src/stores/phrases.ts`: one noun (Phrase) on four shelves with one open take. Everything played is kept; there is no record button. Rules: `docs/pattern-system-reimagined.md`. UI: `PhraseShelf`, `PatternReel`, `PatternStrip`.
+**Phrase book.** `src/domain/phraseBook.ts` and `src/stores/phrases.ts`: one noun (Phrase) on four shelves with one open take. Everything played is kept; there is no record button. Rules: `docs/pattern-system-reimagined.md`. UI: `PhraseShelf`, `PatternReel`, `PatternStrip`, and `ReelSwitch`, which puts each saved Loop's reel beside the home reel (BJS-572; `docs/looper.md`, Surfaces).
 
 **Code Strip.** `src/components/uniques/CodeStrip/` contains the read-only HighlightStrip with note-event highlighting ("Open in Strudel" is on the pattern strip); `StrudelNotation.ts` writes the code text.
 

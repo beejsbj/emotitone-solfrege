@@ -53,6 +53,7 @@
           @rename="emit('rename', slot.item.id, $event)"
           @keep="emit('keep', slot.item.id)"
           @load="emit('load', slot.item.id)"
+          @replace="emit('replace', slot.item.id)"
         />
       </div>
     </div>
@@ -76,6 +77,7 @@ import {
 } from "vue";
 import PatternStrip from "./PatternStrip.vue";
 import type { PatternStripItem } from "./PatternStrip.vue";
+import { swipeAxis } from "./reelSwipe";
 
 export type PatternReelInput = "drag" | "wheel" | "tap" | "keyboard";
 export type PatternReelItem = PatternStripItem & {
@@ -131,6 +133,7 @@ const emit = defineEmits<{
   rename: [id: string, name: string];
   keep: [id: string];
   load: [id: string];
+  replace: [id: string];
   interactionChange: [active: boolean];
 }>();
 
@@ -647,11 +650,13 @@ function handlePointerMove(event: PointerEvent) {
   pointerLastAt = now;
 
   if (!dragging.value) {
-    if (Math.abs(horizontalDelta) > 6 && Math.abs(horizontalDelta) > Math.abs(delta)) {
+    // One decision with the Reel Switch's sideways turn, so a touch is one or the other.
+    const axis = swipeAxis(horizontalDelta, delta);
+    if (axis === "sideways") {
       horizontalGestureRejected = true;
       return;
     }
-    if (Math.abs(delta) < 6 || Math.abs(delta) <= Math.abs(horizontalDelta)) return;
+    if (axis !== "vertical") return;
     dragging.value = true;
     if (pointerStartedRevealed) {
       clearTimeout(collapseTimer);

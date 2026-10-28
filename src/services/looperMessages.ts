@@ -20,6 +20,8 @@ export type LooperFailureKind =
   | "interrupted" // the transport stopped by itself (an engine failure)
   | "restarting" // a take could not join while the engine restored itself
   | "not-ready" // no pattern player yet
+  | "loop-missing" // a saved Loop points at a pattern that is gone (another tab)
+  | "loop-owned" // an edit (Backspace) of a pattern a saved Loop holds was refused
   | "unknown";
 
 export interface LooperFailure {
@@ -78,6 +80,10 @@ export function looperMessage(failure: LooperFailure): string {
       return "Audio restarted. Tap Play again.";
     case "not-ready":
       return "Audio not ready. Try again.";
+    case "loop-missing":
+      return "A pattern in this Loop is gone.";
+    case "loop-owned":
+      return "In a saved Loop. Play over it.";
     case "unknown":
       return "That didn't play. Try again.";
   }

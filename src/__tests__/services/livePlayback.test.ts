@@ -281,8 +281,9 @@ describe('live playback instrument manager', () => {
     expect(mocks.prepare).not.toHaveBeenCalled()
     expect(manager.getLivePlayback('large')).toBeUndefined()
     expect(manager.getLivePlaybackFailure('large')).toMatchObject({ kind: 'unavailable', budget: true })
-    // Released, the next attempt decides afresh and now fits.
+    // Released and ended, the next attempt decides afresh and now fits.
     manager.getLivePlayback('held')!.release('finger')
+    ;(mocks.create.mock.calls[0][2] as { onOwnerEnded(ownerId: string): void }).onOwnerEnded('finger')
     await manager.prepareLivePlayback(context, destination, 'large')
     expect(mocks.prepare).toHaveBeenCalledOnce()
     expect(engine.forget).toHaveBeenCalledWith('held')
@@ -373,7 +374,7 @@ describe('live playback instrument manager', () => {
     expect(manager.getLivePlaybackDiagnostics('d')).toMatchObject({ installedBanks: 2, installedPcmBytes: 180 * MIB })
   })
 
-  it('pins held banks until release and temporarily falls back when they fill the memory', async () => {
+  it('pins held banks until their notes end and temporarily falls back when they fill the memory', async () => {
     const { manager, engine, context } = await setup()
     bankSizes({ a: 90, b: 90, c: 90 })
     for (const name of ['a', 'b']) {
@@ -384,7 +385,27 @@ describe('live playback instrument manager', () => {
     expect(manager.getLivePlayback('c')).toBeUndefined()
     expect(engine.forget).not.toHaveBeenCalled()
     expect(manager.needsLivePlaybackPreparation('c')).toBe(true)
+    // A let-go key may still be waiting for its first note (BJS-597): its bank stays until the owner ends.
     manager.getLivePlayback('a')!.release('a')
+    await manager.prepareLivePlayback(context, destination, 'c')
+    expect(engine.forget).not.toHaveBeenCalled()
+    expect(manager.getLivePlayback('c')).toBeUndefined()
+    const callbacks = mocks.create.mock.calls[0][2] as { onOwnerEnded(ownerId: string): void }
+    callbacks.onOwnerEnded('a')
+    await manager.prepareLivePlayback(context, destination, 'c')
+    expect(engine.forget).toHaveBeenCalledWith('a')
+    expect(manager.getLivePlayback('c')).toBeDefined()
+  })
+
+  it('drops a held bank\'s pin at once on a stop, before the owner ends', async () => {
+    const { manager, engine, context } = await setup()
+    bankSizes({ a: 90, b: 90, c: 90 })
+    for (const name of ['a', 'b']) {
+      await manager.prepareLivePlayback(context, destination, name)
+      manager.getLivePlayback(name)!.press(name, [{ pitch: 60, instrumentId: name }])
+    }
+    manager.getLivePlayback('a')!.release('a', true)
+    expect(engine.release).toHaveBeenCalledWith('a', true)
     await manager.prepareLivePlayback(context, destination, 'c')
     expect(engine.forget).toHaveBeenCalledWith('a')
     expect(manager.getLivePlayback('c')).toBeDefined()

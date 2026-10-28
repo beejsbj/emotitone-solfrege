@@ -44,9 +44,9 @@ describe("phone gate verdicts", () => {
   it("grades only the automated chords against every press, and records the pad taps apart (BJS-590)", () => {
     const run = base({ live: { pressed: 147, sounded: 147 }, pads: { pressed: 30, sounded: 26 } });
     expect(row(run, "live")).toMatchObject({ verdict: "pass", value: "147 of 147 chord notes sounded", mark: "every press sounds" });
-    // A short tap cancelled before it renders is the engine's rule, not a lost note: recorded, never graded.
+    // The taps are a hand's, not a controlled count: recorded, never graded, even when one falls short.
     expect(row(run, "pads")).toMatchObject({ verdict: "record", value: "26 of 30 sounded" });
-    expect(row(run, "pads").mark).toContain("shorter than one audio callback is cancelled before it renders, by design");
+    expect(row(run, "pads").mark).toContain("one let go before its note starts still plays it");
     expect(formatGateSummary(run)).toContain("[RECORD] Pad taps: 26 of 30 sounded");
     expect(row(base({ live: { pressed: 147, sounded: 147 } }), "pads")).toMatchObject({ verdict: "not-run", value: "no taps" });
     // A Stop mid-soak leaves the taps counted so far as partial.

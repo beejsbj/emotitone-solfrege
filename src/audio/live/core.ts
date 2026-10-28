@@ -19,13 +19,18 @@ const MAX_FADES = 24
 const PLAN_SECONDS = .15
 const GATE = .8
 /**
- * The shortest gate a live touch gets (BJS-597). A release that reaches the
- * worklet before its press has been rendered (both between the same two
- * callbacks: a big buffer, a slow main thread, a pointercancel) takes effect
- * this long after the press instead, so the touch sounds as a 5 ms tap does at
- * the default buffer, then fades on its own release.
+ * Every live touch plays at least its first note (BJS-597). A release that
+ * arrives before any of its owner's notes has started (a tap inside one audio
+ * callback, a strum's 30 ms gather, a wait for the grid, an arp turn) is held
+ * until that first onset, then lets go once the note is through its attack:
+ * the envelope's own, or the recorded rise of a sample, at least
+ * MIN_LIVE_GATE and at most MAX_LIVE_GATE. MAX_LIVE_GATE is a quick deliberate
+ * tap, so a slow attack is as loud as one and never as long as a held note.
  */
 const MIN_LIVE_GATE = .005
+const MAX_LIVE_GATE = .05
+/** A held release lets go unheard after this long without an onset (longer than a solo touch's first onset at 40 BPM and up). */
+const MAX_RELEASE_WAIT = 2
 const MAX_PITCH_BEND_CENTS = 50
 const PITCH_SMOOTH_SECONDS = .007
 const MIN_GAIN_EXPRESSION = .25
@@ -126,10 +131,12 @@ export class LiveAudioCore {
   private strumAt?: number
   private planDirty = false
   private endingOwners = new Set<string>()
-  /** Live owners pressed since the last render, with the frame of the press. */
-  private unrendered = new Map<string, number>()
-  /** Releases that beat their press to the render, and the frame each is due. */
+  /** Held live owners none of whose notes has started yet. */
+  private unsounded = new Set<string>()
+  /** Releases held for a first onset: the frame each is due (the wait bound, then the gate after the onset). */
   private earlyReleases = new Map<string, number>()
+  /** No later than the earliest due frame (Infinity when none), so render checks one number, not the map. */
+  private nextEarlyRelease = Infinity
   private forgetting = new Map<number, string>()
   private pitchBends = new Map<string, number>()
   private gainExpressions = new Map<string, number>()
@@ -240,10 +247,11 @@ export class LiveAudioCore {
       this.flushTransportEvents()
       return
     }
-    // A release that beats its press to the render would cancel the touch unheard.
-    const pressedAt = command.type === 'release' ? this.unrendered.get(command.ownerId) : undefined
+    // A lifted touch before its first onset is held for it; a stop (`cancel`) is not.
+    const early = command.type === 'release' && !command.cancel
+      && (this.unsounded.has(command.ownerId) || this.earlyReleases.has(command.ownerId))
     const endedOwners = command.type === 'clear' ? [...this.held.keys()]
-      : command.type === 'release' && pressedAt === undefined ? [command.ownerId] : []
+      : command.type === 'release' && !early ? [command.ownerId] : []
     switch (command.type) {
       case 'prepare':
         this.instruments.set(command.instrument.instrumentId, command.instrument)
@@ -261,7 +269,7 @@ export class LiveAudioCore {
           if (remaining.length) this.held.set(owner, remaining)
           else {
             this.held.delete(owner); this.pitchBends.delete(owner); this.gainExpressions.delete(owner)
-            this.earlyReleases.delete(owner); this.endingOwners.add(owner)
+            this.unsounded.delete(owner); this.earlyReleases.delete(owner); this.endingOwners.add(owner)
           }
         }
         for (const collection of [this.voices, this.fades]) for (let index = collection.length - 1; index >= 0; index--) {
@@ -292,12 +300,15 @@ export class LiveAudioCore {
       }
       case 'clear':
         this.held.clear(); this.pitchBends.clear(); this.gainExpressions.clear()
-        this.unrendered.clear(); this.earlyReleases.clear()
+        this.unsounded.clear(); this.earlyReleases.clear(); this.nextEarlyRelease = Infinity
         this.cancel(frame)
         break
       case 'release':
-        if (pressedAt === undefined) this.release(command.ownerId, frame)
-        else this.earlyReleases.set(command.ownerId, pressedAt + Math.ceil(MIN_LIVE_GATE * this.sampleRate))
+        if (!early) this.release(command.ownerId, frame)
+        // A repeated release keeps the one already held.
+        else if (!this.earlyReleases.has(command.ownerId)) {
+          this.holdRelease(command.ownerId, frame + Math.ceil(MAX_RELEASE_WAIT * this.sampleRate))
+        }
         break
       case 'pitch-bend': this.pitchBend(command.ownerId, command.cents); break
       case 'gain-expression': this.gainExpression(command.ownerId, command.gain); break
@@ -307,7 +318,7 @@ export class LiveAudioCore {
           && this.instruments.has(note.instrumentId))
         if (!notes.length) break
         this.held.set(command.ownerId, notes)
-        this.unrendered.set(command.ownerId, frame)
+        this.unsounded.add(command.ownerId)
         this.add(command.ownerId, notes, frame)
         break
       }
@@ -380,7 +391,11 @@ export class LiveAudioCore {
       this.strum.push(...notes.map(note => this.note(note, ownerId)))
       this.strumAt ??= frame + this.sampleRate * .03
     } else {
-      for (const voice of this.voices) if (notes.some(note => note.pitch === voice.pitch)) voice.owners.add(ownerId)
+      for (const voice of this.voices) if (notes.some(note => note.pitch === voice.pitch)) {
+        voice.owners.add(ownerId)
+        // A touch that joins a sounding note is heard at once.
+        if (!voice.released) this.unsounded.delete(ownerId)
+      }
       if (this.nextFrame === undefined) { this.nextFrame = frame; this.step = 0 }
       else this.revise(frame)
     }
@@ -389,7 +404,7 @@ export class LiveAudioCore {
 
   private release(owner: string, frame: number) {
     this.held.delete(owner)
-    this.unrendered.delete(owner)
+    this.unsounded.delete(owner)
     this.earlyReleases.delete(owner)
     this.pitchBends.delete(owner)
     this.gainExpressions.delete(owner)
@@ -642,9 +657,34 @@ export class LiveAudioCore {
     if (instrument.kind === 'sample-bank' && (!zone || !zone.channels[0]?.length)) return
     this.admit(false, frame)
     const { attack, decay, sustain } = instrument
-    this.createVoice(note, instrument, zone, frame, pulse.style,
+    return this.createVoice(note, instrument, zone, frame, pulse.style,
       pulse.duration === undefined ? Infinity : Math.ceil(pulse.frame + pulse.duration),
       pulse.duration === undefined ? instrument.release : .03, { attack, decay, sustain })
+  }
+
+  private holdRelease(owner: string, due: number) {
+    this.earlyReleases.set(owner, due)
+    this.nextEarlyRelease = Math.min(this.nextEarlyRelease, due)
+  }
+
+  /** Apply the held releases now due. Runs only on a frame one comes due, never per quantum. */
+  private settleEarlyReleases(frame: number) {
+    let next = Infinity
+    for (const [owner, due] of this.earlyReleases) {
+      if (due > frame) { next = Math.min(next, due); continue }
+      this.release(owner, frame)
+      this.endingOwners.add(owner)
+    }
+    this.nextEarlyRelease = next
+  }
+
+  /** Frames a held release waits after its first onset: through the voice's attack, within the live gate bounds. */
+  private tapGate(voice?: Voice) {
+    let rise = voice?.attack ?? 0
+    // A sample's own onset (a bowed or swelled note) is in its PCM, not its envelope.
+    if (voice?.zone) rise = Math.max(rise, recordedRise(voice.zone.channels[0], voice.increment,
+      MAX_LIVE_GATE * this.sampleRate) / this.sampleRate)
+    return Math.ceil(Math.max(MIN_LIVE_GATE, Math.min(MAX_LIVE_GATE, rise)) * this.sampleRate)
   }
 
   /** Start a transport onset with its table's own articulation; false if it cannot sound. */
@@ -844,8 +884,6 @@ export class LiveAudioCore {
     this.transport.beginQuantum(firstFrame, endFrame)
     const announceUntil = endFrame + this.transport.lookahead
     this.announceReleases(announceUntil)
-    // Every press so far is rendered from here on; a later release is an ordinary one.
-    this.unrendered.clear()
     let frame = firstFrame
     while (frame < endFrame) {
       let onset: TransportOnset | undefined
@@ -858,15 +896,17 @@ export class LiveAudioCore {
         this.transport.recycle(onset)
       }
       if (started) this.announceReleases(announceUntil)
-      for (const [owner, due] of this.earlyReleases) if (due <= frame) {
-        this.release(owner, frame)
-        this.endingOwners.add(owner)
-      }
+      if (frame >= this.nextEarlyRelease) this.settleEarlyReleases(frame)
       this.fill(frame)
       while (this.pulses.length && this.pulses.some(pulse => pulse.frame <= frame)) {
         const index = this.pulses.findIndex(pulse => pulse.frame <= frame)
         const [pulse] = this.pulses.splice(index, 1)
-        for (const note of pulse.notes) this.start(note, pulse, frame)
+        for (const note of pulse.notes) {
+          const voice = this.start(note, pulse, frame)
+          if (this.unsounded.size) for (const owner of note.owners) {
+            if (this.unsounded.delete(owner) && this.earlyReleases.has(owner)) this.holdRelease(owner, frame + this.tapGate(voice))
+          }
+        }
         this.planDirty = true
       }
       // Admission is complete for this frame. A same-frame burst may steal an
@@ -880,7 +920,7 @@ export class LiveAudioCore {
       for (const pulse of this.pulses) if (pulse.frame > frame) boundary = Math.min(boundary, Math.ceil(pulse.frame))
       for (const voice of this.voices) if (!voice.released && voice.end > frame) boundary = Math.min(boundary, Math.ceil(voice.end))
       if (this.strumAt !== undefined) boundary = Math.min(boundary, Math.ceil(this.strumAt))
-      for (const due of this.earlyReleases.values()) if (due > frame) boundary = Math.min(boundary, due)
+      boundary = Math.min(boundary, this.nextEarlyRelease)
       boundary = Math.min(boundary, Math.max(frame + 1, this.transport.nextFrame))
       if (this.nextFrame !== undefined) {
         const planningBoundary = Math.ceil(this.nextFrame - PLAN_SECONDS * this.sampleRate)
@@ -909,6 +949,18 @@ export class LiveAudioCore {
       this.transportEvent(TransportEventKind.Release, voice, voice.end, voice.releaseLength / this.sampleRate)
     }
   }
+}
+
+/**
+ * Output frames until a sample first reaches 70% of its loudest point within
+ * `frames` of playback (at `increment` source frames per output frame).
+ */
+function recordedRise(source: Float32Array, increment: number, frames: number): number {
+  const end = Math.min(source.length, Math.ceil(frames * increment))
+  let peak = 0
+  for (let index = 0; index < end; index++) peak = Math.max(peak, Math.abs(source[index]))
+  for (let index = 0; index < end; index++) if (Math.abs(source[index]) >= .7 * peak) return index / increment
+  return 0
 }
 
 /** Linear interpolation of a recorded curve; the cursor only moves forward. */

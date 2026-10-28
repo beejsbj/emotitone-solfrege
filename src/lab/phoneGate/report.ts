@@ -177,9 +177,9 @@ export function gateRows(results: GateResults): GateRow[] {
       value: `${live.sounded} of ${live.pressed} chord notes sounded`, mark: "every press sounds" }
     : { id: "live", label: "Live notes on top", verdict: "not-run", value: "not measured", mark: "every press sounds" });
   // Recorded, not graded: the taps are a hand's, not a controlled count. Since BJS-597 a tap
-  // shorter than one audio callback still plays a short note, so a tap short of sounding is news.
+  // let go before its note starts still plays it, so a tap that did not sound is news.
   const pads = results.pads;
-  const padMark = "record (every tap should sound; one shorter than an audio callback plays a short note)";
+  const padMark = "record (every tap should sound; one let go before its note starts still plays it, briefly)";
   rows.push(pads
     ? { id: "pads", label: "Pad taps", verdict: "record", value: `${pads.sounded} of ${pads.pressed} sounded`, mark: padMark }
     : { id: "pads", label: "Pad taps", verdict: "not-run", value: "no taps", mark: padMark });

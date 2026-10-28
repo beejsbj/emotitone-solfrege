@@ -84,7 +84,7 @@ export function attachLiveCore(seat: LiveSeat, options: LiveCoreOptions = {}) {
   const command = (next: Parameters<LiveAudioCore["command"]>[0]) => { sync(); core.command(next, frame); };
   seat.renderer = {
     press: (ownerId, notes) => command({ type: "press", ownerId, notes }),
-    release: (ownerId) => command({ type: "release", ownerId }),
+    release: (ownerId, cancel) => command(cancel ? { type: "release", ownerId, cancel } : { type: "release", ownerId }),
     setPitchBend: (ownerId, cents) => command({ type: "pitch-bend", ownerId, cents }),
     setGain: (ownerId, gain) => command({ type: "gain-expression", ownerId, gain }),
     configure: (config) => command({ type: "configure", config }),

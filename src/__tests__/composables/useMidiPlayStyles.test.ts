@@ -353,12 +353,23 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     expect(useKeyboardDrawerStore().touch.activeTouches.size).toBe(0);
   });
 
+  /**
+   * Each key takes its 1/16 turn once: 60 on the press, then 64 and 67,
+   * though both were let go before their first turn, each ended after the
+   * 5 ms minimum gate (BJS-597).
+   */
+  const arpeggioTurns = [
+    [0x90, 60, onset()], [0x80, 60, onset(100)],
+    [0x90, 64, onset(125)], [0x80, 64, onset(131)],
+    [0x90, 67, onset(250)], [0x80, 67, onset(256)],
+  ];
+
   /*
    * The worklet's first styled pulse lands exactly on its press. When the
    * chord's other notes revise the arpeggio in the same tick, that due attack
    * has not reached the output yet: the scheduler must still send it.
    */
-  it("replaces a released pitch in a queued MIDI arpeggio without leaving a silent step", async () => {
+  it("plays an arpeggio pitch released before its turn once, on its turn, without leaving a silent step", async () => {
     const music = useMusicStore();
     music.setPlayMode("arp-up:16");
     await connect();
@@ -369,15 +380,14 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     [60, 67].forEach((pitch) => packet(0x80, pitch));
     await vi.advanceTimersByTimeAsync(1000);
 
-    expect(notesWithTimestamps()).toEqual([
-      [0x90, 60, onset()], [0x80, 60, onset(100)],
-      [0x90, 67, onset(125)], [0x80, 67, onset(225)],
-    ]);
+    // Every touch plays its first note (BJS-597): a pitch let go before its
+    // turn still takes that turn, briefly, and the arpeggio moves on.
+    expect(played()).toEqual({ heard: arpeggioTurns, sounding: [] });
     expect(music.activeNotes.size).toBe(0);
     expect(useKeyboardDrawerStore().touch.activeTouches.size).toBe(0);
   });
 
-  it("restores a twice-revised MIDI arpeggio slot without its canceled off swallowing the attack", async () => {
+  it("plays a pitch added and released before its arpeggio slot in that slot, without its off swallowing the next attack", async () => {
     const music = useMusicStore();
     music.setPlayMode("arp-up:16");
     await connect();
@@ -391,10 +401,9 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     [60, 67].forEach((pitch) => packet(0x80, pitch));
     await vi.advanceTimersByTimeAsync(1000);
 
-    expect(notesWithTimestamps()).toEqual([
-      [0x90, 60, onset()], [0x80, 60, onset(100)],
-      [0x90, 67, onset(125)], [0x80, 67, onset(225)],
-    ]);
+    // Every touch plays its first note (BJS-597): a pitch let go before its
+    // turn still takes that turn, briefly, and the arpeggio moves on.
+    expect(played()).toEqual({ heard: arpeggioTurns, sounding: [] });
     expect(music.activeNotes.size).toBe(0);
     expect(useKeyboardDrawerStore().touch.activeTouches.size).toBe(0);
   });
@@ -403,8 +412,8 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     beforeEach(withoutClear);
 
     it.each([
-      ["replaces a released pitch", [[60, 64, 67], [64], [60, 67]]],
-      ["restores a twice-revised slot", [[60, 67], [64], [64], [60, 67]]],
+      ["a pitch released before its turn", [[60, 64, 67], [64], [60, 67]]],
+      ["a pitch added and released before its slot", [[60, 67], [64], [64], [60, 67]]],
     ] as const)("revises a queued arpeggio (%s) with the same audible notes and nothing left sounding", async (_, steps) => {
       useMusicStore().setPlayMode("arp-up:16");
       await connect();
@@ -423,10 +432,7 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
       [60, 67].forEach((pitch) => packet(0x80, pitch));
       await vi.advanceTimersByTimeAsync(1000);
 
-      expect(played()).toEqual({ heard: [
-        [0x90, 60, onset()], [0x80, 60, onset(100)],
-        [0x90, 67, onset(125)], [0x80, 67, onset(225)],
-      ], sounding: [] });
+      expect(played()).toEqual({ heard: arpeggioTurns, sounding: [] });
     });
 
     it("answers a withdrawn note-on with a note-off at its deadline", async () => {

@@ -269,12 +269,12 @@ describe('production live audio render core', () => {
       style === 'strum-up' ? [[60, .03], [64, .065], [67, .1]] : [[67, .03], [64, .065], [60, .1]])
   })
 
-  it('removes a released pending strum without shifting remaining notes', () => {
+  it('removes a sounded touch\'s pending strum notes without shifting the rest', () => {
     const { press, send, render, events } = setup()
     send({ type: 'configure', config: { style: 'strum-up' } })
-    press('a', [60]); press('b', [64]); press('c', [67]); render(40)
-    send({ type: 'release', ownerId: 'b' }); render(100)
-    expect(events.filter(e => e.phase === 'attack').map(e => [e.pitch, e.at])).toEqual([[60, .03], [67, .1]])
+    press('a', [60, 67]); press('b', [64]); render(40)
+    send({ type: 'release', ownerId: 'a' }); render(100)
+    expect(events.filter(e => e.phase === 'attack').map(e => [e.pitch, e.at])).toEqual([[60, .03], [64, .065]])
   })
 
   it('updates future arp notes while retaining the immediate first press and up-down sequence', () => {
@@ -307,48 +307,157 @@ describe('production live audio render core', () => {
     expect(messages.at(-1)).toEqual({ type: 'forgotten', requestId: 9 })
   })
 
-  describe('a release that reaches the worklet before its onset renders (BJS-597)', () => {
+  describe('every live touch plays at least its first note (BJS-597)', () => {
     const RATE = 48000
     const sine: PreparedLiveInstrument = { kind: 'oscillator', instrumentId: 'sine', waveform: 'sine',
       gain: .5, attack: .002, decay: 0, sustain: 1, release: .02 }
-    /** A tap on the real core, its press and release posted between the same two callbacks or `heldFrames` apart. */
-    function tap(callback: number, heldFrames = 0) {
+    /** Plays the held notes in the style tests without adding to the PCM. */
+    const silent: PreparedLiveInstrument = { ...sine, instrumentId: 'silent', gain: 0 }
+    /** The real core at 48 kHz, rendered in 128-frame callbacks, its output limiter included. */
+    function rig(instrument = sine) {
       const messages: LiveResponse[] = []
       const core = new LiveAudioCore(RATE, message => messages.push(message))
       let frame = 0
-      core.command({ type: 'prepare', requestId: 1, instrument: sine }, frame)
-      const pcm = new Float32Array(4096)
-      const render = (length: number) => {
-        const output = [new Float32Array(length), new Float32Array(length)]
-        core.render(output, frame)
-        pcm.set(output[0], frame)
-        frame += length
+      const pcm: number[] = []
+      const send = (command: LiveCommand) => core.command(command, frame)
+      send({ type: 'prepare', requestId: 1, instrument })
+      send({ type: 'prepare', requestId: 2, instrument: silent })
+      const press = (ownerId: string, pitch = 69, instrumentId = instrument.instrumentId) =>
+        send({ type: 'press', ownerId, notes: [{ pitch, instrumentId }] })
+      const render = (frames: number, callback = 128) => {
+        for (const end = frame + frames; frame < end;) {
+          const length = Math.min(callback, end - frame)
+          const output = [new Float32Array(length), new Float32Array(length)]
+          core.render(output, frame)
+          frame += length
+          for (const sample of output[0]) pcm.push(sample)
+        }
       }
-      core.command({ type: 'press', ownerId: 'finger', notes: [{ pitch: 69, instrumentId: 'sine' }] }, frame)
-      while (frame < heldFrames) render(Math.min(callback, heldFrames - frame))
-      core.command({ type: 'release', ownerId: 'finger' }, frame)
-      while (frame < pcm.length) render(Math.min(callback, pcm.length - frame))
-      const events = messages.flatMap(message => message.type === 'event' ? [message.event] : [])
-      return { pcm, events, messages, core }
+      const events = (ownerId: string) => messages.flatMap(message =>
+        message.type === 'event' && message.event.ownerId === ownerId ? [[message.event.phase, Math.round(message.event.at * RATE)]] : [])
+      const ended = (ownerId: string) => messages.filter(message => message.type === 'owner-ended' && message.ownerId === ownerId).length
+      return { core, send, press, release: (ownerId: string) => send({ type: 'release', ownerId }), render, pcm, events, ended }
     }
+    const peak = (pcm: number[]) => pcm.reduce((max, sample) => Math.max(max, Math.abs(sample)), 0)
+    /** The largest sample-to-sample jump: the sine moves at most .029 a frame at full level; a cut note jumps by up to .5. */
+    const step = (pcm: number[]) => pcm.reduce((max, sample, index) => index ? Math.max(max, Math.abs(sample - pcm[index - 1])) : 0, 0)
 
-    it('plays a live tap released before its first render as a short note that ends cleanly', () => {
+    it('plays a tap released before its first render as a short note that ends cleanly', () => {
       // A 1024-frame callback: the press and its release land before the first render.
-      const { pcm, events, messages, core } = tap(1024)
-      expect(Math.max(...pcm.map(Math.abs))).toBeGreaterThan(.4)
-      expect(events.map(event => [event.phase, event.at * RATE])).toEqual([['attack', 0], ['release', 240]])
-      expect(events[1].articulation?.release).toBe(.02)
-      // Ramped in by the attack and out by the release: the sine moves at most .029 a frame at
-      // full level, while a note cut short would jump by up to its .5 peak.
-      let step = 0
-      for (let index = 1; index < pcm.length; index++) step = Math.max(step, Math.abs(pcm[index] - pcm[index - 1]))
-      expect(step).toBeLessThan(.04)
-      expect(pcm.subarray(240 + 960).every(sample => sample === 0)).toBe(true)
-      expect(core.voiceCount).toBe(0)
-      expect(messages).toContainEqual({ type: 'owner-ended', ownerId: 'finger' })
+      const big = rig()
+      big.press('finger'); big.release('finger'); big.render(4096, 1024)
+      expect(peak(big.pcm)).toBeGreaterThan(.4)
+      // The 2 ms attack is shorter than the 5 ms minimum gate.
+      expect(big.events('finger')).toEqual([['attack', 0], ['release', 240]])
+      expect(step(big.pcm)).toBeLessThan(.04)
+      expect(big.pcm.slice(240 + 960).every(sample => sample === 0)).toBe(true)
+      expect(big.core.voiceCount).toBe(0)
+      expect(big.ended('finger')).toBe(1)
       // Sample for sample the 5 ms tap a 128-frame callback renders: the buffer no longer decides.
-      const small = tap(128, 240).pcm
-      for (let index = 0; index < pcm.length; index++) expect(pcm[index]).toBeCloseTo(small[index], 6)
+      const small = rig()
+      small.press('finger'); small.render(240); small.release('finger'); small.render(4096 - 240)
+      big.pcm.forEach((sample, index) => expect(sample).toBeCloseTo(small.pcm[index], 6))
+    })
+
+    it.each([
+      ['strum-up, released in the same gap', 'strum-up', 0, 1440],
+      ['strum-down, a 10 ms tap', 'strum-down', 480, 1440],
+      ['repeat on a running transport, between grid points', 'repeat', 0, 12000],
+      ['arp-up on a running transport, between grid points', 'arp-up', 0, 12000],
+      ['a tap joining a running repeat', 'join', 0, 12000],
+    ] as const)('sounds %s at its first onset', (_name, style, heldFrames, onset) => {
+      const { send, press, release, render, pcm, events, ended, core } = rig()
+      if (style === 'repeat' || style === 'arp-up') {
+        // 133 ms into a 120 BPM bar: the next eighth is at 250 ms.
+        send({ type: 'transport-start', requestId: 3, run: 1, bpm: 120 })
+        render(6400)
+        send({ type: 'configure', config: { style, rate: 8 } })
+      } else if (style === 'join') {
+        // A silent held note repeats every eighth (250 ms at 120 BPM); the tap comes 133 ms in.
+        send({ type: 'configure', config: { style: 'repeat', rate: 8 } })
+        press('held', 60, 'silent')
+        render(6400)
+      } else send({ type: 'configure', config: { style } })
+      const pressed = pcm.length
+      press('tap'); render(heldFrames); release('tap')
+      render(onset + 4800 - pcm.length)
+      const tail = pcm.slice(pressed)
+      expect(events('tap')).toEqual([['attack', onset], ['release', onset + 240]])
+      expect(peak(tail)).toBeGreaterThan(.4)
+      expect(step(tail)).toBeLessThan(.04)
+      // Rhythmic notes fade over 30 ms, held ones over the instrument's 20 ms.
+      expect(pcm.slice(onset + 240 + 1440).every(sample => sample === 0)).toBe(true)
+      expect(ended('tap')).toBe(1)
+      if (style !== 'join') expect(core.voiceCount).toBe(0)
+    })
+
+    it('holds a slow attack until it is as loud as a deliberate 50 ms tap', () => {
+      for (const attack of [.01, .05, .2, .5]) {
+        const rescued = rig()
+        rescued.send({ type: 'shape', envelope: { attack } })
+        rescued.press('tap'); rescued.release('tap'); rescued.render(48000)
+        const deliberate = rig()
+        deliberate.send({ type: 'shape', envelope: { attack } })
+        deliberate.press('tap'); deliberate.render(2400); deliberate.release('tap'); deliberate.render(45600)
+        // Within 1 dB: a gate that ends on the attack can miss the sine's crest by a few degrees.
+        expect(peak(rescued.pcm) / peak(deliberate.pcm), `${attack} s attack`).toBeGreaterThan(.89)
+        expect(peak(rescued.pcm), `${attack} s attack`).toBeLessThanOrEqual(peak(deliberate.pcm))
+        expect(peak(rescued.pcm), `${attack} s attack`).toBeGreaterThan(.04)
+        expect(rescued.events('tap')).toEqual([['attack', 0], ['release', Math.min(attack, .05) * RATE]])
+        expect(rescued.ended('tap')).toBe(1)
+      }
+    })
+
+    it('holds a sample through the rise recorded in its own PCM', () => {
+      // A bowed note: its envelope attack is 1 ms, but the recording takes 40 ms to swell to full.
+      const swell: PreparedLiveInstrument = { kind: 'sample-bank', instrumentId: 'swell', zoneSelection: 'nearest-root',
+        gain: .5, attack: .001, decay: 0, sustain: 1, release: .02,
+        zones: [{ id: 'swell', rootMidi: 69, sampleRate: RATE, loopStartFrame: 1920, loopEndFrame: 9600,
+          channels: [Float32Array.from({ length: 9600 }, (_, index) => Math.min(1, index / 1920) * Math.sin(2 * Math.PI * 440 * index / RATE))] }] }
+      const { press, release, render, pcm, events } = rig(swell)
+      press('tap'); release('tap'); render(9600)
+      const [, gate] = events('tap')[1]
+      // Released once the swell has reached 70% of its first 50 ms.
+      expect(gate / RATE).toBeGreaterThan(.025)
+      expect(gate / RATE).toBeLessThanOrEqual(.05)
+      expect(peak(pcm)).toBeGreaterThan(.3)
+    })
+
+    it('keeps the gate a repeated release finds already held', () => {
+      const { press, release, render, events, ended } = rig()
+      press('tap'); release('tap'); render(128)
+      release('tap'); render(2048)
+      expect(events('tap')).toEqual([['attack', 0], ['release', 240]])
+      expect(ended('tap')).toBe(1)
+    })
+
+    it('ends a touch whose first onset never comes exactly once, with nothing left behind', () => {
+      // Cleared or forgotten while its strum gathers, or let go by a stop (blur, hide, instrument change).
+      for (const end of ['clear', 'forget', 'stop'] as const) {
+        const { send, press, release, render, pcm, events, ended, core } = rig()
+        send({ type: 'configure', config: { style: 'strum-up' } })
+        press('tap')
+        if (end === 'stop') send({ type: 'release', ownerId: 'tap', cancel: true })
+        else release('tap')
+        render(256)
+        if (end === 'clear') send({ type: 'clear' })
+        else if (end === 'forget') send({ type: 'forget', requestId: 4, instrumentId: 'sine', instant: false })
+        render(4800)
+        expect(pcm.every(sample => sample === 0), end).toBe(true)
+        expect(events('tap'), end).toEqual([])
+        expect(ended('tap'), end).toBe(1)
+        expect(core.voiceCount, end).toBe(0)
+      }
+      // An arp turn more than the 2 s bound away: the release lets go unheard at the bound.
+      const { send, press, release, render, pcm, events, ended } = rig()
+      send({ type: 'configure', config: { style: 'arp-up', bpm: 15, rate: 4 } })
+      press('held', 60, 'silent'); render(24000)
+      press('tap', 72); release('tap'); render(2 * RATE + 128)
+      expect(events('tap')).toEqual([])
+      expect(ended('tap')).toBe(1)
+      render(2 * RATE)
+      expect(pcm.every(sample => sample === 0)).toBe(true)
+      expect(ended('tap')).toBe(1)
     })
 
     it('keeps the short note to its own owner: it counts as a voice and leaves other contacts alone', () => {

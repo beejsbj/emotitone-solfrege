@@ -372,13 +372,15 @@ describe("live styles through music, recording, and Strudel", () => {
     expectNoTimers();
   });
 
-  it("revises a planned arpeggio slot and records only the final pitch at the original beat", async () => {
+  it("plays and records a pitch let go before its arpeggio turn on that turn (BJS-597)", async () => {
     const music = useMusicStore();
     const patterns = connectRecorder();
     music.setPlayMode("arp-up:16");
     const owners = await Promise.all(["C4", "G4"].map((pitch) => music.attackExactPitch(pitch)));
     await vi.advanceTimersByTimeAsync(60);
-    // E4 takes the 125 ms slot from G4, then leaves it before it sounds.
+    // E4 takes the 125 ms slot from G4 and is let go before it; every touch
+    // plays its first note, so E4 sounds there for the 5 ms minimum gate. G4,
+    // let go at 240 ms before its own turn, takes the next one.
     const e = await music.attackExactPitch("E4");
     await vi.advanceTimersByTimeAsync(10);
     await music.releaseNote(e!);
@@ -386,9 +388,9 @@ describe("live styles through music, recording, and Strudel", () => {
     await Promise.all(owners.map((owner) => music.releaseNote(owner!)));
     await vi.advanceTimersByTimeAsync(1000);
     expect(patterns.takeNotes.map((note) => [note.note, note.pressTime, note.duration])).toEqual([
-      ["C4", 0, 100], ["G4", 125, 100],
+      ["C4", 0, 100], ["E4", 125, 5], ["G4", 250, 5],
     ]);
-    expect(noteEvents("note-played").map((note) => note.noteName)).toEqual(["C4", "G4"]);
+    expect(noteEvents("note-played").map((note) => note.noteName)).toEqual(["C4", "E4", "G4"]);
     expect(music.activeNotes.size).toBe(0);
     expectNoTimers();
   });

@@ -46,7 +46,7 @@ describe("phone gate verdicts", () => {
     expect(row(run, "live")).toMatchObject({ verdict: "pass", value: "147 of 147 chord notes sounded", mark: "every press sounds" });
     // The taps are a hand's, not a controlled count: recorded, never graded, even when one falls short.
     expect(row(run, "pads")).toMatchObject({ verdict: "record", value: "26 of 30 sounded" });
-    expect(row(run, "pads").mark).toContain("one shorter than an audio callback plays a short note");
+    expect(row(run, "pads").mark).toContain("one let go before its note starts still plays it");
     expect(formatGateSummary(run)).toContain("[RECORD] Pad taps: 26 of 30 sounded");
     expect(row(base({ live: { pressed: 147, sounded: 147 } }), "pads")).toMatchObject({ verdict: "not-run", value: "no taps" });
     // A Stop mid-soak leaves the taps counted so far as partial.

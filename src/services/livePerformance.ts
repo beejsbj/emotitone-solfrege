@@ -160,16 +160,18 @@ export function createLivePerformance<T>(callbacks: {
     onError(error) { close(); callbacks.onError(error) },
     onLoadError(instrumentId, reason) { callbacks.onLoadError?.(instrumentId, reason) },
   })
-  function release(ownerId: string) {
+  function release(ownerId: string, cancel = false) {
     const rendererOwnerId = currentOwners.get(ownerId)
     const owner = rendererOwnerId === undefined ? undefined : owners.get(rendererOwnerId)
     if (!owner) return false
     owner.held = false
-    owner.renderer.release(rendererOwnerId!)
+    if (cancel) owner.renderer.release(rendererOwnerId!, true)
+    else owner.renderer.release(rendererOwnerId!)
     return true
   }
+  /** A stop, not lifted fingers: notes that have not started yet are dropped. */
   function releaseAll() {
-    for (const owner of owners.values()) if (owner.held) release(owner.ownerId)
+    for (const owner of owners.values()) if (owner.held) release(owner.ownerId, true)
   }
   return {
     press(ownerId: string, notes: LiveInputNote[], metadata: T, renderer: LiveRenderer, config: LiveConfig) {

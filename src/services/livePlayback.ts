@@ -341,7 +341,12 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
           pins.set(ownerId, new Set(notes.map(note => note.instrumentId)));
           ready.press(ownerId, notes);
         },
-        release(ownerId) { if (run === generation) { pins.delete(ownerId); ready.release(ownerId); } },
+        release(ownerId, cancel) {
+          if (run !== generation) return;
+          pins.delete(ownerId);
+          if (cancel) ready.release(ownerId, true);
+          else ready.release(ownerId);
+        },
         clear() { if (run === generation) { pins.clear(); ready.clear(); } },
         dispose() { if (run === generation) invalidate(); },
       };

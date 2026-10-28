@@ -62,6 +62,7 @@ import {
   getProductionPatternPlayer,
   onProductionPatternPlayer,
   PATTERN_PLAYBACK_SOURCE,
+  type LooperKeyMode,
   type LooperMemberRequest,
   type PatternPlayer,
 } from "@/services/patternTransport";
@@ -136,6 +137,12 @@ export interface LooperDialView extends LooperMemberView {
   /** Fading out over `endingMs`, then gone; its gestures do nothing. */
   ending: boolean;
   endingMs: number;
+}
+
+/** What a start was sent with, to follow a knob turned while its banks load. */
+interface StartAsked {
+  knob: number;
+  target: LooperKeyMode;
 }
 
 /** A pattern fading out, held where its dial was until it has left. */
@@ -526,6 +533,8 @@ export const useLooperStore = defineStore("looper", () => {
     ending.value = ending.value.filter((entry) => entry.view.phraseId !== phraseId);
     const token = ++intentSerial;
     intents.set(phraseId, token);
+    // The ending run stops as the new one starts: nothing reads it as running while the new one's banks load.
+    if (fresh) running.value = false;
     if (fresh || (!running.value && !starting)) startSession(phraseId, token);
     else void joinRunning(phraseId, token);
   }
@@ -543,9 +552,10 @@ export const useLooperStore = defineStore("looper", () => {
         const origin = origins.get(phraseId);
         const sent = requestFor(phrase, member);
         transportBpm = loopBpm();
+        const asked = startAsked();
         const receipt = await current.start({
           bpm: transportBpm,
-          target: { key: liveKey(), mode: liveMode() },
+          target: asked.target,
           members: [sent],
           ...(origin === undefined ? {} : { at: { originAudioTime: origin } }),
         });
@@ -564,7 +574,7 @@ export const useLooperStore = defineStore("looper", () => {
           playedBars.set(phraseId, looper.value.barOriginBars ?? 0);
         }
         if (epoch !== captured) return false;
-        settleStarted([sent], current);
+        settleStarted([sent], current, asked);
         if (intents.get(phraseId) !== token) {
           // Left while its bank loaded, with others waiting to join.
           joined.delete(phraseId);
@@ -594,7 +604,7 @@ export const useLooperStore = defineStore("looper", () => {
    * solo, a turn of the dial) reaches the transport, checked against what the
    * transport now holds.
    */
-  function settleStarted(sent: readonly LooperMemberRequest[], current: PatternPlayer) {
+  function settleStarted(sent: readonly LooperMemberRequest[], current: PatternPlayer, asked: StartAsked) {
     const held = new Map(current.getLooper().members.map((settings) => [settings.id, settings]));
     for (const request of sent) {
       const member = memberFor(request.id);
@@ -608,8 +618,24 @@ export const useLooperStore = defineStore("looper", () => {
       if (Object.keys(patch).length) void current.setMember(request.id, patch).catch(report);
     }
     if (looper.value.soloId) void current.solo(looper.value.soloId).catch(report);
-    // The knob shows the loop's tempo; turning it bends the loop from here on.
-    if (liveBpm() !== loopBpm()) visualConfig.updateConfig("codeStrip", { bpm: loopBpm() });
+    if (liveBpm() !== asked.knob) {
+      // The knob turned while the banks loaded: the run follows it.
+      transportBpm = liveBpm();
+      looper.value.bpm = transportBpm;
+      void current.setTempo(transportBpm).catch(report);
+    } else if (liveBpm() !== loopBpm()) {
+      // The knob shows the loop's tempo; turning it bends the loop from here on.
+      visualConfig.updateConfig("codeStrip", { bpm: loopBpm() });
+    }
+    // So did the key or mode: the run bends to them now.
+    if (liveKey() !== asked.target.key || liveMode() !== asked.target.mode) {
+      void current.bend({ key: liveKey(), mode: liveMode() }).catch(report);
+    }
+  }
+
+  /** What a start was sent with: the tempo knob and the key and mode at that moment. */
+  function startAsked(): StartAsked {
+    return { knob: liveBpm(), target: { key: liveKey(), mode: liveMode() } };
   }
 
   async function joinRunning(phraseId: string, token: number) {
@@ -1326,11 +1352,12 @@ export const useLooperStore = defineStore("looper", () => {
           return phrase && member ? [requestFor(phrase, member)] : [];
         });
         transportBpm = loopBpm();
-        const receipt = await current.start({ bpm: transportBpm, target: { key: liveKey(), mode: liveMode() }, members: requests });
+        const asked = startAsked();
+        const receipt = await current.start({ bpm: transportBpm, target: asked.target, members: requests });
         if (epoch !== captured || receipt.cancelled) return false;
         running.value = true;
         for (const request of requests) joined.add(request.id);
-        settleStarted(requests, current);
+        settleStarted(requests, current, asked);
         // Members left while the banks loaded.
         for (const request of requests) {
           if (!intents.has(request.id)) {

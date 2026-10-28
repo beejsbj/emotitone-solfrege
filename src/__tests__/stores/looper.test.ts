@@ -1162,6 +1162,39 @@ describe("Play is the loop on the worklet transport", () => {
         expect(attacksOf(c).filter((attack) => attack.frame >= start)).toEqual([]);
       });
 
+      it("a fresh run whose bank is still loading takes a tempo and key turned meanwhile, without throwing", async () => {
+        const { phrases, looper } = await twoPlaying();
+        const third = keptTake(phrases);
+        Object.assign(phrases.findPhrase(third)!.context, { bpm: 90, instrument: "sawtooth" });
+        looper.stopAll();
+        await flush();
+        render(.5);
+        let release!: () => void;
+        rig.gates.set("sawtooth", new Promise<void>((resolve) => { release = resolve; }));
+        phrases.openPhrase(third);
+        looper.togglePlay();
+        await flush();
+        // The old run has stopped and the new one is loading: nothing reads as running.
+        expect(looper.running).toBe(false);
+        expect(player.getLooper().running).toBe(false);
+        useVisualConfigStore().updateConfig("codeStrip", { bpm: 100 });
+        useMusicStore().setKey("D");
+        await flush();
+        release();
+        rig.gates.delete("sawtooth");
+        await flush();
+        await looper.settled();
+        await flush();
+        // It runs at the tempo, and in the key, the knobs ended on, and says so everywhere.
+        expect(looper.running).toBe(true);
+        expect(player.getLooper()).toMatchObject({ running: true, bpm: 100, target: { key: "D", mode: "major" } });
+        expect(looper.looper.bpm).toBe(100);
+        expect(useVisualConfigStore().config.codeStrip.bpm).toBe(100);
+        expect(looper.lastError).toBeNull();
+        render(2);
+        expect(attacksOf(third).length).toBeGreaterThan(0);
+      });
+
       it("Stop All tapped again while it fades cuts everything, a pattern started during the fade too", async () => {
         const { phrases, looper } = await twoPlaying();
         const third = keptTake(phrases);

@@ -2,13 +2,19 @@ import type { LiveCommand, LiveConfig, LiveEnvelopeOverride, LiveInputNote, Live
   LiveVoiceEvent, PreparedLiveInstrument } from './types'
 import { createSampleResampler, type SampleResampler } from './resampler'
 import { VoiceEffects } from './lowpass'
+import { PeakLimiter } from './limiter'
 import { velocityToGain } from '../velocity'
 import { OPEN_CUTOFF_HZ, type LiveShaping } from '../liveShaping'
 import { MAX_AUDIO_VOICES, VOICE_RETIRE_SECONDS } from '../voicePolicy'
 import { AudioTransport, type TransportCommand, type TransportMemberTable, type TransportOnset } from './transport'
 import { TransportEventKind, TransportEventWriter, type TransportEventBatch } from './transportEvents'
 
-const MAX_FADES = 8
+/**
+ * Stolen voices that may fade at once: a whole pool's worth, so even every
+ * voice stolen in one frame still finishes its 10 ms fade. Past that, the
+ * quietest fade is the one cut (BJS-590).
+ */
+const MAX_FADES = MAX_AUDIO_VOICES
 const PLAN_SECONDS = .15
 const GATE = .8
 const MAX_PITCH_BEND_CENTS = 50
@@ -115,11 +121,14 @@ export class LiveAudioCore {
   private pitchBends = new Map<string, number>()
   private gainExpressions = new Map<string, number>()
   readonly transport: AudioTransport
+  /** The output's peak limiter (BJS-590): the last stage of every render. */
+  readonly limiter: PeakLimiter
   private readonly transportEvents = new TransportEventWriter()
   private readonly postEvents = (batch: TransportEventBatch) => this.send(batch)
 
   constructor(private sampleRate: number, private send: (message: LiveResponse) => void, private notePrefix = 'worklet') {
     this.effectPool = Array.from({ length: MAX_AUDIO_VOICES + MAX_FADES }, () => new VoiceEffects(sampleRate))
+    this.limiter = new PeakLimiter(sampleRate)
     this.transport = new AudioTransport(sampleRate, send, this.transportEvents, {
       silence: (memberId, frame) => this.silenceMember(memberId, frame),
     })
@@ -555,10 +564,23 @@ export class LiveAudioCore {
     const [stolen] = this.voices.splice(index, 1)
     if (stolen.published) {
       this.releaseVoice(stolen, frame, VOICE_RETIRE_SECONDS * this.sampleRate)
+      if (this.fades.length >= MAX_FADES) this.dropQuietestFade(frame)
       this.fades.push(stolen)
-      if (this.fades.length > MAX_FADES) this.fades.shift()!.effects.inUse = false
     } else stolen.effects.inUse = false
     return true
+  }
+
+  /** Cut the fade with the least level left, so the cut is as small a step as it can be. */
+  private dropQuietestFade(frame: number) {
+    let quietest = 0
+    let least = Infinity
+    for (let index = 0; index < this.fades.length; index++) {
+      const voice = this.fades[index]
+      const level = this.envelope(voice, frame) * voice.instrument.gain * velocityToGain(voice.velocity) * voice.gainExpression
+      if (level < least) { least = level; quietest = index }
+    }
+    const [dropped] = this.fades.splice(quietest, 1)
+    dropped.effects.inUse = false
   }
 
   private createVoice(note: PlannedNote, instrument: PreparedLiveInstrument, zone: LiveSampleZone | undefined,
@@ -835,6 +857,8 @@ export class LiveAudioCore {
       this.mix(this.fades, output, frame - firstFrame, span, frame, room, delay)
       frame += span
     }
+    // The voice sum is complete: hold it under full scale before it leaves the worklet.
+    this.limiter.process(output, room, delay)
     this.publishPlan(endFrame)
     this.finishOwners()
     this.finishForgetting()

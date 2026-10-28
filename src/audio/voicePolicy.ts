@@ -1,7 +1,8 @@
 /**
  * Admission limit for each live worklet: simultaneous voices, live and
- * transport alike. Each worklet permits up to eight retiring fades and
- * prefers the oldest releasing voice, then the oldest held voice.
+ * transport alike. A stolen voice fades out over VOICE_RETIRE_SECONDS; each
+ * worklet lets as many fades run as it has voices (cutting the quietest past
+ * that) and steals the oldest releasing voice, then the oldest held voice.
  */
 export const MAX_AUDIO_VOICES = 64
 

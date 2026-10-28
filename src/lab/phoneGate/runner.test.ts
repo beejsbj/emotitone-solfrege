@@ -138,6 +138,36 @@ describe("phone gate run", () => {
     }
   });
 
+  it("counts pad taps apart from the soak's automated chords (BJS-590)", async () => {
+    const context = fakeContext();
+    vi.mocked(getAudioContext).mockReturnValue(context as unknown as AudioContext);
+    vi.mocked(prepareLivePlayback).mockResolvedValueOnce();
+    vi.mocked(getLivePlaybackFailure).mockReturnValue(undefined);
+    vi.mocked(createPatternPlayer).mockReturnValue({
+      start: vi.fn(async () => {}), dispose: vi.fn(), getLooper: () => ({ members: [] }),
+      barAtAudioTime: (time: number) => time / 2.4,
+    } as never);
+    vi.mocked(readLiveRenderCost).mockImplementation(() => Promise.resolve(new RenderCostMeter("performance").snapshot()));
+    const renderer = { press: vi.fn(), release: vi.fn() };
+    vi.mocked(getLivePlayback).mockReturnValue(renderer as never);
+    const gate = createPhoneGate();
+    try {
+      gate.run();
+      context.currentTime = 2.4;
+      await vi.advanceTimersByTimeAsync(200);
+      expect(gate.state.phase).toBe("soak");
+      // Two beats of the soak's automated chords (three notes each), and one pad tap.
+      await vi.advanceTimersByTimeAsync(1200);
+      gate.padDown(new PointerEvent("pointerdown"));
+      gate.padUp();
+      expect(gate.state.results.live).toEqual({ pressed: 6, sounded: 0 });
+      expect(gate.state.results.pads).toEqual({ pressed: 1, sounded: 0 });
+    } finally {
+      gate.dispose();
+      vi.mocked(getLivePlaybackFailure).mockReturnValue({ kind: "load", reason: "refused by the test" });
+    }
+  });
+
   it("releases a pad note still held when the step changes, so it cannot sound on into the next", () => {
     const context = fakeContext();
     vi.mocked(getAudioContext).mockReturnValue(context as unknown as AudioContext);

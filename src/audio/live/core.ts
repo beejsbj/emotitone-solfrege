@@ -564,13 +564,13 @@ export class LiveAudioCore {
     const [stolen] = this.voices.splice(index, 1)
     if (stolen.published) {
       this.releaseVoice(stolen, frame, VOICE_RETIRE_SECONDS * this.sampleRate)
-      if (this.fades.length >= MAX_FADES) this.dropQuietestFade(frame)
       this.fades.push(stolen)
+      if (this.fades.length > MAX_FADES) this.dropQuietestFade(frame)
     } else stolen.effects.inUse = false
     return true
   }
 
-  /** Cut the fade with the least level left, so the cut is as small a step as it can be. */
+  /** Cut the fade with the least level left (the one just stolen included), so the cut is as small a step as it can be. */
   private dropQuietestFade(frame: number) {
     let quietest = 0
     let least = Infinity

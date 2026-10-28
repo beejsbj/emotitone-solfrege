@@ -41,6 +41,18 @@ describe("phone gate verdicts", () => {
     expect(row(base({ live: { pressed: 144, sounded: 143 } }), "live").verdict).toBe("fail");
   });
 
+  it("grades only the automated chords against every press, and records the pad taps apart (BJS-590)", () => {
+    const run = base({ live: { pressed: 147, sounded: 147 }, pads: { pressed: 30, sounded: 26 } });
+    expect(row(run, "live")).toMatchObject({ verdict: "pass", value: "147 of 147 chord notes sounded", mark: "every press sounds" });
+    // A short tap cancelled before it renders is the engine's rule, not a lost note: recorded, never graded.
+    expect(row(run, "pads")).toMatchObject({ verdict: "record", value: "26 of 30 sounded" });
+    expect(row(run, "pads").mark).toContain("shorter than one audio callback is cancelled before it renders, by design");
+    expect(formatGateSummary(run)).toContain("[RECORD] Pad taps: 26 of 30 sounded");
+    expect(row(base({ live: { pressed: 147, sounded: 147 } }), "pads")).toMatchObject({ verdict: "not-run", value: "no taps" });
+    // A Stop mid-soak leaves the taps counted so far as partial.
+    expect(row({ ...run, stoppedDuring: "soak" }, "pads").verdict).toBe("partial");
+  });
+
   it("holds mute and solo to 150 ms from the tap, and only records unmute and tap-to-sound", () => {
     expect(row(base({ mute: [62, 80, 149.9, 70], unmute }), "mute").verdict).toBe("pass");
     expect(row(base({ mute: [62, 80, 150, 70], unmute }), "mute").verdict).toBe("fail");
@@ -115,7 +127,7 @@ describe("phone gate summary", () => {
     expect(lines[0]).toBe("EmotiTone phone gate (BJS-494), 2026-10-26T12:00:00.000Z");
     expect(text).toContain("Device: iPhone · iOS 18.1 · Safari 18.1");
     expect(text).toContain("Audio: 48000 Hz · latencyHint not recorded · base latency 5.3 ms · output latency 12.0 ms");
-    expect(text).toContain("Result: 4 pass · 0 fail · 1 recorded · 11 not run");
+    expect(text).toContain("Result: 4 pass · 0 fail · 1 recorded · 12 not run");
     expect(text).toContain("[PASS] Attacks lost: 0 lost of 384 over 12 bars");
     expect(text).toContain("[PASS] Mute (tap to silent): p50 70 ms");
     expect(lines.filter(line => /^\[(PASS|FAIL|RECORD|NOT RUN)\]/.test(line))).toHaveLength(gateRows(base()).length);

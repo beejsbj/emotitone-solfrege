@@ -127,9 +127,20 @@ export function createPhoneGate() {
     }
     return generations.get(generation);
   };
-  /** Live owners awaiting their first attack: when it was pressed, and whether its latency counts. */
-  const livePending = new Map<string, { at: number; timed: boolean }>();
+  /** The soak's automated chords, graded: every note must sound. */
   const live = { pressed: 0, sounded: 0 };
+  /**
+   * Burooj's pad taps, recorded apart (BJS-590): a tap whose press and release
+   * both land between two audio callbacks is cancelled before it renders, by design.
+   */
+  const pads = { pressed: 0, sounded: 0 };
+  type LiveCount = typeof live;
+  /** Live owners awaiting their first attack: when it was pressed, whether its latency counts, and which count it is in. */
+  const livePending = new Map<string, { at: number; timed: boolean; count: LiveCount }>();
+  const publishLive = () => {
+    if (live.pressed) results.live = { ...live };
+    if (pads.pressed) results.pads = { ...pads };
+  };
   const tapSamples: number[] = [];
   let liveSerial = 0;
   let resumeTap: (() => void) | undefined;
@@ -151,8 +162,8 @@ export function createPhoneGate() {
     const pending = livePending.get(event.ownerId);
     if (!pending) return;
     livePending.delete(event.ownerId);
-    live.sounded++;
-    results.live = { ...live };
+    pending.count.sounded++;
+    publishLive();
     if (pending.timed && context) {
       tapSamples.push(audioTimeToOutputTime(context, event.at) - pending.at);
       results.tapToSound = [...tapSamples];
@@ -165,13 +176,15 @@ export function createPhoneGate() {
   }
 
   /** Press a live note straight into the worklet, as a key's input voice group does. */
-  function pressLive(ownerId: string, pitches: number[], at: number, timed: boolean) {
-    live.pressed += pitches.length;
-    results.live = { ...live };
+  function pressLive(ownerId: string, pitches: number[], at: number, timed: boolean, count: LiveCount) {
+    count.pressed += pitches.length;
+    publishLive();
     const renderer = getLivePlayback(instrumentId);
     if (!renderer) return;
     // One pending entry per owner: a chord counts each of its notes as it sounds.
-    for (let index = 0; index < pitches.length; index++) livePending.set(index ? `${ownerId}#${index}` : ownerId, { at, timed: timed && !index });
+    for (let index = 0; index < pitches.length; index++) {
+      livePending.set(index ? `${ownerId}#${index}` : ownerId, { at, timed: timed && !index, count });
+    }
     pitches.forEach((pitch, index) => renderer.press(index ? `${ownerId}#${index}` : ownerId, [{ pitch, instrumentId, velocity: .6 }]));
   }
 
@@ -353,7 +366,7 @@ export function createPhoneGate() {
     const livePresser = setInterval(() => {
       const owner = `gate-live-${++liveSerial}`;
       const chord = chords[beat++ % chords.length];
-      pressLive(owner, chord, performance.now(), false);
+      pressLive(owner, chord, performance.now(), false, live);
       setTimeout(() => releaseLive(owner, chord.length), GATE_BEAT_MS * .45);
     }, GATE_BEAT_MS);
     const stopSoak = () => { recording = false; clearInterval(livePresser); slip.dispose(); };
@@ -483,7 +496,7 @@ export function createPhoneGate() {
     const at = eventTime(event);
     padOwner = `gate-pad-${++liveSerial}`;
     const timed = state.phase === "tap";
-    pressLive(padOwner, [60 + (liveSerial % 5) * 2], at, timed);
+    pressLive(padOwner, [60 + (liveSerial % 5) * 2], at, timed, pads);
     if (timed) state.padTaps++;
   }
 

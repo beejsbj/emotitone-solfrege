@@ -405,7 +405,8 @@ describe('production live audio render core', () => {
   it('bounds voice rendering and retires all output after repeated clear', () => {
     const { core, press, send, render, events } = setup()
     for (let i = 0; i < 200; i++) { press(`o${i}`, [60]); render(1) }
-    expect(core.voiceCount).toBeLessThanOrEqual(72)
+    // 64 voices, and the voices stolen in the last 10 ms (one a frame at 1 kHz) still fading out.
+    expect(core.voiceCount).toBeLessThanOrEqual(74)
     send({ type: 'clear' }); send({ type: 'clear' })
     render(30)
     expect(core.voiceCount).toBe(0)
@@ -539,6 +540,52 @@ describe('production live audio render core', () => {
     const releases = events.filter(event => event.phase === 'release').map(event => event.noteId).sort()
     expect(releases).toEqual(attacks)
     expect(core.voiceCount).toBe(0)
+  })
+
+  describe('stolen voices in a burst (BJS-590)', () => {
+    const RATE = 48000
+    /** A constant-level bank: every voice's contribution is its gain, so a cut shows as a step of exactly that. */
+    const level: PreparedLiveInstrument = { ...bank, instrumentId: 'level', gain: .005, attack: 0, decay: 0, sustain: 1,
+      release: .01, zones: [{ id: 'level', rootMidi: 60, sampleRate: RATE, channels: [new Float32Array([1, 1, 1, 1])],
+        loopStartFrame: 0, loopEndFrame: 4 }] }
+    function burst(waves: number[]) {
+      const core = new LiveAudioCore(RATE, () => {})
+      core.command({ type: 'prepare', requestId: 1, instrument: level }, 0)
+      const press = (ownerId: string, velocity: number, frame: number) => core.command({ type: 'press', ownerId,
+        notes: [{ pitch: 60, instrumentId: 'level', velocity }] }, frame)
+      // The pool full of held voices: 64 × 0.005 = 0.32, well under the limiter's ceiling.
+      for (let k = 0; k < 64; k++) press(`held-${k}`, 1, 0)
+      const out = new Float32Array(128 * 40)
+      const quantum = [new Float32Array(128), new Float32Array(128)]
+      let wave = 0
+      for (let frame = 0; frame < out.length; frame += 128) {
+        // Each wave of near-silent presses steals one voice per press, in one quantum, from 1024 frames on.
+        if (frame >= 1024 && wave < waves.length && frame === 1024 + wave * 128) {
+          for (let k = 0; k < waves[wave]; k++) press(`burst-${wave}-${k}`, .001, frame)
+          wave++
+        }
+        core.render(quantum, frame)
+        out.set(quantum[0], frame)
+      }
+      let step = 0
+      for (let i = 1025; i < out.length; i++) step = Math.max(step, Math.abs(out[i] - out[i - 1]))
+      return { out, step, core }
+    }
+
+    it('lets every one of 20 voices stolen inside one 10 ms fade finish it, with no step', () => {
+      const { out, step } = burst([20])
+      // Twenty fades fall together over 480 frames: 20 × 0.005 / 480 a frame, far from a cut voice's 0.005.
+      expect(step).toBeLessThan(.001)
+      expect(out[1024 + 480 + 128]).toBeCloseTo(44 * .005 + 20 * .005 * .001, 5)
+    })
+
+    it('cuts the quietest fades, not the oldest, when more voices are stolen than can fade', () => {
+      // 64 loud held voices stolen at once, then the 64 near-silent voices that replaced them, a quantum later.
+      const { step, core } = burst([64, 64])
+      // Cutting the loud fades would step by up to 64 × 0.005 × 0.73; the near-silent ones cost almost nothing.
+      expect(step).toBeLessThan(.002)
+      expect(core.voiceCount).toBeLessThanOrEqual(128)
+    })
   })
 
   it('steals the oldest admitted releasing voice before an older held voice', () => {

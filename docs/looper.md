@@ -171,7 +171,10 @@ worklet transport's acceptance tests.
   member withdraws its leave. Stop answers the fade as cancelled and lets
   fading voices ramp out on their own; Stop with `cut` (Stop All's second tap)
   takes them, and every release tail, in its 10 ms, and the player fades the
-  shared room and delay with it (`cutWetTails`).
+  shared room and delay with it (`cutWetTails`) once that release has gone
+  into them: 30 ms after the cut, or two render callbacks past the release on
+  a large audio buffer (`wetCutDelaySeconds`), so none of it rings on in the
+  fresh buses.
 - **Events** for every transport voice carry the member and the source note,
   so the Stage, the keys, the HighlightStrip and the Looper Stage part follow
   loop notes. They are not recordable: playback never writes into the open

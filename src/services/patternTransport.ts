@@ -29,7 +29,7 @@ import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import { buildPatternMember, type PatternMember, type PatternMemberRequest } from "@/services/patternMember";
 import { bendNotes } from "@/domain/modeRemap";
 import { barAtFrame, bpmAtFrame, type TempoAnchor } from "@/audio/live/tempoMap";
-import { WET_CUT_DELAY_SECONDS } from "@/audio/voicePolicy";
+import { wetCutDelaySeconds } from "@/audio/voicePolicy";
 import type {
   TransportBoundary, TransportChange, TransportCommand, TransportReceipt, TransportResponse, TransportSingleChange,
 } from "@/audio/live/transport";
@@ -573,7 +573,7 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
     if (command && port) send({ type: "transport-stop", requestId: ++requestId, ...(cut ? { cut: true } : {}) });
     // A cut is silence: what the shared room and delay hold fades too, live notes' echoes included.
     // Not at once: the cut voices' own 10 ms release must go into the old returns, not the fresh ones.
-    if (cut) setTimeout(() => options.audio.cutWetTails?.(), WET_CUT_DELAY_SECONDS * 1000);
+    if (cut) setTimeout(() => options.audio.cutWetTails?.(), wetCutDelaySeconds(context?.baseLatency) * 1000);
     playing = false;
     run++;
     for (const noteId of [...registry.keys()]) endNow(noteId);

@@ -1085,6 +1085,23 @@ describe("Play is the loop on the worklet transport", () => {
       expect(largestMove(cut - 1, cut + .01 * RATE + 1)).toBeLessThanOrEqual(steadyMove + 1e-6);
     });
 
+    it("on a large audio callback, the cut's wet-tail swap waits two callbacks past the notes' release", async () => {
+      const { looper } = await twoPlaying();
+      // A 100 ms render callback (a "playback" latency hint, or an Android device without the low-latency path).
+      rig.context.baseLatency = .1;
+      looper.stopAll();
+      await flush();
+      render(.5);
+      looper.stopAll();
+      await flush();
+      expect(player.getLooper().running).toBe(false);
+      // Not at the usual 30 ms, nor before 10 ms + 2 × 100 ms: earlier, the release and the swap
+      // could land in the same callback (a timer never fires early, so this wait is safe).
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      expect(rig.wetCuts).toBe(0);
+      await vi.waitFor(() => expect(rig.wetCuts).toBe(1), { timeout: 1000, interval: 5 });
+    });
+
     it("a flicked pattern fades out over a bar while the others play on at full level", async () => {
       const { looper, first, second } = await twoPlaying();
       const from = rig.frame;

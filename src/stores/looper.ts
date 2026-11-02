@@ -67,6 +67,7 @@ import {
   type PatternPlayer,
 } from "@/services/patternTransport";
 import { planRecordedPattern, type StrudelConfig } from "@/services/StrudelNotation";
+import { useHeadsUpStore } from "@/stores/headsUp";
 import { useInstrumentStore } from "@/stores/instrument";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
 import { useMusicStore } from "@/stores/music";
@@ -164,6 +165,9 @@ function signature(phrase: Phrase): string {
     ...phrase.notes.map((note) => `${note.id}:${note.note}:${note.pressTime}:${note.duration}`)].join("|");
 }
 
+/** The Looper's entry in the Heads-up stack: one line at a time. */
+export const LOOPER_HEADS_UP = "looper";
+
 export const useLooperStore = defineStore("looper", () => {
   const phrases = usePhrasesStore();
   const music = useMusicStore();
@@ -171,6 +175,7 @@ export const useLooperStore = defineStore("looper", () => {
   const keyboard = useKeyboardDrawerStore();
   const instrument = useInstrumentStore();
   const loopTiming = useLoopTimingStore();
+  const headsUp = useHeadsUpStore();
 
   // ─── State ─────────────────────────────────────────────────────────────────
   const looper = ref<Looper>(createLooper());
@@ -184,7 +189,12 @@ export const useLooperStore = defineStore("looper", () => {
   const latchCountdown = ref<number | null>(null);
   /** The transport is running a Looper session. */
   const running = ref(false);
-  const lastError = ref<string | null>(null);
+  /**
+   * What the Looper could not do, while its Heads-up still shows: read from the
+   * stack, so a line that fades, is swiped away, or is put away by Escape or
+   * Delete clears it too.
+   */
+  const lastError = computed(() => headsUp.entries.find((entry) => entry.id === LOOPER_HEADS_UP)?.line ?? null);
   /** Members the transport holds, by phrase id. */
   const joined = reactive(new Set<string>());
   const swapPolicy = ref<TakeSwapPolicy>(readSwapPolicy());
@@ -249,18 +259,27 @@ export const useLooperStore = defineStore("looper", () => {
     return Number.isFinite(value) ? value : 0;
   };
 
+  /**
+   * The Looper's one line in the Heads-up stack: a new failure replaces the
+   * last, the same one again refreshes it, and a Play that works puts it away.
+   */
+  function say(line: string | null) {
+    if (line) headsUp.raise({ id: LOOPER_HEADS_UP, line, label: "Looper", signal: "problem" });
+    else headsUp.dismiss(LOOPER_HEADS_UP);
+  }
+
   /** Say why, in the one plain line its cause maps to (src/services/looperMessages.ts). */
   function report(error: unknown, instrument?: string) {
-    lastError.value = looperMessage(looperFailureOf(error, instrument));
+    say(looperMessage(looperFailureOf(error, instrument)));
   }
 
   function reportKind(kind: LooperFailureKind) {
-    lastError.value = looperMessage({ kind });
+    say(looperMessage({ kind }));
   }
 
-  /** The player read the failure (the deck's notice was dismissed). */
+  /** The failure no longer applies. */
   function clearError() {
-    lastError.value = null;
+    say(null);
   }
 
   function attach(next: PatternPlayer | undefined) {
@@ -718,7 +737,7 @@ export const useLooperStore = defineStore("looper", () => {
   /** The domain's member joins: from the reel (pinned to bar one) or as a played take. */
   function joinPhrase(phrase: Phrase, originAudio: number | null): void {
     if (!phrase.notes.length || isPlaying(looper.value, phrase.id)) return;
-    lastError.value = null;
+    clearError();
     playedBars.delete(phrase.id);
     if (originAudio === null) origins.delete(phrase.id);
     else origins.set(phrase.id, originAudio);
@@ -1218,7 +1237,7 @@ export const useLooperStore = defineStore("looper", () => {
 
   /** Bring saved members into the running session in their saved places (rule 2). */
   function joinSaved(loop: Loop, members: PlayingPattern[]): void {
-    lastError.value = null;
+    clearError();
     for (const member of joinLoop(looper.value, { ...loop, members }, transportBpm)) {
       origins.delete(member.phraseId);
       playedBars.delete(member.phraseId);
@@ -1312,7 +1331,8 @@ export const useLooperStore = defineStore("looper", () => {
       if (loop.members.length) reportKind("loop-missing");
       return false;
     }
-    lastError.value = present.length < loop.members.length ? looperMessage({ kind: "loop-missing" }) : null;
+    if (present.length < loop.members.length) reportKind("loop-missing");
+    else clearError();
     stopLatchTimer();
     openTakeId.value = null;
     origins.clear();

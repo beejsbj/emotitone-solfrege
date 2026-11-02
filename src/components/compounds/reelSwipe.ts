@@ -11,7 +11,7 @@
  *  - it never starts within 20px of either side of the viewport, where iOS
  *    Safari's edge swipe goes back a page;
  *  - it never reaches for the screen's edge: the Looper Dial's flick (left
- *    edge, removes) and the Edge Notice's sweep (right edge, dismisses) are
+ *    edge, removes) and the Heads-up's sweep (right edge, dismisses) are
  *    throws off the glass from their own surfaces above the deck, and the
  *    reel swipe only ever starts on the reel strip.
  *

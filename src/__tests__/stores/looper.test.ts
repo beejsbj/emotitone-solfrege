@@ -132,7 +132,9 @@ import { audioTimeToOutputTime } from "@/services/liveAudioTiming";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import { UIBeatClock, uiBeatClock } from "@/composables/useUIBeat";
 import { createTestPinia } from "../helpers/test-utils";
-import { useLooperStore } from "@/stores/looper";
+import { LOOPER_HEADS_UP, useLooperStore } from "@/stores/looper";
+import { useHeadsUpStore } from "@/stores/headsUp";
+import { HEADS_UP_MS } from "@/composables/useHeadsUpQueue";
 import { usePhrasesStore } from "@/stores/phrases";
 import { useMusicStore } from "@/stores/music";
 import { useVisualConfigStore } from "@/stores/visualConfig";
@@ -2395,22 +2397,60 @@ describe("Play is the loop on the worklet transport", () => {
       phrases.openPhrase(id);
       const deck = mountDeck();
       try {
-        expect(deck.find('[data-testid="looper-error"]').exists()).toBe(false);
+        expect(deck.find('[data-heads-up="looper"]').exists()).toBe(false);
         await press(deck.get(".code-strip-bar__play").element, 40);
         await looper.settled();
         await flush();
-        const notice = deck.get('[data-testid="looper-error"]');
+        // A Heads-up above the deck: a lit Brass lamp and the line, with no key of its own.
+        const notice = deck.get('[data-heads-up="looper"]');
         expect(notice.get("[role=alert]").text()).toBe("Not enough memory for Sawtooth.");
-        // An Edge Notice: a lit Brass lamp and the line, with no key of its own.
-        expect(notice.find(".edge-notice__lamp").exists()).toBe(true);
+        expect(notice.classes()).toContain("heads-up--problem");
+        expect(notice.find(".heads-up__lamp").exists()).toBe(true);
         expect(notice.find("button").exists()).toBe(false);
         expect(looper.members).toEqual([]);
         // Swept off the right edge, it goes, and the Looper's error with it.
         sweep(notice.element, 330, 384);
         await flush();
+        expect(deck.find('[data-heads-up="looper"]').exists()).toBe(false);
         expect(looper.lastError).toBeNull();
-        expect(deck.find('[data-testid="looper-error"]').exists()).toBe(false);
+        // Escape on the line does the same.
+        await press(deck.get(".code-strip-bar__play").element, 40);
+        await looper.settled();
+        await flush();
+        expect(looper.lastError).toBe("Not enough memory for Sawtooth.");
+        deck.get('[data-heads-up="looper"]').element.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+        await flush();
+        expect(deck.find('[data-heads-up="looper"]').exists()).toBe(false);
+        expect(looper.lastError).toBeNull();
       } finally {
+        deck.unmount();
+      }
+    });
+
+    it("a refused bank's line fades on its own after a problem's 7 s, and the Looper's error goes with it", async () => {
+      const { phrases, looper } = setup();
+      playTake(.5);
+      const id = phrases.keepTake()!;
+      phrases.findPhrase(id)!.context.instrument = "sawtooth";
+      rig.refused.add("sawtooth");
+      phrases.openPhrase(id);
+      const deck = mountDeck();
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      try {
+        looper.togglePlay();
+        await looper.settled();
+        await flush();
+        expect(deck.get('[data-heads-up="looper"] [role=alert]').text()).toBe("Not enough memory for Sawtooth.");
+        expect(looper.lastError).toBe("Not enough memory for Sawtooth.");
+        vi.advanceTimersByTime(HEADS_UP_MS.problem - 1);
+        await flush();
+        expect(looper.lastError).toBe("Not enough memory for Sawtooth.");
+        vi.advanceTimersByTime(1);
+        await flush();
+        expect(deck.find('[data-heads-up="looper"]').exists()).toBe(false);
+        expect(looper.lastError).toBeNull();
+      } finally {
+        vi.useRealTimers();
         deck.unmount();
       }
     });
@@ -2424,14 +2464,14 @@ describe("Play is the loop on the worklet transport", () => {
         await looper.settled();
         expect(looper.members.length).toBe(1);
         expect(document.documentElement.dataset.looperMic).toBeUndefined();
-        looper.lastError = "Stop a loop to add Piano.";
+        useHeadsUpStore().raise({ id: LOOPER_HEADS_UP, line: "Stop a loop to add Piano.", label: "Looper" });
         await flush();
-        const notice = deck.get('[data-testid="looper-error"]');
+        const notice = deck.get('[data-heads-up="looper"]');
         // A slow drag, or a sweep the wrong way, leaves it.
         sweep(notice.element, 300, 340, 400);
         sweep(notice.element, 330, 280);
         await flush();
-        expect(looper.lastError).toBe("Stop a loop to add Piano.");
+        expect(deck.get('[data-heads-up="looper"]').text()).toContain("Stop a loop to add Piano.");
       } finally {
         deck.unmount();
       }

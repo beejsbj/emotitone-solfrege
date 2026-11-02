@@ -115,7 +115,6 @@ describe("loading generations with the real instrument store", () => {
     await vi.advanceTimersByTimeAsync(60_000);
     expect(JSON.stringify(loading.loadingState)).toBe(reset);
     expect(wrapper.text()).toBe(screen);
-    expect(useInstrumentStore().readyInstruments.size).toBe(0);
     expect(wrapper.find(".count-gate--play").exists()).toBe(false);
   });
 
@@ -190,11 +189,9 @@ describe("loading generations with the real instrument store", () => {
     expect(useAppLoading().loadingState.progress.instruments.error).toBeUndefined();
     expect(useAppLoading().loadingState.progress.instruments.progress).toBe(0);
     const state = JSON.stringify(useAppLoading().loadingState);
-    const ready = [...useInstrumentStore().readyInstruments];
     warmup.resolve();
     await flushPromises();
     expect(JSON.stringify(useAppLoading().loadingState)).toBe(state);
-    expect([...useInstrumentStore().readyInstruments]).toEqual(ready);
     expect(useInstrumentStore().currentInstrument).toBe("piano");
     expect(useAppLoading().isVisible.value).toBe(true);
     expect(wrapper.text()).not.toContain("PREPARING…");
@@ -239,7 +236,6 @@ describe("loading generations with the real instrument store", () => {
     pending.resolve();
     await flushPromises();
     expect(JSON.stringify(useAppLoading().loadingState)).toBe(timeout);
-    expect(useInstrumentStore().readyInstruments.size).toBe(0);
     expect(wrapper.find(".count-gate--play").exists()).toBe(false);
     expect(wrapper.find(".count-gate--reload").exists()).toBe(true);
   });

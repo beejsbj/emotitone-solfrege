@@ -16,14 +16,31 @@ const liveMocks = vi.hoisted(() => ({
 vi.mock("@/services/livePlayback", () => liveMocks);
 
 const audioMocks = vi.hoisted(() => ({
+  /** The sounds the worklet holds right now. The engine answers readiness from this, as the real one does from livePlayback. */
+  held: new Set<string>(["piano"]),
   initAudioEngine: vi.fn().mockResolvedValue(undefined),
-  isPrewarmed: vi.fn((instrumentName: string) => instrumentName === "piano"),
-  prewarmSoundSamples: vi.fn().mockResolvedValue(undefined),
-  getReadySounds: vi.fn(() => ["piano"]),
+  isPrewarmed: vi.fn((_instrumentName: string) => false),
+  prewarmSoundSamples: vi.fn(async (_instrumentName: string) => {}),
+  getReadySounds: vi.fn((): string[] => []),
   setLiveSynthControls: vi.fn(),
 }));
 
 vi.mock("@/services/audioEngine", () => audioMocks);
+
+/** The engine holds exactly `sounds`; a preparation that succeeds leaves it holding that sound too. */
+function holdOnly(...sounds: string[]) {
+  audioMocks.held.clear();
+  for (const sound of sounds) audioMocks.held.add(sound);
+  audioMocks.isPrewarmed.mockImplementation((name: string) => audioMocks.held.has(name));
+  audioMocks.getReadySounds.mockImplementation(() => [...audioMocks.held]);
+  audioMocks.prewarmSoundSamples.mockImplementation(async (name: string) => { audioMocks.held.add(name); });
+}
+
+/** A preparation that finishes when `done` settles (and fails if it fails), leaving the worklet holding the sound. */
+const prepareWhen = (done: Promise<void>) => async (name: string) => {
+  await done;
+  audioMocks.held.add(name);
+};
 
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
@@ -44,11 +61,7 @@ describe("instrument store warmup", () => {
     liveMocks.needsLivePlaybackPreparation.mockReturnValue(false);
     liveMocks.getLivePlaybackFailure.mockReturnValue(undefined);
     audioMocks.initAudioEngine.mockResolvedValue(undefined);
-    audioMocks.isPrewarmed.mockImplementation(
-      (instrumentName: string) => instrumentName === "piano"
-    );
-    audioMocks.prewarmSoundSamples.mockResolvedValue(undefined);
-    audioMocks.getReadySounds.mockReturnValue(["piano"]);
+    holdOnly("piano");
   });
 
   it("selects ready instruments without entering warmup", async () => {
@@ -93,7 +106,7 @@ describe("instrument store warmup", () => {
   it("locks interaction until a cold instrument becomes ready", async () => {
     const store = useInstrumentStore();
     const deferred = createDeferred<void>();
-    audioMocks.prewarmSoundSamples.mockReturnValueOnce(deferred.promise);
+    audioMocks.prewarmSoundSamples.mockImplementationOnce(prepareWhen(deferred.promise));
 
     const warmup = store.setInstrument("gm_vibraphone");
 
@@ -134,7 +147,7 @@ describe("instrument store warmup", () => {
   it("deduplicates repeated warmup requests for the same instrument", async () => {
     const store = useInstrumentStore();
     const deferred = createDeferred<void>();
-    audioMocks.prewarmSoundSamples.mockReturnValue(deferred.promise);
+    audioMocks.prewarmSoundSamples.mockImplementation(prepareWhen(deferred.promise));
 
     const first = store.setInstrument("gm_vibraphone");
     const second = store.setInstrument("gm_vibraphone");
@@ -152,21 +165,26 @@ describe("instrument store warmup", () => {
     expect(store.isInstrumentReady("gm_vibraphone")).toBe(true);
   });
 
-  it("seeds ready instruments from the initialized audio engine", async () => {
+  it("reads readiness from the engine, so a bank it has since lost is cold again", async () => {
     const store = useInstrumentStore();
-    audioMocks.getReadySounds.mockReturnValue(["piano", "gm_vibraphone"]);
+    audioMocks.held.add("gm_vibraphone");
 
     await store.initializeInstruments();
 
     expect(store.isInstrumentReady("gm_vibraphone")).toBe(true);
-    expect(store.readyInstruments.has("gm_vibraphone")).toBe(true);
+
+    // The worklet retires the bank to make room; the store keeps no record of having had it.
+    audioMocks.held.delete("gm_vibraphone");
+    expect(store.isInstrumentReady("gm_vibraphone")).toBe(false);
+    await store.setInstrument("gm_vibraphone");
+    expect(audioMocks.prewarmSoundSamples).toHaveBeenCalledWith("gm_vibraphone");
   });
 
   it("restores the most recent playable selection across an A/B/A race", async () => {
     const store = useInstrumentStore();
     const deferred = createDeferred<void>();
-    audioMocks.getReadySounds.mockReturnValue(["piano", "gm_marimba"]);
-    audioMocks.prewarmSoundSamples.mockReturnValue(deferred.promise);
+    audioMocks.held.add("gm_marimba");
+    audioMocks.prewarmSoundSamples.mockImplementation(prepareWhen(deferred.promise));
     await store.initializeInstruments();
 
     const firstA = store.setInstrument("gm_vibraphone");
@@ -197,10 +215,7 @@ describe("instrument store warmup", () => {
     const error = new Error("Sample registry unavailable");
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
     audioMocks.initAudioEngine.mockRejectedValue(error);
-    audioMocks.getReadySounds.mockReturnValue(["triangle"]);
-    audioMocks.isPrewarmed.mockImplementation(
-      (instrumentName: string) => instrumentName === "triangle"
-    );
+    holdOnly("triangle");
 
     await expect(store.initializeInstruments()).rejects.toBe(error);
 
@@ -210,53 +225,48 @@ describe("instrument store warmup", () => {
     consoleError.mockRestore();
   });
 
-  describe("a selection the worklet refuses for memory at startup", () => {
+  describe("a selection the worklet no longer holds, at startup", () => {
     const MEMORY_FULL = "Live renderer memory budget is occupied by held or pinned instruments";
     beforeEach(() => {
-      // A sampled bank downloaded once (so counted ready) but evicted since,
-      // to make room for banks the Looper pins: the worklet no longer holds it.
-      audioMocks.isPrewarmed.mockImplementation((name: string) => name === "piano" || name === "kalimba");
-      audioMocks.getReadySounds.mockReturnValue(["piano", "kalimba"]);
+      // Kalimba and vibraphone were loaded once and have been evicted since, to make
+      // room for banks the Looper pins: the worklet holds only the piano now.
+      holdOnly("piano");
       liveMocks.needsLivePlaybackPreparation.mockImplementation((name: string) => name === "kalimba");
     });
 
-    it("says why and plays on a held sound, without asking again, when the refusal is already known", async () => {
-      // Another bank downloaded once and evicted too: no better a fallback.
-      audioMocks.isPrewarmed.mockImplementation((name: string) => ["piano", "kalimba", "vibraphone"].includes(name));
-      audioMocks.getReadySounds.mockReturnValue(["vibraphone", "kalimba", "piano"]);
-      liveMocks.getLivePlaybackFailure.mockImplementation((name: string) =>
-        name === "kalimba" ? { kind: "unavailable", reason: MEMORY_FULL, budget: true }
-          : name === "vibraphone" ? { kind: "unavailable", reason: "Live renderer is not prepared" } : undefined);
+    it("says why and plays on a held sound when memory refuses it again", async () => {
+      // The manager decides afresh on every ask, and answers at once from the size it knows.
+      audioMocks.prewarmSoundSamples.mockRejectedValue(new Error(MEMORY_FULL));
       const store = useInstrumentStore();
       store.currentInstrument = "kalimba";
 
       await expect(store.initializeInstruments()).resolves.toBeUndefined();
-      expect(audioMocks.prewarmSoundSamples).not.toHaveBeenCalled();
+      expect(audioMocks.prewarmSoundSamples).toHaveBeenCalledTimes(1);
       expect(store.lastWarmupError).toBe(MEMORY_FULL);
       expect(store.lastWarmupErrorInstrument).toBe("kalimba");
       expect(store.currentInstrument).toBe("piano");
     });
 
-    it("starts on a loaded sound and says why when the refusal comes now", async () => {
-      let refused = false;
-      liveMocks.getLivePlaybackFailure.mockImplementation((name: string) =>
-        name === "kalimba" && refused ? { kind: "unavailable", reason: MEMORY_FULL, budget: true } : undefined);
-      audioMocks.prewarmSoundSamples.mockImplementation(async () => { refused = true; throw new Error(MEMORY_FULL); });
+    it("prepares it again when memory has been freed since", async () => {
       const store = useInstrumentStore();
       store.currentInstrument = "kalimba";
 
       await expect(store.initializeInstruments()).resolves.toBeUndefined();
-      expect(store.lastWarmupError).toBe(MEMORY_FULL);
-      expect(store.lastWarmupErrorInstrument).toBe("kalimba");
-      expect(store.currentInstrument).toBe("piano");
+      expect(audioMocks.prewarmSoundSamples).toHaveBeenCalledWith("kalimba");
+      expect(store.lastWarmupError).toBeNull();
+      expect(store.currentInstrument).toBe("kalimba");
+      expect(store.isInstrumentReady("kalimba")).toBe(true);
     });
 
-    it("still fails startup on any other preparation failure", async () => {
+    it("still fails startup when the engine cannot prepare a ready synth", async () => {
       vi.spyOn(console, "error").mockImplementation(() => {});
       const error = new Error("Worklet module failed to load");
+      // A synth needs no download, so it is ready; the worklet has not been given it yet.
+      holdOnly("piano", "square");
+      liveMocks.needsLivePlaybackPreparation.mockImplementation((name: string) => name === "square");
       audioMocks.prewarmSoundSamples.mockRejectedValue(error);
       const store = useInstrumentStore();
-      store.currentInstrument = "kalimba";
+      store.currentInstrument = "square";
 
       await expect(store.initializeInstruments()).rejects.toBe(error);
     });
@@ -422,9 +432,7 @@ describe("instrument persistence", () => {
   beforeEach(() => {
     window.localStorage.clear();
     vi.clearAllMocks();
-    audioMocks.isPrewarmed.mockImplementation((name: string) => name === "piano");
-    audioMocks.prewarmSoundSamples.mockResolvedValue(undefined);
-    audioMocks.getReadySounds.mockReturnValue(["piano"]);
+    holdOnly("piano");
     liveMocks.needsLivePlaybackPreparation.mockReturnValue(false);
   });
 
@@ -529,8 +537,7 @@ describe("instrument persistence", () => {
     saved.set(KEY, JSON.stringify({ currentInstrument: "gm_epiano1", instrumentShapes: {
       gm_epiano1: { ...NEUTRAL, cutoff: 1800 },
     } }));
-    audioMocks.isPrewarmed.mockImplementation((name: string) => name === DEFAULT_INSTRUMENT);
-    audioMocks.getReadySounds.mockReturnValue([DEFAULT_INSTRUMENT]);
+    holdOnly(DEFAULT_INSTRUMENT);
     const store = freshStore();
     const progress = vi.fn();
 
@@ -542,7 +549,7 @@ describe("instrument persistence", () => {
     expect(store.isLoading).toBe(false);
 
     const prepared = createDeferred<void>();
-    audioMocks.prewarmSoundSamples.mockReturnValueOnce(prepared.promise);
+    audioMocks.prewarmSoundSamples.mockImplementationOnce(prepareWhen(prepared.promise));
     const entry = store.initializeInstruments(progress);
     await Promise.resolve();
     expect(store.isLoading).toBe(true);
@@ -559,8 +566,7 @@ describe("instrument persistence", () => {
       gm_epiano1: { ...NEUTRAL, cutoff: 1800 },
       [DEFAULT_INSTRUMENT]: { ...NEUTRAL, delay: 0.3 },
     } }));
-    audioMocks.isPrewarmed.mockImplementation((name: string) => name === DEFAULT_INSTRUMENT);
-    audioMocks.getReadySounds.mockReturnValue([DEFAULT_INSTRUMENT]);
+    holdOnly(DEFAULT_INSTRUMENT);
     audioMocks.prewarmSoundSamples.mockRejectedValueOnce(new Error("Network down"));
     const store = freshStore();
     expect(store.shape.cutoff).toBe(1800);

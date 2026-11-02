@@ -13,10 +13,16 @@ const hoisted = vi.hoisted(() => ({
   }),
   master: { id: "master-gain" },
   initializeAudio: vi.fn().mockResolvedValue(undefined),
-  prepareLive: vi.fn().mockResolvedValue(undefined),
-  liveFailure: vi.fn((): { kind: "load" | "unavailable"; reason: string; budget?: true } | undefined => undefined),
+  /** The banks the stand-in worklet holds: a preparation that raises no failure installs its bank, as the manager does. */
+  held: new Set<string>(),
+  install: async (_context: unknown, _destination: unknown, name: string) => {
+    if (!hoisted.liveFailure(name)) hoisted.held.add(name);
+  },
+  prepareLive: vi.fn(),
+  liveFailure: vi.fn((_name?: string): { kind: "load" | "unavailable"; reason: string; budget?: true } | undefined => undefined),
   shaping: vi.fn(),
 }));
+hoisted.prepareLive.mockImplementation(hoisted.install);
 
 vi.mock("@/services/audioRuntime", () => ({
   getAudioContext: () => hoisted.context,
@@ -26,6 +32,7 @@ vi.mock("@/services/audioRuntime", () => ({
 vi.mock("@/services/livePlayback", () => ({
   prepareLivePlayback: hoisted.prepareLive,
   getLivePlaybackFailure: hoisted.liveFailure,
+  holdsLivePlayback: (name: string) => hoisted.held.has(name),
   setLivePlaybackShaping: hoisted.shaping,
 }));
 vi.unmock("@/services/audioEngine");
@@ -47,7 +54,8 @@ describe("the app's audio engine", () => {
     vi.clearAllMocks();
     hoisted.liveFailure.mockImplementation(() => undefined);
     hoisted.initializeAudio.mockReset().mockResolvedValue(undefined);
-    hoisted.prepareLive.mockReset().mockResolvedValue(undefined);
+    hoisted.prepareLive.mockReset().mockImplementation(hoisted.install);
+    hoisted.held.clear();
     fetchMock.mockReset().mockImplementation(serveFixtures);
     vi.stubGlobal("fetch", fetchMock);
   });
@@ -79,7 +87,6 @@ describe("the app's audio engine", () => {
       await vi.waitFor(() => expect(hoisted.initializeAudio).toHaveBeenCalledOnce());
       loading.resetLoading();
       await first;
-      expect(store.readyInstruments.size).toBe(0);
       expect(store.isLoading).toBe(false);
 
       const retry = loading.initializeInstruments();

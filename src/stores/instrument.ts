@@ -60,7 +60,6 @@ export const useInstrumentStore = defineStore("instrument", () => {
   // State
   const currentInstrument = ref<string>(DEFAULT_INSTRUMENT);
   const lastReadyInstrument = ref<string | null>(null);
-  const readyInstruments = ref<Set<string>>(new Set());
   const warmingInstrument = ref<string | null>(null);
   const warmupMessage = ref("");
   const lastWarmupError = ref<string | null>(null);
@@ -186,63 +185,43 @@ export const useInstrumentStore = defineStore("instrument", () => {
     warmupMessage.value = "";
   };
 
-  const markInstrumentReady = (instrumentName: string) => {
-    readyInstruments.value.add(instrumentName);
-  };
+  /**
+   * Whether a sound can play now without a download: an oscillator synth, or a
+   * sampled bank the worklet holds right now. The store keeps no record of its
+   * own. The worklet's set of loaded banks is the truth, so a bank evicted to
+   * make room for others is cold again, and the picker redraws when one comes
+   * or goes.
+   */
+  const isInstrumentReady = (instrumentName: string) => isPrewarmed(instrumentName);
 
-  const isInstrumentReady = (instrumentName: string) =>
-    readyInstruments.value.has(instrumentName) || isPrewarmed(instrumentName);
-
-  /** The first ready sound among `preferred` and the usual fallbacks, never `except`, and `usable` if given. */
-  const findReadyFallback = (
-    preferred: Array<string | null> = [],
-    except?: string,
-    usable: (candidate: string) => boolean = () => true,
-  ) => {
+  /** The first ready sound among `preferred` and the usual fallbacks. */
+  const findReadyFallback = (preferred: Array<string | null> = []) => {
     const candidates = [
       ...preferred,
       lastReadyInstrument.value,
       DEFAULT_INSTRUMENT,
       "triangle",
-      ...readyInstruments.value,
+      ...getReadySounds(),
     ];
 
     return (
       candidates.find(
         (candidate, index) =>
           candidate !== null &&
-          candidate !== except &&
           candidates.indexOf(candidate) === index &&
-          isInstrumentReady(candidate) &&
-          usable(candidate)
+          isInstrumentReady(candidate)
       ) ?? null
     );
   };
 
-  const syncReadyInstrumentsFromAudio = (warmed: string[] = [], preserveSelection = false) => {
-    readyInstruments.value = new Set([...getReadySounds(), ...warmed]);
-
+  /** Keep the selection if it is ready, else move to a sound that is (unless the selection is to be preserved). */
+  const settleOnReadySound = (preserveSelection = false) => {
     const fallback = findReadyFallback([currentInstrument.value]);
     if (fallback) {
-      markInstrumentReady(fallback);
       if (!preserveSelection) currentInstrument.value = fallback;
       lastReadyInstrument.value = fallback;
     } else {
       lastReadyInstrument.value = null;
-    }
-  };
-
-  /**
-   * The worklet refused the selection for memory: say why, and move to a
-   * sound it holds right now (not merely one downloaded once), if there is one.
-   */
-  const refuseForMemory = (instrumentName: string, reason: string) => {
-    lastWarmupError.value = reason;
-    lastWarmupErrorInstrument.value = instrumentName;
-    const fallback = findReadyFallback([], instrumentName, (candidate) => !getLivePlaybackFailure(candidate));
-    if (fallback) {
-      currentInstrument.value = fallback;
-      lastReadyInstrument.value = fallback;
     }
   };
 
@@ -289,27 +268,14 @@ export const useInstrumentStore = defineStore("instrument", () => {
           lastWarmupErrorInstrument.value = preferred;
         }
       }
-      syncReadyInstrumentsFromAudio(warmed, !prepareSelected);
-      // Prewarming above already prepared the live renderer for that sound.
-      // "Ready" here means downloaded once, not resident: a bank evicted since
-      // (to make room for the Looper's pinned banks, say) needs preparing
-      // again, and memory may refuse it. That refusal stays until something is
-      // released, so a known one is reported, never retried.
+      // A bank the worklet no longer holds (evicted for memory, say) is not
+      // ready, so it was prepared again above, and a refusal there (memory
+      // full) was recorded and left the selection on a sound that is ready.
+      settleOnReadySound(!prepareSelected);
+      // What is left is a ready synth the worklet has not been given yet.
       const selected = currentInstrument.value;
-      const knownFailure = prepareSelected ? getLivePlaybackFailure(selected) : undefined;
-      if (knownFailure?.budget) {
-        refuseForMemory(selected, knownFailure.reason);
-      } else if (prepareSelected && !warmed.includes(selected) && needsLivePlaybackPreparation(selected)) {
-        try {
-          await abortable(prewarmSoundSamples(selected), signal);
-        } catch (error) {
-          if (!isCurrent()) return;
-          // Memory full is the selection's problem, not the engine's: say so
-          // and play on something that is loaded instead of failing startup.
-          const failure = getLivePlaybackFailure(selected);
-          if (!failure?.budget) throw error;
-          refuseForMemory(selected, error instanceof Error && error.message ? error.message : failure.reason);
-        }
+      if (prepareSelected && !warmed.includes(selected) && needsLivePlaybackPreparation(selected)) {
+        await abortable(prewarmSoundSamples(selected), signal);
         if (!isCurrent()) return;
       }
       // Guarantee a 100% call even when already initialized (early return path)
@@ -319,7 +285,7 @@ export const useInstrumentStore = defineStore("instrument", () => {
       console.error("Error initializing the audio engine:", error);
       // Synth registration can succeed before a sample pack fails. Reconcile
       // that partial success so the app falls back to something truly playable.
-      syncReadyInstrumentsFromAudio();
+      settleOnReadySound();
       throw error;
     } finally {
       settled = true;
@@ -346,7 +312,6 @@ export const useInstrumentStore = defineStore("instrument", () => {
   const fallBackToSynth = () => {
     selectionEpoch.value += 1;
     clearWarmupState();
-    markInstrumentReady(DEFAULT_INSTRUMENT);
     currentInstrument.value = DEFAULT_INSTRUMENT;
     lastReadyInstrument.value = DEFAULT_INSTRUMENT;
   };
@@ -365,7 +330,6 @@ export const useInstrumentStore = defineStore("instrument", () => {
     clearWarmupError();
 
     if (isInstrumentReady(instrumentName) && !needsLivePlaybackPreparation(instrumentName)) {
-      markInstrumentReady(instrumentName);
       lastReadyInstrument.value = instrumentName;
       clearWarmupState();
       return { status: "ready", instrument: instrumentName };
@@ -375,7 +339,7 @@ export const useInstrumentStore = defineStore("instrument", () => {
     // hold): say so at once rather than show "Preparing" and ask again.
     const known = needsLivePlaybackPreparation(instrumentName) ? undefined : getLivePlaybackFailure(instrumentName);
     if (known?.kind === "unavailable" && engineBooted.value) {
-      const fallback = findReadyFallback([previousReadyInstrument], instrumentName);
+      const fallback = findReadyFallback([previousReadyInstrument]);
       currentInstrument.value = fallback ?? instrumentName;
       if (fallback) lastReadyInstrument.value = fallback;
       lastWarmupError.value = known.reason;
@@ -390,7 +354,6 @@ export const useInstrumentStore = defineStore("instrument", () => {
     let warmupPromise = warmupPromises.get(instrumentName);
     if (!warmupPromise) {
       warmupPromise = prewarmSoundSamples(instrumentName)
-        .then(() => markInstrumentReady(instrumentName))
         .finally(() => warmupPromises.delete(instrumentName));
       warmupPromises.set(instrumentName, warmupPromise);
     }
@@ -429,7 +392,6 @@ export const useInstrumentStore = defineStore("instrument", () => {
   return {
     // State
     currentInstrument,
-    readyInstruments,
     warmingInstrument: displayedWarmingInstrument,
     waitForRecovery,
     warmupMessage,

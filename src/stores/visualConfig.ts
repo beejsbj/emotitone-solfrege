@@ -1,6 +1,5 @@
 import { defineStore } from "pinia";
 import { computed, ref, reactive, watch, onScopeDispose } from "vue";
-import { DEFAULT_CONFIG } from "@/data/visual-config-metadata";
 import { BUILT_IN_STAGE_LOOKS } from "@/data/visual-config-presets";
 import {
   applyStageLook,
@@ -16,7 +15,6 @@ import {
   type StageControlId,
   type StageLookPatch,
   type TransientStageLook,
-  STAGE_LOOK_BODY_TIMING_FIELDS,
 } from "@/services/stageAppearance";
 import {
   readDeckControls,
@@ -26,71 +24,23 @@ import {
   type DeckControlId,
   type GlobalControlId,
 } from "@/services/configPublicSurface";
-import { persistentStorage, type SaveFailureKind } from "@/services/safeStorage";
+import type { SaveFailureKind } from "@/services/safeStorage";
 import type {
   VisualEffectsConfig,
 } from "@/types/visual";
 
+import {
+  createPresetPersistence,
+  savedConfigsCodec,
+  savedStageLooksCodec,
+  type SavedConfig,
+  type SavedStageLook,
+} from "@/services/appearancePresetPersistence";
 import { createPersistedBinding } from "@/services/persistenceCodec";
-import { cloneDefaultConfig, isRecord, isPerformanceField, migrateVisualConfig, visualConfigCodec } from "@/services/visualConfigPersistence";
+import { cloneDefaultConfig, isPerformanceField, migrateVisualConfig, visualConfigCodec } from "@/services/visualConfigPersistence";
 import { useTempoStore, useOctaveStore, useDrawerRowsStore } from "@/stores/performanceSettings";
 import { pinEditionLook } from "@/composables/useEditionFamily";
-const SAVED_CONFIGS_KEY = "emotitone-saved-configs";
-const SAVED_STAGE_LOOKS_KEY = "emotitone-saved-stage-looks";
-
-export interface SavedConfig {
-  id: string;
-  name: string;
-  config: VisualEffectsConfig;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface SavedStageLook {
-  id: string;
-  name: string;
-  patch: StageLookPatch;
-  createdAt: string;
-  updatedAt: string;
-}
-
-function migrateSavedConfig(rawSavedConfig: unknown): SavedConfig | null {
-  if (!isRecord(rawSavedConfig)) {
-    return null;
-  }
-
-  const migrated = {
-    ...(rawSavedConfig as Omit<SavedConfig, "config">),
-    config: migrateVisualConfig((rawSavedConfig as { config?: unknown }).config),
-  } as SavedConfig;
-  delete (migrated as SavedConfig & { stagePreferences?: unknown }).stagePreferences;
-  return migrated;
-}
-
-function migrateSavedStageLook(rawLook: unknown): SavedStageLook | null {
-  if (!isRecord(rawLook) || typeof rawLook.name !== "string") {
-    return null;
-  }
-
-  const now = new Date().toISOString();
-  const patch = sanitizeStageLookPatch(rawLook.patch);
-  // Looks saved before body timing joined the allowlist never stored it, and
-  // only a Look can change it now. Like a built-in, an omitted field resolves
-  // from the canonical defaults rather than whatever Look was kept before.
-  if (patch.blobs) {
-    const blobs = patch.blobs as Record<string, unknown>;
-    for (const field of STAGE_LOOK_BODY_TIMING_FIELDS) {
-      if (typeof blobs[field] !== "number") blobs[field] = DEFAULT_CONFIG.blobs[field];
-    }
-  }
-  return {
-    id: typeof rawLook.id === "string" ? rawLook.id : now,
-    name: rawLook.name,
-    patch,
-    createdAt: typeof rawLook.createdAt === "string" ? rawLook.createdAt : now,
-    updatedAt: typeof rawLook.updatedAt === "string" ? rawLook.updatedAt : now,
-  };
-}
+export type { SavedConfig, SavedStageLook };
 
 function createStageLookSeed() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -98,6 +48,9 @@ function createStageLookSeed() {
   }
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
+
+// Tabs merge presets by id, so two tabs must never hand out the same one.
+const createPresetId = createStageLookSeed;
 
 export const useVisualConfigStore = defineStore("visualConfig", () => {
   const tempo = useTempoStore();
@@ -140,6 +93,24 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
   const laBasedMinor = ref(false);
   const savedConfigs = ref<SavedConfig[]>([]);
   const savedStageLooks = ref<SavedStageLook[]>([]);
+  // Named presets are the player's own work, so they merge with what another
+  // tab saved (by id, against the list this tab last agreed with) instead of
+  // writing over it. See docs/persistence-codec.md, "Two tabs".
+  const savedConfigsPersistence = createPresetPersistence(savedConfigsCodec, (list) => {
+    savedConfigs.value = list;
+  });
+  const savedStageLooksPersistence = createPresetPersistence(savedStageLooksCodec, (list) => {
+    savedStageLooks.value = list;
+  });
+  // Another tab's save reaches this tab as a `storage` event.
+  const stopListening = (() => {
+    if (typeof window === "undefined") return () => {};
+    const stops = [
+      savedConfigsPersistence.binding.listen(() => savedConfigs.value, window),
+      savedStageLooksPersistence.binding.listen(() => savedStageLooks.value, window),
+    ];
+    return () => stops.forEach((stop) => stop());
+  })();
   const transientStageLook = ref<TransientStageLook | null>(null);
   const isLoading = ref(false);
   const lastSaved = ref<string | null>(null);
@@ -163,26 +134,8 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
       visualsEnabled.value = loaded.visualsEnabled;
       laBasedMinor.value = loaded.laBasedMinor;
 
-      const storedSavedConfigs = localStorage.getItem(SAVED_CONFIGS_KEY);
-      if (storedSavedConfigs) {
-        const parsedSavedConfigs = JSON.parse(storedSavedConfigs);
-        savedConfigs.value = Array.isArray(parsedSavedConfigs)
-          ? parsedSavedConfigs
-              .map(migrateSavedConfig)
-              .filter((savedConfig): savedConfig is SavedConfig => savedConfig != null)
-          : [];
-      }
-
-      const storedStageLooks = localStorage.getItem(SAVED_STAGE_LOOKS_KEY);
-      if (storedStageLooks) {
-        const parsedStageLooks = JSON.parse(storedStageLooks);
-        savedStageLooks.value = Array.isArray(parsedStageLooks)
-          ? parsedStageLooks
-              .map(migrateSavedStageLook)
-              .filter((look): look is SavedStageLook => look != null)
-          : [];
-      }
-
+      savedConfigs.value = savedConfigsPersistence.binding.load();
+      savedStageLooks.value = savedStageLooksPersistence.binding.load();
     } catch (error) {
       console.error("Failed to load visual config from localStorage:", error);
       laBasedMinor.value = false;
@@ -363,20 +316,11 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
   // Explicit saves report back why they failed (null: stored, or persistence
   // is off for an isolated specimen) so the panel can say so at the point of
   // action instead of claiming "saved".
-  const persistExplicit = (key: string, value: unknown): SaveFailureKind | null => {
-    if (!persistenceEnabled.value) return null;
-    let serialized: string;
-    try {
-      serialized = JSON.stringify(value);
-    } catch (error) {
-      console.error(`Failed to serialize "${key}":`, error);
-      return "unknown";
-    }
-    return persistentStorage.attempt(key, serialized, { oneOff: true });
-  };
+  const persistSavedConfigs = (): SaveFailureKind | null =>
+    persistenceEnabled.value ? savedConfigsPersistence.save(savedConfigs.value) : null;
 
-  const persistSavedStageLooks = () =>
-    persistExplicit(SAVED_STAGE_LOOKS_KEY, savedStageLooks.value);
+  const persistSavedStageLooks = (): SaveFailureKind | null =>
+    persistenceEnabled.value ? savedStageLooksPersistence.save(savedStageLooks.value) : null;
 
   const saveStageLookAs = (
     name: string,
@@ -389,7 +333,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
       transientStageLook.value?.patch,
     );
     const savedLook: SavedStageLook = {
-      id: Date.now().toString(),
+      id: createPresetId(),
       name,
       patch: stageLookFromConfig(composedAppearance),
       createdAt: now,
@@ -443,7 +387,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
   const saveConfigAs = (
     name: string,
   ): { savedConfig: SavedConfig; failure: SaveFailureKind | null } => {
-    const id = Date.now().toString();
+    const id = createPresetId();
     const now = new Date().toISOString();
 
     const savedConfig: SavedConfig = {
@@ -456,7 +400,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
 
     savedConfigs.value.push(savedConfig);
 
-    return { savedConfig, failure: persistExplicit(SAVED_CONFIGS_KEY, savedConfigs.value) };
+    return { savedConfig, failure: persistSavedConfigs() };
   };
 
   // Load a saved config
@@ -473,7 +417,7 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
     const index = savedConfigs.value.findIndex((c) => c.id === configId);
     if (index > -1) {
       savedConfigs.value.splice(index, 1);
-      persistExplicit(SAVED_CONFIGS_KEY, savedConfigs.value);
+      persistSavedConfigs();
     }
   };
 
@@ -537,6 +481,9 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
   const useEphemeralDefaults = () => {
     persistenceEnabled.value = false;
     persistence.unregister();
+    stopListening();
+    savedConfigsPersistence.binding.unregister();
+    savedStageLooksPersistence.binding.unregister();
     tempo.useEphemeralDefaults();
     octave.useEphemeralDefaults();
     drawerRows.useEphemeralDefaults();
@@ -563,6 +510,9 @@ export const useVisualConfigStore = defineStore("visualConfig", () => {
 
   onScopeDispose(() => {
     persistence.unregister();
+    stopListening();
+    savedConfigsPersistence.binding.unregister();
+    savedStageLooksPersistence.binding.unregister();
     if (saveTimeout) clearTimeout(saveTimeout);
   });
 

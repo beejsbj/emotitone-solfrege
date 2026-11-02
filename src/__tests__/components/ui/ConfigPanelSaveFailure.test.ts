@@ -63,7 +63,7 @@ describe("ConfigPanel saving a Stage Look", () => {
     expect(alertSpy).toHaveBeenCalledWith('Stage Look "Night Drive" saved.');
     expect(saveFailureNotice.value).toBeNull();
     const stored = JSON.parse(window.localStorage.getItem("emotitone-saved-stage-looks")!);
-    expect(stored.map((look: { name: string }) => look.name)).toEqual(["Night Drive"]);
+    expect(stored.data.map((look: { name: string }) => look.name)).toEqual(["Night Drive"]);
   });
 
   it("tells the player storage is full instead of claiming it saved, and keeps the look in memory", async () => {

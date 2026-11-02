@@ -1,5 +1,6 @@
 import { toRaw } from "vue";
 import { cloneNote, createPhraseBook } from "@/domain/phraseBook";
+import { mergeById, mergeFields, mergeValue, type WithId } from "@/services/listMerge";
 import { sameJson } from "@/services/persistenceCodec";
 import type { PatternNote } from "@/types/patterns";
 import type { Phrase, PhraseBook, PhraseContext } from "@/types/phrases";
@@ -25,8 +26,6 @@ import type { Phrase, PhraseBook, PhraseContext } from "@/types/phrases";
  *    version: then nothing is read as released, and the merge is a union.
  */
 
-interface WithId { id: string }
-
 export interface PhraseStateData { book: PhraseBook; isRecordingEnabled: boolean }
 
 export interface PhraseMergeOptions {
@@ -43,57 +42,6 @@ export interface PhraseMergeOptions {
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
-
-/** One value, three ways. `conflict` decides when both sides changed it. */
-function mergeValue<V>(hasBase: boolean, base: unknown, oursSaved: unknown, ours: V, theirs: V, conflict: () => V): V {
-  if (sameJson(oursSaved, theirs)) return ours;
-  if (hasBase && sameJson(oursSaved, base)) return theirs;
-  if (hasBase && sameJson(theirs, base)) return ours;
-  return conflict();
-}
-
-/**
- * Entries keyed by id: ours in our order, then entries only theirs has.
- * `both` merges an entry both tabs changed; `theirsChanged` takes in an entry
- * only the other tab changed (by default its stored copy, but the phrase merge
- * goes field by field so this tab's live data survives where nothing changed).
- */
-function mergeById<E extends WithId>(
-  base: readonly WithId[] | undefined,
-  ours: readonly E[],
-  theirs: readonly E[],
-  saved: (entry: E) => unknown,
-  both: (base: E | undefined, ours: E, theirs: E) => E,
-  keep: (id: string) => boolean,
-  theirsChanged: (base: E, ours: E, theirs: E) => E = (_base, _ours, other) => other,
-): E[] {
-  const baseById = new Map((base ?? []).map((entry) => [entry.id, entry as E]));
-  const theirsById = new Map(theirs.map((entry) => [entry.id, entry]));
-  const oursIds = new Set(ours.map((entry) => entry.id));
-  const merged: E[] = [];
-  for (const entry of ours) {
-    const before = baseById.get(entry.id);
-    const other = theirsById.get(entry.id);
-    const mine = saved(entry);
-    if (other) {
-      if (sameJson(mine, other)) merged.push(entry);
-      else if (before && sameJson(mine, before)) merged.push(theirsChanged(before, entry, other));
-      else if (before && sameJson(other, before)) merged.push(entry);
-      else merged.push(both(before, entry, other));
-    } else if (!before || !sameJson(mine, before) || keep(entry.id)) {
-      // New here, changed here since the other tab released it, or still needed here.
-      merged.push(entry);
-    }
-    // Otherwise the other tab released it and this tab had not touched it.
-  }
-  for (const entry of theirs) {
-    if (oursIds.has(entry.id)) continue;
-    const before = baseById.get(entry.id);
-    // New there, changed there since this tab released it, or still needed here.
-    if (!before || !sameJson(entry, before) || keep(entry.id)) merged.push(entry);
-  }
-  return merged;
-}
 
 /**
  * A note only the other tab edited (a remap, re-skin or shift): a field it
@@ -203,19 +151,6 @@ function mergePhrase(base: Phrase | undefined, ours: Phrase, theirs: Phrase, opt
     phrase.duration = Math.max(phrase.duration ?? 0, ...phrase.notes.map((note) => note.releaseTime));
   }
   return phrase;
-}
-
-/** Field by field; this tab's value wins where both changed it. */
-function mergeFields<E extends WithId>(base: E | undefined, ours: E, theirs: E): E {
-  const live = toRaw(ours) as unknown as Record<string, unknown>;
-  const other = theirs as unknown as Record<string, unknown>;
-  const before = base as unknown as Record<string, unknown> | undefined;
-  const merged: Record<string, unknown> = {};
-  for (const key of new Set([...Object.keys(live), ...Object.keys(other), ...Object.keys(before ?? {})])) {
-    const value = mergeValue(Boolean(before), before?.[key], live[key], live[key], other[key], () => live[key]);
-    if (value !== undefined) merged[key] = value;
-  }
-  return merged as unknown as E;
 }
 
 function mergeRecord(base: unknown, ours: Record<string, string>, theirs: unknown): Record<string, string> {

@@ -164,13 +164,6 @@ function signature(phrase: Phrase): string {
     ...phrase.notes.map((note) => `${note.id}:${note.note}:${note.pressTime}:${note.duration}`)].join("|");
 }
 
-/**
- * The sound a phrase plays on when it joins (BJS-594): its own, or the nearest
- * working one when it was recorded on a sound the app no longer has. Read at
- * every join; the phrase keeps the sound it was recorded on (rule 3).
- */
-const playsOn = (phrase: Phrase) => playableSoundName(phrase.context.instrument);
-
 export const useLooperStore = defineStore("looper", () => {
   const phrases = usePhrasesStore();
   const music = useMusicStore();
@@ -371,6 +364,13 @@ export const useLooperStore = defineStore("looper", () => {
   }
 
   // ─── Requests ──────────────────────────────────────────────────────────────
+  /**
+   * The sound a phrase plays on when it joins (BJS-594): its own, or the nearest
+   * working one when it was recorded on a sound the app no longer has. Read at
+   * every join; the phrase keeps the sound it was recorded on (rule 3).
+   */
+  const playsOn = (phrase: Phrase) => playableSoundName(phrase.context.instrument);
+
   function configFor(phrase: Phrase): Partial<StrudelConfig> {
     const { context } = phrase;
     // The Code Strip's export configuration for the same phrase: one plan for text and sound.

@@ -271,10 +271,9 @@ function getSoundState(sound: string): SoundState {
     return "warming";
   }
 
-  if (
-    currentInstrumentId.value === sound &&
-    instrumentStore.isInstrumentReady(sound)
-  ) {
+  // The current sound stays marked whatever the worklet holds: one evicted for
+  // memory is still the player's choice, and it loads again on the next press.
+  if (currentInstrumentId.value === sound) {
     return "selected";
   }
 

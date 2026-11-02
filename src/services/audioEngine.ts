@@ -7,7 +7,7 @@
  * holds the worklet; patternTransport plays patterns on it.
  */
 import { DEFAULT_INSTRUMENT } from "@/data/instruments";
-import { getLivePlaybackFailure, prepareLivePlayback, setLivePlaybackShaping } from "@/services/livePlayback";
+import { getLivePlaybackFailure, holdsLivePlayback, prepareLivePlayback, setLivePlaybackShaping } from "@/services/livePlayback";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import { getAudioContext, getMasterGain, initializeAudio } from "@/services/audioRuntime";
 import { SampleLoadError } from "@/services/audioFailures";
@@ -38,8 +38,6 @@ let startupStage: AudioStartupStage = "idle";
 export function getAudioStartupStage(): AudioStartupStage {
   return startupStage;
 }
-
-const prewarmedSounds = new Set<string>();
 
 type LiveSynthControls = {
   cutoff?: number;
@@ -99,7 +97,6 @@ async function prewarmCore(soundName: string, tolerateFailures = false): Promise
     if (tolerateFailures) return;
     throw new Error(failure.reason);
   }
-  prewarmedSounds.add(resolved);
 }
 
 /**
@@ -127,12 +124,14 @@ export async function prewarmSoundSamples(soundName: string): Promise<void> {
 }
 
 /**
- * Whether a sound can play without a download. Sample and soundfont banks
- * must already be loaded; the oscillator synths need none.
+ * Whether a sound can play without a download. A sample or soundfont bank is
+ * ready only while the worklet holds it right now (livePlayback owns that
+ * record, so a bank evicted for memory is cold again); the oscillator synths
+ * need no download and are always ready. Reactive: see `holdsLivePlayback`.
  */
 export function isPrewarmed(soundName: string): boolean {
   const resolved = resolveLiveSoundName(soundName);
-  return prewarmedSounds.has(resolved) || (!getCatalogSound(resolved) && oscillators.has(resolved));
+  return holdsLivePlayback(resolved) || (!getCatalogSound(resolved) && oscillators.has(resolved));
 }
 
 /** Every registered sound that can currently play without a warmup. */

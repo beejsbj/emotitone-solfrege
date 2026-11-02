@@ -1079,7 +1079,7 @@ describe('Visual Config Store', () => {
       expect(reloaded.config).toEqual(expected)
       const resaved = reloaded.saveStageLookAs('Retained Look').look
       expect(resaved.patch).toEqual(patch)
-      expect(JSON.parse(localStorage.getItem('emotitone-saved-stage-looks')!))
+      expect(JSON.parse(localStorage.getItem('emotitone-saved-stage-looks')!).data)
         .toEqual(reloaded.savedStageLooks)
       for (const look of reloaded.savedStageLooks) {
         expect(look.patch).not.toHaveProperty('particles')

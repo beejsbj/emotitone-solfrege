@@ -13,10 +13,16 @@ const hoisted = vi.hoisted(() => ({
   }),
   master: { id: "master-gain" },
   initializeAudio: vi.fn().mockResolvedValue(undefined),
-  prepareLive: vi.fn().mockResolvedValue(undefined),
-  liveFailure: vi.fn((): { kind: "load" | "unavailable"; reason: string; budget?: true } | undefined => undefined),
+  /** The banks the stand-in worklet holds: a preparation that raises no failure installs its bank, as the manager does. */
+  held: new Set<string>(),
+  install: async (_context: unknown, _destination: unknown, name: string) => {
+    if (!hoisted.liveFailure(name)) hoisted.held.add(name);
+  },
+  prepareLive: vi.fn(),
+  liveFailure: vi.fn<(name: string) => { kind: "load" | "unavailable"; reason: string; budget?: true } | undefined>(() => undefined),
   shaping: vi.fn(),
 }));
+hoisted.prepareLive.mockImplementation(hoisted.install);
 
 vi.mock("@/services/audioRuntime", () => ({
   getAudioContext: () => hoisted.context,
@@ -26,6 +32,7 @@ vi.mock("@/services/audioRuntime", () => ({
 vi.mock("@/services/livePlayback", () => ({
   prepareLivePlayback: hoisted.prepareLive,
   getLivePlaybackFailure: hoisted.liveFailure,
+  holdsLivePlayback: (name: string) => hoisted.held.has(name),
   setLivePlaybackShaping: hoisted.shaping,
 }));
 vi.unmock("@/services/audioEngine");
@@ -47,7 +54,8 @@ describe("the app's audio engine", () => {
     vi.clearAllMocks();
     hoisted.liveFailure.mockImplementation(() => undefined);
     hoisted.initializeAudio.mockReset().mockResolvedValue(undefined);
-    hoisted.prepareLive.mockReset().mockResolvedValue(undefined);
+    hoisted.prepareLive.mockReset().mockImplementation(hoisted.install);
+    hoisted.held.clear();
     fetchMock.mockReset().mockImplementation(serveFixtures);
     vi.stubGlobal("fetch", fetchMock);
   });
@@ -79,7 +87,6 @@ describe("the app's audio engine", () => {
       await vi.waitFor(() => expect(hoisted.initializeAudio).toHaveBeenCalledOnce());
       loading.resetLoading();
       await first;
-      expect(store.readyInstruments.size).toBe(0);
       expect(store.isLoading).toBe(false);
 
       const retry = loading.initializeInstruments();
@@ -257,6 +264,23 @@ describe("the app's audio engine", () => {
     await audio.prewarmSoundSamples("piano");
 
     expect(hoisted.prepareLive).toHaveBeenLastCalledWith(hoisted.context, hoisted.master, "piano");
+    expect(audio.isPrewarmed("piano")).toBe(true);
+  });
+
+  it("keeps no record of its own: a bank the worklet has dropped is cold again, an oscillator never is", async () => {
+    const audio = await import("@/services/audioEngine");
+    await audio.initAudioEngine();
+    await audio.prewarmSoundSamples("piano");
+    expect(audio.isPrewarmed("piano")).toBe(true);
+    expect(audio.getReadySounds()).toEqual(expect.arrayContaining(["piano", "triangle"]));
+
+    hoisted.held.clear(); // evicted for room, or lost to a rebuild
+    expect(audio.isPrewarmed("piano")).toBe(false);
+    expect(audio.getReadySounds()).not.toContain("piano");
+    expect(audio.isPrewarmed("triangle")).toBe(true);
+    expect(audio.getReadySounds()).toContain("triangle");
+
+    await audio.prewarmSoundSamples("piano");
     expect(audio.isPrewarmed("piano")).toBe(true);
   });
 

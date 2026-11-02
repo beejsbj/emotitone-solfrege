@@ -2,7 +2,7 @@
  * The playing set and saved Loops. Like phraseBook, operations mutate their
  * argument in place; queries are read-only. No recorder, UI or audio effects.
  */
-import { categoriseInstrument } from "@/data/instrumentCatalog";
+import { categoriseInstrument, nearestSelectable } from "@/data/instrumentCatalog";
 import { findPhrase, resolveBpm } from "@/domain/phraseBook";
 import type {
   JoinPlacement, KeyMode, Loop, Looper, LooperRate, NewLoopId, PlayingPattern,
@@ -16,9 +16,14 @@ export function createLooper(): Looper {
   return { members: [], bpm: null, barOriginBars: null, soloId: null, latched: false };
 }
 
-/** Unknown sounds conservatively keep their captured tuning too. */
+/**
+ * Unknown sounds conservatively keep their captured tuning too. A pitched sound
+ * that was removed (kawai) plays on its nearest working one (BJS-594), so it
+ * follows key and mode like that one does, and can be pinned or unpinned.
+ */
 function alwaysPinned(phrase: Phrase): boolean {
-  return categoriseInstrument(phrase.context.instrument) === null;
+  const sound = phrase.context.instrument;
+  return categoriseInstrument(sound) === null && nearestSelectable(sound) === undefined;
 }
 
 /** Preserve authored silence; only a ringing note can use the quarter-bar grace. */

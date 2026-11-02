@@ -24,7 +24,7 @@ import { useInstrumentStore } from "@/stores/instrument";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import type { PerformerIntent } from "@/services/performer";
 import { getAudioContext } from "@/services/audioRuntime";
-import { prewarmSoundSamples } from "@/services/audioEngine";
+import { isPrewarmed } from "@/services/audioEngine";
 
 /*
  * W3 acceptance at the performer seam. The stores, the performer, the
@@ -420,9 +420,8 @@ describe("one performer: W3 releases and ownership", () => {
     const keys = addInput("keys", "MIDI keyboard");
     await mountMidi();
     const instrument = useInstrumentStore();
-    vi.mocked(prewarmSoundSamples).mockResolvedValue(undefined);
-    await instrument.setInstrument("sine");
-    await instrument.setInstrument("piano");
+    // Both instruments are prepared: the worklet core below holds them.
+    vi.mocked(isPrewarmed).mockReturnValue(true);
     key("keydown", "KeyA");
     midi(keys, 0x90, 62);
     await settle();

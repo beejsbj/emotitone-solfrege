@@ -353,6 +353,21 @@ describe("looper: audibility and bending choices", () => {
     }
   });
 
+  it("a removed pitched sound plays on its nearest one, so it follows key and mode and can be pinned or unpinned (BJS-594)", () => {
+    const live = { key: "D", mode: "minor" } as const;
+    for (const instrument of ["kawai", "steinway", "supersaw", "pulse", "z_square"]) {
+      const source = phrase({ id: instrument, context: { ...C_MAJOR, instrument } });
+      const member = add(source);
+      expect(member.pinned, instrument).toBe(false);
+      expect(effectiveKeyMode(member, source, live), instrument).toEqual(live);
+      setPinned(looper, source, true);
+      expect(member.pinned, instrument).toBe(true);
+      expect(effectiveKeyMode(member, source, live), instrument).toEqual({ key: "C", mode: "major" });
+      setPinned(looper, source, false);
+      expect(member.pinned, instrument).toBe(false);
+    }
+  });
+
   it("operations on missing members leave the playing set unchanged", () => {
     add();
     const before = structuredClone(looper);

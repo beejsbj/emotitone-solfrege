@@ -582,6 +582,40 @@ describe('live playback instrument manager', () => {
     expect(manager.getLivePlaybackDiagnostics('piano').reason).toBeNull()
   })
 
+  it('holds a bank only while it is installed and not retiring, and a watching computed follows every change', async () => {
+    const { manager, engine, context } = await setup()
+    const { computed } = await import('vue')
+    bankSizes({ a: 80, b: 80, c: 80 })
+    const held = computed(() => ['a', 'b', 'c', 'sine'].filter(name => manager.holdsLivePlayback(name)))
+    expect(held.value).toEqual([])
+
+    for (const name of ['sine', 'a', 'b']) await manager.prepareLivePlayback(context, destination, name)
+    expect(held.value).toEqual(['a', 'b', 'sine'])
+
+    // Retired for room: not held from the moment it is chosen, while its fade is still pending.
+    let faded!: () => void
+    engine.forget.mockImplementation(() => new Promise<void>(resolve => { faded = resolve }))
+    const loading = manager.prepareLivePlayback(context, destination, 'c')
+    await vi.waitFor(() => expect(engine.forget).toHaveBeenCalledWith('a'))
+    expect(held.value).toEqual(['b', 'sine'])
+    faded(); await loading
+    expect(held.value).toEqual(['b', 'c', 'sine'])
+
+    // A rebuilt renderer holds nothing until banks are installed again.
+    mocks.create.mock.calls[0][2].onError(new Error('render failed'))
+    expect(held.value).toEqual([])
+  })
+
+  it('holding is not a use: asking whether a bank is held leaves the eviction order alone', async () => {
+    const { manager, engine, context } = await setup()
+    bankSizes({ a: 80, b: 80, c: 80 })
+    for (const name of ['a', 'b']) await manager.prepareLivePlayback(context, destination, name)
+    // Looking at the oldest bank must not make it the newest, as getLivePlayback does for a press.
+    expect(manager.holdsLivePlayback('a')).toBe(true)
+    await manager.prepareLivePlayback(context, destination, 'c')
+    expect(engine.forget.mock.calls).toEqual([['a']])
+  })
+
   it('invalidates failed processors and forwards lifecycle acknowledgements', async () => {
     const { manager, context, engine } = await setup()
     const listener = { onEvent: vi.fn(), onPlan: vi.fn(), onError: vi.fn(), onOwnerEnded: vi.fn() }

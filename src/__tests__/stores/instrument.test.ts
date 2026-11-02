@@ -19,8 +19,8 @@ const audioMocks = vi.hoisted(() => ({
   /** The sounds the worklet holds right now. The engine answers readiness from this, as the real one does from livePlayback. */
   held: new Set<string>(["piano"]),
   initAudioEngine: vi.fn().mockResolvedValue(undefined),
-  isPrewarmed: vi.fn((_instrumentName: string) => false),
-  prewarmSoundSamples: vi.fn(async (_instrumentName: string) => {}),
+  isPrewarmed: vi.fn<(instrumentName: string) => boolean>(() => false),
+  prewarmSoundSamples: vi.fn<(instrumentName: string) => Promise<void>>(async () => {}),
   getReadySounds: vi.fn((): string[] => []),
   setLiveSynthControls: vi.fn(),
 }));

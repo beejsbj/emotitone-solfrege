@@ -19,7 +19,7 @@ const hoisted = vi.hoisted(() => ({
     if (!hoisted.liveFailure(name)) hoisted.held.add(name);
   },
   prepareLive: vi.fn(),
-  liveFailure: vi.fn((_name?: string): { kind: "load" | "unavailable"; reason: string; budget?: true } | undefined => undefined),
+  liveFailure: vi.fn<(name: string) => { kind: "load" | "unavailable"; reason: string; budget?: true } | undefined>(() => undefined),
   shaping: vi.fn(),
 }));
 hoisted.prepareLive.mockImplementation(hoisted.install);
@@ -264,6 +264,23 @@ describe("the app's audio engine", () => {
     await audio.prewarmSoundSamples("piano");
 
     expect(hoisted.prepareLive).toHaveBeenLastCalledWith(hoisted.context, hoisted.master, "piano");
+    expect(audio.isPrewarmed("piano")).toBe(true);
+  });
+
+  it("keeps no record of its own: a bank the worklet has dropped is cold again, an oscillator never is", async () => {
+    const audio = await import("@/services/audioEngine");
+    await audio.initAudioEngine();
+    await audio.prewarmSoundSamples("piano");
+    expect(audio.isPrewarmed("piano")).toBe(true);
+    expect(audio.getReadySounds()).toEqual(expect.arrayContaining(["piano", "triangle"]));
+
+    hoisted.held.clear(); // evicted for room, or lost to a rebuild
+    expect(audio.isPrewarmed("piano")).toBe(false);
+    expect(audio.getReadySounds()).not.toContain("piano");
+    expect(audio.isPrewarmed("triangle")).toBe(true);
+    expect(audio.getReadySounds()).toContain("triangle");
+
+    await audio.prewarmSoundSamples("piano");
     expect(audio.isPrewarmed("piano")).toBe(true);
   });
 

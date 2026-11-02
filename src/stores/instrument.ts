@@ -194,23 +194,13 @@ export const useInstrumentStore = defineStore("instrument", () => {
    */
   const isInstrumentReady = (instrumentName: string) => isPrewarmed(instrumentName);
 
-  /** The first ready sound among `preferred` and the usual fallbacks. */
+  /** The first ready sound among `preferred` and the usual fallbacks, else any sound the worklet holds. */
   const findReadyFallback = (preferred: Array<string | null> = []) => {
-    const candidates = [
-      ...preferred,
-      lastReadyInstrument.value,
-      DEFAULT_INSTRUMENT,
-      "triangle",
-      ...getReadySounds(),
-    ];
-
+    const usual = [...preferred, lastReadyInstrument.value, DEFAULT_INSTRUMENT, "triangle"];
     return (
-      candidates.find(
-        (candidate, index) =>
-          candidate !== null &&
-          candidates.indexOf(candidate) === index &&
-          isInstrumentReady(candidate)
-      ) ?? null
+      usual.find((candidate): candidate is string => candidate !== null && isInstrumentReady(candidate)) ??
+      getReadySounds().find((candidate) => isInstrumentReady(candidate)) ??
+      null
     );
   };
 

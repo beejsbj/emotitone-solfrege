@@ -3,6 +3,7 @@ import type { LiveCommand, LiveConfig, LiveEnvelopeOverride, LiveInputNote, Live
 import { createSampleResampler, type SampleResampler } from './resampler'
 import { VoiceEffects } from './lowpass'
 import { PeakLimiter } from './limiter'
+import { applyFade, deeperFade, fadeEnd, type MemberFade } from './fade'
 import { velocityToGain } from '../velocity'
 import { OPEN_CUTOFF_HZ, type LiveShaping } from '../liveShaping'
 import { MAX_AUDIO_VOICES, VOICE_RETIRE_SECONDS } from '../voicePolicy'
@@ -92,6 +93,8 @@ interface TransportVoice {
   framesPerTableBar: number
   pitchPoint: number
   gainPoint: number
+  /** Its member is fading out (BJS-598): the voice follows that level ramp to silence. */
+  fade?: MemberFade
 }
 interface Voice extends PlannedNote {
   effects: VoiceEffects
@@ -171,16 +174,35 @@ export class LiveAudioCore {
     this.effectPool = Array.from({ length: MAX_AUDIO_VOICES + MAX_FADES }, () => new VoiceEffects(sampleRate))
     this.limiter = new PeakLimiter(sampleRate)
     this.transport = new AudioTransport(sampleRate, send, this.transportEvents, {
-      silence: (memberId, frame) => this.silenceMember(memberId, frame),
+      silence: (memberId, frame, cut) => this.silenceMember(memberId, frame, cut),
+      fade: (memberId, fade) => this.fadeMember(memberId, fade),
     })
   }
 
-  /** Forced fade of transport voices (mute, solo, stop): one release at the fade boundary. */
-  private silenceMember(memberId: string | null, frame: number) {
-    for (const voice of this.voices) if (voice.transport && !voice.released
-      && (memberId === null || voice.transport.memberId === memberId)) {
-      this.releaseVoice(voice, frame, VOICE_RETIRE_SECONDS * this.sampleRate)
+  /**
+   * Forced fade of transport voices (mute, solo, stop): one release at the fade
+   * boundary. A stop (every member) leaves voices on a fade-out to ramp out on
+   * their own (BJS-598); a cut (Stop All's second tap) takes those and every
+   * release tail too, so nothing of the loop sounds past it.
+   */
+  private silenceMember(memberId: string | null, frame: number, cut = false) {
+    for (const voice of this.voices) {
+      const transport = voice.transport
+      if (!transport || (memberId !== null && transport.memberId !== memberId)) continue
+      if (cut || (!voice.released && !(memberId === null && transport.fade))) {
+        this.releaseVoice(voice, frame, VOICE_RETIRE_SECONDS * this.sampleRate)
+      }
     }
+  }
+
+  /** A member fading out (BJS-598): its sounding voices, release tails included, follow the ramp, and never come back up. */
+  private fadeMember(memberId: string, fade: MemberFade) {
+    for (const voice of this.voices) if (voice.transport?.memberId === memberId) voice.transport.fade = deeperFade(voice.transport.fade, fade)
+  }
+
+  /** A faded voice is silent from its fade's end: let it go there, so it frees its place in the pool. */
+  private retireFaded(frame: number) {
+    for (const voice of this.voices) if (voice.transport?.fade && frame >= fadeEnd(voice.transport.fade)) this.releaseVoice(voice, frame, 0)
   }
 
   private transportEvent(kind: TransportEventKind, voice: Voice, frame: number, length: number) {
@@ -811,7 +833,7 @@ export class LiveAudioCore {
     this.createVoice(note, instrument, zone, frame, 'together', onset.frame + onset.gateFrames, table.release[index],
       { attack: table.attack[index], decay: table.decay[index], sustain: table.sustain[index] },
       { serial: onset.serial, generation: table.generation, noteIndex: index, memberId: member.id, table,
-        framesPerTableBar: onset.framesPerTableBar, pitchPoint: 0, gainPoint: 0 })
+        framesPerTableBar: onset.framesPerTableBar, pitchPoint: 0, gainPoint: 0, fade: member.fade })
     return true
   }
 
@@ -974,6 +996,8 @@ export class LiveAudioCore {
             gain += gainStep
           }
         }
+        // Before the filter and sends, so a fading member's room and delay sends fade with it.
+        if (voice.transport?.fade) applyFade(this.scratch, rendered, frame, voice.transport.fade)
         voice.effects.process(this.scratch[0], this.scratch[1], output, room, delay, offset + sampleOffset, rendered)
         if (rendered < span) break
         sampleOffset += span
@@ -1030,6 +1054,7 @@ export class LiveAudioCore {
         this.send({ type: 'event', event: this.voiceEvent(voice, 'attack', frame) })
       }
       for (const voice of this.voices) if (!voice.released && frame >= voice.end) this.releaseVoice(voice, frame)
+      this.retireFaded(frame)
       let boundary = endFrame
       for (const pulse of this.pulses) if (pulse.frame > frame) boundary = Math.min(boundary, Math.ceil(pulse.frame))
       for (const voice of this.voices) if (!voice.released && voice.end > frame) boundary = Math.min(boundary, Math.ceil(voice.end))

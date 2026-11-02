@@ -16,6 +16,7 @@
  * change keeps its serial, so nothing is announced twice.
  */
 import type { LiveShaping } from '../liveShaping'
+import type { MemberFade } from './fade'
 import { barAtFrame, bpmAtFrame, frameAtBar, framesPerBar, type TempoAnchor } from './tempoMap'
 import { TransportEventKind, TransportEventWriter, type TransportEventBatch } from './transportEvents'
 
@@ -74,12 +75,23 @@ export type TransportSingleChange =
   | { type: 'solo'; memberId: string | null }
   | { type: 'tempo'; bpm: number }
 
-export type TransportChange = TransportSingleChange | { type: 'batch'; changes: TransportSingleChange[] }
+/** What applies to membership at one frame: one change, or a batch of them. */
+export type TransportMembershipChange = TransportSingleChange | { type: 'batch'; changes: TransportSingleChange[] }
+
+/**
+ * Fade members out over `bars` from now, then they leave (BJS-598). They keep
+ * playing through the fade on one level ramp, and leave on the bar it ends
+ * on; the receipt answers then. Immediate only, and never part of a batch.
+ */
+export interface TransportFadeOut { type: 'fade-out'; memberIds: string[]; bars: number }
+
+export type TransportChange = TransportMembershipChange | TransportFadeOut
 
 export type TransportCommand =
   /** `bar` (default 0) is the bar at the start frame: a recovered run continues where it stopped. */
   | { type: 'transport-start'; requestId: number; run: number; bpm: number; bar?: number }
-  | { type: 'transport-stop'; requestId: number }
+  /** `cut`: Stop All's second tap (BJS-598): fading voices and release tails stop too, in the same 10 ms. */
+  | { type: 'transport-stop'; requestId: number; cut?: boolean }
   | { type: 'transport-change'; requestId: number; change: TransportChange; boundary: TransportBoundary }
   | { type: 'transport-recycle'; buffer: ArrayBuffer }
 
@@ -115,6 +127,8 @@ export interface TransportMember {
   offsetBars: number
   rate: number
   muted: boolean
+  /** Fading out (BJS-598): its onsets play on this ramp, and none once it has reached silence. */
+  fade?: MemberFade
 }
 
 /** A collected onset, or a silence at an exact frame. Recycled, never discarded. */
@@ -133,7 +147,7 @@ export interface TransportOnset {
   framesPerTableBar: number
 }
 
-interface Pending { requestId: number; bar: number; arrivalFrame: number; change: TransportChange }
+interface Pending { requestId: number; bar: number; arrivalFrame: number; change: TransportMembershipChange }
 
 /** Membership, solo and clock: the real state, or a preview of it after pending changes. */
 interface TransportState {
@@ -145,7 +159,9 @@ interface TransportState {
 /** What the transport asks of the render core. */
 export interface TransportHost {
   /** Fade the sounding voices of one member (or all, for null) from `frame`. */
-  silence(memberId: string | null, frame: number): void
+  silence(memberId: string | null, frame: number, cut?: boolean): void
+  /** Put one member's sounding voices, release tails included, on its fade-out ramp. */
+  fade(memberId: string, fade: MemberFade): void
 }
 
 const validSingle = (change: TransportSingleChange) => {
@@ -169,7 +185,9 @@ const validSingle = (change: TransportSingleChange) => {
 // A batch is all or nothing: one invalid part refuses the whole batch.
 const validChange = (change: TransportChange) => change.type === 'batch'
   ? Array.isArray(change.changes) && change.changes.length > 0 && change.changes.every(validSingle)
-  : validSingle(change)
+  : change.type === 'fade-out'
+    ? Array.isArray(change.memberIds) && change.memberIds.length > 0 && Number.isFinite(change.bars) && change.bars > 0
+    : validSingle(change)
 
 /** The last tempo a change sets, if any. */
 const tempoOf = (change: TransportChange): number | undefined => {
@@ -185,6 +203,8 @@ const noSilence = () => {}
 export class AudioTransport {
   private state: TransportState = { members: new Map(), soloId: null, anchors: [] }
   private pending: Pending[] = []
+  /** Fade-outs under way (BJS-598): their members leave on the frame the ramp reaches silence. */
+  private fadeLeaves: { requestId: number; arrivalFrame: number; memberIds: string[]; frame: number }[] = []
   /** The preview in force at `collectedUntil` and the pending changes it includes; reset by any change. */
   private frontier: { state: TransportState; applied: number } | undefined
   private running = false
@@ -283,14 +303,19 @@ export class AudioTransport {
         return
       }
       case 'transport-stop':
-        this.halt(frame, true)
+        this.halt(frame, true, command.cut === true)
         this.receipt(command.requestId, frame, frame, null, false)
         return
       case 'transport-change': {
         const { change, boundary, requestId } = command
         // Every request is answered, an invalid one too, so no caller waits forever.
-        if (!validChange(change) || (boundary !== 'immediate' && !Number.isFinite(boundary?.bar))) {
+        if (!validChange(change) || (boundary !== 'immediate' && !Number.isFinite(boundary?.bar))
+          || (change.type === 'fade-out' && boundary !== 'immediate')) {
           this.receipt(requestId, frame, frame, null, false, true, true)
+          return
+        }
+        if (change.type === 'fade-out') {
+          this.fadeOut(change, frame, requestId)
           return
         }
         if (!this.running) {
@@ -339,25 +364,87 @@ export class AudioTransport {
     return frameAtBar(anchors, bar, this.sampleRate)
   }
 
-  /** Stop: cancel announced onsets, fade every member's voices, forget membership. */
-  private halt(frame: number, clearMembers: boolean) {
+  /**
+   * Stop: cancel announced onsets, fade every member's voices, forget
+   * membership. Voices on a fade-out ramp it out on their own; `cut` (Stop
+   * All's second tap) silences those and every release tail too.
+   */
+  private halt(frame: number, clearMembers: boolean, cut = false) {
     for (const onset of this.queue) if (onset.kind === 'note') this.write(TransportEventKind.Cancel, onset)
     for (const onset of this.retracted) this.write(TransportEventKind.Cancel, onset)
     for (const onset of this.queue) this.recycle(onset)
     for (const onset of this.retracted) this.recycle(onset)
     this.queue.length = 0
     this.retracted.length = 0
-    this.host.silence(null, frame)
+    this.host.silence(null, frame, cut)
     // Every request is answered: a caller awaiting a pending change's receipt must not hang.
     for (const pending of this.pending) this.receipt(pending.requestId, pending.arrivalFrame, frame, null, false, true)
+    for (const leaving of this.fadeLeaves) this.receipt(leaving.requestId, leaving.arrivalFrame, frame, null, false, true)
     this.pending = []
+    this.fadeLeaves = []
     this.frontier = undefined
     this.state.soloId = null
     this.running = false
     if (clearMembers) this.state.members.clear()
+    // A fade Stop cut short ends in the leave it was heading for.
+    else for (const [id, member] of this.state.members) if (member.fade) this.state.members.delete(id)
   }
 
-  private applyNow(change: TransportChange, frame: number, requestId: number) {
+  /**
+   * Fade-out (BJS-598): each named member stays a member through the fade, its
+   * sounding voices and every onset it plays meanwhile on one level ramp from
+   * now to silence `bars` later at the tempo map in force; it plays nothing
+   * from the ramp's end and leaves on that frame, whatever the tempo does
+   * meanwhile, and the receipt answers then. A later join of a member
+   * withdraws its leave (and plays at full level); Stop ends the fade.
+   */
+  private fadeOut(change: TransportFadeOut, frame: number, requestId: number) {
+    const leaves: TransportSingleChange[] = change.memberIds.map(memberId => ({ type: 'leave', memberId }))
+    const leave: TransportMembershipChange = leaves.length === 1 ? leaves[0] : { type: 'batch', changes: leaves }
+    if (!this.running) {
+      // Staged before Start: nothing sounds yet, so the members simply leave.
+      this.apply(this.state, leave, frame, noSilence)
+      this.receipt(requestId, frame, frame, null, false)
+      return
+    }
+    // Silent from the first whole frame on the bar, as an onset there would sound.
+    const fade: MemberFade = { start: frame, end: Math.ceil(this.boundaryFrame(this.barAt(frame) + change.bars) - 1e-6) }
+    // A join of one of them still waiting for its bar is withdrawn: the fade is the later word.
+    this.foldIntoPendingJoins(leave, requestId, frame)
+    // The lookahead was collected without the fade: withdraw it and collect it again.
+    this.retractFrom(frame)
+    this.collectedUntil = frame
+    this.frontier = undefined
+    for (const memberId of change.memberIds) {
+      const member = this.state.members.get(memberId)
+      if (!member) continue
+      member.fade = fade
+      this.host.fade(memberId, fade)
+    }
+    this.fadeLeaves.push({ requestId, arrivalFrame: frame, memberIds: [...change.memberIds], frame: fade.end })
+    this.collectTo(frame + this.lookahead)
+  }
+
+  /** Fading members whose ramp reaches silence inside the quantum leave on that frame. */
+  private leaveFaded(firstFrame: number, endFrame: number) {
+    for (let index = 0; index < this.fadeLeaves.length;) {
+      const leaving = this.fadeLeaves[index]
+      if (leaving.frame >= endFrame) { index++; continue }
+      this.fadeLeaves.splice(index, 1)
+      const at = Math.max(firstFrame, leaving.frame)
+      for (const memberId of leaving.memberIds) {
+        // Only the member that is fading: one played again since is not this leave's.
+        if (this.state.members.get(memberId)?.fade) this.applySingle(this.state, { type: 'leave', memberId }, at, noSilence)
+      }
+      // A soloed member leaving lets the others sound again: collect again from here.
+      this.retractFrom(at)
+      this.collectedUntil = Math.min(this.collectedUntil, at)
+      this.frontier = undefined
+      this.receipt(leaving.requestId, leaving.arrivalFrame, at, this.barAt(at), false)
+    }
+  }
+
+  private applyNow(change: TransportMembershipChange, frame: number, requestId: number) {
     // Any immediate change can alter what sounds from `frame` on. Withdraw the
     // lookahead, apply, and collect again; survivors keep their serials.
     this.retractFrom(frame)
@@ -375,15 +462,25 @@ export class AudioTransport {
    * of it submitted before that change: an update patches the join's
    * settings, a replace swaps its table, a leave or a newer join withdraws it
    * (its receipt says cancelled). So a mute, bend or pin tapped after "join at the next
-   * bar" holds when the member arrives, and later submissions win.
+   * bar" holds when the member arrives, and later submissions win. A join
+   * also withdraws an earlier fade-out's leave of the member: a pattern played
+   * again while it fades stays (BJS-598).
    * Returns the earliest bar whose pending change was altered.
    */
-  private foldIntoPendingJoins(change: TransportChange, requestId: number, frame: number): number {
+  private foldIntoPendingJoins(change: TransportMembershipChange, requestId: number, frame: number): number {
     let earliest = Infinity
     for (const part of change.type === 'batch' ? change.changes : [change]) {
       const id = part.type === 'update' || part.type === 'leave' ? part.memberId
         : part.type === 'replace' ? part.table.id : part.type === 'join' ? part.member.table.id : undefined
       if (id === undefined) continue
+      if (part.type === 'join') for (let index = this.fadeLeaves.length - 1; index >= 0; index--) {
+        const leaving = this.fadeLeaves[index]
+        if (leaving.requestId > requestId || !leaving.memberIds.includes(id)) continue
+        leaving.memberIds = leaving.memberIds.filter(memberId => memberId !== id)
+        if (leaving.memberIds.length) continue
+        this.fadeLeaves.splice(index, 1)
+        this.receipt(leaving.requestId, leaving.arrivalFrame, frame, null, false, true)
+      }
       for (let index = this.pending.length - 1; index >= 0; index--) {
         const entry = this.pending[index]
         if (entry.requestId > requestId) continue
@@ -407,7 +504,7 @@ export class AudioTransport {
     return earliest
   }
 
-  private apply(state: TransportState, change: TransportChange, frame: number,
+  private apply(state: TransportState, change: TransportMembershipChange, frame: number,
     silence: (memberId: string, frame: number) => void) {
     if (change.type === 'batch') {
       for (const part of change.changes) this.applySingle(state, part, frame, silence)
@@ -474,6 +571,7 @@ export class AudioTransport {
    */
   beginQuantum(firstFrame: number, endFrame: number) {
     if (!this.running) return
+    this.leaveFaded(firstFrame, endFrame)
     while (this.pending.length) {
       const next = this.pending[0]
       const boundaryFrame = this.frameAt(next.bar)
@@ -589,10 +687,12 @@ export class AudioTransport {
     }
   }
 
-  private collectMember(state: TransportState, member: TransportMember, from: number, to: number) {
+  private collectMember(state: TransportState, member: TransportMember, from: number, until: number) {
     const { table, offsetBars, rate } = member
     const count = table.begin.length
-    if (!count) return
+    // A fading member plays nothing from the frame its ramp reaches silence.
+    const to = member.fade ? Math.min(until, member.fade.end) : until
+    if (!count || to <= from) return
     const b0 = barAtFrame(state.anchors, from, this.sampleRate)
     const b1 = barAtFrame(state.anchors, to, this.sampleRate)
     const period = table.lengthBars / rate

@@ -29,6 +29,7 @@ import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import { buildPatternMember, type PatternMember, type PatternMemberRequest } from "@/services/patternMember";
 import { bendNotes } from "@/domain/modeRemap";
 import { barAtFrame, bpmAtFrame, type TempoAnchor } from "@/audio/live/tempoMap";
+import { wetCutDelaySeconds } from "@/audio/voicePolicy";
 import type {
   TransportBoundary, TransportChange, TransportCommand, TransportReceipt, TransportResponse, TransportSingleChange,
 } from "@/audio/live/transport";
@@ -83,9 +84,9 @@ export interface PatternAudio {
   /** Start the audio graph and load the catalog the instrument needs; returns the output node. */
   ensureReady(instrument: string): Promise<AudioNode | null>;
   /**
-   * Fade out what the shared room and delay already hold. Called after a mute
-   * or solo applies when the tail policy is "cut"; it cuts every member's
-   * tail, not only the silenced one (the buses are shared).
+   * Fade out what the shared room and delay already hold. Called by Stop All's
+   * cut (BJS-598), and after a mute or solo applies when the tail policy is
+   * "cut"; it cuts every source's tail, live notes' too (the buses are shared).
    */
   cutWetTails?(): void;
 }
@@ -444,8 +445,12 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
 
   // --- Tables --------------------------------------------------------------
 
-  /** Put `instrument` in the worklet; the transport port that holds it. */
-  async function prepare(instrument: string): Promise<{ port: LiveTransportPort; instrumentId: string }> {
+  /**
+   * Put `instrument` in the worklet; the transport port that holds it. Refused
+   * for sample memory while banks are kept only for notes fading out, it lets
+   * those go and tries once more (BJS-598).
+   */
+  async function prepare(instrument: string, retry = true): Promise<{ port: LiveTransportPort; instrumentId: string }> {
     const instrumentId = resolveLiveSoundName(instrument);
     const destination = await options.audio.ensureReady(instrumentId);
     context = options.audio.getContext();
@@ -453,6 +458,7 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
     const ready = getLiveTransport(instrumentId);
     if (ready) return { port: ready, instrumentId };
     const failure = getLivePlaybackFailure(instrumentId);
+    if (retry && failure?.budget && giveUpFadingBanks()) return prepare(instrument, false);
     // A transport member has no fallback renderer: a bank refused for sample
     // memory is an explicit error, never a member whose notes make no sound.
     throw new PatternLoadError(
@@ -518,10 +524,56 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
     for (const id of [...receipts.keys()]) settle(cancelledReceipt(id));
   }
 
-  /** Stop everything local; with `command`, also stop the worklet transport. */
-  function halt(command: boolean) {
+  /** When each fading member's ramp reaches silence (BJS-598), on the `now()` clock. */
+  const fadingUntil = new WeakMap<Membership, number>();
+  /** Pins kept only for notes still ramping out after their member stopped. */
+  const fadingPins = new Set<() => void>();
+
+  /**
+   * A member that left lets its bank go, but one fading out keeps it until its
+   * ramp reaches silence, so a new run's load cannot evict notes still
+   * ramping out; a cut has already silenced them.
+   */
+  function releaseWhenSilent(entry: Membership, cut = false) {
+    const remaining = (fadingUntil.get(entry) ?? -Infinity) - now();
+    const release = entry.releasePin;
+    if (!release) return;
+    if (cut || !(remaining > 0)) {
+      release();
+      return;
+    }
+    fadingPins.add(release);
+    setTimeout(() => { fadingPins.delete(release); release(); }, remaining);
+  }
+
+  /**
+   * A fading bank's pin is soft: it keeps the bank from being evicted for room,
+   * but a load the player asked for comes first. Let every fading bank go (its
+   * notes, if the bank is evicted, end in the worklet's 10 ms release) and say
+   * whether there was one.
+   */
+  function giveUpFadingBanks(): boolean {
+    let any = fadingPins.size > 0;
+    for (const release of fadingPins) release();
+    fadingPins.clear();
+    for (const entry of leaving) if (fadingUntil.has(entry) && entry.releasePin) {
+      any = true;
+      entry.releasePin();
+    }
+    return any;
+  }
+
+  /**
+   * Stop everything local; with `command`, also stop the worklet transport.
+   * Notes on a fade-out ramp out there on their own unless `cut` (Stop All's
+   * second tap) stops them with every release tail (BJS-598).
+   */
+  function halt(command: boolean, cut = false) {
     const wasPlaying = playing;
-    if (command && port) send({ type: "transport-stop", requestId: ++requestId });
+    if (command && port) send({ type: "transport-stop", requestId: ++requestId, ...(cut ? { cut: true } : {}) });
+    // A cut is silence: what the shared room and delay hold fades too, live notes' echoes included.
+    // Not at once: the cut voices' own 10 ms release must go into the old returns, not the fresh ones.
+    if (cut) setTimeout(() => options.audio.cutWetTails?.(), wetCutDelaySeconds(context?.baseLatency) * 1000);
     playing = false;
     run++;
     for (const noteId of [...registry.keys()]) endNow(noteId);
@@ -529,7 +581,12 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
     released.clear();
     members.clear();
     resolvePending();
-    for (const entry of [...memberships.values(), ...leaving.values()]) entry.releasePin?.();
+    for (const entry of memberships.values()) entry.releasePin?.();
+    // Fading notes ramp out in the worklet after a plain stop: their banks stay until then.
+    // A cut silences every one of them, those of an earlier run still ramping out too: all their banks go now
+    // (the timers still pending find them already let go).
+    if (cut) giveUpFadingBanks();
+    for (const entry of leaving) releaseWhenSilent(entry, cut);
     memberships.clear();
     leaving.clear();
     snapshot = undefined;
@@ -881,6 +938,45 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
     },
 
     /**
+     * Fade members out over `bars` from now, then they leave (BJS-598): Stop
+     * All. (The Loop Dial's flick is no fade: it leaves at once.) They play on
+     * through the fade on one level ramp to silence; the receipt answers when they have left, on the frame
+     * the ramp reaches silence, and their banks stay pinned until then. A join
+     * of one of them meanwhile brings it back at full level (its notes already
+     * sounding fade on). Stop ends the fade early (its receipt says cancelled),
+     * letting the notes already fading ramp out, their banks still pinned
+     * until the ramp's end; a cut stops them and lets the banks go at once.
+     * The pin is soft: a load refused for memory while it holds lets it go and
+     * tries again, and those notes end in the worklet's 10 ms release.
+     */
+    fadeOut(ids: readonly string[], bars = 1): Promise<TransportReceipt> {
+      const looper = requireSession();
+      const refused = refusal(() => {
+        if (!ids.length) throw new RangeError("A fade-out names a member");
+        if (!(Number.isFinite(bars) && bars > 0)) throw new RangeError("A fade-out lasts a positive number of bars");
+      });
+      if (refused) return refused;
+      const entries: [string, Membership][] = [];
+      // The ramp lasts `bars` at the tempo now in force, as the worklet times it.
+      const silentAt = now() + bars * 240_000 / looper.bpm;
+      for (const id of ids) {
+        const entry = memberships.get(id);
+        memberships.delete(id);
+        if (entry) { leaving.add(entry); entries.push([id, entry]); fadingUntil.set(entry, silentAt); }
+        if (looper.soloId === id) looper.soloId = null;
+      }
+      const receipt = change({ type: "fade-out", memberIds: [...ids], bars });
+      void receipt.then(() => {
+        for (const [id, entry] of entries) {
+          leaving.delete(entry);
+          if (memberships.get(id) !== entry) releaseWhenSilent(entry);
+        }
+        prune();
+      });
+      return receipt;
+    },
+
+    /**
      * Shift (offset), rate, mute or pin a member. Pinning swaps its table to
      * the recorded key and mode (or back to the bend) in the same change.
      */
@@ -995,7 +1091,8 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
       };
     },
 
-    stop() { halt(true); },
+    /** Stop the Looper; `cut` also silences fading notes and release tails at once (Stop All's second tap). */
+    stop(options: { cut?: boolean } = {}) { halt(true, options.cut === true); },
     dispose() {
       halt(true);
       unsubscribe();

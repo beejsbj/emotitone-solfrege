@@ -81,7 +81,7 @@ function setup(rate = RATE) {
     get frame() { return frame },
     stall(value: boolean) { stalled = value; deliver() },
     start(bpm: number) { core.command({ type: 'transport-start', requestId: ++requestId, run: 1, bpm }, frame); deliver(); return requestId },
-    stop() { core.command({ type: 'transport-stop', requestId: ++requestId }, frame); deliver(); return requestId },
+    stop(cut = false) { core.command({ type: 'transport-stop', requestId: ++requestId, ...(cut ? { cut } : {}) }, frame); deliver(); return requestId },
     change(change: TransportChange, boundary: 'immediate' | { bar: number } = 'immediate') {
       core.command({ type: 'transport-change', requestId: ++requestId, change, boundary }, frame)
       deliver()
@@ -1066,6 +1066,9 @@ describe('changes to a member whose join waits for its bar (review of #199)', ()
     ['a NaN tempo at a bar', { type: 'tempo', bpm: NaN }, { bar: 3 }],
     ['a batch with one bad part', { type: 'batch', changes: [{ type: 'update', memberId: 'a', patch: { muted: true } }, { type: 'update', memberId: 'a', patch: { rate: 0 } }] }, 'immediate'],
     ['a NaN bar', { type: 'solo', memberId: null }, { bar: NaN }],
+    ['a fade-out at a bar (it is immediate only)', { type: 'fade-out', memberIds: ['a'], bars: 1 }, { bar: 3 }],
+    ['a fade-out of no member', { type: 'fade-out', memberIds: [], bars: 1 }, 'immediate'],
+    ['a fade-out of no length', { type: 'fade-out', memberIds: ['a'], bars: 0 }, 'immediate'],
   ] as const)('answers %s with a refused receipt', (_name, change, boundary) => {
     const rig = setup()
     rig.join(table('a', b, 1))
@@ -1075,5 +1078,315 @@ describe('changes to a member whose join waits for its bar (review of #199)', ()
     expect(rig.receipts.find(entry => entry.requestId === id)).toMatchObject({ refused: true, cancelled: true, appliedBar: null })
     rig.render(2)
     expect(sounded(rig.events).length).toBeGreaterThan(2)
+  })
+})
+
+describe('fade-out: Stop All ends over a bar (BJS-598)', () => {
+  const fpb120 = fpb(120)
+  /** The (1 − t)² ramp, as an oracle. */
+  const level = (t: number) => (1 - Math.min(1, Math.max(0, t))) ** 2
+  const peak = (samples: ArrayLike<number>, from: number, to: number) => {
+    let loudest = 0
+    for (let index = Math.max(0, Math.floor(from)); index < Math.min(samples.length, to); index++) loudest = Math.max(loudest, Math.abs(samples[index]))
+    return loudest
+  }
+  /** The largest sample-to-sample move: a step in level shows here, a ramp does not. */
+  const largestMove = (samples: ArrayLike<number>, from: number, to: number) => {
+    let largest = 0
+    for (let index = Math.max(1, Math.floor(from)); index < Math.min(samples.length, to); index++) {
+      largest = Math.max(largest, Math.abs(samples[index] - samples[index - 1]))
+    }
+    return largest
+  }
+  // One note held across four bars (A4, at half level after its decay), with room and delay sends.
+  const held = (id = 'm', velocity = 1) => table(id, [{ begin: 0, gate: 3.9, pitch: 69, velocity }], 4,
+    { cutoff: 12000, resonance: 0, room: .5, delay: .25 })
+
+  it('ramps a member to silence over one bar on (1 − t)², its sends with it, then it leaves on that bar', () => {
+    const rig = setup()
+    rig.join(held())
+    rig.start(120)
+    rig.render(2.25)
+    const from = rig.frame
+    const end = from + fpb120
+    const steady = peak(rig.pcm, from - 1500, from)
+    expect(steady).toBeGreaterThan(.45)
+    const id = rig.change({ type: 'fade-out', memberIds: ['m'], bars: 1 })
+    // Answered when it has left, not when the fade begins.
+    expect(rig.receipts.find(entry => entry.requestId === id)).toBeUndefined()
+    rig.render(3)
+    const receipt = rig.receipts.find(entry => entry.requestId === id)!
+    expect(receipt).toMatchObject({ arrivalFrame: from, appliedFrame: end, late: false })
+    expect(receipt.appliedBar).toBeCloseTo(from / fpb120 + 1, 9)
+    expect(rig.core.transport.memberCount).toBe(0)
+    expect(rig.core.voiceCount).toBe(0)
+    // The level follows the curve across the bar: no step anywhere in it.
+    const size = 40
+    for (let at = from; at + size <= end; at += size) {
+      const expected = steady * level((at + size / 2 - from) / fpb120)
+      const heard = peak(rig.pcm, at, at + size)
+      expect(Math.abs(heard - expected), `window at ${at}`).toBeLessThan(.02 * steady)
+      // The room and delay sends (0.5 + 0.25 of the dry) fade with it.
+      expect(Math.abs(peak(rig.wet, at, at + size) - .75 * heard), `sends at ${at}`).toBeLessThan(.01)
+    }
+    expect(largestMove(rig.pcm, from, end)).toBeLessThanOrEqual(largestMove(rig.pcm, from - 1500, from) + 1e-6)
+    // Silent from the bar's end, dry and sends.
+    expect(rig.pcm.slice(end).every(sample => sample === 0)).toBe(true)
+    expect(rig.wet.slice(end).every(sample => sample === 0)).toBe(true)
+    // The note was cut short by the fade: its one release is at the fade's end.
+    const releases = rig.events.filter(event => event.kind === TransportEventKind.Release)
+    expect(releases.at(-1)!.frame).toBe(end)
+  })
+
+  it('keeps playing through the fade: each onset starts on the ramp, and none after it', () => {
+    const rig = setup()
+    rig.join(table('m', melody, 1))
+    rig.start(120)
+    rig.render(2.2)
+    const from = rig.frame
+    const end = from + fpb120
+    // Each note's attack reaches full level (1) in its first millisecond.
+    const onsetPeak = (frame: number) => peak(rig.pcm, frame, frame + .004 * RATE)
+    const before = sounded(rig.events).filter(event => event.frame < from).at(-1)!
+    expect(onsetPeak(before.frame)).toBeGreaterThan(.95)
+    rig.change({ type: 'fade-out', memberIds: ['m'], bars: 1 })
+    rig.render(3)
+    const during = sounded(rig.events).filter(event => event.frame >= from && event.frame < end)
+    expect(during.length).toBe(4)
+    for (const attack of during) {
+      expect(Math.abs(onsetPeak(attack.frame) - level((attack.frame + .001 * RATE - from) / fpb120)), `onset at ${attack.frame}`)
+        .toBeLessThan(.05)
+    }
+    expect(sounded(rig.events).filter(event => event.frame >= end)).toEqual([])
+    expect(rig.pcm.slice(end).every(sample => sample === 0)).toBe(true)
+  })
+
+  it('leaves every other member at full level, bit for bit', () => {
+    const fading = setup()
+    const alone = setup()
+    for (const rig of [fading, alone]) {
+      if (rig === fading) rig.join(held('m', .4))
+      rig.join(table('n', melody.map(note => ({ ...note, pitch: note.pitch + 12, velocity: .4 })), 1))
+      rig.start(120)
+      rig.render(2.25)
+    }
+    const from = fading.frame
+    fading.change({ type: 'fade-out', memberIds: ['m'], bars: 1 })
+    for (const rig of [fading, alone]) rig.render(4)
+    // The other member keeps every note, on its frames.
+    const others = (rig: typeof fading) => sounded(rig.events).filter(event => event.frame >= from && event.length < fpb120)
+      .map(event => event.frame)
+    expect(others(fading)).toEqual(others(alone))
+    // Once the faded member has gone, the output is the other member's alone.
+    const end = from + fpb120
+    let largest = 0
+    for (let index = end; index < alone.pcm.length; index++) largest = Math.max(largest, Math.abs(fading.pcm[index] - alone.pcm[index]))
+    expect(largest).toBeLessThan(1e-6)
+    expect(peak(alone.pcm, end, alone.pcm.length)).toBeGreaterThan(.35)
+  })
+
+  it('brings a member played again during its fade back at full level; the notes already sounding fade on', () => {
+    const fading = setup()
+    const steady = setup()
+    const member = table('m', melody, 1)
+    for (const rig of [fading, steady]) {
+      rig.join(member)
+      rig.start(120)
+      rig.render(2.2)
+    }
+    const id = fading.change({ type: 'fade-out', memberIds: ['m'], bars: 1 })
+    // Bar 1.4: between the note on 1.25 (still sounding, fading) and the one on 1.5.
+    fading.until(1.4)
+    steady.until(1.4)
+    const rejoin = fading.frame
+    fading.join(member)
+    expect(fading.receipts.find(entry => entry.requestId === id)).toMatchObject({ cancelled: true })
+    for (const rig of [fading, steady]) rig.render(4)
+    expect(fading.core.transport.memberCount).toBe(1)
+    // The note on bar 1.25 was fading when the member came back, and stays faded.
+    const onQuarter = 1.25 * fpb120
+    expect(peak(fading.pcm, onQuarter, onQuarter + .004 * RATE)).toBeLessThan(.8 * peak(steady.pcm, onQuarter, onQuarter + .004 * RATE))
+    // From the next note on, it plays as if it had never faded.
+    const next = 1.5 * fpb120
+    expect(next).toBeGreaterThan(rejoin)
+    let largest = 0
+    for (let index = next; index < steady.pcm.length; index++) largest = Math.max(largest, Math.abs(fading.pcm[index] - steady.pcm[index]))
+    expect(largest).toBeLessThan(1e-6)
+  })
+
+  it('cuts to silence within 10 ms when a cut (Stop All\'s second tap) comes during the fade, release tails too, by a ramp and not a step', () => {
+    const rig = setup()
+    // Short gates with a long (1 s) release: the earlier notes are still ringing out when Stop comes.
+    rig.join(table('m', melody.map(note => ({ ...note, gate: .05, release: 1 })), 1))
+    rig.start(120)
+    rig.render(2.2)
+    const id = rig.change({ type: 'fade-out', memberIds: ['m'], bars: 1 })
+    rig.render(.6)
+    const stop = rig.frame
+    expect(peak(rig.pcm, stop - 64, stop)).toBeGreaterThan(.05)
+    rig.stop(true)
+    rig.render(1)
+    expect(rig.receipts.find(entry => entry.requestId === id)).toMatchObject({ cancelled: true, appliedBar: null })
+    const cut = stop + Math.ceil(.01 * RATE)
+    expect(rig.pcm.slice(cut + 1).every(sample => sample === 0)).toBe(true)
+    // The cut ramps down from where the fade was; it does not jump.
+    expect(largestMove(rig.pcm, stop - 1, cut + 1)).toBeLessThanOrEqual(largestMove(rig.pcm, stop - 400, stop) + 1e-6)
+    expect(rig.core.voiceCount).toBe(0)
+  })
+
+  it('fades a loop the limiter is holding down with no step, and the limiter lets go as it falls', () => {
+    const rig = setup()
+    // A held triad at full level: half level each after the decay, 1.5 together, over the ceiling.
+    rig.join(table('m', [60, 64, 67].map(pitch => ({ begin: 0, gate: 3.9, pitch })), 4))
+    rig.start(120)
+    rig.render(2.25)
+    const from = rig.frame
+    expect(rig.core.limiter.currentGain).toBeLessThan(.8)
+    const steadyMove = largestMove(rig.pcm, from - 1500, from)
+    rig.change({ type: 'fade-out', memberIds: ['m'], bars: 1 })
+    rig.render(3)
+    const end = from + fpb120
+    expect(largestMove(rig.pcm, from, end)).toBeLessThanOrEqual(steadyMove + 1e-6)
+    expect(peak(rig.pcm, from, end)).toBeLessThanOrEqual(rig.core.limiter.ceiling + 1e-6)
+    expect(rig.pcm.slice(end).every(sample => sample === 0)).toBe(true)
+    expect(rig.core.limiter.currentGain).toBe(1)
+  })
+
+  it('never lifts a voice still on an earlier fade: fade, play it again, fade again (review of #286)', () => {
+    const rig = setup()
+    const member = held()
+    rig.join(member)
+    rig.start(120)
+    rig.render(2.25)
+    const from = rig.frame
+    const steadyMove = largestMove(rig.pcm, from - 1500, from)
+    rig.change({ type: 'fade-out', memberIds: ['m'], bars: 1 })
+    rig.render(1.2)
+    // Played again: the held note keeps fading (about 0.16 now); then faded again.
+    rig.join(member)
+    rig.render(.05)
+    const again = rig.frame
+    const before = peak(rig.pcm, again - 40, again)
+    rig.change({ type: 'fade-out', memberIds: ['m'], bars: 1 })
+    rig.render(2)
+    expect(peak(rig.pcm, again, again + 40)).toBeLessThanOrEqual(before + 1e-6)
+    expect(largestMove(rig.pcm, again - 400, again + 400)).toBeLessThanOrEqual(steadyMove + 1e-6)
+    // It keeps the first ramp: silent from that one's end, not the second's.
+    expect(rig.pcm.slice(from + fpb120).every(sample => sample === 0)).toBe(true)
+  })
+
+  it('follows the lower of two fades frame by frame when the second is shorter (a faster tempo in between)', () => {
+    const rig = setup()
+    const member = held()
+    rig.join(member)
+    rig.start(120)
+    rig.render(2.25)
+    const from = rig.frame
+    rig.change({ type: 'fade-out', memberIds: ['m'], bars: 1 })
+    rig.render(.4)
+    rig.join(member)
+    rig.change({ type: 'tempo', bpm: 480 })
+    const again = rig.frame
+    const before = peak(rig.pcm, again - 40, again)
+    // At 480 BPM the second fade lasts half a second, ending before the first.
+    rig.change({ type: 'fade-out', memberIds: ['m'], bars: 1 })
+    rig.render(2)
+    const secondEnd = again + fpb(480)
+    expect(secondEnd).toBeLessThan(from + fpb120)
+    let previous = before
+    for (let at = again; at + 40 <= secondEnd; at += 40) {
+      const heard = peak(rig.pcm, at, at + 40)
+      // Never up: the level only falls (a sampled sine's peak wobbles by a few percent).
+      expect(heard, `window at ${at}`).toBeLessThanOrEqual(previous * 1.05 + 1e-6)
+      // And never above either ramp.
+      const first = .5 * level((at - from) / fpb120)
+      const second = .5 * level((at - again) / fpb(480))
+      expect(heard, `window at ${at}`).toBeLessThanOrEqual(Math.min(first, second) + .02)
+      previous = Math.max(heard, 1e-4)
+    }
+    expect(rig.pcm.slice(secondEnd).every(sample => sample === 0)).toBe(true)
+  })
+
+  it('fades a member\'s release tails with it', () => {
+    // One short note with a 1 s release: its tail is ringing when the fade begins.
+    const ringing = (rig: ReturnType<typeof setup>) => {
+      rig.join(table('m', [{ begin: 0, gate: .05, pitch: 69, release: 1 }], 4))
+      rig.start(120)
+      rig.render(.3)
+    }
+    const fading = setup()
+    const steady = setup()
+    ringing(fading)
+    ringing(steady)
+    const from = fading.frame
+    fading.change({ type: 'fade-out', memberIds: ['m'], bars: 1 })
+    for (const rig of [fading, steady]) rig.render(1)
+    // The tail is the only sound: faded, it is the steady tail times the ramp.
+    expect(peak(steady.pcm, from, from + 2000)).toBeGreaterThan(.1)
+    let largest = 0
+    for (let index = from; index < from + .9 * RATE; index++) {
+      largest = Math.max(largest, Math.abs(fading.pcm[index] - steady.pcm[index] * level((index - from) / fpb120)))
+    }
+    expect(largest).toBeLessThan(1e-3)
+  })
+
+  it.each([60, 240])('leaves when its ramp reaches silence, and starts nothing after it, when the tempo goes to %i mid-fade', (bpm) => {
+    const rig = setup()
+    rig.join(table('m', melody, 1))
+    rig.start(120)
+    // From bar 1 to the frame of bar 2 at 120; from bar 1.5 at the new tempo, a note of
+    // the melody falls on that very frame (bar 1.75 at 60, bar 3.5 at 240).
+    rig.until(1)
+    const from = rig.frame
+    const end = from + fpb120
+    const id = rig.change({ type: 'fade-out', memberIds: ['m'], bars: 1 })
+    rig.render(.1)
+    rig.change({ type: 'tempo', bpm }, { bar: 1.5 })
+    rig.render(3)
+    expect(rig.core.transport.barAt(end) % .25).toBeCloseTo(0, 9)
+    // The leave is on the ramp's last frame, not on a bar the new tempo moved.
+    expect(rig.receipts.find(entry => entry.requestId === id)).toMatchObject({ appliedFrame: end, late: false })
+    expect(rig.core.transport.memberCount).toBe(0)
+    // Nothing is even announced from there.
+    expect(rig.events.filter(event => event.kind === TransportEventKind.Attack && event.frame >= end)).toEqual([])
+    expect(rig.pcm.slice(end).every(sample => sample === 0)).toBe(true)
+  })
+
+  it('lets release tails ring after an ordinary Stop; only a cut takes them', () => {
+    const ringing = (cut: boolean) => {
+      const rig = setup()
+      rig.join(table('m', [{ begin: 0, gate: .05, pitch: 69, release: 1 }], 4))
+      rig.start(120)
+      rig.render(.2)
+      const stop = rig.frame
+      rig.stop(cut)
+      rig.render(1)
+      return peak(rig.pcm, stop + .02 * RATE, stop + .2 * RATE)
+    }
+    expect(ringing(false)).toBeGreaterThan(.2)
+    expect(ringing(true)).toBe(0)
+  })
+
+  it('drops a fading member when the transport restarts, its notes ramping out on their own', () => {
+    const rig = setup()
+    rig.join(held())
+    rig.start(120)
+    rig.render(2.25)
+    const from = rig.frame
+    const id = rig.change({ type: 'fade-out', memberIds: ['m'], bars: 1 })
+    rig.render(.5)
+    const restart = rig.frame
+    // A start while running restarts the run with the members it holds, but not a fading one.
+    rig.start(90)
+    expect(rig.receipts.find(entry => entry.requestId === id)).toMatchObject({ cancelled: true })
+    expect(rig.core.transport.memberCount).toBe(0)
+    rig.render(2)
+    expect(sounded(rig.events).filter(event => event.frame >= restart)).toEqual([])
+    // Not cut at the restart: the held note goes on down its ramp, then silence at its end.
+    const size = 40
+    for (let at = restart + .02 * RATE; at + size <= from + fpb120 - 400; at += size) {
+      expect(Math.abs(peak(rig.pcm, at, at + size) - .5 * level((at + size / 2 - from) / fpb120)), `window at ${at}`).toBeLessThan(.02)
+    }
+    expect(rig.pcm.slice(from + fpb120).every(sample => sample === 0)).toBe(true)
   })
 })

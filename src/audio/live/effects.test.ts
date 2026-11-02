@@ -17,10 +17,23 @@ function prepare(core: LiveAudioCore, rate: number, data: Float32Array) {
     zones: [{ id: 'zone', rootMidi: 69, sampleRate: rate, channels: [data] }],
   } }, 0)
 }
+/**
+ * The dry mix and what each voice sent to the room and the echo, read where
+ * the wet stage takes them in (BJS-596). The room and echo themselves are
+ * left out here, so the dry output is the voices alone; wet.test.ts hears them.
+ */
 function render(core: LiveAudioCore, length: number) {
-  const output = Array.from({ length: 3 }, () => [new Float32Array(length), new Float32Array(length)])
-  core.render(output[0], 0, output[1], output[2])
-  return output
+  const dry = [new Float32Array(length), new Float32Array(length)]
+  const room = [new Float32Array(length), new Float32Array(length)]
+  const delay = [new Float32Array(length), new Float32Array(length)]
+  core.wet.process = (_output, roomSend, delaySend, firstFrame, span) => {
+    for (let c = 0; c < 2; c++) {
+      room[c].set(roomSend[c].subarray(0, span), firstFrame)
+      delay[c].set(delaySend[c].subarray(0, span), firstFrame)
+    }
+  }
+  core.render(dry, 0)
+  return [dry, room, delay]
 }
 
 describe('worklet Shape PCM', () => {
@@ -49,6 +62,18 @@ describe('worklet Shape PCM', () => {
     expect(room[0][0]).toBe(.25)
     expect(delay[0][0]).toBe(.125)
     expect(room[0].slice(1).every(value => value === 0)).toBe(true)
+  })
+  it('holds a note\'s own sends between nothing and all of it, and sends nothing for a value that is not a number', () => {
+    const core = new LiveAudioCore(48000, () => {})
+    const source = new Float32Array(256); source[0] = .5
+    prepare(core, 48000, source)
+    // A saved pattern's Shape is not sanitized before it reaches the worklet.
+    core.command({ type: 'press', ownerId: 'playback', notes: [{ pitch: 69, instrumentId: 'fixture',
+      shaping: { ...open, room: 5, delay: Number.NaN } }] }, 0)
+    const [dry, room, delay] = render(core, 256)
+    expect(dry[0][0]).toBe(.5)
+    expect(room[0][0]).toBe(.5)
+    expect(delay[0].every(value => value === 0)).toBe(true)
   })
   it('keeps playback Shape snapshots independent of live edits and sums after filtering', () => {
     const fixture = reference.filters.find((f: any) => f.rate === 48000 && f.cutoff === 1000 && f.q === 10)

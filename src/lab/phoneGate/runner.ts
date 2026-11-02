@@ -30,7 +30,10 @@ import { initAudioEngine } from "@/services/audioEngine";
 import {
   getAudioContext, getMasterGain, latencyHintOf, parseLatencyHint, setLatencyHintOverride,
 } from "@/services/audioRuntime";
-import { GATE_BEAT_MS, GATE_BPM, GATE_INSTRUMENT, GATE_MEMBER_LABELS, gateMembers, gateTables } from "./fixtures";
+import { OPEN_CUTOFF_HZ } from "@/audio/liveShaping";
+import {
+  GATE_BEAT_MS, GATE_BPM, GATE_INSTRUMENT, GATE_MEMBER_LABELS, gateMembers, gateTables, parseGateSends,
+} from "./fixtures";
 import { createAttackLedger, createLightLedger, createSoakAccount } from "./ledger";
 import {
   createClockSlipMeter, describeUserAgent, playbackStatsDelta, readJsMemory, readPlaybackStats, summarizeFrames,
@@ -81,9 +84,12 @@ function environment(context: AudioContext | undefined): GateResults["environmen
 export function createPhoneGate() {
   // The buffer under test (BJS-590), from the link (`?latencyHint=balanced`).
   // Set here, in the page's setup: the Stage creates the context as it mounts.
-  const link = typeof location === "undefined" ? null : new URLSearchParams(location.search).get("latencyHint");
+  const params = new URLSearchParams(typeof location === "undefined" ? "" : location.search);
+  const link = params.get("latencyHint");
   const asked = parseLatencyHint(link) ?? null;
   setLatencyHintOverride(asked ?? undefined);
+  // The room and echo under test (BJS-596), from the link (`?room=1&delay=1`): every note of the soak sends that much.
+  const sends = parseGateSends(params);
   const results: GateResults = reactive({
     startedAt: new Date().toISOString(),
     url: typeof location === "undefined" ? "" : location.href,
@@ -92,6 +98,7 @@ export function createPhoneGate() {
     environment: environment(undefined),
     bpm: GATE_BPM,
     latencyHint: { link, asked, created: undefined },
+    sends,
   });
   const state = reactive({
     phase: "idle" as GatePhase,
@@ -110,8 +117,9 @@ export function createPhoneGate() {
   });
 
   const instrumentId = resolveLiveSoundName(GATE_INSTRUMENT);
-  const members = gateMembers();
+  const members = gateMembers(sends);
   const tables = gateTables(members, instrumentId);
+  const liveShaping = sends.room || sends.delay ? { cutoff: OPEN_CUTOFF_HZ, resonance: 0, ...sends } : undefined;
   let context: AudioContext | undefined;
   let player: PatternPlayer | undefined;
   let stopped = false;
@@ -185,7 +193,8 @@ export function createPhoneGate() {
     for (let index = 0; index < pitches.length; index++) {
       livePending.set(index ? `${ownerId}#${index}` : ownerId, { at, timed: timed && !index, count });
     }
-    pitches.forEach((pitch, index) => renderer.press(index ? `${ownerId}#${index}` : ownerId, [{ pitch, instrumentId, velocity: .6 }]));
+    pitches.forEach((pitch, index) => renderer.press(index ? `${ownerId}#${index}` : ownerId,
+      [{ pitch, instrumentId, velocity: .6, ...(liveShaping ? { shaping: liveShaping } : {}) }]));
   }
 
   function releaseLive(ownerId: string, notes = 1) {

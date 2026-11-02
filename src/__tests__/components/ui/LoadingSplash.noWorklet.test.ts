@@ -32,7 +32,6 @@ vi.unmock("@/services/audioEngine");
 vi.mock("@/services/audioRuntime", () => ({
   getAudioContext: () => audio.context,
   getMasterGain: () => audio.master,
-  getLiveOrbit: () => undefined,
   initializeAudio: vi.fn(async () => {}),
 }));
 vi.mock("@/stores/instrument", () => ({ useInstrumentStore: () => instruments }));

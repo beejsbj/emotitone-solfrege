@@ -1314,8 +1314,13 @@ describe("Play is the loop on the worklet transport", () => {
     const silentFrom = (frame: number) => pcm.slice(frame).every((sample) => sample === 0);
 
     /** A take looping, and a second played over it where it fell (their notes interleave). */
-    async function twoPlaying() {
+    /** `sends`: the Shape's room and delay, which both takes then carry into the worklet's room and echo. */
+    async function twoPlaying(sends?: { room: number; delay: number }) {
       const { phrases, looper } = setup();
+      if (sends) {
+        useInstrumentStore().setSynthControl("room", sends.room);
+        useInstrumentStore().setSynthControl("delay", sends.delay);
+      }
       playTake(.5);
       const first = phrases.take.id;
       looper.togglePlay();
@@ -1369,45 +1374,29 @@ describe("Play is the loop on the worklet transport", () => {
       expect(rig.wetCuts).toBe(0);
     });
 
-    it("a second Stop All during the fade cuts everything to silence within 10 ms, by a ramp and not a step", async () => {
-      const { looper } = await twoPlaying();
+    it("a second Stop All during the fade cuts everything to silence within 10 ms, room and echo too, by a ramp and not a step", async () => {
+      // Both takes send to the worklet's room and echo, which are ringing when the cut lands.
+      const { looper } = await twoPlaying({ room: .5, delay: .5 });
       looper.stopAll();
       await flush();
       render(.55);
       const cut = rig.frame;
       const steadyMove = largestMove(cut - BAR, cut);
       expect(peak(cut - 64, cut)).toBeGreaterThan(.05);
+      expect(rig.core.wet.active).toBe(true);
       looper.stopAll();
       await flush();
       expect(looper.dialViews).toEqual([]);
       expect(looper.stopping).toBe(false);
       expect(looper.running).toBe(false);
       expect(player.getLooper().running).toBe(false);
-      // The cut silences the shared room and delay too, once: after the cut notes' own release has gone into them.
-      expect(rig.wetCuts).toBe(0);
-      await vi.waitFor(() => expect(rig.wetCuts).toBe(1));
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      expect(rig.wetCuts).toBe(1);
       render(1);
+      // The notes' release, their room and their echo: all silent from the end of the 10 ms fade (BJS-596).
       expect(silentFrom(cut + .01 * RATE + 1)).toBe(true);
       expect(largestMove(cut - 1, cut + .01 * RATE + 1)).toBeLessThanOrEqual(steadyMove + 1e-6);
-    });
-
-    it("on a large audio callback, the cut's wet-tail swap waits two callbacks past the notes' release", async () => {
-      const { looper } = await twoPlaying();
-      // A 100 ms render callback (a "playback" latency hint, or an Android device without the low-latency path).
-      rig.context.baseLatency = .1;
-      looper.stopAll();
-      await flush();
-      render(.5);
-      looper.stopAll();
-      await flush();
-      expect(player.getLooper().running).toBe(false);
-      // Not at the usual 30 ms, nor before 10 ms + 2 × 100 ms: earlier, the release and the swap
-      // could land in the same callback (a timer never fires early, so this wait is safe).
-      await new Promise((resolve) => setTimeout(resolve, 150));
+      // The worklet's own stop did it, in step with the notes' release: nothing asked of the main thread.
+      await new Promise((resolve) => setTimeout(resolve, 50));
       expect(rig.wetCuts).toBe(0);
-      await vi.waitFor(() => expect(rig.wetCuts).toBe(1), { timeout: 1000, interval: 5 });
     });
 
     it("a flicked pattern leaves at once: no new note, its sounding note ends on its release, the others untouched bit for bit", async () => {

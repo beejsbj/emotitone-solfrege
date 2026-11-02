@@ -29,7 +29,6 @@ import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import { buildPatternMember, type PatternMember, type PatternMemberRequest } from "@/services/patternMember";
 import { bendNotes } from "@/domain/modeRemap";
 import { barAtFrame, bpmAtFrame, type TempoAnchor } from "@/audio/live/tempoMap";
-import { wetCutDelaySeconds } from "@/audio/voicePolicy";
 import type {
   TransportBoundary, TransportChange, TransportCommand, TransportReceipt, TransportResponse, TransportSingleChange,
 } from "@/audio/live/transport";
@@ -84,9 +83,10 @@ export interface PatternAudio {
   /** Start the audio graph and load the catalog the instrument needs; returns the output node. */
   ensureReady(instrument: string): Promise<AudioNode | null>;
   /**
-   * Fade out what the shared room and delay already hold. Called by Stop All's
-   * cut (BJS-598), and after a mute or solo applies when the tail policy is
-   * "cut"; it cuts every source's tail, live notes' too (the buses are shared).
+   * Fade out what the shared room and delay already hold. Called after a mute
+   * or solo applies when the tail policy is "cut"; it cuts every source's tail,
+   * live notes' too (the room and echo are shared). Stop All's cut needs no
+   * call: the worklet's own stop empties them (BJS-596).
    */
   cutWetTails?(): void;
 }
@@ -570,10 +570,9 @@ export function createPatternPlayer(options: PatternPlayerOptions) {
    */
   function halt(command: boolean, cut = false) {
     const wasPlaying = playing;
+    // A cut is silence: the worklet's stop also empties what the shared room and
+    // echo hold, live notes' echoes included, once the cut voices' release is in.
     if (command && port) send({ type: "transport-stop", requestId: ++requestId, ...(cut ? { cut: true } : {}) });
-    // A cut is silence: what the shared room and delay hold fades too, live notes' echoes included.
-    // Not at once: the cut voices' own 10 ms release must go into the old returns, not the fresh ones.
-    if (cut) setTimeout(() => options.audio.cutWetTails?.(), wetCutDelaySeconds(context?.baseLatency) * 1000);
     playing = false;
     run++;
     for (const noteId of [...registry.keys()]) endNow(noteId);

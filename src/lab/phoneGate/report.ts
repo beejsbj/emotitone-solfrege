@@ -11,6 +11,7 @@
  */
 import type { RenderCostSummary } from "@/audio/live/renderCost";
 import type { LatencyHint } from "@/services/audioRuntime";
+import type { GateSends } from "./fixtures";
 import type { AttackLedgerResult, LightLedgerResult } from "./ledger";
 import {
   formatBytes, summarizeLatencies, type ClockSlip, type DeviceDescription, type FramePacing, type JsMemory,
@@ -70,6 +71,8 @@ export interface GateResults {
    * created with (null: the browser's default; undefined: not known).
    */
   latencyHint?: { link: string | null; asked: LatencyHint | null; created: LatencyHint | null | undefined };
+  /** The room and delay sends the soak's notes carried (BJS-596; `?room=&delay=`). Absent in older results: none. */
+  sends?: GateSends;
   loadMs?: number;
   attacks?: AttackLedgerResult & { bars: number };
   /** The soak's automated chords: each note pressed, and each that sounded. */
@@ -292,6 +295,11 @@ export function describeLatencyHint(hint: GateResults["latencyHint"]): string {
   return hint.created === hint.asked ? created : `${created}; asked for ${formatLatencyHint(hint.asked)}, not applied`;
 }
 
+/** The room and echo the soak ran, as the summary writes it. */
+export function describeSends(sends: GateSends | undefined): string {
+  return sends && (sends.room || sends.delay) ? `room ${sends.room} / delay ${sends.delay}` : "no room or delay";
+}
+
 const VERDICT_TEXT: Record<Verdict, string> = { pass: "PASS", fail: "FAIL", record: "RECORD", partial: "PARTIAL",
   "not-run": "NOT RUN" };
 
@@ -305,7 +313,8 @@ export function formatGateSummary(results: GateResults): string {
     `Device: ${env.device} · ${env.os} · ${env.browser}`,
     `Audio: ${env.sampleRate ?? "n/a"} Hz · latencyHint ${describeLatencyHint(results.latencyHint)} · base latency ${ms(env.baseLatencyMs)} · output latency ${ms(env.outputLatencyMs)}`,
     `Screen: DPR ${env.devicePixelRatio ?? "n/a"} · cores ${env.cores ?? "n/a"} · device memory ${env.deviceMemoryGb === null ? "not exposed" : `${env.deviceMemoryGb} GB`}`,
-    `Loop: 4 piano members at ${results.bpm} BPM${results.loadMs === undefined ? "" : ` · piano loaded in ${(results.loadMs / 1000).toFixed(1)} s`}`,
+    `Loop: 4 piano members at ${results.bpm} BPM · ${describeSends(results.sends)}`
+      + `${results.loadMs === undefined ? "" : ` · piano loaded in ${(results.loadMs / 1000).toFixed(1)} s`}`,
     `Page: ${results.url}${results.build ? ` · build ${results.build}` : ""}`,
     `UA: ${env.userAgent}`,
     "",

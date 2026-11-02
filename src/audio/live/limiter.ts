@@ -21,9 +21,8 @@
  *   above full scale.
  * - Peak detection ignores non-finite samples (NaN, ±Infinity): one bad sample
  *   cannot pull the gain to 0 and mute the output through the release.
- * - Detection is stereo-linked on the dry sum, and the same gain is applied to
- *   the room and delay sends, as if the limiter sat on the voice bus before the
- *   sends: the effects hear what the dry output plays.
+ * - Detection is stereo-linked on the whole mix: the voices and what the room
+ *   and echo return (BJS-596), so dry and wet are limited together.
  */
 
 /** The ceiling, in dBFS: about −0.3 dB leaves room for converter rounding. */
@@ -49,7 +48,7 @@ export class PeakLimiter {
   /** Per-frame gains for one quantum; grows only if a caller renders a longer block. */
   private gains = new Float64Array(128)
   private loudest = 0
-  /** The loudest dry sample the voice sum has reached before limiting. */
+  /** The loudest sample the mix has reached before limiting. */
   get peakIn() { return this.loudest }
 
   constructor(sampleRate: number, readonly ceiling = LIMITER_CEILING) {
@@ -61,12 +60,12 @@ export class PeakLimiter {
   /** The gain now: 1 when idle. */
   get currentGain() { return this.gain }
 
-  process(dry: Float32Array[], room?: Float32Array[], delay?: Float32Array[]) {
-    const length = dry[0]?.length ?? 0
+  process(mix: Float32Array[]) {
+    const length = mix[0]?.length ?? 0
     if (!length) return
     const ceiling = this.ceiling
     let blockPeak = 0
-    for (const channel of dry) for (let i = 0; i < length; i++) {
+    for (const channel of mix) for (let i = 0; i < length; i++) {
       const level = Math.abs(channel[i])
       // NaN fails the comparison; Infinity is ignored too.
       if (level > blockPeak && level !== Infinity) blockPeak = level
@@ -84,7 +83,7 @@ export class PeakLimiter {
     let fallToFullScale = 0
     for (let i = 0; i < length; i++) {
       let level = 0
-      for (const channel of dry) { const value = Math.abs(channel[i]); if (value > level && value !== Infinity) level = value }
+      for (const channel of mix) { const value = Math.abs(channel[i]); if (value > level && value !== Infinity) level = value }
       const need = level > ceiling ? ceiling / level : 1
       gains[i] = need
       const slope = (start - need) / (i + 1)
@@ -126,12 +125,6 @@ export class PeakLimiter {
     }
     this.gain = gain
     this.hold = hold
-    applyGains(dry, gains, length)
-    if (room) applyGains(room, gains, length)
-    if (delay) applyGains(delay, gains, length)
+    for (const channel of mix) for (let i = 0; i < length; i++) channel[i] *= gains[i]
   }
-}
-
-function applyGains(bus: Float32Array[], gains: Float64Array, length: number) {
-  for (const channel of bus) for (let i = 0; i < length; i++) channel[i] *= gains[i]
 }

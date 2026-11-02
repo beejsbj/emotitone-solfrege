@@ -3,7 +3,6 @@ import { computed, ref, watch } from "vue";
 import { defineStore } from "pinia";
 import { DEFAULT_INSTRUMENT, displayInstrumentName } from "@/data/instruments";
 import {
-  getReadySounds,
   initAudioEngine,
   isPrewarmed,
   prewarmSoundSamples,
@@ -194,14 +193,10 @@ export const useInstrumentStore = defineStore("instrument", () => {
    */
   const isInstrumentReady = (instrumentName: string) => isPrewarmed(instrumentName);
 
-  /** The first ready sound among `preferred` and the usual fallbacks, else any sound the worklet holds. */
+  /** The first ready sound among `preferred` and the usual fallbacks. An oscillator synth is always ready, so "triangle" ends the list. */
   const findReadyFallback = (preferred: Array<string | null> = []) => {
-    const usual = [...preferred, lastReadyInstrument.value, DEFAULT_INSTRUMENT, "triangle"];
-    return (
-      usual.find((candidate): candidate is string => candidate !== null && isInstrumentReady(candidate)) ??
-      getReadySounds().find((candidate) => isInstrumentReady(candidate)) ??
-      null
-    );
+    const candidates = [...preferred, lastReadyInstrument.value, DEFAULT_INSTRUMENT, "triangle"];
+    return candidates.find((candidate): candidate is string => candidate !== null && isInstrumentReady(candidate)) ?? null;
   };
 
   /** Keep the selection if it is ready, else move to a sound that is (unless the selection is to be preserved). */

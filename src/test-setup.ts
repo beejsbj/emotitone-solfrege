@@ -145,10 +145,8 @@ vi.mock('@/services/audioEngine', () => ({
   initSynthOnlyAudio: vi.fn().mockResolvedValue(undefined),
   getAudioStartupStage: vi.fn().mockReturnValue('ready'),
   prewarmSoundSamples: vi.fn().mockResolvedValue(undefined),
-  // Implementations, not return values: a suite's restoreAllMocks resets a return value but
-  // keeps these, and the instrument store reads both whenever it looks for a fallback.
-  isPrewarmed: vi.fn(() => true),
-  getReadySounds: vi.fn(() => ['piano', 'triangle']),
+  isPrewarmed: vi.fn().mockReturnValue(true),
+  getReadySounds: vi.fn().mockReturnValue(['piano', 'triangle']),
   ensureSoundfontCatalog: vi.fn().mockResolvedValue(undefined),
   getRegisteredSounds: vi.fn().mockReturnValue(['piano', 'triangle']),
   setLiveSynthControls: vi.fn(),

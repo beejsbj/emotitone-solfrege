@@ -126,6 +126,36 @@ describe("ready means the worklet holds the sound right now", () => {
     expect(store.isInstrumentReady("sine")).toBe(true);
   });
 
+  it("still marks the current sound as current when something else evicts its bank, though the store calls it cold", async () => {
+    const view = await boot();
+    picker = view.picker;
+    const { store, manager, marker, settle } = view;
+    await store.setInstrument("vibraphone");
+    await store.setInstrument("marimba");
+    // Choosing the vibraphone again is not a use of its bank, so it stays the least recently used.
+    await store.setInstrument("vibraphone");
+    expect(["marimba", "vibraphone", "kalimba"].map(marker)).toEqual(["ready", "selected", "cold"]);
+
+    // Another consumer (a Looper member, say) loads a third bank, and the vibraphone is evicted.
+    await manager.prepareLivePlayback(rig.context as unknown as AudioContext, {} as AudioNode, "kalimba");
+    await settle();
+    expect(engine.forget.mock.calls).toEqual([["vibraphone"]]);
+    expect(store.currentInstrument).toBe("vibraphone");
+    expect(store.isInstrumentReady("vibraphone")).toBe(false);
+    // Readiness is the truth, but the player's choice is still shown as the choice: pressed, named current, first in its bank.
+    expect(["marimba", "vibraphone", "kalimba"].map(marker)).toEqual(["ready", "selected", "ready"]);
+    const option = picker.get('[data-testid="instrument-option-vibraphone"]');
+    expect(option.attributes("aria-pressed")).toBe("true");
+    expect(option.attributes("aria-label")).toMatch(/, current$/);
+    expect(picker.findAll('[data-testid^="instrument-option-"]')[0].attributes("data-testid")).toBe("instrument-option-vibraphone");
+
+    // The next press loads it again; the marker never moved.
+    await expect(store.setInstrument("vibraphone")).resolves.toEqual({ status: "ready", instrument: "vibraphone" });
+    await settle();
+    expect(store.isInstrumentReady("vibraphone")).toBe(true);
+    expect(marker("vibraphone")).toBe("selected");
+  });
+
   it("keeps a bank ready while a held key pins it, and cold once it is evicted after the key ends", async () => {
     const view = await boot();
     picker = view.picker;
@@ -196,7 +226,8 @@ describe("ready means the worklet holds the sound right now", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     rig.callbacks!.onError(new Error("The processor failed"));
     await settle();
-    expect(["marimba", "vibraphone", "kalimba"].map(marker)).toEqual(["cold", "cold", "cold"]);
+    // The vibraphone is the current sound: still marked, though the worklet holds nothing now.
+    expect(["marimba", "vibraphone", "kalimba"].map(marker)).toEqual(["cold", "selected", "cold"]);
     expect(store.isInstrumentReady("vibraphone")).toBe(false);
 
     await expect(store.setInstrument("marimba")).resolves.toEqual({ status: "ready", instrument: "marimba" });

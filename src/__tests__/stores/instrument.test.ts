@@ -16,23 +16,23 @@ const liveMocks = vi.hoisted(() => ({
 vi.mock("@/services/livePlayback", () => liveMocks);
 
 const audioMocks = vi.hoisted(() => ({
-  /** The sounds the worklet holds right now. The engine answers readiness from this, as the real one does from livePlayback. */
+  /** The sampled banks the worklet holds right now. The engine answers readiness from this, as the real one does from livePlayback. */
   held: new Set<string>(["piano"]),
+  /** The oscillator synths need no download, so the engine reports them ready whatever the worklet holds. */
+  oscillators: new Set(["triangle", "square", "sawtooth", "sine"]),
   initAudioEngine: vi.fn().mockResolvedValue(undefined),
   isPrewarmed: vi.fn<(instrumentName: string) => boolean>(() => false),
   prewarmSoundSamples: vi.fn<(instrumentName: string) => Promise<void>>(async () => {}),
-  getReadySounds: vi.fn((): string[] => []),
   setLiveSynthControls: vi.fn(),
 }));
 
 vi.mock("@/services/audioEngine", () => audioMocks);
 
-/** The engine holds exactly `sounds`; a preparation that succeeds leaves it holding that sound too. */
+/** The worklet holds exactly `sounds`; a preparation that succeeds leaves it holding that sound too. Oscillators are always ready. */
 function holdOnly(...sounds: string[]) {
   audioMocks.held.clear();
   for (const sound of sounds) audioMocks.held.add(sound);
-  audioMocks.isPrewarmed.mockImplementation((name: string) => audioMocks.held.has(name));
-  audioMocks.getReadySounds.mockImplementation(() => [...audioMocks.held]);
+  audioMocks.isPrewarmed.mockImplementation((name: string) => audioMocks.held.has(name) || audioMocks.oscillators.has(name));
   audioMocks.prewarmSoundSamples.mockImplementation(async (name: string) => { audioMocks.held.add(name); });
 }
 
@@ -97,7 +97,8 @@ describe("instrument store warmup", () => {
     const initialization = store.initializeInstruments();
     await Promise.resolve();
     expect(store.isLoading).toBe(true);
-    expect(audioMocks.prewarmSoundSamples).toHaveBeenCalledWith("piano");
+    // The default synth is ready (it needs no download) but the renderer has not been given it yet.
+    expect(audioMocks.prewarmSoundSamples).toHaveBeenCalledWith("triangle");
     prepared.resolve();
     await initialization;
     expect(store.isLoading).toBe(false);
@@ -124,8 +125,8 @@ describe("instrument store warmup", () => {
 
   it("restores the last ready instrument when warmup fails", async () => {
     const store = useInstrumentStore();
-    // Establish piano as the last ready instrument explicitly; the app default
-    // (triangle) is not ready under this suite's readiness mock.
+    // Establish piano as the last ready instrument explicitly, so the fallback
+    // is a sampled bank rather than the always-ready app default.
     await store.setInstrument("piano");
     audioMocks.prewarmSoundSamples.mockRejectedValueOnce(
       new Error("Network down")
@@ -234,7 +235,7 @@ describe("instrument store warmup", () => {
       liveMocks.needsLivePlaybackPreparation.mockImplementation((name: string) => name === "kalimba");
     });
 
-    it("says why and plays on a held sound when memory refuses it again", async () => {
+    it("says why and plays on a ready sound when memory refuses it again", async () => {
       // The manager decides afresh on every ask, and answers at once from the size it knows.
       audioMocks.prewarmSoundSamples.mockRejectedValue(new Error(MEMORY_FULL));
       const store = useInstrumentStore();
@@ -244,7 +245,8 @@ describe("instrument store warmup", () => {
       expect(audioMocks.prewarmSoundSamples).toHaveBeenCalledTimes(1);
       expect(store.lastWarmupError).toBe(MEMORY_FULL);
       expect(store.lastWarmupErrorInstrument).toBe("kalimba");
-      expect(store.currentInstrument).toBe("piano");
+      // Not the piano the worklet happens to hold: the synth is ready whatever it holds.
+      expect(store.currentInstrument).toBe("triangle");
     });
 
     it("prepares it again when memory has been freed since", async () => {
@@ -262,7 +264,6 @@ describe("instrument store warmup", () => {
       vi.spyOn(console, "error").mockImplementation(() => {});
       const error = new Error("Worklet module failed to load");
       // A synth needs no download, so it is ready; the worklet has not been given it yet.
-      holdOnly("piano", "square");
       liveMocks.needsLivePlaybackPreparation.mockImplementation((name: string) => name === "square");
       audioMocks.prewarmSoundSamples.mockRejectedValue(error);
       const store = useInstrumentStore();
@@ -394,8 +395,8 @@ describe("instrument store warmup", () => {
 
     it("applies the fallback instrument's Shape when warmup fails", async () => {
       const store = useInstrumentStore();
-      // Shape piano explicitly; the app default (triangle) is not ready under
-      // this suite's readiness mock, so it cannot serve as the fallback.
+      // Shape piano explicitly, so the fallback is a sampled bank with a Shape
+      // of its own rather than the always-ready app default.
       await store.setInstrument("piano");
       store.setSynthControl("delay", 0.3);
       audioMocks.prewarmSoundSamples.mockRejectedValueOnce(new Error("Network down"));
@@ -626,7 +627,6 @@ describe("instrument store: versioned saved data on captured payloads", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     audioMocks.isPrewarmed.mockImplementation(() => true);
     audioMocks.prewarmSoundSamples.mockResolvedValue(undefined);
-    audioMocks.getReadySounds.mockReturnValue(["piano"]);
     liveMocks.needsLivePlaybackPreparation.mockReturnValue(false);
   });
 

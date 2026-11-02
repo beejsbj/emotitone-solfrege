@@ -323,9 +323,17 @@ const NEAREST_SELECTABLE: Record<string, string> = {
   steinway: "piano",
 };
 
+/**
+ * The working sound nearest to one that was removed (kawai: piano), if there is
+ * one. Unpitched and unknown names have none: they only fall back to the default.
+ */
+export function nearestSelectable(name: unknown): string | undefined {
+  return typeof name === "string" && Object.prototype.hasOwnProperty.call(NEAREST_SELECTABLE, name)
+    ? NEAREST_SELECTABLE[name] : undefined;
+}
+
 /** The id itself when it is selectable, else its nearest working sound, else the default. */
 export function selectableReplacement(name: unknown): string {
   if (isSelectableInstrument(name)) return name;
-  return (typeof name === "string" && Object.prototype.hasOwnProperty.call(NEAREST_SELECTABLE, name)
-    ? NEAREST_SELECTABLE[name] : undefined) ?? DEFAULT_INSTRUMENT;
+  return nearestSelectable(name) ?? DEFAULT_INSTRUMENT;
 }

@@ -409,6 +409,15 @@ export interface BindingOptions<T = unknown> {
    * such a codec, or the next save would write over what was merged in.
    */
   adopt?: (state: T) => void;
+  /**
+   * For a merging codec whose store saves only on a tap, never on its own: when
+   * a `storage` event brings in bytes from a writer that does not follow the
+   * merge protocol (an older format, or unreadable), save at once, backing them
+   * up first and writing the union. Waiting for the next save leaves this tab's
+   * own work only in memory, where closing the tab loses it. One write, not a
+   * loop: such a writer never listens.
+   */
+  saveOlderBytes?: boolean;
 }
 
 // Live bindings by key, so a restore can stop the running store from
@@ -423,7 +432,7 @@ export function bindingFor(key: string): PersistedBinding<unknown> | undefined {
 
 export function createPersistedBinding<T>(
   codecDefinition: PersistenceCodec<T>,
-  { storage = persistentStorage, now = () => Date.now(), backup, accept, adopt }: BindingOptions<T> = {},
+  { storage = persistentStorage, now = () => Date.now(), backup, accept, adopt, saveOlderBytes = false }: BindingOptions<T> = {},
 ): PersistedBinding<T> {
   const codec = defineCodec(codecDefinition);
   const retention = codec.backupRetention ?? BACKUP_RETENTION;
@@ -562,6 +571,17 @@ export function createPersistedBinding<T>(
   /** `own`: the stored bytes are this binding's last write. */
   interface Prepared { encoded: string; stored: string | null; own: boolean }
 
+  /**
+   * Bytes another tab wrote in an older format, or unreadable ones, come from
+   * a writer that kept no base of ours: it holds only what it knew, so what it
+   * lacks is not known to be released. The bytes a current tab then writes from
+   * them descend from them, not from what this tab agreed on. So they are no
+   * base either: what follows merges with none (a plain union).
+   */
+  const forgetBase = (): void => {
+    synced = null;
+  };
+
   const prepareWrite = (state: T): Prepared | null => {
     stampTakenBack();
     if (backup) queuedState = { state };
@@ -580,7 +600,7 @@ export function createPersistedBinding<T>(
     const raw = stored.value;
     const own = raw !== null && raw === lastEncoded;
     if (own) synced = raw;
-    let merged: { state: T; raw: string } | null = null;
+    let merged: { state: T; raw: string; current: boolean } | null = null;
     if (codec.merge) {
       // Bytes another tab wrote are merged in, never written over blindly.
       // An older format is backed up first (the hold below); empty storage
@@ -591,13 +611,15 @@ export function createPersistedBinding<T>(
           hold = { reason: "newer", found: lifted.found };
         } else {
           const result = lifted.kind === "lifted" ? mergeIn(state, lifted) : null;
-          if (!result || lifted.kind !== "lifted" || lifted.from !== codec.version) {
+          const current = lifted.kind === "lifted" && lifted.from === codec.version;
+          if (!result || !current) {
             hold = {
               reason: "needs-backup", raw,
               label: result && lifted.kind === "lifted" ? `v${lifted.from}` : "unreadable",
             };
+            forgetBase();
           }
-          if (result) merged = { state: result.state, raw };
+          if (result) merged = { state: result.state, raw, current };
         }
       }
     } else if (raw === null || raw !== lastEncoded) {
@@ -614,7 +636,8 @@ export function createPersistedBinding<T>(
     if (!releaseHold()) return null;
     if (merged) {
       // Memory takes in the other tab's work whether or not this write lands.
-      synced = merged.raw;
+      // An older format was already forgotten above, and stays so.
+      if (merged.current) synced = merged.raw;
       state = merged.state;
       adopt!(state);
     }
@@ -760,8 +783,13 @@ export function createPersistedBinding<T>(
         reportSaveFailure("newer", codec.key);
         return null;
       }
-      // An older format or unreadable bytes wait for the save path, which backs them up first.
-      if (lifted.kind !== "lifted" || lifted.from !== codec.version) return null;
+      // An older format or unreadable bytes wait for the save path, which backs
+      // them up first. They are no base for what follows (see forgetBase).
+      if (lifted.kind !== "lifted" || lifted.from !== codec.version) {
+        forgetBase();
+        if (saveOlderBytes) binding.save(current);
+        return null;
+      }
       const merged = mergeIn(current, lifted);
       if (!merged) return null;
       synced = stored.value;

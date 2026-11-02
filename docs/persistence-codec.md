@@ -27,6 +27,9 @@ A store describes its saved format once:
 | `merge(base, ours, theirs)` | Optional. Reconciles with bytes another tab wrote, instead of writing over them; needs `adopt` on the binding. See "Two tabs". |
 | `shared(data)` | Optional, with `merge`. The part every tab shares; a save that changes none of it is skipped. |
 
+The binding takes `adopt` for a merging codec and, for one whose store saves
+only on a tap, `saveOlderBytes` (see "Named appearance presets merge too").
+
 The stored string is an envelope, `{"$version":1,"data":{…}}`. A payload
 with no `$version` field is version 0, which means unversioned. A
 `$version` that is not an integer from 1 counts as unreadable.
@@ -393,8 +396,12 @@ last-write-wins. So the phrase format is **v2** (`PHRASE_FORMAT_VERSION`). It
 has v1's shape, with an identity step from 1. From the first v2 write, an
 old-build tab meets the "newer" hold instead of writing. Bytes from any other
 version (v1 from an old tab, v0) are backed up first, then merged with **no
-base**: a plain union in which nothing is read as released. Upgrading a device
-backs up the v1 shelf to IndexedDB once (the usual migration rule).
+base**: a plain union in which nothing is read as released. A tab that hears
+such bytes (or unreadable ones) on the `storage` event forgets its base too:
+the v1 that a current tab then writes from them descends from them, not from
+what this tab agreed on, so it merges with no base as well (BJS-579).
+Upgrading a device backs up the v1 shelf to IndexedDB once (the usual
+migration rule).
 
 **The open take is per tab.** `takeId` and `recorder` are never merged. A tab's
 take keeps its own object, notes and recorder through a merge. A merge never
@@ -506,13 +513,47 @@ share one and lose one.
 the same array inside the `$version` envelope, written only by builds that
 merge with other tabs. `migrations[0]` is the identity. The first load of a
 build with this codec backs the exact v0 bytes up (`<key>.backup.v0.<date>`),
-then rewrites the key as v1, like every other codec. A tab still running the
-build before this one (open across the update) writes the bare list over the
-envelope; the next save in a current tab backs those bytes up and merges them
-with no base, so nothing is read as deleted from them. A newer app's list and
-an unreadable list follow the usual hold and backup rules. Rolling the app back
-to a build before this change is not covered: that build reads the envelope as
-no presets, and the `v0` backup holds the list as it was at the update.
+then rewrites the key as v1, like every other codec. A newer app's list and an
+unreadable list follow the usual hold and backup rules.
+
+**A tab still on the build before this one** (open across the update) writes
+its own list over the envelope, bare. It holds only what it knew. A tab on this
+build that hears that write on the `storage` event does two things:
+
+- It forgets its base. A missing preset is read as deleted only against bytes
+  that follow the protocol, and the v1 that a new tab then writes from the old
+  build's list descends from that list, not from what this tab agreed on. So
+  that v1 merges with no base (a plain union), and nothing is read as deleted
+  from it.
+- It saves at once (`saveOlderBytes`): the old build's exact bytes are backed
+  up (`v0`), then the union is written as v1. Presets save only on a tap, so
+  waiting for the next save would leave what this tab holds, and the old build
+  never knew, in memory only, and closing the tab would lose it. This is one
+  write, not a loop: the old build never listens, and the tabs that hear the v1
+  only merge.
+
+Before this, a preset saved in a current tab after the update was lost for good
+when an old-build tab wrote and then any new tab loaded: the new list never had
+it, the tab read that as a delete elsewhere, and it was in no key and no
+backup (found in the review of #289).
+
+Not covered: a tab suspended through both the old build's write and a new tab's
+migration of it (a background tab the browser froze) sees only the migrated
+list when it wakes, and reads a preset it saved in between as deleted. The
+window is the mixed-build period of one deploy.
+
+**Rollback.** Rolling the app back to a build before this change is not
+covered. That build reads the envelope as no presets (it keeps a list only if
+it is a bare array), so the panel shows none, and nothing is written until the
+player saves one. That save writes a one-item bare list over the envelope. From
+then on:
+
+- every preset saved after the update is gone, with no backup holding it;
+- the presets from before the update survive only in the `v0` backup, which a
+  console restore (`emotitoneBackups.restore`) brings back;
+- that backup is pruned once two later version-labelled backups exist
+  (retention is 2), and every old-build overwrite that a current tab later
+  migrates or merges adds another `v0` backup.
 
 An explicit save still answers at the tap: `createPresetPersistence` returns why
 a save was not stored (`quota`, `unknown`, or `newer` while a hold refuses it),

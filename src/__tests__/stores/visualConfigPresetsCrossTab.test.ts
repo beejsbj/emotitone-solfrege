@@ -3,8 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import capturedConfigs from "../fixtures/persistence/saved-configs.v0.store-capture.json?raw";
 import capturedLooks from "../fixtures/persistence/saved-stage-looks.v0.store-capture.json?raw";
 import { createPresetPersistence, savedStageLooksCodec } from "@/services/appearancePresetPersistence";
-import { listBackups } from "@/services/persistenceCodec";
+import { createPersistedBinding, listBackups } from "@/services/persistenceCodec";
 import {
+  dismissSaveFailure,
   persistentStorage,
   resetSaveFailure,
   saveFailureNotice,
@@ -36,7 +37,7 @@ function openTab(): Tab {
 
 const hear = (key: string) => window.dispatchEvent(new StorageEvent("storage", { key }));
 
-interface Preset { id: string; name: string }
+interface Preset { id: string; name: string; updatedAt?: string }
 interface Kind {
   label: string;
   key: string;
@@ -199,6 +200,45 @@ describe.each(kinds)("two tabs, one list of $label", (kind) => {
     expect(names(kind.list(b))).toEqual(["Final", "Other"]);
   });
 
+  it("keeps a preset deleted here deleted when the other tab saved something since", () => {
+    const a = openTab();
+    const { id } = kind.save(a, "Shared");
+    const b = openTab();
+    // Storage moves on while A, which has not heard, deletes the preset.
+    kind.save(b, "Added by B");
+    kind.remove(a, id);
+
+    expect(names(storedList(kind.key))).toEqual(["Added by B"]);
+    expect(names(kind.list(a))).toEqual(["Added by B"]);
+  });
+
+  it("keeps a preset edited here when the other tab saves its unchanged copy", () => {
+    const a = openTab();
+    const { id } = kind.save(a, "Draft");
+    const b = openTab();
+    kind.save(b, "Added by B");
+    rename(kind, a, id, "Final");
+    kind.save(a, "Added by A");
+
+    expect(nameOf(storedList(kind.key), id)).toBe("Final");
+    expect(names(storedList(kind.key))).toEqual(["Added by A", "Added by B", "Final"]);
+  });
+
+  it("keeps a change to one field here and a change to another field in the other tab", () => {
+    const a = openTab();
+    const { id } = kind.save(a, "Draft");
+    const b = openTab();
+    rename(kind, a, id, "Final");
+    kind.save(a, "From A");
+    const stamp = "2026-11-02T12:00:00.000Z";
+    kind.list(b).find((preset) => preset.id === id)!.updatedAt = stamp;
+    kind.save(b, "From B");
+
+    const merged = storedList(kind.key).find((preset) => preset.id === id)!;
+    expect(merged.name).toBe("Final");
+    expect(merged.updatedAt).toBe(stamp);
+  });
+
   it("lets the tab that saves last win when both rename one preset, and both tabs agree", () => {
     const a = openTab();
     const { id } = kind.save(a, "Draft");
@@ -262,7 +302,36 @@ describe.each(kinds)("two tabs, one list of $label", (kind) => {
     expect(names(storedList(kind.key))).toEqual(["Fits", "Too big"]);
   });
 
+  it("announces a repeat failure again after the player put the first away", () => {
+    const a = openTab();
+    const full = () => { throw new DOMException("full", "QuotaExceededError"); };
+    vi.mocked(localStorage.setItem).mockImplementationOnce(full);
+    expect(kind.save(a, "First").failure).toBe("quota");
+    expect(saveFailureNotice.value).not.toBeNull();
+    dismissSaveFailure();
+    expect(saveFailureNotice.value).toBeNull();
+
+    // An explicit save fails once, in answer to a tap: a second tap that fails is news.
+    vi.mocked(localStorage.setItem).mockImplementationOnce(full);
+    expect(kind.save(a, "Second").failure).toBe("quota");
+    expect(saveFailureNotice.value?.message).toBe("Can't save — storage full");
+  });
+
   describe("saved by the build before this one", () => {
+    /** A tab still running that build: it saves its own list, bare, over whatever is stored. */
+    const oldBuildTab = () => {
+      const known = JSON.parse(kind.captured) as Array<Preset & Record<string, unknown>>;
+      return {
+        save(name: string): string {
+          known.push({ ...known[0], id: `old-build-${name}`, name });
+          const bytes = JSON.stringify(known);
+          localStorage.setItem(kind.key, bytes);
+          return bytes;
+        },
+      };
+    };
+    const everyone = (...added: string[]) => [...names(JSON.parse(kind.captured)), ...added].sort();
+
     it("lifts the bare list into the envelope after backing up its exact bytes", () => {
       localStorage.setItem(kind.key, kind.captured);
       const tab = openTab();
@@ -301,6 +370,43 @@ describe.each(kinds)("two tabs, one list of $label", (kind) => {
       expect(backups.map((backup) => backup.label)).toEqual(["v0"]);
       expect(localStorage.getItem(backups[0].backupKey)).toBe(oldBuildBytes);
     });
+
+    it("keeps a preset saved here when a tab on that build writes over it and a new tab then loads", () => {
+      // The build before this one saved the list, and one tab still runs it.
+      localStorage.setItem(kind.key, kind.captured);
+      const old = oldBuildTab();
+      // A tab on this build opens (backing the list up and writing it as v1) and saves a preset.
+      const b = openTab();
+      kind.save(b, "Night");
+      // The old build's tab saves its own preset, bare. It never knew "Night".
+      const oldBytes = old.save("Dawn");
+      hear(kind.key);
+      // That tab reloads onto this build, or any new tab opens, and the first tab hears.
+      const c = openTab();
+      hear(kind.key);
+
+      expect(names(storedList(kind.key))).toEqual(everyone("Dawn", "Night"));
+      expect(names(kind.list(b))).toEqual(everyone("Dawn", "Night"));
+      expect(names(kind.list(c))).toEqual(everyone("Dawn", "Night"));
+      // The old build's exact bytes were backed up before they were replaced.
+      const backedUp = listBackups(persistentStorage, kind.key).map((backup) => localStorage.getItem(backup.backupKey));
+      expect(backedUp).toContain(oldBytes);
+      // And it stays: the next save here does not drop it.
+      kind.save(b, "After");
+      expect(names(storedList(kind.key))).toEqual(everyone("After", "Dawn", "Night"));
+    });
+
+    it("keeps a preset saved here when the tab that heard that build's write closes straight away", () => {
+      localStorage.setItem(kind.key, kind.captured);
+      const old = oldBuildTab();
+      const b = openTab();
+      kind.save(b, "Night");
+      old.save("Dawn");
+      hear(kind.key);
+      disposePinia(b.pinia);
+
+      expect(names(storedList(kind.key))).toEqual(everyone("Dawn", "Night"));
+    });
   });
 
   it("never writes over a list a newer app saved, and says so", () => {
@@ -326,6 +432,30 @@ describe.each(kinds)("two tabs, one list of $label", (kind) => {
 
     expect(kind.save(tab, "Fresh start").failure).toBeNull();
     expect(names(storedList(kind.key))).toEqual(["Fresh start"]);
+  });
+});
+
+describe("a base that bytes from the build before this one have outlived", () => {
+  const stamp = "2026-11-02T09:00:00.000Z";
+  const look = (id: string) => ({ id, name: id, patch: {}, createdAt: stamp, updatedAt: stamp });
+  const key = "emotitone-saved-stage-looks";
+
+  it("merges the bytes that follow them with no base, so nothing saved here reads as deleted", () => {
+    let held: ReturnType<typeof look>[] = [];
+    const binding = createPersistedBinding(savedStageLooksCodec, { adopt: (list) => { held = list; } });
+    held = binding.load();
+    held.push(look("known"), look("mine"));
+    expect(binding.save(held)).toBe(true);
+
+    // A tab on the build before this one saves its own list, bare. It never knew "mine".
+    localStorage.setItem(key, JSON.stringify([look("known"), look("old")]));
+    expect(binding.sync(held)).toBeNull();
+    // A current tab loads those bytes and stores them as v1, without "mine".
+    localStorage.setItem(key, JSON.stringify({ $version: 1, data: [look("known"), look("old")] }));
+    const merged = binding.sync(held);
+
+    expect(merged?.map((preset) => preset.id)).toEqual(["known", "mine", "old"]);
+    binding.unregister();
   });
 });
 

@@ -169,7 +169,11 @@ export function createPresetPersistence<E extends WithId>(
       return kind === null;
     },
   };
-  const binding = createPersistedBinding(codec, { storage, adopt });
+  // Presets save only on a tap. A tab still on the build before this one
+  // writes its own list over the envelope, bare; the tab that hears it saves
+  // the union at once, or what it holds that the old build never knew would sit
+  // in memory only, and be lost if the tab closed first.
+  const binding = createPersistedBinding(codec, { storage, adopt, saveOlderBytes: true });
   return {
     binding,
     save(list) {

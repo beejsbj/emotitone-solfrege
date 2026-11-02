@@ -17,10 +17,23 @@ function prepare(core: LiveAudioCore, rate: number, data: Float32Array) {
     zones: [{ id: 'zone', rootMidi: 69, sampleRate: rate, channels: [data] }],
   } }, 0)
 }
+/**
+ * The dry mix and what each voice sent to the room and the echo, read where
+ * the wet stage takes them in (BJS-596). The room and echo themselves are
+ * left out here, so the dry output is the voices alone; wet.test.ts hears them.
+ */
 function render(core: LiveAudioCore, length: number) {
-  const output = Array.from({ length: 3 }, () => [new Float32Array(length), new Float32Array(length)])
-  core.render(output[0], 0, output[1], output[2])
-  return output
+  const dry = [new Float32Array(length), new Float32Array(length)]
+  const room = [new Float32Array(length), new Float32Array(length)]
+  const delay = [new Float32Array(length), new Float32Array(length)]
+  core.wet.process = (_output, roomSend, delaySend, firstFrame, span) => {
+    for (let c = 0; c < 2; c++) {
+      room[c].set(roomSend[c].subarray(0, span), firstFrame)
+      delay[c].set(delaySend[c].subarray(0, span), firstFrame)
+    }
+  }
+  core.render(dry, 0)
+  return [dry, room, delay]
 }
 
 describe('worklet Shape PCM', () => {

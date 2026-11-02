@@ -1,8 +1,7 @@
 import { onAudioRunning } from "@/services/audioLifecycle";
 import type { LiveEnvelopeOverride, PreparedLiveInstrument, LiveWorklet } from "@/audio/live/types";
 import type { LiveRenderer, LiveRendererCallbacks } from "@/audio/liveRenderer";
-import { createLiveShapingChain, type LiveShaping } from "@/audio/liveShaping";
-import { getLiveOrbit } from "@/services/audioRuntime";
+import type { LiveShaping } from "@/audio/liveShaping";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import { preparedPcmBytes } from "@/audio/live/pcm";
 import { getCatalogSound } from "@/audio/soundCatalog";
@@ -311,27 +310,17 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
       };
       enginePromise ??= (async () => {
         const { createLiveWorklet } = await import("@/audio/live/bridge");
-        // The chain lives and dies with its worklet, so a stale build can
-        // never tear down the effects of a newer one.
-        const chain = createLiveShapingChain(nextContext, destination, getLiveOrbit);
-        let worklet: LiveWorklet;
-        try {
-          const rendererSampleRate = nextContext.sampleRate;
-          worklet = await createLiveWorklet(nextContext, chain.input, callbacks, chain);
-          if (run === generation) {
-            builtSampleRates.add(rendererSampleRate);
-            builtSampleRates.add(nextContext.sampleRate);
-          }
-        } catch (error) {
-          chain.dispose();
-          throw error;
+        // The room and echo are inside the worklet (BJS-596): they live and die with it.
+        const rendererSampleRate = nextContext.sampleRate;
+        const worklet = await createLiveWorklet(nextContext, destination, callbacks);
+        if (run === generation) {
+          builtSampleRates.add(rendererSampleRate);
+          builtSampleRates.add(nextContext.sampleRate);
         }
         worklet.shape(shaping.envelope);
         worklet.effects(shaping);
-        const disposeWorklet = worklet.dispose;
         return {
           ...worklet,
-          dispose() { disposeWorklet(); chain.dispose(); },
           applyShaping(next: LiveShapingState) { worklet.shape(next.envelope); worklet.effects(next); },
         };
       })();
@@ -406,6 +395,15 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
 export function setLivePlaybackShaping(next: LiveShapingState): void {
   shaping = { ...next, envelope: { ...next.envelope } };
   engine?.applyShaping(shaping);
+}
+
+/**
+ * The Looper's "cut" tail policy (PatternAudio.cutWetTails): fade out and
+ * empty what the worklet's shared room and echo hold, every source's tail.
+ * Stop All's cut needs no call: the worklet's own stop empties them.
+ */
+export function cutLiveWetTails(): void {
+  engine?.cutWet();
 }
 
 export function getLivePlayback(name: string): LiveRenderer | undefined {

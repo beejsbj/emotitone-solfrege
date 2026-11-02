@@ -3,6 +3,7 @@ import type { LiveCommand, LiveConfig, LiveEnvelopeOverride, LiveInputNote, Live
 import { createSampleResampler, type SampleResampler } from './resampler'
 import { VoiceEffects } from './lowpass'
 import { PeakLimiter } from './limiter'
+import { WetEffects } from './wet'
 import { applyFade, deeperFade, fadeEnd, type MemberFade } from './fade'
 import { velocityToGain } from '../velocity'
 import { OPEN_CUTOFF_HZ, type LiveShaping } from '../liveShaping'
@@ -129,6 +130,9 @@ export class LiveAudioCore {
   private effectShape: LiveShaping = { cutoff: OPEN_CUTOFF_HZ, resonance: 0, room: 0, delay: 0 }
   private effectPool: VoiceEffects[]
   private scratch = [new Float32Array(128), new Float32Array(128)]
+  /** The voices' room and delay sends for one render; they grow only if a caller renders a longer block. */
+  private roomSend = [new Float32Array(128), new Float32Array(128)]
+  private delaySend = [new Float32Array(128), new Float32Array(128)]
   private instruments = new Map<string, PreparedLiveInstrument>()
   private envelopeOverride: LiveEnvelopeOverride = {}
   // Shaped copies are built once per shape change, not per voice.
@@ -165,6 +169,8 @@ export class LiveAudioCore {
   private pitchBends = new Map<string, number>()
   private gainExpressions = new Map<string, number>()
   readonly transport: AudioTransport
+  /** The room and the echo every voice sends to (BJS-596): their returns join the mix before the limiter. */
+  readonly wet: WetEffects
   /** The output's peak limiter (BJS-590): the last stage of every render. */
   readonly limiter: PeakLimiter
   private readonly transportEvents = new TransportEventWriter()
@@ -172,6 +178,7 @@ export class LiveAudioCore {
 
   constructor(private sampleRate: number, private send: (message: LiveResponse) => void, private notePrefix = 'worklet') {
     this.effectPool = Array.from({ length: MAX_AUDIO_VOICES + MAX_FADES }, () => new VoiceEffects(sampleRate))
+    this.wet = new WetEffects(sampleRate)
     this.limiter = new PeakLimiter(sampleRate)
     this.transport = new AudioTransport(sampleRate, send, this.transportEvents, {
       silence: (memberId, frame, cut) => this.silenceMember(memberId, frame, cut),
@@ -183,7 +190,8 @@ export class LiveAudioCore {
    * Forced fade of transport voices (mute, solo, stop): one release at the fade
    * boundary. A stop (every member) leaves voices on a fade-out to ramp out on
    * their own (BJS-598); a cut (Stop All's second tap) takes those and every
-   * release tail too, so nothing of the loop sounds past it.
+   * release tail too, and what the room and echo hold, live notes' tails
+   * included, so nothing of the loop sounds past it.
    */
   private silenceMember(memberId: string | null, frame: number, cut = false) {
     for (const voice of this.voices) {
@@ -193,6 +201,8 @@ export class LiveAudioCore {
         this.releaseVoice(voice, frame, VOICE_RETIRE_SECONDS * this.sampleRate)
       }
     }
+    // The same frame and length as those releases: they go into the room and echo, which then empty.
+    if (cut && memberId === null) this.wet.cut(frame)
   }
 
   /** A member fading out (BJS-598): its sounding voices, release tails included, follow the ramp, and never come back up. */
@@ -404,6 +414,12 @@ export class LiveAudioCore {
         for (const voice of this.fades) if (!voice.shaping) voice.effects.set(shape)
         return
       }
+      case 'echo':
+        this.wet.setEcho(command.time, command.feedback)
+        return
+      case 'wet-cut':
+        this.wet.cut(frame)
+        return
       case 'shape': {
         // Sounding voices keep their envelope; the next attack uses the new one.
         const { attack, release } = command.envelope
@@ -904,7 +920,7 @@ export class LiveAudioCore {
     }
   }
 
-  private mix(collection: Voice[], output: Float32Array[], offset: number, length: number, firstFrame: number, room?: Float32Array[], delay?: Float32Array[]) {
+  private mix(collection: Voice[], output: Float32Array[], offset: number, length: number, firstFrame: number, room: Float32Array[], delay: Float32Array[]) {
     // Each envelope section is affine. The sampler can mix a contiguous block
     // with one coefficient lookup per stereo frame and no virtual calls in its
     // inner filter loop; source/filter state stays local for the whole span.
@@ -1005,12 +1021,17 @@ export class LiveAudioCore {
     }
   }
 
-  render(output: Float32Array[], firstFrame: number, room?: Float32Array[], delay?: Float32Array[]) {
+  render(output: Float32Array[], firstFrame: number) {
     const length = output[0]?.length ?? 0
     const endFrame = firstFrame + length
     for (const channel of output) channel.fill(0)
-    if (room) for (const channel of room) channel.fill(0)
-    if (delay) for (const channel of delay) channel.fill(0)
+    if (this.roomSend[0].length < length) {
+      this.roomSend = [new Float32Array(length), new Float32Array(length)]
+      this.delaySend = [new Float32Array(length), new Float32Array(length)]
+    }
+    const room = this.roomSend, delay = this.delaySend
+    for (const channel of room) channel.fill(0, 0, length)
+    for (const channel of delay) channel.fill(0, 0, length)
     this.transport.beginQuantum(firstFrame, endFrame)
     const announceUntil = endFrame + this.transport.lookahead
     this.announceReleases(announceUntil)
@@ -1071,8 +1092,10 @@ export class LiveAudioCore {
       this.mix(this.fades, output, frame - firstFrame, span, frame, room, delay)
       frame += span
     }
-    // The voice sum is complete: hold it under full scale before it leaves the worklet.
-    this.limiter.process(output, room, delay)
+    // The voice sum is complete: add what the room and echo return, then hold
+    // dry and wet together under full scale before they leave the worklet.
+    this.wet.process(output, room, delay, firstFrame, length)
+    this.limiter.process(output)
     this.publishPlan(endFrame)
     this.finishOwners()
     this.finishForgetting()

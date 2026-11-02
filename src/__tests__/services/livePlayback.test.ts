@@ -1,15 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises } from '@vue/test-utils'
 
-const mocks = vi.hoisted(() => ({ create: vi.fn(), prepare: vi.fn(), releasePrepared: vi.fn(), preparationDiagnostics: vi.fn(),
-  chains: [] as { input: object; apply: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn> }[] }))
+const mocks = vi.hoisted(() => ({ create: vi.fn(), prepare: vi.fn(), releasePrepared: vi.fn(), preparationDiagnostics: vi.fn() }))
 vi.mock('@/audio/live/bridge', () => ({ createLiveWorklet: mocks.create }))
-vi.mock('@/audio/liveShaping', () => ({ OPEN_CUTOFF_HZ: 12000, createLiveShapingChain: vi.fn(() => {
-  const chain = { input: {}, room: {}, delay: {}, apply: vi.fn(), dispose: vi.fn() }
-  mocks.chains.push(chain)
-  return chain
-}) }))
-vi.mock('@/services/audioRuntime', () => ({ getLiveOrbit: vi.fn() }))
 vi.mock('@/services/preparedLiveInstrument', () => ({ prepareLiveInstrument: mocks.prepare,
   releasePreparedLiveInstrument: mocks.releasePrepared, getPreparedLiveInstrumentDiagnostics: mocks.preparationDiagnostics }))
 
@@ -26,13 +19,13 @@ const context = () => ({ audioWorklet: {}, state: 'running' }) as AudioContext
 const destination = {} as AudioNode
 async function setup() {
   const engine = { prepare: vi.fn().mockResolvedValue(undefined), forget: vi.fn(), press: vi.fn(),
-    release: vi.fn(), clear: vi.fn(), configure: vi.fn(), shape: vi.fn(), effects: vi.fn(), dispose: vi.fn() }
+    release: vi.fn(), clear: vi.fn(), configure: vi.fn(), shape: vi.fn(), effects: vi.fn(), cutWet: vi.fn(), dispose: vi.fn() }
   mocks.create.mockResolvedValue(engine)
   mocks.prepare.mockImplementation(async (_context, name) => bank(name))
   mocks.preparationDiagnostics.mockReturnValue({ cachedPreparationPcmBytes: 0, preparingPcmBytes: 0, preparationPcmBudgetBytes: 192 * 1024 * 1024 })
   return { engine, manager: await import('@/services/livePlayback'), context: context() }
 }
-beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); mocks.chains.length = 0; vi.stubGlobal('AudioWorkletNode', vi.fn()) })
+beforeEach(() => { vi.resetModules(); vi.clearAllMocks(); vi.stubGlobal('AudioWorkletNode', vi.fn()) })
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs() })
 
 describe('live playback instrument manager', () => {
@@ -621,18 +614,17 @@ describe('live playback instrument manager', () => {
 describe('live Shape controls on the worklet backend', () => {
   const shaped = { cutoff: 800, resonance: 4, room: .5, delay: .3, envelope: { attack: .2, release: undefined } }
 
-  it('routes the worklet through its shaping chain with the latest controls', async () => {
+  it('connects the worklet, room and echo inside it, straight to the output with the latest controls', async () => {
     const { manager, engine, context } = await setup()
     manager.setLivePlaybackShaping(shaped)
     await manager.prepareLivePlayback(context, destination, 'piano')
-    const [chain] = mocks.chains
-    expect(mocks.create).toHaveBeenCalledWith(context, chain.input, expect.anything(), chain)
+    expect(mocks.create).toHaveBeenCalledWith(context, destination, expect.anything())
     expect(engine.effects).toHaveBeenLastCalledWith(shaped)
     expect(engine.shape).toHaveBeenLastCalledWith(shaped.envelope)
     expect(engine.effects).toHaveBeenLastCalledWith(shaped)
   })
 
-  it('applies later edits to the chain and the worklet envelope', async () => {
+  it('applies later edits to the worklet\'s sends and envelope', async () => {
     const { manager, engine, context } = await setup()
     await manager.prepareLivePlayback(context, destination, 'piano')
     manager.setLivePlaybackShaping(shaped)
@@ -654,12 +646,16 @@ describe('live Shape controls on the worklet backend', () => {
     expect(engine.effects).toHaveBeenLastCalledWith(shaped)
   })
 
-  it('disposes the chain together with its worklet', async () => {
+  it('passes the "cut" tail policy to the worklet that holds the room and echo, and does nothing without one', async () => {
     const { manager, engine, context } = await setup()
+    manager.cutLiveWetTails()
     await manager.prepareLivePlayback(context, destination, 'piano')
+    manager.cutLiveWetTails()
+    expect(engine.cutWet).toHaveBeenCalledOnce()
     manager.getLivePlayback('piano')!.dispose()
     expect(engine.dispose).toHaveBeenCalledOnce()
-    expect(mocks.chains[0].dispose).toHaveBeenCalledOnce()
+    manager.cutLiveWetTails()
+    expect(engine.cutWet).toHaveBeenCalledOnce()
   })
 })
 

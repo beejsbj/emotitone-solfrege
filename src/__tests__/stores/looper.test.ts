@@ -134,6 +134,7 @@ import { useCodeStripStrudel } from "@/composables/useCodeStripStrudel";
 import CodeStrip from "@/components/uniques/CodeStrip/index.vue";
 import { audioTimeToOutputTime } from "@/services/liveAudioTiming";
 import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
+import { getLiveArticulation } from "@/services/liveArticulation";
 import { UIBeatClock, uiBeatClock } from "@/composables/useUIBeat";
 import { createTestPinia } from "../helpers/test-utils";
 import { useLooperStore } from "@/stores/looper";
@@ -550,6 +551,16 @@ describe("Play is the loop on the worklet transport", () => {
 
     const peakSince = (from: number) => pcm.slice(from).reduce((peak, sample) => Math.max(peak, Math.abs(sample)), 0);
     const soundsOf = (phraseId: string) => new Set(attacksOf(phraseId).map((attack) => attack.instrument));
+    /** The envelope the transport was handed for a member's first note: the sound the plan was made for. */
+    const envelopeOf = (phraseId: string) => {
+      const tables = rig.commands.flatMap((command) => command.type !== "transport-change" ? []
+        : command.change.type === "batch" ? command.change.changes : [command.change])
+        .flatMap((part) => part.type === "join" && part.member.table.id === phraseId ? [part.member.table] : []);
+      const table = tables.at(-1)!;
+      return { attack: table.attack[0], decay: table.decay[0], sustain: table.sustain[0], release: table.release[0] };
+    };
+    const notesOf = (view: { notes: { note: string; pressTime: number }[] }) =>
+      [...view.notes].sort((left, right) => left.pressTime - right.pressTime).map((note) => note.note);
 
     it("is a sound the worklet cannot load, so a join that names it fails", async () => {
       rig.removed.add(GONE);
@@ -580,6 +591,11 @@ describe("Play is the loop on the worklet transport", () => {
       expect(player.getLooper()).toMatchObject({ running: true, members: [expect.objectContaining({ id: kept })] });
       expect(rig.prepared).toContain(alive);
       expect(rig.prepared).not.toContain(gone);
+      // The notes are planned for the sound they play on: its envelope, not the removed sound's.
+      const natural = getLiveArticulation(alive);
+      for (const control of ["attack", "decay", "sustain", "release"] as const) {
+        expect(envelopeOf(kept)[control], control).toBeCloseTo(natural[control], 5);
+      }
 
       const from = pcm.length;
       render(3);
@@ -618,6 +634,69 @@ describe("Play is the loop on the worklet transport", () => {
       // The member that was never removed is untouched by the others' mapping.
       expect(soundsOf(first)).toEqual(new Set(["triangle"]));
       expect(storedSound(kept)).toBe(GONE);
+    });
+
+    // A removed sound is pitched, so its pattern follows the key and mode like one
+    // on its replacement. Only unpitched and unknown sounds keep their captured tuning.
+    it.each([GONE, "supersaw"])("a pattern recorded on %s follows the key like its replacement does, and its dial draws what is heard", async (gone) => {
+      const kept = await keepOn(gone, .5, ["A4", "B4", "D5"]);
+      const { phrases, looper } = reopen(gone);
+      phrases.openPhrase(kept);
+      await flush();
+      looper.togglePlay();
+      await flush();
+      await looper.settled();
+      expect(looper.memberFor(kept)).toMatchObject({ pinned: false });
+      expect(player.getLooper().members[0]).toMatchObject({ id: kept, pinned: false });
+      render(2.5);
+      expect(new Set(attacksOf(kept).map((attack) => attack.noteName))).toEqual(new Set(["A4", "B4", "D5"]));
+      expect(notesOf(looper.viewFor(kept)!)).toEqual(["A4", "B4", "D5"]);
+
+      // C major to D major: the same take on piano sounds B4 C#5 E5.
+      useMusicStore().setKey("D");
+      await flush();
+      render(4);
+      const lastCycle = new Set(attacksOf(kept).slice(-3).map((attack) => attack.noteName));
+      expect(lastCycle).toEqual(new Set(["B4", "C#5", "E5"]));
+      // The dial draws what is heard, in the key it is heard in.
+      expect(looper.viewFor(kept)).toMatchObject({ key: "D", mode: "major" });
+      expect(notesOf(looper.viewFor(kept)!)).toEqual(["B4", "C#5", "E5"]);
+      // Pinning is the player's choice, as for any pitched sound.
+      expect(looper.looper.members[0].pinned).toBe(false);
+    });
+
+    describe("when the replacement itself cannot load", () => {
+      it("the line names the replacement as the first pattern starts", async () => {
+        const kept = await keepOn(GONE);
+        const { phrases, looper } = reopen(GONE);
+        rig.refused.add("piano");
+        phrases.openPhrase(kept);
+        await flush();
+        looper.togglePlay();
+        await flush();
+        await looper.settled();
+        expect(looper.lastError).toBe("Not enough memory for Piano.");
+        expect(looper.members).toEqual([]);
+      });
+
+      it("the line names the replacement as a pattern joins a running loop", async () => {
+        const kept = await keepOn(GONE, 4, ["A4", "B4", "D5"]);
+        const { phrases, looper } = reopen(GONE);
+        playTake(.5);
+        const first = phrases.take.id;
+        looper.togglePlay();
+        await flush();
+        await looper.settled();
+        render(1.3);
+        rig.refused.add("piano");
+        phrases.openPhrase(kept);
+        await flush();
+        looper.togglePlay();
+        await flush();
+        await looper.settled();
+        await vi.waitFor(() => expect(looper.lastError).toBe("Not enough memory for Piano."));
+        expect(looper.members.map((member) => member.phraseId)).toEqual([first]);
+      });
     });
 
     describe("a saved Loop's pointer", () => {
@@ -669,6 +748,25 @@ describe("Play is the loop on the worklet transport", () => {
         expect(phrases.book.loops[0].members).toEqual(pointers);
         expect(phrases.findPhrase(second)).toEqual(recorded);
         expect(storedSound(second)).toBe(GONE);
+      });
+
+      it("follows the key like its replacement does, and the dial draws what the transport plays", async () => {
+        const { second, id } = await savedLoop();
+        const { phrases, looper } = reopen(GONE);
+        // Saved unpinned: the transport bends it, so the dial must too.
+        expect(phrases.book.loops[0].members.find((member) => member.phraseId === second)).toMatchObject({ pinned: false });
+        expect(looper.openLoop(id)).toBe(true);
+        await flush();
+        await looper.settled();
+        render(2.5);
+        expect(notesOf(looper.viewFor(second)!)).toEqual(["A4", "B4", "D5"]);
+
+        useMusicStore().setKey("D");
+        await flush();
+        render(4);
+        expect(new Set(attacksOf(second).slice(-3).map((attack) => attack.noteName))).toEqual(new Set(["B4", "C#5", "E5"]));
+        expect(looper.viewFor(second)).toMatchObject({ key: "D", mode: "major" });
+        expect(notesOf(looper.viewFor(second)!)).toEqual(["B4", "C#5", "E5"]);
       });
 
       it("joins a running loop on the working sound when its Play brings the Loop in", async () => {

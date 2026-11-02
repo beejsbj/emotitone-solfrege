@@ -198,10 +198,14 @@ function instrumentLabel(instrument: string) {
  * A phrase recorded on a sound the app no longer has plays on the nearest one
  * (the Looper maps it at every join, BJS-594; the phrase keeps its own). The
  * strip names the sound it plays on, and says out loud which it was recorded on.
+ * The clause ends before the strip's own instrument name that follows it in the
+ * spoken label, so "kawai" and "piano" do not read as one name.
  */
 function recordedOn(phrase: Phrase) {
   const { instrument } = phrase.context;
-  return playableSoundName(instrument) === instrument ? undefined : `recorded on ${instrumentLabel(instrument)}`;
+  return playableSoundName(instrument) === instrument
+    ? undefined
+    : `recorded on ${instrumentLabel(instrument)}, which has been removed`;
 }
 
 /** The strip's spoken state: where it sits, then the swap if there is one. */

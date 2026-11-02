@@ -966,7 +966,8 @@ describe("a saved Loop is its own reel (BJS-572)", () => {
       const expectNamed = () => {
         // The strip names the sound it plays on, not the one that is gone...
         expect(soundOf(first)).toBe("piano");
-        expect(spoken(first)).toContain("recorded on kawai");
+        // ...in words that cannot be heard as one name ("Kawai piano").
+        expect(spoken(first)).toContain("recorded on kawai, which has been removed, piano");
         expect(strip(first).text()).not.toContain("kawai");
         // ...and a pattern on a sound the app still has says nothing extra.
         expect(soundOf(second)).toBe("triangle");

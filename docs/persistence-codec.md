@@ -217,7 +217,9 @@ Backups themselves do not count toward the active shelf budget.
 `emotitone-visual-config` v1 stores sparse overrides, plus the non-default
 `visualsEnabled` and `laBasedMinor` preferences. Decode fills omitted fields
 from today's defaults; returning a setting to its default removes its override.
-Explicitly saved named presets remain snapshots, on their existing keys.
+Explicitly saved named presets remain snapshots, on their existing keys. Since
+BJS-579 each list is a versioned payload of its own that merges with other tabs
+(see "Named appearance presets merge too").
 
 The v0 migration removes values equal to any historical default before legacy
 field conversions, then saves only remaining overrides. The checked-in table
@@ -266,6 +268,11 @@ Never edit a capture; add a new file.
   pre-codec serializer (`JSON.stringify` through the plugin), driven over four
   shaped instruments. Captured 2026-10-10 from origin/main `10717555`.
 - `visual-config.v0.store-capture.json`: exact output from the pre-codec visual store at `d85d9a02`, captured 2026-10-15 with customized blob size, BPM, octave, drawer rows and La preference. This is a store-driven capture, not a phone/browser-profile capture.
+- `saved-stage-looks.v0.store-capture.json` and
+  `saved-configs.v0.store-capture.json`: the exact bytes the pre-codec visual
+  store wrote for two Stage Looks and two legacy full configurations (a bare
+  JSON array each), captured 2026-11-02 from origin/main `9684cede` with the
+  clock held still. A store-driven capture, not a browser-profile one.
 - `instrument.v0.headless-chrome.json`: read out of a real Chrome profile's
   Local Storage after an audio-lab run (default state).
 - Still wanted: payloads from Burooj's own phone and laptop, from
@@ -460,9 +467,53 @@ is unchanged.
 | Performance settings (codec) | `emotitone-tempo`, `emotitone-octave`, `emotitone-drawer-rows` | One value each; the last one set is the one wanted. |
 | Music, keyboard drawer (plugin, unversioned) | `music`, `emotitone-keyboard-drawer` | Current key, mode and drawer state: settings. |
 
-**Known gap:** named appearance presets (`emotitone-saved-configs`,
-`emotitone-saved-stage-looks`) are things the player made, not settings, and
-each save rewrites the whole list. A tab that saves a preset can still drop one
-the other tab saved since it loaded. They are small and outside the sketch
-path; a follow-up should give them the same merge (a list by id against a
-base).
+### Named appearance presets merge too (BJS-579)
+
+`emotitone-saved-stage-looks` and `emotitone-saved-configs` (the legacy full
+configurations) hold things the player made and named, so they follow the
+phrase shelf's rule, not the table above. Each is a codec whose data is the
+list of presets (`src/services/appearancePresetPersistence.ts`). The merge by
+id against a base is the one the phrase shelf uses
+(`src/services/listMerge.ts`, shared with `phraseMerge.ts`), and the binding
+is the same: merge before every write, merge on the `storage` event, and
+`adopt` the merged list into the store.
+
+**What was wrong.** Nothing listened for another tab's save, and each explicit
+save wrote the whole list from memory. A tab that loaded before another tab
+saved a preset wrote its older list over it (the preset was lost), and a
+preset deleted in one tab came back when the other tab's older list saved. Both
+were reproduced with two real store instances before the change.
+
+The rules, by preset `id` against the base:
+
+| Case | Result |
+| --- | --- |
+| New in either tab | Kept. |
+| Changed in one tab only (a rename) | That change wins. |
+| Deleted in one tab, untouched in the other | **The delete holds**, in every tab. |
+| Deleted in one tab, changed in the other since they last agreed | **Comes back** with the change: an edit beats a concurrent delete, as for a phrase. |
+| Changed in both | Field by field. Where both changed one field (two different names), the tab that saves last wins and the other takes it in from the event. |
+| Order | Not a change. Two tabs may list the same presets in different orders (`shared`), and a save that differs only in order writes nothing. |
+
+Presets save only on a tap (there is no autosave), so taking another tab's
+presets in writes nothing, and two tabs cannot trade writes.
+
+**Ids.** A new preset's id is a UUID, not the millisecond clock: the merge keys
+on the id, so two tabs naming a preset in the same millisecond would otherwise
+share one and lose one.
+
+**Format.** v0 is the bare JSON array this section's keys held before; v1 is
+the same array inside the `$version` envelope, written only by builds that
+merge with other tabs. `migrations[0]` is the identity. The first load of a
+build with this codec backs the exact v0 bytes up (`<key>.backup.v0.<date>`),
+then rewrites the key as v1, like every other codec. A tab still running the
+build before this one (open across the update) writes the bare list over the
+envelope; the next save in a current tab backs those bytes up and merges them
+with no base, so nothing is read as deleted from them. A newer app's list and
+an unreadable list follow the usual hold and backup rules. Rolling the app back
+to a build before this change is not covered: that build reads the envelope as
+no presets, and the `v0` backup holds the list as it was at the update.
+
+An explicit save still answers at the tap: `createPresetPersistence` returns why
+a save was not stored (`quota`, `unknown`, or `newer` while a hold refuses it),
+and a failed save keeps the preset in memory for the next one to store.

@@ -158,11 +158,13 @@ export function createPresetPersistence<E extends WithId>(
   // The browser's answer to the last write, whichever key it was for (the
   // list, or the backup it waited on), so a save can say why it failed.
   let failure: SaveFailureKind | null = null;
+  let explicit = false;
   const storage: SafeStorage = {
     ...persistentStorage,
-    // An explicit save fails once, in answer to a tap, and nothing retries it.
     write(key, value, options) {
-      const kind = persistentStorage.attempt(key, value, key === codec.key ? { ...options, oneOff: true } : options);
+      // An explicit save fails once, in answer to a tap, and nothing retries it.
+      const oneOff = explicit && key === codec.key ? true : options?.oneOff;
+      const kind = persistentStorage.attempt(key, value, { ...options, oneOff });
       if (kind) failure = kind;
       return kind === null;
     },
@@ -172,7 +174,12 @@ export function createPresetPersistence<E extends WithId>(
     binding,
     save(list) {
       failure = null;
-      return binding.save(list) ? null : failure ?? heldFailure(binding.hold);
+      explicit = true;
+      try {
+        return binding.save(list) ? null : failure ?? heldFailure(binding.hold);
+      } finally {
+        explicit = false;
+      }
     },
   };
 }

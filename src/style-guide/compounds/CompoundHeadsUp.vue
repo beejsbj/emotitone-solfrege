@@ -40,17 +40,17 @@
     </VariantGrid>
 
     <VariantGrid title="Signals">
-      <VariantCell caption="Problem &middot; a lit Brass lamp, fades after 7 s (the Looper's error, a refused press, the shelf not saving)">
+      <VariantCell class="heads-up-specimen__wide" caption="Problem &middot; a lit Brass lamp, fades after 7 s (the Looper's error, a refused press, the shelf not saving)">
         <div class="heads-up-specimen__cell">
           <HeadsUp line="Not enough memory for Piano." label="Looper" signal="problem" />
         </div>
       </VariantCell>
-      <VariantCell caption="Warning &middot; an unlit Brass lamp, fades after 4 s (the shelf over budget, still saving)">
+      <VariantCell class="heads-up-specimen__wide" caption="Warning &middot; an unlit Brass lamp, fades after 4 s (the shelf over budget, still saving)">
         <div class="heads-up-specimen__cell">
           <HeadsUp line="Shelf full · still saving" label="Shelf full" signal="warning" />
         </div>
       </VariantCell>
-      <VariantCell caption="Longest copy &middot; 32 characters">
+      <VariantCell class="heads-up-specimen__wide" caption="Longest copy &middot; 32 characters">
         <div class="heads-up-specimen__cell">
           <HeadsUp line="Audio restarted. Tap Play again." label="Looper" signal="problem" />
         </div>
@@ -144,7 +144,7 @@ const features = [
   gap: var(--s-3);
 }
 
-/* A stack is read at the phone's width, so each one takes the whole row. */
+/* A line is read at the phone's width, so each specimen takes the whole row. */
 .heads-up-specimen__wide {
   grid-column: 1 / -1;
 }

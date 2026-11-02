@@ -91,7 +91,7 @@ describe("Heads-up stack", () => {
     const page = render();
     headsUp.raise({ line: "Shelf full · still saving", label: "Shelf full", signal: "warning" });
     headsUp.raise({ line: "Not enough memory for Piano.", label: "Looper" });
-    headsUp.raise({ line: "Can't play Piano: memory full", label: "Keyboard" });
+    headsUp.raise({ line: "Can't play Piano: memory full", label: "Note not played" });
     await nextTick();
     sweep(page.get('[data-heads-up="Not enough memory for Piano."]').element);
     await nextTick();
@@ -116,10 +116,10 @@ describe("Heads-up stack", () => {
 
   it("the same message again refreshes its timer in place instead of showing twice", async () => {
     const page = render();
-    headsUp.raise({ line: "Can't play Piano: memory full", label: "Keyboard" });
+    headsUp.raise({ line: "Can't play Piano: memory full", label: "Note not played" });
     headsUp.raise({ line: "Shelf full · still saving", label: "Shelf full", signal: "warning" });
     await wait(HEADS_UP_MS.problem - 1000);
-    headsUp.raise({ line: "Can't play Piano: memory full", label: "Keyboard" });
+    headsUp.raise({ line: "Can't play Piano: memory full", label: "Note not played" });
     await nextTick();
     // One line, in its place.
     expect(lines(page)).toEqual(["Can't play Piano: memory full"]);

@@ -13,14 +13,15 @@ export const REFUSED_PRESS_HEADS_UP = "refused-press";
 
 /** The engine's reason, in plain words. */
 export function refusedPressWords(failure: LivePlaybackFailure | undefined, recoveryFailed = false): string {
+  // The engine rebuilt and could not bring the sound back: whatever reason it
+  // left behind, pressing again is what may work.
+  if (recoveryFailed) return "try again";
   // Held keys and playing loops keep the sample memory full.
   if (failure?.budget) return "memory full";
   // Its samples could not download or decode; trying again may work.
   if (failure?.kind === "load") return "didn't load";
   // It can never play here: no AudioWorklet, a format or size the worklet can't hold.
   if (failure?.unsupported) return "not supported";
-  // The engine rebuilt and could not bring the sound back.
-  if (recoveryFailed) return "try again";
   // Not prepared yet, or the renderer is being rebuilt.
   return "not ready";
 }

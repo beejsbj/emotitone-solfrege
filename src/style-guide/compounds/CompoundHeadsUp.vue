@@ -75,7 +75,7 @@ import VariantGrid from "../guide/VariantGrid.vue";
 const LINES: HeadsUpEntry[] = [
   { id: "shelf", line: "Shelf full · still saving", label: "Shelf full", signal: "warning", role: "status" },
   { id: "looper", line: "Not enough memory for Piano.", label: "Looper", signal: "problem", role: "alert" },
-  { id: "refused-press", line: "Can't play Piano: memory full", label: "Keyboard", signal: "problem", role: "alert" },
+  { id: "refused-press", line: "Can't play Piano: memory full", label: "Note not played", signal: "problem", role: "alert" },
   { id: "looper-restart", line: "Audio restarted. Tap Play again.", label: "Looper", signal: "problem", role: "alert" },
 ];
 

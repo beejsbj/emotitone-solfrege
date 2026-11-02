@@ -254,7 +254,8 @@ export const useMusicStore = defineStore(
       headsUp.raise({
         id: REFUSED_PRESS_HEADS_UP,
         line: refusedPressMessage(instrument, failure, recoveryFailed),
-        label: "Keyboard",
+        // Raised by touch, QWERTY and MIDI alike, so its name says what happened, not where.
+        label: "Note not played",
         signal: "problem",
         ...(failure?.budget ? { hint: ". Stop a loop or let go of held keys to free memory." } : {}),
       });

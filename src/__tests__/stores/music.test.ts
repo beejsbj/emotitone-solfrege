@@ -281,6 +281,8 @@ describe("music store", () => {
       await nextTick();
       // The deck says why, as a Heads-up in plain words (BJS-592).
       const line = deck.get(".heads-up__line[role=alert]");
+      // Named for what happened, not for one input: touch, QWERTY and MIDI all raise it.
+      expect(deck.get(".heads-up").attributes("aria-label")).toBe("Note not played");
       expect(line.attributes("title")).toBe("Can't play Piano: memory full");
       expect(line.text()).toContain("Stop a loop or let go of held keys");
       expect(events(dispatchEventSpy, "note-played")).toEqual([]);
@@ -329,6 +331,22 @@ describe("music store", () => {
     const deck = mount(DeckHeadsUp, { attachTo: document.body });
     try {
       await expect(useMusicStore().attackExactPitch("C4")).rejects.toThrow("Live renderer recovery failed");
+      await nextTick();
+      expect(deck.get(".heads-up__line[role=alert]").attributes("title")).toBe("Can't play Piano: try again");
+    } finally {
+      deck.unmount();
+    }
+  });
+
+  it("a recovery that leaves a load failure behind still says to try again", async () => {
+    seat.renderer = null;
+    // The rebuild tried to bring Piano back, its samples failed, and the recovery rejected.
+    seat.failure = { kind: "load", reason: "Could not download C4v8.mp3 (HTTP 503)" };
+    seat.recovery = () => Promise.reject(new Error("Could not download C4v8.mp3 (HTTP 503)"));
+    useInstrumentStore().currentInstrument = "gm_piano";
+    const deck = mount(DeckHeadsUp, { attachTo: document.body });
+    try {
+      await expect(useMusicStore().attackExactPitch("C4")).rejects.toThrow("HTTP 503");
       await nextTick();
       expect(deck.get(".heads-up__line[role=alert]").attributes("title")).toBe("Can't play Piano: try again");
     } finally {

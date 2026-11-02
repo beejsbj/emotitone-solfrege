@@ -44,7 +44,7 @@ import type {
 import { instrumentIconFor } from "@/components/primatives/instrumentIcon";
 import { useMusicColor } from "@/composables/useMusicColor";
 import { useCodeStripStrudel } from "@/composables/useCodeStripStrudel";
-import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
+import { playableSoundName, resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import { CHROMATIC_NOTES } from "@/data";
 import { displayInstrumentName } from "@/data/instruments";
 import {
@@ -194,6 +194,29 @@ function instrumentLabel(instrument: string) {
   return displayInstrumentName(instrument).replace(/_/g, " ");
 }
 
+/**
+ * A phrase recorded on a sound the app no longer has plays on the nearest one
+ * (the Looper maps it at every join, BJS-594; the phrase keeps its own). The
+ * strip names the sound it plays on, and says out loud which it was recorded on.
+ * The clause ends before the strip's own instrument name that follows it in the
+ * spoken label, so "kawai" and "piano" do not read as one name. It is said only
+ * while the strip shows the sound that replaces it: an untouched copy follows the
+ * controls, so once another sound is picked the strip shows that one, and a swap
+ * to it would be a claim nobody made.
+ */
+function recordedOn(phrase: Phrase, shown: string) {
+  const { instrument } = phrase.context;
+  const replacement = playableSoundName(instrument);
+  return replacement === instrument || replacement !== shown
+    ? undefined
+    : `recorded on ${instrumentLabel(instrument)}, which has been removed`;
+}
+
+/** The strip's spoken state: where it sits, then the swap if there is one. */
+function spokenState(phrase: Phrase, state: string | undefined, shown = playableSoundName(phrase.context.instrument)) {
+  return [state, recordedOn(phrase, shown)].filter(Boolean).join("; ") || undefined;
+}
+
 function actionsFor(phrase: Phrase, title: string, inPlace: boolean): PatternStripAction[] {
   const armed = deleteArmedId.value === phrase.id;
   const isYourTake = phrase.shelf === "take" && !inPlace;
@@ -253,7 +276,12 @@ function reelItem(entry: ReelEntry, isFront: boolean): PatternReelItem {
   const contour = phrase.notes.length ? phraseContour(phrase, visualConfigStore.laBasedMinor) : "";
   // A stable title; the solfège contour lives on the meta line below it.
   const title = source?.name || phraseTitle(phrase);
-  const { key, mode, instrument, octave } = phrase.context;
+  const { key, mode, octave } = phrase.context;
+  // The sound it plays on, which is not its own when that one is gone.
+  const instrument = playableSoundName(phrase.context.instrument);
+  // An untouched copy on the desk stands for its Kept source (what Play joins),
+  // whose sound is the one that was recorded; opening the copy moved it to a working one.
+  const recorded = (isDesk && phrasesStore.findPhrase(phrasesStore.deskPhraseId)) || phrase;
   const ordered = [...phrase.notes].sort((left, right) => left.pressTime - right.pressTime);
   // A pattern playing in the Looper shows what its loop dial shows (the same
   // notes, length and place in the loop) and sweeps with it; one that is not
@@ -296,7 +324,7 @@ function reelItem(entry: ReelEntry, isFront: boolean): PatternReelItem {
     shelfTag: shelfTag(phrase, inPlace),
     lamp: isDesk ? (inPlace ? "armed" : "live") : undefined,
     deleteArmed: deleteArmedId.value === phrase.id,
-    stateLabel: stateLabel(inPlace, isDesk),
+    stateLabel: spokenState(recorded, stateLabel(inPlace, isDesk), instrument),
     recording: isDesk && phrasesStore.isTakeSounding,
     canRename: true,
     actions: actionsFor(phrase, title, inPlace),
@@ -344,7 +372,7 @@ function memberItem(loop: Loop, phrase: Phrase, isDesk: boolean): PatternReelIte
     // Where it lives, here: in this Loop.
     shelfTag: loop.name,
     tone: isDesk ? "take" : phrase.shelf === "take" ? "recent" : phrase.shelf,
-    stateLabel: isDesk ? `in ${loop.name}, on the desk; playing opens a new take` : `in ${loop.name}`,
+    stateLabel: spokenState(phrase, isDesk ? `in ${loop.name}, on the desk; playing opens a new take` : `in ${loop.name}`),
     canRename: false,
     actions: [{ kind: "open", label: `Open ${title} in Strudel`, disabled: !phrase.notes.length }],
   };

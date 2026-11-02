@@ -271,6 +271,9 @@ function reelItem(entry: ReelEntry, isFront: boolean): PatternReelItem {
   const { key, mode, octave } = phrase.context;
   // The sound it plays on, which is not its own when that one is gone.
   const instrument = playableSoundName(phrase.context.instrument);
+  // An untouched copy on the desk stands for its Kept source (what Play joins),
+  // whose sound is the one that was recorded; opening the copy moved it to a working one.
+  const recorded = (isDesk && phrasesStore.findPhrase(phrasesStore.deskPhraseId)) || phrase;
   const ordered = [...phrase.notes].sort((left, right) => left.pressTime - right.pressTime);
   // A pattern playing in the Looper shows what its loop dial shows (the same
   // notes, length and place in the loop) and sweeps with it; one that is not
@@ -313,7 +316,7 @@ function reelItem(entry: ReelEntry, isFront: boolean): PatternReelItem {
     shelfTag: shelfTag(phrase, inPlace),
     lamp: isDesk ? (inPlace ? "armed" : "live") : undefined,
     deleteArmed: deleteArmedId.value === phrase.id,
-    stateLabel: spokenState(phrase, stateLabel(inPlace, isDesk)),
+    stateLabel: spokenState(recorded, stateLabel(inPlace, isDesk)),
     recording: isDesk && phrasesStore.isTakeSounding,
     canRename: true,
     actions: actionsFor(phrase, title, inPlace),

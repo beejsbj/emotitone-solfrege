@@ -986,6 +986,39 @@ describe("a saved Loop is its own reel (BJS-572)", () => {
     }
   });
 
+  it("a Kept phrase on a removed sound still says so once it is opened on the desk, until you play into it (BJS-594)", async () => {
+    const { phrases } = setup();
+    const deck = mountDeck();
+    try {
+      playTake(.5);
+      const kept = phrases.keepTake()!;
+      phrases.findPhrase(kept)!.context.instrument = "kawai";
+      await flush();
+      // Opening it forks a copy onto the desk and moves the controls to piano; the Kept source keeps what was recorded.
+      phrases.openPhrase(kept);
+      await flush();
+      const copy = phrases.takeId;
+      expect(copy).not.toBe(kept);
+      expect(phrases.deskPhraseId).toBe(kept);
+      expect(phrases.takeContext.instrument).toBe("piano");
+      expect(phrases.findPhrase(kept)!.context.instrument).toBe("kawai");
+
+      const strip = () => deck.get(`[data-pattern-id="${copy}"]`);
+      const spoken = () => strip().get(".pattern-strip__identity").attributes("aria-label");
+      // The strip on the desk is the Kept phrase Play would join: on piano, recorded on kawai.
+      expect(strip().get(".pattern-strip__instrument").text()).toBe("piano");
+      expect(spoken()).toContain("recorded on kawai");
+
+      // Played into, the copy is your own take on piano; it no longer stands for the Kept phrase.
+      live("D4", 1, Math.round(4 * RATE), Math.round(4.2 * RATE));
+      await flush();
+      expect(phrases.deskPhraseId).toBe(copy);
+      expect(spoken()).not.toContain("recorded on");
+    } finally {
+      deck.unmount();
+    }
+  });
+
   it("renaming or keeping a Loop's pattern changes its name and shelf, never its notes or the Loop's pointer", async () => {
     const { phrases } = setup();
     const deck = mountDeck();

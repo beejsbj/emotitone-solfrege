@@ -36,6 +36,8 @@ export const ROOM_TONE_HZ = 16000
 const ROOM_LEVEL = .2826
 const LINES = LINE_MS.length
 const NORMALISE = 1 / Math.sqrt(LINES)
+/** Each side reads all eight lines, so its taps are normalised too. */
+const TAP_GAIN = ROOM_LEVEL * NORMALISE
 
 export class RoomReverb {
   /** Frames after the last sound sent in until the tail is 120 dB below it: twice the slowest decay. */
@@ -48,12 +50,11 @@ export class RoomReverb {
   private readonly highGains = new Float64Array(LINES)
   private readonly splits = new Float64Array(LINES)
   private readonly crossover: number
+  /** Each channel's four allpass diffusers, left's then right's, in one buffer. */
+  private readonly diffusers: Float64Array
   private readonly diffuserLengths: Int32Array
   private readonly diffuserStarts: Int32Array
-  /** Read positions of each channel's diffusers: left first, then right. */
   private readonly diffuserPositions: Int32Array
-  /** Both channels' diffusers, left then right. */
-  private readonly diffusers: Float64Array
   private readonly taps = new Float64Array(LINES)
   private readonly mixed = new Float64Array(LINES)
   private readonly tone: number
@@ -74,15 +75,15 @@ export class RoomReverb {
     }
     this.lines = new Float64Array(total)
     this.positions = new Int32Array(LINES)
-    this.diffuserLengths = Int32Array.from(DIFFUSER_MS, frames)
-    this.diffuserStarts = new Int32Array(DIFFUSER_MS.length)
+    this.diffuserLengths = Int32Array.from([...DIFFUSER_MS, ...DIFFUSER_MS], frames)
+    this.diffuserStarts = new Int32Array(this.diffuserLengths.length)
     let diffused = 0
-    for (let stage = 0; stage < DIFFUSER_MS.length; stage++) {
+    for (let stage = 0; stage < this.diffuserLengths.length; stage++) {
       this.diffuserStarts[stage] = diffused
       diffused += this.diffuserLengths[stage]
     }
-    this.diffusers = new Float64Array(2 * diffused)
-    this.diffuserPositions = new Int32Array(2 * DIFFUSER_MS.length)
+    this.diffusers = new Float64Array(diffused)
+    this.diffuserPositions = new Int32Array(this.diffuserLengths.length)
     const onePole = (hz: number) => 1 - Math.exp(-2 * Math.PI * Math.min(hz, sampleRate / 2) / sampleRate)
     this.crossover = onePole(ROOM_CROSSOVER_HZ)
     this.tone = onePole(ROOM_TONE_HZ)
@@ -110,7 +111,7 @@ export class RoomReverb {
     const outLeft = output[0], outRight = output[1]
     for (let i = offset; i < offset + length; i++) {
       const left = this.diffuse(sendLeft[i], 0)
-      const right = this.diffuse(sendRight[i], DIFFUSER_MS.length)
+      const right = this.diffuse(sendRight[i], DIFFUSER_GAIN.length)
       for (let line = 0; line < LINES; line++) {
         const value = lines[starts[line] + positions[line]]
         taps[line] = value
@@ -124,8 +125,9 @@ export class RoomReverb {
         lines[starts[line] + position] = mixed[line] * NORMALISE + ((line & 1) ? right : left)
         positions[line] = position + 1 === lengths[line] ? 0 : position + 1
       }
-      const wetLeft = (taps[0] - taps[1] + taps[2] - taps[3] + taps[4] - taps[5] + taps[6] - taps[7]) * ROOM_LEVEL * NORMALISE
-      const wetRight = (taps[0] + taps[1] - taps[2] - taps[3] + taps[4] + taps[5] - taps[6] - taps[7]) * ROOM_LEVEL * NORMALISE
+      // Two orthogonal sign patterns: uncorrelated sides.
+      const wetLeft = (taps[0] - taps[1] + taps[2] - taps[3] + taps[4] - taps[5] + taps[6] - taps[7]) * TAP_GAIN
+      const wetRight = (taps[0] + taps[1] - taps[2] - taps[3] + taps[4] + taps[5] - taps[6] - taps[7]) * TAP_GAIN
       this.toneLeft += tone * (wetLeft - this.toneLeft)
       this.toneRight += tone * (wetRight - this.toneRight)
       const level = gain + gainStep * (i - offset)
@@ -134,18 +136,19 @@ export class RoomReverb {
     }
   }
 
-  /** One channel's four Schroeder allpasses in series. */
+  /** One channel's four Schroeder allpasses in series: `first` is its first stage (0 left, 4 right). */
   private diffuse(input: number, first: number) {
     const buffer = this.diffusers, positions = this.diffuserPositions
-    const offset = first ? this.diffusers.length / 2 : 0
     let value = input
-    for (let stage = 0; stage < DIFFUSER_MS.length; stage++) {
-      const index = offset + this.diffuserStarts[stage] + positions[first + stage]
+    for (let stage = 0; stage < DIFFUSER_GAIN.length; stage++) {
+      const which = first + stage
+      const position = positions[which]
+      const index = this.diffuserStarts[which] + position
       const delayed = buffer[index]
       const fed = value + DIFFUSER_GAIN[stage] * delayed
       buffer[index] = fed
       value = delayed - DIFFUSER_GAIN[stage] * fed
-      positions[first + stage] = positions[first + stage] + 1 === this.diffuserLengths[stage] ? 0 : positions[first + stage] + 1
+      positions[which] = position + 1 === this.diffuserLengths[which] ? 0 : position + 1
     }
     return value
   }

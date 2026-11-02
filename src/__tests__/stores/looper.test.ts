@@ -134,6 +134,7 @@ import { UIBeatClock, uiBeatClock } from "@/composables/useUIBeat";
 import { createTestPinia } from "../helpers/test-utils";
 import { LOOPER_HEADS_UP, useLooperStore } from "@/stores/looper";
 import { useHeadsUpStore } from "@/stores/headsUp";
+import { HEADS_UP_MS } from "@/composables/useHeadsUpQueue";
 import { usePhrasesStore } from "@/stores/phrases";
 import { useMusicStore } from "@/stores/music";
 import { useVisualConfigStore } from "@/stores/visualConfig";
@@ -2407,11 +2408,49 @@ describe("Play is the loop on the worklet transport", () => {
         expect(notice.find(".heads-up__lamp").exists()).toBe(true);
         expect(notice.find("button").exists()).toBe(false);
         expect(looper.members).toEqual([]);
-        // Swept off the right edge, it goes.
+        // Swept off the right edge, it goes, and the Looper's error with it.
         sweep(notice.element, 330, 384);
         await flush();
         expect(deck.find('[data-heads-up="looper"]').exists()).toBe(false);
+        expect(looper.lastError).toBeNull();
+        // Escape on the line does the same.
+        await press(deck.get(".code-strip-bar__play").element, 40);
+        await looper.settled();
+        await flush();
+        expect(looper.lastError).toBe("Not enough memory for Sawtooth.");
+        deck.get('[data-heads-up="looper"]').element.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+        await flush();
+        expect(deck.find('[data-heads-up="looper"]').exists()).toBe(false);
+        expect(looper.lastError).toBeNull();
       } finally {
+        deck.unmount();
+      }
+    });
+
+    it("a refused bank's line fades on its own after a problem's 7 s, and the Looper's error goes with it", async () => {
+      const { phrases, looper } = setup();
+      playTake(.5);
+      const id = phrases.keepTake()!;
+      phrases.findPhrase(id)!.context.instrument = "sawtooth";
+      rig.refused.add("sawtooth");
+      phrases.openPhrase(id);
+      const deck = mountDeck();
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      try {
+        looper.togglePlay();
+        await looper.settled();
+        await flush();
+        expect(deck.get('[data-heads-up="looper"] [role=alert]').text()).toBe("Not enough memory for Sawtooth.");
+        expect(looper.lastError).toBe("Not enough memory for Sawtooth.");
+        vi.advanceTimersByTime(HEADS_UP_MS.problem - 1);
+        await flush();
+        expect(looper.lastError).toBe("Not enough memory for Sawtooth.");
+        vi.advanceTimersByTime(1);
+        await flush();
+        expect(deck.find('[data-heads-up="looper"]').exists()).toBe(false);
+        expect(looper.lastError).toBeNull();
+      } finally {
+        vi.useRealTimers();
         deck.unmount();
       }
     });

@@ -189,7 +189,12 @@ export const useLooperStore = defineStore("looper", () => {
   const latchCountdown = ref<number | null>(null);
   /** The transport is running a Looper session. */
   const running = ref(false);
-  const lastError = ref<string | null>(null);
+  /**
+   * What the Looper could not do, while its Heads-up still shows: read from the
+   * stack, so a line that fades, is swiped away, or is put away by Escape or
+   * Delete clears it too.
+   */
+  const lastError = computed(() => headsUp.entries.find((entry) => entry.id === LOOPER_HEADS_UP)?.line ?? null);
   /** Members the transport holds, by phrase id. */
   const joined = reactive(new Set<string>());
   const swapPolicy = ref<TakeSwapPolicy>(readSwapPolicy());
@@ -259,7 +264,6 @@ export const useLooperStore = defineStore("looper", () => {
    * last, the same one again refreshes it, and a Play that works puts it away.
    */
   function say(line: string | null) {
-    lastError.value = line;
     if (line) headsUp.raise({ id: LOOPER_HEADS_UP, line, label: "Looper", signal: "problem" });
     else headsUp.dismiss(LOOPER_HEADS_UP);
   }

@@ -57,7 +57,7 @@ import { resolveBpm } from "@/domain/phraseBook";
 import { getAudioContext } from "@/services/audioRuntime";
 import { outputTimeToAudioTime } from "@/services/liveAudioTiming";
 import { LooperNotReady, looperFailureOf, looperMessage, type LooperFailureKind } from "@/services/looperMessages";
-import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
+import { playableSoundName, resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import {
   getProductionPatternPlayer,
   onProductionPatternPlayer,
@@ -364,6 +364,13 @@ export const useLooperStore = defineStore("looper", () => {
   }
 
   // ─── Requests ──────────────────────────────────────────────────────────────
+  /**
+   * The sound a phrase plays on when it joins (BJS-594): its own, or the nearest
+   * working one when it was recorded on a sound the app no longer has. Read at
+   * every join; the phrase keeps the sound it was recorded on (rule 3).
+   */
+  const playsOn = (phrase: Phrase) => playableSoundName(phrase.context.instrument);
+
   function configFor(phrase: Phrase): Partial<StrudelConfig> {
     const { context } = phrase;
     // The Code Strip's export configuration for the same phrase: one plan for text and sound.
@@ -375,7 +382,7 @@ export const useLooperStore = defineStore("looper", () => {
       scaleMode: context.mode,
       scaleOctave: context.octave,
       patternDurationMs: phrase.duration,
-      sound: resolveLiveSoundName(context.instrument ?? "triangle"),
+      sound: resolveLiveSoundName(playsOn(phrase)),
       shape: context.shape,
       inline: true,
     };
@@ -388,7 +395,7 @@ export const useLooperStore = defineStore("looper", () => {
       // A copy: the table is built from the notes as they are now (rule 3).
       notes: phrase.notes.map((note) => ({ ...note })) as LogNote[],
       config: configFor(phrase),
-      instrument: phrase.context.instrument ?? "triangle",
+      instrument: playsOn(phrase),
       key: phrase.context.key,
       mode: phrase.context.mode,
       laBasedMinor: visualConfig.laBasedMinor,
@@ -583,7 +590,8 @@ export const useLooperStore = defineStore("looper", () => {
         return true;
       } catch (error) {
         if (epoch === captured) {
-          report(error, phrases.findPhrase(phraseId)?.context.instrument);
+          const failed = phrases.findPhrase(phraseId);
+          report(error, failed && playsOn(failed));
           // Nothing started: every member waiting on this start is gone too.
           const keepLatch = looper.value.latched;
           abandon();
@@ -695,7 +703,7 @@ export const useLooperStore = defineStore("looper", () => {
       joined.add(phrase.id);
     } catch (error) {
       if (epoch !== captured || intents.get(phrase.id) !== token || latestJoin.get(phrase.id) !== serial) return;
-      report(error, phrase.context.instrument);
+      report(error, playsOn(phrase));
       // A refused bank never sounds: the pattern is not playing.
       if (!joined.has(phrase.id)) {
         leave(looper.value, phrase.id);

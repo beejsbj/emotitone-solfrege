@@ -22,17 +22,17 @@
     </template>
 
     <VariantGrid title="Stack">
-      <VariantCell caption="One &middot; a problem, lit lamp">
+      <VariantCell class="heads-up-specimen__wide" caption="One &middot; a warning, its Brass lamp unlit">
         <div class="heads-up-specimen__cell">
           <HeadsUpStack :entries="LINES.slice(0, 1)" />
         </div>
       </VariantCell>
-      <VariantCell caption="Two &middot; the newest at the bottom, nearest the deck">
+      <VariantCell class="heads-up-specimen__wide" caption="Two &middot; the newest at the bottom, nearest the deck; a problem's lamp is lit">
         <div class="heads-up-specimen__cell">
           <HeadsUpStack :entries="LINES.slice(0, 2)" />
         </div>
       </VariantCell>
-      <VariantCell caption="Three &middot; the most that show; a fourth evicts the oldest">
+      <VariantCell class="heads-up-specimen__wide" caption="Three &middot; the most that show; a fourth evicts the oldest">
         <div class="heads-up-specimen__cell">
           <HeadsUpStack :entries="LINES.slice(0, 3)" />
         </div>
@@ -142,6 +142,11 @@ const features = [
   display: flex;
   justify-content: flex-start;
   gap: var(--s-3);
+}
+
+/* A stack is read at the phone's width, so each one takes the whole row. */
+.heads-up-specimen__wide {
+  grid-column: 1 / -1;
 }
 
 .heads-up-specimen__cell {

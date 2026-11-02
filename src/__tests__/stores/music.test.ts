@@ -279,6 +279,9 @@ describe("music store", () => {
     try {
       expect(await musicStore.attackExactPitch("C4")).toBeNull();
       await nextTick();
+      // The instrument drawer keeps the engine's own reason.
+      expect(instrumentStore.lastWarmupError).toBe(seat.failure.reason);
+      expect(instrumentStore.lastWarmupErrorInstrument).toBe("gm_piano");
       // The deck says why, as a Heads-up in plain words (BJS-592).
       const line = deck.get(".heads-up__line[role=alert]");
       // Named for what happened, not for one input: touch, QWERTY and MIDI all raise it.
@@ -293,12 +296,50 @@ describe("music store", () => {
       expect(deck.findAll(".heads-up")).toHaveLength(1);
       // The engine holds the sound again: the next press sounds and the line goes.
       seat.failure = undefined;
-      live = attachLiveCore(seat);
+      live = attachLiveCore(seat, { instruments: ["gm_piano"] });
       const owner = await musicStore.attackExactPitch("E4");
-      await nextTick();
       expect(owner).not.toBeNull();
+      await settle();
+      await nextTick();
+      expect(events(dispatchEventSpy, "note-played")).toHaveLength(1);
       expect(deck.find(".heads-up").exists()).toBe(false);
       await musicStore.releaseNote(owner ?? undefined);
+    } finally {
+      deck.unmount();
+    }
+  });
+
+  it("a press the worklet takes but cannot voice (no sample zone for its pitch) leaves the refusal showing", async () => {
+    seat.renderer = null;
+    seat.failure = { kind: "unavailable", budget: true, reason: "Sample memory is full" };
+    const music = useMusicStore();
+    useInstrumentStore().currentInstrument = "gm_piano";
+    const deck = mount(DeckHeadsUp, { attachTo: document.body });
+    const dispatchEventSpy = vi.spyOn(window, "dispatchEvent");
+    try {
+      expect(await music.attackExactPitch("C4")).toBeNull();
+      await nextTick();
+      expect(deck.get(".heads-up__line").attributes("title")).toBe("Can't play Piano: memory full");
+      // The bank comes back holding only C5 to C6: C4 has no zone to play from.
+      seat.failure = undefined;
+      live = attachLiveCore(seat, { instruments: [{ kind: "sample-bank", instrumentId: "gm_piano", zoneSelection: "first-range",
+        attack: 0, decay: 0, sustain: 1, release: 0, gain: 1,
+        zones: [{ id: "c5", rootMidi: 72, lowMidi: 72, highMidi: 84, sampleRate: 1000, channels: [new Float32Array(2000).fill(.5)] }] }] });
+      const unvoiced = await music.attackExactPitch("C4");
+      expect(unvoiced).not.toBeNull();
+      await settle();
+      await nextTick();
+      // Taken, but nothing sounded: no attack, and the line stays.
+      expect(events(dispatchEventSpy, "note-played")).toEqual([]);
+      expect(deck.get(".heads-up__line").attributes("title")).toBe("Can't play Piano: memory full");
+      await music.releaseNote(unvoiced ?? undefined);
+      // C5 has its zone: it sounds, and only then does the line go.
+      const voiced = await music.attackExactPitch("C5");
+      await settle();
+      await nextTick();
+      expect(events(dispatchEventSpy, "note-played")).toHaveLength(1);
+      expect(deck.find(".heads-up").exists()).toBe(false);
+      await music.releaseNote(voiced ?? undefined);
     } finally {
       deck.unmount();
     }

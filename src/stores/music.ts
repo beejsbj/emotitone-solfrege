@@ -157,6 +157,10 @@ export const useMusicStore = defineStore(
       onEvent(event, held, boundary) {
         const detail = liveDetail(event, held);
         if (event.phase === "attack") {
+          // A note sounded: a refusal still showing no longer holds. Only an
+          // attack says so; a press the worklet takes may still start no voice
+          // (no sample zone for its pitch), and a let-go tap sounds later (BJS-597).
+          headsUp.dismiss(REFUSED_PRESS_HEADS_UP);
           activeNotes.value.set(event.noteId, { ...held.snapshot,
             noteId: event.noteId, audibleAt: detail.audibleAt });
         } else activeNotes.value.delete(event.noteId);
@@ -330,8 +334,6 @@ export const useMusicStore = defineStore(
         raiseRefusedPress(held.instrument);
         return null;
       }
-      // It sounds: a refusal still showing no longer holds.
-      headsUp.dismiss(REFUSED_PRESS_HEADS_UP);
       heldOwners.add(owner);
       // The running path submits without yielding to unrelated microtasks.
       liveAudioClock.now();

@@ -233,6 +233,22 @@ describe('dry and wet are limited together (BJS-596)', () => {
       else expect(core.limiter.peakIn).toBeLessThan(LIMITER_CEILING)
     })
 
+  it('adds no latency: with the room and echo full on, a press sounds on its own frame, bit for bit as dry', () => {
+    const onset = (shape: LiveShaping) => {
+      const core = new LiveAudioCore(RATE, () => {})
+      core.command({ type: 'prepare', requestId: 1, instrument: loudBank() }, 0)
+      core.command({ type: 'effects', shaping: shape }, 0)
+      renderQuanta(core, 8 * QUANTUM)
+      core.command({ type: 'press', ownerId: 'tap', notes: [{ pitch: 69, instrumentId: 'fixture' }] }, 8 * QUANTUM)
+      return renderQuanta(core, 1024, 8 * QUANTUM)
+    }
+    const dry = onset(open), wet = onset({ ...open, room: 1, delay: 1 })
+    // Its recording starts at zero: it sounds from the next frame.
+    expect(dry[0].findIndex(value => value !== 0)).toBe(1)
+    // Nothing returns from the room before its shortest line (31 ms), nor from the echo before 250 ms.
+    for (let c = 0; c < 2; c++) expect(wet[c]).toEqual(dry[c])
+  })
+
   it('leaves the dry mix untouched, bit for bit, while nothing is sent', () => {
     const quiet = (bypass: boolean) => {
       const core = new LiveAudioCore(RATE, () => {})

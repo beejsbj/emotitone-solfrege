@@ -71,6 +71,8 @@ export interface LiveWorklet extends LiveRenderer {
   prepare(instrument: PreparedLiveInstrument): Promise<void>
   shape(envelope: LiveEnvelopeOverride): void
   effects(shaping: LiveShaping): void
+  /** The shared echo's time (seconds) and feedback; it starts at LIVE_DELAY_TIME_SECONDS and LIVE_DELAY_FEEDBACK. */
+  echo(time: number, feedback: number): void
   /** Fade out and empty the shared room and echo: every source's tail, live notes' too. */
   cutWet(): void
   /** Pattern transport commands; responses arrive through `onTransport`. */

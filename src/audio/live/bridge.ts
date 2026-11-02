@@ -187,6 +187,7 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
     release: (ownerId, cancel) => post(cancel ? { type: 'release', ownerId, cancel } : { type: 'release', ownerId }),
     configure: config => post({ type: 'configure', config }),
     effects: shaping => post({ type: 'effects', shaping }),
+    echo: (time, feedback) => post({ type: 'echo', time, feedback }),
     cutWet: () => post({ type: 'wet-cut' }),
     shape: envelope => post({ type: 'shape', envelope }),
     clear: () => post({ type: 'clear' }),

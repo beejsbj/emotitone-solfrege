@@ -5,6 +5,7 @@ import { getLivePlayback, getLivePlaybackFailure, prepareLivePlayback, readLiveR
 import { createPatternPlayer } from "@/services/patternTransport";
 import { getAudioContext } from "@/services/audioRuntime";
 import { createPhoneGate } from "./runner";
+import { parseGateSends } from "./fixtures";
 
 // A piano download that takes as long as the test says, and then is refused,
 // so the run ends at its summary without needing a worklet.
@@ -231,5 +232,49 @@ describe("phone gate run", () => {
     } finally {
       gate.dispose();
     }
+  });
+
+  it("runs the soak through the worklet's room and echo when the link asks (BJS-596)", async () => {
+    window.history.replaceState(null, "", "?room=1&delay=0.5");
+    const context = fakeContext();
+    vi.mocked(getAudioContext).mockReturnValue(context as unknown as AudioContext);
+    vi.mocked(prepareLivePlayback).mockResolvedValueOnce();
+    vi.mocked(getLivePlaybackFailure).mockReturnValue(undefined);
+    const start = vi.fn(async () => {});
+    vi.mocked(createPatternPlayer).mockReturnValue({
+      start, dispose: vi.fn(), getLooper: () => ({ members: [] }), barAtAudioTime: (time: number) => time / 2.4,
+    } as never);
+    vi.mocked(readLiveRenderCost).mockImplementation(() => Promise.resolve(new RenderCostMeter("performance").snapshot()));
+    const renderer = { press: vi.fn(), release: vi.fn() };
+    vi.mocked(getLivePlayback).mockReturnValue(renderer as never);
+    const gate = createPhoneGate();
+    try {
+      expect(gate.state.results.sends).toEqual({ room: 1, delay: .5 });
+      gate.run();
+      context.currentTime = 2.4;
+      await vi.advanceTimersByTimeAsync(200);
+      await vi.advanceTimersByTimeAsync(1200);
+      // The loop's members and the live chords all send that much.
+      const members = (start.mock.calls[0] as unknown as [{ members: { config: { shape?: object } }[] }])[0].members;
+      expect(members.map(member => member.config.shape)).toEqual(members.map(() => expect.objectContaining({ room: 1, delay: .5 })));
+      expect(renderer.press).toHaveBeenCalled();
+      for (const [, notes] of renderer.press.mock.calls) {
+        expect(notes).toEqual([expect.objectContaining({ shaping: { cutoff: 12000, resonance: 0, room: 1, delay: .5 } })]);
+      }
+    } finally {
+      gate.dispose();
+      window.history.replaceState(null, "", "/");
+      vi.mocked(getLivePlaybackFailure).mockReturnValue({ kind: "load", reason: "refused by the test" });
+    }
+  });
+});
+
+describe("phone gate link", () => {
+  it("reads room and delay sends from 0 to 1; anything else, or nothing, is none", () => {
+    const read = (search: string) => parseGateSends(new URLSearchParams(search));
+    expect(read("")).toEqual({ room: 0, delay: 0 });
+    expect(read("?room=1&delay=.25")).toEqual({ room: 1, delay: .25 });
+    expect(read("?latencyHint=balanced&room=0.3")).toEqual({ room: .3, delay: 0 });
+    for (const bad of ["2", "-0.1", "loud", "NaN", "Infinity"]) expect(read(`?room=${bad}&delay=${bad}`)).toEqual({ room: 0, delay: 0 });
   });
 });

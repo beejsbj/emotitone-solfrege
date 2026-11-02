@@ -199,18 +199,22 @@ function instrumentLabel(instrument: string) {
  * (the Looper maps it at every join, BJS-594; the phrase keeps its own). The
  * strip names the sound it plays on, and says out loud which it was recorded on.
  * The clause ends before the strip's own instrument name that follows it in the
- * spoken label, so "kawai" and "piano" do not read as one name.
+ * spoken label, so "kawai" and "piano" do not read as one name. It is said only
+ * while the strip shows the sound that replaces it: an untouched copy follows the
+ * controls, so once another sound is picked the strip shows that one, and a swap
+ * to it would be a claim nobody made.
  */
-function recordedOn(phrase: Phrase) {
+function recordedOn(phrase: Phrase, shown: string) {
   const { instrument } = phrase.context;
-  return playableSoundName(instrument) === instrument
+  const replacement = playableSoundName(instrument);
+  return replacement === instrument || replacement !== shown
     ? undefined
     : `recorded on ${instrumentLabel(instrument)}, which has been removed`;
 }
 
 /** The strip's spoken state: where it sits, then the swap if there is one. */
-function spokenState(phrase: Phrase, state: string | undefined) {
-  return [state, recordedOn(phrase)].filter(Boolean).join("; ") || undefined;
+function spokenState(phrase: Phrase, state: string | undefined, shown = playableSoundName(phrase.context.instrument)) {
+  return [state, recordedOn(phrase, shown)].filter(Boolean).join("; ") || undefined;
 }
 
 function actionsFor(phrase: Phrase, title: string, inPlace: boolean): PatternStripAction[] {
@@ -320,7 +324,7 @@ function reelItem(entry: ReelEntry, isFront: boolean): PatternReelItem {
     shelfTag: shelfTag(phrase, inPlace),
     lamp: isDesk ? (inPlace ? "armed" : "live") : undefined,
     deleteArmed: deleteArmedId.value === phrase.id,
-    stateLabel: spokenState(recorded, stateLabel(inPlace, isDesk)),
+    stateLabel: spokenState(recorded, stateLabel(inPlace, isDesk), instrument),
     recording: isDesk && phrasesStore.isTakeSounding,
     canRename: true,
     actions: actionsFor(phrase, title, inPlace),

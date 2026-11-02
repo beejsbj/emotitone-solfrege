@@ -1010,7 +1010,15 @@ describe("a saved Loop is its own reel (BJS-572)", () => {
       expect(strip().get(".pattern-strip__instrument").text()).toBe("piano");
       expect(spoken()).toContain("recorded on kawai");
 
-      // Played into, the copy is your own take on piano; it no longer stands for the Kept phrase.
+      // Pick another sound: an untouched copy follows the controls, so the strip shows that sound. It
+      // makes no claim that kawai was swapped for it, which the strip's sawtooth is not.
+      await useInstrumentStore().setInstrument("sawtooth");
+      await flush();
+      expect(phrases.takeContext.instrument).toBe("sawtooth");
+      expect(strip().get(".pattern-strip__instrument").text()).toBe("sawtooth");
+      expect(spoken()).not.toContain("recorded on");
+
+      // Played into, the copy is your own take on the controls' sound; it no longer stands for the Kept phrase.
       live("D4", 1, Math.round(4 * RATE), Math.round(4.2 * RATE));
       await flush();
       expect(phrases.deskPhraseId).toBe(copy);

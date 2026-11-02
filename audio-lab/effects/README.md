@@ -67,7 +67,12 @@ graph is the worklet into a unity master into the destination.
   the notes, the room and the echo are exactly silent once the cut's 10 ms have
   passed, with no step, and a note after it gets a room and echo of its own.
   After a plain stop they ring on. The worklet does this itself, on the frame
-  the cut notes finish their release; there is no node swap and no timer.
+  the cut notes finish their release; there is no node swap and no timer. A
+  key held through the cut keeps sending: its sends come back in over 10 ms
+  from the cut's end, so its fresh echo starts from silence, not with a step.
+- A send that is not a number (a saved Shape is not sanitized before it reaches
+  the worklet) sends nothing, and a non-finite sample never enters the room or
+  echo, where it would circulate for as long as anything else is sent.
 - Graph: one app context and master survive initialization; preparation
   issues no resume.
 - Live notes follow knob edits over 15 ms. Playback notes can carry a Shape

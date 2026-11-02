@@ -221,8 +221,10 @@ function initializeTransport() {
         if (instrumentId.startsWith("gm_")) await ensureSoundfontCatalog();
         return getMasterGain();
       },
-      // The "cut" mute tail policy empties the worklet's shared room and echo
-      // (Stop All's cut does so in the worklet itself, BJS-596).
+      // For the "cut" mute/solo tail policy: it empties the worklet's shared room
+      // and echo. The policy is reserved and unused: this player keeps the
+      // default "ring" (Burooj, 2026-10-17), so nothing reaches this today.
+      // Stop All's cut does not need it either: the worklet's stop empties them (BJS-596).
       cutWetTails() { cutLiveWetTails(); },
     },
   }));

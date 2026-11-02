@@ -16,8 +16,12 @@ import { VOICE_RETIRE_SECONDS } from '../voicePolicy'
  * - A cut (Stop All's second tap, BJS-598; a mute under the "cut" tail policy)
  *   fades both returns to silence over VOICE_RETIRE_SECONDS, the cut voices'
  *   own release, then empties both on the frame it ends. The cut voices'
- *   release goes in before then and is faded and emptied with the rest; new
- *   sound after it starts a fresh tail.
+ *   release goes in before then and is faded and emptied with the rest. A cut
+ *   stops loop voices only, so a held key may still be sending: from the cut's
+ *   end the sends come back in over the same time, and its fresh tail (the
+ *   echo 250 ms later) starts from silence rather than mid-waveform.
+ * - A send sample that is not a number goes in as silence: in a feedback
+ *   network it would otherwise circulate for as long as anything else is sent.
  */
 export class WetEffects {
   readonly room: RoomReverb
@@ -29,6 +33,8 @@ export class WetEffects {
   private cutFrom = 0
   private cutGain = 1
   private cutEnd: number | undefined
+  /** After a cut emptied the effects: the frame the sends start coming back in from silence. */
+  private sendsFrom: number | undefined
   private readonly cutFrames: number
 
   constructor(sampleRate: number) {
@@ -50,6 +56,8 @@ export class WetEffects {
     this.cutGain = this.returnGain(frame)
     this.cutFrom = frame
     this.cutEnd = frame + this.cutFrames
+    // What is sent until the cut's end is emptied with the rest; the sends come back in after it.
+    this.sendsFrom = undefined
   }
 
   /**
@@ -72,8 +80,11 @@ export class WetEffects {
   }
 
   private span(output: Float32Array[], room: Float32Array[], delay: Float32Array[], offset: number, length: number, frame: number) {
-    if (carries(room, offset, length)) this.roomLeft = this.room.tailFrames
-    if (carries(delay, offset, length)) this.echoLeft = this.echo.tailFrames
+    const from = this.sendsFrom
+    // Counted from the span's end, so a tail never stops short of its last send's.
+    if (admit(room, offset, length, frame, from, this.cutFrames)) this.roomLeft = this.room.tailFrames + length
+    if (admit(delay, offset, length, frame, from, this.cutFrames)) this.echoLeft = this.echo.tailFrames + length
+    if (from !== undefined && frame + length >= from + this.cutFrames) this.sendsFrom = undefined
     if (!this.active) return
     const gain = this.returnGain(frame)
     const step = (this.returnGain(frame + length) - gain) / length
@@ -101,12 +112,26 @@ export class WetEffects {
     if (this.roomLeft) this.room.clear()
     if (this.echoLeft) this.echo.clear()
     this.roomLeft = this.echoLeft = 0
+    this.sendsFrom = this.cutEnd
     this.cutEnd = undefined
   }
 }
 
-/** Whether a stereo bus holds any sound in [offset, offset + length). */
-function carries(bus: Float32Array[], offset: number, length: number) {
-  for (const channel of bus) for (let i = offset; i < offset + length; i++) if (channel[i] !== 0) return true
-  return false
+/**
+ * Take one stereo send in over [offset, offset + length), which starts at
+ * `frame`: a sample that is not a number becomes silence, and from `fadeFrom`
+ * the send comes back in from silence over `fadeFrames`. Whether any sound is
+ * left in it.
+ */
+function admit(bus: Float32Array[], offset: number, length: number, frame: number, fadeFrom: number | undefined, fadeFrames: number) {
+  let sound = false
+  for (const channel of bus) for (let i = offset; i < offset + length; i++) {
+    const value = channel[i]
+    if (value === 0) continue
+    // NaN and ±Infinity: the only values for which this is not 0.
+    if (value - value !== 0) { channel[i] = 0; continue }
+    if (fadeFrom !== undefined) channel[i] = value * Math.min(1, Math.max(0, (frame + i - offset - fadeFrom) / fadeFrames))
+    if (channel[i] !== 0) sound = true
+  }
+  return sound
 }

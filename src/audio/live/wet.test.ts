@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
+import { PerformanceObserver } from 'node:perf_hooks'
+import { getHeapSpaceStatistics, setFlagsFromString } from 'node:v8'
+import { runInNewContext } from 'node:vm'
 import { LiveAudioCore } from './core'
 import { ECHO_LOOP_FRAMES, MAX_ECHO_FEEDBACK } from './echo'
 import { LIMITER_CEILING } from './limiter'
@@ -121,6 +124,26 @@ describe('the echo (BJS-596)', () => {
       })
       expect(out[echoes[0]]).toBe(.25)
     }
+  })
+
+  it('plays a single repeat out in full at feedback 0, to its last sample', () => {
+    const wet = new WetEffects(RATE)
+    wet.setEcho(.25, 0)
+    const output = [new Float32Array(QUANTUM), new Float32Array(QUANTUM)]
+    const send = [new Float32Array(QUANTUM), new Float32Array(QUANTUM)]
+    const silent = [new Float32Array(QUANTUM), new Float32Array(QUANTUM)]
+    const sent: number[] = [], heard: number[] = []
+    for (let frame = 0; frame < RATE / 2; frame += QUANTUM) {
+      const sending = frame < 10 * QUANTUM
+      for (let i = 0; i < QUANTUM; i++) send[0][i] = send[1][i] = .5 * Math.sin(2 * Math.PI * 440 * (frame + i) / RATE)
+      if (sending) sent.push(...send[0])
+      output[0].fill(0); output[1].fill(0)
+      wet.process(output, silent, sending ? send : silent, frame, QUANTUM)
+      heard.push(...output[0])
+    }
+    // Every sample sent comes back once, exactly, 250 ms later: none of the last quantum is cut off.
+    expect(heard.slice(12000, 12000 + sent.length)).toEqual(sent)
+    expect(heard.slice(12000 + sent.length).every(value => value === 0)).toBe(true)
   })
 
   it('ignores an echo setting that is not a number', () => {
@@ -275,21 +298,13 @@ describe('dry and wet are limited together (BJS-596)', () => {
     expect(Math.max(...later[0].subarray(-RATE / 2).map(Math.abs))).toBeLessThan(1e-6)
   })
 
-  it('allocates nothing while the room and echo run 60 s of changing sends', () => {
+  it('allocates nothing while the room and echo run 60 s of changing sends', async () => {
     const wet = new WetEffects(RATE)
     const output = [new Float32Array(QUANTUM), new Float32Array(QUANTUM)]
     const room = [new Float32Array(QUANTUM), new Float32Array(QUANTUM)]
     const delay = [new Float32Array(QUANTUM), new Float32Array(QUANTUM)]
-    const allocations: string[] = []
-    for (const name of ['Float32Array', 'Float64Array', 'Int32Array', 'Array', 'Map', 'Set'] as const) {
-      const original = globalThis[name]
-      vi.stubGlobal(name, new Proxy(original, { construct(target, args) {
-        allocations.push(name)
-        return Reflect.construct(target, args)
-      } }))
-    }
-    try {
-      for (let frame = 0; frame < 60 * RATE; frame += QUANTUM) {
+    const run = (from: number, seconds: number) => {
+      for (let frame = from; frame < from + seconds * RATE; frame += QUANTUM) {
         const sending = frame % RATE < RATE / 2
         for (let c = 0; c < 2; c++) {
           output[c].fill(0)
@@ -299,10 +314,113 @@ describe('dry and wet are limited together (BJS-596)', () => {
         if (frame % (7 * RATE) === 0) wet.cut(frame)
         wet.process(output, room, delay, frame, QUANTUM)
       }
+    }
+    // Warm up first, so what is measured is the optimized code the render thread runs.
+    for (let call = 0; call < 6; call++) run(call * 10 * RATE, 10)
+    const allocations: string[] = []
+    for (const name of ['Float32Array', 'Float64Array', 'Int32Array', 'Array', 'Map', 'Set'] as const) {
+      const original = globalThis[name]
+      vi.stubGlobal(name, new Proxy(original, { construct(target, args) {
+        allocations.push(name)
+        return Reflect.construct(target, args)
+      } }))
+    }
+    try {
+      run(60 * RATE, 30)
     } finally { vi.unstubAllGlobals() }
     expect(allocations).toEqual([])
+    // The constructor traps do not see literals, views, closures or iterators: the heap does. Nothing
+    // else runs on this thread during a synchronous run, so a garbage collection in it, or growth of the
+    // young generation across it, is the render path allocating. Empty the young generation first; a
+    // full collection also drops cold optimized code, so warm up again before measuring.
+    setFlagsFromString('--expose-gc')
+    const collectGarbage = runInNewContext('gc') as () => void
+    const youngGeneration = () => getHeapSpaceStatistics().find(space => space.space_name === 'new_space')!.space_used_size
+    collectGarbage()
+    for (let call = 0; call < 3; call++) run((90 + call) * RATE, 1)
+    const collections: PerformanceEntry[] = []
+    const observer = new PerformanceObserver(list => { collections.push(...list.getEntries()) })
+    observer.observe({ entryTypes: ['gc'] })
+    await new Promise(resolve => setTimeout(resolve, 0))
+    collections.length = 0
+    const before = youngGeneration()
+    run(100 * RATE, 60)
+    const grown = youngGeneration() - before
+    await new Promise(resolve => setTimeout(resolve, 0))
+    observer.disconnect()
+    expect(collections.map(entry => entry.name)).toEqual([])
+    // About 11 KB here, from reading the heap and the occasional setting change; one view per quantum is 1.5 MB.
+    expect(grown).toBeLessThan(256 * 1024)
     expect(output[0].every(Number.isFinite)).toBe(true)
   }, 60000)
+})
+
+// ── Sends that are not numbers ──
+
+describe('a bad send cannot poison the mix', () => {
+  /** Renders `seconds` with the Shape's room at 0.3 for live notes, a healthy note every half second, and `bad` at the start. */
+  function withHealthyNotes(bad: (core: LiveAudioCore) => void, seconds = 6) {
+    const core = new LiveAudioCore(RATE, () => {})
+    core.command({ type: 'prepare', requestId: 1, instrument: sine }, 0)
+    core.command({ type: 'effects', shaping: { ...open, room: .3, delay: .3 } }, 0)
+    bad(core)
+    const out = [new Float32Array(QUANTUM), new Float32Array(QUANTUM)]
+    let nonFinite = 0
+    for (let frame = 0, note = 0; frame < seconds * RATE; frame += QUANTUM) {
+      if (frame === 20 * QUANTUM) core.command({ type: 'release', ownerId: 'bad' }, frame)
+      if (frame >= RATE / 4 + note * RATE / 2) core.command({ type: 'press', ownerId: `note-${note++}`, notes: [{ pitch: 64, instrumentId: 'sine' }] }, frame)
+      if (note && frame === Math.ceil((RATE / 4 + (note - 1) * RATE / 2 + .3 * RATE) / QUANTUM) * QUANTUM) {
+        core.command({ type: 'release', ownerId: `note-${note - 1}` }, frame)
+      }
+      core.render(out, frame)
+      for (const channel of out) for (const value of channel) if (!Number.isFinite(value)) nonFinite++
+    }
+    return nonFinite
+  }
+
+  it.each([Number.NaN, Infinity, -Infinity])('a note\'s own Shape with room and delay %s sends nothing, and the mix stays finite', bad => {
+    expect(withHealthyNotes(core => core.command({ type: 'press', ownerId: 'bad', notes: [{ pitch: 60, instrumentId: 'sine',
+      shaping: { cutoff: bad, resonance: bad, room: bad, delay: bad } }] }, 0))).toBe(0)
+  })
+
+  it('a Looper member whose saved Shape is not a number sends nothing, and the mix stays finite', () => {
+    expect(withHealthyNotes(core => {
+      const member = { ...heldMember(), shaping: { cutoff: Number.NaN, resonance: 0, room: Number.NaN, delay: Infinity } }
+      core.command({ type: 'transport-change', requestId: 2, boundary: 'immediate',
+        change: { type: 'join', member: { table: member, offsetBars: 0, rate: 1, muted: false } } }, 0)
+      core.command({ type: 'transport-start', requestId: 3, run: 1, bpm: 120 }, 0)
+    })).toBe(0)
+  })
+
+  it('a non-finite sample in a voice\'s own sound does not stay in the room and echo', () => {
+    // The voice itself is heard as it is; once it has ended, nothing of it may linger.
+    const data = new Float32Array(RATE).fill(.2); data[100] = Number.NaN
+    const core = new LiveAudioCore(RATE, () => {})
+    core.command({ type: 'prepare', requestId: 1, instrument: { ...bank(data), instrumentId: 'broken' } }, 0)
+    core.command({ type: 'prepare', requestId: 2, instrument: sine }, 0)
+    core.command({ type: 'effects', shaping: { ...open, room: .3, delay: .3 } }, 0)
+    core.command({ type: 'press', ownerId: 'broken', notes: [{ pitch: 69, instrumentId: 'broken' }] }, 0)
+    renderQuanta(core, 4 * QUANTUM)
+    core.command({ type: 'release', ownerId: 'broken' }, 4 * QUANTUM)
+    core.command({ type: 'press', ownerId: 'healthy', notes: [{ pitch: 64, instrumentId: 'sine' }] }, 4 * QUANTUM)
+    const after = renderQuanta(core, 2 * RATE, 4 * QUANTUM)
+    for (const channel of after) expect(channel.every(Number.isFinite)).toBe(true)
+  })
+
+  it('ignores an effects command with a value that is not a number: the Shape before it stands', () => {
+    const core = new LiveAudioCore(RATE, () => {})
+    core.command({ type: 'prepare', requestId: 1, instrument: sine }, 0)
+    core.command({ type: 'effects', shaping: { ...open, room: .5, delay: .25 } }, 0)
+    core.command({ type: 'press', ownerId: 'a', notes: [{ pitch: 64, instrumentId: 'sine' }] }, 0)
+    core.command({ type: 'effects', shaping: { ...open, room: Number.NaN, delay: .25 } }, 0)
+    let room = 0, dry = 0
+    core.wet.process = (output, roomSend, _delaySend, _firstFrame, length) => {
+      for (let i = 0; i < length; i++) { room = Math.max(room, Math.abs(roomSend[0][i])); dry = Math.max(dry, Math.abs(output[0][i])) }
+    }
+    renderQuanta(core, 4 * QUANTUM)
+    expect(dry).toBeGreaterThan(.1)
+    expect(room).toBeCloseTo(dry * .5, 6)
+  })
 })
 
 // ── Cuts: Stop All's second tap, and the "cut" tail policy ──
@@ -321,8 +439,12 @@ function heldMember(): TransportMemberTable {
     gainStart: one(Uint32Array, 0), gainCount: one(Uint32Array, 0), gainTime: new Float32Array(0), gainValue: new Float32Array(0) }
 }
 
-/** A Looper member and a live note both feeding the room and echo, rendered to `seconds`; the stop lands at 0.4 s. */
-function stopRig(stop: 'plain' | 'cut' | 'wet-cut', seconds = 1.6) {
+/**
+ * A Looper member and a live note both feeding the room and echo, rendered to
+ * `seconds`; the stop lands at 0.4 s. The live note lets go before it, unless
+ * `holdLive`: then it is still held, sending, through the stop and after.
+ */
+function stopRig(stop: 'plain' | 'cut' | 'wet-cut', seconds = 1.6, holdLive = false) {
   const queued: LiveResponse[] = []
   const core = new LiveAudioCore(RATE, response => { queued.push(response) })
   let frame = 0
@@ -346,7 +468,7 @@ function stopRig(stop: 'plain' | 'cut' | 'wet-cut', seconds = 1.6) {
   // The live note lets go before the stop and has finished its release by then: only its room and echo still sound.
   const liveOff = stopAt - 25 * QUANTUM
   while (frame < total) {
-    if (frame === liveOff) core.command({ type: 'release', ownerId: 'live' }, frame)
+    if (frame === liveOff && !holdLive) core.command({ type: 'release', ownerId: 'live' }, frame)
     if (frame === stopAt) {
       if (stop === 'wet-cut') {
         core.command({ type: 'transport-change', requestId: 4, boundary: 'immediate', change: { type: 'update', memberId: 'held', patch: { muted: true } } }, frame)
@@ -401,6 +523,19 @@ describe('cutting the room and echo (BJS-596, BJS-598)', () => {
     const after = renderQuanta(core, RATE / 2, frame)
     expect(peakOf(after[0], .1 * RATE, .2 * RATE)).toBeGreaterThan(1e-3)
     expect(peakOf(after[0], .3 * RATE, .4 * RATE)).toBeGreaterThan(1e-3)
+  })
+
+  it.each(['cut', 'wet-cut'] as const)('a live note held through a %s gets its room and echo back over 10 ms, with no step', stop => {
+    // Stop All's cut and a muted member stop loop voices only: a held key keeps sending through the cut.
+    const { core, out, stopAt } = stopRig(stop, 1.2, true)
+    const cutEnd = stopAt + Math.ceil(.01 * RATE)
+    for (let c = 0; c < 2; c++) {
+      const steady = largestMove(out[c], stopAt - .05 * RATE, stopAt)
+      // The room returns from its shortest line on; the echo 250 ms after the cut's end, the sound sent from then on.
+      expect(largestMove(out[c], cutEnd, cutEnd + .1 * RATE), `room, channel ${c}`).toBeLessThanOrEqual(steady)
+      expect(largestMove(out[c], cutEnd + 12000 - QUANTUM, cutEnd + 12000 + 8 * QUANTUM), `echo, channel ${c}`).toBeLessThanOrEqual(steady)
+    }
+    expect(core.wet.active).toBe(true)
   })
 
   it('a cut while one is fading carries on down from where it is, never back up', () => {

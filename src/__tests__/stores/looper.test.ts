@@ -30,6 +30,8 @@ const rig = vi.hoisted(() => ({
   prepared: [] as string[],
   /** Banks the worklet refuses (the sample memory is held full by playing loops and keys). */
   refused: new Set<string>(),
+  /** Sounds the app no longer has a bank for (removed in BJS-495, like kawai): they never load. */
+  removed: new Set<string>(),
   /** Pinned banks, by holder, as livePlayback keeps its leases. */
   leases: new Map<string, Set<string>>(),
   /**
@@ -61,6 +63,7 @@ const rig = vi.hoisted(() => ({
 vi.mock("@/services/livePlayback", () => ({
   async prepareLivePlayback(_context: unknown, _destination: unknown, instrumentId: string) {
     await rig.gates.get(instrumentId);
+    if (rig.removed.has(instrumentId)) return;
     if (rig.budget !== "ample" && !rig.prepared.includes(instrumentId)) {
       const leased = new Set([...rig.leases.values()].flatMap((held) => [...held]));
       leased.delete(instrumentId);
@@ -82,7 +85,7 @@ vi.mock("@/services/livePlayback", () => ({
       gain: rig.gain, attack: .001, decay: .01, sustain: .5, release: .01 } }, rig.frame);
   },
   getLiveTransport(instrumentId: string) {
-    if (rig.refused.has(instrumentId)) return undefined;
+    if (rig.refused.has(instrumentId) || rig.removed.has(instrumentId)) return undefined;
     const generation = rig.generation;
     return {
       send(command: TransportCommand) {
@@ -95,8 +98,9 @@ vi.mock("@/services/livePlayback", () => ({
       generation,
     };
   },
-  getLivePlaybackFailure: (instrumentId: string) => rig.refused.has(instrumentId)
-    ? { kind: "unavailable", reason: "budget", budget: true } : undefined,
+  getLivePlaybackFailure: (instrumentId: string) => rig.removed.has(instrumentId)
+    ? { kind: "load", reason: "no such sound" }
+    : rig.refused.has(instrumentId) ? { kind: "unavailable", reason: "budget", budget: true } : undefined,
   needsLivePlaybackPreparation: () => false,
   getLivePlayback: () => undefined,
   waitForLivePlayback: () => undefined,
@@ -141,7 +145,7 @@ import { useInstrumentStore } from "@/stores/instrument";
 import { mount } from "@vue/test-utils";
 import PerformanceDeck from "@/components/PerformanceDeck.vue";
 
-type Attack = { phraseId: string; memberId: string; sourceNoteId: string; frame: number; bar: number; noteName: string; record: boolean };
+type Attack = { phraseId: string; memberId: string; sourceNoteId: string; frame: number; bar: number; noteName: string; record: boolean; instrument: string };
 
 let player: PatternPlayer;
 /** Runs the player's pending animation frame: it publishes the heard bar to UIBeat. */
@@ -247,6 +251,7 @@ describe("Play is the loop on the worklet transport", () => {
     rig.gates.clear();
     rig.prepared = [];
     rig.refused.clear();
+    rig.removed.clear();
     rig.leases.clear();
     rig.budget = "ample";
     rig.wetCuts = 0;
@@ -504,6 +509,204 @@ describe("Play is the loop on the worklet transport", () => {
     ]));
     render(4);
     expect(attacksOf(second).length).toBeGreaterThan(0);
+  });
+
+  // BJS-495 took sounds the worklet cannot hold out of the app (Kawai among
+  // them). The desk take is remapped when it loads, but a Kept phrase that
+  // joins the Looper, or a saved Loop's pointer, still names the old sound. It
+  // plays on the nearest working one at join time, and the phrase is left as
+  // it was recorded (rule 3: a Loop's patterns are read-only).
+  describe("a pattern recorded on a sound the app no longer has (BJS-594)", () => {
+    const GONE = "kawai";
+
+    type Saved = { data: { book: { phrases: { id: string; context: { instrument: string } }[]; loops: { members: unknown[] }[] } } };
+    const storedShelf = () => JSON.parse(localStorage.getItem("phrases")!) as Saved;
+    const storedSound = (id: string) => storedShelf().data.book.phrases.find((phrase) => phrase.id === id)!.context.instrument;
+
+    /** The first session: a take kept, then recorded on `instrument` as far as the shelf knows. Saved by the app itself. */
+    async function keepOn(instrument: string, at = .5, names?: string[]) {
+      const { phrases } = setup();
+      playTake(at, names);
+      const kept = phrases.keepTake()!;
+      phrases.findPhrase(kept)!.context.instrument = instrument;
+      await flush();
+      expect(storedSound(kept)).toBe(instrument);
+      return kept;
+    }
+
+    /**
+     * The app is opened again: a fresh app reads the shelf the first one saved,
+     * and the worklet has no bank for the sounds that were removed.
+     */
+    function reopen(...removed: string[]) {
+      const saved = localStorage.getItem("phrases");
+      expect(saved, "the first session saved its shelf").not.toBeNull();
+      teardownRig();
+      resetRig();
+      localStorage.setItem("phrases", saved!);
+      for (const sound of removed) rig.removed.add(sound);
+      return setup();
+    }
+
+    const peakSince = (from: number) => pcm.slice(from).reduce((peak, sample) => Math.max(peak, Math.abs(sample)), 0);
+    const soundsOf = (phraseId: string) => new Set(attacksOf(phraseId).map((attack) => attack.instrument));
+
+    it("is a sound the worklet cannot load, so a join that names it fails", async () => {
+      rig.removed.add(GONE);
+      const { phrases } = setup();
+      playTake(.5);
+      const request = { id: "kept", notes: phrases.take.notes.map((note) => ({ ...note })) as never, config: {},
+        instrument: GONE, key: "C" as const, mode: "major" as const, lengthBars: 1 };
+      await expect(player.start({ bpm: 120, target: { key: "C", mode: "major" }, members: [request] }))
+        .rejects.toMatchObject({ name: "PatternLoadError", message: expect.stringContaining("kawai could not load") });
+    });
+
+    it.each([
+      ["kawai", "piano"], ["steinway", "piano"], ["supersaw", "sawtooth"], ["z_square", "square"], ["a-retired-sound", "triangle"],
+    ])("a persisted Kept phrase on %s joins the Looper on %s, renders sound, and keeps the sound it was recorded on", async (gone, alive) => {
+      const kept = await keepOn(gone);
+      const { phrases, looper } = reopen(gone);
+      const recorded = JSON.parse(JSON.stringify(phrases.findPhrase(kept)));
+      expect(recorded.context.instrument).toBe(gone);
+
+      // The reel brings it to the desk; Play joins the Kept phrase itself.
+      phrases.openPhrase(kept);
+      await flush();
+      looper.togglePlay();
+      await flush();
+      await looper.settled();
+      expect(looper.lastError).toBeNull();
+      expect(looper.members.map((member) => member.phraseId)).toEqual([kept]);
+      expect(player.getLooper()).toMatchObject({ running: true, members: [expect.objectContaining({ id: kept })] });
+      expect(rig.prepared).toContain(alive);
+      expect(rig.prepared).not.toContain(gone);
+
+      const from = pcm.length;
+      render(3);
+      // Rendered by the real core, from the real transport's events.
+      expect(peakSince(from)).toBeGreaterThan(.05);
+      expect(attacksOf(kept).length).toBeGreaterThanOrEqual(3);
+      expect(soundsOf(kept)).toEqual(new Set([alive]));
+
+      // Joining wrote nothing: the phrase, and the shelf the app saved, still say what was recorded.
+      expect(phrases.findPhrase(kept)).toEqual(recorded);
+      expect(storedSound(kept)).toBe(gone);
+    });
+
+    it("joins a loop that is already running on the working sound too", async () => {
+      const kept = await keepOn(GONE, 4, ["A4", "B4", "D5"]);
+      const { phrases, looper } = reopen(GONE);
+      playTake(.5);
+      const first = phrases.take.id;
+      looper.togglePlay();
+      await flush();
+      await looper.settled();
+      render(1.3);
+      phrases.openPhrase(kept);
+      await flush();
+      looper.togglePlay();
+      await flush();
+      await looper.settled();
+      expect(looper.lastError).toBeNull();
+      expect(looper.members.map((member) => member.phraseId)).toEqual([first, kept]);
+      expect(player.getLooper().members.map((member) => member.id)).toEqual([first, kept]);
+      expect(rig.prepared).toContain("piano");
+      expect(rig.prepared).not.toContain(GONE);
+      render(4);
+      expect(attacksOf(kept).length).toBeGreaterThanOrEqual(3);
+      expect(soundsOf(kept)).toEqual(new Set(["piano"]));
+      // The member that was never removed is untouched by the others' mapping.
+      expect(soundsOf(first)).toEqual(new Set(["triangle"]));
+      expect(storedSound(kept)).toBe(GONE);
+    });
+
+    describe("a saved Loop's pointer", () => {
+      /** A first session that saves a Loop of two Kept patterns, the second recorded on Kawai. */
+      async function savedLoop() {
+        const { phrases, looper } = setup();
+        playTake(.5);
+        const first = phrases.keepTake()!;
+        playTake(4, ["A4", "B4", "D5"]);
+        const second = phrases.keepTake()!;
+        phrases.openPhrase(first);
+        looper.togglePlay();
+        await flush();
+        await looper.settled();
+        phrases.openPhrase(second);
+        looper.togglePlay();
+        await flush();
+        await looper.settled();
+        const id = looper.saveLoop("Two")!;
+        expect(id).toBeTruthy();
+        phrases.findPhrase(second)!.context.instrument = GONE;
+        await flush();
+        expect(storedSound(second)).toBe(GONE);
+        expect(storedShelf().data.book.loops).toHaveLength(1);
+        return { first, second, id };
+      }
+
+      it("opens on the working sound, renders sound, and the Loop and its patterns are left as saved", async () => {
+        const { first, second, id } = await savedLoop();
+        const { phrases, looper } = reopen(GONE);
+        const pointers = JSON.parse(JSON.stringify(phrases.book.loops[0].members));
+        const recorded = JSON.parse(JSON.stringify(phrases.findPhrase(second)));
+        expect(recorded.context.instrument).toBe(GONE);
+
+        expect(looper.openLoop(id)).toBe(true);
+        await flush();
+        await looper.settled();
+        expect(looper.lastError).toBeNull();
+        expect(player.getLooper().members.map((member) => member.id)).toEqual([first, second]);
+        expect(rig.prepared).toContain("piano");
+        expect(rig.prepared).not.toContain(GONE);
+        const from = pcm.length;
+        render(4);
+        expect(peakSince(from)).toBeGreaterThan(.05);
+        expect(soundsOf(first)).toEqual(new Set(["triangle"]));
+        expect(attacksOf(second).length).toBeGreaterThanOrEqual(3);
+        expect(soundsOf(second)).toEqual(new Set(["piano"]));
+
+        expect(phrases.book.loops[0].members).toEqual(pointers);
+        expect(phrases.findPhrase(second)).toEqual(recorded);
+        expect(storedSound(second)).toBe(GONE);
+      });
+
+      it("joins a running loop on the working sound when its Play brings the Loop in", async () => {
+        const { first, second, id } = await savedLoop();
+        const { phrases, looper } = reopen(GONE);
+        // Something else is looping; the Loop's Play brings its patterns in over it.
+        playTake(.5, ["F4", "A4", "C5"]);
+        const other = phrases.take.id;
+        looper.togglePlay();
+        await flush();
+        await looper.settled();
+        render(1.3);
+        expect(looper.toggleLoop(id)).toBe(true);
+        await flush();
+        await looper.settled();
+        expect(looper.lastError).toBeNull();
+        expect(looper.members.map((member) => member.phraseId)).toEqual([other, first, second]);
+        expect(player.getLooper().members.map((member) => member.id)).toEqual([other, first, second]);
+        render(4);
+        expect(soundsOf(second)).toEqual(new Set(["piano"]));
+        expect(rig.prepared).not.toContain(GONE);
+      });
+    });
+
+    it.each([["gm_flute", "gm_flute"], ["tri", "triangle"]])("leaves %s as it is: a sound the app still has plays as itself", async (sound, prepared) => {
+      const kept = await keepOn(sound);
+      const { phrases, looper } = reopen();
+      phrases.openPhrase(kept);
+      await flush();
+      looper.togglePlay();
+      await flush();
+      await looper.settled();
+      expect(looper.lastError).toBeNull();
+      expect(rig.prepared).toContain(prepared);
+      expect(rig.prepared).not.toContain("piano");
+      render(2);
+      expect(attacksOf(kept).length).toBeGreaterThanOrEqual(3);
+    });
   });
 
   it.each([false, true])("never records the loop's own notes into the book over eight bars (overdub; latched %s)", async (latched) => {

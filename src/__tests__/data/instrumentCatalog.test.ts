@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { prepareNativeInstrument } from "@/services/preparedNativeInstrument";
-import { resolveLiveSoundName } from "@/services/liveInstrumentNames";
+import { playableSoundName, resolveLiveSoundName } from "@/services/liveInstrumentNames";
 import { defaultPatterns } from "@/data/patterns";
 import loaderReceipt from "../../../audio-lab/results/loader-bjs-488.json";
 import { categoriseInstrument, isSelectableInstrument, selectableReplacement } from "@/data/instrumentCatalog";
@@ -54,6 +54,22 @@ describe("instrument catalog", () => {
         expect(selectableReplacement(other), String(other)).toBe(DEFAULT_INSTRUMENT);
       }
       for (const kept of ["gm_flute", "tri", "sin", "piano"]) expect(selectableReplacement(kept)).toBe(kept);
+    });
+
+    // A pattern joins the Looper on playableSoundName (BJS-594): the sound it was
+    // recorded on, else the nearest one still offered. It is read at every join
+    // and rewrites nothing.
+    it("plays a saved pattern on its own sound, an alias on the sound it names, a removed one on its nearest", () => {
+      expect(playableSoundName("kawai")).toBe("piano");
+      expect(playableSoundName("supersaw")).toBe("sawtooth");
+      expect(playableSoundName("gm_flute")).toBe("gm_flute");
+      // Names the app resolves to a working sound are not "removed", whatever the picker lists.
+      for (const alias of ["tri", "saw", "synth", "amSynth", "organ", "pipeorgan", "recorder"]) {
+        expect(playableSoundName(alias), alias).toBe(alias);
+        expect(isSelectableInstrument(resolveLiveSoundName(alias)), alias).toBe(true);
+      }
+      expect(playableSoundName("a-retired-sound")).toBe(DEFAULT_INSTRUMENT);
+      expect(playableSoundName(undefined)).toBe(DEFAULT_INSTRUMENT);
     });
 
     it("leaves every offered oscillator one the worklet can prepare", async () => {

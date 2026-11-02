@@ -947,6 +947,45 @@ describe("a saved Loop is its own reel (BJS-572)", () => {
     }
   });
 
+  it("a pattern recorded on a removed sound shows the sound it plays on, on both reels, and says which it was recorded on (BJS-594)", async () => {
+    const { phrases, looper } = setup();
+    const deck = mountDeck();
+    try {
+      const { first, second } = await twoLooping(deck);
+      const loop = await saveFromDeck(deck);
+      await press(deck.get("[data-testid=looper-stop-all]").element);
+      render(2.1);
+      await flush();
+      // The Loop was saved when Kawai was still a sound; it is not any more.
+      phrases.findPhrase(first)!.context.instrument = "kawai";
+      await flush();
+
+      const strip = (id: string) => deck.get(`[data-pattern-id="${id}"]`);
+      const soundOf = (id: string) => strip(id).get(".pattern-strip__instrument").text();
+      const spoken = (id: string) => strip(id).get(".pattern-strip__identity").attributes("aria-label");
+      const expectNamed = () => {
+        // The strip names the sound it plays on, not the one that is gone...
+        expect(soundOf(first)).toBe("piano");
+        expect(spoken(first)).toContain("recorded on kawai");
+        expect(strip(first).text()).not.toContain("kawai");
+        // ...and a pattern on a sound the app still has says nothing extra.
+        expect(soundOf(second)).toBe("triangle");
+        expect(spoken(second)).not.toContain("recorded on");
+      };
+      expectNamed();
+      await drag(deck, 320, 40);
+      expect(looper.reelLoopId).toBe(loop.id);
+      expectNamed();
+      expect(spoken(first)).toContain(`in ${loop.name}`);
+
+      // Naming it changed nothing: the pattern, and the Loop's pointer to it, are as saved.
+      expect(phrases.findPhrase(first)!.context.instrument).toBe("kawai");
+      expect(phrases.book.loops[0].members.map((member) => member.phraseId)).toEqual([first, second]);
+    } finally {
+      deck.unmount();
+    }
+  });
+
   it("renaming or keeping a Loop's pattern changes its name and shelf, never its notes or the Loop's pointer", async () => {
     const { phrases } = setup();
     const deck = mountDeck();

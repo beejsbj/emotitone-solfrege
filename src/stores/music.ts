@@ -296,7 +296,11 @@ export const useMusicStore = defineStore(
         try {
           await instrumentStore.waitForRecovery(recovery);
         } catch (error) {
-          raiseRefusedPress(selectedInstrument, true);
+          // Only a press still current says so: one let go, locked out or
+          // superseded by another instrument must not replace that one's line.
+          if (!isCancelled() && !instrumentStore.isInteractionLocked && instrumentStore.selectionEpoch === selectionEpoch) {
+            raiseRefusedPress(selectedInstrument, true);
+          }
           throw error;
         }
       }

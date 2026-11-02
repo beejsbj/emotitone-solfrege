@@ -309,6 +309,36 @@ describe("music store", () => {
     }
   });
 
+  it("a recovery that rejects after another instrument is chosen raises no stale line over the new one's", async () => {
+    seat.renderer = null;
+    const instrumentStore = useInstrumentStore();
+    const music = useMusicStore();
+    instrumentStore.currentInstrument = "gm_piano";
+    let fail!: (error: Error) => void;
+    seat.recovery = () => new Promise<void>((_, reject) => { fail = reject; });
+    const deck = mount(DeckHeadsUp, { attachTo: document.body });
+    try {
+      // A Piano press waits on the engine's recovery…
+      const superseded = music.attackExactPitch("C4");
+      await Promise.resolve();
+      // …while the player picks Triangle, which is refused for its own reason.
+      instrumentStore.currentInstrument = "triangle";
+      instrumentStore.selectionEpoch += 1;
+      seat.recovery = undefined;
+      seat.failure = { kind: "unavailable", reason: "Live renderer is not prepared" };
+      expect(await music.attackExactPitch("D4")).toBeNull();
+      await nextTick();
+      expect(deck.findAll(".heads-up__line").map((line) => line.attributes("title"))).toEqual(["Can't play Triangle: not ready"]);
+      // The old recovery fails now: the Piano press is gone, and says nothing.
+      fail(new Error("Live renderer recovery failed"));
+      await expect(superseded).rejects.toThrow("Live renderer recovery failed");
+      await nextTick();
+      expect(deck.findAll(".heads-up__line").map((line) => line.attributes("title"))).toEqual(["Can't play Triangle: not ready"]);
+    } finally {
+      deck.unmount();
+    }
+  });
+
   it("a press the worklet takes but cannot voice (no sample zone for its pitch) leaves the refusal showing", async () => {
     seat.renderer = null;
     seat.failure = { kind: "unavailable", budget: true, reason: "Sample memory is full" };

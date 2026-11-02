@@ -31,12 +31,14 @@
       <!-- The Looper's dials climb the left edge, above the reel. -->
       <LooperDialColumn v-if="isProductionUsage" />
       <!-- What the instrument tells you stacks on the right edge, above the reel. -->
-      <DeckHeadsUp v-if="isProductionUsage" :busy="patternReelGuardsHandle" />
+      <!-- It steps aside while the reel is dragged or a page turn between reels runs. -->
+      <DeckHeadsUp v-if="isProductionUsage" :busy="patternReelGuardsHandle || reelTurning" />
       <PhraseShelf
         v-if="isProductionUsage"
         data-stage-occluder
         @context-change="bumpPatternControls"
         @interaction-change="setPatternReelGuard"
+        @turning-change="(turning: boolean) => { reelTurning = turning; }"
       />
       <PatternReel
         v-else
@@ -277,6 +279,8 @@ const harmonyEffective = computed(() =>
   harmonyAlterationStore?.effective ?? localHarmonyEffective.value
 );
 const patternReelGuardsHandle = ref(false);
+/** A sideways page turn between the shelf's reels (ReelSwitch) is under way. */
+const reelTurning = ref(false);
 type PatternControl = "key" | "mode" | "bpm" | "octave";
 const patternControlSignals = reactive<Record<PatternControl, number>>({
   key: 0,

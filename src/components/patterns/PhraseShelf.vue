@@ -1,7 +1,7 @@
 <template>
   <div class="phrase-shelf">
     <!-- The home reel and one reel per saved Loop, side by side (BJS-572). -->
-    <ReelSwitch :reels="reels" :active-id="activeReelId" @change="showReel">
+    <ReelSwitch :reels="reels" :active-id="activeReelId" @change="showReel" @turning-change="(turning: boolean) => emit('turningChange', turning)">
       <PatternReel
         :key="activeReelId"
         class="phrase-shelf__reel"
@@ -65,6 +65,8 @@ type PatternControl = "key" | "mode" | "bpm" | "octave";
 const emit = defineEmits<{
   contextChange: [controls: PatternControl[]];
   interactionChange: [active: boolean];
+  /** A sideways page turn between reels is under way (following or settling). */
+  turningChange: [turning: boolean];
 }>();
 
 const phrasesStore = usePhrasesStore();

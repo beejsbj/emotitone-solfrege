@@ -11,7 +11,8 @@ const root = process.cwd();
 const directory = await mkdtemp(join(tmpdir(), 'emotitone-parity-'));
 const digest = async path => createHash('sha256').update(await readFile(path)).digest('hex');
 // The app's own effect sources: a run is void if they change under it.
-const watched = ['src/audio/effects.ts', 'src/audio/liveShaping.ts', 'src/audio/live/core.ts'].map(path => resolve(path));
+const watched = ['src/audio/liveShaping.ts', 'src/audio/live/core.ts', 'src/audio/live/wet.ts', 'src/audio/live/room.ts',
+  'src/audio/live/echo.ts'].map(path => resolve(path));
 const hashes = Object.fromEntries(await Promise.all(watched.map(async path => [path, await digest(path)])));
 let vite, chrome, socket;
 

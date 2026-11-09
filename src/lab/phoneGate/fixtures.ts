@@ -5,6 +5,7 @@
  */
 import type { LooperMemberRequest } from "@/services/patternTransport";
 import { buildPatternMember, patternNoteIdentity } from "@/services/patternMember";
+import { NEUTRAL_SHAPE } from "@/services/shape";
 import type { LogNote } from "@/types/patterns";
 import type { GateMemberTable } from "./oracle";
 
@@ -55,12 +56,31 @@ const VOICES: Voice[] = [
 
 export const GATE_MEMBER_LABELS: Record<string, string> = Object.fromEntries(VOICES.map(voice => [voice.id, voice.label]));
 
-/** The four Looper members, as the Play key would send them. */
-export function gateMembers(): LooperMemberRequest[] {
+/**
+ * The Shape's room and delay sends every note of the soak carries (BJS-596).
+ * The gate's default is none, where the worklet's room and echo stay idle;
+ * `?room=1&delay=1` on the link measures them running.
+ */
+export interface GateSends { room: number; delay: number }
+
+/** A send from the link: a plain number from 0 to 1; anything else is none. */
+export function parseGateSends(params: URLSearchParams): GateSends {
+  const send = (name: string) => {
+    const text = params.get(name)?.trim();
+    const value = text ? Number(text) : 0;
+    return Number.isFinite(value) && value >= 0 && value <= 1 ? value : 0;
+  };
+  return { room: send("room"), delay: send("delay") };
+}
+
+/** The four Looper members, as the Play key would send them, with `sends` in their Shape. */
+export function gateMembers(sends: GateSends = { room: 0, delay: 0 }): LooperMemberRequest[] {
+  const shape = sends.room || sends.delay ? { ...NEUTRAL_SHAPE, ...sends } : undefined;
   return VOICES.map(voice => ({
     id: voice.id,
     notes: voice.notes.map(([name, beat, beats], index) => gateNote(voice.id, index, name, beat, beats)),
-    config: { sourceBpm: GATE_BPM, bpm: GATE_BPM, beatsPerBar: 4, patternDurationMs: voice.bars * GATE_BAR_MS },
+    config: { sourceBpm: GATE_BPM, bpm: GATE_BPM, beatsPerBar: 4, patternDurationMs: voice.bars * GATE_BAR_MS,
+      ...(shape ? { shape } : {}) },
     instrument: GATE_INSTRUMENT,
     key: "C",
     mode: "major",

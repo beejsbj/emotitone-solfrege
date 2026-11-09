@@ -144,6 +144,14 @@ describe("phone gate summary", () => {
       .toContain("latencyHint browser default (interactive); asked for balanced, not applied ·");
   });
 
+  it("names the room and echo the soak ran through (BJS-596)", () => {
+    const loopLine = (sends: GateResults["sends"]) =>
+      formatGateSummary(base({ sends })).split("\n").find(line => line.startsWith("Loop:"));
+    expect(loopLine(undefined)).toBe("Loop: 4 piano members at 100 BPM · no room or delay");
+    expect(loopLine({ room: 0, delay: 0 })).toBe("Loop: 4 piano members at 100 BPM · no room or delay");
+    expect(loopLine({ room: 1, delay: .5 })).toBe("Loop: 4 piano members at 100 BPM · room 1 / delay 0.5");
+  });
+
   it("says when a run stopped early", () => {
     expect(formatGateSummary(base({ error: "The piano is not in the worklet: offline" })))
       .toContain("Stopped early: The piano is not in the worklet: offline");

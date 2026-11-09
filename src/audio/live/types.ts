@@ -45,6 +45,10 @@ export type LiveCommand =
   | { type: 'release'; ownerId: string; cancel?: boolean }
   | { type: 'configure'; config: Partial<LiveConfig> }
   | { type: 'effects'; shaping: LiveShaping }
+  /** The shared echo's time (seconds) and feedback (held at or below 0.98). */
+  | { type: 'echo'; time: number; feedback: number }
+  /** Fade out what the shared room and echo hold, then empty them (the "cut" tail policy). */
+  | { type: 'wet-cut' }
   | { type: 'shape'; envelope: LiveEnvelopeOverride }
   | { type: 'clear' }
   | TransportCommand
@@ -67,6 +71,10 @@ export interface LiveWorklet extends LiveRenderer {
   prepare(instrument: PreparedLiveInstrument): Promise<void>
   shape(envelope: LiveEnvelopeOverride): void
   effects(shaping: LiveShaping): void
+  /** The shared echo's time (seconds) and feedback; it starts at LIVE_DELAY_TIME_SECONDS and LIVE_DELAY_FEEDBACK. */
+  echo(time: number, feedback: number): void
+  /** Fade out and empty the shared room and echo: every source's tail, live notes' too. */
+  cutWet(): void
   /** Pattern transport commands; responses arrive through `onTransport`. */
   transport(command: TransportCommand): void
   /** Read the processor's render cost per quantum (starts measuring on the first read); `reset` starts a new window. */

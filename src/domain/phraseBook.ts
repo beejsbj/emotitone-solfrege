@@ -436,6 +436,7 @@ export function pressNote(
     frequency: press.frequency,
     velocity: press.velocity,
     articulation: press.articulation ? { ...press.articulation } : undefined,
+    ...(press.gated && { gated: true as const }),
   };
   held.set(press.noteId, note);
   // Scheduled pulses can carry an onset slightly before the take's origin.
@@ -477,6 +478,7 @@ export function releaseNote(
     frequency: pending.frequency,
     velocity: pending.velocity,
     articulation: articulation ? { ...articulation } : undefined,
+    ...(pending.gated && { gated: true as const }),
     pitchExpression: pitchExpression?.some((point) => point.cents !== 0) ? pitchExpression : undefined,
     gainExpression: gainExpression?.some((point) => point.gain !== 1) ? gainExpression : undefined,
     pressTime: pending.phraseTime,
@@ -833,7 +835,10 @@ export function followControls(
 
 /**
  * Envelope stages that came from the old instrument + Shape follow the new
- * pair; other values (e.g. 30ms rhythmic gates) stay authored.
+ * pair; other values stay authored. A Repeat or Arp pulse's release is its
+ * 30 ms gate (`gated`), even when the release knob read 0.03 too (BJS-649).
+ * A note without the mark (saved before it, or never a pulse) is judged by
+ * value, as before.
  */
 function reskinArticulation(
   notes: PatternNote[],
@@ -848,7 +853,9 @@ function reskinArticulation(
     const articulation = { ...note.articulation };
     // Compare at knob precision; recorded values may carry float noise.
     if (Number(articulation.attack.toFixed(3)) === before.attack) articulation.attack = after.attack;
-    if (Number(articulation.release.toFixed(2)) === before.release) articulation.release = after.release;
+    if (!note.gated && Number(articulation.release.toFixed(2)) === before.release) {
+      articulation.release = after.release;
+    }
     return { ...note, articulation };
   });
 }

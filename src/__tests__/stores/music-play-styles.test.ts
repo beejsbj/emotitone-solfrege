@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { nextTick } from "vue";
 import { createPinia, disposePinia, setActivePinia, type Pinia } from "pinia";
 import { attachLiveCore, type LiveSeat } from "../helpers/liveCore";
+import capturedPhrases from "../fixtures/persistence/phrases.v2.store-capture.json?raw";
 
 vi.unmock("@/services/music");
 vi.unmock("@/data");
@@ -477,5 +479,122 @@ describe("live styles through music, recording, and Strudel", () => {
     expect(patterns.takeNotes).toEqual([]);
     expect(noteEvents("note-played")).toEqual([]);
     expectNoTimers();
+  });
+
+  /*
+   * An untouched Kept copy on the desk follows the controls (rule 6 in
+   * docs/pattern-system-reimagined.md). Only envelope stages that came from
+   * the Shape follow; a Repeat or Arp pulse's 30 ms release is its gate.
+   */
+  describe("re-skinning a Kept copy (BJS-649)", () => {
+    async function hold(pitches: string[], ms: number) {
+      const music = useMusicStore();
+      const owners = await Promise.all(pitches.map((pitch) => music.attackExactPitch(pitch)));
+      await vi.advanceTimersByTimeAsync(ms);
+      await Promise.all(owners.map((owner) => music.releaseNote(owner!)));
+      await vi.advanceTimersByTimeAsync(500);
+    }
+
+    const releases = (notes: readonly { articulation?: { release: number } }[]) =>
+      notes.map((note) => note.articulation?.release);
+
+    /** Put a Kept phrase on the desk, as a scroll of the reel does: an untouched copy. */
+    async function load(patterns: ReturnType<typeof usePhrasesStore>, keptId: string) {
+      patterns.openPhrase(keptId);
+      await vi.advanceTimersByTimeAsync(10);
+      expect(patterns.take.derivedFrom?.id).toBe(keptId);
+      expect(patterns.isTakeTouched).toBe(false);
+    }
+
+    /** Close the app and open it again: every store starts over from what was saved. */
+    function reopenApp() {
+      recorderStore?.removeEventListeners();
+      disposePinia(pinia);
+      pinia = createPinia();
+      setActivePinia(pinia);
+      useInstrumentStore().currentInstrument = "piano";
+      useVisualConfigStore().useEphemeralDefaults();
+      return connectRecorder();
+    }
+
+    it.each([
+      // The Together note follows the knob to 0.5.
+      ["the release moves to 0.5", (instrument: ReturnType<typeof useInstrumentStore>) =>
+        instrument.setSynthControl("release", 0.5), "piano", 0.5],
+      // Triangle has no Shape of its own: the Together note takes its natural release.
+      ["the instrument changes", (instrument: ReturnType<typeof useInstrumentStore>) =>
+        instrument.setInstrument("triangle"), "triangle", 0.12],
+    ] as const)("keeps every pulse's 0.03 gate when a Kept copy follows the controls and %s", async (
+      _move, moveControls, sound, followed,
+    ) => {
+      const music = useMusicStore();
+      // The release knob sits on the gate's own value (0.01 floor, 0.01 step).
+      useInstrumentStore().setSynthControl("release", 0.03);
+      connectRecorder();
+      await hold(["C4"], 200);
+      music.setPlayMode("repeat:16");
+      await hold(["E4"], 300);
+      music.setPlayMode("arp-up:16");
+      await hold(["C4", "G4"], 240);
+      const keptId = recorderStore!.keepTake()!;
+      await vi.advanceTimersByTimeAsync(10);
+
+      // Later: the app opens again on the saved shelf, and the Kept phrase is loaded.
+      const patterns = reopenApp();
+      const instrument = useInstrumentStore();
+      const kept = patterns.findPhrase(keptId)!;
+      // One Together note, three Repeat pulses, two Arp pulses: all at 0.03.
+      expect(kept.notes.map((note) => note.note)).toEqual(["C4", "E4", "E4", "E4", "C4", "G4"]);
+      expect(releases(kept.notes)).toEqual(Array(6).fill(0.03));
+      const recorded = JSON.parse(JSON.stringify(kept.notes));
+      await load(patterns, keptId);
+      expect(instrument.shape.release).toBe(0.03);
+
+      // The Shape's release follows the controls; the pulses stay short.
+      await moveControls(instrument);
+      await vi.advanceTimersByTimeAsync(10);
+      expect(patterns.takeContext.instrument).toBe(sound);
+      expect(patterns.isTakeTouched).toBe(false);
+      expect(releases(patterns.takeNotes)).toEqual([followed, 0.03, 0.03, 0.03, 0.03, 0.03]);
+      // What keeps them short was saved with the phrase: only the pulses are marked.
+      expect(kept.notes.map((note) => note.gated ?? false)).toEqual([false, true, true, true, true, true]);
+
+      // Back where it was recorded: every note as it was played. The Kept source never moved.
+      await instrument.setInstrument("piano");
+      instrument.setSynthControl("release", 0.03);
+      await vi.advanceTimersByTimeAsync(10);
+      expect(JSON.parse(JSON.stringify(patterns.takeNotes))).toEqual(recorded);
+      expect(JSON.parse(JSON.stringify(patterns.findPhrase(keptId)!.notes))).toEqual(recorded);
+    });
+
+    it("re-skins a phrase saved before pulses were marked exactly as before", async () => {
+      // Exact bytes the store on main (76d28df4) saved for two Kept takes,
+      // each a Together note then pulses: the first at release 0.03, the
+      // second (Arp) at 0.4.
+      localStorage.setItem("phrases", capturedPhrases);
+      const instrument = useInstrumentStore();
+      const patterns = connectRecorder();
+      const [atKnob, offKnob] = patterns.shelves.kept
+        .slice()
+        .sort((left, right) => left.createdAt - right.createdAt);
+      expect(releases(atKnob.notes)).toEqual([0.03, 0.03, 0.03, 0.03]);
+      expect(releases(offKnob.notes)).toEqual([0.4, 0.03, 0.03, 0.03]);
+      expect([...atKnob.notes, ...offKnob.notes].some((note) => "gated" in note)).toBe(false);
+
+      // Nothing says which 0.03 was a gate, so each reads as the Shape's, as it always has.
+      await load(patterns, atKnob.id);
+      instrument.setSynthControl("release", 0.5);
+      await nextTick();
+      expect(releases(patterns.takeNotes)).toEqual([0.5, 0.5, 0.5, 0.5]);
+
+      // Gates off the knob's value were never the Shape's, and stay.
+      await load(patterns, offKnob.id);
+      instrument.setSynthControl("release", 0.9);
+      await nextTick();
+      expect(releases(patterns.takeNotes)).toEqual([0.9, 0.03, 0.03, 0.03]);
+      await instrument.setInstrument("triangle");
+      await vi.advanceTimersByTimeAsync(10);
+      expect(releases(patterns.takeNotes)).toEqual([0.12, 0.03, 0.03, 0.03]);
+    });
   });
 });

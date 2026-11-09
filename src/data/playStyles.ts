@@ -22,10 +22,19 @@ export interface PlayModeOption {
   rate?: PlayStyleRate
 }
 
+/**
+ * Repeat and Arp: rhythmic styles. Each pulse sounds for a fixed gate and ends
+ * with a fixed 30 ms release (src/audio/live/core.ts), whatever the Shape's
+ * release. Together and Strum sound the held note with the Shape's release.
+ */
+export function isRhythmicStyle(style: PlayStyle): boolean {
+  return style === 'repeat' || style.startsWith('arp-')
+}
+
 // One selector includes each rhythmic style's rate; sustained styles only
 // need one position. The engine keeps independent style/rate parameters.
 export const PLAY_MODE_OPTIONS = PLAY_STYLE_OPTIONS.flatMap<PlayModeOption>((option) =>
-  option.value.startsWith('arp-') || option.value === 'repeat'
+  isRhythmicStyle(option.value)
     ? ([4, 8, 16] as const).map(rate => ({
       value: `${option.value}:${rate}`,
       label: `${option.label}\n1/${rate}`,
@@ -36,5 +45,5 @@ export const PLAY_MODE_OPTIONS = PLAY_STYLE_OPTIONS.flatMap<PlayModeOption>((opt
 )
 
 export function playModeValue(style: PlayStyle, rate: PlayStyleRate): string {
-  return style.startsWith('arp-') || style === 'repeat' ? `${style}:${rate}` : style
+  return isRhythmicStyle(style) ? `${style}:${rate}` : style
 }

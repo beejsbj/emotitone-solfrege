@@ -13,7 +13,7 @@ import { getAudioContext } from "@/services/audioRuntime";
 import { useInstrumentStore } from "@/stores/instrument";
 import { Note as TonalNote } from "@tonaljs/tonal";
 import { useVisualConfigStore } from "@/stores/visualConfig";
-import { PLAY_STYLE_OPTIONS, PLAY_MODE_OPTIONS, playModeValue, type PlayStyle, type PlayStyleRate } from "@/data/playStyles";
+import { isRhythmicStyle, PLAY_STYLE_OPTIONS, PLAY_MODE_OPTIONS, playModeValue, type PlayStyle, type PlayStyleRate } from "@/data/playStyles";
 import { audioTimeToOutputTime } from "@/services/liveAudioTiming";
 import { createLiveAudioClock } from "@/services/liveAudioClock";
 import { getLivePlayback, getLivePlaybackFailure, waitForLivePlayback } from "@/services/livePlayback";
@@ -119,7 +119,7 @@ export const useMusicStore = defineStore(
     // Scheduled voices sound with the live Shape at scheduling time; record that.
     function styleArticulation(instrument: string, style: PlayStyle): LiveArticulation {
       const articulation = resolveLiveEnvelope(instrument, instrumentStore.shape);
-      if (style !== "together" && !style.startsWith("strum")) articulation.release = 0.03;
+      if (isRhythmicStyle(style)) articulation.release = 0.03;
       return articulation;
     }
 
@@ -129,6 +129,8 @@ export const useMusicStore = defineStore(
         isBorrowed: held.snapshot.solfegeIndex === -1,
         instrument: held.instrument, shape: held.shape, velocity: event.velocity ?? held.velocity, instrumentConfig: null, source: "live-play-style",
         articulation: { ...(event.articulation ?? styleArticulation(held.instrument, event.style)) },
+        // A Repeat or Arp pulse: its release is the gate, not the Shape's (BJS-649).
+        ...(isRhythmicStyle(event.style) && { gated: true as const }),
         timestamp: liveAudioClock.toEpochTime(event.at * 1000),
         midiTimestamp: liveAudioClock.toPerformanceTime(event.at * 1000),
         audibleAt: audioTimeToOutputTime(getAudioContext(), event.at),

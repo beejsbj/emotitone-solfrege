@@ -469,7 +469,7 @@ describe('live playback instrument manager', () => {
   it('refuses a single bank larger than the whole memory as unsupported, not as a full memory', async () => {
     const { manager, engine, context } = await setup()
     bankSizes({ huge: 200 })
-    const unsupported = { kind: 'unavailable', reason: 'Sample bank needs 200.0 MiB, more than the 192.0 MiB sample memory' }
+    const unsupported = { kind: 'unavailable', unsupported: true, reason: 'Sample bank needs 200.0 MiB, more than the 192.0 MiB sample memory' }
     await manager.prepareLivePlayback(context, destination, 'huge')
     expect(engine.prepare).not.toHaveBeenCalled()
     expect(manager.getLivePlaybackFailure('huge')).toEqual(unsupported)
@@ -572,6 +572,12 @@ describe('live playback instrument manager', () => {
     expect(manager.getLivePlaybackDiagnostics('noise')).toMatchObject({ backend: 'none', reason: 'Unsupported source' })
     vi.stubGlobal('AudioWorkletNode', undefined)
     expect(manager.needsLivePlaybackPreparation('piano')).toBe(false)
+  })
+
+  it('reports a sound as unsupported in a browser without AudioWorklet, before anything was prepared', async () => {
+    const { manager } = await setup()
+    vi.stubGlobal('AudioWorkletNode', undefined)
+    expect(manager.getLivePlaybackFailure('piano')).toEqual({ kind: 'unavailable', unsupported: true, reason: 'AudioWorklet is unavailable' })
   })
 
   it('retries temporary catalog failure without invalidating an already playing bank', async () => {

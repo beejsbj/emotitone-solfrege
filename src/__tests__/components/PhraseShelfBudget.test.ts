@@ -1,9 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mount, type VueWrapper } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
-import { nextTick } from "vue";
+import { h, nextTick, ref } from "vue";
 import { IDBFactory } from "fake-indexeddb";
+import DeckHeadsUp from "@/components/patterns/DeckHeadsUp.vue";
 import PhraseShelf from "@/components/patterns/PhraseShelf.vue";
+import { HEADS_UP_MS } from "@/composables/useHeadsUpQueue";
+import { useHeadsUpStore } from "@/stores/headsUp";
 import { libraryPhrases, usePhrasesStore } from "@/stores/phrases";
 import { useLooperStore } from "@/stores/looper";
 import { join } from "@/domain/looper";
@@ -33,6 +36,7 @@ afterEach(() => {
   wrapper?.unmount();
   wrapper = undefined;
   store.$dispose();
+  useHeadsUpStore().$dispose();
   storage.setItem.mockImplementation(workingSetItem);
   storage.getItem.mockImplementation(workingGetItem);
   consoleError?.mockRestore();
@@ -42,8 +46,15 @@ afterEach(() => {
 function phrase(id: string, shelf: "recent" | "kept", stamp: number, name = id) {
   return { ...structuredClone(libraryPhrases[0]), id, shelf, name, createdAt: stamp, closedAt: stamp };
 }
+/** The shelf and the deck's Heads-up stack, wired as the Performance Deck wires them. */
 function render(attrs: Record<string, string> = {}) {
-  wrapper = mount(PhraseShelf, { attrs, global: { stubs: { PatternReel: true } } });
+  const busy = ref(false);
+  wrapper = mount({
+    render: () => [
+      h(PhraseShelf, { ...attrs, onInteractionChange: (active: boolean) => { busy.value = active; } }),
+      h(DeckHeadsUp, { busy: busy.value }),
+    ],
+  }, { global: { stubs: { PatternReel: true } } });
   return wrapper;
 }
 function tap(noteId: string, solfegeIndex: number, at: number) {
@@ -52,7 +63,11 @@ function tap(noteId: string, solfegeIndex: number, at: number) {
 }
 type SavedPhrase = { id: string; shelf: string; notes: unknown[] };
 const savedPhrases = (): SavedPhrase[] => JSON.parse(localStorage.getItem("phrases")!).data.book.phrases;
-const notice = (page: VueWrapper) => page.find("[data-shelf-notice]");
+const notice = (page: VueWrapper) => page.find('[data-heads-up="shelf"]');
+/** The shelf's line on screen. */
+const line = (page: VueWrapper) => notice(page).find(".heads-up__line").attributes("title");
+const OVER_BUDGET = "Shelf full · still saving";
+const FAILED = "Not saving. Delete old takes.";
 const overBudgetRecent = () => phrase("oldest", "recent", 100, "x".repeat(PHRASE_BUDGET_BYTES / 2));
 
 describe("Shelf over budget: warn, keep saving (Burooj, 2026-10-17)", () => {
@@ -65,12 +80,12 @@ describe("Shelf over budget: warn, keep saving (Burooj, 2026-10-17)", () => {
     await nextTick();
     expect(savedPhrases().find((saved) => saved.id === store.takeId)?.notes).toHaveLength(3);
     expect(savedPhrases().some((saved) => saved.id === "oldest")).toBe(true);
-    expect(notice(page).attributes("data-shelf-notice")).toBe("over-budget");
+    expect(line(page)).toBe(OVER_BUDGET);
     expect(notice(page).text()).toContain("still saving");
     expect(notice(page).text()).toContain("Free some space soon");
-    // An Edge Notice: words only, no key of its own (Burooj, 2026-10-20).
+    // A Heads-up: words only, no key of its own (Burooj, 2026-10-20).
     expect(notice(page).find("button").exists()).toBe(false);
-    expect(notice(page).classes()).toContain("edge-notice--warning");
+    expect(notice(page).classes()).toContain("heads-up--warning");
   });
 
   it("still saves a new Keep above 3 MB", async () => {
@@ -103,10 +118,10 @@ describe("Shelf over budget: warn, keep saving (Burooj, 2026-10-17)", () => {
     expect(localStorage.getItem("phrases")).toBe(before);
     expect(store.takeNotes).toHaveLength(2);
     expect(store.book.phrases.map((phrase) => phrase.id)).toEqual(expect.arrayContaining(["kept", "oldest", "newer"]));
-    expect(notice(page).attributes("data-shelf-notice")).toBe("failed");
+    expect(line(page)).toBe(FAILED);
     // The visible line says what to do, within the 32-character budget.
-    expect(notice(page).get(".edge-notice__line").attributes("title")).toBe("Not saving. Delete old takes.");
-    expect(notice(page).classes()).toContain("edge-notice--problem");
+    expect(FAILED.length).toBeLessThanOrEqual(32);
+    expect(notice(page).classes()).toContain("heads-up--problem");
     // One strip carries a phrase failure: the global storage Sticker stays away…
     expect(saveFailureNotice.value).toBeNull();
     // …while every other saved key still raises it.
@@ -127,7 +142,7 @@ describe("Shelf over budget: warn, keep saving (Burooj, 2026-10-17)", () => {
     await nextTick();
     const page = render();
     expect(store.releaseCandidates.map((phrase) => phrase.id)).toEqual(["oldest", "newer"]);
-    // The notice names the oldest Recent for assistive technology.
+    // The line names the oldest Recent for assistive technology.
     expect(notice(page).text()).toContain("oldest first");
     expect(store.deletePhrase(store.releaseCandidates[0].id)).toBe(true);
     await nextTick();
@@ -217,7 +232,7 @@ describe("Shelf over budget: warn, keep saving (Burooj, 2026-10-17)", () => {
       });
       tap("s-1", 2, Date.now() + 300);
       await nextTick();
-      expect(notice(page).attributes("data-shelf-notice")).toBe("failed");
+      expect(line(page)).toBe(FAILED);
       sweep();
       await nextTick();
       expect(notice(page).exists()).toBe(false);
@@ -228,7 +243,7 @@ describe("Shelf over budget: warn, keep saving (Burooj, 2026-10-17)", () => {
       expect(store.shelfNotice).toBeNull();
       store.book.phrases.push(overBudgetRecent());
       await nextTick();
-      expect(notice(page).attributes("data-shelf-notice")).toBe("over-budget");
+      expect(line(page)).toBe(OVER_BUDGET);
     } finally {
       vi.useRealTimers();
     }
@@ -247,7 +262,7 @@ describe("Shelf over budget: warn, keep saving (Burooj, 2026-10-17)", () => {
       });
       tap("f-0", 0, Date.now());
       await nextTick();
-      expect(notice(page).attributes("data-shelf-notice")).toBe("failed");
+      expect(line(page)).toBe(FAILED);
       const element = notice(page).element;
       const at = (type: string, clientX: number) => element.dispatchEvent(new PointerEvent(type,
         { bubbles: true, cancelable: true, pointerId: 5, pointerType: "touch", clientX, clientY: 300 }));
@@ -263,26 +278,45 @@ describe("Shelf over budget: warn, keep saving (Burooj, 2026-10-17)", () => {
       tap("f-1", 2, Date.now() + 300);
       await nextTick();
       expect(store.shelfNotice).toBe("failed");
-      expect(notice(page).attributes("data-shelf-notice")).toBe("failed");
+      expect(line(page)).toBe(FAILED);
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it("floats the notice over the Stage: inside the occluding root, but not an occlusion part", async () => {
+  it("floats the line over the Stage: never inside the shelf's occluding root or an occlusion part", async () => {
     store.book.phrases.push(overBudgetRecent());
     await nextTick();
     const page = render({ "data-stage-occluder": "" });
-    const root = page.element as HTMLElement;
-    expect(root.hasAttribute("data-stage-occluder")).toBe(true);
-    expect(root.contains(notice(page).element)).toBe(true);
-    // A floating notice must not push the Stage's usable rect up and down.
-    expect(notice(page).element.closest("[data-stage-occlusion-part]")).toBeNull();
+    const shelf = page.get("[data-stage-occluder]").element;
+    expect(line(page)).toBe(OVER_BUDGET);
+    // A passing line must not push the Stage's usable rect up and down.
+    expect(shelf.contains(notice(page).element)).toBe(false);
+    expect(notice(page).element.closest("[data-stage-occluder], [data-stage-occlusion-part]")).toBeNull();
     expect(notice(page).element.querySelector("[data-stage-occlusion-part]")).toBeNull();
     store.book.phrases.pop();
     await nextTick();
-    expect(page.element).toBe(root);
     expect(notice(page).exists()).toBe(false);
+  });
+
+  it("fades on its own: a warning after 4 s, and it stays away while nothing changes", async () => {
+    vi.useFakeTimers();
+    try {
+      store.book.phrases.push(overBudgetRecent());
+      await nextTick();
+      const page = render();
+      expect(line(page)).toBe(OVER_BUDGET);
+      vi.advanceTimersByTime(HEADS_UP_MS.warning);
+      await nextTick();
+      expect(notice(page).exists()).toBe(false);
+      // Still over budget, still saving: it does not nag.
+      tap("w-0", 0, Date.now());
+      await nextTick();
+      expect(store.shelfNotice).toBe("over-budget");
+      expect(notice(page).exists()).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("steps aside while the reel is being scrolled, so the unwound wheel stays visible", async () => {
@@ -290,15 +324,13 @@ describe("Shelf over budget: warn, keep saving (Burooj, 2026-10-17)", () => {
     await nextTick();
     const page = render();
     const reel = page.findComponent({ name: "PatternReel" });
-    expect(notice(page).attributes("data-reel-busy")).toBeUndefined();
+    expect(notice(page).attributes("aria-hidden")).toBeUndefined();
     reel.vm.$emit("interactionChange", true);
     await nextTick();
-    expect(notice(page).attributes("data-reel-busy")).toBe("true");
     expect(notice(page).attributes("aria-hidden")).toBe("true");
     expect(notice(page).attributes("inert")).toBeDefined();
     reel.vm.$emit("interactionChange", false);
     await nextTick();
-    expect(notice(page).attributes("data-reel-busy")).toBeUndefined();
     expect(notice(page).attributes("aria-hidden")).toBeUndefined();
   });
 
@@ -343,7 +375,7 @@ describe("A shelf that isn't saving always says so (persistence review of #192)"
     await nextTick();
     expect(localStorage.getItem("phrases")).toBe(before);
     expect(store.shelfNotice).toBe("failed");
-    expect(notice(page).attributes("data-shelf-notice")).toBe("failed");
+    expect(line(page)).toBe(FAILED);
     expect(saveFailureNotice.value).toBeNull();
     store.book.phrases.splice(store.book.phrases.findIndex((entry) => entry.id === "unencodable"), 1);
     await nextTick();
@@ -364,7 +396,7 @@ describe("A shelf that isn't saving always says so (persistence review of #192)"
     [0, 2].forEach((degree, index) => tap(`r-${index}`, degree, Date.now() + index * 300));
     await nextTick();
     expect(failedReads).toBe(0);
-    expect(notice(page).attributes("data-shelf-notice")).toBe("failed");
+    expect(line(page)).toBe(FAILED);
     expect(savedPhrases().find((saved) => saved.id === store.takeId)?.notes ?? []).toHaveLength(0);
     // Storage reads again: the next save goes through with everything played.
     tap("r-2", 4, Date.now() + 900);
@@ -387,7 +419,7 @@ describe("A shelf that isn't saving always says so (persistence review of #192)"
     });
     tap("u-0", 0, Date.now());
     await nextTick();
-    expect(notice(page).attributes("data-shelf-notice")).toBe("failed");
+    expect(line(page)).toBe(FAILED);
     expect(notice(page).text()).toContain("Keep this tab open");
     expect(unload()).toBe(true);
     storage.setItem.mockImplementation(workingSetItem);

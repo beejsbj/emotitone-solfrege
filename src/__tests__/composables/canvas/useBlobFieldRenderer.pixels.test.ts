@@ -183,7 +183,7 @@ describe("Merge field pixels", () => {
     renderer.dispose();
   });
 
-  it("retains sparse join identities through complete fusion and anchors the chord inside material", () => {
+  it("retains every interval anchor through complete fusion and anchors the chord inside material", () => {
     const frames = chordFrames(28);
     // A compact triangle; increasing radii below fully erases its neck outlines.
     const positions = [[140, 120], [260, 120], [200, 220]];
@@ -206,7 +206,8 @@ describe("Merge field pixels", () => {
     const renderer = useBlobFieldRenderer();
     renderer.renderBlobField(ctx, frames, config, scene);
     const pairs = scene.renderedConnections!.map(path => path.notePair);
-    expect(pairs).toHaveLength(2);
+    // Two sparse joins hold the body together; the third pair is latent.
+    expect(pairs.map(pair => pair.join("-")).sort()).toEqual(["0-1", "0-2", "1-2"]);
     setRadius(90);
     ctx.clearRect(0, 0, 400, 320);
     renderer.renderBlobField(ctx, frames, { ...config, fusionStrength: 1 }, scene);

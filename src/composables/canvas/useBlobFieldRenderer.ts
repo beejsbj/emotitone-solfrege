@@ -786,6 +786,34 @@ export function getBlobFieldConnections(
   return [...heldConnections, ...releaseConnections];
 }
 
+/**
+ * Merge labels every analyzed interval, not only the sparse joins that hold
+ * its one body together (n − 1 for n notes). Each other analyzed pair gets a
+ * latent anchor in the same join geometry, so a pair keeps its path when the
+ * planner's topology changes. Like the joins, it paints nothing.
+ */
+function getMergeIntervalConnections(
+  frames: readonly PreparedBlobFrame[],
+  scene: HarmonicGeometryScene,
+  joins: readonly BlobFieldConnection[]
+): BlobFieldConnection[] {
+  const connectedPairs = new Set(joins.map(getConnectionPairKey));
+  const frameForNote = (noteId: string) => {
+    const point = scene.points.find((candidate) => candidate.note.noteId === noteId);
+    return point && frames.find((frame) => frame.blob === point.blob);
+  };
+  return [...scene.boundaryEdges, ...scene.interiorEdges].flatMap((edge) => {
+    const from = frameForNote(edge.fromNoteId);
+    const to = frameForNote(edge.toNoteId);
+    if (!from || !to || from === to) return [];
+    const connection = createConnection(from, to);
+    const pairKey = getConnectionPairKey(connection);
+    if (connectedPairs.has(pairKey)) return [];
+    connectedPairs.add(pairKey);
+    return [connection];
+  });
+}
+
 export function createBlobFieldConnectionPlanner() {
   let membershipSignature = "";
   const parentKeys = new Map<string, string>();
@@ -1299,12 +1327,17 @@ export function useBlobFieldRenderer() {
       scene.mergeCenter = { x: bounds.x + anchor.x / scale, y: bounds.y + anchor.y / scale };
     }
     // Filled Merge no longer paints individual bridges. Retain their sparse
-    // identities as latent joins for intervals even after necks fully fuse.
+    // identities as latent joins for intervals even after necks fully fuse,
+    // and give every other analyzed pair a latent anchor of its own.
     // Analysis may select fewer notes than the visible material contains. An
     // omitted body must not become a parent that disconnects analyzed labels.
     const analyzedBlobs = new Set(scene?.points.map(point => point.blob));
     const joinFrames = frames.filter(frame => analyzedBlobs.has(frame.blob));
-    publishConnections(scene, mergeJoinPlanner.getConnections(joinFrames).map(connection => ({
+    const joins = mergeJoinPlanner.getConnections(joinFrames);
+    const anchors = scene
+      ? [...joins, ...getMergeIntervalConnections(joinFrames, scene, joins)]
+      : joins;
+    publishConnections(scene, anchors.map(connection => ({
       connection,
       geometry: getBlobFieldConnectionGeometry(connection, 0, 1),
     })), "merge", connection => Math.max(0, Math.min(1,

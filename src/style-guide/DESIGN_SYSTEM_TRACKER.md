@@ -95,6 +95,8 @@ Burooj accepted cut-paper Jazz chord headlines with individual glyph tilt and ha
 
 Burooj abandoned both organic-lettering experiments and requested the pre-organic treatment. The rollback restored production source, types, tests and the real guide to pre-trial checkpoint `cfea9be`; subsequent mainline integration preserves that lettering treatment: Jazz glyphs, hard Ink offsets, shallow emotion curves, brief entrances, Web filament labels and Merge join/centre placement. The organic strain and blob-silhouette helpers are removed; earlier trial receipts and captures remain historical evidence, not current design authority. Mainline's organic Blob material is retained; it is separate from the rejected organic text. The four original definition/source/specimen/adoption gates are retained. Organic lettering has no remaining implementation or acceptance gate.
 
+**Proposed, awaiting Burooj's acceptance (BJS-468):** Merge labels every analyzed interval, not only its joins. `useBlobFieldRenderer` publishes the sparse planner joins plus a latent anchor, in the same join geometry, for every other analyzed pair; it paints nothing, and the Merge centre still comes from the visible field. `harmonicTypography.ts` and its collision rules are unchanged, so a label with no clear spot is still omitted: on the short phone Stage a triad's inner interval usually yields to the chord headline. Web is unchanged.
+
 ## Governing constraints
 
 - Brand colors are decorative; brass is an instrument material. Semantic aliases such as `--danger` are legacy cleanup, not design doctrine.

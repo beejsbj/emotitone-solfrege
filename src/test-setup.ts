@@ -1,5 +1,15 @@
 // Browser-only shims and external-effect mocks. Pure logic tests use no setup.
 import { beforeEach, vi } from 'vitest'
+import { GlobalFonts } from '@napi-rs/canvas'
+import { resolve } from 'node:path'
+
+// Tests that paint text with @napi-rs/canvas must not depend on the OS having
+// any fonts: the Stage lettering asks for "Lets Jazz" and a bare runner has no
+// fallback either. Register the app's own font file, whichever suite paints.
+GlobalFonts.registerFromPath(
+  resolve(__dirname, 'assets/fonts/lets-jazz-regular.otf'),
+  'Lets Jazz',
+)
 
 // Mock GSAP
 vi.mock('gsap', () => ({

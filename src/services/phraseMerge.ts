@@ -2,6 +2,7 @@ import { toRaw } from "vue";
 import { cloneNote, createPhraseBook } from "@/domain/phraseBook";
 import { mergeById, mergeFields, mergeValue, type WithId } from "@/services/listMerge";
 import { sameJson } from "@/services/persistenceCodec";
+import { sanitizePhraseShape } from "@/services/shape";
 import type { PatternNote } from "@/types/patterns";
 import type { Phrase, PhraseBook, PhraseContext } from "@/types/phrases";
 
@@ -174,8 +175,27 @@ export function storedPhraseState(data: unknown): PhraseStateData {
     ...state,
     book: {
       ...state.book,
-      phrases: state.book.phrases.filter((phrase) => isRecord(phrase) && Array.isArray(phrase.notes) && phrase.context),
+      phrases: state.book.phrases
+        .filter((phrase) => isRecord(phrase) && Array.isArray(phrase.notes) && isRecord(phrase.context))
+        .map(withSanitizedShapes),
     },
+  };
+}
+
+/**
+ * A saved phrase read with a usable Shape (BJS-650): the phrase's own, and its
+ * modeBase's, which a later control change restores. Only the read changes;
+ * what is stored stays as it was until the next ordinary save.
+ */
+function withSanitizedShapes(phrase: Phrase): Phrase {
+  const withShape = (context: PhraseContext): PhraseContext => ({ ...context, shape: sanitizePhraseShape(context.shape) });
+  const base = phrase.modeBase;
+  return {
+    ...phrase,
+    context: withShape(phrase.context),
+    ...(isRecord(base) && Array.isArray(base.notes) && isRecord(base.context)
+      ? { modeBase: { ...base, context: withShape(base.context) } }
+      : {}),
   };
 }
 

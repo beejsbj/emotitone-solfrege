@@ -14,7 +14,7 @@ import {
   transposePatternNotes,
 } from "@/data/patterns";
 import { loopLengthMs } from "@/services/recordedTiming";
-import { isSameShape, NEUTRAL_SHAPE, resolveLiveEnvelope } from "@/services/shape";
+import { isSameShape, NEUTRAL_SHAPE, resolveLiveEnvelope, sanitizePhraseShape } from "@/services/shape";
 import type { Shape } from "@/types/instrument";
 import type { ChromaticNote } from "@/types/music";
 import type { Pattern, PatternNote, PatternSource } from "@/types/patterns";
@@ -967,7 +967,7 @@ export function phraseFromPattern(
       mode: pattern.mode,
       instrument: pattern.instrument,
       bpm: resolveBpm(pattern.bpm),
-      shape: { ...(pattern.shape ?? NEUTRAL_SHAPE) },
+      shape: sanitizePhraseShape(pattern.shape),
       octave: rootOctave(notes, fallbackOctave),
     },
     duration: Math.max(patternDuration(pattern), soundingLength(notes)),

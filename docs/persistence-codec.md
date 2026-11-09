@@ -168,9 +168,14 @@ readers, from `releaseCandidates`: sorted by `closedAt`, falling back to
 Recent remain it explains the manual copy/delete path instead. An oversized
 shelf is loaded intact; it is never automatically trimmed.
 
-On load, `decode` drops any phrase without `notes` or `context` and keeps the
-rest of the shelf; it throws (unreadable, backed up first) only when there is
-no book at all. A save skips the re-read and re-decode of stored bytes when
+On load, `decode` drops any phrase without `notes` or an object `context` (and
+a `modeBase` without a `notes` array, which could not be saved) and keeps the
+rest of the shelf. Each phrase's Shape, and its `modeBase`'s, is repaired as it
+is read (BJS-650): a missing or invalid field falls back to its neutral value,
+knobs are clamped to their ranges, and a healthy Shape is unchanged. A merge
+reads the other tab's bytes and the agreed base the same way. Only the read
+changes; stored bytes are rewritten by the next ordinary save. `decode` throws
+(unreadable, backed up first) only when there is no book at all. A save skips the re-read and re-decode of stored bytes when
 they equal the payload this binding last produced; bytes from anywhere else
 get the full check. The payload is built as plain data (no JSON round-trip).
 An IndexedDB open that has not settled within 10 s is a failed backup: it

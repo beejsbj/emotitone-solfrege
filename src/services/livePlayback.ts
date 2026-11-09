@@ -510,10 +510,11 @@ export function needsLivePlaybackPreparation(name: string): boolean {
 export function getLivePlaybackFailure(name: string): LivePlaybackFailure | undefined {
   const instrumentId = resolveLiveSoundName(name);
   if (installed.has(instrumentId) && !retiring.has(instrumentId)) return undefined;
-  const reason = reasons.get(instrumentId) ?? (typeof AudioWorkletNode === "undefined" ? "AudioWorklet is unavailable" : "Live renderer is not prepared");
+  const noWorklet = typeof AudioWorkletNode === "undefined";
+  const reason = reasons.get(instrumentId) ?? (noWorklet ? "AudioWorklet is unavailable" : "Live renderer is not prepared");
   return { kind: loadFailures.has(instrumentId) ? "load" : "unavailable", reason,
     ...(budgetRefused.has(instrumentId) ? { budget: true as const } : {}),
-    ...(unsupported.has(instrumentId) ? { unsupported: true as const } : {}) };
+    ...(unsupported.has(instrumentId) || noWorklet ? { unsupported: true as const } : {}) };
 }
 
 export function subscribeLivePlayback(listener: Listener): () => void {

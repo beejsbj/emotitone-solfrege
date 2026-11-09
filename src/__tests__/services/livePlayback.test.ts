@@ -574,6 +574,12 @@ describe('live playback instrument manager', () => {
     expect(manager.needsLivePlaybackPreparation('piano')).toBe(false)
   })
 
+  it('reports a sound as unsupported in a browser without AudioWorklet, before anything was prepared', async () => {
+    const { manager } = await setup()
+    vi.stubGlobal('AudioWorkletNode', undefined)
+    expect(manager.getLivePlaybackFailure('piano')).toEqual({ kind: 'unavailable', unsupported: true, reason: 'AudioWorklet is unavailable' })
+  })
+
   it('retries temporary catalog failure without invalidating an already playing bank', async () => {
     const { manager, context, engine } = await setup()
     await manager.prepareLivePlayback(context, destination, 'sine')

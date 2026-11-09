@@ -189,9 +189,11 @@ export function storedPhraseState(data: unknown): PhraseStateData {
  */
 function withSanitizedShapes(phrase: Phrase): Phrase {
   const withShape = (context: PhraseContext): PhraseContext => ({ ...context, shape: sanitizePhraseShape(context.shape) });
-  const base = phrase.modeBase;
+  // A modeBase with no notes array can't be saved (encoding it throws, so
+  // every save of the shelf would fail): it is dropped, like an unusable phrase.
+  const { modeBase: base, ...rest } = phrase;
   return {
-    ...phrase,
+    ...rest,
     context: withShape(phrase.context),
     ...(isRecord(base) && Array.isArray(base.notes) && isRecord(base.context)
       ? { modeBase: { ...base, context: withShape(base.context) } }

@@ -186,3 +186,44 @@ describe("a legacy pattern with a broken Shape", () => {
     expectOpensSafely(target, "legacy-1");
   });
 });
+
+describe("a legacy note log with a broken Shape", () => {
+  it("migrates a logged phrase with a usable Shape", () => {
+    const logged = (id: string, pressTime: number, start = false) => ({
+      id, note: "C4", scaleDegree: 1, scaleIndex: 0, octave: 4, pressTime, releaseTime: pressTime + 200, duration: 200,
+      key: "G", mode: "major", instrument: "piano", bpm: 90, sessionId: "s", isStartingNewPattern: start,
+      shape: { ...HEALTHY, cutoff: null },
+    });
+    const loggedNotes = [logged("n1", NOW - 3000, true), logged("n2", NOW - 2500), logged("n3", NOW - 2000)];
+    localStorage.setItem("patterns", JSON.stringify({ savedPatterns: [], loggedNotes }));
+    const target = openStore();
+    const migrated = target.findPhrase("phrase_migrated_n1");
+    expect(migrated).toBeTruthy();
+    expect(migrated!.context.shape).toEqual({ ...HEALTHY, cutoff: NEUTRAL_SHAPE.cutoff });
+    expectOpensSafely(target, "phrase_migrated_n1");
+  });
+});
+
+describe("a saved phrase the app cannot use", () => {
+  it("drops a phrase whose context is not an object and keeps the rest of the shelf", () => {
+    const odd = savedPhrase("odd", HEALTHY);
+    (odd as unknown as { context: unknown }).context = "not-an-object";
+    localStorage.setItem("phrases", envelope([odd, savedPhrase("ok", HEALTHY)]));
+    const target = openStore();
+    expect(target.findPhrase("odd")).toBeFalsy();
+    expect(target.findPhrase("ok")).toBeTruthy();
+  });
+
+  it("drops a modeBase with no notes, so the shelf still saves", async () => {
+    const odd = savedPhrase("odd-base", HEALTHY);
+    (odd as unknown as { modeBase: unknown }).modeBase = { context: { ...odd.context } };
+    localStorage.setItem("phrases", envelope([odd]));
+    const target = openStore();
+    expect(target.findPhrase("odd-base")).toBeTruthy();
+    expect(target.findPhrase("odd-base")!.modeBase).toBeUndefined();
+    target.book.phrases.push(savedPhrase("more", HEALTHY));
+    await nextTick();
+    const saved = JSON.parse(localStorage.getItem("phrases")!).data.book.phrases as Array<{ id: string }>;
+    expect(saved.map((phrase) => phrase.id)).toContain("more");
+  });
+});

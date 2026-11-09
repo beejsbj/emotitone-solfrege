@@ -2098,9 +2098,9 @@ describe("Play is the loop on the worklet transport", () => {
       await looper.settled();
       const opened = rig.frame;
       expect(looper.memberFor(take)).toBeDefined();
-      // Its old ramp still runs (a second tap would still cut), but its new notes are not on it.
+      // Its old ramp still runs, so a second tap would still cut; the Stage is checked first, the store after.
       expect(looper.stopping).toBe(true);
-      expect(looper.fading).toEqual([]);
+      const fadingOnceOpened = looper.fading.map((entry) => entry.phraseId);
       let checked = 0;
       while (rig.frame < tap + BAR + .6 * RATE) {
         const onset = await nextOnset(take);
@@ -2115,6 +2115,8 @@ describe("Play is the loop on the worklet transport", () => {
         checked++;
       }
       expect(checked).toBeGreaterThanOrEqual(3);
+      // The pattern playing again was not listed as fading, so its new notes took no ramp.
+      expect(fadingOnceOpened).toEqual([]);
     });
 
     describe("heard 100 ms after it is rendered, as on a phone", () => {

@@ -4,10 +4,11 @@ import { setActivePinia } from "pinia";
 import { IDBFactory } from "fake-indexeddb";
 import { createTestPinia } from "../helpers/test-utils";
 import { usePhrasesStore } from "@/stores/phrases";
+import { useInstrumentStore } from "@/stores/instrument";
 import { useLooperStore } from "@/stores/looper";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { fakeLocks } from "../helpers/fakeLocks";
-import { prewarmSoundSamples } from "@/services/audioEngine";
+import { isPrewarmed, prewarmSoundSamples } from "@/services/audioEngine";
 
 
 /**
@@ -239,5 +240,51 @@ describe("phrase stores in two tabs", () => {
     expect(a.findPhrase(member)).toBeUndefined();
     await sketch(a, "a2", START + 10_000);
     expect(storedIds()).not.toContain(member);
+  });
+
+  it("keeps the other tab's pulse marks through the merge and this tab's next write (BJS-649)", async () => {
+    const a = openTab();
+    const b = openTab();
+    // Tab B, release knob at 0.03: a Together note, then two Repeat pulses.
+    const shape = { cutoff: 12000, resonance: 0, room: 0, delay: 0, attack: null, release: 0.03 };
+    const articulation = { attack: 0.001, decay: 0.001, sustain: 1, release: 0.03 };
+    [false, true, true].forEach((gated, index) => {
+      const noteId = `b-${index}`;
+      const time = START + index * 125;
+      b.handleNotePressed({ detail: {
+        noteId, noteName: "C4", solfegeIndex: 0, octave: 4, timestamp: time, source: "live-play-style",
+        instrument: "piano", shape, articulation, ...(gated && { gated: true }),
+      } } as CustomEvent);
+      b.handleNoteReleased({ detail: { noteId, timestamp: time + 100, articulation } } as CustomEvent);
+    });
+    const keptId = b.keepTake()!;
+    await nextTick();
+    const marks = (notes: Array<{ gated?: true }>) => notes.map((note) => note.gated ?? false);
+    expect(marks(b.findPhrase(keptId)!.notes)).toEqual([false, true, true]);
+
+    // Tab A takes B's Keep in, then writes a sketch of its own over the shelf.
+    otherTabWrote();
+    expect(marks(a.findPhrase(keptId)!.notes)).toEqual([false, true, true]);
+    await sketch(a, "a", START + 10_000);
+    const stored = JSON.parse(localStorage.getItem("phrases")!).data.book.phrases
+      .find((phrase: { id: string }) => phrase.id === keptId);
+    expect(marks(stored.notes)).toEqual([false, true, true]);
+
+    // Tab B loads the Kept copy and switches it to triangle. Every note's attack
+    // moves, so tab A takes each note in as an edit made only in the other tab.
+    vi.mocked(isPrewarmed).mockReturnValue(true);
+    b.openPhrase(keptId);
+    await nextTick();
+    otherTabWrote();
+    await useInstrumentStore().setInstrument("triangle"); // B's: its app opened last
+    await nextTick();
+    otherTabWrote();
+    const copy = a.findPhrase(b.takeId)!;
+    expect(copy.notes.map((note) => note.articulation)).toEqual([
+      { ...articulation, attack: 0.003, release: 0.12 },
+      { ...articulation, attack: 0.003 },
+      { ...articulation, attack: 0.003 },
+    ]);
+    expect(marks(copy.notes)).toEqual([false, true, true]);
   });
 });

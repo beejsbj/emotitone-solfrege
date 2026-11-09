@@ -487,6 +487,8 @@ export const usePhrasesStore = defineStore(
         frequency: detail.frequency,
         velocity: detail.velocity,
         articulation: detail.articulation ? { ...detail.articulation } : undefined,
+        // A Repeat or Arp pulse: its release is the gate, never re-skinned (BJS-649).
+        ...(detail.gated === true && { gated: true as const }),
       }, config);
       heldCount.value = held.size;
     }

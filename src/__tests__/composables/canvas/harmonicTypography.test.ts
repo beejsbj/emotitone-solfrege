@@ -1,9 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { createCanvas, GlobalFonts } from "@napi-rs/canvas";
+import { createCanvas } from "@napi-rs/canvas";
 import { createHarmonicTypography } from "@/composables/canvas/harmonicTypography";
 import type { HarmonicGeometryScene } from "@/types/canvas";
 
-GlobalFonts.registerFromPath("src/assets/fonts/lets-jazz-regular.otf", "Lets Jazz");
 function setup(width = 320, height = 240, title = "Cmaj9") {
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d") as unknown as CanvasRenderingContext2D;

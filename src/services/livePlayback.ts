@@ -1,3 +1,4 @@
+import { shallowRef } from "vue";
 import { onAudioRunning } from "@/services/audioLifecycle";
 import type { LiveEnvelopeOverride, PreparedLiveInstrument, LiveWorklet } from "@/audio/live/types";
 import type { LiveRenderer, LiveRendererCallbacks } from "@/audio/liveRenderer";
@@ -92,6 +93,13 @@ function knownBytesOf(instrumentId: string): number | undefined {
   return undefined;
 }
 const retiring = new Set<string>();
+/**
+ * Counts every time a bank joins or leaves the worklet (installed, retired for
+ * room, or lost to a rebuild). `holdsLivePlayback` reads it, so a view that asks
+ * which sounds are loaded is redrawn when the answer changes.
+ */
+const residency = shallowRef(0);
+const residencyChanged = () => { residency.value++; };
 let installQueue: Promise<void> = Promise.resolve();
 let preparationAbort = new AbortController();
 let workletPreparation: Promise<typeof import("@/services/preparedLiveInstrument")> | undefined;
@@ -155,6 +163,7 @@ async function makeRoom(forget: (instrumentId: string) => Promise<void>, bytes: 
   }
   if (total > MAX_PCM_BYTES) return false;
   for (const instrumentId of victims) retiring.add(instrumentId);
+  if (victims.length) residencyChanged();
   await Promise.all(victims.map(forget));
   if (run !== generation) return true;
   for (const instrumentId of victims) {
@@ -195,6 +204,7 @@ function invalidate(error?: unknown) {
   preparing.clear();
   pins.clear();
   retiring.clear();
+  residencyChanged();
   installingPcmBytes = 0;
   unsupported.clear();
   knownBankBytes.clear();
@@ -380,6 +390,7 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
       await acknowledgement;
       if (run === generation) {
         installed.set(instrumentId, bytes);
+        residencyChanged();
         workletInstruments.add(instrumentId);
         installedPcm.set(instrumentId, split);
         loadFailures.delete(instrumentId);
@@ -413,6 +424,19 @@ export async function prepareLivePlayback(nextContext: AudioContext, destination
 export function setLivePlaybackShaping(next: LiveShapingState): void {
   shaping = { ...next, envelope: { ...next.envelope } };
   engine?.applyShaping(shaping);
+}
+
+/**
+ * Whether the worklet holds this sound's bank right now: installed, and not being
+ * retired to make room. This is the one record of what is loaded; a bank that
+ * was downloaded once and has since been evicted is not held. Reading it in a
+ * computed or a render tracks later installs and evictions. Unlike
+ * `getLivePlayback` it is not a use of the bank, so it never changes eviction order.
+ */
+export function holdsLivePlayback(name: string): boolean {
+  void residency.value;
+  const instrumentId = resolveLiveSoundName(name);
+  return installed.has(instrumentId) && !retiring.has(instrumentId);
 }
 
 export function getLivePlayback(name: string): LiveRenderer | undefined {

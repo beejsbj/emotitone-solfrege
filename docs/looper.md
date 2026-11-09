@@ -253,7 +253,11 @@ These are design-system units and go through that process, not this document:
     path that writes a phrase: a new note opens a fresh take; Backspace is
     refused, and the notice says "In a saved Loop. Play over it."; the controls (key, mode, octave, sound, Shape) never re-skin
     it; opening one whose sound is gone moves the controls to a working
-    sound but leaves the pattern's own; delete is refused. Rename and Keep
+    sound but leaves the pattern's own, and joining one (a Kept pattern's
+    Play, a Loop's Play) plays it on that working sound at join time, the
+    nearest one still offered (BJS-594), while the strip names the sound it
+    plays on and its spoken label says which it was recorded on; delete is
+    refused. Rename and Keep
     change only its name and shelf, not the pattern, so they stay free.
   - **Stopping a Loop** leaves playing any pattern another Loop, playing in
     full, still holds (as Replace in Loop and another tab's swap do), but

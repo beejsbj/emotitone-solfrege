@@ -992,6 +992,87 @@ describe("a saved Loop is its own reel (BJS-572)", () => {
     }
   });
 
+  it("a pattern recorded on a removed sound shows the sound it plays on, on both reels, and says which it was recorded on (BJS-594)", async () => {
+    const { phrases, looper } = setup();
+    const deck = mountDeck();
+    try {
+      const { first, second } = await twoLooping(deck);
+      const loop = await saveFromDeck(deck);
+      await press(deck.get("[data-testid=looper-stop-all]").element);
+      render(2.1);
+      await flush();
+      // The Loop was saved when Kawai was still a sound; it is not any more.
+      phrases.findPhrase(first)!.context.instrument = "kawai";
+      await flush();
+
+      const strip = (id: string) => deck.get(`[data-pattern-id="${id}"]`);
+      const soundOf = (id: string) => strip(id).get(".pattern-strip__instrument").text();
+      const spoken = (id: string) => strip(id).get(".pattern-strip__identity").attributes("aria-label");
+      const expectNamed = () => {
+        // The strip names the sound it plays on, not the one that is gone...
+        expect(soundOf(first)).toBe("piano");
+        // ...in words that cannot be heard as one name ("Kawai piano").
+        expect(spoken(first)).toContain("recorded on kawai, which has been removed, piano");
+        expect(strip(first).text()).not.toContain("kawai");
+        // ...and a pattern on a sound the app still has says nothing extra.
+        expect(soundOf(second)).toBe("triangle");
+        expect(spoken(second)).not.toContain("recorded on");
+      };
+      expectNamed();
+      await drag(deck, 320, 40);
+      expect(looper.reelLoopId).toBe(loop.id);
+      expectNamed();
+      expect(spoken(first)).toContain(`in ${loop.name}`);
+
+      // Naming it changed nothing: the pattern, and the Loop's pointer to it, are as saved.
+      expect(phrases.findPhrase(first)!.context.instrument).toBe("kawai");
+      expect(phrases.book.loops[0].members.map((member) => member.phraseId)).toEqual([first, second]);
+    } finally {
+      deck.unmount();
+    }
+  });
+
+  it("a Kept phrase on a removed sound still says so once it is opened on the desk, until you play into it (BJS-594)", async () => {
+    const { phrases } = setup();
+    const deck = mountDeck();
+    try {
+      playTake(.5);
+      const kept = phrases.keepTake()!;
+      phrases.findPhrase(kept)!.context.instrument = "kawai";
+      await flush();
+      // Opening it forks a copy onto the desk and moves the controls to piano; the Kept source keeps what was recorded.
+      phrases.openPhrase(kept);
+      await flush();
+      const copy = phrases.takeId;
+      expect(copy).not.toBe(kept);
+      expect(phrases.deskPhraseId).toBe(kept);
+      expect(phrases.takeContext.instrument).toBe("piano");
+      expect(phrases.findPhrase(kept)!.context.instrument).toBe("kawai");
+
+      const strip = () => deck.get(`[data-pattern-id="${copy}"]`);
+      const spoken = () => strip().get(".pattern-strip__identity").attributes("aria-label");
+      // The strip on the desk is the Kept phrase Play would join: on piano, recorded on kawai.
+      expect(strip().get(".pattern-strip__instrument").text()).toBe("piano");
+      expect(spoken()).toContain("recorded on kawai");
+
+      // Pick another sound: an untouched copy follows the controls, so the strip shows that sound. It
+      // makes no claim that kawai was swapped for it, which the strip's sawtooth is not.
+      await useInstrumentStore().setInstrument("sawtooth");
+      await flush();
+      expect(phrases.takeContext.instrument).toBe("sawtooth");
+      expect(strip().get(".pattern-strip__instrument").text()).toBe("sawtooth");
+      expect(spoken()).not.toContain("recorded on");
+
+      // Played into, the copy is your own take on the controls' sound; it no longer stands for the Kept phrase.
+      live("D4", 1, Math.round(4 * RATE), Math.round(4.2 * RATE));
+      await flush();
+      expect(phrases.deskPhraseId).toBe(copy);
+      expect(spoken()).not.toContain("recorded on");
+    } finally {
+      deck.unmount();
+    }
+  });
+
   it("renaming or keeping a Loop's pattern changes its name and shelf, never its notes or the Loop's pointer", async () => {
     const { phrases } = setup();
     const deck = mountDeck();

@@ -13,7 +13,10 @@ import { getAudioContext } from "@/services/audioRuntime";
 import { useInstrumentStore } from "@/stores/instrument";
 import { Note as TonalNote } from "@tonaljs/tonal";
 import { useVisualConfigStore } from "@/stores/visualConfig";
-import { isRhythmicStyle, PLAY_STYLE_OPTIONS, PLAY_MODE_OPTIONS, playModeValue, type PlayStyle, type PlayStyleRate } from "@/data/playStyles";
+import {
+  isRhythmicStyle, PLAY_STYLE_OPTIONS, PLAY_MODE_OPTIONS, playModeValue, PULSE_RELEASE_SECONDS,
+  type PlayStyle, type PlayStyleRate,
+} from "@/data/playStyles";
 import { audioTimeToOutputTime } from "@/services/liveAudioTiming";
 import { createLiveAudioClock } from "@/services/liveAudioClock";
 import { getLivePlayback, getLivePlaybackFailure, waitForLivePlayback } from "@/services/livePlayback";
@@ -119,7 +122,7 @@ export const useMusicStore = defineStore(
     // Scheduled voices sound with the live Shape at scheduling time; record that.
     function styleArticulation(instrument: string, style: PlayStyle): LiveArticulation {
       const articulation = resolveLiveEnvelope(instrument, instrumentStore.shape);
-      if (isRhythmicStyle(style)) articulation.release = 0.03;
+      if (isRhythmicStyle(style)) articulation.release = PULSE_RELEASE_SECONDS;
       return articulation;
     }
 

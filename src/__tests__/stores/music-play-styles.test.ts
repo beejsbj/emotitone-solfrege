@@ -556,6 +556,10 @@ describe("live styles through music, recording, and Strudel", () => {
       expect(patterns.takeContext.instrument).toBe(sound);
       expect(patterns.isTakeTouched).toBe(false);
       expect(releases(patterns.takeNotes)).toEqual([followed, 0.03, 0.03, 0.03, 0.03, 0.03]);
+      // A pulse's attack is the Shaped instrument's, so it follows on every note:
+      // piano's 0.001, or triangle's natural 0.003.
+      expect(patterns.takeNotes.map((note) => note.articulation?.attack))
+        .toEqual(Array(6).fill(sound === "triangle" ? 0.003 : 0.001));
       // What keeps them short was saved with the phrase: only the pulses are marked.
       expect(kept.notes.map((note) => note.gated ?? false)).toEqual([false, true, true, true, true, true]);
 
@@ -565,6 +569,38 @@ describe("live styles through music, recording, and Strudel", () => {
       await vi.advanceTimersByTimeAsync(10);
       expect(JSON.parse(JSON.stringify(patterns.takeNotes))).toEqual(recorded);
       expect(JSON.parse(JSON.stringify(patterns.findPhrase(keptId)!.notes))).toEqual(recorded);
+    });
+
+    it("marks exactly the Repeat and Arp notes, in every play mode", async () => {
+      const MODES = [
+        ["together", false], ["strum-up", false], ["strum-down", false],
+        ["repeat:16", true], ["arp-up:16", true], ["arp-up-down:16", true],
+      ] as const;
+      const music = useMusicStore();
+      const instrument = useInstrumentStore();
+      const patterns = connectRecorder();
+      instrument.setSynthControl("release", 0.03);
+      // Each recorded note, by the mode it was played in.
+      const playedIn = new Map<string, (typeof MODES)[number][0]>();
+      for (const [mode] of MODES) {
+        music.setPlayMode(mode);
+        await hold(["C4", "E4", "G4"], 240);
+        for (const note of patterns.takeNotes) if (!playedIn.has(note.id)) playedIn.set(note.id, mode);
+      }
+      const keptId = patterns.keepTake()!;
+      const kept = patterns.findPhrase(keptId)!;
+      const modeOf = (note: { id: string }) => playedIn.get(note.id)!;
+      const pulse = (note: { id: string }) => MODES.find(([mode]) => mode === modeOf(note))![1];
+      // Every mode is in the take, and only the pulses carry the mark.
+      expect(new Set(kept.notes.map(modeOf))).toEqual(new Set(MODES.map(([mode]) => mode)));
+      expect(kept.notes.map((note) => [modeOf(note), note.gated ?? false]))
+        .toEqual(kept.notes.map((note) => [modeOf(note), pulse(note)]));
+
+      await load(patterns, keptId);
+      await instrument.setInstrument("triangle");
+      await vi.advanceTimersByTimeAsync(10);
+      expect(patterns.takeNotes.map((note) => [modeOf(note), note.articulation?.release]))
+        .toEqual(patterns.takeNotes.map((note) => [modeOf(note), pulse(note) ? 0.03 : 0.12]));
     });
 
     it("re-skins a phrase saved before pulses were marked exactly as before", async () => {

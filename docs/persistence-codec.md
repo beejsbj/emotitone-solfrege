@@ -122,7 +122,16 @@ There is no in-app UI for this.
   release a re-skin leaves alone. It is optional and additive, so it is not a
   new version and needs no migration or backup: a phrase without it loads and
   re-skins as before, and an older v2 build keeps it, since every path that
-  copies a note spreads it.
+  copies a note spreads it, the cross-tab merge included (tested in
+  `phrasesCrossTab.test.ts`).
+  - **Accepted cost.** An older v2 build (a tab open across the deploy) keeps
+    the mark but doesn't honour it. It still moves a marked pulse's release by
+    value, and leaves the mark on.
+  - If the player then plays into that copy in the old tab, the phrase becomes
+    theirs with the pulse at the moved release, still marked. From then on,
+    this build holds that moved release through every re-skin.
+  - The window is one deploy's mixed-build period, and the result is what the
+    old tab played, so there is no code for it.
 
 ### Phrase shelf budget and backups
 

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
-import { setActivePinia } from "pinia";
+import { getActivePinia, setActivePinia } from "pinia";
+import { createCanvas } from "@napi-rs/canvas";
 import type { LiveResponse } from "@/audio/live/types";
 import type { TransportCommand, TransportResponse } from "@/audio/live/transport";
 
@@ -143,8 +144,9 @@ import { useMusicStore } from "@/stores/music";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { useLoopTimingStore } from "@/stores/performanceSettings";
 import { useInstrumentStore } from "@/stores/instrument";
-import { mount } from "@vue/test-utils";
+import { mount, type VueWrapper } from "@vue/test-utils";
 import PerformanceDeck from "@/components/PerformanceDeck.vue";
+import UnifiedVisualEffects from "@/components/UnifiedVisualEffects.vue";
 
 type Attack = { phraseId: string; memberId: string; sourceNoteId: string; frame: number; bar: number; noteName: string; record: boolean; instrument: string };
 
@@ -1763,6 +1765,306 @@ describe("Play is the loop on the worklet transport", () => {
       } finally {
         vi.useRealTimers();
       }
+    });
+  });
+
+  /**
+   * The Stage's light for the Looper (BJS-648), seen in its pixels: the app's
+   * own Stage (UnifiedVisualEffects, reading the pattern player's notes and the
+   * looper store) draws on a real canvas while the real transport renders the
+   * sound. Only the layer under test paints, flat (no glow, blur, field,
+   * lettering, Atmosphere or Scope), so a body's alpha is its Body Strength
+   * times its light, and a String's is its opacity.
+   */
+  describe("the Stage's Looper light dims with Stop All's fade (BJS-648), seen in the Stage's pixels", () => {
+    const BAR = FRAMES_PER_BAR;
+    const WIDTH = 390;
+    const HEIGHT = 400;
+    /** The sound's ramp: (1 − t)² over a bar from the tap. */
+    const level = (from: number, frame: number) => (1 - Math.min(1, Math.max(0, (frame - from) / BAR))) ** 2;
+    const silence = { initialize: () => null, sample: () => ({ envelope: 0, hasSignal: false }), cleanup: () => {} };
+    let stage: VueWrapper | undefined;
+    let surface: ReturnType<typeof createCanvas>;
+    let frames: Map<number, FrameRequestCallback>;
+    let stageSpies: { mockRestore(): void }[] = [];
+    let reducedMotion = false;
+
+    beforeEach(() => {
+      reducedMotion = false;
+    });
+
+    afterEach(() => {
+      stage?.unmount();
+      stage = undefined;
+      for (const spy of stageSpies) spy.mockRestore();
+      stageSpies = [];
+      vi.unstubAllGlobals();
+    });
+
+    /** The app's Stage, drawn on a real canvas: frames run only when `draw` is called. */
+    async function mountStage(layer: "bodies" | "strings") {
+      const config = useVisualConfigStore();
+      config.updateConfig("ambient", { isEnabled: false });
+      config.updateConfig("hilbertScope", { opacity: 0 });
+      config.updateConfig("blobs", {
+        isEnabled: layer === "bodies", glowEnabled: false, blurRadius: 0, fusionStrength: 0, webOpacity: 0,
+        driftSpeed: 0, fadeOutDuration: .1, scaleOutDuration: .1,
+        showChordLabel: false, showIntervalLabels: false, showEmotionLabel: false,
+      });
+      // String Response sets a lit String's opacity: full for the String test, none otherwise.
+      config.updateConfig("strings", { baseOpacity: 0, maxAmplitude: layer === "strings" ? 50 : 5 });
+      surface = createCanvas(WIDTH, HEIGHT);
+      const context = surface.getContext("2d") as unknown as CanvasRenderingContext2D;
+      frames = new Map();
+      let serial = 0;
+      vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+        frames.set(++serial, callback);
+        return serial;
+      });
+      vi.stubGlobal("cancelAnimationFrame", (id: number) => { frames.delete(id); });
+      vi.stubGlobal("devicePixelRatio", 1);
+      stageSpies = [
+        // The Stage's own canvas is the real one; no other surface draws (the Scope's trail stands aside without one).
+        vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(function (this: HTMLCanvasElement) {
+          return this.classList.contains("unified-canvas") ? context : null;
+        } as HTMLCanvasElement["getContext"]),
+        vi.spyOn(HTMLCanvasElement.prototype, "getBoundingClientRect").mockReturnValue({
+          x: 0, y: 0, top: 0, left: 0, width: WIDTH, height: HEIGHT, right: WIDTH, bottom: HEIGHT, toJSON: () => ({}),
+        } as DOMRect),
+        vi.spyOn(window, "matchMedia").mockImplementation((query: string) => ({
+          media: query, matches: query.includes("prefers-reduced-motion") && reducedMotion,
+          addEventListener() {}, removeEventListener() {},
+        }) as unknown as MediaQueryList),
+      ];
+      stage = mount(UnifiedVisualEffects, {
+        // The production Stage (its own notes, the looper store), minus the heard-time delay of note events.
+        props: { eventTarget: window, audioFeatures: silence },
+        global: { plugins: [getActivePinia()!] },
+      });
+      await draw();
+    }
+
+    /** One Stage frame now, stamped with the main thread's clock as a browser frame is. */
+    async function draw() {
+      await nextTick();
+      const pending = [...frames.values()];
+      frames.clear();
+      for (const callback of pending) callback(performance.now());
+      await nextTick();
+    }
+
+    /** Render the sound, drawing a Stage frame every quantum (16 ms), until `frame`. */
+    async function playTo(frame: number) {
+      while (rig.frame + QUANTUM <= frame) {
+        render(QUANTUM / RATE);
+        await draw();
+      }
+    }
+    const play = (seconds: number) => playTo(rig.frame + Math.round(seconds * RATE));
+
+    /** The brightest alpha the Stage shows (in rows `from` to `to`), 0 to 255. */
+    function brightest(from = 0, to = HEIGHT) {
+      const data = surface.getContext("2d").getImageData(0, from, WIDTH, to - from).data;
+      let max = 0;
+      for (let index = 3; index < data.length; index += 4) max = Math.max(max, data[index]);
+      return max;
+    }
+    const top = () => brightest(0, HEIGHT / 2);
+    const bottom = () => brightest(HEIGHT / 2, HEIGHT);
+
+    /** The rendered sound's level at `frame`: its peak over the quantum either side. */
+    function soundAt(frame: number) {
+      let peak = 0;
+      for (let index = frame - QUANTUM; index < frame + QUANTUM; index++) peak = Math.max(peak, Math.abs(pcm[index] ?? 0));
+      return peak;
+    }
+
+    /** The first onset of `phraseId` after now. */
+    async function nextOnset(phraseId: string) {
+      const after = rig.frame;
+      while (!attacksOf(phraseId).some((attack) => attack.frame > after)) await play(QUANTUM / RATE);
+      return attacksOf(phraseId).find((attack) => attack.frame > after)!.frame;
+    }
+
+    /**
+     * A take of one long C4 (most of a bar) looping on the Stage, 0.3 s into a
+     * lap's note: its body held at full light, its sound steady.
+     */
+    async function holdingLoop(layer: "bodies" | "strings" = "bodies") {
+      // Quiet enough that the output limiter never acts: the sound's level is the fade's.
+      rig.gain = .4;
+      const { phrases, looper } = setup();
+      live("C4", 0, Math.round(.5 * RATE), Math.round(2.4 * RATE));
+      const take = phrases.take.id;
+      // The Stage comes up with nothing sounding: it is blank, and paints only the loop.
+      await mountStage(layer);
+      expect(brightest()).toBe(0);
+      looper.togglePlay();
+      await flush();
+      await looper.settled();
+      const onset = await nextOnset(take);
+      await playTo(onset + .3 * RATE);
+      const full = brightest();
+      return { looper, take, full, steady: soundAt(rig.frame - 2 * QUANTUM) };
+    }
+
+    it("dims a Looper note's light on the sound's own ramp, in step with what is heard, and is dark when the sound is silent", async () => {
+      const { looper, full, steady } = await holdingLoop();
+      // Body Strength's 75%, at full light.
+      expect(full).toBeGreaterThanOrEqual(190);
+      expect(steady).toBeGreaterThan(.05);
+      const tap = rig.frame;
+      looper.stopAll();
+      await flush();
+      // Nothing is a member any more, but the notes still sound, and the light follows them down.
+      expect(looper.members).toEqual([]);
+      for (const t of [.1, .3, .5, .7, .9]) {
+        const at = tap + t * BAR;
+        await playTo(at);
+        const light = brightest() / full;
+        await play(.04);
+        expect(Math.abs(light - level(tap, at)), `light at t = ${t}`).toBeLessThan(.02);
+        expect(Math.abs(light - soundAt(at) / steady), `light against the sound at t = ${t}`).toBeLessThan(.03);
+      }
+      // A bar after the tap the sound is silent, and the Stage is dark from that frame on.
+      await playTo(tap + BAR);
+      expect(brightest()).toBe(0);
+      for (let index = 0; index < 30; index++) {
+        await play(QUANTUM / RATE);
+        expect(brightest(), `frame ${index} after the fade`).toBe(0);
+      }
+      expect(pcm.slice(tap + BAR).every((sample) => sample === 0)).toBe(true);
+      expect(looper.dialViews).toEqual([]);
+    });
+
+    it("goes dark at once on Stop All's second tap, and stays dark while the cut note's body leaves", async () => {
+      const { looper, full } = await holdingLoop();
+      const tap = rig.frame;
+      looper.stopAll();
+      await flush();
+      await playTo(tap + .25 * BAR);
+      expect(Math.abs(brightest() / full - level(tap, tap + .25 * BAR))).toBeLessThan(.02);
+      looper.stopAll();
+      await flush();
+      expect(looper.stopping).toBe(false);
+      for (let index = 0; index < 30; index++) {
+        await play(QUANTUM / RATE);
+        expect(brightest(), `frame ${index} after the cut`).toBe(0);
+      }
+    });
+
+    it("leaves a flicked pattern's light as its sound leaves, at full and with no fade, while Stop All then fades the other", async () => {
+      rig.gain = .4;
+      const { phrases, looper } = setup();
+      // C4 sits at the top of the Stage's circle, E4 below its middle: one body in each half.
+      live("C4", 0, Math.round(.5 * RATE), Math.round(2.4 * RATE));
+      const first = phrases.take.id;
+      looper.togglePlay();
+      await flush();
+      await looper.settled();
+      render(1);
+      const after = rig.frame;
+      while (!attacksOf(first).some((attack) => attack.frame > after)) render(QUANTUM / RATE);
+      const onset = attacksOf(first).find((attack) => attack.frame > after)!.frame;
+      live("E4", 2, onset + .2 * RATE, onset + 1.8 * RATE);
+      const second = phrases.take.id;
+      looper.togglePlay();
+      await flush();
+      await looper.settled();
+      await mountStage("bodies");
+      // Both sounding: C from its next lap's onset, E from 0.2 s after it.
+      const lap = await nextOnset(first);
+      await playTo(lap + .4 * RATE);
+      const full = top();
+      expect(full).toBeGreaterThanOrEqual(190);
+      expect(bottom()).toBe(full);
+
+      looper.removeMember(first);
+      await flush();
+      expect(looper.members.map((member) => member.phraseId)).toEqual([second]);
+      // Its note plays on to its own end at full level, and so does its light: nothing dims.
+      for (const seconds of [.05, .5, 1.3]) {
+        await playTo(lap + (.4 + seconds) * RATE);
+        expect(top(), `the flicked note ${seconds} s after the flick`).toBe(full);
+        expect(bottom()).toBe(full);
+      }
+      // Then it is gone with its sound, and no later note of it lights the Stage.
+      await playTo(lap + 2.3 * RATE);
+      expect(top()).toBe(0);
+      expect(bottom()).toBe(full);
+
+      // Stop All fades the pattern still playing.
+      const tap = rig.frame;
+      looper.stopAll();
+      await flush();
+      await playTo(tap + .25 * BAR);
+      expect(Math.abs(bottom() / full - level(tap, tap + .25 * BAR))).toBeLessThan(.02);
+      expect(top()).toBe(0);
+    });
+
+    it("a pattern played again during its fade keeps its sounding note's light on the ramp, and lights its next note at full", async () => {
+      const { looper, take, full, steady } = await holdingLoop();
+      const phrases = usePhrasesStore();
+      const tap = rig.frame;
+      looper.stopAll();
+      await flush();
+      await playTo(tap + .1 * BAR);
+      // Latched, the run goes on, so the pattern joins it again (rather than starting a run of its own).
+      looper.toggleLatch();
+      phrases.openPhrase(take);
+      looper.togglePlay();
+      await flush();
+      await looper.settled();
+      expect(looper.memberFor(take)).toBeDefined();
+      expect(looper.stopping).toBe(false);
+      // The note already sounding fades on, heard and seen.
+      for (const t of [.3, .6]) {
+        const at = tap + t * BAR;
+        await playTo(at);
+        const light = brightest() / full;
+        await play(.04);
+        expect(Math.abs(light - level(tap, at)), `light at t = ${t}`).toBeLessThan(.02);
+        expect(Math.abs(light - soundAt(at) / steady), `light against the sound at t = ${t}`).toBeLessThan(.03);
+      }
+      // Its next note comes back at full level, and at full light.
+      const next = await nextOnset(take);
+      await playTo(next + .2 * RATE);
+      expect(brightest()).toBe(full);
+      await play(.04);
+      expect(Math.abs(soundAt(next + .2 * RATE) / steady - 1)).toBeLessThan(.03);
+    });
+
+    it("holds the light still at 15% under Reduced Motion, as the Looper Dial does, then goes dark with the sound", async () => {
+      reducedMotion = true;
+      const { looper, full } = await holdingLoop();
+      expect(full).toBeGreaterThanOrEqual(190);
+      const tap = rig.frame;
+      looper.stopAll();
+      await flush();
+      for (const t of [.05, .5, .95]) {
+        await playTo(tap + t * BAR);
+        expect(Math.abs(brightest() / full - .15), `light at t = ${t}`).toBeLessThan(.01);
+      }
+      await playTo(tap + BAR);
+      for (let index = 0; index < 30; index++) {
+        await play(QUANTUM / RATE);
+        expect(brightest(), `frame ${index} after the fade`).toBe(0);
+      }
+    });
+
+    it("dims a String lit by a fading Looper note with it", async () => {
+      // Reduced Motion: the String's line stands still and takes its opacity at once.
+      reducedMotion = true;
+      const { looper, full } = await holdingLoop("strings");
+      expect(full).toBeGreaterThan(200);
+      const tap = rig.frame;
+      looper.stopAll();
+      await flush();
+      await playTo(tap + .5 * BAR);
+      expect(Math.abs(brightest() / full - .15)).toBeLessThan(.01);
+      await playTo(tap + BAR);
+      await play(.2);
+      expect(brightest()).toBe(0);
     });
   });
 

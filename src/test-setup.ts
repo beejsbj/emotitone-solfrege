@@ -146,7 +146,6 @@ vi.mock('@/services/audioEngine', () => ({
   getAudioStartupStage: vi.fn().mockReturnValue('ready'),
   prewarmSoundSamples: vi.fn().mockResolvedValue(undefined),
   isPrewarmed: vi.fn().mockReturnValue(true),
-  getReadySounds: vi.fn().mockReturnValue(['piano', 'triangle']),
   ensureSoundfontCatalog: vi.fn().mockResolvedValue(undefined),
   getRegisteredSounds: vi.fn().mockReturnValue(['piano', 'triangle']),
   setLiveSynthControls: vi.fn(),

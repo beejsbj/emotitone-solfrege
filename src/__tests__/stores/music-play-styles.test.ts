@@ -12,7 +12,6 @@ vi.mock("@/services/audioEngine", async (importOriginal) => ({
   initAudioEngine: vi.fn(async () => {}),
   prewarmSoundSamples: vi.fn(async () => {}),
   isPrewarmed: () => true,
-  getReadySounds: () => [],
 }));
 
 import { useMusicStore } from "@/stores/music";

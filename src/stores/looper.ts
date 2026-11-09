@@ -153,8 +153,15 @@ interface Ending {
   endingMs: number;
   /** When its ramp reaches silence, on `performance.now()`'s clock. */
   endsAt: number;
-  /** Stop All's fade: its next tap cuts. */
-  stopAll: boolean;
+}
+
+/** A pattern fading out under Stop All, as a surface that draws the fade over time reads it (the Stage, BJS-648). */
+export interface LooperFading {
+  phraseId: string;
+  /** How long its ramp lasts (one bar at the loop's tempo). */
+  endingMs: number;
+  /** When its ramp reaches silence, on `performance.now()`'s clock. */
+  endsAt: number;
 }
 
 /** What the notes are, for deciding whether a member's table is stale. */
@@ -201,8 +208,11 @@ export const useLooperStore = defineStore("looper", () => {
    * playing), but still sounding for a bar, so their dials show them ending.
    */
   const ending = ref<Ending[]>([]);
-  /** Stop All is fading everything out: its next tap cuts at once. */
-  const stopping = computed(() => ending.value.some((entry) => entry.stopAll));
+  /** Stop All is fading everything out: its next tap cuts at once. (Only Stop All fades.) */
+  const stopping = computed(() => ending.value.length > 0);
+  /** The same endings, timed, for the Stage's light (BJS-648): it dims on the ramp the sound follows. */
+  const fading = computed<LooperFading[]>(() => ending.value.map(({ view, endingMs, endsAt }) =>
+    ({ phraseId: view.phraseId, endingMs, endsAt })));
   let fadeSerial = 0;
   /** Endings whose dials outlive the run they faded in: removed when their ramp reaches silence. */
   const endingTimers = new Set<ReturnType<typeof setTimeout>>();
@@ -1041,7 +1051,7 @@ export const useLooperStore = defineStore("looper", () => {
    * dials stay, ending, until they have left. The last fade to end stops an
    * empty transport, unless the latch holds its grid.
    */
-  function fadeOutMembers(phraseIds: string[], { stopAll = false } = {}): void {
+  function fadeOutMembers(phraseIds: string[]): void {
     const current = player!;
     const captured = epoch;
     const fade = ++fadeSerial;
@@ -1051,7 +1061,7 @@ export const useLooperStore = defineStore("looper", () => {
     void dialViews.value;
     const marked = phraseIds.flatMap((phraseId) => {
       const view = viewFor(phraseId);
-      return view ? [{ view: { ...view }, fade, endingMs, endsAt, stopAll }] : [];
+      return view ? [{ view: { ...view }, fade, endingMs, endsAt }] : [];
     });
     for (const phraseId of phraseIds) {
       forgetMember(phraseId);
@@ -1112,7 +1122,7 @@ export const useLooperStore = defineStore("looper", () => {
     openTakeId.value = null;
     latchCountdown.value = null;
     looper.value.latched = false;
-    fadeOutMembers(sounding, { stopAll: true });
+    fadeOutMembers(sounding);
     // Members still loading have made no sound: they are withdrawn, as a leave withdraws them.
     for (const member of [...looper.value.members]) leaveMember(member.phraseId);
     origins.clear();
@@ -1558,6 +1568,7 @@ export const useLooperStore = defineStore("looper", () => {
     memberViews,
     dialViews,
     stopping,
+    fading,
     hasMembers,
     running,
     latched,

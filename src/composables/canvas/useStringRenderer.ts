@@ -24,6 +24,21 @@ import { CHROMATIC_NOTES, getScaleForMode } from "@/data";
 import type { StageAudioFrame } from "./stageRuntime";
 import { Note as TonalNote } from "@tonaljs/tonal";
 
+/** A string lit by a note event (sequencer and transport notes). */
+interface EventStringActivation {
+  solfegeIndex: number;
+  frequency: number;
+  /** Keyboard row coordinate used to select the rendered String. */
+  octave: number;
+  /** Sounding scientific octave used by Music Color. */
+  scientificOctave: number;
+  mode: MusicalMode;
+  key: ChromaticNote;
+  pitchClassIndex?: number;
+  pitchBendCents?: number;
+  endTime: number | null;
+}
+
 function resolvePitchClassIndex(note: {
   pitchClassIndex?: number;
   noteName?: string;
@@ -64,23 +79,8 @@ export function useStringRenderer(animationActive?: () => boolean) {
   let lastCanvasWidth = 0;
   let lastCanvasHeight = 0;
 
-  // Event-based activation for sequencer notes
-  const eventActivatedStrings = new Map<
-    string,
-    {
-      solfegeIndex: number;
-      frequency: number;
-      /** Keyboard row coordinate used to select the rendered String. */
-      octave: number;
-      /** Sounding scientific octave used by Music Color. */
-      scientificOctave: number;
-      mode: MusicalMode;
-      key: ChromaticNote;
-      pitchClassIndex?: number;
-      pitchBendCents?: number;
-      endTime: number | null;
-    }
-  >();
+  // Event-based activation for sequencer notes, by note id when the event has one
+  const eventActivatedStrings = new Map<string, EventStringActivation>();
 
   const getStringActivationKey = (solfegeIndex: number, octave: number) =>
     `${solfegeIndex}_${octave}`;
@@ -295,6 +295,8 @@ export function useStringRenderer(animationActive?: () => boolean) {
     reducedMotion = false,
     suppliedActiveNotes?: readonly ActiveNote[],
     deltaSeconds = 1 / 60,
+    /** Each note's light this frame, 0 to 1 (a Looper note on Stop All's fade-out, BJS-648). */
+    lightOf?: (noteId: string) => number,
   ) => {
     // Clean up expired event activations
     cleanupExpiredActivations();
@@ -310,24 +312,24 @@ export function useStringRenderer(animationActive?: () => boolean) {
         musicStore.currentMode,
         musicStore.currentKey,
       );
-      const matchingActiveNote = activeNotes.find((activeNote: any) => {
+      const lightsString = (activeNote: any) => {
         const activePitchClass = resolvePitchClassIndex(activeNote);
         const pitchMatches = typeof activePitchClass === "number"
           ? activePitchClass === stringPitchClass
           : activeNote.solfegeIndex === string.noteIndex;
         return pitchMatches
           && (activeNote.keyboardOctave ?? activeNote.octave) === string.octave;
-      });
+      };
+      const matchingActiveNote = activeNotes.find(lightsString);
       const isStringActiveFromInput = Boolean(matchingActiveNote);
 
       // Check if this string is activated by sequencer events (for the specific octave)
-      const eventActivation = Array.from(eventActivatedStrings.values()).find(
-        (activation) =>
-          (typeof activation.pitchClassIndex === "number"
-            ? activation.pitchClassIndex === stringPitchClass
-            : activation.solfegeIndex === string.noteIndex)
-          && activation.octave === string.octave,
-      );
+      const activates = (activation: EventStringActivation) =>
+        (typeof activation.pitchClassIndex === "number"
+          ? activation.pitchClassIndex === stringPitchClass
+          : activation.solfegeIndex === string.noteIndex)
+        && activation.octave === string.octave;
+      const eventActivation = Array.from(eventActivatedStrings.values()).find(activates);
       const isStringActiveFromEvent =
         eventActivation &&
         (eventActivation.endTime === null || Date.now() <= eventActivation.endTime) &&
@@ -338,6 +340,13 @@ export function useStringRenderer(animationActive?: () => boolean) {
       // Update string properties based on active notes
       if (isStringActive) {
         string.isActive = true;
+        // Its line is as bright as the brightest note lighting it: one on a fade-out dims it (BJS-648).
+        const light = lightOf ? Math.max(0, Math.min(1, Math.max(
+          ...activeNotes.filter(lightsString).map((activeNote: ActiveNote) => lightOf(activeNote.noteId)),
+          ...[...eventActivatedStrings].filter(([, activation]) => activates(activation)).map(([key]) => lightOf(key)),
+        ))) : 1;
+        const targetOpacity = light >= 1 ? stringConfig.activeOpacity
+          : stringConfig.baseOpacity + (stringConfig.activeOpacity - stringConfig.baseOpacity) * light;
         const targetAmplitude = reducedMotion
           ? 0
           : stringConfig.maxAmplitude * audioFrame.envelope;
@@ -350,10 +359,10 @@ export function useStringRenderer(animationActive?: () => boolean) {
               deltaSeconds
             );
         string.opacity = reducedMotion
-          ? stringConfig.activeOpacity
+          ? targetOpacity
           : smoothStageValue(
               string.opacity,
-              stringConfig.activeOpacity,
+              targetOpacity,
               stringConfig.opacityInterpolationSpeed,
               deltaSeconds
             );

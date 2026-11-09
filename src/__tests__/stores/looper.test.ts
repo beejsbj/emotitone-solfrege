@@ -1793,13 +1793,10 @@ describe("Play is the loop on the worklet transport", () => {
     let reducedMotion = false;
     /** A body's release, in seconds: short, unless a test needs the production one. */
     let bodyRelease = { fadeOut: .1, scaleOut: .1 };
-    /** Timers keep the render clock; a test may hold them still. */
-    let timersRun = true;
 
     beforeEach(() => {
       reducedMotion = false;
       bodyRelease = { fadeOut: .1, scaleOut: .1 };
-      timersRun = true;
       vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     });
 
@@ -1868,7 +1865,7 @@ describe("Play is the loop on the worklet transport", () => {
     async function playTo(frame: number) {
       while (rig.frame + QUANTUM <= frame) {
         render(QUANTUM / RATE);
-        if (timersRun) vi.advanceTimersByTime(QUANTUM / RATE * 1000);
+        vi.advanceTimersByTime(QUANTUM / RATE * 1000);
         await draw();
       }
     }
@@ -2191,15 +2188,14 @@ describe("Play is the loop on the worklet transport", () => {
       expect(Math.abs(brightest() / full - .15)).toBeLessThan(.01);
     });
 
-    it("goes dark under Reduced Motion when the sound does, even while the store still holds the fade", async () => {
+    it("goes dark under Reduced Motion at the ramp's own end, for a note still on the Stage once its pattern plays again", async () => {
       reducedMotion = true;
-      // A body that takes its time to leave, so the fading note is still on the Stage past its ramp's end.
-      bodyRelease = { fadeOut: 3, scaleOut: .4 };
+      // Heard 100 ms after it is rendered: a voice let go at the ramp's end stays on the Stage until that is heard.
+      rig.context.outputLatency = .1;
       rig.gain = .4;
       const { phrases, looper } = setup();
-      live("E4", 2, Math.round(.1 * RATE), Math.round(.2 * RATE));
-      const other = phrases.keepTake()!;
-      live("C4", 0, Math.round(.5 * RATE), Math.round(2.4 * RATE));
+      // One note of 3.5 s, a take of two bars: it outlasts the fade's bar, and the next one is two bars on.
+      live("C4", 0, Math.round(.5 * RATE), Math.round(4 * RATE));
       const take = phrases.take.id;
       await mountStage("bodies");
       looper.togglePlay();
@@ -2207,24 +2203,24 @@ describe("Play is the loop on the worklet transport", () => {
       await looper.settled();
       const onset = await nextOnset(take);
       await playTo(onset + .3 * RATE);
-      const full = top();
+      const full = brightest();
       expect(full).toBeGreaterThanOrEqual(190);
       const tap = rig.frame;
       looper.stopAll();
       await flush();
       await playTo(tap + .1 * BAR);
-      // Another pattern starts a run of its own over the fade; the fading one ramps out under it.
-      phrases.openPhrase(other);
+      // Played again over the latch's grid: the store lets the fade go, and the note sounding keeps its ramp.
+      looper.toggleLatch();
+      phrases.openPhrase(take);
       looper.togglePlay();
       await flush();
       await looper.settled();
+      expect(looper.fading).toEqual([]);
       await playTo(tap + .5 * BAR);
-      expect(Math.abs(top() / full - .15)).toBeLessThan(.01);
-      // The store lets that fade go on a timer of its own: hold it, so only the ramp's end can darken the light.
-      timersRun = false;
-      await playTo(tap + 1.2 * BAR);
-      expect(looper.fading.map((entry) => entry.phraseId)).toEqual([take]);
-      expect(top()).toBe(0);
+      expect(Math.abs(brightest() / full - .15)).toBeLessThan(.01);
+      // Its ramp ends with the bar: the voice is let go there, and its light goes dark then, before that is heard.
+      await playTo(tap + BAR + .06 * RATE);
+      expect(brightest()).toBe(0);
     });
 
     it("holds the light still at 15% under Reduced Motion, as the Looper Dial does, then goes dark with the sound", async () => {

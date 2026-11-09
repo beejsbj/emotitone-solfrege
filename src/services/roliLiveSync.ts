@@ -1,5 +1,7 @@
 import type { ChromaticNote, DynamicColorConfig, MusicalMode } from "@/types";
-import { buildRoliPianoPalette } from "@/services/roliPianoExport";
+import { buildRoliPianoPalette, ROLI_SCRIPT_VERSION } from "@/services/roliPianoExport";
+
+export { ROLI_SCRIPT_VERSION };
 
 export interface MidiPortLike {
   name?: string | null;
@@ -24,6 +26,8 @@ export const ROLI_SYNC_CCS = {
   activeBlue: 109,
   activeCommit: 110,
   mainOctave: 111,
+  /** App asks with 0; the script answers with its ROLI_SCRIPT_VERSION. */
+  hello: 112,
 } as const;
 
 const ROLI_PORT_NAME_PATTERN = /\b(roli|lumi|lightkey|seaboard|blocks?)\b/i;
@@ -136,6 +140,10 @@ export function buildRoliMainOctaveMessage(mainOctave: number): number[] {
     ROLI_SYNC_CCS.mainOctave,
     clampRoliAppMainOctave(mainOctave),
   ];
+}
+
+export function buildRoliHelloMessage(): number[] {
+  return [ROLI_SYNC_CONTROL_STATUS, ROLI_SYNC_CCS.hello, 0];
 }
 
 export function buildRoliPaletteUpdateMessages(

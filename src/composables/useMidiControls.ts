@@ -9,12 +9,15 @@ import { useVisualConfig } from "@/composables/useVisualConfig";
 import { SCHEDULED_LIVE_MIDI_EVENT } from "@/services/livePerformance";
 import {
   buildRoliAllNotesOffMessages,
+  buildRoliHelloMessage,
   buildRoliMainOctaveMessage,
   buildRoliNoteOffMessage,
   buildRoliNoteOnMessage,
   buildRoliPaletteUpdateMessages,
   isRoliMidiPortName,
+  clampRoliAppMainOctave,
   pickPreferredRoliOutput,
+  ROLI_SYNC_CCS,
   ROLI_SYNC_CONTROL_CHANNEL,
 } from "@/services/roliLiveSync";
 
@@ -665,6 +668,22 @@ export function useMidiControls() {
     }
   };
 
+  // The octave the piano last reported, so the app does not send it back.
+  let octaveFromRoli: number | null = null;
+  /** The EmotiTone script answering its handshake, or moving its octave. */
+  const handleRoliSync = (controller: number, value: number) => {
+    if (controller === ROLI_SYNC_CCS.hello) {
+      // 0 is the app's own question; a device that echoes it has not answered.
+      if (value > 0) keyboardDrawerStore.setMidiSyncedScriptVersion(value);
+      return;
+    }
+    const octave = clampRoliAppMainOctave(value);
+    if (octave === keyboardDrawerStore.keyboardConfig.mainOctave) return;
+    // Consumed by the main-octave watcher this change triggers.
+    octaveFromRoli = octave;
+    keyboardDrawerStore.setMainOctave(octave);
+  };
+
   const handleMidiPacket = (inputId: string, rawData: ArrayLike<number>) => {
     const data = Array.from(rawData).slice(0, 3);
     if (data.length < 2) {
@@ -674,6 +693,16 @@ export function useMidiControls() {
     const [status, noteNumber, velocity = 0] = data;
     const messageType = status & MIDI_STATUS_MASK;
     const channel = (status & MIDI_CHANNEL_MASK) + 1;
+
+    if (
+      messageType === MIDI_CONTROL_CHANGE
+      && channel === ROLI_SYNC_CONTROL_CHANNEL
+      && roliInputIds.value.has(inputId)
+      && (noteNumber === ROLI_SYNC_CCS.hello || noteNumber === ROLI_SYNC_CCS.mainOctave)
+    ) {
+      handleRoliSync(noteNumber, velocity);
+      return;
+    }
 
     if (messageType === MIDI_PITCH_BEND) {
       const controllers = controllersOf(inputId);
@@ -864,7 +893,9 @@ export function useMidiControls() {
   };
 
   const syncRoliMainOctave = () => {
-    if (!selectedRoliOutput.value) {
+    const fromRoli = octaveFromRoli;
+    octaveFromRoli = null;
+    if (!selectedRoliOutput.value || fromRoli === keyboardDrawerStore.keyboardConfig.mainOctave) {
       return;
     }
 
@@ -1137,6 +1168,8 @@ export function useMidiControls() {
       });
       syncRoliPalette();
       syncRoliMainOctave();
+      // Ask whether the EmotiTone script is running; it answers on its input.
+      sendToRoliOutput(buildRoliHelloMessage());
     }
   };
 

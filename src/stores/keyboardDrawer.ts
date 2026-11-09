@@ -48,6 +48,8 @@ export interface MidiState {
   connectedOutputs: string[];
   /** Preferred ROLI/LUMI output currently used for live sync */
   syncedOutput: string | null;
+  /** Live-sync protocol the EmotiTone script on that output reported; null until it answers */
+  syncedScriptVersion: number | null;
   /** Last connection or permission error */
   lastError: string | null;
 }
@@ -94,6 +96,7 @@ export const useKeyboardDrawerStore = defineStore(
       connectedInputs: [],
       connectedOutputs: [],
       syncedOutput: null,
+      syncedScriptVersion: null,
       lastError: null,
     });
 
@@ -360,7 +363,12 @@ export const useKeyboardDrawerStore = defineStore(
     };
 
     const setMidiSyncedOutput = (output: string | null) => {
+      if (midi.syncedOutput !== output) midi.syncedScriptVersion = null;
       midi.syncedOutput = output;
+    };
+
+    const setMidiSyncedScriptVersion = (version: number | null) => {
+      midi.syncedScriptVersion = version;
     };
 
     const setMidiError = (message: string | null) => {
@@ -407,6 +415,7 @@ export const useKeyboardDrawerStore = defineStore(
       setMidiInputs,
       setMidiOutputs,
       setMidiSyncedOutput,
+      setMidiSyncedScriptVersion,
       setMidiError,
     };
   },

@@ -208,11 +208,20 @@ export const useLooperStore = defineStore("looper", () => {
    * playing), but still sounding for a bar, so their dials show them ending.
    */
   const ending = ref<Ending[]>([]);
-  /** Stop All is fading everything out: its next tap cuts at once. (Only Stop All fades.) */
+  /**
+   * A pattern is fading out (only Stop All fades, BJS-598), even one whose ramp
+   * outlives a run started over it: the next Stop All tap cuts at once.
+   */
   const stopping = computed(() => ending.value.length > 0);
-  /** The same endings, timed, for the Stage's light (BJS-648): it dims on the ramp the sound follows. */
-  const fading = computed<LooperFading[]>(() => ending.value.map(({ view, endingMs, endsAt }) =>
-    ({ phraseId: view.phraseId, endingMs, endsAt })));
+  /**
+   * The patterns fading out, timed, for the Stage's light (BJS-648): it dims on
+   * the ramp the sound follows. A pattern playing again is left out, as the
+   * dial column leaves it out: a saved Loop played during its own fade keeps
+   * its old entry until that ramp ends, but its new notes sound at full.
+   */
+  const fading = computed<LooperFading[]>(() => ending.value
+    .filter(({ view }) => !memberFor(view.phraseId))
+    .map(({ view, endingMs, endsAt }) => ({ phraseId: view.phraseId, endingMs, endsAt })));
   let fadeSerial = 0;
   /** Endings whose dials outlive the run they faded in: removed when their ramp reaches silence. */
   const endingTimers = new Set<ReturnType<typeof setTimeout>>();

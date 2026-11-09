@@ -341,10 +341,19 @@ export function useStringRenderer(animationActive?: () => boolean) {
       if (isStringActive) {
         string.isActive = true;
         // Its line is as bright as the brightest note lighting it: one on a fade-out dims it (BJS-648).
-        const light = lightOf ? Math.max(0, Math.min(1, Math.max(
-          ...activeNotes.filter(lightsString).map((activeNote: ActiveNote) => lightOf(activeNote.noteId)),
-          ...[...eventActivatedStrings].filter(([, activation]) => activates(activation)).map(([key]) => lightOf(key)),
-        ))) : 1;
+        // A note can light it through either list: the Stage's sounding notes, or its note event
+        // alone (one that no registry holds, such as a one-shot), so both count.
+        let light = 1;
+        if (lightOf) {
+          light = 0;
+          for (const activeNote of activeNotes as readonly ActiveNote[]) {
+            if (lightsString(activeNote)) light = Math.max(light, lightOf(activeNote.noteId));
+          }
+          for (const [key, activation] of eventActivatedStrings) {
+            if (activates(activation)) light = Math.max(light, lightOf(key));
+          }
+          light = Math.min(1, light);
+        }
         const targetOpacity = light >= 1 ? stringConfig.activeOpacity
           : stringConfig.baseOpacity + (stringConfig.activeOpacity - stringConfig.baseOpacity) * light;
         const targetAmplitude = reducedMotion

@@ -76,8 +76,11 @@ export function useUnifiedCanvas(
     ? undefined : createAudibleStageTimeline(window, readProductionNotes);
   const getStageActiveNotes = runtime?.getActiveNotes ?? audibleTimeline?.getActiveNotes ?? readProductionNotes;
   const noteEventTarget = runtime?.eventTarget ?? audibleTimeline?.eventTarget ?? window;
-  // Each Looper note's light, from the note events the Stage draws by (heard time in production).
-  const looperLight = runtime?.looper ? createLooperStageLight(runtime.looper, noteEventTarget) : undefined;
+  // Each Looper note's light: followed from the transport's announcement (where the audible
+  // timeline reads it, before render), let go at the release the Stage hears.
+  const looperLight = runtime?.looper
+    ? createLooperStageLight(runtime.looper, runtime.eventTarget ?? window, noteEventTarget)
+    : undefined;
   const {
     stageConfig,
     blobConfig,
@@ -389,7 +392,7 @@ export function useUnifiedCanvas(
     let lightOf: ((noteId: string) => number) | undefined;
     if (looperLight) {
       const sounding = new Set(stageActiveNotes.map((note) => note.noteId));
-      looperLight.update((noteId) => sounding.has(noteId) || blobRenderer.activeBlobs.has(noteId));
+      looperLight.update(timestamp, (noteId) => sounding.has(noteId) || blobRenderer.activeBlobs.has(noteId));
       lightOf = (noteId) => looperLight.lightOf(noteId, timestamp, reducedMotion);
     }
 

@@ -237,7 +237,7 @@ describe("useBlobRenderer lifecycle", () => {
         baseSizeRatio: ratio,
         oscillationAmplitude: 0,
       }, {
-        reducedMotion: true,
+        reducedMotion: false,
         bounds: composition.usable,
       });
       radii.push(renderer.getPreparedBlobFrames()[0]!.scaledRadius);
@@ -302,8 +302,52 @@ describe("useBlobRenderer lifecycle", () => {
       { ...releasingConfig, opacity: 0.65 },
       { reducedMotion: true },
     );
-    expect(blob.renderOpacity).toBeCloseTo(0.65, 6);
+    expect(blob.renderOpacity).toBe(0);
+    expect(renderer.getPreparedBlobFrames()).toHaveLength(0);
     expect(blob.fadeOutStartTime).toBe(fadeOutStartTime);
+  });
+
+  describe("release under Reduced Motion", () => {
+    const releasing = { ...DEFAULT_CONFIG.blobs, fadeOutDuration: 1.5, scaleOutDuration: 1.5, oscillationAmplitude: 0 };
+
+    it("removes the drawn body on the next frame but keeps the anchor until expiry", () => {
+      vi.spyOn(Date, "now").mockReturnValue(1_000);
+      const renderer = useBlobRenderer();
+      createTestBlob(renderer);
+      renderer.prepareBlobs(context, releasing, { reducedMotion: true });
+      expect(renderer.getPreparedBlobFrames()).toHaveLength(1);
+
+      renderer.startBlobFadeOutById("c4");
+      vi.mocked(Date.now).mockReturnValue(1_016);
+      renderer.prepareBlobs(context, releasing, { reducedMotion: true });
+      vi.mocked(mockCanvasContext.fill).mockClear();
+      renderer.renderBlobs(context, 16, releasing, {}, true);
+
+      expect(renderer.getPreparedBlobFrames()).toHaveLength(0);
+      expect(mockCanvasContext.fill).not.toHaveBeenCalled();
+      // Harmonic geometry still resolves the released note's position.
+      expect(renderer.activeBlobs.has("c4")).toBe(true);
+
+      // Expiry timing is unchanged.
+      vi.mocked(Date.now).mockReturnValue(1_000 + 1_500 + 1);
+      renderer.prepareBlobs(context, releasing, { reducedMotion: true });
+      expect(renderer.activeBlobs.has("c4")).toBe(false);
+    });
+
+    it("still fades a released body when Reduced Motion is off", () => {
+      vi.spyOn(Date, "now").mockReturnValue(1_000);
+      const renderer = useBlobRenderer();
+      createTestBlob(renderer);
+      renderer.startBlobFadeOutById("c4");
+      vi.mocked(Date.now).mockReturnValue(1_016);
+      renderer.prepareBlobs(context, releasing, { reducedMotion: false });
+
+      const frames = renderer.getPreparedBlobFrames();
+      expect(frames).toHaveLength(1);
+      const multiplier = Math.cos((0.016 / 1.5) * Math.PI * 0.5);
+      expect(frames[0].opacity).toBeCloseTo(releasing.opacity * multiplier, 4);
+      expect(frames[0].opacity).toBeLessThan(releasing.opacity);
+    });
   });
 
   it("vibrates with pitch-scaled harmonic motion matching strings", () => {

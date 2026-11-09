@@ -430,12 +430,19 @@ export function useBlobRenderer(animationActive?: () => boolean) {
           1
         );
 
-        if (!options.reducedMotion) {
-          currentScale = 1 - Math.pow(scaleOutProgress, 2);
-          const fadeMultiplier = Math.cos(fadeProgress * Math.PI * 0.5);
-          currentOpacity = blobConfig.opacity * fadeMultiplier;
-          vibrationIntensity = fadeMultiplier;
+        if (options.reducedMotion) {
+          // Reduced Motion is discrete: a released body is gone at once. The
+          // note stays in activeBlobs as the position anchor harmonic geometry
+          // resolves until the release window ends, but nothing is drawn.
+          blob.renderOpacity = 0;
+          if (fadeProgress >= 1) blobsToRemove.push(blobKey);
+          return;
         }
+
+        currentScale = 1 - Math.pow(scaleOutProgress, 2);
+        const fadeMultiplier = Math.cos(fadeProgress * Math.PI * 0.5);
+        currentOpacity = blobConfig.opacity * fadeMultiplier;
+        vibrationIntensity = fadeMultiplier;
 
         if (fadeProgress >= 1) {
           blobsToRemove.push(blobKey);

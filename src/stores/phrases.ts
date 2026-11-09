@@ -298,10 +298,10 @@ export const usePhrasesStore = defineStore(
     }
 
     // ─── Controls ↔ take ─────────────────────────────────────────────────────
-    let isContextSyncing = false;
-
+    // Runs after the controls settle, including after `syncControlsTo` moves
+    // them to an opened phrase. It then finds the phrase already on those
+    // controls and changes nothing (pinned in phrases.test.ts).
     watch(liveContext, (live) => {
-      if (isContextSyncing) return;
       // A Loop's pattern on the desk keeps its key, mode and sound (rule 3).
       if (isLoopOwned(book.value.takeId)) return;
       followControls(book.value, held, live);
@@ -317,29 +317,24 @@ export const usePhrasesStore = defineStore(
       const instrument = selectableReplacement(context.instrument);
       // A Loop's pattern is not rewritten (rule 3): only the controls take the working sound.
       if (context.instrument !== instrument && !isLoopOwned(phrase.id)) context.instrument = instrument;
-      isContextSyncing = true;
-      try {
-        musicStore.setKey(context.key);
-        musicStore.setMode(context.mode);
-        keyboardStore.setMainOctave(context.octave);
-        visualConfigStore.updateConfig("codeStrip", { bpm: resolveBpm(context.bpm) });
-        // Selecting the instrument recalls its remembered Shape; the phrase's
-        // Shape then wins and becomes that instrument's memory.
-        void instrumentStore.setInstrument(instrument).then((result) => {
-          if (
-            result.status === "failed"
-            && result.fallback
-            && book.value.takeId === phrase.id
-            && take.value.context.instrument === result.instrument
-            && !isLoopOwned(phrase.id)
-          ) {
-            followControls(book.value, held, liveContext.value);
-          }
-        });
-        instrumentStore.applyShape(context.shape);
-      } finally {
-        isContextSyncing = false;
-      }
+      musicStore.setKey(context.key);
+      musicStore.setMode(context.mode);
+      keyboardStore.setMainOctave(context.octave);
+      visualConfigStore.updateConfig("codeStrip", { bpm: resolveBpm(context.bpm) });
+      // Selecting the instrument recalls its remembered Shape; the phrase's
+      // Shape then wins and becomes that instrument's memory.
+      void instrumentStore.setInstrument(instrument).then((result) => {
+        if (
+          result.status === "failed"
+          && result.fallback
+          && book.value.takeId === phrase.id
+          && take.value.context.instrument === result.instrument
+          && !isLoopOwned(phrase.id)
+        ) {
+          followControls(book.value, held, liveContext.value);
+        }
+      });
+      instrumentStore.applyShape(context.shape);
     }
 
     // ─── Actions ─────────────────────────────────────────────────────────────
@@ -487,6 +482,8 @@ export const usePhrasesStore = defineStore(
         frequency: detail.frequency,
         velocity: detail.velocity,
         articulation: detail.articulation ? { ...detail.articulation } : undefined,
+        // A Repeat or Arp pulse: its release is the gate, never re-skinned (BJS-649).
+        ...(detail.gated === true && { gated: true as const }),
       }, config);
       heldCount.value = held.size;
     }

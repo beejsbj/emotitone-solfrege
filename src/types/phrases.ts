@@ -114,6 +114,8 @@ export interface HeldNote {
   frequency?: number;
   velocity?: number;
   articulation?: LiveArticulation;
+  /** A Repeat or Arp pulse (see `PatternNote.gated`). */
+  gated?: true;
   pitchExpression?: PitchExpressionPoint[];
   gainExpression?: GainExpressionPoint[];
 }
@@ -131,6 +133,8 @@ export interface NotePress {
   frequency?: number;
   velocity?: number;
   articulation?: LiveArticulation;
+  /** A Repeat or Arp pulse (see `PatternNote.gated`). */
+  gated?: true;
 }
 
 export interface PhraseBookConfig {

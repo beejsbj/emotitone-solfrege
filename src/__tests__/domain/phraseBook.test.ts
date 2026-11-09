@@ -7,6 +7,7 @@ import {
   deletePhrase,
   DEFAULT_PHRASE_BOOK_CONFIG,
   ensureSingleTake,
+  findPhrase,
   followControls,
   getTake,
   importPhrases,
@@ -369,6 +370,31 @@ describe("phrase book: controls", () => {
     expect(take.context.key).toBe("D");
     expect(take.notes.map((note) => note.note)).toEqual(["D5", "F#5", "A5"]);
     expect(library[0].notes[0].note).toBe("C4");
+  });
+
+  it("re-skins a copy's Shape release but never a pulse's gate (BJS-649)", () => {
+    // The release knob read 0.03, the same value as a Repeat or Arp gate.
+    const shaped: PhraseContext = { ...C_MAJOR, shape: { ...NEUTRAL_SHAPE, release: 0.03 } };
+    const articulation = { attack: 0.001, decay: 0.001, sustain: 1, release: 0.03 };
+    for (const [index, gated] of [false, true, true].entries()) {
+      const noteId = `pulse-${index}`;
+      pressNote(book, held, {
+        noteId, wallTime: clock, context: shaped, note: "C4", scaleDegree: 1, scaleIndex: 0,
+        pitchClassIndex: 0, octave: 4, articulation, ...(gated && { gated: true as const }),
+      }, DEFAULT_PHRASE_BOOK_CONFIG, newId);
+      clock += 100;
+      releaseNote(book, held, noteId, clock, {}, newId);
+      clock += 25;
+    }
+    const keptId = keepTake(book, clock, shaped, newId)!;
+    openPhrase(book, keptId, [], clock, newId);
+
+    followControls(book, held, { ...shaped, shape: { ...NEUTRAL_SHAPE, release: 0.5 } });
+    expect(getTake(book).notes.map((note) => note.articulation?.release)).toEqual([0.5, 0.03, 0.03]);
+    // Piano's natural release with a neutral Shape.
+    followControls(book, held, { ...C_MAJOR, instrument: "piano" });
+    expect(getTake(book).notes.map((note) => note.articulation?.release)).toEqual([0.2, 0.03, 0.03]);
+    expect(findPhrase(book, keptId)!.notes.map((note) => note.articulation?.release)).toEqual([0.03, 0.03, 0.03]);
   });
 
   it("a take being played into keeps its context", () => {

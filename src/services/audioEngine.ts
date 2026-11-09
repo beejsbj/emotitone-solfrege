@@ -134,11 +134,6 @@ export function isPrewarmed(soundName: string): boolean {
   return holdsLivePlayback(resolved) || (!getCatalogSound(resolved) && oscillators.has(resolved));
 }
 
-/** Every registered sound that can currently play without a warmup. */
-export function getReadySounds(): string[] {
-  return getRegisteredSounds().filter(isPrewarmed);
-}
-
 /**
  * Every playable sound name: the oscillator synths, then the catalog's sample
  * and soundfont instruments (GM names after ensureSoundfontCatalog()).

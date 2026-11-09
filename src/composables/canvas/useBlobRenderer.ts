@@ -329,11 +329,17 @@ export function useBlobRenderer(animationActive?: () => boolean) {
 
   /**
    * Advance blob lifecycle state before any canvas layer paints this frame.
+   * `light` scales a body's opacity by its note's light this frame (0 to 1;
+   * a Looper note on Stop All's fade-out, BJS-648), so its glow and the field
+   * and web drawn from it dim with it.
    */
   const prepareBlobs = (
     ctx: CanvasRenderingContext2D,
     blobConfig: BlobConfig,
-    options: { reducedMotion?: boolean; bounds?: StageRect; elapsed?: number; deltaSeconds?: number; driftIntegrated?: boolean } = {},
+    options: {
+      reducedMotion?: boolean; bounds?: StageRect; elapsed?: number; deltaSeconds?: number; driftIntegrated?: boolean;
+      light?: (blobKey: string) => number;
+    } = {},
   ) => {
     if (!ctx) return;
 
@@ -443,6 +449,7 @@ export function useBlobRenderer(animationActive?: () => boolean) {
           return;
         }
       }
+      if (options.light) currentOpacity *= Math.max(0, Math.min(1, options.light(blobKey)));
 
       const frequencyDivisor =
         blobConfig.vibrationFrequencyDivisor === 10

@@ -1,3 +1,4 @@
+import { fadeEnd, fadeLevel, type MemberFade } from "@/audio/live/fade";
 import { UNIFIED_CONFIG } from "@/data/visual-config-metadata";
 
 export interface StageRect {
@@ -188,6 +189,26 @@ export function resolveAtmosphereBand(
     halfHeight: silentHalf + (soundHalf - silentHalf) * sounding,
     sounding,
   };
+}
+
+/** Reduced Motion: a Looper note fading out holds still at this light, as the Looper Dial's record does. */
+export const LOOPER_ENDING_STILL_LIGHT = 0.15;
+
+/**
+ * The light of a Looper note on Stop All's fade-out (BJS-648), 0 to 1, at
+ * `now` on the fade's own clock (`performance.now()`'s, as the looper store
+ * times it). It is the sound's ramp (src/audio/live/fade.ts): (1 − t)² over
+ * the fade, dark from the moment the sound reaches silence, and never above
+ * an earlier fade the note was already on. Reduced Motion does not dim over
+ * time: the light stands at 15% until the sound has gone, then goes dark.
+ */
+export function resolveLooperFadeLight(
+  fade: MemberFade,
+  now: number,
+  reducedMotion: boolean,
+): number {
+  if (reducedMotion) return now < fadeEnd(fade) ? LOOPER_ENDING_STILL_LIGHT : 0;
+  return fadeLevel(fade, now);
 }
 
 function modulo(value: number, divisor: number) {

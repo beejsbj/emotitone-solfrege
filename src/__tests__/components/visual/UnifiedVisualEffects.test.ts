@@ -38,6 +38,16 @@ vi.mock('@/stores/visualConfig', () => ({
   useVisualConfigStore: () => visualConfigStore,
 }))
 
+const looperStore = vi.hoisted(() => ({
+  fading: [] as { phraseId: string; endingMs: number; endsAt: number }[],
+  memberFor: (phraseId: string) => (phraseId === 'playing' ? { phraseId } : undefined),
+}))
+const useLooperStore = vi.hoisted(() => vi.fn(() => looperStore))
+
+vi.mock('@/stores/looper', () => ({
+  useLooperStore,
+}))
+
 vi.mock('@/composables/canvas/useUnifiedCanvas', () => ({
   useUnifiedCanvas,
 }))
@@ -211,8 +221,25 @@ describe('UnifiedVisualEffects.vue', () => {
       expect.anything(),
       expect.objectContaining({
         getActiveNotes: expect.any(Function),
+        looper: undefined,
       }),
     )
+    // A controlled specimen lights only its own notes: it never reaches the app's Looper.
+    expect(useLooperStore).not.toHaveBeenCalled()
+  })
+
+  it("lights the app's Looper on the production Stage, from the looper store's own fade (BJS-648)", async () => {
+    wrapper = createTestWrapper(UnifiedVisualEffects)
+    await nextTick()
+
+    const runtime = useUnifiedCanvas.mock.calls[0]?.[1] as {
+      looper?: { fading(): unknown; isPlaying(phraseId: string): boolean }
+    }
+    looperStore.fading = [{ phraseId: 'fading', endingMs: 2000, endsAt: 3000 }]
+    expect(runtime.looper?.fading()).toEqual([{ phraseId: 'fading', endingMs: 2000, endsAt: 3000 }])
+    expect(runtime.looper?.isPlaying('playing')).toBe(true)
+    expect(runtime.looper?.isPlaying('fading')).toBe(false)
+    looperStore.fading = []
   })
 
   it('uses the solfege blob key for legacy id-less releases', async () => {

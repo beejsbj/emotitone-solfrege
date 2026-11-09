@@ -18,7 +18,9 @@ import { storeToRefs } from "pinia";
 import { useMusicStore } from "@/stores/music";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { useUnifiedCanvas } from "@/composables/canvas/useUnifiedCanvas";
+import { looperStoreLight } from "@/composables/canvas/looperStageLight";
 import { useStageHostLayout } from "@/composables/useStageHostLayout";
+import { useLooperStore } from "@/stores/looper";
 import type {
   ActiveNote,
   ChromaticNote,
@@ -65,6 +67,8 @@ const {
     ? undefined
     : () => props.activeNotes ?? [],
   eventTarget: props.eventTarget,
+  // The production Stage lights the Looper's notes, so they dim with Stop All's fade (BJS-648).
+  looper: props.activeNotes === undefined ? looperStoreLight(useLooperStore()) : undefined,
 });
 
 // Handle note played event - enhanced for polyphonic support

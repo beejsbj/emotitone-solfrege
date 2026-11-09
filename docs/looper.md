@@ -54,6 +54,14 @@ a pattern at once (Burooj, 2026-10-28, BJS-598).
   reels and Save read them as stopped; the latch and any solo let go), and
   nothing joins by itself afterwards; their dials stay where they were,
   dimming, until the sound has gone. Stop All is held down meanwhile.
+  The Stage's light for their notes (Note Bodies, with their field and web,
+  and Strings) dims with the sound on the same curve, from the looper store's
+  own fade, and is dark once the sound is silent; with Reduced Motion it holds
+  at 15% until then, as the dials do (BJS-648). The second tap's cut takes it
+  dark at once; a flick dims nothing. A pattern played again during its fade
+  (a saved Loop's Play included) lights its new notes at full, as they sound.
+  Each note takes the fade it is rendered under, so a note heard after the
+  fade ends or after the cut stays dark however long the output latency.
 - **A second tap cuts.** Stop All tapped while its fade runs (or with only
   fading patterns left) stops everything at once, anything started during the
   fade included: a 10 ms ramp, release tails included, so it is a cut and

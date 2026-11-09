@@ -37,6 +37,7 @@ import {
   type StageRect,
 } from "./stageRuntime";
 import { resolveStageActiveNotes } from "./stageNoteSources";
+import { createLooperStageLight, type LooperLightSource } from "./looperStageLight";
 import { createAudibleStageTimeline } from "@/services/audibleStageTimeline";
 
 /**
@@ -54,6 +55,8 @@ interface StageRuntimeInputs {
   getActiveNotes?: () => readonly ActiveNote[];
   /** Note lifecycle target shared by the canvas and pitch String renderer. */
   eventTarget?: EventTarget;
+  /** The Looper whose notes this Stage lights, so they dim with Stop All's fade (BJS-648); omission fades nothing. */
+  looper?: LooperLightSource;
 }
 
 export function useUnifiedCanvas(
@@ -73,6 +76,11 @@ export function useUnifiedCanvas(
     ? undefined : createAudibleStageTimeline(window, readProductionNotes);
   const getStageActiveNotes = runtime?.getActiveNotes ?? audibleTimeline?.getActiveNotes ?? readProductionNotes;
   const noteEventTarget = runtime?.eventTarget ?? audibleTimeline?.eventTarget ?? window;
+  // Each Looper note's light: followed from the transport's announcement (where the audible
+  // timeline reads it, before render), let go at the release the Stage hears.
+  const looperLight = runtime?.looper
+    ? createLooperStageLight(runtime.looper, runtime.eventTarget ?? window, noteEventTarget)
+    : undefined;
   const {
     stageConfig,
     blobConfig,
@@ -381,6 +389,12 @@ export function useUnifiedCanvas(
     }
     const reducedMotion = runtime?.reducedMotion.value ?? false;
     const audioFrame = stageAudio.sample(timestamp);
+    let lightOf: ((noteId: string) => number) | undefined;
+    if (looperLight) {
+      const sounding = new Set(stageActiveNotes.map((note) => note.noteId));
+      looperLight.update(timestamp, (noteId) => sounding.has(noteId) || blobRenderer.activeBlobs.has(noteId));
+      lightOf = (noteId) => looperLight.lightOf(noteId, timestamp, reducedMotion);
+    }
 
     // Clear canvas
     clearCanvas();
@@ -413,6 +427,7 @@ export function useUnifiedCanvas(
         reducedMotion,
         stageActiveNotes,
         deltaSeconds,
+        lightOf,
       );
       stringRenderer.renderStrings(
         ctx,
@@ -446,6 +461,7 @@ export function useUnifiedCanvas(
         elapsed,
         deltaSeconds,
         driftIntegrated: true,
+        light: lightOf,
       });
     }
 
@@ -738,6 +754,7 @@ export function useUnifiedCanvas(
     wakeEvents.forEach(event => noteEventTarget.removeEventListener(event, wakeAnimation));
     audioEventTarget.removeEventListener("stage-audio", wakeAnimation);
     window.clearInterval(idleAudioTimer);
+    looperLight?.dispose();
     audibleTimeline?.dispose();
     blobRenderer.clearAllBlobs();
     stringRenderer.clearAllStrings();

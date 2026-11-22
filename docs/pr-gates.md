@@ -37,4 +37,4 @@ A stated reason is one line in the PR description: `Test change: <why this is ri
 
 ## Making the checks required
 
-A workflow that fails does not block a merge on its own. Merging is blocked by a branch ruleset on `main` that requires the check names `type-check`, `test`, `lint`, `bundle`, `verification-section`, `test-integrity` and `review-evidence`, plus resolved conversations. The ruleset needs repository admin; the history is in issue #196.
+A workflow that fails does not block a merge on its own. Merging is blocked by branch protection on `main`, which today requires `type-check`, `test`, `lint`, `bundle` and `review-evidence`. `verification-section` and `test-integrity` must be added to that list by a repository admin (issue #196) before they block; until then they report but do not stop a merge.

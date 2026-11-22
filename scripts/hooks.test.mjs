@@ -36,17 +36,23 @@ function fakeGit(config) {
 
 test('installing points git at .githooks once, and leaves another hooksPath alone', () => {
   let fake = fakeGit({})
-  assert.equal(install({ env: {}, git: fake.git }), 'installed')
+  assert.equal(install({ env: {}, git: fake.git, exists: () => true }), 'installed')
   assert.ok(fake.calls.includes('config core.hooksPath .githooks'))
   fake = fakeGit({ hooksPath: '.githooks' })
-  assert.equal(install({ env: {}, git: fake.git }), 'already installed')
+  assert.equal(install({ env: {}, git: fake.git, exists: () => true }), 'already installed')
   fake = fakeGit({ hooksPath: '/somewhere/else' })
-  assert.match(install({ env: {}, git: fake.git }), /already \/somewhere\/else/)
+  assert.match(install({ env: {}, git: fake.git, exists: () => true }), /already \/somewhere\/else/)
   assert.ok(!fake.calls.some(call => call.startsWith('config core.hooksPath')))
+})
+
+test('installing does nothing when the checkout has no .githooks', () => {
+  const fake = fakeGit({})
+  assert.equal(install({ env: {}, git: fake.git, exists: () => false }), 'skipped: no .githooks')
+  assert.deepEqual(fake.calls, [])
 })
 
 test('installing does nothing in CI', () => {
   const fake = fakeGit({})
-  assert.equal(install({ env: { CI: 'true' }, git: fake.git }), 'skipped: CI')
+  assert.equal(install({ env: { CI: 'true' }, git: fake.git, exists: () => true }), 'skipped: CI')
   assert.deepEqual(fake.calls, [])
 })

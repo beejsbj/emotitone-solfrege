@@ -9,9 +9,13 @@ import { pathToFileURL, fileURLToPath } from 'node:url'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const HOOKS = '.githooks'
 
-export function install({ env = process.env, git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }) } = {}) {
+export function install({
+  env = process.env,
+  git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }),
+  exists = path => existsSync(resolve(root, path)),
+} = {}) {
   if (env.CI || env.VERCEL) return 'skipped: CI'
-  if (!existsSync(resolve(root, HOOKS))) return 'skipped: no .githooks'
+  if (!exists(HOOKS)) return 'skipped: no .githooks'
   let current = ''
   try { current = git('config', '--get', 'core.hooksPath').trim() } catch { /* unset exits 1 */ }
   try { git('rev-parse', '--git-dir') } catch { return 'skipped: not a git checkout' }

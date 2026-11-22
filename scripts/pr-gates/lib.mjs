@@ -99,7 +99,9 @@ export function parseDiff(diff) {
   return files
 }
 
-const SKIP = /\b(?:it|test|describe|suite|bench)\s*\.\s*(?:skip|skipIf|todo|only|fails)\b|\b(?:xit|xtest|xdescribe|fit|fdescribe)\s*\(|\bctx\.skip\(|\bt\.skip\(/
+// A skip marker only counts at the start of a statement, so a test that mentions
+// "it.skip(" inside a string or a comment (this gate's own tests do) is not a skip.
+const SKIP = /^\s*(?:(?:it|test|describe|suite|bench)\s*\.\s*(?:skip|skipIf|todo|only|fails)\b|(?:xit|xtest|xdescribe|fit|fdescribe)\s*\(|(?:ctx|t)\.skip\()/
 const CASE = /(?:^|[^\w.])(?:it|test|bench|xit|xtest)\s*(?:\.\s*\w+(?:\([^)]*\))?\s*)*\(/
 const ASSERTION = /\bexpect(?:\.soft|\.poll)?\s*\(|\bassert(?:\.\w+)?\s*\(|\bt\.(?:is|true|false|deepEqual|throws|assert)\w*\s*\(/g
 const TOLERANCE_NAME = /\b(?:tolerance|epsilon|eps|atol|rtol|delta|margin|threshold|slack)\b|\b\w*_TOL\w*\b|\bTOL\w*\b/i
@@ -214,9 +216,9 @@ export function analyzeTestDiff(diff, isTestFile = path => TEST_FILE.test(path))
 
     for (const line of added) {
       const match = line.match(SKIP)
-      if (match && !/^\s*(?:\/\/|\*)/.test(line)) {
+      if (match) {
         const word = match[0].replace(/\s+/g, '')
-        add({ kind: 'skipped', detail: `${word.includes('only') || word === 'fit(' || word === 'fdescribe(' ? 'focused (silently skips the rest)' : 'skipped'}: ${line.trim().slice(0, 90)}` })
+        add({ kind: 'skipped', detail: `${/only|fit\(|fdescribe\(/.test(word) ? 'focused (silently skips the rest)' : 'skipped'}: ${line.trim().slice(0, 90)}` })
       }
     }
 

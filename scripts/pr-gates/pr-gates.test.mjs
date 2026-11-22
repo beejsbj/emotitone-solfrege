@@ -89,6 +89,8 @@ test('adding a skip, todo or focus is flagged, a comment about one is not', () =
     assert.ok(kinds(modified(T, ['  it("plays", () => {'], [line])).includes('skipped'), line)
   }
   assert.deepEqual(kinds(modified(T, ['  // old'], ['  // we used to it.skip() this'])), [])
+  // found by the gate's own first CI run: a test that quotes a skip marker is not skipping anything
+  assert.deepEqual(kinds(modified(T, ['  const a = 1'], ['  const line = \'  it.skip("plays", () => {\''])), [])
 })
 
 test('removing a test case or assertions is flagged; renaming one is not', () => {

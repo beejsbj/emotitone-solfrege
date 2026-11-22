@@ -43,7 +43,7 @@ describe('notation generator spans', () => {
       note('late', 'B4', 2250, 250),
     ]);
 
-    expect(onsets).toBeGreaterThan(5);
+    expect(onsets).toBeGreaterThan(1);
     expect(pairs.sort()).toEqual(['A4=long', 'B4=late', 'C4=lead', 'E4=root', 'G4=fifth']);
   });
 

@@ -25,15 +25,15 @@ The check diffs every test file (`*.test.*`, `*.spec.*`, anything under `__tests
 | Finding | Meaning |
 |---|---|
 | `deleted-file` | a test file was deleted |
-| `skipped` | an added `.skip`, `.skipIf`, `.todo`, `.only`, `.fails`, `xit`, `fit` |
-| `removed-tests` | fewer test cases in a file than before |
-| `removed-assertions` | fewer `expect(...)` calls in a file than before |
+| `skipped` | an added `.skip`, `.skipIf`, `.todo`, `.only`, `.fails` (also `it.concurrent.skip`), `xit`, `fit`, `this.skip()`, `{ skip: true }`, at the start of a line |
+| `removed-tests` | a test case title that was in the file and is gone (a close rewording counts as a rename), or fewer cases than before. Commented-out tests count as removed, and deleting one test while adding another in the same file is still seen |
+| `removed-assertions` | fewer `expect(...)` calls in a file than before (comment lines are not counted) |
 | `weakened` | on the same subject, a stricter matcher became a weaker one (`toBe` to `toBeTruthy`, `toEqual` to `toContain`), a bound moved the lenient way (`toBeLessThan(0.3)` to `toBeLessThan(0.6)`, `<` to `<=`), `toBeCloseTo` lost digits, or a loose `expect.any(...)` replaced a value |
-| `widened` | a number grew on a line naming a tolerance (`EPSILON`, `tolerance`, `threshold`, ...) |
+| `widened` | a number grew on a line naming a tolerance (`EPSILON`, `tolerance`, `atol`, `rtol`, `TOL...`; not `threshold` or `margin`, whose direction is ambiguous) |
 
 A stated reason is one line in the PR description: `Test change: <why this is right>` (20 or more characters; `n/a` and `<why>` do not count). One line covers every finding in the PR; the job summary lists what it covered, so the reviewer can see it. Tightening and re-baselining (`toBeLessThanOrEqual(136)` to `72`, a new expected value at the same precision) are not findings.
 
-**Limits.** The checks are line-based heuristics tuned on this repository's history (about one PR in five trips one, because that many remove or rewrite tests; the reason line is the cost). They miss: a loosening spread over several lines, a weaker assertion in a helper, a mock that now returns what the test expects, a raised timeout, coverage or exclude settings in `vitest.config.ts`, and tests moved out of a test glob. They guard against accidents, not adversaries: a PR can edit `scripts/pr-gates/`, so review of that directory matters. Tests for the gates themselves, including real past hunks from this repository, are `scripts/pr-gates/pr-gates.test.mjs` (`bun run test:verify`).
+**Limits.** The checks are line-based heuristics tuned on this repository's history (about two PRs in five trip one: 23 of the last 60 on `main`, nearly all removing or replacing real test cases; the reason line is the cost). They miss: a skip written mid-line (`describe('a', () => { it.skip(...) })`, `it.each(table).skip`), a loosening spread over several lines, an assertion that is not `expect(...).matcher(...)` (`assert.*`, chai), a weaker assertion in a helper, a mock that now returns what the test expects, a raised timeout, coverage or exclude settings in `vitest.config.ts`, and tests moved out of a test glob. They guard against accidents, not adversaries: a PR can edit `scripts/pr-gates/`, so review of that directory matters. Tests for the gates themselves, including real past hunks from this repository, are `scripts/pr-gates/pr-gates.test.mjs` (`bun run test:verify`).
 
 ## Making the checks required
 

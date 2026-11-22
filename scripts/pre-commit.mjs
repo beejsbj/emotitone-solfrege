@@ -13,12 +13,13 @@ const CODE = /\.(?:vue|[cm]?[jt]sx?)$/
 const NOT_CODE = /\.(?:md|mdx|txt|png|jpe?g|svg|webp|ico|woff2?)$|^docs\/|^licenses\/|^LICENSE$|^NOTICE$/
 
 export function stagedFiles() {
-  return execFileSync('git', ['diff', '--cached', '--name-only', '--diff-filter=ACMR'], { cwd: root, encoding: 'utf8' })
+  return execFileSync('git', ['diff', '--cached', '--name-only', '--diff-filter=ACMRD'], { cwd: root, encoding: 'utf8' })
     .split('\n').filter(Boolean)
 }
 
 /** The checks to run for a set of staged files, in order. Empty when nothing code-like is staged. */
 export function plan(files, exists = path => existsSync(resolve(root, path))) {
+  // Deleted files count: removing a module can break its importers, and lint/type-check see that.
   if (!files.some(file => !NOT_CODE.test(file))) return []
   const related = files.filter(file => CODE.test(file) && exists(file))
   const node = args => ({ command: process.execPath, args })
@@ -31,7 +32,7 @@ export function plan(files, exists = path => existsSync(resolve(root, path))) {
 
 function main() {
   const steps = plan(stagedFiles())
-  if (!steps.length) { console.log('pre-commit: nothing but docs staged, skipping checks.'); return 0 }
+  if (!steps.length) { console.log('pre-commit: nothing staged, or only docs/assets: skipping checks.'); return 0 }
   if (!existsSync(resolve(root, 'node_modules'))) {
     console.error('pre-commit: node_modules is missing, so the checks cannot run. Run `bun install --frozen-lockfile` (or skip once with `git commit --no-verify`; CI will still run them).')
     return 1

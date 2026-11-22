@@ -52,6 +52,8 @@ export function checkVerification(body) {
   if (PLACEHOLDER.test(text)) {
     return { ok: false, reason: 'The "## Verification" section is empty or a placeholder. Say what you ran and what it showed, or "Not run: <why>".' }
   }
+  // "Not run: <why>" is an advertised form, so a short honest reason must pass.
+  if (/^not run\s*[:—–-]\s*\S.{4,}/i.test(text)) return { ok: true }
   if (text.length < MIN_VERIFICATION_CHARS) {
     return { ok: false, reason: `The "## Verification" section is under ${MIN_VERIFICATION_CHARS} characters. Give the command or action and its result, or "Not run: <why>".` }
   }
@@ -64,10 +66,12 @@ export function checkVerification(body) {
 
 /** The reason line in a PR body: "Test change: <reason>" (also "Test changes", "Test-change"). */
 export function statedTestReason(body) {
-  const match = stripComments(body ?? '').match(/^[ \t]*(?:[-*][ \t]+)?test[- ]?changes?[ \t]*[:—–-][ \t]*(.+)$/im)
-  const reason = match?.[1].trim() ?? ''
-  if (reason.length < MIN_REASON_CHARS || PLACEHOLDER.test(reason) || /^<.*>$/.test(reason)) return null
-  return reason
+  const text = stripComments(body ?? '').replace(/^[ \t]*(```|~~~)[\s\S]*?^[ \t]*\1[ \t]*$/gm, '')
+  for (const match of text.matchAll(/^[ \t]*(?:[-*][ \t]+)?test[- ]?changes?[ \t]*[:—–-][ \t]*(.+)$/gim)) {
+    const reason = match[1].trim()
+    if (reason.length >= MIN_REASON_CHARS && !PLACEHOLDER.test(reason) && !/^<.*>$/.test(reason)) return reason
+  }
+  return null
 }
 
 /** Split a unified diff (ideally `--unified=0`) into per-file records. */
@@ -90,9 +94,9 @@ export function parseDiff(diff) {
     } else if (line.startsWith('@@')) {
       hunk = { removed: [], added: [] }
       file.hunks.push(hunk)
-    } else if (hunk && line.startsWith('-') && !line.startsWith('---')) {
+    } else if (hunk && line.startsWith('-')) {
       hunk.removed.push(line.slice(1))
-    } else if (hunk && line.startsWith('+') && !line.startsWith('+++')) {
+    } else if (hunk && line.startsWith('+')) {
       hunk.added.push(line.slice(1))
     }
   }
@@ -101,13 +105,41 @@ export function parseDiff(diff) {
 
 // A skip marker only counts at the start of a statement, so a test that mentions
 // "it.skip(" inside a string or a comment (this gate's own tests do) is not a skip.
-const SKIP = /^\s*(?:(?:it|test|describe|suite|bench)\s*\.\s*(?:skip|skipIf|todo|only|fails)\b|(?:xit|xtest|xdescribe|fit|fdescribe)\s*\(|(?:ctx|t)\.skip\()/
+const SKIP = new RegExp('^\\s*(?:' + [
+  '(?:it|test|describe|suite|bench)(?:\\s*\\.\\s*\\w+)*?\\s*\\.\\s*(?:skip|skipIf|todo|only|fails)\\b',
+  '(?:xit|xtest|xdescribe|fit|fdescribe)\\s*\\(',
+  '(?:ctx|t|this)\\.skip\\(',
+  "(?:it|test|describe)\\s*\\(\\s*(['\"`]).*?\\1\\s*,\\s*\\{[^}]*\\bskip\\s*:\\s*true",
+].join('|') + ')')
 const CASE = /(?:^|[^\w.])(?:it|test|bench|xit|xtest)\s*(?:\.\s*\w+(?:\([^)]*\))?\s*)*\(/
 const ASSERTION = /\bexpect(?:\.soft|\.poll)?\s*\(|\bassert(?:\.\w+)?\s*\(|\bt\.(?:is|true|false|deepEqual|throws|assert)\w*\s*\(/g
-const TOLERANCE_NAME = /\b(?:tolerance|epsilon|eps|atol|rtol|delta|margin|threshold|slack)\b|\b\w*_TOL\w*\b|\bTOL\w*\b/i
+// Only names whose direction is unambiguous: a bigger tolerance is always looser.
+const TOLERANCE_NAME = /\b(?:tolerance|epsilon|eps|atol|rtol)\b|\b\w*_TOL\w*\b|\bTOL\w*\b/i
 const NUMBER = /(?<![\w.$])-?\d+(?:\.\d+)?(?:e[+-]?\d+)?(?![\w.])|(?<![\w.$])-?\.\d+(?:e[+-]?\d+)?(?![\w.])/gi
 
-const countMatches = (lines, pattern) => lines.reduce((total, line) => {
+const COMMENT_LINE = /^\s*(?:\/\/|\/\*|\*)/
+const code = lines => lines.filter(line => !COMMENT_LINE.test(line))
+const TITLE = /(?:^|[^\w.])(?:it|test|bench|xit|xtest)\s*(?:\.\s*\w+(?:\([^)]*\))?\s*)*\(\s*(['"`])(.*?)\1/
+const words = text => new Set(text.toLowerCase().match(/[a-z0-9]+/g) ?? [])
+const similar = (a, b) => {
+  const [x, y] = [words(a), words(b)]
+  const shared = [...x].filter(word => y.has(word)).length
+  return shared / Math.max(1, new Set([...x, ...y]).size) >= 0.5
+}
+
+/** Titles present before and gone after; a close rewording counts as a rename, not a removal. */
+function missingTitles(removed, added) {
+  const after = code(added).map(line => line.match(TITLE)?.[2]).filter(Boolean)
+  const gone = []
+  for (const title of code(removed).map(line => line.match(TITLE)?.[2]).filter(Boolean)) {
+    const at = after.findIndex(candidate => candidate === title || similar(candidate, title))
+    if (at >= 0) after.splice(at, 1)
+    else gone.push(title)
+  }
+  return gone
+}
+
+const countMatches = (lines, pattern) => code(lines).reduce((total, line) => {
   const regex = new RegExp(pattern.source, pattern.flags.replace('g', '') + 'g')
   return total + (line.match(regex)?.length ?? 0)
 }, 0)
@@ -222,8 +254,13 @@ export function analyzeTestDiff(diff, isTestFile = path => TEST_FILE.test(path))
       }
     }
 
+    // Titles, not counts: deleting one test and adding another in the same file nets to zero.
+    const gone = missingTitles(removed, added)
     const casesRemoved = countMatches(removed, CASE) - countMatches(added, CASE)
-    if (casesRemoved > 0) add({ kind: 'removed-tests', detail: `${casesRemoved} fewer test case(s)` })
+    if (gone.length || casesRemoved > 0) {
+      const names = gone.slice(0, 3).map(title => `"${title.slice(0, 50)}"`).join(', ')
+      add({ kind: 'removed-tests', detail: `${Math.max(gone.length, casesRemoved)} test case(s) removed${names ? `: ${names}` : ''}` })
+    }
     const assertionsRemoved = countMatches(removed, ASSERTION) - countMatches(added, ASSERTION)
     if (assertionsRemoved > 0) add({ kind: 'removed-assertions', detail: `${assertionsRemoved} fewer assertion(s)` })
 

@@ -54,6 +54,12 @@ test('a "Verification" heading inside a code fence does not count', () => {
   assert.equal(checkVerification('```\n## Verification\nbun run lint exits 0 and type-check exits 0\n```').ok, false)
 })
 
+test('"Not run: <why>" passes with a short honest reason, but not with an empty one', () => {
+  assert.equal(checkVerification('## Verification\nNot run: docs only').ok, true)
+  assert.equal(checkVerification('## Verification\nNot run:').ok, false)
+  assert.equal(checkVerification('## Verification\nNot run: x').ok, false)
+})
+
 test('the verification-section script exits 1 without the section and 0 with it', () => {
   assert.equal(quiet(() => runVerification('## What\n\nx')), 1)
   assert.equal(quiet(() => runVerification('## Verification\n\n`bun run test:run` passed: 1562 tests, 0 failed.')), 0)
@@ -70,6 +76,9 @@ test('a stated reason needs the label and real words', () => {
   assert.equal(statedTestReason('Test change: <why this is right>'), null)
   assert.equal(statedTestReason('Test change: because'), null)
   assert.equal(statedTestReason('We changed a test because the feature was removed.'), null)
+  // a placeholder line before the real one does not hide it; a quoted example in a fence does not count
+  assert.ok(statedTestReason('Test change: <why>\n\nTest change: the bound moved with the new easing curve.'))
+  assert.equal(statedTestReason('```\nTest change: an example reason that is long enough\n```'), null)
   assert.equal(statedTestReason('<!-- Test change: put the reason here, like this -->'), null)
 })
 
@@ -97,6 +106,33 @@ test('removing a test case or assertions is flagged; renaming one is not', () =>
   assert.ok(kinds(modified(T, ['  it("a", () => {', '    expect(a).toBe(1)', '  })'], [])).includes('removed-tests'))
   assert.ok(kinds(modified(T, ['    expect(a).toBe(1)', '    expect(b).toBe(2)'], ['    expect(a).toBe(1)'])).includes('removed-assertions'))
   assert.deepEqual(kinds(modified(T, ['  it("plays a note", () => {'], ['  it("plays a held note", () => {'])), [])
+})
+
+test('commenting a test or assertion out is flagged', () => {
+  assert.ok(kinds(modified(T, ["  it('x', () => {", '    expect(a).toBe(1)', '  })'], ["  // it('x', () => {", '  //   expect(a).toBe(1)', '  // })'])).includes('removed-tests'))
+  assert.ok(kinds(modified(T, ['    expect(a).toBe(1)'], ['    // expect(a).toBe(1)'])).includes('removed-assertions'))
+  assert.deepEqual(kinds(modified(T, ['  // old note'], ['  // new note'])), [])
+})
+
+test('deleting one test and adding a different one in the same file is flagged', () => {
+  const found = analyzeTestDiff(modified(T, ["  it('keeps order', () => {", '    expect(a).toBe(1)', '  })'], ["  it('rejects an empty list', () => {", '    expect(b).toBe(2)', '  })']))
+  assert.ok(found.some(f => f.kind === 'removed-tests' && /keeps order/.test(f.detail)), JSON.stringify(found))
+})
+
+test('more skip forms are flagged', () => {
+  for (const line of ["  it.concurrent.skip('x', f)", "  it('x', { skip: true }, f)", '  this.skip()', "  describe.sequential.skip('x', f)"]) {
+    assert.ok(kinds(modified(T, ['  const a = 1'], [line])).includes('skipped'), line)
+  }
+})
+
+test('a raised minimum is not a widened tolerance', () => {
+  assert.deepEqual(kinds(modified(T, ['const threshold = 0.5'], ['const threshold = 0.8'])), [])
+  assert.deepEqual(kinds(modified(T, ['const tolerance = 0.5'], ['const tolerance = 0.8'])), ['widened'])
+})
+
+test('content lines that start with -- or ++ are read as content', () => {
+  const diff = ['diff --git a/src/__tests__/a.test.ts b/src/__tests__/a.test.ts', '--- a/src/__tests__/a.test.ts', '+++ b/src/__tests__/a.test.ts', '@@ -1 +1 @@', '---- it("x", f)', '++++ it.skip("x", f)'].join('\n')
+  assert.equal(analyzeTestDiff(diff).length, 0) // not a real skip line (starts with ++++), and must not crash
 })
 
 test('real past loosening is flagged: a bound widened in e4fbc579 (BJS-506)', () => {
@@ -202,6 +238,19 @@ test('loosening a test fails without a reason and passes with one', () => {
     assert.equal(go(cwd, ''), 1)
     assert.equal(go(cwd, 'Test change: n/a'), 1)
     assert.equal(go(cwd, 'Test change: the new easing peaks at 0.55, which the old bound forbade.'), 0)
+  })
+})
+
+test('a rename plus weakening, and a non-ASCII test name, are still seen', () => {
+  withRepo(BASE, cwd => {
+    git(cwd, 'mv', 'src/__tests__/a.test.ts', 'src/__tests__/é.test.ts')
+    writeFileSync(join(cwd, 'src/__tests__/é.test.ts'), 'it("a", () => {\n  expect(f()).toBeLessThan(0.9)\n})\n')
+  }, cwd => {
+    assert.equal(go(cwd, ''), 1)
+    assert.equal(go(cwd, reason), 0)
+  })
+  withRepo({ ...BASE, 'src/__tests__/é.test.ts': 'it("e", () => {\n  expect(1).toBe(1)\n})\n' }, cwd => unlinkSync(join(cwd, 'src/__tests__/é.test.ts')), cwd => {
+    assert.equal(go(cwd, ''), 1)
   })
 })
 

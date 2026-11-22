@@ -20,6 +20,10 @@ test('config-only commits still lint and type-check but have no related tests', 
   assert.deepEqual(names(['package.json', 'tsconfig.json']), ['lint', 'type-check'])
 })
 
+test('a commit that only deletes code still lints and type-checks', () => {
+  assert.deepEqual(plan(['src/services/foo.ts'], () => false).map(step => step.name), ['lint', 'type-check'])
+})
+
 test('related tests skip files that no longer exist on disk', () => {
   assert.deepEqual(plan(['src/gone.ts'], () => false).map(step => step.name), ['lint', 'type-check'])
 })

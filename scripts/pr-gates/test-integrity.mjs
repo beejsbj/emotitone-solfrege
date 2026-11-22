@@ -9,11 +9,18 @@ import { analyzeTestDiff, formatFindings, statedTestReason, TEST_FILE } from './
 
 /** The unified=0 diff of test files between merge-base(base, head) and head. */
 export function testDiff(base, head, cwd = process.cwd()) {
-  const names = execFileSync('git', ['diff', '--name-only', '--find-renames', `${base}...${head}`], { cwd, encoding: 'utf8' })
-    .split('\n').filter(Boolean).filter(path => TEST_FILE.test(path))
-  if (!names.length) return ''
-  return execFileSync('git', ['diff', '--unified=0', '--find-renames', `${base}...${head}`, '--', ...names],
-    { cwd, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 })
+  const git = (...args) => execFileSync('git', ['-c', 'core.quotepath=off', ...args], { cwd, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 })
+  // Name both sides of a rename: a pathspec of only the new name hides a rename-plus-weakening.
+  const fields = git('diff', '--name-status', '--find-renames', '-z', `${base}...${head}`).split('\0').filter(Boolean)
+  const names = new Set()
+  for (let i = 0; i < fields.length;) {
+    const copyOrRename = /^[RC]/.test(fields[i])
+    const paths = fields.slice(i + 1, i + (copyOrRename ? 3 : 2))
+    for (const path of paths) if (TEST_FILE.test(path)) names.add(path)
+    i += 1 + paths.length
+  }
+  if (!names.size) return ''
+  return git('diff', '--unified=0', '--find-renames', `${base}...${head}`, '--', ...names)
 }
 
 export function run({ base, head, body, cwd } = {}) {

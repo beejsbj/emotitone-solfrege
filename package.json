@@ -21,7 +21,7 @@
     "test:watch": "node scripts/verify.mjs test watch",
     "test:node": "node scripts/verify.mjs test run --project=node",
     "test:dom": "node scripts/verify.mjs test run --project=dom",
-    "test:verify": "node --test scripts/verify.test.mjs scripts/pr-gates/pr-gates.test.mjs scripts/hooks.test.mjs",
+    "test:verify": "node --test scripts/verify.test.mjs scripts/pr-gates/pr-gates.test.mjs scripts/hooks.test.mjs scripts/privacy/privacy-scan.test.mjs",
     "bench:persistence": "node scripts/verify.mjs test run --config vitest.bench.config.ts"
   },
   "dependencies": {

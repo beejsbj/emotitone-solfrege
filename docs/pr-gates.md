@@ -7,6 +7,8 @@ What runs where, so a change is checked before it merges and a PR carries its ev
 | `git commit` (pre-commit hook) | `lint`, `type-check`, and the tests related to the staged files. Docs-only commits skip all three. | `.githooks/pre-commit`, `scripts/pre-commit.mjs` |
 | Every PR and push to `main` | `type-check`, full `test` (plus `test:verify`), `lint`, `bundle` | `.github/workflows/ci.yml` |
 | Every PR | `verification-section`, `test-integrity` (re-run when the description is edited) | `.github/workflows/pr-gates.yml`, `scripts/pr-gates/` |
+| Every PR, push to `main` | `privacy-scan`: personal paths, emails and identities in what the PR adds (every commit, file names, commit authors and messages, the PR description), the whole tree on `main`, and a missing `LICENSE` | `.github/workflows/privacy.yml`, `scripts/privacy/` |
+| `git push` (pre-push hook) | the same privacy scan over the commits about to leave the machine | `.githooks/pre-push` |
 
 ## The hook
 
@@ -35,6 +37,29 @@ A stated reason is one line in the PR description: `Test change: <why this is ri
 
 **Limits.** The checks are line-based heuristics tuned on this repository's history (about two PRs in five trip one: 23 of the last 60 on `main`, nearly all removing or replacing real test cases; the reason line is the cost). They miss: a skip written mid-line (`describe('a', () => { it.skip(...) })`, `it.each(table).skip`), a loosening spread over several lines, an assertion that is not `expect(...).matcher(...)` (`assert.*`, chai), a weaker assertion in a helper, a mock that now returns what the test expects, a raised timeout, coverage or exclude settings in `vitest.config.ts`, and tests moved out of a test glob. They guard against accidents, not adversaries: a PR can edit `scripts/pr-gates/`, so review of that directory matters. Tests for the gates themselves, including real past hunks from this repository, are `scripts/pr-gates/pr-gates.test.mjs` (`bun run test:verify`).
 
+## Gate 3: privacy and licence (public repository)
+
+This repository is public, so anything a commit adds is published, including a line a later commit removes. `scripts/privacy/privacy-scan.mjs` (copied from the `checks` skill; plain Node, no dependencies) fails on:
+
+| Rule | Flags |
+|---|---|
+| `home-path` | any home directory path (`/home/<user>`, `/Users/<user>`, `C:\Users\<user>`) |
+| `host-mount` | any machine mount (`/mnt/<disk>`, `/Volumes/<disk>`) |
+| `email` | any email address |
+| `host-name` | a Tailscale machine name |
+| `private-list` | a name, login or hostname from the `PRIVACY_PATTERNS` Actions secret (CI) or `~/.config/privacy-scan/patterns` (locally) |
+| `derived` | locally only: this machine's login and hostname |
+
+It also fails when `LICENSE` is missing (presence only; the AGPL text is not checked). Output is masked because CI logs here are public.
+
+On a PR it scans each commit's added lines, so a value added and then removed still fails: rewrite the branch so no commit holds it, then push again. On `main` it scans every tracked file. The private words are never written in the repository; until the `PRIVACY_PATTERNS` secret exists, CI runs the structural rules only and says so in the log.
+
+- **Write repo-relative paths** in receipts, fixtures and docs (`src/audio/live/core.ts`, not the worktree's absolute path), `~/...` for a home-directory location, and "the shared host" rather than a machine's name. `audio-lab/effects/capture.mjs` keys its source hashes by repo-relative path for this reason.
+- **Exceptions** go in `.github/privacy-allow.txt`, one per line, with the narrowest rule, path and literal, and a comment saying why. Everything in it is public, so never list a private value there. Today it holds one: a bun patch file name (`<package>@<version>.patch`) in a dated audit record, which the email rule reads as an address.
+- **Before pushing**, the pre-push hook runs the same scan locally (`git push --no-verify` skips it once). `node scripts/privacy/privacy-scan.mjs tree` scans the checkout; `... text` scans text piped in (a PR body before you post it).
+
+**Limits.** It misses `user@host` shell prompts, values inside images and binaries, obfuscated or split addresses, history before the PR, and real first names used as placeholders. A PR can edit the scanner and its allow-list, and the PR's own copy runs with the secret in its environment: keep the secret to names, never credentials, and review changes to `scripts/privacy/` and `.github/privacy-allow.txt`. Removing a value does not remove it from git history or forks.
+
 ## Making the checks required
 
-A workflow that fails does not block a merge on its own. Merging is blocked by branch protection on `main`, which today requires `type-check`, `test`, `lint`, `bundle` and `review-evidence`. `verification-section` and `test-integrity` must be added to that list by a repository admin (issue #196) before they block; until then they report but do not stop a merge.
+A workflow that fails does not block a merge on its own. Merging is blocked by branch protection on `main`, which today requires `type-check`, `test`, `lint`, `bundle` and `review-evidence`. `verification-section`, `test-integrity` and `privacy-scan` must be added to that list by a repository admin (issue #196) before they block; until then they report but do not stop a merge.

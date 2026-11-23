@@ -1,7 +1,7 @@
 /**
  * The flick: a fast, mostly sideways throw toward a screen edge, as far as the
  * room allows. The Looper Dial is thrown off the left edge (it removes); the
- * Edge Notice is its mirror, swept off the right edge (it dismisses).
+ * Heads-up is its mirror, swept off the right edge (it dismisses).
  *
  * "Far enough" is measured against the room the finger has: 48px, or all the
  * way to the glass's edge (within 4px of it), whichever comes first. A press

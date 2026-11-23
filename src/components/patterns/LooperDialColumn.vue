@@ -3,13 +3,12 @@
  * The Looper's column (from #142, after the #132 prototype): one Looper Dial
  * per playing pattern climbing the left edge, each disc turning under a fixed
  * brass hand, with Stop All on top. The mic keeps its place at the top
- * centre whether or not anything plays. What the Looper could not do shows as
- * an Edge Notice on the right edge, the mirror of the dials on the left.
+ * centre whether or not anything plays. What the Looper could not do is a
+ * Heads-up on the right edge (DeckHeadsUp), the mirror of the dials on the left.
  */
 import { computed, ref, watch } from "vue";
 import { BookmarkPlus, Square } from "lucide-vue-next";
 import Button from "@/components/primatives/Button.vue";
-import EdgeNotice from "@/components/compounds/EdgeNotice.vue";
 import LooperDial, { type LooperDialState } from "@/components/primatives/LooperDial.vue";
 import { looperDialProps } from "@/components/patterns/looperDial";
 import { useMusicColor } from "@/composables/useMusicColor";
@@ -47,18 +46,6 @@ function stateOf(view: LooperMemberView): LooperDialState {
   <div class="looper-dials">
     <!-- Stop All's fade, told to assistive technology (BJS-598): the key's look alone is not heard. -->
     <span class="looper-dials__sr-only" aria-live="polite" data-testid="looper-stop-status">{{ stopStatus }}</span>
-    <!-- A Play that could not sound says why, instead of doing nothing. -->
-    <EdgeNotice
-      v-if="looper.lastError"
-      class="looper-dials__notice"
-      data-testid="looper-error"
-      :line="looper.lastError"
-      label="Looper"
-      signal="problem"
-      role="alert"
-      haptic
-      @dismiss="looper.clearError()"
-    />
     <div
       v-if="dials.length"
       class="looper-dials__column"
@@ -158,15 +145,5 @@ function stateOf(view: LooperMemberView): LooperDialState {
 /* Its touch meets Stop All's, never overlaps it. */
 .looper-dials__save {
   margin-bottom: calc(var(--hit-gap-sm) - var(--s-1));
-}
-
-/* An Edge Notice on the right edge, one row above the shelf's own (which
-   sits --hit-min above the deck), so the two stack upward and never meet.
-   Beside the dial column, never over it. */
-.looper-dials__notice {
-  position: absolute;
-  right: var(--s-5);
-  bottom: calc(2 * var(--hit-min));
-  max-inline-size: calc(100% - var(--s-3) - var(--hit-min) - var(--s-4) - var(--s-5));
 }
 </style>

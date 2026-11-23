@@ -39,6 +39,8 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   change: [id: string, input: ReelSwitchInput];
+  /** A page turn is under way: the reel follows a finger or settles after one. */
+  turningChange: [turning: boolean];
 }>();
 
 const ENTRANCE_PX = 32;
@@ -50,6 +52,8 @@ const turns = ref<HTMLElement | null>(null);
 const offset = ref(0);
 const following = ref(false);
 const settling = ref(false);
+const turning = computed(() => following.value || settling.value);
+watch(turning, (now) => emit("turningChange", now));
 const announcement = ref("");
 
 const paged = computed(() => props.reels.length > 1);
@@ -185,7 +189,11 @@ watch(() => props.activeId, () => {
   announcement.value = `${active.value.name}, reel ${activeIndex.value + 1} of ${props.reels.length}`;
 }, { flush: "post" });
 
-onBeforeUnmount(() => clearTimeout(settleTimer));
+onBeforeUnmount(() => {
+  clearTimeout(settleTimer);
+  // A turn cut short by unmounting is over: nothing should stay stepped aside for it.
+  if (turning.value) emit("turningChange", false);
+});
 </script>
 
 <template>

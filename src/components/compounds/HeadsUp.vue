@@ -1,9 +1,9 @@
 <template>
   <div
-    class="edge-notice"
+    class="heads-up"
     :class="[
-      `edge-notice--${signal}`,
-      { 'edge-notice--busy': busy, 'edge-notice--sweeping': slideX > 0 },
+      `heads-up--${signal}`,
+      { 'heads-up--busy': busy, 'heads-up--sweeping': slideX > 0 },
     ]"
     :style="slideX > 0 ? { transform: `translateX(${slideX}px)` } : undefined"
     role="group"
@@ -20,10 +20,10 @@
     @keydown.escape.prevent="dismiss"
     @keydown.delete.prevent="dismiss"
   >
-    <span class="edge-notice__lamp" aria-hidden="true" />
+    <span class="heads-up__lamp" aria-hidden="true" />
     <!-- One line on screen; the whole line in the title, the rest for assistive technology. -->
-    <p class="edge-notice__line" :role="role" :title="line">
-      {{ line }}<span v-if="hint" class="edge-notice__sr">{{ hint }}</span>
+    <p class="heads-up__line" :role="role" :title="line">
+      {{ line }}<span v-if="hint" class="heads-up__sr">{{ hint }}</span>
     </p>
   </div>
 </template>
@@ -32,19 +32,22 @@
 import { onBeforeUnmount, ref } from "vue";
 import { trackFlick, type FlickTracker } from "@/components/primatives/flick";
 import { triggerUIHaptic } from "@/utils/hapticFeedback";
+import type { HeadsUpSignal } from "@/types/headsUp";
 
 /*
- * The Edge Notice: what the instrument tells you, as one right-aligned line of
+ * A Heads-up: what the instrument tells you, as one right-aligned line of
  * Ivory type on the Stage, with a small Brass lamp before it. No box, border,
  * panel or close key. A swipe off the right edge dismisses it: the mirror of
  * the Looper Dial's flick off the left edge (the left edge is what you play,
  * the right edge is what the instrument tells you). From the keyboard, Escape
- * or Delete dismisses it. Props in, a dismiss out: it reads no store.
+ * or Delete dismisses it. Props in, a dismiss out: it reads no store. It
+ * fades on its own in the Heads-up stack (HeadsUpStack.vue), which owns its
+ * entrance and exit.
  *
  * Two signals, told by the lamp and never by colour: a warning (an unlit
  * Brass lamp) and a problem (lit, with its glow).
  */
-export type EdgeNoticeSignal = "warning" | "problem";
+export type { HeadsUpSignal };
 
 const props = withDefaults(defineProps<{
   /** The one line on screen; keep it to 32 characters so it fits at 390px. */
@@ -53,7 +56,7 @@ const props = withDefaults(defineProps<{
   hint?: string;
   /** The notice's name for assistive technology, e.g. "Shelf full". */
   label: string;
-  signal?: EdgeNoticeSignal;
+  signal?: HeadsUpSignal;
   /** `alert` interrupts; `status` waits its turn. */
   role?: "alert" | "status";
   /** Something below is being moved: step aside, untouchable, until it settles. */
@@ -93,6 +96,7 @@ const slideX = ref(0);
 
 function down(event: PointerEvent) {
   if (props.busy) return;
+  slideX.value = 0;
   const start = { x: event.clientX, y: event.clientY, t: performance.now() };
   gesture = { pointerId: event.pointerId, x: start.x, y: start.y, moved: null, flung: false,
     flick: trackFlick("right", start, { minRoomPx: SWEEP_MIN_PX }) };
@@ -115,13 +119,14 @@ function move(event: PointerEvent) {
   event.preventDefault();
   gesture.flick.sample(event.clientX, performance.now());
   // Swept off as soon as it is: a finger that reaches the glass's edge may never lift there.
-  if (gesture.flick.isFlick(event.clientX, event.clientY, performance.now())) return fling();
+  if (gesture.flick.isFlick(event.clientX, event.clientY, performance.now())) return fling(event.clientX);
   slideX.value = Math.max(0, dx);
 }
 
-function fling() {
+/** Swept off: it stays where the finger threw it, and the stack fades it out from there. */
+function fling(x: number) {
   gesture!.flung = true;
-  slideX.value = 0;
+  slideX.value = Math.max(0, x - gesture!.x);
   dismiss();
 }
 
@@ -132,12 +137,12 @@ function dismiss() {
 
 function lift(event: PointerEvent) {
   if (gesture && event.pointerId === gesture.pointerId && !gesture.flung && gesture.moved === "sideways"
-    && gesture.flick.isFlick(event.clientX, event.clientY, performance.now())) fling();
+    && gesture.flick.isFlick(event.clientX, event.clientY, performance.now())) fling(event.clientX);
   cancel();
 }
 
 function cancel() {
-  slideX.value = 0;
+  if (!gesture?.flung) slideX.value = 0;
   gesture = null;
 }
 
@@ -147,7 +152,7 @@ onBeforeUnmount(cancel);
 <style scoped>
 /* Type on the Stage, not a panel: no box, border or background. An Ink halo
    keeps Ivory legible over a bright Stage; the lamp is the only Brass. */
-.edge-notice {
+.heads-up {
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -168,25 +173,25 @@ onBeforeUnmount(cancel);
   transition: opacity var(--dur-ui) var(--ease-brush), visibility 0s;
 }
 
-.edge-notice:focus-visible {
+.heads-up:focus-visible {
   outline: 2px solid var(--ivory);
   outline-offset: 2px;
 }
 
-.edge-notice--busy {
+.heads-up--busy {
   opacity: 0;
   visibility: hidden;
   transition: opacity var(--dur-tap) var(--ease-brush), visibility 0s linear var(--dur-tap);
 }
 
 /* Following a rightward slide: it fades as it nears a sweep. */
-.edge-notice--sweeping {
+.heads-up--sweeping {
   opacity: .6;
   transition: none;
 }
 
 /* A warning: an unlit Brass lamp. A problem: lit, with its glow. */
-.edge-notice__lamp {
+.heads-up__lamp {
   flex: 0 0 auto;
   inline-size: 6px;
   block-size: 6px;
@@ -194,12 +199,12 @@ onBeforeUnmount(cancel);
   background: var(--brass-lo);
 }
 
-.edge-notice--problem .edge-notice__lamp {
+.heads-up--problem .heads-up__lamp {
   background: var(--brass-hi);
   box-shadow: var(--shadow-glow-brass);
 }
 
-.edge-notice__line {
+.heads-up__line {
   min-width: 0;
   margin: 0;
   overflow: hidden;
@@ -211,7 +216,7 @@ onBeforeUnmount(cancel);
   white-space: nowrap;
 }
 
-.edge-notice__sr {
+.heads-up__sr {
   position: absolute;
   inline-size: 1px;
   block-size: 1px;
@@ -220,32 +225,13 @@ onBeforeUnmount(cancel);
   white-space: nowrap;
 }
 
-@keyframes edge-notice-in {
-  from { opacity: 0; translate: var(--s-5) 0; }
-  to { opacity: 1; translate: 0 0; }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .edge-notice:not(.edge-notice--busy) {
-    animation: edge-notice-in var(--dur-ui) var(--ease-brush);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .edge-notice,
-  .edge-notice--busy {
-    animation: none;
-    transition: none;
-  }
-}
-
 @media (forced-colors: active) {
-  .edge-notice__line {
+  .heads-up__line {
     color: CanvasText;
     text-shadow: none;
   }
 
-  .edge-notice__lamp {
+  .heads-up__lamp {
     background: CanvasText;
     box-shadow: none;
   }

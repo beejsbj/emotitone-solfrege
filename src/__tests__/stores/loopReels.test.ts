@@ -94,6 +94,7 @@ import { audioTimeToOutputTime } from "@/services/liveAudioTiming";
 import { UIBeatClock } from "@/composables/useUIBeat";
 import { createTestPinia } from "../helpers/test-utils";
 import { useLooperStore } from "@/stores/looper";
+import { useHeadsUpStore } from "@/stores/headsUp";
 import { usePhrasesStore } from "@/stores/phrases";
 import { useVisualConfigStore } from "@/stores/visualConfig";
 import { useInstrumentStore } from "@/stores/instrument";
@@ -388,6 +389,50 @@ describe("a saved Loop is its own reel (BJS-572)", () => {
       expect(transportIds()).toEqual([second]);
       expect(looper.reelLoopId).toBeNull();
       expect(pips(deck)[1].classes()).not.toContain("reel-switch__pip--sounding");
+    } finally {
+      deck.unmount();
+    }
+  });
+
+  it("during a page turn between reels the Heads-up stack steps aside: hidden and inert, then back once it settles", async () => {
+    setup();
+    const deck = mountDeck();
+    try {
+      await twoLooping(deck);
+      await saveFromDeck(deck);
+      useHeadsUpStore().raise({ id: "looper", line: "Stop a loop to add Piano.", label: "Looper" });
+      await flush();
+      const line = () => deck.get('[data-heads-up="looper"]');
+      // The reel's own settling after the save is over: only the page turn is in play below.
+      await vi.waitFor(() => expect(deck.attributes("data-reel-open")).toBeUndefined(), { timeout: 2000 });
+      await flush();
+      expect(line().attributes("aria-hidden")).toBeUndefined();
+      expect(line().attributes("inert")).toBeUndefined();
+      // A sideways drag across the reel strip, held: the reel follows the finger.
+      const strip = deck.get(".reel-switch .pattern-reel__slot--active .pattern-strip__identity").element;
+      const now = performance.now as unknown as Mock<() => number>;
+      const rigged = now.getMockImplementation()!;
+      const at = (type: string, x: number, t: number) => {
+        now.mockImplementation(() => 6_000_000 + t);
+        strip.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 9,
+          pointerType: "touch", isPrimary: true, clientX: x, clientY: 600 }));
+      };
+      try {
+        at("pointerdown", 300, 0);
+        at("pointermove", 270, 100);
+        at("pointermove", 240, 200);
+        await flush();
+        expect(deck.get(".reel-switch").classes()).toContain("reel-switch--following");
+        expect(line().attributes("aria-hidden")).toBe("true");
+        expect(line().attributes("inert")).toBeDefined();
+        // Let go short of a turn: it settles back, and the line comes back with it.
+        at("pointerup", 240, 300);
+      } finally {
+        now.mockImplementation(rigged);
+      }
+      await vi.waitFor(() => expect(deck.get(".reel-switch").classes()).not.toContain("reel-switch--settling"), { timeout: 1000 });
+      await vi.waitFor(() => expect(line().attributes("aria-hidden")).toBeUndefined(), { timeout: 1000 });
+      expect(line().attributes("inert")).toBeUndefined();
     } finally {
       deck.unmount();
     }
@@ -749,7 +794,7 @@ describe("a saved Loop is its own reel (BJS-572)", () => {
       await looper.settled();
       await flush();
       expect(transportIds()).toEqual([first]);
-      expect(deck.get("[data-testid=looper-error]").text()).toContain("A pattern in this Loop is gone.");
+      expect(deck.get('[data-heads-up="looper"]').text()).toContain("A pattern in this Loop is gone.");
       expect(play(deck).attributes("aria-label")).toBe("Stop");
 
       await press(play(deck).element, 40);
@@ -899,7 +944,7 @@ describe("a saved Loop is its own reel (BJS-572)", () => {
       await flush();
       expect(phrases.findPhrase(first)!.notes).toEqual(original);
       // Refused, and the notice says why, in the delete key's words.
-      expect(deck.get("[data-testid=looper-error]").text()).toContain("In a saved Loop. Play over it.");
+      expect(deck.get('[data-heads-up="looper"]').text()).toContain("In a saved Loop. Play over it.");
     } finally {
       deck.unmount();
     }

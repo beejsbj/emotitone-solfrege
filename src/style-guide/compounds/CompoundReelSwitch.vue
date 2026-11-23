@@ -137,7 +137,7 @@ function report(action: string, id: string) {
 const features = [
   { label: "Class", value: "compound; props in (reels, the shown one), a change out, no store; the reel is its slot" },
   { label: "Gesture", value: "a sideways drag across the reel strip, followed under the finger; turns at a quarter of the width or on a quick throw (24px, 0.5 px/ms); leftward is the next reel" },
-  { label: "Not a flick", value: "never a throw off the screen's edge: the Looper Dial's flick (left edge) and the Edge Notice's sweep (right edge) start on their own surfaces above the deck" },
+  { label: "Not a flick", value: "never a throw off the screen's edge: the Looper Dial's flick (left edge) and the Heads-up's sweep (right edge) start on their own surfaces above the deck" },
   { label: "Axis", value: "decided past 6px like the reel's own vertical drag, so one touch is never both; keys on the strip keep their touches" },
   { label: "Ends", value: "nothing before home or after the last Loop: the strip gives a quarter of the drag, then settles back" },
   { label: "Pips", value: "4px, on the reel's bottom edge: home a 9px bar, each Loop a dot; --ivory-4, the shown reel --ivory, a playing Loop ringed in --brass. No text" },

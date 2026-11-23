@@ -13,7 +13,6 @@ vi.mock("@/services/audioRuntime", () => ({
   getAudioContext: () => ({ state: "running", currentTime: 12 }),
   getMasterGain: () => null,
   initializeAudio: vi.fn(),
-  LIVE_ORBIT: 2,
 }));
 
 let pinia: Pinia;

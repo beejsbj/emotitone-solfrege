@@ -33,7 +33,8 @@ import {
 import { useMusicColorClock } from "@/composables/useMusicColorClock";
 import { CodeStripViewport } from "./viewport";
 import { ensureSoundfontCatalog, initAudioEngine } from "@/services/audioEngine";
-import { cutLiveWetTails, getAudioContext, getMasterGain } from "@/services/audioRuntime";
+import { getAudioContext, getMasterGain } from "@/services/audioRuntime";
+import { cutLiveWetTails } from "@/services/livePlayback";
 import { renderStrudelNotation, type StrudelConfig } from "@/services/StrudelNotation";
 import { createHeardClock } from "@/services/heardClock";
 import { useLooperStore } from "@/stores/looper";
@@ -220,7 +221,10 @@ function initializeTransport() {
         if (instrumentId.startsWith("gm_")) await ensureSoundfontCatalog();
         return getMasterGain();
       },
-      // Stop All's cut silences the shared room and delay too (BJS-598).
+      // For the "cut" mute/solo tail policy: it empties the worklet's shared room
+      // and echo. The policy is reserved and unused: this player keeps the
+      // default "ring" (Burooj, 2026-10-17), so nothing reaches this today.
+      // Stop All's cut does not need it either: the worklet's stop empties them (BJS-596).
       cutWetTails() { cutLiveWetTails(); },
     },
   }));

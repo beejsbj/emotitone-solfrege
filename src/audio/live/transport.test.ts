@@ -76,6 +76,11 @@ function setup(rate = RATE) {
   core.command({ type: 'prepare', requestId: 0, instrument: sine }, 0)
   const pcm: number[] = []
   const wet: number[] = []
+  // The room and delay sends, read where the room and echo take them in (BJS-596). The effects
+  // themselves stay out of these renders, so `pcm` is the voices alone; wet.test.ts hears them.
+  core.wet.process = (_output, room, delay, _firstFrame, length) => {
+    for (let sample = 0; sample < length; sample++) wet.push(Math.abs(room[0][sample]) + Math.abs(delay[0][sample]))
+  }
   return {
     core, events, receipts, anchors, live, pcm, wet,
     get frame() { return frame },
@@ -94,13 +99,9 @@ function setup(rate = RATE) {
       const quanta = Math.round(seconds * rate / QUANTUM)
       for (let index = 0; index < quanta; index++) {
         const output = [new Float32Array(QUANTUM), new Float32Array(QUANTUM)]
-        // The room and delay sends: what reaches the shared native buses.
-        const room = [new Float32Array(QUANTUM), new Float32Array(QUANTUM)]
-        const delay = [new Float32Array(QUANTUM), new Float32Array(QUANTUM)]
-        core.render(output, frame, room, delay)
+        core.render(output, frame)
         frame += QUANTUM
         for (const sample of output[0]) pcm.push(sample)
-        for (let sample = 0; sample < QUANTUM; sample++) wet.push(Math.abs(room[0][sample]) + Math.abs(delay[0][sample]))
         deliver()
       }
     },

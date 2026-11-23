@@ -66,10 +66,6 @@ vi.mock("@/audio/live/bridge", () => ({
     };
   },
 }));
-vi.mock("@/audio/liveShaping", () => ({ OPEN_CUTOFF_HZ: 12000, createLiveShapingChain: () => ({
-  input: {}, room: {}, delay: {}, apply() {}, dispose() {},
-}) }));
-vi.mock("@/services/audioRuntime", () => ({ getLiveOrbit: () => undefined }));
 vi.mock("@/services/preparedLiveInstrument", () => ({
   async prepareLiveInstrument(_context: unknown, instrumentId: string) {
     await rig.gate?.(instrumentId);

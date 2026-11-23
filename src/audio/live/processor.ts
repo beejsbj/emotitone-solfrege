@@ -57,7 +57,7 @@ class LivePlaybackProcessor extends AudioWorkletProcessor {
     const cost = this.cost
     const start = cost ? clock.now() : 0
     try {
-      if (outputs[0]) this.core.render(outputs[0], currentFrame, outputs[1], outputs[2])
+      if (outputs[0]) this.core.render(outputs[0], currentFrame)
     } finally {
       this.flushResponses()
       cost?.record(clock.now() - start)

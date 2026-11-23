@@ -33,6 +33,13 @@ const bufferNote = computed(() => {
   if (hint.asked === null) return `Buffer: asking for the browser's default; ?latencyHint=${hint.link} is not interactive, balanced, playback or seconds.`;
   return `Buffer: asking for latencyHint ${formatLatencyHint(hint.asked)} (from the link).`;
 });
+/** The room and echo this link runs (BJS-596): none by default, so the soak measures them idle. */
+const sendsNote = computed(() => {
+  const sends = state.results.sends;
+  return sends && (sends.room || sends.delay)
+    ? `Effects: every note sends room ${sends.room} and delay ${sends.delay} (from the link).`
+    : "Effects: no room or delay. Add room=1&delay=1 to the link to measure them running.";
+});
 const copied = ref(false);
 const summaryRef = ref<HTMLElement | null>(null);
 
@@ -106,6 +113,7 @@ onBeforeUnmount(() => gate.dispose());
           </div>
           <p class="phone-gate__note">The tap starts audio. Keep this tab in front until the summary shows.</p>
           <p class="phone-gate__note" data-testid="phone-gate-buffer">{{ bufferNote }}</p>
+          <p class="phone-gate__note" data-testid="phone-gate-sends">{{ sendsNote }}</p>
         </template>
 
         <template v-else-if="state.phase === 'loading'">

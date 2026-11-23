@@ -1,5 +1,10 @@
 import { OPEN_CUTOFF_HZ, type LiveShaping } from '../liveShaping'
 
+/** A room or delay send from 0 to 1; anything that is not a number sends nothing. */
+function sendLevel(value: number) {
+  return Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0
+}
+
 /** Web Audio lowpass: Q is in dB, not the linear RBJ Q parameter. All state and
  * coefficient storage is created with the voice pool, never in process(). */
 export class VoiceEffects {
@@ -18,10 +23,15 @@ export class VoiceEffects {
     this.set(shape, false)
   }
   set(shape: LiveShaping, glide = true) {
-    const cutoff = Math.max(0, Math.min(this.rate / 2, Math.fround(shape.cutoff)))
-    const q = Math.fround(shape.resonance > 0 ? shape.resonance : 1)
+    // A member's table and a note's own snapshot reach here unchecked (saved
+    // pattern Shapes are not sanitized): a value that is not a number is the
+    // neutral one, and the sends stay between 0 and 1, so one bad Shape cannot
+    // fill the shared room and echo with NaN (BJS-596).
+    const open = Number.isFinite(shape.cutoff) ? shape.cutoff : OPEN_CUTOFF_HZ
+    const cutoff = Math.max(0, Math.min(this.rate / 2, Math.fround(open)))
+    const q = Math.fround(shape.resonance > 0 && Number.isFinite(shape.resonance) ? shape.resonance : 1)
     const target = this.targets
-    if (shape.cutoff >= OPEN_CUTOFF_HZ) {
+    if (open >= OPEN_CUTOFF_HZ) {
       target[0] = 1; target[1] = target[2] = target[3] = target[4] = 0
     } else if (cutoff === 0) {
       target.fill(0)
@@ -40,8 +50,8 @@ export class VoiceEffects {
       target[3] = (-2 * cosine) * inverse
       target[4] = (1 - alpha) * inverse
     }
-    this.roomTarget = Math.max(0, shape.room)
-    this.delayTarget = Math.max(0, shape.delay)
+    this.roomTarget = sendLevel(shape.room)
+    this.delayTarget = sendLevel(shape.delay)
     this.remaining = glide ? Math.max(1, Math.round(.015 * this.rate)) : 0
     if (!glide) {
       this.coefficients.set(target)

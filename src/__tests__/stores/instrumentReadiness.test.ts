@@ -22,13 +22,9 @@ const rig = vi.hoisted(() => ({
 
 vi.unmock("@/services/audioEngine");
 vi.mock("@/audio/live/bridge", () => ({ createLiveWorklet: rig.create }));
-vi.mock("@/audio/liveShaping", () => ({ OPEN_CUTOFF_HZ: 12000, createLiveShapingChain: () => ({
-  input: {}, room: {}, delay: {}, apply() {}, dispose() {},
-}) }));
 vi.mock("@/services/audioRuntime", () => ({
   getAudioContext: () => rig.context,
   getMasterGain: () => ({}),
-  getLiveOrbit: () => undefined,
   initializeAudio: async () => {},
 }));
 vi.mock("@/services/preparedLiveInstrument", () => ({

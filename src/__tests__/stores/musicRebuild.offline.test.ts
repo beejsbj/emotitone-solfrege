@@ -8,10 +8,8 @@ import { memoryCaches } from '../helpers/memoryCaches'
 
 const adapters = vi.hoisted(() => ({ create: vi.fn() }))
 vi.mock('@/audio/live/bridge', () => ({ createLiveWorklet: adapters.create }))
-vi.mock('@/audio/liveShaping', () => ({ OPEN_CUTOFF_HZ: 12000,
-  createLiveShapingChain: () => ({ input: {}, dispose() {} }) }))
 const runtime = vi.hoisted(() => ({ context: undefined as unknown as AudioContext }))
-vi.mock('@/services/audioRuntime', () => ({ getLiveOrbit() {}, getAudioContext: () => runtime.context }))
+vi.mock('@/services/audioRuntime', () => ({ getAudioContext: () => runtime.context }))
 
 let pinia: Pinia
 let builds: Array<{ core?: LiveAudioCore; callbacks: LiveRendererCallbacks; sent: PreparedLiveInstrument[] }>

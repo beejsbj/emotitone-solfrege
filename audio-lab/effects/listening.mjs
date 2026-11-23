@@ -1,5 +1,4 @@
 import reference from './fixtures/reference.json';
-import { EngineAudioGraph } from '../../src/audio/effects';
 import { LiveAudioCore } from '../../src/audio/live/core';
 
 const RATE = 48000, FRAMES = RATE * 3;
@@ -55,25 +54,22 @@ async function before(data, shape) {
   const buffer = await context.startRendering();
   return Array.from({ length: 2 }, (_, c) => Array.from(buffer.getChannelData(c)));
 }
+/** The worklet's render core: dry, room and echo in one output, one quantum at a time (BJS-596). */
 async function after(data, shape) {
-  const context = new OfflineAudioContext(2, shape.delay ? RATE * 2 : FRAMES, RATE);
-  const graph = new EngineAudioGraph(context), orbit = graph.getOrbit(2);
-  if (shape.room) await orbit.ready();
-  if (shape.delay) orbit.getDelay(.25, .3, .05);
+  const frames = shape.delay ? RATE * 2 : FRAMES;
   const core = new LiveAudioCore(RATE, () => {});
   core.command({ type: 'prepare', requestId: 1, instrument: { kind: 'sample-bank', instrumentId: 'pluck',
     zoneSelection: 'nearest-root', gain: 1, attack: 0, decay: 0, sustain: 1, release: 0,
     zones: [{ id: 'pluck', rootMidi: 69, sampleRate: RATE, channels: [data] }] } }, 0);
   core.command({ type: 'effects', shaping: shape }, 0);
   core.command({ type: 'press', ownerId: 'pluck', notes: [{ pitch: 69, instrumentId: 'pluck' }] }, 0);
-  const outputs = Array.from({ length: 3 }, () => [new Float32Array(FRAMES), new Float32Array(FRAMES)]);
-  core.render(outputs[0], 0, outputs[1], outputs[2]);
-  bufferSource(context, outputs[0][0]).connect(graph.master);
-  if (shape.room) bufferSource(context, outputs[1][0]).connect(orbit.roomInput);
-  if (shape.delay) bufferSource(context, outputs[2][0]).connect(orbit.delayInput);
-  const buffer = await context.startRendering();
-  graph.reset(); graph.master.disconnect();
-  return Array.from({ length: shape.cutoff < 12000 ? 1 : 2 }, (_, c) => Array.from(buffer.getChannelData(c)));
+  const pcm = [new Float32Array(frames), new Float32Array(frames)];
+  const quantum = [new Float32Array(128), new Float32Array(128)];
+  for (let frame = 0; frame < frames; frame += 128) {
+    core.render(quantum, frame);
+    for (let c = 0; c < 2; c++) pcm[c].set(quantum[c].subarray(0, Math.min(128, frames - frame)), frame);
+  }
+  return pcm.slice(0, shape.cutoff < 12000 ? 1 : 2).map(channel => Array.from(channel));
 }
 window.renderEffectListening = async () => {
   const data = sample();

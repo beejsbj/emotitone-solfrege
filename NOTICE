@@ -46,7 +46,6 @@ What the app still carries from them:
   @strudel/soundfonts 1.3.0 gm.mjs (as patched), under the same licence.
 - src/services/strudelLink.ts reproduces Strudel's code2hash URL encoding so
   "Open in Strudel" opens the app's own code text on strudel.cc.
-- The reverb impulse recipe adapted from superdough (section 8; Apache-2.0).
 
 With the packages gone, the licence choice is due for review. Published
 snapshots stay AGPL either way.
@@ -158,10 +157,13 @@ git history, which was not rewritten. Anything a player records or imports is
 the player's own data.
 
 --------------------------------------------------------------------------
-8. Worklet-engine room impulse recipe (Apache-2.0)
+8. Worklet-engine room impulse recipe (no longer carried)
 --------------------------------------------------------------------------
 
-src/audio/effects.ts adapts the reverb impulse recipe from superdough's
-reverbGen.mjs, Copyright 2014 Alan deLespinasse, Apache License 2.0.
-The adaptation uses promises and local native nodes and removes debug state.
-See licenses/Apache-2.0.txt. EmotiTone's overall licence remains AGPL-3.0-or-later.
+Until BJS-596, src/audio/effects.ts adapted the reverb impulse recipe from
+superdough's reverbGen.mjs, Copyright 2014 Alan deLespinasse, Apache License
+2.0. That file is gone: the room reverb is now a feedback delay network written
+for the app (src/audio/live/room.ts), tuned to the old impulse's measured decay,
+spectrum and level, and it uses none of that code. Earlier versions, with the
+recipe and the Apache-2.0 text that covered it (licenses/Apache-2.0.txt), stay
+in git history.

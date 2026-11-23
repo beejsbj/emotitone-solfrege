@@ -8,16 +8,19 @@ let engineSerial = 0
 export type { LiveRendererCallbacks as LiveWorkletCallbacks } from '../liveRenderer'
 import type { LiveRendererCallbacks as LiveWorkletCallbacks } from '../liveRenderer'
 
-/** Installs one persistent mixer. Input messages never wait for a beat timer. */
+/**
+ * Installs one persistent mixer. Input messages never wait for a beat timer.
+ * Its one stereo output is the whole mix, room and echo included, already
+ * limited (BJS-596): it goes straight to `destination`.
+ */
 export async function createLiveWorklet(context: AudioContext, destination: AudioNode,
-  callbacks: LiveWorkletCallbacks, sends?: { room: AudioNode; delay: AudioNode }): Promise<LiveWorklet> {
+  callbacks: LiveWorkletCallbacks): Promise<LiveWorklet> {
   await context.audioWorklet.addModule(processorUrl)
   const node = new AudioWorkletNode(context, 'emotitone-live', {
-    numberOfInputs: 0, numberOfOutputs: 3, outputChannelCount: [2, 2, 2], channelCount: 2,
+    numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2], channelCount: 2,
     processorOptions: { instanceId: `worklet-${Date.now()}-${++engineSerial}` },
   })
-  node.connect(destination, 0)
-  if (sends) { node.connect(sends.room, 1); node.connect(sends.delay, 2) }
+  node.connect(destination)
   let disposed = false
   let disposalTimer: ReturnType<typeof setTimeout> | undefined
   let inbox: LiveResponse[] = []
@@ -184,6 +187,8 @@ export async function createLiveWorklet(context: AudioContext, destination: Audi
     release: (ownerId, cancel) => post(cancel ? { type: 'release', ownerId, cancel } : { type: 'release', ownerId }),
     configure: config => post({ type: 'configure', config }),
     effects: shaping => post({ type: 'effects', shaping }),
+    echo: (time, feedback) => post({ type: 'echo', time, feedback }),
+    cutWet: () => post({ type: 'wet-cut' }),
     shape: envelope => post({ type: 'shape', envelope }),
     clear: () => post({ type: 'clear' }),
     transport: command => post(command),

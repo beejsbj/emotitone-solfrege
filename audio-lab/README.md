@@ -8,7 +8,7 @@ What still runs (each needs Chrome; `CHROME_BIN` overrides `/usr/bin/google-chro
 
 | Harness | Command | What it checks |
 | --- | --- | --- |
-| Effects (BJS-486) | `bun run test:run audio-lab/reference/effectBrowser.test.ts` | The worklet filter, native delay and room against the frozen references in `effects/fixtures/` |
+| Effects (BJS-486, BJS-596) | `bun run test:run audio-lab/reference/effectBrowser.test.ts` | The worklet filter, echo and room against the frozen references in `effects/fixtures/`, and peaks at the destination |
 | Effect listening clips | `RENDER_EFFECT_LISTENING=1 bun run test:run audio-lab/reference/effectListening.test.ts` | Writes WAVs and metrics to `/tmp/emotitone-effects-listening` |
 | Loader (BJS-488) | `node audio-lab/loader/run.mjs [receipt.json]` | Every selectable instrument through the app loader, pitch and loop sustain on the worklet core, and the piano's load cost |
 | Receipt checkers | `node audio-lab/check-pattern-growth.mjs <receipt>`, `node audio-lab/verify-receipt-guards.mjs` | Criteria for the stored pattern-growth receipts |

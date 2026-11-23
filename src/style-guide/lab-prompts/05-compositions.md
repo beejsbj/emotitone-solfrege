@@ -33,7 +33,7 @@ Genuine reimagining, not polish: 2–3 **genuinely different directions** per un
 - Reuse accepted lower-layer decisions: Lit Keycap Buttons, the LED-collar Analog Knob, the Readout, Marquee Tabs, Loop Dial (Compounds lab #124; Bar Tape retired), and Tape/Stamp Sticker papers are the current primitives once their PRs land.
 
 ### Verify
-- Every heavy command and browser check goes through `/home/admin/.local/bin/t3-test-run COMMAND ARGS`. It holds a global lock: if it prints "Another guarded test is running" or "deferred" (any exit code), wait ~20s and retry; never bypass it. Give each worktree a real `bun install` (not a symlinked `node_modules`).
+- Every heavy command and browser check goes through `~/.local/bin/t3-test-run COMMAND ARGS`. It holds a global lock: if it prints "Another guarded test is running" or "deferred" (any exit code), wait ~20s and retry; never bypass it. Give each worktree a real `bun install` (not a symlinked `node_modules`).
 - `bun run type-check`, `bun run test` (full suite, exact totals), `bun run build`.
 - Screenshot every direction at 390 and 1440 with headless Chrome over CDP, and **look at every capture**. For motion, capture frames at several times after the trigger (a still can't show a fade). Iterate until it's right.
 

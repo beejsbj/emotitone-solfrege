@@ -92,8 +92,12 @@ async function renderStop(cut) {
     change: { type: 'join', member: { table: heldMember(), offsetBars: 0, rate: 1, muted: false } } });
   worklet.transport({ type: 'transport-start', requestId: 2, run: 1, bpm: 120 });
   await started;
-  context.suspend(STOP.at).then(() => {
+  // Resume only once the worklet has taken the stop: a port message is not delivered by resume itself, and on a
+  // busy machine the offline render can otherwise run past the stop before the message arrives.
+  context.suspend(STOP.at).then(async () => {
+    const stopped = answered(3);
     worklet.transport({ type: 'transport-stop', requestId: 3, ...(cut ? { cut: true } : {}) });
+    await stopped;
     return context.resume();
   });
   context.suspend(STOP.again).then(() => { worklet.press('again', [{ pitch: 69, instrumentId: 'fixture' }]); return context.resume(); });

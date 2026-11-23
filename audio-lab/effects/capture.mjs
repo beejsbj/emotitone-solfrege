@@ -11,8 +11,9 @@ const root = process.cwd();
 const directory = await mkdtemp(join(tmpdir(), 'emotitone-parity-'));
 const digest = async path => createHash('sha256').update(await readFile(path)).digest('hex');
 // The app's own effect sources: a run is void if they change under it.
-const watched = ['src/audio/effects.ts', 'src/audio/liveShaping.ts', 'src/audio/live/core.ts'].map(path => resolve(path));
-const hashes = Object.fromEntries(await Promise.all(watched.map(async path => [path, await digest(path)])));
+// Keyed by repo-relative path: the receipt is committed to a public repo, so no machine path goes in it.
+const watched = ['src/audio/effects.ts', 'src/audio/liveShaping.ts', 'src/audio/live/core.ts'];
+const hashes = Object.fromEntries(await Promise.all(watched.map(async path => [path, await digest(resolve(root, path))])));
 let vite, chrome, socket;
 
 const chromeBin = process.env.CHROME_BIN || '/usr/bin/google-chrome';
@@ -124,7 +125,7 @@ try {
   if (!ready) throw new Error(`Parity page did not initialize: ${JSON.stringify({ exceptions, warnings, blockedRequests })}`);
   const result = await call('Runtime.evaluate', { expression: `window.${functionName}()`, awaitPromise: true, returnByValue: true, timeout: 90000 });
   if (result.exceptionDetails) throw new Error(JSON.stringify(result.exceptionDetails));
-  const changes = (await Promise.all(watched.map(async path => await digest(path) !== hashes[path] ? path : null))).filter(Boolean);
+  const changes = (await Promise.all(watched.map(async path => await digest(resolve(root, path)) !== hashes[path] ? path : null))).filter(Boolean);
   const receipt = { revision: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), hashes,
     warnings, exceptions, blockedRequests, filesChangedDuringRun: changes, ...result.result.value };
   if (exceptions.length || blockedRequests.length || changes.length) throw new Error(JSON.stringify(receipt));

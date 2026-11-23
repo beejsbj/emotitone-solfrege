@@ -166,7 +166,7 @@ async function waitForGroup(child, interruptedAt) {
 /**
  * Set EMOTITONE_VERIFY_BYPASS_LOCK=1 to skip the shared-host lock. CI and Vercel
  * run on isolated machines with nothing to serialise against; they set it.
- * bjslab leaves it unset and keeps the lock.
+ * The shared host leaves it unset and keeps the lock.
  */
 export const BYPASS_LOCK_ENV = 'EMOTITONE_VERIFY_BYPASS_LOCK'
 

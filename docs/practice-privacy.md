@@ -1,3 +1,3 @@
 # Practice note
 
-Scratch file kept at /home/practice-user/notes.txt for this test.
+Scratch file kept in the home directory for this test.

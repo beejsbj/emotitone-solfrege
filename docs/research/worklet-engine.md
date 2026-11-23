@@ -412,7 +412,7 @@ library-fixture articulation, but not its expression and cold fixtures, which
 used attacks of 0.002–0.005 s and a 0.02 s release.
 
 **Host and method:**
-- The host was bjslab, an i7-6700HQ with 8 threads and 15.5 GiB of RAM, shared
+- The host was the shared build server, an i7-6700HQ with 8 threads and 15.5 GiB of RAM, shared
   with other agents' work. The 1-minute load average was 13.2 at the start of
   the run and 9.2 at the end.
 - The browser was Chrome 147 headless at 44,100 Hz, reporting 10 ms base and

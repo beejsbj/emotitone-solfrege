@@ -1,6 +1,6 @@
 import { computed } from "vue";
 import { useKeyboardDrawerStore } from "@/stores/keyboardDrawer";
-import { isRoliMidiPortName, isVirtualMidiPortName } from "@/services/roliLiveSync";
+import { isRoliMidiPortName, isVirtualMidiPortName, ROLI_SCRIPT_VERSION } from "@/services/roliLiveSync";
 
 export function useConfigMidiStatus() {
   const keyboardDrawerStore = useKeyboardDrawerStore();
@@ -80,7 +80,9 @@ export function useConfigMidiStatus() {
     }
 
     if (midi.syncedOutput) {
-      return `Live sync armed on ${midi.syncedOutput}`;
+      return midi.syncedScriptVersion
+        ? `Live sync on ${midi.syncedOutput}`
+        : `${midi.syncedOutput} connected, script not running`;
     }
 
     if (hasConnectedInput.value) {
@@ -143,7 +145,14 @@ export function useConfigMidiStatus() {
     const midi = keyboardDrawerStore.midi;
 
     if (midi.syncedOutput) {
-      return `Live sync active on ${midi.syncedOutput}.`;
+      // Only the script's answer to the app's hello proves it is running.
+      if (!midi.syncedScriptVersion) {
+        return `${midi.syncedOutput} is connected, but the EmotiTone script hasn't answered. Download it and load it in ROLI Dashboard to light the keys.`;
+      }
+      if (midi.syncedScriptVersion < ROLI_SCRIPT_VERSION) {
+        return `${midi.syncedOutput} is running an older EmotiTone script. Download it again and reload it in ROLI Dashboard.`;
+      }
+      return `Live sync on: ${midi.syncedOutput} is running the EmotiTone script.`;
     }
 
     if (detectedRoliOutput.value) {

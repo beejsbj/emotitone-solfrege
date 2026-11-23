@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   buildRoliPianoPalette,
+  roliAppOctave,
+  roliDeviceOctave,
+  roliKeyNote,
   cssColorToLittleFootHex,
   generateRoliPianoScript,
   getScaleDegreeIndexForPitchClass,
@@ -129,5 +132,48 @@ describe("roliPianoExport", () => {
     expect(script).toContain("void handleMIDI(int byte0, int byte1, int byte2)");
     expect(script).toContain('target="Lightkey, roliPiano49"');
     expect(script).toContain('name="activeColour"');
+  });
+
+  it("centres the piano on the app's main octave, as the on-screen rows are", () => {
+    const keys = 49;
+    for (const mainOctave of [2, 3, 4, 5, 6]) {
+      const device = roliDeviceOctave(mainOctave, keys);
+      // The middle C-to-B of 49 keys (keys 24-35) is the main octave.
+      expect(roliKeyNote(24, device)).toBe((mainOctave + 1) * 12);
+      expect(roliAppOctave(device)).toBe(mainOctave);
+    }
+    // The app's default octave 4 is the usual 49-key span, C2 to C6.
+    expect(roliKeyNote(0, roliDeviceOctave(4, keys))).toBe(36);
+  });
+
+  it("never asks the piano for a note above 127", () => {
+    for (let mainOctave = 1; mainOctave <= 8; mainOctave++) {
+      expect(roliKeyNote(48, roliDeviceOctave(mainOctave, 49))).toBeLessThanOrEqual(127);
+    }
+  });
+
+  it("builds the device octave range and handshake into the script", () => {
+    const script = generateRoliPianoScript({
+      dynamicColorConfig: {
+        recipeVersion: 1,
+        musicColorMode: "fixed",
+        chroma: 0.18,
+        lightnessCenter: 0.575,
+        lightnessSpan: 0.6,
+        hueMotionEnabled: false,
+        animationSpeed: 1,
+      },
+      currentKey: "C",
+      currentMode: "major",
+    });
+
+    expect(script).toContain("const int MinOctave                    = -4;");
+    expect(script).toContain("const int MaxOctave                    = 2;");
+    expect(script).toContain("const int AppOctaveOffset              = 5;");
+    expect(script).toContain("setLocalConfigItemRange(ConfigId_octave, MinOctave, MaxOctave);");
+    expect(script).not.toMatch(/clamp\(-4, 6/);
+    expect(script).toContain("const int ScriptVersion                = 2;");
+    expect(script).toContain("sendCC(ControlChannel, CcHello, ScriptVersion);");
+    expect(script).toContain("sendCC(ControlChannel, CcMainOctave, octave + AppOctaveOffset);");
   });
 });

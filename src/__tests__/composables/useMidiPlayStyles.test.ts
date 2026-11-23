@@ -278,8 +278,10 @@ describe("live play styles through MIDI input and the ROLI output mirror", () =>
     const replacement = { id: "roli-output", name: "LUMI Keys", type: "output", state: "connected", send: replacementSend, clear: vi.fn() };
     (access.outputs as unknown as Map<string, unknown>).set(replacement.id, replacement);
     access.onstatechange!.call(access, { port: replacement } as unknown as MIDIConnectionEvent);
-    expect(replacementSend).toHaveBeenCalledTimes(65);
-    expect(replacementSend.mock.calls.at(-1)).toEqual([[0xbf, 111, 4], 100]);
+    // 64 palette packets, the main octave, then the script handshake.
+    expect(replacementSend).toHaveBeenCalledTimes(66);
+    expect(replacementSend.mock.calls.at(-2)).toEqual([[0xbf, 111, 4], 100]);
+    expect(replacementSend.mock.calls.at(-1)).toEqual([[0xbf, 112, 0]]);
     replacementSend.mockClear();
     access.onstatechange!.call(access, { port: replacement } as unknown as MIDIConnectionEvent);
     expect(replacementSend).not.toHaveBeenCalled();

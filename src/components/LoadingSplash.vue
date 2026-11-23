@@ -61,13 +61,13 @@ const midiMessage = computed(() => {
   if (midi.lastError) return "MIDI permission was not granted; touch and QWERTY still work.";
 
   if (midi.connectedInputs.length > 0) {
-    const roliSync = midi.syncedOutput ? ` Live sync: ${midi.syncedOutput}.` : "";
+    const roliSync = midi.syncedOutput && midi.syncedScriptVersion ? ` Live sync: ${midi.syncedOutput}.` : "";
     return `MIDI ready: ${midi.connectedInputs.join(", ")}.${roliSync}`;
   }
 
   if (midi.isListening) {
-    return midi.syncedOutput
-      ? `MIDI ready. Live sync armed on ${midi.syncedOutput}.`
+    return midi.syncedOutput && midi.syncedScriptVersion
+      ? `MIDI ready. Live sync on ${midi.syncedOutput}.`
       : "MIDI ready. Connect a controller anytime.";
   }
 

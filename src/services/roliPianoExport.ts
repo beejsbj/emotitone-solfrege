@@ -85,6 +85,38 @@ interface RgbaColor {
 
 export const ROLI_OFF_COLOUR = "0xff000000";
 
+/** Raised whenever the script's MIDI protocol changes; the script reports it. */
+export const ROLI_SCRIPT_VERSION = 2;
+/** The script's lowest key at device octave 0, as in ROLI's own example (C3). */
+export const ROLI_BASE_NOTE = 48;
+export const ROLI_DEVICE_OCTAVE_MIN = -4;
+/**
+ * The app's main octave is the middle of the on-screen rows; device octave
+ * `main - 5` puts it on the middle C-to-B of 49 keys (keys 24-35).
+ */
+export const ROLI_APP_OCTAVE_OFFSET = 5;
+
+/** The MIDI note a key sends at a device octave. */
+export function roliKeyNote(keyIndex: number, deviceOctave: number): number {
+  return ROLI_BASE_NOTE + keyIndex + deviceOctave * 12;
+}
+
+/** The highest device octave whose top key is still a MIDI note (<= 127). */
+export function roliDeviceOctaveMax(keyCount: number): number {
+  return Math.floor((127 - roliKeyNote(keyCount - 1, 0)) / 12);
+}
+
+export function roliDeviceOctave(appMainOctave: number, keyCount = 49): number {
+  return Math.max(
+    ROLI_DEVICE_OCTAVE_MIN,
+    Math.min(roliDeviceOctaveMax(keyCount), Math.round(appMainOctave) - ROLI_APP_OCTAVE_OFFSET),
+  );
+}
+
+export function roliAppOctave(deviceOctave: number): number {
+  return deviceOctave + ROLI_APP_OCTAVE_OFFSET;
+}
+
 function clampChannel(value: number): number {
   return Math.max(0, Math.min(255, Math.round(value)));
 }
@@ -296,7 +328,7 @@ export function generateRoliPianoScript({
 
   return `/*
 <metadata description="Emotitone palette for ROLI piano"
-          details="Generated ${exportedAt} for ${currentKey} ${currentMode}. Drag and drop onto LUMI using Dashboard or use BLOCKS Code to load this script. This version supports live MIDI note mirroring and palette updates from Emotitone. Reset the piano in Dashboard to restore factory behavior."
+          details="Generated ${exportedAt} for ${currentKey} ${currentMode} (live-sync protocol ${ROLI_SCRIPT_VERSION}). Drag and drop onto LUMI using Dashboard or use BLOCKS Code to load this script. This version supports live MIDI note mirroring and palette updates from Emotitone. Reset the piano in Dashboard to restore factory behavior."
           target="Lightkey, roliPiano49"
           tags="LUMI,Emotitone">
     <groups>
@@ -339,6 +371,11 @@ const int CcActiveGreen                = 108;
 const int CcActiveBlue                 = 109;
 const int CcActiveCommit               = 110;
 const int CcMainOctave                 = 111;
+const int CcHello                      = 112;
+const int ScriptVersion                = ${ROLI_SCRIPT_VERSION};
+const int MinOctave                    = ${ROLI_DEVICE_OCTAVE_MIN};
+const int MaxOctave                    = ${roliDeviceOctaveMax(keyCount)};
+const int AppOctaveOffset              = ${ROLI_APP_OCTAVE_OFFSET};
 
 const int maxKeys = ${keyCount};
 int keyChannel[maxKeys];
@@ -400,7 +437,7 @@ void clearExternalNotes()
 
 void setAppMainOctave(int appMainOctave)
 {
-    int octave = clamp(-4, 6, appMainOctave - 4);
+    int octave = clamp(MinOctave, MaxOctave, appMainOctave - AppOctaveOffset);
 
     setLocalConfig(ConfigId_octave, octave);
     clearExternalNotes();
@@ -444,7 +481,7 @@ void initialise()
     setLocalConfigActiveState(ConfigId_xTrackingMode, true, true);
     setLocalConfigActiveState(ConfigId_zTrackingMode, true, true);
 
-    setLocalConfigItemRange(ConfigId_octave, -4, 6);
+    setLocalConfigItemRange(ConfigId_octave, MinOctave, MaxOctave);
     setLocalConfig(ConfigId_gammaCorrection, 1);
     setLocalConfig(ConfigId_mode, 0);
     setLocalConfigActiveState(ConfigId_MPEZone, true, true);
@@ -462,6 +499,9 @@ void initialise()
     clearDisplay();
     fillPixel(0xFFFFFFFF, 0, 1);
     fillPixel(0xFFFFFFFF, 1, 1);
+
+    // Tell a listening app the script is running.
+    sendCC(ControlChannel, CcHello, ScriptVersion);
 }
 
 int getColour(int note)
@@ -560,6 +600,14 @@ void handleMIDI(int byte0, int byte1, int byte2)
         return;
     }
 
+    // The app asks with 0; any other value is an answer, never asked back.
+    if (byte1 == CcHello)
+    {
+        if (byte2 == 0)
+            sendCC(ControlChannel, CcHello, ScriptVersion);
+        return;
+    }
+
     if (byte1 == CcPaletteIndex)
     {
         pendingPaletteIndex = byte2;
@@ -633,12 +681,12 @@ void handleMIDI(int byte0, int byte1, int byte2)
 
 int getKeyForNote(int noteIndex)
 {
-    return noteIndex - 48 - getTotalOctaveNoteShift();
+    return noteIndex - ${ROLI_BASE_NOTE} - getTotalOctaveNoteShift();
 }
 
 int getNoteForKey(int keyIndex)
 {
-    return min(127, 48 + keyIndex + getTotalOctaveNoteShift());
+    return min(127, ${ROLI_BASE_NOTE} + keyIndex + getTotalOctaveNoteShift());
 }
 
 int getTotalOctaveNoteShift()
@@ -683,9 +731,12 @@ void handleOctaveButtonDown(int index)
     if (index == 1) octave--;
     else if (index == 2) octave++;
 
-    octave = clamp(-4, 6, octave);
+    octave = clamp(MinOctave, MaxOctave, octave);
     setLocalConfig(ConfigId_octave, octave);
     clearExternalNotes();
+
+    // The app's on-screen octave follows the piano's buttons.
+    sendCC(ControlChannel, CcMainOctave, octave + AppOctaveOffset);
 }
 `;
 }

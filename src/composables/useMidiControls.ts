@@ -9,12 +9,15 @@ import { useVisualConfig } from "@/composables/useVisualConfig";
 import { SCHEDULED_LIVE_MIDI_EVENT } from "@/services/livePerformance";
 import {
   buildRoliAllNotesOffMessages,
+  buildRoliHelloMessage,
   buildRoliMainOctaveMessage,
   buildRoliNoteOffMessage,
   buildRoliNoteOnMessage,
   buildRoliPaletteUpdateMessages,
   isRoliMidiPortName,
+  clampRoliAppMainOctave,
   pickPreferredRoliOutput,
+  ROLI_SYNC_CCS,
   ROLI_SYNC_CONTROL_CHANNEL,
 } from "@/services/roliLiveSync";
 
@@ -356,9 +359,51 @@ function midiInputScope(inputId: string) {
   return `${MIDI_OWNER_SCOPE}:${encodeURIComponent(inputId)}`;
 }
 
+/** Performer scope of one channel on one input. */
+function midiChannelScope(inputId: string, channel: number) {
+  return `${midiInputScope(inputId)}:${channel}`;
+}
+
 /** One performer owner per input, channel and note: a physical key. */
 function midiOwner(inputId: string, channel: number, noteNumber: number) {
-  return `${midiInputScope(inputId)}:${channel}:${noteNumber}`;
+  return `${midiChannelScope(inputId, channel)}:${noteNumber}`;
+}
+
+const MIDI_PITCH_BEND = 0xe0;
+const PITCH_BEND_CENTRE = 8192;
+/** General MIDI's bend range, and MPE's default for member channels. */
+const DEFAULT_BEND_SEMITONES = 2;
+const MPE_MEMBER_BEND_SEMITONES = 48;
+const CC_DATA_ENTRY = 6;
+const CC_SUSTAIN = 64;
+const CC_RPN_LSB = 100;
+const CC_RPN_MSB = 101;
+const CC_ALL_SOUND_OFF = 120;
+const CC_ALL_NOTES_OFF = 123;
+const RPN_PITCH_BEND_SENSITIVITY = 0;
+const RPN_MPE_CONFIGURATION = 6;
+
+/**
+ * What one input's controllers say about the notes it plays: each channel's
+ * bend and bend range (RPN 0, or MPE's 48 on a zone's member channels), and
+ * the sustain pedal. The pedal holds the whole input, as MPE's master channel
+ * does for its zone.
+ */
+interface MidiInputControllers {
+  bendValue: Map<number, number>;
+  bendRange: Map<number, number>;
+  rpn: Map<number, { msb?: number; lsb?: number }>;
+  sustainDown: boolean;
+  /** Owners whose key is up while the pedal holds them. */
+  sustained: Set<string>;
+}
+
+function createMidiInputControllers(): MidiInputControllers {
+  return { bendValue: new Map(), bendRange: new Map(), rpn: new Map(), sustainDown: false, sustained: new Set() };
+}
+
+export function midiBendToCents(value: number, semitones: number) {
+  return Math.round((value - PITCH_BEND_CENTRE) / PITCH_BEND_CENTRE * semitones * 100 * 1000) / 1000;
 }
 
 function toneNotationToMs(notation: string, bpm: number = 120) {
@@ -569,6 +614,76 @@ export function useMidiControls() {
     keyboardDrawerStore.releaseVisualNote(detail.noteId);
   };
 
+  const inputControllers = new Map<string, MidiInputControllers>();
+  const controllersOf = (inputId: string) => {
+    let controllers = inputControllers.get(inputId);
+    if (!controllers) inputControllers.set(inputId, controllers = createMidiInputControllers());
+    return controllers;
+  };
+  const channelBendCents = (controllers: MidiInputControllers, channel: number) => midiBendToCents(
+    controllers.bendValue.get(channel) ?? PITCH_BEND_CENTRE,
+    controllers.bendRange.get(channel) ?? DEFAULT_BEND_SEMITONES,
+  );
+  const applyChannelBend = (inputId: string, controllers: MidiInputControllers, channel: number) => {
+    const cents = channelBendCents(controllers, channel);
+    for (const owner of performer.owners(midiChannelScope(inputId, channel))) performer.pitchBend(owner, cents);
+  };
+
+  const handleDataEntry = (inputId: string, controllers: MidiInputControllers, channel: number, value: number) => {
+    const rpn = controllers.rpn.get(channel);
+    if (rpn?.msb !== 0) return;
+    if (rpn.lsb === RPN_PITCH_BEND_SENSITIVITY) {
+      controllers.bendRange.set(channel, value);
+      applyChannelBend(inputId, controllers, channel);
+    } else if (rpn.lsb === RPN_MPE_CONFIGURATION && (channel === 1 || channel === 16)) {
+      // An MPE Configuration Message sets its zone's member channels to 48
+      // semitones and its master channel to 2.
+      const members = Array.from({ length: Math.min(15, value) }, (_, index) =>
+        channel === 1 ? 2 + index : 15 - index);
+      controllers.bendRange.set(channel, DEFAULT_BEND_SEMITONES);
+      for (const member of members) controllers.bendRange.set(member, MPE_MEMBER_BEND_SEMITONES);
+    }
+  };
+
+  const releaseSustained = (controllers: MidiInputControllers) => {
+    const owners = Array.from(controllers.sustained);
+    controllers.sustained.clear();
+    for (const owner of owners) performer.release(owner);
+  };
+
+  const handleControlChange = (inputId: string, channel: number, controller: number, value: number) => {
+    const controllers = controllersOf(inputId);
+    if (controller === CC_SUSTAIN) {
+      controllers.sustainDown = value >= 64;
+      if (!controllers.sustainDown) releaseSustained(controllers);
+    } else if (controller === CC_RPN_MSB) {
+      controllers.rpn.set(channel, { ...controllers.rpn.get(channel), msb: value });
+    } else if (controller === CC_RPN_LSB) {
+      controllers.rpn.set(channel, { ...controllers.rpn.get(channel), lsb: value });
+    } else if (controller === CC_DATA_ENTRY) {
+      handleDataEntry(inputId, controllers, channel, value);
+    } else if (controller === CC_ALL_SOUND_OFF || controller === CC_ALL_NOTES_OFF) {
+      controllers.sustained.clear();
+      performer.releaseAllFor(midiInputScope(inputId));
+    }
+  };
+
+  // The octave the piano last reported, so the app does not send it back.
+  let octaveFromRoli: number | null = null;
+  /** The EmotiTone script answering its handshake, or moving its octave. */
+  const handleRoliSync = (controller: number, value: number) => {
+    if (controller === ROLI_SYNC_CCS.hello) {
+      // 0 is the app's own question; a device that echoes it has not answered.
+      if (value > 0) keyboardDrawerStore.setMidiSyncedScriptVersion(value);
+      return;
+    }
+    const octave = clampRoliAppMainOctave(value);
+    if (octave === keyboardDrawerStore.keyboardConfig.mainOctave) return;
+    // Consumed by the main-octave watcher this change triggers.
+    octaveFromRoli = octave;
+    keyboardDrawerStore.setMainOctave(octave);
+  };
+
   const handleMidiPacket = (inputId: string, rawData: ArrayLike<number>) => {
     const data = Array.from(rawData).slice(0, 3);
     if (data.length < 2) {
@@ -578,10 +693,34 @@ export function useMidiControls() {
     const [status, noteNumber, velocity = 0] = data;
     const messageType = status & MIDI_STATUS_MASK;
     const channel = (status & MIDI_CHANNEL_MASK) + 1;
+
+    if (
+      messageType === MIDI_CONTROL_CHANGE
+      && channel === ROLI_SYNC_CONTROL_CHANNEL
+      && roliInputIds.value.has(inputId)
+      && (noteNumber === ROLI_SYNC_CCS.hello || noteNumber === ROLI_SYNC_CCS.mainOctave)
+    ) {
+      handleRoliSync(noteNumber, velocity);
+      return;
+    }
+
+    if (messageType === MIDI_PITCH_BEND) {
+      const controllers = controllersOf(inputId);
+      controllers.bendValue.set(channel, data[1] | (velocity << 7));
+      applyChannelBend(inputId, controllers, channel);
+      return;
+    }
+
+    if (messageType === MIDI_CONTROL_CHANGE) {
+      handleControlChange(inputId, channel, noteNumber, velocity);
+      return;
+    }
+
     const owner = midiOwner(inputId, channel, noteNumber);
 
     if (messageType === MIDI_NOTE_ON && velocity > 0) {
       // A duplicate note-on retriggers: the old voice ends before the new one.
+      inputControllers.get(inputId)?.sustained.delete(owner);
       performer.release(owner, "retrigger");
       const noteName = midiNoteNumberToName(noteNumber);
       // Exact pitches share the on-screen performer, including identity and
@@ -606,6 +745,10 @@ export function useMidiControls() {
         }],
         ...(touchKey ? { touchKey } : {}),
       });
+      // MPE sends a note's bend before its note-on; the new note starts there.
+      const controllers = inputControllers.get(inputId);
+      const cents = controllers ? channelBendCents(controllers, channel) : 0;
+      if (cents !== 0) performer.pitchBend(owner, cents);
       return;
     }
 
@@ -613,7 +756,9 @@ export function useMidiControls() {
       messageType === MIDI_NOTE_OFF
       || (messageType === MIDI_NOTE_ON && velocity === 0)
     ) {
-      performer.release(owner);
+      const controllers = inputControllers.get(inputId);
+      if (controllers?.sustainDown && performer.isHeld(owner)) controllers.sustained.add(owner);
+      else performer.release(owner);
     }
   };
 
@@ -748,7 +893,9 @@ export function useMidiControls() {
   };
 
   const syncRoliMainOctave = () => {
-    if (!selectedRoliOutput.value) {
+    const fromRoli = octaveFromRoli;
+    octaveFromRoli = null;
+    if (!selectedRoliOutput.value || fromRoli === keyboardDrawerStore.keyboardConfig.mainOctave) {
       return;
     }
 
@@ -947,6 +1094,8 @@ export function useMidiControls() {
 
   /** A port (or all MIDI) went away: release every note it owns, pending or not. */
   const releaseMidiNotes = (inputId?: string) => {
+    if (inputId === undefined) inputControllers.clear();
+    else inputControllers.delete(inputId);
     performer.releaseAllFor(
       inputId === undefined ? MIDI_OWNER_SCOPE : midiInputScope(inputId),
       "teardown",
@@ -1019,6 +1168,8 @@ export function useMidiControls() {
       });
       syncRoliPalette();
       syncRoliMainOctave();
+      // Ask whether the EmotiTone script is running; it answers on its input.
+      sendToRoliOutput(buildRoliHelloMessage());
     }
   };
 

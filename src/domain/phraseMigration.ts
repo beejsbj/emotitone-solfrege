@@ -16,7 +16,7 @@ import {
   resolveBpm,
   type NewId,
 } from "./phraseBook";
-import { NEUTRAL_SHAPE } from "@/services/shape";
+import { sanitizePhraseShape } from "@/services/shape";
 
 /** The old store dropped log slices this short from the reel; so do we. */
 const LEGACY_MIN_DYNAMIC_NOTES = 3;
@@ -64,7 +64,7 @@ function phraseFromLog(notes: LogNote[]): Phrase {
     mode: first.mode,
     instrument: first.instrument,
     bpm: resolveBpm(first.bpm),
-    shape: { ...(first.shape ?? NEUTRAL_SHAPE) },
+    shape: sanitizePhraseShape(first.shape),
     octave: normalized.find((note) => note.scaleIndex === 0)?.octave ?? first.octave,
   };
   return {

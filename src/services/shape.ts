@@ -66,6 +66,27 @@ export function sanitizeShape(value: unknown): Shape | null {
   return canonicalShape(shape as Shape);
 }
 
+/**
+ * Read a saved phrase's Shape. Unlike `sanitizeShape`, which rejects a Shape
+ * with any bad field, a phrase must still open: each missing or invalid field
+ * falls back to its neutral value, the rest are kept, and every knob is clamped
+ * to its range. Not an object (or absent) is the neutral Shape. A healthy Shape
+ * comes back unchanged.
+ */
+export function sanitizePhraseShape(value: unknown): Shape {
+  const raw = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const usable = (key: keyof Shape) => {
+    const input = raw[key];
+    if ((key === "attack" || key === "release") && input === null) return true;
+    return typeof input === "number" && Number.isFinite(input);
+  };
+  const filled: Record<string, unknown> = {};
+  for (const key of Object.keys(NEUTRAL_SHAPE) as Array<keyof Shape>) {
+    filled[key] = usable(key) ? raw[key] : NEUTRAL_SHAPE[key];
+  }
+  return sanitizeShape(filled) ?? { ...NEUTRAL_SHAPE };
+}
+
 /** Absent shape (legacy notes and patterns) is the neutral shape. */
 export function isSameShape(left?: Shape | null, right?: Shape | null): boolean {
   const a = canonicalShape(left ?? NEUTRAL_SHAPE);

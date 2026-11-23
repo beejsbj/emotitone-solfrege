@@ -74,7 +74,11 @@ Rules, each enforced by a test in `src/__tests__/domain/phraseBook.test.ts`:
 6. **An untouched copy follows the controls; your own phrases never do.**
    While a Kept or Library copy has no live notes, key, mode, octave,
    instrument, and Shape changes re-skin it (the existing transposition
-   behaviour, kept). A Recent phrase on the desk *is* your stored phrase (reopen
+   behaviour, kept). Only envelope stages that came from the Shape follow: a
+   Repeat or Arp pulse keeps its 30 ms release, even when the release knob
+   read 0.03 too, because the note is saved marked `gated` (BJS-649). Notes
+   saved before that mark existed keep the old rule: a release equal to the
+   Shape's follows it. A Recent phrase on the desk *is* your stored phrase (reopen
    is a move), so knob turns and instrument fallbacks never rewrite it. Once you
    play into a take, its context is fixed; a note in a different context closes
    it and opens a fresh take.

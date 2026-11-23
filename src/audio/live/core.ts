@@ -7,6 +7,7 @@ import { applyFade, deeperFade, fadeEnd, type MemberFade } from './fade'
 import { velocityToGain } from '../velocity'
 import { OPEN_CUTOFF_HZ, type LiveShaping } from '../liveShaping'
 import { MAX_AUDIO_VOICES, VOICE_RETIRE_SECONDS } from '../voicePolicy'
+import { isRhythmicStyle, PULSE_RELEASE_SECONDS } from '../../data/playStyles'
 import { AudioTransport, type TransportCommand, type TransportMemberTable, type TransportOnset } from './transport'
 import { TransportEventKind, TransportEventWriter, type TransportEventBatch } from './transportEvents'
 
@@ -247,7 +248,7 @@ export class LiveAudioCore {
   }
 
   get voiceCount() { return this.voices.length + this.fades.length }
-  private rhythmic() { return this.config.style === 'repeat' || this.config.style.startsWith('arp-') }
+  private rhythmic() { return isRhythmicStyle(this.config.style) }
   /** Repeat/Arp follow the transport's bar grid while it runs (S111). */
   private locked() { return this.transport.isRunning && this.config.phase !== 'press' }
   private gridFrame(bar: number) { return Math.ceil(this.transport.frameAt(bar) - 1e-6) }
@@ -783,7 +784,7 @@ export class LiveAudioCore {
     const { attack, decay, sustain } = instrument
     return this.createVoice(note, instrument, zone, frame, pulse.style,
       pulse.duration === undefined ? Infinity : Math.ceil(pulse.frame + pulse.duration),
-      pulse.duration === undefined ? instrument.release : .03, { attack, decay, sustain })
+      pulse.duration === undefined ? instrument.release : PULSE_RELEASE_SECONDS, { attack, decay, sustain })
   }
 
   private holdRelease(owner: string, due: number) {

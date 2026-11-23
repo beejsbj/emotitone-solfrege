@@ -9,7 +9,6 @@ import LazyInstrumentSelector from "@/components/LazyInstrumentSelector.vue";
 vi.mock("@/services/audioEngine", async importOriginal => ({
   ...await importOriginal<typeof import("@/services/audioEngine")>(),
   initAudioEngine: vi.fn(async () => {}),
-  getReadySounds: () => ["triangle"],
   isPrewarmed: (sound: string) => sound === "triangle",
   setLiveSynthControls: vi.fn(),
 }));

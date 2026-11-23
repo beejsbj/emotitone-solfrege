@@ -267,21 +267,28 @@ describe("the app's audio engine", () => {
     expect(audio.isPrewarmed("piano")).toBe(true);
   });
 
-  it("keeps no record of its own: a bank the worklet has dropped is cold again, an oscillator never is", async () => {
+  it("keeps no record of its own: a bank the worklet has dropped is cold again in the instrument store, an oscillator never is", async () => {
+    const { createPinia, setActivePinia, disposePinia } = await import("pinia");
+    const { useInstrumentStore } = await import("@/stores/instrument");
     const audio = await import("@/services/audioEngine");
-    await audio.initAudioEngine();
-    await audio.prewarmSoundSamples("piano");
-    expect(audio.isPrewarmed("piano")).toBe(true);
-    expect(audio.getReadySounds()).toEqual(expect.arrayContaining(["piano", "triangle"]));
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const store = useInstrumentStore();
+    try {
+      await audio.initAudioEngine();
+      await audio.prewarmSoundSamples("piano");
+      expect(store.isInstrumentReady("piano")).toBe(true);
+      expect(store.isInstrumentReady("triangle")).toBe(true);
 
-    hoisted.held.clear(); // evicted for room, or lost to a rebuild
-    expect(audio.isPrewarmed("piano")).toBe(false);
-    expect(audio.getReadySounds()).not.toContain("piano");
-    expect(audio.isPrewarmed("triangle")).toBe(true);
-    expect(audio.getReadySounds()).toContain("triangle");
+      hoisted.held.clear(); // evicted for room, or lost to a rebuild
+      expect(store.isInstrumentReady("piano")).toBe(false);
+      expect(store.isInstrumentReady("triangle")).toBe(true);
 
-    await audio.prewarmSoundSamples("piano");
-    expect(audio.isPrewarmed("piano")).toBe(true);
+      await audio.prewarmSoundSamples("piano");
+      expect(store.isInstrumentReady("piano")).toBe(true);
+    } finally {
+      disposePinia(pinia);
+    }
   });
 
   it("surfaces a failed worklet download and leaves the instrument cold", async () => {

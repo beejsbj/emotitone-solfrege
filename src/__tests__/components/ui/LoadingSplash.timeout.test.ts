@@ -80,7 +80,6 @@ vi.mock("@/services/audioEngine", () => ({
   getAudioStartupStage: () => audio.state.stage,
   prewarmSoundSamples: audio.prewarmSoundSamples,
   isPrewarmed: audio.isPrewarmed,
-  getReadySounds: () => ["triangle"],
   setLiveSynthControls: vi.fn(),
 }));
 vi.mock("@/services/audioRuntime", () => ({

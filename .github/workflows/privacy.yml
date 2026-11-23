@@ -42,7 +42,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node --test scripts/privacy/privacy-scan.test.mjs
+      - run: node --test scripts/privacy/privacy-scan.test.mjs scripts/privacy/pre-push.test.mjs
       - run: node scripts/privacy/privacy-scan.mjs "$SCAN_MODE"
         env:
           SCAN_MODE: ${{ github.event_name == 'pull_request' && 'diff' || 'tree' }}
@@ -52,9 +52,12 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       - name: Commit authors, messages and the PR description
         if: github.event_name == 'pull_request'
+        # Both scans run even when the first fails, so one run reports everything.
         run: |
-          git log --format='%an%n%ae%n%cn%n%ce%n%B' "$BASE_SHA..$HEAD_SHA" | node scripts/privacy/privacy-scan.mjs text
-          printf '%s\n' "$PR_BODY" | node scripts/privacy/privacy-scan.mjs text
+          status=0
+          git log --format='%an%n%ae%n%cn%n%ce%n%B' "$BASE_SHA..$HEAD_SHA" | node scripts/privacy/privacy-scan.mjs text || status=1
+          printf '%s\n' "$PR_BODY" | node scripts/privacy/privacy-scan.mjs text || status=1
+          exit $status
         env:
           PRIVACY_REPO_PRIVATE: ${{ github.event.repository.private }}
           PRIVACY_PATTERNS: ${{ secrets.PRIVACY_PATTERNS }}

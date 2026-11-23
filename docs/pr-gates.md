@@ -8,7 +8,7 @@ What runs where, so a change is checked before it merges and a PR carries its ev
 | Every PR and push to `main` | `type-check`, full `test` (plus `test:verify`), `lint`, `bundle` | `.github/workflows/ci.yml` |
 | Every PR | `verification-section`, `test-integrity` (re-run when the description is edited) | `.github/workflows/pr-gates.yml`, `scripts/pr-gates/` |
 | Every PR, push to `main` | `privacy-scan`: personal paths, emails and identities in what the PR adds (every commit, file names, commit authors and messages, the PR description), the whole tree on `main`, and a missing `LICENSE` | `.github/workflows/privacy.yml`, `scripts/privacy/` |
-| `git push` (pre-push hook) | the same privacy scan over the commits about to leave the machine | `.githooks/pre-push` |
+| `git push` (pre-push hook) | the same privacy scan over the commits no remote has yet (each commit's own lines, authors and messages; `main`'s commits merged into a branch are not re-scanned) | `.githooks/pre-push`, tested by `scripts/privacy/pre-push.test.mjs` |
 
 ## The hook
 

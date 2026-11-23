@@ -1,0 +1,28 @@
+#!/bin/sh
+# Pre-push for PUBLIC repos only: scan what is about to leave this machine for personal paths,
+# emails and identities (the same scanner CI runs): the lines each new commit adds, file names, and
+# the author, committer and message of each new commit. Your own names come from
+# ~/.config/privacy-scan/patterns, which lives on your machine and never in the repo, plus the local
+# login and hostname, derived at run time. Skip once with `git push --no-verify`.
+#
+# "New" means not on any remote-tracking branch yet. A branch that merged origin/main must not be
+# blamed for main's own commits (their authors and lines are already public and cannot be rewritten
+# from here), so this scans each new non-merge commit against its parent rather than the range from
+# the remote's old tip. Not seen locally: what a merge commit's conflict resolution adds; the CI
+# privacy-scan job's net diff covers that on the PR.
+zero=0000000000000000000000000000000000000000
+empty_tree=$(git hash-object -t tree /dev/null)
+scan="$(git rev-parse --show-toplevel)/scripts/privacy/privacy-scan.mjs"
+# The public GitHub login is not a secret: derive it from the remote so github.com/<login>/... URLs are not flagged.
+owner=$(git remote get-url origin 2>/dev/null | sed -nE 's#.*github\.com[:/]([^/]+)/.*#\1#p')
+status=0
+while read -r _ local_sha _ _; do
+  [ "$local_sha" = "$zero" ] && continue # deleting a ref
+  [ -n "$(git rev-list -n 1 "$local_sha" --not --remotes)" ] || continue # nothing new
+  for commit in $(git rev-list --no-merges --reverse "$local_sha" --not --remotes); do
+    base=$(git rev-parse -q --verify "$commit^" || echo "$empty_tree")
+    out=$(PRIVACY_REPO_OWNER=$owner BASE_SHA=$base HEAD_SHA=$commit node "$scan" diff 2>&1) || { printf 'pre-push: commit %s\n%s\n' "$(git log -1 --format='%h %s' "$commit")" "$out" >&2; status=1; }
+  done
+  git log --format='%an%n%ae%n%cn%n%ce%n%B' "$local_sha" --not --remotes | PRIVACY_REPO_OWNER=$owner node "$scan" text || status=1
+done
+exit $status

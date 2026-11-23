@@ -6,6 +6,7 @@
   "packageManager": "bun@1.2.17",
   "type": "module",
   "scripts": {
+    "prepare": "node scripts/install-hooks.mjs",
     "dev": "vite --port 5175",
     "build": "node scripts/verify.mjs build",
     "preview": "vite preview",
@@ -20,7 +21,7 @@
     "test:watch": "node scripts/verify.mjs test watch",
     "test:node": "node scripts/verify.mjs test run --project=node",
     "test:dom": "node scripts/verify.mjs test run --project=dom",
-    "test:verify": "node --test scripts/verify.test.mjs",
+    "test:verify": "node --test scripts/verify.test.mjs scripts/pr-gates/pr-gates.test.mjs scripts/hooks.test.mjs scripts/privacy/privacy-scan.test.mjs scripts/privacy/pre-push.test.mjs",
     "bench:persistence": "node scripts/verify.mjs test run --config vitest.bench.config.ts"
   },
   "dependencies": {

@@ -74,7 +74,7 @@ The suite replaces onMounted with an immediate callback and onUnmounted with a n
 
 **Preservation / overlap:** Keep all 15 behavioral cases. Mount a small real Vue host, return the composable, and unmount it in afterEach; remove Vue lifecycle mocks. Dispatch at least the async-keyup case through the actual target. Preserve shortcut gating, visible rows and async release identities.
 
-**Loss risk:** Low product risk because only harness changes; moderate risk of exposing previously hidden test interdependence. This is 15 cases affected, zero proposed removals. It is not evidence that these watchers caused the measured bjslab compiler incident.
+**Loss risk:** Low product risk because only harness changes; moderate risk of exposing previously hidden test interdependence. This is 15 cases affected, zero proposed removals. It is not evidence that these watchers caused the measured shared-host compiler incident.
 
 **Validation needed:** Focused keyboard-controls run with unmount in finally/afterEach; require matching listener removals and no store reaction after unmount. Use package scripts. No run performed in this audit.
 

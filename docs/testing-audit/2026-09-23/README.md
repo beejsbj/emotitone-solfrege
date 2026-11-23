@@ -95,7 +95,7 @@ Tests of different layers are not automatically duplicates: a correct audio core
 4. Repair remaining semantic checks and shared setup in separate coherent slices. Keep intentional structural constraints; narrow names that currently promise mounting, timing, or rendering they never observe.
 5. Run one full runtime suite at the combined checkpoint, along with launcher checks only if the launcher changes. Report case inventory, failures, time and sampled RSS separately. A smaller count is useful only when retained coverage remains meaningful.
 
-No implementation, source/test deletion, remote push, or bjslab update occurred in this investigation. The artifacts are committed locally on the existing resource-fix branch. The next action is a bounded cleanup following these named findings, not another open-ended scan or a numerical test quota.
+No implementation, source/test deletion, remote push, or shared-host update occurred in this investigation. The artifacts are committed locally on the existing resource-fix branch. The next action is a bounded cleanup following these named findings, not another open-ended scan or a numerical test quota.
 
 ## Implementation status — 2026-09-24
 

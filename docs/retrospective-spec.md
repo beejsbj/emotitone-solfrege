@@ -249,7 +249,7 @@ CI is the enforcement layer over all five. The audio checks (golden PCM, the par
 
 1. As Burooj, I want every PR to run type-check, tests and lint automatically, so that "green" means the same thing on every machine and no agent self-reports it.
 2. As a coding agent, I want ESLint to run on the repo, so that lint stops being reported as "broken on main" in PR after PR.
-3. As Burooj, I want CI and Vercel to skip the host verification lock while bjslab keeps it, so that cloud runs aren't queued behind local agents and the shared host stays protected.
+3. As Burooj, I want CI and Vercel to skip the host verification lock while the shared host keeps it, so that cloud runs aren't queued behind local agents and that host stays protected.
 4. As a coding agent, I want the suite to have a wall-time budget per project, so that slow tests show up as budget failures rather than as load-dependent timeouts.
 5. As Burooj, I want timing-sensitive component tests to stop failing when the host is busy, so that a red run means a regression.
 6. As Burooj, I want the browser audio invariants run on a schedule and fail loudly, so that an audio regression is a failed check, not a missing receipt. The invariants are: repeat survives a 650 ms stall, settlement under 1 s, exact release silence, one AudioContext, one transport, zero browser warnings, and the Looper transport's zero-loss join/leave.
@@ -431,7 +431,7 @@ CI is the enforcement layer over all five. The audio checks (golden PCM, the par
 ### W1 Verification and enforcement
 
 - GitHub Actions runs type-check, the Vitest suite and ESLint on every PR. The ESLint fix is the invalid typescript-eslint rule name plus the lint script's legacy flags for flat config.
-- The verify launcher stays the default on bjslab. CI and Vercel skip it through an environment flag rather than through a second code path in every script. It is proportionate to the incident on the shared host, not to cloud runners.
+- The verify launcher stays the default on the shared host. CI and Vercel skip it through an environment flag rather than through a second code path in every script. It is proportionate to the incident on the shared host, not to cloud runners.
 - The suite gets a per-project wall-time budget (target: Node project under 15 s, DOM project under 45 s on CI hardware), measured from the Vitest JSON report. Timing-sensitive component tests get explicit timeouts or are made faster; they are not deleted.
 - **Scheduled browser audio job** (nightly and on demand) asserts the invariants in story 6, plus the Looper transport receipts. Raw captures become build artifacts. New raw captures are gitignored; the small derived summaries stay committed. History is not rewritten.
 - **Lint and checks:**

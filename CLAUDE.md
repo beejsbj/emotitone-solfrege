@@ -13,7 +13,7 @@ bun run test:run <files>
 bun run build        # includes the type-check
 ```
 
-Use only the package scripts for checks (shared lock across worktrees; see AGENTS.md and `docs/testing.md`). GitHub CI runs `type-check`, `test` and `lint` on every PR and all three must be green before merge.
+Use only the package scripts for checks (shared lock across worktrees; see AGENTS.md and `docs/testing.md`). A pre-commit hook runs lint, type-check and related tests. GitHub CI runs `type-check`, `test` and `lint` on every PR and all three must be green before merge; the `verification-section`, `test-integrity` and `privacy-scan` PR gates (`docs/pr-gates.md`) must pass too. The repo is public: no machine paths, emails or host names in anything you commit.
 
 ## Architecture as it is
 

@@ -213,6 +213,50 @@ describe("two tabs, one shelf", () => {
     expect(ids(a.state)).not.toContain("shared");
   });
 
+  // BJS-650: the merge base is read with the same Shape repair as the other
+  // side. Read raw, a repaired copy no longer matches the base, which reads as
+  // "edited here" and brings a deleted phrase back.
+  describe("a saved phrase whose Shape is repaired on load", () => {
+    const broken = { cutoff: 4000, resonance: 3.5, room: 0.25, delay: 0.125, attack: 0.05, release: undefined };
+    const seed = () => {
+      const book = createPhraseBook(context, NOW);
+      const phrase = phraseFromPattern(defaultPatterns[0], "recent");
+      phrase.id = "fixed";
+      phrase.notes = phrase.notes.slice(0, 3);
+      phrase.createdAt = NOW;
+      phrase.closedAt = NOW;
+      (phrase.context as { shape: unknown }).shape = broken;
+      book.phrases.push(phrase);
+      localStorage.setItem("phrases", JSON.stringify({ $version: PHRASE_FORMAT_VERSION, data: { book, isRecordingEnabled: true } }));
+    };
+
+    it("stays deleted when the other tab saves something else afterwards", () => {
+      seed();
+      const a = openTab();
+      const b = openTab();
+      expect(ids(b.state)).toContain("fixed");
+      expect(deletePhrase(a.state.book, "fixed")).toBe(true);
+      a.save();
+      sketch(b, "from-b");
+      b.save();
+      expect(ids(stored())).toContain("from-b");
+      expect(ids(stored())).not.toContain("fixed");
+      expect(ids(b.state)).not.toContain("fixed");
+    });
+
+    it("stays deleted when the other tab saved first", () => {
+      seed();
+      const a = openTab();
+      const b = openTab();
+      sketch(b, "from-b");
+      b.save();
+      expect(deletePhrase(a.state.book, "fixed")).toBe(true);
+      a.save();
+      expect(ids(stored())).toContain("from-b");
+      expect(ids(stored())).not.toContain("fixed");
+    });
+  });
+
   it("holds a release of this tab's own saved sketch that the other tab only took in", () => {
     const a = openTab();
     a.save();

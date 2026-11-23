@@ -136,6 +136,13 @@ export interface PatternNote {
 
   /** Captured live envelope; absent on legacy and authored notes. */
   articulation?: LiveArticulation;
+  /**
+   * A Repeat or Arp pulse: `articulation.release` is the pulse's fixed gate,
+   * not the Shape's, so a re-skin to new controls leaves it alone (BJS-649).
+   * Absent on every other note, and on pulses saved before it was recorded;
+   * those keep the old rule (a release equal to the Shape's follows it).
+   */
+  gated?: true;
 
   /* Timing Information */
   /** Timestamp when note was pressed (Date.now()) */

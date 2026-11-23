@@ -118,6 +118,20 @@ There is no in-app UI for this.
   book; decode repairs this page's take, leaves other tabs' takes alone, and
   resets dead wall-clock anchors. The separate legacy `patterns` import
   remains a store-level read and leaves its original key untouched.
+  A note may carry `gated: true` (BJS-649): a Repeat or Arp pulse, whose
+  release a re-skin leaves alone. It is optional and additive, so it is not a
+  new version and needs no migration or backup: a phrase without it loads and
+  re-skins as before, and an older v2 build keeps it, since every path that
+  copies a note spreads it, the cross-tab merge included (tested in
+  `phrasesCrossTab.test.ts`).
+  - **Accepted cost.** An older v2 build (a tab open across the deploy) keeps
+    the mark but doesn't honour it. It still moves a marked pulse's release by
+    value, and leaves the mark on.
+  - If the player then plays into that copy in the old tab, the phrase becomes
+    theirs with the pulse at the moved release, still marked. From then on,
+    this build holds that moved release through every re-skin.
+  - The window is one deploy's mixed-build period, and the result is what the
+    old tab played, so there is no code for it.
 
 ### Phrase shelf budget and backups
 
@@ -163,9 +177,14 @@ readers, from `releaseCandidates`: sorted by `closedAt`, falling back to
 Recent remain it explains the manual copy/delete path instead. An oversized
 shelf is loaded intact; it is never automatically trimmed.
 
-On load, `decode` drops any phrase without `notes` or `context` and keeps the
-rest of the shelf; it throws (unreadable, backed up first) only when there is
-no book at all. A save skips the re-read and re-decode of stored bytes when
+On load, `decode` drops any phrase without `notes` or an object `context` (and
+a `modeBase` without a `notes` array, which could not be saved) and keeps the
+rest of the shelf. Each phrase's Shape, and its `modeBase`'s, is repaired as it
+is read (BJS-650): a missing or invalid field falls back to its neutral value,
+knobs are clamped to their ranges, and a healthy Shape is unchanged. A merge
+reads the other tab's bytes and the agreed base the same way. Only the read
+changes; stored bytes are rewritten by the next ordinary save. `decode` throws
+(unreadable, backed up first) only when there is no book at all. A save skips the re-read and re-decode of stored bytes when
 they equal the payload this binding last produced; bytes from anywhere else
 get the full check. The payload is built as plain data (no JSON round-trip).
 An IndexedDB open that has not settled within 10 s is a failed backup: it
@@ -278,6 +297,12 @@ Never edit a capture; add a new file.
   clock held still. A store-driven capture, not a browser-profile one.
 - `instrument.v0.headless-chrome.json`: read out of a real Chrome profile's
   Local Storage after an audio-lab run (default state).
+- `phrases.v2.store-capture.json`: the exact bytes the phrase store on
+  origin/main `76d28df4` saved after two Kept takes on the real worklet core,
+  each a Together note then Repeat (release knob at 0.03) or Arp (at 0.4)
+  pulses, captured 2026-11-09 with the clock held still. It predates the
+  optional `gated` note field (BJS-649), so it pins how such phrases re-skin.
+  A store-driven capture, not a browser-profile one.
 - Still wanted: payloads from Burooj's own phone and laptop, from
   `localStorage.getItem("emotitone-instrument")` before this ships.
 

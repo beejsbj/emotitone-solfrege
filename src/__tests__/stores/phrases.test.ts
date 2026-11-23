@@ -92,6 +92,56 @@ describe("phrases store", () => {
     expect(store.takeNotes.map((note) => note.note)).toEqual(golden.notes.map((note) => note.note));
   });
 
+  describe("opening a phrase moves the controls and nothing else", () => {
+    // The controls watcher runs after a sync has finished, so it sees the new
+    // controls as an ordinary change. It must find the phrase already matching them.
+    function keptWith(id: string, patch: { key: "D" | "G"; mode: "minor" | "dorian"; instrument: string; octave: number }) {
+      const source = JSON.parse(JSON.stringify(libraryPhrases.find((phrase) => phrase.id === "pattern-twinkle-1")!));
+      source.id = id;
+      source.shelf = "kept";
+      Object.assign(source.context, patch, {
+        shape: { cutoff: 4000, resonance: 3, room: 0.4, delay: 0.2, attack: 0.05, release: 0.8 },
+      });
+      store.book.phrases.push(source);
+      return source;
+    }
+
+    async function settle() {
+      for (let i = 0; i < 4; i += 1) await nextTick();
+    }
+
+    it.each([
+      ["a Kept phrase in another key, mode, octave, sound and Shape", () => keptWith("k1", { key: "D", mode: "minor", instrument: "sawtooth", octave: 3 })],
+      ["a Kept phrase on a sound that is already selected", () => keptWith("k2", { key: "G", mode: "dorian", instrument: useInstrumentStore().currentInstrument, octave: 5 })],
+    ])("leaves %s as it was saved", async (_name, make) => {
+      const source = make();
+      const emptyTakeId = store.book.takeId;
+      const before = JSON.parse(JSON.stringify(store.book.phrases));
+      const opened = store.openPhrase(source.id)!;
+      await settle();
+
+      // The controls moved to the phrase.
+      expect(useMusicStore().currentKey).toBe(source.context.key);
+      expect(useMusicStore().currentMode).toBe(source.context.mode);
+      expect(useInstrumentStore().currentInstrument).toBe(source.context.instrument);
+      // Same take, same notes and context as the source: no re-skin, no snapshot to re-skin from.
+      expect(store.book.takeId).toBe(opened.id);
+      expect(store.takeNotes).toEqual(source.notes);
+      expect(store.takeContext).toEqual({ ...source.context, bpm: store.takeContext.bpm });
+      expect(store.take.modeBase).toBeUndefined();
+      // No split: the copy replaces the empty take, and every other phrase is untouched.
+      expect(store.book.phrases.map((phrase) => phrase.id).sort())
+        .toEqual([...before.map((phrase: { id: string }) => phrase.id).filter((id: string) => id !== emptyTakeId), opened.id].sort());
+      for (const phrase of before) if (phrase.id !== emptyTakeId) expect(store.findPhrase(phrase.id)).toEqual(phrase);
+      expect(store.book.recorder.origin).toBe("kept");
+      // What reaches disk is the copy exactly as opened, not a re-skinned one.
+      const saved = JSON.parse(localStorage.getItem("phrases")!).data;
+      const savedTake = saved.book.phrases.find((phrase: { id: string }) => phrase.id === opened.id)!;
+      expect(savedTake.notes).toEqual(source.notes);
+      expect(savedTake.modeBase).toBeUndefined();
+    });
+  });
+
   describe("a phrase recorded on a sound the worklet cannot render", () => {
     function keptOn(instrument: string, id: string) {
       const source = JSON.parse(JSON.stringify(libraryPhrases.find((phrase) => phrase.id === "pattern-twinkle-1")!));
